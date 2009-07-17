@@ -7,22 +7,25 @@ EXIT_STATUS      = 146
 
 describe 'RightScale::popen3' do
 
-  before(:all) do
-    @done      = false
-    @stdoutput = ''
-    @stderr    = ''
-  end
-
   def on_read_stdout(data)
     @stdoutput << data
+    @combined  << data
   end
 
   def on_read_stderr(data)
-    @stderr << data
+    @stderr    << data
+    @combined  << data
   end
 
   def on_exit(status)
     @done = status
+  end
+
+  before(:each) do
+    @done      = false
+    @stdoutput = ''
+    @stderr    = ''
+    @combined  = ''
   end
 
   it 'should redirect output' do
@@ -55,6 +58,65 @@ describe 'RightScale::popen3' do
       end
     end
   end
+end
 
+describe 'RightScale::popen25' do
+  def on_read_output(data)
+    @output << data
+  end
+
+  def on_exit(status)
+    @done = status
+  end
+
+  before(:each) do
+    @done      = false
+    @output    = ''
+  end
+
+  it 'should redirect output' do
+    EM.next_tick do
+      RightScale.popen25("#{File.join(File.dirname(__FILE__), 'produce_output')} '#{STANDARD_MESSAGE}' '#{ERROR_MESSAGE}'", self, :on_read_output, :on_exit)
+    end
+    EM.run do
+      timer = EM::PeriodicTimer.new(0.1) do
+        if @done
+          timer.cancel
+          @output.should == STANDARD_MESSAGE + "\n" + ERROR_MESSAGE + "\n"
+          EM.stop
+        end
+      end
+    end
+  end
+
+  it 'should return the right status' do
+    EM.next_tick do
+      RightScale.popen25("#{File.join(File.dirname(__FILE__), 'produce_status')} #{EXIT_STATUS}", self, nil, :on_exit)
+    end
+    EM.run do
+      timer = EM::PeriodicTimer.new(0.1) do
+        if @done
+          timer.cancel
+          @done.exitstatus.should == EXIT_STATUS
+          EM.stop
+        end
+      end
+    end
+  end
+
+  it 'should preserve the time ordering of stdout and stderr' do
+    EM.next_tick do
+      RightScale.popen25("#{File.join(File.dirname(__FILE__), 'produce_mixed_output')} '#{STANDARD_MESSAGE}' '#{ERROR_MESSAGE}'", self, :on_read_output, :on_exit)
+    end
+    EM.run do
+      timer = EM::PeriodicTimer.new(0.1) do
+        if @done
+          timer.cancel
+          @output.should == ([STANDARD_MESSAGE, ERROR_MESSAGE] * 10).join("\n") + "\n"
+          EM.stop
+        end
+      end
+    end
+  end
 end
 
