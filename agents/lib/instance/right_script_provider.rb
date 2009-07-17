@@ -77,14 +77,20 @@ class Chef
 
         # 3. Fork and wait
         @mutex.synchronize do
-          RightScale.popen3(sc_filename.gsub(' ', '\\ '), self, :on_read_stdout, :on_read_stderr, :on_exit)
+          RightScale.popen25(sc_filename.gsub(' ', '\\ '), self, :on_read_stdout, :on_exit)
           @exited_event.wait(@mutex)
         end
 
         # 4. Handle process exit status
-        @auditor.append_info("Script exit status: #{@status.exitstatus}")
+        if @status
+          @auditor.append_info("Script exit status: #{@status.exitstatus}")
+        else
+          @auditor.append_info("Script exit status: UNKNOWN; presumed success")
+        end
+
         @auditor.append_info("Script duration: #{@duration}")
-        if @status.success?
+
+        if !@status || @status.success?
           RightScale::InstanceState.record_script_execution(@nickname)
           @new_resource.updated = true
         else
