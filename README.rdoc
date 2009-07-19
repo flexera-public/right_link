@@ -1,0 +1,126 @@
+= RightLink
+
+= DESCRIPTION
+
+== Synopsis
+
+RightLink automates servers configuration and monitoring. It uses Nanite[1] as
+message bus and relies on Chef[2] for configuring. Servers running the
+RightLink agent configures themselves on startup an register with the Nanite
+mapper so that operational recipes and scripts can be run at a later time.
+
+== Interface
+
+The RightLink agent exposes actors and methods used to schedule the execution
+of Chef recipes and RightScripts (shell scripts). These actors are:
+
+* <b>instance_setup/report_state</b>: Retrieve the current state of the instance (boot, operational, etc.)
+* <b>instance_scheduler/schedule_bundle</b>: Schedule the execution of a Chef recipe or RightScript
+
+RightLink retrieves the <i>execution bundles</i> containing all the information
+required to run the Chef recipe or RightScript from other nanite agents. An
+execution bundle consists of a sequence of Chef recipes and/or RightScripts
+together with any required data (Chef attributes, RightScript parameters,
+packages etc.). The exact definition can be found in the
+<i>lib/payload_types</i> library.
+
+The agents RightLink relies on for operation are expected to provide the following actors and methods:
+
+* booter actor:
+  * booter/set_r_s_version: Set the RightLink version number
+  * booter/get_repositories: Retrieve the repositories bundle used to configure the server
+  * booter/get_boot_bundle: Retrieve the boot execution bundle
+  * booter/get_decommission_bundle: Retrieve the decommission execution bundle
+
+* auditor actor:
+  * auditor/create_new_section: Create a new audit section
+  * auditor/update_status: Update the current audit summary
+  * auditor/append_info: Append information text to the audit
+  * auditor/append_error: Append error message to the audit
+  * auditor/append_output: Append script output to the audit
+  * auditor/append_raw_output: Same as above but don't append newline character
+
+* forwarder actor:
+  * forwarder/schedule_recipe: Request a Chef recipe to be scheduled on this instance
+  * forwarder/schedule_right_script: Request a RightScript to be scheduled on this instance
+
+* state recorder actor:
+  * state_recorder/record: Record instance state transitions (e.g. <i>boot</i>-><i>operational</i>)
+
+Upon startup the instance agent will first request the boot execution bundle
+and run it. If the execution is successful it will then tell the state recorder
+actor to transition to the operational state. At that point the agent is ready
+to receive requests.
+
+RightLink comes with two command line tools <i>rs_run_recipe</i> and
+<i>rs_run_right_script</i> which allow triggering the execution of operational
+Chef recipes or RighScript respecively from within the instance itself. These
+two command line tools tell the RightLink agent to send a
+<i>forwarder/schedule_recipe</i> or <i>forwarder/schedule_right_script</i>
+request to the agents that provide these operations. These agents should in
+turn call the <i>instance_scheduler/schedule_bundle</i> operation of the
+RightLink agent with the right execution bundle.
+
+= INSTALLATION
+
+The <i>scripts</i> folder contains a set of scripts that can be used to
+configure and manage the agent. Install these scripts by running the provided
+<i>install.sh</i> bash script from the <i>scripts</i> folder.
+
+Installing the agent can then be done using the <b>rad</b> command line tool as
+follows:
+
+  rad instance --identity 1 --user nanite --password testing --vhost /nanite  --host localhost
+
+(see <tt>rad --help</tt> for information on the parameters).
+
+This will create the file <i>generated/instance/config.yml</i> which is the
+agent configuration file. Running the agent is then done using the <b>rnac</b>
+command line tool:
+
+  rnac --start instance
+
+(again <tt>rnac --help</tt> for more details on the rnac tool)
+
+This requires that a RabbitMQ broker is running on localhost and has a /nanite
+vhost configured with a Nanite mapper running and setup to use the Nanite
+secure serializer.
+
+== Supported Configuration
+
+RightLink has been tested on EC2 instances running CentOS 5.2 and Ubuntu 8.10.
+
+== Work in Progress
+
+RightLink is work in progress, expect more documentation and examples in the near
+future. 
+
+= ADDITIONAL RESOURCES
+
+* [1] nanite is http://github.com/ezmobius/nanite/tree/master
+* [2] Chef is http://wiki.opscode.com/display/chef/Home
+
+= LICENSE
+
+<b>RightLink</b>
+
+Copyright:: Copyright (c) 2009 RightScale, Inc. 
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+'Software'), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.

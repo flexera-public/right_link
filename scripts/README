@@ -1,0 +1,11 @@
+# RightScale agents management command line tools
+#
+# Installation:
+#  sudo sh ./install.sh
+#
+# Usage:
+#  rad instance
+#  rnac -s instance
+#  rs_run_recipe -n rails::default
+#
+# See lib/agent_deployer.rb and lib/nanite_controller for more information.
