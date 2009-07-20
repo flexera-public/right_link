@@ -114,7 +114,7 @@ module RightScale
   def self.popen3(cmd, target, stdout_handler = nil, stderr_handler = nil, exit_handler = nil)
     raise "EventMachine reactor must be started" unless EM.reactor_running?
     saved_stderr = $stderr.dup
-    r, w = IO::pipe
+    r, w = Socket::pair(Socket::AF_LOCAL, Socket::SOCK_STREAM, 0)#IO::pipe
 
     $stderr.reopen w
     c = EM.attach(r, StdErrHandler, target, stderr_handler) if stderr_handler
@@ -146,7 +146,7 @@ module RightScale
   #    Bad Things may happen
   def self.popen25(cmd, target, output_handler = nil, exit_handler = nil)
     raise "EventMachine reactor must be started" unless EM.reactor_running?
-    r, w =  IO::pipe
+    r, w =  Socket::pair(Socket::AF_LOCAL, Socket::SOCK_STREAM, 0) #IO::pipe
 
     if (pid = Kernel.fork)
       EM.attach(r, CombinedOutputHandler, pid, target, output_handler, exit_handler)
@@ -155,7 +155,26 @@ module RightScale
       r.close
       $stdout.reopen w
       $stderr.reopen w
+      self.close_all_fd(w)
       Kernel.exec cmd
     end
   end
+
+  def self.close_all_fd(keep = [])
+     keep = [keep] unless keep.is_a? Array
+     keep += [$stdin, $stdout, $stderr]
+     keep = keep.collect { |io| io.fileno }
+
+     ObjectSpace.each_object(IO) do |io|
+       unless io.closed? || keep.include?(io.fileno)
+         begin
+           io.close
+         rescue Exception
+           #do nothing
+         end
+       end
+     end
+  end
+
+
 end
