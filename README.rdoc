@@ -9,6 +9,12 @@ message bus and relies on Chef[2] for configuring. Servers running the
 RightLink agent configures themselves on startup an register with the Nanite
 mapper so that operational recipes and scripts can be run at a later time.
 
+Refer to the wiki (https://github.com/rightscale/right_link/wikis) for up-to-date
+documentation.
+
+Also use the built-in issues tracker (https://github.com/rightscale/right_link/issues)
+to report issues.
+
 == Interface
 
 The RightLink agent exposes actors and methods used to schedule the execution
