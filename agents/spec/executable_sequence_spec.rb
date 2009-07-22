@@ -68,14 +68,14 @@ describe RightScale::ExecutableSequence do
   end
 
   it 'should report success' do
-    @script.stub!(:source).and_return("ruby -e 'exit(0)'")
+    @script.stub!(:source).and_return("#!/bin/sh\nruby -e 'exit(0)'")
     @sequence = RightScale::ExecutableSequence.new(@bundle)
     @auditor.should_receive(:append_error).never
     run_sequence.should be_true
   end
 
   it 'should audit failures' do
-    @script.stub!(:source).and_return("ruby -e 'exit(1)'")
+    @script.stub!(:source).and_return("#!/bin/sh\nruby -e 'exit(1)'")
     @sequence = RightScale::ExecutableSequence.new(@bundle)
     @auditor.should_receive(:append_error).exactly(3).times
     RightScale::RightLinkLog.logger.should_receive(:error)
@@ -83,7 +83,7 @@ describe RightScale::ExecutableSequence do
   end
 
   it 'should report invalid attachments' do
-    @script.stub!(:source).and_return("ruby -e 'exit(0)'")
+    @script.stub!(:source).and_return("#!/bin/sh\nruby -e 'exit(0)'")
     @sequence = RightScale::ExecutableSequence.new(@bundle)
     @attachment.stub!(:url).and_return("http://thisurldoesnotexist.wrong")
     downloader = RightScale::Downloader.new(retry_period=0.1, use_backoff=false)
@@ -94,7 +94,7 @@ describe RightScale::ExecutableSequence do
   end
 
   it 'should report invalid packages' do
-    @script.stub!(:source).and_return("ruby -e 'exit(0)'")
+    @script.stub!(:source).and_return("#!/bin/sh\nruby -e 'exit(0)'")
     @sequence = RightScale::ExecutableSequence.new(@bundle)
     @script.stub!(:packages).and_return("__INVALID__")
     @auditor.should_receive(:append_error).exactly(2).times
