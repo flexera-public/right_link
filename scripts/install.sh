@@ -1,6 +1,6 @@
 #!/bin/bash
-if [ -d /opt/rightscale/nanite/scripts ]; then
-	export RIGHT_NET_SCRIPTS=/opt/rightscale/nanite/scripts
+if [ -d /opt/rightscale/right_link/scripts ]; then
+	export RIGHT_NET_SCRIPTS=/opt/rightscale/right_link/scripts
 else
 	export RIGHT_NET_SCRIPTS=`pwd`
 fi
