@@ -2,7 +2,7 @@ require File.join(File.dirname(__FILE__), '..', '..', 'spec', 'spec_helper')
 require File.join(File.dirname(__FILE__), '..', '..', 'scripts', 'lib', 'agent_deployer')
 require File.join(File.dirname(__FILE__), '..', '..', 'scripts', 'lib', 'agent_controller')
 
-require 'flexmock'
+#require 'flexmock'
 
 describe AMQP::Client do
   #context 'with an incorrect AMQP password' do
