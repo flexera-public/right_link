@@ -72,23 +72,109 @@ module StdErrHandler
   end
 end
 
+module CombinedOutputHandler
+  def initialize(pid, target, output_handler, exit_handler)
+    @pid = pid
+    @target = target
+    @output_handler = output_handler
+    @exit_handler = exit_handler
+  end
+
+  def receive_data(data)
+    @target.method(@output_handler).call(data)
+  end
+
+  def unbind
+    Process.wait(@pid, Process::WNOHANG)
+
+    if $?
+      #process really exited; rejoice!
+      @target.method(@exit_handler).call($?) if @exit_handler
+    else
+      #process closed its output streams early; fake success and hope for the best!
+      Process.detach(@pid)
+      @target.method(@exit_handler).call(nil) if @exit_handler
+    end
+
+  end
+end
+
 module RightScale
 
-  # Fork process to run given command asynchronously.
-  # Stream command standard output to given stdout handler.
-  # Stream command standard error to given stderr handler.
-  # Call given exit handler upon command process termination passing in the
-  # resulting EM::ProcessStatus.
+  # Fork process to run given command asynchronously, hooking all three
+  # standard streams of the child process.
+  #
+  # Stream the command's stdout and stderr to the given handlers. Time-
+  # ordering of bytes sent to stdout and stderr is not preserved.
+  #
+  # Call given exit handler upon command process termination, passing in the
+  # resulting Process::Status.
+  #
   # All handlers must be methods exposed by the given target.
   def self.popen3(cmd, target, stdout_handler = nil, stderr_handler = nil, exit_handler = nil)
     raise "EventMachine reactor must be started" unless EM.reactor_running?
     saved_stderr = $stderr.dup
-    r, w = IO::pipe
+    r, w = Socket::pair(Socket::AF_LOCAL, Socket::SOCK_STREAM, 0)#IO::pipe
+
     $stderr.reopen w
     c = EM.attach(r, StdErrHandler, target, stderr_handler) if stderr_handler
     EM.popen(cmd, StdOutHandler, target, stdout_handler, exit_handler, c, r, w)
     w.close
     $stderr.reopen saved_stderr
   end
+
+  # Fork process to run given command asynchronously, hooking all three standard
+  # streams of the child process but combining output and error. This is a dumber
+  # version of popen3, hence the name ("popen 2.5").
+  #
+  # Combining the command's stdout and stderr has the benefit of preserving the
+  # time-ordering of stdout and stderr messages, but removes the ability to
+  # distinguish between the two streams. Compare to #popen3 which has opposite
+  # semantics.
+  #
+  # Call given exit handler upon command process termination passing in the
+  # resulting Process::Status.
+  #
+  # All handlers must be methods exposed by the given target.
+  #
+  # Some caveats about the use of this method:
+  #  * If the child process closes its output stream(s) early, it will
+  #    call your exit handler with an argument of nil to indicate that
+  #    the process detached before exiting
+  #  * If EventMachine is using any sockets or FDs that are not
+  #    close-on-exec and the child process somehow uses one of them,
+  #    Bad Things may happen
+  def self.popen25(cmd, target, output_handler = nil, exit_handler = nil)
+    raise "EventMachine reactor must be started" unless EM.reactor_running?
+    r, w =  Socket::pair(Socket::AF_LOCAL, Socket::SOCK_STREAM, 0) #IO::pipe
+
+    if (pid = Kernel.fork)
+      EM.attach(r, CombinedOutputHandler, pid, target, output_handler, exit_handler)
+      w.close
+    else
+      r.close
+      $stdout.reopen w
+      $stderr.reopen w
+      self.close_all_fd(w)
+      Kernel.exec cmd
+    end
+  end
+
+  def self.close_all_fd(keep = [])
+     keep = [keep] unless keep.is_a? Array
+     keep += [$stdin, $stdout, $stderr]
+     keep = keep.collect { |io| io.fileno }
+
+     ObjectSpace.each_object(IO) do |io|
+       unless io.closed? || keep.include?(io.fileno)
+         begin
+           io.close
+         rescue Exception
+           #do nothing
+         end
+       end
+     end
+  end
+
 
 end
