@@ -20,48 +20,31 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-class Chef
-  class Resource
+    
+## Sends a string to the chef log
 
-    # Sends a string from a recipe to a log provider
-    #
-    # log "some string to log" do
-    #   level :info  # (default)  also supports :warn, :debug, and :error
-    # end
-    #    
-    # === Example
-    # log "your string to log" 
-    #
-    # or 
-    #
-    # log "a debug string" { level :debug }
-    #  
-    class Log < Chef::Resource
+class Chef 
+  class Provider
+    class Log
+      class ChefLog < Chef::Provider 
+        def load_current_resource
+          true
+        end
       
-      # Initialize log resource with a name as the string to log 
-      def initialize(name, collection=nil, node=nil)
-        super(name, collection, node)
-        @resource_name = :log
-        @level = :info
-        @action = :write
+        def write
+          Chef::Log.send(@new_resource.level, @new_resource.name)
+        end
       end
-      
-      # what level do you want to log at?
-      def level(arg=nil)
-        set_or_return(
-          :level,
-          arg,
-          :equal_to => [ :debug, :info, :warn, :error, :fatal ]
-        )
-      end
-      
     end
-  end  
-end
-
-class Chef
-  class Exceptions
-    class Log < RuntimeError; end
   end
 end
+
+class Chef
+  class Platform
+    @platforms ||= {}
+  end
+end 
+Chef::Platform.platforms[:default].merge! :log => Chef::Provider::Log::ChefLog
+
+
 
