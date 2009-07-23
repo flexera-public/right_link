@@ -13,12 +13,12 @@ describe InstanceSetup do
     @agent_identity = RightScale::AgentIdentity.new('rs', 'test', 1)
     @setup = InstanceSetup.allocate
     @setup.stub!(:request)
-    @setup.stub!(:configure_repositories).and_return(RightScale::OperationResult.success)
+    @setup.should_receive(:configure_repositories).and_return(RightScale::OperationResult.success)
     @auditor = RightScale::AuditorProxyMock.new
-    RightScale::AuditorProxy.stub!(:new).and_return(@auditor)
+    RightScale::AuditorProxy.should_receive(:new).any_number_of_times.and_return(@auditor)
     @results_factory = RightScale::NaniteResultsMock.new
-    RightScale::RightLinkLog.logger.stub!(:error)
-    RightScale::RightLinkLog.logger.stub!(:debug)
+    RightScale::RightLinkLog.logger.should_receive(:error).any_number_of_times
+    RightScale::RightLinkLog.logger.should_receive(:debug).any_number_of_times
     setup_state
     setup_script_execution
   end
