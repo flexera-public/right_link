@@ -9,18 +9,18 @@ describe InstanceScheduler do
   include RightScale::SpecHelpers
 
   before(:all) do
-    RightScale::RightLinkLog.logger.stub!(:debug)
+    RightScale::RightLinkLog.logger.should_receive(:debug).any_number_of_times
     setup_state
   end
 
   before(:each) do
     @auditor = RightScale::AuditorProxyMock.new
-    RightScale::AuditorProxy.stub!(:new).and_return(@auditor)
+    RightScale::AuditorProxy.should_receive(:new).and_return(@auditor)
     @bundle = RightScale::InstantiationMock.script_bundle
     @scheduler = InstanceScheduler.new(Nanite::Identity.generate)
     @sequence_mock = mock('ExecutableSequence')
     @sequence_mock.should_receive(:run).and_return(true)
-    RightScale::ExecutableSequence.stub!(:new).and_return(@sequence_mock)
+    RightScale::ExecutableSequence.should_receive(:new).and_return(@sequence_mock)
   end
 
   after(:all) do
