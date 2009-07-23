@@ -81,8 +81,8 @@ module RightScale
         @initialized = true
         prog_name = Nanite::Log.file.match(/nanite\.(.*)\.log/)[1] rescue 'right_link'
         sysloger = SyslogLogger.new(prog_name) unless RightLinkConfig[:platform].windows?
-		@logger = Multiplexer.new(Nanite::Log.logger)
-		@logger.add_logger(sysloger) if sysloger
+		    @logger = Multiplexer.new(Nanite::Log.logger)
+    		@logger.add(sysloger) if sysloger
         # Now make nanite use this logger
         Nanite::Log.logger = @logger
       end
