@@ -7,7 +7,7 @@ describe RightScale::InstanceState do
   include RightScale::SpecHelpers
  
   before(:all) do
-    RightScale::RightLinkLog.logger.stub!(:debug)
+    RightScale::RightLinkLog.logger.should_receive(:debug).any_number_of_times
     setup_state
   end
 
