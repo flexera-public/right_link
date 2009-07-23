@@ -32,7 +32,10 @@ require 'dns_provider_dnsmadeeasy'
 describe Chef::Provider::DnsMadeEasy do
   before(:each) do
     @node = mock("Chef::Node", :null_object => true)
-   
+    @new_resource = Chef::Resource::Dns.new("www.testsite.com")
+    @new_resource.user "testuser"
+    @new_resource.passwd "testpasswd"
+    @new_resource.ip_address "1.1.1.1"
   end
   
   it "should be registered with the default platform hash" do
@@ -40,39 +43,26 @@ describe Chef::Provider::DnsMadeEasy do
   end
 
   it "should return a Chef::Provider::Dns object" do
-    @new_resource = mock("Chef::Resource", :null_object => true)
     provider = Chef::Provider::DnsMadeEasy.new(@node, @new_resource)
     provider.should be_a_kind_of(Chef::Provider::DnsMadeEasy)
   end
 
-  it "should return raise an error in test mode" do
-    @new_resource = Chef::Resource::Dns.new("test")
+  it "should log not raise an exception if success" do
+    Chef::Log.should_receive(:info).twice
+    Chef::Log.should_receive(:debug)
     provider = Chef::Provider::DnsMadeEasy.new(@node, @new_resource)
-    provider.testing = true
-    Chef::Log.should_receive(:debug).once
-    Chef::Log.should_receive(:info).once
-    lambda{ provider.action_register }.should raise_error()
+    provider.should_receive(:post_change).once.and_return('success')
+    lambda{ provider.action_register }.should_not raise_error()
   end
 
-  #
-  # below this is actually a functional test. (please use your own dnsmadeeasy dns_name)
-  #  
-  #   dns_name = "NNNNNNN" # your_record.test.rightscale.com
-  #   ip_addr = "75.101.174.1"
-  #   username = "payless"
-  #   passwd = "scalemore!"
-  #   it "should update #{dns_name} to #{ip_addr}" do
-  #     @new_resource = Chef::Resource::Dns.new(dns_name)
-  #     @new_resource.user username
-  #     @new_resource.passwd passwd
-  #     @new_resource.ip_address ip_addr
-  #     
-  #       
-  #     provider = Chef::Provider::DnsMadeEasy.new(@node, @new_resource)
-  #     provider.testing = false
-  #     lambda{ provider.action_register }.should_not raise_error()
-  #   end
-
+  it "should return raise an exception if post fails" do
+    Chef::Log.should_receive(:info)
+    Chef::Log.should_receive(:debug)
+    provider = Chef::Provider::DnsMadeEasy.new(@node, @new_resource)
+    provider.should_receive(:post_change).once.and_return('failure')
+    lambda{ provider.action_register }.should raise_error()
+  end
+  
 end
 
 

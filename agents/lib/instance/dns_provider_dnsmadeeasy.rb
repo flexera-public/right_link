@@ -23,31 +23,29 @@
 class Chef 
   class Provider
     class DnsMadeEasy < Chef::Provider 
-      
-      attr_accessor :testing # this was added for the unit test only.  Mocking would remove this.
-      
+            
       def load_current_resource
           true
       end
 
-      # perform the register action.  
-      #
-      # This is taken directly from a rightscript
-      # this could be improved upon greatly by using an NET:HTTP object.  This would also allow mocking for the unit test. 
+      # setup the register action.  
       def action_register
         Chef::Log.info "Updating DNS for #{@new_resource.name} to point to #{@new_resource.ip_address}"
-
         query="username=#{@new_resource.user}&password=#{@new_resource.passwd}&id=#{@new_resource.name}&ip=#{@new_resource.ip_address}"
         Chef::Log.debug "QUERY: #{query}"
-        result = `curl -S -s --retry 7 -k -o - -f 'https://www.dnsmadeeasy.com/servlet/updateip?#{query}'` unless testing
-        
+        result =  post_change(query)
         if( result =~ /success/ || result =~ /error-record-ip-same/   ) then
           Chef::Log.info "DNSID #{@new_resource.name} set to this instance IP: #{@new_resource.ip_address}"
         else
           raise "Error setting the name: #{result}"
         end
-
       end
+      
+      # make the HTTPS request
+      def post_change(query)
+        `curl -S -s --retry 7 -k -o - -f 'https://www.dnsmadeeasy.com/servlet/updateip?#{query}'`
+      end
+      
     end
   end
 end
