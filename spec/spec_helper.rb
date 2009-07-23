@@ -1,5 +1,4 @@
 require 'rubygems'
-require 'active_record'
 require 'nanite'
 require 'spec'
 require 'eventmachine'

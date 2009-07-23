@@ -18,7 +18,7 @@ describe RightScale::CommandIO do
 
   # Serialize and send given input to command listener
   def send_input(input)
-    EM.connect('0.0.0.0', RightScale::CommandConstants::SOCKET_PORT, OutputHandler, input)
+    EM.connect('127.0.0.1', RightScale::CommandConstants::SOCKET_PORT, OutputHandler, input)
   end
 
   it 'should detect missing blocks' do
@@ -62,7 +62,7 @@ describe RightScale::CommandIO do
   it 'should send data' do
     EM.run do
       @reply = ''
-      EM.start_server('0.0.0.0', RightScale::CommandConstants::SOCKET_PORT + 1, ReplyHandler, lambda { |r| @reply << r })
+      EM.start_server('127.0.0.1', RightScale::CommandConstants::SOCKET_PORT + 1, ReplyHandler, lambda { |r| @reply << r })
       RightScale::CommandIO.reply(RightScale::CommandConstants::SOCKET_PORT + 1, 'output')
       EM.add_timer(0.5) { EM.stop }
     end
