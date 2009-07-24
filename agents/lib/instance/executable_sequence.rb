@@ -280,6 +280,7 @@ module RightScale
       File.open(ssh_key_path, 'w') do |f|
         f.puts(repo.ssh_key)
       end
+      File.chmod(0600, ssh_key_path)
       ssh = File.join(InstanceConfiguration::COOKBOOK_PATH, 'ssh')
       File.open(ssh, 'w') do |f|
         f.puts("ssh -i #{ssh_key_path} $*")
