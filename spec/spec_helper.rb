@@ -1,4 +1,11 @@
 require 'rubygems'
+
+# Nanite uses the JSON gem, which -- if used in a project that also uses ActiveRecord -- MUST be loaded after
+# ActiveRecord in order to ensure that a monkey patch is correctly applied. Since Nanite is designed to be compatible
+# with Rails, we tentatively try to load AR here, in case RightLink specs are ever executed in a context where
+# ActiveRecord is also loaded.
+require 'active_record' rescue nil
+
 require 'nanite'
 require 'spec'
 require 'eventmachine'
