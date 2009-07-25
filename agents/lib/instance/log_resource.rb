@@ -59,9 +59,4 @@ class Chef
   end  
 end
 
-class Chef
-  class Exceptions
-    class Log < RuntimeError; end
-  end
-end
 
