@@ -60,7 +60,7 @@ describe Chef::Provider::DnsMadeEasy do
     Chef::Log.should_receive(:debug)
     provider = Chef::Provider::DnsMadeEasy.new(@node, @new_resource)
     provider.should_receive(:post_change).once.and_return('failure')
-    lambda{ provider.action_register }.should raise_error()
+    lambda{ provider.action_register }.should raise_error(Chef::Exceptions::Dns)
   end
   
 end
