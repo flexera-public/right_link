@@ -149,8 +149,9 @@ module RightScale
           else
             cmd = case repo.protocol
             when :git
-              "#{ssh_command(repo)} git clone --quiet --depth 1 #{repo.url} #{cookbook_dir} 2>&1" +
-              (repo.tag ? " && git checkout #{repo.tag} 2>&1" : '')
+              ssh_cmd = ssh_command(repo)
+              "#{ssh_cmd} git clone --quiet --depth 1 #{repo.url} #{cookbook_dir} 2>&1" +
+              (repo.tag ? " && cd #{cookbook_dir} && #{ssh_cmd} git pull 2>&1 && git checkout #{repo.tag} 2>&1 && cd -" : '')
             when :svn
               "svn export #{repo.url} #{cookbook_dir} --non-interactive" +
               (repo.tag ? " --revision #{repo.tag}" : '') +
@@ -283,7 +284,7 @@ module RightScale
       File.chmod(0600, ssh_key_path)
       ssh = File.join(InstanceConfiguration::COOKBOOK_PATH, 'ssh')
       File.open(ssh, 'w') do |f|
-        f.puts("ssh -i #{ssh_key_path} $*")
+        f.puts("ssh -i #{ssh_key_path} -o StrictHostKeyChecking=no $*")
       end
       File.chmod(755, ssh)
       "GIT_SSH=#{ssh}"
