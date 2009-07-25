@@ -37,7 +37,7 @@ class Chef
         if( result =~ /success/ || result =~ /error-record-ip-same/   ) then
           Chef::Log.info "DNSID #{@new_resource.name} set to this instance IP: #{@new_resource.ip_address}"
         else
-          raise "Error setting the name: #{result}"
+          raise Chef::Exceptions::Dns, "#{self.class.name}: Error setting #{@new_resource.name} to instance IP: #{@new_resource.ip_address}: Result: #{result}"
         end
       end
       
