@@ -7,7 +7,7 @@ describe RightScale::AuditorProxy do
   before(:each) do
     @proxy = RightScale::AuditorProxy.new(1)
     @instance = mock('instance')
-    Nanite::MapperProxy.stub!(:instance => @instance)
+    Nanite::MapperProxy.should_receive(:instance).and_return(@instance)
   end
 
   it 'should log and audit errors' do

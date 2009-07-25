@@ -1,3 +1,5 @@
+unless RUBY_PLATFORM =~ /mswin/ # RightScale::popen3 won't work on windows
+
 require File.join(File.dirname(__FILE__), 'spec_helper')
 require 'right_popen'
 
@@ -120,3 +122,4 @@ describe 'RightScale::popen25' do
   end
 end
 
+end # unless windows

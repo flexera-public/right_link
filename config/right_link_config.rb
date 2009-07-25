@@ -20,6 +20,7 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 require 'mixlib/config'
+require File.join(File.dirname(__FILE__), 'platform')
 
 module RightScale
 
@@ -31,5 +32,8 @@ module RightScale
   # Initialized from content of 'config.rb'
   # Modify 'config.rb' and not this file!
   RightLinkConfig.from_file(File.join(File.dirname(__FILE__), 'config.rb'))
+
+  # Initialize platform
+  RightLinkConfig[:platform] = Platform.new
 
 end

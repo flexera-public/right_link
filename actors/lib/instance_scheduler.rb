@@ -35,7 +35,7 @@ class InstanceScheduler
     @scheduled_bundles = Queue.new
     @decommissioning = false
     @agent_identity = agent_identity
-    @sig_handler = Signal.trap('USR1') { decommission_on_exit }
+    @sig_handler = Signal.trap('USR1') { decommission_on_exit } unless RightScale::RightLinkConfig[:platform].windows?
     @worker_thread = Thread.new { run_bundles }
   end
 

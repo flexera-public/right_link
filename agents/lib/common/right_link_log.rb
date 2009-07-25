@@ -20,7 +20,7 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require 'syslog_logger'
+require 'syslog_logger' unless RightScale::RightLinkConfig[:platform].windows?
 require File.join(File.dirname(__FILE__), 'multiplexer')
  
 module RightScale
@@ -80,8 +80,9 @@ module RightScale
         raise 'Initialize Nanite logger first' unless Nanite::Log.logger
         @initialized = true
         prog_name = Nanite::Log.file.match(/nanite\.(.*)\.log/)[1] rescue 'right_link'
-        sysloger = SyslogLogger.new(prog_name)
-        @logger = Multiplexer.new(sysloger, Nanite::Log.logger)
+        sysloger = SyslogLogger.new(prog_name) unless RightLinkConfig[:platform].windows?
+		    @logger = Multiplexer.new(Nanite::Log.logger)
+    		@logger.add(sysloger) if sysloger
         # Now make nanite use this logger
         Nanite::Log.logger = @logger
       end

@@ -68,7 +68,7 @@ module RightScale
     def self.listen &block
       raise Exceptions::Argument, 'Missing listener block' unless block_given?
       raise Exceptions::Application, 'Already listening' if listening
-      @conn = EM.start_server('0.0.0.0', RightScale::CommandConstants::SOCKET_PORT, InputHandler, block)
+      @conn = EM.start_server('127.0.0.1', RightScale::CommandConstants::SOCKET_PORT, InputHandler, block)
       true
     end
 
@@ -96,7 +96,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def self.reply(port, data)
-      EM.connect('0.0.0.0', port, ReplyHandler, data)
+      EM.connect('127.0.0.1', port, ReplyHandler, data)
       true
     end
 

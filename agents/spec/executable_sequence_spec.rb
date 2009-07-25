@@ -7,7 +7,7 @@ describe RightScale::ExecutableSequence do
   include RightScale::SpecHelpers
 
   before(:all) do
-    RightScale::RightLinkLog.logger.stub!(:debug)
+    RightScale::RightLinkLog.logger.should_receive(:debug).any_number_of_times
     @attachment_file = '__test_download__'
     File.open(@attachment_file, 'w') do |f|
       f.write('Some attachment content')
@@ -20,16 +20,15 @@ describe RightScale::ExecutableSequence do
 
   before(:each) do
     @attachment = mock('Attachment')
-    @attachment.stub!(:file_name).and_return('test_download')
-    @attachment.stub!(:url).and_return("file://#{@attachment_file}")
+    @attachment.should_receive(:file_name).at_least(1).times.and_return('test_download')
+    @attachment.should_receive(:url).at_least(1).times.and_return("file://#{@attachment_file}")
 
     @script = mock('RightScript')
-    @script.stub!(:nickname).and_return('__TestScript')
-    @script.stub!(:parameters).and_return({})
-    @script.stub!(:attachments).and_return([ @attachment ])
-    @script.stub!(:packages).and_return(nil)
-    @script.stub!(:is_a?).with(RightScale::RightScriptInstantiation).and_return(true)
-    @script.stub!(:is_a?).with(RightScale::RecipeInstantiation).and_return(false)
+    @script.should_receive(:nickname).at_least(1).times.and_return('__TestScript')
+    @script.should_receive(:parameters).and_return({})
+    @script.should_receive(:attachments).at_least(1).times.and_return([ @attachment ])
+    @script.should_receive(:is_a?).with(RightScale::RightScriptInstantiation).and_return(true)
+    @script.should_receive(:is_a?).with(RightScale::RecipeInstantiation).and_return(false)
 
     @bundle = RightScale::ExecutableBundle.new([ @script ], [], 0)
 
@@ -38,7 +37,7 @@ describe RightScale::ExecutableSequence do
     @auditor.should_receive(:create_new_section).any_number_of_times
     @auditor.should_receive(:append_info).any_number_of_times    
     @auditor.should_receive(:update_status).any_number_of_times    
-    RightScale::AuditorProxy.stub!(:new).and_return(@auditor)
+    RightScale::AuditorProxy.should_receive(:new).at_least(1).times.and_return(@auditor)
   end
 
   after(:all) do
@@ -68,14 +67,16 @@ describe RightScale::ExecutableSequence do
   end
 
   it 'should report success' do
-    @script.stub!(:source).and_return("#!/bin/sh\nruby -e 'exit(0)'")
+    @script.should_receive(:packages).any_number_of_times.and_return(nil)
+    @script.should_receive(:source).and_return("#!/bin/sh\nruby -e 'exit(0)'")
     @sequence = RightScale::ExecutableSequence.new(@bundle)
     @auditor.should_receive(:append_error).never
     run_sequence.should be_true
   end
 
   it 'should audit failures' do
-    @script.stub!(:source).and_return("#!/bin/sh\nruby -e 'exit(1)'")
+    @script.should_receive(:packages).any_number_of_times.and_return(nil)
+    @script.should_receive(:source).and_return("#!/bin/sh\nruby -e 'exit(1)'")
     @sequence = RightScale::ExecutableSequence.new(@bundle)
     @auditor.should_receive(:append_error).exactly(3).times
     RightScale::RightLinkLog.logger.should_receive(:error)
@@ -83,9 +84,10 @@ describe RightScale::ExecutableSequence do
   end
 
   it 'should report invalid attachments' do
-    @script.stub!(:source).and_return("#!/bin/sh\nruby -e 'exit(0)'")
+    @script.should_receive(:packages).any_number_of_times.and_return(nil)
+    @script.should_receive(:source).and_return("#!/bin/sh\nruby -e 'exit(0)'")
     @sequence = RightScale::ExecutableSequence.new(@bundle)
-    @attachment.stub!(:url).and_return("http://thisurldoesnotexist.wrong")
+    @attachment.should_receive(:url).and_return("http://thisurldoesnotexist.wrong")
     downloader = RightScale::Downloader.new(retry_period=0.1, use_backoff=false)
     @sequence.instance_variable_set(:@downloader, downloader)
     @auditor.should_receive(:append_error).exactly(2).times
@@ -94,9 +96,9 @@ describe RightScale::ExecutableSequence do
   end
 
   it 'should report invalid packages' do
-    @script.stub!(:source).and_return("#!/bin/sh\nruby -e 'exit(0)'")
+    @script.should_receive(:packages).any_number_of_times.and_return("__INVALID__")
+    @script.should_receive(:source).and_return("#!/bin/sh\nruby -e 'exit(0)'")
     @sequence = RightScale::ExecutableSequence.new(@bundle)
-    @script.stub!(:packages).and_return("__INVALID__")
     @auditor.should_receive(:append_error).exactly(2).times
     RightScale::RightLinkLog.logger.should_receive(:error)
     run_sequence.should be_false
