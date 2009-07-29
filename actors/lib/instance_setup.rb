@@ -129,7 +129,7 @@ class InstanceSetup
           klass.generate("none", repo.base_urls, fz)
         end
       rescue Exception => e
-        RightLinkLog.error(e.message)
+        RightScale::RightLinkLog.error(e.message)
       end
     end
     true
