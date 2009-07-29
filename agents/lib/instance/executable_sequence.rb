@@ -74,6 +74,7 @@ module RightScale
       Chef::Log.logger = AuditLogger.new(@auditor)
       Chef::Config[:cookbook_path] = @cookbook_repos.map { |r| cookbook_directory(r) }
       Chef::Config[:cookbook_path] << File.dirname(__FILE__)
+      Chef::Config[:solo] = true
       true
     end
 
