@@ -129,6 +129,7 @@ module RightScale
     VERSION = [0, 2]
     YAML_EXT = %w{ yml yaml }
     FORCED_OPTIONS = { :format => :secure, :single_threaded => true }
+    DEFAULT_OPTIONS = { :log_dir => '/var/log', :daemonize => true }
 
     # Convenience wrapper
     def self.run
@@ -158,8 +159,11 @@ module RightScale
         options = file_options
       end 
       options.merge!(FORCED_OPTIONS)
+      options_with_default = {}
+      DEFAULT_OPTIONS.each { |k, v| options_with_default[k] = v }
+      options = options_with_default.merge(options)
       @options = options
-     
+
       # Start processing
       success = case action
       when /show|killall/
@@ -180,8 +184,6 @@ module RightScale
     def parse_args
       # The options specified in the command line will be collected in 'options'
       options = {}
-      options[:log_dir] = '/var/log'
-      options[:daemonize] = true
 
       opts = OptionParser.new do |opts|
         parse_common(opts, options)
