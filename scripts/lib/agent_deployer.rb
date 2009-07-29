@@ -147,7 +147,7 @@ module RightScale
        opts.on('-o', '--options OPT') do |e|
          fail("Invalid option definition '#{e}' (use '=' to separate name and value)") unless e.include?('=')
          key, val = e.split(/=/)
-         options[:options][key.to_sym] = val
+         options[:options][key.gsub('-', '_').to_sym] = val
        end
 
        opts.on_tail('--help') do
