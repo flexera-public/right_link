@@ -23,36 +23,50 @@
 class Chef 
   class Provider
     class DnsMadeEasy < Chef::Provider 
-            
+
+      # No concept of a 'current' resource for DNS registration, this is a no-op
+      #
+      # === Return
+      # true:: Always return true
       def load_current_resource
-          true
+        true
       end
 
-      # setup the register action.  
+      # Register DNS with DNS Made Easy service
+      # This relies on 'curl' being available on the system
+      #
+      # === Return
+      # true:: Always return true
+      #
+      # === Raise
+      # Chef::Exceptions::Dns:: DNS registration request returned an error
       def action_register
-        Chef::Log.info "Updating DNS for #{@new_resource.name} to point to #{@new_resource.ip_address}"
+        Chef::Log.info("Updating DNS for #{@new_resource.name} to point to #{@new_resource.ip_address}")
         query="username=#{@new_resource.user}&password=#{@new_resource.passwd}&id=#{@new_resource.name}&ip=#{@new_resource.ip_address}"
-        Chef::Log.debug "QUERY: #{query}"
-        result =  post_change(query)
-        if( result =~ /success/ || result =~ /error-record-ip-same/   ) then
-          Chef::Log.info "DNSID #{@new_resource.name} set to this instance IP: #{@new_resource.ip_address}"
+        Chef::Log.debug("QUERY: #{query}")
+        result = post_change(query)
+        if result =~ /success|error-record-ip-same/
+          Chef::Log.info("DNSID #{@new_resource.name} set to this instance IP: #{@new_resource.ip_address}")
         else
-          raise Chef::Exceptions::Dns, "#{self.class.name}: Error setting #{@new_resource.name} to instance IP: #{@new_resource.ip_address}: Result: #{result}"
+          raise(Chef::Exceptions::Dns, "#{self.class.name}: Error setting #{@new_resource.name} to instance IP: #{@new_resource.ip_address}: Result: #{result}")
         end
+        true
       end
       
-      # make the HTTPS request
+      # Make the HTTPS request using 'curl'
+      #
+      # === Parameters
+      # query<String>:: Query string used to build request
+      #
+      # === Return
+      # res<String>:: Response content
       def post_change(query)
-        `curl -S -s --retry 7 -k -o - -f 'https://www.dnsmadeeasy.com/servlet/updateip?#{query}'`
+        res = `curl -S -s --retry 7 -k -o - -f 'https://www.dnsmadeeasy.com/servlet/updateip?#{query}'`
       end
       
     end
   end
 end
 
-class Chef
-  class Platform
-    @platforms ||= {}
-  end
-end 
+# Let Chef know that DnsMadeEasy provider should be used for DNS resources
 Chef::Platform.platforms[:default].merge! :dns => Chef::Provider::DnsMadeEasy

@@ -27,7 +27,7 @@ undef :daemonize if methods.include?('daemonize')
 
 require 'chef'
 require 'dns_resource'
-require 'dns_provider_dnsmadeeasy'
+require 'dns_dnsmadeeasy_provider'
 
 describe Chef::Provider::DnsMadeEasy do
   before(:each) do

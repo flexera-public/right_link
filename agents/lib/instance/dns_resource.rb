@@ -41,13 +41,15 @@ class Chef
     #  passwd "account_password"
     #  ip_address "nnn.nnn.nnn.nnn"
     #end
-    
+    #
     class Dns < Chef::Resource
       
-      # Initialize dns resource with default values
+      # Initialize DNS resource with default values
       #
       # === Parameters
       # name<String>:: FQDN or Id for server
+      # collection<Array>:: Collection of included recipes
+      # node<Chef::Node>:: Node where resource will be used
       def initialize(name, collection=nil, node=nil)
         super(name, collection, node)
         @resource_name = :dns
@@ -89,6 +91,7 @@ class Chef
   end  
 end
 
+# Define the Dns exception type
 class Chef
   class Exceptions
     class Dns < RuntimeError; end

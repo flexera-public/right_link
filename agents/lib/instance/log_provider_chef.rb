@@ -20,30 +20,40 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-    
-## Sends a string to the chef log
+class Chef
 
-class Chef 
   class Provider
+
     class Log
-      class ChefLog < Chef::Provider 
+
+      # Chef log provider, allows logging to chef's logs from recipes
+      class ChefLog < Chef::Provider
+
+        # No concept of a 'current' resource for logs, this is a no-op
+        #
+        # === Return
+        # true:: Always return true
         def load_current_resource
           true
         end
       
+        # Write the log to Chef's log
+        #
+        # === Return
+        # true:: Always return true
         def write
           Chef::Log.send(@new_resource.level, @new_resource.name)
         end
+
       end
+
     end
+
   end
+
 end
 
-class Chef
-  class Platform
-    @platforms ||= {}
-  end
-end 
+# Let Chef know that ChefLog provider should be used for log resources
 Chef::Platform.platforms[:default].merge! :log => Chef::Provider::Log::ChefLog
 
 
