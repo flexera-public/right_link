@@ -67,6 +67,7 @@ require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'config',
 require File.join(File.dirname(__FILE__), 'agent_utils')
 require File.join(File.dirname(__FILE__), 'common_parser')
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'agents', 'lib', 'instance', 'instance_state'))
+require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'agents', 'lib', 'common', 'right_link_log'))
 
 # Horrible evil hack to implement AMQP connection backoff until the AMQP and Nanite gems have our patches
 

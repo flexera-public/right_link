@@ -29,12 +29,22 @@ module RightScale
   class RightLinkLog
 
     # Forward all method calls to multiplexer
+    #
+    # === Parameters
+    # m<Symbol>:: Forwarded method name
+    # args<Array>:: Forwarded method arguments
+    #
+    # === Return
+    # res<Array>:: Array of results, one for each multiplexed logger
     def self.method_missing(m, *args)
       self.init unless @initialized
       res = @logger.__send__(m, *args)
     end
 
     # Read access to internal multiplexer
+    #
+    # === Return
+    # logger<RightScale::Multiplexer>:: Multiplexer logger
     def self.logger
       self.init unless @initialized
       logger = @logger
@@ -81,8 +91,8 @@ module RightScale
         @initialized = true
         prog_name = Nanite::Log.file.match(/nanite\.(.*)\.log/)[1] rescue 'right_link'
         sysloger = SyslogLogger.new(prog_name) unless RightLinkConfig[:platform].windows?
-		    @logger = Multiplexer.new(Nanite::Log.logger)
-    		@logger.add(sysloger) if sysloger
+		@logger = Multiplexer.new(Nanite::Log.logger)
+    	@logger.add(sysloger) if sysloger
         # Now make nanite use this logger
         Nanite::Log.logger = @logger
       end
