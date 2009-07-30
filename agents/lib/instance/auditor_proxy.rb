@@ -119,7 +119,7 @@ module RightScale
     def send_request(request, text)
       log_method = request == 'append_error' ? :error : :info
       log_text = AuditFormatter.send(format_method(request), text)[:detail]
-      RightLinkLog.__send__(log_method, log_text)
+      RightLinkLog.__send__(log_method, "AUDIT #{log_text}")
       a = { :audit_id => @audit_id, :text => text }
       Nanite::MapperProxy.instance.request("/auditor/#{request}", a) do |r|
         status = OperationResult.from_results(r)

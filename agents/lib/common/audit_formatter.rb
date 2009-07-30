@@ -59,8 +59,7 @@ module RightScale
     # === Return
     # entry<Hash>:: Hash containing new audit entry detail
     def self.output(text)
-      text += "\n" if text && text[-1, 1] != "\n"
-      entry = raw_output(text)
+      entry = "#{raw_output(text)}\n"
     end
 
     # Append raw output to current audit section (does not automatically
@@ -111,7 +110,7 @@ module RightScale
     # wrapped_text<String>:: Wrapped text
     def self.wrap_text(txt, prefix = '*RS> ', col = 80)
       txt = '' unless txt
-      wrapped_text = txt.gsub(/(.{1,#{col - prefix.size}})( +|$\n?)|(.{1,#{col - prefix.size}})/, "#{prefix}\\1\\3\n")
+      wrapped_text = txt.gsub(/(.{1,#{col - prefix.size}})( +|$\n?)|(.{1,#{col - prefix.size}})/, "#{prefix}\\1\\3\n").chomp
     end
 
   end
