@@ -39,6 +39,9 @@ module RightScale
     # Path to JSON file where past scripts are serialized
     SCRIPTS_FILE    = '/etc/rightscale/past_scripts.js'
 
+    # Path to boot log
+    BOOT_LOG_FILE = '/var/log/install'
+
     # <String> One of STATES
     def self.value
       @@value
@@ -112,7 +115,7 @@ module RightScale
       RightLinkLog.debug("Transitioning state from #{@@value rescue 'nil'} to #{val}")
       if val == 'booting'
         # Log boot messages to /var/log/install
-        @boot_logger = Logger.new('/var/log/install')
+        @boot_logger = Logger.new(BOOT_LOG_FILE)
         RightLinkLog.add_logger(@boot_logger)
       elsif !@boot_logger.nil?
         RightLinkLog.remove_logger(@boot_logger)

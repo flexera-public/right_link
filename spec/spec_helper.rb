@@ -12,6 +12,7 @@ require 'eventmachine'
 require 'fileutils'
 
 require File.expand_path(File.join(File.dirname(__FILE__), '..', 'lib', 'payload_types', 'lib', 'payload_types'))
+require File.expand_path(File.join(File.dirname(__FILE__), '..', 'config', 'right_link_config'))
 require File.join(File.dirname(__FILE__), 'nanite_results_mock')
 
 $:.push File.join(File.dirname( __FILE__), '..', 'actors', 'lib')
@@ -19,7 +20,8 @@ $:.push File.join(File.dirname( __FILE__), '..', 'agents', 'lib')
 $:.push File.join(File.dirname( __FILE__), '..', 'agents', 'lib', 'common')
 $:.push File.join(File.dirname( __FILE__), '..', 'agents', 'lib', 'instance')
 
-Nanite::Log.init(1)
+NANITE_LOG_PATH = File.dirname(__FILE__)
+Nanite::Log.init('dummy', NANITE_LOG_PATH)
 
 $VERBOSE = nil # Disable constant redefined warning
 
@@ -32,6 +34,7 @@ module RightScale
     def setup_state(identity = '1')
       RightScale::InstanceState.const_set(:STATE_FILE, state_file_path)
       RightScale::InstanceState.const_set(:SCRIPTS_FILE, past_scripts_path)
+      RightScale::InstanceState.const_set(:BOOT_LOG_FILE, boot_log_path)
       @identity = identity
       @results_factory = RightScale::NaniteResultsMock.new
       Nanite::MapperProxy.send(:class_variable_set, :@@instance, mock('MapperProxy'))
@@ -43,8 +46,7 @@ module RightScale
     def cleanup_state
       delete_if_exists(state_file_path)
       delete_if_exists(past_scripts_path)
-      delete_if_exists(File.join(File.dirname(__FILE__), 'lib', 'mock_actors', '__state.js'))
-      delete_if_exists(File.join(File.dirname(__FILE__), 'lib', 'mock_actors', '__past_scripts.js'))
+      delete_if_exists(boot_log_path)
       FileUtils.rm_rf(File.join(File.dirname(__FILE__), 'lib', 'mock_actors', 'cache'))
     end
 
@@ -56,6 +58,11 @@ module RightScale
     # Path to saved passed scripts
     def past_scripts_path
       File.join(File.dirname(__FILE__), '__past_scripts.js')
+    end
+
+    # Path to instance boot logs
+    def boot_log_path
+      File.join(File.dirname(__FILE__), '__install.log')
     end
 
     # Test and delete if exists

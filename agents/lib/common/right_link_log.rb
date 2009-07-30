@@ -27,18 +27,22 @@ module RightScale
 
   # Logs both to syslog and to local file
   class RightLinkLog
-
+  
     # Forward all method calls to multiplexer
+    # We want to return the result of only the first registered
+    # logger to keep the interface consistent with that of a Logger
     #
     # === Parameters
     # m<Symbol>:: Forwarded method name
     # args<Array>:: Forwarded method arguments
     #
     # === Return
-    # res<Array>:: Array of results, one for each multiplexed logger
+    # res<Object>:: Result from first registered logger
     def self.method_missing(m, *args)
       self.init unless @initialized
       res = @logger.__send__(m, *args)
+      res = res[0] if res && !res.empty?
+      res
     end
 
     # Read access to internal multiplexer
