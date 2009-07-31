@@ -116,7 +116,7 @@ class InstanceScheduler
   # === Return
   # Well... does not return...
   def terminate
-    RightScale::RightLinkLog.info("1Instance agent #{@agent_identity} terminating")
+    RightScale::RightLinkLog.info("Instance agent #{@agent_identity} terminating")
     RightScale::CommandRunner.stop
     @sig_handler.call if @sig_handler && @sig_handler.respond_to?(:call)
     Process.kill('TERM', Process.pid) unless @sig_handler && @sig_handler != "DEFAULT"
