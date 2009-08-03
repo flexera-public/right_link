@@ -110,7 +110,7 @@ module RightScale
     # wrapped_text<String>:: Wrapped text
     def self.wrap_text(txt, prefix = '*RS> ', col = 80)
       txt = '' unless txt
-      wrapped_text = txt.gsub(/(.{1,#{col - prefix.size}})( +|$\n?)|(.{1,#{col - prefix.size}})/, "#{prefix}\\1\\3\n").chomp
+      wrapped_text = txt.gsub(/(.{1,#{col - prefix.size}})( +|$\n?)|(.{1,#{col - prefix.size}})/, "#{prefix}\\1\\3\n").rstrip + "\n"     
     end
 
   end
