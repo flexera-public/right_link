@@ -33,7 +33,9 @@ module RightScale
     COMMANDS = {
       :list             => 'List all available commands with their description',
       :run_recipe       => 'Run recipe with id given in options[:id] and optionally JSON given in options[:json]',
-      :run_right_script => 'Run RightScript with id given in options[:id] and arguments given in hash options[:arguments] (e.g. { \'application\' => \'text:Mephisto\' })'
+      :run_right_script => 'Run RightScript with id given in options[:id] and arguments given in hash options[:arguments] (e.g. { \'application\' => \'text:Mephisto\' })',
+      :set_log_level    => 'Set log level to options[:level]',
+      :get_log_level    => 'Get log level'
     }
 
     # Build hash of commands associating command names with block
@@ -89,6 +91,33 @@ module RightScale
     # true:: Always return true
     def run_right_script_command(opts)
       send_request('/forwarder/schedule_right_script', opts[:port], opts[:options])
+    end
+
+    # Set log level command
+    #
+    # === Return
+    # true:: Always return true
+    def set_log_level_command(opts)
+      log_level = case opts[:level]
+        when :debug then Logger::DEBUG
+        when :info  then Logger::INFO
+        when :warn  then Logger::WARN
+        when :error then Logger::ERROR
+        when :fatal then Logger::FATAL
+        else nil
+      end
+      RightLinkLog.level = log_level if log_level
+      CommandIO.reply(opts[:port], RightLinkLog.level)
+      true
+    end
+
+    # Get log level command
+    #
+    # === Return
+    # true:: Always return true
+    def get_log_level_command(opts)
+      CommandIO.reply(opts[:port], RightLinkLog.level)
+      true
     end
 
     # Helper method that sends given request and report status through command IO

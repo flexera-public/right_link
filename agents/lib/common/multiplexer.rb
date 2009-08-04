@@ -39,10 +39,10 @@ module RightScale
     # target<Object>:: Add target to list of multiplexed targets
     #
     # === Return
-    # @targets<Array>:: List of targets
+    # self<RightScale::Multiplexer>:: self so operation can be chained
     def add(target)
       @targets << target unless @targets.include?(target)
-      @targets
+      self
     end
 
     # Remove object from list of multiplexed targets
@@ -51,10 +51,10 @@ module RightScale
     # target<Object>:: Remove target from list of multiplexed targets
     #
     # === Return
-    # @targets<Array>:: List of targets
+    # self<RightScale::Multiplexer>:: self so operation can be chained
     def remove(target)
       @targets.delete_if { |t| t == target }
-      @targets
+      self
     end
 
     # Forward any method invokation to targets

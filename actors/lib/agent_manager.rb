@@ -20,19 +20,34 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-# Instance agent initialization
+class AgentManager
 
-BASE_DIR = File.expand_path(File.join(File.dirname(__FILE__), '..', '..'))
-require File.join(BASE_DIR, 'agents', 'lib', 'instance_lib')
-require File.join(BASE_DIR, 'lib', 'command_protocol', 'lib', 'command_protocol')
-require File.join(BASE_DIR, 'lib', 'payload_types', 'lib', 'payload_types')
-require File.join(BASE_DIR, 'lib', 'repo_conf_generators', 'lib', 'repo_conf_generators')
-require File.join(BASE_DIR, 'lib', 'right_popen', 'lib', 'right_popen')
+  include Nanite::Actor
 
-RightScale::SecureSerializerInitializer.init('instance', options[:identity], RightScale::RightLinkConfig[:certs_dir])
-register InstanceSetup.new(options[:identity])
-register InstanceScheduler.new(options[:identity])
-register AgentManager.new
+  expose :ping, :set_log_level
 
-# Start command runner to enable running RightScripts and recipes from the command line
-RightScale::CommandRunner.start(options[:identity])
+  # Valid log levels
+  LEVELS = [:debug, :info, :warn, :error, :fatal]
+
+  # Always return success, used for troubleshooting
+  #
+  # === Return
+  # res<RightScale::OperationResult>:: Always returns success
+  def ping
+    res = RightScale::OperationResult.success
+  end
+
+  # Change log level of agent
+  #
+  # === Parameter
+  # level<Symbol>:: One of :debug, :info, :warn, :error, :fatal
+  #
+  # === Return
+  # res<RightScale::OperationResult>:: Success if level was changed, error otherwise
+  def set_log_level(level)
+    return RightScale::OperationResult.error("Invalid log level '#{level.to_s}'") unless LEVELS.include?(level)
+    RightScale::RightLinkLog.level = level
+    res = RightScale::OperationResult.success
+  end
+
+end

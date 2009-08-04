@@ -42,6 +42,12 @@ module RightScale
     # Path to boot log
     BOOT_LOG_FILE = '/var/log/install'
 
+    # Path to operation log
+    OPERATION_LOG_FILE = '/var/log/right_link'
+
+    # Path to decommission log
+    DECOMMISSION_LOG_FILE = '/var/log/decomm'
+
     # <String> One of STATES
     def self.value
       @@value
@@ -112,16 +118,14 @@ module RightScale
     # === Raise
     # RightScale::Exceptions::Argument:: Invalid new value
     def self.value=(val)
-      RightLinkLog.debug("Transitioning state from #{@@value rescue 'nil'} to #{val}")
-      if val == 'booting'
-        # Log boot messages to /var/log/install
-        @boot_logger = Logger.new(BOOT_LOG_FILE)
-        RightLinkLog.add_logger(@boot_logger)
-      elsif !@boot_logger.nil?
-        RightLinkLog.remove_logger(@boot_logger)
-        @boot_logger = nil
-      end
       raise RightScale::Exceptions::Argument, "Invalid instance state '#{val}'" unless STATES.include?(val)
+      RightLinkLog.debug("Transitioning state from #{@@value rescue 'nil'} to #{val}")
+      if file = log_file(val)
+        RightLinkLog.remove_logger(@current_logger) if @current_logger
+        @current_logger = Logger.new(file)
+        RightLinkLog.add_logger(@current_logger)
+        @current_logger.debug("Transitioning state from #{@@value rescue 'nil'} to #{val}")
+      end
       @@value = val
       if RECORDED_STATES.include?(val)
         options = { :agent_identity => identity, :state => val }
@@ -153,6 +157,24 @@ module RightScale
         end
       end
       new_script
+    end
+
+    protected
+
+    # Log file to be used for given instance state
+    #
+    # === Parameters
+    # state<String>:: Instance state, one of STATES
+    #
+    # === Return
+    # log<String>:: Log file path
+    # nil:: Log file should not be changed
+    def self.log_file(state)
+      log_file = case state
+        when 'booting'         then BOOT_LOG_FILE
+        when 'operational'     then OPERATION_LOG_FILE
+        when 'decommissioning' then DECOMMISSION_LOG_FILE
+      end
     end
 
   end

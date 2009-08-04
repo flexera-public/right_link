@@ -40,6 +40,7 @@
 #      --version:           Display version information
 
 $:.push(File.dirname(__FILE__))
+require 'command_client'
 require 'optparse'
 require 'rdoc/ri/ri_paths' # For backwards compat with ruby 1.8.5
 require 'rdoc/usage'
@@ -47,8 +48,6 @@ require 'yaml'
 require 'rdoc_patch'
 require 'agent_utils'
 require 'nanite'
-require File.join(File.dirname(__FILE__), '..', '..', 'lib', 'command_protocol', 'lib', 'command_protocol')
-require File.join(File.dirname(__FILE__), '..', '..', 'agents', 'lib', 'common_lib')
 
 module RightScale
 
@@ -65,32 +64,14 @@ module RightScale
     # true:: Always return true
     def run(options)
       fail('Missing identity or name argument', true) unless options[:id] || options[:name]
-      port       = CommandConstants::SOCKET_PORT + 1
-      listening  = false
-      retries    = 0
-      cmd        = { :options => to_forwarder_options(options), :port => port }
+      cmd = { :options => to_forwarder_options(options) }
       cmd[:name] = options[:bundle_type] == :right_script ? 'run_right_script' : 'run_recipe'
-      error      = nil
-
-      EM.run do
-        while !listening && retries < 10 do
-          puts "Trying to start server on port #{port}" if options[:verbose]
-          begin
-            EM.start_server('0.0.0.0', port, ReplyHandler, options)
-            listening = true
-          rescue Exception => e
-            error = e
-            retries += 1
-            port += 1
-          end
-          if listening
-            puts "Server listening on port #{port}" if options[:verbose]
-            EM.connect('0.0.0.0', RightScale::CommandConstants::SOCKET_PORT, SendHandler, cmd, options)
-            EM.add_timer(20) { EM.stop; fail('Timed out waiting for instance agent reply') }
-          end 
-        end
+      client = CommandClient.new
+      begin
+        client.send_command(cmd, options[:verbose]) { |r| puts r }
+      rescue Exception => e
+        fail(e.message)
       end
-      puts "Could not start server: #{error && error.message || 'unknown error'}" unless listening
       true
     end
 
@@ -185,24 +166,6 @@ protected
       opts
     end
 
-# options[:token_id]<Integer>:: Instance API token id
-  # options[:account_id]<Integer>:: Account id
-  # options[:right_script_id]<Integer>:: Script id
-  # options[:arguments]<Hash>:: Serialized script execution arguments values keyed by name
-  #
-  # === Return
-  # true:: Always return true
-  def schedule_right_script(options)
-    schedule_bundle(options)
-  end
-
-  # Forward Chef recipe scheduling request to instance agent
-  #
-  # === Parameters
-  # options[:token_id]<Integer>:: Instance API token id
-  # options[:account_id]<Integer>:: Account id, default to instance account
-  # options[:recipe_id]<Integer>:: ServerTemplateChefRecipe id
-
     # Version information
     #
     # === Return
@@ -211,55 +174,6 @@ protected
       ver = "run_right_script/run_recipe #{VERSION.join('.')} - Interactive RightScript and Chef recipe scheduler (c) 2009 RightScale"
     end
 
-  end
-
-  # EventMachine connection handler which sends command to instance agent
-  module SendHandler
-
-    # Initialize command
-    #
-    # === Parameters
-    # command<Hash>:: Command to be sent
-    def initialize(command, options)
-      @command = command
-      @options = options
-    end
-
-    # Send command to instance agent
-    # Called by EventMachine after connection with instance agent has been established
-    #
-    # === Return
-    # true:: Always return true
-    def post_init
-      puts "Sending command #{@command.inspect}" if @options[:verbose]
-      send_data(CommandSerializer.dump(@command))
-      EM.next_tick { close_connection_after_writing }
-      true
-    end
-
-  end
-
-  # EventMachine connection handler which listens to agent output
-  module ReplyHandler
-
-    # Initialize parser
-    def initialize(options)
-      @options = options
-      @parser = CommandParser.new { |data| puts data; EM.stop }
-    end
-
-    # Data available callback
-    #
-    # === Parameters
-    # data<String>:: Output data
-    #
-    # === Return
-    # true:: Always return true
-    def receive_data(data)
-      puts "Received raw data from agent: #{data}" if @options[:verbose] 
-      @parser.parse_chunk(data)
-      true
-    end
   end
 
 end 

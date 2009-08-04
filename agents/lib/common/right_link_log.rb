@@ -63,8 +63,8 @@ module RightScale
     # @logger<RightScale::Multiplexer>:: Multiplexer logger
     def self.add_logger(logger)
       self.init unless @initialized
+      logger.level = @logger.level[0]
       @logger.add(logger)
-      @logger
     end
 
     # Remove logger from list of multiplexed loggers
@@ -77,7 +77,30 @@ module RightScale
     def self.remove_logger(logger)
       self.init unless @initialized
       @logger.remove(logger)
-      @logger
+    end
+
+    # Set whether syslog should be used
+    # If true then use standard Nanite logger instead
+    # This should be called before anything else
+    #
+    # === Parameters
+    # val<Boolean>:: Whether syslog should be used (false) or the
+    #                standard nanite logger (true)
+    #
+    # === Raise
+    # RuntimeError:: if logger is already initialized
+    def self.log_to_file_only(val)
+      raise 'Logger already initialized' if @initialized
+      @log_to_file_only = !!val
+    end
+
+    # Was logger initialized?
+    #
+    # === Return
+    # true:: if logger has been initialized
+    # false:: Otherwise
+    def self.initialized
+      @initialized
     end
   
     protected
@@ -85,18 +108,26 @@ module RightScale
     # Was log ever used?
     @initialized = false
 
-    # Initialize logger so it multiplexes to both syslog and Nanite's log
+    # Initialize logger, must be called after Nanite logger is initialized
     #
     # === Return
     # logger<RightScale::Multiplexer>:: logger instance
+    #
+    # === Raise
+    # RuntimeError:: If nanite logger isn't initialized
     def self.init
       unless @initialized
         raise 'Initialize Nanite logger first' unless Nanite::Log.logger
         @initialized = true
-        prog_name = Nanite::Log.file.match(/nanite\.(.*)\.log/)[1] rescue 'right_link'
-        sysloger = SyslogLogger.new(prog_name) unless RightLinkConfig[:platform].windows?
-		@logger = Multiplexer.new(Nanite::Log.logger)
-    	@logger.add(sysloger) if sysloger
+        logger = nil
+        if @log_to_file_only || RightLinkConfig[:platform].windows?
+          logger = Nanite::Log.logger
+        else
+          prog_name = Nanite::Log.file.match(/nanite\.(.*)\.log/)[1] rescue 'right_link'
+          logger = SyslogLogger.new(prog_name)
+          logger.level = Nanite::Log.logger.level
+        end
+		@logger = Multiplexer.new(logger)
         # Now make nanite use this logger
         Nanite::Log.logger = @logger
       end

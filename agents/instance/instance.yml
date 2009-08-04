@@ -1,3 +1,4 @@
 actors:
   - instance_setup
   - instance_scheduler
+  - agent_manager
