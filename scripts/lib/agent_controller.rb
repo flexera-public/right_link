@@ -244,6 +244,8 @@ module RightScale
         
         opts.on("-f", "--foreground") do
           options[:daemonize] = false
+          #Squelch Ruby VM warnings about various things 
+          $VERBOSE = nil
         end
 
         opts.on("-I", "--interactive") do
