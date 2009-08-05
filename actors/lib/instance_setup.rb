@@ -34,7 +34,8 @@ class InstanceSetup
     @boot_retries = 0
     @agent_identity = agent_identity
     RightScale::InstanceState.init(agent_identity, ARGV.include?('boot'))
-    init_boot if RightScale::InstanceState.value == 'booting'
+    # Schedule boot sequence, don't run it now so agent is registered first
+    EM.next_tick { init_boot } if RightScale::InstanceState.value == 'booting'
   end
 
   # Retrieve current instance state
