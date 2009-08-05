@@ -51,6 +51,7 @@
 #      --log-dir DIR:       Log directory
 #      --pid-dir DIR:       Pid files directory (/tmp by default)
 #      --foreground, -f:    Run agent in foreground
+#      --interactive, -I:   Spawn an irb console after starting agent
 #      --test:              Use test settings
 #      --version, -v:       Display version information
 #      --help:              Display help
@@ -243,6 +244,10 @@ module RightScale
         
         opts.on("-f", "--foreground") do
           options[:daemonize] = false
+        end
+
+        opts.on("-I", "--interactive") do
+          options[:console] = true
         end
 
         opts.on("--help") do
