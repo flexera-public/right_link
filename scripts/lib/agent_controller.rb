@@ -69,57 +69,7 @@ require File.join(File.dirname(__FILE__), 'agent_utils')
 require File.join(File.dirname(__FILE__), 'common_parser')
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'agents', 'lib', 'instance', 'instance_state'))
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'agents', 'lib', 'common', 'right_link_log'))
-
-# Horrible evil hack to implement AMQP connection backoff until the AMQP and Nanite gems have our patches
-
-AMQP::Client.module_eval do
-  def reconnect force = false
-    if @reconnecting and not force
-      # wait 1 second after first reconnect attempt, in between each subsequent attempt
-      EM.add_timer(1){ reconnect(true) }
-      return
-    end
-
-    unless @reconnecting
-      @deferred_status = nil
-      initialize(@settings)
-
-      mqs = @channels
-      @channels = {}
-      mqs.each{ |_,mq| mq.reset } if mqs
-
-      @reconnecting = true
-
-      again = @settings[:retry]
-      again = again.call if again.is_a?(Proc)
-
-      if again == false
-        #do not retry connection
-        raise StandardError, "Could not reconnect to server #{@settings[:host]}:#{@settings[:port]}"
-      elsif again.is_a?(Numeric)
-        #retry connection after N seconds
-        EM.add_timer(again){ reconnect(true) }
-        return
-      elsif (again != true && again != nil)
-        raise StandardError, "Could not interpret reconnection retry action #{again}"
-      end
-    end
-
-    log 'reconnecting'
-    EM.reconnect @settings[:host], @settings[:port], self
-  end
-end
-
-# Horrible evil hack, part 2
-
-Nanite::AMQPHelper.module_eval do
-  def start_amqp(options)
-    connection = AMQP.connect(:user => options[:user], :pass => options[:pass], :vhost => options[:vhost],
-    :host => options[:host], :port => (options[:port] || ::AMQP::PORT).to_i, :insist => options[:insist] || false,
-    :retry => options[:retry] || 15 )
-    MQ.new(connection)
-  end
-end
+require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'lib', 'amqp_retry_patch'))
 
 module RightScale
 
