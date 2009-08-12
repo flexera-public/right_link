@@ -262,6 +262,8 @@ module RightScale
     # dir<String>:: Valid path to Unix directory
     def cookbook_directory(repo)
       dir = File.join(InstanceConfiguration::COOKBOOK_PATH, repo.to_s)
+      dir = File.join(dir, repo.cookbooks_path) if repo.cookbooks_path
+      dir
     end
 
     # Store public SSH key into ~/.ssh folder and create temporary script that wraps SSH and uses this key
