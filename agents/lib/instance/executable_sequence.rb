@@ -72,7 +72,7 @@ module RightScale
     # true:: Always return true
     def configure_chef
       Chef::Log.logger = AuditLogger.new(@auditor)
-      Chef::Config[:cookbook_path] = @cookbook_repos.map { |r| cookbook_directory(r) }
+      Chef::Config[:cookbook_path] = @cookbook_repos.map { |r| cookbooks_path(r) }
       Chef::Config[:cookbook_path] << File.dirname(__FILE__)
       Chef::Config[:solo] = true
       true
@@ -141,7 +141,7 @@ module RightScale
       audit_time do
         @cookbook_repos.each do |repo|
           @auditor.append_info("Downloading #{repo.url}")
-          cookbook_dir = cookbook_directory(repo)
+          cookbook_dir = cookbook_repo_directory(repo)
           FileUtils.rm_rf(cookbook_dir) if File.exist?(cookbook_dir)
           success, res = false, ''
           if repo.protocol == :raw
@@ -253,18 +253,29 @@ module RightScale
       path = File.join(InstanceConfiguration::CACHE_PATH, script.object_id.to_s)
     end
   
-    # Cookbook directory where cookbook recipes should be kept
+    # Directory where cookbooks should be kept
     #
     # === Parameters
     # repo<RightScale::RepositoryInstantiation>:: Repository to retrieve a directory for
     #
     # === Return
     # dir<String>:: Valid path to Unix directory
-    def cookbook_directory(repo)
+    def cookbook_repo_directory(repo)
       dir = File.join(InstanceConfiguration::COOKBOOK_PATH, repo.to_s)
-      dir = File.join(dir, repo.cookbooks_path) if repo.cookbooks_path
-      dir
     end
+    
+     # Cookbook path where chef will find cookbooks
+     #
+     # === Parameters
+     # repo<RightScale::RepositoryInstantiation>:: Repository to retrieve a directory 
+     #
+     # === Return
+     # dir<String>:: Valid path to Unix directory
+     def cookbooks_path(repo)
+       dir = cookbook_repo_directory(repo)
+       dir = File.join(dir, repo.cookbooks_path) if repo.cookbooks_path
+       dir
+     end
 
     # Store public SSH key into ~/.ssh folder and create temporary script that wraps SSH and uses this key
     # If repository does not have need SSH key for access then return empty string
