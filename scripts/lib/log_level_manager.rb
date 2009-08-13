@@ -53,15 +53,7 @@ module RightScale
       client = CommandClient.new
       begin
         client.send_command(cmd, options[:verbose]) do |lvl|
-          current = case lvl
-            when Logger::DEBUG then 'DEBUG'
-            when Logger::INFO  then 'INFO'
-            when Logger::WARN  then 'WARN'
-            when Logger::ERROR then 'ERROR'
-            when Logger::FATAL then 'FATAL'
-            else 'UNKNOWN'
-          end
-          puts "Agent log level: #{current}"
+          puts "Agent log level: #{lvl.to_s.upcase}"
         end
       rescue Exception => e
         fail(e.message)

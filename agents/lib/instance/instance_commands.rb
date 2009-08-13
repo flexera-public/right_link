@@ -98,17 +98,8 @@ module RightScale
     # === Return
     # true:: Always return true
     def set_log_level_command(opts)
-      log_level = case opts[:level]
-        when :debug then Logger::DEBUG
-        when :info  then Logger::INFO
-        when :warn  then Logger::WARN
-        when :error then Logger::ERROR
-        when :fatal then Logger::FATAL
-        else nil
-      end
-      RightLinkLog.level = log_level if log_level
+      RightLinkLog.level = opts[:level] if [ :debug, :info, :warn, :error, :fatal ].include?(opts[:level])
       CommandIO.reply(opts[:port], RightLinkLog.level)
-      true
     end
 
     # Get log level command
@@ -117,7 +108,6 @@ module RightScale
     # true:: Always return true
     def get_log_level_command(opts)
       CommandIO.reply(opts[:port], RightLinkLog.level)
-      true
     end
 
     # Helper method that sends given request and report status through command IO

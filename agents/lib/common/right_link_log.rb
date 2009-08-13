@@ -22,7 +22,8 @@
 
 require 'syslog_logger' unless RightScale::RightLinkConfig[:platform].windows?
 require File.join(File.dirname(__FILE__), 'multiplexer')
- 
+require File.join(File.dirname(__FILE__), 'exceptions')
+
 module RightScale
 
   # Logs both to syslog and to local file
@@ -102,7 +103,46 @@ module RightScale
     def self.initialized
       @initialized
     end
-  
+
+    # Sets the level for the Logger by symbol
+    #
+    # === Parameters
+    # loglevel<Object>:: One of :debug, :info, :warn, :error, :fatal or one of Logger::INFO ... Logger::FATAL
+    #
+    # === Return
+    # true:: Always return true
+    def self.level=(loglevel)
+      File.open('/tmp/juju', 'w') { |f| f.puts("SETTING LOG LEVEL WITH #{loglevel} from #{caller.join("\n")}") }
+      self.init unless @initialized
+      level = case loglevel
+        when :debug then Logger::DEBUG
+        when :info  then Logger::INFO
+        when :warn  then Logger::WARN
+        when :error then Logger::ERROR
+        when :fatal then Logger::FATAL
+        else loglevel
+      end   
+      @level = level
+      @logger.level = level
+      File.open('/tmp/juju', 'a') { |f| f.puts("SETTING LOG LEVEL WITH #{level}") }
+      true
+    end
+
+    # Current log level
+    #
+    # === Return
+    # loglevel<Symbol>:: One of :debug, :info, :warn, :error or :fatal
+    def self.level
+      self.init unless @initialized
+      loglevel = case @level
+        when Logger::DEBUG then :debug
+        when Logger::INFO  then :info
+        when Logger::WARN  then :warn
+        when Logger::ERROR then :error
+        when Logger::FATAL then :fatal
+      end
+    end
+
     protected
 
     # Was log ever used?
@@ -128,6 +168,7 @@ module RightScale
           logger.level = Nanite::Log.logger.level
         end
 		@logger = Multiplexer.new(logger)
+        RightLinkLog.level = Nanite::Log.level
         # Now make nanite use this logger
         Nanite::Log.logger = @logger
       end
