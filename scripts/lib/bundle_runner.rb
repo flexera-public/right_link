@@ -104,7 +104,7 @@ module RightScale
         opts.on('-j', '--json JSON_FILE') do |f|
           fail("Invalid JSON filename '#{f}'") unless File.file?(f)
           begin
-            options[:json] = JSON.load(IO.read(f))
+            options[:json] = IO.read(f)
           rescue Exception => e
             fail("Invalid JSON content: #{e.message}")
           end
