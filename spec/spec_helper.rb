@@ -34,7 +34,9 @@ module RightScale
     def setup_state(identity = '1')
       RightScale::InstanceState.const_set(:STATE_FILE, state_file_path)
       RightScale::InstanceState.const_set(:SCRIPTS_FILE, past_scripts_path)
-      RightScale::InstanceState.const_set(:BOOT_LOG_FILE, boot_log_path)
+      RightScale::InstanceState.const_set(:BOOT_LOG_FILE, log_path)
+      RightScale::InstanceState.const_set(:OPERATION_LOG_FILE, log_path)
+      RightScale::InstanceState.const_set(:DECOMMISSION_LOG_FILE, log_path)
       @identity = identity
       @results_factory = RightScale::NaniteResultsMock.new
       Nanite::MapperProxy.send(:class_variable_set, :@@instance, mock('MapperProxy'))
@@ -46,7 +48,7 @@ module RightScale
     def cleanup_state
       delete_if_exists(state_file_path)
       delete_if_exists(past_scripts_path)
-      delete_if_exists(boot_log_path)
+      delete_if_exists(log_path)
       FileUtils.rm_rf(File.join(File.dirname(__FILE__), 'lib', 'mock_actors', 'cache'))
     end
 
@@ -61,8 +63,8 @@ module RightScale
     end
 
     # Path to instance boot logs
-    def boot_log_path
-      File.join(File.dirname(__FILE__), '__install.log')
+    def log_path
+      File.join(File.dirname(__FILE__), '__nanite.log')
     end
 
     # Test and delete if exists
