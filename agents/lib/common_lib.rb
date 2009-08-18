@@ -22,6 +22,7 @@
 
 require File.expand_path(File.join(__FILE__, '..', '..', '..', 'config', 'right_link_config'))
 require File.join(File.dirname(__FILE__), 'common', 'agent_identity')
+require File.join(File.dirname(__FILE__), 'common', 'agent_identity_token')
 require File.join(File.dirname(__FILE__), 'common', 'audit_formatter')
 require File.join(File.dirname(__FILE__), 'common', 'exceptions')
 require File.join(File.dirname(__FILE__), 'common', 'right_link_log')
