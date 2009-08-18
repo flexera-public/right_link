@@ -23,6 +23,11 @@ $:.push File.join(File.dirname( __FILE__), '..', 'agents', 'lib', 'instance')
 NANITE_LOG_PATH = File.dirname(__FILE__)
 Nanite::Log.init('dummy', NANITE_LOG_PATH)
 
+at_exit do
+  log_file = File.join(File.dirname(__FILE__), 'nanite.dummy.log') 
+  File.delete(log_file) if File.file?(log_file)
+end
+
 $VERBOSE = nil # Disable constant redefined warning
 
 module RightScale

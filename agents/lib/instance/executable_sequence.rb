@@ -148,23 +148,41 @@ module RightScale
             success = @downloader.download(repo.url, cookbook_dir, repo.username, repo.password)
             res = success ? @downloader.details : @downloader.error
           else
-            cmd = case repo.protocol
+            case repo.protocol
             when :git
               ssh_cmd = ssh_command(repo)
-              "#{ssh_cmd} git clone --quiet --depth 1 #{repo.url} #{cookbook_dir} 2>&1" +
-              (repo.tag ? " && cd #{cookbook_dir} && #{ssh_cmd} git pull 2>&1 && git checkout #{repo.tag} 2>&1 && cd -" : '')
+              res = `#{ssh_cmd} git clone --quiet --depth 1 #{repo.url} #{cookbook_dir} 2>&1`
+              success = $? == 0
+              if repo.tag && success
+                Dir.chdir(cookbook_dir) do
+                  res += `#{ssh_cmd} git fetch --tags 2>&1`
+                  is_tag = `git tag`.split("\n").include?(repo.tag)
+                  is_branch = `#{ssh_cmd} git branch -r`.split("\n").map { |t| t.strip }.include?("origin/#{repo.tag}")
+                  if is_tag && is_branch
+                    res = 'Repository tag ambiguous: could be git tag or git branch'
+                    success = false
+                  elsif is_branch
+                    res += `#{ssh_cmd} git branch #{repo.tag} origin/#{repo.tag} 2>&1`
+                    success = $? == 0
+                  end
+                  if success
+                    res += `git checkout #{repo.tag} 2>&1`
+                    success = $? == 0
+                  end
+                end
+              end
             when :svn
-              "svn export #{repo.url} #{cookbook_dir} --non-interactive" +
+              svn_cmd = "svn export #{repo.url} #{cookbook_dir} --non-interactive" +
               (repo.tag ? " --revision #{repo.tag}" : '') +
               (repo.username ? " --username #{repo.username}" : '') +
               (repo.password ? " --password #{repo.password}" : '') +
               ' 2>&1'
+              res = `#{svn_cmd}`
+              success = $? == 0
             else
               report_failure("Failed to download cookbooks", "Invalid cookbook repositories protocol #{repo.protocol}")
               return true
             end
-            res = `#{cmd}`
-            success = $? == 0
           end
           if success
             @auditor.append_output(res)
