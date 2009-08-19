@@ -157,12 +157,12 @@ module RightScale
                 Dir.chdir(cookbook_dir) do
                   res += `#{ssh_cmd} git fetch --tags 2>&1`
                   is_tag = `git tag`.split("\n").include?(repo.tag)
-                  is_branch = `#{ssh_cmd} git branch -r`.split("\n").map { |t| t.strip }.include?("origin/#{repo.tag}")
+                  is_branch = `git branch -r`.split("\n").map { |t| t.strip }.include?("origin/#{repo.tag}")
                   if is_tag && is_branch
                     res = 'Repository tag ambiguous: could be git tag or git branch'
                     success = false
                   elsif is_branch
-                    res += `#{ssh_cmd} git branch #{repo.tag} origin/#{repo.tag} 2>&1`
+                    res += `git branch #{repo.tag} origin/#{repo.tag} 2>&1`
                     success = $? == 0
                   end
                   if success
