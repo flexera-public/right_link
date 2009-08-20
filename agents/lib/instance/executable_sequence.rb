@@ -257,7 +257,7 @@ module RightScale
       data = { 'recipes'      => [ 'right_script' ],
                'right_script' => { 'nickname'   => script.nickname,
                                    'source'     => script.source,
-                                   'parameters' => script.parameters,
+                                   'parameters' => script.parameters || {},
                                    'cache_dir'  => cache_dir(script),
                                    'audit_id'   => @auditor.audit_id } }
       recipe = RecipeInstantiation.new(script.nickname, data.to_json)

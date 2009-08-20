@@ -34,7 +34,7 @@ module RightScale
     # <String> RightScript source
     attr_accessor :source
 
-    # <Array> RightScript parameters
+    # <Hash> RightScript parameters
     # Hash of parameters names with associated value
     attr_accessor :parameters  
     
