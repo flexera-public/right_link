@@ -1,4 +1,4 @@
-#!/bin/env ruby
+#!/usr/bin/env ruby
 # Copyright (c) 2008 RightScale, Inc, All Rights Reserved Worldwide.
 #
 # THIS PROGRAM IS CONFIDENTIAL AND PROPRIETARY TO RIGHTSCALE
