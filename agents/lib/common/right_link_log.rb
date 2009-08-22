@@ -112,7 +112,6 @@ module RightScale
     # === Return
     # true:: Always return true
     def self.level=(loglevel)
-      File.open('/tmp/juju', 'w') { |f| f.puts("SETTING LOG LEVEL WITH #{loglevel} from #{caller.join("\n")}") }
       self.init unless @initialized
       level = case loglevel
         when :debug then Logger::DEBUG
@@ -124,7 +123,6 @@ module RightScale
       end   
       @level = level
       @logger.level = level
-      File.open('/tmp/juju', 'a') { |f| f.puts("SETTING LOG LEVEL WITH #{level}") }
       true
     end
 
