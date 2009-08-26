@@ -47,12 +47,13 @@ module RightScale
     # Instantiate from request results
     #
     # === Parameters
-    # results<Nanite::Result>:: Nanite result packet
+    # results<Nanite::Result>:: Nanite Result packet OR a Hash taken from a Result packet's "results" field
     #
     # === Return
     # result<RightScale::OperationResult>:: Converted operation result
     def self.from_results(results)
-      r = results.results
+      r = results.kind_of?(Hash) ? results : results.results
+      
       if r && r.values.size > 0
         value = r.values[0]
         if value.respond_to?(:status_code) && value.respond_to?(:content)
