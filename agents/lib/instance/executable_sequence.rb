@@ -225,6 +225,7 @@ module RightScale
       rescue Exception => e
         object = is_rs ? "RightScript" : "Chef recipe"
         report_failure("Failed to run #{object} #{recipe.nickname}", e.message)
+        RightLinkLog.debug("Chef failed with '#{e.message}' at" + "\n" + e.backtrace.join("\n"))
       end
       true
     end

@@ -92,6 +92,7 @@ module RightScale
         else
           # Agent restarted by itself, keep the old state
           @@value = state['value']
+          update_logger
         end
       else
         # Initial boot, create state file
@@ -120,13 +121,8 @@ module RightScale
     def self.value=(val)
       raise RightScale::Exceptions::Argument, "Invalid instance state '#{val}'" unless STATES.include?(val)
       RightLinkLog.debug("Transitioning state from #{@@value rescue 'nil'} to #{val}")
-      if file = log_file(val)
-        RightLinkLog.remove_logger(@current_logger) if @current_logger
-        @current_logger = Logger.new(file)
-        RightLinkLog.add_logger(@current_logger)
-        @current_logger.debug("Transitioning state from #{@@value rescue 'nil'} to #{val}")
-      end
       @@value = val
+      update_logger
       if RECORDED_STATES.include?(val)
         options = { :agent_identity => identity, :state => val }
         Nanite::MapperProxy.instance.request('/state_recorder/record', options) do |r|
@@ -138,6 +134,19 @@ module RightScale
         f.write({ 'value' => val, 'identity' => @@identity }.to_json)
       end
       val
+    end
+
+    # Point logger to log file corresponding to current instance state
+    #
+    # === Return
+    # true:: Always return true
+    def self.update_logger
+      if file = log_file(@@value)
+        RightLinkLog.remove_logger(@current_logger) if @current_logger
+        @current_logger = Logger.new(file)
+        RightLinkLog.add_logger(@current_logger)
+      end
+      true
     end
 
     # Record script execution in scripts file
