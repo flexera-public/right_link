@@ -68,7 +68,7 @@ describe RightScale::ExecutableSequence do
 
   it 'should report success' do
     @script.should_receive(:packages).any_number_of_times.and_return(nil)
-    @script.should_receive(:source).and_return("#!/bin/sh\nruby -e 'exit(0)'")
+    @script.should_receive(:source).and_return("#!/bin/sh\n/opt/rightscale/sandbox/bin/ruby -e 'exit(0)'")
     @sequence = RightScale::ExecutableSequence.new(@bundle)
     @auditor.should_receive(:append_error).never
     run_sequence.should be_true
@@ -76,7 +76,7 @@ describe RightScale::ExecutableSequence do
 
   it 'should audit failures' do
     @script.should_receive(:packages).any_number_of_times.and_return(nil)
-    @script.should_receive(:source).and_return("#!/bin/sh\nruby -e 'exit(1)'")
+    @script.should_receive(:source).and_return("#!/bin/sh\n/opt/rightscale/sandbox/bin/ruby -e 'exit(1)'")
     @sequence = RightScale::ExecutableSequence.new(@bundle)
     @auditor.should_receive(:append_error).exactly(3).times
     RightScale::RightLinkLog.logger.should_receive(:error)
@@ -85,7 +85,7 @@ describe RightScale::ExecutableSequence do
 
   it 'should report invalid attachments' do
     @script.should_receive(:packages).any_number_of_times.and_return(nil)
-    @script.should_receive(:source).and_return("#!/bin/sh\nruby -e 'exit(0)'")
+    @script.should_receive(:source).and_return("#!/bin/sh\n/opt/rightscale/sandbox/bin/ruby -e 'exit(0)'")
     @sequence = RightScale::ExecutableSequence.new(@bundle)
     @attachment.should_receive(:url).and_return("http://thisurldoesnotexist.wrong")
     downloader = RightScale::Downloader.new(retry_period=0.1, use_backoff=false)
@@ -97,7 +97,7 @@ describe RightScale::ExecutableSequence do
 
   it 'should report invalid packages' do
     @script.should_receive(:packages).any_number_of_times.and_return("__INVALID__")
-    @script.should_receive(:source).and_return("#!/bin/sh\nruby -e 'exit(0)'")
+    @script.should_receive(:source).and_return("#!/bin/sh\n/opt/rightscale/sandbox/bin/ruby -e 'exit(0)'")
     @sequence = RightScale::ExecutableSequence.new(@bundle)
     @auditor.should_receive(:append_error).exactly(2).times
     RightScale::RightLinkLog.logger.should_receive(:error)

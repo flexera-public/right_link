@@ -1,4 +1,4 @@
-#!/usr/bin/env ruby
+#!/opt/rightscale/sandbox/bin/ruby
 
 # rad --help for usage information
 #

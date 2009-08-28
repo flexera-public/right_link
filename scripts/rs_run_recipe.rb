@@ -1,4 +1,4 @@
-#!/usr/bin/env ruby
+#!/opt/rightscale/sandbox/bin/ruby
 
 # run_recipe --help for usage information
 #

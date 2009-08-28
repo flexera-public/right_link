@@ -1,4 +1,4 @@
-#!/usr/bin/env ruby
+#!/opt/rightscale/sandbox/bin/ruby
 
 # rs_log_level --help for usage information
 #
