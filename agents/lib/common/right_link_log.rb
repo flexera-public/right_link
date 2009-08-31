@@ -28,7 +28,14 @@ module RightScale
 
   # Logs both to syslog and to local file
   class RightLinkLog
-  
+
+    # Map of log levels symbols associated with corresponding Logger constant
+    LEVELS_MAP = { :debug => Logger::DEBUG,
+                   :info  => Logger::INFO,
+                   :warn  => Logger::WARN,
+                   :error => Logger::ERROR,
+                   :fatal => Logger::FATAL }
+
     # Forward all method calls to multiplexer
     # We want to return the result of only the first registered
     # logger to keep the interface consistent with that of a Logger
@@ -44,6 +51,37 @@ module RightScale
       res = @logger.__send__(m, *args)
       res = res[0] if res && !res.empty?
       res
+    end
+
+    # Map symbol log level to Logger constant
+    #
+    # === Parameters
+    # sym<Symbol>:: Log level symbol, one of :debug, :info, :warn, :error or :fatal
+    #
+    # === Return
+    # lvl<Constant>:: One of Logger::DEBUG ... Logger::FATAL
+    #
+    # === Raise
+    # <RightScale::Exceptions::Argument>:: if level symbol is invalid
+    def self.level_from_sym(sym)
+      raise Exceptions::Argument, "Invalid log level symbol :#{sym}" unless LEVELS_MAP.include?(sym)
+      lvl = LEVELS_MAP[sym]
+    end
+
+    # Map Logger log level constant to symbol
+    #
+    # === Parameters
+    # lvl<Constant>:: Log level constant, one of Logger::DEBUG ... Logger::FATAL
+    #
+    # === Return
+    # sym<Symbol>:: One of :debug, :info, :warn, :error or :fatal
+    #
+    # === Raise
+    # <RightScale::Exceptions::Argument>:: if level is invalid
+    def self.level_to_sym(lvl)
+      reverted_map ||= LEVELS_MAP.invert
+      raise Exceptions::Argument, "Invalid log level: #{lvl}" unless reverted_map.include?(lvl)
+      sym = reverted_map[lvl]
     end
 
     # Read access to internal multiplexer
@@ -104,26 +142,20 @@ module RightScale
       @initialized
     end
 
-    # Sets the level for the Logger by symbol
+    # Sets the level for the Logger by symbol or by Logger constant
     #
     # === Parameters
-    # loglevel<Object>:: One of :debug, :info, :warn, :error, :fatal or one of Logger::INFO ... Logger::FATAL
+    # loglevel<Object>:: One of :debug, :info, :warn, :error, :fatal or
+    #                    one of Logger::INFO ... Logger::FATAL
     #
     # === Return
-    # true:: Always return true
+    # loglevel<Object>:: New loglevel
     def self.level=(loglevel)
       self.init unless @initialized
-      level = case loglevel
-        when :debug then Logger::DEBUG
-        when :info  then Logger::INFO
-        when :warn  then Logger::WARN
-        when :error then Logger::ERROR
-        when :fatal then Logger::FATAL
-        else loglevel
-      end   
-      @level = level
-      @logger.level = level
-      true
+      lvl = loglevel.is_a?(Symbol) ? level_from_sym(loglevel) : loglevel
+      @level = lvl
+      @logger.level = lvl
+      loglevel
     end
 
     # Current log level
@@ -132,13 +164,7 @@ module RightScale
     # loglevel<Symbol>:: One of :debug, :info, :warn, :error or :fatal
     def self.level
       self.init unless @initialized
-      loglevel = case @level
-        when Logger::DEBUG then :debug
-        when Logger::INFO  then :info
-        when Logger::WARN  then :warn
-        when Logger::ERROR then :error
-        when Logger::FATAL then :fatal
-      end
+      loglevel = level_to_sym(@level)
     end
 
     protected

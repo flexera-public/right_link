@@ -35,7 +35,7 @@ module RightScale
     def initialize(auditor)
       @auditor = auditor
       @progname = nil
-      @level = DEBUG
+      @level = INFO
       @default_formatter = Formatter.new
       @formatter = nil
       @logdev = nil
@@ -64,7 +64,7 @@ module RightScale
     def add(severity, message=nil, progname=nil, &block)
       severity ||= UNKNOWN
       # We don't want to audit debug logs
-      return true if severity < @level || severity == DEBUG
+      return true if severity < @level
       progname ||= @progname
       if message.nil?
         if block_given?

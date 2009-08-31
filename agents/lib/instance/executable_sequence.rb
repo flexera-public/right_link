@@ -73,6 +73,7 @@ module RightScale
     # true:: Always return true
     def configure_chef
       Chef::Log.logger = AuditLogger.new(@auditor)
+      Chef::Log.logger.level = RightLinkLog.level_from_sym(RightLinkLog.level)
       Chef::Config[:cookbook_path] = @cookbook_repos.map { |r| cookbooks_path(r) }
       Chef::Config[:cookbook_path] << File.dirname(__FILE__)
       Chef::Config[:solo] = true
@@ -145,45 +146,46 @@ module RightScale
           cookbook_dir = cookbook_repo_directory(repo)
           FileUtils.rm_rf(cookbook_dir) if File.exist?(cookbook_dir)
           success, res = false, ''
-          if repo.protocol == :raw
+          case repo.repo_type
+          when :download
             success = @downloader.download(repo.url, cookbook_dir, repo.username, repo.password)
             res = success ? @downloader.details : @downloader.error
-          else
-            case repo.protocol
-            when :git
-              ssh_cmd = ssh_command(repo)
-              res = `#{ssh_cmd} git clone --quiet --depth 1 #{repo.url} #{cookbook_dir} 2>&1`
-              success = $? == 0
-              if repo.tag && success
-                Dir.chdir(cookbook_dir) do
-                  res += `#{ssh_cmd} git fetch --tags 2>&1`
-                  is_tag = `git tag`.split("\n").include?(repo.tag)
-                  is_branch = `git branch -r`.split("\n").map { |t| t.strip }.include?("origin/#{repo.tag}")
-                  if is_tag && is_branch
-                    res = 'Repository tag ambiguous: could be git tag or git branch'
-                    success = false
-                  elsif is_branch
-                    res += `git branch #{repo.tag} origin/#{repo.tag} 2>&1`
-                    success = $? == 0
-                  end
-                  if success
-                    res += `git checkout #{repo.tag} 2>&1`
-                    success = $? == 0
-                  end
+          when :git
+            ssh_cmd = ssh_command(repo)
+            res = `#{ssh_cmd} git clone --quiet --depth 1 #{repo.url} #{cookbook_dir} 2>&1`
+            success = $? == 0
+            if repo.tag && success
+              Dir.chdir(cookbook_dir) do
+                res += `#{ssh_cmd} git fetch --tags 2>&1`
+                is_tag = `git tag`.split("\n").include?(repo.tag)
+                is_branch = `git branch -r`.split("\n").map { |t| t.strip }.include?("origin/#{repo.tag}")
+                if is_tag && is_branch
+                  res = 'Repository tag ambiguous: could be git tag or git branch'
+                  success = false
+                elsif is_branch
+                  res += `git branch #{repo.tag} origin/#{repo.tag} 2>&1`
+                  success = $? == 0
+                end
+                if success
+                  res += `git checkout #{repo.tag} 2>&1`
+                  success = $? == 0
                 end
               end
-            when :svn
-              svn_cmd = "svn export #{repo.url} #{cookbook_dir} --non-interactive" +
-              (repo.tag ? " --revision #{repo.tag}" : '') +
-              (repo.username ? " --username #{repo.username}" : '') +
-              (repo.password ? " --password #{repo.password}" : '') +
-              ' 2>&1'
-              res = `#{svn_cmd}`
-              success = $? == 0
-            else
-              report_failure("Failed to download cookbooks", "Invalid cookbook repositories protocol #{repo.protocol}")
-              return true
             end
+          when :svn
+            svn_cmd = "svn export #{repo.url} #{cookbook_dir} --non-interactive" +
+            (repo.tag ? " --revision #{repo.tag}" : '') +
+            (repo.username ? " --username #{repo.username}" : '') +
+            (repo.password ? " --password #{repo.password}" : '') +
+            ' 2>&1'
+            res = `#{svn_cmd}`
+            success = $? == 0
+          when :local
+            res = 'Using local(test) cookbooks'
+            success = true
+          else
+            report_failure("Failed to download cookbooks", "Invalid cookbooks repository type #{repo.repo_type}")
+            return true
           end
           if success
             @auditor.append_output(res)

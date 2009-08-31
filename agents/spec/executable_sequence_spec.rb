@@ -8,7 +8,7 @@ describe RightScale::ExecutableSequence do
 
   before(:all) do
     RightScale::RightLinkLog.logger.should_receive(:debug).any_number_of_times
-    @attachment_file = '__test_download__'
+    @attachment_file = File.join(File.dirname(__FILE__), '__test_download__')
     File.open(@attachment_file, 'w') do |f|
       f.write('Some attachment content')
     end

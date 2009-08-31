@@ -13,6 +13,7 @@ module RightScale
     #   options[:name]:: Command name
     #   options[:...]:: Other command options
     # verbose<Boolean>:: Whether client should display debug info
+    # timeout<Integer>:: Number of seconds we should wait for a reply from the instance agent
     #
     # === Block
     # hander: Command results handler
@@ -22,7 +23,7 @@ module RightScale
     #
     # === Raise
     # RuntimeError:: Could not start listening server or timed out waiting for result
-    def send_command(options, verbose=false, &handler)
+    def send_command(options, verbose=false, timeout=20, &handler)
       port       = CommandConstants::SOCKET_PORT + 1
       listening  = false
       retries    = 0
@@ -43,7 +44,7 @@ module RightScale
           if listening
             puts "Server listening on port #{port}" if verbose
             EM.connect('127.0.0.1', RightScale::CommandConstants::SOCKET_PORT, SendHandler, options)
-            EM.add_timer(20) { EM.stop; raise 'Timed out waiting for instance agent reply' }
+            EM.add_timer(timeout) { EM.stop; raise 'Timed out waiting for instance agent reply' }
           else
             EM.stop
           end

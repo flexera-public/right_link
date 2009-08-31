@@ -68,7 +68,7 @@ module RightScale
       cmd[:name] = options[:bundle_type] == :right_script ? 'run_right_script' : 'run_recipe'
       client = CommandClient.new
       begin
-        client.send_command(cmd, options[:verbose]) { |r| puts r }
+        client.send_command(cmd, options[:verbose], options[:timeout] || 20) { |r| puts r }
       rescue Exception => e
         fail(e.message)
       end

@@ -28,11 +28,12 @@ module RightScale
 
     include Serializable
 
-    # <Symbol> Type of repository: one of :git, :svn or :raw
+    # <Symbol> Type of repository: one of :git, :svn, :download or :local
     # * :git denotes a 'git' repository that should be retrieved via 'git clone'
     # * :svn denotes a 'svn' repository that should be retrieved via 'svn checkout'
-    # * :raw denotes a tar ball that should be retrieved via HTTP GET (HTTPS if url starts with https://)
-    attr_accessor :protocol
+    # * :download denotes a tar ball that should be retrieved via HTTP GET (HTTPS if url starts with https://)
+    # * :local denotes an already available cookbook (useful for testing)
+    attr_accessor :repo_type
 
     # <String> URI to repository (e.g. git://github.com/opscode/chef-repo.git)
     attr_accessor :url
@@ -61,8 +62,8 @@ module RightScale
 
     # Initialize fields from given arguments
     def initialize(*args)
-      @protocol       = args[0].to_sym
-      @url            = args[1]
+      @repo_type      = args[0].to_sym
+      @url            = args[1] if args.size > 1
       @tag            = args[2] if args.size > 2
       @cookbooks_path = args[3] if args.size > 3
       @ssh_key        = args[4] if args.size > 4
@@ -79,12 +80,12 @@ module RightScale
     # === Return
     # repo<RightScale::CookbookRepository>:: Corresponding instance
     def self.from_hash(h)
-      repo = new(h[:protocol], h[:url], h[:tag], h[:cookbooks_path], h[:ssh_key], h[:username], h[:password])
+      repo = new(h[:repo_type], h[:url], h[:tag], h[:cookbooks_path], h[:ssh_key], h[:username], h[:password])
     end
 
     # Array of serialized fields given to constructor
     def serialized_members
-      [ @protocol, @url, @tag, @cookbooks_path, @ssh_key, @username, @password ]
+      [ @repo_type, @url, @tag, @cookbooks_path, @ssh_key, @username, @password ]
     end
 
     # Serialize cookbook repo instantiation into filename compatible string
@@ -92,7 +93,7 @@ module RightScale
     # === Return
     # ser<String>:: Serialized representation of cookbook repository
     def to_s
-      base = @url.include?('://') ? @url[(@url.index('://')  + 3)..(@url.size - 1)] : @url
+      base = @repo_type == :local ? 'local' : (@url.include?('://') ? @url[(@url.index('://')  + 3)..(@url.size - 1)] : @url)
       comps = base.split('/')
       ser = comps.map { |c| c.gsub(/[:&%\+\.]/, '-') }.join('-').gsub(/-+/, '-')
       ser += '-' + tag if tag
