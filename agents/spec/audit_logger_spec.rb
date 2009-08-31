@@ -14,15 +14,10 @@ describe RightScale::AuditLogger do
     @logger << 'fourty two'
   end
 
-  it 'should discard debug text' do
-    @auditor.should_not_receive(:append_info)
+  it 'should append info and debug text' do
+    @auditor.should_receive(:append_info).exactly(4).times
     @auditor.should_not_receive(:append_error)
     @logger.debug
-  end
- 
-  it 'should append info text' do
-    @auditor.should_receive(:append_info).exactly(3).times
-    @auditor.should_not_receive(:append_error)
     @logger.info
     @logger.warn
     @logger.unknown
