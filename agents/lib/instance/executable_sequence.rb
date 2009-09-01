@@ -44,7 +44,6 @@ module RightScale
       @auditor              = AuditorProxy.new(bundle.audit_id)
       @scripts              = bundle.executables.select { |e| e.is_a?(RightScriptInstantiation) }
       @recipes              = bundle.executables.map { |e| e.is_a?(RecipeInstantiation) ? e : script_to_recipe(e) }
-      @attributes           = bundle.attributes
       @cookbook_repos       = bundle.cookbook_repositories || []
       @downloader           = Downloader.new
       @prepared_executables = []
@@ -215,9 +214,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def run_recipe(recipe)
-      user_attribs = JSON.load(@attributes) rescue {}
-      recipe_attribs = JSON.load(recipe.json) rescue {} if recipe.json && !recipe.json.empty?
-      user_attribs.merge!(recipe_attribs) if recipe_attribs
+      user_attribs = JSON.load(recipe.json) rescue {} if recipe.json && !recipe.json.empty?
       attribs = { 'recipes' => [ recipe.nickname ] }
       attribs.merge!(user_attribs) if user_attribs && user_attribs.is_a?(Hash)
       # The RightScript Chef provider takes care of auditing

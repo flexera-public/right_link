@@ -41,22 +41,18 @@ module RightScale
     # <Array> Chef cookbook repositories
     attr_accessor :cookbook_repositories
 
-    # <String> Global Chef attributes JSON, applies to all recipes in +executables+ collection
-    attr_accessor :attributes
-
     # <Integer> ID of corresponding audit entry
     attr_accessor :audit_id
 
     def initialize(*args)
       @executables           = args[0]
       @cookbook_repositories = args[1] if args.size > 1
-      @attributes            = args[2] if args.size > 2
-      @audit_id              = args[3] if args.size > 3
+      @audit_id              = args[2] if args.size > 2
     end
 
     # Array of serialized fields given to constructor
     def serialized_members
-      [ @executables, @cookbook_repositories, @attributes, @audit_id ]
+      [ @executables, @cookbook_repositories, @audit_id ]
     end
 
     # Human readable representation
