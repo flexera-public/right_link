@@ -43,7 +43,7 @@ module RightScale
     # Not used for raw repositories.
     attr_accessor :tag
 
-    # <String> Path to cookbooks inside repostory
+    # <Array> Path to cookbooks inside repostory
     # Append to the location of the repository on disk prior to running chef.
     # Optional (use location of repository as cookbook path if nil)
     attr_accessor :cookbooks_path
@@ -97,21 +97,8 @@ module RightScale
       comps = base.split('/')
       ser = comps.map { |c| c.gsub(/[:&%\+\.]/, '-') }.join('-').gsub(/-+/, '-')
       ser += '-' + tag if tag
-      ser += '-' + to_filename(cookbooks_path) if cookbooks_path
+      ser += '-' + rand(99999) if @cookbooks_path
       ser
-    end
-
-    protected
-
-    # Convert path or URL to valid filename
-    #
-    # === Parameters
-    # path<String>:: Path to be converted
-    #
-    # === Return
-    # name<String>:: Valid Unix filename
-    def to_filename(path)
-      name = path.gsub('/', '-')
     end
 
   end

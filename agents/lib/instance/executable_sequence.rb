@@ -73,7 +73,7 @@ module RightScale
     def configure_chef
       Chef::Log.logger = AuditLogger.new(@auditor)
       Chef::Log.logger.level = RightLinkLog.level_from_sym(RightLinkLog.level)
-      Chef::Config[:cookbook_path] = @cookbook_repos.map { |r| cookbooks_path(r) }
+      Chef::Config[:cookbook_path] = @cookbook_repos.map { |r| cookbooks_path(r) }.flatten.uniq
       Chef::Config[:cookbook_path] << File.dirname(__FILE__)
       Chef::Config[:solo] = true
       true
@@ -285,17 +285,17 @@ module RightScale
       dir = File.join(InstanceConfiguration::COOKBOOK_PATH, repo.to_s)
     end
     
-     # Cookbook path where chef will find cookbooks
+     # Cookbooks paths where chef will find cookbooks
      #
      # === Parameters
      # repo<RightScale::RepositoryInstantiation>:: Repository to retrieve a directory 
      #
      # === Return
-     # dir<String>:: Valid path to Unix directory
+     # paths<Array>:: Array of valid path to Unix directory
      def cookbooks_path(repo)
        dir = cookbook_repo_directory(repo)
-       dir = File.join(dir, repo.cookbooks_path) if repo.cookbooks_path
-       dir
+       paths = repo.cookbooks_path.inject([]) { |all, p| all << File.join(dir, p) } if repo.cookbooks_path
+       paths ||= [dir]
      end
 
     # Store public SSH key into ~/.ssh folder and create temporary script that wraps SSH and uses this key
