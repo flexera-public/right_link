@@ -119,6 +119,10 @@ describe RightScale::ExecutableSequence do
       paths = @sequence.send(:cookbooks_path, repo)
       paths.size.should == 1
       paths.first.should == @sequence.send(:cookbook_repo_directory, repo)
+      repo = RightScale::CookbookRepository.new('git', 'url', 'tag', [])
+      paths = @sequence.send(:cookbooks_path, repo)
+      paths.size.should == 1
+      paths.first.should == @sequence.send(:cookbook_repo_directory, repo)
     end
 
     it 'should calculate cookbooks path for repositories with cookbooks_path' do

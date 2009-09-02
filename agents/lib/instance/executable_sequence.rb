@@ -84,7 +84,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def download_attachments
-      @auditor.create_new_section("Downloading attachments") unless @scripts.all? { |s| s.attachments.empty? }
+      @auditor.create_new_section('Downloading attachments') unless @scripts.all? { |s| s.attachments.empty? }
       audit_time do
         @scripts.each do |script|
           attach_dir = cache_dir(script)
@@ -104,32 +104,35 @@ module RightScale
     end
 
     # Install required software packages, update @ok
+    # Always update the apt cache even if there is no package for recipes
     #
     # === Return
     # true:: Always return true
     def install_packages
       packages = []
       @scripts.each { |s| packages.push(s.packages) if s.packages && !s.packages.empty? }
+      if File.executable? '/usr/bin/apt-get'
+        ENV['DEBIAN_FRONTEND'] = 'noninteractive' # this prevents promps
+        retry_execution { @auditor.append_output(`apt-get update 2>&1`); $?.success? }
+      end
       return true if packages.empty?
-      packages = packages.uniq.join(" ")
+      packages = packages.uniq.join(' ')
       @auditor.create_new_section("Installing packages: #{packages}")
+      success = false
       audit_time do
-        crashcount = 0
-        begin
-          crashcount += 1
-          if File.executable? "/usr/bin/yum"
+        success = retry_execution do
+          if File.executable? '/usr/bin/yum'
             @auditor.append_output(`yum install -y #{packages} 2>&1`)
-          elsif File.executable? "/usr/bin/apt-get"
-            ENV['DEBIAN_FRONTEND'] = "noninteractive" # this prevents promps
-            @auditor.append_output(`apt-get update 2>&1`)
+          elsif File.executable? '/usr/bin/apt-get'
             @auditor.append_output(`apt-get install -y #{packages} 2>&1`)
           else
-            report_failure("Failed to install packages", "Cannot find yum nor apt-get binary in /usr/bin")
+            report_failure('Failed to install packages', 'Cannot find yum nor apt-get binary in /usr/bin')
             return true # Not much more we can do here
           end
-        end while !$?.success? && crashcount < InstanceConfiguration::MAX_PACKAGES_INSTALL_RETRIES
+          $?.success?
+        end
       end
-      report_failure("Failed to install packages", "Package install exited with bad status") unless $?.success?
+      report_failure('Failed to install packages', 'Package install exited with bad status') unless success
       true
     end
 
@@ -138,7 +141,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def download_cookbooks
-      @auditor.create_new_section("Retrieving cookbooks") unless @cookbook_repos.empty?
+      @auditor.create_new_section('Retrieving cookbooks') unless @cookbook_repos.empty?
       audit_time do
         @cookbook_repos.each do |repo|
           @auditor.append_info("Downloading #{repo.url}")
@@ -183,7 +186,7 @@ module RightScale
             res = 'Using local(test) cookbooks'
             success = true
           else
-            report_failure("Failed to download cookbooks", "Invalid cookbooks repository type #{repo.repo_type}")
+            report_failure('Failed to download cookbooks', "Invalid cookbooks repository type #{repo.repo_type}")
             return true
           end
           if success
@@ -225,7 +228,7 @@ module RightScale
         c.json_attribs = attribs
         c.run_solo
       rescue Exception => e
-        object = is_rs ? "RightScript" : "Chef recipe"
+        object = is_rs ? 'RightScript' : 'Chef recipe'
         report_failure("Failed to run #{object} #{recipe.nickname}", e.message)
         RightLinkLog.debug("Chef failed with '#{e.message}' at" + "\n" + e.backtrace.join("\n"))
       end
@@ -302,6 +305,27 @@ module RightScale
        end
        paths
      end
+
+    # Retry executing given block given number of times
+    # Block should return true when it succeeds
+    #
+    # === Parameters
+    # times<Integer>:: Number of times block should be retried before giving up
+    #
+    # === Block
+    # Block to be executed
+    #
+    # === Return
+    # success<Boolean>:: true if execution was successful, false otherwise.
+    def retry_execution(times=InstanceConfiguration::MAX_PACKAGES_INSTALL_RETRIES)
+      count = 0
+      success = false
+      begin
+        count += 1
+        success = yield
+      end while !success && count <= times
+      success
+    end
 
     # Store public SSH key into ~/.ssh folder and create temporary script that wraps SSH and uses this key
     # If repository does not have need SSH key for access then return empty string
