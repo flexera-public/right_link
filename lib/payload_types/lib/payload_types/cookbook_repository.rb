@@ -97,7 +97,7 @@ module RightScale
       comps = base.split('/')
       ser = comps.map { |c| c.gsub(/[:&%\+\.]/, '-') }.join('-').gsub(/-+/, '-')
       ser += '-' + tag if tag
-      ser += '-' + rand(99999) if @cookbooks_path
+      ser += '-' + rand(99999).to_s if @cookbooks_path
       ser
     end
 

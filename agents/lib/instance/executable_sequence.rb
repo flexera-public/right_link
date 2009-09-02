@@ -310,7 +310,7 @@ module RightScale
     def ssh_command(repo)
       return '' unless repo.ssh_key
       ssh_keys_dir = File.join(InstanceConfiguration::COOKBOOK_PATH, '.ssh')
-      Dir.mkdir(ssh_keys_dir) unless File.directory?(ssh_keys_dir)
+      FileUtils.mkdir_p(ssh_keys_dir) unless File.directory?(ssh_keys_dir)
       ssh_key_name = repo.to_s + '.pub'
       ssh_key_path = File.join(ssh_keys_dir, ssh_key_name)
       File.open(ssh_key_path, 'w') do |f|

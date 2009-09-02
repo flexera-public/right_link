@@ -86,7 +86,7 @@ class InstanceScheduler
         auditor = RightScale::AuditorProxy.new(bundle.audit_id)
         auditor.update_status("failed: #{bundle.to_s}")
         auditor.append_error(e.message)
-        RightScale::RightLinkLog.warn(msg)
+        RightScale::RightLinkLog.debug(e.message + "\n" + e.backtrace.join("\n"))
       end
     end
     RightScale::InstanceState.value = 'decommissioned' if @decommissioning
@@ -104,7 +104,7 @@ class InstanceScheduler
       if res.success?
         schedule_decommission(res.content)
       else
-        RightScale::RightLinkLog.warn("Failed to retrieve decommission bundle: #{res.content}")
+        RightScale::RightLinkLog.debug("Failed to retrieve decommission bundle: #{res.content}")
       end
       @scheduled_bundles.push('end')
     end
