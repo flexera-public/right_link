@@ -294,11 +294,11 @@ module RightScale
      # paths<Array>:: Array of valid path to Unix directory
      def cookbooks_path(repo)
        dir = cookbook_repo_directory(repo)
-       paths = []
-       if repo.cookbooks_path
-         repo.cookbooks_path.each { |p| paths << File.join(dir, p) }
+       paths, tmp = [], repo.cookbooks_path
+       if tmp.nil? || tmp.empty?
+         paths << dir
        else
-         paths << dir 
+         tmp.each { |p| paths << File.join(dir, p) }
        end
        paths
      end

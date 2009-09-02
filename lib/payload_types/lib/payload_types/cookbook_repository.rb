@@ -98,7 +98,7 @@ module RightScale
     def to_s
       base = @repo_type == :local ? 'local' : (@url.include?('://') ? @url[(@url.index('://')  + 3)..(@url.size - 1)] : @url)
       comps = base.split('/')
-      ser = comps.map { |c| c.gsub(/[:&%\+\.]/, '_') }.join('_').gsub(/-+/, '_')
+      ser = comps.map { |c| c.gsub(/[@:&%\+\.]/, '_') }.join('_').gsub(/-+/, '_').gsub(/_+/, '_')
       ser += '_' + tag if tag
       if @cookbooks_path
         n = Digest::SHA1.hexdigest(@cookbooks_path.join("\n")).hex
