@@ -28,6 +28,9 @@ module RightScale
 
     include Serializable
 
+    # List of characters used to build cookbooks sha1 hash path component
+    CHARS = ("a".."z").to_a + ("A".."Z").to_a + (0..9).to_a + ["_"]
+
     # <Symbol> Type of repository: one of :git, :svn, :download or :local
     # * :git denotes a 'git' repository that should be retrieved via 'git clone'
     # * :svn denotes a 'svn' repository that should be retrieved via 'svn checkout'
@@ -95,9 +98,17 @@ module RightScale
     def to_s
       base = @repo_type == :local ? 'local' : (@url.include?('://') ? @url[(@url.index('://')  + 3)..(@url.size - 1)] : @url)
       comps = base.split('/')
-      ser = comps.map { |c| c.gsub(/[:&%\+\.]/, '-') }.join('-').gsub(/-+/, '-')
-      ser += '-' + tag if tag
-      ser += '-' + rand(99999).to_s if @cookbooks_path
+      ser = comps.map { |c| c.gsub(/[:&%\+\.]/, '_') }.join('_').gsub(/-+/, '_')
+      ser += '_' + tag if tag
+      if @cookbooks_path
+        n = Digest::SHA1.hexdigest(@cookbooks_path.join("\n")).hex
+        cbp_hash = []
+        while n > 0
+          cbp_hash << CHARS[n.divmod(CHARS.size)[1]]
+          n = n.divmod(CHARS.size)[0]
+        end
+        ser += '_' + cbp_hash.to_s
+      end
       ser
     end
 

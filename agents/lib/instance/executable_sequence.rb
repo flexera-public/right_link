@@ -294,8 +294,13 @@ module RightScale
      # paths<Array>:: Array of valid path to Unix directory
      def cookbooks_path(repo)
        dir = cookbook_repo_directory(repo)
-       paths = repo.cookbooks_path.inject([]) { |all, p| all << File.join(dir, p) } if repo.cookbooks_path
-       paths ||= [dir]
+       paths = []
+       if repo.cookbooks_path
+         repo.cookbooks_path.each { |p| paths << File.join(dir, p) }
+       else
+         paths << dir 
+       end
+       paths
      end
 
     # Store public SSH key into ~/.ssh folder and create temporary script that wraps SSH and uses this key
