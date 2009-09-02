@@ -21,7 +21,7 @@ describe RightScale::InstanceState do
   end 
 
   it 'should handle image bundling' do
-    RightScale::RightLinkLog.logger.should_receive(:debug).exactly(6).times
+    RightScale::RightLinkLog.logger.should_receive(:debug).any_number_of_times
     RightScale::InstanceState.init(@identity)
     Nanite::MapperProxy.instance.should_receive(:request).
             with('/state_recorder/record', { :state => "operational", :agent_identity => "1" }).

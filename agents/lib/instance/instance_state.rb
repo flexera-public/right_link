@@ -34,10 +34,10 @@ module RightScale
     STATES          = RECORDED_STATES + %w{ decommissioned }
 
     # Path to JSON file where current instance state is serialized
-    STATE_FILE      = '/etc/rightscale/state.js'
+    STATE_FILE      = '/etc/rightscale.d/state.js'
 
     # Path to JSON file where past scripts are serialized
-    SCRIPTS_FILE    = '/etc/rightscale/past_scripts.js'
+    SCRIPTS_FILE    = '/etc/rightscale.d/past_scripts.js'
 
     # Path to boot log
     BOOT_LOG_FILE = '/var/log/install'
@@ -64,26 +64,32 @@ module RightScale
     end
   
     # Set instance id with given id
-    # Load persisted state if any, compare instance ids and force boot if different
+    # Load persisted state if any, compare instance ids and force boot if instance ID
+    # is different OR if system uptime is less than persisted uptime.
     #
     # === Parameters
     # identity<String>:: Instance identity
-    # booting<Boolean>:: Whether instance is currently booting
+    # booting<Boolean>:: Force instance boot regardless of instance ID or uptime
     #
     # === Return
     # true:: Always return true
-    def self.init(identity, booting = false)
+    def self.init(identity, booting=false)
       @@identity = identity
       dir = File.dirname(STATE_FILE)
       FileUtils.mkdir_p(dir) unless File.directory?(dir)
+
       if File.file?(STATE_FILE)
         state = JSON.load(File.new(STATE_FILE))
-        RightLinkLog.debug("Initializing instance #{identity} with #{state.inspect} (booting = #{booting})")
-        if state['identity'] != identity || booting
-          # If we are starting on a new instance (from a bundled image?) then
-          # force state to booting, reset past scripts and patch identity
+        RightLinkLog.debug("Initializing instance #{identity} with #{state.inspect}")
+        if booting || (state['identity'] != identity) || !state['uptime'] || (uptime < state['uptime'])
+          # If identity or uptime has changed, then we are booting
+          RightLinkLog.debug("Reboot detected; transitioning state to booting")
           self.value = 'booting'
+
+          # If our identity has changed, then we are a bundled instance and we
+          # need to patch our identity and reset our past scripts.
           if state['identity'] != identity
+            RightLinkLog.debug("Bundled boot detected; resetting past scripts")
             @@past_scripts = []
             File.open(SCRIPTS_FILE, 'w') do |f|
               f.write(@@past_scripts.to_json)
@@ -99,11 +105,13 @@ module RightScale
         RightLinkLog.debug("Initializing instance #{identity} with booting")
         self.value = 'booting'
       end
+
       if File.file?(SCRIPTS_FILE)
         @@past_scripts = JSON.load(File.new(SCRIPTS_FILE))
       else
         @@past_scripts = []
       end
+
       RightLinkLog.debug("Past scripts: #{@@past_scripts.inspect}")
       true
     end
@@ -131,7 +139,7 @@ module RightScale
         end
       end
       File.open(STATE_FILE, 'w') do |f|
-        f.write({ 'value' => val, 'identity' => @@identity }.to_json)
+        f.write({ 'value' => val, 'identity' => @@identity, 'uptime' => uptime }.to_json)
       end
       val
     end
@@ -186,6 +194,13 @@ module RightScale
       end
     end
 
+    # Determine uptime of this system using the proc filesystem
+    #
+    # === Return
+    # uptime<Float>:: Uptime of this system in seconds, or 0.0 if undetermined 
+    def self.uptime()
+      return File.read('/proc/uptime').split(/\s+/)[0].to_f rescue 0.0
+    end
   end
 
 end
