@@ -158,7 +158,7 @@ module RightScale
             success = $? == 0
             if repo.tag && success
               Dir.chdir(cookbook_dir) do
-                res += `#{ssh_cmd} git fetch --tags 2>&1`
+                res += `#{ssh_cmd} git fetch --depth 1 --tags 2>&1`
                 is_tag = `git tag`.split("\n").include?(repo.tag)
                 is_branch = `git branch -r`.split("\n").map { |t| t.strip }.include?("origin/#{repo.tag}")
                 if is_tag && is_branch
