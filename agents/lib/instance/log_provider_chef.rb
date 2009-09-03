@@ -41,7 +41,7 @@ class Chef
         #
         # === Return
         # true:: Always return true
-        def write
+        def action_write
           Chef::Log.send(@new_resource.level, @new_resource.name)
         end
 
