@@ -61,7 +61,8 @@ class Chef
       # === Return
       # res<String>:: Response content
       def post_change(query)
-        res = `curl -S -s --retry 7 -k -o -g -f 'https://www.dnsmadeeasy.com/servlet/updateip?#{query}'`
+        res = `curl -S -s --retry 7 -k -o - -g -f 'https://www.dnsmadeeasy.com/servlet/updateip?#{query}'`
+        #-S -s -o - -f -g
       end
       
     end
