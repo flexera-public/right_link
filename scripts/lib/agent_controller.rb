@@ -109,6 +109,7 @@ module RightScale
         file_options = symbolize(YAML.load(IO.read(cfg))) rescue {} || {}
         file_options.merge!(options)
         options = file_options
+        RightLinkLog.program_name = syslog_program_name
         RightLinkLog.log_to_file_only(options[:log_to_file_only])
       end 
       options.merge!(FORCED_OPTIONS)
@@ -364,6 +365,11 @@ module RightScale
     # List of all agents configuration files
     def agents_configs
       Dir.glob(File.join(agents_dir, "**", "*.{#{YAML_EXT.join(',')}}"))
+    end
+
+    # Version information
+    def syslog_program_name
+      'RightLink'
     end
 
     # Version information

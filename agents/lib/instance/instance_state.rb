@@ -81,7 +81,7 @@ module RightScale
       if File.file?(STATE_FILE)
         state = JSON.load(File.new(STATE_FILE))
         RightLinkLog.debug("Initializing instance #{identity} with #{state.inspect}")
-        if booting || (state['identity'] != identity) || !state['uptime'] || (uptime < state['uptime'])
+        if booting || (state['identity'] != identity) || !state['uptime'] || (uptime < state['uptime'].to_f)
           # If identity or uptime has changed, then we are booting
           RightLinkLog.debug("Reboot detected; transitioning state to booting")
           self.value = 'booting'
@@ -139,7 +139,7 @@ module RightScale
         end
       end
       File.open(STATE_FILE, 'w') do |f|
-        f.write({ 'value' => val, 'identity' => @@identity, 'uptime' => uptime }.to_json)
+        f.write({ 'value' => val, 'identity' => @@identity, 'uptime' => uptime.to_s }.to_json)
       end
       val
     end

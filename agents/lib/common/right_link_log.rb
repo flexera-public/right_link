@@ -142,6 +142,23 @@ module RightScale
       @initialized
     end
 
+    # Sets the syslog program name that will be reported.
+    # Can only be successfully called before logging is
+    # initialized.
+    #
+    # === Parameters
+    # prog_name<String>:: An arbitrary string, or "nil"
+    #                     to use the default name which
+    #                     is based on the nanite identity
+    #
+    #
+    # === Return
+    # loglevel<Object>:: New loglevel
+    def self.program_name=(prog_name)
+      raise 'Logger already initialized' if @initialized
+      @program_name = prog_name
+    end
+
     # Sets the level for the Logger by symbol or by Logger constant
     #
     # === Parameters
@@ -187,11 +204,11 @@ module RightScale
         if @log_to_file_only || RightLinkConfig[:platform].windows?
           logger = Nanite::Log.logger
         else
-          prog_name = Nanite::Log.file.match(/nanite\.(.*)\.log/)[1] rescue 'right_link'
+          prog_name = @program_name || 'RightLink'
           logger = SyslogLogger.new(prog_name)
           logger.level = Nanite::Log.logger.level
         end
-		@logger = Multiplexer.new(logger)
+		    @logger = Multiplexer.new(logger)
         RightLinkLog.level = Nanite::Log.level
         # Now make nanite use this logger
         Nanite::Log.logger = @logger
