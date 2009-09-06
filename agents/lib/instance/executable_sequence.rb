@@ -350,7 +350,7 @@ module RightScale
       File.open(ssh, 'w') do |f|
         f.puts("ssh -i #{ssh_key_path} -o StrictHostKeyChecking=no $*")
       end
-      File.chmod(755, ssh)
+      File.chmod(0755, ssh)
       "GIT_SSH=#{ssh}"
     end
 
