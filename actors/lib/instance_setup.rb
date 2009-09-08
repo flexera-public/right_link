@@ -81,10 +81,8 @@ class InstanceSetup
         run_boot_bundle do |result|
           if result.success?
             RightScale::InstanceState.value = 'operational'
-            update_motd(success=true)
           else
             strand("Failed to run boot scripts", result)
-            update_motd(success=false)
           end
         end
       else
@@ -188,28 +186,6 @@ class InstanceSetup
       constant = constant && constant.const_defined?(name) ? constant.const_get(name) : nil
     end
     constant
-  end
-
-  # Purely for informational purposes, attempt to update the Unix MOTD file
-  # with a pretty banner indicating success or failure. This operation is
-  # not critical and does not influence the functionality of the instance,
-  # so this method fails silently.
-  #
-  # === Parameters
-  # success<true|false>:: whether to indicate success or failure in motd
-  #
-  # === Return
-  # constant<Constant>:: Corresponding ruby constant if there is one
-  # nil:: Otherwise
-  def update_motd(success)
-    FileUtils.rm('/etc/motd') rescue nil
-    if success
-      FileUtils.cp('/opt/rightscale/etc/motd-complete', '/etc/motd') rescue nil
-      system('echo "RightScale installation complete. Details can be found in /var/log/messages" | wall') rescue nil
-    else
-      FileUtils.cp('/opt/rightscale/etc/motd-motd-failed', '/etc/motd') rescue nil
-      system('echo "RightScale installation failed. Please review /var/log/messages" | wall') rescue nil
-    end
   end
 
 end

@@ -28,10 +28,16 @@ module RightScale
   class InstanceState
 
     # States that will be audited when transitioned to
-    RECORDED_STATES = %w{ booting operational stranded decommissioning }
+    RECORDED_STATES   = %w{ booting operational stranded decommissioning }
+
+    # States that cause the system MOTD/banner to indicate that everything is OK
+    SUCCESSFUL_STATES = %w{ operational }
+
+    # States that cause the system MOTD/banner to indicate that something is wrong
+    FAILED_STATES     = %w{ stranded }
 
     # Recorded states and additional states local to instance agent
-    STATES          = RECORDED_STATES + %w{ decommissioned }
+    STATES            = RECORDED_STATES + %w{ decommissioned }
 
     # Path to JSON file where current instance state is serialized
     STATE_FILE      = '/etc/rightscale.d/state.js'
@@ -131,6 +137,7 @@ module RightScale
       RightLinkLog.debug("Transitioning state from #{@@value rescue 'nil'} to #{val}")
       @@value = val
       update_logger
+      update_motd
       if RECORDED_STATES.include?(val)
         options = { :agent_identity => identity, :state => val }
         Nanite::MapperProxy.instance.request('/state_recorder/record', options) do |r|
@@ -201,6 +208,30 @@ module RightScale
     def self.uptime()
       return File.read('/proc/uptime').split(/\s+/)[0].to_f rescue 0.0
     end
+
+    # Purely for informational purposes, attempt to update the Unix MOTD file
+    # with a pretty banner indicating success or failure. This operation is
+    # not critical and does not influence the functionality of the instance,
+    # so this method fails silently.
+    #
+    # === Return
+    # nil:: always return nil
+    def self.update_motd()
+      FileUtils.rm('/etc/motd') rescue nil
+
+      if SUCCESSFUL_STATES.include?(@@value)
+        FileUtils.cp('/opt/rightscale/etc/motd-complete', '/etc/motd') rescue nil
+        system('echo "RightScale installation complete. Details can be found in /var/log/messages" | wall') rescue nil
+      elsif FAILED_STATES.include?(@@value)
+        FileUtils.cp('/opt/rightscale/etc/motd-failed', '/etc/motd') rescue nil
+        system('echo "RightScale installation failed. Please review /var/log/messages" | wall') rescue nil
+      else
+        FileUtils.cp('/opt/rightscale/etc/motd', '/etc/motd') rescue nil
+      end
+
+      return nil
+    end
+
   end
 
 end

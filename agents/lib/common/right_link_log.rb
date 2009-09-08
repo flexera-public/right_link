@@ -153,7 +153,7 @@ module RightScale
     #
     #
     # === Return
-    # loglevel<Object>:: New loglevel
+    # program_name<String>:: The input string
     def self.program_name=(prog_name)
       raise 'Logger already initialized' if @initialized
       @program_name = prog_name
@@ -204,7 +204,7 @@ module RightScale
         if @log_to_file_only || RightLinkConfig[:platform].windows?
           logger = Nanite::Log.logger
         else
-          prog_name = @program_name || 'RightLink'
+          prog_name = @program_name || Nanite::Log.file.match(/nanite\.(.*)\.log/)[1] rescue 'RightLink'
           logger = SyslogLogger.new(prog_name)
           logger.level = Nanite::Log.logger.level
         end
