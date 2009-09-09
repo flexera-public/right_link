@@ -368,7 +368,7 @@ module RightScale
     end
 
     # Version information
-    def syslog_program_name
+    def syslog_program_name(options)
       'RightLink'
     end
 
