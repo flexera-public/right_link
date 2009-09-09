@@ -109,7 +109,7 @@ module RightScale
         file_options = symbolize(YAML.load(IO.read(cfg))) rescue {} || {}
         file_options.merge!(options)
         options = file_options
-        RightLinkLog.program_name = syslog_program_name
+        RightLinkLog.program_name = syslog_program_name(options)
         RightLinkLog.log_to_file_only(options[:log_to_file_only])
       end 
       options.merge!(FORCED_OPTIONS)
