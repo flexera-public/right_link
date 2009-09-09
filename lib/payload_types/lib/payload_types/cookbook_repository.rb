@@ -29,7 +29,7 @@ module RightScale
     include Serializable
 
     # List of characters used to build cookbooks sha1 hash path component
-    CHARS = ("a".."z").to_a + ("A".."Z").to_a + (0..9).to_a + ["_"]
+    CHARS = ("a".."z").to_a + ("A".."Z").to_a + (0..9).to_a
 
     # <Symbol> Type of repository: one of :git, :svn, :download or :local
     # * :git denotes a 'git' repository that should be retrieved via 'git clone'
@@ -96,20 +96,18 @@ module RightScale
     # === Return
     # ser<String>:: Serialized representation of cookbook repository
     def to_s
-      base = @repo_type == :local ? 'local' : (@url.include?('://') ? @url[(@url.index('://')  + 3)..(@url.size - 1)] : @url)
-      comps = base.split('/')
-      ser = comps.map { |c| c.gsub(/[@:&%\+\.]/, '_') }.join('_').gsub(/-+/, '_').gsub(/__+/, '_')
-      ser += '_' + tag if tag
-      if @cookbooks_path
-        n = Digest::SHA1.hexdigest(@cookbooks_path.join("\n")).hex
-        cbp_hash = []
-        while n > 0
-          cbp_hash << CHARS[n.divmod(CHARS.size)[1]]
-          n = n.divmod(CHARS.size)[0]
-        end
-        ser += '_' + cbp_hash.to_s
+      prefix = @repo_type == :local ? 'local' : (@url.include?('://') ? @url[(@url.index('://')  + 3)..(@url.size - 1)] : @url)
+      base = prefix   
+      prefix = prefix.gsub(/[^a-zA-Z0-9]+/, '_')
+      base += tag if tag
+      base += @cookbooks_path.join("\n") if @cookbooks_path
+      n = Digest::SHA1.hexdigest(base).hex
+      cbp_hash = []
+      while n > 0
+        cbp_hash << CHARS[n.divmod(CHARS.size)[1]]
+        n = n.divmod(CHARS.size)[0]
       end
-      ser
+      ser = prefix + cbp_hash.to_s
     end
 
   end

@@ -342,16 +342,12 @@ module RightScale
       FileUtils.mkdir_p(ssh_keys_dir) unless File.directory?(ssh_keys_dir)
       ssh_key_name = repo.to_s + '.pub'
       ssh_key_path = File.join(ssh_keys_dir, ssh_key_name)
-      File.open(ssh_key_path, 'w') do |f|
-        f.puts(repo.ssh_key)
-      end
+      File.open(ssh_key_path, 'w') { |f| f.puts(repo.ssh_key) }
       File.chmod(0600, ssh_key_path)
       ssh = File.join(InstanceConfiguration::COOKBOOK_PATH, 'ssh')
-      File.open(ssh, 'w') do |f|
-        f.puts("ssh -i #{ssh_key_path} -o StrictHostKeyChecking=no $*")
-      end
+      File.open(ssh, 'w') { |f| f.puts("ssh -i #{ssh_key_path} -o StrictHostKeyChecking=no $*") }
       File.chmod(0755, ssh)
-      "GIT_SSH=#{ssh}"
+      ssh = "GIT_SSH=#{ssh}"
     end
 
     # Audit startup time and duration of given action
