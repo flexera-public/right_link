@@ -273,7 +273,10 @@ module RightScale
       decommissioned = false
       state_file = File.new(InstanceState::STATE_FILE)
       begin
-        state = JSON.load(state_file)
+        # WARNING: always read state file into a string first; JSON gem has issues when parsing from an IO object
+        # when the JSON structure contains integers or other non-string elements.
+        state_string = File.read(state_file)
+        state = JSON.load(state_string)
         fail("Invalid state file content '#{state.inspect}'") unless state && state['value']
         decommissioned = state['value'] == 'decommissioned'
         sleep 1 unless decommissioned
