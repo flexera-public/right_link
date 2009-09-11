@@ -271,11 +271,11 @@ module RightScale
       fail("Could not decommission, no pid file found or pid file invalid for instance agent") unless pid && pid != 0
       Process.kill("USR1", pid)
       decommissioned = false
-      state_file = File.new(InstanceState::STATE_FILE)
       begin
         # WARNING: always read state file into a string first; JSON gem has issues when parsing from an IO object
         # when the JSON structure contains integers or other non-string elements.
-        state_string = File.read(state_file)
+        state_file = File.new(InstanceState::STATE_FILE)
+        state_string = state_file.read
         state = JSON.load(state_string)
         fail("Invalid state file content '#{state.inspect}'") unless state && state['value']
         decommissioned = state['value'] == 'decommissioned'
