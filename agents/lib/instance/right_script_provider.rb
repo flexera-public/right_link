@@ -77,7 +77,9 @@ class Chef
 
         # 3. Fork and wait
         @mutex.synchronize do
-          RightScale.popen25(sc_filename.gsub(' ', '\\ '), self, :on_read_stdout, :on_exit)
+          cmd = sc_filename.gsub(' ', '\\ ')
+          #RightScale.popen25(cmd, self, :on_read_stdout, :on_exit)
+          RightScale.popen3(cmd, self, :on_read_stdout, :on_read_stderr, :on_exit)
           @exited_event.wait(@mutex)
         end
 
