@@ -22,6 +22,10 @@
 
 # Instance agent initialization
 
+# Path to file containing code dynamically generated before RightLink agent
+# started. Its content will get evaled in the context of the agent.
+RIGHT_LINK_ENV = File.join(File.dirname(__FILE__), 'right_link_env.rb')
+
 BASE_DIR = File.expand_path(File.join(File.dirname(__FILE__), '..', '..'))
 require File.join(BASE_DIR, 'agents', 'lib', 'instance_lib')
 require File.join(BASE_DIR, 'lib', 'command_protocol', 'lib', 'command_protocol')
@@ -33,6 +37,12 @@ RightScale::SecureSerializerInitializer.init('instance', options[:identity], Rig
 register InstanceSetup.new(options[:identity])
 register InstanceScheduler.new(options[:identity])
 register AgentManager.new
+
+# Load environment code if present
+# The file 'right_link_env.rb' should be generated before the RightLink
+# agent is started. It can contain code generated dynamically e.g. from
+# the cloud user data
+instance_eval(IO.read(RIGHT_LINK_ENV)) if File.file?(RIGHT_LINK_ENV)
 
 # Start command runner to enable running RightScripts and recipes from the command line
 RightScale::CommandRunner.start(options[:identity])
