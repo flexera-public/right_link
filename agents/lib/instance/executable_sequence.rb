@@ -167,6 +167,9 @@ module RightScale
                 elsif is_branch
                   res += `git branch #{repo.tag} origin/#{repo.tag} 2>&1`
                   success = $? == 0
+                elsif !is_tag # Not a branch nor a tag, SHA ref? fetch everything so we have all SHAs
+                  res += `git fetch origin master --depth #{2**31 - 1} 2>&1`
+                  @errors << res if $? != 0
                 end
                 if success
                   res += `git checkout #{repo.tag} 2>&1`
