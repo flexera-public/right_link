@@ -157,8 +157,13 @@ module RightScale
     # true:: Always return true
     def self.update_logger
       if file = log_file(@@value)
-        RightLinkLog.remove_logger(@current_logger) if @current_logger
+        previous_level = nil
+        if @current_logger
+          previous_level = @current_logger.level
+          RightLinkLog.remove_logger(@current_logger)
+        end
         @current_logger = Logger.new(file)
+        @current_logger.level = previous_level if previous_level
         RightLinkLog.add_logger(@current_logger)
       end
       true
