@@ -179,7 +179,7 @@ module RightScale
             end
           when :svn
             svn_cmd = "svn export #{repo.url} #{cookbook_dir} --non-interactive" +
-            (repo.tag ? " --revision #{repo.tag}" : '') +
+            (repo.tag && !repo.tag.empty? ? " --revision #{repo.tag}" : '') +
             (repo.username ? " --username #{repo.username}" : '') +
             (repo.password ? " --password #{repo.password}" : '') +
             ' 2>&1'
