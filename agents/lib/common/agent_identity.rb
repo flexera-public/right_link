@@ -81,5 +81,21 @@ module RightScale
       serialized = "#{@prefix}#{ID_SEPARATOR}#{@agent_name}#{ID_SEPARATOR}#{token}#{ID_SEPARATOR}#{@base_id}"
     end
 
+    # Comparison operator
+    #
+    # === Parameters
+    # other<AgentIdentity>:: Other agent identity
+    #
+    # === Return
+    # true:: If other is identical to self
+    # false:: Otherwise
+    def ==(other)
+      other.kind_of?(::RightScale::AgentIdentity) &&
+      prefix     == other.prefix     &&
+      agent_name == other.agent_name &&
+      token      == other.token      &&
+      base_id    == other.base_id
+    end
+  
   end
 end
