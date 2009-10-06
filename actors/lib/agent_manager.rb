@@ -24,7 +24,7 @@ class AgentManager
 
   include Nanite::Actor
 
-  expose :ping, :set_log_level
+  expose :ping, :set_log_level, :execute
 
   # Valid log levels
   LEVELS = [:debug, :info, :warn, :error, :fatal]
@@ -50,4 +50,19 @@ class AgentManager
     res = RightScale::OperationResult.success
   end
 
+  # Eval given code in context of agent
+  #
+  # === Parameter
+  # code<String>:: Code to be evaled
+  #
+  # === Return
+  # res<RightScale::OperationResult>:: Success with result if code didn't raise an exception
+  #                                    Failure with exception message otherwise
+  def execute(code)
+    begin
+      return RightScale::OperationResult.success(self.instance_eval(code))
+    rescue Exception => e
+      return RightScale::OperationResult.error(e.message + " at\n" + e.backtrace.join("\n"))
+    end
+  end
 end
