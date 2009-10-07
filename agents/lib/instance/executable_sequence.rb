@@ -156,7 +156,7 @@ module RightScale
             ssh_cmd = ssh_command(repo)
             res = `#{ssh_cmd} git clone --quiet --depth 1 #{repo.url} #{cookbook_dir} 2>&1`
             success = $? == 0
-            if repo.tag && success
+            if repo.tag && !repo.tag.empty? && repo.tag != 'master' && success
               Dir.chdir(cookbook_dir) do
                 res += `#{ssh_cmd} git fetch --depth 1 --tags 2>&1`
                 is_tag = `git tag`.split("\n").include?(repo.tag)
@@ -167,6 +167,9 @@ module RightScale
                 elsif is_branch
                   res += `git branch #{repo.tag} origin/#{repo.tag} 2>&1`
                   success = $? == 0
+                elsif !is_tag # Not a branch nor a tag, SHA ref? fetch everything so we have all SHAs
+                  res += `#{ssh_cmd} git fetch origin master --depth #{2**31 - 1} 2>&1`
+                  success = $? == 0
                 end
                 if success
                   res += `git checkout #{repo.tag} 2>&1`
@@ -176,7 +179,7 @@ module RightScale
             end
           when :svn
             svn_cmd = "svn export #{repo.url} #{cookbook_dir} --non-interactive" +
-            (repo.tag ? " --revision #{repo.tag}" : '') +
+            (repo.tag && !repo.tag.empty? ? " --revision #{repo.tag}" : '') +
             (repo.username ? " --username #{repo.username}" : '') +
             (repo.password ? " --password #{repo.password}" : '') +
             ' 2>&1'
