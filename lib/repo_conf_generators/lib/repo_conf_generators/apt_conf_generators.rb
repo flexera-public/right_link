@@ -11,7 +11,7 @@
 
 module Apt
 
-  module Ubuntu 
+  module Ubuntu
     # The different generate classes will always generate an exception ("string") if there's anything that went wrong. If no exception, things went well.
     class Intrepid
       def self.generate(description, base_urls, frozen_date="latest")
@@ -44,19 +44,23 @@ module Apt
 
     ############## INTERNAL FUNCTIONS #######################################################
     def self.abstract_generate(params)
+      lsb_release = `lsb_release -ds`.downcase.split(/\s+/)[0]
+      ENV['RS_DISTRO']     = lsb_release[0]
+      ENV['RS_OS_VERSION'] = lsb_release[1]
+
       return unless ENV['RS_DISTRO'] == 'ubuntu'
       opts = { :enabled => true, :frozen_date => "latest"}
       opts.merge!(params)
-      raise "missing parameters to generate file!" unless opts[:repo_filename] && 
+      raise "missing parameters to generate file!" unless opts[:repo_filename] &&
                                                           opts[:repo_name] &&
-                                                          opts[:base_urls] && 
-                                                          opts[:frozen_date] && 
+                                                          opts[:base_urls] &&
+                                                          opts[:frozen_date] &&
                                                           opts[:enabled]
-      raise "repository not enabled. skipping." unless opts[:enabled]
+      raise "repository not enabled. skipping." unless    opts[:enabled]
       release_name = nil
-      release_name = 'hardy' if ENV['RS_OS_VERSION'] =~ /8\.04/ 
-      release_name = 'intrepid' if ENV['RS_OS_VERSION'] =~ /8\.10/ 
-      raise "unsupported ubuntu release #{ENV['RS_OS_VERSION']}" if release_name.nil?
+      release_name = 'hardy' if ENV['RS_OS_VERSION'] =~ /8\.04/
+      release_name = 'intrepid' if ENV['RS_OS_VERSION'] =~ /8\.10/
+      raise "Unsupported ubuntu release #{ENV['RS_OS_VERSION']}" if release_name.nil?
       FileUtils.mkdir_p(Apt::Ubuntu::path_to_sources_list)
 # new with ubuntu, a different directory structure, eg: /ubuntu_daily/2009/12/01
       if opts[:frozen_date] != 'latest'
