@@ -167,25 +167,4 @@ class InstanceSetup
     true
   end
 
-  # constantize was taken from
-  # File rails/activesupport/lib/active_support/inflector.rb, line 346
-  #
-  # === Parameters
-  # camel_cased_word<String>:: Fully qualified contant name
-  #
-  # === Return
-  # constant<Constant>:: Corresponding ruby constant if there is one
-  # nil:: Otherwise
-  def constantize(camel_cased_word)
-    names = camel_cased_word.split('::')
-    names.shift if names.empty? || names.first.empty?
-
-    constant = Object
-    names.each do |name|
-      # modified to return nil instead of raising an const_missing error
-      constant = constant && constant.const_defined?(name) ? constant.const_get(name) : nil
-    end
-    constant
-  end
-
 end
