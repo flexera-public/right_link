@@ -44,7 +44,7 @@ module Apt
 
     ############## INTERNAL FUNCTIONS #######################################################
     def self.abstract_generate(params)
-      lsb_release = `lsb_release -ds`.downcase.split(/\s+/)[0]
+      lsb_release = `lsb_release -ds`.downcase.split(/\s+/)
       ENV['RS_DISTRO']     = lsb_release[0]
       ENV['RS_OS_VERSION'] = lsb_release[1]
 
