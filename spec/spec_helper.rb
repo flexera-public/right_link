@@ -37,6 +37,7 @@ module RightScale
     # Setup instance state for tests
     # Use different identity to reset list of past scripts
     def setup_state(identity = '1')
+      cleanup_state
       RightScale::InstanceState.const_set(:STATE_FILE, state_file_path)
       RightScale::InstanceState.const_set(:SCRIPTS_FILE, past_scripts_path)
       RightScale::InstanceState.const_set(:BOOT_LOG_FILE, log_path)

@@ -10,7 +10,7 @@ describe RightScale::ExecutableSequence do
 
     before(:all) do
       RightScale::RightLinkLog.logger.should_receive(:debug).any_number_of_times
-      @attachment_file = File.join(File.dirname(__FILE__), '__test_download__')
+      @attachment_file = File.expand_path(File.join(File.dirname(__FILE__), '__test_download__'))
       File.open(@attachment_file, 'w') do |f|
         f.write('Some attachment content')
       end
@@ -70,16 +70,18 @@ describe RightScale::ExecutableSequence do
 
     it 'should report success' do
       @script.should_receive(:packages).any_number_of_times.and_return(nil)
-      @script.should_receive(:source).and_return("#!/bin/sh\n/opt/rightscale/sandbox/bin/ruby -e 'exit(0)'")
+      @script.should_receive(:source).and_return("#!/bin/sh\nruby -e 'exit(0)'")
       @sequence = RightScale::ExecutableSequence.new(@bundle)
+      @sequence.should_receive(:install_packages).and_return(true)
       @auditor.should_receive(:append_error).never
       run_sequence.should be_true
     end
 
     it 'should audit failures' do
       @script.should_receive(:packages).any_number_of_times.and_return(nil)
-      @script.should_receive(:source).and_return("#!/bin/sh\n/opt/rightscale/sandbox/bin/ruby -e 'exit(1)'")
+      @script.should_receive(:source).and_return("#!/bin/sh\nruby -e 'exit(1)'")
       @sequence = RightScale::ExecutableSequence.new(@bundle)
+      @sequence.should_receive(:install_packages).and_return(true)
       @auditor.should_receive(:append_error).exactly(3).times
       RightScale::RightLinkLog.logger.should_receive(:error)
       run_sequence.should be_false
@@ -87,9 +89,10 @@ describe RightScale::ExecutableSequence do
 
     it 'should report invalid attachments' do
       @script.should_receive(:packages).any_number_of_times.and_return(nil)
-      @script.should_receive(:source).and_return("#!/bin/sh\n/opt/rightscale/sandbox/bin/ruby -e 'exit(0)'")
+      @script.should_receive(:source).and_return("#!/bin/sh\nruby -e 'exit(0)'")
       @sequence = RightScale::ExecutableSequence.new(@bundle)
       @attachment.should_receive(:url).and_return("http://thisurldoesnotexist.wrong")
+      @attachment.should_receive(:file_name).any_number_of_times.and_return("<FILENAME>") # to display any error message
       downloader = RightScale::Downloader.new(retry_period=0.1, use_backoff=false)
       @sequence.instance_variable_set(:@downloader, downloader)
       @auditor.should_receive(:append_error).exactly(2).times
@@ -97,14 +100,6 @@ describe RightScale::ExecutableSequence do
       run_sequence.should be_false
     end
 
-    it 'should report invalid packages' do
-      @script.should_receive(:packages).any_number_of_times.and_return("__INVALID__")
-      @script.should_receive(:source).and_return("#!/bin/sh\n/opt/rightscale/sandbox/bin/ruby -e 'exit(0)'")
-      @sequence = RightScale::ExecutableSequence.new(@bundle)
-      @auditor.should_receive(:append_error).exactly(2).times
-      RightScale::RightLinkLog.logger.should_receive(:error)
-      run_sequence.should be_false
-    end
   end
 
   context 'Testing helper methods' do
