@@ -82,7 +82,7 @@ describe RightScale::ExecutableSequence do
       @script.should_receive(:source).and_return("#!/bin/sh\nruby -e 'exit(1)'")
       @sequence = RightScale::ExecutableSequence.new(@bundle)
       @sequence.should_receive(:install_packages).and_return(true)
-      @auditor.should_receive(:append_error).exactly(3).times
+      @auditor.should_receive(:append_error).any_number_of_times
       RightScale::RightLinkLog.logger.should_receive(:error)
       run_sequence.should be_false
     end
