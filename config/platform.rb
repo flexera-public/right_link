@@ -20,10 +20,14 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-module RightScale
+require File.expand_path(File.join(File.dirname(__FILE__), 'platform', 'darwin'))
+require File.expand_path(File.join(File.dirname(__FILE__), 'platform', 'linux'))
+require File.expand_path(File.join(File.dirname(__FILE__), 'platform', 'win32'))
 
-  class Platform
-		
+module RightScale
+  class PlatformError < StandardError; end
+  
+  class Platform		
 		# Initialize platform values
 		def initialize
 			@windows = !!(RUBY_PLATFORM =~ /mswin/)
@@ -40,7 +44,7 @@ module RightScale
 			@windows
 		end
 
-		# Is current platform apple macintosh?
+		# Is current platform Mac OS X (aka Darwin)?
 		#
 		# === Return
 		# true:: If ruby interpreter is running on Mac
@@ -58,6 +62,31 @@ module RightScale
 			@linux
 		end
 
+    # Filesystem options object
+    #
+    # === Return
+    # fs<Filesystem>:: Platform-specific filesystem config object
+    def filesystem
+      if linux?
+        return Linux::Filesystem.new
+      elsif mac?
+        return Darwin::Filesystem.new
+      elsif windows?
+        return Win32::Filesystem.new
+      else
+        raise PlatformError.new("Don't know about the filesystem on this platform")
+      end
+    end
+
+    # Linux platform-specific platform object
+    #
+    # === Return
+    # instance of Platform::Linux:: If ruby interpreter is running on Linux
+    # nil:: Otherwise
+    def linux
+      raise PlatformError.new("Only available under Linux") unless linux?
+      return Linux.new
+    end
 	end
 end
 

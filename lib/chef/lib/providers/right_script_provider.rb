@@ -71,9 +71,18 @@ class Chef
 
         # 2. Setup audit and environment
         @auditor.create_new_section("Running RightScript < #{@nickname} >")
+        begin
+          platform = RightScale::Platform.new
+          user_data_dir = platform.filesystem.cloud_metadata_dir
+          user_data = File.join(user_data_dir, "user-data.rb")
+          load(user_data)
+        rescue Exception => e
+          @auditor.append_info("Could not load user data; script will execute without user data in environment!")
+        end 
         parameters.each { |key, val| ENV[key] = val }
         ENV['ATTACH_DIR'] = ENV['RS_ATTACH_DIR'] = cache_dir
         ENV['RS_REBOOT']  = RightScale::InstanceState.past_scripts.include?(@nickname) ? '1' : nil
+        ENV['RS_DISTRO'] = platform.linux.distro if platform.linux?
 
         # 3. Fork and wait
         @mutex.synchronize do

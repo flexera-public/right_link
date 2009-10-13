@@ -44,30 +44,29 @@ module Apt
 
     ############## INTERNAL FUNCTIONS #######################################################
     def self.abstract_generate(params)
-      lsb_release = `lsb_release -ds`.downcase.split(/\s+/)
-      ENV['RS_DISTRO']     = lsb_release[0]
-      ENV['RS_OS_VERSION'] = lsb_release[1]
+      platform = RightScale::Platform.new
+      return unless platform.linux? && platform.linux.ubuntu?
 
-      return unless ENV['RS_DISTRO'] == 'ubuntu'
       opts = { :enabled => true, :frozen_date => "latest"}
       opts.merge!(params)
-      raise "missing parameters to generate file!" unless opts[:repo_filename] &&
-                                                          opts[:repo_name] &&
-                                                          opts[:base_urls] &&
-                                                          opts[:frozen_date] &&
-                                                          opts[:enabled]
-      raise "repository not enabled. skipping." unless    opts[:enabled]
-      release_name = nil
-      release_name = 'hardy' if ENV['RS_OS_VERSION'] =~ /8\.04/
-      release_name = 'intrepid' if ENV['RS_OS_VERSION'] =~ /8\.10/
-      raise "Unsupported ubuntu release #{ENV['RS_OS_VERSION']}" if release_name.nil?
+      raise ArgumentError.new("missing parameters to generate file!") unless opts[:repo_filename] &&
+                                                                      opts[:repo_name] &&
+                                                                      opts[:base_urls] &&
+                                                                      opts[:frozen_date] &&
+                                                                      opts[:enabled]
+
+      return unless opts[:enabled]
+
+      codename = platform.linux.codename
+      raise RightScale::PlatformError.new("Unsupported ubuntu release #{codename}") unless ['hardy', 'intrepid'].include(codename)
       FileUtils.mkdir_p(Apt::Ubuntu::path_to_sources_list)
-# new with ubuntu, a different directory structure, eg: /ubuntu_daily/2009/12/01
+
       if opts[:frozen_date] != 'latest'
         x = Date.parse(opts[:frozen_date]).to_s
         x.gsub!(/-/,"/")
         opts[:frozen_date] = x
       end
+
       mirror_list =  opts[:base_urls].map do |bu|
         bu +='/' unless bu[-1..-1] == '/' # ensure the base url is terminated with a '/'
         bu + opts[:frozen_date]
@@ -81,11 +80,12 @@ deb #{mirror_url} #{release_name}-security main restricted multiverse universe
 
 END
       end
+
       target_filename = "#{Apt::Ubuntu::path_to_sources_list}/#{opts[:repo_filename]}.sources.list"
       FileUtils.rm_f(target_filename) if File.exists?(target_filename)
       File.open(target_filename,'w') { |f| f.write(config_body) }
       FileUtils.mv("/etc/apt/sources.list", "/etc/apt/sources.list.ORIG") if File.exists?("/etc/apt/sources.list")
-      puts "Apt respository config successfully generated in #{target_filename}"
+
       mirror_list
     end
   end
