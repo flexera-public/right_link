@@ -38,12 +38,16 @@ module RightScale
           '/opt/rightscale/right_link'
         end
 
-        def right_scale_config_dir
+        def right_link_certs_dir
+          '/opt/rightscale/certs'
+        end
+
+        def right_scale_state_dir
           '/etc/rightscale.d'
         end
 
         def cloud_metadata_dir
-          '/var/spool/cloud'
+          '/var/spool'
         end
       end
     end

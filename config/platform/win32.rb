@@ -20,15 +20,16 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+begin
+  require 'rubygems'
+  require 'win32/dir'
+rescue LoadError => e
+  raise e if !!(RUBY_PLATFORM =~ /mswin/)
+end
+
 module RightScale
   class Platform
     class Win32
-      attr_reader :release
-
-      def initialize()
-        require 'win32/dir'
-      end
-
       class Filesystem
         def right_scale_dir
           File.join(Dir::PROGRAM_FILES, 'RightScale')
@@ -38,12 +39,16 @@ module RightScale
           File.join(Dir::PROGRAM_FILES, 'RightScale', 'right_link')
         end
 
-        def right_scale_config_dir
+        def right_link_certs_dir
+          File.join(Dir::COMMON_APPDATA, 'RightScale', 'certs')
+        end
+
+        def right_scale_state_dir
           File.join(Dir::COMMON_APPDATA, 'RightScale', 'rightscale.d')
         end
 
         def cloud_metadata_dir
-          File.join(Dir::COMMON_APPDATA, 'RightScale', 'metadata')
+          File.join(Dir::COMMON_APPDATA, 'RightScale', 'spool')
         end
       end
     end
