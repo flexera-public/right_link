@@ -59,6 +59,10 @@ module RightScale
           '/opt/rightscale/right_link'
         end
 
+        def right_scale_config_dir
+          '/etc/rightscale.d'
+        end
+
         def cloud_metadata_dir
           '/var/spool/cloud'
         end

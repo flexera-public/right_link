@@ -38,6 +38,10 @@ module RightScale
           File.join(Dir::PROGRAM_FILES, 'RightScale', 'right_link')
         end
 
+        def right_scale_config_dir
+          File.join(Dir::COMMON_APPDATA, 'RightScale', 'rightscale.d')
+        end
+
         def cloud_metadata_dir
           File.join(Dir::COMMON_APPDATA, 'RightScale', 'metadata')
         end
