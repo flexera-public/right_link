@@ -20,12 +20,8 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-# The daemonize method of AR clashes with the daemonize Chef attribute, we don't need that method so undef it
-undef :daemonize if methods.include?('daemonize')
-
 require 'rubygems'
 require 'chef/log'
-require 'chef/client'
 require 'fileutils'
 
 module RightScale
@@ -74,7 +70,7 @@ module RightScale
       Chef::Log.logger = AuditLogger.new(@auditor)
       Chef::Log.logger.level = RightLinkLog.level_from_sym(RightLinkLog.level)
       Chef::Config[:cookbook_path] = @cookbook_repos.map { |r| cookbooks_path(r) }.flatten.uniq
-      Chef::Config[:cookbook_path] << File.dirname(__FILE__)
+      Chef::Config[:cookbook_path] << File.expand_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'lib', 'chef'))
       Chef::Config[:solo] = true
       true
     end
@@ -224,7 +220,7 @@ module RightScale
       attribs = { 'recipes' => [ recipe.nickname ] }
       attribs.merge!(user_attribs) if user_attribs && user_attribs.is_a?(Hash)
       # The RightScript Chef provider takes care of auditing
-      is_rs = attribs['recipes'] == [ 'right_script' ]
+      is_rs = attribs['recipes'] == [ 'cookbook::right_script' ]
       @auditor.create_new_section("Running Chef recipe < #{recipe.nickname} >") unless is_rs
       c = Chef::Client.new
       begin
@@ -263,7 +259,7 @@ module RightScale
     # === Return
     # recipe<RightScale::RecipeInstantiation>:: Resulting recipe
     def script_to_recipe(script)
-      data = { 'recipes'      => [ 'right_script' ],
+      data = { 'recipes'      => [ 'cookbook::right_script' ],
                'right_script' => { 'nickname'   => script.nickname,
                                    'source'     => script.source,
                                    'parameters' => script.parameters || {},

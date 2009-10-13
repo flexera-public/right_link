@@ -20,14 +20,7 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require File.join(File.dirname(__FILE__), '..', '..', 'spec', 'spec_helper')
-
-# The daemonize method of AR clashes with the daemonize Chef attribute, we don't need that method so undef it
-undef :daemonize if methods.include?('daemonize')
-
-require 'chef'
-require 'dns_resource'
-require 'dns_dnsmadeeasy_provider'
+require File.join(File.dirname(__FILE__), 'spec_helper')
 
 describe Chef::Provider::DnsMadeEasy do
   before(:each) do

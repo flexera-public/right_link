@@ -19,42 +19,20 @@
 # LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-require File.join(File.dirname(__FILE__), '..', '..', 'spec', 'spec_helper')
 
 # The daemonize method of AR clashes with the daemonize Chef attribute, we don't need that method so undef it
 undef :daemonize if methods.include?('daemonize')
 
-require 'chef'
-require 'log_resource'
+require 'chef/client'
 
-describe Chef::Resource::Log do
+require File.join(File.dirname(__FILE__), 'providers', 'dns_dnsmadeeasy_provider')
+require File.join(File.dirname(__FILE__), 'providers', 'dns_resource')
+require File.join(File.dirname(__FILE__), 'providers', 'log_provider_chef')
+require File.join(File.dirname(__FILE__), 'providers', 'log_resource')
+require File.join(File.dirname(__FILE__), 'providers', 'right_script_provider')
+require File.join(File.dirname(__FILE__), 'providers', 'right_script_resource')
 
-  before(:each) do
-    @log_str = "this is my string to log"
-    @resource = Chef::Resource::Log.new(@log_str)
-  end  
- 
-  it "should create a new Chef::Resource::Log" do
-      @resource.should be_a_kind_of(Chef::Resource)
-      @resource.should be_a_kind_of(Chef::Resource::Log)
-    end
-
-  it "should have a name of log" do
-    @resource.resource_name.should == :log
-  end
-
-  it "should allow you to set a log string" do
-    @resource.name.should == @log_str
-  end
-  
-  it "should accept a vaild level option" do
-    lambda { @resource.level :debug }.should_not raise_error(ArgumentError)
-    lambda { @resource.level :info }.should_not raise_error(ArgumentError)
-    lambda { @resource.level :warn }.should_not raise_error(ArgumentError)
-    lambda { @resource.level :error }.should_not raise_error(ArgumentError)
-    lambda { @resource.level :fatal }.should_not raise_error(ArgumentError)
-    lambda { @resource.level :unsupported }.should raise_error(ArgumentError)
-  end
-
-end
-  
+# Register all of our custom providers with Chef
+Chef::Platform.platforms[:default].merge!(:right_script => Chef::Provider::RightScript,
+                                          :log          => Chef::Provider::Log::ChefLog,
+                                          :dns          => Chef::Provider::DnsMadeEasy)

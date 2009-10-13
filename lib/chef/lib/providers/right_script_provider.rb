@@ -27,7 +27,7 @@
 require 'fileutils'
 
 BASE_DIR = File.expand_path(File.join(File.dirname(__FILE__), '..', '..', '..'))
-require File.join(BASE_DIR, 'lib', 'right_popen', 'lib', 'right_popen')
+require File.join(BASE_DIR, 'right_popen', 'lib', 'right_popen')
 
 class Chef
 

@@ -11,6 +11,7 @@ require 'spec'
 require 'eventmachine'
 require 'fileutils'
 
+require File.expand_path(File.join(File.dirname(__FILE__), '..', 'lib', 'chef', 'lib', 'providers'))
 require File.expand_path(File.join(File.dirname(__FILE__), '..', 'lib', 'payload_types', 'lib', 'payload_types'))
 require File.expand_path(File.join(File.dirname(__FILE__), '..', 'config', 'right_link_config'))
 require File.join(File.dirname(__FILE__), 'nanite_results_mock')

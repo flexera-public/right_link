@@ -20,13 +20,36 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require File.join(File.dirname(__FILE__), 'common_lib')
-require File.join(File.dirname(__FILE__), 'instance', 'audit_logger')
-require File.join(File.dirname(__FILE__), 'instance', 'auditor_proxy')
-require File.join(File.dirname(__FILE__), 'instance', 'command_io')
-require File.join(File.dirname(__FILE__), 'instance', 'command_runner')
-require File.join(File.dirname(__FILE__), 'instance', 'downloader')
-require File.join(File.dirname(__FILE__), 'instance', 'executable_sequence')
-require File.join(File.dirname(__FILE__), 'instance', 'instance_commands')
-require File.join(File.dirname(__FILE__), 'instance', 'instance_configuration')
-require File.join(File.dirname(__FILE__), 'instance', 'instance_state')
+require File.join(File.dirname(__FILE__), 'spec_helper')
+
+describe Chef::Resource::Log do
+
+  before(:each) do
+    @log_str = "this is my string to log"
+    @resource = Chef::Resource::Log.new(@log_str)
+  end  
+ 
+  it "should create a new Chef::Resource::Log" do
+      @resource.should be_a_kind_of(Chef::Resource)
+      @resource.should be_a_kind_of(Chef::Resource::Log)
+    end
+
+  it "should have a name of log" do
+    @resource.resource_name.should == :log
+  end
+
+  it "should allow you to set a log string" do
+    @resource.name.should == @log_str
+  end
+  
+  it "should accept a vaild level option" do
+    lambda { @resource.level :debug }.should_not raise_error(ArgumentError)
+    lambda { @resource.level :info }.should_not raise_error(ArgumentError)
+    lambda { @resource.level :warn }.should_not raise_error(ArgumentError)
+    lambda { @resource.level :error }.should_not raise_error(ArgumentError)
+    lambda { @resource.level :fatal }.should_not raise_error(ArgumentError)
+    lambda { @resource.level :unsupported }.should raise_error(ArgumentError)
+  end
+
+end
+  
