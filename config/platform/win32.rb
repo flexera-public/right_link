@@ -20,24 +20,28 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-class RightScale::Platform::Win32
-  attr_reader :release
+module RightScale
+  class Platform
+    class Win32
+      attr_reader :release
 
-  def initialize()
-    require 'win32/dir'
-  end
+      def initialize()
+        require 'win32/dir'
+      end
 
-  class Filesystem
-    def right_scale_dir
-      File.join(Dir::PROGRAM_FILES, 'RightScale')
-    end
+      class Filesystem
+        def right_scale_dir
+          File.join(Dir::PROGRAM_FILES, 'RightScale')
+        end
 
-    def right_link_dir
-      File.join(Dir::PROGRAM_FILES, 'RightScale', 'right_link')      
-    end
+        def right_link_dir
+          File.join(Dir::PROGRAM_FILES, 'RightScale', 'right_link')
+        end
 
-    def cloud_metadata_dir
-      File.join(Dir::COMMON_APPDATA, 'RightScale', 'metadata')
+        def cloud_metadata_dir
+          File.join(Dir::COMMON_APPDATA, 'RightScale', 'metadata')
+        end
+      end
     end
   end
 end

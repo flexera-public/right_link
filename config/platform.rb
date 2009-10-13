@@ -26,8 +26,39 @@ require File.expand_path(File.join(File.dirname(__FILE__), 'platform', 'win32'))
 
 module RightScale
   class PlatformError < StandardError; end
-  
-  class Platform		
+
+  # A utility class that provides information about the platform on which RightLink is running.
+  # Available information includes:
+  #  * which flavor operating system (Linux, Windows or Mac)
+  #  * which OS release (a numeric value that is specific to the OS)
+  #  * directories in which various bits of RightScale state may be found
+  #  * platform-specific information such as Linux distro or release codename
+  #
+  # You may query the Platform by instantiating an instance of if (Platform.new) and then calling
+  # its various methods, many of which return an object that can be further queried. This provides
+  # a DSL-like way to query the platform about its various features.
+  #
+  # As a shortcut, if you call a missing method of the Platform CLASS that is an instance method,
+  # the class will instantiate a new instance for you and call the method you specified. Thus, the
+  # following are equivalent:
+  # * Platform.new.filesystem
+  # * Platform.filesystem
+  #
+  # A summary of the information you can query by calling Platform's instance methods:
+  # * .linux?
+  # * .mac?
+  # * .windows?
+  # * .filesystem
+  #   * right_scale_dir
+  #   * right_link_dir
+  #   * cloud_metadata_dir
+  # * .linux (only available under Linux)
+  #   * ubuntu?
+  #   * centos?
+  #   * distro
+  #   * release
+  #   * codename
+  class Platform
 		# Initialize platform values
 		def initialize
 			@windows = !!(RUBY_PLATFORM =~ /mswin/)
@@ -62,7 +93,7 @@ module RightScale
 			@linux
 		end
 
-    # Filesystem options object
+    # Filesystem config object
     #
     # === Return
     # fs<Filesystem>:: Platform-specific filesystem config object

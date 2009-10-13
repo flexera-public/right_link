@@ -20,45 +20,49 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-class RightScale::Platform::Linux
-  attr_reader :distro, :release, :codename
+module RightScale
+  class Platform
+    class Linux
+      attr_reader :distro, :release, :codename
 
-  #Initialize
-  def initialize
-    @distro  = `lsb_release -ds`
-    @release =  `lsb_release -vs`
-    @codename = `lsb_release -cs`
-  end
+      #Initialize
+      def initialize
+        @distro  = `lsb_release -ds`
+        @release =  `lsb_release -vs`
+        @codename = `lsb_release -cs`
+      end
 
-  # Is this machine running Ubuntu?
-  #
-  # === Return
-  # true:: If Linux distro is Ubuntu
-  # false:: Otherwise
-  def ubuntu?
-    distro =~ /Ubuntu/i
-  end
+      # Is this machine running Ubuntu?
+      #
+      # === Return
+      # true:: If Linux distro is Ubuntu
+      # false:: Otherwise
+      def ubuntu?
+        distro =~ /Ubuntu/i
+      end
 
-  # Is this machine running CentOS?
-  #
-  # === Return
-  # true:: If Linux distro is CentOS
-  # false:: Otherwise
-  def centos?
-    distro =~ /CentOS/i
-  end
+      # Is this machine running CentOS?
+      #
+      # === Return
+      # true:: If Linux distro is CentOS
+      # false:: Otherwise
+      def centos?
+        distro =~ /CentOS/i
+      end
 
-  class Filesystem
-    def right_scale_dir
-      '/opt/rightscale'
-    end
+      class Filesystem
+        def right_scale_dir
+          '/opt/rightscale'
+        end
 
-    def right_link_dir
-      '/opt/rightscale/right_link'
-    end
+        def right_link_dir
+          '/opt/rightscale/right_link'
+        end
 
-    def cloud_metadata_dir
-      '/var/spool/cloud'
+        def cloud_metadata_dir
+          '/var/spool/cloud'
+        end
+      end
     end
   end
 end

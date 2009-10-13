@@ -20,25 +20,28 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-class RightScale::Platform::Darwin
-  attr_reader :release
+module RightScale
+  class Platform
+    class Darwin
+      attr_reader :release
 
-  def initialize()
-    @release = `uname -v`
-  end
+      def initialize()
+        @release = `uname -v`
+      end
 
-  class Filesystem
-    def right_scale_dir
-      '/opt/rightscale'
-    end
+      class Filesystem
+        def right_scale_dir
+          '/opt/rightscale'
+        end
 
-    def right_link_dir
-      '/opt/rightscale/right_link'
-    end
+        def right_link_dir
+          '/opt/rightscale/right_link'
+        end
 
-    def cloud_metadata_dir
-      '/var/spool/cloud'
+        def cloud_metadata_dir
+          '/var/spool/cloud'
+        end
+      end
     end
   end
 end
-
