@@ -118,6 +118,14 @@ module RightScale
       raise PlatformError.new("Only available under Linux") unless linux?
       return Linux.new
     end
+
+    def self.method_missing(meth, *args)
+      if self.instance_methods.include?(meth.to_s)
+        self.new.send(meth, *args)
+      else
+        super(*args)
+      end
+    end
 	end
 end
 
