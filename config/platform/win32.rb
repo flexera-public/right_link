@@ -31,24 +31,16 @@ module RightScale
   class Platform
     class Win32
       class Filesystem
-        def right_scale_dir
-          File.join(Dir::PROGRAM_FILES, 'RightScale')
-        end
-
-        def right_link_dir
-          File.join(Dir::PROGRAM_FILES, 'RightScale', 'right_link')
-        end
-
-        def right_link_certs_dir
-          File.join(Dir::COMMON_APPDATA, 'RightScale', 'certs')
-        end
-
         def right_scale_state_dir
           File.join(Dir::COMMON_APPDATA, 'RightScale', 'rightscale.d')
         end
 
-        def cloud_metadata_dir
+        def spool_dir
           File.join(Dir::COMMON_APPDATA, 'RightScale', 'spool')
+        end
+
+        def cache_dir
+          File.join(Dir::COMMON_APPDATA, 'RightScale', 'cache')
         end
       end
     end

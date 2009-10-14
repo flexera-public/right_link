@@ -34,6 +34,10 @@ module RightScale
   #  * directories in which various bits of RightScale state may be found
   #  * platform-specific information such as Linux distro or release codename
   #
+  # NB: In general, you should not use the filesystem methods directly to
+  # query RightLink agent configuration; instead, use the RightScale::RightLinkConfig
+  # class.
+  #
   # You may query the Platform by instantiating an instance of if (Platform.new) and then calling
   # its various methods, many of which return an object that can be further queried. This provides
   # a DSL-like way to query the platform about its various features.
@@ -49,9 +53,9 @@ module RightScale
   # * .mac?
   # * .windows?
   # * .filesystem
-  #   * right_scale_dir
-  #   * right_link_dir
-  #   * cloud_metadata_dir
+  #   * right_scale_state_dir
+  #   * spool_dir
+  #   * cache_dir
   # * .linux (only available under Linux)
   #   * ubuntu?
   #   * centos?

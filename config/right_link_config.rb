@@ -29,11 +29,10 @@ module RightScale
     extend Mixlib::Config
   end
 
-  # Initialized from content of 'config.rb'
-  # Modify 'config.rb' and not this file!
-  RightLinkConfig.from_file(File.join(File.dirname(__FILE__), 'config.rb'))
-
   # Initialize platform
   RightLinkConfig[:platform] = Platform.new
 
+  # Initialized from content of 'config.rb'
+  # Modify 'config.rb' and not this file!
+  RightLinkConfig.from_file(File.join(File.dirname(__FILE__), 'config.rb'))
 end

@@ -73,12 +73,11 @@ class Chef
         @auditor.create_new_section("Running RightScript < #{@nickname} >")
         begin
           platform = RightScale::Platform.new
-          user_data_dir = platform.filesystem.cloud_metadata_dir
-          user_data = File.join(user_data_dir, "user-data.rb")
+          user_data = File.join(RightScale::RightLinkConfig[:cloud_state_dir], 'user-data.rb')
           load(user_data)
         rescue Exception => e
           @auditor.append_info("Could not load user data; script will execute without user data in environment!")
-        end 
+        end        
         parameters.each { |key, val| ENV[key] = val }
         ENV['ATTACH_DIR'] = ENV['RS_ATTACH_DIR'] = cache_dir
         ENV['RS_REBOOT']  = RightScale::InstanceState.past_scripts.include?(@nickname) ? '1' : nil
