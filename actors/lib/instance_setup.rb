@@ -119,7 +119,7 @@ class InstanceSetup
   def configure_repositories(repositories)
     repositories.each do |repo|
       begin
-        klass = constantize(repo.name)
+        klass = repo.name.to_const
         unless klass.nil?
           fz = nil
           if repo.frozen_date
