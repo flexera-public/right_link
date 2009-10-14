@@ -31,8 +31,12 @@ require File.join(File.dirname(__FILE__), 'providers', 'log_provider_chef')
 require File.join(File.dirname(__FILE__), 'providers', 'log_resource')
 require File.join(File.dirname(__FILE__), 'providers', 'right_script_provider')
 require File.join(File.dirname(__FILE__), 'providers', 'right_script_resource')
+require File.join(File.dirname(__FILE__), 'providers', 'executable_schedule_provider')
+require File.join(File.dirname(__FILE__), 'providers', 'executable_schedule_resource')
+require File.join(File.dirname(__FILE__), 'providers', 'cronv0_7_12')
 
 # Register all of our custom providers with Chef
-Chef::Platform.platforms[:default].merge!(:right_script => Chef::Provider::RightScript,
-                                          :log          => Chef::Provider::Log::ChefLog,
-                                          :dns          => Chef::Provider::DnsMadeEasy)
+Chef::Platform.platforms[:default].merge!(:right_script        => Chef::Provider::RightScript,
+                                          :log                 => Chef::Provider::Log::ChefLog,
+                                          :dns                 => Chef::Provider::DnsMadeEasy,
+                                          :executable_schedule => Chef::Provider::ExecutableSchedule)
