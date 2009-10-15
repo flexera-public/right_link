@@ -58,7 +58,7 @@ module Apt
       return unless opts[:enabled]
 
       codename = platform.linux.codename
-      raise RightScale::PlatformError.new("Unsupported ubuntu release #{codename}") unless ['hardy', 'intrepid'].include(codename)
+      raise RightScale::PlatformError.new("Unsupported ubuntu release #{codename}") unless ['hardy', 'intrepid'].include?(codename)
       FileUtils.mkdir_p(Apt::Ubuntu::path_to_sources_list)
 
       if opts[:frozen_date] != 'latest'
