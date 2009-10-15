@@ -39,11 +39,13 @@ module RightScale
     # Recorded states and additional states local to instance agent
     STATES            = RECORDED_STATES + %w{ decommissioned }
 
+    STATE_DIR       = RightScale::RightLinkConfig[:agent_state_dir]
+
     # Path to JSON file where current instance state is serialized
-    STATE_FILE      = '/etc/rightscale.d/state.js'
+    STATE_FILE      = File.join(STATE_DIR, 'state.js')
 
     # Path to JSON file where past scripts are serialized
-    SCRIPTS_FILE    = '/etc/rightscale.d/past_scripts.js'
+    SCRIPTS_FILE    = File.join(STATE_DIR, 'past_scripts.js')
 
     # Path to boot log
     BOOT_LOG_FILE = '/var/log/install'
@@ -222,16 +224,19 @@ module RightScale
     # === Return
     # nil:: always return nil
     def self.update_motd()
+      return unless RightScale::RightLinkConfig.platform.linux?
+      
       FileUtils.rm('/etc/motd') rescue nil
 
+      etc = File.join(RightScale::RightLinkConfig[:rs_root_path], 'etc')
       if SUCCESSFUL_STATES.include?(@@value)
-        FileUtils.cp('/opt/rightscale/etc/motd-complete', '/etc/motd') rescue nil
+        FileUtils.cp(File.join(etc, 'motd-complete'), '/etc/motd') rescue nil
         system('echo "RightScale installation complete. Details can be found in /var/log/messages" | wall') rescue nil
       elsif FAILED_STATES.include?(@@value)
-        FileUtils.cp('/opt/rightscale/etc/motd-failed', '/etc/motd') rescue nil
+        FileUtils.cp(File.join(etc, 'motd-failed'), '/etc/motd') rescue nil
         system('echo "RightScale installation failed. Please review /var/log/messages" | wall') rescue nil
       else
-        FileUtils.cp('/opt/rightscale/etc/motd', '/etc/motd') rescue nil
+        FileUtils.cp(File.join(etc, 'motd'), '/etc/motd') rescue nil
       end
 
       return nil

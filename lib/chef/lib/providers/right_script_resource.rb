@@ -26,6 +26,8 @@
 
 require 'fileutils'
 
+require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', '..', '..', 'config', 'right_link_config'))
+
 class Chef
 
   class Resource
@@ -45,7 +47,7 @@ class Chef
     class RightScript < Chef::Resource
 
       # Default directory used to cache RightScript source
-      DEFAULT_CACHE_DIR_ROOT = '/var/cache/rightscale'
+      DEFAULT_CACHE_DIR_ROOT = ::File.join(RightScale::RightLinkConfig.platform.filesystem.cache_dir, 'rightscale')
 
       # Initialize RightScript resource with default values
       #

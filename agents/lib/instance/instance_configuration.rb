@@ -20,16 +20,18 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'config', 'right_link_config'))
+
 module RightScale
 
   # Provide configuration information to instance agent
   class InstanceConfiguration
 
     # Path to downloaded cookbooks
-    COOKBOOK_PATH = '/var/cache/rightscale/cookbooks'
+    COOKBOOK_PATH = File.join(RightScale::RightLinkConfig.platform.filesystem.cache_dir, 'rightscale', 'cookbooks')
 
     # Path to scripts and scripts attachments cache
-    CACHE_PATH = '/var/cache/rightscale/scripts'
+    CACHE_PATH = File.join(RightScale::RightLinkConfig.platform.filesystem.cache_dir, 'rightscale', 'scripts')
 
     # Maximum number of times agent should retry to download attachments
     MAX_ATTACH_DOWNLOAD_RETRIES = 10
