@@ -69,5 +69,3 @@ class Chef
   end
 end
 
-# Let Chef know that DnsMadeEasy provider should be used for DNS resources
-Chef::Platform.platforms[:default].merge! :dns => Chef::Provider::DnsMadeEasy

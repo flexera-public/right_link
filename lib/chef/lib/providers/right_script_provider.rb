@@ -158,6 +158,3 @@ class Chef
   end
 
 end
-
-# Let Chef know that RightScript provider should be used for RightScript resources
-Chef::Platform.platforms[:default].merge! :right_script => Chef::Provider::RightScript

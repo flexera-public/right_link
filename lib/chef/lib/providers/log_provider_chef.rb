@@ -53,8 +53,5 @@ class Chef
 
 end
 
-# Let Chef know that ChefLog provider should be used for log resources
-Chef::Platform.platforms[:default].merge! :log => Chef::Provider::Log::ChefLog
-
 
 
