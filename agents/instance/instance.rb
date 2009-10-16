@@ -36,7 +36,7 @@ require File.join(BASE_DIR, 'lib', 'right_popen', 'lib', 'right_popen')
 
 RightScale::SecureSerializerInitializer.init('instance', options[:identity], RightScale::RightLinkConfig[:certs_dir])
 register InstanceSetup.new(options[:identity])
-register InstanceScheduler.new(options[:identity])
+register InstanceScheduler.new(self)
 register AgentManager.new
 
 # Load environment code if present

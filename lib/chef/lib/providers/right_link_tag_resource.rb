@@ -20,12 +20,29 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require File.expand_path(File.join(__FILE__, '..', '..', '..', 'config', 'right_link_config'))
-require File.join(File.dirname(__FILE__), 'common', 'agent_identity')
-require File.join(File.dirname(__FILE__), 'common', 'audit_formatter')
-require File.join(File.dirname(__FILE__), 'common', 'exceptions')
-require File.join(File.dirname(__FILE__), 'common', 'right_link_log')
-require File.join(File.dirname(__FILE__), 'common', 'multiplexer')
-require File.join(File.dirname(__FILE__), 'common', 'secure_serializer_initializer')
-require File.join(File.dirname(__FILE__), 'common', 'agent_tags_manager')
-require File.join(File.dirname(__FILE__), 'common', 'right_link_tracer')
+class Chef
+  class Resource
+
+    # Tag exposed by RightLink agent
+    #
+    class RightLinkTag < Chef::Resource
+
+      # Initialize tag resource
+      #
+      # === Parameters
+      # name<String>:: Tag name
+      # collection<Array>:: Collection of included recipes
+      # node<Chef::Node>:: Node where resource will be used
+      def initialize(name, collection=nil, node=nil)
+        super(name, collection, node)
+        @resource_name = :right_link_tag
+        @action = :publish
+      end
+
+    end
+
+  end
+
+end
+
+

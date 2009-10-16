@@ -164,7 +164,7 @@ module RightScale
           previous_level = @current_logger.level
           RightLinkLog.remove_logger(@current_logger)
         end
-        @current_logger = Logger.new(file)
+        @current_logger = ::Logger.new(File.open(file, 'w'))
         @current_logger.level = previous_level if previous_level
         RightLinkLog.add_logger(@current_logger)
       end

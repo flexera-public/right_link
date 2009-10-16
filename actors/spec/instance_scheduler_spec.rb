@@ -17,7 +17,7 @@ describe InstanceScheduler do
     @auditor = RightScale::AuditorProxyMock.new
     RightScale::AuditorProxy.should_receive(:new).and_return(@auditor)
     @bundle = RightScale::InstantiationMock.script_bundle
-    @scheduler = InstanceScheduler.new(Nanite::Identity.generate)
+    @scheduler = InstanceScheduler.new(Nanite::Agent.new({}))
     @sequence_mock = mock('ExecutableSequence')
     @sequence_mock.should_receive(:run).and_return(true)
     RightScale::ExecutableSequence.should_receive(:new).and_return(@sequence_mock)

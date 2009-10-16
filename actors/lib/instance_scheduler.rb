@@ -24,17 +24,18 @@ class InstanceScheduler
 
   include Nanite::Actor
 
-  expose :schedule_bundle
+  expose :schedule_bundle, :execute
 
   # Setup signal traps for running decommission scripts
   # Start worker thread for processing executable bundles
   #
   # === Parameters
-  # agent_identity<String>:: Agent identity
-  def initialize(agent_identity)
+  # agent<Nanite::Agent>:: Host agent
+  def initialize(agent)
     @scheduled_bundles = Queue.new
     @decommissioning = false
-    @agent_identity = agent_identity
+    @agent_identity = agent.identity
+    RightScale::AgentTagsManager.new(agent)
     @sig_handler = Signal.trap('USR1') { decommission_on_exit } unless RightScale::RightLinkConfig[:platform].windows?
     @worker_thread = Thread.new { run_bundles }
   end
@@ -51,6 +52,22 @@ class InstanceScheduler
     auditor.update_status("Scheduling execution of #{bundle.to_s}")
     @scheduled_bundles.push(bundle)
     res = RightScale::OperationResult.success
+  end
+
+  # Ask agent to execute given recipe
+  # Agent must forward request to core agent which will in turn run
+  # schedule_bundle on this agent
+  #
+  # === Parameters
+  # options[:recipe]<String>:: Recipe name
+  # options[:json]<Hash>:: Serialized hash of attributes to be used when running recipe
+  #
+  # === Return
+  # true:: Always return true
+  def execute(options)
+    options[:agent_identity] = @agent_identity
+    push('/forwarder/schedule_recipe', options)
+    true
   end
 
   # Schedule decommission, returns an error if instance is already decommissioning

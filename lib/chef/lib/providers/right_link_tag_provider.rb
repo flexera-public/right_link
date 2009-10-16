@@ -20,12 +20,41 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require File.expand_path(File.join(__FILE__, '..', '..', '..', 'config', 'right_link_config'))
-require File.join(File.dirname(__FILE__), 'common', 'agent_identity')
-require File.join(File.dirname(__FILE__), 'common', 'audit_formatter')
-require File.join(File.dirname(__FILE__), 'common', 'exceptions')
-require File.join(File.dirname(__FILE__), 'common', 'right_link_log')
-require File.join(File.dirname(__FILE__), 'common', 'multiplexer')
-require File.join(File.dirname(__FILE__), 'common', 'secure_serializer_initializer')
-require File.join(File.dirname(__FILE__), 'common', 'agent_tags_manager')
-require File.join(File.dirname(__FILE__), 'common', 'right_link_tracer')
+class Chef
+
+  class Provider
+
+    # RightLinkTag chef provider.
+    class RightLinkTag < Chef::Provider
+
+      # Load current
+      #
+      # === Return
+      # true:: Always return true
+      def load_current_resource
+        true
+      end
+
+      # Publish tag
+      #
+      # === Return
+      # true:: Always return true
+      def action_publish
+        RightScale::AgentTagsManager.instance.add_tags(@new_resource.name)
+        true
+      end
+
+      # Remove tag
+      #
+      # === Return
+      # true:: Always return true
+      def action_remove
+        RightScale::AgentTagsManager.instance.remove_tags(@new_resource.name)
+        true
+      end
+
+    end
+
+  end
+
+end
