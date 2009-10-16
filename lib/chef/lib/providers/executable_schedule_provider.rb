@@ -31,43 +31,37 @@ class Chef
     # Executable Schedule chef provider.
     class ExecutableSchedule < Chef::Provider
 
+      # Initialize underlying Chef cron provider with existing entries
+      #
+      # === Return
+      # true:: Always return true
       def load_current_resource
-        @current_resource = Chef::Resource::ExecutableSchedule.new("")
-
         #TODO: Currently, we are using the cron provider from chef 0.7.12. Update the following code when we upgrade chef.
         @original_cron_provider = Chef::Provider::Cronv0_7_12.new(@node, @new_resource.cron_resource)
-        @current_resource.cron_resource = @original_cron_provider.load_current_resource
-        @current_resource
+        @original_cron_provider.load_current_resource
+        true
       end
 
+      # Create cron entries if they don't exist yet
+      #
+      # === Return
+      # true:: Always return true
       def action_create
-        raise Chef::Exceptions::ExecutableSchedule::ScheduleAlreadyExists, "The schedule named #{@new_resource.name} already exists." if cron_exists
         @original_cron_provider.action_create
         @new_resource.updated = @original_cron_provider.new_resource.updated
+        true
       end
 
-      def action_update
-        raise Chef::Exceptions::ExecutableSchedule::ScheduleNotFound, "The schedule named #{@new_resource.name} does not exist." if !cron_exists
-        @original_cron_provider.action_create
-        @new_resource.updated = @original_cron_provider.new_resource.updated
-      end
-
+      # Delete existing cron entries, do nothing if they don't exist
+      #
+      # === Return
+      # true:: Always return true
       def action_delete
-        raise Chef::Exceptions::ExecutableSchedule::ScheduleNotFound, "The schedule named #{@new_resource.name} does not exist." if !cron_exists
         @original_cron_provider.action_delete
         @new_resource.updated = @original_cron_provider.new_resource.updated
       end
 
-      private
-      def cron_exists
-        @original_cron_provider.cron_exists
-      end
-
-      def cron_empty
-        @original_cron_provider.cron_empty
-      end
     end
 
   end
-
 end

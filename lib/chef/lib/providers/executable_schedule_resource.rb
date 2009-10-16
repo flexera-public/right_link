@@ -34,7 +34,6 @@ class Chef
     # Allows defining the schedule(cron) for a right script or a recipe
     class ExecutableSchedule < Chef::Resource
 
-
       # Initialize ExecutableSchedule resource with default values
       #
       # === Parameters
@@ -42,15 +41,17 @@ class Chef
       def initialize(name, collection=nil, node=nil)
         super(name, collection, node)
         @cron_resource = Chef::Resource::Cron.new(name)
+        @cron_resource.user('rightscale')
         @resource_name = :executable_schedule
-        user "rightscale"
         recipe nil
         recipe_id nil
         right_script nil
         right_script_id nil
         @action = :create
-        @allowed_actions.push(:create, :update, :delete)
+        @allowed_actions.push(:create, :delete)
       end
+
+      # <Chef::Resource::Cron> Underlying cron resource
       attr_accessor :cron_resource
       
       # <String> Schedule name
@@ -83,14 +84,6 @@ class Chef
         @cron_resource.weekday(arg)
       end
 
-      def command(arg=nil)
-        @cron_resource.command(arg)
-      end
-
-      def user(arg=nil)
-        @cron_resource.user(arg)
-      end
-
       # <String> recipe name for the schedule
       def recipe(arg=nil)
         set_or_return(
@@ -99,27 +92,27 @@ class Chef
           :kind_of => [ String ]
         )
 
-        self.command "rs_run_recipe -n #{arg}" if arg
+        @cron_resource.command "rs_run_recipe -n #{arg}" if arg
       end
 
       # <String> recipe id for the schedule
       def recipe_id(arg=nil)
+        if Integer(arg) < 0 then raise RangeError end
         if arg.is_a?(Integer)
           converted_arg = arg.to_s
         else
           converted_arg = arg
         end
-        if Integer(arg) < 0 then raise RangeError end
         set_or_return(
           :recipe_id,
-          arg,
+          converted_arg,
           :kind_of => [ String ]
         )
 
-        self.command "rs_run_recipe -i #{converted_arg}" if arg
+        @cron_resource.command "rs_run_recipe -i #{converted_arg}" if arg
       end
 
-      # <String> right_script's name for the schedule
+      # <String> RightScript's name for the schedule
       def right_script(arg=nil)
         set_or_return(
           :right_script,
@@ -127,36 +120,25 @@ class Chef
           :kind_of => [ String ]
         )
 
-        self.command "rs_run_right_script -n #{arg}" if arg
+        @cron_resource.command "rs_run_right_script -n #{arg}" if arg
       end
 
-      # <String> right_script's id for the schedule
+      # <String> RightScript's id for the schedule
       def right_script_id(arg=nil)
+        if Integer(arg) < 0 then raise RangeError end
         if arg.is_a?(Integer)
           converted_arg = arg.to_s
         else
           converted_arg = arg
         end
-        if Integer(arg) < 0 then raise RangeError end
         set_or_return(
           :right_script_id,
           converted_arg,
           :kind_of => [ String ]
         )
 
-        self.command "rs_run_right_script -i #{converted_arg}" if arg
+        @cron_resource.command "rs_run_right_script -i #{converted_arg}" if arg
       end
-    end
-  end
-end
-
-
-class Chef
-  class Exceptions
-    class ExecutableSchedule
-      class ScheduleAlreadyExists < RuntimeError; end
-
-      class ScheduleNotFound < RuntimeError; end
     end
   end
 end
