@@ -19,6 +19,7 @@ require File.join(File.dirname(__FILE__), 'spec_helper.rb')
 
 describe Ohai::System, "plugin rackspace" do
   before(:each) do
+    Ohai::Config[:plugin_path] << File.join(File.dirname(__FILE__), '..', 'lib', 'plugins')
     @ohai = Ohai::System.new
     @ohai.stub!(:require_plugin).and_return(true)
     @ohai[:network] = {:interfaces => {:eth0 => {"addresses"=> {

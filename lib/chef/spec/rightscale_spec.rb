@@ -25,6 +25,7 @@ require 'flexmock'
  
 describe Ohai::System, "plugin rightscale" do
   before(:each) do
+    Ohai::Config[:plugin_path] << File.join(File.dirname(__FILE__), '..', 'lib', 'plugins')
     @ohai = Ohai::System.new
     @ohai.stub!(:require_plugin).and_return(true)
   end
@@ -40,27 +41,27 @@ describe Ohai::System, "plugin rightscale" do
     
     it "should create rightscale mash" do
       @ohai._require_plugin("rightscale")
-      @ohai[:rightscale].should_not be_nil
+      @ohai[:rightscale_deprecated].should_not be_nil
     end
     
     it "should create rightscale server mash" do
       @ohai._require_plugin("rightscale")
-      @ohai[:rightscale][:server].should_not be_nil
+      @ohai[:rightscale_deprecated][:server].should_not be_nil
     end
     
     it "should populate sketchy server attribute" do
       @ohai._require_plugin("rightscale")
-      @ohai[:rightscale][:server]['sketchy'].should == "sketchy1-12.rightscale.com"
+      @ohai[:rightscale_deprecated][:server]['sketchy'].should == "sketchy1-12.rightscale.com"
     end
     
     it "should populate core server attribute" do
       @ohai._require_plugin("rightscale")
-      @ohai[:rightscale][:server][:core].should == "my.rightscale.com"
+      @ohai[:rightscale_deprecated][:server][:core].should == "my.rightscale.com"
     end
     
     it "should populate token attribute" do
       @ohai._require_plugin("rightscale")
-      @ohai[:rightscale][:token].should == "e668bb0be59d061b8b60f08765902a90"
+      @ohai[:rightscale_deprecated][:token].should == "e668bb0be59d061b8b60f08765902a90"
     end
     
   end
@@ -87,7 +88,7 @@ describe Ohai::System, "plugin rightscale" do
    
     it "should NOT populate the rightscale data" do
       @ohai._require_plugin("rightscale")
-      @ohai[:rightscale].should be_nil
+      @ohai[:rightscale_deprecated].should be_nil
     end
   end
   
@@ -114,42 +115,42 @@ describe Ohai::System, "plugin rightscale" do
     
     it "should create rightscale mash" do     
       @ohai._require_plugin("rightscale")
-      @ohai[:rightscale].should_not be_nil
+      @ohai[:rightscale_deprecated].should_not be_nil
     end
     
     it "should create rightscale server mash" do
       @ohai._require_plugin("rightscale")
-      @ohai[:rightscale][:server].should_not be_nil
+      @ohai[:rightscale_deprecated][:server].should_not be_nil
     end
          
     it "should populate sketchy server attribute" do
       @ohai._require_plugin("rightscale")
-      @ohai[:rightscale][:server][:sketchy].should == "sketchy1-11.rightscale.com"
+      @ohai[:rightscale_deprecated][:server][:sketchy].should == "sketchy1-11.rightscale.com"
     end
 
     it "should populate core server attribute" do
       @ohai._require_plugin("rightscale")
-      @ohai[:rightscale][:server][:core].should == "my.rightscale.com"
+      @ohai[:rightscale_deprecated][:server][:core].should == "my.rightscale.com"
     end
 
     it "should populate syslog server attribute" do
       @ohai._require_plugin("rightscale")
-      @ohai[:rightscale][:server][:syslog].should == "syslog.rightscale.com"
+      @ohai[:rightscale_deprecated][:server][:syslog].should == "syslog.rightscale.com"
     end
 
     it "should populate lumberjack server attribute" do
       @ohai._require_plugin("rightscale")
-      @ohai[:rightscale][:server][:lumberjack].should == "lumberjack.rightscale.com"
+      @ohai[:rightscale_deprecated][:server][:lumberjack].should == "lumberjack.rightscale.com"
     end
 
     it "should populate token attribute" do
       @ohai._require_plugin("rightscale")
-      @ohai[:rightscale][:token].should == "8bd736d4a8de91b143bcebbb3e513f5f"
+      @ohai[:rightscale_deprecated][:token].should == "8bd736d4a8de91b143bcebbb3e513f5f"
     end
     
     it "should populate api_url attribute" do
       @ohai._require_plugin("rightscale")
-      @ohai[:rightscale][:api_url].should == "https://my.rightscale.com/api/inst/ec2_instances/40e9d3956ad2e059f9f4054c6272ce2a38155273"
+      @ohai[:rightscale_deprecated][:api_url].should == "https://my.rightscale.com/api/inst/ec2_instances/40e9d3956ad2e059f9f4054c6272ce2a38155273"
     end
     
   end

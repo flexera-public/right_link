@@ -47,7 +47,7 @@ describe Chef::Provider::ExecutableSchedule do
     @resource.day("1")
     @resource.month("1")
     @resource.weekday("1")
-    @resource.user("testuser")
+    @resource.instance_eval { @cron_resource.user('testuser') }
     @resource.recipe("testrecipe")
   end
 
@@ -56,13 +56,13 @@ describe Chef::Provider::ExecutableSchedule do
   end
 
   it "should create a schedule if one with the same name doesnt exist" do
-    #clearing crontab that could have been created by previous tests.
-    `crontab -r`
+    pending "Existing cron entries, cannot run test" if system('crontab -l')
+       #clearing crontab that could have been created by previous tests.
+    `crontab -r > /dev/null`
     @provider = Chef::Provider::ExecutableSchedule.new(@node, @resource)
     @provider.load_current_resource
 
     #Because there is no cron_entry initially, the current_resource should have the default values for min,hour,..
-    @provider.current_resource.user.should == @resource.user
     @provider.current_resource.name.should == @resource.name
     [:minute, :hour, :day, :month, :weekday].each { |attr| @provider.current_resource.send(attr).should == "*" }
     @provider.current_resource.command.should == nil
@@ -75,14 +75,8 @@ describe Chef::Provider::ExecutableSchedule do
     [:minute, :hour, :day, :month, :weekday, :user, :command].each { |attr| @provider.current_resource.send(attr).should == @resource.send(attr) }
   end
 
-  it "creating a schedule should raise an exception if there is already a schedule with the same name" do
-    @provider = Chef::Provider::ExecutableSchedule.new(@node, @resource)
-    @provider.load_current_resource
-
-    lambda { @provider.action_create }.should raise_error(Chef::Exceptions::ExecutableSchedule::ScheduleAlreadyExists)
-  end
-
   it "should update an already existing schedule" do
+    pending "Existing cron entries, cannot run test" if system('crontab -l')
     @resource2 = Chef::Resource::ExecutableSchedule.new("my_schedule")
     @resource2.minute("2")
     @resource2.hour("2")
@@ -94,7 +88,7 @@ describe Chef::Provider::ExecutableSchedule do
 
     @provider = Chef::Provider::ExecutableSchedule.new(@node, @resource2)
     @provider.load_current_resource
-    @provider.action_update
+    @provider.action_create
 
     #validate that the schedule has been updated
     @provider = Chef::Provider::ExecutableSchedule.new(@node, @resource)
@@ -102,15 +96,8 @@ describe Chef::Provider::ExecutableSchedule do
     [:minute, :hour, :day, :month, :weekday, :user, :command].each { |attr| @provider.current_resource.send(attr).should == @resource2.send(attr) }
   end
 
-  it "should raise an exception when updating a non-existent schedule" do
-    @resource2 = Chef::Resource::ExecutableSchedule.new("non-existent")
-    @provider = Chef::Provider::ExecutableSchedule.new(@node, @resource2)
-    @provider.load_current_resource
-
-    lambda { @provider.action_update }.should raise_error(Chef::Exceptions::ExecutableSchedule::ScheduleNotFound)
-  end
-
   it "should delete an already existing schedule" do
+    pending "Existing cron entries, cannot run test" if system('crontab -l')
     @provider = Chef::Provider::ExecutableSchedule.new(@node, @resource)
     @provider.load_current_resource
     @provider.action_delete
@@ -123,12 +110,6 @@ describe Chef::Provider::ExecutableSchedule do
     @provider.current_resource.command.should == nil
   end
 
-  it "should raise an exception when deleting a non-existent schedule" do
-    @provider = Chef::Provider::ExecutableSchedule.new(@node, @resource)
-    @provider.load_current_resource
-
-    lambda { @provider.action_delete }.should raise_error(Chef::Exceptions::ExecutableSchedule::ScheduleNotFound)
-  end
 end
 
 

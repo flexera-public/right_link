@@ -45,8 +45,6 @@ describe Chef::Resource::ExecutableSchedule do
     @resource.day.should == "*"
     @resource.month.should == "*"
     @resource.weekday.should == "*"
-    @resource.user.should == "rightscale"
-    @resource.command.should == nil
     @resource.recipe.should == nil
     @resource.recipe_id.should == nil
     @resource.right_script.should == nil
@@ -55,7 +53,7 @@ describe Chef::Resource::ExecutableSchedule do
   end
 
   it "should read/write attributes from the underlying cron_resource" do
-    attrs = {:minute => "1", :hour => "1", :day => "2", :month => "1", :weekday => "3", :command => "newcommand",  :name => "newname" }
+    attrs = {:minute => "1", :hour => "1", :day => "2", :month => "1", :weekday => "3" }
     attrs.each do |attr, value|
       @resource.send(attr, value)
       @resource.send(attr).should == @resource.cron_resource.send(attr)
@@ -97,12 +95,6 @@ describe Chef::Resource::ExecutableSchedule do
     end
   end
 
-  it "should accept a valid user option" do
-    lambda { @resource.user "someuser" }.should_not raise_error(ArgumentError)
-    lambda { @resource.user 123 }.should raise_error(ArgumentError)
-    lambda { @resource.user :unsupported }.should raise_error(ArgumentError)
-  end
-
   it "should accept a valid right_script_id/recipe_id option" do
     lambda { @resource.right_script_id "someuser" }.should raise_error(ArgumentError)
     lambda { @resource.right_script_id "-1" }.should raise_error(RangeError)
@@ -115,16 +107,16 @@ describe Chef::Resource::ExecutableSchedule do
 
   it "should set the command correctly when any of the right_script(_id) or recipe(_id) is set" do
     @resource.right_script "db_backup"
-    @resource.command.should == "rs_run_right_script -n db_backup"
+    @resource.instance_variable_get(:@cron_resource).command.should == "rs_run_right_script -n db_backup"
     
     @resource.right_script_id "123"
-    @resource.command.should == "rs_run_right_script -i 123"
+    @resource.instance_variable_get(:@cron_resource).command.should == "rs_run_right_script -i 123"
 
     @resource.recipe "db_backup_recipe"
-    @resource.command.should == "rs_run_recipe -n db_backup_recipe"
+    @resource.instance_variable_get(:@cron_resource).command.should == "rs_run_recipe -n db_backup_recipe"
 
     @resource.recipe_id "456"
-    @resource.command.should == "rs_run_recipe -i 456"
+    @resource.instance_variable_get(:@cron_resource).command.should == "rs_run_recipe -i 456"
   end
 
 end

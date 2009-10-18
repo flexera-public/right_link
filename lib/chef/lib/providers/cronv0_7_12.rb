@@ -25,8 +25,8 @@ class Chef
     class Cronv0_7_12 < Chef::Provider
       include Chef::Mixin::Command
 
-      def initialize(node, new_resource, collection=nil, definitions=nil, cookbook_loader=nil)
-        super(node, new_resource, collection, definitions, cookbook_loader)
+      def initialize(node, new_resource)
+        super(node, new_resource)
         @cron_exists = false
         @cron_empty = false
       end
