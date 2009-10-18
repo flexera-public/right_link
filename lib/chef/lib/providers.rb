@@ -25,18 +25,24 @@ undef :daemonize if methods.include?('daemonize')
 
 require 'chef/client'
 
+require File.join(File.dirname(__FILE__), 'providers', 'cronv0_7_12')
 require File.join(File.dirname(__FILE__), 'providers', 'dns_dnsmadeeasy_provider')
 require File.join(File.dirname(__FILE__), 'providers', 'dns_resource')
-require File.join(File.dirname(__FILE__), 'providers', 'log_provider_chef')
-require File.join(File.dirname(__FILE__), 'providers', 'log_resource')
-require File.join(File.dirname(__FILE__), 'providers', 'right_script_provider')
-require File.join(File.dirname(__FILE__), 'providers', 'right_script_resource')
 require File.join(File.dirname(__FILE__), 'providers', 'executable_schedule_provider')
 require File.join(File.dirname(__FILE__), 'providers', 'executable_schedule_resource')
-require File.join(File.dirname(__FILE__), 'providers', 'cronv0_7_12')
+require File.join(File.dirname(__FILE__), 'providers', 'log_provider_chef')
+require File.join(File.dirname(__FILE__), 'providers', 'log_resource')
+require File.join(File.dirname(__FILE__), 'providers', 'remote_recipe_provider')
+require File.join(File.dirname(__FILE__), 'providers', 'remote_recipe_resource')
+require File.join(File.dirname(__FILE__), 'providers', 'right_link_tag_provider')
+require File.join(File.dirname(__FILE__), 'providers', 'right_link_tag_resource')
+require File.join(File.dirname(__FILE__), 'providers', 'right_script_provider')
+require File.join(File.dirname(__FILE__), 'providers', 'right_script_resource')
 
 # Register all of our custom providers with Chef
 Chef::Platform.platforms[:default].merge!(:right_script        => Chef::Provider::RightScript,
                                           :log                 => Chef::Provider::Log::ChefLog,
                                           :dns                 => Chef::Provider::DnsMadeEasy,
+                                          :remote_recipe       => Chef::Provider::RemoteRecipe,
+                                          :right_link_tag      => Chef::Provider::RightLinkTag,
                                           :executable_schedule => Chef::Provider::ExecutableSchedule)

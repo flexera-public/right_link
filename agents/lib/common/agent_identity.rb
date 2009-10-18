@@ -72,7 +72,29 @@ module RightScale
       prefix = prefix.split('-').last
       id = AgentIdentity.new(prefix, agent_name, base_id, token)
     end
-    
+
+    # Instantiate by parsing given nanite agent identity
+    #
+    # === Parameters
+    # nanite<String>:: Nanite agent identity
+    #
+    # === Return
+    # serialized<String>:: Serialized agent id from nanite id
+    def self.serialized_from_nanite(nanite)
+      serialized = nanite[7, nanite.length] # 'nanite-'.length == 7
+    end
+
+    # Generate nanite agent identity from serialized representation
+    #
+    # === Parameters
+    # serialized<String>:: Serialized agent identity
+    #
+    # === Return
+    # nanite<String>:: Corresponding nanite id
+    def self.nanite_from_serialized(serialized)
+      nanite = "nanite-#{serialized}"
+    end
+
     # String representation of identity
     #
     # === Return

@@ -41,14 +41,17 @@ class Chef
       # true:: Always return true
       def action_run
         tags = @new_resource.recipients_tags
-        built_in = { :remote_recipe => { :tags => tags,
-                                         :from => Nanite::MapperProxy.instance.identity } }
-        attrs = built_in.merge(@new_resource.attributes || {})
-        options = { :recipe => @new_resource.name,
-                    :json   => attrs.to_json }
-        MapperProxy.current.push('/instance_scheduler/execute', options, :target => r)
+        attributes = { :remote_recipe => { :tags => tags,
+                                           :from => Nanite::MapperProxy.instance.identity } }
+        attributes.merge!(@new_resource.attributes) if @new_resource.attributes
+        options = { :recipe => @new_resource.recipe, :json => attributes.to_json }
+        @new_resource.recipients.each do |target|
+          Nanite::MapperProxy.instance.push('/instance_scheduler/execute',
+                                            options, 
+                                            :target => RightScale::AgentIdentity.nanite_from_serialized(target))
+        end
         if tags && !tags.empty?
-          MapperProxy.current.push('/instance_scheduler/execute', options,
+          Nanite::MapperProxy.instance.push('/instance_scheduler/execute', options,
                                    :tags => tags, :selector => @new_resource.selector)
         end
         true

@@ -38,6 +38,7 @@ class Chef
         @resource_name = :remote_recipe
         @scope = :all
         @action = :run
+        @allowed_actions.push(:run)
       end
 
       # Name of recipe that should be run remotely

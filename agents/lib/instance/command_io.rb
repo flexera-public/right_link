@@ -68,7 +68,11 @@ module RightScale
     def self.listen &block
       raise Exceptions::Argument, 'Missing listener block' unless block_given?
       raise Exceptions::Application, 'Already listening' if listening
-      @conn = EM.start_server('127.0.0.1', RightScale::CommandConstants::SOCKET_PORT, InputHandler, block)
+      begin
+        @conn = EM.start_server('127.0.0.1', RightScale::CommandConstants::SOCKET_PORT, InputHandler, block)
+      rescue Exception => e
+        RightLinkLog.error("Could not start commands listener: #{e.message}")
+      end
       true
     end
 

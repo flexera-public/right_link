@@ -65,8 +65,13 @@ class InstanceScheduler
   # === Return
   # true:: Always return true
   def execute(options)
-    options[:agent_identity] = @agent_identity
-    push('/forwarder/schedule_recipe', options)
+    options[:agent_identity] = RightScale::AgentIdentity.serialized_from_nanite(@agent_identity)
+    request('/forwarder/schedule_recipe', options) do |r|
+      res = RightScale::OperationResult.from_results(r)
+      unless res.success?
+        RightScale::RightLinkLog.info("Failed to execute recipe: #{res.content}")
+      end
+    end
     true
   end
 

@@ -77,11 +77,10 @@ module RightScale
     #
     # === Parameters
     # identity<String>:: Instance identity
-    # booting<Boolean>:: Force instance boot regardless of instance ID or uptime
     #
     # === Return
     # true:: Always return true
-    def self.init(identity, booting=false)
+    def self.init(identity)
       @@identity = identity
       dir = File.dirname(STATE_FILE)
       FileUtils.mkdir_p(dir) unless File.directory?(dir)
@@ -89,7 +88,7 @@ module RightScale
       if File.file?(STATE_FILE)
         state = JSON.load(File.new(STATE_FILE))
         RightLinkLog.debug("Initializing instance #{identity} with #{state.inspect}")
-        if booting || (state['identity'] != identity) || !state['uptime'] || (uptime < state['uptime'].to_f)
+        if (state['identity'] != identity) || !state['uptime'] || (uptime < state['uptime'].to_f)
           # If identity or uptime has changed, then we are booting
           RightLinkLog.debug("Reboot detected; transitioning state to booting")
           self.value = 'booting'
