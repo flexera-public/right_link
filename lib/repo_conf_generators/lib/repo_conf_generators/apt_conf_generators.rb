@@ -74,9 +74,9 @@ module Apt
       config_body = ""
       mirror_list.each do |mirror_url|
         config_body += <<END
-deb #{mirror_url} #{release_name} main restricted multiverse universe
-deb #{mirror_url} #{release_name}-updates main restricted multiverse universe
-deb #{mirror_url} #{release_name}-security main restricted multiverse universe
+deb #{mirror_url} #{codename} main restricted multiverse universe
+deb #{mirror_url} #{codename}-updates main restricted multiverse universe
+deb #{mirror_url} #{codename}-security main restricted multiverse universe
 
 END
       end

@@ -71,8 +71,15 @@ module RightScale
     # === Return
     # true:: Always return true
     def configure_chef
+      #Ohai plugins path
+      ohai_plugins = File.expand_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'lib', 'chef', 'lib', 'plugins')) 
+      Ohai::Config[:plugin_path].shift(ohai_plugins)
+
+      #Chef logging
       Chef::Log.logger = AuditLogger.new(@auditor)
       Chef::Log.logger.level = RightLinkLog.level_from_sym(RightLinkLog.level)
+
+      #Chef paths and run mode
       Chef::Config[:cookbook_path] = @cookbook_repos.map { |r| cookbooks_path(r) }.flatten.uniq
       Chef::Config[:cookbook_path] << File.expand_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'lib', 'chef'))
       Chef::Config[:solo] = true

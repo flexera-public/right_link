@@ -20,49 +20,26 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-module RightScale
-  class Platform
-    class Linux
-      attr_reader :distro, :release, :codename
+provides "block_device"
 
-      #Initialize
-      def initialize
-        @distro  = `lsb_release -ds`.strip
-        @release =  `lsb_release -vs`.strip
-        @codename = `lsb_release -cs`.strip
+# This is a fix for the Ohai Linux block device plugin which is not EventMachine-safe
+# because Linux sysfs does not support nonblocking reads and the Ruby IO object's
+# "nonblocking" read hangs the VM when reading from a sysfs file handle.
+if File.exists?("/sys/block")
+  block = Mash.new
+  Dir["/sys/block/*"].each do |block_device_dir|
+    dir = File.basename(block_device_dir)
+    block[dir] = Mash.new
+    %w{size removable}.each do |check|
+      if File.exists?("/sys/block/#{dir}/#{check}")
+        block[dir][check] = `cat /sys/block/#{dir}/#{check}`.chomp
       end
-
-      # Is this machine running Ubuntu?
-      #
-      # === Return
-      # true:: If Linux distro is Ubuntu
-      # false:: Otherwise
-      def ubuntu?
-        distro =~ /Ubuntu/i
-      end
-
-      # Is this machine running CentOS?
-      #
-      # === Return
-      # true:: If Linux distro is CentOS
-      # false:: Otherwise
-      def centos?
-        distro =~ /CentOS/i
-      end
-
-      class Filesystem
-        def right_scale_state_dir
-          '/etc/rightscale.d'
-        end
-
-        def spool_dir
-          '/var/spool'
-        end
-
-        def cache_dir
-          '/var/cache/rightscale'
-        end
+    end
+    %w{model rev state timeout vendor}.each do |check|
+      if File.exists?("/sys/block/#{dir}/device/#{check}")
+        block[dir][check] = `cat /sys/block/#{dir}/device/#{check}`.chomp
       end
     end
   end
+  block_device block
 end
