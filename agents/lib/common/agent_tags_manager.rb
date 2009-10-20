@@ -24,7 +24,7 @@ module RightScale
     # === Return
     # tags<Array>:: All agent tags
     def tags
-      tags = agent.tags
+      tags = @agent.tags
     end
 
     # Add given tags to agent
@@ -35,7 +35,7 @@ module RightScale
     # === Return
     # true always return true
     def add_tags(*new_tags)
-      agent.update_tags(new_tags, [])
+      @agent.update_tags(new_tags, [])
       true
     end
 
@@ -47,7 +47,7 @@ module RightScale
     # === Return
     # true always return true
     def remove_tags(*old_tags)
-      agent.update_tags([], old_tags)
+      @agent.update_tags([], old_tags)
       true
     end
 
@@ -56,7 +56,7 @@ module RightScale
     # === Return
     # true::Always return true
     def clear
-      agent.update_tags([], tags)
+      @agent.update_tags([], tags)
       true
     end
 
