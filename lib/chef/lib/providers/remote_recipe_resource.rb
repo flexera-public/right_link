@@ -63,10 +63,11 @@ class Chef
       # These ids should have been retrieved using the :from attribute
       # of a remote recipe previously run on this agent
       def recipients(arg=nil)
+        converted_arg = arg.is_a?(String) ? [ arg ] : arg
         set_or_return(
           :recipients,
-          arg,
-          :kind_of => [ String, Array ]
+          converted_arg,
+          :kind_of => [ Array ]
         )
       end
 
@@ -74,10 +75,11 @@ class Chef
       # Only instances that expose *all* of the tags in this list
       # will run the recipe
       def recipients_tags(arg=nil)
+        converted_arg = arg.is_a?(String) ? [ arg ] : arg
         set_or_return(
           :recipient_tags,
-          arg,
-          :kind_of => [ String, Array ]
+          converted_arg,
+          :kind_of => [ Array ]
         )
       end
 

@@ -48,11 +48,12 @@ class Chef
         @new_resource.recipients.each do |target|
           Nanite::MapperProxy.instance.push('/instance_scheduler/execute',
                                             options, 
-                                            :target => RightScale::AgentIdentity.nanite_from_serialized(target))
-        end
+                                            :target => target)
+        end if @new_resource.recipients
         if tags && !tags.empty?
+          selector = (@new_resource.scope == :single ? :least_loaded : :all)
           Nanite::MapperProxy.instance.push('/instance_scheduler/execute', options,
-                                   :tags => tags, :selector => @new_resource.selector)
+                                   :tags => tags, :selector => selector)
         end
         true
       end
