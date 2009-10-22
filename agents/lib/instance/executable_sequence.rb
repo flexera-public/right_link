@@ -97,7 +97,7 @@ module RightScale
           attach_dir = cache_dir(script)
           script.attachments.each do |a|
             script_file_path = File.join(attach_dir, a.file_name)
-            @auditor.update_status("Downloading #{a.url} into #{script_file_path}")
+            @auditor.update_status("Downloading #{a.file_name} into #{script_file_path}")
             if @downloader.download(a.url, script_file_path)
               @auditor.append_info(@downloader.details)
             else
