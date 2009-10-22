@@ -119,7 +119,7 @@ module RightScale
       packages = []
       @scripts.each { |s| packages.push(s.packages) if s.packages && !s.packages.empty? }
       if File.executable? '/usr/bin/apt-get'
-        ENV['DEBIAN_FRONTEND'] = 'noninteractive' # this prevents promps
+        ENV['DEBIAN_FRONTEND'] = 'noninteractive' # this prevents prompts
         retry_execution { @auditor.append_output(`apt-get update 2>&1`); $?.success? }
       end
       return true if packages.empty?
