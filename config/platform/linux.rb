@@ -60,7 +60,7 @@ module RightScale
         end
 
         def cache_dir
-          '/var/cache/rightscale'
+          '/var/cache'
         end
       end
     end
