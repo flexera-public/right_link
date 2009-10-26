@@ -70,14 +70,22 @@ class Chef
         ::File.chmod(0744, sc_filename)
 
         # 2. Setup audit and environment
+        platform = RightScale::Platform.new
         @auditor.create_new_section("Running RightScript < #{@nickname} >")
         begin
-          platform = RightScale::Platform.new
+          meta_data = File.join(RightScale::RightLinkConfig[:cloud_state_dir], 'meta-data.rb')
+          #metadata does not exist on all clouds, hence the conditional
+          load(meta_data) if File.exist?(meta_data)
+        rescue Exception => e
+          @auditor.append_info("Could not load cloud metadata; script will execute without metadata in environment!")
+        end
+        begin
           user_data = File.join(RightScale::RightLinkConfig[:cloud_state_dir], 'user-data.rb')
+          #user-data should always exist
           load(user_data)
         rescue Exception => e
           @auditor.append_info("Could not load user data; script will execute without user data in environment!")
-        end        
+        end
         parameters.each { |key, val| ENV[key] = val }
         ENV['ATTACH_DIR'] = ENV['RS_ATTACH_DIR'] = cache_dir
         ENV['RS_REBOOT']  = RightScale::InstanceState.past_scripts.include?(@nickname) ? '1' : nil

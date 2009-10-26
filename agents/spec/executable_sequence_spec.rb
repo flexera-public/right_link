@@ -22,8 +22,6 @@ describe RightScale::ExecutableSequence do
 
     before(:each) do
       @attachment = mock('Attachment')
-      @attachment.should_receive(:file_name).at_least(1).times.and_return('test_download')
-      @attachment.should_receive(:url).at_least(1).times.and_return("file://#{@attachment_file}")
 
       @script = mock('RightScript')
       @script.should_receive(:nickname).at_least(1).times.and_return('__TestScript')
@@ -73,6 +71,8 @@ describe RightScale::ExecutableSequence do
       @script.should_receive(:source).and_return("#!/bin/sh\nruby -e 'exit(0)'")
       @sequence = RightScale::ExecutableSequence.new(@bundle)
       @sequence.should_receive(:install_packages).and_return(true)
+      @attachment.should_receive(:file_name).at_least(1).times.and_return('test_download')
+      @attachment.should_receive(:url).at_least(1).times.and_return("file://#{@attachment_file}")
       @auditor.should_receive(:append_error).never
       run_sequence.should be_true
     end
@@ -82,6 +82,8 @@ describe RightScale::ExecutableSequence do
       @script.should_receive(:source).and_return("#!/bin/sh\nruby -e 'exit(1)'")
       @sequence = RightScale::ExecutableSequence.new(@bundle)
       @sequence.should_receive(:install_packages).and_return(true)
+      @attachment.should_receive(:file_name).at_least(1).times.and_return('test_download')
+      @attachment.should_receive(:url).at_least(1).times.and_return("file://#{@attachment_file}")
       @auditor.should_receive(:append_error).any_number_of_times
       RightScale::RightLinkLog.logger.should_receive(:error)
       run_sequence.should be_false
