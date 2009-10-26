@@ -187,6 +187,9 @@ module RightScale
 
         opts.on("--log-dir DIR") do |dir|
           options[:log_dir] = dir
+
+          # ensure log directory exists (for windows, etc.)
+          FileUtils.mkdir_p(options[:log_dir]) unless File.directory?(options[:log_dir])
         end
         
         opts.on("--pid-dir DIR") do |dir|
@@ -233,7 +236,6 @@ module RightScale
       rescue Exception => e
         msg = "Failed to #{action} #{name} (#{e.class.to_s}: #{e.message})" + "\n" + e.backtrace.join("\n")
         puts msg
-        RightLinkLog.error(msg)
       end
     end
 

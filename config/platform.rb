@@ -63,54 +63,59 @@ module RightScale
   #   * release
   #   * codename
   class Platform
-		# Initialize platform values
-		def initialize
-			@windows = !!(RUBY_PLATFORM =~ /mswin/)
-			@mac     = !!(RUBY_PLATFORM =~ /darwin/)
-			@linux   = !!(RUBY_PLATFORM =~ /linux/)
-		end
+    # Initialize platform values
+    def initialize
+      @windows = !!(RUBY_PLATFORM =~ /mswin/)
+      @mac     = !!(RUBY_PLATFORM =~ /darwin/)
+      @linux   = !!(RUBY_PLATFORM =~ /linux/)
 
-		# Is current platform windows?
-		#
-		# === Return
-		# true:: If ruby interpreter is running on Windows
-		# false:: Otherwise
-		def windows?
-			@windows
-		end
+      @filesystem = nil
+    end
 
-		# Is current platform Mac OS X (aka Darwin)?
-		#
-		# === Return
-		# true:: If ruby interpreter is running on Mac
-		# false:: Otherwise
-		def mac?
-			@mac
-		end
+    # Is current platform windows?
+    #
+    # === Return
+    # true:: If ruby interpreter is running on Windows
+    # false:: Otherwise
+    def windows?
+      @windows
+    end
 
-		# Is current platform linux?
-		#
-		# === Return
-		# true:: If ruby interpreter is running on Linux
-		# false:: Otherwise
-		def linux?
-			@linux
-		end
+    # Is current platform Mac OS X (aka Darwin)?
+    #
+    # === Return
+    # true:: If ruby interpreter is running on Mac
+    # false:: Otherwise
+    def mac?
+      @mac
+    end
+
+    # Is current platform linux?
+    #
+    # === Return
+    # true:: If ruby interpreter is running on Linux
+    # false:: Otherwise
+    def linux?
+      @linux
+    end
 
     # Filesystem config object
     #
     # === Return
     # fs<Filesystem>:: Platform-specific filesystem config object
     def filesystem
-      if linux?
-        return Linux::Filesystem.new
-      elsif mac?
-        return Darwin::Filesystem.new
-      elsif windows?
-        return Win32::Filesystem.new
-      else
-        raise PlatformError.new("Don't know about the filesystem on this platform")
+      if @filesystem.nil?
+        if linux?
+          @filesystem = Linux::Filesystem.new
+        elsif mac?
+          @filesystem = Darwin::Filesystem.new
+        elsif windows?
+          @filesystem = Win32::Filesystem.new
+        else
+          raise PlatformError.new("Don't know about the filesystem on this platform")
+        end
       end
+      return @filesystem
     end
 
     # Linux platform-specific platform object
@@ -130,6 +135,5 @@ module RightScale
         super(*args)
       end
     end
-	end
+  end
 end
-

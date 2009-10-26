@@ -23,6 +23,7 @@
 begin
   require 'rubygems'
   require 'win32/dir'
+  require 'windows/api'
 rescue LoadError => e
   raise e if !!(RUBY_PLATFORM =~ /mswin/)
 end
@@ -31,6 +32,10 @@ module RightScale
   class Platform
     class Win32
       class Filesystem
+        def initialize
+          @temp_dir = nil
+        end
+
         def right_scale_state_dir
           File.join(Dir::COMMON_APPDATA, 'RightScale', 'rightscale.d')
         end
@@ -41,6 +46,29 @@ module RightScale
 
         def cache_dir
           File.join(Dir::COMMON_APPDATA, 'RightScale', 'cache')
+        end
+
+        def log_dir
+          File.join(Dir::COMMON_APPDATA, 'RightScale', 'log')
+        end
+
+        def temp_dir
+          if @temp_dir.nil?
+          get_temp_dir_api = Windows::API.new('GetTempPath', 'LP', 'L')
+            buffer = 0.chr * 260
+            get_temp_dir_api.call(buffer.length, buffer)
+            @temp_dir = buffer.unpack('A*').first.chomp('\\')
+          end
+        rescue
+	      @temp_dir = File.join(Dir::WINDOWS, "temp")
+	    ensure
+          return @temp_dir
+        end
+
+        # specific to the win32 environment to aid in resolving paths to
+        # executables in test scenarios.
+        def company_program_files_dir
+          File.join(Dir::PROGRAM_FILES, 'RightScale')
         end
       end
     end

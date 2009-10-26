@@ -62,6 +62,14 @@ module RightScale
         def cache_dir
           '/var/cache'
         end
+
+        def log_dir
+          '/var/log'
+        end
+
+        def temp_dir
+          '/tmp'
+        end
       end
     end
   end

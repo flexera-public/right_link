@@ -29,10 +29,15 @@ cloud_state_dir File.join(platform.filesystem.spool_dir, 'cloud')
 # that may be installed. Using the sandbox is optional under Linux/Darwin.
 sandbox_path File.join(rs_root_path, 'sandbox')
 if platform.windows?
-  raise StandardError.new("Missing sandbox; cannot proceed under Win32") unless File.directory?(sandbox_path)
+  # support testing from a non-sandbox location under windows
+  if not File.directory?(sandbox_path)
+    sandbox_path = File.join(platform.filesystem.company_program_files_dir, 'SandBox')
+  end
+
+  raise StandardError.new("Missing sandbox \"#{sandbox_path}\"; cannot proceed under Win32") unless File.directory?(sandbox_path)
   sandbox_ruby_cmd File.join(sandbox_path, 'Ruby', 'bin', 'ruby.exe')
   sandbox_gem_cmd  File.join(sandbox_path, 'Ruby', 'bin', 'gem.bat')
-  sandbox_git_cmd  File.join(sandbox_path, 'Git',  'bin', 'git.cmd')
+  sandbox_git_cmd  File.join(sandbox_path, 'Git',  'cmd', 'git.cmd')
 else
   if File.directory?(sandbox_path)
     sandbox_ruby_cmd File.join(sandbox_path, 'bin', 'ruby')

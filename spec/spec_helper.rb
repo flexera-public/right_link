@@ -25,7 +25,8 @@ NANITE_LOG_PATH = File.dirname(__FILE__)
 Nanite::Log.init('dummy', NANITE_LOG_PATH)
 
 at_exit do
-  log_file = File.join(File.dirname(__FILE__), 'nanite.dummy.log') 
+  log_file = File.join(File.dirname(__FILE__), 'nanite.dummy.log')
+  Nanite::Log.close unless Nanite::Log.logger.nil?
   File.delete(log_file) if File.file?(log_file)
 end
 
