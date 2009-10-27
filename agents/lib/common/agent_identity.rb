@@ -6,7 +6,7 @@ module RightScale
   class AgentIdentity
 
     # Separator used to differentiate between identity components when serialized
-    ID_SEPARATOR = '*'
+    ID_SEPARATOR = '-'
 
     # Identity components
     attr_reader :prefix, :agent_name, :token, :base_id
