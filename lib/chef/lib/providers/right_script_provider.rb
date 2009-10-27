@@ -73,18 +73,20 @@ class Chef
         platform = RightScale::Platform.new
         @auditor.create_new_section("Running RightScript < #{@nickname} >")
         begin
-          meta_data = File.join(RightScale::RightLinkConfig[:cloud_state_dir], 'meta-data.rb')
+          meta_data = ::File.join(RightScale::RightLinkConfig[:cloud_state_dir], 'meta-data.rb')
           #metadata does not exist on all clouds, hence the conditional
-          load(meta_data) if File.exist?(meta_data)
+          load(meta_data) if ::File.exist?(meta_data)
         rescue Exception => e
           @auditor.append_info("Could not load cloud metadata; script will execute without metadata in environment!")
+          RightScale::RightLinkLog.error("#{e.class.name}: #{e.message}, #{e.backtrace[0]}")
         end
         begin
-          user_data = File.join(RightScale::RightLinkConfig[:cloud_state_dir], 'user-data.rb')
+          user_data = ::File.join(RightScale::RightLinkConfig[:cloud_state_dir], 'user-data.rb')
           #user-data should always exist
           load(user_data)
         rescue Exception => e
           @auditor.append_info("Could not load user data; script will execute without user data in environment!")
+          RightScale::RightLinkLog.error("#{e.class.name}: #{e.message}, #{e.backtrace[0]}")
         end
         parameters.each { |key, val| ENV[key] = val }
         ENV['ATTACH_DIR'] = ENV['RS_ATTACH_DIR'] = cache_dir
