@@ -239,8 +239,8 @@ module RightScale
         c.run_solo
       rescue Exception => e
         object = is_rs ? 'RightScript' : 'Chef recipe'
-        report_failure("Failed to run #{object} #{recipe.nickname}", e.message)
-        RightLinkLog.debug("Chef failed with '#{e.message}' at" + "\n" + e.backtrace.join("\n"))
+        report_failure("Failed to run #{object} #{recipe.nickname}", chef_error(object, recipe.nickname, e))
+        RightLinkLog.debug("Chef failed with '#{e.message}' at\n" + e.backtrace.join("\n"))
       end
       true
     end
@@ -260,6 +260,66 @@ module RightScale
       @auditor.append_error(title)
       @auditor.append_error(msg)
       true
+    end
+
+    # Wrap chef exception with explanatory information and show
+    # context of failure
+    #
+    # === Parameters
+    # object<String>:: 'Chef recipe' or 'RightScript'
+    # recipe<String>:: Name of recipe that was running when exception
+    #                  was raised
+    # e<Exception>:: Exception raised while executing Chef recipe
+    #
+    # === Return
+    # msg<String>:: Human friendly error message
+    def chef_error(object, recipe, e)
+      msg = "An error occurred during the execution of #{object} < #{recipe} >. The error message was:\n\n"
+      msg += e.message
+      file, line, meth = e.backtrace[0].scan(/(.*):(\d+):in `(\w+)'/).flatten
+      line_number = line.to_i
+      if file && line && (line_number.to_s == line)
+        if file[0..InstanceConfiguration::COOKBOOK_PATH.size - 1] == InstanceConfiguration::COOKBOOK_PATH
+          path = "[COOKBOOKS]/" + file[InstanceConfiguration::COOKBOOK_PATH.size..file.size]
+        else
+          path = file
+        end
+        msg += "\n\nThe error occurred line #{line} of #{path}"
+        msg += " in method '#{meth}'" if meth
+        context = ""
+        if File.readable?(file)
+          File.open(file, 'r') do |f|
+            lines = f.readlines
+            lines_count = lines.size
+            if lines_count >= line_number
+              upper = [lines_count, line_number + 2].max
+              padding = upper.to_s.size
+              context += context_line(lines, line_number - 2, padding)
+              context += context_line(lines, line_number - 1, padding)
+              context += context_line(lines, line_number, padding, '*')
+              context += context_line(lines, line_number + 1, padding)
+              context += context_line(lines, line_number + 2, padding)
+            end
+          end
+        end
+        msg += " while executing:\n\n#{context}" unless context.empty?
+      end
+      msg
+    end
+
+    # Format a single line for the error context, return empty string
+    # if given index is negative or greater than the lines array size
+    #
+    # === Parameters
+    # lines<Array>:: Lines of text
+    # index<Integer>:: Index of line that should be formatted for context
+    # padding<Integer>:: Number of character to pad line with (includes prefix)
+    # prefix<String>:: Single character string used to prefix line
+    #                  use line number if not specified
+    def context_line(lines, index, padding, prefix=nil)
+      return '' if index < 1 || index > lines.size
+      margin = prefix ? prefix * index.to_s.size : index.to_s
+      "#{margin}#{' ' * ([padding - margin.size, 0].max)} #{lines[index - 1]}"
     end
 
     # Transform a RightScriptInstantiation into a RecipeInstantiation

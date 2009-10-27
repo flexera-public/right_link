@@ -130,4 +130,43 @@ describe RightScale::ExecutableSequence do
     end
   end
 
+  context 'Chef error formatting' do
+
+    before(:each) do
+      bundle = mock('Bundle', :null_object => true)
+      @sequence = RightScale::ExecutableSequence.new(bundle)
+      begin
+        fourty_two
+      rescue Exception => e
+        @exception = e
+      end
+      @lines = [ '    paths.size.should == 1',
+                 '    paths.first.should == @sequence.send(:cookbook_repo_directory, repo)',
+                 '  end',
+                 '',
+                 "  it 'should calculate cookbooks path for repositories with cookbooks_path' do",
+                 "    repo = RightScale::CookbookRepository.new('git', 'url', 'tag', ['cookbooks_path'])",
+                 '    paths = @sequence.send(:cookbooks_path, repo)',
+                 '    paths.size.should == 1',
+                 "    paths.first.should == File.join(@sequence.send(:cookbook_repo_directory, repo), 'cookbooks_path')",
+                 '  end' ]
+    end
+
+    it 'should format lines of code for error message context' do
+      @sequence.__send__(:context_line, @lines, 3, 0).should == '3 ' + @lines[2]
+      @sequence.__send__(:context_line, @lines, 3, 1).should == '3 ' + @lines[2]
+      @sequence.__send__(:context_line, @lines, 3, 2).should == '3  ' + @lines[2]
+      @sequence.__send__(:context_line, @lines, 3, 1, '*').should == '* ' + @lines[2]
+      @sequence.__send__(:context_line, @lines, 10, 1).should == '10 ' + @lines[9]
+      @sequence.__send__(:context_line, @lines, 10, 1, '*').should == '** ' + @lines[9]
+    end
+
+    it 'should format chef error messages' do
+      msg = @sequence.__send__(:chef_error, 'Chef recipe', 'some_recipe', @exception)
+      msg.should_not be_empty
+      msg.should =~ /while executing/
+    end
+
+  end
+
 end
