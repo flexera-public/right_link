@@ -147,7 +147,7 @@ module RightScale
     # === Return
     # details<String>:: Message with last url, download size and speed
     def details
-      "Downloaded #{@last_url} (#{ scale(size.to_i).join(' ') }) at #{ scale(speed.to_i).join(' ') }/s"
+      "Downloaded #{sanitize_uri(@last_url)} (#{ scale(size.to_i).join(' ') }) at #{ scale(speed.to_i).join(' ') }/s"
     end
 
     protected
@@ -191,5 +191,13 @@ module RightScale
       end
     end
 
+    def sanitize_uri(uri)
+      begin
+        uri = URI.parse(uri)
+        return "#{uri.scheme}://#{uri.host}#{uri.path}" 
+      rescue Exception => e
+        return "file"
+      end
+    end
   end
 end
