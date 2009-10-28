@@ -11,7 +11,7 @@ module RightScale
     end
 
     # Separator used to differentiate between identity components when serialized
-    ID_SEPARATOR = '-'
+    ID_SEPARATOR = '_'
 
     # Separator used to differentiate between identity components prior to release 3.4
     ID_SEPARATOR_OLD = '*'

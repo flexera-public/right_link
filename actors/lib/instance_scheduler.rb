@@ -31,13 +31,14 @@ class InstanceScheduler
   #
   # === Parameters
   # agent<Nanite::Agent>:: Host agent
-  def initialize(agent)
+  def initialize(agent, cancel_handlers = nil)
     @scheduled_bundles = Queue.new
     @decommissioning = false
     @agent_identity = agent.identity
     RightScale::AgentTagsManager.new(agent)
     @sig_handler = Signal.trap('USR1') { decommission_on_exit } unless RightScale::RightLinkConfig[:platform].windows?
     @worker_thread = Thread.new { run_bundles }
+    cancel_handlers[:instance_scheduler] = proc{ decommission_on_exit } if cancel_handlers
   end
 
   # Schedule given script bundle so it's run as soon as possible

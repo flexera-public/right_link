@@ -81,7 +81,11 @@ module RightScale
     VERSION = [0, 2]
     YAML_EXT = %w{ yml yaml }
     FORCED_OPTIONS = { :format => :secure, :single_threaded => true }
-    DEFAULT_OPTIONS = { :log_dir => '/var/log', :daemonize => true }
+    DEFAULT_OPTIONS =
+    {
+      :log_dir => RightLinkConfig[:platform].filesystem.log_dir,
+      :daemonize => true
+    }
 
     # Convenience wrapper
     def self.run
@@ -130,7 +134,7 @@ module RightScale
       else
         run_cmd(action, options[:identity])
       end
-      
+
       exit(1) unless success
     end
 

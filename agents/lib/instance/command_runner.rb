@@ -39,8 +39,8 @@ module RightScale
     # === Raise
     # <RightScale::Exceptions::Application>:: If +start+ has already been called and +stop+ hasn't since
     # <RightScale::Exceptions::IO>:: If named pipe creation failed
-    def self.start(agent_identity)
-      commands = InstanceCommands.get(agent_identity)
+    def self.start(agent_identity, cancel_handlers = nil)
+      commands = InstanceCommands.get(agent_identity, cancel_handlers)
       CommandIO.listen do |c|
         begin
           cmd_name = c[:name].to_sym

@@ -35,8 +35,14 @@ require File.join(BASE_DIR, 'lib', 'repo_conf_generators', 'lib', 'repo_conf_gen
 require File.join(BASE_DIR, 'lib', 'right_popen', 'lib', 'right_popen')
 
 RightScale::SecureSerializerInitializer.init('instance', options[:identity], RightScale::RightLinkConfig[:certs_dir])
+
+cancel_handlers = {}
+
+# Start command runner to enable running RightScripts and recipes from the command line
+RightScale::CommandRunner.start(options[:identity], cancel_handlers)
+
 register InstanceSetup.new(options[:identity])
-register InstanceScheduler.new(self)
+register InstanceScheduler.new(self, cancel_handlers)
 register AgentManager.new
 
 # Load environment code if present
@@ -44,6 +50,3 @@ register AgentManager.new
 # agent is started. It can contain code generated dynamically e.g. from
 # the cloud user data
 instance_eval(IO.read(RIGHT_LINK_ENV)) if File.file?(RIGHT_LINK_ENV)
-
-# Start command runner to enable running RightScripts and recipes from the command line
-RightScale::CommandRunner.start(options[:identity])
