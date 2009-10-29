@@ -269,18 +269,37 @@ module RightScale
 
     # Trigger execution of decommission scripts in instance agent and wait for it to be done  
     def run_decommission
-      fail("Could not decommission, state file not found at #{InstanceState::STATE_FILE}") unless File.file?(InstanceState::STATE_FILE)
+      if not File.file?(state_file_path)
+        puts "Could not decommission, state file not found at #{state_file_path}"
+        return false
+      end
       cfg = File.join(gen_agent_dir('instance'), 'config.yml')
-      fail("Missing instance agent configuration file '#{cfg}'") unless File.file?(cfg)
-      config = YAML.load(File.new(cfg))
+      if not File.file?(cfg)
+        puts "Missing instance agent configuration file '#{cfg}'"
+        return false
+      end
+      config = YAML.load(File.read(cfg))
       pid = Nanite::PidFile.new("nanite-#{config[:identity]}", :pid_dir => config[:pid_dir]).read_pid
-      fail("Could not decommission, no pid file found or pid file invalid for instance agent") unless pid && pid != 0
-      Process.kill("USR1", pid)
+      if pid && pid != 0
+        Process.kill("USR1", pid)
+      else
+        # use command protocol in case of nanite running in foreground (no .pid file)
+        begin
+          cmd = { :name => 'cancel' }
+          client = CommandClient.new
+          client.send_command(cmd) { |r| }
+        rescue
+          puts "Failed to contact any local instance."
+          return false
+        end
+      end
+
+      # wait for state change
       decommissioned = false
       begin
         # WARNING: always read state file into a string first; JSON gem has issues when parsing from an IO object
         # when the JSON structure contains integers or other non-string elements.
-        state_file = File.new(InstanceState::STATE_FILE)
+        state_file = File.new(state_file_path)
         state_string = state_file.read
         state = JSON.load(state_string)
         fail("Invalid state file content '#{state.inspect}'") unless state && state['value']
