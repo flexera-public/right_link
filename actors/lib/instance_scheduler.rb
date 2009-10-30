@@ -48,9 +48,11 @@ class InstanceScheduler
   # === Return
   # res<RightScale::OperationResult>:: Always returns success
   def schedule_bundle(bundle)
-    auditor = RightScale::AuditorProxy.new(bundle.audit_id)
-    auditor.update_status("Scheduling execution of #{bundle.to_s}")
-    @scheduled_bundles.push(bundle)
+    unless bundle.executables.empty?
+      auditor = RightScale::AuditorProxy.new(bundle.audit_id)
+      auditor.update_status("Scheduling execution of #{bundle.to_s}")
+      @scheduled_bundles.push(bundle)
+    end
     res = RightScale::OperationResult.success
   end
 
