@@ -27,7 +27,7 @@ cloud_state_dir File.join(platform.filesystem.spool_dir, 'cloud')
 # The sandbox enhances the robustness of the RightLink agent by including
 # everything necessary to run the agent independently of any OS packages
 # that may be installed. Using the sandbox is optional under Linux/Darwin.
-sandbox_path File.join(rs_root_path, 'sandbox')
+sandbox_path = File.join(rs_root_path, 'sandbox')
 if platform.windows?
   # support testing from a non-sandbox location under windows
   if not File.directory?(sandbox_path)
@@ -38,14 +38,12 @@ if platform.windows?
   sandbox_ruby_cmd File.join(sandbox_path, 'Ruby', 'bin', 'ruby.exe')
   sandbox_gem_cmd  File.join(sandbox_path, 'Ruby', 'bin', 'gem.bat')
   sandbox_git_cmd  File.join(sandbox_path, 'Git',  'cmd', 'git.cmd')
+elsif File.directory?(sandbox_path)
+  sandbox_ruby_cmd File.join(sandbox_path, 'bin', 'ruby')
+  sandbox_gem_cmd  File.join(sandbox_path, 'bin', 'gem')
+  sandbox_git_cmd  File.join(sandbox_path, 'bin', 'git')
 else
-  if File.directory?(sandbox_path)
-    sandbox_ruby_cmd File.join(sandbox_path, 'bin', 'ruby')
-    sandbox_gem_cmd  File.join(sandbox_path, 'bin', 'gem')
-    sandbox_git_cmd  File.join(sandbox_path, 'bin', 'git')
-  else
-    sandbox_ruby_cmd `which ruby`
-    sandbox_gem_cmd  `which gem`
-    sandbox_git_cmd  `which git`
-  end
+  sandbox_ruby_cmd `which ruby`
+  sandbox_gem_cmd  `which gem`
+  sandbox_git_cmd  `which git`
 end
