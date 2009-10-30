@@ -70,6 +70,7 @@ require File.join(File.dirname(__FILE__), 'common_parser')
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'agents', 'lib', 'instance', 'instance_state'))
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'agents', 'lib', 'common', 'right_link_log'))
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'lib', 'amqp_retry_patch'))
+require File.join(File.dirname(__FILE__), 'command_client')
 
 module RightScale
 
@@ -269,45 +270,21 @@ module RightScale
 
     # Trigger execution of decommission scripts in instance agent and wait for it to be done  
     def run_decommission
-      if not File.file?(state_file_path)
-        puts "Could not decommission, state file not found at #{state_file_path}"
-        return false
-      end
-      cfg = File.join(gen_agent_dir('instance'), 'config.yml')
-      if not File.file?(cfg)
-        puts "Missing instance agent configuration file '#{cfg}'"
-        return false
-      end
-      config = YAML.load(File.read(cfg))
-      pid = Nanite::PidFile.new("nanite-#{config[:identity]}", :pid_dir => config[:pid_dir]).read_pid
-      if pid && pid != 0
-        Process.kill("USR1", pid)
-      else
-        # use command protocol in case of nanite running in foreground (no .pid file)
-        begin
-          cmd = { :name => 'cancel' }
-          client = CommandClient.new
-          client.send_command(cmd) { |r| }
-        rescue
-          puts "Failed to contact any local instance."
-          return false
-        end
-      end
-
-      # wait for state change
-      decommissioned = false
+      # use command protocol in case of nanite running in foreground (no .pid file)
+      puts "Attempting to decommission local instance..."
       begin
-        # WARNING: always read state file into a string first; JSON gem has issues when parsing from an IO object
-        # when the JSON structure contains integers or other non-string elements.
-        state_file = File.new(state_file_path)
-        state_string = state_file.read
-        state = JSON.load(state_string)
-        fail("Invalid state file content '#{state.inspect}'") unless state && state['value']
-        decommissioned = state['value'] == 'decommissioned'
-        sleep 1 unless decommissioned
-      end until decommissioned
+        client = CommandClient.new
+        cmd = { :name => 'cancel' }
+        verbose = false
+        timeout_secs = 60
+        client.send_command(cmd, verbose, timeout_secs) { |r| puts r }
+        return true
+      rescue Exception => e
+        puts "Failed to decommission or else time limit was exceeded. Confirm that the local instance is still running."
+      end
+      false
     end
-    
+
     # Start nanite agent, return true
     def start_agent
       @options[:root] = gen_agent_dir(@options[:agent])

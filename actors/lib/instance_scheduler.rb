@@ -31,14 +31,15 @@ class InstanceScheduler
   #
   # === Parameters
   # agent<Nanite::Agent>:: Host agent
-  def initialize(agent, cancel_handlers = nil)
+  def initialize(agent, cancel_handlers = nil, terminate_handlers = nil)
     @scheduled_bundles = Queue.new
     @decommissioning = false
     @agent_identity = agent.identity
     RightScale::AgentTagsManager.new(agent)
     @sig_handler = Signal.trap('USR1') { decommission_on_exit } unless RightScale::RightLinkConfig[:platform].windows?
     @worker_thread = Thread.new { run_bundles }
-    cancel_handlers[:instance_scheduler] = proc{ decommission_on_exit } if cancel_handlers
+    @terminate_handlers = terminate_handlers
+    cancel_handlers << proc{ decommission_on_exit } if cancel_handlers
   end
 
   # Schedule given script bundle so it's run as soon as possible
@@ -142,6 +143,9 @@ class InstanceScheduler
   # Well... does not return...
   def terminate
     RightScale::RightLinkLog.info("Instance agent #{@agent_identity} terminating")
+    if @terminate_handlers
+      @terminate_handlers.each { |callback| callback.call }
+    end
     RightScale::CommandRunner.stop
     @sig_handler.call if @sig_handler && @sig_handler.respond_to?(:call)
     Process.kill('TERM', Process.pid) unless @sig_handler && @sig_handler != "DEFAULT"

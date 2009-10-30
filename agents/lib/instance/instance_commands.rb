@@ -46,9 +46,9 @@ module RightScale
     #
     # === Return
     # cmds<Hash>:: Hash of command blocks keyed by command names
-    def self.get(agent_identity, cancel_handlers = nil)
+    def self.get(agent_identity, cancel_handlers = nil, terminate_handlers = nil)
       cmds = {}
-      target = new(agent_identity, cancel_handlers)
+      target = new(agent_identity, cancel_handlers, terminate_handlers)
       COMMANDS.each { |k, v| cmds[k] = lambda { |opts| target.send("#{k.to_s}_command", opts) } }
       cmds
     end
@@ -57,9 +57,10 @@ module RightScale
     #
     # === Parameter
     # token_id<String>:: Instance token id
-    def initialize(agent_identity, cancel_handlers = nil)
+    def initialize(agent_identity, cancel_handlers = nil, terminate_handlers = nil)
       @agent_identity = agent_identity
       @cancel_handlers = cancel_handlers
+      @terminate_handlers = terminate_handlers
     end
 
     protected
@@ -117,15 +118,8 @@ module RightScale
     # === Return
     # true
     def cancel_command(opts)
-      CommandIO.reply(opts[:port], "Cancelling")
-      if @cancel_handlers && false == @cancel_handlers.empty?
-        @cancel_handlers.each do |name, callback|
-          puts "Cancelling #{name}"
-          callback.call
-        end
-      else
-        puts "No cancellation handlers registered."
-      end
+      @cancel_handlers.each { |callback| callback.call } if @cancel_handlers
+      @terminate_handlers << proc{ CommandIO.reply(opts[:port], "Cancelled") } if @terminate_handlers
     end
 
     # Helper method that sends given request and report status through command IO
