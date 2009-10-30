@@ -34,7 +34,7 @@ module RightScale
                    :info  => Logger::INFO,
                    :warn  => Logger::WARN,
                    :error => Logger::ERROR,
-                   :fatal => Logger::FATAL }
+                   :fatal => Logger::FATAL } unless defined?(LEVELS_MAP)
 
     # Forward all method calls to multiplexer
     # We want to return the result of only the first registered
