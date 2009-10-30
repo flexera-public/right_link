@@ -94,7 +94,7 @@ module RightScale
     # === Return
     # entry<Hash>:: Hash containing new audit entry detail
     def self.error(text)
-      entry = { :detail => "*ERROR> #{text}" }
+      entry = { :detail => "*ERROR> #{text}\n" }
     end
 
     protected
