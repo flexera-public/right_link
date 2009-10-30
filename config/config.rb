@@ -43,7 +43,7 @@ elsif File.directory?(sandbox_path)
   sandbox_gem_cmd  File.join(sandbox_path, 'bin', 'gem')
   sandbox_git_cmd  File.join(sandbox_path, 'bin', 'git')
 else
-  sandbox_ruby_cmd `which ruby`
-  sandbox_gem_cmd  `which gem`
-  sandbox_git_cmd  `which git`
+  sandbox_ruby_cmd `which ruby`.chomp
+  sandbox_gem_cmd  `which gem`.chomp
+  sandbox_git_cmd  `which git`.chomp
 end
