@@ -184,6 +184,14 @@ module RightScale
       loglevel = level_to_sym(@level)
     end
 
+    # Close underlying loggers
+    # This is necessary for Windows and is a no-op on Linux
+    def self.close
+      @logger.targets.each do |t|
+        t.close if t.respond_to?(:close)
+      end
+    end
+
     protected
 
     # Was log ever used?

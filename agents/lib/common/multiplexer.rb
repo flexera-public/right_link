@@ -24,6 +24,9 @@ module RightScale
 
   # Apply each method call to all registered targets
   class Multiplexer
+   
+    # Access to underlying multiplexed objects
+    attr_reader :targets
 
     # Initialize multiplexer targets
     #
