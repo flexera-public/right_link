@@ -27,23 +27,25 @@ cloud_state_dir File.join(platform.filesystem.spool_dir, 'cloud')
 # The sandbox enhances the robustness of the RightLink agent by including
 # everything necessary to run the agent independently of any OS packages
 # that may be installed. Using the sandbox is optional under Linux/Darwin.
-sandbox_path = File.join(rs_root_path, 'sandbox')
 if platform.windows?
-  # support testing from a non-sandbox location under windows
-  if not File.directory?(self.sandbox_path)
-    self.sandbox_path = File.join(platform.filesystem.company_program_files_dir, 'SandBox')
-  end
+  candidate_path = File.join(platform.filesystem.company_program_files_dir, 'SandBox')
+  raise StandardError.new("Missing sandbox \"#{candidate_path}\"; cannot proceed under Win32") unless File.directory?(candidate_path)
 
-  raise StandardError.new("Missing sandbox \"#{self.sandbox_path}\"; cannot proceed under Win32") unless File.directory?(self.sandbox_path)
-  sandbox_ruby_cmd File.join(self.sandbox_path, 'Ruby', 'bin', 'ruby.exe')
-  sandbox_gem_cmd  File.join(self.sandbox_path, 'Ruby', 'bin', 'gem.bat')
-  sandbox_git_cmd  File.join(self.sandbox_path, 'Git',  'cmd', 'git.cmd')
-elsif File.directory?(self.sandbox_path)
-  sandbox_ruby_cmd File.join(self.sandbox_path, 'bin', 'ruby')
-  sandbox_gem_cmd  File.join(self.sandbox_path, 'bin', 'gem')
-  sandbox_git_cmd  File.join(self.sandbox_path, 'bin', 'git')
+  sandbox_path candidate_path
+  sandbox_ruby_cmd File.join(sandbox_path, 'Ruby', 'bin', 'ruby.exe')
+  sandbox_gem_cmd  File.join(sandbox_path, 'Ruby', 'bin', 'gem.bat')
+  sandbox_git_cmd  File.join(sandbox_path, 'Git',  'cmd', 'git.cmd')
 else
-  sandbox_ruby_cmd `which ruby`.chomp
-  sandbox_gem_cmd  `which gem`.chomp
-  sandbox_git_cmd  `which git`.chomp
+  candidate_path = File.join(rs_root_path, 'sandbox')
+  if File.directory?(candidate_path)
+    sandbox_path candidate_path
+    sandbox_ruby_cmd File.join(sandbox_path, 'bin', 'ruby')
+    sandbox_gem_cmd  File.join(sandbox_path, 'bin', 'gem')
+    sandbox_git_cmd  File.join(sandbox_path, 'bin', 'git')
+  else
+    sandbox_path nil
+    sandbox_ruby_cmd `which ruby`.chomp
+    sandbox_gem_cmd  `which gem`.chomp
+    sandbox_git_cmd  `which git`.chomp
+  end
 end
