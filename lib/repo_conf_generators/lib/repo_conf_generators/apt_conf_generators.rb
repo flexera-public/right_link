@@ -12,30 +12,23 @@
 module Apt
 
   module Ubuntu
-    # The different generate classes will always generate an exception ("string") if there's anything that went wrong. If no exception, things went well.
-    class Intrepid
-      def self.generate(description, base_urls, frozen_date="latest")
-        opts = {:repo_filename => "rightscale",
-                :repo_name => "default",
-                :description => description,
-                :base_urls => base_urls,
-                :enabled => true }
-        opts[:frozen_date] = frozen_date || "latest" # Optional frozen date
-        Apt::Ubuntu::abstract_generate(opts)
-      end
-    end
 
-    class Hardy
-      def self.generate(description, base_urls, frozen_date="latest")
-        opts = {:repo_filename => "rightscale",
-                :repo_name => "default",
-                :description => description,
-                :base_urls => base_urls,
-                :frozen_date => frozen_date,
-                :enabled => true }
-        opts[:frozen_date] = frozen_date || "latest" # Optional frozen date
-        Apt::Ubuntu::abstract_generate(opts)
-      end
+    # The different generate classes will always generate an exception ("string") if there's anything that went wrong. If no exception, things went well.
+    [ 'Hardy', 'Intrepid', 'Jaunty', 'Karmic' ].each do |c|
+      module_eval <<-EOS
+        class #{c}
+          def self.generate(description, base_urls, frozen_date="latest")
+            opts = { :repo_filename => "rightscale",
+                     :repo_name     => "default",
+                     :description   => description,
+                     :base_urls     => base_urls,
+                     :frozen_date   => frozen_date,
+                     :enabled       => true }
+            opts[:frozen_date] = frozen_date || "latest" # Optional frozen date
+            Apt::Ubuntu::abstract_generate(opts)
+          end
+        end
+      EOS
     end
 
     def self.path_to_sources_list
