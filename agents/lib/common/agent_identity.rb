@@ -4,6 +4,7 @@ module RightScale
   
   # Agent identity management
   class AgentIdentity
+<<<<<<< HEAD
     if not defined?(SEPARATOR_EPOCH)
       if (ENV['RAILS_ENV'] == nil) || (ENV['RAILS_ENV'] == 'production')
         SEPARATOR_EPOCH = Time.at(1256702400) #Tue Oct 27 21:00:00 -0700 2009
@@ -11,6 +12,10 @@ module RightScale
         SEPARATOR_EPOCH = Time.at(1256606908) #Mon Oct 26 18:28:25 -0700 2009
       end
     end
+=======
+    # Cutover time at which agents began using new separator
+    SEPARATOR_EPOCH = Time.at(1256702400) #Tue Oct 27 21:00:00 -0700 2009
+>>>>>>> Remove cruft from AgentIdentity; compatibility fixes for newer versions of mixlib-config.
 
     # Separator used to differentiate between identity components when serialized
     ID_SEPARATOR = '-' unless defined?(ID_SEPARATOR)
