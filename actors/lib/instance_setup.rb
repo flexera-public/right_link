@@ -54,7 +54,7 @@ class InstanceSetup
   # === Return
   # true:: Always return true
   def init_boot
-    request("/booter/set_r_s_version", { :agent_identity => @agent_identity, :r_s_version => 5 }) do |r|
+    request("/booter/set_r_s_version", { :agent_identity => @agent_identity, :r_s_version => 6 }) do |r|
       res = RightScale::OperationResult.from_results(r)
       strand("Failed to set_r_s_version", res) unless res.success?
       boot
@@ -145,7 +145,7 @@ class InstanceSetup
     request("/booter/get_boot_bundle", options) do |r|
       res = RightScale::OperationResult.from_results(r)
       if res.success?
-        sequence = RightScale::ExecutableSequence.new(res.content)
+        sequence = RightScale::ExecutableSequence.new(res.content, @agent_identity)
 
         # We want to be able to use Chef providers which use EM (e.g. so they can use RightScale::popen3), this means
         # that we need to synchronize the chef thread with the EM thread since providers run synchronously. So create

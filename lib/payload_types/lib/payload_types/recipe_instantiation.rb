@@ -31,17 +31,25 @@ module RightScale
     # <String> Recipe nickname
     attr_accessor :nickname
 
-    # <String> Recipe JSON file
-    attr_accessor :json
+    # <Hash> Recipe override attributes (JSON string for RightLink v5)
+    attr_accessor :attributes
+
+    # <Integer> Recipe id
+    attr_accessor :id
+
+    # <Boolean> Whether recipe inputs are ready
+    attr_accessor :ready
 
     def initialize(*args)
-      @nickname = args[0]
-      @json     = args[1] if args.size > 1
+      @nickname   = args[0] if args.size > 0
+      @attributes = args[1] if args.size > 1
+      @id         = args[2] if args.size > 2
+      @ready      = args[3] if args.size > 3
     end
 
     # Array of serialized fields given to constructor
     def serialized_members
-      [ @nickname, @json ]
+      [ @nickname, @attributes, @id, @ready ]
     end
 
   end
