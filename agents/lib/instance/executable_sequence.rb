@@ -33,20 +33,26 @@ module RightScale
   # Bundle sequence, includes installing dependent packages,
   # downloading attachments and running scripts in given bundle.
   # Also downloads cookbooks and run recipes in given bundle.
+  # If an agent identity is given then the executable sequence will attempt
+  # to retrieve missing attributes. It will do so indefinitely until the missing
+  # attributes are provided by the core agent.
   class ExecutableSequence
   
     # Initialize sequence
     #
     # === Parameter
     # bundle<RightScale::ExecutableBundle>:: Bundle to be run
-    def initialize(bundle)
+    # agent_identity<String>:: Agent identity (needed to retrieve missing inputs)
+    def initialize(bundle, agent_identity=nil)
       @description          = bundle.to_s
       @auditor              = AuditorProxy.new(bundle.audit_id)
       @scripts              = bundle.executables.select { |e| e.is_a?(RightScriptInstantiation) }
+      @original_recipes     = bundle.executables.select { |e| e.is_a?(RecipeInstantiation) }
       @recipes              = bundle.executables.map { |e| e.is_a?(RecipeInstantiation) ? e : script_to_recipe(e) }
       @cookbook_repos       = bundle.cookbook_repositories || []
       @downloader           = Downloader.new
       @prepared_executables = []
+      @agent_identity       = agent_identity
     end
 
     # Run given executable bundle
@@ -55,12 +61,14 @@ module RightScale
     # @ok<Boolean>:: true if execution was successful, false otherwise    
     def run
       @ok = true
-      configure_chef
-      download_attachments if @ok
-      install_packages if @ok
-      download_cookbooks if @ok
-      run_recipes if @ok
-      @auditor.update_status("completed: #{@description}") if @ok
+      unless @recipes.empty?
+        configure_chef
+        download_attachments if @ok
+        install_packages if @ok
+        download_cookbooks if @ok
+        run_recipe(@recipes.shift) if @ok
+        @auditor.update_status("completed: #{@description}") if @ok
+      end
       @ok
     end
 
@@ -210,16 +218,7 @@ module RightScale
       true
     end
 
-    # Run recipes in order, update @ok
-    #
-    # === Return
-    # true:: Always return true
-    def run_recipes
-      run_recipe(@recipes.shift) while @ok && !@recipes.empty?
-      true
-    end
-
-    # Run one recipe
+    # Run next recipe
     #
     # === Parameters
     # recipe<RightScale::RecipeInstantiation>:: Recipe to run
@@ -227,22 +226,89 @@ module RightScale
     # === Return
     # true:: Always return true
     def run_recipe(recipe)
-      user_attribs = JSON.load(recipe.json) rescue {} if recipe.json && !recipe.json.empty?
-      attribs = { 'recipes' => [ recipe.nickname ] }
-      attribs.merge!(user_attribs) if user_attribs && user_attribs.is_a?(Hash)
-      # The RightScript Chef provider takes care of auditing
-      is_rs = attribs['recipes'] == [ 'cookbook::right_script' ]
-      @auditor.create_new_section("Running Chef recipe < #{recipe.nickname} >") unless is_rs
-      c = Chef::Client.new
-      begin
-        c.json_attribs = attribs
-        c.run_solo
-      rescue Exception => e
-        object = is_rs ? 'RightScript' : 'Chef recipe'
-        report_failure("Failed to run #{object} #{recipe.nickname}", chef_error(object, recipe.nickname, e))
-        RightLinkLog.debug("Chef failed with '#{e.message}' at\n" + e.backtrace.join("\n"))
+      if recipe.ready
+        attribs = { 'recipes' => [ recipe.nickname ] }
+        attribs.merge!(recipe.attributes) if recipe.attributes
+        @auditor.create_new_section("Running Chef recipe < #{recipe.nickname} >")
+        c = Chef::Client.new
+        begin
+          c.json_attribs = attribs
+          c.run_solo
+        rescue Exception => e
+          report_failure("Failed to run #{recipe_title(recipe)}", chef_error(recipe_title(recipe), e))
+          RightLinkLog.debug("Chef failed with '#{e.message}' at\n" + e.backtrace.join("\n"))
+        end
+        run_recipe(@recipes.shift) if @ok && !@recipes.empty?
+      elsif @agent_identity
+        retrieve_missing_attributes(recipe) do
+          unless recipe.ready
+            @auditor.append_info("#{recipe_title(recipe)} not ready, waiting...")
+            sleep(20)
+          end
+          run_recipe(recipe)
+        end
+      else
+        report_failure("Failed to run #{recipe_title(recipe)}", "#{recipe_title(recipe)} uses environment inputs that are not available (yet?)")
       end
       true
+    end
+
+    # Human friendly title for given recipe instantiation
+    #
+    # === Parameters
+    # recipe<RecipeInstantiation>:: Recipe for which to produce title
+    #
+    # === Return
+    # title<String>:: Recipe title to be used in audits
+    def recipe_title(recipe)
+      title = (recipe.nickname == 'cookbook::right_script' ? 'RightScript' : 'Chef recipe')
+      title = "#{title} < #{recipe.nickname} >"
+    end
+
+    # Attempt to retrieve missing inputs for given recipe, update recipe attributes and
+    # ready fields (set ready field to true if attempt was successful, false otherwise).
+    # This is for environment variables that we are waiting on
+    # Query for all inputs and cache results
+    # Note: This method is asynchronous and takes a continuation block
+    #
+    # === Parameters
+    # recipe<RecipeInstantiation>:: recipe for which to retrieve attributes
+    #
+    # === Block
+    # Continuation block, will be called once attempt to retrieve attributes is completed
+    #
+    # === Return
+    # true:: Always return true
+    def retrieve_missing_attributes(recipe)
+      scripts_ids = @scripts.select { |s| !s.ready }.map(&:id)
+      recipes_ids = @original_recipes.select { |r| !r.ready }.map(&:id)
+      MapperProxy.instance.request('/booter/get_missing_attributes', { :agent_identity => @agent_identity,
+                                                                       :scripts_ids    => scripts_ids,
+                                                                       :recipes_ids    => recipes_ids }) do |r|
+        res = OperationResult.from_results(r)
+        if res.success?
+          res.content.each do |e|
+            if e.is_a?(RightScriptInstantiation)
+              (script = @scripts.detect { |s| s.id == e.id }) && script.ready = true
+              ready_recipe = script_to_recipe(e)
+            else
+              (orig = @original_recipes.detect { |r| r.id == e.id }) && orig.ready = true
+              ready_recipe = e
+            end
+            # We need to test for both the id and nickname to detect the corresponding recipe
+            # in our list of recipes to be run because a RightScript and a recipe may both have
+            # the same id
+            if cur = @recipes.detect { |r| (r.id == ready_recipe.id) && (r.nickname == ready_recipe.nickname) }
+              cur.attributes = ready_recipe.attributes
+              cur.ready = true
+            end
+          end
+          yield if block_given?
+        else
+          report_failure("Failed to retrieve missing inputs for #{recipe_title(recipe)}",
+            'Could not retrieve inputs' + (res.content.empty? ? '' : ": #{res.content}"))
+        end
+      end
     end
 
     # Set status with failure message and audit it
@@ -266,15 +332,13 @@ module RightScale
     # context of failure
     #
     # === Parameters
-    # object<String>:: 'Chef recipe' or 'RightScript'
-    # recipe<String>:: Name of recipe that was running when exception
-    #                  was raised
+    # title<String>:: Title for recipe instantiation that failed
     # e<Exception>:: Exception raised while executing Chef recipe
     #
     # === Return
     # msg<String>:: Human friendly error message
-    def chef_error(object, recipe, e)
-      msg = "An error occurred during the execution of #{object} < #{recipe} >. The error message was:\n\n"
+    def chef_error(title, e)
+      msg = "An error occurred during the execution of #{title}. The error message was:\n\n"
       msg += e.message
       file, line, meth = e.backtrace[0].scan(/(.*):(\d+):in `(\w+)'/).flatten
       line_number = line.to_i
@@ -336,7 +400,7 @@ module RightScale
                                    'parameters' => script.parameters || {},
                                    'cache_dir'  => cache_dir(script),
                                    'audit_id'   => @auditor.audit_id } }
-      recipe = RecipeInstantiation.new(script.nickname, data.to_json)
+      recipe = RecipeInstantiation.new(script.nickname, data, script.id, script.ready)
     end
 
     # Path to cache directory for given script

@@ -71,7 +71,6 @@ class Chef
 
         # 2. Setup audit and environment
         platform = RightScale::Platform.new
-        @auditor.create_new_section("Running RightScript < #{@nickname} >")
         begin
           meta_data = ::File.join(RightScale::RightLinkConfig[:cloud_state_dir], 'meta-data.rb')
           #metadata does not exist on all clouds, hence the conditional

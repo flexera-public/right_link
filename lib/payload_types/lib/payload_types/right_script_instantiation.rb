@@ -44,17 +44,25 @@ module RightScale
     # <Array> RightScripts required packages
     attr_accessor :packages
 
+    # <Integer> RightScript id
+    attr_accessor :id
+
+    # <Boolean> Whether script inputs are ready
+    attr_accessor :ready
+
     def initialize(*args)
       @nickname    = args[0] if args.size > 0
       @source      = args[1] if args.size > 1
       @parameters  = args[2] if args.size > 2
       @attachments = args[3] if args.size > 3
       @packages    = args[4] if args.size > 4
+      @id          = args[5] if args.size > 5
+      @ready       = args[6] if args.size > 6
     end
     
     # Array of serialized fields given to constructor
     def serialized_members
-      [ @nickname, @source, @parameters, @attachments, @packages ]
+      [ @nickname, @source, @parameters, @attachments, @packages, @id, @ready ]
     end
     
   end

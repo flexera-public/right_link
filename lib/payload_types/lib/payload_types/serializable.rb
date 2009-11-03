@@ -64,6 +64,18 @@ module RightScale
         raise 'Implement in class including this module'
       end
 
+      # Use serialized members to compare two serializable instances
+      #
+      # === Parameters
+      # other<Serializable>:: Other instance to compare self to
+      #
+      # === Return
+      # true:: If both serializable have identical serialized fields
+      # false:: Otherwise
+      def ==(other)
+        self.serialized_members == other.serialized_members
+      end
+
     end
 
   end
