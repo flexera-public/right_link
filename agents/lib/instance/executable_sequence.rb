@@ -71,9 +71,10 @@ module RightScale
     # === Return
     # true:: Always return true
     def configure_chef
-      #Ohai plugins path
+      #Ohai plugins path and logging
       ohai_plugins = File.expand_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'lib', 'chef', 'lib', 'plugins')) 
       Ohai::Config[:plugin_path].unshift(ohai_plugins)
+      Ohai::Config.log_level = RightLinkLog.level
 
       #Chef logging
       Chef::Log.logger = AuditLogger.new(@auditor)

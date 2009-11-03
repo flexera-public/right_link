@@ -121,14 +121,15 @@ module RightScale
       log_text = AuditFormatter.send(format_method(request), text)[:detail]
       RightLinkLog.__send__(log_method, "AUDIT #{log_text.chomp}")
       a = { :audit_id => @audit_id, :text => text }
-      Nanite::MapperProxy.instance.request("/auditor/#{request}", a) do |r|
-        status = OperationResult.from_results(r)
-        unless status.success?
-          msg = "Failed to send audit #{request} #{a.inspect}"
-          msg += ": #{status.content}" if status.content
-          RightLinkLog.warn msg
-        end
-      end
+      Nanite::MapperProxy.instance.push("/auditor/#{request}", a)
+#      Nanite::MapperProxy.instance.request("/auditor/#{request}", a) do |r|
+#        status = OperationResult.from_results(r)
+#        unless status.success?
+#          msg = "Failed to send audit #{request} #{a.inspect}"
+#          msg += ": #{status.content}" if status.content
+#          RightLinkLog.warn msg
+#        end
+#      end
       true
     end
 

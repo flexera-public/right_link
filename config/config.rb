@@ -23,10 +23,9 @@ agent_state_dir platform.filesystem.right_scale_state_dir
 # Path to directory containing transient cloud-related state (metadata, userdata, etc).
 cloud_state_dir File.join(platform.filesystem.spool_dir, 'cloud')
 
-# Configure RightLink sandbox (incl Ruby interpreter, RubyGems, etc)
-# The sandbox enhances the robustness of the RightLink agent by including
-# everything necessary to run the agent independently of any OS packages
-# that may be installed. Using the sandbox is optional under Linux/Darwin.
+# This logic is duplicated in right_link_install_gems.rb which cannot use
+# this file due to chicken-and-egg problems with mixlib-config. If you change it
+# here, please change it there and vice-versa.
 if platform.windows?
   candidate_path = File.join(platform.filesystem.company_program_files_dir, 'SandBox')
   raise StandardError.new("Missing sandbox \"#{candidate_path}\"; cannot proceed under Win32") unless File.directory?(candidate_path)

@@ -48,13 +48,10 @@ module RightScale
     SCRIPTS_FILE    = File.join(STATE_DIR, 'past_scripts.js')
 
     # Path to boot log
-    BOOT_LOG_FILE = File.join(RightLinkConfig[:platform].filesystem.log_dir, 'install')
-
-    # Path to operation log
-    OPERATION_LOG_FILE = File.join(RightLinkConfig[:platform].filesystem.log_dir, 'right_link')
+    BOOT_LOG_FILE = File.join(RightLinkConfig[:platform].filesystem.log_dir, 'right_link_boot')
 
     # Path to decommission log
-    DECOMMISSION_LOG_FILE = File.join(RightLinkConfig[:platform].filesystem.log_dir, 'decomm')
+    DECOMMISSION_LOG_FILE = File.join(RightLinkConfig[:platform].filesystem.log_dir, 'right_link_decommission')
 
     # <String> One of STATES
     def self.value
@@ -202,7 +199,6 @@ module RightScale
     def self.log_file(state)
       log_file = case state
         when 'booting'         then BOOT_LOG_FILE
-        when 'operational'     then OPERATION_LOG_FILE
         when 'decommissioning' then DECOMMISSION_LOG_FILE
       end
     end

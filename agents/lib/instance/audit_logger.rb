@@ -24,8 +24,8 @@ require 'logger'
 
 module RightScale
 
-  # Provides logger interface but forwards logging to audit entry
-  # Used in combination with Chef to audit recipe execution output
+  # Provides logger interface but forwards some logging to audit entry.
+  # Used in combination with Chef to audit recipe execution output.
   class AuditLogger < ::Logger
 
     # Initialize audit logger, override Logger initialize since there is no need to initialize @logdev
@@ -63,7 +63,7 @@ module RightScale
     # true:: Always return true
     def add(severity, message=nil, progname=nil, &block)
       severity ||= UNKNOWN
-      # We don't want to audit debug logs
+      # We don't want to audit logs that are less than our level
       return true if severity < @level
       progname ||= @progname
       if message.nil?
@@ -76,7 +76,9 @@ module RightScale
       end
       msg = format_message(format_severity(severity), Time.now, progname, message)
       case severity
-      when Logger::DEBUG, Logger::INFO, Logger::WARN, Logger::UNKNOWN
+      when Logger::DEBUG
+        RightLinkLog.debug(message)
+      when Logger::INFO, Logger::WARN, Logger::UNKNOWN
         @auditor.append_info(msg)
       when Logger::ERROR, Logger::FATAL
         @auditor.append_error(msg)

@@ -209,14 +209,15 @@ module RightScale
         raise 'Initialize Nanite logger first' unless Nanite::Log.logger
         @initialized = true
         logger = nil
+
         if @log_to_file_only || RightLinkConfig[:platform].windows?
           logger = Nanite::Log.logger
         else
           prog_name = @program_name || Nanite::Log.file.match(/nanite\.(.*)\.log/)[1] rescue 'RightLink'
           logger = SyslogLogger.new(prog_name)
-          logger.level = Nanite::Log.logger.level
         end
-		    @logger = Multiplexer.new(logger)
+
+        @logger = Multiplexer.new(logger)
         RightLinkLog.level = Nanite::Log.level
         # Now make nanite use this logger
         Nanite::Log.logger = @logger

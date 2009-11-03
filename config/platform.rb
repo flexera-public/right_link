@@ -72,6 +72,14 @@ module RightScale
       @filesystem = nil
     end
 
+    # An alias for RUBY_PLATFORM
+    #
+    # === Return
+    # name<String>:: RUBY_PLATFORM
+    def name
+      RUBY_PLATFORM
+    end
+
     # Is current platform windows?
     #
     # === Return
