@@ -52,6 +52,7 @@
 #      --pid-dir DIR:       Pid files directory (/tmp by default)
 #      --foreground, -f:    Run agent in foreground
 #      --interactive, -I:   Spawn an irb console after starting agent
+#      --debugger, -D PORT  Start a debug server on PORT and immediately break
 #      --test:              Use test settings
 #      --version, -v:       Display version information
 #      --help:              Display help
@@ -211,6 +212,10 @@ module RightScale
           options[:console] = true
         end
 
+        opts.on("-D", "--debugger PORT") do |port|
+          options[:debugger] = port.to_i 
+        end
+
         opts.on("--help") do
           RDoc::usage_from_file(__FILE__)
         end
@@ -289,9 +294,13 @@ module RightScale
     def start_agent
       @options[:root] = gen_agent_dir(@options[:agent])
       puts "#{name} started."
+
+      start_debugger(@options[:debugger]) if @options[:debugger]
+
       EM.run do
         Nanite.start_agent(@options)
       end
+      
       true
     end      
     
@@ -305,6 +314,17 @@ module RightScale
     def show_agent(id)
       @options[:identity] = id
        show(agent_pid_file)
+    end
+
+    # Start a debug server listening on the specified port
+    def start_debugger(port)
+      begin
+        require 'ruby-debug'
+        require 'ruby-debug-ide'
+        Debugger::start_server('127.0.0.1', port)
+      rescue LoadError => e
+        raise LoadError.new("Cannot start debugger unless ruby-debug and ruby-debug-ide gems are available")
+      end
     end
 
     # Human readable name for managed entity
