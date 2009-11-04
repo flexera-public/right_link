@@ -99,17 +99,15 @@ class InstanceScheduler
   # === Return
   # true:: Always return true
   def run_bundles
-    while bundle = @scheduled_bundles.shift
-      break if bundle == 'end'
-      begin
-        sequence = RightScale::ExecutableSequence.new(bundle)
-        sequence.run
-      rescue Exception => e
-        auditor = RightScale::AuditorProxy.new(bundle.audit_id)
-        auditor.update_status("failed: #{bundle.to_s}")
-        auditor.append_error(e.message)
-        RightScale::RightLinkLog.debug(e.message + "\n" + e.backtrace.join("\n"))
+    bundle = @scheduled_bundles.shift
+    if bundle != 'end'
+      sequence = RightScale::ExecutableSequence.new(bundle)
+      sequence.callback do
+        @auditor.update_status("completed: #{bundle}")
+        run_bundles
       end
+      sequence.errback { run_bundles }
+      sequence.run
     end
     RightScale::InstanceState.value = 'decommissioned' if @decommissioning
     EM.next_tick { terminate }

@@ -145,18 +145,18 @@ class InstanceSetup
     request("/booter/get_boot_bundle", options) do |r|
       res = RightScale::OperationResult.from_results(r)
       if res.success?
-        sequence = RightScale::ExecutableSequence.new(res.content)
+        bundle = res.content
+        sequence = RightScale::ExecutableSequence.new(bundle, @agent_identity)
+        sequence.callback do
+          @auditor.update_status("completed: #{bundle}")
+          EM.next_tick { yield RightScale::OperationResult.success }
+        end
+        sequence.errback  { EM.next_tick { yield RightScale::OperationResult.error("Failed to run boot bundle") } }
 
         # We want to be able to use Chef providers which use EM (e.g. so they can use RightScale::popen3), this means
         # that we need to synchronize the chef thread with the EM thread since providers run synchronously. So create
         # a thread here and run the sequence in it. Use EM.next_tick to switch back to EM's thread.
-        Thread.new do
-          if sequence.run
-             EM.next_tick { yield RightScale::OperationResult.success }
-          else
-             EM.next_tick { yield RightScale::OperationResult.error("Failed to run boot bundle") }
-          end
-        end
+        Thread.new { sequence.run }
     
       else
         msg = "Failed to retrieve boot scripts"
