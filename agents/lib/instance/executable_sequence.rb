@@ -37,6 +37,8 @@ module RightScale
   # to retrieve missing attributes. It will do so indefinitely until the missing
   # attributes are provided by the core agent.
   class ExecutableSequence
+
+    include EM::Deferrable
   
     # Initialize sequence
     #
@@ -56,9 +58,10 @@ module RightScale
     end
 
     # Run given executable bundle
+    # Asynchronous, set deferrable object's disposition
     #
     # === Return
-    # @ok<Boolean>:: true if execution was successful, false otherwise    
+    # true:: Always return true
     def run
       @ok = true
       unless @recipes.empty?
@@ -67,9 +70,8 @@ module RightScale
         install_packages if @ok
         download_cookbooks if @ok
         run_recipe(@recipes.shift) if @ok
-        @auditor.update_status("completed: #{@description}") if @ok
       end
-      @ok
+      true
     end
 
     protected
@@ -227,19 +229,22 @@ module RightScale
     # true:: Always return true
     def run_recipe(recipe)
       if recipe.ready
+        @auditor.create_new_section("Running #{recipe_title(recipe)}")
         attribs = { 'recipes' => [ recipe.nickname ] }
         attribs.merge!(recipe.attributes) if recipe.attributes
-        @auditor.create_new_section("Running Chef recipe < #{recipe.nickname} >")
         c = Chef::Client.new
         begin
           c.json_attribs = attribs
           c.run_solo
+          succeed
         rescue Exception => e
           report_failure("Failed to run #{recipe_title(recipe)}", chef_error(recipe_title(recipe), e))
           RightLinkLog.debug("Chef failed with '#{e.message}' at\n" + e.backtrace.join("\n"))
         end
         run_recipe(@recipes.shift) if @ok && !@recipes.empty?
       elsif @agent_identity
+        @auditor.create_new_section("Retrieving missing inputs for #{recipe_title(recipe)}") unless @retried
+        @retried = true
         retrieve_missing_attributes(recipe) do
           unless recipe.ready
             @auditor.append_info("#{recipe_title(recipe)} not ready, waiting...")
@@ -282,9 +287,9 @@ module RightScale
     def retrieve_missing_attributes(recipe)
       scripts_ids = @scripts.select { |s| !s.ready }.map(&:id)
       recipes_ids = @original_recipes.select { |r| !r.ready }.map(&:id)
-      MapperProxy.instance.request('/booter/get_missing_attributes', { :agent_identity => @agent_identity,
-                                                                       :scripts_ids    => scripts_ids,
-                                                                       :recipes_ids    => recipes_ids }) do |r|
+      Nanite::MapperProxy.instance.request('/booter/get_missing_attributes', { :agent_identity => @agent_identity,
+                                                                               :scripts_ids    => scripts_ids,
+                                                                               :recipes_ids    => recipes_ids }) do |r|
         res = OperationResult.from_results(r)
         if res.success?
           res.content.each do |e|
@@ -325,6 +330,7 @@ module RightScale
       @auditor.update_status("failed: #{ @description }")
       @auditor.append_error(title)
       @auditor.append_error(msg)
+      fail
       true
     end
 
