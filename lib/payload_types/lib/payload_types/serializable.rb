@@ -73,6 +73,7 @@ module RightScale
       # true:: If both serializable have identical serialized fields
       # false:: Otherwise
       def ==(other)
+        return false unless other.respond_to?(:serialized_members)
         self.serialized_members == other.serialized_members
       end
 
