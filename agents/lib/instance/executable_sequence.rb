@@ -304,7 +304,10 @@ module RightScale
             # We need to test for both the id and nickname to detect the corresponding recipe
             # in our list of recipes to be run because a RightScript and a recipe may both have
             # the same id
-            if cur = @recipes.detect { |r| (r.id == ready_recipe.id) && (r.nickname == ready_recipe.nickname) }
+            if (recipe.id == ready_recipe.id) && (recipe.nickname == ready_recipe.nickname)
+              recipe.attributes = ready_recipe.attributes
+              recipe.ready = true
+            elsif cur = @recipes.detect { |r| (r.id == ready_recipe.id) && (r.nickname == ready_recipe.nickname) }
               cur.attributes = ready_recipe.attributes
               cur.ready = true
             end
