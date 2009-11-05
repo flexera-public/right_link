@@ -64,7 +64,9 @@ module RightScale
     # true:: Always return true
     def run
       @ok = true
-      unless @recipes.empty?
+      if @recipes.empty?
+        succeed
+      else
         configure_chef
         download_attachments if @ok
         install_packages if @ok
@@ -237,12 +239,17 @@ module RightScale
         begin
           c.json_attribs = attribs
           c.run_solo
-          succeed
         rescue Exception => e
           report_failure("Failed to run #{recipe_title(recipe)}", chef_error(recipe_title(recipe), e))
           RightLinkLog.debug("Chef failed with '#{e.message}' at\n" + e.backtrace.join("\n"))
         end
-        run_recipe(@recipes.shift) if @ok && !@recipes.empty?
+        if @ok
+          if @recipes.empty?
+            succeed
+          else
+            run_recipe(@recipes.shift)
+          end
+        end
       elsif @agent_identity
         @auditor.create_new_section("Retrieving missing inputs for #{recipe_title(recipe)}") unless @retried
         @retried = true
