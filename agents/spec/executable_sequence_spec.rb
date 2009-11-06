@@ -21,23 +21,20 @@ describe RightScale::ExecutableSequence do
     end
 
     before(:each) do
-      @attachment = mock('Attachment')
-
       @script = mock('RightScript')
       @script.should_receive(:nickname).at_least(1).times.and_return('__TestScript')
       @script.should_receive(:parameters).and_return({})
-      @script.should_receive(:attachments).at_least(1).times.and_return([ @attachment ])
-      @script.should_receive(:is_a?).with(RightScale::RightScriptInstantiation).and_return(true)
-      @script.should_receive(:is_a?).with(RightScale::RecipeInstantiation).and_return(false)
+      @script.should_receive(:is_a?).with(RightScale::RightScriptInstantiation).any_number_of_times.and_return(true)
+      @script.should_receive(:is_a?).with(RightScale::RecipeInstantiation).any_number_of_times.and_return(false)
+      @script.should_receive(:ready).and_return(true)
 
       @bundle = RightScale::ExecutableBundle.new([ @script ], [], 0)
 
-      @auditor = mock('Auditor')
+      @auditor = mock('AuditorProxy')
       @auditor.should_receive(:audit_id).any_number_of_times.and_return(1)
       @auditor.should_receive(:create_new_section).any_number_of_times
       @auditor.should_receive(:append_info).any_number_of_times
       @auditor.should_receive(:update_status).any_number_of_times
-      RightScale::AuditorProxy.should_receive(:new).at_least(1).times.and_return(@auditor)
     end
 
     after(:all) do
@@ -49,15 +46,16 @@ describe RightScale::ExecutableSequence do
 
     # Run sequence and print out exceptions
     def run_sequence
-      res = false
+      res = nil
       EM.run do
         EM.next_tick do
           Thread.new do
             begin
-              res = @sequence.run
+              @sequence.callback { res = true; EM.stop }
+              @sequence.errback { res = false; EM.stop }
+              @sequence.run
             rescue Exception => e
               puts e.message + "\n" + e.backtrace.join("\n")
-            ensure
               EM.next_tick { EM.stop }
             end
           end
@@ -67,25 +65,35 @@ describe RightScale::ExecutableSequence do
     end
 
     it 'should report success' do
-      @script.should_receive(:packages).any_number_of_times.and_return(nil)
-      @script.should_receive(:source).and_return("#!/bin/sh\nruby -e 'exit(0)'")
-      @sequence = RightScale::ExecutableSequence.new(@bundle)
-      @sequence.should_receive(:install_packages).and_return(true)
-      @attachment.should_receive(:file_name).at_least(1).times.and_return('test_download')
-      @attachment.should_receive(:url).at_least(1).times.and_return("file://#{@attachment_file}")
-      @auditor.should_receive(:append_error).never
-      run_sequence.should be_true
+      begin
+        @script.should_receive(:packages).any_number_of_times.and_return(nil)
+        @script.should_receive(:source).and_return("#!/bin/sh\nruby -e 'exit(0)'")
+        @sequence = RightScale::ExecutableSequence.new(@bundle)
+        @sequence.instance_variable_set(:@auditor, @auditor)
+        @sequence.should_receive(:install_packages).and_return(true)
+        attachment = mock('A1')
+        attachment.should_receive(:file_name).at_least(1).times.and_return('test_download')
+        attachment.should_receive(:url).at_least(1).times.and_return("file://#{@attachment_file}")
+        @script.should_receive(:attachments).at_least(1).times.and_return([ attachment ])
+        @auditor.should_receive(:append_error).never
+        run_sequence.should be_true
+      ensure
+        @sequence = nil
+      end
     end
 
     it 'should audit failures' do
       @script.should_receive(:packages).any_number_of_times.and_return(nil)
       @script.should_receive(:source).and_return("#!/bin/sh\nruby -e 'exit(1)'")
       @sequence = RightScale::ExecutableSequence.new(@bundle)
+      @sequence.instance_variable_set(:@auditor, @auditor)
       @sequence.should_receive(:install_packages).and_return(true)
-      @attachment.should_receive(:file_name).at_least(1).times.and_return('test_download')
-      @attachment.should_receive(:url).at_least(1).times.and_return("file://#{@attachment_file}")
+      attachment = mock('A2')
+      attachment.should_receive(:file_name).at_least(1).times.and_return('test_download')
+      attachment.should_receive(:url).at_least(1).times.and_return("file://#{@attachment_file}")
       @auditor.should_receive(:append_error).any_number_of_times
-      RightScale::RightLinkLog.logger.should_receive(:error)
+      @script.should_receive(:attachments).at_least(1).times.and_return([ attachment ])
+      RightScale::RightLinkLog.logger.should_receive(:error).any_number_of_times
       run_sequence.should be_false
     end
 
@@ -93,11 +101,14 @@ describe RightScale::ExecutableSequence do
       @script.should_receive(:packages).any_number_of_times.and_return(nil)
       @script.should_receive(:source).and_return("#!/bin/sh\nruby -e 'exit(0)'")
       @sequence = RightScale::ExecutableSequence.new(@bundle)
-      @attachment.should_receive(:url).and_return("http://thisurldoesnotexist.wrong")
-      @attachment.should_receive(:file_name).any_number_of_times.and_return("<FILENAME>") # to display any error message
+      @sequence.instance_variable_set(:@auditor, @auditor)
+      attachment = mock('A3', :null_object => true)
+      attachment.should_receive(:url).and_return("http://thisurldoesnotexist.wrong")
+      attachment.should_receive(:file_name).any_number_of_times.and_return("<FILENAME>") # to display any error message
       downloader = RightScale::Downloader.new(retry_period=0.1, use_backoff=false)
       @sequence.instance_variable_set(:@downloader, downloader)
       @auditor.should_receive(:append_error).exactly(2).times
+      @script.should_receive(:attachments).at_least(1).times.and_return([ attachment ])
       RightScale::RightLinkLog.logger.should_receive(:error)
       run_sequence.should be_false
     end
@@ -109,6 +120,7 @@ describe RightScale::ExecutableSequence do
     before(:each) do
       bundle = mock('Bundle', :null_object => true)
       @sequence = RightScale::ExecutableSequence.new(bundle)
+      @sequence.instance_variable_set(:@auditor, @auditor)
     end
 
     it 'should calculate cookbooks path for repositories with no cookbooks_path' do
@@ -162,7 +174,7 @@ describe RightScale::ExecutableSequence do
     end
 
     it 'should format chef error messages' do
-      msg = @sequence.__send__(:chef_error, 'Chef recipe', 'some_recipe', @exception)
+      msg = @sequence.__send__(:chef_error, 'Chef recipe', @exception)
       msg.should_not be_empty
       msg.should =~ /while executing/
     end

@@ -60,18 +60,6 @@ module RightScale
     # entry<Hash>:: Hash containing new audit entry detail
     def self.output(text)
       text += "\n" unless text[-1, 1] == "\n"
-      entry = raw_output(text)
-    end
-
-    # Append raw output to current audit section (does not automatically
-    # add a line return to allow for arbitrary output chunks)
-    #
-    # === Parameters
-    # text<String>:: Output to be appended
-    #
-    # === Return
-    # entry<Hash>:: Hash containing new audit entry detail
-    def self.raw_output(text)
       entry = { :detail => text }
     end
 

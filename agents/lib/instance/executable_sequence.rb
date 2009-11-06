@@ -86,7 +86,7 @@ module RightScale
       #Ohai plugins path and logging
       ohai_plugins = File.expand_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'lib', 'chef', 'lib', 'plugins')) 
       Ohai::Config[:plugin_path].unshift(ohai_plugins)
-      Ohai::Config.log_level = RightLinkLog.level
+      Ohai::Config.log_level RightLinkLog.level
 
       #Chef logging
       Chef::Log.logger = AuditLogger.new(@auditor)
@@ -131,10 +131,6 @@ module RightScale
     def install_packages
       packages = []
       @scripts.each { |s| packages.push(s.packages) if s.packages && !s.packages.empty? }
-      if File.executable? '/usr/bin/apt-get'
-        ENV['DEBIAN_FRONTEND'] = 'noninteractive' # this prevents prompts
-        retry_execution { @auditor.append_output(`apt-get update 2>&1`); $?.success? }
-      end
       return true if packages.empty?
       packages = packages.uniq.join(' ')
       @auditor.create_new_section("Installing packages: #{packages}")
@@ -206,7 +202,7 @@ module RightScale
             res = `#{svn_cmd}`
             success = $? == 0
           when :local
-            res = 'Using local(test) cookbooks'
+            res = "Using local(test) cookbooks\n"
             success = true
           else
             report_failure('Failed to download cookbooks', "Invalid cookbooks repository type #{repo.repo_type}")

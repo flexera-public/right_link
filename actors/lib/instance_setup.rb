@@ -133,6 +133,10 @@ class InstanceSetup
         RightScale::RightLinkLog.error(e.message)
       end
     end
+    if system('which apt-get')
+      ENV['DEBIAN_FRONTEND'] = 'noninteractive' # this prevents prompts
+      @auditor.append_output(`apt-get update 2>&1`)
+    end
     true
   end
 

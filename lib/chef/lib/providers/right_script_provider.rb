@@ -130,7 +130,7 @@ class Chef
       # === Return
       # true:: Always return true
       def on_read_stdout(data)
-        @auditor.append_raw_output(data)
+        @auditor.append_output(data)
       end
 
       # Data available in STDERR pipe event

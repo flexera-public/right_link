@@ -31,6 +31,7 @@ module RightScale
     def initialize(audit_id = 1)
       #super(audit_id)
       @audits = []
+      @buffer = ''
     end
 
     # Override raw audit to accumulate audits

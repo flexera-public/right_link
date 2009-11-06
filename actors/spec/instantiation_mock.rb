@@ -8,6 +8,8 @@ module RightScale
       sample_script2 = RightScale::RightScriptInstantiation.new
       sample_script2.nickname = nick2
       sample_script.nickname  = nick
+      sample_script.ready = true
+      sample_script2.ready = true
 
       sample_script.parameters  = {'SOME_SECRET_PARAMETER' => 'some secret value', 'OTHER_SECRET' => 'other secret value'}
       sample_script2.parameters = {'SOME_SECRET_PARAMETER' => 'some secret value', 'OTHER_SECRET' => 'other secret value'}

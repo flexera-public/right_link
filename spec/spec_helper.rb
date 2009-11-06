@@ -26,7 +26,7 @@ Nanite::Log.init('dummy', NANITE_LOG_PATH)
 
 at_exit do
   log_file = File.join(File.dirname(__FILE__), 'nanite.dummy.log')
-  Nanite::Log.close unless Nanite::Log.logger.nil?
+  Nanite::Log.close if RightScale::Platform.windows? && !Nanite::Log.logger.nil?
   File.delete(log_file) if File.file?(log_file)
 end
 
@@ -49,6 +49,7 @@ module RightScale
       @results_factory = RightScale::NaniteResultsMock.new
       Nanite::MapperProxy.send(:class_variable_set, :@@instance, mock('MapperProxy'))
       Nanite::MapperProxy.instance.should_receive(:request).and_yield(@results_factory.success_results).at_least(1)
+      Nanite::MapperProxy.instance.should_receive(:push).any_number_of_times
       RightScale::InstanceState.init(@identity)
     end
 

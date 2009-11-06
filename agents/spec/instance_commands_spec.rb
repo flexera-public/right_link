@@ -13,7 +13,7 @@ describe RightScale::InstanceCommands do
   it 'should list commands' do
     RightScale::CommandIO.should_receive(:reply) do |port, r|
       port.should == 42
-      r.count("\n").should == @commands.size + 4
+      r.count("\n").should == @commands.size + 5
     end
     RightScale::InstanceCommands.new(@agent_identity).send(:list_command, :port => 42).should be_true
   end

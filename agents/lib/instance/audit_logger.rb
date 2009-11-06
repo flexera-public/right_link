@@ -46,7 +46,7 @@ module RightScale
     # === Parameters
     # msg<String>:: Raw string to be appended to audit
     def <<(msg)
-      @auditor.append_raw_output(msg)
+      @auditor.append_output(msg)
     end
 
     # Override Logger::add to audit instead of writing to log file

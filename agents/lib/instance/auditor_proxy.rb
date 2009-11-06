@@ -24,7 +24,21 @@ module RightScale
 
   # Provides access to core agents audit operation through helper methods
   # that take care of formatting the audits appropriately
+  # Audit requests are buffered as follows:
+  #  * Start a timer after each call to audit output
+  #  * Reset the timer if a new call to audit output is made
+  #  * Actually send the output audit if the total size exceeds
+  #    MIN_AUDIT_SIZE or the timer reaches MAX_AUDIT_DELAY
+  #  * Audit of any other kind triggers a request and flushes the buffer
   class AuditorProxy
+
+    # Minimum size for accumulated output before sending audit request
+    # in characters
+    MIN_AUDIT_SIZE = 5 * 1024 # 5 KB
+
+    # Maximum amount of time to wait before sending audit request
+    # in seconds
+    MAX_AUDIT_DELAY = 2
 
     # <Integer> Associated audit it
     attr_accessor :audit_id
@@ -35,6 +49,7 @@ module RightScale
     # audit_id<Integer>:: ID of audit entry that should be appended to
     def initialize(audit_id)
       @audit_id = audit_id
+      @buffer = ''
     end
 
     # Update audit summary
@@ -62,24 +77,17 @@ module RightScale
     # Append output to current audit section
     #
     # === Parameters
-    # text<String>:: Output to append to audit entry, a newline character will be appended to the end
-    #
-    # === Return
-    # true:: Always return true
-    def append_output(text)
-      send_request('append_output', text)
-    end
-
-    # Append raw output to current audit section (does not automatically
-    # add a line return to allow for arbitrary output chunks)
-    #
-    # === Parameters
     # text<String>:: Output to append to audit entry
     #
     # === Return
     # true:: Always return true
-    def append_raw_output(text)
-      send_request('append_raw_output', text)
+    def append_output(text)
+      @buffer << text
+      if @buffer.size > MIN_AUDIT_SIZE
+        flush_buffer
+      else
+        reset_timer
+      end
     end
 
     # Append info text to current audit section. A special marker will be prepended to each line of audit to
@@ -108,7 +116,7 @@ module RightScale
 
     protected
 
-    # Send audits to core agent and log failures
+    # Flush output buffer then send audits to core agent and log failures
     #
     # === Parameters
     # request<String>:: Request that should be sent to auditor actor
@@ -117,20 +125,46 @@ module RightScale
     # === Return
     # true:: Always return true
     def send_request(request, text)
+      flush_buffer
+      internal_send_request(request, text)
+    end
+
+    # Actually send audits to core agent and log failures
+    #
+    # === Parameters
+    # request<String>:: Request that should be sent to auditor actor
+    # text<String>:: Text to be audited
+    #
+    # === Return
+    # true:: Always return true
+    def internal_send_request(request, text)
       log_method = request == 'append_error' ? :error : :info
       log_text = AuditFormatter.send(format_method(request), text)[:detail]
       RightLinkLog.__send__(log_method, "AUDIT #{log_text.chomp}")
       a = { :audit_id => @audit_id, :text => text }
       Nanite::MapperProxy.instance.push("/auditor/#{request}", a)
-#      Nanite::MapperProxy.instance.request("/auditor/#{request}", a) do |r|
-#        status = OperationResult.from_results(r)
-#        unless status.success?
-#          msg = "Failed to send audit #{request} #{a.inspect}"
-#          msg += ": #{status.content}" if status.content
-#          RightLinkLog.warn msg
-#        end
-#      end
       true
+    end
+
+    # Send any buffered output to auditor
+    #
+    # === Return
+    # Always return true
+    def flush_buffer
+      @timer.cancel if @timer
+      unless @buffer.empty?
+        internal_send_request('append_output', @buffer)
+        @buffer = ''
+      end
+    end
+
+    # Set or reset timer for buffer flush
+    #
+    # === Return
+    # true:: Always return true
+    def reset_timer
+      @timer.cancel if @timer
+      @timer = EM::Timer.new(MAX_AUDIT_DELAY) { flush_buffer }
     end
 
     # Audit formatter method to call to format message sent through +request+
@@ -145,7 +179,6 @@ module RightScale
         when 'update_status'      then :status
         when 'create_new_section' then :new_section
         when 'append_output'      then :output
-        when 'append_raw_output'  then :raw_output
         when 'append_info'        then :info
         when 'append_error'       then :error
       end
