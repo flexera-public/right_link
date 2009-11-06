@@ -50,18 +50,18 @@ class Chef
               cron_found = true
               @cron_exists = true
               next
-            when /^MAILTO=(\S*)/
-              @current_resource.mailto($1) if cron_found
-              next
-            when /^PATH=(\S*)/
-              @current_resource.path($1) if cron_found
-              next
-            when /^SHELL=(\S*)/
-              @current_resource.shell($1) if cron_found
-              next
-            when /^HOME=(\S*)/
-              @current_resource.home($1) if cron_found
-              next
+#            when /^MAILTO=(\S*)/
+#              @current_resource.mailto($1) if cron_found
+#              next
+#            when /^PATH=(\S*)/
+#              @current_resource.path($1) if cron_found
+#              next
+#            when /^SHELL=(\S*)/
+#              @current_resource.shell($1) if cron_found
+#              next
+#            when /^HOME=(\S*)/
+#              @current_resource.home($1) if cron_found
+#              next
             when /([0-9\*]+)\s*([0-9\*]+)\s*([0-9\*]+)\s*([0-9\*]+)\s*([0-9\*]+)\s*(.*)/
               if cron_found
                 @current_resource.minute($1)
@@ -87,7 +87,8 @@ class Chef
       end
 
       def compare_cron
-        [ :minute, :hour, :day, :month, :weekday, :command, :mailto, :path, :shell, :home ].any? do |cron_var|
+#        [ :minute, :hour, :day, :month, :weekday, :command, :mailto, :path, :shell, :home ].any? do |cron_var|
+        [ :minute, :hour, :day, :month, :weekday, :command ].any? do |cron_var|
           !@new_resource.send(cron_var).nil? && @new_resource.send(cron_var) != @current_resource.send(cron_var)
         end
       end
@@ -98,9 +99,9 @@ class Chef
         cron_found = false
 
         newcron << "# Chef Name: #{new_resource.name}\n"
-        [ :mailto, :path, :shell, :home ].each do |v|
-          newcron << "#{v.to_s.upcase}=#{@new_resource.send(v)}\n" if @new_resource.send(v)
-        end
+#        [ :mailto, :path, :shell, :home ].each do |v|
+#          newcron << "#{v.to_s.upcase}=#{@new_resource.send(v)}\n" if @new_resource.send(v)
+#        end
         newcron << "#{@new_resource.minute} #{@new_resource.hour} #{@new_resource.day} #{@new_resource.month} #{@new_resource.weekday} #{@new_resource.command}\n"
 
         if @cron_exists

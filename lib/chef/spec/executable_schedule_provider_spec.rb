@@ -28,6 +28,7 @@ class Chef
   module Mixin
     module Command
 
+      # remove user argument so tests don't have to be run as root
       def popen4_with_user(cmd, args={}, &b)
         cmd.sub!(/-u\s[a-zA-Z1-9]*\s?/,"")
         popen4_without_user(cmd, args, &b)
@@ -49,6 +50,7 @@ describe Chef::Provider::ExecutableSchedule do
     @resource.weekday("1")
     @resource.instance_eval { @cron_resource.user('testuser') }
     @resource.recipe("testrecipe")
+    Chef::Log.stub!(:info)
   end
 
   it "should be registered with the default platform hash" do
@@ -56,58 +58,74 @@ describe Chef::Provider::ExecutableSchedule do
   end
 
   it "should create a schedule if one with the same name doesnt exist" do
-    pending "Existing cron entries, cannot run test" if system('crontab -l')
-       #clearing crontab that could have been created by previous tests.
-    `crontab -r > /dev/null`
-    @provider = Chef::Provider::ExecutableSchedule.new(@node, @resource)
-    @provider.load_current_resource
+    begin
+      pending "Non crontab executable on this machine" unless system('which crontab')
+      pending "Existing cron entries, cannot run test" if system('crontab -l 2>/dev/null')
 
-    #Because there is no cron_entry initially, the current_resource should have the default values for min,hour,..
-    @provider.current_resource.name.should == @resource.name
-    [:minute, :hour, :day, :month, :weekday].each { |attr| @provider.current_resource.send(attr).should == "*" }
-    @provider.current_resource.command.should == nil
+      @provider = Chef::Provider::ExecutableSchedule.new(@node, @resource)
+      @provider.load_current_resource
 
-    @provider.action_create
+      #Because there is no cron_entry initially, the current_resource should have the default values for min,hour,..
+      @provider.current_resource.name.should == @resource.name
+      [:minute, :hour, :day, :month, :weekday].each { |attr| @provider.current_resource.send(attr).should == "*" }
+      @provider.current_resource.command.should == nil
 
-    #validate that the schedule has been created
-    @provider = Chef::Provider::ExecutableSchedule.new(@node, @resource)
-    @provider.load_current_resource
-    [:minute, :hour, :day, :month, :weekday, :user, :command].each { |attr| @provider.current_resource.send(attr).should == @resource.send(attr) }
+      @provider.action_create
+
+      #validate that the schedule has been created
+      @provider = Chef::Provider::ExecutableSchedule.new(@node, @resource)
+      @provider.load_current_resource
+      [:minute, :hour, :day, :month, :weekday].each { |attr| @provider.current_resource.send(attr).should == @resource.send(attr) }
+    ensure
+      `crontab -r`
+    end
   end
 
   it "should update an already existing schedule" do
-    pending "Existing cron entries, cannot run test" if system('crontab -l')
-    @resource2 = Chef::Resource::ExecutableSchedule.new("my_schedule")
-    @resource2.minute("2")
-    @resource2.hour("2")
-    @resource2.day("2")
-    @resource2.month("2")
-    @resource2.weekday("2")
-    @resource2.user("testuser")
-    @resource2.recipe("testrecipe2")
+    begin
+      pending "Non crontab executable on this machine" unless system('which crontab')
+      pending "Existing cron entries, cannot run test" if system('crontab -l 2>/dev/null')
 
-    @provider = Chef::Provider::ExecutableSchedule.new(@node, @resource2)
-    @provider.load_current_resource
-    @provider.action_create
+      @resource2 = Chef::Resource::ExecutableSchedule.new("my_schedule")
+      @resource2.minute("2")
+      @resource2.hour("2")
+      @resource2.day("2")
+      @resource2.month("2")
+      @resource2.weekday("2")
 
-    #validate that the schedule has been updated
-    @provider = Chef::Provider::ExecutableSchedule.new(@node, @resource)
-    @provider.load_current_resource
-    [:minute, :hour, :day, :month, :weekday, :user, :command].each { |attr| @provider.current_resource.send(attr).should == @resource2.send(attr) }
+      @provider = Chef::Provider::ExecutableSchedule.new(@node, @resource2)
+      @provider.load_current_resource
+      @provider.action_create
+
+      #validate that the schedule has been updated
+      @provider = Chef::Provider::ExecutableSchedule.new(@node, @resource)
+      @provider.load_current_resource
+      [:minute, :hour, :day, :month, :weekday].each { |attr| @provider.current_resource.send(attr).should == @resource2.send(attr) }
+    ensure
+      `crontab -r`
+    end
   end
 
   it "should delete an already existing schedule" do
-    pending "Existing cron entries, cannot run test" if system('crontab -l')
-    @provider = Chef::Provider::ExecutableSchedule.new(@node, @resource)
-    @provider.load_current_resource
-    @provider.action_delete
+    pending "Non crontab executable on this machine" unless system('which crontab')
+    pending "Existing cron entries, cannot run test" if system('crontab -l 2>/dev/null')
 
-    #validate that the schedule has been deleted. when loading for current_resource, it should fill with default values
-    @provider.load_current_resource
-    @provider.current_resource.user.should == @resource.user
-    @provider.current_resource.name.should == @resource.name
-    [:minute, :hour, :day, :month, :weekday].each { |attr| @provider.current_resource.send(attr).should == "*" }
-    @provider.current_resource.command.should == nil
+    begin
+      @provider = Chef::Provider::ExecutableSchedule.new(@node, @resource)
+      @provider.load_current_resource
+      @provider.action_create
+      @provider.load_current_resource
+      [:minute, :hour, :day, :month, :weekday].each { |attr| @provider.current_resource.send(attr).should == @resource.send(attr) }
+      @provider.action_delete
+
+      #validate that the schedule has been deleted. when loading for current_resource, it should fill with default values
+      @provider.load_current_resource
+      @provider.current_resource.name.should == @resource.name
+      [:minute, :hour, :day, :month, :weekday].each { |attr| @provider.current_resource.send(attr).should == "*" }
+      @provider.current_resource.command.should == nil
+    ensure
+      `crontab -r 2>/dev/null`
+    end
   end
 
 end
