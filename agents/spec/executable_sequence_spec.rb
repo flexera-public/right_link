@@ -1,4 +1,5 @@
 require File.join(File.dirname(__FILE__), '..', '..', 'spec', 'spec_helper')
+require File.join(File.dirname(__FILE__), '..', '..', 'lib', 'chef', 'lib', 'plugins')
 require 'instance_lib'
 require 'executable_sequence'
 
