@@ -152,8 +152,10 @@ class InstanceSetup
         bundle = res.content
         sequence = RightScale::ExecutableSequence.new(bundle, @agent_identity)
         sequence.callback do
-          @auditor.update_status("completed: #{bundle}")
-          EM.next_tick { yield RightScale::OperationResult.success }
+          EM.next_tick do
+            @auditor.update_status("completed: #{bundle}")
+            yield RightScale::OperationResult.success
+          end
         end
         sequence.errback  { EM.next_tick { yield RightScale::OperationResult.error("Failed to run boot bundle") } }
 

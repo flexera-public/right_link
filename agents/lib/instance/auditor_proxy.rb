@@ -30,6 +30,9 @@ module RightScale
   #  * Actually send the output audit if the total size exceeds
   #    MIN_AUDIT_SIZE or the timer reaches MAX_AUDIT_DELAY
   #  * Audit of any other kind triggers a request and flushes the buffer
+  #
+  # Note: All methods implementations have to run in the EventMachine
+  # thread as they interact with EM constructs
   class AuditorProxy
 
     # Minimum size for accumulated output before sending audit request
@@ -82,11 +85,13 @@ module RightScale
     # === Return
     # true:: Always return true
     def append_output(text)
-      @buffer << text
-      if @buffer.size > MIN_AUDIT_SIZE
-        flush_buffer
-      else
-        reset_timer
+      EM.next_tick do
+        @buffer << text
+        if @buffer.size > MIN_AUDIT_SIZE
+          flush_buffer
+        else
+          reset_timer
+        end
       end
     end
 
@@ -125,8 +130,10 @@ module RightScale
     # === Return
     # true:: Always return true
     def send_request(request, text)
-      flush_buffer
-      internal_send_request(request, text)
+      EM.next_tick do
+        flush_buffer
+        internal_send_request(request, text)
+      end
     end
 
     # Actually send audits to core agent and log failures
