@@ -188,7 +188,9 @@ module RightScale
     # This is necessary for Windows and is a no-op on Linux
     def self.close
       @logger.targets.each do |t|
-        t.close if t.respond_to?(:close)
+        if t.respond_to?(:close) && !(t.respond_to?(:closed?) && t.closed?)
+          t.close
+        end
       end
     end
 

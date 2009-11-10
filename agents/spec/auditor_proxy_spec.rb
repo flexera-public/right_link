@@ -13,14 +13,14 @@ describe RightScale::AuditorProxy do
 
   it 'should log and audit errors' do
     RightScale::RightLinkLog.logger.should_receive(:error).once.with("AUDIT *ERROR> ERROR")
-    @instance.should_receive(:push).once
-    @proxy.append_error('ERROR')
+    @instance.should_receive(:push).once { EM.stop }
+    EM.run { @proxy.append_error('ERROR') }
   end
 
   it 'should log statuses' do
     RightScale::RightLinkLog.logger.should_receive(:info).once.with("AUDIT *RS> STATUS")
-    @instance.should_receive(:push).once
-    @proxy.update_status('STATUS')
+    @instance.should_receive(:push).once { EM.stop }
+    EM.run { @proxy.update_status('STATUS') }
   end
 
 it 'should log outputs' do
@@ -34,14 +34,14 @@ it 'should log outputs' do
 
   it 'should log sections' do
     RightScale::RightLinkLog.logger.should_receive(:info).once.with("AUDIT #{ '****' * 20 }\n*RS>#{ 'SECTION'.center(72) }****")
-    @instance.should_receive(:push).once
-    @proxy.create_new_section('SECTION')
+    @instance.should_receive(:push).once { EM.stop }
+    EM.run { @proxy.create_new_section('SECTION') }
   end
 
   it 'should log information' do
     RightScale::RightLinkLog.logger.should_receive(:info).once.with("AUDIT *RS> INFO")
-    @instance.should_receive(:push).once
-    @proxy.append_info('INFO')
+    @instance.should_receive(:push).once { EM.stop }
+    EM.run { @proxy.append_info('INFO') }
   end
 
 end
