@@ -20,9 +20,8 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require File.expand_path(File.join(File.dirname(__FILE__), 'platform', 'darwin'))
-require File.expand_path(File.join(File.dirname(__FILE__), 'platform', 'linux'))
-require File.expand_path(File.join(File.dirname(__FILE__), 'platform', 'win32'))
+# note that the plaform-specific submodules will be loaded on demand to resolve
+# some install-time gem dependency issues.
 
 module RightScale
   class PlatformError < StandardError; end
@@ -114,10 +113,13 @@ module RightScale
     def filesystem
       if @filesystem.nil?
         if linux?
+          require_linux
           @filesystem = Linux::Filesystem.new
         elsif mac?
+          require_mac
           @filesystem = Darwin::Filesystem.new
         elsif windows?
+          require_windows
           @filesystem = Win32::Filesystem.new
         else
           raise PlatformError.new("Don't know about the filesystem on this platform")
@@ -133,6 +135,7 @@ module RightScale
     # nil:: Otherwise
     def linux
       raise PlatformError.new("Only available under Linux") unless linux?
+      require_linux
       return Linux.new
     end
 
@@ -143,5 +146,20 @@ module RightScale
         super(*args)
       end
     end
+
+    private
+
+    def require_linux
+      require File.expand_path(File.join(File.dirname(__FILE__), 'platform', 'linux'))
+    end
+
+    def require_mac
+      require File.expand_path(File.join(File.dirname(__FILE__), 'platform', 'darwin'))
+    end
+
+    def require_windows
+      require File.expand_path(File.join(File.dirname(__FILE__), 'platform', 'win32'))
+    end
+
   end
 end

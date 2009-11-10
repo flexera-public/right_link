@@ -32,8 +32,12 @@ if platform.windows?
 
   sandbox_path candidate_path
   sandbox_ruby_cmd File.join(sandbox_path, 'Ruby', 'bin', 'ruby.exe')
-  sandbox_gem_cmd  File.join(sandbox_path, 'Ruby', 'bin', 'gem.bat')
-  sandbox_git_cmd  File.join(sandbox_path, 'Git',  'cmd', 'git.cmd')
+
+  # note that we cannot use the provided win32 gem.bat because it pulls any
+  # ruby.exe on the PATH instead of using the companion ruby.exe from the same
+  # bin directory.
+  sandbox_gem_cmd "\"#{sandbox_ruby_cmd}\" \"#{File.join(sandbox_path, 'Ruby', 'bin', 'gem')}\""
+  sandbox_git_cmd File.join(sandbox_path, 'SandBox', 'bin', 'win32', 'git.cmd')
 else
   candidate_path = File.join(rs_root_path, 'sandbox')
   if File.directory?(candidate_path)
