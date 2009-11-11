@@ -5,7 +5,7 @@ module RightScale
   # Agent identity management
   class AgentIdentity
     # Cutover time at which agents began using new separator
-    SEPARATOR_EPOCH = Time.at(1256702400) #Tue Oct 27 21:00:00 -0700 2009
+    SEPARATOR_EPOCH = Time.at(1256702400) unless defined?(SEPARATOR_EPOCH) #Tue Oct 27 21:00:00 -0700 2009
 
     # Separator used to differentiate between identity components when serialized
     ID_SEPARATOR = '-' unless defined?(ID_SEPARATOR)
