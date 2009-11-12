@@ -7,7 +7,7 @@ describe RightScale::InstanceState do
   include RightScale::SpecHelpers
  
   before(:all) do
-    RightScale::RightLinkLog.logger.should_receive(:debug).any_number_of_times
+    flexmock(RightScale::RightLinkLog).should_receive(:debug)
     setup_state
   end
 
@@ -21,14 +21,14 @@ describe RightScale::InstanceState do
   end 
 
   it 'should handle image bundling' do
-    RightScale::RightLinkLog.logger.should_receive(:debug).any_number_of_times
+    flexmock(RightScale::RightLinkLog).should_receive(:debug)
     RightScale::InstanceState.init(@identity)
-    Nanite::MapperProxy.instance.should_receive(:request).
-            with('/state_recorder/record', { :state => "operational", :agent_identity => "1" }).
+    flexmock(Nanite::MapperProxy.instance).should_receive(:request).
+            with('/state_recorder/record', { :state => "operational", :agent_identity => "1" }, Proc).
             and_yield(@results_factory.success_results)
     RightScale::InstanceState.value = 'operational'
-    Nanite::MapperProxy.instance.should_receive(:request).
-            with('/state_recorder/record', { :state => "booting", :agent_identity => "2" }).
+    flexmock(Nanite::MapperProxy.instance).should_receive(:request).
+            with('/state_recorder/record', { :state => "booting", :agent_identity => "2" }, Proc).
             and_yield(@results_factory.success_results)
     RightScale::InstanceState.init('2')
     RightScale::InstanceState.value.should == 'booting'

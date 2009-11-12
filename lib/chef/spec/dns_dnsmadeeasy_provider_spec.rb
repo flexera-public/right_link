@@ -24,7 +24,8 @@ require File.join(File.dirname(__FILE__), 'spec_helper')
 
 describe Chef::Provider::DnsMadeEasy do
   before(:each) do
-    @node = mock("Chef::Node", :null_object => true)
+    @node = flexmock('Chef::Node')
+    @node.should_ignore_missing
     @new_resource = Chef::Resource::Dns.new("www.testsite.com")
     @new_resource.user "testuser"
     @new_resource.passwd "testpasswd"
@@ -41,18 +42,18 @@ describe Chef::Provider::DnsMadeEasy do
   end
 
   it "should log not raise an exception if success" do
-    Chef::Log.should_receive(:info).twice
-    Chef::Log.should_receive(:debug)
+    flexmock(Chef::Log).should_receive(:info).twice
+    flexmock(Chef::Log).should_receive(:debug)
     provider = Chef::Provider::DnsMadeEasy.new(@node, @new_resource)
-    provider.should_receive(:post_change).once.and_return('success')
-    lambda{ provider.action_register }.should_not raise_error()
+    flexmock(provider).should_receive(:post_change).once.and_return('success')
+    provider.action_register
   end
 
   it "should return raise an exception if post fails" do
-    Chef::Log.should_receive(:info)
-    Chef::Log.should_receive(:debug)
+    flexmock(Chef::Log).should_receive(:info)
+    flexmock(Chef::Log).should_receive(:debug)
     provider = Chef::Provider::DnsMadeEasy.new(@node, @new_resource)
-    provider.should_receive(:post_change).once.and_return('failure')
+    flexmock(provider).should_receive(:post_change).once.and_return('failure')
     lambda{ provider.action_register }.should raise_error(Chef::Exceptions::Dns)
   end
   

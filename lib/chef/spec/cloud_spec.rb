@@ -21,7 +21,7 @@ describe Ohai::System, "plugin cloud" do
   before(:each) do
     Ohai::Config[:plugin_path] << File.join(File.dirname(__FILE__), '..', 'lib', 'plugins')
     @ohai = Ohai::System.new
-    @ohai.stub!(:require_plugin).and_return(true)
+    flexmock(@ohai).should_receive(:require_plugin).and_return(true)
   end
 
   describe "no cloud" do

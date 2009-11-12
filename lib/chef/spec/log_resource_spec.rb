@@ -43,11 +43,11 @@ describe Chef::Resource::Log do
   end
   
   it "should accept a vaild level option" do
-    lambda { @resource.level :debug }.should_not raise_error(ArgumentError)
-    lambda { @resource.level :info }.should_not raise_error(ArgumentError)
-    lambda { @resource.level :warn }.should_not raise_error(ArgumentError)
-    lambda { @resource.level :error }.should_not raise_error(ArgumentError)
-    lambda { @resource.level :fatal }.should_not raise_error(ArgumentError)
+    @resource.level :debug
+    @resource.level :info
+    @resource.level :warn
+    @resource.level :error
+    @resource.level :fatal
     lambda { @resource.level :unsupported }.should raise_error(ArgumentError)
   end
 

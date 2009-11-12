@@ -19,8 +19,8 @@ describe RightScale::Serializable do
                      "http://ec2-us-east-mirror3.rightscale.com/rubygems"]
 
     b = RightScale::ExecutableBundle.new([fsi1, fsi2], 1234)
-    lambda { fsi1.to_json }.should_not raise_error
-    lambda { b.to_json }.should_not raise_error
+    fsi1.to_json
+    b.to_json
   end
  
 end

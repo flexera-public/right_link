@@ -42,11 +42,7 @@ module RightScale
       @retry_period = retry_period
       @use_backoff = use_backoff
       @max_retry_period = max_retry_period if use_backoff
-      @found_curl = false
-      ENV['PATH'].split(/;|:/).each do |dir|
-        @found_curl ||= File.executable?(File.join(dir, 'curl'))
-        break if @found_curl
-      end
+      @found_curl = Platform.filesystem.has_executable_in_path('curl')
     end
 
     # <Integer> Retry period in seconds

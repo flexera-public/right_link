@@ -42,23 +42,23 @@ describe Chef::Resource::Dns do
   end
   
   it "should accept a vaild user option" do
-    lambda { @resource.user "someuser" }.should_not raise_error(ArgumentError)
+    @resource.user "someuser"
     lambda { @resource.user 123 }.should raise_error(ArgumentError)
     lambda { @resource.user :unsupported }.should raise_error(ArgumentError)
   end
   
   it "should accept a vaild password option" do
-    lambda { @resource.passwd "somepassword" }.should_not raise_error(ArgumentError)
+    @resource.passwd "somepassword"
     lambda { @resource.passwd 123 }.should raise_error(ArgumentError)
     lambda { @resource.passwd :unsupported }.should raise_error(ArgumentError)
   end
   
   it "should accept a vaild ip_address option" do
-    lambda { @resource.ip_address "255.255.255.255" }.should_not raise_error(ArgumentError)
-    lambda { @resource.ip_address "0.0.0.0" }.should_not raise_error(ArgumentError)
-    lambda { @resource.ip_address "1.1.1.1" }.should_not raise_error(ArgumentError)
-    lambda { @resource.ip_address "78.12.34.123" }.should_not raise_error(ArgumentError)
-    
+    @resource.ip_address "255.255.255.255"
+    @resource.ip_address "0.0.0.0"
+    @resource.ip_address "1.1.1.1"
+    @resource.ip_address "78.12.34.123"
+
     lambda { @resource.ip_address "123.456.789.123" }.should raise_error(ArgumentError)
     lambda { @resource.ip_address "123.456.789.12a" }.should raise_error(ArgumentError)
     lambda { @resource.ip_address "123.4564.789.123" }.should raise_error(ArgumentError)

@@ -89,7 +89,7 @@ describe Chef::Resource::ExecutableSchedule do
         if(input_case == :range_error)
           inputs.each {|input| lambda { @resource.send(time_attr,input)}.should raise_error(RangeError)}
         else
-          inputs.each {|input| lambda { @resource.send(time_attr,input)}.should_not raise_error(RangeError)}
+          inputs.each {|input| @resource.send(time_attr,input)}
         end
       end
     end
@@ -99,7 +99,7 @@ describe Chef::Resource::ExecutableSchedule do
     lambda { @resource.right_script_id "someuser" }.should raise_error(ArgumentError)
     lambda { @resource.right_script_id "-1" }.should raise_error(RangeError)
     lambda { @resource.right_script_id :unsupported }.should raise_error(ArgumentError)
-    
+
     lambda { @resource.recipe_id "someuser" }.should raise_error(ArgumentError)
     lambda { @resource.recipe_id "-1" }.should raise_error(RangeError)
     lambda { @resource.recipe_id :unsupported }.should raise_error(ArgumentError)

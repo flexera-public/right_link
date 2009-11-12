@@ -10,7 +10,7 @@ describe RightScale::ExecutableSequence do
   context 'Testing sequence execution' do
 
     before(:all) do
-      RightScale::RightLinkLog.logger.should_receive(:debug).any_number_of_times
+      flexmock(RightScale::RightLinkLog).should_receive(:debug)
       @attachment_file = File.expand_path(File.join(File.dirname(__FILE__), '__test_download__'))
       File.open(@attachment_file, 'w') do |f|
         f.write('Some attachment content')
@@ -22,20 +22,17 @@ describe RightScale::ExecutableSequence do
     end
 
     before(:each) do
-      @script = mock('RightScript')
-      @script.should_receive(:nickname).at_least(1).times.and_return('__TestScript')
-      @script.should_receive(:parameters).and_return({})
-      @script.should_receive(:is_a?).with(RightScale::RightScriptInstantiation).any_number_of_times.and_return(true)
-      @script.should_receive(:is_a?).with(RightScale::RecipeInstantiation).any_number_of_times.and_return(false)
-      @script.should_receive(:ready).and_return(true)
+      @script = flexmock(:nickname => '__TestScript', :parameters => {}, :ready => true)
+      @script.should_receive(:is_a?).with(RightScale::RightScriptInstantiation).and_return(true)
+      @script.should_receive(:is_a?).with(RightScale::RecipeInstantiation).and_return(false)
 
       @bundle = RightScale::ExecutableBundle.new([ @script ], [], 0)
 
-      @auditor = mock('AuditorProxy')
-      @auditor.should_receive(:audit_id).any_number_of_times.and_return(1)
-      @auditor.should_receive(:create_new_section).any_number_of_times
-      @auditor.should_receive(:append_info).any_number_of_times
-      @auditor.should_receive(:update_status).any_number_of_times
+      @auditor = flexmock('AuditorProxy')
+      @auditor.should_receive(:audit_id).and_return(1)
+      @auditor.should_receive(:create_new_section)
+      @auditor.should_receive(:append_info)
+      @auditor.should_receive(:update_status)
     end
 
     after(:all) do
@@ -49,16 +46,14 @@ describe RightScale::ExecutableSequence do
     def run_sequence
       res = nil
       EM.run do
-        EM.next_tick do
-          Thread.new do
-            begin
-              @sequence.callback { res = true; EM.stop }
-              @sequence.errback { res = false; EM.stop }
-              @sequence.run
-            rescue Exception => e
-              puts e.message + "\n" + e.backtrace.join("\n")
-              EM.next_tick { EM.stop }
-            end
+        Thread.new do
+          begin
+            @sequence.callback { res = true;  EM.next_tick { EM.stop } }
+            @sequence.errback  { res = false; EM.next_tick { EM.stop } }
+            @sequence.run
+          rescue Exception => e
+            puts e.message + "\n" + e.backtrace.join("\n")
+            EM.next_tick { EM.stop }
           end
         end
       end
@@ -67,15 +62,15 @@ describe RightScale::ExecutableSequence do
 
     it 'should report success' do
       begin
-        @script.should_receive(:packages).any_number_of_times.and_return(nil)
+        @script.should_receive(:packages).and_return(nil)
         @script.should_receive(:source).and_return("#!/bin/sh\nruby -e 'exit(0)'")
         @sequence = RightScale::ExecutableSequence.new(@bundle)
         @sequence.instance_variable_set(:@auditor, @auditor)
-        @sequence.should_receive(:install_packages).and_return(true)
-        attachment = mock('A1')
-        attachment.should_receive(:file_name).at_least(1).times.and_return('test_download')
-        attachment.should_receive(:url).at_least(1).times.and_return("file://#{@attachment_file}")
-        @script.should_receive(:attachments).at_least(1).times.and_return([ attachment ])
+        flexmock(@sequence).should_receive(:install_packages).and_return(true)
+        attachment = flexmock('A1')
+        attachment.should_receive(:file_name).at_least.once.and_return('test_download')
+        attachment.should_receive(:url).at_least.once.and_return("file://#{@attachment_file}")
+        @script.should_receive(:attachments).at_least.once.and_return([ attachment ])
         @auditor.should_receive(:append_error).never
         run_sequence.should be_true
       ensure
@@ -84,33 +79,33 @@ describe RightScale::ExecutableSequence do
     end
 
     it 'should audit failures' do
-      @script.should_receive(:packages).any_number_of_times.and_return(nil)
+      @script.should_receive(:packages).and_return(nil)
       @script.should_receive(:source).and_return("#!/bin/sh\nruby -e 'exit(1)'")
       @sequence = RightScale::ExecutableSequence.new(@bundle)
       @sequence.instance_variable_set(:@auditor, @auditor)
-      @sequence.should_receive(:install_packages).and_return(true)
-      attachment = mock('A2')
-      attachment.should_receive(:file_name).at_least(1).times.and_return('test_download')
-      attachment.should_receive(:url).at_least(1).times.and_return("file://#{@attachment_file}")
-      @auditor.should_receive(:append_error).any_number_of_times
-      @script.should_receive(:attachments).at_least(1).times.and_return([ attachment ])
-      RightScale::RightLinkLog.logger.should_receive(:error).any_number_of_times
+      flexmock(@sequence).should_receive(:install_packages).and_return(true)
+      attachment = flexmock('A2')
+      attachment.should_receive(:file_name).at_least.once.and_return('test_download')
+      attachment.should_receive(:url).at_least.once.and_return("file://#{@attachment_file}")
+      @auditor.should_receive(:append_error)
+      @script.should_receive(:attachments).at_least.once.and_return([ attachment ])
+      flexmock(RightScale::RightLinkLog).should_receive(:error)
       run_sequence.should be_false
     end
 
     it 'should report invalid attachments' do
-      @script.should_receive(:packages).any_number_of_times.and_return(nil)
+      @script.should_receive(:packages).and_return(nil)
       @script.should_receive(:source).and_return("#!/bin/sh\nruby -e 'exit(0)'")
       @sequence = RightScale::ExecutableSequence.new(@bundle)
       @sequence.instance_variable_set(:@auditor, @auditor)
-      attachment = mock('A3', :null_object => true)
+      attachment = flexmock('A3')
       attachment.should_receive(:url).and_return("http://thisurldoesnotexist.wrong")
-      attachment.should_receive(:file_name).any_number_of_times.and_return("<FILENAME>") # to display any error message
+      attachment.should_receive(:file_name).and_return("<FILENAME>") # to display any error message
       downloader = RightScale::Downloader.new(retry_period=0.1, use_backoff=false)
       @sequence.instance_variable_set(:@downloader, downloader)
-      @auditor.should_receive(:append_error).exactly(2).times
-      @script.should_receive(:attachments).at_least(1).times.and_return([ attachment ])
-      RightScale::RightLinkLog.logger.should_receive(:error)
+      flexmock(@auditor).should_receive(:append_error).twice
+      @script.should_receive(:attachments).at_least.once.and_return([ attachment ])
+      flexmock(RightScale::RightLinkLog).should_receive(:error)
       run_sequence.should be_false
     end
 
@@ -119,7 +114,8 @@ describe RightScale::ExecutableSequence do
   context 'Testing helper methods' do
 
     before(:each) do
-      bundle = mock('Bundle', :null_object => true)
+      bundle = flexmock('Bundle')
+      bundle.should_ignore_missing
       @sequence = RightScale::ExecutableSequence.new(bundle)
       @sequence.instance_variable_set(:@auditor, @auditor)
     end
@@ -146,7 +142,8 @@ describe RightScale::ExecutableSequence do
   context 'Chef error formatting' do
 
     before(:each) do
-      bundle = mock('Bundle', :null_object => true)
+      bundle = flexmock('Bundle')
+      bundle.should_ignore_missing
       @sequence = RightScale::ExecutableSequence.new(bundle)
       begin
         fourty_two

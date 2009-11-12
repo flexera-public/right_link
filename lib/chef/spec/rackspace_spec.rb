@@ -21,7 +21,7 @@ describe Ohai::System, "plugin rackspace" do
   before(:each) do
     Ohai::Config[:plugin_path] << File.join(File.dirname(__FILE__), '..', 'lib', 'plugins')
     @ohai = Ohai::System.new
-    @ohai.stub!(:require_plugin).and_return(true)
+    flexmock(@ohai).should_receive(:require_plugin).and_return(true)
     @ohai[:network] = {:interfaces => {:eth0 => {"addresses"=> {
           "1.2.3.4"=> {
             "broadcast"=> "67.23.20.255",
@@ -89,7 +89,7 @@ describe Ohai::System, "plugin rackspace" do
       it_should_behave_like "rackspace"
   
       before(:each) do
-        IO.stub!(:select).and_return([[],[1],[]])
+        flexmock(IO).should_receive(:select).and_return([[],[1],[]])
         @ohai[:hostname] = "slice74976"
         @ohai[:network][:interfaces][:eth0][:arp] = {"67.23.20.1" => "00:00:0c:07:ac:01"} 
       end

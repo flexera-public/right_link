@@ -83,7 +83,8 @@ module RightScale
       FileUtils.mkdir_p(dir) unless File.directory?(dir)
 
       if File.file?(STATE_FILE)
-        state = JSON.load(File.new(STATE_FILE))
+        state = nil
+        File.open(STATE_FILE, 'r') { |f| state = JSON.load(f) }
         RightLinkLog.debug("Initializing instance #{identity} with #{state.inspect}")
         if (state['identity'] != identity) || !state['uptime'] || (uptime < state['uptime'].to_f)
           # If identity or uptime has changed, then we are booting
@@ -111,7 +112,7 @@ module RightScale
       end
 
       if File.file?(SCRIPTS_FILE)
-        @@past_scripts = JSON.load(File.new(SCRIPTS_FILE))
+        File.open(SCRIPTS_FILE, 'r') { |f| @@past_scripts = JSON.load(f) }
       else
         @@past_scripts = []
       end

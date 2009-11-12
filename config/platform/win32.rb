@@ -36,6 +36,24 @@ module RightScale
           @temp_dir = nil
         end
 
+        # Is given command available in the PATH?
+        #
+        # === Parameters
+        # exe<String>:: Name of command to be tested
+        #
+        # === Return
+        # true:: If command is in path
+        # false:: Otherwise
+        def has_executable_in_path(exe)
+          found = false
+          exe += '.exe' unless exe =~ /\.exe$/
+          ENV['PATH'].split(/;|:/).each do |dir|
+            found = File.executable?(File.join(dir, exe))
+            break if found
+          end
+          found
+        end
+
         def right_scale_state_dir
           File.join(Dir::COMMON_APPDATA, 'RightScale', 'rightscale.d')
         end

@@ -41,16 +41,17 @@ end
 
 describe Chef::Provider::ExecutableSchedule do
   before(:each) do
-    @node = mock("Chef::Node", :null_object => true)
-    @resource = Chef::Resource::ExecutableSchedule.new("my_schedule")
-    @resource.minute("1")
-    @resource.hour("1")
-    @resource.day("1")
-    @resource.month("1")
-    @resource.weekday("1")
+    @node = flexmock('Chef::Node')
+    @node.should_ignore_missing
+    @resource = Chef::Resource::ExecutableSchedule.new('my_schedule')
+    @resource.minute('1')
+    @resource.hour('1')
+    @resource.day('1')
+    @resource.month('1')
+    @resource.weekday('1')
     @resource.instance_eval { @cron_resource.user('testuser') }
     @resource.recipe("testrecipe")
-    Chef::Log.stub!(:info)
+    flexmock(Chef::Log).should_receive(:info)
   end
 
   it "should be registered with the default platform hash" do

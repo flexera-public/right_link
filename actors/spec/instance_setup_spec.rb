@@ -34,14 +34,12 @@ describe InstanceSetup do
 
   before(:each) do
     @agent_identity = RightScale::AgentIdentity.new('rs', 'test', 1)
-    @setup = InstanceSetup.allocate
+    @setup = flexmock(InstanceSetup.allocate)
     @setup.should_receive(:configure_repositories).and_return(RightScale::OperationResult.success)
     @auditor = RightScale::AuditorProxyMock.new
-    RightScale::AuditorProxy.should_receive(:new).any_number_of_times.and_return(@auditor)
+    flexmock(RightScale::AuditorProxy).should_receive(:new).and_return(@auditor)
     @results_factory = RightScale::NaniteResultsMock.new
     InstanceSetup.results_factory = @results_factory
-    RightScale::RightLinkLog.logger.should_receive(:error).any_number_of_times
-    RightScale::RightLinkLog.logger.should_receive(:debug).any_number_of_times
     setup_state
     setup_script_execution
   end

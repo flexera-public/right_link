@@ -27,17 +27,24 @@ cloud_state_dir File.join(platform.filesystem.spool_dir, 'cloud')
 # this file due to chicken-and-egg problems with mixlib-config. If you change it
 # here, please change it there and vice-versa.
 if platform.windows?
-  candidate_path = File.join(platform.filesystem.company_program_files_dir, 'SandBox')
-  raise StandardError.new("Missing sandbox \"#{candidate_path}\"; cannot proceed under Win32") unless File.directory?(candidate_path)
-
-  sandbox_path candidate_path
-  sandbox_ruby_cmd File.join(sandbox_path, 'Ruby', 'bin', 'ruby.exe')
-
   # note that we cannot use the provided win32 gem.bat because it pulls any
   # ruby.exe on the PATH instead of using the companion ruby.exe from the same
   # bin directory.
-  sandbox_gem_cmd "\"#{sandbox_ruby_cmd}\" \"#{File.join(sandbox_path, 'Ruby', 'bin', 'gem')}\""
-  sandbox_git_cmd File.join(sandbox_path, 'SandBox', 'bin', 'win32', 'git.cmd')
+  candidate_path = File.join(platform.filesystem.company_program_files_dir, 'SandBox')
+  if File.directory?(candidate_path)
+    sandbox_path candidate_path
+    sandbox_ruby_cmd File.join(sandbox_path, 'Ruby', 'bin', 'ruby.exe')
+    # We need to specify the path to the ruby interpreter we need to use as the gem implementation
+    # on Windows will pick whichever ruby is in the path
+    sandbox_gem_cmd  "\"#{sandbox_ruby_cmd}\" \"#{File.join(sandbox_path, 'Ruby', 'bin', 'gem.exe')}\""
+    sandbox_git_cmd  File.join(sandbox_path, 'bin', 'win32', 'git.cmd')
+  else
+    # Development setup
+    sandbox_path nil
+    sandbox_ruby_cmd 'ruby'
+    sandbox_gem_cmd  'gem'
+    sandbox_git_cmd  'git'
+  end
 else
   candidate_path = File.join(rs_root_path, 'sandbox')
   if File.directory?(candidate_path)
@@ -46,6 +53,7 @@ else
     sandbox_gem_cmd  File.join(sandbox_path, 'bin', 'gem')
     sandbox_git_cmd  File.join(sandbox_path, 'bin', 'git')
   else
+    # Development setup
     sandbox_path nil
     sandbox_ruby_cmd `which ruby`.chomp
     sandbox_gem_cmd  `which gem`.chomp

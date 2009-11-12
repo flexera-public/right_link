@@ -27,7 +27,7 @@ describe Ohai::System, "plugin rightscale" do
   before(:each) do
     Ohai::Config[:plugin_path] << File.join(File.dirname(__FILE__), '..', 'lib', 'plugins')
     @ohai = Ohai::System.new
-    @ohai.stub!(:require_plugin).and_return(true)
+    flexmock(@ohai).should_receive(:require_plugin).and_return(true)
   end
   
   #
@@ -91,26 +91,28 @@ describe Ohai::System, "plugin rightscale" do
       @ohai[:rightscale_deprecated].should be_nil
     end
   end
+
+  # Emulate content of metadata file
+  class FileMock
+    def each(*args)
+      yield('RS_syslog=syslog.rightscale.com')
+      yield('RS_sketchy=sketchy1-11.rightscale.com')
+      yield('RS_server=my.rightscale.com')
+      yield('RS_lumberjack=lumberjack.rightscale.com')
+      yield('RS_src=dobedobedo')
+      yield('RS_token=8bd736d4a8de91b143bcebbb3e513f5f')
+      yield('RS_api_url=https://my.rightscale.com/api/inst/ec2_instances/40e9d3956ad2e059f9f4054c6272ce2a38155273')
+      yield('RS_token_id=blabla')
+      yield('RS_amqp_url=yakityyakyak')
+    end
+  end
   
   describe "cloud with RightScale platform" do
     before(:each) do
       @ohai[:cloud] = Mash.new()
       @ohai[:cloud][:provider] = "rackspace"
-      File.stub!(:exists?).and_return(true)
-      @mock_file = mock("datafile")
-      @mock_file.stub!(:each).
-          # json input file (future?)
-          #and_yield('{"rightscale":{"token":"8bd736d4a8de91b143bcebbb3e513f5f","server":{"syslog":"syslog.rightscale.com","sketchy":"sketchy1-11.rightscale.com","core":"my.rightscale.com","lumberjack":"lumberjack.rightscale.com"},"api_url":"https:\/\/my.rightscale.com\/api\/inst\/ec2_instances\/40e9d3956ad2e059f9f4054c6272ce2a38155273"}}')
-          and_yield('RS_syslog=syslog.rightscale.com').
-          and_yield('RS_sketchy=sketchy1-11.rightscale.com').
-          and_yield('RS_server=my.rightscale.com').
-          and_yield('RS_lumberjack=lumberjack.rightscale.com').
-          and_yield('RS_src=dobedobedo').
-          and_yield('RS_token=8bd736d4a8de91b143bcebbb3e513f5f').
-          and_yield('RS_api_url=https://my.rightscale.com/api/inst/ec2_instances/40e9d3956ad2e059f9f4054c6272ce2a38155273').
-          and_yield('RS_token_id=blabla').
-          and_yield('RS_amqp_url=yakityyakyak')       
-        File.stub!(:open).and_return(@mock_file) 
+      flexmock(File).should_receive(:exists?).and_return(true)
+      flexmock(File).should_receive(:open).and_return(FileMock.new)
     end
     
     it "should create rightscale mash" do     

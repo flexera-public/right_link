@@ -8,7 +8,7 @@ describe RightScale::CommandSerializer do
 
   it 'should serialize' do
     @sample_data.each do |data|
-      lambda { RightScale::CommandSerializer.dump(data) }.should_not raise_error
+      RightScale::CommandSerializer.dump(data)
     end
   end
 

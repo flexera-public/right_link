@@ -4,9 +4,9 @@ require 'multiplexer'
 describe RightScale::Multiplexer do
 
   before(:all) do
-    @target1 = mock('Target 1')
-    @target2 = mock('Target 2')
-    @target3 = mock('Target 3')
+    @target1 = flexmock('Target 1')
+    @target2 = flexmock('Target 2')
+    @target3 = flexmock('Target 3')
     @multiplexer = RightScale::Multiplexer.new(@target1, @target2, @target3)
   end
 

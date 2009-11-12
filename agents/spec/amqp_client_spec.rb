@@ -11,7 +11,7 @@ describe AMQP::Client do
     end
 
     before(:each) do
-      @sut = SUT.new
+      @sut = flexmock(SUT.new)
       @sut.reconnecting = false
       @sut.settings = {:host=>'testhost', :port=>'12345'}
       @sut.channels = {}
@@ -21,8 +21,8 @@ describe AMQP::Client do
 
     context 'and no :retry' do
       it 'should reconnect immediately' do
-        EM.should_receive(:reconnect)
-        EM.should_receive(:add_timer).never
+        flexmock(EM).should_receive(:reconnect)
+        flexmock(EM).should_receive(:add_timer).never
 
         @sut.reconnect()
       end
@@ -32,10 +32,10 @@ describe AMQP::Client do
       it 'should not schedule a reconnect' do
         @sut.settings[:retry] = false
 
-        EM.should_receive(:reconnect).never
-        EM.should_receive(:add_timer).never
+        flexmock(EM).should_receive(:reconnect).never
+        flexmock(EM).should_receive(:add_timer).never
 
-        lambda { @sut.reconnect() }.should raise_error(StandardError)
+        lambda { @sut.reconnect }.should raise_error(StandardError)
       end
     end
 
@@ -43,8 +43,8 @@ describe AMQP::Client do
       it 'should reconnect immediately' do
         @sut.settings[:retry] = true
 
-        EM.should_receive(:reconnect)
-        EM.should_receive(:add_timer).never
+        flexmock(EM).should_receive(:reconnect)
+        flexmock(EM).should_receive(:add_timer).never
 
         @sut.reconnect()
       end
@@ -54,8 +54,8 @@ describe AMQP::Client do
       it 'should schedule a reconnect attempt in 15s' do
         @sut.settings[:retry] = 15
 
-        EM.should_receive(:reconnect).never
-        EM.should_receive(:add_timer).with(15)
+        flexmock(EM).should_receive(:reconnect).never
+        flexmock(EM).should_receive(:add_timer).with(15, Proc)
 
         @sut.reconnect()
       end
@@ -65,8 +65,8 @@ describe AMQP::Client do
       it 'should schedule a reconnect attempt in 30s' do
         @sut.settings[:retry] = Proc.new {30}
 
-        EM.should_receive(:reconnect).never
-        EM.should_receive(:add_timer).with(30)
+        flexmock(EM).should_receive(:reconnect).never
+        flexmock(EM).should_receive(:add_timer).with(30, Proc)
 
         @sut.reconnect()
       end
