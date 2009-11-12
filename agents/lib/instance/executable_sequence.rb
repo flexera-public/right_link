@@ -65,7 +65,8 @@ module RightScale
     def run
       @ok = true
       if @recipes.empty?
-        succeed
+        #deliberately avoid auditing anything since we did not run any recipes
+        EM.next_tick { succeed }
       else
         configure_chef
         download_attachments if @ok
@@ -241,7 +242,8 @@ module RightScale
         end
         if @ok
           if @recipes.empty?
-            succeed
+            @auditor.update_status("completed: #{@description}")
+            EM.next_tick { succeed }
           else
             run_recipe(@recipes.shift)
           end
@@ -337,7 +339,7 @@ module RightScale
       @auditor.update_status("failed: #{ @description }")
       @auditor.append_error(title)
       @auditor.append_error(msg)
-      fail
+      EM.next_tick { fail }
       true
     end
 

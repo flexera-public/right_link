@@ -106,15 +106,13 @@ class InstanceScheduler
     bundle = @scheduled_bundles.shift
     if bundle != 'end'
       sequence = RightScale::ExecutableSequence.new(bundle)
-      sequence.callback do
-        @auditor.update_status("completed: #{bundle}")
-        run_bundles
-      end
-      sequence.errback { run_bundles }
+      sequence.callback { Thread.new { run_bundles } }
+      sequence.errback  { Thread.new { run_bundles } }
       sequence.run
-    end
-    RightScale::InstanceState.value = 'decommissioned' if @decommissioning
-    EM.next_tick { terminate }
+    else
+      RightScale::InstanceState.value = 'decommissioned' if @decommissioning
+      EM.next_tick { terminate }
+    end 
     true
   end
 
