@@ -37,6 +37,7 @@ class Chef
         super(name, collection, node)
         @resource_name = :right_link_tag
         @action = :publish
+        @allowed_actions.push(:publish, :remove)
       end
 
     end
