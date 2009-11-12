@@ -143,8 +143,15 @@ class InstanceScheduler
       @terminate_handlers.each { |callback| callback.call }
     end
     RightScale::CommandRunner.stop
-    @sig_handler.call if @sig_handler && @sig_handler.respond_to?(:call)
-    Process.kill('TERM', Process.pid) unless @sig_handler && @sig_handler != "DEFAULT"
+
+    # need to delay termination in the event machine so that cancel response
+    # gets time to run.
+    #
+    # TODO do better than hardcoding 3 seconds
+    EM.add_timer 3 do
+      @sig_handler.call if @sig_handler && @sig_handler.respond_to?(:call)
+      Process.kill('TERM', Process.pid) unless @sig_handler && @sig_handler != "DEFAULT"
+    end
   end
 
 end
