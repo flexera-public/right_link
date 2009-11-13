@@ -62,15 +62,16 @@ class Chef
         source          = @new_resource.source
         parameters      = @new_resource.parameters
         cache_dir       = @new_resource.cache_dir
+        platform        = RightScale::RightLinkConfig[:platform]
+        shell           = platform.shell
 
         # 1. Write script source into file
         FileUtils.mkdir_p(cache_dir)
-        sc_filename = ::File.join(cache_dir, "script_source")
+        sc_filename = ::File.join(cache_dir, shell.format_script_file_name("script_source"))
         ::File.open(sc_filename, "w") { |f| f.write(source) }
         ::File.chmod(0744, sc_filename)
 
         # 2. Setup audit and environment
-        platform = RightScale::Platform.new
         begin
           meta_data = ::File.join(RightScale::RightLinkConfig[:cloud_state_dir], 'meta-data.rb')
           #metadata does not exist on all clouds, hence the conditional
@@ -94,7 +95,7 @@ class Chef
 
         # 3. Fork and wait
         @mutex.synchronize do
-          cmd = sc_filename.gsub(' ', '\\ ')
+          cmd = shell.format_shell_command(sc_filename)
           #RightScale.popen25(cmd, self, :on_read_stdout, :on_exit)
           RightScale.popen3(cmd, self, :on_read_stdout, :on_read_stderr, :on_exit)
           @exited_event.wait(@mutex)

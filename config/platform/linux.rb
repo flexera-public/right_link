@@ -89,6 +89,33 @@ module RightScale
           '/tmp'
         end
       end
+
+      class Shell
+
+        def format_script_file_name(partial_script_file_path, default_extension = nil)
+          # shell file extensions are not required in linux assuming the script
+          # contains a shebang. if not, the error should be obvious.
+          return partial_script_file_path
+        end
+
+        def format_executable_command(executable_file_path, *arguments)
+          escaped = []
+          [executable_file_path, arguments].flatten.each do |arg|
+            value = arg.to_s
+            needs_escape = value.index(" ") || value.index("\"") || value.index("'")
+            escaped << (needs_escape ? "\"#{value.gsub("\"", "\\\"")}\"" : value)
+          end
+          return escaped.join(" ")
+        end
+
+        def format_shell_command(shell_script_file_path, *arguments)
+          # shell files containing shebang are directly executable in linux, so
+          # assume our scripts have shebang. if not, the error should be obvious.
+          return format_executable_command(shell_script_file_path, arguments)
+        end
+
+      end
+
     end
   end
 end

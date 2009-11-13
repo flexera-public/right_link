@@ -69,6 +69,7 @@ module RightScale
       @linux   = !!(RUBY_PLATFORM =~ /linux/)
 
       @filesystem = nil
+      @shell      = nil
     end
 
     # An alias for RUBY_PLATFORM
@@ -126,6 +127,28 @@ module RightScale
         end
       end
       return @filesystem
+    end
+
+    # Shell information object
+    #
+    # === Return
+    # platform specific shell information object
+    def shell
+      if @shell.nil?
+        if linux?
+          require_linux
+          @shell = Linux::Shell.new
+        elsif mac?
+          require_mac
+          @shell = Darwin::Shell.new
+        elsif windows?
+          require_windows
+          @shell = Win32::Shell.new
+        else
+          raise PlatformError.new("Don't know about the shell on this platform")
+        end
+      end
+      return @shell
     end
 
     # Linux platform-specific platform object

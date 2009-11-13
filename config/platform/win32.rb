@@ -31,7 +31,10 @@ end
 module RightScale
   class Platform
     class Win32
+
       class Filesystem
+        @@get_temp_dir_api = nil
+
         def initialize
           @temp_dir = nil
         end
@@ -72,14 +75,14 @@ module RightScale
 
         def temp_dir
           if @temp_dir.nil?
-          get_temp_dir_api = Windows::API.new('GetTempPath', 'LP', 'L')
+            @@get_temp_dir_api = Windows::API.new('GetTempPath', 'LP', 'L') unless @@get_temp_dir_api
             buffer = 0.chr * 260
-            get_temp_dir_api.call(buffer.length, buffer)
+            @@get_temp_dir_api.call(buffer.length, buffer)
             @temp_dir = buffer.unpack('A*').first.chomp('\\')
           end
         rescue
-	      @temp_dir = File.join(Dir::WINDOWS, "temp")
-	    ensure
+          @temp_dir = File.join(Dir::WINDOWS, "temp")
+        ensure
           return @temp_dir
         end
 
@@ -89,6 +92,54 @@ module RightScale
           File.join(Dir::PROGRAM_FILES, 'RightScale')
         end
       end
+
+      class Shell
+
+        POWERSHELL_V1x0_SCRIPT_EXTENSION = ".ps1"
+
+        def format_script_file_name(partial_script_file_path, default_extension = POWERSHELL_V1x0_SCRIPT_EXTENSION)
+          extension = File.extname(partial_script_file_path)
+          if 0 == extension.length
+            return partial_script_file_path + default_extension
+          end
+
+          return partial_script_file_path
+        end
+
+        def format_executable_command(executable_file_path, *arguments)
+          escaped = []
+          [executable_file_path, arguments].flatten.each do |arg|
+            value = arg.to_s
+            escaped << (value.index(' ') ? "\"#{value}\"" : value)
+          end
+          return escaped.join(" ")
+        end
+
+        def format_shell_command(shell_script_file_path, *arguments)
+          # special case for powershell scripts.
+          extension = File.extname(shell_script_file_path)
+          if extension && 0 == POWERSHELL_V1x0_SCRIPT_EXTENSION.casecmp(extension)
+            escaped = []
+            [shell_script_file_path, arguments].flatten.each do |arg|
+              value = arg.to_s
+              escaped << (value.index(' ') ? "'#{value.gsub("'", "''")}'" : value)
+            end
+
+            # execute powershell with Unrestricted execution policy. the issue
+            # is that powershell by default will only run digitally-signed
+            # scripts.
+            #
+            # FIX: support digitally signed scripts and/or signing on the fly.
+            powershell_command = "&{set-executionpolicy -executionPolicy Unrestricted; &#{escaped.join(" ")}; set-executionPolicy Default}"
+            return format_executable_command("powershell.exe", "-command", powershell_command)
+          end
+
+          # execution is based on script extension (.bat, .cmd, .js, .vbs, etc.)
+          return format_executable_command(shell_script_file_path, arguments)
+        end
+
+      end
+
     end
   end
 end
