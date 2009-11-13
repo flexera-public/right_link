@@ -36,20 +36,22 @@ module RightScale
       :run_right_script => 'Run RightScript with id given in options[:id] and arguments given in hash options[:arguments] (e.g. { \'application\' => \'text:Mephisto\' })',
       :set_log_level    => 'Set log level to options[:level]',
       :get_log_level    => 'Get log level',
-      :cancel           => 'Request that the instance shutdown'
+      :decommission     => 'Run instance decommission bundle synchronously',
+      :terminate        => 'Terminate agent'
     }
 
     # Build hash of commands associating command names with block
     #
     # === Parameters
     # agent_identity<String>:: Serialized instance agent identity
+    # scheduler<InstanceScheduler>:: Scheduler used by decommission command
     #
     # === Return
     # cmds<Hash>:: Hash of command blocks keyed by command names
-    def self.get(agent_identity, cancel_handlers = nil, terminate_handlers = nil)
+    def self.get(agent_identity, scheduler)
       cmds = {}
-      target = new(agent_identity, cancel_handlers, terminate_handlers)
-      COMMANDS.each { |k, v| cmds[k] = lambda { |opts| target.send("#{k.to_s}_command", opts) } }
+      target = new(agent_identity, scheduler)
+      COMMANDS.each { |k, v| cmds[k] = lambda { |opts, conn| opts[:conn] = conn; target.send("#{k.to_s}_command", opts) } }
       cmds
     end
 
@@ -57,10 +59,10 @@ module RightScale
     #
     # === Parameter
     # token_id<String>:: Instance token id
-    def initialize(agent_identity, cancel_handlers = nil, terminate_handlers = nil)
+    # scheduler<InstanceScheduler>:: Scheduler used by decommission command
+    def initialize(agent_identity, scheduler)
       @agent_identity = agent_identity
-      @cancel_handlers = cancel_handlers
-      @terminate_handlers = terminate_handlers
+      @scheduler = scheduler
     end
 
     protected
@@ -77,7 +79,7 @@ module RightScale
       COMMANDS.reject { |c| c.include?(:list) }.each do |c|
         c.each { |k, v| usage += " - #{k.to_s}: #{v}\n" }
       end
-      CommandIO.reply(opts[:port], usage)
+      CommandIO.reply(opts[:conn], usage)
     end
 
     # Run recipe command implementation
@@ -85,7 +87,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def run_recipe_command(opts)
-      send_request('/forwarder/schedule_recipe', opts[:port], opts[:options])
+      send_request('/forwarder/schedule_recipe', opts[:conn], opts[:options])
     end
 
     # Run RightScript command implementation
@@ -93,7 +95,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def run_right_script_command(opts)
-      send_request('/forwarder/schedule_right_script', opts[:port], opts[:options])
+      send_request('/forwarder/schedule_right_script', opts[:conn], opts[:options])
     end
 
     # Set log level command
@@ -102,7 +104,7 @@ module RightScale
     # true:: Always return true
     def set_log_level_command(opts)
       RightLinkLog.level = opts[:level] if [ :debug, :info, :warn, :error, :fatal ].include?(opts[:level])
-      CommandIO.reply(opts[:port], RightLinkLog.level)
+      CommandIO.reply(opts[:conn], RightLinkLog.level)
     end
 
     # Get log level command
@@ -110,32 +112,40 @@ module RightScale
     # === Return
     # true:: Always return true
     def get_log_level_command(opts)
-      CommandIO.reply(opts[:port], RightLinkLog.level)
+      CommandIO.reply(opts[:conn], RightLinkLog.level)
     end
 
-    # Cancel command
+    # Decommission command
     #
     # === Return
     # true
-    def cancel_command(opts)
-      @cancel_handlers.each { |callback| callback.call } if @cancel_handlers
-      @terminate_handlers << proc{ CommandIO.reply(opts[:port], "Cancelled") } if @terminate_handlers
+    def decommission_command(opts)
+      @scheduler.run_decommission { CommandIO.reply(opts[:conn], "Decommissioned") }
+    end
+
+    # Terminate command
+    #
+    # === Return
+    # true
+    def terminate_command(opts)
+      CommandIO.reply(opts[:conn], "Terminating")
+      @scheduler.terminate
     end
 
     # Helper method that sends given request and report status through command IO
     #
     # === Parameters
     # request<String>:: Request that should be sent
-    # port<Integer>:: Port command line tool is listening on
+    # conn<EM::Connection>:: Connection used to send reply
     # options<Hash>:: Request options
     #
     # === Return
     # true:: Always return true
-    def send_request(request, port, options)
+    def send_request(request, conn, options)
       options[:agent_identity] = @agent_identity
       Nanite::MapperProxy.instance.request(request, options) do |r|
         res = OperationResult.from_results(r)
-        CommandIO.reply(port, res.success? ? 'Request sent successfully' : "Request failed: #{res.content}")
+        CommandIO.reply(conn, res.success? ? 'Request sent successfully' : "Request failed: #{res.content}")
       end
       true
     end

@@ -28,7 +28,7 @@ describe RightScale::CommandIO do
   it 'should receive a command' do
     @input = ''
     EM.run do
-      RightScale::CommandIO.listen { |input| @input = input; stop }
+      RightScale::CommandIO.listen { |input, _| @input = input; stop }
       send_input('input')
       EM.add_timer(0.2) { stop }
     end
@@ -38,7 +38,7 @@ describe RightScale::CommandIO do
   it 'should receive many commands' do
     @inputs = []
     EM.run do
-      RightScale::CommandIO.listen { |input| @inputs << input; stop if input == 'final' }
+      RightScale::CommandIO.listen { |input, _| @inputs << input; stop if input == 'final' }
       for i in 1..50 do
         send_input("input#{i}")
       end
@@ -48,25 +48,6 @@ describe RightScale::CommandIO do
     @inputs.size.should == 51
     (0..49).each { |i| @inputs[i].should == "input#{i+1}" }
     @inputs[50].should == 'final'
-  end
-
-  module ReplyHandler
-    def initialize(block)
-      @callback = block
-    end
-    def receive_data(data)
-      @callback.call(data)
-    end
-  end
-
-  it 'should send data' do
-    EM.run do
-      @reply = ''
-      EM.start_server('127.0.0.1', RightScale::CommandConstants::SOCKET_PORT + 1, ReplyHandler, lambda { |r| @reply << r })
-      RightScale::CommandIO.reply(RightScale::CommandConstants::SOCKET_PORT + 1, 'output')
-      EM.add_timer(0.5) { EM.stop }
-    end
-    @reply.should == RightScale::CommandSerializer.dump('output')
   end
 
   def stop

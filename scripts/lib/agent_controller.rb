@@ -273,19 +273,22 @@ module RightScale
       exit(1)
     end
 
-    # Trigger execution of decommission scripts in instance agent and wait for it to be done  
+    # Trigger execution of decommission scripts in instance agent and wait for it to be done
+    # then causes agent to terminate
     def run_decommission
-      # use command protocol in case of nanite running in foreground (no .pid file)
       puts "Attempting to decommission local instance..."
       begin
-        client = CommandClient.new
-        cmd = { :name => 'cancel' }
-        verbose = false
-        timeout_secs = 60
-        client.send_command(cmd, verbose, timeout_secs) { |r| puts r }
+        @client = CommandClient.new
+        File.open('/tmp/juju','a'){|f|f.puts "ABOUT TO DECOMMISSION, EM RUNNING: #{EM.reactor_running?}"}
+        @client.send_command({ :name => 'decommission' }, verbose=false, timeout=100) do |r|
+          puts r
+          File.open('/tmp/juju','a'){|f|f.puts "ABOUT TO TERMINATE, EM RUNNING: #{EM.reactor_running?}"}
+          @client.send_command({ :name => 'terminate' }, verbose=false, timeout=10)
+        end
         return true
       rescue Exception => e
-        puts "Failed to decommission or else time limit was exceeded. Confirm that the local instance is still running."
+        File.open('/tmp/juju','a'){|f|f.puts "FAILED WITH #{e.message + "\n" + e.backtrace.join("\n")}"}
+        puts "Failed to decommission or else time limit was exceeded (#{e.message}).\nConfirm that the local instance is still running."
       end
       false
     end

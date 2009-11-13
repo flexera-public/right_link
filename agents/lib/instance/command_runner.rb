@@ -32,6 +32,7 @@ module RightScale
     #
     # === Parameters
     # agent_identity<String>:: Serialized instance agent identity
+    # scheduler<InstanceScheduler>:: Scheduler used by decommission command
     #
     # === Return
     # true:: Always return true
@@ -39,18 +40,18 @@ module RightScale
     # === Raise
     # <RightScale::Exceptions::Application>:: If +start+ has already been called and +stop+ hasn't since
     # <RightScale::Exceptions::IO>:: If named pipe creation failed
-    def self.start(agent_identity, cancel_handlers = nil, terminate_handlers = nil)
-      commands = InstanceCommands.get(agent_identity, cancel_handlers, terminate_handlers)
-      CommandIO.listen do |c|
+    def self.start(agent_identity, scheduler)
+      commands = InstanceCommands.get(agent_identity, scheduler)
+      CommandIO.listen do |c, conn|
         begin
           cmd_name = c[:name].to_sym
           if commands.include?(cmd_name)
-            commands[cmd_name].call(c)
+            commands[cmd_name].call(c, conn)
           else
-            RightLinkLog.warn("Unknown command '#{cmd_name}'")
+            RightLinkLog.info("Unknown command '#{cmd_name}'")
           end
         rescue Exception => e
-          RightLinkLog.warn("Invalid command format '#{c.inspect}'")
+          RightLinkLog.info("Invalid command format '#{c.inspect}'")
         end
       end
       true

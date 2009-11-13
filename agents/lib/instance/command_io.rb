@@ -12,16 +12,18 @@
 module RightScale
 
   # EventMachine connection
-  # Define event loop callbacks hanlder
+  # Define event loop callbacks handler
   module InputHandler
 
     # Keep block used to handle incoming data
     #
     # === Parameters
-    # handler<Proc>:: Incoming data handler
+    # handler<Proc>:: Incoming data handler should take two arguments:
+    #                   * First argument contains command
+    #                   * Second argument contains connection used to reply
     def initialize(handler)
       @handler = handler
-      @parser = CommandParser.new { |cmd| handler.call(cmd) }
+      @parser = CommandParser.new { |cmd| handler.call(cmd, self) }
     end
 
     # EventMachine loop callback called whenever there is data coming from the socket
@@ -56,8 +58,11 @@ module RightScale
     # This can only be called again after 'stop_listening' was called
     #
     # === Block
-    # The given block should take one argument that will be given the commands sent through the socket
-    # Commands should be serialized using RightScale::CommandSerializer.
+    # The given block should take two arguments:
+    #   * First argument will be given the commands sent through the socket
+    #     Commands should be serialized using RightScale::CommandSerializer.
+    #   * Second argument contains the connection that should be given back to
+    #     +reply+ to send reply
     #
     # === Return
     # true:: Always return true
@@ -94,35 +99,15 @@ module RightScale
     # Write given data to socket, must be listening
     #
     # === Parameters
-    # port<Integer>:: Port command line tool is listening on
+    # conn<EM::Connection>:: Connection used to send data
     # data<String>:: Data that should be written
     #
     # === Return
     # true:: Always return true
-    def self.reply(port, data)
-      EM.connect('127.0.0.1', port, ReplyHandler, data)
+    def self.reply(conn, data)
+      conn.send_data(CommandSerializer.dump(data))
+      conn.close_connection_after_writing
       true
-    end
-
-    # Reply handler module, send reply once connected then close connection
-    module ReplyHandler
-
-      # Initialize reply data
-      #
-      # === Parameter
-      # data<String>:: Data to be sent
-      def initialize(data)
-        @data = data
-      end
-   
-      # Reply and close connection
-      #
-      # === Return
-      # Always return true
-      def post_init
-        send_data(CommandSerializer.dump(@data))
-        close_connection_after_writing
-      end
     end
 
   end

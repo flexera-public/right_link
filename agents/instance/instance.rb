@@ -37,15 +37,12 @@ require File.join(BASE_DIR, 'lib', 'right_popen', 'lib', 'right_popen')
 
 RightScale::SecureSerializerInitializer.init('instance', options[:identity], RightScale::RightLinkConfig[:certs_dir])
 
-cancel_handlers = []
-terminate_handlers = []
+register InstanceSetup.new(options[:identity])
+register scheduler = InstanceScheduler.new(self)
+register AgentManager.new
 
 # Start command runner to enable running RightScripts and recipes from the command line
-RightScale::CommandRunner.start(options[:identity], cancel_handlers, terminate_handlers)
-
-register InstanceSetup.new(options[:identity])
-register InstanceScheduler.new(self, cancel_handlers, terminate_handlers)
-register AgentManager.new
+RightScale::CommandRunner.start(options[:identity], scheduler)
 
 # Load environment code if present
 # The file 'right_link_env.rb' should be generated before the RightLink

@@ -31,15 +31,12 @@ class InstanceScheduler
   #
   # === Parameters
   # agent<Nanite::Agent>:: Host agent
-  def initialize(agent, cancel_handlers = nil, terminate_handlers = nil)
+  def initialize(agent)
     @scheduled_bundles = Queue.new
     @decommissioning = false
     @agent_identity = agent.identity
     RightScale::AgentTagsManager.new(agent)
-    @sig_handler = Signal.trap('USR1') { decommission_on_exit } unless RightScale::RightLinkConfig[:platform].windows?
-    @worker_thread = Thread.new { run_bundles }
-    @terminate_handlers = terminate_handlers
-    cancel_handlers << proc{ decommission_on_exit } if cancel_handlers
+    Thread.new { run_bundles }
   end
 
   # Schedule given script bundle so it's run as soon as possible
@@ -95,6 +92,38 @@ class InstanceScheduler
     res = RightScale::OperationResult.success
   end
 
+  # Schedule decommission and call given block back once decommission bundle has run
+  #
+  # === Block
+  # Block to yield once decommission is done
+  #
+  # === Return
+  # true:: Aways return true
+  def run_decommission(&callback)
+    @post_decommission_callback = callback
+    request('/booter/get_decommission_bundle', :agent_identity => @agent_identity) do |r|
+      res = RightScale::OperationResult.from_results(r)
+      if res.success?
+        schedule_decommission(res.content)
+      else
+        RightScale::RightLinkLog.debug("Failed to retrieve decommission bundle: #{res.content}")
+      end
+      @scheduled_bundles.push('end')
+    end
+    true
+  end
+
+  # Suicide, use TERM so nanite's handler gets triggered and agent unregisters
+  # Note: Will *not* run the decommission scripts, call run_decommission first if you need to
+  #
+  # === Return
+  # Well... does not return...
+  def terminate
+    RightScale::RightLinkLog.info("Instance agent #{@agent_identity} terminating")
+    RightScale::CommandRunner.stop
+    Process.kill('TERM', Process.pid)
+  end
+
   protected
 
   # Worker thread loop which runs bundles pushed to the scheduled bundles queue
@@ -110,48 +139,16 @@ class InstanceScheduler
       sequence.errback  { Thread.new { run_bundles } }
       sequence.run
     else
+      # If we got here through rnac --decommission then there is a callback setup and we should
+      # call it. rnac will then tell us to terminate. Otherwise terminate right away.
       RightScale::InstanceState.value = 'decommissioned' if @decommissioning
-      EM.next_tick { terminate }
+      if @post_decommission_callback
+        EM.next_tick { @post_decommission_callback.call }
+      else
+        EM.next_tick { terminate }
+      end
     end 
     true
-  end
-
-  # Run decommission scripts, stop worker thread, join and exit
-  #
-  # === Return
-  # true:: Always return true
-  def decommission_on_exit
-    request('/booter/get_decommission_bundle', :agent_identity => @agent_identity) do |r|
-      res = RightScale::OperationResult.from_results(r)
-      if res.success?
-        schedule_decommission(res.content)
-      else
-        RightScale::RightLinkLog.debug("Failed to retrieve decommission bundle: #{res.content}")
-      end
-      @scheduled_bundles.push('end')
-    end
-    true
-  end
-
-  # Call previously registered signal handler if any or exit
-  #
-  # === Return
-  # Well... does not return...
-  def terminate
-    RightScale::RightLinkLog.info("Instance agent #{@agent_identity} terminating")
-    if @terminate_handlers
-      @terminate_handlers.each { |callback| callback.call }
-    end
-    RightScale::CommandRunner.stop
-
-    # need to delay termination in the event machine so that cancel response
-    # gets time to run.
-    #
-    # TODO do better than hardcoding 3 seconds
-    EM.add_timer 3 do
-      @sig_handler.call if @sig_handler && @sig_handler.respond_to?(:call)
-      Process.kill('TERM', Process.pid) unless @sig_handler && @sig_handler != "DEFAULT"
-    end
   end
 
 end
