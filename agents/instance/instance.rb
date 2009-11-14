@@ -37,6 +37,9 @@ require File.join(BASE_DIR, 'lib', 'right_popen', 'lib', 'right_popen')
 
 RightScale::SecureSerializerInitializer.init('instance', options[:identity], RightScale::RightLinkConfig[:certs_dir])
 
+#Initialize any singletons that have dependencies on non-singletons
+RightScale::AgentTagsManager.instance.agent = self
+
 register InstanceSetup.new(options[:identity])
 register scheduler = InstanceScheduler.new(self)
 register AgentManager.new

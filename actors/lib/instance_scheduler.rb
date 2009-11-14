@@ -35,7 +35,6 @@ class InstanceScheduler
     @scheduled_bundles = Queue.new
     @decommissioning = false
     @agent_identity = agent.identity
-    RightScale::AgentTagsManager.new(agent)
     Thread.new { run_bundles }
   end
 

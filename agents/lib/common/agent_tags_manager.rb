@@ -1,29 +1,21 @@
 # Copyright (c) 2009 RightScale, Inc, All Rights Reserved Worldwide.
 
+require 'singleton'
+
 module RightScale
 
   # Agent tags management
   class AgentTagsManager
+    include Singleton
 
-    # Singleton instance accessor
-    def self.instance
-      @@instance if defined?(@@instance)
-    end
-
-    # Initialize manager
-    #
-    # === Parameters
-    # agent<Nanite::Agent>:: Tags owner agent
-    def initialize(agent)
-      @agent = agent
-      @@instance = self
-    end
+    attr_accessor :agent
 
     # Retrieve current agent tags
     #
     # === Return
     # tags<Array>:: All agent tags
     def tags
+      raise TypeError, "Must set agent= before using tag manager" unless @agent
       tags = @agent.tags
     end
 
@@ -35,6 +27,7 @@ module RightScale
     # === Return
     # true always return true
     def add_tags(*new_tags)
+      raise TypeError, "Must set agent= before using tag manager" unless @agent
       @agent.update_tags(new_tags, [])
       true
     end
@@ -47,6 +40,7 @@ module RightScale
     # === Return
     # true always return true
     def remove_tags(*old_tags)
+      raise TypeError, "Must set agent= before using tag manager" unless @agent
       @agent.update_tags([], old_tags)
       true
     end
@@ -56,6 +50,7 @@ module RightScale
     # === Return
     # true::Always return true
     def clear
+      raise TypeError, "Must set agent= before using tag manager" unless @agent
       @agent.update_tags([], tags)
       true
     end
