@@ -57,10 +57,42 @@ class InstanceSetup
     request("/booter/set_r_s_version", { :agent_identity => @agent_identity, :r_s_version => 6 }) do |r|
       res = RightScale::OperationResult.from_results(r)
       strand("Failed to set_r_s_version", res) unless res.success?
-      #boot
-      enable_login
+      enable_managed_login
     end
     true
+  end
+
+  # Enable managed SSH for this instance, then continue with boot. Ensures that
+  # managed SSH users can login to troubleshoot stranded and other 'interesting' events
+  #
+  # === Return
+  # true:: Always return true
+  def enable_managed_login
+    request('/booter/get_login_policy', @agent_identity) do |r|
+      res = RightScale::OperationResult.from_results(r)
+
+      if res.success?
+        policy  = res.content
+        auditor = RightScale::AuditorProxy.new(policy.audit_id)
+        begin
+          RightScale::LoginManager.instance.update_policy(policy)
+          auditor.create_new_section('Managed login enabled')
+          audit = "Authorized users:\n"
+          policy.users.each do |u|
+            audit += "    #{u.uuid} #{u.common_name.ljust(40)}\n"
+          end
+          auditor.append_info(audit)
+        rescue Exception => e
+          auditor.create_new_section('Failed to enable managed login')
+          auditor.append_error("#{e.class.name}: #{e.message}")
+          auditor.append_error(e.backtrace.join("\n"))
+        end
+      else
+        RightScale::RightLinkLog.error("Could not get login policy: #{res.content}")
+      end
+
+      boot
+    end
   end
 
   # Retrieve software repositories and configure mirrors accordingly then proceed to
@@ -91,13 +123,6 @@ class InstanceSetup
       end
     end
     true
-  end
-
-  def enable_login
-    request('/booter/get_login_policy', @agent_identity) do |r|
-      res = RightScale::OperationResult.from_results(r)
-      tony res.content
-    end
   end
 
   # Log error to local log file and set instance state to stranded
