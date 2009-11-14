@@ -61,14 +61,12 @@ module RightScale
       # true:: Always return true
       def post_init
         puts "Sending command #{@command.inspect}" if @command[:verbose]
-        File.open('/tmp/juju','a'){|f|f.puts "Sending command #{@command.inspect} from #{self}"}
         send_data(CommandSerializer.dump(@command))
         true
       end
 
       # Handle agent response
       def receive_data(data)
-        File.open('/tmp/juju','a'){|f|f.puts "#{self} GOT BACK FROM AGENT #{data}"}
         @parser.parse_chunk(data)
       end
     end

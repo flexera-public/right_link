@@ -279,15 +279,12 @@ module RightScale
       puts "Attempting to decommission local instance..."
       begin
         @client = CommandClient.new
-        File.open('/tmp/juju','a'){|f|f.puts "ABOUT TO DECOMMISSION, EM RUNNING: #{EM.reactor_running?}"}
         @client.send_command({ :name => 'decommission' }, verbose=false, timeout=100) do |r|
           puts r
-          File.open('/tmp/juju','a'){|f|f.puts "ABOUT TO TERMINATE, EM RUNNING: #{EM.reactor_running?}"}
           @client.send_command({ :name => 'terminate' }, verbose=false, timeout=10)
         end
         return true
       rescue Exception => e
-        File.open('/tmp/juju','a'){|f|f.puts "FAILED WITH #{e.message + "\n" + e.backtrace.join("\n")}"}
         puts "Failed to decommission or else time limit was exceeded (#{e.message}).\nConfirm that the local instance is still running."
       end
       false
