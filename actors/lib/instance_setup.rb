@@ -57,7 +57,8 @@ class InstanceSetup
     request("/booter/set_r_s_version", { :agent_identity => @agent_identity, :r_s_version => 6 }) do |r|
       res = RightScale::OperationResult.from_results(r)
       strand("Failed to set_r_s_version", res) unless res.success?
-      boot
+      #boot
+      enable_login
     end
     true
   end
@@ -90,6 +91,13 @@ class InstanceSetup
       end
     end
     true
+  end
+
+  def enable_login
+    request('/booter/get_login_policy', @agent_identity) do |r|
+      res = RightScale::OperationResult.from_results(r)
+      tony res.content
+    end
   end
 
   # Log error to local log file and set instance state to stranded

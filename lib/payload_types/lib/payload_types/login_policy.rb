@@ -21,14 +21,26 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-require File.join(File.dirname(__FILE__), 'payload_types', 'serializable')
-require File.join(File.dirname(__FILE__), 'payload_types', 'cookbook_repository')
-require File.join(File.dirname(__FILE__), 'payload_types', 'executable_bundle')
-require File.join(File.dirname(__FILE__), 'payload_types', 'operation_result')
-require File.join(File.dirname(__FILE__), 'payload_types', 'recipe_instantiation')
-require File.join(File.dirname(__FILE__), 'payload_types', 'repositories_bundle')
-require File.join(File.dirname(__FILE__), 'payload_types', 'software_repository_instantiation')
-require File.join(File.dirname(__FILE__), 'payload_types', 'right_script_attachment')
-require File.join(File.dirname(__FILE__), 'payload_types', 'right_script_instantiation')
-require File.join(File.dirname(__FILE__), 'payload_types', 'login_policy')
-require File.join(File.dirname(__FILE__), 'payload_types', 'login_user')
+module RightScale
+
+  # List of authorized users for Managed Login feature
+  class LoginPolicy
+    include Serializable
+
+    attr_accessor :audit_id, :created_at, :exclusive, :users
+
+    # Initialize fields from given arguments
+    def initialize(*args)
+      @audit_id       = args[0]
+      @created_at     = Time.at( (args[1]||Time.now).to_i )
+      @exclusive      = args[2] || false
+      @users          = args[3] || []
+    end
+
+    # Array of serialized fields given to constructor
+    def serialized_members
+      [ @audit_id, @created_at.to_i, @exclusive, @users ]
+    end
+
+  end
+end

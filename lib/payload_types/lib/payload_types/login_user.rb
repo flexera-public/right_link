@@ -21,14 +21,27 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-require File.join(File.dirname(__FILE__), 'payload_types', 'serializable')
-require File.join(File.dirname(__FILE__), 'payload_types', 'cookbook_repository')
-require File.join(File.dirname(__FILE__), 'payload_types', 'executable_bundle')
-require File.join(File.dirname(__FILE__), 'payload_types', 'operation_result')
-require File.join(File.dirname(__FILE__), 'payload_types', 'recipe_instantiation')
-require File.join(File.dirname(__FILE__), 'payload_types', 'repositories_bundle')
-require File.join(File.dirname(__FILE__), 'payload_types', 'software_repository_instantiation')
-require File.join(File.dirname(__FILE__), 'payload_types', 'right_script_attachment')
-require File.join(File.dirname(__FILE__), 'payload_types', 'right_script_instantiation')
-require File.join(File.dirname(__FILE__), 'payload_types', 'login_policy')
-require File.join(File.dirname(__FILE__), 'payload_types', 'login_user')
+module RightScale
+
+  # Authorized user for the Managed Login feature
+  class LoginUser
+    include Serializable
+
+    attr_accessor :uuid, :username, :public_key, :common_name, :expires_at
+
+    # Initialize fields from given arguments
+    def initialize(*args)
+      @uuid        = args[0]
+      @username    = args[1]
+      @public_key  = args[2]
+      @common_name = args[3] || ''
+      @expires_at  = Time.at((args[4]||Time.now).to_i)
+    end
+
+    # Array of serialized fields given to constructor
+    def serialized_members
+      [ @uuid, @username, @public_key, @common_name, @expires_at.to_i ]
+    end
+
+  end
+end

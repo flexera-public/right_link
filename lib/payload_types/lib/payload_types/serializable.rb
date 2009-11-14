@@ -61,7 +61,7 @@ module RightScale
       # === Raise
       # RuntimeError:: Always raised. Override in heir.
       def serialized_members
-        raise 'Implement in class including this module'
+        raise NotImplemented.new("Must be implemented by #{self.class.name}")
       end
 
       # Use serialized members to compare two serializable instances
