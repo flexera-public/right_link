@@ -28,6 +28,35 @@ rescue LoadError => e
   raise e if !!(RUBY_PLATFORM =~ /mswin/)
 end
 
+
+# win32/process monkey-patches the Process class but drops support for any kill
+# signals which are not directly portable. some signals are acceptable, if not
+# strictly portable, and are handled by the ruby c implementation (such as
+# 'TERM') but raise an exception in win32/process. we will monkey-patch the
+# monkey-patch to get the best possible implementation of signals.
+module Process
+  unless defined?(@@ruby_c_kill)
+    @@ruby_c_kill = method(:kill)
+
+    fail "Must require platform/win32 before win32/process" unless require 'win32/process'
+
+    @@win32_kill = method(:kill)
+
+    def self.kill(sig, *pids)
+      begin
+        @@win32_kill.call(sig, *pids)
+      rescue Process::Error => e
+        begin
+          @@ruby_c_kill.call(sig, *pids)
+        rescue
+          raise e
+        end
+      end
+    end
+  end
+end
+
+
 module RightScale
   class Platform
     class Win32
