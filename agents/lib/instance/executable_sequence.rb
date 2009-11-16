@@ -252,11 +252,14 @@ module RightScale
         @auditor.create_new_section("Retrieving missing inputs for #{recipe_title(recipe)}") unless @retried
         @retried = true
         retrieve_missing_attributes(recipe) do
-          unless recipe.ready
-            @auditor.append_info("#{recipe_title(recipe)} not ready, waiting...")
-            sleep(20)
+          # Run recipes in different thread than EM
+          EM.defer do
+            unless recipe.ready
+              @auditor.append_info("#{recipe_title(recipe)} not ready, waiting...")
+              sleep(20)
+            end
+            run_recipe(recipe)
           end
-          run_recipe(recipe)
         end
       else
         report_failure("Failed to run #{recipe_title(recipe)}", "#{recipe_title(recipe)} uses environment inputs that are not available (yet?)")
