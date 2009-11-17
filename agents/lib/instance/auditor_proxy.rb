@@ -149,7 +149,7 @@ module RightScale
       log_text = AuditFormatter.send(format_method(request), text)[:detail]
       RightLinkLog.__send__(log_method, "AUDIT #{log_text.chomp}")
       a = { :audit_id => @audit_id, :text => text }
-      Nanite::MapperProxy.instance.push("/auditor/#{request}", a)
+      RightScale::RequestForwarder.push("/auditor/#{request}", a)
       true
     end
 

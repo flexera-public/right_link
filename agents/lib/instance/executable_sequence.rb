@@ -296,7 +296,7 @@ module RightScale
     def retrieve_missing_attributes(recipe)
       scripts_ids = @scripts.select { |s| !s.ready }.map { |s| s.id }
       recipes_ids = @original_recipes.select { |r| !r.ready }.map { |r| r.id }
-      Nanite::MapperProxy.instance.request('/booter/get_missing_attributes', { :agent_identity => @agent_identity,
+      RightScale::RequestForwarder.request('/booter/get_missing_attributes', { :agent_identity => @agent_identity,
                                                                                :scripts_ids    => scripts_ids,
                                                                                :recipes_ids    => recipes_ids }) do |r|
         res = OperationResult.from_results(r)

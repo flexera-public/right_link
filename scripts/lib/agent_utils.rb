@@ -43,6 +43,17 @@ module RightScale
       File.join(root_path, 'scripts')
     end
 
+    # Retrieve agent pid file
+    def agent_pid_file(agent)
+      root_dir = gen_agent_dir(agent)
+      cfg = File.join(root_dir, 'config.yml')
+      options = symbolize(YAML.load(IO.read(cfg))) rescue nil
+      if options
+        agent = Nanite::Agent.new(options)
+        Nanite::PidFile.new(agent.identity, agent.options)
+      end
+    end
+        
     # Produces a hash with keys as symbols from given hash
     def symbolize(h)
       sym = {}

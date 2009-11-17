@@ -307,13 +307,13 @@ module RightScale
     # Stop given agent, return true on success, false otherwise
     def stop_agent(id)
       @options[:identity] = id
-      try_kill(agent_pid_file)
+      try_kill(agent_pid_file(@options[:agent]))
     end
     
     # Show status of given agent, return true on success, false otherwise
     def show_agent(id)
       @options[:identity] = id
-       show(agent_pid_file)
+       show(agent_pid_file(@options[:agent]))
     end
 
     # Start a debug server listening on the specified port
@@ -332,12 +332,6 @@ module RightScale
       "Agent #{@options[:agent] + ' ' if @options[:agent]}with ID #{@options[:identity]}"
     end
 
-    # Retrieve agent pid file
-    def agent_pid_file
-      agent = Nanite::Agent.new(@options)
-      Nanite::PidFile.new(agent.identity, agent.options)
-    end
-    
     # Kill process with pid in given pid file
     def try_kill(pid_file)
       res = false

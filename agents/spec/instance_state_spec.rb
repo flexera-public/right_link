@@ -23,11 +23,11 @@ describe RightScale::InstanceState do
   it 'should handle image bundling' do
     flexmock(RightScale::RightLinkLog).should_receive(:debug)
     RightScale::InstanceState.init(@identity)
-    flexmock(Nanite::MapperProxy.instance).should_receive(:request).
+    flexmock(RightScale::RequestForwarder).should_receive(:request).
             with('/state_recorder/record', { :state => "operational", :agent_identity => "1" }, Proc).
             and_yield(@results_factory.success_results)
     RightScale::InstanceState.value = 'operational'
-    flexmock(Nanite::MapperProxy.instance).should_receive(:request).
+    flexmock(RightScale::RequestForwarder).should_receive(:request).
             with('/state_recorder/record', { :state => "booting", :agent_identity => "2" }, Proc).
             and_yield(@results_factory.success_results)
     RightScale::InstanceState.init('2')

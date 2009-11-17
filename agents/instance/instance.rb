@@ -40,7 +40,7 @@ RightScale::SecureSerializerInitializer.init('instance', options[:identity], Rig
 #Initialize any singletons that have dependencies on non-singletons
 RightScale::AgentTagsManager.instance.agent = self
 
-register InstanceSetup.new(options[:identity])
+register setup = InstanceSetup.new(options[:identity])
 register scheduler = InstanceScheduler.new(self)
 register AgentManager.new
 
@@ -52,3 +52,7 @@ RightScale::CommandRunner.start(options[:identity], scheduler)
 # agent is started. It can contain code generated dynamically e.g. from
 # the cloud user data
 instance_eval(IO.read(RIGHT_LINK_ENV)) if File.file?(RIGHT_LINK_ENV)
+
+# Hook up instance setup actor so it gets called back whenever the AMQP
+# connection fails
+@amqp.connection_status { |status| setup.connection_status(status) }

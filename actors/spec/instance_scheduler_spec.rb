@@ -32,14 +32,14 @@ describe InstanceScheduler do
   end
 
   it 'should decommission' do
-    Nanite::MapperProxy.instance.should_receive(:request).with("/state_recorder/record",
+    flexmock(RightScale::RequestForwarder).should_receive(:request).with("/state_recorder/record",
        { :state=>"decommissioning", :agent_identity=>"1" })
     res = @scheduler.schedule_decommission(@bundle)
     res.success?.should be_true
   end
 
   it 'should not decommission twice' do
-    Nanite::MapperProxy.instance.should_receive(:request).with("/state_recorder/record",
+    flexmock(RightScale::RequestForwarder).should_receive(:request).with("/state_recorder/record",
        { :state=>"decommissioning", :agent_identity=>"1" })
     res = @scheduler.schedule_decommission(@bundle)
     res.success?.should be_true

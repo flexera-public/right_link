@@ -46,13 +46,13 @@ class Chef
         attributes.merge!(@new_resource.attributes) if @new_resource.attributes
         options = { :recipe => @new_resource.recipe, :json => attributes.to_json }
         @new_resource.recipients.each do |target|
-          Nanite::MapperProxy.instance.push('/instance_scheduler/execute',
+          RightScale::RequestForwarder.push('/instance_scheduler/execute',
                                             options, 
                                             :target => target)
         end if @new_resource.recipients
         if tags && !tags.empty?
           selector = (@new_resource.scope == :single ? :least_loaded : :all)
-          Nanite::MapperProxy.instance.push('/instance_scheduler/execute', options,
+          RightScale::RequestForwarder.push('/instance_scheduler/execute', options,
                                    :tags => tags, :selector => selector)
         end
         true

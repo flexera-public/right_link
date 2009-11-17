@@ -139,7 +139,7 @@ module RightScale
       update_motd
       if RECORDED_STATES.include?(val)
         options = { :agent_identity => identity, :state => val }
-        Nanite::MapperProxy.instance.request('/state_recorder/record', options) do |r|
+        RightScale::RequestForwarder.request('/state_recorder/record', options) do |r|
           res = RightScale::OperationResult.from_results(r)
           RightLinkLog.warn("Failed to record state: #{res.content}") unless res.success?
         end

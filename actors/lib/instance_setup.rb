@@ -26,6 +26,9 @@ class InstanceSetup
 
   expose :report_state
 
+  # Number of seconds to wait before switching to offline mode
+  RECONNECT_GRACE_PERIOD = 30
+
   # Boot if and only if instance state is 'booting'
   #
   # === Parameters
@@ -44,6 +47,28 @@ class InstanceSetup
   # state<RightScale::OperationResult>:: Success operation result containing instance state
   def report_state
     state = RightScale::OperationResult.success(RightScale::InstanceState.value)
+  end
+
+  # Handle deconnection notification from broker
+  # Start timer to give the amqp gem some time to retry connecting
+  #
+  # === Parameters
+  # status<Symbol>:: Connection status, one of :connected or :deconnected
+  #
+  # === Return
+  # true:: Always return true
+  def connection_status(status)
+    if status == :deconnected
+      @offline_timer ||= EM::Timer.new(RECONNECT_GRACE_PERIOD) { RightScale::RequestForwarder.enable_offline_mode }
+    else
+      # Cancel offline timer if there was one
+      if @offline_timer
+        @offline_timer.cancel
+        @offline_timer = nil
+      end
+      RightScale::RequestForwarder.disable_offline_mode
+    end
+    true
   end
 
   protected
