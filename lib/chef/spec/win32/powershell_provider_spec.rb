@@ -61,7 +61,7 @@ describe Chef::Provider::PowerShell do
   end
 
   it "should be registered with the default platform hash" do
-    Chef::Platform.platforms[:default][:dns].should_not be_nil
+    Chef::Platform.platforms[:default][:powershell].should_not be_nil
   end
 
   it "should return a Chef::Provider::PowerShell object" do
