@@ -26,8 +26,6 @@ module RightScale
           new_lines    = merge_keys(system_lines, old_lines, new_lines)
         end
 
-        tony new_lines
-        
         write_keys(new_lines)
         @policy = new_policy
       end
