@@ -40,9 +40,22 @@ require File.join(File.dirname(__FILE__), 'providers', 'right_script_provider')
 require File.join(File.dirname(__FILE__), 'providers', 'right_script_resource')
 
 # Register all of our custom providers with Chef
+#
+# FIX: as a suggestion, providers should self-register (merge their key => class
+# into the Chef::Platform.platforms[:default] hash after definition) and be
+# dynamically loaded from a directory **/*.rb search in the same manner as the
+# built-in Chef providers. if so, there would be no need to edit this file for
+# each new provider.
 Chef::Platform.platforms[:default].merge!(:right_script        => Chef::Provider::RightScript,
                                           :log                 => Chef::Provider::Log::ChefLog,
                                           :dns                 => Chef::Provider::DnsMadeEasy,
                                           :remote_recipe       => Chef::Provider::RemoteRecipe,
                                           :right_link_tag      => Chef::Provider::RightLinkTag,
                                           :executable_schedule => Chef::Provider::ExecutableSchedule)
+
+if RightScale::RightLinkConfig[:platform].windows?
+  require File.join(File.dirname(__FILE__), 'providers', 'win32', 'powershell_provider')
+  require File.join(File.dirname(__FILE__), 'providers', 'win32', 'powershell_resource')
+
+  Chef::Platform.platforms[:default].merge!(:powershell => Chef::Provider::PowerShell)
+end
