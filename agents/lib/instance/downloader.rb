@@ -42,7 +42,8 @@ module RightScale
       @retry_period = retry_period
       @use_backoff = use_backoff
       @max_retry_period = max_retry_period if use_backoff
-      @found_curl = Platform.filesystem.has_executable_in_path('curl')
+      platform = RightScale::RightLinkConfig[:platform]
+      @found_curl = platform.filesystem.has_executable_in_path('curl')
     end
 
     # <Integer> Retry period in seconds
@@ -81,7 +82,7 @@ module RightScale
     # Download file synchronously and report on success, download size and download speed.
     # Use successful, size and speed to query about last download.
     # If last download failed, use error to retrieve error message.
-    # Requires 'curl' to be installed.
+    # Requires 'curl' to be available on PATH.
     #
     # === Parameters
     # url<String>:: URL to downloaded file
@@ -113,8 +114,15 @@ module RightScale
       end
 
       return false unless @errors.empty?
-      user_opt = username && password ? "--user #{username}:#{password}" : ''
-      cmd = "curl --fail --silent --show-error --insecure --location --write-out '%{http_code} %{size_download} %{speed_download}' #{user_opt} --output '#{dest}' '#{url}' 2>/dev/null"
+
+      # format curl command and redirect stderr away.
+      #
+      # note: ensure we use double-quotes (") to surround arguments on command
+      # line because single-quotes (') are literals in windows.
+      platform = RightScale::RightLinkConfig[:platform]
+      user_opt = username && password ? "--user \"#{username}:#{password}\"" : ""
+      cmd = "curl --fail --silent --show-error --insecure --location --write-out \"%{http_code} %{size_download} %{speed_download}\" #{user_opt} --output \"#{dest}\" \"#{url}\""
+      cmd = platform.shell.format_redirect_stderr(cmd)
       begin
         out = `#{cmd}`
         out = out.split

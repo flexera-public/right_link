@@ -34,18 +34,29 @@ module RightScale
         # Is given command available in the PATH?
         #
         # === Parameters
-        # exe<String>:: Name of command to be tested
+        # command_name<String>:: Name of command to be tested
         #
         # === Return
         # true:: If command is in path
         # false:: Otherwise
-        def has_executable_in_path(exe)
-          found = false
+        def has_executable_in_path(command_name)
+          return nil != find_executable_in_path(command_name)
+        end
+
+        # Finds the given command name in the PATH. this emulates the 'which'
+        # command from linux (without the terminating newline).
+        #
+        # === Parameters
+        # command_name<String>:: Name of command to be tested
+        #
+        # === Return
+        # path to first matching executable file in PATH or nil
+        def find_executable_in_path(command_name)
           ENV['PATH'].split(/;|:/).each do |dir|
-            found = File.executable?(File.join(dir, exe))
-            break if found
+            path = File.join(dir, command_name)
+            return path if File.executable?(path)
           end
-          found
+          return nil
         end
 
         def right_scale_state_dir
@@ -71,6 +82,8 @@ module RightScale
 
       class Shell
 
+        NULL_OUTPUT_NAME = "/dev/null"
+
         def format_script_file_name(partial_script_file_path, default_extension = nil)
           # shell file extensions are not required in darwin assuming the script
           # contains a shebang. if not, the error should be obvious.
@@ -91,6 +104,18 @@ module RightScale
           # shell files containing shebang are directly executable in darwin, so
           # assume our scripts have shebang. if not, the error should be obvious.
           return format_executable_command(shell_script_file_path, arguments)
+        end
+
+        def format_redirect_stdout(cmd, target = NULL_OUTPUT_NAME)
+          return cmd + " 1>#{target}"
+        end
+
+        def format_redirect_stderr(cmd, target = NULL_OUTPUT_NAME)
+          return cmd + " 2>#{target}"
+        end
+
+        def format_redirect_both(cmd, target = NULL_OUTPUT_NAME)
+          return cmd + " 1>#{target} 2>&1"
         end
 
       end

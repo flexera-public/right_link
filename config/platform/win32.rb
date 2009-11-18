@@ -71,19 +71,51 @@ module RightScale
         # Is given command available in the PATH?
         #
         # === Parameters
-        # exe<String>:: Name of command to be tested
+        # command_name<String>:: Name of command to be tested with
+        # or without the expected windows file extension.
         #
         # === Return
         # true:: If command is in path
         # false:: Otherwise
-        def has_executable_in_path(exe)
-          found = false
-          exe += '.exe' unless exe =~ /\.exe$/
-          ENV['PATH'].split(/;|:/).each do |dir|
-            found = File.executable?(File.join(dir, exe))
-            break if found
+        def has_executable_in_path(command_name)
+          return nil != find_executable_in_path(command_name)
+        end
+
+        # Finds the given command name in the PATH. this emulates the 'which'
+        # command from linux (without the terminating newline).
+        #
+        # === Parameters
+        # command_name<String>:: Name of command to be tested with
+        # or without the expected windows file extension.
+        #
+        # === Return
+        # path to first matching executable file in PATH or nil
+        def find_executable_in_path(command_name)
+          # must search all known (executable) path extensions unless the
+          # explicit extension was given. this handles a case such as 'curl'
+          # which can either be on the path as 'curl.exe' or as a command shell
+          # shortcut called 'curl.cmd', etc.
+          use_path_extensions = 0 == File.extname(command_name).length
+          path_extensions = use_path_extensions ? ENV['PATHEXT'].split(/;/) : nil
+
+          # must check the current working directory first just to be completely
+          # sure what would happen if the command were executed. note that linux
+          # ignores the CWD, so this is platform-specific behavior for windows.
+          cwd = Dir.getwd
+          path = ENV['PATH']
+          path = (path.nil? || 0 == path.length) ? cwd : (cwd + ';' + path)
+          path.split(/;/).each do |dir|
+            if use_path_extensions
+              path_extensions.each do |path_extension|
+                path = File.join(dir, command_name + path_extension)
+                return path if File.executable?(path)
+              end
+            else
+              path = File.join(dir, command_name)
+              return path if File.executable?(path)
+            end
           end
-          found
+          return nil
         end
 
         def right_scale_state_dir
@@ -125,6 +157,7 @@ module RightScale
       class Shell
 
         POWERSHELL_V1x0_SCRIPT_EXTENSION = ".ps1"
+        NULL_OUTPUT_NAME = "nul"
 
         def format_script_file_name(partial_script_file_path, default_extension = POWERSHELL_V1x0_SCRIPT_EXTENSION)
           extension = File.extname(partial_script_file_path)
@@ -165,6 +198,18 @@ module RightScale
 
           # execution is based on script extension (.bat, .cmd, .js, .vbs, etc.)
           return format_executable_command(shell_script_file_path, arguments)
+        end
+
+        def format_redirect_stdout(cmd, target = NULL_OUTPUT_NAME)
+          return cmd + " 1>#{target}"
+        end
+
+        def format_redirect_stderr(cmd, target = NULL_OUTPUT_NAME)
+          return cmd + " 2>#{target}"
+        end
+
+        def format_redirect_both(cmd, target = NULL_OUTPUT_NAME)
+          return cmd + " 1>#{target} 2>&1"
         end
 
       end
