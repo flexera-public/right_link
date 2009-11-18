@@ -28,9 +28,12 @@ describe RightScale::CommandIO do
   it 'should receive a command' do
     @input = ''
     EM.run do
-      RightScale::CommandIO.listen { |input, _| @input = input; stop }
-      send_input('input')
-      EM.add_timer(0.2) { stop }
+      # note the windows is sensitive to event timing, so use next_tick
+      EM.next_tick do
+        RightScale::CommandIO.listen { |input, _| @input = input; stop }
+        send_input('input')
+      end
+      EM.add_timer(2) { stop }
     end
     @input.should == 'input'
   end
@@ -38,12 +41,18 @@ describe RightScale::CommandIO do
   it 'should receive many commands' do
     @inputs = []
     EM.run do
-      RightScale::CommandIO.listen { |input, _| @inputs << input; stop if input == 'final' }
-      for i in 1..50 do
-        send_input("input#{i}")
+      # note the windows is sensitive to event timing, so use next_tick
+      EM.next_tick do
+        RightScale::CommandIO.listen do |input, _|
+           @inputs << input
+           stop if input == 'final'
+        end
+        for i in 1..50 do
+          send_input("input#{i}")
+        end
+        send_input("final")
       end
-      send_input("final")
-      EM.add_timer(1) { stop }
+      EM.add_timer(2) { stop }
     end
     @inputs.size.should == 51
     (0..49).each { |i| @inputs[i].should == "input#{i+1}" }

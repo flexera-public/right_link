@@ -21,8 +21,10 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 require File.join(File.dirname(__FILE__), 'spec_helper')
-require 'chef/mixin/command'
 
+unless RightScale::RightLinkConfig[:platform].windows?  # FIX: chef's cron isn't portable to windows, do we want to reimplement this provider?
+
+require 'chef/mixin/command'
 
 class Chef
   module Mixin
@@ -131,5 +133,4 @@ describe Chef::Provider::ExecutableSchedule do
 
 end
 
-
-
+end  # unless windows

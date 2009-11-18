@@ -22,6 +22,8 @@
 
 require File.join(File.dirname(__FILE__), 'spec_helper')
 
+unless RightScale::RightLinkConfig[:platform].windows?  # FIX: chef's cron isn't portable to windows, do we want to reimplement this provider?
+
 describe Chef::Resource::ExecutableSchedule do
   
   before(:each) do
@@ -121,5 +123,4 @@ describe Chef::Resource::ExecutableSchedule do
 
 end
 
-
-
+end  # unless windows
