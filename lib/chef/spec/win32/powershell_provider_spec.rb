@@ -22,6 +22,9 @@
 
 require File.join(File.dirname(__FILE__), '..', 'spec_helper')
 
+# FIX: rake spec should check parent directory name?
+if RightScale::RightLinkConfig[:platform].windows?
+
 module PowershellProviderSpec
 
   class StubAuditorProxy
@@ -85,3 +88,5 @@ describe Chef::Provider::PowerShell do
     provider.action_run.should == true
   end
 end
+
+end # if windows?
