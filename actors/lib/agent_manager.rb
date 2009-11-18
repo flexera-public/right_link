@@ -24,7 +24,7 @@ class AgentManager
 
   include Nanite::Actor
 
-  expose :ping, :set_log_level, :execute
+  expose :ping, :set_log_level, :execute, :record_fault
 
   # Valid log levels
   LEVELS = [:debug, :info, :warn, :error, :fatal]
@@ -33,7 +33,7 @@ class AgentManager
   #
   # === Return
   # res<RightScale::OperationResult>:: Always returns success
-  def ping
+  def ping(_)
     res = RightScale::OperationResult.success
   end
 
@@ -65,4 +65,37 @@ class AgentManager
       return RightScale::OperationResult.error(e.message + " at\n" + e.backtrace.join("\n"))
     end
   end
+
+  # Process fault (i.e. mapper failed to decrypt one of our packets)
+  # Vote for re-enrollment
+  #
+  # === Return
+  # res<RightScale::OperationResult>:: Always returns success
+  def record_fault(_)
+    RightScale::ReenrollManager.vote
+    res = RightScale::OperationResult.success
+  end
+
+  # Process exception raised by handling of packet
+  # Check if it's a serialization error and if the packet has a valid signature, if so
+  # vote for re-enroll
+  #
+  # === Parameters
+  # e<Exception>:: Exception to be analyzed
+  # msg<String>:: Serialized message that triggered error
+  #
+  # === Return
+  # true:: Always return true
+  def self.process_exception(e, msg)
+    if e.is_a?(Nanite::Serializer::SerializationError)
+      begin
+        data = JSON.load(msg)
+        sig = Nanite::Signature.from_data(data['signature'])
+        @cert ||= Nanite::Certificate.load(File.join(RightScale::RightLinkConfig[:certs_dir], 'mapper.cert'))
+        ReenrollManager.vote if sig.match?(@cert)
+      rescue Exception => _
+      end
+    end
+  end
+
 end

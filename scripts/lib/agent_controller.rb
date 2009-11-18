@@ -70,6 +70,7 @@ require File.join(File.dirname(__FILE__), 'agent_utils')
 require File.join(File.dirname(__FILE__), 'common_parser')
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'agents', 'lib', 'instance', 'instance_state'))
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'agents', 'lib', 'common', 'right_link_log'))
+require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'actors', 'lib', 'agent_manager'))
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'lib', 'amqp_retry_patch'))
 require File.join(File.dirname(__FILE__), 'command_client')
 
@@ -293,6 +294,10 @@ module RightScale
     # Start nanite agent, return true
     def start_agent
       @options[:root] = gen_agent_dir(@options[:agent])
+
+      # Register exception handler
+      @options[:callbacks][:exception] = lambda { |e, msg, _| AgentManager.process_exception(e, msg) }
+
       puts "#{name} started."
 
       start_debugger(@options[:debugger]) if @options[:debugger]

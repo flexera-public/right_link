@@ -33,14 +33,14 @@ describe InstanceScheduler do
 
   it 'should decommission' do
     flexmock(RightScale::RequestForwarder).should_receive(:request).with("/state_recorder/record",
-       { :state=>"decommissioning", :agent_identity=>"1" })
+       { :state=>"decommissioning", :agent_identity=>"1" }, Proc)
     res = @scheduler.schedule_decommission(@bundle)
     res.success?.should be_true
   end
 
   it 'should not decommission twice' do
     flexmock(RightScale::RequestForwarder).should_receive(:request).with("/state_recorder/record",
-       { :state=>"decommissioning", :agent_identity=>"1" })
+       { :state=>"decommissioning", :agent_identity=>"1" }, Proc)
     res = @scheduler.schedule_decommission(@bundle)
     res.success?.should be_true
     res = @scheduler.schedule_decommission(@bundle)

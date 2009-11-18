@@ -103,23 +103,29 @@ describe RightScale::RequestForwarder do
   end
 
   it 'should stop flushing when going back to offline mode' do
-    EM.run do
-      RightScale::RequestForwarder.enable_offline_mode
-      RightScale::RequestForwarder.push('/dummy', 'payload', {:one => 1})
-      RightScale::RequestForwarder.disable_offline_mode
-      RightScale::RequestForwarder.instance_variable_get(:@flushing).should be_true
-      RightScale::RequestForwarder.instance_variable_get(:@stop_flush).should be_false
-      RightScale::RequestForwarder.instance_variable_get(:@offline).should be_true
-      RightScale::RequestForwarder.enable_offline_mode
-      RightScale::RequestForwarder.instance_variable_get(:@flushing).should be_true
-      RightScale::RequestForwarder.instance_variable_get(:@stop_flush).should be_true
-      RightScale::RequestForwarder.instance_variable_get(:@offline).should be_true
-      EM.next_tick do
-        RightScale::RequestForwarder.instance_variable_get(:@flushing).should be_false
+    old_flush_delay = RightScale::RequestForwarder::MAX_FLUSH_DELAY
+    begin
+      RightScale::RequestForwarder.const_set(:MAX_FLUSH_DELAY, 0.1)
+      EM.run do
+        RightScale::RequestForwarder.enable_offline_mode
+        RightScale::RequestForwarder.push('/dummy', 'payload', {:one => 1})
+        RightScale::RequestForwarder.disable_offline_mode
+        RightScale::RequestForwarder.instance_variable_get(:@flushing).should be_true
         RightScale::RequestForwarder.instance_variable_get(:@stop_flush).should be_false
-        RightScale::RequestForwarder.instance_variable_get(:@offline).should be_true
-        EM.stop
+        RightScale::RequestForwarder.instance_variable_get(:@offline_mode).should be_true
+        RightScale::RequestForwarder.enable_offline_mode
+        RightScale::RequestForwarder.instance_variable_get(:@flushing).should be_true
+        RightScale::RequestForwarder.instance_variable_get(:@stop_flush).should be_true
+        RightScale::RequestForwarder.instance_variable_get(:@offline_mode).should be_true
+        EM.add_timer(1) do
+          RightScale::RequestForwarder.instance_variable_get(:@flushing).should be_false
+          RightScale::RequestForwarder.instance_variable_get(:@stop_flush).should be_false
+          RightScale::RequestForwarder.instance_variable_get(:@offline_mode).should be_true
+          EM.stop
+        end
       end
+    ensure
+      RightScale::RequestForwarder.const_set(:MAX_FLUSH_DELAY, old_flush_delay)
     end
   end
 
