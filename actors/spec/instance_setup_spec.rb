@@ -19,11 +19,16 @@ class InstanceSetup
   def self.bundle=(bundle)
     @@bundle = bundle
   end
+  def self.login_policy=(login_policy)
+    @@login_policy = login_policy
+  end
   def request(operation, *args)
     case operation
       when "/booter/set_r_s_version" then yield @@factory.success_results
       when "/booter/get_repositories" then yield @@repos
       when "/booter/get_boot_bundle" then yield @@bundle
+      when "/booter/get_login_policy" then yield @@login_policy
+      else raise ArgumentError.new("Don't know how to mock #{operation}")
     end
   end
 end
@@ -54,15 +59,19 @@ describe InstanceSetup do
     EM.stop if @setup.report_state.content =~ /operational|stranded/
   end
  
-  def boot(repos, bundle = nil)
-    repos = @results_factory.success_results(repos)
+  def boot(login_policy, repos, bundle = nil)
+    login_policy = @results_factory.success_results(login_policy)
+    repos        = @results_factory.success_results(repos)
+
     if bundle
       bundle = @results_factory.success_results(bundle)
     else
       bundle = @results_factory.error_results('Test')
     end
-    InstanceSetup.repos = repos
-    InstanceSetup.bundle = bundle
+
+    InstanceSetup.login_policy = login_policy
+    InstanceSetup.repos        = repos
+    InstanceSetup.bundle       = bundle
 
     EM.run do
       @setup.__send__(:initialize, @agent_identity.to_s)
@@ -72,16 +81,17 @@ describe InstanceSetup do
   end
 
   it 'should boot' do
-    repos = RightScale::InstantiationMock.repositories
+    policy = RightScale::InstantiationMock.login_policy 
+    repos  = RightScale::InstantiationMock.repositories
     bundle = RightScale::InstantiationMock.script_bundle('__TestScripts', '__TestScripts_too')
-    boot(repos, bundle)
+    boot(policy, repos, bundle)
     res = @setup.report_state
     res.should be_success
     res.content.should == 'operational'
   end
 
   it 'should strand' do
-    boot(RightScale::InstantiationMock.repositories)
+    boot(RightScale::InstantiationMock.login_policy, RightScale::InstantiationMock.repositories)
     res = @setup.report_state
     res.should be_success
     res.content.should == 'stranded'

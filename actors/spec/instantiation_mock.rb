@@ -49,6 +49,10 @@ module RightScale
       RightScale::RepositoriesBundle.new([fsi1, fsi2], 1234)   
     end
 
+    # Generate a totally boring login policy
+    def self.login_policy()
+      lp = LoginPolicy.new(1234, Time.now, false)
+    end
   end
 
 end

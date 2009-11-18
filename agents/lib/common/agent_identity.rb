@@ -89,6 +89,8 @@ module RightScale
       elsif serialized_id.include?(ID_SEPARATOR_OLD)
         prefix, agent_name, token, bid = serialized_id.split(ID_SEPARATOR_OLD)
         delimeter = ID_SEPARATOR_OLD
+      else
+        raise ArgumentError.new("Serialized ID appears invalid; contains neither #{ID_SEPARATOR} nor #{ID_SEPARATOR_OLD}")
       end
 
       raise RightScale::Exceptions::Argument, "Invalid agent identity token" unless prefix && agent_name && token && bid
