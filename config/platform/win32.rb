@@ -192,7 +192,7 @@ module RightScale
             # scripts.
             #
             # FIX: support digitally signed scripts and/or signing on the fly.
-            powershell_command = "&{set-executionpolicy -executionPolicy Unrestricted; &#{escaped.join(" ")}; set-executionPolicy Default}"
+            powershell_command = "&{set-executionpolicy -executionPolicy Unrestricted; &#{escaped.join(" ")}; set-executionPolicy Default; exit $LastExitCode}"
             return format_executable_command("powershell.exe", "-command", powershell_command)
           end
 

@@ -17,7 +17,8 @@ describe RightScale::ExecutableSequence do
       end
       setup_state
       setup_script_execution
-      @cache_dir = File.join(File.dirname(__FILE__), '__cache')
+      platform = RightScale::RightLinkConfig[:platform]
+      @cache_dir = File.expand_path(File.join(platform.filesystem.temp_dir, 'executable_sequence_spec'))
       Chef::Resource::RightScript.const_set(:DEFAULT_CACHE_DIR_ROOT, @cache_dir)
     end
 
@@ -60,10 +61,17 @@ describe RightScale::ExecutableSequence do
       res
     end
 
+    def format_script_text(exit_code)
+      platform = RightScale::RightLinkConfig[:platform]
+      return platform.windows? ?
+             "exit #{exit_code}" :
+             "#!/bin/sh\nruby -e 'exit(#{exit_code})'"
+    end
+
     it 'should report success' do
       begin
         @script.should_receive(:packages).and_return(nil)
-        @script.should_receive(:source).and_return("#!/bin/sh\nruby -e 'exit(0)'")
+        @script.should_receive(:source).and_return(format_script_text(0))
         @sequence = RightScale::ExecutableSequence.new(@bundle)
         @sequence.instance_variable_set(:@auditor, @auditor)
         flexmock(@sequence).should_receive(:install_packages).and_return(true)
@@ -80,7 +88,7 @@ describe RightScale::ExecutableSequence do
 
     it 'should audit failures' do
       @script.should_receive(:packages).and_return(nil)
-      @script.should_receive(:source).and_return("#!/bin/sh\nruby -e 'exit(1)'")
+      @script.should_receive(:source).and_return(format_script_text(1))
       @sequence = RightScale::ExecutableSequence.new(@bundle)
       @sequence.instance_variable_set(:@auditor, @auditor)
       flexmock(@sequence).should_receive(:install_packages).and_return(true)
@@ -95,7 +103,7 @@ describe RightScale::ExecutableSequence do
 
     it 'should report invalid attachments' do
       @script.should_receive(:packages).and_return(nil)
-      @script.should_receive(:source).and_return("#!/bin/sh\nruby -e 'exit(0)'")
+      @script.should_receive(:source).and_return(format_script_text(0))
       @sequence = RightScale::ExecutableSequence.new(@bundle)
       @sequence.instance_variable_set(:@auditor, @auditor)
       attachment = flexmock('A3')
