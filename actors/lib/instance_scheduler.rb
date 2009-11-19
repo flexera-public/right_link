@@ -35,7 +35,8 @@ class InstanceScheduler
     @scheduled_bundles = Queue.new
     @decommissioning = false
     @agent_identity = agent.identity
-    Thread.new { run_bundles }
+    EM.threadpool_size = 2
+    EM.defer { run_bundles }
   end
 
   # Schedule given script bundle so it's run as soon as possible
@@ -134,8 +135,8 @@ class InstanceScheduler
     bundle = @scheduled_bundles.shift
     if bundle != 'end'
       sequence = RightScale::ExecutableSequence.new(bundle)
-      sequence.callback { Thread.new { run_bundles } }
-      sequence.errback  { Thread.new { run_bundles } }
+      sequence.callback { EM.defer { run_bundles } }
+      sequence.errback  { EM.defer { run_bundles } }
       sequence.run
     else
       # If we got here through rnac --decommission then there is a callback setup and we should

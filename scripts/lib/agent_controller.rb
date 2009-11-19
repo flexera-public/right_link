@@ -296,7 +296,7 @@ module RightScale
       @options[:root] = gen_agent_dir(@options[:agent])
 
       # Register exception handler
-      @options[:callbacks][:exception] = lambda { |e, msg, _| AgentManager.process_exception(e, msg) }
+      @options[:callbacks] = { :exception => lambda { |e, msg, _| AgentManager.process_exception(e, msg) } }
 
       puts "#{name} started."
 
