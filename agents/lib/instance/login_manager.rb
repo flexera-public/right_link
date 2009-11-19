@@ -30,40 +30,52 @@ module RightScale
     ROOT_TRUSTED_KEYS_FILE = '/root/.ssh/authorized_keys'
     ACTIVE_TAG             = 'rs_managed_login:state=active'      
 
+    # Can the login manager function on this platform?
+    #
+    # === Return
+    # val<true|false> whether LoginManager works on this platform
+    def supported_by_platform?
+      return RightLinkConfig.platform.linux? || RightLinkConfig.platform.mac?
+    end
+
+    # Enact the login policy specified in new_policy for this system. The policy becomes
+    # effective immediately and controls which public keys are trusted for SSH access to
+    # the superuser account.
+    #
+    # === Parameters
+    # new_policy<LoginPolicy> the new login policy
+    #
+    # === Return
+    # success<true|false> whether the policy was enacted
     def update_policy(new_policy)
-      return false unless RightLinkConfig.platform.linux?
+      return false unless supported_by_platform?
 
-      @mutex ||= Mutex.new
-      
-      new_lines = new_policy.users.map { |u| u.public_key }
-
-      #Perform updates to the file and the stored policy inside a critical section, just in case
-      #two threads try to call this method concurrently (not likely, but disastrous if it were to happen...)
-      @mutex.synchronize do
-        #If the new policy isn't exclusive, we need to preserve any existing lines in authorized_keys
-        #which we did not put there ourselves. Perform a three-way merge on the existing file contents.
-        if @policy && !new_policy.exclusive
-          system_lines = read_keys()
-          old_lines    = @policy.users.map { |u| u.public_key }
-          new_lines    = merge_keys(system_lines, old_lines, new_lines)
-        end
-
-        write_keys(new_lines)
-        @policy = new_policy
-      end
-      
+      new_lines = merge_keys(InstanceState.login_users, new_policy.users, new_policy.exclusive)
+      InstanceState.login_users = new_policy.users
+      write_keys_file(new_lines)
       AgentTagsManager.instance.add_tags(ACTIVE_TAG)
       return true
     end
 
     protected
 
-    def read_keys()
+    # Read ~root/.ssh/authorized_keys if it exists
+    #
+    # === Return
+    # authorized_keys<Array[<String>]> list of lines of authorized_keys file
+    def read_keys_file
       return [] unless File.exist?(ROOT_TRUSTED_KEYS_FILE)
       File.readlines(ROOT_TRUSTED_KEYS_FILE).map! { |l| l.chomp.strip }
     end
 
-    def write_keys(keys)
+    # Replace the contents of ~root/.ssh/authorized_keys
+    #
+    # === Parameters
+    # keys<Array[<String>]> list of lines that authorized_keys file should contain
+    #
+    # === Return
+    # true:: always returns true
+    def write_keys_file (keys)
       dir = File.dirname(ROOT_TRUSTED_KEYS_FILE)
       FileUtils.mkdir_p(dir)
       FileUtils.chmod(0700, dir)
@@ -73,25 +85,45 @@ module RightScale
       end
 
       FileUtils.chmod(0600, ROOT_TRUSTED_KEYS_FILE)
+      return true
     end
 
-    def merge_keys(system_lines, old_lines, new_lines)
-      file_triples = system_lines.map { |l| l.split(/\s+/) }
-      system_idx = Set.new
-      file_triples.each { |t| system_idx << t[0..1] }
+    # Perform a three-way merge of the old login policy (if applicable), authorized_keys file
+    # (if applicable) and the new login policy. Ensures that any policy users that no longer
+    # have access are removed from the authorized keys, without removing "system" keys from
+    # the authorized keys file (where system keys are defined as any line of authorized_keys
+    # that we did not put there).
+    #
+    # If exclusive=true, then system keys are not preserved; although a merge is still performed,
+    # the return value is simply the public keys of new_users.
+    #
+    # === Parameters
+    # old_users<Array[<LoginUser>]> old login policy's users
+    # new_users<Array[<LoginUser>]> new login policy's users
+    # exclusive<true|false> if true, system keys are not preserved
+    #
+    # === Return
+    # authorized_keys<Array[<String>]> new set of trusted public keys
+    #
+    # === Raise
+    # Exception:: desc
+    def merge_keys(old_users, new_users, exclusive)
+      file_lines = read_keys_file
+      file_triples = file_lines.map { |l| l.split(/\s+/) }
 
-      old_triples = old_lines.map { |l| l.split(/\s+/) }
-      old_idx = Set.new
-      old_triples.each { |t| new << t[0..1] }
+      #Find all lines in authorized_keys file that do not correspond to an old user.
+      #These are the "system keys" that were not added by RightScale.
+      old_users_keys = Set.new
+      old_users.each { |u| old_users_keys << u.public_key.split(/\s+/)[1] }
+      system_triples = file_triples.select { |t| !old_users_keys.include?(t[1]) }
+      system_lines   = system_triples.map { |t| t.join(' ') } 
+      new_lines      = new_users.map { |u| u.public_key }
 
-      new_triples = new_lines.map { |l| l.split(/\s+/) }
-      new_idx = Set.new
-      new_triples.each { |t| new_idx << t[0..1] }
-
-      preserve_idx = system_idx - old_idx - new_idx
-
-      effective_triples = file_triples.select { |t| preserve_idx.include? } + new_triples
-      return effective_triples.map { |t| t.join(' ') }
+      if exclusive
+        return new_lines.sort
+      else
+        return (system_lines + new_lines).sort
+      end
     end
   end 
 end

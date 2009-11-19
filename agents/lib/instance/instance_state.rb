@@ -1,3 +1,4 @@
+
 #
 # Copyright (c) 2009 RightScale Inc
 #
@@ -47,6 +48,9 @@ module RightScale
     # Path to JSON file where past scripts are serialized
     SCRIPTS_FILE    = File.join(STATE_DIR, 'past_scripts.js')
 
+    # Path to JSON file where authorized login users are defined
+    LOGIN_USERS_FILE= File.join(STATE_DIR, 'login_users.js')
+
     # Path to boot log
     BOOT_LOG_FILE = File.join(RightLinkConfig[:platform].filesystem.log_dir, 'right_link_boot')
 
@@ -67,7 +71,12 @@ module RightScale
     def self.past_scripts
       @@past_scripts
     end
-  
+
+    # <Array[<LoginUser>]> Authorized users for Managed Login
+    def self.login_users
+      @@login_users
+    end
+
     # Set instance id with given id
     # Load persisted state if any, compare instance ids and force boot if instance ID
     # is different OR if system uptime is less than persisted uptime.
@@ -116,8 +125,15 @@ module RightScale
       else
         @@past_scripts = []
       end
-
       RightLinkLog.debug("Past scripts: #{@@past_scripts.inspect}")
+
+      if File.file?(LOGIN_USERS_FILE)
+        File.open(LOGIN_USERS_FILE, 'r') { |f| @@login_users = JSON.load(f) }
+      else
+        @@login_users = []
+      end
+      RightLinkLog.debug("Existing login users: #{@@login_users.length} recorded")
+
       true
     end
 
@@ -185,6 +201,22 @@ module RightScale
         end
       end
       new_script
+    end
+
+    # Record set of authorized login users
+    #
+    # === Parameters
+    # login_users<Array[<LoginUser>]> set of authorized login users
+    #
+    # === Return
+    # login_users<Array[<LoginUser>]> authorized login users
+    #
+    def self.login_users=(login_users)
+      @@login_users = login_users.dup
+      File.open(LOGIN_USERS_FILE_FILE, 'w') do |f|
+        f.write(@@login_users.to_json)
+      end
+      login_users
     end
 
     protected
