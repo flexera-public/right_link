@@ -49,7 +49,7 @@ module RightScale
     SCRIPTS_FILE    = File.join(STATE_DIR, 'past_scripts.js')
 
     # Path to JSON file where authorized login users are defined
-    LOGIN_USERS_FILE= File.join(STATE_DIR, 'login_users.js')
+    LOGIN_POLICY_FILE= File.join(STATE_DIR, 'login_policy.js')
 
     # Path to boot log
     BOOT_LOG_FILE = File.join(RightLinkConfig[:platform].filesystem.log_dir, 'right_link_boot')
@@ -72,9 +72,9 @@ module RightScale
       @@past_scripts
     end
 
-    # <Array[<LoginUser>]> Authorized users for Managed Login
-    def self.login_users
-      @@login_users
+    # <LoginPolicy> The most recently enacted login policy
+    def self.login_policy
+      @@login_policy
     end
 
     # Set instance id with given id
@@ -127,12 +127,12 @@ module RightScale
       end
       RightLinkLog.debug("Past scripts: #{@@past_scripts.inspect}")
 
-      if File.file?(LOGIN_USERS_FILE)
-        File.open(LOGIN_USERS_FILE, 'r') { |f| @@login_users = JSON.load(f) }
+      if File.file?(LOGIN_POLICY_FILE)
+        File.open(LOGIN_POLICY_FILE, 'r') { |f| @@login_policy = JSON.load(f) rescue nil }
       else
-        @@login_users = []
+        @@login_policy = nil
       end
-      RightLinkLog.debug("Existing login users: #{@@login_users.length} recorded")
+      RightLinkLog.debug("Existing login users: #{@@login_policy.length} recorded")
 
       true
     end
@@ -211,12 +211,12 @@ module RightScale
     # === Return
     # login_users<Array[<LoginUser>]> authorized login users
     #
-    def self.login_users=(login_users)
-      @@login_users = login_users.dup
-      File.open(LOGIN_USERS_FILE_FILE, 'w') do |f|
-        f.write(@@login_users.to_json)
+    def self.login_policy=(login_policy)
+      @@login_policy = login_policy.dup
+      File.open(LOGIN_POLICY_FILE, 'w') do |f|
+        f.write(@@login_policy.to_json)
       end
-      login_users
+      login_policy
     end
 
     protected

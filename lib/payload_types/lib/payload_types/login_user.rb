@@ -27,7 +27,7 @@ module RightScale
   class LoginUser
     include Serializable
 
-    attr_accessor :uuid, :username, :public_key, :common_name, :expires_at
+    attr_accessor :uuid, :username, :public_key, :common_name, :superuser, :expires_at
 
     # Initialize fields from given arguments
     def initialize(*args)
@@ -35,12 +35,13 @@ module RightScale
       @username    = args[1]
       @public_key  = args[2]
       @common_name = args[3] || ''
-      @expires_at  = Time.at((args[4]||Time.now).to_i)
+      @superuser   = args[4] || false
+      @expires_at  = args[5] ? Time.at(args[5]) : nil
     end
 
     # Array of serialized fields given to constructor
     def serialized_members
-      [ @uuid, @username, @public_key, @common_name, @expires_at.to_i ]
+      [ @uuid, @username, @public_key, @common_name, @superuser, @expires_at.to_i ]
     end
 
   end

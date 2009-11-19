@@ -50,8 +50,12 @@ module RightScale
     def update_policy(new_policy)
       return false unless supported_by_platform?
 
-      new_lines = merge_keys(InstanceState.login_users, new_policy.users, new_policy.exclusive)
-      InstanceState.login_users = new_policy.users
+      #As a sanity check, filter out any expired or non-superusers. The core should never send us these guys,
+      #but by filtering here additionally we prevent race conditions and handle boundary conditions.
+      old_users = InstanceState.login_policy ? InstanceState.login_policy.users : []
+      new_users = new_policy.users.select { |u| (u.expires_at == nil || u.expires_at > Time.now) && (u.superuser == true) }
+      new_lines = merge_keys(old_users, new_users, new_policy.exclusive)
+      InstanceState.login_policy = new_policy
       write_keys_file(new_lines)
       AgentTagsManager.instance.add_tags(ACTIVE_TAG)
       return true
@@ -109,12 +113,23 @@ module RightScale
     # Exception:: desc
     def merge_keys(old_users, new_users, exclusive)
       file_lines = read_keys_file
-      file_triples = file_lines.map { |l| l.split(/\s+/) }
 
+      file_triples = file_lines.map do |l|
+        elements = l.split(/\s+/)
+        if elements.length == 3
+          next elements
+        else
+          RightScale::RightLinkLog.error("Malformed public key in authorized_keys file: #{l}")
+          next nil
+        end
+      end
+      file_triples.compact!
+      
       #Find all lines in authorized_keys file that do not correspond to an old user.
       #These are the "system keys" that were not added by RightScale.
       old_users_keys = Set.new
       old_users.each { |u| old_users_keys << u.public_key.split(/\s+/)[1] }
+
       system_triples = file_triples.select { |t| !old_users_keys.include?(t[1]) }
       system_lines   = system_triples.map { |t| t.join(' ') } 
       new_lines      = new_users.map { |u| u.public_key }
