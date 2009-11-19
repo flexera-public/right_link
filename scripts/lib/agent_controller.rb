@@ -8,6 +8,10 @@
 #     rnac --start AGENT
 #     rnac -s AGENT
 #
+#   Stop running agent:
+#     rnac --stop AGENT
+#     rnac -p AGENT
+#
 #   Create agent configuration file and start it:
 #     rnac --start AGENT --create_conf
 #     rnac -s AGENT -c
@@ -33,6 +37,7 @@
 #
 #    options:
 #      --start, -s AGENT:   Start agent AGENT
+#      --stop, -p AGENT:    Stop agent AGENT
 #      --term-agent, -T ID: Stop agent with given serialized identity
 #      --kill, -k PIDFILE:  Kill process with given pid file
 #      --killall, -K:       Stop all running agents
@@ -151,6 +156,11 @@ module RightScale
 
         opts.on("-s", "--start AGENT") do |a|
           options[:action] = 'run'
+          options[:agent] = a
+        end
+
+        opts.on("-p", "--stop AGENT") do |a|
+          options[:action] = 'stop'
           options[:agent] = a
         end
 
@@ -311,14 +321,21 @@ module RightScale
     
     # Stop given agent, return true on success, false otherwise
     def stop_agent(id)
-      @options[:identity] = id
-      try_kill(agent_pid_file(@options[:agent]))
+      if @options[:agent]
+        try_kill(agent_pid_file(@options[:agent]))
+      else
+        try_kill(agent_pid_file_from_id(@options, id))
+      end
     end
     
     # Show status of given agent, return true on success, false otherwise
+    # Ignore invalid ids or ids of agents not running locally
     def show_agent(id)
-      @options[:identity] = id
-       show(agent_pid_file(@options[:agent]))
+      if @options[:agent]
+        show(pid_file) if pid_file = agent_pid_file(@options[:agent])
+      else
+        show(agent_pid_file_from_id(@options, id))
+      end
     end
 
     # Start a debug server listening on the specified port

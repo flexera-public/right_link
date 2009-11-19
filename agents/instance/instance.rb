@@ -55,4 +55,4 @@ instance_eval(IO.read(RIGHT_LINK_ENV)) if File.file?(RIGHT_LINK_ENV)
 
 # Hook up instance setup actor so it gets called back whenever the AMQP
 # connection fails
-@amqp.connection_status { |status| setup.connection_status(status) }
+MQ.connection.connection_status { |status| setup.connection_status(status) }

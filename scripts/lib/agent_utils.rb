@@ -43,15 +43,25 @@ module RightScale
       File.join(root_path, 'scripts')
     end
 
-    # Retrieve agent pid file
+    # Retrieve agent pid file from agent name (assume only one agent with that name running)
     def agent_pid_file(agent)
       root_dir = gen_agent_dir(agent)
       cfg = File.join(root_dir, 'config.yml')
-      options = symbolize(YAML.load(IO.read(cfg))) rescue nil
-      if options
-        agent = Nanite::Agent.new(options)
-        Nanite::PidFile.new(agent.identity, agent.options)
+      res = nil
+      if File.readable?(cfg)
+        options = symbolize(YAML.load(IO.read(cfg))) rescue nil
+        if options
+          agent = Nanite::Agent.new(options)
+          res = Nanite::PidFile.new(agent.identity, agent.options)
+        end
       end
+      res
+    end
+
+    # Retrieve agent pid file from agent id and launch options
+    def agent_pid_file_from_id(options, id)
+      agent = Nanite::Agent.new(options.merge(:agent_identity => id))
+      Nanite::PidFile.new(agent.identity, agent.options)
     end
         
     # Produces a hash with keys as symbols from given hash
