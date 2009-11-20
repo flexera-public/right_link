@@ -132,7 +132,7 @@ module RightScale
       else
         @@login_policy = nil
       end
-      RightLinkLog.debug("Existing login users: #{@@login_policy.length} recorded")
+      RightLinkLog.debug("Existing login users: #{@@login_policy.users.length} recorded") if @@login_policy
 
       true
     end

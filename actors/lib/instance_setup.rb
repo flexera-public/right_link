@@ -93,7 +93,7 @@ class InstanceSetup
   # === Return
   # true:: Always return true
   def enable_managed_login
-    request('/booter/get_login_policy', @agent_identity) do |r|
+    request('/booter/get_login_policy', {:agent_identity => @agent_identity}) do |r|
       res = RightScale::OperationResult.from_results(r)
 
       if res.success?

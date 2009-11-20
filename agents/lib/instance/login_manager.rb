@@ -21,7 +21,7 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 require 'singleton'
-require 'thread'
+require 'set'
 
 module RightScale
   class LoginManager
