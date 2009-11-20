@@ -15,14 +15,14 @@ describe RightScale::ExecutableSequence do
       File.open(@attachment_file, 'w') do |f|
         f.write('Some attachment content')
       end
-      setup_state
-      setup_script_execution
       platform = RightScale::RightLinkConfig[:platform]
       @cache_dir = File.expand_path(File.join(platform.filesystem.temp_dir, 'executable_sequence_spec'))
       Chef::Resource::RightScript.const_set(:DEFAULT_CACHE_DIR_ROOT, @cache_dir)
     end
 
     before(:each) do
+      setup_state
+      setup_script_execution
       @script = flexmock(:nickname => '__TestScript', :parameters => {}, :ready => true)
       @script.should_receive(:is_a?).with(RightScale::RightScriptInstantiation).and_return(true)
       @script.should_receive(:is_a?).with(RightScale::RecipeInstantiation).and_return(false)

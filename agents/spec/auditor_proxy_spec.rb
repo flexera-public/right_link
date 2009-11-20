@@ -2,6 +2,7 @@ require File.join(File.dirname(__FILE__), '..', '..', 'spec', 'spec_helper')
 require 'audit_formatter'
 require 'right_link_log'
 require 'auditor_proxy'
+require 'request_forwarder'
 
 describe RightScale::AuditorProxy do
 

@@ -41,11 +41,15 @@ module RightScale
       cleanup_state
       RightScale::InstanceState.const_set(:STATE_FILE, state_file_path)
       RightScale::InstanceState.const_set(:SCRIPTS_FILE, past_scripts_path)
+      RightScale::InstanceState.const_set(:BOOT_LOG_FILE, log_path)
+      RightScale::InstanceState.const_set(:OPERATION_LOG_FILE, log_path)
+      RightScale::InstanceState.const_set(:DECOMMISSION_LOG_FILE, log_path)
       @identity = identity
       @results_factory = RightScale::NaniteResultsMock.new
-      Nanite::MapperProxy.send(:class_variable_set, :@@instance, flexmock('MapperProxy'))
-      Nanite::MapperProxy.instance.should_receive(:request).and_yield(@results_factory.success_results).at_least.once
-      Nanite::MapperProxy.instance.should_receive(:push)
+      mapper_proxy = flexmock('MapperProxy')
+      flexmock(Nanite::MapperProxy).should_receive(:instance).and_return(mapper_proxy).by_default      
+      mapper_proxy.should_receive(:request).and_yield(@results_factory.success_results)
+      mapper_proxy.should_receive(:push)
       RightScale::InstanceState.init(@identity)
     end
 
@@ -53,7 +57,7 @@ module RightScale
     def cleanup_state
       delete_if_exists(state_file_path)
       delete_if_exists(past_scripts_path)
-      FileUtils.rm_rf(File.join(File.dirname(__FILE__), 'lib', 'mock_actors', 'cache'))
+      delete_if_exists(log_path)
     end
 
     # Path to serialized instance state
@@ -64,6 +68,11 @@ module RightScale
     # Path to saved passed scripts
     def past_scripts_path
       File.join(RIGHT_LINK_SPEC_HELPER_TEMP_PATH, '__past_scripts.js')
+    end
+
+    # Path to instance boot logs
+    def log_path
+      File.join(RIGHT_LINK_SPEC_HELPER_TEMP_PATH, '__nanite.log')
     end
 
     # Test and delete if exists

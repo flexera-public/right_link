@@ -322,7 +322,6 @@ module RightScale
     end
     
     # Show status of given agent, return true on success, false otherwise
-    # Ignore invalid ids or ids of agents not running locally
     def show_agent(id)
       if @options[:agent]
         show(pid_file) if pid_file = agent_pid_file(@options[:agent])
