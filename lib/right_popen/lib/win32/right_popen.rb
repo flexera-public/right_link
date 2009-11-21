@@ -137,8 +137,4 @@ module RightScale
     # sent to the exit_handler on process termination.
   end
 
-  def self.popen25(cmd, target, output_handler = nil, exit_handler = nil)
-    raise NotImplementedError
-  end
-
 end
