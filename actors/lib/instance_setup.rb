@@ -37,6 +37,7 @@ class InstanceSetup
     @boot_retries = 0
     @agent_identity = agent_identity
     RightScale::InstanceState.init(agent_identity)
+    EM.threadpool_size = 1
     # Schedule boot sequence, don't run it now so agent is registered first
     EM.next_tick { init_boot } if RightScale::InstanceState.value == 'booting'
   end
@@ -220,7 +221,7 @@ class InstanceSetup
         # We want to be able to use Chef providers which use EM (e.g. so they can use RightScale::popen3), this means
         # that we need to synchronize the chef thread with the EM thread since providers run synchronously. So create
         # a thread here and run the sequence in it. Use EM.next_tick to switch back to EM's thread.
-        Thread.new { sequence.run }
+        EM.defer { sequence.run }
     
       else
         msg = "Failed to retrieve boot scripts"

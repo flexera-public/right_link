@@ -163,7 +163,21 @@ module RightScale
       File.open(STATE_FILE, 'w') do |f|
         f.write({ 'value' => val, 'identity' => @@identity, 'uptime' => uptime.to_s }.to_json)
       end
+      @observers.each { |o| o.call(val) } if @observers
       val
+    end
+
+    # Callback given observer on all state transitions
+    #
+    # === Block
+    # Given block should take one argument which will be the transitioned to state
+    #
+    # === Return
+    # true:: Always return true
+    def self.observe(&observer)
+      @observers ||= []
+      @observers << observer
+      true
     end
 
     # Point logger to log file corresponding to current instance state

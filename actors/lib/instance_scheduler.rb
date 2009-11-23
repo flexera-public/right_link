@@ -35,8 +35,7 @@ class InstanceScheduler
     @scheduled_bundles = Queue.new
     @decommissioning = false
     @agent_identity = agent.identity
-    EM.threadpool_size = 2
-    EM.defer { run_bundles }
+    RightScale::InstanceState.observe { |state| EM.defer { run_bundles } if state == 'operational' }
   end
 
   # Schedule given script bundle so it's run as soon as possible
