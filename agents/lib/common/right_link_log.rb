@@ -49,8 +49,6 @@ module RightScale
     def self.method_missing(m, *args)
       self.init unless @initialized
       res = @logger.__send__(m, *args)
-      res = res[0] if res && !res.empty?
-      res
     end
 
     # Map symbol log level to Logger constant

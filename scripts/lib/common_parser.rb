@@ -47,6 +47,10 @@ module RightScale
         options[:host] = host
       end
 
+      opts.on('--alias ALIAS') do |a|
+        options[:alias] = a
+      end
+
       opts.on_tail("--help") do
         RDoc::usage_from_file(__FILE__)
         exit
@@ -73,7 +77,8 @@ module RightScale
           puts "** Identity needs to be a positive integer"
           exit(1)
         end
-        name = options[:agent] || 'mapper'
+        name = options[:alias] || options[:agent] || 'mapper'
+        puts "NAME: #{name}"
         options[:identity] = AgentIdentity.new(options[:prefix] || 'rs', name, base_id, options[:token]).to_s
       end
     end

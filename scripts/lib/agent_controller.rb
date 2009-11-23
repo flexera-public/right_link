@@ -55,6 +55,7 @@
 #      --log-level LVL:     Log level (debug, info, warning, error or fatal)
 #      --log-dir DIR:       Log directory
 #      --pid-dir DIR:       Pid files directory (/tmp by default)
+#      --alias ALIAS:       Run as alias of given agent (i.e. use different config but same name as alias)
 #      --foreground, -f:    Run agent in foreground
 #      --interactive, -I:   Spawn an irb console after starting agent
 #      --test:              Use test settings
@@ -328,6 +329,11 @@ module RightScale
       else
         show(agent_pid_file_from_id(@options, id))
       end
+    end
+
+    # Name of agent at runtime (may differ for configuration by using alias)
+    def runtime_name
+      @options[:alias] || @options[:agent]
     end
 
     # Human readable name for managed entity

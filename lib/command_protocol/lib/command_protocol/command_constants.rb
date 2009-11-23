@@ -26,7 +26,7 @@ module RightScale
   class CommandConstants
 
     # Port used for command protocol
-    SOCKET_PORT = 56342
+    SOCKET_PORT = 60000
 
   end
 end

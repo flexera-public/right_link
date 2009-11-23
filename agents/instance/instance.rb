@@ -35,7 +35,7 @@ require File.join(BASE_DIR, 'lib', 'payload_types', 'lib', 'payload_types')
 require File.join(BASE_DIR, 'lib', 'repo_conf_generators', 'lib', 'repo_conf_generators')
 require File.join(BASE_DIR, 'lib', 'right_popen', 'lib', 'right_popen')
 
-RightScale::SecureSerializerInitializer.init('instance', options[:identity], RightScale::RightLinkConfig[:certs_dir])
+RightScale::SecureSerializerInitializer.init(options[:agent] || 'instance', options[:identity], RightScale::RightLinkConfig[:certs_dir])
 
 #Initialize any singletons that have dependencies on non-singletons
 RightScale::AgentTagsManager.instance.agent = self

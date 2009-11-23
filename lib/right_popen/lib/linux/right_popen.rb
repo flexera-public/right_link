@@ -86,16 +86,16 @@ module RightScale
   # All handlers must be methods exposed by the given target.
   def self.popen3(cmd, target, stdout_handler = nil, stderr_handler = nil, exit_handler = nil)
     raise "EventMachine reactor must be started" unless EM.reactor_running?
+    EM.next_tick do
+      saved_stderr = $stderr.dup
+      r, w = Socket::pair(Socket::AF_LOCAL, Socket::SOCK_STREAM, 0)#IO::pipe
 
-    saved_stderr = $stderr.dup
-    r, w = Socket::pair(Socket::AF_LOCAL, Socket::SOCK_STREAM, 0)#IO::pipe
-
-    $stderr.reopen w
-    c = EM.attach(r, StdErrHandler, target, stderr_handler) if stderr_handler
-    EM.popen(cmd, StdOutHandler, target, stdout_handler, exit_handler, c, r, w)
-    w.close
-    $stderr.reopen saved_stderr
-
+      $stderr.reopen w
+      c = EM.attach(r, StdErrHandler, target, stderr_handler) if stderr_handler
+      EM.popen(cmd, StdOutHandler, target, stdout_handler, exit_handler, c, r, w)
+      w.close
+      $stderr.reopen saved_stderr
+    end
   end
 
 end

@@ -26,6 +26,7 @@
 #      --vhost, -v VHOST:     Set agent AMQP virtual host
 #      --port, -P PORT:       Set AMQP server port
 #      --host, -h HOST:       Set AMQP server host
+#      --alias ALIAS:         Use alias name for identity and base config
 #      --actors-dir, -a DIR:  Set directory containing actor classes
 #      --pid-dir, -z DIR:     Set directory containing pid file
 #      --monit, -w:           Generate monit configuration file
@@ -67,7 +68,7 @@ module RightScale
       actors = nil
       actors_path = nil
       actors_path = options[:actors_dir] || actors_dir
-      cfg = agent_config(options[:agent])
+      cfg = agent_config(options[:agent], options[:alias])
       fail("Cannot read configuration for agent #{options[:agent]}") unless cfg
       actors = cfg.delete(:actors)
       fail('Agent configuration does not define actors') unless actors && actors.respond_to?(:each)
@@ -77,7 +78,7 @@ module RightScale
       end
       options[:actors_path] = actors_path
       options[:actors] = actors
-      options[:init_rb_path] = File.join(agent_dir(options[:agent]), options[:agent] + ".rb")
+      options[:init_rb_path] = File.join(agent_dir(options[:alias] || options[:agent]), (options[:alias] || options[:agent]) + ".rb")
       options[:pid_prefix] = 'nanite'
       write_config(options)
     end
@@ -132,25 +133,25 @@ module RightScale
       opts = OptionParser.new do |opts|
         parse_common(opts, options)
 
-       opts.on('-a', '--actors-dir DIR') do |d|
-         options[:actors_dir] = d
-       end
+        opts.on('-a', '--actors-dir DIR') do |d|
+          options[:actors_dir] = d
+        end
 
-       opts.on('-z', '--pid-dir DIR') do |d|
-         options[:pid_dir] = d
-       end
+        opts.on('-z', '--pid-dir DIR') do |d|
+          options[:pid_dir] = d
+        end
 
-       opts.on('-w', '--monit') do
-         options[:monit] = true
-       end
+        opts.on('-w', '--monit') do
+          options[:monit] = true
+        end
 
-       opts.on('-o', '--options OPT') do |e|
-         fail("Invalid option definition '#{e}' (use '=' to separate name and value)") unless e.include?('=')
-         key, val = e.split(/=/)
-         options[:options][key.gsub('-', '_').to_sym] = val
-       end
+        opts.on('-o', '--options OPT') do |e|
+          fail("Invalid option definition '#{e}' (use '=' to separate name and value)") unless e.include?('=')
+          key, val = e.split(/=/)
+          options[:options][key.gsub('-', '_').to_sym] = val
+        end
 
-       opts.on_tail('--help') do
+        opts.on_tail('--help') do
           RDoc::usage_from_file(__FILE__)
           exit
         end
@@ -186,10 +187,10 @@ protected
       File.join(gen_agent_dir(agent), 'config.yml')
     end
     
-    def agent_config(agent)
-      file = File.join(agent_dir(agent), "#{agent}.yml")
-      return nil unless File.exist?(file)
-      symbolize(YAML.load(IO.read(file))) rescue nil
+    def agent_config(agent, alias_name=nil)
+      cfg_file = File.join(agent_dir(alias_name || agent), "#{alias_name || agent}.yml")
+      return nil unless File.exist?(cfg_file)
+      symbolize(YAML.load(IO.read(cfg_file))) rescue nil
     end
 
     # Version information
