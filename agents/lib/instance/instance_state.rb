@@ -40,19 +40,19 @@ module RightScale
     # Recorded states and additional states local to instance agent
     STATES            = RECORDED_STATES + %w{ decommissioned }
 
-    STATE_DIR       = RightScale::RightLinkConfig[:agent_state_dir]
+    STATE_DIR         = RightScale::RightLinkConfig[:agent_state_dir]
 
     # Path to JSON file where current instance state is serialized
-    STATE_FILE      = File.join(STATE_DIR, 'state.js')
+    STATE_FILE        = File.join(STATE_DIR, 'state.js')
 
     # Path to JSON file where past scripts are serialized
-    SCRIPTS_FILE    = File.join(STATE_DIR, 'past_scripts.js')
+    SCRIPTS_FILE      = File.join(STATE_DIR, 'past_scripts.js')
 
     # Path to JSON file where authorized login users are defined
-    LOGIN_POLICY_FILE= File.join(STATE_DIR, 'login_policy.js')
+    LOGIN_POLICY_FILE = File.join(STATE_DIR, 'login_policy.js')
 
     # Path to boot log
-    BOOT_LOG_FILE = File.join(RightLinkConfig[:platform].filesystem.log_dir, 'right_link_boot')
+    BOOT_LOG_FILE     = File.join(RightLinkConfig[:platform].filesystem.log_dir, 'right_link_boot')
 
     # Path to decommission log
     DECOMMISSION_LOG_FILE = File.join(RightLinkConfig[:platform].filesystem.log_dir, 'right_link_decommission')
