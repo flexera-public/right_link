@@ -45,6 +45,9 @@ describe InstanceSetup do
     flexmock(RightScale::AuditorProxy).should_receive(:new).and_return(@auditor)
     @results_factory = RightScale::NaniteResultsMock.new
     InstanceSetup.results_factory = @results_factory
+    @mgr = RightScale::LoginManager.instance
+    flexmock(@mgr).should_receive(:supported_by_platform?).and_return(true)
+    flexmock(@mgr).should_receive(:write_keys_file).and_return(true)
     setup_state
     setup_script_execution
   end

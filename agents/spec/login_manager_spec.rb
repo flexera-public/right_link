@@ -9,7 +9,8 @@ describe RightScale::LoginManager do
   before(:all) do
     flexmock(RightScale::RightLinkLog).should_receive(:debug).by_default
     @mgr = RightScale::LoginManager.instance
-    flexmock(@mgr).should_receive(:supported_by_platform?).and_return(true)
+    flexmock(@mgr).should_receive(:supported_by_platform?).and_return(true).by_default
+    flexmock(@mgr).should_receive(:write_keys_file).and_return(true).by_default
   end
 
   context :update_policy do
