@@ -17,11 +17,11 @@ describe RightScale::Multiplexer do
     @multiplexer.some_method('arg', 'arg2')
   end
 
-  it 'should collect results' do
+  it 'should retrieve the first result' do
     @target1.should_receive(:some_method).once.with('arg', 'arg2').and_return('res1')
     @target2.should_receive(:some_method).once.with('arg', 'arg2').and_return('res2')
     @target3.should_receive(:some_method).once.with('arg', 'arg2').and_return('res3')
-    @multiplexer.some_method('arg', 'arg2').should == [ 'res1', 'res2', 'res3' ]
+    @multiplexer.some_method('arg', 'arg2').should == 'res1'
   end
 
 end
