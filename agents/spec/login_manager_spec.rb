@@ -45,7 +45,7 @@ describe RightScale::LoginManager do
     end
     
     context "when system keys exist" do
-      it "should cope with malformed lines in authorized-keys file" do
+      it "should cope with malformed system keys" do
         flexmock(@mgr).should_receive(:read_keys_file).and_return(@system_keys + ['hello world', 'four score and seven years ago'])
         flexmock(@mgr).should_receive(:write_keys_file).with((@policy_keys+@system_keys).sort)
         @mgr.update_policy(@policy)
