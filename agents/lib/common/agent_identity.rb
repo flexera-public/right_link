@@ -44,6 +44,15 @@ module RightScale
       @token      = token || Nanite::Identity.generate
       @base_id    = base_id
     end
+
+    # Check whether identity corresponds to an instance agent
+    #
+    # === Return
+    # true:: If id corresponds to an instance agent
+    # false:: Otherwise
+    def instance_agent?
+      agent_name == 'instance'
+    end
     
     # Check validity of given serialized identity
     #
@@ -55,19 +64,13 @@ module RightScale
     # false:: Otherwise
     def self.valid?(serialized)
       return false unless serialized && serialized.respond_to?(:split) && serialized.respond_to?(:include?)
-      serialized = serialized_from_nanite(serialized) if valid_nanite?(serialized)      
-      if serialized.include?(ID_SEPARATOR)
-        parts = serialized.split(ID_SEPARATOR)
-      elsif serialized.include?(ID_SEPARATOR_OLD)
-        parts = serialized.split(ID_SEPARATOR_OLD)
-      else
-        return false
-      end
+      serialized = serialized_from_nanite(serialized) if valid_nanite?(serialized)
+      p = parts(serialized)
 
-      res = parts.size == 4   &&
-            parts[1].size > 0 &&
-            parts[2].size > 0 &&
-            parts[3].to_i.to_s == parts[3]
+      res = p.size == 5   &&
+            p[1].size > 0 &&
+            p[2].size > 0 &&
+            p[3].to_i.to_s == p[3]
     end
     
     # Instantiate by parsing given token
@@ -82,22 +85,24 @@ module RightScale
     # RightScale::Exceptions::Argument:: Serialized agent identity is incorrect
     def self.parse(serialized_id)
       serialized_id = serialized_from_nanite(serialized_id) if valid_nanite?(serialized_id)
-      
-      if serialized_id.include?(ID_SEPARATOR)
-        prefix, agent_name, token, bid = serialized_id.split(ID_SEPARATOR)
-        delimeter = ID_SEPARATOR
-      elsif serialized_id.include?(ID_SEPARATOR_OLD)
-        prefix, agent_name, token, bid = serialized_id.split(ID_SEPARATOR_OLD)
-        delimeter = ID_SEPARATOR_OLD
-      else
-        raise ArgumentError.new("Serialized ID appears invalid; contains neither #{ID_SEPARATOR} nor #{ID_SEPARATOR_OLD}")
-      end
-
+      prefix, agent_name, token, bid, delimeter = parts(serialized_id)
       raise RightScale::Exceptions::Argument, "Invalid agent identity token" unless prefix && agent_name && token && bid
       base_id = bid.to_i
       raise RightScale::Exceptions::Argument, "Invalid agent identity token (Base ID)" unless base_id.to_s == bid
 
       id = AgentIdentity.new(prefix, agent_name, base_id, token, delimeter)
+    end
+
+    # Does given id correspond to an instance agent?
+    #
+    # === Parameters
+    # serialized_id<String>:: Valid serialized agent identity (use 'valid?' to check first)
+    #
+    # === Return
+    # true:: If given id corresponds to an instance agent
+    # false:: Otherwise
+    def self.instance_agent?(serialized_id)
+      parts(serialized_id)[1] == 'instance'
     end
 
     # Check validity of nanite name. Checks whether this is a well-formed nanite name,
@@ -121,7 +126,7 @@ module RightScale
     # === Return
     # serialized<String>:: Serialized agent id from nanite id
     def self.serialized_from_nanite(nanite)
-      serialized = nanite[7, nanite.length] # 'nanite-'.length == 7
+      serialized = nanite[7..-1] # 'nanite-'.length == 7
     end
 
     # Generate nanite agent identity from serialized representation
@@ -158,6 +163,27 @@ module RightScale
       token      == other.token      &&
       base_id    == other.base_id
     end
-  
+
+    protected
+
+    # Split given serialized id into its parts
+    #
+    # === Parameters
+    # serialized_id<String>:: Valid serialized agent identity (use 'valid?' to check first)
+    #
+    # === Return
+    # <Array>:: Array of parts: prefix, agent name, token, base id and delimeter
+    def self.parts(serialized_id)
+      prefix = agent_name = token = bid = delimeter = nil
+      if serialized_id.include?(ID_SEPARATOR)
+        prefix, agent_name, token, bid = serialized_id.split(ID_SEPARATOR)
+        delimeter = ID_SEPARATOR
+      elsif serialized_id.include?(ID_SEPARATOR_OLD)
+        prefix, agent_name, token, bid = serialized_id.split(ID_SEPARATOR_OLD)
+        delimeter = ID_SEPARATOR_OLD
+      end
+      [ prefix, agent_name, token, bid, delimeter ]
+    end
+
   end
 end

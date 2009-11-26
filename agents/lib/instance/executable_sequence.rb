@@ -275,7 +275,7 @@ module RightScale
     # === Return
     # title<String>:: Recipe title to be used in audits
     def recipe_title(recipe)
-      title = (recipe.nickname == 'cookbook::right_script' ? 'RightScript' : 'Chef recipe')
+      title = (recipe.nickname == 'cookbooks::right_script' ? 'RightScript' : 'Chef recipe')
       title = "#{title} < #{recipe.nickname} >"
     end
 
@@ -412,7 +412,7 @@ module RightScale
     # === Return
     # recipe<RightScale::RecipeInstantiation>:: Resulting recipe
     def script_to_recipe(script)
-      data = { 'recipes'      => [ 'cookbook::right_script' ],
+      data = { 'recipes'      => [ 'cookbooks::right_script' ],
                'right_script' => { 'nickname'   => script.nickname,
                                    'source'     => script.source,
                                    'parameters' => script.parameters || {},
