@@ -79,7 +79,7 @@ module RightScale
       when Logger::DEBUG
         RightLinkLog.debug(message)
       when Logger::INFO, Logger::WARN, Logger::UNKNOWN
-        @auditor.append_info(msg)
+        @auditor.append_output(msg)
       when Logger::ERROR, Logger::FATAL
         @auditor.append_error(msg)
       end
