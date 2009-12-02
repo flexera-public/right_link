@@ -54,11 +54,11 @@ module RightScale
       #but by filtering here additionally we prevent race conditions and handle boundary conditions.
       old_users = InstanceState.login_policy ? InstanceState.login_policy.users : []
       new_users = new_policy.users.select { |u| (u.expires_at == nil || u.expires_at > Time.now) && (u.superuser == true) }
-      new_lines = merge_keys(old_users, new_users, new_policy.exclusive)
+      new_lines, system_lines = merge_keys(old_users, new_users, new_policy.exclusive)
       InstanceState.login_policy = new_policy
       write_keys_file(new_lines)
       AgentTagsManager.instance.add_tags(ACTIVE_TAG)
-      return true
+      return [new_lines.size, system_lines.size]
     end
 
     protected
@@ -135,9 +135,9 @@ module RightScale
       new_lines      = new_users.map { |u| u.public_key }
 
       if exclusive
-        return new_lines.sort
+        return [new_lines.sort, []]
       else
-        return (system_lines + new_lines).sort
+        return [(system_lines + new_lines).sort, system_lines.sort]
       end
     end
   end 

@@ -101,17 +101,26 @@ class InstanceSetup
         policy  = res.content
         auditor = RightScale::AuditorProxy.new(policy.audit_id)
         begin
-          RightScale::LoginManager.instance.update_policy(policy)
-          auditor.create_new_section('Managed login enabled')
-          audit = "Authorized users:\n"
-          policy.users.each do |u|
-            audit += "    #{u.uuid} #{u.common_name.ljust(40)}\n"
+          num_users, num_system_users = RightScale::LoginManager.instance.update_policy(policy)
+
+          auditor.create_new_section("Managed login enabled")
+          audit += "#{num_users} total entries in authorized_keys file.\n"
+          unless policy.exclusive
+            audit += "Non-exclusive login policy; preserved #{num_system_users} non-RightScale entries.\n"
           end
-          auditor.append_info(audit)
+          if policy.users.empty?
+            audit += "No authorized RightScale users."
+          else
+            audit = "Authorized RightScale users:\n"
+            policy.users.each do |u|
+              audit += "  #{u.common_name.ljust(40)} #{u.username}\n"
+            end
+            auditor.append_info(audit)
+          end
         rescue Exception => e
           auditor.create_new_section('Failed to enable managed login')
-          auditor.append_error("#{e.class.name}: #{e.message}")
-          auditor.append_error(e.backtrace.join("\n"))
+          auditor.append_error("Error applying policy: #{e.message}")
+          RightScale::RightLinkLog.error("#{e.class.name}: #{e.message}\n#{e.backtrace.join("\n")}")
         end
       else
         RightScale::RightLinkLog.error("Could not get login policy: #{res.content}")

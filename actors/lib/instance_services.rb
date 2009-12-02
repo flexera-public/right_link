@@ -30,11 +30,30 @@ class InstanceServices
   # === Return
   # res<RightScale::OperationResult>:: Always returns success
   def update_login_policy(new_policy)
+    auditor = RightScale::AuditorProxy.new(new_policy.audit_id)
+
     begin
-      LoginManager.instance.update_policy(new_policy)
+      num_users, num_system_users = LoginManager.instance.update_policy(new_policy)
+
+      auditor.create_new_section("Managed login policy updated")
+      audit += "#{num_users} total entries in authorized_keys file.\n"
+      unless policy.exclusive
+        audit += "Non-exclusive login policy; preserved #{num_system_users} non-RightScale entries.\n"
+      end
+      if policy.users.empty?
+        audit += "No authorized RightScale users."
+      else
+        audit = "Authorized RightScale users:\n"
+        policy.users.each do |u|
+          audit += "  #{u.common_name.ljust(40)} #{u.username}\n"
+        end
+        auditor.append_info(audit)
+      end      
       return RightScale::OperationResult.success
     rescue Exception => e
-      RightScale::RightLinkLog.error "Cannot update login policy: #{e.class.name} - #{e.message}" 
+      auditor.create_new_section('Failed to update managed login policy')
+      auditor.append_error("Error applying policy: #{e.message}")
+      RightScale::RightLinkLog.error("#{e.class.name}: #{e.message}\n#{e.backtrace.join("\n")}")
       return RightScale::OperationResult.error("#{e.class.name} - #{e.message}")
     end
   end
