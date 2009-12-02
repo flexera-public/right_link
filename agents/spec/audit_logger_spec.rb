@@ -11,7 +11,7 @@ describe RightScale::AuditLogger do
   end
 
   it 'should append info text' do
-    @auditor.should_receive(:append_info).times(3)
+    @auditor.should_receive(:append_output).times(3)
     @logger.info
     @logger.warn
     @logger.unknown

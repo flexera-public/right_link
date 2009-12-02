@@ -33,6 +33,7 @@ describe RightScale::ExecutableSequence do
       @auditor.should_receive(:audit_id).and_return(1)
       @auditor.should_receive(:create_new_section)
       @auditor.should_receive(:append_info)
+      @auditor.should_receive(:append_output)
       @auditor.should_receive(:update_status)
     end
 

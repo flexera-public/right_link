@@ -52,10 +52,10 @@ module RightScale
     LOGIN_POLICY_FILE = File.join(STATE_DIR, 'login_policy.js')
 
     # Path to boot log
-    BOOT_LOG_FILE     = File.join(RightLinkConfig[:platform].filesystem.log_dir, 'right_link_boot')
+    BOOT_LOG_FILE     = File.join(RightLinkConfig[:platform].filesystem.log_dir, 'install')
 
     # Path to decommission log
-    DECOMMISSION_LOG_FILE = File.join(RightLinkConfig[:platform].filesystem.log_dir, 'right_link_decommission')
+    DECOMMISSION_LOG_FILE = File.join(RightLinkConfig[:platform].filesystem.log_dir, 'decommission')
 
     # <String> One of STATES
     def self.value
