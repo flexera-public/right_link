@@ -103,20 +103,22 @@ class InstanceSetup
         begin
           num_users, num_system_users = RightScale::LoginManager.instance.update_policy(policy)
 
-          auditor.create_new_section("Managed login enabled")
-          audit += "#{num_users} total entries in authorized_keys file.\n"
+          audit = "#{num_users} total authorized key(s).\n"
+          
           unless policy.exclusive
-            audit += "Non-exclusive login policy; preserved #{num_system_users} non-RightScale entries.\n"
+            audit += "Non-exclusive login policy; preserved #{num_system_users} non-RightScale key(s).\n"
           end
           if policy.users.empty?
             audit += "No authorized RightScale users."
           else
-            audit = "Authorized RightScale users:\n"
+            audit += "Authorized RightScale users:\n"
             policy.users.each do |u|
               audit += "  #{u.common_name.ljust(40)} #{u.username}\n"
             end
-            auditor.append_info(audit)
           end
+
+          auditor.create_new_section("Managed login enabled")
+          auditor.append_info(audit)
         rescue Exception => e
           auditor.create_new_section('Failed to enable managed login')
           auditor.append_error("Error applying policy: #{e.message}")
