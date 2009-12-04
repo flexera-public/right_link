@@ -30,31 +30,27 @@ class InstanceServices
   # === Return
   # res<RightScale::OperationResult>:: Always returns success
   def update_login_policy(new_policy)
-    auditor = RightScale::AuditorProxy.new(new_policy.audit_id)
-
-    begin
-      num_users, num_system_users = LoginManager.instance.update_policy(new_policy)
-
-      auditor.create_new_section("Managed login policy updated")
-      audit += "#{num_users} total entries in authorized_keys file.\n"
-      unless policy.exclusive
-        audit += "Non-exclusive login policy; preserved #{num_system_users} non-RightScale entries.\n"
-      end
-      if policy.users.empty?
-        audit += "No authorized RightScale users."
+    request("/auditor/create_entry", :summary=>'Updating managed login policy') do |r|
+      res = RightScale::OperationResult.from_results(r)
+      if res.success?
+        auditor = RightScale::AuditorProxy.new(res.content)
       else
-        audit = "Authorized RightScale users:\n"
-        policy.users.each do |u|
-          audit += "  #{u.common_name.ljust(40)} #{u.username}\n"
-        end
+        RightScale::RightLinkLog.error("Could not create audit entry for policy update: #{res.content}")
+        auditor = RightScale::AuditorProxy.new(nil)
+      end
+
+      begin
+        audit = RightScale::LoginManager.instance.update_policy(new_policy)
+        auditor.create_new_section("Managed login policy updated")
         auditor.append_info(audit)
-      end      
-      return RightScale::OperationResult.success
-    rescue Exception => e
-      auditor.create_new_section('Failed to update managed login policy')
-      auditor.append_error("Error applying policy: #{e.message}")
-      RightScale::RightLinkLog.error("#{e.class.name}: #{e.message}\n#{e.backtrace.join("\n")}")
-      return RightScale::OperationResult.error("#{e.class.name} - #{e.message}")
+        return RightScale::OperationResult.success
+      rescue Exception => e
+        auditor.create_new_section('Failed to update managed login policy')
+        auditor.append_error("Error applying policy: #{e.message}")
+        RightScale::RightLinkLog.error("#{e.class.name}: #{e.message}\n#{e.backtrace.join("\n")}")
+        return RightScale::OperationResult.error("#{e.class.name} - #{e.message}")
+      end
     end
   end
+
 end

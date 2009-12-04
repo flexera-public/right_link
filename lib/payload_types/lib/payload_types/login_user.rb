@@ -36,7 +36,7 @@ module RightScale
       @public_key  = args[2]
       @common_name = args[3] || ''
       @superuser   = args[4] || false
-      @expires_at  = args[5] ? Time.at(args[5]) : nil
+      @expires_at  = Time.at(args[5]) if args[5] && (args[5] != 0) # in JSON, nil -> 0 for some reason...
     end
 
     # Array of serialized fields given to constructor

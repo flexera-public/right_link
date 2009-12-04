@@ -101,22 +101,7 @@ class InstanceSetup
         policy  = res.content
         auditor = RightScale::AuditorProxy.new(policy.audit_id)
         begin
-          num_users, num_system_users = RightScale::LoginManager.instance.update_policy(policy)
-
-          audit = "#{num_users} total authorized key(s).\n"
-          
-          unless policy.exclusive
-            audit += "Non-exclusive login policy; preserved #{num_system_users} non-RightScale key(s).\n"
-          end
-          if policy.users.empty?
-            audit += "No authorized RightScale users."
-          else
-            audit += "Authorized RightScale users:\n"
-            policy.users.each do |u|
-              audit += "  #{u.common_name.ljust(40)} #{u.username}\n"
-            end
-          end
-
+          audit = RightScale::LoginManager.instance.update_policy(policy)
           auditor.create_new_section("Managed login enabled")
           auditor.append_info(audit)
         rescue Exception => e

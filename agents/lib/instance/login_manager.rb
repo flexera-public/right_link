@@ -46,7 +46,7 @@ module RightScale
     # new_policy<LoginPolicy> the new login policy
     #
     # === Return
-    # success<true|false> whether the policy was enacted
+    # description<String> a human-readable description of the update, suitable for auditing
     def update_policy(new_policy)
       return false unless supported_by_platform?
 
@@ -58,7 +58,7 @@ module RightScale
       InstanceState.login_policy = new_policy
       write_keys_file(new_lines)
       AgentTagsManager.instance.add_tags(ACTIVE_TAG)
-      return [new_lines.size, system_lines.size]
+      return describe_policy(new_lines.size, system_lines.size, policy)
     end
 
     protected
@@ -141,4 +141,33 @@ module RightScale
       end
     end
   end 
+
+  # Return a verbose, human-readable description of the login policy, suitable
+  # for appending to an audit entry. Contains formatting such as newlines and tabs.
+  #
+  # === Parameters
+  # num_users<Integer> total number of users
+  # num_system_users<Integer> number of preserved system keys
+  # policy<LoginPolicy> the effective login policy
+  #
+  # === Return
+  # description<String>
+  def describe_policy(num_users, num_system_users, policy)
+    audit = "#{num_users} total authorized key(s).\n"
+
+    unless policy.exclusive
+      audit += "Non-exclusive policy; preserved #{num_system_users} non-RightScale key(s).\n"
+    end
+    if policy.users.empty?
+      audit += "No authorized RightScale users."
+    else
+      audit += "Authorized RightScale users:\n"
+      policy.users.each do |u|
+        audit += "  #{u.common_name.ljust(40)} #{u.username}\n"
+      end
+    end
+
+    return audit
+  end
+
 end
