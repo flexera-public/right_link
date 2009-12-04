@@ -49,7 +49,7 @@ module RightScale
     # true:: Always return true
     def self.request(type, payload = '', opts = {}, &blk)
       if @offline_mode
-        queue_request(:is_push => false, :type => type, :payload => payload, :options => opts, :callback => blk)
+        queue_request(:kind => :request, :type => type, :payload => payload, :options => opts, :callback => blk)
       else
         Nanite::MapperProxy.instance.request(type, payload, opts, &blk)
       end
@@ -67,9 +67,28 @@ module RightScale
     # true:: Always return true
     def self.push(type, payload = '', opts = {})
       if @offline_mode
-        queue_request(:is_push => true, :type => type, :payload => payload, :options => opts)
+        queue_request(:kind => :push, :type => type, :payload => payload, :options => opts)
       else
         Nanite::MapperProxy.instance.push(type, payload, opts)
+      end
+      true
+    end
+
+    # Send tag query or buffer it if we are in offline mode
+    #
+    # === Parameters
+    # tags<Array>:: List of tags associated with query
+    #
+    # === Block
+    # Handler block gets called back with query results
+    #
+    # === Return
+    # true:: Always return true
+    def self.query_tags(tags, opts = {}, &blk)
+      if @offline_mode
+        queue_request(:kind => :tag_query, :tags => tags, :options => opts, :callback => blk)
+      else
+        Nanite::MapperProxy.instance.query_tags(tags, opts, &blk)
       end
       true
     end
@@ -153,10 +172,13 @@ module RightScale
         @flushing = false
       else
         request = @requests.shift
-        if request[:is_push]
+        case request[:kind]
+        when :push
           Nanite::MapperProxy.instance.push(request[:type], request[:payload], request[:options])
-        else
+        when :request
           Nanite::MapperProxy.instance.request(request[:type], request[:payload], request[:options], request[:callback])
+        when :tag_query
+          Nanite::MapperProxy.instance.query_tags(request[:tags], request[:options], request[:callback])
         end
         if @requests.empty?
           @offline_mode = false

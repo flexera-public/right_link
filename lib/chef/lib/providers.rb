@@ -38,6 +38,8 @@ require File.join(File.dirname(__FILE__), 'providers', 'right_link_tag_provider'
 require File.join(File.dirname(__FILE__), 'providers', 'right_link_tag_resource')
 require File.join(File.dirname(__FILE__), 'providers', 'right_script_provider')
 require File.join(File.dirname(__FILE__), 'providers', 'right_script_resource')
+require File.join(File.dirname(__FILE__), 'providers', 'server_collection_provider')
+require File.join(File.dirname(__FILE__), 'providers', 'server_collection_resource')
 
 # Register all of our custom providers with Chef
 #
