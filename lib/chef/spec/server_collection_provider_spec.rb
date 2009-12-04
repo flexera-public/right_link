@@ -30,7 +30,7 @@ module RightScale
   class RequestForwarder
     def self.query_tags(_)
       EM.next_tick do
-         yield @@res
+         yield @@res if @@res
       end
     end
     def self.set_query_tags_result(res)
@@ -42,20 +42,16 @@ end
 describe Chef::Provider::ServerCollection do
 
   before(:each) do
-    agent_hash = {'agent_id_1' => { :tags => ['tag1', 'tag2'] },
-                  'agent_id_2' => { :tags => ['tag1', 'tag3'] } }
+    @agent_hash = {'agent_id_1' => { :tags => ['tag1', 'tag2'] },
+                   'agent_id_2' => { :tags => ['tag1', 'tag3'] } }
     @result = {}
-    agent_hash.each { |k, v| @result[k] = v[:tags] }
-    @succeed = true
-    RightScale::RequestForwarder.set_query_tags_result(agent_hash)
+    @agent_hash.each { |k, v| @result[k] = v[:tags] }
     @provider = Chef::Provider::ServerCollection.new
     @provider.instance_variable_set(:@node, {})
     @provider.instance_variable_set(:@new_resource, flexmock('resource', :name => 'resource_name', :tags => 'tag1'))
   end
 
-  def perform_load(should_succeed=true)
-    @succeed = should_succeed # Defines whether the tag query should succeed
-
+  def perform_load
     # Call the chef provider in the 'Chef thread'
     Thread.new do
       @provider.action_load
@@ -67,12 +63,12 @@ describe Chef::Provider::ServerCollection do
         succeeded = @provider.instance_variable_get(:@node)[:server_collection]['resource_name'] == @result
         EM.stop if succeeded
       end
-      EM.add_timer(2) { EM.stop }
+      EM.add_timer(1) { EM.stop }
     end
-
   end
 
   it 'should load the collection synchronously' do
+    RightScale::RequestForwarder.set_query_tags_result(@agent_hash)
     perform_load
     @provider.instance_variable_get(:@node)[:server_collection]['resource_name'].should == @result
   end
@@ -81,7 +77,9 @@ describe Chef::Provider::ServerCollection do
     old_timeout = Chef::Provider::ServerCollection::QUERY_TIMEOUT
     begin
       Chef::Provider::ServerCollection.const_set(:QUERY_TIMEOUT, 0.5)
-      perform_load(should_succeed=false)
+      RightScale::RequestForwarder.set_query_tags_result(nil)
+      perform_load
+      @provider.instance_variable_get(:@node)[:server_collection]['resource_name'].should == {}
     ensure
       Chef::Provider::ServerCollection.const_set(:QUERY_TIMEOUT, old_timeout)
     end

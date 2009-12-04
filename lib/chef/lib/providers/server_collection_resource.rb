@@ -36,8 +36,8 @@ class Chef
       def initialize(name, collection=nil, node=nil)
         super(name, collection, node)
         @resource_name = :server_collection
-        @action = :get
-        @allowed_actions.push(:get)
+        @action = :load
+        @allowed_actions.push(:load)
       end
 
     end
