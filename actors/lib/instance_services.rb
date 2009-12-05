@@ -25,12 +25,18 @@ class InstanceServices
 
   expose :update_login_policy
 
+  def initialize(agent_identity)
+    @agent_identity = agent_identity
+  end
+
   # Always return success, used for troubleshooting
   #
   # === Return
   # res<RightScale::OperationResult>:: Always returns success
   def update_login_policy(new_policy)
-    request("/auditor/create_entry", :summary=>'Updating managed login policy') do |r|
+    status = nil
+    
+    request("/auditor/create_entry", :agent_identity=>@agent_identity, :summary=>'Updating managed login policy') do |r|
       res = RightScale::OperationResult.from_results(r)
       if res.success?
         auditor = RightScale::AuditorProxy.new(res.content)
@@ -43,14 +49,16 @@ class InstanceServices
         audit = RightScale::LoginManager.instance.update_policy(new_policy)
         auditor.create_new_section("Managed login policy updated")
         auditor.append_info(audit)
-        return RightScale::OperationResult.success
+        status = RightScale::OperationResult.success
       rescue Exception => e
         auditor.create_new_section('Failed to update managed login policy')
         auditor.append_error("Error applying policy: #{e.message}")
         RightScale::RightLinkLog.error("#{e.class.name}: #{e.message}\n#{e.backtrace.join("\n")}")
-        return RightScale::OperationResult.error("#{e.class.name} - #{e.message}")
-      end
+        status = RightScale::OperationResult.error("#{e.class.name} - #{e.message}")
+      end            
     end
+
+    status
   end
 
 end
