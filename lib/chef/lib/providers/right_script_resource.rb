@@ -88,8 +88,7 @@ class Chef
         set_or_return(
           :parameters,
           arg,
-          #:kind_of => [ Hash ]
-          :kind_of => [ Chef::Node::Attribute ] # Change back to Hash when Chef is fixed
+          :kind_of => [ Hash ]
         )
       end
 

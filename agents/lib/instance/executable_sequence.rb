@@ -46,15 +46,16 @@ module RightScale
     # bundle<RightScale::ExecutableBundle>:: Bundle to be run
     # agent_identity<String>:: Agent identity (needed to retrieve missing inputs)
     def initialize(bundle, agent_identity=nil)
-      @description          = bundle.to_s
-      @auditor              = AuditorProxy.new(bundle.audit_id)
-      @scripts              = bundle.executables.select { |e| e.is_a?(RightScriptInstantiation) }
-      @original_recipes     = bundle.executables.select { |e| e.is_a?(RecipeInstantiation) }
-      @recipes              = bundle.executables.map { |e| e.is_a?(RecipeInstantiation) ? e : script_to_recipe(e) }
-      @cookbook_repos       = bundle.cookbook_repositories || []
-      @downloader           = Downloader.new
-      @prepared_executables = []
-      @agent_identity       = agent_identity
+      @description            = bundle.to_s
+      @auditor                = AuditorProxy.new(bundle.audit_id)
+      @right_scripts_cookbook = RightScriptsCookbook.new(@auditor.audit_id)
+      @scripts                = bundle.executables.select { |e| e.is_a?(RightScriptInstantiation) }
+      @original_recipes       = bundle.executables.select { |e| e.is_a?(RecipeInstantiation) }
+      @recipes                = bundle.executables.map    { |e| e.is_a?(RecipeInstantiation) ? e : @right_scripts_cookbook.recipe_from_right_script(e) }
+      @cookbook_repos         = bundle.cookbook_repositories || []
+      @downloader             = Downloader.new
+      @prepared_executables   = []
+      @agent_identity         = agent_identity
     end
 
     # Run given executable bundle
@@ -95,7 +96,7 @@ module RightScale
 
       #Chef paths and run mode
       Chef::Config[:cookbook_path] = @cookbook_repos.map { |r| cookbooks_path(r) }.flatten.uniq
-      Chef::Config[:cookbook_path] << File.expand_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'lib', 'chef'))
+      Chef::Config[:cookbook_path] << @right_scripts_cookbook.repo_dir unless @right_scripts_cookbook.empty?
       Chef::Config[:solo] = true
       true
     end
@@ -108,7 +109,7 @@ module RightScale
       @auditor.create_new_section('Downloading attachments') unless @scripts.all? { |s| s.attachments.empty? }
       audit_time do
         @scripts.each do |script|
-          attach_dir = cache_dir(script)
+          attach_dir = @right_scripts_cookbook.cache_dir(script)
           script.attachments.each do |a|
             script_file_path = File.join(attach_dir, a.file_name)
             @auditor.update_status("Downloading #{a.file_name} into #{script_file_path}")
@@ -404,31 +405,6 @@ module RightScale
       "#{margin}#{' ' * ([padding - margin.size, 0].max)} #{lines[index - 1]}"
     end
 
-    # Transform a RightScriptInstantiation into a RecipeInstantiation
-    #
-    # === Parameters
-    # script<RightScale::ScriptInstantiation>:: Script to be wrapped
-    #
-    # === Return
-    # recipe<RightScale::RecipeInstantiation>:: Resulting recipe
-    def script_to_recipe(script)
-      data = { 'recipes'      => [ 'cookbooks::right_script' ],
-               'right_script' => { 'nickname'   => script.nickname,
-                                   'source'     => script.source,
-                                   'parameters' => script.parameters || {},
-                                   'cache_dir'  => cache_dir(script),
-                                   'audit_id'   => @auditor.audit_id } }
-      recipe = RecipeInstantiation.new(script.nickname, data, script.id, script.ready)
-    end
-
-    # Path to cache directory for given script
-    #
-    # === Return
-    # path<String>:: Path to directory used for attachments and source
-    def cache_dir(script)
-      path = File.join(InstanceConfiguration::CACHE_PATH, script.object_id.to_s)
-    end
-  
     # Directory where cookbooks should be kept
     #
     # === Parameters
