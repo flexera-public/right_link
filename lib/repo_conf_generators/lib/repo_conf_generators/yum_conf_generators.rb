@@ -116,7 +116,7 @@ module Yum
     config_body = <<END
 [#{opts[:repo_name]}]
 name = #{opts[:description]}
-baseurl = #{mirror_list.join("\n")}
+baseurl = #{mirror_list.join("\n ")}
 failovermethod=priority
 gpgcheck=1
 enabled=#{(opts[:enabled] ? 1:0)}
@@ -173,7 +173,7 @@ END
     config_body = <<END
 [#{opts[:repo_name]}]
 name = #{opts[:description]}
-baseurl = #{mirror_list.join("\n")}
+baseurl = #{mirror_list.join("\n ")}
 failovermethod=priority
 gpgcheck=1
 enabled=#{(opts[:enabled] ? 1:0)}
