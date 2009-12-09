@@ -244,8 +244,8 @@ class InstanceSetup
   def retrieve_missing_inputs(bundle, &cb)
     scripts = bundle.executables.select { |e| e.is_a?(RightScale::RightScriptInstantiation) }
     recipes = bundle.executables.select { |e| e.is_a?(RightScale::RecipeInstantiation) }
-    scripts_ids = scripts.select { |s| !s.ready }.map(&:id)
-    recipes_ids = recipes.select { |r| !r.ready }.map(&:id)
+    scripts_ids = scripts.select { |s| !s.ready }.map { |s| s.id }
+    recipes_ids = recipes.select { |r| !r.ready }.map { |r| r.id }
     RightScale::RequestForwarder.request('/booter/get_missing_attributes', { :agent_identity => @agent_identity,
                                                                              :scripts_ids    => scripts_ids,
                                                                              :recipes_ids    => recipes_ids }) do |r|

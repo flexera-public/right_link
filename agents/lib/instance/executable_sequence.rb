@@ -65,8 +65,8 @@ module RightScale
         @run_list = ChefState.run_list
         @attributes = ChefState.attributes
       else
-        @run_list = recipes.map(&:nickname)
-        @attributes = recipes.map(&:attributes).inject({}) { |a, l| a.merge!(l) if l; a }
+        @run_list = recipes.map { |r| r.nickname }
+        @attributes = recipes.map { |r| r.attributes }.inject({}) { |a, l| a.merge!(l) if l; a }
       end
     end
 

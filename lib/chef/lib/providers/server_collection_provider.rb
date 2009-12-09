@@ -81,6 +81,8 @@ class Chef
         if status == :succeeded && result
           @node[:server_collection][@new_resource.name] = collection = {}
           result.each { |k, v| collection[k] = v[:tags] }
+        else
+          RightScale::RightLinkLog.debug("ServerCollection load failed for #{@new_resource.name} (timed out after #{QUERY_TIMEOUT}s)")
         end
         true
       end
