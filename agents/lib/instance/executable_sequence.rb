@@ -44,18 +44,30 @@ module RightScale
     #
     # === Parameter
     # bundle<RightScale::ExecutableBundle>:: Bundle to be run
-    # agent_identity<String>:: Agent identity (needed to retrieve missing inputs)
-    def initialize(bundle, agent_identity=nil)
+    def initialize(bundle)
       @description            = bundle.to_s
       @auditor                = AuditorProxy.new(bundle.audit_id)
       @right_scripts_cookbook = RightScriptsCookbook.new(@auditor.audit_id)
       @scripts                = bundle.executables.select { |e| e.is_a?(RightScriptInstantiation) }
-      @original_recipes       = bundle.executables.select { |e| e.is_a?(RecipeInstantiation) }
-      @recipes                = bundle.executables.map    { |e| e.is_a?(RecipeInstantiation) ? e : @right_scripts_cookbook.recipe_from_right_script(e) }
+      recipes                 = bundle.executables.map    { |e| e.is_a?(RecipeInstantiation) ? e : @right_scripts_cookbook.recipe_from_right_script(e) }
       @cookbook_repos         = bundle.cookbook_repositories || []
       @downloader             = Downloader.new
       @prepared_executables   = []
-      @agent_identity         = agent_identity
+
+      # Now initialize or update Chef state
+      recipes.each do |recipe|
+        ChefState.merge_recipe(recipe.nickname)
+        ChefState.merge_attributes(recipe.attributes)
+      end
+
+      # Initializes run list for this sequence (partial converge support)
+      if bundle.full_converge
+        @run_list = ChefState.run_list
+        @attributes = ChefState.attributes
+      else
+        @run_list = recipes.map(&:nickname)
+        @attributes = recipes.map(&:attributes).inject({}) { |a, l| a.merge!(l) if l; a }
+      end
     end
 
     # Run given executable bundle
@@ -65,7 +77,7 @@ module RightScale
     # true:: Always return true
     def run
       @ok = true
-      if @recipes.empty?
+      if ChefState.run_list.empty?
         #deliberately avoid auditing anything since we did not run any recipes
         EM.next_tick { succeed }
       else
@@ -73,7 +85,7 @@ module RightScale
         download_attachments if @ok
         install_packages if @ok
         download_cookbooks if @ok
-        run_recipe(@recipes.shift) if @ok
+        converge if @ok
       end
       true
     end
@@ -221,112 +233,28 @@ module RightScale
       true
     end
 
-    # Run next recipe
-    #
-    # === Parameters
-    # recipe<RightScale::RecipeInstantiation>:: Recipe to run
+    # Chef converge
     #
     # === Return
     # true:: Always return true
-    def run_recipe(recipe)
-      if recipe.ready
-        @auditor.create_new_section("Running #{recipe_title(recipe)}")
-        attribs = { 'recipes' => [ recipe.nickname ] }
-        attribs.merge!(recipe.attributes) if recipe.attributes
-        c = Chef::Client.new
-        begin
-          c.json_attribs = attribs
-          c.run_solo
-        rescue Exception => e
-          report_failure("Failed to run #{recipe_title(recipe)}", chef_error(recipe_title(recipe), e))
-          RightLinkLog.debug("Chef failed with '#{e.message}' at\n" + e.backtrace.join("\n"))
-        end
-        if @ok
-          if @recipes.empty?
-            @auditor.update_status("completed: #{@description}")
-            EM.next_tick { succeed }
-          else
-            run_recipe(@recipes.shift)
-          end
-        end
-      elsif @agent_identity
-        @auditor.create_new_section("Retrieving missing inputs for #{recipe_title(recipe)}") unless @retried
-        @retried = true
-        retrieve_missing_attributes(recipe) do
-          # Run recipes in different thread than EM
-          EM.defer do
-            unless recipe.ready
-              @auditor.append_info("#{recipe_title(recipe)} not ready, waiting...")
-              sleep(20)
-            end
-            run_recipe(recipe)
-          end
-        end
-      else
-        report_failure("Failed to run #{recipe_title(recipe)}", "#{recipe_title(recipe)} uses environment inputs that are not available (yet?)")
+    def converge
+      @auditor.create_new_section("Converging")
+      @auditor.append_info("Run list: #{@run_list.join(", ")}")
+      attribs = { 'recipes' => @run_list }
+      attribs.merge!(@attributes) if @attributes
+      c = Chef::Client.new
+      begin
+        c.json_attribs = attribs
+        c.run_solo
+      rescue Exception => e
+        report_failure('Chef converge failed', chef_error(e))
+        RightLinkLog.debug("Chef failed with '#{e.message}' at\n" + e.backtrace.join("\n"))
+      end
+      if @ok
+        @auditor.update_status("completed: #{@description}")
+        EM.next_tick { succeed }
       end
       true
-    end
-
-    # Human friendly title for given recipe instantiation
-    #
-    # === Parameters
-    # recipe<RecipeInstantiation>:: Recipe for which to produce title
-    #
-    # === Return
-    # title<String>:: Recipe title to be used in audits
-    def recipe_title(recipe)
-      title = (recipe.nickname == 'cookbooks::right_script' ? 'RightScript' : 'Chef recipe')
-      title = "#{title} < #{recipe.nickname} >"
-    end
-
-    # Attempt to retrieve missing inputs for given recipe, update recipe attributes and
-    # ready fields (set ready field to true if attempt was successful, false otherwise).
-    # This is for environment variables that we are waiting on
-    # Query for all inputs and cache results
-    # Note: This method is asynchronous and takes a continuation block
-    #
-    # === Parameters
-    # recipe<RecipeInstantiation>:: recipe for which to retrieve attributes
-    #
-    # === Block
-    # Continuation block, will be called once attempt to retrieve attributes is completed
-    #
-    # === Return
-    # true:: Always return true
-    def retrieve_missing_attributes(recipe)
-      scripts_ids = @scripts.select { |s| !s.ready }.map { |s| s.id }
-      recipes_ids = @original_recipes.select { |r| !r.ready }.map { |r| r.id }
-      RightScale::RequestForwarder.request('/booter/get_missing_attributes', { :agent_identity => @agent_identity,
-                                                                               :scripts_ids    => scripts_ids,
-                                                                               :recipes_ids    => recipes_ids }) do |r|
-        res = OperationResult.from_results(r)
-        if res.success?
-          res.content.each do |e|
-            if e.is_a?(RightScriptInstantiation)
-              (script = @scripts.detect { |s| s.id == e.id }) && script.ready = true
-              ready_recipe = script_to_recipe(e)
-            else
-              (orig = @original_recipes.detect { |r| r.id == e.id }) && orig.ready = true
-              ready_recipe = e
-            end
-            # We need to test for both the id and nickname to detect the corresponding recipe
-            # in our list of recipes to be run because a RightScript and a recipe may both have
-            # the same id
-            if (recipe.id == ready_recipe.id) && (recipe.nickname == ready_recipe.nickname)
-              recipe.attributes = ready_recipe.attributes
-              recipe.ready = true
-            elsif cur = @recipes.detect { |r| (r.id == ready_recipe.id) && (r.nickname == ready_recipe.nickname) }
-              cur.attributes = ready_recipe.attributes
-              cur.ready = true
-            end
-          end
-          yield if block_given?
-        else
-          report_failure("Failed to retrieve missing inputs for #{recipe_title(recipe)}",
-            'Could not retrieve inputs' + (res.content.empty? ? '' : ": #{res.content}"))
-        end
-      end
     end
 
     # Set status with failure message and audit it
@@ -351,13 +279,12 @@ module RightScale
     # context of failure
     #
     # === Parameters
-    # title<String>:: Title for recipe instantiation that failed
     # e<Exception>:: Exception raised while executing Chef recipe
     #
     # === Return
     # msg<String>:: Human friendly error message
-    def chef_error(title, e)
-      msg = "An error occurred during the execution of #{title}. The error message was:\n\n"
+    def chef_error(e)
+      msg = "An error occurred during the execution of Chef. The error message was:\n\n"
       msg += e.message
       file, line, meth = e.backtrace[0].scan(/(.*):(\d+):in `(\w+)'/).flatten
       line_number = line.to_i

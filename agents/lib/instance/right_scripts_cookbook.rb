@@ -114,6 +114,18 @@ description "Automatically generated repo, do not modify"
       recipe =~ /^#{COOKBOOK_NAME}::/
     end
 
+    # Human friendly title for given recipe instantiation
+    #
+    # === Parameters
+    # recipe<String>:: Recipe nickname
+    #
+    # === Return
+    # title<String>:: Recipe title to be used in audits
+    def self.recipe_title(recipe)
+      title = right_script?(recipe) ? 'RightScript' : 'Chef recipe'
+      title = "#{title} < #{recipe} >"
+    end
+
     # Path to cache directory for given script
     #
     # === Return

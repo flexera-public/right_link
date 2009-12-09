@@ -44,15 +44,19 @@ module RightScale
     # <Integer> ID of corresponding audit entry
     attr_accessor :audit_id
 
+    # <FalseClass|TrueClass> Whether a full or partical converge should be done
+    attr_accessor :full_converge
+
     def initialize(*args)
       @executables           = args[0]
       @cookbook_repositories = args[1] if args.size > 1
       @audit_id              = args[2] if args.size > 2
+      @full_converge         = args[3] if args.size > 3
     end
 
     # Array of serialized fields given to constructor
     def serialized_members
-      [ @executables, @cookbook_repositories, @audit_id ]
+      [ @executables, @cookbook_repositories, @audit_id, @full_converge ]
     end
 
     # Human readable representation

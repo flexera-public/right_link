@@ -33,9 +33,16 @@ class InstanceScheduler
   # agent<Nanite::Agent>:: Host agent
   def initialize(agent)
     @scheduled_bundles = Queue.new
-    @decommissioning = false
-    @agent_identity = agent.identity
-    RightScale::InstanceState.observe { |state| EM.defer { run_bundles } if state == 'operational' }
+    @decommissioning   = false
+    @agent_identity    = agent.identity
+    # Wait until instance setup actor has initialized the instance state
+    EM.next_tick do
+      if RightScale::InstanceState.value == 'operational'
+        EM.defer { run_bundles }
+      else
+        RightScale::InstanceState.observe { |s| EM.defer { run_bundles } if s == 'operational' }
+      end
+    end
   end
 
   # Schedule given script bundle so it's run as soon as possible

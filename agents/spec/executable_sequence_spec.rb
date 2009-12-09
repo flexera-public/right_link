@@ -180,7 +180,7 @@ describe RightScale::ExecutableSequence do
     end
 
     it 'should format chef error messages' do
-      msg = @sequence.__send__(:chef_error, 'Chef recipe', @exception)
+      msg = @sequence.__send__(:chef_error, @exception)
       msg.should_not be_empty
       msg.should =~ /while executing/
     end

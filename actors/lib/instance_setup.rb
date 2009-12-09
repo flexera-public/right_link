@@ -133,11 +133,17 @@ class InstanceSetup
         @auditor.create_new_section("Software repositories configured")
         @auditor.append_info(audit)
         configure_repositories(reps)
-        run_boot_bundle do |result|
-          if result.success?
-            RightScale::InstanceState.value = 'operational'
+        prepare_boot_bundle do |prep_res|
+          if prep_res.success?
+            run_boot_bundle(prep_res.content) do |boot_res|
+              if boot_res.success?
+                RightScale::InstanceState.value = 'operational'
+              else
+                strand("Failed to run boot sequence", boot_res)
+              end
+            end
           else
-            strand("Failed to run boot scripts", result)
+            strand("Failed to retrieve missing inputs", prep_res)
           end
         end
       else
@@ -195,36 +201,106 @@ class InstanceSetup
     true
   end
 
-  # Retrieve and run boot scripts
+  # Retrieve missing inputs if any
+  #
+  # === Block
+  # Calls given block passing in one argument of type RightScale::OperationResult
+  # The argument contains either a failure with associated message or success
+  # with the corresponding boot bundle.
   #
   # === Return
   # true:: Always return true
-  def run_boot_bundle
+  def prepare_boot_bundle(&cb)
     options = { :agent_identity => @agent_identity, :audit_id => @auditor.audit_id }
     request("/booter/get_boot_bundle", options) do |r|
       res = RightScale::OperationResult.from_results(r)
       if res.success?
         bundle = res.content
-        sequence = RightScale::ExecutableSequence.new(bundle, @agent_identity)
-        sequence.callback do
-          EM.next_tick do
-            @auditor.update_status("completed: #{bundle}")
-            yield RightScale::OperationResult.success
-          end
+        if bundle.executables.any? { |e| !e.ready }
+          retrieve_missing_inputs(bundle) { cb.call(RightScale::OperationResult.success(bundle)) }
+        else
+          yield RightScale::OperationResult.success(bundle)
         end
-        sequence.errback  { EM.next_tick { yield RightScale::OperationResult.error("Failed to run boot bundle") } }
-
-        # We want to be able to use Chef providers which use EM (e.g. so they can use RightScale::popen3), this means
-        # that we need to synchronize the chef thread with the EM thread since providers run synchronously. So create
-        # a thread here and run the sequence in it. Use EM.next_tick to switch back to EM's thread.
-        EM.defer { sequence.run }
-    
       else
         msg = "Failed to retrieve boot scripts"
         msg += ": #{res.content}" if res.content
         yield RightScale::OperationResult.error(msg)
       end
     end
+  end
+
+  # Retrieve missing inputs for recipes and RightScripts stored in
+  # @recipes and @scripts respectively, update recipe attributes, RightScript
+  # parameters and ready fields (set ready field to true if attempt was successful,
+  # false otherwise).
+  # This is for environment variables that we are waiting on.
+  # Retries forever.
+  #
+  # === Block
+  # Continuation block, will be called once attempt to retrieve attributes is completed
+  #
+  # === Return
+  # true:: Always return true
+  def retrieve_missing_inputs(bundle, &cb)
+    scripts = bundle.executables.select { |e| e.is_a?(RightScale::RightScriptInstantiation) }
+    recipes = bundle.executables.select { |e| e.is_a?(RightScale::RecipeInstantiation) }
+    scripts_ids = scripts.select { |s| !s.ready }.map(&:id)
+    recipes_ids = recipes.select { |r| !r.ready }.map(&:id)
+    RightScale::RequestForwarder.request('/booter/get_missing_attributes', { :agent_identity => @agent_identity,
+                                                                             :scripts_ids    => scripts_ids,
+                                                                             :recipes_ids    => recipes_ids }) do |r|
+      res = RightScale::OperationResult.from_results(r)
+      if res.success?
+        res.content.each do |e|
+          if e.is_a?(RightScale::RightScriptInstantiation)
+            if script = scripts.detect { |s| s.id == e.id }
+              script.ready = true
+              script.parameters = e.parameters
+            end
+          else
+            if recipe = recipes.detect { |s| s.id == e.id }
+              recipe.ready = true
+              recipe.attributes = e.attributes
+            end
+          end
+        end
+        pending_executables = bundle.executables.select { |e| !e.ready }
+        if pending_executables.empty?
+          yield
+        else
+          titles = pending_executables.map { |e| RightScale::RightScriptsCookbook.recipe_title(e.nickname) }
+          @auditor.append_info("Missing inputs for #{titles.join(", ")}, waiting...")
+          sleep(20)
+          retrieve_missing_inputs(bundle, &cb)
+        end
+      else
+        strand("Failed to retrieve missing inputs", res)
+      end
+    end
+  end
+
+  # Retrieve and run boot scripts
+  #
+  # === Return
+  # true:: Always return true
+  def run_boot_bundle(bundle)
+    sequence = RightScale::ExecutableSequence.new(bundle)
+    sequence.callback do
+      EM.next_tick do
+        yield RightScale::OperationResult.success
+      end
+    end
+    sequence.errback  do
+      EM.next_tick do
+        yield RightScale::OperationResult.error("Failed to run boot bundle")
+      end
+    end
+
+    # We want to be able to use Chef providers which use EM (e.g. so they can use RightScale::popen3), this means
+    # that we need to synchronize the chef thread with the EM thread since providers run synchronously. So create
+    # a thread here and run the sequence in it. Use EM.next_tick to switch back to EM's thread.
+    EM.defer { sequence.run }
+    
     true
   end
 
