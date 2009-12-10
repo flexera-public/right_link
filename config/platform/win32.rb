@@ -119,19 +119,19 @@ module RightScale
         end
 
         def right_scale_state_dir
-          File.join(Dir::COMMON_APPDATA, 'RightScale', 'rightscale.d')
+          return pretty_path(File.join(Dir::COMMON_APPDATA, 'RightScale', 'rightscale.d'))
         end
 
         def spool_dir
-          File.join(Dir::COMMON_APPDATA, 'RightScale', 'spool')
+          return pretty_path(File.join(Dir::COMMON_APPDATA, 'RightScale', 'spool'))
         end
 
         def cache_dir
-          File.join(Dir::COMMON_APPDATA, 'RightScale', 'cache')
+          return pretty_path(File.join(Dir::COMMON_APPDATA, 'RightScale', 'cache'))
         end
 
         def log_dir
-          File.join(Dir::COMMON_APPDATA, 'RightScale', 'log')
+          return pretty_path(File.join(Dir::COMMON_APPDATA, 'RightScale', 'log'))
         end
 
         def temp_dir
@@ -139,7 +139,7 @@ module RightScale
             @@get_temp_dir_api = Windows::API.new('GetTempPath', 'LP', 'L') unless @@get_temp_dir_api
             buffer = 0.chr * 260
             @@get_temp_dir_api.call(buffer.length, buffer)
-            @temp_dir = buffer.unpack('A*').first.chomp('\\')
+            @temp_dir = pretty_path(buffer.unpack('A*').first.chomp('\\'))
           end
         rescue
           @temp_dir = File.join(Dir::WINDOWS, "temp")
@@ -150,7 +150,16 @@ module RightScale
         # specific to the win32 environment to aid in resolving paths to
         # executables in test scenarios.
         def company_program_files_dir
-          File.join(Dir::PROGRAM_FILES, 'RightScale')
+          return pretty_path(File.join(Dir::PROGRAM_FILES, 'RightScale'))
+        end
+
+        # pretties up paths which assists Dir.glob() and Dir[] calls which will
+        # return empty if the path contains any \ characters. windows doesn't
+        # care (most of the time) about whether you use \ or / in paths. as
+        # always, there are exceptions to this rule (such as "del c:/xyz" which
+        # fails while "del c:\xyz" succeeds)
+        def pretty_path(path)
+          return path.gsub("\\", "/")
         end
       end
 
