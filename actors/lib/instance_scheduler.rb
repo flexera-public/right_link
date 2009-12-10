@@ -36,11 +36,13 @@ class InstanceScheduler
     @decommissioning   = false
     @agent_identity    = agent.identity
     # Wait until instance setup actor has initialized the instance state
+    # We need to wait until after the InstanceSetup actor has run its
+    # bundle in the Chef thread before we can use it
     EM.next_tick do
-      if RightScale::InstanceState.value == 'operational'
+      if RightScale::InstanceState.value != 'booting'
         EM.defer { run_bundles }
       else
-        RightScale::InstanceState.observe { |s| EM.defer { run_bundles } if s == 'operational' }
+        RightScale::InstanceState.observe { |s| EM.defer { run_bundles } if s != 'booting' }
       end
     end
   end
