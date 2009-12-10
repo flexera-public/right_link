@@ -304,6 +304,11 @@ module RightScale
       # Register exception handler
       @options[:callbacks] = { :exception => lambda { |e, msg, _| AgentManager.process_exception(e, msg) } }
 
+      # override default status proc for windows intance since "uptime" is not available.
+      if RightLinkConfig[:platform].windows?
+        @options[:status_proc] = lambda { 1 }
+      end
+
       puts "#{name} started."
 
       EM.run do
