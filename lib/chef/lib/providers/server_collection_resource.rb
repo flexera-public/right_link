@@ -40,6 +40,23 @@ class Chef
         @allowed_actions.push(:load)
       end
 
+      # List of tags used to query agents and associated tags
+      #
+      # === Parameters
+      # arg<String|Array>:: List of tags (or single tag) to set
+      # nil:: Return list instead of setting
+      #
+      # === Return
+      # <Array>:: List of tags
+      def tags(arg=nil)
+        converted_arg = arg.is_a?(String) ? [ arg ] : arg
+        set_or_return(
+          :tags,
+          converted_arg,
+          :kind_of => [ Array ]
+        )
+      end
+
     end
 
   end
