@@ -284,6 +284,8 @@ class InstanceSetup
   # === Return
   # true:: Always return true
   def run_boot_bundle(bundle)
+    # Force full converge on boot so that Chef state gets persisted
+    bundle.full_converge = true
     sequence = RightScale::ExecutableSequence.new(bundle)
     sequence.callback do
       EM.next_tick do

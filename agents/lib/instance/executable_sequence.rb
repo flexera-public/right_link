@@ -54,14 +54,15 @@ module RightScale
       @downloader             = Downloader.new
       @prepared_executables   = []
 
-      # Now initialize or update Chef state
-      recipes.each do |recipe|
-        ChefState.merge_recipe(recipe.nickname)
-        ChefState.merge_attributes(recipe.attributes)
-      end
-
       # Initializes run list for this sequence (partial converge support)
       if bundle.full_converge
+
+        # Only merge recipes into chef state when doing a full converge 
+        recipes.each do |recipe|
+          ChefState.merge_recipe(recipe.nickname)
+          ChefState.merge_attributes(recipe.attributes)
+        end
+
         @run_list = ChefState.run_list
         @attributes = ChefState.attributes
       else
@@ -77,14 +78,14 @@ module RightScale
     # true:: Always return true
     def run
       @ok = true
-      if ChefState.run_list.empty?
+      if @run_list.empty?
         #deliberately avoid auditing anything since we did not run any recipes
         EM.next_tick { succeed }
       else
         configure_chef
         download_attachments if @ok
         install_packages if @ok
-        download_cookbooks if @ok
+        download_repos if @ok
         converge if @ok
       end
       true
@@ -166,11 +167,11 @@ module RightScale
       true
     end
 
-    # Download cookbooks, update @ok
+    # Download cookbooks repositories, update @ok
     #
     # === Return
     # true:: Always return true
-    def download_cookbooks
+    def download_repos
       @auditor.create_new_section('Retrieving cookbooks') unless @cookbook_repos.empty?
       audit_time do
         @cookbook_repos.each do |repo|
