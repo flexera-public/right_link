@@ -139,13 +139,32 @@ module RightScale
     def self.merge_attributes(attribs)
       if attribs
         a = attributes
-        a.merge!(attribs)
+        deep_merge!(a, attribs)
         self.attributes = a
       end
       true
     end
 
     protected
+
+    # Perform a deep merge between given hashes
+    #
+    # === Parameters
+    # first<Hash>:: Hash to be merged into (modifies it)
+    # second<Hash>:: Merged in hash
+    #
+    # === Return
+    # first<Hash>:: Merged hash
+    def self.deep_merge!(first, second)
+      second.each_pair do |k, v|
+        if first[k].is_a?(Hash) and second[k].is_a?(Hash)
+          deep_merge!(first[k], second[k])
+        else
+          first[k] = v
+        end
+      end
+      first
+    end
 
     # Save chef state to file
     #
