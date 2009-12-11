@@ -48,12 +48,13 @@ require File.join(File.dirname(__FILE__), 'providers', 'server_collection_resour
 # dynamically loaded from a directory **/*.rb search in the same manner as the
 # built-in Chef providers. if so, there would be no need to edit this file for
 # each new provider.
-Chef::Platform.platforms[:default].merge!(:right_script        => Chef::Provider::RightScript,
+Chef::Platform.platforms[:default].merge!(:dns                 => Chef::Provider::DnsMadeEasy,
+                                          :executable_schedule => Chef::Provider::ExecutableSchedule,
                                           :log                 => Chef::Provider::Log::ChefLog,
-                                          :dns                 => Chef::Provider::DnsMadeEasy,
                                           :remote_recipe       => Chef::Provider::RemoteRecipe,
                                           :right_link_tag      => Chef::Provider::RightLinkTag,
-                                          :executable_schedule => Chef::Provider::ExecutableSchedule)
+                                          :right_script        => Chef::Provider::RightScript,
+                                          :server_collection   => Chef::Provider::ServerCollection)
 
 if RightScale::RightLinkConfig[:platform].windows?
   require File.join(File.dirname(__FILE__), 'providers', 'win32', 'powershell_provider')
