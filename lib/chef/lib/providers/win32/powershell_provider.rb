@@ -28,10 +28,10 @@ class Chef
 
   class Provider
 
-    # PowerShell chef provider.
-    class PowerShell < Chef::Provider
+    # Powershell chef provider.
+    class Powershell < Chef::Provider
 
-      # No concept of a 'current' resource for PowerShell execution, this is a no-op
+      # No concept of a 'current' resource for Powershell execution, this is a no-op
       #
       # === Return
       # true:: Always return true
@@ -39,7 +39,7 @@ class Chef
         true
       end
 
-      # Actually run PowerShell
+      # Actually run Powershell
       # Rely on RightScale::popen3 to spawn process and receive both standard and error outputs.
       # Synchronize with EM thread so that execution is synchronous even though RightScale::popen3 is asynchronous.
       #
@@ -85,7 +85,7 @@ class Chef
             current_state.record_script_execution(@nickname)
             @new_resource.updated = true
           else
-            raise RightScale::Exceptions::Exec, "PowerShell < #{@nickname} > returned #{status.exitstatus}"
+            raise RightScale::Exceptions::Exec, "Powershell < #{@nickname} > returned #{status.exitstatus}"
           end
         ensure
           # attempt to cleanup temporary script.

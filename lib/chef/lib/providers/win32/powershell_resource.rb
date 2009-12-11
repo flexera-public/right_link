@@ -26,22 +26,22 @@ class Chef
 
   class Resource
 
-    # PowerShell chef resource.
-    # Allows defining recipes which wrap PowerShell v1.0 scripts.
+    # Powershell chef resource.
+    # Allows defining recipes which wrap Powershell v1.0 scripts.
     #
     # === Example
     # powershell "My Powershell Script" do
     #   source "write-output \"Running powershell v1.0 script\""
     # end
-    class PowerShell < Chef::Resource
+    class Powershell < Chef::Resource
 
-      # Default directory used to cache PowerShell source
+      # Default directory used to cache Powershell source
       DEFAULT_CACHE_DIR_ROOT = ::File.join(RightScale::RightLinkConfig.platform.filesystem.cache_dir, 'rightscale')
 
-      # Initialize PowerShell resource with default values
+      # Initialize Powershell resource with default values
       #
       # === Parameters
-      # name<String>:: Nickname of PowerShell
+      # name<String>:: Nickname of Powershell
       # collection<Array>:: Collection of included recipes
       # node<Chef::Node>:: Node where resource will be used
       def initialize(name, collection=nil, node=nil)
@@ -54,7 +54,7 @@ class Chef
         @allowed_actions.push(:run)
       end
 
-      # <String> PowerShell nickname
+      # <String> Powershell nickname
       def nickname(arg=nil)
         set_or_return(
           :nickname,
@@ -63,7 +63,7 @@ class Chef
         )
       end
 
-      # <String> PowerShell source code
+      # <String> Powershell source code
       def source(arg=nil)
         set_or_return(
           :source,
@@ -72,7 +72,7 @@ class Chef
         )
       end
 
-      # <Hash> PowerShell parameters values keyed by names
+      # <Hash> Powershell parameters values keyed by names
       def parameters(arg=nil)
         set_or_return(
           :parameters,
@@ -82,7 +82,7 @@ class Chef
         )
       end
 
-      # <String> Path to directory where PowerShell source should be saved
+      # <String> Path to directory where Powershell source should be saved
       def cache_dir(arg=nil)
         set_or_return(
           :cache_dir,
@@ -91,7 +91,7 @@ class Chef
         )
       end
 
-      # <Integer> Audit id used to audit PowerShell execution output
+      # <Integer> Audit id used to audit Powershell execution output
       # An id of 0 means that a new audit should be created
       def audit_id(arg=nil)
         set_or_return(

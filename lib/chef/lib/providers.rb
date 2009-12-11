@@ -59,5 +59,5 @@ if RightScale::RightLinkConfig[:platform].windows?
   require File.join(File.dirname(__FILE__), 'providers', 'win32', 'powershell_provider')
   require File.join(File.dirname(__FILE__), 'providers', 'win32', 'powershell_resource')
 
-  Chef::Platform.platforms[:default].merge!(:powershell => Chef::Provider::PowerShell)
+  Chef::Platform.platforms[:default].merge!(:powershell => Chef::Provider::Powershell)
 end

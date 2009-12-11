@@ -55,11 +55,11 @@ module PowershellProviderSpec
 
 end
 
-describe Chef::Provider::PowerShell do
+describe Chef::Provider::Powershell do
   before(:each) do
     @node = flexmock('Chef::Node')
     @node.should_ignore_missing
-    @new_resource = Chef::Resource::PowerShell.new("testing")
+    @new_resource = Chef::Resource::Powershell.new("testing")
     @new_resource.source "write-output \"Running powershell v1.0 script\""
   end
 
@@ -67,13 +67,13 @@ describe Chef::Provider::PowerShell do
     Chef::Platform.platforms[:default][:powershell].should_not be_nil
   end
 
-  it "should return a Chef::Provider::PowerShell object" do
-    provider = Chef::Provider::PowerShell.new(@node, @new_resource)
-    provider.should be_a_kind_of(Chef::Provider::PowerShell)
+  it "should return a Chef::Provider::Powershell object" do
+    provider = Chef::Provider::Powershell.new(@node, @new_resource)
+    provider.should be_a_kind_of(Chef::Provider::Powershell)
   end
 
   it "should raise an exception if run fails" do
-    provider = Chef::Provider::PowerShell.new(@node, @new_resource)
+    provider = Chef::Provider::Powershell.new(@node, @new_resource)
     flexmock(provider).should_receive(:create_auditor_proxy).once.and_return(PowershellProviderSpec::StubAuditorProxy)
     flexmock(provider).should_receive(:instance_state).once.and_return(PowershellProviderSpec::MockInstanceState)
     flexmock(provider).should_receive(:run_script_file).once.and_return(PowershellProviderSpec::MockStatus.new(1))
@@ -81,7 +81,7 @@ describe Chef::Provider::PowerShell do
   end
 
   it "should return true if run succeeds" do
-    provider = Chef::Provider::PowerShell.new(@node, @new_resource)
+    provider = Chef::Provider::Powershell.new(@node, @new_resource)
     flexmock(provider).should_receive(:create_auditor_proxy).once.and_return(PowershellProviderSpec::StubAuditorProxy)
     flexmock(provider).should_receive(:instance_state).once.and_return(PowershellProviderSpec::MockInstanceState)
     flexmock(provider).should_receive(:run_script_file).once.and_return(PowershellProviderSpec::MockStatus.new(0))
