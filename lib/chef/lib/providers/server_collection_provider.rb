@@ -69,7 +69,7 @@ class Chef
           RightScale::RequestForwarder.query_tags(:agent_ids => @new_resource.agent_ids, :tags => @new_resource.tags) do |r|
             @mutex.synchronize do
               if status == :pending
-                result = r
+                result = r.results
                 status = :succeeded
                 @timeout_timer.cancel
                 @timeout_timer = nil
@@ -80,8 +80,8 @@ class Chef
           @loaded_event.wait(@mutex)
         end
         if status == :succeeded && result
-          @node[:server_collection][@new_resource.name] = collection = {}
-          result.each { |k, v| collection[k] = v[:tags] }
+          collection = result.inject({}) { |res, (k, v)| res[k] = v['tags']; res }
+          @node[:server_collection][@new_resource.name] = collection
         else
           RightScale::RightLinkLog.debug("ServerCollection load failed for #{@new_resource.name} (timed out after #{QUERY_TIMEOUT}s)")
         end
