@@ -32,7 +32,8 @@ class Chef
       QUERY_TIMEOUT = 60
 
       # Initialize condition variable used to synchronize chef and EM threads
-      def initialize
+      def initialize(node, resource)
+        super(node, resource)
         @mutex        = Mutex.new
         @loaded_event = ConditionVariable.new
       end
