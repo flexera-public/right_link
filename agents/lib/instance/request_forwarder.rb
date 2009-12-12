@@ -77,18 +77,18 @@ module RightScale
     # Send tag query or buffer it if we are in offline mode
     #
     # === Parameters
-    # tags<Array>:: List of tags associated with query
+    # opts<Hash>:: Hash containing tags and agent ids used for query
     #
     # === Block
     # Handler block gets called back with query results
     #
     # === Return
     # true:: Always return true
-    def self.query_tags(tags, opts = {}, &blk)
+    def self.query_tags(opts = {}, &blk)
       if @offline_mode
-        queue_request(:kind => :tag_query, :tags => tags, :options => opts, :callback => blk)
+        queue_request(:kind => :tag_query, :options => opts, :callback => blk)
       else
-        Nanite::MapperProxy.instance.query_tags(tags, opts, &blk)
+        Nanite::MapperProxy.instance.query_tags(opts, &blk)
       end
       true
     end
@@ -178,7 +178,7 @@ module RightScale
         when :request
           Nanite::MapperProxy.instance.request(request[:type], request[:payload], request[:options], request[:callback])
         when :tag_query
-          Nanite::MapperProxy.instance.query_tags(request[:tags], request[:options], request[:callback])
+          Nanite::MapperProxy.instance.query_tags(request[:options], request[:callback])
         end
         if @requests.empty?
           @offline_mode = false
