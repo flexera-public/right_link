@@ -22,19 +22,20 @@
 
 require File.join(File.dirname(__FILE__), 'spec_helper')
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'agents', 'lib', 'instance', 'request_forwarder'))
+require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'agents', 'lib', 'instance', 'dev_state'))
 require 'thread'
 
 # Need to monkey patch to test, flexmock doens't cut it as we need to
 # define a custom behavior that yield and you can't yield from a block
 module RightScale
   class RequestForwarder
-    def self.query_tags(_)
+    def self.query_tags(_, &blk)
       EM.next_tick do
          yield @@res if @@res
-      end
+      end                                    
     end
     def self.set_query_tags_result(res)
-      @@res = res
+      @@res = Nanite::Result.new('token', 'to', res, 'from')
     end
   end
 end
@@ -42,13 +43,13 @@ end
 describe Chef::Provider::ServerCollection do
 
   before(:each) do
-    @agent_hash = {'agent_id_1' => { :tags => ['tag1', 'tag2'] },
-                   'agent_id_2' => { :tags => ['tag1', 'tag3'] } }
+    @agent_hash = {'agent_id_1' => { 'tags' => ['tag1', 'tag2'] },
+                   'agent_id_2' => { 'tags' => ['tag1', 'tag3'] } }
     @result = {}
-    @agent_hash.each { |k, v| @result[k] = v[:tags] }
-    @provider = Chef::Provider::ServerCollection.new
-    @provider.instance_variable_set(:@node, {})
-    @provider.instance_variable_set(:@new_resource, flexmock('resource', :name => 'resource_name', :tags => 'tag1'))
+    @agent_hash.each { |k, v| @result[k] = v['tags'] }
+    @provider = Chef::Provider::ServerCollection.new(nil, nil)
+    @provider.instance_variable_set(:@node, {:server_collection => { 'resource_name' => nil }})
+    @provider.instance_variable_set(:@new_resource, flexmock('resource', :name => 'resource_name', :tags => 'tag1', :agent_ids => nil))
   end
 
   def perform_load

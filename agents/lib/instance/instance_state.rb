@@ -88,6 +88,7 @@ module RightScale
     # true:: Always return true
     def self.init(identity)
       @@identity = identity
+      @@startup_tags = []
       dir = File.dirname(STATE_FILE)
       FileUtils.mkdir_p(dir) unless File.directory?(dir)
 
@@ -165,6 +166,25 @@ module RightScale
       end
       @observers.each { |o| o.call(val) } if @observers
       val
+    end
+
+    # Set startup tags
+    #
+    # === Parameters
+    # val<Array>:: List of tags
+    #
+    # === Return
+    # val<Array>:: List of tags
+    def self.startup_tags=(val)
+      @@startup_tags = val
+    end
+
+    # Tags retrieved on startup
+    #
+    # === Return
+    # tags<Array>:: List of tags retrieved on startup
+    def self.startup_tags
+      @@startup_tags
     end
 
     # Callback given observer on all state transitions

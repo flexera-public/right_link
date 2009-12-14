@@ -167,7 +167,11 @@ module RightScale
     # loglevel<Object>:: New loglevel
     def self.level=(loglevel)
       self.init unless @initialized
-      lvl = loglevel.is_a?(Symbol) ? level_from_sym(loglevel) : loglevel
+      if DevState.enabled?
+        lvl = Logger::DEBUG
+      else
+        lvl = loglevel.is_a?(Symbol) ? level_from_sym(loglevel) : loglevel
+      end
       @level = lvl
       @logger.level = lvl
       loglevel

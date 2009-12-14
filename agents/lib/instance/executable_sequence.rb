@@ -55,19 +55,24 @@ module RightScale
       @prepared_executables   = []
 
       # Initializes run list for this sequence (partial converge support)
-      if bundle.full_converge
-
-        # Only merge recipes into chef state when doing a full converge 
-        recipes.each do |recipe|
-          ChefState.merge_recipe(recipe.nickname)
-          ChefState.merge_attributes(recipe.attributes)
+      @run_list = []
+      @attributes = {}
+      breakpoint = DevState.breakpoint
+      recipes.each do |recipe|
+        if recipe.nickname == breakpoint
+          RightLinkLog.info(" ** Breakpoint: skipping recipes after < #{breakpoint} >")
+          break
         end
+        @run_list << recipe.nickname
+        ChefState.deep_merge!(@attributes, recipe.attributes)
+      end
 
+      if bundle.full_converge
+        # Only merge recipes into chef state when doing a full converge (true on boot)
+        ChefState.merge_run_list(@run_list)
+        ChefState.merge_attributes(@attributes)
         @run_list = ChefState.run_list
         @attributes = ChefState.attributes
-      else
-        @run_list = recipes.map { |r| r.nickname }
-        @attributes = recipes.map { |r| r.attributes }.inject({}) { |a, l| a.merge!(l) if l; a }
       end
     end
 
@@ -79,7 +84,9 @@ module RightScale
     def run
       @ok = true
       if @run_list.empty?
-        #deliberately avoid auditing anything since we did not run any recipes
+        # Deliberately avoid auditing anything since we did not run any recipes
+        # Still download the cookbooks repos if in dev mode
+        download_repos if DevState.cookbooks_path
         EM.next_tick { succeed }
       else
         configure_chef
@@ -98,18 +105,24 @@ module RightScale
     # === Return
     # true:: Always return true
     def configure_chef
-      #Ohai plugins path and logging
+      # Ohai plugins path and logging
       ohai_plugins = File.expand_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'lib', 'chef', 'lib', 'plugins')) 
       Ohai::Config[:plugin_path].unshift(ohai_plugins)
       Ohai::Config.log_level RightLinkLog.level
 
-      #Chef logging
-      Chef::Log.logger = AuditLogger.new(@auditor)
+      # Chef logging
+      logger = Multiplexer.new(AuditLogger.new(@auditor), RightLinkLog.logger)
+      Chef::Log.logger = logger
       Chef::Log.logger.level = RightLinkLog.level_from_sym(RightLinkLog.level)
 
-      #Chef paths and run mode
-      Chef::Config[:cookbook_path] = @cookbook_repos.map { |r| cookbooks_path(r) }.flatten.uniq
-      Chef::Config[:cookbook_path] << @right_scripts_cookbook.repo_dir unless @right_scripts_cookbook.empty?
+      # Chef paths and run mode
+      if DevState.use_cookbooks_path?
+        Chef::Config[:cookbook_path] = DevState.cookbooks_path
+        Chef::Log.info("Using development cookbooks repositories path:\n\t- #{Chef::Config[:cookbook_path].join("\n\t- ")}")
+      else
+        Chef::Config[:cookbook_path] = @cookbook_repos.map { |r| cookbooks_path(r) }.flatten.uniq
+        Chef::Config[:cookbook_path] << @right_scripts_cookbook.repo_dir unless @right_scripts_cookbook.empty?
+      end
       Chef::Config[:solo] = true
       true
     end
@@ -172,6 +185,9 @@ module RightScale
     # === Return
     # true:: Always return true
     def download_repos
+      # Skip download if in dev mode and cookbooks repos directories already have files in them
+      return true if DevState.use_cookbooks_path?
+
       @auditor.create_new_section('Retrieving cookbooks') unless @cookbook_repos.empty?
       audit_time do
         @cookbook_repos.each do |repo|

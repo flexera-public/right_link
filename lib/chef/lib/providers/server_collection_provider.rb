@@ -66,7 +66,7 @@ class Chef
               end
             end
           end
-          RightScale::RequestForwarder.query_tags(:agent_ids => @new_resource.agent_ids, :tags => @new_resource.tags) do |r|
+          RightScale::RequestForwarder.query_tags({:agent_ids => @new_resource.agent_ids, :tags => @new_resource.tags}) do |r|
             @mutex.synchronize do
               if status == :pending
                 result = r.results

@@ -1,5 +1,7 @@
 require File.join(File.dirname(__FILE__), '..', '..', 'spec', 'spec_helper')
 require 'chef_state'
+require 'dev_state'
+require 'request_forwarder'
 require 'right_link_log'
 
 describe RightScale::ChefState do
@@ -11,6 +13,7 @@ describe RightScale::ChefState do
   end
 
   before(:each) do
+    setup_state
     @old_chef_file = RightScale::ChefState::STATE_FILE
     @chef_file = File.join(File.dirname(__FILE__), '__chef.js')
     RightScale::ChefState.const_set(:STATE_FILE, @chef_file)
@@ -19,6 +22,7 @@ describe RightScale::ChefState do
   after(:each) do
     File.delete(@chef_file) if File.file?(@chef_file)
     RightScale::ChefState::const_set(:STATE_FILE, @old_chef_file)
+    cleanup_state
   end
 
   it 'should initialize' do
@@ -37,12 +41,12 @@ describe RightScale::ChefState do
     RightScale::ChefState.attributes.should == {}
   end
 
-  it 'should merge recipes into the run list' do
+  it 'should merge run lists' do
     RightScale::ChefState.run_list = [ 1, 2, 3, 4 ]
-    RightScale::ChefState.merge_recipe(5)
+    RightScale::ChefState.merge_run_list([3, 5])
     RightScale::ChefState.run_list.should == [ 1, 2, 3, 4, 5 ]
-    RightScale::ChefState.merge_recipe(5)
-    RightScale::ChefState.run_list.should == [ 1, 2, 3, 4, 5 ]
+    RightScale::ChefState.merge_run_list([1,2, 3, 5, 6])
+    RightScale::ChefState.run_list.should == [ 1, 2, 3, 4, 5, 6 ]
   end
 
   it 'should merge attributes' do

@@ -111,21 +111,17 @@ module RightScale
       save_state
     end
 
-    # Add given recipe to run list if it's not included yet, do nothing otherwise.
+    # Append given run list to current run list
     #
     # === Parameters
     # recipe<String>:: Recipe to be added
     #
     # === Return
     # true:: Always return true
-    def self.merge_recipe(recipe)
-      if recipe
-        rl = run_list
-        unless rl.include?(recipe)
-          rl << recipe
-          self.run_list = rl
-        end
-      end
+    def self.merge_run_list(list)
+      rl = run_list
+      list.each { |r| rl << r unless rl.include?(r) }
+      self.run_list = rl
       true
     end
 
@@ -145,8 +141,6 @@ module RightScale
       true
     end
 
-    protected
-
     # Perform a deep merge between given hashes
     #
     # === Parameters
@@ -156,13 +150,13 @@ module RightScale
     # === Return
     # first<Hash>:: Merged hash
     def self.deep_merge!(first, second)
-      second.each_pair do |k, v|
+      second.each do |k, v|
         if first[k].is_a?(Hash) and second[k].is_a?(Hash)
           deep_merge!(first[k], second[k])
         else
           first[k] = v
         end
-      end
+      end if second
       first
     end
 
