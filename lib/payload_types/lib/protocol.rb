@@ -19,21 +19,8 @@
 # LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-require 'mixlib/config'
-require File.join(File.dirname(__FILE__), 'platform')
-require File.expand_path(File.join(File.dirname(__FILE__), '..', 'lib', 'payload_types', 'lib', 'protocol'))
+#
 
 module RightScale
-
-  # RightLink global configuration options
-  class RightLinkConfig
-    extend Mixlib::Config
-  end
-
-  # Initialize platform
-  RightLinkConfig[:platform] = Platform.new
-
-  # Initialized from content of 'config.rb'
-  # Modify 'config.rb' and not this file!
-  RightLinkConfig.from_file(File.join(File.dirname(__FILE__), 'config.rb'))
+  CURRENT_PROTOCOL_VERSION = 6
 end

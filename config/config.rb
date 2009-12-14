@@ -5,6 +5,9 @@
 # Root path to RightScale files
 rs_root_path File.expand_path(File.join(File.dirname(__FILE__), '..', '..'))
 
+# Current RightLink protocol version
+protocol_version RightScale::CURRENT_PROTOCOL_VERSION
+
 # Path to RightLink root folder
 right_link_path File.join(rs_root_path, 'right_link')
 
