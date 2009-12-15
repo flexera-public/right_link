@@ -131,11 +131,14 @@ class InstanceSetup
         @auditor = RightScale::AuditorProxy.new(res.content.audit_id)
         audit = "Using the following software repositories:\n"
         reps.each { |rep| audit += "  - #{rep.to_s}\n" }
-        @auditor.create_new_section("Software repositories configured")
+        @auditor.create_new_section("Configuring software repositories")
         @auditor.append_info(audit)
         configure_repositories(reps)
+        @auditor.update_status("Software repositories configured")
+        @auditor.create_new_section('Preparing boot bundle')
         prepare_boot_bundle do |prep_res|
           if prep_res.success?
+            @auditor.create_new_section('Boot bundle ready')
             run_boot_bundle(prep_res.content) do |boot_res|
               if boot_res.success?
                 RightScale::InstanceState.value = 'operational'
@@ -212,12 +215,12 @@ class InstanceSetup
   # === Return
   # true:: Always return true
   def prepare_boot_bundle(&cb)
-    query_tags(:agent_ids => @agent_identity) do |res|
+    query_tags(:agent_ids => RightScale::AgentIdentity.nanite_from_serialized(@agent_identity)) do |res|
       res = res.results
       if res.size > 1
         yield RightScale::OperationResult.error("Failed to retrieve startup tags, got #{res.inspect}")
       else
-        RightScale::InstanceState.startup_tags = tags = (res.size == 1 ? res.first[1] : [])
+        RightScale::InstanceState.startup_tags = tags = (res.size == 1 ? res[res.keys[0]]['tags'] : [])
         if tags.empty?
           @auditor.append_info("No tags discovered on startup")
         else
