@@ -48,6 +48,7 @@ module RightScale
     # res<Object>:: Result from first registered logger
     def self.method_missing(m, *args)
       self.init unless @initialized
+      @logger.level = level_from_sym(self.level) if @level_frozen
       res = @logger.__send__(m, *args)
     end
 
@@ -100,7 +101,7 @@ module RightScale
     # @logger<RightScale::Multiplexer>:: Multiplexer logger
     def self.add_logger(logger)
       self.init unless @initialized
-      logger.level = @logger.level[0]
+      logger.level = level_from_sym(self.level)
       @logger.add(logger)
     end
 
@@ -167,6 +168,7 @@ module RightScale
     # loglevel<Object>:: New loglevel
     def self.level=(loglevel)
       self.init unless @initialized
+      return loglevel if @level_frozen
       lvl = loglevel.is_a?(Symbol) ? level_from_sym(loglevel) : loglevel
       @level = lvl
       @logger.level = lvl
@@ -180,6 +182,16 @@ module RightScale
     def self.level
       self.init unless @initialized
       loglevel = level_to_sym(@level)
+    end
+
+    # Force log level to debug and disregard
+    # any further attempt to change it
+    #
+    # === Return
+    # true:: Always return true
+    def self.force_debug
+      self.level = :debug
+      @level_frozen = true
     end
 
     protected
@@ -198,6 +210,7 @@ module RightScale
       unless @initialized
         raise 'Initialize Nanite logger first' unless Nanite::Log.logger
         @initialized = true
+        @level_frozen = false
         logger = nil
 
         if @log_to_file_only || RightLinkConfig[:platform].windows?

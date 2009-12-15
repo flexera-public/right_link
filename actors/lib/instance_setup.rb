@@ -218,7 +218,11 @@ class InstanceSetup
         yield RightScale::OperationResult.error("Failed to retrieve startup tags, got #{res.inspect}")
       else
         RightScale::InstanceState.startup_tags = tags = (res.size == 1 ? res.first[1] : [])
-        @auditor.append_info("Tags discovered on startup: '#{tags.join("', '")}'") unless tags.empty?
+        if tags.empty?
+          @auditor.append_info("No tags discovered on startup")
+        else
+          @auditor.append_info("Tags discovered on startup: '#{tags.join("', '")}'")
+        end
         options = { :agent_identity => @agent_identity, :audit_id => @auditor.audit_id }
         request("/booter/get_boot_bundle", options) do |r|
           res = RightScale::OperationResult.from_results(r)
