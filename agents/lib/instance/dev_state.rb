@@ -58,7 +58,7 @@ module RightScale
     # nil:: Use default cookbook download algorithm
     def self.cookbooks_path
       path = tag_value(COOKBOOK_PATH_TAG)
-      path.split(',') if path
+      path.split(/, */) if path
     end
 
     # Name of first recipe in run list that should not be run
@@ -97,7 +97,7 @@ module RightScale
     # value<String>:: Corresponding tag value
     def self.tag_value(prefix)
       tag = InstanceState.startup_tags.detect { |t| t =~ /^#{prefix}/ }
-      value = tag[prefix.size..-1] if tag
+      value = tag[prefix.size + 1..-1] if tag
     end
 
   end
