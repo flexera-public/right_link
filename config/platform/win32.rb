@@ -62,7 +62,10 @@ module RightScale
     class Win32
 
       class Filesystem
+        MAX_PATH = 260
+
         @@get_temp_dir_api = nil
+        @@get_short_path_name = nil
 
         def initialize
           @temp_dir = nil
@@ -137,7 +140,7 @@ module RightScale
         def temp_dir
           if @temp_dir.nil?
             @@get_temp_dir_api = Windows::API.new('GetTempPath', 'LP', 'L') unless @@get_temp_dir_api
-            buffer = 0.chr * 260
+            buffer = 0.chr * MAX_PATH
             @@get_temp_dir_api.call(buffer.length, buffer)
             @temp_dir = pretty_path(buffer.unpack('A*').first.chomp('\\'))
           end
@@ -145,6 +148,47 @@ module RightScale
           @temp_dir = File.join(Dir::WINDOWS, "temp")
         ensure
           return @temp_dir
+        end
+
+        # converts a long path to a short path. in windows terms, this means
+        # taking any file/folder name over 8 characters in length and truncating
+        # it to 6 characters with ~1..~n appended depending on how many similar
+        # names exist in the same directory. file extensions are simply chopped
+        # at three letters. the short name is equivalent for all API calls to
+        # the long path but requires no special quoting, etc. the path must
+        # exist at least partially for the API call to succeed.
+        #
+        # === Parameters
+        # long_path<String>:: fully or partially existing long path to be
+        # converted to its short path equivalent.
+        #
+        # === Return
+        # short_path<String>:: short path equivalent or same path if non-existent
+        def long_path_to_short_path(long_path)
+          @@get_short_path_name = Windows::API.new('GetShortPathName', 'PPL', 'L') unless @@get_short_path_name
+          if File.exists?(long_path)
+            length = MAX_PATH
+            while true
+              buffer = 0.chr * length
+              length = @@get_short_path_name.call(long_path, buffer, buffer.length)
+              if length < buffer.length
+                break
+              end
+            end
+            return pretty_path(buffer.unpack('A*').first)
+          else
+            # must get short path for any existing ancestor since child doesn't
+            # (currently) exist.
+            child_name = File.basename(long_path)
+            long_parent_path = File.dirname(long_path)
+
+            # note that root dirname is root itself (at least in windows)
+            return long_path if long_path == long_parent_path
+
+            # recursion
+            short_parent_path = long_path_to_short_path(File.dirname(long_path))
+            return File.join(short_parent_path, child_name)
+          end
         end
 
         # specific to the win32 environment to aid in resolving paths to
@@ -219,6 +263,55 @@ module RightScale
 
         def format_redirect_both(cmd, target = NULL_OUTPUT_NAME)
           return cmd + " 1>#{target} 2>&1"
+        end
+
+      end
+
+      class SSH
+
+        # Store public SSH key into ~/.ssh folder and create temporary script
+        # that wraps SSH and uses this key if repository does not have need SSH
+        # key for access then return nil
+        #
+        # === Parameters
+        # repo<RightScale::CookbookRepositoryInstantiation>:: cookbook repo
+        #
+        # === Return
+        # "":: in all cases because there is no command to run in windows
+        # whether or not the repo is private
+        def create_repo_ssh_command(repo)
+          return "" unless repo.ssh_key
+
+          # resolve key file path.
+          user_profile_dir_path = ENV['USERPROFILE']
+          fail unless user_profile_dir_path
+          ssh_keys_dir = File.join(user_profile_dir_path, '.ssh')
+          FileUtils.mkdir_p(ssh_keys_dir) unless File.directory?(ssh_keys_dir)
+          ssh_key_file_path = File.join(ssh_keys_dir, 'id_rsa')
+          known_hosts_file_path = File.join(ssh_keys_dir, 'known_hosts')
+
+          # create key file (unless credentials already exist).
+          if not File.file?(ssh_key_file_path)
+            File.open(ssh_key_file_path, 'w') { |f| f.puts(repo.ssh_key) }
+          end
+
+          # we also need to create the "known_hosts" file or else the process
+          # will halt in windows waiting for a yes/no response to the unknown
+          # git host.
+          #
+          # FIX: currently hardwired, can we get the host and it's rsa info from
+          # the repo?
+          if not File.file?(known_hosts_file_path)
+            known_host_data = "github.com,207.97.227.239 ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAq2A7hRGmdnm9tUDbO9IDSwBK6TbQa+PXYPCPy6rbTrTtw7PHkccKrpp0yVhp5HdEIcKr6pLlVDBfOLX9QUsyCOV0wzfjIJNlGEYsdlLJizHhbn2mUjvSAHQqZETYP81eFzLQNnPHt4EVVUh7VfDESU84KezmD5QlWpXLmvU31/yMf+Se8xhHTvKSCZIFImWwoG6mbUoWf9nzpIoaSjB+weqqUUmpaaasXVal72J+UX2B+2RPW3RcT0eOzQgqlJL3RKrTJvdsjE3JEAvGq3lGHSZXy28G3skua2SmVi/w4yCE6gbODqnTWlg7+wC604ydGXA8VJiS5ap43JXiUFFAaQ=="
+            File.open(known_hosts_file_path, 'w') { |f| f.puts(known_host_data) }
+          end
+
+          # we cannot run a SSH command under windows (apparently) but we can
+          # run using the defaulted credentials in the user's .ssh directory.
+          # this is another good reason why we have our own RightScale account
+          # when running under windows. the problem we have is that SSH gives
+          # "Exit status 128" in verbose mode when we set GIT_SSH.
+          return ""
         end
 
       end

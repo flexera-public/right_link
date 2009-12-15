@@ -201,7 +201,11 @@ module RightScale
             success = @downloader.download(repo.url, cookbook_dir, repo.username, repo.password)
             res = success ? @downloader.details : @downloader.error
           when :git
-            ssh_cmd = ssh_command(repo)
+            # query short path equivalent because windows Git can't clone to a
+            # long path.
+            platform = RightLinkConfig[:platform]
+            cookbook_dir = platform.filesystem.long_path_to_short_path(cookbook_dir)
+            ssh_cmd = platform.ssh.create_repo_ssh_command(repo)
             res = `#{ssh_cmd} git clone --quiet --depth 1 #{repo.url} #{cookbook_dir} 2>&1`
             success = $? == 0
             if repo.tag && !repo.tag.empty? && repo.tag != 'master' && success
@@ -406,29 +410,6 @@ module RightScale
         success = yield
       end while !success && count <= times
       success
-    end
-
-    # Store public SSH key into ~/.ssh folder and create temporary script that wraps SSH and uses this key
-    # If repository does not have need SSH key for access then return empty string
-    #
-    # === Parameters
-    # repo<RightScale::CookbookRepositoryInstantiation>
-    #
-    # === Return
-    # ssh<String>:: Code to initialize GIT_SSH environment variable with path to SSH wrapper script
-    # '':: If repository does not require an SSH key
-    def ssh_command(repo)
-      return '' unless repo.ssh_key
-      ssh_keys_dir = File.join(InstanceConfiguration::COOKBOOK_PATH, '.ssh')
-      FileUtils.mkdir_p(ssh_keys_dir) unless File.directory?(ssh_keys_dir)
-      ssh_key_name = repo.to_s + '.pub'
-      ssh_key_path = File.join(ssh_keys_dir, ssh_key_name)
-      File.open(ssh_key_path, 'w') { |f| f.puts(repo.ssh_key) }
-      File.chmod(0600, ssh_key_path)
-      ssh = File.join(InstanceConfiguration::COOKBOOK_PATH, 'ssh')
-      File.open(ssh, 'w') { |f| f.puts("ssh -i #{ssh_key_path} -o StrictHostKeyChecking=no $*") }
-      File.chmod(0755, ssh)
-      ssh = "GIT_SSH=#{ssh}"
     end
 
     # Audit startup time and duration of given action

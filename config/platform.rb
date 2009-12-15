@@ -151,6 +151,28 @@ module RightScale
       return @shell
     end
 
+    # SSH information object
+    #
+    # === Return
+    # platform specific ssh object
+    def ssh
+      if @ssh.nil?
+        if linux?
+          require_linux
+          @ssh = Linux::SSH.new
+        elsif mac?
+          require_mac
+          @ssh = Darwin::SSH.new
+        elsif windows?
+          require_windows
+          @ssh = Win32::SSH.new
+        else
+          raise PlatformError.new("Don't know about the SSH on this platform")
+        end
+      end
+      return @ssh
+    end
+
     # Linux platform-specific platform object
     #
     # === Return

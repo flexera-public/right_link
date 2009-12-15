@@ -99,6 +99,17 @@ module RightScale
         def temp_dir
           '/tmp'
         end
+
+        # for windows compatibility; has no significance in linux
+        def long_path_to_short_path(long_path)
+          return long_path
+        end
+
+        # for windows compatibility; has no significance in linux
+        def pretty_path(path)
+          return path
+        end
+
       end
 
       class Shell
@@ -137,6 +148,34 @@ module RightScale
 
         def format_redirect_both(cmd, target = NULL_OUTPUT_NAME)
           return cmd + " 1>#{target} 2>&1"
+        end
+
+      end
+
+      class SSH
+
+        # Store public SSH key into ~/.ssh folder and create temporary script
+        # that wraps SSH and uses this key if repository does not have need SSH
+        # key for access then return nil
+        #
+        # === Parameters
+        # repo<RightScale::CookbookRepositoryInstantiation>:: cookbook repo
+        #
+        # === Return
+        # repo_ssh_file<String>:: path to SSH wrapper script if repo is private
+        # "":: if repo is public
+        def create_repo_ssh_command(repo)
+          return '' unless repo.ssh_key
+          ssh_keys_dir = File.join(InstanceConfiguration::COOKBOOK_PATH, '.ssh')
+          FileUtils.mkdir_p(ssh_keys_dir) unless File.directory?(ssh_keys_dir)
+          ssh_key_name = repo.to_s + '.pub'
+          ssh_key_path = File.join(ssh_keys_dir, ssh_key_name)
+          File.open(ssh_key_path, 'w') { |f| f.puts(repo.ssh_key) }
+          File.chmod(0600, ssh_key_path)
+          ssh = File.join(InstanceConfiguration::COOKBOOK_PATH, 'ssh')
+          File.open(ssh, 'w') { |f| f.puts("ssh -i #{ssh_key_path} -o StrictHostKeyChecking=no $*") }
+          File.chmod(0755, ssh)
+          return "GIT_SSH=#{ssh}"
         end
 
       end
