@@ -37,7 +37,7 @@ class InstanceSetup
     @boot_retries = 0
     @agent_identity = agent_identity
     RightScale::InstanceState.init(agent_identity)
-    RightScale::RightLinkLog.level = :debug if RightScale::DevState.enabled?
+    RightScale::RightLinkLog.force_debug if RightScale::DevState.enabled?
     EM.threadpool_size = 1
     # Schedule boot sequence, don't run it now so agent is registered first
     EM.next_tick { init_boot } if RightScale::InstanceState.value == 'booting'
@@ -144,7 +144,7 @@ class InstanceSetup
               end
             end
           else
-            strand("Failed to retrieve missing inputs", prep_res)
+            strand("Failed to prepare boot bundle", prep_res)
           end
         end
       else
@@ -213,21 +213,27 @@ class InstanceSetup
   # true:: Always return true
   def prepare_boot_bundle(&cb)
     query_tags(:agent_ids => @agent_identity) do |res|
-      RightScale::InstanceState.startup_tags = res.results
-      options = { :agent_identity => @agent_identity, :audit_id => @auditor.audit_id }
-      request("/booter/get_boot_bundle", options) do |r|
-        res = RightScale::OperationResult.from_results(r)
-        if res.success?
-          bundle = res.content
-          if bundle.executables.any? { |e| !e.ready }
-            retrieve_missing_inputs(bundle) { cb.call(RightScale::OperationResult.success(bundle)) }
+      res = res.results
+      if res.size > 1
+        yield RightScale::OperationResult.error("Failed to retrieve startup tags, got #{res.inspect}")
+      else
+        RightScale::InstanceState.startup_tags = tags = (res.size == 1 ? res.first[1] : [])
+        @auditor.append_info("Tags discovered on startup: '#{tags.join("', '")}'") unless tags.empty?
+        options = { :agent_identity => @agent_identity, :audit_id => @auditor.audit_id }
+        request("/booter/get_boot_bundle", options) do |r|
+          res = RightScale::OperationResult.from_results(r)
+          if res.success?
+            bundle = res.content
+            if bundle.executables.any? { |e| !e.ready }
+              retrieve_missing_inputs(bundle) { cb.call(RightScale::OperationResult.success(bundle)) }
+            else
+              yield RightScale::OperationResult.success(bundle)
+            end
           else
-            yield RightScale::OperationResult.success(bundle)
+            msg = "Failed to retrieve boot scripts"
+            msg += ": #{res.content}" if res.content
+            yield RightScale::OperationResult.error(msg)
           end
-        else
-          msg = "Failed to retrieve boot scripts"
-          msg += ": #{res.content}" if res.content
-          yield RightScale::OperationResult.error(msg)
         end
       end
     end
