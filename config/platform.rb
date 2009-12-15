@@ -159,13 +159,13 @@ module RightScale
       if @ssh.nil?
         if linux?
           require_linux
-          @ssh = Linux::SSH.new
+          @ssh = Linux::SSH.new(self)
         elsif mac?
           require_mac
-          @ssh = Darwin::SSH.new
+          @ssh = Darwin::SSH.new(self)
         elsif windows?
           require_windows
-          @ssh = Win32::SSH.new
+          @ssh = Win32::SSH.new(self)
         else
           raise PlatformError.new("Don't know about the SSH on this platform")
         end

@@ -132,6 +132,10 @@ module RightScale
 
       class SSH
 
+        def initialize(platform)
+          @platform = platform
+        end
+
         # Store public SSH key into ~/.ssh folder and create temporary script
         # that wraps SSH and uses this key if repository does not have need SSH
         # key for access then return nil

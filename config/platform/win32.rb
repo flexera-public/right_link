@@ -28,6 +28,7 @@ rescue LoadError => e
   raise e if !!(RUBY_PLATFORM =~ /mswin/)
 end
 
+require 'fileutils'
 
 # win32/process monkey-patches the Process class but drops support for any kill
 # signals which are not directly portable. some signals are acceptable, if not
@@ -269,6 +270,10 @@ module RightScale
 
       class SSH
 
+        def initialize(platform)
+          @platform = platform
+        end
+
         # Store public SSH key into ~/.ssh folder and create temporary script
         # that wraps SSH and uses this key if repository does not have need SSH
         # key for access then return nil
@@ -288,23 +293,33 @@ module RightScale
           ssh_keys_dir = File.join(user_profile_dir_path, '.ssh')
           FileUtils.mkdir_p(ssh_keys_dir) unless File.directory?(ssh_keys_dir)
           ssh_key_file_path = File.join(ssh_keys_dir, 'id_rsa')
-          known_hosts_file_path = File.join(ssh_keys_dir, 'known_hosts')
 
-          # create key file (unless credentials already exist).
-          if not File.file?(ssh_key_file_path)
-            File.open(ssh_key_file_path, 'w') { |f| f.puts(repo.ssh_key) }
-          end
+          # (re)create key file. must overwrite any existing credentials in case
+          # we are switching repositories and have different credentials for each.
+          File.open(ssh_key_file_path, 'w') { |f| f.puts(repo.ssh_key) }
 
-          # we also need to create the "known_hosts" file or else the process
-          # will halt in windows waiting for a yes/no response to the unknown
-          # git host.
+          # we need to create the "known_hosts" file or else the process will
+          # halt in windows waiting for a yes/no response to the unknown
+          # git host. this is normally handled by specifying
+          # "-o StrictHostKeyChecking=no" in the GIT_SSH executable, but it is
+          # still a mystery why this doesn't work properly in windows.
           #
-          # FIX: currently hardwired, can we get the host and it's rsa info from
-          # the repo?
-          if not File.file?(known_hosts_file_path)
-            known_host_data = "github.com,207.97.227.239 ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAq2A7hRGmdnm9tUDbO9IDSwBK6TbQa+PXYPCPy6rbTrTtw7PHkccKrpp0yVhp5HdEIcKr6pLlVDBfOLX9QUsyCOV0wzfjIJNlGEYsdlLJizHhbn2mUjvSAHQqZETYP81eFzLQNnPHt4EVVUh7VfDESU84KezmD5QlWpXLmvU31/yMf+Se8xhHTvKSCZIFImWwoG6mbUoWf9nzpIoaSjB+weqqUUmpaaasXVal72J+UX2B+2RPW3RcT0eOzQgqlJL3RKrTJvdsjE3JEAvGq3lGHSZXy28G3skua2SmVi/w4yCE6gbODqnTWlg7+wC604ydGXA8VJiS5ap43JXiUFFAaQ=="
-            File.open(known_hosts_file_path, 'w') { |f| f.puts(known_host_data) }
-          end
+          # HACK: we can make a failing GIT_SSH call which does not clone the
+          # repository but does silently create the proper "known_hosts" file.
+          ssh_temp_dir_path = File.join(@platform.filesystem.temp_dir, 'RightScale', 'ssh_temp')
+          (FileUtils.rm_rf(ssh_temp_dir_path) if File.directory?(ssh_temp_dir_path)) rescue nil
+          FileUtils.mkdir_p(ssh_temp_dir_path)
+          ssh_temp_dir_path = @platform.filesystem.long_path_to_short_path(ssh_temp_dir_path)
+          ssh_command_file = File.join(ssh_temp_dir_path, 'ssh.bat')
+          File.open(ssh_command_file, 'w') { |f| f.puts("ssh -o StrictHostKeyChecking=no %*") }
+          temp_cookbook_dir = File.join(ssh_temp_dir_path, 'temp_cookbook')
+          git_command = "git clone --quiet --depth 1 #{repo.url} #{temp_cookbook_dir}"
+          git_command = @platform.shell.format_redirect_both(git_command)
+
+          ENV['GIT_SSH']=@platform.filesystem.long_path_to_short_path(ssh_command_file)
+          `#{git_command}`
+          ENV['GIT_SSH']=nil
+          (FileUtils.rm_rf(ssh_temp_dir_path) if File.directory?(ssh_temp_dir_path)) rescue nil
 
           # we cannot run a SSH command under windows (apparently) but we can
           # run using the defaulted credentials in the user's .ssh directory.
