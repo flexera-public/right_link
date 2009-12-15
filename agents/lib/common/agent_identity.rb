@@ -67,10 +67,10 @@ module RightScale
       serialized = serialized_from_nanite(serialized) if valid_nanite?(serialized)
       p = parts(serialized)
 
-      res = p.size == 5   &&
-            p[1].size > 0 &&
-            p[2].size > 0 &&
-            p[3].to_i.to_s == p[3]
+      res = p.size == 5 &&
+            p[1] && p[1].size > 0 &&
+            p[2] && p[2].size > 0 &&
+            p[3] && p[3].to_i.to_s == p[3]
     end
     
     # Instantiate by parsing given token

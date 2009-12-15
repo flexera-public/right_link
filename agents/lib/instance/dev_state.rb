@@ -61,6 +61,14 @@ module RightScale
       path.split(',') if path
     end
 
+    # Name of first recipe in run list that should not be run
+    #
+    # === Return
+    # recipe<String>:: Name of recipe to break execution of sequence on
+    def self.breakpoint
+      recipe = tag_value(BREAKPOINT_TAG)
+    end
+
     # Whether dev cookbooks path should be used instead of standard
     # cookbooks repositories location
     # True if in dev mode and all dev cookbooks repos directories are not empty

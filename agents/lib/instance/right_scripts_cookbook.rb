@@ -102,6 +102,14 @@ description "Automatically generated repo, do not modify"
       @saved = true
     end
 
+    # Remove cookbooks repository directory
+    #
+    # === Return
+    # true:: Always return true
+    def cleanup
+      FileUtils.rm_rf(@repo_dir) if File.directory?(@repo_dir)
+    end
+
     # Whether given recipe name corresponds to a converted RightScript
     #
     # === Parameters

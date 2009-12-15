@@ -94,6 +94,7 @@ module RightScale
         install_packages if @ok
         download_repos if @ok
         converge if @ok
+        cleanup if @ok
       end
       true
     end
@@ -272,6 +273,14 @@ module RightScale
         EM.next_tick { succeed }
       end
       true
+    end
+
+    # Remove temporary files
+    #
+    # === Return
+    # true:: Always return true
+    def cleanup
+      @right_scripts_cookbook.cleanup
     end
 
     # Set status with failure message and audit it

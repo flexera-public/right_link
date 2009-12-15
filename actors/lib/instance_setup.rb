@@ -37,6 +37,7 @@ class InstanceSetup
     @boot_retries = 0
     @agent_identity = agent_identity
     RightScale::InstanceState.init(agent_identity)
+    RightScale::RightLinkLog.level = :debug if RightScale::DevState.enabled?
     EM.threadpool_size = 1
     # Schedule boot sequence, don't run it now so agent is registered first
     EM.next_tick { init_boot } if RightScale::InstanceState.value == 'booting'
