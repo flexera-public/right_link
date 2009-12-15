@@ -37,7 +37,7 @@ class Chef
     #
     # === Example
     # right_script "APP Mephisto bootstrap configure v2" do
-    #   source   '#!/bin/bash\ ...'
+    #   source_file '/tmp/my_right_script'
     #   parameters['APPLICATION'] 'My Mephisto App'
     #   parameters['DB_SCHEMA_NAME'] 'db_schema'
     #   parameters['RAILS_ENV'] 'production'
@@ -74,10 +74,10 @@ class Chef
         )
       end
 
-      # <String> RightScript source code
-      def source(arg=nil)
+      # <String> Path to file containing RightScript source code
+      def source_file(arg=nil)
         set_or_return(
-          :source,
+          :source_file,
           arg,
           :kind_of => [ String ]
         )
@@ -92,7 +92,7 @@ class Chef
         )
       end
 
-      # <String> Path to directory where RightScript source should be saved
+      # <String> Path to directory where attachments source should be saved
       def cache_dir(arg=nil)
         set_or_return(
           :cache_dir,

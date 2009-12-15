@@ -59,19 +59,10 @@ class Chef
         @nickname       = @new_resource.name
         @auditor        = RightScale::AuditorProxy.new(@new_resource.audit_id)
         @run_started_at = Time.now
-        source          = @new_resource.source
-        parameters      = @new_resource.parameters
-        cache_dir       = @new_resource.cache_dir
         platform        = RightScale::RightLinkConfig[:platform]
         shell           = platform.shell
 
-        # 1. Write script source into file
-        FileUtils.mkdir_p(cache_dir)
-        sc_filename = ::File.join(cache_dir, shell.format_script_file_name("script_source"))
-        ::File.open(sc_filename, "w") { |f| f.write(source) }
-        ::File.chmod(0744, sc_filename)
-
-        # 2. Setup audit and environment
+        # 1. Setup audit and environment
         begin
           meta_data = ::File.join(RightScale::RightLinkConfig[:cloud_state_dir], 'meta-data.rb')
           #metadata does not exist on all clouds, hence the conditional
@@ -88,19 +79,19 @@ class Chef
           @auditor.append_info("Could not load user data; script will execute without user data in environment!")
           RightScale::RightLinkLog.error("#{e.class.name}: #{e.message}, #{e.backtrace[0]}")
         end
-        parameters.each { |key, val| ENV[key] = val }
-        ENV['ATTACH_DIR'] = ENV['RS_ATTACH_DIR'] = cache_dir
+        @new_resource.parameters.each { |key, val| ENV[key] = val }
+        ENV['ATTACH_DIR'] = ENV['RS_ATTACH_DIR'] = @new_resource.cache_dir
         ENV['RS_REBOOT']  = RightScale::InstanceState.past_scripts.include?(@nickname) ? '1' : nil
         ENV['RS_DISTRO'] = platform.linux.distro if platform.linux?
 
-        # 3. Fork and wait
+        # 2. Fork and wait
         @mutex.synchronize do
-          cmd = shell.format_shell_command(sc_filename)
+          cmd = shell.format_shell_command(@new_resource.source_file)
           RightScale.popen3(cmd, self, :on_read_stdout, :on_read_stderr, :on_exit)
           @exited_event.wait(@mutex)
         end
 
-        # 4. Handle process exit status
+        # 3. Handle process exit status
         if @status
           @auditor.append_info("Script exit status: #{@status.exitstatus}")
         else

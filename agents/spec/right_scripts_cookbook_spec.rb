@@ -39,11 +39,9 @@ describe RightScale::RightScriptsCookbook do
     recipe_content = IO.read(recipe_path)
     regexp = "^right_script '#{@script.nickname}' do\n"
     regexp += "^  parameters\\(#{@script.parameters.inspect}\\)\n"
-    regexp += "^  cache_dir +\"#{@cookbook.cache_dir(@script)}\"\n"
+    regexp += "^  cache_dir +'#{@cookbook.cache_dir(@script)}'\n"
     regexp += "^  audit_id +1\n"
-    regexp += "^  source +<<-_EOR_\n"
-    regexp += "^#{@script.source}\n"
-    regexp += "^  _EOR_\n"
+    regexp += "^  source_file +'#{File.join(recipes_dir, @script.nickname)}'\n"
     regexp += "^end"
     recipe_content.should =~ /#{regexp}/
   end
