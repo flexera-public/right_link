@@ -138,7 +138,7 @@ class InstanceSetup
         @auditor.create_new_section('Preparing boot bundle')
         prepare_boot_bundle do |prep_res|
           if prep_res.success?
-            @auditor.create_new_section('Boot bundle ready')
+            @auditor.update_status('Boot bundle ready')
             run_boot_bundle(prep_res.content) do |boot_res|
               if boot_res.success?
                 RightScale::InstanceState.value = 'operational'
