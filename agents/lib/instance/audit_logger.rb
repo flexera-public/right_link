@@ -24,6 +24,16 @@ require 'logger'
 
 module RightScale
 
+  # Audit logger formatter
+  class AuditLogFormatter < ::Logger::Formatter
+
+    # Generate log line from given input
+    def call(severity, time, progname, msg)
+      sprintf("[%s] %s: %s\n", severity[0..0], time.strftime("%H:%M:%S"), msg2str(msg))
+    end
+
+  end
+
   # Provides logger interface but forwards some logging to audit entry.
   # Used in combination with Chef to audit recipe execution output.
   class AuditLogger < ::Logger
@@ -36,7 +46,7 @@ module RightScale
       @auditor = auditor
       @progname = nil
       @level = INFO
-      @default_formatter = Formatter.new
+      @default_formatter = AuditLogFormatter.new
       @formatter = nil
       @logdev = nil
     end

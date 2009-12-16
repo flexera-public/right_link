@@ -115,7 +115,6 @@ module RightScale
       logger = Multiplexer.new(AuditLogger.new(@auditor), RightLinkLog.logger)
       Chef::Log.logger = logger
       Chef::Log.logger.level = RightLinkLog.level_from_sym(RightLinkLog.level)
-      Chef::Log.logger.formatter = Mixlib::Log::Formatter.new      
 
       # Chef paths and run mode
       if DevState.use_cookbooks_path?
