@@ -60,7 +60,8 @@ module RightScale
       breakpoint = DevState.breakpoint
       recipes.each do |recipe|
         if recipe.nickname == breakpoint
-          RightLinkLog.info(" ** Breakpoint: skipping recipes after < #{breakpoint} >")
+          @auditor.append_info("Breakpoint: skipping recipes starting at < #{breakpoint} >")
+          bundle.full_converge = false
           break
         end
         @run_list << recipe.nickname
