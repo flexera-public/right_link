@@ -28,7 +28,7 @@ module RightScale
     include Singleton
 
     ROOT_TRUSTED_KEYS_FILE = '/root/.ssh/authorized_keys'
-    ACTIVE_TAG             = 'rs_managed_login:state=active'      
+    ACTIVE_TAG             = 'rs_login:state=active'      
 
     # Can the login manager function on this platform?
     #
