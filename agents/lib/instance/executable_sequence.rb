@@ -27,7 +27,6 @@ require 'rubygems'
 require 'chef/log'
 require 'fileutils'
 
-
 module RightScale
 
   # Bundle sequence, includes installing dependent packages,
@@ -60,7 +59,7 @@ module RightScale
       breakpoint = DevState.breakpoint
       recipes.each do |recipe|
         if recipe.nickname == breakpoint
-          @auditor.append_info("Breakpoint: skipping recipes starting at < #{breakpoint} >")
+          @auditor.append_info("Breakpoint set, running recipes up to < #{breakpoint} >")
           bundle.full_converge = false
           break
         end
@@ -116,6 +115,7 @@ module RightScale
       logger = Multiplexer.new(AuditLogger.new(@auditor), RightLinkLog.logger)
       Chef::Log.logger = logger
       Chef::Log.logger.level = RightLinkLog.level_from_sym(RightLinkLog.level)
+      Chef::Log.logger.formatter = Mixlib::Log::Formatter.new      
 
       # Chef paths and run mode
       if DevState.use_cookbooks_path?
@@ -134,18 +134,20 @@ module RightScale
     # === Return
     # true:: Always return true
     def download_attachments
-      @auditor.create_new_section('Downloading attachments') unless @scripts.all? { |s| s.attachments.empty? }
-      audit_time do
-        @scripts.each do |script|
-          attach_dir = @right_scripts_cookbook.cache_dir(script)
-          script.attachments.each do |a|
-            script_file_path = File.join(attach_dir, a.file_name)
-            @auditor.update_status("Downloading #{a.file_name} into #{script_file_path}")
-            if @downloader.download(a.url, script_file_path)
-              @auditor.append_info(@downloader.details)
-            else
-              report_failure("Failed to download attachment '#{a.file_name}'", @downloader.error)
-              return true
+      unless @scripts.all? { |s| s.attachments.empty? }
+        @auditor.create_new_section('Downloading attachments')
+        audit_time do
+          @scripts.each do |script|
+            attach_dir = @right_scripts_cookbook.cache_dir(script)
+            script.attachments.each do |a|
+              script_file_path = File.join(attach_dir, a.file_name)
+              @auditor.update_status("Downloading #{a.file_name} into #{script_file_path}")
+              if @downloader.download(a.url, script_file_path)
+                @auditor.append_info(@downloader.details)
+              else
+                report_failure("Failed to download attachment '#{a.file_name}'", @downloader.error)
+                return true
+              end
             end
           end
         end
@@ -262,13 +264,15 @@ module RightScale
     # true:: Always return true
     def converge
       @auditor.create_new_section("Converging")
-      @auditor.append_info("Run list: #{@run_list.join(", ")}")
+      @auditor.append_info("Run list: < #{@run_list.join(" >, < ")} >")
       attribs = { 'recipes' => @run_list }
       attribs.merge!(@attributes) if @attributes
       c = Chef::Client.new
       begin
-        c.json_attribs = attribs
-        c.run_solo
+        audit_time do
+          c.json_attribs = attribs
+          c.run_solo
+        end
       rescue Exception => e
         report_failure('Chef converge failed', chef_error(e))
         RightLinkLog.debug("Chef failed with '#{e.message}' at\n" + e.backtrace.join("\n"))
@@ -424,7 +428,7 @@ module RightScale
       start_time = Time.now
       @auditor.append_info("Starting at #{start_time}")
       res = yield
-      @auditor.append_info("Duration: #{Time.now - start_time} seconds\n\n")
+      @auditor.append_info("Duration: #{'%.2f' % (Time.now - start_time)} seconds\n\n")
       res
     end
 
