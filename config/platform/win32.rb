@@ -213,13 +213,30 @@ module RightScale
         POWERSHELL_V1x0_SCRIPT_EXTENSION = ".ps1"
         NULL_OUTPUT_NAME = "nul"
 
+        @@executable_extensions = nil
+
         def format_script_file_name(partial_script_file_path, default_extension = POWERSHELL_V1x0_SCRIPT_EXTENSION)
           extension = File.extname(partial_script_file_path)
           if 0 == extension.length
             return partial_script_file_path + default_extension
           end
 
-          return partial_script_file_path
+          # quick out for default extension.
+          if 0 == (extension <=> default_extension)
+            return partial_script_file_path
+          end
+
+          # confirm that the "extension" is really something understood by
+          # the command shell as being executable.
+          if @@executable_extensions.nil?
+            @@executable_extensions = ENV['PATHEXT'].downcase.split(';')
+          end
+          if @@executable_extensions.include?(extension.downcase)
+            return partial_script_file_path
+          end
+
+          # not executable; use default extension.
+          return partial_script_file_path + default_extension
         end
 
         def format_executable_command(executable_file_path, *arguments)

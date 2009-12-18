@@ -70,7 +70,9 @@ module RightScale
     # <RightScale::Exceptions::Application>:: If 'save' has been called
     def recipe_from_right_script(script)
       raise RightScale::Exceptions::Application, 'cannot create recipe after cookbook repo has been saved' if @saved
-      script_path = File.join(@recipes_dir, script.nickname)
+      shell = RightLinkConfig[:platform].shell
+      base_script_path = File.join(@recipes_dir, script.nickname)
+      script_path = shell.format_script_file_name(base_script_path)
       @recipes << script.nickname
       recipe_content = <<-EOS
 right_script '#{script.nickname}' do
@@ -82,7 +84,7 @@ end
       EOS
       File.open(script_path, 'w') { |f| f.puts script.source }
       File.chmod(0744, script_path)
-      recipe_path = "#{script_path}.rb"
+      recipe_path = "#{base_script_path}.rb"
       File.open(recipe_path, 'w') { |f| f.puts recipe_content }
       recipe = RecipeInstantiation.new(recipe_name(script.nickname), nil, script.id, script.ready)
     end
