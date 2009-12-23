@@ -1,0 +1,430 @@
+= Nanite : A self-assembling fabric of Ruby daemons
+
+Google Group:  http://groups.google.com/group/nanite
+irc.freenode.net:  #nanite
+
+== Intro
+
+Nanite is a new way of thinking about building cloud ready web applications. Having
+a scalable message queueing back-end with all the discovery and dynamic load based
+dispatch that Nanite has is a very scalable way to construct web application back-ends.
+
+A Nanite system has two types of components. There are nanite agents, these are the
+daemons where you implement your code functionality as actors. And then there are
+mappers.
+
+Mappers are the control nodes of the system. There can be any number of mappers, these
+typically run inside of your merb or rails app running on the thin webserver
+(eventmachine is needed) but you can also run command line mappers from the shell.
+
+Each Nanite agent sends a ping to the mapper exchange every @ping_time seconds. All of
+the mappers are subscribed to this exchange and they all get a copy of the ping with your
+status update. If the mappers do not get a ping from a certain agent within a timeout
+@ping_time the mappers will remove that agent from any dispatch.  When the agent comes
+back online or gets less busy it will re-advertise itself to the mapper exchange therefore
+adding itself back to the dispatch.  This makes for a very nice self-healing cluster of
+worker processes and a cluster of front-end mapper processes.
+
+In your Nanites you can have any number of actor classes.  These actors are like controllers
+in Rails or Merb and this is where you implement your own custom functionality.  An actor looks
+like:
+
+  class Foo
+    include Nanite::Actor
+    expose :bar
+    def bar(payload)
+      "got payload: #{payload}"
+    end
+  end
+  Nanite::Dispatcher.register(Foo.new)
+
+The methods that you 'expose' on the actors are advertised to the mappers like:
+
+  Foo#bar   => /foo/bar
+  Mock#list => /mock/list
+
+Every agent advertises its status every time it pings the mapper cluster.
+The default status that is advertised is the load average as a float. This
+is used for the default request dispatching based on least loaded server.
+
+You can change what is advertised as status to anything you want that is
+comparable(<=>) by doing something like this in your agent's init.rb file:
+
+  status_proc = lambda { MyApp.some_statistic_indicating_load }
+
+This proc will be recalled every @ping_time and sent to the mappers.
+
+This is the 'fitness function' for selecting the least loaded Nanite. You can
+dream up any scheme of populating this function so the mappers can select the
+right Nanites based on their status.
+
+
+== A quick note about security:
+
+Nanite security is based upon RabbitMQ vhosts so anything attached to one vhost
+can talk to anything else on the same vhost.  So you generally want one vhost
+per app space.
+
+
+== Installation
+
+Nanite has a lot of moving parts.  Follow the directions below and we'll get you up
+and running in no-time.
+
+=== Install Erlang (OS X)
+
+See the Erlang website for the latest info : http://www.erlang.org/download.html
+
+In your chosen source dir which we'll refer to as <SRC>:
+
+  cd <SRC>
+  wget http://www.erlang.org/download/otp_src_R12B-5.tar.gz
+  tar -zxvf otp_src_R12B-5.tar.gz
+  cd otp_src_R12B-5
+  ./configure --enable-hipe --enable-darwin-universal
+  make
+  sudo make install
+
+=== Install Erlang (Linux .deb)
+
+  sudo apt-get install erlang-nox
+
+=== Install Nanite Ruby Gem
+
+Installing the gem gives us access to the various Nanite commands in the default binary path.
+
+  cd <SRC>
+  git clone git://github.com/ezmobius/nanite.git
+  cd nanite
+  rake gem
+  sudo gem install pkg/nanite-<VERSION>.gem
+
+
+=== Install EventMachine Ruby Gem
+
+  sudo gem install eventmachine
+
+=== Install AMQP Ruby Gem
+
+  # install version >= 0.6.0 from RubyForge
+  sudo gem install amqp
+
+  # or install from source
+  cd <SRC>
+  git clone git://github.com/tmm1/amqp.git
+  cd amqp && rake gem && sudo gem install amqp-<VERSION>.gem
+
+=== Install RabbitMQ from source tarball (OS X and generic Linux)
+
+In short, you'll need a working erlang installation, python, and simplejson. If your python ("python -V") is 2.6, simplejson is included
+in your distribution. Otherwise, install simplejson:
+
+  easy_install simplejson
+
+If you don't have easy_install, install setuptools from http://pypi.python.org/pypi/setuptools:
+
+  # Get the latest .egg file for your version of python ("python -V"), then run it:
+  wget http://pypi.python.org/packages/2.5/s/setuptools/setuptools-0.6c9-py2.5.egg
+  sh setuptools-0.6c9-py2.5.egg
+
+and install simplejson, which is needed for the "make" step below.
+
+These instructions assume the latest RabbitMQ release 1.5.3:
+
+  # Download somewhere
+  cd /root
+  wget http://www.rabbitmq.com/releases/rabbitmq-server/v1.5.3/rabbitmq-server-1.5.3.tar.gz
+  
+  # Go to your erlang lib directory, usually /usr/lib/erlang/lib or:
+  cd /usr/local/lib/erlang/lib
+  
+  tar -zxf ~/rabbitmq-server-1.5.3.tar.gz
+  cd rabbitmq-server-1.5.3
+  make
+  
+  # There is no "make install" phase.
+
+Be sure to add the /usr/local/lib/erlang/lib/rabbitmq-server-1.5.3/scripts to your $PATH.
+
+The following websites may also be useful:
+* RabbitMQ website for the latest info : http://www.rabbitmq.com/download.html
+* RabbitMQ server source download : http://www.rabbitmq.com/server.html
+* RabbitMQ build instructions : http://www.rabbitmq.com/build-server.html
+* RabbitMQ install instructions : http://www.rabbitmq.com/install.html
+
+
+=== Install RabbitMQ (Linux .deb)
+
+  wget http://www.rabbitmq.com/releases/rabbitmq-server/v1.5.3/rabbitmq-server_1.5.3-1_all.deb
+  sudo apt-get install logrotate
+  sudo dpkg -i rabbitmq-server_1.5.3-1_all.deb
+
+== Test your installation
+
+=== Test your Erlang install
+
+Start an Erlang shell
+
+  erl
+
+Enter the following commands in the Erlang shell (When installed correctly each should print a great deal of erlang config info):
+
+  rabbit:module_info().
+
+Exit the Erlang shell with the following command (or Ctrl-c):
+
+  q().
+
+
+=== Start RabbitMQ
+
+All directories will be automatically set up on first run.
+
+To run RabbitMQ in the foreground:
+  sudo rabbitmq-server
+
+To run RabbitMQ in the background:
+  sudo rabbitmq-server -detached
+
+To check status:
+  rabbitmqctl status
+
+To stop server:
+  rabbitmqctl stop
+
+You can learn more about RabbitMQ admin here: http://www.rabbitmq.com/admin-guide.html
+
+
+=== Test Ruby/EventMachine/AMQP end-to-end with a running RabbitMQ instance
+
+You can test that all the moving parts are working end-to-end by running one of the AMQP example programs.  There are a number of example tests provided with AMQP but the one we will try simply queues and prints two messages immediately, and another one five seconds later.
+
+  # this test can only be run if you made a local clone
+  # of the amqp repository during the amqp installation above
+  # (it does not matter however if the gem was installed from src or rubyforge)
+  cd <SRC>/amqp
+  ruby examples/mq/simple-get.rb
+
+
+=== Test Nanite (finally)
+
+First we'll do a little setup and run a script which adds an agent account (nanite), a mapper account (mapper)
+and a '/nanite' vhost to RabbitMQ.  RabbitMQ broker must of course be running before you run this script.
+
+  cd nanite
+  ./examples/rabbitconf.rb
+
+Now lets run a few agents.  Each of these is a long running process and needs to run in its own shell.  Each agent also needs its own unique identity, or token to differentiate it from the other running agents.  You can try opening a couple of them now if you like.  The agents will generally provide no output when running.  You can always get more help about the nanite command with 'nanite --help'.
+
+First shell
+
+  cd examples/simpleagent
+  nanite-agent --token fred
+
+Second shell
+
+  cd examples/simpleagent
+  nanite-agent --token bob
+
+Now run a mapper. Mappers can be run from within your Merb or Rails app, from an interactive irb shell, or from the command line.  For this example we'll run it from the command line so open a third shell window and run the following:
+
+  cd examples/simpleagent
+  ./cli.rb
+
+Which should soon return something like the following.
+
+  {"bob"=>"hello nanite"}                                 # where the '--token bob' parameter was passed
+  {"55a7f300c454203eacc218b6fbd2edc6"=>"hello nanite"}    # where no '--token' was passed.  auto-generated identity.
+
+Now if you want to make this interesting, you can issue a Ctrl-c in one of the agent's windows to kill it.  And then run cli.rb again.  You should see that you still get a result back since the mapper is finding the remaining agent to do its work.
+
+If you want to try requesting work to be done by an agent from an interactive command shell try the following. This assumes that you have the agents running as indicated in the example above ('>>' is the nanite shell prompt).
+
+  cd nanite
+  ./bin/nanite-mapper -i -u mapper -p testing -v /nanite
+  Starting mapper console
+  >> request('/simple/echo') {|res| p res }
+
+By default this will dispatch to the agent with the lowest reported load average.
+
+There are a few other selectors as well:
+
+  # run this request on *all* agents that expose the /foo/bar Foo#bar actor
+  >> request('/foo/bar', 'hi', :selector => :all) {|res| p res }
+
+  # run this request on one random agent that expose the /whatever/hello Whatever#hello actor
+  >> request('/whatever/hello', 42, :selector => :random) {|res| p res }
+
+You can create your own selectors based on arbitrary stuff you put in status from your agents see cluster.rb for examples of how least_loaded, all and random are implemented.
+
+You can run as many mappers as you want, they will all be hot masters.
+
+The calls are asynchronous. This means the block you pass to Nanite::Agent#request is not run until the response from the agent(s) have returned. So keep that in mind. Should you need to poll from an ajax web app for results you should have your block stuff the results in the database for any web front end to pick up with the next poll.
+
+Another option to test your agents is to use nanite-admin
+
+  $ nanite-admin 
+  starting nanite-admin
+  >> Thin web server (v1.0.1 codename ?)
+  >> Maximum connections set to 1024
+  >> Listening on 0.0.0.0:4000, CTRL+C to stop
+
+and bring up the Nanite Control Tower at http://localhost:4000 .
+
+Have fun!
+
+== Web Framework Integration
+
+The integration of Nanite into web frameworks depends on the web server running our application and, more importantly, if it uses EventMachine or not.
+
+Thin is EventMachine-based, so we only need to make sure that the EventMachine reactor is already 'heated' up
+
+  Thread.new do
+    until EM.reactor_running?
+      sleep 1
+    end
+    Nanite.start_mapper(:host => 'localhost', :user => 'mapper', :pass => 'testing', :vhost => '/nanite', :log_level => 'info')
+  end
+  
+Mongrel on the other hand does not use EventMachine and therefore requires to wrap the start of our mapper
+  
+  Thread.new do
+    EM.run do 
+      Nanite.start_mapper(:host => 'localhost', :user => 'mapper', :pass => 'testing', :vhost => '/nanite', :log_level => 'info')
+    end
+  end
+
+Using nanite with Passenger:
+
+if defined?(PhusionPassenger)
+ PhusionPassenger.on_event(:starting_worker_process) do |forked|
+   if forked
+     if EM.reactor_running?
+       EM.stop_event_loop
+       EM.release_machine
+       EM.instance_variable_set( '@reactor_running', false )
+     end
+     Thread.current[:mq] = nil
+     AMQP.instance_variable_set('@conn', nil)
+   end
+
+   th = Thread.current
+   Thread.new{
+     Nanite.start_mapper(:host => 'localhost', :user => 'mapper', :pass => 'testing', :vhost => '/nanite', :log_level => 'info')
+   }
+   Thread.stop
+ end
+end
+
+=======
+Where to put the mapper initialization code depends on the framework and our preference. 
+For Rails the canonical place to start our mapper is within nanite.rb (or any other filename you prefer) in config/initalizers.
+In Merb we can use init.rb in config.
+
+== Security
+
+Nanite implements a secure serializer which can be used in place of the other serializers to encrypt the 
+AMQP messages exchanged between the mappers and the agents.
+
+The secure serializer uses X.509 certificates and cryptographic keys to sign and encrypt the messages.
+
+It is important to understand that:
+1. A certificate only includes the public key component of a cryptographic key 
+   pair.
+2. Signing requires the use of a certificate and its private key, checking the
+   signature then only requires the certificate (the idea is that only the
+   signer has the secret private key and thus can sign but anyone can check the 
+   signature).
+3. Encrypting only requires the certificate but decrypting also requires the
+   private key (anyone can encrypt the data but only the intended recipient can
+   decrypt it).
+
+A signing serializer thus needs access to the signer certificate and private 
+key. An encrypting serializer *also* needs access to the intended recipients
+certificates. There needs to be a way to dynamically retrieve the corresponding
+certificates. This is done using certificate stores.
+
+Certificate stores associate identities with certificates. The identity is 
+associated when the data is serialized and can be keyed off to retrieve the 
+right certificate upon deserialization.
+
+Nanite provides a static store implementation which can be used when the 
+certificates used for serialization are always the same and can be kept in 
+memory. Nanite also provides a certificate store proxy cache which can be
+associated with any store implementation and will cache the most used 
+certificates.
+
+The serializer should be initialized prior to being used by calling the 'init'
+method:
+
+  # Initialize serializer, must be called prior to using it.
+  #
+  #  - 'identity':   Identity associated with serialized messages
+  #  - 'cert':       Certificate used to sign serialized messages and
+  #                  decrypt encrypted messages
+  #  - 'key':        Private key corresponding to 'cert'
+  #  - 'store':      Certificate store. Exposes certificates used for
+  #                  encryption and signature validation.
+  #  - 'encrypt':    Whether data should be signed and encrypted ('true')
+  #                  or just signed ('false'), 'true' by default.
+  #
+  def SecureSerializer.init(identity, cert, key, store, encrypt = true)
+
+The 'secure' agent example (examples\secure) shows how the mappers and agents should be
+configured to use the secure serializer.
+
+== Troubleshooting
+
+** IMPORTANT **
+If you are using Apple's built in Ruby that comes with Leopard (10.5.x) or Tiger (10.4.x) then your
+READLINE lib is hosed and the interactive shell will not work. As soon as you drop into a shell
+Apple's fakey READLINE will halt the event machine loop so you won't see any nanites
+registering. I don't have a good workaround except to tell you not to use Apple's Ruby,
+build your own or use ports.
+
+
+** What to do if rabbitconf.rb dies with: {badrpc,nodedown} and nothing you do seems to matter **
+
+If rabbitconf.rb dies saying "{badrpc,nodedown}" it means that for some reason,
+the rabbitmqctl program rabbitconf.rb is using to setup the agent accounts for nanite is
+not able to connect to your RabbitMQ server. Assuming RabbitMQ is running and is
+known to work (try the examples that come with the amqp library), then there's a chance
+something is going wrong with using short node names in your Erlang install.
+
+The easiest way to verify it is by starting two separate Erlang shells like this (note that "odin" is my hostname):
+
+  $ erl -sname fred
+  (fred@odin)1>
+
+  $ erl -sname bob
+  (bob@odin)1>
+
+And then trying to 'ping' one from the other. In the 'fred' node you can do that like this:
+
+  (fred@odin)1> net_adm:ping(bob@odin).
+  pang
+
+Note : If your hostname has a hyphen in it (e.g. macbook-pro) you should include the user@hostname in quotes like:
+
+  net_adm:ping('bob@macbook-pro').
+
+If you see 'pang' (which is apparently Swedish for something like "crap! it's broken.") then short name distribution isn't working for you, and you need to fall back to using a full name. If you see 'pong', then that's not actually your problem.
+
+First, verify that your system's hostname is set to a fully qualified domain name. On OS X it can end in '.local':
+
+  hostname
+  odin.local
+
+Then test that *this* will work by starting a node with the full name of 'fred@<your hostname>':
+
+  erl -name fred@odin.local
+  (fred@odin.local)1>
+
+then bob@<yourhostname>, and then finally try to ping fred:
+
+  erl -name bob@odin.local
+  (bob@odin.local)1> net_adm:ping(fred@odin.local).
+  pong
+
+In my case, it looks like that worked. Now... on to getting rabbitconf.rb to run! To do that, you need to edit the 'rabbitmq-server' and 'rabbitmqctl' scripts in your RabbitMQ distribution and edit the -sname arguments to use -name and a full name.
+

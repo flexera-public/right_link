@@ -1,0 +1,24 @@
+TODO:
+
+- The examples/crew.rb file is pointing towards a hard coded user dir.  Needs to be
+documented as part of a working example.
+- examples/async_rack_front/async_rack_front.ru needs to be documented and verified working.
+
+Ian:
+  - Sync Mapper/Agent#start with nanite-mapper/agent
+  - Update docs for Agent#start and Mapper#start
+  - Update docs in nanite-agent and nanite-mapper
+  - Ensure file transfer works
+  - Check secure stuff still works
+  - Check custom status_proc works
+  - Check documentation, only document public methods
+  - ensure the removal of threaded_actors option doesn't cause shit to block
+
+  - Look into using EM deferables for actors dispatch.
+  - Integration specs that spawn a small cluster of nanites
+  - Rename Ping to Status
+  - request/push should take *args for payload?
+
+Maybe:
+  - Make mapper queue durable and Results respect :persistent flag on the request
+  - Add a global result received callback

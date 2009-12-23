@@ -1,0 +1,79 @@
+#!/usr/bin/env ruby
+
+require File.dirname(__FILE__) + '/../lib/nanite'
+require 'optparse'
+
+include Nanite::CommonConfig
+
+options = {}
+
+opts = OptionParser.new do |opts|
+  opts.banner = "Usage: nanite-agent [-flag] [argument]"
+  opts.define_head "Nanite Agent: ruby process that acts upon messages passed to it by a mapper."
+  opts.separator '*'*80
+
+  setup_common_options(opts, options, 'agent')
+
+  opts.on("-n", "--nanite NANITE_ROOT", "Specify the root of your nanite agent project.") do |nanite|
+    options[:root] = nanite
+  end
+
+  opts.on("--ping-time PINGTIME", "Specify how often the agents contacts the mapper") do |ping|
+    options[:ping_time] = ping
+  end
+  
+  opts.on("--actors-dir DIR", "Path to directory containing actors (NANITE_ROOT/actors by default)") do |dir|
+    options[:actors_dir] = dir
+  end
+  
+  opts.on("--actors ACTORS", "Comma separated list of actors to load (all ruby files in actors directory by default)") do |a|
+    options[:actors] = a.split(',')
+  end
+
+  opts.on("--initrb FILE", "Path to agent initialization file (NANITE_ROOT/init.rb by default)") do |initrb|
+    options[:initrb] = initrb
+  end
+
+  opts.on("--single-threaded", "Run all operations in one thread") do
+    options[:single_threaded] = true
+  end
+  
+  opts.on("--threadpool COUNT", Integer, "Number of threads to run all operations in") do |tps|
+    options[:threadpool_size] = tps
+  end
+  
+end
+
+opts.parse!
+
+if ARGV[0] == 'stop' || ARGV[0] == 'status'
+  agent = Nanite::Agent.new(options)
+  pid_file = Nanite::PidFile.new(agent.identity, agent.options)
+  unless pid = pid_file.read_pid
+    puts "#{pid_file} not found"
+    exit
+  end
+  if ARGV[0] == 'stop'
+    puts "Stopping nanite agent #{agent.identity} (pid #{pid})"
+    begin
+      Process.kill('TERM', pid)
+    rescue Errno::ESRCH
+      puts "Process does not exist (pid #{pid})"
+      exit
+    end
+    puts 'Done.'
+  else
+    if Process.getpgid(pid) != -1
+      psdata = `ps up #{pid}`.split("\n").last.split
+      memory = (psdata[5].to_i / 1024)
+      puts "The agent is alive, using #{memory}MB of memory"
+    else
+      puts "The agent is not running but has a stale pid file at #{pid_file}"
+    end
+  end
+  exit
+end
+
+EM.run do
+  Nanite.start_agent(options)
+end
