@@ -68,7 +68,6 @@ require 'rdoc/usage'
 require 'yaml'
 require 'ftools'
 require 'fileutils'
-require 'nanite'
 require File.join(File.dirname(__FILE__), 'rdoc_patch')
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'config', 'right_link_config'))
 require File.join(File.dirname(__FILE__), 'agent_utils')
@@ -76,6 +75,7 @@ require File.join(File.dirname(__FILE__), 'common_parser')
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'agents', 'lib', 'instance', 'instance_state'))
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'agents', 'lib', 'common', 'right_link_log'))
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'actors', 'lib', 'agent_manager'))
+require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'lib', 'nanite', 'lib', 'nanite'))
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'lib', 'amqp_retry_patch'))
 require File.join(File.dirname(__FILE__), 'command_client')
 

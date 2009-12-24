@@ -8,8 +8,8 @@ THIS_FILE = File.symlink?(__FILE__) ? File.readlink(__FILE__) : __FILE__
 $:.push(File.join(File.dirname(THIS_FILE), 'lib'))
 
 require 'rubygems'
-require 'nanite'
 require 'agent_deployer'
+require File.expand_path(File.join(File.dirname(__FILE__), '..', 'lib', 'nanite', 'lib', 'nanite'))
 
 RightScale::AgentDeployer.run
 

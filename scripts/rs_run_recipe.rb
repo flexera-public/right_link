@@ -8,8 +8,8 @@ THIS_FILE = File.symlink?(__FILE__) ? File.readlink(__FILE__) : __FILE__
 $:.push(File.join(File.dirname(THIS_FILE), 'lib'))
 
 require 'rubygems'
-require 'nanite'
 require 'bundle_runner'
+require File.expand_path(File.join(File.dirname(__FILE__), '..', 'lib', 'nanite', 'lib', 'nanite'))
 
 r = RightScale::BundleRunner.new
 opts = r.parse_args

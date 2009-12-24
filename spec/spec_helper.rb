@@ -6,12 +6,12 @@ require 'rubygems'
 # ActiveRecord is also loaded.
 require 'active_record' rescue nil
 
-require 'nanite'
 require 'flexmock'
 require 'spec'
 require 'eventmachine'
 require 'fileutils'
 
+require File.expand_path(File.join(File.dirname(__FILE__), '..', 'lib', 'nanite', 'lib', 'nanite'))
 require File.expand_path(File.join(File.dirname(__FILE__), '..', 'lib', 'chef', 'lib', 'providers'))
 require File.expand_path(File.join(File.dirname(__FILE__), '..', 'lib', 'payload_types', 'lib', 'payload_types'))
 require File.expand_path(File.join(File.dirname(__FILE__), '..', 'config', 'right_link_config'))

@@ -70,7 +70,7 @@ end
 
 begin
   # Horrible evil hack to patch Nanite to account for our changes to the AMQP gem
-  require 'nanite'
+  require File.dirname(__FILE__) + '/nanite/lib/nanite'
 
   Nanite::AMQPHelper.module_eval do
     def start_amqp(options)

@@ -47,7 +47,7 @@ require 'rdoc/usage'
 require 'yaml'
 require 'rdoc_patch'
 require 'agent_utils'
-require 'nanite'
+require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'lib', 'nanite', 'lib', 'nanite'))
 
 module RightScale
 
