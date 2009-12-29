@@ -1,7 +1,6 @@
 module Nanite
   class Agent
     include AMQPHelper
-    include FileStreaming
     include ConsoleHelper
     include DaemonizeHelper
 
