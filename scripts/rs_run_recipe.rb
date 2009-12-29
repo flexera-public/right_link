@@ -9,7 +9,6 @@ $:.push(File.join(File.dirname(THIS_FILE), 'lib'))
 
 require 'rubygems'
 require 'bundle_runner'
-require File.expand_path(File.join(File.dirname(__FILE__), '..', 'lib', 'nanite', 'lib', 'nanite'))
 
 r = RightScale::BundleRunner.new
 opts = r.parse_args

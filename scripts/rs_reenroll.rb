@@ -7,7 +7,6 @@ $:.push(File.join(File.dirname(THIS_FILE), 'lib'))
 
 require 'rubygems'
 require 'reenroller'
-require File.expand_path(File.join(File.dirname(__FILE__), '..', 'lib', 'nanite', 'lib', 'nanite'))
 
 m = RightScale::Reenroller.new
 opts = m.parse_args
