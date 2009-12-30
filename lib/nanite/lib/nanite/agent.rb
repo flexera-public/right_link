@@ -212,9 +212,6 @@ module Nanite
       when Result
         Nanite::Log.info("RECV #{packet.to_s([])}") unless Nanite::Log.level == :debug
         @mapper_proxy.handle_result(packet)
-      when IntermediateMessage
-        Nanite::Log.info("RECV #{packet.to_s([])}") unless Nanite::Log.level == :debug
-        @mapper_proxy.handle_intermediate_result(packet)
       end
     end
     

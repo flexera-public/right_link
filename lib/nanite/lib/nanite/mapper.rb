@@ -168,19 +168,6 @@ module Nanite
     # :persistent<Boolean>:: Instructs the AMQP broker to save the message to persistent
     #   storage so that it isnt lost when the broker is restarted.
     #   Default is false unless the mapper was started with the --persistent flag.
-    # :intermediate_handler:: Takes a lambda to call when an IntermediateMessage
-    #   event arrives from a nanite.  If passed a Hash, hash keys should correspond to
-    #   the IntermediateMessage keys provided by the nanite, and each should have a value
-    #   that is a lambda/proc taking the parameters specified here.  Can supply a key '*'
-    #   as a catch-all for unmatched keys.
-    #
-    # ==== Block Parameters for intermediate_handler
-    # key<String>:: array of unique keys for which intermediate state has been received
-    #   since the last call to this block.
-    # nanite<String>:: nanite which sent the message.
-    # state:: most recently delivered intermediate state for the key provided.
-    # job:: (optional) -- if provided, this parameter gets the whole job object, if there's
-    #   a reason to do more complex work with the job.
     #
     # ==== Block Parameters
     # :results<Object>:: The returned value from the nanite actor.
@@ -194,14 +181,13 @@ module Nanite
     # Send request with pre-built request instance
     def send_request(request, opts = {}, &blk)
       request.reply_to = identity
-      intm_handler = opts.delete(:intermediate_handler)
       targets = cluster.targets_for(request, include_timed_out=false)
       if !targets.empty?
-        job = job_warden.new_job(request, targets, intm_handler, blk)
+        job = job_warden.new_job(request, targets, blk)
         cluster.route(request, job.targets)
         job
       elsif opts.key?(:offline_failsafe) ? opts[:offline_failsafe] : options[:offline_failsafe]
-        job_warden.new_job(request, [], intm_handler, blk)
+        job_warden.new_job(request, [], blk)
         cluster.publish(request, 'mapper-offline')
         :offline
       else

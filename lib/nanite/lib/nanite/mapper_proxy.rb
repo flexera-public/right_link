@@ -35,8 +35,7 @@ module Nanite
       request.from = identity
       request.token = Identity.generate
       request.persistent = opts.key?(:persistent) ? opts[:persistent] : options[:persistent]
-      pending_requests[request.token] = 
-        { :intermediate_handler => opts[:intermediate_handler], :result_handler => blk }
+      pending_requests[request.token] = { :result_handler => blk }
       Nanite::Log.info("SEND #{request.to_s([:tags, :target])}")
       amqp.fanout('request', :no_declare => options[:secure]).publish(serializer.dump(request))
     end    
@@ -70,13 +69,7 @@ module Nanite
       Nanite::Log.info("SEND #{update.to_s}")
       amqp.fanout('registration', :no_declare => options[:secure]).publish(serializer.dump(update))
     end
-    
-    # Handle intermediary result
-    def handle_intermediate_result(res)
-      handlers = pending_requests[res.token]
-      handlers[:intermediate_handler].call(res) if handlers && handlers[:intermediate_handler]
-    end
-    
+
     # Handle final result
     def handle_result(res)
       handlers = pending_requests.delete(res.token)

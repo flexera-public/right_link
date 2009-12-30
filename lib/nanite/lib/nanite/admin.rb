@@ -46,11 +46,7 @@ module Nanite
     def ul(hash, job)
       buf = "<ul>"
       hash.each do |k,v|
-        buf << "<li><div class=\"nanite\">#{k}:</div><div class=\"response\">#{v.inspect}</div>"
-        if job.intermediate_state && job.intermediate_state[k]
-          buf << "<div class=\"intermediatestates\"><span class=\"statenote\">intermediate state:</span> #{job.intermediate_state[k].inspect}</div>"
-        end
-        buf << "</li>"
+        buf << "<li><div class=\"nanite\">#{k}:</div><div class=\"response\">#{v.inspect}</div></li>"
       end
       buf << "</ul>"
       buf
@@ -72,8 +68,6 @@ module Nanite
               li {list-style-type: none; margin-bottom: 6px}
               li .nanite {font-weight: bold; font-size: 12px}
               li .response {padding: 8px}
-              li .intermediatestates {padding: 8px; font-size: 10px;}
-              li .intermediatestates span.statenote {font-style: italic;}
               h1, h2, h3 {margin-top: none; padding: none; margin-left: 40px;}
               h1 {font-size: 22px; margin-top: 40px; margin-bottom: 30px; border-bottom: 1px solid #ddd; padding-bottom: 6px;
                 margin-right: 40px}

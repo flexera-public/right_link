@@ -20,10 +20,9 @@ module Nanite
 
       operation = lambda do
         begin
-          intermediate_results_proc = lambda { |*args| self.handle_intermediate_results(actor, meth, deliverable, *args) }
           args = [ deliverable.payload ]
           args.push(deliverable) if actor.method(meth).arity == 2
-          actor.send(meth, *args, &intermediate_results_proc)
+          actor.send(meth, *args)
         rescue Exception => e
           handle_exception(actor, meth, deliverable, e)
         end
@@ -43,25 +42,6 @@ module Nanite
       else
         @evmclass.defer(operation, callback)
       end
-    end
-
-    protected
-
-    def handle_intermediate_results(actor, meth, deliverable, *args)
-      messagekey = case args.size
-      when 1
-        'defaultkey'
-      when 2
-        args.first.to_s
-      else
-        raise ArgumentError, "handle_intermediate_results passed unexpected number of arguments (#{args.size})"
-      end
-      message = args.last
-      @evmclass.defer(lambda {
-        [deliverable.reply_to, IntermediateMessage.new(deliverable.token, deliverable.reply_to, identity, messagekey, message)]
-      }, lambda { |r|
-        amq.queue(r.first, :no_declare => options[:secure]).publish(serializer.dump(r.last))
-      })
     end
 
     private
