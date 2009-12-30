@@ -82,8 +82,12 @@ class Chef
         @new_resource.parameters.each { |key, val| ENV[key] = val }
         ENV['ATTACH_DIR'] = ENV['RS_ATTACH_DIR'] = @new_resource.cache_dir
         ENV['RS_REBOOT']  = RightScale::InstanceState.past_scripts.include?(@nickname) ? '1' : nil
-        ENV['RS_DISTRO']  = platform.linux.distro if platform.linux?
-        ENV['RS_DIST']    = platform.linux.distro if platform.linux?
+        #RightScripts expect to find RS_DISTRO or RS_DIST in the environment; provide it for them.
+        if platform.linux?
+          distro = platform.linux.distro.split(/\s+/)[0].downcase 
+          ENV['RS_DISTRO'] = distro
+          ENV['RS_DIST']   = distro
+        end
 
         # 2. Fork and wait
         @mutex.synchronize do
