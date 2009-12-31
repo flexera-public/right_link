@@ -27,8 +27,8 @@ module RightScale
 
       #Initialize
       def initialize
-        @distro  = `lsb_release -ds`.strip
-        @release =  `lsb_release -vs`.strip
+        @distro  = `lsb_release -is`.strip
+        @release =  `lsb_release -rs`.strip
         @codename = `lsb_release -cs`.strip
       end
 
