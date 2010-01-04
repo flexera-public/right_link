@@ -22,8 +22,6 @@ $:.push File.join(File.dirname( __FILE__), '..', 'agents', 'lib')
 $:.push File.join(File.dirname( __FILE__), '..', 'agents', 'lib', 'common')
 $:.push File.join(File.dirname( __FILE__), '..', 'agents', 'lib', 'instance')
 
-Nanite::Log.init
-
 config = Spec::Runner.configuration
 config.mock_with :flexmock
 

@@ -20,6 +20,8 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+require 'logger'
+require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'config', 'right_link_config'))
 require 'syslog_logger' unless RightScale::RightLinkConfig[:platform].windows?
 require File.join(File.dirname(__FILE__), 'multiplexer')
 require File.join(File.dirname(__FILE__), 'exceptions')
@@ -29,6 +31,59 @@ module RightScale
   # Logs both to syslog and to local file
   class RightLinkLog
 
+    # Default formatter for a RightLinkLog
+    class Formatter < Logger::Formatter
+      @@show_time = true
+
+      # Set whether to show time in logged messages.
+      #
+      # === Parameters
+      # show<Boolean>:: Whether time should be shown
+      def self.show_time=(show=false)
+        @@show_time = show
+      end
+
+      # Prints a log message as '[time] severity: message' if @@show_time == true;
+      # otherwise, doesn't print the time.
+      #
+      # === Parameters
+      # severity<String>:: Severity of event
+      # time<Time>:: Date-time
+      # progname<String>:: Program name
+      # msg<Object>:: Message object that can be converted to a string
+      #
+      # === Return
+      # Formatted message
+      def call(severity, time, progname, msg)
+        if @@show_time
+          sprintf("[%s] %s: %s\n", time.rfc2822(), severity, msg2str(msg))
+        else
+          sprintf("%s: %s\n", severity, msg2str(msg))
+        end
+      end
+
+      # Converts some argument to a Logger.severity() call to a string.  Regular strings
+      # pass through like normal, Exceptions get formatted as "message (class)\nbacktrace",
+      # and other random stuff gets put through "object.inspect".
+      #
+      # === Parameters
+      # msg<Object>:: Message object to be converted to string
+      #
+      # === Return
+      # String
+      def msg2str(msg)
+        case msg
+        when ::String
+          msg
+        when ::Exception
+          "#{ msg.message } (#{ msg.class })\n" <<
+            (msg.backtrace || []).join("\n")
+        else
+          msg.inspect
+        end
+      end
+    end
+
     # Map of log levels symbols associated with corresponding Logger constant
     LEVELS_MAP = { :debug => Logger::DEBUG,
                    :info  => Logger::INFO,
@@ -36,9 +91,9 @@ module RightScale
                    :error => Logger::ERROR,
                    :fatal => Logger::FATAL } unless defined?(LEVELS_MAP)
 
-    # Forward all method calls to multiplexer
-    # We want to return the result of only the first registered
-    # logger to keep the interface consistent with that of a Logger
+    # Forward all method calls to underlying Logger object created with init.
+    # Return the result of only the first registered logger to keep the interface
+    # consistent with that of a Logger.
     #
     # === Parameters
     # m<Symbol>:: Forwarded method name
@@ -117,16 +172,16 @@ module RightScale
       @logger.remove(logger)
     end
 
-    # Set whether syslog should be used
-    # If true then use standard Nanite logger instead
-    # This should be called before anything else
+    # Set whether syslog should be used.
+    # If true then use standard Nanite logger instead.
+    # This should be called before anything else.
     #
     # === Parameters
     # val<Boolean>:: Whether syslog should be used (false) or the
     #                standard nanite logger (true)
     #
     # === Raise
-    # RuntimeError:: if logger is already initialized
+    # RuntimeError:: If logger is already initialized
     def self.log_to_file_only(val)
       raise 'Logger already initialized' if @initialized
       @log_to_file_only = !!val
@@ -150,9 +205,11 @@ module RightScale
     #                     to use the default name which
     #                     is based on the nanite identity
     #
-    #
     # === Return
     # program_name<String>:: The input string
+    #
+    # === Raise
+    # RuntimeError:: If logger is already initialized
     def self.program_name=(prog_name)
       raise 'Logger already initialized' if @initialized
       @program_name = prog_name
@@ -199,32 +256,36 @@ module RightScale
     # Was log ever used?
     @initialized = false
 
-    # Initialize logger, must be called after Nanite logger is initialized
+    # Initialize logger
+    #
+    # === Parameters
+    # identity<String>:: Log identity
+    # path<String>:: Log directory path
     #
     # === Return
     # logger<RightScale::Multiplexer>:: logger instance
-    #
-    # === Raise
-    # RuntimeError:: If nanite logger isn't initialized
-    def self.init
+    def self.init(identity = nil, path = nil)
       unless @initialized
-        raise 'Initialize Nanite logger first' unless Nanite::Log.logger
         @initialized = true
         @level_frozen = false
         logger = nil
 
         if @log_to_file_only || RightLinkConfig[:platform].windows?
-          logger = Nanite::Log.logger
+          if path
+            file = File.join(path, "nanite.#{identity}.log")
+          else
+            file = STDOUT
+          end
+          logger = Logger.new(file)
+          logger.formatter = Formatter.new
         else
-          prog_name = @program_name || Nanite::Log.file.match(/nanite\.(.*)\.log/)[1] rescue 'RightLink'
-          logger = SyslogLogger.new(prog_name)
+          logger = SyslogLogger.new(@program_name || identity || 'RightLink')
         end
 
         @logger = Multiplexer.new(logger)
-        RightLinkLog.level = Nanite::Log.level
-        # Now make nanite use this logger
-        Nanite::Log.logger = @logger
+        self.level = :info
       end
+      @logger
     end
 
   end

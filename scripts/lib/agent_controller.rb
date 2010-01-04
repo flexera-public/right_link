@@ -102,7 +102,7 @@ module RightScale
     end
 
     # Parse arguments and run
-    def control(options)     
+    def control(options)
 
       # Validate arguments
       action = options.delete(:action)
@@ -123,7 +123,8 @@ module RightScale
         options = file_options
         RightLinkLog.program_name = syslog_program_name(options)
         RightLinkLog.log_to_file_only(options[:log_to_file_only])
-      end 
+        RightLinkLog.init
+      end
       options.merge!(FORCED_OPTIONS)
       options_with_default = {}
       DEFAULT_OPTIONS.each { |k, v| options_with_default[k] = v }
