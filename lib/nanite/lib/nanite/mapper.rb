@@ -285,7 +285,7 @@ module Nanite
           job_warden.process(msg)
         rescue Exception => e
           Nanite::Log.error("RECV [result] #{e.message}")
-          callbacks[:exception].call(e, msg, mapper) rescue nil if callbacks[:exception]          
+          callbacks[:exception].call(e, msg, mapper) rescue nil if callbacks && callbacks[:exception]          
         end
       end
     end

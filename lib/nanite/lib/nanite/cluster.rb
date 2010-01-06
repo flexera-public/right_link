@@ -34,7 +34,7 @@ module Nanite
           Nanite::Log.info("RECV #{reg.to_s}")
           nanites[reg.identity] = { :services => reg.services, :status => reg.status, :tags => reg.tags, :timestamp => Time.now.utc.to_i }
           reaper.register(reg.identity, agent_timeout + 1) { nanite_timed_out(reg.identity) }
-          callbacks[:register].call(reg.identity, mapper) if callbacks[:register]
+          callbacks[:register].call(reg.identity, mapper) if callbacks && callbacks[:register]
         else
           Nanite::Log.warn("RECV NOT AUTHORIZED #{reg.to_s}")
         end
@@ -42,7 +42,7 @@ module Nanite
         Nanite::Log.info("RECV #{reg.to_s}")
         reaper.unregister(reg.identity)
         nanites.delete(reg.identity)
-        callbacks[:unregister].call(reg.identity, mapper) if callbacks[:unregister]
+        callbacks[:unregister].call(reg.identity, mapper) if callbacks && callbacks[:unregister]
       when TagUpdate
         Nanite::Log.info("RECV #{reg.to_s}")
         nanites.update_tags(reg.identity, reg.new_tags, reg.obsolete_tags)
@@ -56,7 +56,7 @@ module Nanite
       if nanite && timed_out?(nanite)
         Nanite::Log.info("Nanite #{token} timed out")
         nanite = nanites.delete(token)
-        callbacks[:timeout].call(token, mapper) if callbacks[:timeout]
+        callbacks[:timeout].call(token, mapper) if callbacks && callbacks[:timeout]
         true
       end
     end
@@ -202,7 +202,7 @@ module Nanite
           handle_ping(ping)
         rescue Exception => e
           Nanite::Log.error("RECV [ping] #{e.message}")
-          callbacks[:exception].call(e, ping, mapper) rescue nil if callbacks[:exception]
+          callbacks[:exception].call(e, ping, mapper) rescue nil if callbacks && callbacks[:exception]
         end
       end
       hb_fanout = amq.fanout('heartbeat', :durable => true)
@@ -215,7 +215,7 @@ module Nanite
           register(serializer.load(msg))
         rescue Exception => e
           Nanite::Log.error("RECV [register] #{e.message}")
-          callbacks[:exception].call(e, msg, mapper) rescue nil if callbacks[:exception]
+          callbacks[:exception].call(e, msg, mapper) rescue nil if callbacks && callbacks[:exception]
         end
       end
       reg_fanout = amq.fanout('registration', :durable => true)
@@ -228,7 +228,7 @@ module Nanite
           handle_request(serializer.load(msg))
         rescue Exception => e
           Nanite::Log.error("RECV [request] #{e.message}")
-          callbacks[:exception].call(e, msg, mapper) rescue nil if callbacks[:exception]
+          callbacks[:exception].call(e, msg, mapper) rescue nil if callbacks && callbacks[:exception]
         end
       end
       req_fanout = amq.fanout('request', :durable => true)

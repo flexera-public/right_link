@@ -227,7 +227,7 @@ module Nanite
           receive(serializer.load(msg))
         rescue Exception => e
           Nanite::Log.error("RECV #{e.message}")
-          callbacks[:exception].call(e, msg, self) rescue nil if callbacks[:exception]
+          callbacks[:exception].call(e, msg, self) rescue nil if callbacks && callbacks[:exception]
         end
       end
     end
