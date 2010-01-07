@@ -40,10 +40,14 @@ module RightScale
     # true:: Always return true
     def self.vote
       @total_votes ||= 0
+      @reenrolling ||= false
       @total_votes += 1
       @reset_timer.cancel if @reset_timer
       @reset_timer = EM::Timer.new(RESET_DELAY) { reset_votes }
-      system('rs_reenroll') if @total_votes >= REENROLL_THRESHOLD
+      if @total_votes >= REENROLL_THRESHOLD && !@reenrolling
+        @reenrolling = true
+        system('rs_reenroll')
+      end
       true
     end
 
