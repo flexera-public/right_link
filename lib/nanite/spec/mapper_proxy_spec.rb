@@ -88,17 +88,7 @@ describe Nanite::MapperProxy do
       
       @instance.request('/welcome/aboard', 'iZac'){|response|}
     end
-    
-    it "should store the intermediate handler" do
-      intermediate = lambda {}
-      Nanite::Identity.stub!(:generate).and_return('abc')
-      @fanout.stub!(:fanout)
-      
-      @instance.request('/welcome/aboard', 'iZac', :target => 'my-target', :intermediate_handler => intermediate ){|response|}
-      
-      @instance.pending_requests['abc'][:intermediate_handler].should == intermediate
-    end
-    
+
     it "should store the result handler" do
       result_handler = lambda {}
       Nanite::Identity.stub!(:generate).and_return('abc')

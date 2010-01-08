@@ -49,59 +49,6 @@ describe "Packet: Base class" do
 end
 
 
-describe "Packet: FileStart" do
-  it "should dump/load as JSON objects" do
-    packet = Nanite::FileStart.new('foo.txt', 'somewhere/foo.txt', '0xdeadbeef')
-    packet2 = JSON.parse(packet.to_json)
-    packet.filename.should == packet2.filename
-    packet.dest.should == packet2.dest
-    packet.token.should == packet2.token
-  end
-
-  it "should dump/load as Marshalled ruby objects" do
-    packet = Nanite::FileStart.new('foo.txt', 'somewhere/foo.txt', '0xdeadbeef')
-    packet2 = Marshal.load(Marshal.dump(packet))
-    packet.filename.should == packet2.filename
-    packet.dest.should == packet2.dest
-    packet.token.should == packet2.token
-  end
-end
-
-
-describe "Packet: FileEnd" do
-  it "should dump/load as JSON objects" do
-    packet = Nanite::FileEnd.new('0xdeadbeef', 'metadata')
-    packet2 = JSON.parse(packet.to_json)
-    packet.meta.should == packet2.meta
-    packet.token.should == packet2.token
-  end
-
-  it "should dump/load as Marshalled ruby objects" do
-    packet = Nanite::FileEnd.new('0xdeadbeef', 'metadata')
-    packet2 = Marshal.load(Marshal.dump(packet))
-    packet.meta.should == packet2.meta
-    packet.token.should == packet2.token
-  end
-end
-
-
-describe "Packet: FileChunk" do
-  it "should dump/load as JSON objects" do
-    packet = Nanite::FileChunk.new('chunk','0xdeadbeef')
-    packet2 = JSON.parse(packet.to_json)
-    packet.chunk.should == packet2.chunk
-    packet.token.should == packet2.token
-  end
-
-  it "should dump/load as Marshalled ruby objects" do
-    packet = Nanite::FileChunk.new('chunk','0xdeadbeef')
-    packet2 = Marshal.load(Marshal.dump(packet))
-    packet.chunk.should == packet2.chunk
-    packet.token.should == packet2.token
-  end
-end
-
-
 describe "Packet: Request" do
   it "should dump/load as JSON objects" do
     packet = Nanite::Request.new('/some/foo', 'payload', :from => 'from', :token => '0xdeadbeef', :reply_to => 'reply_to')
@@ -123,6 +70,7 @@ describe "Packet: Request" do
     packet.reply_to.should == packet2.reply_to
   end
 end
+
 
 describe "Packet: TagQuery" do
   it "should dump/load as JSON objects" do
@@ -164,29 +112,6 @@ describe "Packet: Result" do
     packet.to.should == packet2.to
     packet.results.should == packet2.results
     packet.from.should == packet2.from
-  end
-end
-
-
-describe "Packet: IntermediateMessage" do
-  it "should dump/load as JSON objects" do
-    packet = Nanite::IntermediateMessage.new('0xdeadbeef', 'to', 'from', 'messagekey', 'message')
-    packet2 = JSON.parse(packet.to_json)
-    packet.token.should == packet2.token
-    packet.to.should == packet2.to
-    packet.from.should == packet2.from
-    packet.messagekey.should == packet2.messagekey
-    packet.message.should == packet2.message
-  end
-
-  it "should dump/load as Marshalled ruby objects" do
-    packet = Nanite::IntermediateMessage.new('0xdeadbeef', 'to', 'from', 'messagekey', 'message')
-    packet2 = Marshal.load(Marshal.dump(packet))
-    packet.token.should == packet2.token
-    packet.to.should == packet2.to
-    packet.from.should == packet2.from
-    packet.messagekey.should == packet2.messagekey
-    packet.message.should == packet2.message
   end
 end
 

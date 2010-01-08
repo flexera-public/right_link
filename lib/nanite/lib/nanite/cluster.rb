@@ -2,18 +2,17 @@ module Nanite
   class Cluster
     attr_reader :agent_timeout, :nanites, :reaper, :serializer, :identity, :amq, :redis, :mapper, :callbacks
 
-    def initialize(amq, agent_timeout, identity, serializer, mapper, state_configuration, tag_store=nil, callbacks = {})
-      # Deferring require of state until now to avoid redis being required in instance agent
-      require 'state'
+    def initialize(amq, agent_timeout, identity, serializer, mapper, state_configuration=nil, tag_store=nil, callbacks = {})
       @amq = amq
       @agent_timeout = agent_timeout
       @identity = identity
       @serializer = serializer
       @mapper = mapper
+      @state = state_configuration
       @tag_store = tag_store
       @security = SecurityProvider.get
       @callbacks = callbacks
-      @nanites = Nanite::State.new(state_configuration, @tag_store)
+      setup_state
       @reaper = Reaper.new(agent_timeout)
       setup_queues
     end
@@ -206,7 +205,11 @@ module Nanite
         end
       end
       hb_fanout = amq.fanout('heartbeat', :durable => true)
-      amq.queue("heartbeat").bind(hb_fanout).subscribe &handler
+      if shared_state?
+        amq.queue("heartbeat").bind(hb_fanout).subscribe &handler
+      else
+        amq.queue("heartbeat-#{identity}", :exclusive => true).bind(hb_fanout).subscribe &handler
+      end
     end
 
     def setup_registration_queue
@@ -219,7 +222,11 @@ module Nanite
         end
       end
       reg_fanout = amq.fanout('registration', :durable => true)
-      amq.queue("registration").bind(reg_fanout).subscribe &handler
+      if shared_state?
+        amq.queue("registration").bind(reg_fanout).subscribe &handler
+      else
+        amq.queue("registration-#{identity}", :exclusive => true).bind(reg_fanout).subscribe &handler
+      end
     end
 
     def setup_request_queue
@@ -232,7 +239,28 @@ module Nanite
         end
       end
       req_fanout = amq.fanout('request', :durable => true)
-      amq.queue("request").bind(req_fanout).subscribe &handler
+      if shared_state?
+        amq.queue("request").bind(req_fanout).subscribe &handler
+      else
+        amq.queue("request-#{identity}", :exclusive => true).bind(req_fanout).subscribe &handler
+      end
+    end
+
+    def setup_state
+      case @state
+      when String
+        # backwards compatibility, we assume redis if the configuration option
+        # was a string
+        require 'nanite/state'
+        @nanites = Nanite::State.new(@state, @tag_store)
+      else
+        require 'nanite/local_state'
+        @nanites = Nanite::LocalState.new
+      end
+    end
+
+    def shared_state?
+      !@state.nil?
     end
   end
 end
