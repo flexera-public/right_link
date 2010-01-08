@@ -1,5 +1,7 @@
 require File.join(File.dirname(__FILE__), '..', '..', 'spec', 'spec_helper')
 require 'instance_state'
+require 'chef_state'
+require 'request_forwarder'
 require 'right_link_log'
 
 describe RightScale::InstanceState do
@@ -39,4 +41,13 @@ describe RightScale::InstanceState do
     RightScale::InstanceState.record_script_execution('test')
     RightScale::InstanceState.past_scripts.should == [ 'test' ]
   end
+
+  it 'should record startup tags when transitioning from booting' do
+    RightScale::InstanceState.startup_tags = [ 'a_tag', 'another_tag' ]
+    RightScale::InstanceState.value = 'operational'
+    RightScale::InstanceState.startup_tags = nil
+    RightScale::InstanceState.init(@identity)
+    RightScale::InstanceState.startup_tags.should == [ 'a_tag', 'another_tag' ]
+  end
+
 end
