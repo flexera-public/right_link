@@ -48,7 +48,7 @@ module RightScale
     def initialize(audit_id)
       @audit_id     = audit_id
       @saved        = false
-      @recipes      = []
+      @recipes      = {}
       now           = Time.new
       unique_dir    = "right_scripts_#{now.month}_#{now.day}_#{now.hour}_#{now.min}_#{now.sec}"
       @repo_dir     = File.join(InstanceConfiguration::CACHE_PATH, unique_dir)
@@ -72,7 +72,7 @@ module RightScale
       raise RightScale::Exceptions::Application, 'cannot create recipe after cookbook repo has been saved' if @saved
       path = script_path(script.nickname)
       recipe_name = File.basename(path)
-      @recipes << recipe_name
+      @recipes[recipe_name] = script.nickname
       recipe_content = <<-EOS
 right_script '#{script.nickname}' do
   parameters(#{script.parameters.inspect})
@@ -112,9 +112,10 @@ end
     # true:: Always return true
     def save
       unless empty?
+        recipes = @recipes.keys.sort
         metadata_content = <<-EOS
 description "Automatically generated repo, do not modify"
-#{@recipes.map { |r| "recipe \"#{COOKBOOK_NAME}::#{r}\", \"RightScript < #{r} >\"" }.join("\n")}
+#{recipes.map { |r| "recipe \"#{COOKBOOK_NAME}::#{r}\", \"RightScript < #{@recipes[r]} >\"" }.join("\n")}
         EOS
         metadata_path = File.join(@cookbook_dir, 'metadata.rb')
         File.open(metadata_path, 'w') { |f| f.puts metadata_content }
