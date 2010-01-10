@@ -19,6 +19,7 @@
 #
 #    options:
 #      --identity, -i ID      Use base id ID to build agent's identity
+#      --queue, -q QUEUE      Use queue QUEUE for agent's input instead of identity
 #      --token, -t TOKEN      Use token TOKEN to build agent's identity
 #      --prefix, -r PREFIX:   Prefix nanite agent identity with PREFIX
 #      --user, -u USER:       Set agent AMQP username
@@ -87,6 +88,7 @@ module RightScale
     def write_config(options)
       cfg = {}
       cfg[:identity]   = options[:identity] if options[:identity]
+      cfg[:queue]      = options[:queue] if options[:queue]
       cfg[:pid_dir]    = options[:pid_dir] || '/var/run'
       cfg[:user]       = options[:user] if options[:user]
       cfg[:pass]       = options[:pass] if options[:pass]
