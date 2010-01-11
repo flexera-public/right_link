@@ -93,7 +93,8 @@ module RightScale
       $stderr.reopen w
       c = EM.attach(r, StdErrHandler, target, stderr_handler) if stderr_handler
       EM.popen(cmd, StdOutHandler, target, stdout_handler, exit_handler, c, r, w)
-      w.close
+      # Do not close 'w', strange things happen otherwise
+      # (command protocol socket gets closed during decommission) 
       $stderr.reopen saved_stderr
     end
   end

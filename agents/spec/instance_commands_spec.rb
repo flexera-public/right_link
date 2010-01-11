@@ -13,7 +13,7 @@ describe RightScale::InstanceCommands do
   end
 
   it 'should list commands' do
-    flexmock(RightScale::CommandIO).should_receive(:reply).and_return do |conn, r|
+    flexmock(RightScale::CommandIO.instance).should_receive(:reply).and_return do |conn, r|
       conn.should == 42
       r.count("\n").should == @commands.size + 6
     end

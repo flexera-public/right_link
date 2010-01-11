@@ -79,7 +79,7 @@ module RightScale
       COMMANDS.reject { |c| c.include?(:list) }.each do |c|
         c.each { |k, v| usage += " - #{k.to_s}: #{v}\n" }
       end
-      CommandIO.reply(opts[:conn], usage)
+      CommandIO.instance.reply(opts[:conn], usage)
     end
 
     # Run recipe command implementation
@@ -104,7 +104,7 @@ module RightScale
     # true:: Always return true
     def set_log_level_command(opts)
       RightLinkLog.level = opts[:level] if [ :debug, :info, :warn, :error, :fatal ].include?(opts[:level])
-      CommandIO.reply(opts[:conn], RightLinkLog.level)
+      CommandIO.instance.reply(opts[:conn], RightLinkLog.level)
     end
 
     # Get log level command
@@ -112,7 +112,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def get_log_level_command(opts)
-      CommandIO.reply(opts[:conn], RightLinkLog.level)
+      CommandIO.instance.reply(opts[:conn], RightLinkLog.level)
     end
 
     # Decommission command
@@ -120,7 +120,7 @@ module RightScale
     # === Return
     # true
     def decommission_command(opts)
-      @scheduler.run_decommission { CommandIO.reply(opts[:conn], "Decommissioned") }
+      @scheduler.run_decommission { CommandIO.instance.reply(opts[:conn], "Decommissioned") }
     end
 
     # Terminate command
@@ -128,7 +128,7 @@ module RightScale
     # === Return
     # true
     def terminate_command(opts)
-      CommandIO.reply(opts[:conn], "Terminating")
+      CommandIO.instance.reply(opts[:conn], "Terminating")
       @scheduler.terminate
     end
 
@@ -145,7 +145,7 @@ module RightScale
       options[:agent_identity] = @agent_identity
       RightScale::RequestForwarder.request(request, options) do |r|
         res = OperationResult.from_results(r)
-        CommandIO.reply(conn, res.success? ? 'Request sent successfully' : "Request failed: #{res.content}")
+        CommandIO.instance.reply(conn, res.success? ? 'Request sent successfully' : "Request failed: #{res.content}")
       end
       true
     end
