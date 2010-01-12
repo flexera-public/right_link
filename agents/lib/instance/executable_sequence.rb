@@ -38,7 +38,10 @@ module RightScale
   class ExecutableSequence
 
     include EM::Deferrable
-  
+
+    # Patch to be applied to inputs after Chef run
+    attr_reader :inputs_patch
+
     # Initialize sequence
     #
     # === Parameter
@@ -55,7 +58,7 @@ module RightScale
 
       # Initializes run list for this sequence (partial converge support)
       @run_list = []
-      @attributes = {}
+      @inputs = {}
       breakpoint = DevState.breakpoint
       recipes.each do |recipe|
         if recipe.nickname == breakpoint
@@ -64,15 +67,17 @@ module RightScale
           break
         end
         @run_list << recipe.nickname
-        ChefState.deep_merge!(@attributes, recipe.attributes)
+        ChefState.deep_merge!(@inputs, recipe.attributes)
       end
 
+      # Retrieve node attributes and deep merge in inputs
+      @attributes = ChefState.attributes
+      ChefState.deep_merge!(@attributes, @inputs)
+
+      # Retrieve full run list for full converge
       if bundle.full_converge
-        # Only merge recipes into chef state when doing a full converge (true on boot)
         ChefState.merge_run_list(@run_list)
-        ChefState.merge_attributes(@attributes)
         @run_list = ChefState.run_list
-        @attributes = ChefState.attributes
       end
     end
 
@@ -87,7 +92,7 @@ module RightScale
         # Deliberately avoid auditing anything since we did not run any recipes
         # Still download the cookbooks repos if in dev mode
         download_repos if DevState.cookbooks_path
-        EM.next_tick { succeed }
+        report_success(nil)
       else
         configure_chef
         download_attachments if @ok
@@ -276,10 +281,7 @@ module RightScale
         report_failure('Chef converge failed', chef_error(e))
         RightLinkLog.debug("Chef failed with '#{e.message}' at\n" + e.backtrace.join("\n"))
       end
-      if @ok
-        @auditor.update_status("completed: #{@description}")
-        EM.next_tick { succeed }
-      end
+      report_success(c.node) if @ok
       true
     end
 
@@ -289,6 +291,28 @@ module RightScale
     # true:: Always return true
     def cleanup
       @right_scripts_cookbook.cleanup
+    end
+
+    # Initialize inputs patch and report success
+    #
+    # === Parameters
+    # node<ChefNode>:: Chef node used to converge, can be nil (patch is empty in this case)
+    #
+    # === Return
+    # true:: Always return true
+    def report_success(node)
+      if node
+        ChefState.merge_attributes(node.attribute)
+        patch = ChefState.create_patch(@inputs, ChefState.attributes)
+        # We don't want to send back new top level attributes (ohai etc.)
+        patch[:right_only].delete_if { |k, _| !@inputs.include?(k) }
+        @inputs_patch = patch
+      else
+        @inputs_patch = ChefState.empty_patch
+      end
+      @auditor.update_status("completed: #{@description}")
+      EM.next_tick { succeed }
+      true
     end
 
     # Set status with failure message and audit it
