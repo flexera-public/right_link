@@ -139,6 +139,10 @@ module RightScale
           options[:actors_dir] = d
         end
 
+        opts.on('-q', '--queue QUEUE') do |q|
+          options[:queue] = q
+        end
+
         opts.on('-z', '--pid-dir DIR') do |d|
           options[:pid_dir] = d
         end
