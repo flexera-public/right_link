@@ -58,7 +58,7 @@ class Chef
       def initialize(name, collection, node)
         super(name, collection, node)
         @resource_name = :right_script
-        @cache_dir = ::File.join(DEFAULT_CACHE_DIR_ROOT, Nanite::Identity.generate)
+        @cache_dir = ::File.join(DEFAULT_CACHE_DIR_ROOT, RightScale::AgentIdentity.generate)
         @audit_id = 0
         @parameters = {}
         @action = :run

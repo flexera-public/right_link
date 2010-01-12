@@ -42,7 +42,7 @@ class Chef
       def action_run
         tags = @new_resource.recipients_tags
         attributes = { :remote_recipe => { :tags => tags,
-                                           :from => Nanite::MapperProxy.instance.identity } }
+                                           :from => RightScale::MapperProxy.instance.identity } }
         attributes.merge!(@new_resource.attributes) if @new_resource.attributes
         options = { :recipe => @new_resource.recipe, :json => attributes.to_json }
         @new_resource.recipients.each do |target|

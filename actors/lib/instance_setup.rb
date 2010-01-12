@@ -22,7 +22,7 @@
 
 class InstanceSetup
 
-  include Nanite::Actor
+  include RightScale::Actor
 
   expose :report_state
 

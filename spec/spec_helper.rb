@@ -11,10 +11,9 @@ require 'spec'
 require 'eventmachine'
 require 'fileutils'
 
-require File.expand_path(File.join(File.dirname(__FILE__), '..', 'lib', 'nanite', 'lib', 'nanite'))
+require File.expand_path(File.join(File.dirname(__FILE__), '..', 'agents', 'lib', 'common_lib'))
 require File.expand_path(File.join(File.dirname(__FILE__), '..', 'lib', 'chef', 'lib', 'providers'))
 require File.expand_path(File.join(File.dirname(__FILE__), '..', 'lib', 'payload_types', 'lib', 'payload_types'))
-require File.expand_path(File.join(File.dirname(__FILE__), '..', 'config', 'right_link_config'))
 require File.join(File.dirname(__FILE__), 'nanite_results_mock')
 
 $:.push File.join(File.dirname( __FILE__), '..', 'actors', 'lib')
@@ -46,7 +45,7 @@ module RightScale
       @identity = identity
       @results_factory = RightScale::NaniteResultsMock.new
       mapper_proxy = flexmock('MapperProxy')
-      flexmock(Nanite::MapperProxy).should_receive(:instance).and_return(mapper_proxy).by_default      
+      flexmock(MapperProxy).should_receive(:instance).and_return(mapper_proxy).by_default
       mapper_proxy.should_receive(:request).and_yield(@results_factory.success_results)
       mapper_proxy.should_receive(:push)
       tags = flexmock('tags', :results => { :tags => { 'tags' => ['a_tag'] } })

@@ -20,12 +20,72 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+require 'rubygems'
+require 'amqp'
+require 'mq'
+require 'json'
+require 'yaml'
+require 'openssl'
+
 require File.expand_path(File.join(__FILE__, '..', '..', '..', 'config', 'right_link_config'))
-require File.join(File.dirname(__FILE__), 'common', 'agent_identity')
-require File.join(File.dirname(__FILE__), 'common', 'audit_formatter')
+require File.join(File.dirname(__FILE__), 'common', 'amqp')
+require File.join(File.dirname(__FILE__), 'common', 'util')
+require File.join(File.dirname(__FILE__), 'common', 'config')
+require File.join(File.dirname(__FILE__), 'common', 'packets')
+require File.join(File.dirname(__FILE__), 'common', 'console')
+require File.join(File.dirname(__FILE__), 'common', 'daemonize')
+require File.join(File.dirname(__FILE__), 'common', 'pid_file')
 require File.join(File.dirname(__FILE__), 'common', 'exceptions')
 require File.join(File.dirname(__FILE__), 'common', 'right_link_log')
 require File.join(File.dirname(__FILE__), 'common', 'multiplexer')
-require File.join(File.dirname(__FILE__), 'common', 'secure_serializer_initializer')
-require File.join(File.dirname(__FILE__), 'common', 'agent_tags_manager')
 require File.join(File.dirname(__FILE__), 'common', 'right_link_tracer')
+require File.join(File.dirname(__FILE__), 'common', 'audit_formatter')
+require File.join(File.dirname(__FILE__), 'common', 'serializer')
+require File.join(File.dirname(__FILE__), 'common', 'agent', 'agent_identity')
+require File.join(File.dirname(__FILE__), 'common', 'agent', 'actor')
+require File.join(File.dirname(__FILE__), 'common', 'agent', 'actor_registry')
+require File.join(File.dirname(__FILE__), 'common', 'agent', 'dispatcher')
+require File.join(File.dirname(__FILE__), 'common', 'agent', 'agent')
+require File.join(File.dirname(__FILE__), 'common', 'agent', 'mapper_proxy')
+require File.join(File.dirname(__FILE__), 'common', 'agent', 'secure_serializer_initializer')
+require File.join(File.dirname(__FILE__), 'common', 'agent', 'agent_tags_manager')
+require File.join(File.dirname(__FILE__), 'common', 'security', 'security_provider')
+require File.join(File.dirname(__FILE__), 'common', 'security', 'cached_certificate_store_proxy')
+require File.join(File.dirname(__FILE__), 'common', 'security', 'certificate')
+require File.join(File.dirname(__FILE__), 'common', 'security', 'certificate_cache')
+require File.join(File.dirname(__FILE__), 'common', 'security', 'distinguished_name')
+require File.join(File.dirname(__FILE__), 'common', 'security', 'encrypted_document')
+require File.join(File.dirname(__FILE__), 'common', 'security', 'rsa_key_pair')
+require File.join(File.dirname(__FILE__), 'common', 'security', 'secure_serializer')
+require File.join(File.dirname(__FILE__), 'common', 'security', 'signature')
+require File.join(File.dirname(__FILE__), 'common', 'security', 'static_certificate_store')
+
+module RightScale
+
+  class MapperProxyNotRunning < StandardError; end
+
+  class << self
+    attr_reader :mapper_proxy, :agent
+
+    def start_agent(options = {})
+      @agent = Agent.start(options)
+    end
+
+    def request(*args, &blk)
+      ensure_mapper_proxy
+      @mapper_proxy.request(*args, &blk)
+    end
+
+    def push(*args)
+      ensure_mapper_proxy
+      @mapper_proxy.push(*args)
+    end
+
+    def ensure_mapper_proxy
+      @mapper_proxy ||= MapperProxy.instance
+      unless @mapper_proxy
+        raise MapperProxyNotRunning.new('A MapperProxy needs to be created')
+      end
+    end
+  end
+end

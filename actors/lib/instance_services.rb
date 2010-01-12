@@ -21,7 +21,7 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 class InstanceServices
-  include Nanite::Actor
+  include RightScale::Actor
 
   expose :update_login_policy
 

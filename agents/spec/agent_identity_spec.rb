@@ -1,5 +1,4 @@
 require File.join(File.dirname(__FILE__), '..', '..', 'spec', 'spec_helper')
-require 'agent_identity'
 
 describe RightScale::AgentIdentity do
 

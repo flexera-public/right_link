@@ -22,7 +22,7 @@
 
 class AgentManager
 
-  include Nanite::Actor
+  include RightScale::Actor
 
   expose :ping, :set_log_level, :execute, :record_fault
 
@@ -87,11 +87,11 @@ class AgentManager
   # === Return
   # true:: Always return true
   def self.process_exception(e, msg)
-    if e.is_a?(Nanite::Serializer::SerializationError)
+    if e.is_a?(RightScale::Serializer::SerializationError)
       begin
         data = JSON.load(msg)
-        sig = Nanite::Signature.from_data(data['signature'])
-        @cert ||= Nanite::Certificate.load(File.join(RightScale::RightLinkConfig[:certs_dir], 'mapper.cert'))
+        sig = RightScale::Signature.from_data(data['signature'])
+        @cert ||= RightScale::Certificate.load(File.join(RightScale::RightLinkConfig[:certs_dir], 'mapper.cert'))
         ReenrollManager.vote if sig.match?(@cert)
       rescue Exception => _
       end

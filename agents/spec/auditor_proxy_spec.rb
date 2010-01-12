@@ -9,7 +9,7 @@ describe RightScale::AuditorProxy do
   before(:each) do
     @proxy = RightScale::AuditorProxy.new(1)
     @instance = flexmock('instance')
-    flexmock(Nanite::MapperProxy).should_receive(:instance).and_return(@instance)
+    flexmock(RightScale::MapperProxy).should_receive(:instance).and_return(@instance)
   end
 
   it 'should log and audit errors' do

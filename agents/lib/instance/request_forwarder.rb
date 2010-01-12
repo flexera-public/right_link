@@ -51,7 +51,7 @@ module RightScale
       if @offline_mode
         queue_request(:kind => :request, :type => type, :payload => payload, :options => opts, :callback => blk)
       else
-        Nanite::MapperProxy.instance.request(type, payload, opts, &blk)
+        MapperProxy.instance.request(type, payload, opts, &blk)
       end
       true
     end
@@ -69,7 +69,7 @@ module RightScale
       if @offline_mode
         queue_request(:kind => :push, :type => type, :payload => payload, :options => opts)
       else
-        Nanite::MapperProxy.instance.push(type, payload, opts)
+        MapperProxy.instance.push(type, payload, opts)
       end
       true
     end
@@ -88,7 +88,7 @@ module RightScale
       if @offline_mode
         queue_request(:kind => :tag_query, :options => opts, :callback => blk)
       else
-        Nanite::MapperProxy.instance.query_tags(opts, &blk)
+        MapperProxy.instance.query_tags(opts, &blk)
       end
       true
     end
@@ -174,11 +174,11 @@ module RightScale
         request = @requests.shift
         case request[:kind]
         when :push
-          Nanite::MapperProxy.instance.push(request[:type], request[:payload], request[:options])
+          MapperProxy.instance.push(request[:type], request[:payload], request[:options])
         when :request
-          Nanite::MapperProxy.instance.request(request[:type], request[:payload], request[:options], request[:callback])
+          MapperProxy.instance.request(request[:type], request[:payload], request[:options], request[:callback])
         when :tag_query
-          Nanite::MapperProxy.instance.query_tags(request[:options], request[:callback])
+          MapperProxy.instance.query_tags(request[:options], request[:callback])
         end
         if @requests.empty?
           @offline_mode = false

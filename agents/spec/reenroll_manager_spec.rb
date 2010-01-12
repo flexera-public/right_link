@@ -6,7 +6,7 @@ describe RightScale::ReenrollManager do
   before(:each) do
     RightScale::ReenrollManager.instance_variable_set(:@total_votes, nil)
     mapper_proxy = flexmock('MapperProxy')
-    flexmock(Nanite::MapperProxy).should_receive(:instance).and_return(mapper_proxy)
+    flexmock(RightScale::MapperProxy).should_receive(:instance).and_return(mapper_proxy)
     mapper_proxy.should_receive(:push)
   end
 

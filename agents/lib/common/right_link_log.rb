@@ -172,13 +172,12 @@ module RightScale
       @logger.remove(logger)
     end
 
-    # Set whether syslog should be used.
-    # If true then use standard Nanite logger instead.
+    # Set whether syslog should be used or to log to a nanite-specific file.
     # This should be called before anything else.
     #
     # === Parameters
-    # val<Boolean>:: Whether syslog should be used (false) or the
-    #                standard nanite logger (true)
+    # val<Boolean>:: Whether syslog should be used (false) or
+    #                a nanite-specific log file (true)
     #
     # === Raise
     # RuntimeError:: If logger is already initialized

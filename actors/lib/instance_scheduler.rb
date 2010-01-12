@@ -22,7 +22,7 @@
 
 class InstanceScheduler
 
-  include Nanite::Actor
+  include RightScale::Actor
 
   expose :schedule_bundle, :execute
 
@@ -30,7 +30,7 @@ class InstanceScheduler
   # Start worker thread for processing executable bundles
   #
   # === Parameters
-  # agent<Nanite::Agent>:: Host agent
+  # agent<RightScale::Agent>:: Host agent
   def initialize(agent)
     @scheduled_bundles = Queue.new
     @decommissioning   = false

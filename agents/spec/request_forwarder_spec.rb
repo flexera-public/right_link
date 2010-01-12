@@ -13,7 +13,7 @@ describe RightScale::RequestForwarder do
     RightScale::RequestForwarder.instance_variable_set(:@vote_timer, nil)
     RightScale::RequestForwarder.instance_variable_set(:@vote_count, nil)
     @mapper_proxy = flexmock('MapperProxy')
-    flexmock(Nanite::MapperProxy).should_receive(:instance).and_return(@mapper_proxy)
+    flexmock(RightScale::MapperProxy).should_receive(:instance).and_return(@mapper_proxy)
   end
 
   it 'should forward requests' do

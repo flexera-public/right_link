@@ -45,7 +45,7 @@ require File.join(File.dirname(__FILE__), 'rdoc_patch')
 require File.join(File.dirname(__FILE__), '..', '..', 'config', 'right_link_config')
 require File.join(File.dirname(__FILE__), 'agent_utils')
 require File.join(File.dirname(__FILE__), 'common_parser')
-require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'lib', 'nanite', 'lib', 'nanite'))
+require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'agents', 'lib', 'common_lib'))
 
 module RightScale
 
@@ -110,7 +110,7 @@ module RightScale
       puts "  - config: #{conf_file}"
         
       if options[:monit]
-        pid_file = Nanite::PidFile.new("#{options[:pid_prefix]}-#{cfg[:identity]}", :pid_dir => cfg[:pid_dir])
+        pid_file = PidFile.new("#{options[:pid_prefix]}-#{cfg[:identity]}", :pid_dir => cfg[:pid_dir])
         if File.exists?("/etc/monit.d") 
           monit_config_file = File.join("/etc/monit.d", "#{options[:agent]}-#{options[:identity]}-monit.conf")
         else

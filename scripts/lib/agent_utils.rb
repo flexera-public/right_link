@@ -1,6 +1,7 @@
 # Helper methods used by scripts
 # require and include the RightScale::Utils module
 module RightScale
+
   module Utils
 
     # Path to RightLink root directory
@@ -51,8 +52,8 @@ module RightScale
       if File.readable?(cfg)
         options = symbolize(YAML.load(IO.read(cfg))) rescue nil
         if options
-          agent = Nanite::Agent.new(options)
-          res = Nanite::PidFile.new(agent.identity, agent.options)
+          agent = Agent.new(options)
+          res = PidFile.new(agent.identity, agent.options)
         end
       end
       res
@@ -60,8 +61,8 @@ module RightScale
 
     # Retrieve agent pid file from agent id and launch options
     def agent_pid_file_from_id(options, id)
-      agent = Nanite::Agent.new(options.merge(:agent_identity => id))
-      Nanite::PidFile.new(agent.identity, agent.options)
+      agent = Agent.new(options.merge(:agent_identity => id))
+      PidFile.new(agent.identity, agent.options)
     end
         
     # Produces a hash with keys as symbols from given hash
