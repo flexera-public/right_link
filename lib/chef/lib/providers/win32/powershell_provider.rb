@@ -21,8 +21,7 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 require 'fileutils'
-
-require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', '..', '..', 'right_popen', 'lib', 'right_popen'))
+require 'right_popen'  # now an intalled gem
 
 class Chef
 

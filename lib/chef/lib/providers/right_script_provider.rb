@@ -25,9 +25,7 @@
 # sudo gem install chef ohai
 
 require 'fileutils'
-
-BASE_DIR = File.expand_path(File.join(File.dirname(__FILE__), '..', '..', '..'))
-require File.join(BASE_DIR, 'right_popen', 'lib', 'right_popen')
+require 'right_popen'  # now an intalled gem
 
 class Chef
 

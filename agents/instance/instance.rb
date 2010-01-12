@@ -33,7 +33,7 @@ require File.join(BASE_DIR, 'lib', 'chef', 'lib', 'plugins')
 require File.join(BASE_DIR, 'lib', 'command_protocol', 'lib', 'command_protocol')
 require File.join(BASE_DIR, 'lib', 'payload_types', 'lib', 'payload_types')
 require File.join(BASE_DIR, 'lib', 'repo_conf_generators', 'lib', 'repo_conf_generators')
-require File.join(BASE_DIR, 'lib', 'right_popen', 'lib', 'right_popen')
+require 'right_popen'  # now an intalled gem
 
 RightScale::SecureSerializerInitializer.init(options[:agent] || 'instance', options[:identity], RightScale::RightLinkConfig[:certs_dir])
 
