@@ -304,8 +304,8 @@ module RightScale
       if node
         ChefState.merge_attributes(node.attribute)
         patch = ChefState.create_patch(@inputs, ChefState.attributes)
-        # We don't want to send back new top level attributes (ohai etc.)
-        patch[:right_only].delete_if { |k, _| !@inputs.include?(k) }
+        # We don't want to send back new attributes (ohai etc.)
+        patch[:right_only] = {}
         @inputs_patch = patch
       else
         @inputs_patch = ChefState.empty_patch
