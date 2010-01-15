@@ -1,4 +1,4 @@
-require File.join(File.dirname(__FILE__), 'spec_helper')
+require File.join(File.dirname(__FILE__), '..', '..', 'spec', 'spec_helper')
 
 class TestPacket < RightScale::Packet
   @@cls_attr = "ignore"

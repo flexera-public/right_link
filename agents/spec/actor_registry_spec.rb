@@ -1,4 +1,4 @@
-require File.join(File.dirname(__FILE__), 'spec_helper')
+require File.join(File.dirname(__FILE__), '..', '..', 'spec', 'spec_helper')
 
 describe RightScale::ActorRegistry do
   
@@ -47,7 +47,7 @@ describe RightScale::ActorRegistry do
 
   it "should log info message that actor was registered" do
     importer = WebDocumentImporter.new
-    RightScale::RightLinkLog.should_receive(:info).with("[actor] #{importer.class.to_s}")
+    flexmock(RightScale::RightLinkLog).should_receive(:info).with("[actor] #{importer.class.to_s}")
     @registry.register(importer, nil)
   end
 

@@ -1,4 +1,4 @@
-require File.join(File.dirname(__FILE__), 'spec_helper')
+require File.join(File.dirname(__FILE__), '..', '..', 'spec', 'spec_helper')
 
 describe String do
 
@@ -42,7 +42,7 @@ describe String do
 
     it "should snake-case the string" do
       str = "hello"
-      str.should_receive(:snake_case).and_return("snake-cased hello")
+      flexmock(str).should_receive(:snake_case).and_return("snake-cased hello")
       str.to_const_path
     end
 

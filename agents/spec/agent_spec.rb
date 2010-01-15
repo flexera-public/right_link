@@ -1,14 +1,14 @@
-require File.join(File.dirname(__FILE__), 'spec_helper')
+require File.join(File.dirname(__FILE__), '..', '..', 'spec', 'spec_helper')
 
 describe RightScale::Agent do
 
   describe "Default Option" do
 
     before(:all) do
-      EM.stub!(:add_periodic_timer)
-      AMQP.stub!(:connect)
-      @amq = mock("AMQueue", :queue => mock("queue", :subscribe => {}), :fanout => mock("fanout", :publish => nil))
-      MQ.stub!(:new).and_return(@amq)
+      flexmock(EM).should_receive(:add_periodic_timer)
+      flexmock(AMQP).should_receive(:connect)
+      @amq = flexmock("AMQueue", :queue => flexmock("queue", :subscribe => {}), :fanout => flexmock("fanout", :publish => nil))
+      flexmock(MQ).should_receive(:new).and_return(@amq)
       @agent = RightScale::Agent.start
     end
 
@@ -90,10 +90,10 @@ describe RightScale::Agent do
   describe "Passed in Options" do
 
     before(:each) do
-      EM.stub!(:add_periodic_timer)
-      AMQP.stub!(:connect)
-      @amq = mock("AMQueue", :queue => mock("queue", :subscribe => {}), :fanout => mock("fanout", :publish => nil))
-      MQ.stub!(:new).and_return(@amq)
+      flexmock(EM).should_receive(:add_periodic_timer)
+      flexmock(AMQP).should_receive(:connect)
+      @amq = flexmock("AMQueue", :queue => flexmock("queue", :subscribe => {}), :fanout => flexmock("fanout", :publish => nil))
+      flexmock(MQ).should_receive(:new).and_return(@amq)
     end
 
     # TODO figure out how to stub call to daemonize
@@ -197,10 +197,10 @@ describe RightScale::Agent do
   describe "Security" do
 
     before(:each) do
-      EM.stub!(:add_periodic_timer)
-      AMQP.stub!(:connect)
-      @amq = mock("AMQueue", :queue => mock("queue", :subscribe => {}, :publish => {}), :fanout => mock("fanout", :publish => nil))
-      MQ.stub!(:new).and_return(@amq)
+      flexmock(EM).should_receive(:add_periodic_timer)
+      flexmock(AMQP).should_receive(:connect)
+      @amq = flexmock("AMQueue", :queue => flexmock("queue", :subscribe => {}, :publish => {}), :fanout => flexmock("fanout", :publish => nil))
+      flexmock(MQ).should_receive(:new).and_return(@amq)
       serializer = RightScale::Serializer.new
       @request = RightScale::RequestPacket.new('/foo/bar', '')
       @push = RightScale::PushPacket.new('/foo/bar', '')
@@ -208,29 +208,27 @@ describe RightScale::Agent do
     end
     
     it 'should correctly deny requests' do
-      security = mock("Security")
+      security = flexmock("Security")
       @agent.register_security(security)
       
       security.should_receive(:authorize).twice.and_return(false)
-      @agent.dispatcher.should_not_receive(:dispatch)
+      flexmock(@agent.dispatcher).should_receive(:dispatch).never
       @agent.__send__(:receive, @request)
       @agent.__send__(:receive, @push)
     end
 
     it 'should correctly authorize requests' do
-      security = mock("Security")
+      security = flexmock("Security")
       @agent.register_security(security)
       
       security.should_receive(:authorize).twice.and_return(true)
-      @agent.dispatcher.stub!(:dispatch)
-      @agent.dispatcher.should_receive(:dispatch).twice
+      flexmock(@agent.dispatcher).should_receive(:dispatch).twice
       @agent.__send__(:receive, @request)
       @agent.__send__(:receive, @push)
     end
 
     it 'should be ignored when not specified' do
-      @agent.dispatcher.stub!(:dispatch)
-      @agent.dispatcher.should_receive(:dispatch).twice
+      flexmock(@agent.dispatcher).should_receive(:dispatch).twice
       @agent.__send__(:receive, @request)
       @agent.__send__(:receive, @push)
     end    

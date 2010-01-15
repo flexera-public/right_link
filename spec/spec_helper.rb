@@ -97,8 +97,30 @@ module RightScale
     def cleanup_script_execution
       FileUtils.rm_rf(RightScale::InstanceConfiguration::CACHE_PATH)
     end
-  end
-end
+
+    # Create test certificate
+    def issue_cert
+      test_dn = { 'C'  => 'US',
+                  'ST' => 'California',
+                  'L'  => 'Santa Barbara',
+                  'O'  => 'Nanite',
+                  'OU' => 'Certification Services',
+                  'CN' => 'Nanite test' }
+      dn = RightScale::DistinguishedName.new(test_dn)
+      key = RightScale::RsaKeyPair.new
+      [ RightScale::Certificate.new(key, dn, dn), key ]
+    end
+
+    def run_in_em(stop_event_loop = true)
+      EM.run do
+        yield
+        EM.stop_event_loop if stop_event_loop
+      end
+    end
+
+  end # SpecHelpers
+
+end # RightScale
 
 require File.expand_path(File.join(__FILE__, '..', '..', 'agents', 'lib', 'common', 'right_link_log'))
 module RightScale

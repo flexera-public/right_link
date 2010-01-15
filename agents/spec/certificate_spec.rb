@@ -1,8 +1,8 @@
-require File.join(File.dirname(__FILE__), 'spec_helper')
+require File.join(File.dirname(__FILE__), '..', '..', 'spec', 'spec_helper')
 
 describe RightScale::Certificate do
   
-  include SpecHelpers
+  include RightScale::SpecHelpers
 
   before(:all) do
     @certificate, key = issue_cert

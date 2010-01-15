@@ -1,13 +1,13 @@
-require File.join(File.dirname(__FILE__), 'spec_helper')
+require File.join(File.dirname(__FILE__), '..', '..', 'spec', 'spec_helper')
 
 describe RightScale::CachedCertificateStoreProxy do
   
-  include SpecHelpers
+  include RightScale::SpecHelpers
 
   before(:all) do
     @signer, key = issue_cert
     @recipient, key = issue_cert
-    @store = mock("Store")
+    @store = flexmock("Store")
     @proxy = RightScale::CachedCertificateStoreProxy.new(@store)
   end
 

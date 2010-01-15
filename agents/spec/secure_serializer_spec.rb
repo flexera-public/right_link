@@ -1,4 +1,4 @@
-require File.join(File.dirname(__FILE__), 'spec_helper')
+require File.join(File.dirname(__FILE__), '..', '..', 'spec', 'spec_helper')
 
 module RightScale
   
@@ -13,7 +13,7 @@ end
 
 describe RightScale::SecureSerializer do
   
-  include SpecHelpers
+  include RightScale::SpecHelpers
 
   before(:all) do
     @certificate, @key = issue_cert

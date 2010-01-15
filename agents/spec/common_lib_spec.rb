@@ -1,4 +1,4 @@
-require File.join(File.dirname(__FILE__), 'spec_helper')
+require File.join(File.dirname(__FILE__), '..', '..', 'spec', 'spec_helper')
 
 describe "common_lib" do
 
@@ -7,7 +7,7 @@ describe "common_lib" do
     describe "with a configured mapper proxy" do
       before(:each) do
         RightScale.instance_variable_set(:@mapper_proxy, nil)
-        RightScale::MapperProxy.stub!(:instance).and_return(mock(:mapper_proxy))
+        flexmock(RightScale::MapperProxy).should_receive(:instance).and_return(flexmock(:mapper_proxy))
       end
       
       it "should not raise an error" do
@@ -25,7 +25,7 @@ describe "common_lib" do
     describe "when the mapper proxy wasn't created yet" do
       before do
         RightScale.instance_variable_set(:@mapper_proxy, nil)
-        RightScale::MapperProxy.stub!(:instance).and_return(nil)
+        flexmock(RightScale::MapperProxy).should_receive(:instance).and_return(nil)
       end
       
       it "should raise an error" do

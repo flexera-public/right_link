@@ -1,4 +1,4 @@
-require File.join(File.dirname(__FILE__), 'spec_helper')
+require File.join(File.dirname(__FILE__), '..', '..', 'spec', 'spec_helper')
 
 describe RightScale::MapperProxy do
   describe "when fetching the instance" do
@@ -15,7 +15,7 @@ describe RightScale::MapperProxy do
     end
     
     it "should return the instance if defined" do
-      instance = mock
+      instance = flexmock
       RightScale::MapperProxy.class_eval do
         @@instance = "instance"
       end
@@ -26,17 +26,17 @@ describe RightScale::MapperProxy do
   
   describe "when requesting a message" do
     before do
-      AMQP.stub!(:connect)
-      MQ.stub!(:new)
+      flexmock(AMQP).should_receive(:connect)
+      @fanout = flexmock("fanout", :publish => true)
+      @amq = flexmock("AMQueue", :queue => flexmock("queue", :subscribe => {}), :fanout => @fanout)
+      flexmock(MQ).should_receive(:new).and_return(@amq)
       RightScale::MapperProxy.new('mapperproxy', {})
       @instance = RightScale::MapperProxy.instance
-      @fanout = stub(:fanout, :publish => true)
-      @instance.amqp.stub!(:fanout).and_return(@fanout)
     end
     
     it "should raise an error if mapper proxy is not initialized" do
       lambda {
-        @instance.stub!(:identity).and_return nil
+        flexmock(@instance).should_receive(:identity).and_return nil
         @instance.request('/welcome/aboard', 'iZac'){|response|}
       }.should raise_error("Mapper proxy not initialized")
     end
@@ -91,8 +91,8 @@ describe RightScale::MapperProxy do
 
     it "should store the result handler" do
       result_handler = lambda {}
-      RightScale::AgentIdentity.stub!(:generate).and_return('abc')
-      @fanout.stub!(:fanout)
+      flexmock(RightScale::AgentIdentity).should_receive(:generate).and_return('abc')
+      flexmock(@fanout).should_receive(:fanout)
       
       @instance.request('/welcome/aboard', 'iZac',{}, &result_handler)
       
@@ -102,17 +102,17 @@ describe RightScale::MapperProxy do
 
   describe "when pushing a message" do
     before do
-      AMQP.stub!(:connect)
-      MQ.stub!(:new)
+      flexmock(AMQP).should_receive(:connect)
+      @fanout = flexmock("fanout", :publish => true)
+      @amq = flexmock("AMQueue", :queue => flexmock("queue", :subscribe => {}), :fanout => @fanout)
+      flexmock(MQ).should_receive(:new).and_return(@amq)
       RightScale::MapperProxy.new('mapperproxy', {})
       @instance = RightScale::MapperProxy.instance
-      @fanout = stub(:fanout, :publish => true)
-      @instance.amqp.stub!(:fanout).and_return(@fanout)
     end
     
     it "should raise an error if mapper proxy is not initialized" do
       lambda {
-        @instance.stub!(:identity).and_return nil
+        flexmock(@instance).should_receive(:identity).and_return nil
         @instance.push('/welcome/aboard', 'iZac')
       }.should raise_error("Mapper proxy not initialized")
     end

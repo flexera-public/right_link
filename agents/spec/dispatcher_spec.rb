@@ -1,4 +1,4 @@
-require File.join(File.dirname(__FILE__), 'spec_helper')
+require File.join(File.dirname(__FILE__), '..', '..', 'spec', 'spec_helper')
 
 class Foo
   include RightScale::Actor
@@ -58,9 +58,9 @@ end
 describe "RightScale::Dispatcher" do
 
   before(:each) do
-    RightScale::RightLinkLog.stub!(:info)
-    RightScale::RightLinkLog.stub!(:error)
-    amq = mock('amq', :queue => mock('queue', :publish => nil))
+    flexmock(RightScale::RightLinkLog).should_receive(:info)
+    flexmock(RightScale::RightLinkLog).should_receive(:error)
+    amq = flexmock('amq', :queue => flexmock('queue', :publish => nil))
     @actor = Foo.new
     @registry = RightScale::ActorRegistry.new
     @registry.register(@actor, nil)
@@ -103,7 +103,7 @@ describe "RightScale::Dispatcher" do
 
   it "should call the on_exception callback if something goes wrong" do
     req = RightScale::RequestPacket.new('/foo/i_kill_you', nil)
-    @actor.should_receive(:handle_exception).with(:i_kill_you, req, duck_type(:exception, :backtrace))
+    flexmock(@actor).should_receive(:handle_exception).with(:i_kill_you, req, Exception)
     @dispatcher.dispatch(req)
   end
 

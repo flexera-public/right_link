@@ -1,8 +1,8 @@
-require File.join(File.dirname(__FILE__), 'spec_helper')
+require File.join(File.dirname(__FILE__), '..', '..', 'spec', 'spec_helper')
 
 describe RightScale::StaticCertificateStore do
   
-  include SpecHelpers
+  include RightScale::SpecHelpers
 
   before(:all) do
     @signer, key = issue_cert
