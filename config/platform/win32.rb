@@ -122,22 +122,27 @@ module RightScale
           return nil
         end
 
+        # RightScale state directory for the current platform
         def right_scale_state_dir
           return pretty_path(File.join(Dir::COMMON_APPDATA, 'RightScale', 'rightscale.d'))
         end
 
+        # Spool directory for the current platform
         def spool_dir
           return pretty_path(File.join(Dir::COMMON_APPDATA, 'RightScale', 'spool'))
         end
 
+        # Cache directory for the current platform
         def cache_dir
           return pretty_path(File.join(Dir::COMMON_APPDATA, 'RightScale', 'cache'))
         end
 
+        # Log directory for the current platform
         def log_dir
           return pretty_path(File.join(Dir::COMMON_APPDATA, 'RightScale', 'log'))
         end
 
+        # Temp directory for the current platform
         def temp_dir
           if @temp_dir.nil?
             @@get_temp_dir_api = Windows::API.new('GetTempPath', 'LP', 'L') unless @@get_temp_dir_api
@@ -149,6 +154,11 @@ module RightScale
           @temp_dir = File.join(Dir::WINDOWS, "temp")
         ensure
           return @temp_dir
+        end
+
+        # System root path
+        def system_root
+          return pretty_path(ENV['SystemRoot'])
         end
 
         # converts a long path to a short path. in windows terms, this means
@@ -208,13 +218,26 @@ module RightScale
         end
       end
 
+      # Provides utilities for formatting executable shell commands, etc.
       class Shell
 
+        POWERSHELL_V1x0_EXECUTABLE_PATH = "powershell.exe"
         POWERSHELL_V1x0_SCRIPT_EXTENSION = ".ps1"
         NULL_OUTPUT_NAME = "nul"
 
         @@executable_extensions = nil
 
+        # Formats a script file name to ensure it is executable on the current
+        # platform.
+        #
+        # === Parameters
+        # partial_script_file_path(String):: full or partial script file path
+        #
+        # default_extension(String):: default script extension for platforms
+        # which require a known file extension to execute.
+        #
+        # === Returns
+        # executable_script_file_path(String):: executable path
         def format_script_file_name(partial_script_file_path, default_extension = POWERSHELL_V1x0_SCRIPT_EXTENSION)
           extension = File.extname(partial_script_file_path)
           if 0 == extension.length
@@ -239,6 +262,16 @@ module RightScale
           return partial_script_file_path + default_extension
         end
 
+        # Formats an executable command by quoting any of the arguments as
+        # needed and building an executable command string.
+        #
+        # === Parameters
+        # executable_file_path(String):: full or partial executable file path
+        #
+        # arguments(Array):: variable stringizable arguments
+        #
+        # === Returns
+        # executable_command(String):: executable command string
         def format_executable_command(executable_file_path, *arguments)
           escaped = []
           [executable_file_path, arguments].flatten.each do |arg|
@@ -248,37 +281,80 @@ module RightScale
           return escaped.join(" ")
         end
 
+        # Formats a powershell command using the given script path and arguments.
+        # Allows for specifying powershell from a specific installed location.
+        # This method is only implemented for Windows.
+        #
+        # === Parameters
+        # shell_script_file_path(String):: shell script file path
+        # arguments(Array):: variable stringizable arguments
+        #
+        # === Returns
+        # executable_command(string):: executable command string
+        def format_powershell_command(shell_script_file_path, *arguments)
+          # special case for powershell scripts.
+          escaped = []
+          [shell_script_file_path, arguments].flatten.each do |arg|
+            value = arg.to_s
+            escaped << (value.index(' ') ? "'#{value.gsub("'", "''")}'" : value)
+          end
+
+          # execute powershell with Unrestricted execution policy. the issue
+          # is that powershell by default will only run digitally-signed
+          # scripts.
+          #
+          # FIX: support digitally signed scripts and/or signing on the fly by
+          # checking for a signature file side-by-side with script.
+          powershell_command = "&{set-executionpolicy -executionPolicy Unrestricted; &#{escaped.join(" ")}; set-executionPolicy Default; exit $LastExitCode}"
+          return format_executable_command(POWERSHELL_V1x0_EXECUTABLE_PATH, "-command", powershell_command)
+        end
+
+        # Formats a shell command using the given script path and arguments.
+        #
+        # === Parameters
+        # shell_script_file_path(String):: shell script file path
+        # arguments(Array):: variable stringizable arguments
+        #
+        # === Returns
+        # executable_command(string):: executable command string
         def format_shell_command(shell_script_file_path, *arguments)
           # special case for powershell scripts.
           extension = File.extname(shell_script_file_path)
           if extension && 0 == POWERSHELL_V1x0_SCRIPT_EXTENSION.casecmp(extension)
-            escaped = []
-            [shell_script_file_path, arguments].flatten.each do |arg|
-              value = arg.to_s
-              escaped << (value.index(' ') ? "'#{value.gsub("'", "''")}'" : value)
-            end
-
-            # execute powershell with Unrestricted execution policy. the issue
-            # is that powershell by default will only run digitally-signed
-            # scripts.
-            #
-            # FIX: support digitally signed scripts and/or signing on the fly.
-            powershell_command = "&{set-executionpolicy -executionPolicy Unrestricted; &#{escaped.join(" ")}; set-executionPolicy Default; exit $LastExitCode}"
-            return format_executable_command("powershell.exe", "-command", powershell_command)
+            return format_powershell_command(shell_script_file_path, *arguments)
           end
 
           # execution is based on script extension (.bat, .cmd, .js, .vbs, etc.)
-          return format_executable_command(shell_script_file_path, arguments)
+          return format_executable_command(shell_script_file_path, *arguments)
         end
 
+        # Formats a command string to redirect stdout to the given target.
+        #
+        # === Parameters
+        # cmd(String):: executable command string
+        #
+        # target(String):: target file (optional, defaults to nul redirection)
         def format_redirect_stdout(cmd, target = NULL_OUTPUT_NAME)
           return cmd + " 1>#{target}"
         end
 
+        # Formats a command string to redirect stderr to the given target.
+        #
+        # === Parameters
+        # cmd(String):: executable command string
+        #
+        # target(String):: target file (optional, defaults to nul redirection)
         def format_redirect_stderr(cmd, target = NULL_OUTPUT_NAME)
           return cmd + " 2>#{target}"
         end
 
+        # Formats a command string to redirect both stdout and stderr to the
+        # given target.
+        #
+        # === Parameters
+        # cmd(String):: executable command string
+        #
+        # target(String):: target file (optional, defaults to nul redirection)
         def format_redirect_both(cmd, target = NULL_OUTPUT_NAME)
           return cmd + " 1>#{target} 2>&1"
         end

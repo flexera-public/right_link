@@ -50,6 +50,9 @@ class Chef
         @cache_dir = ::File.join(DEFAULT_CACHE_DIR_ROOT, Nanite::Identity.generate)
         @audit_id = 0
         @parameters = {}
+        @source = nil
+        @source_path = nil
+        @require_32_bit_powershell = false
         @action = :run
         @allowed_actions.push(:run)
       end
@@ -63,10 +66,19 @@ class Chef
         )
       end
 
-      # <String> Powershell source code
+      # <String> text of Powershell source code if inline
       def source(arg=nil)
         set_or_return(
           :source,
+          arg,
+          :kind_of => [ String ]
+        )
+      end
+
+      # <String> local path for external Powershell source file if not inline
+      def source_path(arg=nil)
+        set_or_return(
+          :source_path,
           arg,
           :kind_of => [ String ]
         )

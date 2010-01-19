@@ -5,8 +5,9 @@
 == Synopsis
 
 RightLink automates servers configuration and monitoring. It uses Nanite[1] as
-message bus and relies on Chef[2] for configuring. Servers running the
-RightLink agent configures themselves on startup an register with the Nanite
+message bus and relies on Chef[2] for configuring. RightLink uses RightPopen[3]
+to monitor the stdout and stderr streams of scripted processes. Servers running
+the RightLink agent configures themselves on startup an register with the Nanite
 mapper so that operational recipes and scripts can be run at a later time.
 
 Refer to the wiki (https://github.com/rightscale/right_link/wikis) for up-to-date
@@ -103,8 +104,9 @@ future.
 
 = ADDITIONAL RESOURCES
 
-* [1] nanite is http://github.com/ezmobius/nanite/tree/master
+* [1] Nanite is http://github.com/ezmobius/nanite/tree/master
 * [2] Chef is http://wiki.opscode.com/display/chef/Home
+* [3] RightPopen is http://gemcutter.org/gems/right-popen
 
 = LICENSE
 

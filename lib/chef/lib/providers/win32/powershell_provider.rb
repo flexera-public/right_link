@@ -48,19 +48,25 @@ class Chef
       # === Raise
       # RightScale::Exceptions::Exec:: Invalid process exit status
       def action_run
-        @nickname       = @new_resource.name
-        @auditor        = create_auditor_proxy
-        @run_started_at = Time.now
-        source          = @new_resource.source
-        parameters      = @new_resource.parameters
-        cache_dir       = @new_resource.cache_dir
-        current_state   = instance_state
+        @nickname        = @new_resource.name
+        @auditor         = create_auditor_proxy
+        @run_started_at  = Time.now
+        source           = @new_resource.source
+        script_file_path = @new_resource.source_path
+        parameters       = @new_resource.parameters
+        cache_dir        = @new_resource.cache_dir
+        current_state    = instance_state
 
-        # 1. Write script source into file
-        FileUtils.mkdir_p(cache_dir)
-        script_file_path = ::File.join(cache_dir, "powershell_provider_source.ps1")
-        ::File.open(script_file_path, "w") { |f| f.write(source) }
-        ::File.chmod(0644, script_file_path)
+        # 1. Write script source into file, if necessary.
+        if script_file_path
+          raise "Missing script file \"#{script_file_path}\"" unless ::File.file?(script_file_path)
+          created_script_file = false
+        else
+          FileUtils.mkdir_p(cache_dir)
+          script_file_path = ::File.join(cache_dir, "powershell_provider_source.ps1")
+          ::File.open(script_file_path, "w") { |f| f.write(source) }
+          created_script_file = true
+        end
 
         begin
           # 2. Setup audit and environment.
@@ -88,7 +94,7 @@ class Chef
           end
         ensure
           # attempt to cleanup temporary script.
-          File.delete(script_file_path) rescue nil
+          (File.delete(script_file_path) rescue nil) if created_script_file
         end
 
         true
@@ -104,6 +110,14 @@ class Chef
         RightScale::InstanceState
       end
 
+      # Runs the given powershell script, optionally requiring the 32-bit version
+      # of powershell on 64-bit systems.
+      #
+      # === Parameters
+      # script_file_path(String):: powershell script file path
+      #
+      # == Returns
+      # status(String):: result of running script
       def run_script_file(script_file_path)
         platform      = RightScale::RightLinkConfig[:platform]
         shell         = platform.shell
@@ -111,7 +125,7 @@ class Chef
         @exited_event = ConditionVariable.new
         @status       = nil
         @mutex.synchronize do
-          cmd = shell.format_shell_command(script_file_path)
+          cmd = shell.format_powershell_command(script_file_path)
           RightScale.popen3(cmd, self, :on_read_stdout, :on_read_stderr, :on_exit)
           @exited_event.wait(@mutex)
         end
