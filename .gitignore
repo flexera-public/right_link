@@ -1,5 +1,6 @@
 .idea
 tags
 .DS_Store
+#TODO figure out why the tests don't clean up after themselves
+agents/spec/config.yml
 config.yml
-lib/nanite/config.yml
