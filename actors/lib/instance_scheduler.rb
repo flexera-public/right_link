@@ -145,7 +145,11 @@ class InstanceScheduler
     bundle = @scheduled_bundles.shift
     if bundle != 'end'
       sequence = RightScale::ExecutableSequence.new(bundle)
-      sequence.callback { EM.defer { run_bundles } }
+      sequence.callback do
+        RightScale::RequestForwarder.push('/updater/update_inputs', { :agent_identity => @agent_identity,
+                                                                      :patch          => sequence.inputs_patch })
+        EM.defer { run_bundles }
+      end
       sequence.errback  { EM.defer { run_bundles } }
       sequence.run
     else

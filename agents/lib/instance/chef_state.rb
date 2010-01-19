@@ -34,7 +34,7 @@ module RightScale
     # Load chef state from file
     #
     # === Parameters
-    # reset<TrueClass|FalseClass>:: Discard persisted state if true, load it otherwise
+    # reset(TrueClass|FalseClass):: Discard persisted state if true, load it otherwise
     #
     # === Return
     # true:: Always return true
@@ -64,7 +64,7 @@ module RightScale
     # Current run list
     #
     # === Return
-    # run_list<Array>:: List of recipes making up run list
+    # run_list(Array):: List of recipes making up run list
     def self.run_list
       init unless defined? @@value
       run_list = @@value['run_list']
@@ -73,7 +73,7 @@ module RightScale
     # Current node attributes
     #
     # === Return
-    # attributes<Hash>:: Current node attributes
+    # attributes(Hash):: Current node attributes
     def self.attributes
       init unless defined? @@value
       attributes = @@value['attributes']
@@ -85,7 +85,7 @@ module RightScale
     # assign the value nil to it.
     #
     # === Parameters
-    # run_list<Array>:: List of recipes making up the run list
+    # run_list(Array):: List of recipes making up the run list
     #
     # === Return
     # true:: Always return true
@@ -101,7 +101,7 @@ module RightScale
     # assign the value nil to them.
     #
     # === Parameters
-    # attributes<Hash>:: Node attributes
+    # attributes(Hash):: Node attributes
     #
     # === Return
     # true:: Always return true
@@ -114,41 +114,48 @@ module RightScale
     # Append given run list to current run list
     #
     # === Parameters
-    # recipe<String>:: Recipe to be added
+    # recipe(String):: Recipe to be added
     #
     # === Return
     # true:: Always return true
     def self.merge_run_list(list)
-      rl = run_list
-      list.each { |r| rl << r unless rl.include?(r) }
-      self.run_list = rl
+      self.run_list = merge_run_lists!(run_list, list) if list
       true
     end
 
     # Merge given attributes into node attributes
     #
     # === Parameters
-    # attribs<Hash>:: Attributes to be merged
+    # attribs(Hash):: Attributes to be merged
     #
     # === Return
     # true:: Always return true
     def self.merge_attributes(attribs)
-      if attribs
-        a = attributes
-        deep_merge!(a, attribs)
-        self.attributes = a
-      end
+      self.attributes = deep_merge!(attributes, attribs) if attribs
       true
+    end
+
+    # Merge two run list
+    #
+    # === Parameters
+    # first(Array):: Run list that should be merged into
+    # second(Array):: Merged in run list
+    #
+    # === Return
+    # first(Array):: Merged run list
+    def self.merge_run_lists!(first, second)
+      second.each { |r| first << r unless first.include?(r) }
+      first
     end
 
     # Perform a deep merge between given hashes
     #
     # === Parameters
-    # first<Hash>:: Hash to be merged into (modifies it)
-    # second<Hash>:: Merged in hash
+    # first(Hash):: Hash to be merged into (modifies it)
+    # second(Hash):: Merged in hash
     #
     # === Return
-    # first<Hash>:: Merged hash
+    # first(Hash):: Merged hash
     def self.deep_merge!(first, second)
       second.each do |k, v|
         if hash?(first[k]) && hash?(v)
@@ -168,11 +175,11 @@ module RightScale
     #   - :right_only:: Hash composed of items only found in right hash
     #
     # === Parameters
-    # left<Hash>:: Diff left side
-    # right<Hash>:: Diff right side
+    # left(Hash):: Diff left side
+    # right(Hash):: Diff right side
     #
     # === Return
-    # res<Hash>:: Resulting diff hash
+    # res(Hash):: Resulting diff hash
     def self.create_patch(left, right)
       res = empty_patch
       right.each do |k, v|
@@ -196,7 +203,7 @@ module RightScale
     # Empty patch factory
     #
     # === Return
-    # p<Hash>:: Empty patch hash
+    # p(Hash):: Empty patch hash
     def self.empty_patch
       p = { :diff => {}, :left_only => {}, :right_only => {} }
     end
@@ -208,13 +215,13 @@ module RightScale
     # get overwritten with right side of patch
     #
     # === Parameters
-    # target<Hash>:: Target hash that patch will be applied to
-    # patch<Hash>:: Patch to be applied
+    # target(Hash):: Target hash that patch will be applied to
+    # patch(Hash):: Patch to be applied
     #
     # === Return
-    # res<Hash>:: Result of 3-way merge
+    # res(Hash):: Result of 3-way merge
     def self.apply_patch(target, patch)
-      res = target.dup
+      res = deep_dup(target)
       deep_remove!(res, patch[:left_only])
       deep_merge!(res, patch[:right_only])
       apply_diff!(res, patch[:diff])
@@ -236,14 +243,34 @@ module RightScale
 
     protected
 
+    # Deep copy of given hash
+    # Hash values should be strings, arrays or hashes
+    #
+    # === Parameters
+    # hash(Hash|Mash):: Hash to be deeply copied
+    #
+    # === Return
+    # res(Hash):: Deep copy
+    def self.deep_dup(target)
+      res = {}
+      target.each do |k, v|
+        if hash?(v)
+          res[k] = deep_dup(v)
+        else
+          res[k] = (v.duplicable? ? v.dup : v)
+        end
+      end
+      res
+    end
+
     # Remove recursively values that exist in both remove and target from target
     #
     # === Parameters
-    # target<Hash>:: Hash to remove values from
-    # remove<Hash>:: Hash containing values to be removed
+    # target(Hash):: Hash to remove values from
+    # remove(Hash):: Hash containing values to be removed
     #
     # === Return
-    # target<Hash>:: Modified target hash with values from remove hash removed
+    # target(Hash):: Modified target hash with values from remove hash removed
     def self.deep_remove!(target, remove)
       remove.each do |k, v|
         if target.include?(k)
@@ -260,11 +287,11 @@ module RightScale
     # Recursively apply diff component of patch
     #
     # === Parameters
-    # target<Hash>:: Hash that is modified according to given diff
-    # diff<Hash>:: :diff component of patch created via 'create_patch'
+    # target(Hash):: Hash that is modified according to given diff
+    # diff(Hash):: :diff component of patch created via 'create_patch'
     #
     # === Return
-    # target<Hash>:: Modified target hash
+    # target(Hash):: Modified target hash
     def self.apply_diff!(target, diff)
       diff.each do |k, v|
         if v[:left] && v[:right]
@@ -280,7 +307,7 @@ module RightScale
     # Supports Hash and Mash
     #
     # === Parameters
-    # o<Object>:: Object to be tested
+    # o(Object):: Object to be tested
     #
     # === Return
     # true:: If 'o' is a Hash or a Mash

@@ -56,6 +56,10 @@ module RightScale
       @downloader             = Downloader.new
       @prepared_executables   = []
 
+      # We want to always do full-converge, leave the option in case we change our mind
+      persist_run_list = bundle.full_converge
+      bundle.full_converge = true
+
       # Initializes run list for this sequence (partial converge support)
       @run_list = []
       @inputs = {}
@@ -74,11 +78,14 @@ module RightScale
       @attributes = ChefState.attributes
       ChefState.deep_merge!(@attributes, @inputs)
 
-      # Retrieve full run list for full converge
+      # Setup run list
       if bundle.full_converge
-        ChefState.merge_run_list(@run_list)
-        @run_list = ChefState.run_list
+        @run_list = ChefState.merge_run_lists!(ChefState.run_list.dup, @run_list)
       end
+      if persist_run_list
+        ChefState.merge_run_list(@run_list.select { |r| !@right_scripts_cookbook.right_script?(r) })
+      end
+
     end
 
     # Run given executable bundle
