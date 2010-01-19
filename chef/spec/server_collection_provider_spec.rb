@@ -21,8 +21,8 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 require File.join(File.dirname(__FILE__), 'spec_helper')
-require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'agents', 'lib', 'instance', 'request_forwarder'))
-require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'agents', 'lib', 'instance', 'dev_state'))
+require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'agents', 'lib', 'instance', 'request_forwarder'))
+require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'agents', 'lib', 'instance', 'dev_state'))
 require 'thread'
 
 # Need to monkey patch to test, flexmock doens't cut it as we need to

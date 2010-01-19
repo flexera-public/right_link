@@ -25,7 +25,7 @@
 # while still capturing their standard and error outputs.
 # It relies on EventMachine for most of its internal mechanisms.
 
-require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'config', 'right_link_config'))
+require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'config', 'right_link_config'))
 if RightScale::RightLinkConfig[:platform].windows?
   require File.expand_path(File.join(File.dirname(__FILE__), 'win32', 'right_popen'))
 else
