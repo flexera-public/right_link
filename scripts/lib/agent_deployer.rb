@@ -153,7 +153,7 @@ module RightScale
           options[:monit] = true
         end
 
-        opts.on('-P', '--http-proxy') do |proxy|
+        opts.on('-P', '--http-proxy PROXY') do |proxy|
           options[:http_proxy] = proxy
         end
 
