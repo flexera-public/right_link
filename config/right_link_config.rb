@@ -21,7 +21,7 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 require 'mixlib/config'
 require File.join(File.dirname(__FILE__), 'platform')
-require File.expand_path(File.join(File.dirname(__FILE__), '..', 'lib', 'payload_types', 'lib', 'protocol'))
+require File.expand_path(File.join(File.dirname(__FILE__), '..', 'payload_types', 'lib', 'protocol'))
 
 module RightScale
 

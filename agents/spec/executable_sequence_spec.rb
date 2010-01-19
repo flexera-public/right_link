@@ -1,5 +1,5 @@
 require File.join(File.dirname(__FILE__), '..', '..', 'spec', 'spec_helper')
-require File.join(File.dirname(__FILE__), '..', '..', 'lib', 'chef', 'lib', 'plugins')
+require File.join(File.dirname(__FILE__), '..', '..', 'chef', 'lib', 'plugins')
 require 'instance_lib'
 
 describe RightScale::ExecutableSequence do

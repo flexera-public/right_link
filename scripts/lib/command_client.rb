@@ -1,5 +1,5 @@
 
-require File.join(File.dirname(__FILE__), '..', '..', 'lib', 'command_protocol', 'lib', 'command_protocol')
+require File.join(File.dirname(__FILE__), '..', '..', 'command_protocol', 'lib', 'command_protocol')
 require File.join(File.dirname(__FILE__), '..', '..', 'agents', 'lib', 'common_lib')
 
 module RightScale
