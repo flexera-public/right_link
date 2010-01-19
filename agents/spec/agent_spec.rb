@@ -7,7 +7,9 @@ describe RightScale::Agent do
     before(:all) do
       flexmock(EM).should_receive(:add_periodic_timer)
       flexmock(AMQP).should_receive(:connect)
-      @amq = flexmock("AMQueue", :queue => flexmock("queue", :subscribe => {}), :fanout => flexmock("fanout", :publish => nil))
+      @fanout = flexmock("fanout", :publish => nil)
+      @queue = flexmock("queue", :subscribe => {})
+      @amq = flexmock("AMQueue", :queue => @queue, :fanout => @fanout)
       flexmock(MQ).should_receive(:new).and_return(@amq)
       @agent = RightScale::Agent.start
     end
@@ -92,7 +94,9 @@ describe RightScale::Agent do
     before(:each) do
       flexmock(EM).should_receive(:add_periodic_timer)
       flexmock(AMQP).should_receive(:connect)
-      @amq = flexmock("AMQueue", :queue => flexmock("queue", :subscribe => {}), :fanout => flexmock("fanout", :publish => nil))
+      @fanout = flexmock("fanout", :publish => nil)
+      @queue = flexmock("queue", :subscribe => {})
+      @amq = flexmock("AMQueue", :queue => @queue, :fanout => @fanout)
       flexmock(MQ).should_receive(:new).and_return(@amq)
     end
 
@@ -199,7 +203,9 @@ describe RightScale::Agent do
     before(:each) do
       flexmock(EM).should_receive(:add_periodic_timer)
       flexmock(AMQP).should_receive(:connect)
-      @amq = flexmock("AMQueue", :queue => flexmock("queue", :subscribe => {}, :publish => {}), :fanout => flexmock("fanout", :publish => nil))
+      @fanout = flexmock("fanout", :publish => nil)
+      @queue = flexmock("queue", :subscribe => {}, :publish => {})
+      @amq = flexmock("AMQueue", :queue => @queue, :fanout => @fanout)
       flexmock(MQ).should_receive(:new).and_return(@amq)
       serializer = RightScale::Serializer.new
       @request = RightScale::RequestPacket.new('/foo/bar', '')

@@ -24,6 +24,7 @@ $:.push File.join(File.dirname( __FILE__), '..', 'agents', 'lib', 'instance')
 config = Spec::Runner.configuration
 config.mock_with :flexmock
 
+$TESTING = true
 $VERBOSE = nil # Disable constant redefined warning
 
 module RightScale
@@ -109,13 +110,6 @@ module RightScale
       dn = RightScale::DistinguishedName.new(test_dn)
       key = RightScale::RsaKeyPair.new
       [ RightScale::Certificate.new(key, dn, dn), key ]
-    end
-
-    def run_in_em(stop_event_loop = true)
-      EM.run do
-        yield
-        EM.stop_event_loop if stop_event_loop
-      end
     end
 
   end # SpecHelpers

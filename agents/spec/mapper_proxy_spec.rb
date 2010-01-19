@@ -28,7 +28,8 @@ describe RightScale::MapperProxy do
     before do
       flexmock(AMQP).should_receive(:connect)
       @fanout = flexmock("fanout", :publish => true)
-      @amq = flexmock("AMQueue", :queue => flexmock("queue", :subscribe => {}), :fanout => @fanout)
+      @queue = flexmock("queue", :subscribe => {})
+      @amq = flexmock("AMQueue", :queue => @queue, :fanout => @fanout)
       flexmock(MQ).should_receive(:new).and_return(@amq)
       RightScale::MapperProxy.new('mapperproxy', {})
       @instance = RightScale::MapperProxy.instance
@@ -104,7 +105,8 @@ describe RightScale::MapperProxy do
     before do
       flexmock(AMQP).should_receive(:connect)
       @fanout = flexmock("fanout", :publish => true)
-      @amq = flexmock("AMQueue", :queue => flexmock("queue", :subscribe => {}), :fanout => @fanout)
+      @queue = flexmock("queue", :subscribe => {})
+      @amq = flexmock("AMQueue", :queue => @queue, :fanout => @fanout)
       flexmock(MQ).should_receive(:new).and_return(@amq)
       RightScale::MapperProxy.new('mapperproxy', {})
       @instance = RightScale::MapperProxy.instance
