@@ -58,33 +58,3 @@ require File.join(File.dirname(__FILE__), 'common', 'security', 'rsa_key_pair')
 require File.join(File.dirname(__FILE__), 'common', 'security', 'secure_serializer')
 require File.join(File.dirname(__FILE__), 'common', 'security', 'signature')
 require File.join(File.dirname(__FILE__), 'common', 'security', 'static_certificate_store')
-
-module RightScale
-
-  class MapperProxyNotRunning < StandardError; end
-
-  class << self
-    attr_reader :mapper_proxy, :agent
-
-    def start_agent(options = {})
-      @agent = Agent.start(options)
-    end
-
-    def request(*args, &blk)
-      ensure_mapper_proxy
-      @mapper_proxy.request(*args, &blk)
-    end
-
-    def push(*args)
-      ensure_mapper_proxy
-      @mapper_proxy.push(*args)
-    end
-
-    def ensure_mapper_proxy
-      @mapper_proxy ||= MapperProxy.instance
-      unless @mapper_proxy
-        raise MapperProxyNotRunning.new('A MapperProxy needs to be created')
-      end
-    end
-  end
-end
