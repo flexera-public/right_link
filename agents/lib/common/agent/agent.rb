@@ -27,11 +27,12 @@ module RightScale
     include ConsoleHelper
     include DaemonizeHelper
 
-    attr_reader :identity, :options, :serializer, :dispatcher, :registry, :amq, :tags, :callbacks
+    attr_reader :identity, :options, :serializer, :dispatcher, :registry, :amq, :tags, :callbacks, :queue
     attr_accessor :status_proc
 
     DEFAULT_OPTIONS = COMMON_DEFAULT_OPTIONS.merge({
       :user => 'nanite',
+      :queue => false,
       :ping_time => 15,
       :default_services => []
     }) unless defined?(DEFAULT_OPTIONS)
@@ -44,6 +45,8 @@ module RightScale
     # Agent options:
     #
     # identity    : identity of this agent, may be any string
+    #
+    # queue       : name of AMPQ queue to use for input; defaults to identity
     #
     # status_proc : a callable object that returns agent load as a string,
     #               defaults to load averages string extracted from `uptime`
@@ -186,16 +189,24 @@ module RightScale
       if @options[:daemonize]
         @options[:log_path] = (@options[:log_dir] || @options[:root] || Dir.pwd)
       end
+
+      @callbacks = options[:callbacks]
+      @status_proc = options[:status_proc]
       
-      return @identity = "nanite-#{@options[:identity]}" if @options[:identity]
+      # Note the return statement in case of identity being known;
+      # ensure all needed configurations occur before that line.
+      if @options[:identity]
+        @identity = "nanite-#{@options[:identity]}"
+        @queue = @options[:queue] || @identity
+        return @identity
+      end
+
       token = AgentIdentity.generate
       @identity = "nanite-#{token}"
+      @queue = @options[:queue] || @identity
       File.open(File.expand_path(File.join(@options[:root], 'config.yml')), 'w') do |fd|
         fd.write(YAML.dump(custom_config.merge(:identity => token)))
       end
-
-      @callbacks = options[:callbacks]  
-      @status_proc = options[:status_proc]    
     end
 
     def load_actors
@@ -245,7 +256,7 @@ module RightScale
     end
 
     def setup_queue
-      amq.queue(identity, :durable => true).subscribe(:ack => true) do |info, msg|
+      amq.queue(queue, :durable => true).subscribe(:ack => true) do |info, msg|
         begin
           info.ack
           receive(serializer.load(msg))
@@ -287,7 +298,7 @@ module RightScale
     end
 
     def advertise_services
-      reg = RegisterPacket.new(identity, registry.services, status_proc.call, self.tags)
+      reg = RegisterPacket.new(identity, registry.services, status_proc.call, self.tags, queue)
       RightLinkLog.info("SEND #{reg.to_s}")
       amq.fanout('registration', :no_declare => options[:secure]).publish(serializer.dump(reg))
     end

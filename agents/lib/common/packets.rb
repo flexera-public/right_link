@@ -249,25 +249,29 @@ module RightScale
   # services is a list of services provided by the node
   # status   is a load of the node by default, but may be any criteria
   #          agent may use to report it's availability, load, etc
+  # tags     is a list of tags associated with this service
+  # queue    is the name of this nanite's input queue; defaults to identity
   class RegisterPacket < Packet
 
-    attr_accessor :identity, :services, :status, :tags
+    attr_accessor :identity, :services, :status, :tags, :queue
 
-    def initialize(identity, services, status, tags, size=nil)
+    def initialize(identity, services, status, tags, queue, size=nil)
       @status   = status
       @tags     = tags
       @identity = identity
       @services = services
+      @queue    = queue || identity
       @size     = size
     end
 
     def self.json_create(o)
       i = o['data']
-      new(i['identity'], i['services'], i['status'], i['tags'], o['size'])
+      new(i['identity'], i['services'], i['status'], i['tags'], i['queue'], o['size'])
     end
 
     def to_s
       log_msg = "#{super} #{id_to_s(identity)}"
+      log_msg += ", queue: #{queue}" if queue != identity
       log_msg += ", services: #{services.join(', ')}" if services && !services.empty?
       log_msg += ", tags: #{tags.join(', ')}" if tags && !tags.empty?
       log_msg
