@@ -1,5 +1,5 @@
 require File.join(File.dirname(__FILE__), '..', '..', 'spec', 'spec_helper')
-require 'right_popen'  # now an intalled gem
+require 'right_popen'  # now an installed gem
 require File.join(File.dirname(__FILE__), 'auditor_proxy_mock')
 require File.join(File.dirname(__FILE__), 'instantiation_mock')
 require 'instance_lib'

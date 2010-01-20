@@ -25,7 +25,7 @@ describe RightScale::ActorRegistry do
   end
 
   before(:each) do
-    RightScale::RightLinkLog.stub!(:info)
+    flexmock(RightScale::RightLinkLog).should_receive(:info)
     @registry = RightScale::ActorRegistry.new
   end
 

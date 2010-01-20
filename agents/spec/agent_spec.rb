@@ -69,14 +69,14 @@ describe RightScale::Agent do
       @agent.options[:default_services].should == []
     end
 
-    it "for root is #{File.expand_path(File.join(File.dirname(__FILE__), '..', '..'))}" do
+    it "for root is #{Dir.pwd}" do
       @agent.options.should include(:root)
-      @agent.options[:root].should == File.expand_path(File.join(File.dirname(__FILE__), '..', '..'))
+      @agent.options[:root].should == Dir.pwd
     end
 
-    it "for file_root is #{File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'files'))}" do
+    it "for file_root is #{File.join(Dir.pwd, 'files')}" do
       @agent.options.should include(:file_root)
-      @agent.options[:file_root].should == File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'files'))
+      @agent.options[:file_root].should == File.join(Dir.pwd, 'files')
     end
 
   end

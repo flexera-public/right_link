@@ -25,7 +25,7 @@
 # sudo gem install chef ohai
 
 require 'fileutils'
-require 'right_popen'  # now an intalled gem
+require 'right_popen'  # now an installed gem
 
 class Chef
 
