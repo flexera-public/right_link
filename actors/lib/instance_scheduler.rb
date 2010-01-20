@@ -35,14 +35,16 @@ class InstanceScheduler
     @scheduled_bundles = Queue.new
     @decommissioning   = false
     @agent_identity    = agent.identity
+    @running           = false
     # Wait until instance setup actor has initialized the instance state
     # We need to wait until after the InstanceSetup actor has run its
     # bundle in the Chef thread before we can use it
     EM.next_tick do
       if RightScale::InstanceState.value != 'booting'
+        @running = true
         EM.defer { run_bundles }
       else
-        RightScale::InstanceState.observe { |s| EM.defer { run_bundles } if s != 'booting' }
+        RightScale::InstanceState.observe { |s| EM.defer { run_bundles } if s != 'booting' && !@running; @running = true }
       end
     end
   end
@@ -143,7 +145,11 @@ class InstanceScheduler
     bundle = @scheduled_bundles.shift
     if bundle != 'end'
       sequence = RightScale::ExecutableSequence.new(bundle)
-      sequence.callback { EM.defer { run_bundles } }
+      sequence.callback do
+        RightScale::RequestForwarder.push('/updater/update_inputs', { :agent_identity => @agent_identity,
+                                                                      :patch          => sequence.inputs_patch })
+        EM.defer { run_bundles }
+      end
       sequence.errback  { EM.defer { run_bundles } }
       sequence.run
     else

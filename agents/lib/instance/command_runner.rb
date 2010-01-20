@@ -42,7 +42,7 @@ module RightScale
     # <RightScale::Exceptions::IO>:: If named pipe creation failed
     def self.start(agent_identity, scheduler)
       commands = InstanceCommands.get(agent_identity, scheduler)
-      CommandIO.listen do |c, conn|
+      CommandIO.instance.listen do |c, conn|
         begin
           cmd_name = c[:name].to_sym
           if commands.include?(cmd_name)
@@ -63,7 +63,7 @@ module RightScale
     # true:: If command listener was listening
     # false:: Otherwise
     def self.stop
-      CommandIO.stop_listening
+      CommandIO.instance.stop_listening
     end
 
   end

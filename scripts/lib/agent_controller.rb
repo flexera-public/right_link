@@ -122,7 +122,8 @@ module RightScale
         RightLinkLog.program_name = syslog_program_name(options)
         RightLinkLog.log_to_file_only(options[:log_to_file_only])
         RightLinkLog.init
-      end
+        configure_proxy(options[:http_proxy]) if options[:http_proxy]
+      end 
       options.merge!(FORCED_OPTIONS)
       options_with_default = {}
       DEFAULT_OPTIONS.each { |k, v| options_with_default[k] = v }
@@ -399,9 +400,15 @@ module RightScale
       Dir.glob(File.join(agents_dir, "**", "*.{#{YAML_EXT.join(',')}}"))
     end
 
-    # Version information
+    # Determine syslog program name based on options
     def syslog_program_name(options)
       'RightLink'
+    end
+
+    # Enable the use of an HTTP proxy for this process and its subprocesses
+    def configure_proxy(proxy_setting)
+      ENV['HTTP_PROXY'] = proxy_setting
+      ENV['http_proxy'] = proxy_setting
     end
 
     # Version information

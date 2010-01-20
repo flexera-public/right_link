@@ -19,33 +19,49 @@
 # LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-#
 
-# RightScale.popen3 allows running external processes aynchronously
-# while still capturing their standard and error outputs.
-# It relies on EventMachine for most of its internal mechanisms.
-
-require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'config', 'right_link_config'))
-if RightScale::RightLinkConfig[:platform].windows?
-  require File.expand_path(File.join(File.dirname(__FILE__), 'win32', 'right_popen'))
-else
-  require File.expand_path(File.join(File.dirname(__FILE__), 'linux', 'right_popen'))
+# Code taken from RAILS which allows checking whether '.dup' can be called
+# on an arbitrary object
+class Object
+  # Can you safely .dup this object?
+  # False for nil, false, true, symbols, numbers, and class objects; true otherwise.
+  def duplicable?
+    true
+  end
 end
 
-module RightScale
-  def self.close_all_fd(keep = [])
-    keep = [keep] unless keep.is_a? Array
-    keep += [$stdin, $stdout, $stderr]
-    keep = keep.collect { |io| io.fileno }
+class NilClass #:nodoc:
+  def duplicable?
+    false
+  end
+end
 
-    ObjectSpace.each_object(IO) do |io|
-      unless io.closed? || keep.include?(io.fileno)
-        begin
-          io.close
-        rescue Exception
-        #do nothing
-        end
-      end
-    end
+class FalseClass #:nodoc:
+  def duplicable?
+    false
+  end
+end
+
+class TrueClass #:nodoc:
+  def duplicable?
+    false
+  end
+end
+
+class Symbol #:nodoc:
+  def duplicable?
+    false
+  end
+end
+
+class Numeric #:nodoc:
+  def duplicable?
+    false
+  end
+end
+
+class Class #:nodoc:
+  def duplicable?
+    false
   end
 end

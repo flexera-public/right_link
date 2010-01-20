@@ -113,6 +113,7 @@ module RightScale
         else
           # Agent restarted by itself, keep the old state
           @@value = state['value']
+          @@startup_tags = state['startup_tags']
           update_logger
         end
       else
@@ -162,7 +163,7 @@ module RightScale
         end
       end
       File.open(STATE_FILE, 'w') do |f|
-        f.write({ 'value' => val, 'identity' => @@identity, 'uptime' => uptime.to_s }.to_json)
+        f.write({ 'value' => val, 'identity' => @@identity, 'uptime' => uptime.to_s, 'startup_tags' => @@startup_tags }.to_json)
       end
       @observers.each { |o| o.call(val) } if @observers
       val

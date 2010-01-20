@@ -22,13 +22,13 @@ describe RightScale::CommandIO do
   end
 
   it 'should detect missing blocks' do
-    lambda { RightScale::CommandIO.listen }.should raise_error(RightScale::Exceptions::Argument)
+    lambda { RightScale::CommandIO.instance.listen }.should raise_error(RightScale::Exceptions::Argument)
   end
 
   it 'should receive a command' do
     @input = ''
     EM.run do
-      RightScale::CommandIO.listen { |input, _| @input = input; stop }
+      RightScale::CommandIO.instance.listen { |input, _| @input = input; stop }
       send_input('input')
       EM.add_timer(2) { stop }
     end
@@ -38,7 +38,7 @@ describe RightScale::CommandIO do
   it 'should receive many commands' do
     @inputs = []
     EM.run do
-      RightScale::CommandIO.listen do |input, _|
+      RightScale::CommandIO.instance.listen do |input, _|
         @inputs << input
         stop if input == 'final'
       end
@@ -55,7 +55,7 @@ describe RightScale::CommandIO do
   end
 
   def stop
-    RightScale::CommandIO.stop_listening
+    RightScale::CommandIO.instance.stop_listening
     EM.stop
   end
 

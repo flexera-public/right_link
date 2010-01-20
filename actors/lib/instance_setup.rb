@@ -308,6 +308,8 @@ class InstanceSetup
     sequence = RightScale::ExecutableSequence.new(bundle)
     sequence.callback do
       EM.next_tick do
+        RightScale::RequestForwarder.push('/updater/update_inputs', { :agent_identity => @agent_identity,
+                                                                      :patch          => sequence.inputs_patch })
         yield RightScale::OperationResult.success
       end
     end

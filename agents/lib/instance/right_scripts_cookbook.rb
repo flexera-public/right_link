@@ -48,7 +48,7 @@ module RightScale
     def initialize(audit_id)
       @audit_id     = audit_id
       @saved        = false
-      @recipes      = []
+      @recipes      = {}
       now           = Time.new
       unique_dir    = "right_scripts_#{now.month}_#{now.day}_#{now.hour}_#{now.min}_#{now.sec}"
       @repo_dir     = File.join(InstanceConfiguration::CACHE_PATH, unique_dir)
@@ -70,23 +70,40 @@ module RightScale
     # <RightScale::Exceptions::Application>:: If 'save' has been called
     def recipe_from_right_script(script)
       raise RightScale::Exceptions::Application, 'cannot create recipe after cookbook repo has been saved' if @saved
-      shell = RightLinkConfig[:platform].shell
-      base_script_path = File.join(@recipes_dir, script.nickname)
-      script_path = shell.format_script_file_name(base_script_path)
-      @recipes << script.nickname
+      path = script_path(script.nickname)
+      recipe_name = File.basename(path)
+      @recipes[recipe_name] = script.nickname
       recipe_content = <<-EOS
 right_script '#{script.nickname}' do
   parameters(#{script.parameters.inspect})
   cache_dir  '#{cache_dir(script)}'
   audit_id   #{@audit_id}
-  source_file '#{script_path}'
+  source_file '#{path}'
 end
       EOS
-      File.open(script_path, 'w') { |f| f.puts script.source }
-      File.chmod(0744, script_path)
-      recipe_path = "#{base_script_path}.rb"
+      File.open(path, 'w') { |f| f.puts script.source }
+      File.chmod(0744, path)
+      recipe_path = "#{path}.rb"
       File.open(recipe_path, 'w') { |f| f.puts recipe_content }
-      recipe = RecipeInstantiation.new(recipe_name(script.nickname), nil, script.id, script.ready)
+
+      recipe = RecipeInstantiation.new("#{COOKBOOK_NAME}::#{recipe_name}", nil, script.id, script.ready)
+    end
+
+    # Produce file name for given script nickname
+    #
+    # === Parameters
+    # nickname<String>:: Script nick name
+    #
+    # === Return
+    # path<String>:: Path to corresponding recipe
+    def script_path(nickname)
+      base_path = nickname.gsub(/[^0-9a-zA-Z_]/,'_')
+      base_path = File.join(@recipes_dir, base_path)
+      candidate_path = RightLinkConfig[:platform].shell.format_script_file_name(base_path)
+      i = 1
+      path = candidate_path
+      path = candidate_path + (i += 1).to_s while File.exist?(path)
+      path
     end
 
     # Save cookbook repo
@@ -95,9 +112,10 @@ end
     # true:: Always return true
     def save
       unless empty?
+        recipes = @recipes.keys.sort
         metadata_content = <<-EOS
 description "Automatically generated repo, do not modify"
-#{@recipes.map { |r| "recipe \"#{COOKBOOK_NAME}::#{r}\", \"RightScript < #{r} >\"" }.join("\n")}
+#{recipes.map { |r| "recipe \"#{COOKBOOK_NAME}::#{r}\", \"RightScript < #{@recipes[r]} >\"" }.join("\n")}
         EOS
         metadata_path = File.join(@cookbook_dir, 'metadata.rb')
         File.open(metadata_path, 'w') { |f| f.puts metadata_content }
@@ -159,17 +177,5 @@ description "Automatically generated repo, do not modify"
       FileUtils.rm_rf(@repo_dir) if File.directory?(@repo_dir)
     end
 
-    protected
-
-    # Fully qualified recipe name from RightScript nickname
-    #
-    # === Parameters
-    # nickname<String>:: RightScript nickname
-    #
-    # === Return
-    # recipe_name<String>:: Corresponding recipe name
-    def recipe_name(nickname)
-      recipe_name = "#{COOKBOOK_NAME}::#{nickname}"
-    end
   end
 end

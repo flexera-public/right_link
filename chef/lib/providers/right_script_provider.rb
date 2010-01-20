@@ -25,9 +25,7 @@
 # sudo gem install chef ohai
 
 require 'fileutils'
-
-BASE_DIR = File.expand_path(File.join(File.dirname(__FILE__), '..', '..', '..'))
-require File.join(BASE_DIR, 'right_popen', 'lib', 'right_popen')
+require 'right_popen'  # now an intalled gem
 
 class Chef
 
@@ -82,7 +80,13 @@ class Chef
         @new_resource.parameters.each { |key, val| ENV[key] = val }
         ENV['ATTACH_DIR'] = ENV['RS_ATTACH_DIR'] = @new_resource.cache_dir
         ENV['RS_REBOOT']  = RightScale::InstanceState.past_scripts.include?(@nickname) ? '1' : nil
-        ENV['RS_DISTRO'] = platform.linux.distro if platform.linux?
+        #RightScripts expect to find RS_DISTRO or RS_DIST in the environment; provide it for them.
+        #Massage the distro name into the format they expect (all lower case, one word, no release info).
+        if platform.linux?
+          distro = platform.linux.distro.downcase 
+          ENV['RS_DISTRO'] = distro
+          ENV['RS_DIST']   = distro
+        end
 
         # 2. Fork and wait
         @mutex.synchronize do

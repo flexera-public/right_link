@@ -25,45 +25,50 @@ require File.join(File.dirname(__FILE__), '..', 'spec_helper')
 # FIX: rake spec should check parent directory name?
 if RightScale::RightLinkConfig[:platform].windows?
 
-describe Chef::Resource::Powershell do
+  describe Chef::Resource::Powershell do
 
-  before(:each) do
-    @resource = Chef::Resource::Powershell.new("testing")
-  end
+    before(:each) do
+      @resource = Chef::Resource::Powershell.new("testing")
+    end
 
-  it "should create a new Chef::Resource::Powershell" do
+    it "should create a new Chef::Resource::Powershell" do
       @resource.should be_a_kind_of(Chef::Resource)
       @resource.should be_a_kind_of(Chef::Resource::Powershell)
     end
 
-  it "should have a name of powershell" do
-    @resource.resource_name.should == :powershell
-  end
+    it "should have a name of powershell" do
+      @resource.resource_name.should == :powershell
+    end
 
-  it "default action should be run" do
-    @resource.action == :run
-  end
+    it "default action should be run" do
+      @resource.action == :run
+    end
 
-  it "should accept vaild source" do
-    @resource.source "write-output \"Running powershell v1.0 script\""
-    lambda { @resource.source 123 }.should raise_error(ArgumentError)
-  end
+    it "should accept vaild source" do
+      @resource.source "write-output \"Running powershell v1.0 script\""
+      lambda { @resource.source 123 }.should raise_error(ArgumentError)
+    end
 
-  it "should accept vaild parameters" do
-    @resource.parameters Chef::Node::Attribute.new(nil, nil, nil)  # mock chef attribute
-    lambda { @resource.parameters 123 }.should raise_error(ArgumentError)
-  end
+    it "should accept vaild source_path" do
+      @resource.source_path "c:/temp/test.ps1"
+      lambda { @resource.source_path 123 }.should raise_error(ArgumentError)
+    end
 
-  it "should accept vaild cache_dir" do
-    @resource.cache_dir File.join(RightScale::RightLinkConfig[:platform].filesystem.temp_dir, "powershell_resource_spec")
-    lambda { @resource.cache_dir 123 }.should raise_error(ArgumentError)
-  end
+    it "should accept vaild parameters" do
+      @resource.parameters Chef::Node::Attribute.new(nil, nil, nil)  # mock chef attribute
+      lambda { @resource.parameters 123 }.should raise_error(ArgumentError)
+    end
 
-  it "should accept vaild audit_id" do
-    @resource.audit_id 123
-    lambda { @resource.audit_id "not an int" }.should raise_error(ArgumentError)
-  end
+    it "should accept vaild cache_dir" do
+      @resource.cache_dir File.join(RightScale::RightLinkConfig[:platform].filesystem.temp_dir, "powershell_resource_spec")
+      lambda { @resource.cache_dir 123 }.should raise_error(ArgumentError)
+    end
 
-end
+    it "should accept vaild audit_id" do
+      @resource.audit_id 123
+      lambda { @resource.audit_id "not an int" }.should raise_error(ArgumentError)
+    end
+
+  end
 
 end # if windows?

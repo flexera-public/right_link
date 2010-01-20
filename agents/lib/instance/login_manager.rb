@@ -51,13 +51,19 @@ module RightScale
       return false unless supported_by_platform?
 
       #As a sanity check, filter out any expired or non-superusers. The core should never send us these guys,
-      #but by filtering here additionally we prevent race conditions and handle boundary conditions.
+      #but by filtering here additionally we prevent race conditions and handle boundary conditions, as well
+      #as allowing our internal expiry timer to simply call us back when a LoginUser expires.
       old_users = InstanceState.login_policy ? InstanceState.login_policy.users : []
       new_users = new_policy.users.select { |u| (u.expires_at == nil || u.expires_at > Time.now) && (u.superuser == true) }
       new_lines, system_lines = merge_keys(old_users, new_users, new_policy.exclusive)
       InstanceState.login_policy = new_policy
       write_keys_file(new_lines)
       AgentTagsManager.instance.add_tags(ACTIVE_TAG)
+
+      #Schedule a timer to handle any expiration that is planned to happen in the future
+      schedule_expiry(new_policy)
+      
+      #Return a human-readable description of the policy, e.g. for an audit entry
       return describe_policy(new_lines.size, system_lines.size, new_policy)
     end
 
@@ -95,8 +101,8 @@ module RightScale
     # Perform a three-way merge of the old login policy (if applicable), authorized_keys file
     # (if applicable) and the new login policy. Ensures that any policy users that no longer
     # have access are removed from the authorized keys, without removing "system" keys from
-    # the authorized keys file (where system keys are defined as any line of authorized_keys
-    # that we did not put there).
+    # the authorized keys file. System keys are defined as any line of authorized_keys
+    # that we did not put there.
     #
     # If exclusive=true, then system keys are not preserved; although a merge is still performed,
     # the return value is simply the public keys of new_users.
@@ -168,6 +174,35 @@ module RightScale
 
       return audit
     end
-  end 
 
+    # Given a LoginPolicy, add an EventMachine timer to handle the
+    # expiration of LoginUsers whose expiry time occurs in the future.
+    # This ensures that their login privilege expires on time and in accordance
+    # with the policy (so long as the agent is running). Expiry is handled by
+    # taking the policy exactly as it was received and passing it to #update_policy,
+    # which already knows how to filter out users who are expired at the time the policy
+    # is applied.
+    #
+    # === Parameters
+    # policy<LoginPolicy> policy for which expiry is to be scheduled
+    #
+    # === Return
+    # scheduled<true|false> true if expiry was scheduled, false otherwise
+    def schedule_expiry(policy)
+      if @expiry_timer
+        @expiry_timer.cancel
+        @expiry_timer = nil
+      end
+
+      next_expiry = policy.users.map { |u| u.expires_at }.compact.min
+      return false unless next_expiry
+      delay = next_expiry.to_i - Time.now.to_i + 1
+      return false unless delay > 0
+      @expiry_timer = EventMachine::Timer.new(delay) do
+        update_policy(policy)
+      end
+
+      return true
+    end
+  end
 end

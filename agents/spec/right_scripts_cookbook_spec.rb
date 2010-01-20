@@ -26,35 +26,37 @@ describe RightScale::RightScriptsCookbook do
 
   it 'should create recipe instantiations' do
     recipe = @cookbook.recipe_from_right_script(@script)
-    recipe.nickname.should == "#{RightScale::RightScriptsCookbook::COOKBOOK_NAME}::RightScript nickname"
+    recipe.nickname.should =~ /^#{RightScale::RightScriptsCookbook::COOKBOOK_NAME}::/
     recipe.attributes.should be_nil
     recipe.id.should == 42
     recipe.ready.should be_true
   end
 
   it 'should persist recipes code' do
-    @cookbook.recipe_from_right_script(@script)
+    recipe = @cookbook.recipe_from_right_script(@script)
     recipes_dir = @cookbook.instance_variable_get(:@recipes_dir)
-    recipe_path = File.join(recipes_dir, "#{@script.nickname}.rb")
-    recipe_content = IO.read(recipe_path)
+    recipe_path = File.join(recipes_dir, recipe_from_script(@script.nickname, @cookbook))
+    recipe_content = IO.read("#{recipe_path}.rb")
     regexp = "^right_script '#{@script.nickname}' do\n"
     regexp += "^  parameters\\(#{@script.parameters.inspect}\\)\n"
     regexp += "^  cache_dir +'#{@cookbook.cache_dir(@script)}'\n"
     regexp += "^  audit_id +1\n"
-    regexp += "^  source_file +'#{File.join(recipes_dir, @script.nickname)}'\n"
+    regexp += "^  source_file +'#{recipe_path}'\n"
     regexp += "^end"
     recipe_content.should =~ /#{regexp}/
   end
 
   it 'should save the metadata' do
-    @cookbook.recipe_from_right_script(@script)
-    @cookbook.recipe_from_right_script(@script)
-    @cookbook.recipe_from_right_script(@script)
+    recipe1 = @cookbook.recipe_from_right_script(@script)
+    recipe2 = @cookbook.recipe_from_right_script(@script)
+    recipe3 = @cookbook.recipe_from_right_script(@script)
     @cookbook.save
     cookbook_dir = @cookbook.instance_variable_get(:@cookbook_dir)
     metadata = IO.read(File.join(cookbook_dir, 'metadata.rb'))
     regexp = "^description \".+\"\n"
-    3.times { regexp += "^recipe \"#{RightScale::RightScriptsCookbook::COOKBOOK_NAME}::#{@script.nickname}\", \"RightScript < #{@script.nickname} >\"\n" }
+    regexp += "^recipe \"#{recipe1.nickname}\", \"RightScript < #{@script.nickname} >\"\n"
+    regexp += "^recipe \"#{recipe2.nickname}\", \"RightScript < #{@script.nickname} >\"\n"
+    regexp += "^recipe \"#{recipe3.nickname}\", \"RightScript < #{@script.nickname} >\"\n"
     metadata.should =~ /#{regexp}/
   end
 
@@ -62,6 +64,12 @@ describe RightScale::RightScriptsCookbook do
     @cookbook.recipe_from_right_script(@script)
     @cookbook.save
     lambda { @cookbook.recipe_from_right_script(@script) }.should raise_error
+  end
+
+  # Retrieve recipe nickname from script nickname
+  def recipe_from_script(script, cookbook)
+    recipes = cookbook.instance_variable_get(:@recipes)
+    recipes.invert[script]
   end
 
 end

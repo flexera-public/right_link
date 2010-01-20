@@ -9,6 +9,8 @@
 # License Agreement between RightScale.com, Inc. and
 # the licensee.
 
+require 'singleton'
+
 module RightScale
 
   # EventMachine connection
@@ -45,12 +47,14 @@ module RightScale
   # the agent without having to go through RabbitMQ.
   class CommandIO
 
+    include Singleton
+
     # Is listener currently waiting for input?
     #
     # === Return
     # true:: If 'listen' was last called
     # false:: Otherwise
-    def self.listening
+    def listening
       !@conn.nil?
     end
 
@@ -70,7 +74,7 @@ module RightScale
     # === Raise
     # <RightScale::Exceptions::Argument>:: If block is missing
     # <RightScale::Exceptions::Application>:: If +listen+ has already been called and +stop+ hasn't since
-    def self.listen &block
+    def listen &block
       raise Exceptions::Argument, 'Missing listener block' unless block_given?
       raise Exceptions::Application, 'Already listening' if listening
       begin
@@ -87,7 +91,7 @@ module RightScale
     # === Return
     # true:: If command listener was listening
     # false:: Otherwise
-    def self.stop_listening
+    def stop_listening
       res = !@conn.nil?
       if res
         EM.stop_server(@conn)
@@ -104,7 +108,7 @@ module RightScale
     #
     # === Return
     # true:: Always return true
-    def self.reply(conn, data)
+    def reply(conn, data)
       conn.send_data(CommandSerializer.dump(data))
       conn.close_connection_after_writing
       true
