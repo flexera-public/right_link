@@ -20,6 +20,8 @@ describe RightScale::ChefState do
   end
 
   after(:each) do
+    RightScale::ChefState.run_list = []
+    RightScale::ChefState.attributes = {}
     File.delete(@chef_file) if File.file?(@chef_file)
     RightScale::ChefState::const_set(:STATE_FILE, @old_chef_file)
     cleanup_state
