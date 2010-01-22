@@ -57,8 +57,14 @@ Chef::Platform.platforms[:default].merge!(:dns                 => Chef::Provider
                                           :server_collection   => Chef::Provider::ServerCollection)
 
 if RightScale::RightLinkConfig[:platform].windows?
-  require File.join(File.dirname(__FILE__), 'providers', 'win32', 'powershell_provider')
-  require File.join(File.dirname(__FILE__), 'providers', 'win32', 'powershell_resource')
 
-  Chef::Platform.platforms[:default].merge!(:powershell => Chef::Provider::Powershell)
+  # create the Windows default platform hash before loading win32 providers.
+  Chef::Platform.platforms[:windows] = { :default => { } }
+
+  # load (and self-register) all win32 providers
+  win32_providers = File.join(File.dirname(__FILE__), 'providers', 'win32', '*.rb').gsub("\\", "/")
+  Dir[win32_providers].each do |rb_file|
+    require File.expand_path(rb_file)
+  end
+
 end

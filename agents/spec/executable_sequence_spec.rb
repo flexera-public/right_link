@@ -1,5 +1,5 @@
-require File.join(File.dirname(__FILE__), '..', '..', 'spec', 'spec_helper')
-require File.join(File.dirname(__FILE__), '..', '..', 'lib', 'chef', 'lib', 'plugins')
+require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'spec', 'spec_helper'))
+require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'lib', 'chef', 'lib', 'plugins'))
 require 'instance_lib'
 
 describe RightScale::ExecutableSequence do
@@ -34,6 +34,11 @@ describe RightScale::ExecutableSequence do
       @auditor.should_receive(:append_info)
       @auditor.should_receive(:append_output)
       @auditor.should_receive(:update_status)
+
+      # prevent Chef logging reaching the console during spec test.
+      logger = flexmock(::RightScale::RightLinkLog.logger)
+      logger.should_receive(:info).and_return(true)
+      logger.should_receive(:error).and_return(true)
     end
 
     after(:all) do

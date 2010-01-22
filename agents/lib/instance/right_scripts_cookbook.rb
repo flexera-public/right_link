@@ -77,7 +77,6 @@ module RightScale
 right_script '#{script.nickname}' do
   parameters(#{script.parameters.inspect})
   cache_dir  '#{cache_dir(script)}'
-  audit_id   #{@audit_id}
   source_file '#{path}'
 end
       EOS

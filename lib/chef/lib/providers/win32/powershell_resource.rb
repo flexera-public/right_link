@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2009 RightScale Inc
+# Copyright (c) 2010 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -35,9 +35,6 @@ class Chef
     # end
     class Powershell < Chef::Resource
 
-      # Default directory used to cache Powershell source
-      DEFAULT_CACHE_DIR_ROOT = ::File.join(RightScale::RightLinkConfig.platform.filesystem.cache_dir, 'rightscale')
-
       # Initialize Powershell resource with default values
       #
       # === Parameters
@@ -47,12 +44,9 @@ class Chef
       def initialize(name, collection=nil, node=nil)
         super(name, collection, node)
         @resource_name = :powershell
-        @cache_dir = ::File.join(DEFAULT_CACHE_DIR_ROOT, Nanite::Identity.generate)
-        @audit_id = 0
         @parameters = {}
         @source = nil
         @source_path = nil
-        @require_32_bit_powershell = false
         @action = :run
         @allowed_actions.push(:run)
       end
@@ -91,25 +85,6 @@ class Chef
           arg,
           #:kind_of => [ Hash ]
           :kind_of => [ Chef::Node::Attribute ] # Change back to Hash when Chef is fixed
-        )
-      end
-
-      # <String> Path to directory where Powershell source should be saved
-      def cache_dir(arg=nil)
-        set_or_return(
-          :cache_dir,
-          arg,
-          :kind_of => [ String ]
-        )
-      end
-
-      # <Integer> Audit id used to audit Powershell execution output
-      # An id of 0 means that a new audit should be created
-      def audit_id(arg=nil)
-        set_or_return(
-          :audit_id,
-          arg,
-          :kind_of => [ Integer ]
         )
       end
 

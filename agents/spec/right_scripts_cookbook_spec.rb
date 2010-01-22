@@ -40,7 +40,6 @@ describe RightScale::RightScriptsCookbook do
     regexp = "^right_script '#{@script.nickname}' do\n"
     regexp += "^  parameters\\(#{@script.parameters.inspect}\\)\n"
     regexp += "^  cache_dir +'#{@cookbook.cache_dir(@script)}'\n"
-    regexp += "^  audit_id +1\n"
     regexp += "^  source_file +'#{recipe_path}'\n"
     regexp += "^end"
     recipe_content.should =~ /#{regexp}/

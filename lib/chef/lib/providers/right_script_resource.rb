@@ -42,7 +42,6 @@ class Chef
     #   parameters['DB_SCHEMA_NAME'] 'db_schema'
     #   parameters['RAILS_ENV'] 'production'
     #   cache_dir '/var/cache/rightscale/app_mephisto'
-    #   audit_id 104
     # end
     class RightScript < Chef::Resource
 
@@ -59,7 +58,6 @@ class Chef
         super(name, collection, node)
         @resource_name = :right_script
         @cache_dir = ::File.join(DEFAULT_CACHE_DIR_ROOT, Nanite::Identity.generate)
-        @audit_id = 0
         @parameters = {}
         @action = :run
         @allowed_actions.push(:run)
@@ -98,16 +96,6 @@ class Chef
           :cache_dir,
           arg,
           :kind_of => [ String ]
-        )
-      end
-
-      # <Integer> Audit id used to audit RightScript execution output
-      # An id of 0 means that a new audit should be created
-      def audit_id(arg=nil)
-        set_or_return(
-          :audit_id,
-          arg,
-          :kind_of => [ Integer ]
         )
       end
 
