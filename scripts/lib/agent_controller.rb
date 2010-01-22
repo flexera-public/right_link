@@ -124,7 +124,6 @@ module RightScale
         options = file_options
         RightLinkLog.program_name = syslog_program_name(options)
         RightLinkLog.log_to_file_only(options[:log_to_file_only])
-        RightLinkLog.init
         configure_proxy(options[:http_proxy]) if options[:http_proxy]
       end 
       options.merge!(FORCED_OPTIONS)

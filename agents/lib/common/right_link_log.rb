@@ -91,6 +91,8 @@ module RightScale
                    :error => Logger::ERROR,
                    :fatal => Logger::FATAL } unless defined?(LEVELS_MAP)
 
+    @@inverted_levels_map = nil
+
     # Forward all method calls to underlying Logger object created with init.
     # Return the result of only the first registered logger to keep the interface
     # consistent with that of a Logger.
@@ -133,9 +135,9 @@ module RightScale
     # === Raise
     # <RightScale::Exceptions::Argument>:: if level is invalid
     def self.level_to_sym(lvl)
-      reverted_map ||= LEVELS_MAP.invert
-      raise Exceptions::Argument, "Invalid log level: #{lvl}" unless reverted_map.include?(lvl)
-      sym = reverted_map[lvl]
+      @@inverted_levels_map ||= LEVELS_MAP.invert
+      raise Exceptions::Argument, "Invalid log level: #{lvl}" unless @@inverted_levels_map.include?(lvl)
+      sym = @@inverted_levels_map[lvl]
     end
 
     # Read access to internal multiplexer
@@ -217,27 +219,33 @@ module RightScale
     # Sets the level for the Logger by symbol or by Logger constant
     #
     # === Parameters
-    # loglevel<Object>:: One of :debug, :info, :warn, :error, :fatal or
-    #                    one of Logger::INFO ... Logger::FATAL
+    # level<Object>:: One of :debug, :info, :warn, :error, :fatal or
+    #                 one of "debug", "info", "warn", "error", "fatal" or
+    #                 one of Logger::INFO ... Logger::FATAL
     #
     # === Return
-    # loglevel<Object>:: New loglevel
-    def self.level=(loglevel)
+    # level<Symbol>:: New log level, or current level if frozen
+    def self.level=(level)
       self.init unless @initialized
-      return loglevel if @level_frozen
-      lvl = loglevel.is_a?(Symbol) ? level_from_sym(loglevel) : loglevel
-      @level = lvl
-      @logger.level = lvl
-      loglevel
+      unless @level_frozen
+        new_level = case level
+          when Symbol  then level_from_sym(level)
+          when String  then level_from_sym(level.to_sym)
+          else level
+        end
+        @logger.info("[setup] setting log level to #{level_to_sym(new_level).to_s.upcase}")
+        @logger.level = @level = new_level
+      end
+      level = level_to_sym(@level)
     end
 
     # Current log level
     #
     # === Return
-    # loglevel<Symbol>:: One of :debug, :info, :warn, :error or :fatal
+    # level<Symbol>:: One of :debug, :info, :warn, :error or :fatal
     def self.level
       self.init unless @initialized
-      loglevel = level_to_sym(@level)
+      level = level_to_sym(@level)
     end
 
     # Force log level to debug and disregard
@@ -287,6 +295,6 @@ module RightScale
       @logger
     end
 
-  end
+  end # RightLinkLog
 
-end
+end # RightScale

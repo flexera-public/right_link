@@ -24,6 +24,8 @@ $:.push File.join(File.dirname( __FILE__), '..', 'agents', 'lib', 'instance')
 config = Spec::Runner.configuration
 config.mock_with :flexmock
 
+RightScale::RightLinkLog.init
+
 $TESTING = true
 $VERBOSE = nil # Disable constant redefined warning
 
