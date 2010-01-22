@@ -1,3 +1,4 @@
+#
 # Copyright (c) 2009 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
