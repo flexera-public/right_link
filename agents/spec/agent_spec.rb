@@ -230,8 +230,8 @@ describe RightScale::Agent do
       @amq = flexmock("AMQueue", :queue => @queue, :fanout => @fanout)
       flexmock(MQ).should_receive(:new).and_return(@amq)
       serializer = RightScale::Serializer.new
-      @request = RightScale::RequestPacket.new('/foo/bar', '')
-      @push = RightScale::PushPacket.new('/foo/bar', '')
+      @request = RightScale::Request.new('/foo/bar', '')
+      @push = RightScale::Push.new('/foo/bar', '')
       @agent = RightScale::Agent.start
     end
     

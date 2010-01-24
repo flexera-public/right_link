@@ -76,7 +76,7 @@ module RightScale
   # selector  is the selector used to route the request
   # target    is the target nanite for the request
   # persistent signifies if this request should be saved to persistent storage by the AMQP broker
-  class RequestPacket < Packet
+  class Request < Packet
 
     attr_accessor :from, :scope, :payload, :type, :token, :reply_to, :selector, :target, :persistent, :tags
 
@@ -117,7 +117,7 @@ module RightScale
       log_msg
     end
 
-  end # RequestPacket
+  end # Request
 
   # packet that means a work push from mapper
   # to actor node
@@ -132,7 +132,7 @@ module RightScale
   # selector  is the selector used to route the request
   # target    is the target nanite for the request
   # persistent signifies if this request should be saved to persistent storage by the AMQP broker
-  class PushPacket < Packet
+  class Push < Packet
 
     attr_accessor :from, :scope, :payload, :type, :token, :selector, :target, :persistent, :tags
 
@@ -171,7 +171,7 @@ module RightScale
       log_msg
     end
 
-  end # PushPacket
+  end # Push
 
   # Tag query: retrieve agent ids with associated tags that match given tags
   #
@@ -180,7 +180,7 @@ module RightScale
   # opts  Hash of options, two options are supported, at least one must be set:
   #       :tags is an array of tags defining a query that returned agents tags must match
   #       :agent_ids is an array of agents whose tags should be returned
-  class TagQueryPacket < Packet
+  class TagQuery < Packet
 
     attr_accessor :from, :token, :agent_ids, :tags, :persistent
 
@@ -208,7 +208,7 @@ module RightScale
       log_msg
     end
 
-  end # TagQueryPacket
+  end # TagQuery
 
   # packet that means a work result notification sent from actor to mapper
   #
@@ -216,7 +216,7 @@ module RightScale
   # results  is arbitrary data that is transferred from actor, a result of actor's work
   # token    is a generated request id that mapper uses to identify replies
   # to       is identity of the node result should be delivered to
-  class ResultPacket < Packet
+  class Result < Packet
 
     attr_accessor :token, :results, :to, :from
 
@@ -241,7 +241,7 @@ module RightScale
       log_msg
     end
 
-  end # ResultPacket
+  end # Result
 
   # packet that means an availability notification sent from actor to mapper
   #
@@ -251,7 +251,7 @@ module RightScale
   #          agent may use to report it's availability, load, etc
   # tags     is a list of tags associated with this service
   # queue    is the name of this nanite's input queue; defaults to identity
-  class RegisterPacket < Packet
+  class Register < Packet
 
     attr_accessor :identity, :services, :status, :tags, :queue
 
@@ -277,12 +277,12 @@ module RightScale
       log_msg
     end
 
-  end # RegisterPacket
+  end # Register
 
   # packet that means deregister an agent from the mappers
   #
   # from     is sender identity
-  class UnRegisterPacket < Packet
+  class UnRegister < Packet
 
     attr_accessor :identity
 
@@ -300,13 +300,13 @@ module RightScale
       "#{super} #{id_to_s(identity)}"
     end
 
-  end # UnRegisterPacket
+  end # UnRegister
 
   # heartbeat packet
   #
   # identity is sender's identity
   # status   is sender's status (see Register packet documentation)
-  class PingPacket < Packet
+  class Ping < Packet
 
     attr_accessor :identity, :status
 
@@ -325,12 +325,12 @@ module RightScale
       "#{super} #{id_to_s(identity)} status #{status}"
     end
 
-  end # PingPacket
+  end # Ping
 
   # packet that is sent by workers to the mapper
   # when worker initially comes online to advertise
   # it's services
-  class AdvertisePacket < Packet
+  class Advertise < Packet
 
     def initialize(size=nil)
       @size = size
@@ -340,11 +340,11 @@ module RightScale
       new(o['size'])
     end
 
-  end # AdvertisePacket
+  end # Advertise
 
   # packet that is sent by agents to the mapper
   # to update their tags
-  class TagUpdatePacket < Packet
+  class TagUpdate < Packet
 
     attr_accessor :identity, :new_tags, :obsolete_tags
 
@@ -367,7 +367,7 @@ module RightScale
       log_msg
     end
 
-  end # TagUpdatePacket
+  end # TagUpdate
 
 end # RightScale
 

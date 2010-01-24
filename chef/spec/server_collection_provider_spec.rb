@@ -35,7 +35,7 @@ module RightScale
       end                                    
     end
     def self.set_query_tags_result(res)
-      @@res = ResultPacket.new('token', 'to', res, 'from')
+      @@res = Result.new('token', 'to', res, 'from')
     end
   end
 end

@@ -53,7 +53,7 @@ module RightScale
     # Send request to given agent through the mapper
     def request(type, payload = '', opts = {}, &blk)
       raise "Mapper proxy not initialized" unless identity && options
-      request = RequestPacket.new(type, payload, opts)
+      request = Request.new(type, payload, opts)
       request.from = identity
       request.token = AgentIdentity.generate
       request.persistent = opts.key?(:persistent) ? opts[:persistent] : options[:persistent]
@@ -65,7 +65,7 @@ module RightScale
     # Send push to given agent through the mapper
     def push(type, payload = '', opts = {})
       raise "Mapper proxy not initialized" unless identity && options
-      push = PushPacket.new(type, payload, opts)
+      push = Push.new(type, payload, opts)
       push.from = identity
       push.token = AgentIdentity.generate
       push.persistent = opts.key?(:persistent) ? opts[:persistent] : options[:persistent]
@@ -76,7 +76,7 @@ module RightScale
     # Send tag query to mapper
     def query_tags(opts, &blk)
       raise "Mapper proxy not initialized" unless identity && options
-      tag_query = TagQueryPacket.new(identity, opts)
+      tag_query = TagQuery.new(identity, opts)
       tag_query.token = AgentIdentity.generate
       tag_query.persistent = opts.key?(:persistent) ? opts[:persistent] : options[:persistent]      
       pending_requests[tag_query.token] = { :result_handler => blk }
@@ -87,7 +87,7 @@ module RightScale
     # Update tags registered by mapper for agent
     def update_tags(new_tags, obsolete_tags)
       raise "Mapper proxy not initialized" unless identity && options
-      update = TagUpdatePacket.new(identity, new_tags, obsolete_tags)
+      update = TagUpdate.new(identity, new_tags, obsolete_tags)
       RightLinkLog.info("SEND #{update.to_s}")
       amqp.fanout('registration', :no_declare => options[:secure]).publish(serializer.dump(update))
     end

@@ -71,9 +71,9 @@ describe "Packet: Base class" do
 end
 
 
-describe "Packet: RequestPacket" do
+describe "Packet: Request" do
   it "should dump/load as JSON objects" do
-    packet = RightScale::RequestPacket.new('/some/foo', 'payload', :from => 'from', :token => '0xdeadbeef', :reply_to => 'reply_to')
+    packet = RightScale::Request.new('/some/foo', 'payload', :from => 'from', :token => '0xdeadbeef', :reply_to => 'reply_to')
     packet2 = JSON.parse(packet.to_json)
     packet.type.should == packet2.type
     packet.payload.should == packet2.payload
@@ -83,7 +83,7 @@ describe "Packet: RequestPacket" do
   end
 
   it "should dump/load as Marshalled ruby objects" do
-    packet = RightScale::RequestPacket.new('/some/foo', 'payload', :from => 'from', :token => '0xdeadbeef', :reply_to => 'reply_to')
+    packet = RightScale::Request.new('/some/foo', 'payload', :from => 'from', :token => '0xdeadbeef', :reply_to => 'reply_to')
     packet2 = Marshal.load(Marshal.dump(packet))
     packet.type.should == packet2.type
     packet.payload.should == packet2.payload
@@ -94,9 +94,9 @@ describe "Packet: RequestPacket" do
 end
 
 
-describe "Packet: TagQueryPacket" do
+describe "Packet: TagQuery" do
   it "should dump/load as JSON objects" do
-    packet = RightScale::TagQueryPacket.new('from', :token => '0xdeadbeef', :tags => [ 'one', 'two'] , :agent_ids => [ 'some_agent', 'some_other_agent'])
+    packet = RightScale::TagQuery.new('from', :token => '0xdeadbeef', :tags => [ 'one', 'two'] , :agent_ids => [ 'some_agent', 'some_other_agent'])
     packet2 = JSON.parse(packet.to_json)
     packet.from.should == packet2.from
     packet.token.should == packet2.token
@@ -106,7 +106,7 @@ describe "Packet: TagQueryPacket" do
   end
 
   it "should dump/load as Marshalled ruby objects" do
-    packet = RightScale::TagQueryPacket.new('from', :token => '0xdeadbeef', :tags => [ 'one', 'two'] , :agent_ids => [ 'some_agent', 'some_other_agent'])
+    packet = RightScale::TagQuery.new('from', :token => '0xdeadbeef', :tags => [ 'one', 'two'] , :agent_ids => [ 'some_agent', 'some_other_agent'])
     packet2 = Marshal.load(Marshal.dump(packet))
     packet.from.should == packet2.from
     packet.token.should == packet2.token
@@ -117,9 +117,9 @@ describe "Packet: TagQueryPacket" do
 end
 
 
-describe "Packet: ResultPacket" do
+describe "Packet: Result" do
   it "should dump/load as JSON objects" do
-    packet = RightScale::ResultPacket.new('0xdeadbeef', 'to', 'results', 'from')
+    packet = RightScale::Result.new('0xdeadbeef', 'to', 'results', 'from')
     packet2 = JSON.parse(packet.to_json)
     packet.token.should == packet2.token
     packet.to.should == packet2.to
@@ -128,7 +128,7 @@ describe "Packet: ResultPacket" do
   end
 
   it "should dump/load as Marshalled ruby objects" do
-    packet = RightScale::ResultPacket.new('0xdeadbeef', 'to', 'results', 'from')
+    packet = RightScale::Result.new('0xdeadbeef', 'to', 'results', 'from')
     packet2 = Marshal.load(Marshal.dump(packet))
     packet.token.should == packet2.token
     packet.to.should == packet2.to
@@ -138,9 +138,9 @@ describe "Packet: ResultPacket" do
 end
 
 
-describe "Packet: RegisterPacket" do
+describe "Packet: Register" do
   it "should dump/load as JSON objects" do
-    packet = RightScale::RegisterPacket.new('0xdeadbeef', ['/foo/bar', '/nik/qux'], 0.8, ['foo'], '0xdeadbeef')
+    packet = RightScale::Register.new('0xdeadbeef', ['/foo/bar', '/nik/qux'], 0.8, ['foo'], '0xdeadbeef')
     packet2 = JSON.parse(packet.to_json)
     packet.identity.should == packet2.identity
     packet.services.should == packet2.services
@@ -149,7 +149,7 @@ describe "Packet: RegisterPacket" do
   end
 
   it "should dump/load as Marshalled ruby objects" do
-    packet = RightScale::RegisterPacket.new('0xdeadbeef', ['/foo/bar', '/nik/qux'], 0.8, ['foo'], 'queue')
+    packet = RightScale::Register.new('0xdeadbeef', ['/foo/bar', '/nik/qux'], 0.8, ['foo'], 'queue')
     packet2 = Marshal.load(Marshal.dump(packet))
     packet.identity.should == packet2.identity
     packet.services.should == packet2.services
@@ -158,42 +158,42 @@ describe "Packet: RegisterPacket" do
   end
 
   it "should set specified queue" do
-    packet = RightScale::RegisterPacket.new('0xdeadbeef', ['/foo/bar', '/nik/qux'], 0.8, ['foo'], 'queue')
+    packet = RightScale::Register.new('0xdeadbeef', ['/foo/bar', '/nik/qux'], 0.8, ['foo'], 'queue')
     packet.queue.should == 'queue'
   end
 
   it "should default queue to identity" do
-    packet = RightScale::RegisterPacket.new('0xdeadbeef', ['/foo/bar', '/nik/qux'], 0.8, ['foo'], nil)
+    packet = RightScale::Register.new('0xdeadbeef', ['/foo/bar', '/nik/qux'], 0.8, ['foo'], nil)
     packet.queue.should == '0xdeadbeef'
    end
  end
 
 
-describe "Packet: UnRegisterPacket" do
+describe "Packet: UnRegister" do
   it "should dump/load as JSON objects" do
-    packet = RightScale::UnRegisterPacket.new('0xdeadbeef')
+    packet = RightScale::UnRegister.new('0xdeadbeef')
     packet2 = JSON.parse(packet.to_json)
     packet.identity.should == packet2.identity
   end
 
   it "should dump/load as Marshalled ruby objects" do
-    packet = RightScale::UnRegisterPacket.new('0xdeadbeef')
+    packet = RightScale::UnRegister.new('0xdeadbeef')
     packet2 = Marshal.load(Marshal.dump(packet))
     packet.identity.should == packet2.identity
   end
 end
 
 
-describe "Packet: PingPacket" do
+describe "Packet: Ping" do
   it "should dump/load as JSON objects" do
-    packet = RightScale::PingPacket.new('0xdeadbeef', 0.8)
+    packet = RightScale::Ping.new('0xdeadbeef', 0.8)
     packet2 = JSON.parse(packet.to_json)
     packet.identity.should == packet2.identity
     packet.status.should == packet2.status
   end
 
   it "should dump/load as Marshalled ruby objects" do
-    packet = RightScale::PingPacket.new('0xdeadbeef', 0.8)
+    packet = RightScale::Ping.new('0xdeadbeef', 0.8)
     packet2 = Marshal.load(Marshal.dump(packet))
     packet.identity.should == packet2.identity
     packet.status.should == packet2.status

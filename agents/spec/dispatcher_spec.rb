@@ -91,40 +91,40 @@ describe "RightScale::Dispatcher" do
   end
 
   it "should dispatch a request" do
-    req = RightScale::RequestPacket.new('/foo/bar', 'you')
+    req = RightScale::Request.new('/foo/bar', 'you')
     res = @dispatcher.dispatch(req)
-    res.should(be_kind_of(RightScale::ResultPacket))
+    res.should(be_kind_of(RightScale::Result))
     res.token.should == req.token
     res.results.should == ['hello', 'you']
   end
 
   it "should dispatch the deliverable to actions that accept it" do
-    req = RightScale::RequestPacket.new('/foo/bar2', 'you')
+    req = RightScale::Request.new('/foo/bar2', 'you')
     res = @dispatcher.dispatch(req)
-    res.should(be_kind_of(RightScale::ResultPacket))
+    res.should(be_kind_of(RightScale::Result))
     res.token.should == req.token
     res.results.should == req
   end
   
   it "should dispatch a request to the default action" do
-    req = RightScale::RequestPacket.new('/foo', 'you')
+    req = RightScale::Request.new('/foo', 'you')
     res = @dispatcher.dispatch(req)
-    res.should(be_kind_of(RightScale::ResultPacket))
+    res.should(be_kind_of(RightScale::Result))
     res.token.should == req.token
     res.results.should == ['hello', 'you']
   end
 
   it "should handle custom prefixes" do
     @registry.register(Foo.new, 'umbongo')
-    req = RightScale::RequestPacket.new('/umbongo/bar', 'you')
+    req = RightScale::Request.new('/umbongo/bar', 'you')
     res = @dispatcher.dispatch(req)
-    res.should(be_kind_of(RightScale::ResultPacket))
+    res.should(be_kind_of(RightScale::Result))
     res.token.should == req.token
     res.results.should == ['hello', 'you']
   end
 
   it "should call the on_exception callback if something goes wrong" do
-    req = RightScale::RequestPacket.new('/foo/i_kill_you', nil)
+    req = RightScale::Request.new('/foo/i_kill_you', nil)
     flexmock(@actor).should_receive(:handle_exception).with(:i_kill_you, req, Exception)
     @dispatcher.dispatch(req)
   end
@@ -132,7 +132,7 @@ describe "RightScale::Dispatcher" do
   it "should call on_exception Procs defined in a subclass with the correct arguments" do
     actor = Bar.new
     @registry.register(actor, nil)
-    req = RightScale::RequestPacket.new('/bar/i_kill_you', nil)
+    req = RightScale::Request.new('/bar/i_kill_you', nil)
     @dispatcher.dispatch(req)
     called_with = actor.instance_variable_get("@called_with")
     called_with[0].should == :i_kill_you
@@ -144,14 +144,14 @@ describe "RightScale::Dispatcher" do
   it "should call on_exception Procs defined in a subclass in the scope of the actor" do
     actor = Bar.new
     @registry.register(actor, nil)
-    req = RightScale::RequestPacket.new('/bar/i_kill_you', nil)
+    req = RightScale::Request.new('/bar/i_kill_you', nil)
     @dispatcher.dispatch(req)
     actor.instance_variable_get("@scope").should == actor
   end
 
   it "should log error if something goes wrong" do
     RightScale::RightLinkLog.should_receive(:error)
-    req = RightScale::RequestPacket.new('/foo/i_kill_you', nil)
+    req = RightScale::Request.new('/foo/i_kill_you', nil)
     @dispatcher.dispatch(req)
   end
 

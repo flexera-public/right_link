@@ -47,7 +47,7 @@ module RightScale
     # Instantiate from request results
     #
     # === Parameters
-    # results<ResultPacket>:: Nanite ResultPacket OR a Hash taken from a ResultPacket's "results" field
+    # results<Result>:: Nanite Result OR a Hash taken from a Result's "results" field
     #
     # === Return
     # result<RightScale::OperationResult>:: Converted operation result

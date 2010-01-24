@@ -167,7 +167,7 @@ module RightScale
       @tags += (new_tags || [])
       @tags -= (old_tags || [])
       @tags.uniq!
-      tag_update = TagUpdatePacket.new(identity, new_tags, old_tags)
+      tag_update = TagUpdate.new(identity, new_tags, old_tags)
       amq.fanout('registration', :no_declare => options[:secure]).publish(serializer.dump(tag_update))
     end
 
@@ -230,21 +230,21 @@ module RightScale
     def receive(packet)
       RightLinkLog.debug("RECV #{packet.to_s}")
       case packet
-      when AdvertisePacket
+      when Advertise
         RightLinkLog.info("RECV #{packet.to_s}") unless RightLinkLog.level == :debug
         advertise_services
-      when RequestPacket, PushPacket
+      when Request, Push
         if @security && !@security.authorize(packet)
           RightLinkLog.warn("RECV NOT AUTHORIZED #{packet.to_s}")
-          if packet.kind_of?(RequestPacket)
-            r = ResultPacket.new(packet.token, packet.reply_to, @deny_token, identity)
+          if packet.kind_of?(Request)
+            r = Result.new(packet.token, packet.reply_to, @deny_token, identity)
             amq.queue(packet.reply_to, :no_declare => options[:secure]).publish(serializer.dump(r))
           end
         else
           RightLinkLog.info("RECV #{packet.to_s([:from, :tags])}") unless RightLinkLog.level == :debug
           dispatcher.dispatch(packet)
         end
-      when ResultPacket
+      when Result
         RightLinkLog.info("RECV #{packet.to_s([])}") unless RightLinkLog.level == :debug
         @mapper_proxy.handle_result(packet)
       end
@@ -269,7 +269,7 @@ module RightScale
 
     def setup_heartbeat
       EM.add_periodic_timer(options[:ping_time]) do
-        amq.fanout('heartbeat', :no_declare => options[:secure]).publish(serializer.dump(PingPacket.new(identity, status_proc.call)))
+        amq.fanout('heartbeat', :no_declare => options[:secure]).publish(serializer.dump(Ping.new(identity, status_proc.call)))
       end
     end
     
@@ -293,12 +293,12 @@ module RightScale
       unless @unregistered
         @unregistered = true
         RightLinkLog.info("SEND [un_register]")
-        amq.fanout('registration', :no_declare => options[:secure]).publish(serializer.dump(UnRegisterPacket.new(identity)))
+        amq.fanout('registration', :no_declare => options[:secure]).publish(serializer.dump(UnRegister.new(identity)))
       end
     end
 
     def advertise_services
-      reg = RegisterPacket.new(identity, registry.services, status_proc.call, self.tags, queue)
+      reg = Register.new(identity, registry.services, status_proc.call, self.tags, queue)
       RightLinkLog.info("SEND #{reg.to_s}")
       amq.fanout('registration', :no_declare => options[:secure]).publish(serializer.dump(reg))
     end

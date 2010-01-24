@@ -67,7 +67,7 @@ describe RightScale::MapperProxy do
     it "should create a request object" do
       @fanout.should_receive(:publish).with do |request|
         request = @instance.serializer.load(request)
-        request.class.should == RightScale::RequestPacket
+        request.class.should == RightScale::Request
       end
       
       @instance.request('/welcome/aboard', 'iZac'){|response|}
@@ -144,7 +144,7 @@ describe RightScale::MapperProxy do
     it "should create a push object" do
       @fanout.should_receive(:publish).with do |push|
         push = @instance.serializer.load(push)
-        push.class.should == RightScale::PushPacket
+        push.class.should == RightScale::Push
       end
       
       @instance.push('/welcome/aboard', 'iZac')
