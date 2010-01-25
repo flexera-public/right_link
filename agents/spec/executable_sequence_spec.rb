@@ -55,6 +55,11 @@ describe RightScale::ExecutableSequence do
       @auditor.should_receive(:append_info)
       @auditor.should_receive(:append_output)
       @auditor.should_receive(:update_status)
+
+      # prevent Chef logging reaching the console during spec test.
+      logger = flexmock(::RightScale::RightLinkLog.logger)
+      logger.should_receive(:info).and_return(true)
+      logger.should_receive(:error).and_return(true)
     end
 
     after(:all) do

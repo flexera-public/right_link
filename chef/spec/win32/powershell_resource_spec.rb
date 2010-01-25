@@ -59,16 +59,6 @@ if RightScale::RightLinkConfig[:platform].windows?
       lambda { @resource.parameters 123 }.should raise_error(ArgumentError)
     end
 
-    it "should accept vaild cache_dir" do
-      @resource.cache_dir File.join(RightScale::RightLinkConfig[:platform].filesystem.temp_dir, "powershell_resource_spec")
-      lambda { @resource.cache_dir 123 }.should raise_error(ArgumentError)
-    end
-
-    it "should accept vaild audit_id" do
-      @resource.audit_id 123
-      lambda { @resource.audit_id "not an int" }.should raise_error(ArgumentError)
-    end
-
   end
 
 end # if windows?

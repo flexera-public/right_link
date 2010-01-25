@@ -39,15 +39,21 @@ module RightScale
     # === Return
     # true:: Always return true
     def self.init(reset=false)
-      @@value = { 'run_list' => [], 'attributes' => {} }
+      return true if initialized? && !reset
+      @@run_list = []
+      @@attributes = {}
       dir = File.dirname(STATE_FILE)
       FileUtils.mkdir_p(dir) unless File.directory?(dir)
       if reset
         save_state
       elsif File.file?(STATE_FILE)
-        File.open(STATE_FILE, 'r') { |f| @@value = JSON.load(f) }
+        File.open(STATE_FILE, 'r') do |f|
+          js = JSON.load(f) rescue {}
+          @@run_list = js['run_list'] || []
+          @@attributes = js['attributes'] || {}
+        end
       end
-      RightLinkLog.debug("Initializing chef state with #{@@value.inspect}")
+      RightLinkLog.debug("Initializing chef state with run list #{@@run_list.inspect} and attributes #{@@attributes.inspect}")
       true
     end
 
@@ -58,7 +64,7 @@ module RightScale
     # true:: If 'init' has been called
     # false:: Otherwise
     def self.initialized?
-      !!(defined? @@value)
+      !!(defined?(@@run_list) && defined?(@@attributes))
     end
 
     # Current run list
@@ -66,8 +72,8 @@ module RightScale
     # === Return
     # run_list(Array):: List of recipes making up run list
     def self.run_list
-      init unless defined? @@value
-      run_list = @@value['run_list']
+      init
+      @@run_list
     end
 
     # Current node attributes
@@ -75,8 +81,8 @@ module RightScale
     # === Return
     # attributes(Hash):: Current node attributes
     def self.attributes
-      init unless defined? @@value
-      attributes = @@value['attributes']
+      init
+      @@attributes
     end
 
     # Set run list
@@ -90,8 +96,8 @@ module RightScale
     # === Return
     # true:: Always return true
     def self.run_list=(val)
-      init unless defined? @@value
-      @@value['run_list'] = val if val
+      init
+      @@run_list = val if val
       save_state
     end
 
@@ -106,8 +112,8 @@ module RightScale
     # === Return
     # true:: Always return true
     def self.attributes=(val)
-      init unless defined? @@value
-      @@value['attributes'] = val if val
+      init
+      @@attributes = val if val
       save_state
     end
 
@@ -234,9 +240,10 @@ module RightScale
     # true:: Always return true
     def self.save_state
       begin
-        File.open(STATE_FILE, 'w') { |f| f.puts @@value.to_json }
+        js = { 'run_list' => @@run_list, 'attributes' => @@attributes }.to_json
+        File.open(STATE_FILE, 'w') { |f| f.puts js }
       rescue Exception => e
-        RightLinkLog.warn("Failed to save chef state: #{e.message}")
+        RightLinkLog.warn("Failed to save Chef state: #{e.message}")
       end
       true
     end

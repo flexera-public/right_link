@@ -27,12 +27,16 @@
 require 'fileutils'
 require 'right_popen'
 
+require File.expand_path(File.join(File.dirname(__FILE__), '..', 'mixin', 'command'))
+
 class Chef
 
   class Provider
 
     # RightScript chef provider.
     class RightScript < Chef::Provider
+
+      include RightScale::Mixin::Command
 
       # No concept of a 'current' resource for RightScript execution, this is a no-op
       #
@@ -52,13 +56,9 @@ class Chef
       # === Raise
       # RightScale::Exceptions::Exec:: Invalid process exit status
       def action_run
-        @mutex          = Mutex.new
-        @exited_event   = ConditionVariable.new
-        @nickname       = @new_resource.name
-        @auditor        = RightScale::AuditorProxy.new(@new_resource.audit_id)
-        @run_started_at = Time.now
+        nickname        = @new_resource.name
+        run_started_at  = Time.now
         platform        = RightScale::RightLinkConfig[:platform]
-        shell           = platform.shell
 
         # 1. Setup audit and environment
         begin
@@ -66,7 +66,7 @@ class Chef
           #metadata does not exist on all clouds, hence the conditional
           load(meta_data) if ::File.exist?(meta_data)
         rescue Exception => e
-          @auditor.append_info("Could not load cloud metadata; script will execute without metadata in environment!")
+          ::Chef::Log.info("Could not load cloud metadata; script will execute without metadata in environment!")
           RightScale::RightLinkLog.error("#{e.class.name}: #{e.message}, #{e.backtrace[0]}")
         end
         begin
@@ -74,12 +74,12 @@ class Chef
           #user-data should always exist
           load(user_data)
         rescue Exception => e
-          @auditor.append_info("Could not load user data; script will execute without user data in environment!")
+          ::Chef::Log.info("Could not load user data; script will execute without user data in environment!")
           RightScale::RightLinkLog.error("#{e.class.name}: #{e.message}, #{e.backtrace[0]}")
         end
         @new_resource.parameters.each { |key, val| ENV[key] = val }
         ENV['ATTACH_DIR'] = ENV['RS_ATTACH_DIR'] = @new_resource.cache_dir
-        ENV['RS_REBOOT']  = RightScale::InstanceState.past_scripts.include?(@nickname) ? '1' : nil
+        ENV['RS_REBOOT']  = RightScale::InstanceState.past_scripts.include?(nickname) ? '1' : nil
         #RightScripts expect to find RS_DISTRO or RS_DIST in the environment; provide it for them.
         #Massage the distro name into the format they expect (all lower case, one word, no release info).
         if platform.linux?
@@ -89,26 +89,22 @@ class Chef
         end
 
         # 2. Fork and wait
-        @mutex.synchronize do
-          cmd = shell.format_shell_command(@new_resource.source_file)
-          RightScale.popen3(cmd, self, :on_read_stdout, :on_read_stderr, :on_exit)
-          @exited_event.wait(@mutex)
-        end
+        status = run_script_file(@new_resource.source_file)
+        duration = Time.now - run_started_at
 
         # 3. Handle process exit status
-        if @status
-          @auditor.append_info("Script exit status: #{@status.exitstatus}")
+        if status
+          ::Chef::Log.info("Script exit status: #{status.exitstatus}")
         else
-          @auditor.append_info("Script exit status: UNKNOWN; presumed success")
+          ::Chef::Log.info("Script exit status: UNKNOWN; presumed success")
         end
+        ::Chef::Log.info("Script duration: #{duration}")
 
-        @auditor.append_info("Script duration: #{@duration}")
-
-        if !@status || @status.success?
-          RightScale::InstanceState.record_script_execution(@nickname)
+        if !status || status.success?
+          RightScale::InstanceState.record_script_execution(nickname)
           @new_resource.updated = true
         else
-          raise RightScale::Exceptions::Exec, "RightScript < #{@nickname} > returned #{@status.exitstatus}"
+          raise RightScale::Exceptions::Exec, "RightScript < #{nickname} > returned #{status.exitstatus}"
         end
     
         true
@@ -116,45 +112,19 @@ class Chef
 
       protected
 
-      # Data available in STDOUT pipe event
-      # Audit raw output
+      # Runs the given RightScript.
       #
       # === Parameters
-      # data<String>:: STDOUT data
+      # script_file_path(String):: script file path
       #
-      # === Return
-      # true:: Always return true
-      def on_read_stdout(data)
-        @auditor.append_output(data)
-      end
+      # == Returns
+      # result(Status):: result of running script
+      def run_script_file(script_file_path)
+        platform = RightScale::RightLinkConfig[:platform]
+        shell    = platform.shell
+        command  = shell.format_shell_command(script_file_path)
 
-      # Data available in STDERR pipe event
-      # Audit error
-      #
-      # === Parameters
-      # data<String>:: STDERR data
-      #
-      # === Return
-      # true:: Always return true
-      def on_read_stderr(data)
-        @auditor.append_error(data)
-      end
-
-      # Process exited event
-      # Record duration and process exist status and signal Chef thread so it can resume
-      #
-      # === Parameters
-      # status<Process::Status>:: Process exit status
-      #
-      # === Return
-      # true:: Always return true
-      def on_exit(status)
-        @mutex.synchronize do
-          @duration = Time.now - @run_started_at
-          @status = status
-          @exited_event.signal
-        end
-        true
+        return execute(command)
       end
 
     end

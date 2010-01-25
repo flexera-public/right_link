@@ -72,6 +72,11 @@ describe InstanceSetup do
     flexmock(@mgr).should_receive(:write_keys_file).and_return(true)
     setup_state
     setup_script_execution
+
+    # prevent Chef logging reaching the console during spec test.
+    logger = flexmock(::RightScale::RightLinkLog.logger)
+    logger.should_receive(:info).and_return(true)
+    logger.should_receive(:error).and_return(true)
   end
 
   after(:each) do
