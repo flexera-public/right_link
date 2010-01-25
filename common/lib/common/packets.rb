@@ -20,6 +20,19 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+# Hack to replace Nanite namespace from downrev nanites with RightScale
+module JSON
+  class << self
+    def parse(source, opts = {})
+      if source =~ /(.*)json_class":"Nanite::(.*)/
+        JSON.parser.new( Regexp.last_match(1) + 'json_class":"RightScale::' + Regexp.last_match(2), opts).parse
+      else
+        JSON.parser.new(source, opts).parse
+      end
+    end
+  end
+end
+
 module RightScale
 
   # Base class for all nanite packets,
@@ -33,8 +46,14 @@ module RightScale
     end
 
     def to_json(*a)
+      # Hack to override RightScale namespace with Nanite for downward compatibility
+      class_name = self.class.name
+      if class_name =~ /^RightScale::(.*)/
+        class_name = "Nanite::" + Regexp.last_match(1)
+      end
+
       js = {
-        'json_class'   => self.class.name,
+        'json_class'   => class_name,
         'data'         => instance_variables.inject({}) {|m,ivar| m[ivar.to_s.sub(/@/,'')] = instance_variable_get(ivar); m }
       }.to_json(*a)
       js = js.chop + ",\"size\":#{js.size}}"
