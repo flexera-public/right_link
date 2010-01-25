@@ -21,7 +21,7 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 require File.join(File.dirname(__FILE__), '..', '..', 'command_protocol', 'lib', 'command_protocol')
-require File.join(File.dirname(__FILE__), '..', '..', 'agents', 'lib', 'common_lib')
+require File.join(File.dirname(__FILE__), '..', '..', 'common', 'lib', 'common')
 
 module RightScale
 

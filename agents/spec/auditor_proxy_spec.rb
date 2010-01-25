@@ -20,11 +20,7 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require File.join(File.dirname(__FILE__), '..', '..', 'spec', 'spec_helper')
-require 'audit_formatter'
-require 'right_link_log'
-require 'auditor_proxy'
-require 'request_forwarder'
+require File.join(File.dirname(__FILE__), 'spec_helper')
 
 describe RightScale::AuditorProxy do
 

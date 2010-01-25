@@ -33,15 +33,10 @@ require 'spec'
 require 'eventmachine'
 require 'fileutils'
 
-require File.expand_path(File.join(File.dirname(__FILE__), '..', 'agents', 'lib', 'common_lib'))
-require File.expand_path(File.join(File.dirname(__FILE__), '..', 'chef', 'lib', 'providers'))
+require File.expand_path(File.join(File.dirname(__FILE__), '..', 'common', 'lib', 'common'))
 require File.expand_path(File.join(File.dirname(__FILE__), '..', 'payload_types', 'lib', 'payload_types'))
-require File.join(File.dirname(__FILE__), 'nanite_results_mock')
 
 $:.push File.join(File.dirname( __FILE__), '..', 'actors', 'lib')
-$:.push File.join(File.dirname( __FILE__), '..', 'agents', 'lib')
-$:.push File.join(File.dirname( __FILE__), '..', 'agents', 'lib', 'common')
-$:.push File.join(File.dirname( __FILE__), '..', 'agents', 'lib', 'instance')
 
 config = Spec::Runner.configuration
 config.mock_with :flexmock
@@ -140,7 +135,7 @@ module RightScale
 
 end # RightScale
 
-require File.expand_path(File.join(__FILE__, '..', '..', 'agents', 'lib', 'common', 'right_link_log'))
+require File.expand_path(File.join(__FILE__, '..', '..', 'common', 'lib', 'common', 'right_link_log'))
 module RightScale
   class RightLinkLog
     # Monkey path RightLink logger to not log by default

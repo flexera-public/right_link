@@ -22,28 +22,34 @@
 
 require File.join(File.dirname(__FILE__), 'spec_helper')
 
-describe RightScale::InstanceCommands do
+describe RightScale::RsaKeyPair do
 
   before(:all) do
-    @commands = RightScale::InstanceCommands::COMMANDS
-    @agent_identity = RightScale::AgentIdentity.new('rs', 'test', 1).to_s
-    @scheduler = flexmock('Scheduler')
-    @scheduler.should_ignore_missing
+    @pair = RightScale::RsaKeyPair.new
   end
 
-  it 'should list commands' do
-    flexmock(RightScale::CommandIO.instance).should_receive(:reply).and_return do |conn, r|
-      conn.should == 42
-      r.count("\n").should == @commands.size + 6
-    end
-    RightScale::InstanceCommands.new(@agent_identity, @scheduler).send(:list_command, {:conn => 42}).should be_true
+  it 'should create a private and a public keys' do
+    @pair.has_private?.should be_true
   end
 
-  it 'should get commands' do
-    cmds = RightScale::InstanceCommands.get(@agent_identity, @scheduler)
-    cmds.size.should == @commands.size
-    cmds.keys.map { |k| k.to_s }.sort.should == @commands.keys.map { |k| k.to_s }.sort
-    cmds.values.all? { |v| v.is_a? Proc }.should be_true
+  it 'should strip out private key in to_public' do
+    @pair.to_public.has_private?.should be_false
+  end
+
+  it 'should save' do
+    filename = File.join(File.dirname(__FILE__), "key.pem")
+    @pair.save(filename)
+    File.size(filename).should be > 0
+    File.delete(filename)
+  end
+
+  it 'should load' do
+    filename = File.join(File.dirname(__FILE__), "key.pem")
+    @pair.save(filename)
+    key = RightScale::RsaKeyPair.load(filename)
+    File.delete(filename)
+    key.should_not be_nil
+    key.data.should == @pair.data
   end
 
 end

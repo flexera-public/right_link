@@ -27,13 +27,13 @@
 RIGHT_LINK_ENV = File.join(File.dirname(__FILE__), 'right_link_env.rb')
 
 BASE_DIR = File.expand_path(File.join(File.dirname(__FILE__), '..', '..'))
-require File.join(BASE_DIR, 'agents', 'lib', 'instance_lib')
+require File.join(BASE_DIR, 'agents', 'lib', 'instance')
 require File.join(BASE_DIR, 'chef', 'lib', 'providers')
 require File.join(BASE_DIR, 'chef', 'lib', 'plugins')
 require File.join(BASE_DIR, 'command_protocol', 'lib', 'command_protocol')
 require File.join(BASE_DIR, 'payload_types', 'lib', 'payload_types')
 require File.join(BASE_DIR, 'repo_conf_generators', 'lib', 'repo_conf_generators')
-require 'right_popen'  # now an installed gem
+require 'right_popen'
 
 RightScale::SecureSerializerInitializer.init(options[:agent] || 'instance', options[:identity], RightScale::RightLinkConfig[:certs_dir])
 

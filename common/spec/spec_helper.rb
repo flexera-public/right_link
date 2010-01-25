@@ -20,36 +20,25 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require File.join(File.dirname(__FILE__), '..', '..', 'spec', 'spec_helper')
+require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'spec', 'spec_helper'))
 
-describe RightScale::RsaKeyPair do
+module RightScale
 
-  before(:all) do
-    @pair = RightScale::RsaKeyPair.new
-  end
+  module SpecHelper
 
-  it 'should create a private and a public keys' do
-    @pair.has_private?.should be_true
-  end
+    # Create test certificate
+    def issue_cert
+      test_dn = { 'C'  => 'US',
+                  'ST' => 'California',
+                  'L'  => 'Santa Barbara',
+                  'O'  => 'Nanite',
+                  'OU' => 'Certification Services',
+                  'CN' => 'Nanite test' }
+      dn = RightScale::DistinguishedName.new(test_dn)
+      key = RightScale::RsaKeyPair.new
+      [ RightScale::Certificate.new(key, dn, dn), key ]
+    end
 
-  it 'should strip out private key in to_public' do
-    @pair.to_public.has_private?.should be_false
-  end
+  end # SpecHelpers
 
-  it 'should save' do
-    filename = File.join(File.dirname(__FILE__), "key.pem")
-    @pair.save(filename)
-    File.size(filename).should be > 0
-    File.delete(filename)
-  end
-
-  it 'should load' do
-    filename = File.join(File.dirname(__FILE__), "key.pem")
-    @pair.save(filename)
-    key = RightScale::RsaKeyPair.load(filename)
-    File.delete(filename)
-    key.should_not be_nil
-    key.data.should == @pair.data
-  end
-
-end
+end # RightScale

@@ -20,27 +20,44 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require File.join(File.dirname(__FILE__), '..', '..', 'spec', 'spec_helper')
+require File.join(File.dirname(__FILE__), 'spec_helper')
 
-describe RightScale::DistinguishedName do
+module RightScale
+  
+  # Add the ability to compare pings for test purposes
+  class Ping
+    def ==(other)
+      @status == other.status && @identity == other.identity
+    end
+  end
+  
+end
+
+describe RightScale::SecureSerializer do
+  
+  include RightScale::SpecHelpers
 
   before(:all) do
-    test_dn = { 'C'  => 'US',
-                'ST' => 'California',
-                'L'  => 'Santa Barbara',
-                'O'  => 'RightScale',
-                'OU' => 'Certification Services',
-                'CN' => 'rightscale.com/emailAddress=cert@rightscale.com' }
-    @dn = RightScale::DistinguishedName.new(test_dn)
+    @certificate, @key = issue_cert
+    @store = RightScale::StaticCertificateStore.new(@certificate, @certificate)
+    @identity = "id"
+    @data = RightScale::Ping.new("Test", 0.5)
+  end
+  
+  it 'should raise when not initialized' do
+    lambda { RightScale::SecureSerializer.dump(@data) }.should raise_error
   end
 
-  it 'should convert to string and X509 DN' do
-    @dn.to_s.should_not be_nil
-    @dn.to_x509.should_not be_nil
+  it 'should deserialize signed data' do
+    RightScale::SecureSerializer.init(@identity, @certificate, @key, @store, false)
+    data = RightScale::SecureSerializer.dump(@data)
+    RightScale::SecureSerializer.load(data).should == @data
   end
-
-  it 'should correctly encode' do
-    @dn.to_s.should == @dn.to_x509.to_s
+  
+  it 'should deserialize encrypted data' do
+    RightScale::SecureSerializer.init(@identity, @certificate, @key, @store, true)
+    data = RightScale::SecureSerializer.dump(@data)
+    RightScale::SecureSerializer.load(data).should == @data
   end
 
 end

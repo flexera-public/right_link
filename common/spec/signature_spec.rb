@@ -20,24 +20,33 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require File.join(File.dirname(__FILE__), '..', '..', 'spec', 'spec_helper')
+require File.join(File.dirname(__FILE__), 'spec_helper')
 
-describe RightScale::EncryptedDocument do
+describe RightScale::Signature do
   
   include RightScale::SpecHelpers
 
   before(:all) do
-    @test_data = "Test Data to Sign"
+    @test_data = "Test Data"
     @cert, @key = issue_cert
-    @doc = RightScale::EncryptedDocument.new(@test_data, @cert)
+    @sig = RightScale::Signature.new(@test_data, @cert, @key)
   end
 
-  it 'should create encrypted data' do
-    @doc.encrypted_data.should_not be_nil
+  it 'should create signed data' do
+    @sig.to_s.should_not be_empty
   end
 
-  it 'should decrypt correctly' do
-    @doc.decrypted_data(@key, @cert).should == @test_data
+  it 'should verify the signature' do
+    cert2, key2 = issue_cert
+  
+    @sig.should be_a_match(@cert)
+    @sig.should_not be_a_match(cert2)
+  end
+
+  it 'should load from serialized signature' do
+    sig2 = RightScale::Signature.from_data(@sig.data)
+    sig2.should_not be_nil
+    sig2.should be_a_match(@cert)
   end
 
 end

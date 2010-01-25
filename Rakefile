@@ -21,7 +21,7 @@ RIGHT_BOT_ROOT = File.dirname(__FILE__)
 # t<Spec::Rake::SpecTask>:: Configured task
 def setup_spec(t)
   t.spec_opts = ['--options', "\"#{RIGHT_BOT_ROOT}/spec/spec.opts\""]
-  t.spec_files = FileList["#{RIGHT_BOT_ROOT}/**/spec/**/*_spec.rb"] - FileList["#{RIGHT_BOT_ROOT}/**/nanite/**/*_spec.rb"]
+  t.spec_files = FileList["#{RIGHT_BOT_ROOT}/**/spec/**/*_spec.rb"]
   t
 end
 

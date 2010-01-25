@@ -20,7 +20,7 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require File.join(File.dirname(__FILE__), 'common_lib')
+require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'common', 'lib', 'common'))
 require File.join(File.dirname(__FILE__), 'instance', 'audit_logger')
 require File.join(File.dirname(__FILE__), 'instance', 'auditor_proxy')
 require File.join(File.dirname(__FILE__), 'instance', 'chef_state')

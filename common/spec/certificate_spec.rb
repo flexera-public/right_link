@@ -20,37 +20,30 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require File.join(File.dirname(__FILE__), '..', '..', 'spec', 'spec_helper')
+require File.join(File.dirname(__FILE__), 'spec_helper')
 
-describe RightScale::CachedCertificateStoreProxy do
+describe RightScale::Certificate do
   
   include RightScale::SpecHelpers
 
   before(:all) do
-    @signer, key = issue_cert
-    @recipient, key = issue_cert
-    @store = flexmock("Store")
-    @proxy = RightScale::CachedCertificateStoreProxy.new(@store)
+    @certificate, key = issue_cert
   end
 
-  it 'should not raise and return nil for non existent certificates' do
-    res = nil
-    @store.should_receive(:get_recipients).with(nil).and_return(nil)
-    lambda { res = @proxy.get_recipients(nil) }.should_not raise_error
-    res.should == nil
-    @store.should_receive(:get_signer).with(nil).and_return(nil)
-    lambda { res = @proxy.get_signer(nil) }.should_not raise_error
-    res.should == nil
+  it 'should save' do
+    filename = File.join(File.dirname(__FILE__), "cert.pem")
+    @certificate.save(filename)
+    File.size(filename).should be > 0
+    File.delete(filename)
   end
 
-  it 'should return recipient certificates' do
-    @store.should_receive(:get_recipients).with('anything').and_return(@recipient)
-    @proxy.get_recipients('anything').should == @recipient
+  it 'should load' do
+    filename = File.join(File.dirname(__FILE__), "cert.pem")
+    @certificate.save(filename)
+    cert = RightScale::Certificate.load(filename)
+    File.delete(filename)
+    cert.should_not be_nil
+    cert.data.should == @certificate.data
   end
-  
-  it 'should return signer certificates' do
-    @store.should_receive(:get_signer).with('anything').and_return(@signer)
-    @proxy.get_signer('anything').should == @signer
-  end
-  
+
 end

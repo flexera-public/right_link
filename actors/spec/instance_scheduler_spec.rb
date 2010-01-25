@@ -20,11 +20,10 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require File.join(File.dirname(__FILE__), '..', '..', 'spec', 'spec_helper')
+require File.join(File.dirname(__FILE__), 'spec_helper')
+require File.join(File.dirname(__FILE__), '..', 'lib', 'instance_scheduler')
 require File.join(File.dirname(__FILE__), 'auditor_proxy_mock')
 require File.join(File.dirname(__FILE__), 'instantiation_mock')
-require 'instance_lib'
-require 'instance_scheduler'
 
 describe InstanceScheduler do
 

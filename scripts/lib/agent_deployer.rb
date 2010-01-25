@@ -69,7 +69,7 @@ require File.join(File.dirname(__FILE__), 'rdoc_patch')
 require File.join(File.dirname(__FILE__), '..', '..', 'config', 'right_link_config')
 require File.join(File.dirname(__FILE__), 'agent_utils')
 require File.join(File.dirname(__FILE__), 'common_parser')
-require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'agents', 'lib', 'common_lib'))
+require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'common', 'lib', 'common'))
 
 module RightScale
 

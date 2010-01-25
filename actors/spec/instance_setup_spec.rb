@@ -20,12 +20,12 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require File.join(File.dirname(__FILE__), '..', '..', 'spec', 'spec_helper')
-require 'right_popen'  # now an installed gem
+require File.join(File.dirname(__FILE__), 'spec_helper')
+require File.join(File.dirname(__FILE__), '..', 'lib', 'instance_setup')
 require File.join(File.dirname(__FILE__), 'auditor_proxy_mock')
 require File.join(File.dirname(__FILE__), 'instantiation_mock')
-require 'instance_lib'
-require 'instance_setup'
+require File.join(File.dirname(__FILE__), '..', '..', 'spec', 'nanite_results_mock')
+require 'right_popen'
 
 # We can't mock the different calls to request properly
 # rake spec seems to always return the last match

@@ -21,7 +21,7 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 require 'fileutils'
-require 'right_popen'  # now an installed gem
+require 'right_popen'
 
 class Chef
 
