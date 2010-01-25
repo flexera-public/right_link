@@ -26,6 +26,7 @@ undef :daemonize if methods.include?('daemonize')
 require 'rubygems'
 require 'chef/log'
 require 'fileutils'
+require 'right_scraper'
 
 module RightScale
 
@@ -54,6 +55,7 @@ module RightScale
       recipes                 = bundle.executables.map    { |e| e.is_a?(RecipeInstantiation) ? e : @right_scripts_cookbook.recipe_from_right_script(e) }
       @cookbook_repos         = bundle.cookbook_repositories || []
       @downloader             = Downloader.new
+      @scraper                = Scraper.new(InstanceConfiguration::COOKBOOK_PATH)
       @prepared_executables   = []
 
       # We want to always do full-converge, leave the option in case we change our mind
@@ -133,8 +135,7 @@ module RightScale
         Chef::Config[:cookbook_path] = DevState.cookbooks_path
         Chef::Log.info("Using development cookbooks repositories path:\n\t- #{Chef::Config[:cookbook_path].join("\n\t- ")}")
       else
-        Chef::Config[:cookbook_path] = @cookbook_repos.map { |r| cookbooks_path(r) }.flatten.uniq
-        Chef::Config[:cookbook_path] << @right_scripts_cookbook.repo_dir unless @right_scripts_cookbook.empty?
+        Chef::Config[:cookbook_path] = (@right_scripts_cookbook.empty? ? [] : [ @right_scripts_cookbook.repo_dir ])
       end
       Chef::Config[:solo] = true
       true
@@ -206,62 +207,15 @@ module RightScale
       @auditor.create_new_section('Retrieving cookbooks') unless @cookbook_repos.empty?
       audit_time do
         @cookbook_repos.each do |repo|
+          next if repo.repo_type == :local
           @auditor.append_info("Downloading #{repo.url}")
-          cookbook_dir = cookbook_repo_directory(repo)
-          FileUtils.rm_rf(cookbook_dir) if File.exist?(cookbook_dir)
-          success, res = false, ''
-          case repo.repo_type
-          when :download
-            success = @downloader.download(repo.url, cookbook_dir, repo.username, repo.password)
-            res = success ? @downloader.details : @downloader.error
-          when :git
-            # query short path equivalent because windows Git can't clone to a
-            # long path.
-            platform = RightLinkConfig[:platform]
-            cookbook_dir = platform.filesystem.long_path_to_short_path(cookbook_dir)
-            ssh_cmd = platform.ssh.create_repo_ssh_command(repo)
-            res = `#{ssh_cmd} git clone --quiet --depth 1 #{repo.url} #{cookbook_dir} 2>&1`
-            success = $? == 0
-            if repo.tag && !repo.tag.empty? && repo.tag != 'master' && success
-              Dir.chdir(cookbook_dir) do
-                res += `#{ssh_cmd} git fetch --depth 1 --tags 2>&1`
-                is_tag = `git tag`.split("\n").include?(repo.tag)
-                is_branch = `git branch -r`.split("\n").map { |t| t.strip }.include?("origin/#{repo.tag}")
-                if is_tag && is_branch
-                  res = 'Repository tag ambiguous: could be git tag or git branch'
-                  success = false
-                elsif is_branch
-                  res += `git branch #{repo.tag} origin/#{repo.tag} 2>&1`
-                  success = $? == 0
-                elsif !is_tag # Not a branch nor a tag, SHA ref? fetch everything so we have all SHAs
-                  res += `#{ssh_cmd} git fetch origin master --depth #{2**31 - 1} 2>&1`
-                  success = $? == 0
-                end
-                if success
-                  res += `git checkout #{repo.tag} 2>&1`
-                  success = $? == 0
-                end
-              end
-            end
-          when :svn
-            svn_cmd = "svn export #{repo.url} #{cookbook_dir} --non-interactive" +
-            (repo.tag && !repo.tag.empty? ? " --revision #{repo.tag}" : '') +
-            (repo.username ? " --username #{repo.username}" : '') +
-            (repo.password ? " --password #{repo.password}" : '') +
-            ' 2>&1'
-            res = `#{svn_cmd}`
-            success = $? == 0
-          when :local
-            res = "Using local(test) cookbooks\n"
-            success = true
+          output = []
+          @scraper.scrape(repo, lambda { |o| output << o }) 
+          if @scraper.succeeded
+            Chef::Config[:cookbook_path] << @scraper.repo_dir
+            @auditor.append_output(output.join("\n"))
           else
-            report_failure('Failed to download cookbooks', "Invalid cookbooks repository type #{repo.repo_type}")
-            return true
-          end
-          if success
-            @auditor.append_output(res)
-          else
-            report_failure("Failed to download cookbooks #{repo.url}", res)
+            report_failure("Failed to download cookbooks #{repo.url}", output.join("\n"))
             return true
           end
         end
@@ -396,35 +350,6 @@ module RightScale
       margin = prefix ? prefix * index.to_s.size : index.to_s
       "#{margin}#{' ' * ([padding - margin.size, 0].max)} #{lines[index - 1]}"
     end
-
-    # Directory where cookbooks should be kept
-    #
-    # === Parameters
-    # repo<RightScale::RepositoryInstantiation>:: Repository to retrieve a directory for
-    #
-    # === Return
-    # dir<String>:: Valid path to Unix directory
-    def cookbook_repo_directory(repo)
-      dir = File.join(InstanceConfiguration::COOKBOOK_PATH, repo.to_s)
-    end
-    
-     # Cookbooks paths where chef will find cookbooks
-     #
-     # === Parameters
-     # repo<RightScale::RepositoryInstantiation>:: Repository to retrieve a directory 
-     #
-     # === Return
-     # paths<Array>:: Array of valid path to Unix directory
-     def cookbooks_path(repo)
-       dir = cookbook_repo_directory(repo)
-       paths, tmp = [], repo.cookbooks_path
-       if tmp.nil? || tmp.empty?
-         paths << dir
-       else
-         tmp.each { |p| paths << File.join(dir, p) }
-       end
-       paths
-     end
 
     # Retry executing given block given number of times
     # Block should return true when it succeeds

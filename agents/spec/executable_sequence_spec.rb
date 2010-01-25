@@ -124,34 +124,6 @@ describe RightScale::ExecutableSequence do
 
   end
 
-  context 'Testing helper methods' do
-
-    before(:each) do
-      bundle = flexmock('Bundle')
-      bundle.should_ignore_missing
-      @sequence = RightScale::ExecutableSequence.new(bundle)
-      @sequence.instance_variable_set(:@auditor, @auditor)
-    end
-
-    it 'should calculate cookbooks path for repositories with no cookbooks_path' do
-      repo = RightScale::CookbookRepository.new('git', 'url', 'tag')
-      paths = @sequence.send(:cookbooks_path, repo)
-      paths.size.should == 1
-      paths.first.should == @sequence.send(:cookbook_repo_directory, repo)
-      repo = RightScale::CookbookRepository.new('git', 'url', 'tag', [])
-      paths = @sequence.send(:cookbooks_path, repo)
-      paths.size.should == 1
-      paths.first.should == @sequence.send(:cookbook_repo_directory, repo)
-    end
-
-    it 'should calculate cookbooks path for repositories with cookbooks_path' do
-      repo = RightScale::CookbookRepository.new('git', 'url', 'tag', ['cookbooks_path'])
-      paths = @sequence.send(:cookbooks_path, repo)
-      paths.size.should == 1
-      paths.first.should == File.join(@sequence.send(:cookbook_repo_directory, repo), 'cookbooks_path')
-    end
-  end
-
   context 'Chef error formatting' do
 
     before(:each) do
