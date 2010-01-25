@@ -22,6 +22,7 @@
 
 require File.join(File.dirname(__FILE__), 'spec_helper')
 require File.join(File.dirname(__FILE__), '..', '..', 'chef', 'lib', 'plugins')
+require File.join(File.dirname(__FILE__), '..', '..', 'chef', 'lib', 'providers')
 
 describe RightScale::ExecutableSequence do
 

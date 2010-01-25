@@ -35,6 +35,7 @@ require 'fileutils'
 
 require File.expand_path(File.join(File.dirname(__FILE__), '..', 'common', 'lib', 'common'))
 require File.expand_path(File.join(File.dirname(__FILE__), '..', 'payload_types', 'lib', 'payload_types'))
+require File.join(File.dirname(__FILE__), 'nanite_results_mock')
 
 $:.push File.join(File.dirname( __FILE__), '..', 'actors', 'lib')
 
