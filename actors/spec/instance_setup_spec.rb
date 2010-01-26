@@ -24,7 +24,7 @@ require File.join(File.dirname(__FILE__), 'spec_helper')
 require File.join(File.dirname(__FILE__), '..', 'lib', 'instance_setup')
 require File.join(File.dirname(__FILE__), 'auditor_proxy_mock')
 require File.join(File.dirname(__FILE__), 'instantiation_mock')
-require File.join(File.dirname(__FILE__), '..', '..', 'spec', 'nanite_results_mock')
+require File.join(File.dirname(__FILE__), '..', '..', 'spec', 'results_mock')
 require 'right_popen'
 
 # We can't mock the different calls to request properly
@@ -65,7 +65,7 @@ describe InstanceSetup do
     @setup.should_receive(:configure_repositories).and_return(RightScale::OperationResult.success)
     @auditor = RightScale::AuditorProxyMock.new
     flexmock(RightScale::AuditorProxy).should_receive(:new).and_return(@auditor)
-    @results_factory = RightScale::NaniteResultsMock.new
+    @results_factory = RightScale::ResultsMock.new
     InstanceSetup.results_factory = @results_factory
     @mgr = RightScale::LoginManager.instance
     flexmock(@mgr).should_receive(:supported_by_platform?).and_return(true)

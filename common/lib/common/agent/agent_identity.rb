@@ -163,7 +163,7 @@ module RightScale
       serialized = nanite[7..-1] # 'nanite-'.length == 7
     end
 
-    # Generate nanite agent identity from serialized representation
+    # Generate agent identity from serialized representation
     #
     # === Parameters
     # serialized<String>:: Serialized agent identity
