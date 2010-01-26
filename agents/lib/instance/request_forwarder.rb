@@ -35,12 +35,12 @@ module RightScale
     # Maximum number of in-memory messages before triggering re-enroll vote
     MAX_QUEUED_MESSAGES = 1000
 
-    # Send nanite request or buffer it if we are in offline mode
+    # Send request or buffer it if we are in offline mode
     #
     # === Parameters
     # type<String>:: Request service (e.g. '/booter/set_r_s_version')
     # payload<String>:: Associated payload, optional
-    # opts<Hash>:: Options as allowed by nanite, optional
+    # opts<Hash>:: Options as allowed by Request packet, optional
     #
     # === Block
     # Handler block gets called back with request results
@@ -56,12 +56,12 @@ module RightScale
       true
     end
 
-    # Send nanite push or buffer it if we are in offline mode
+    # Send push or buffer it if we are in offline mode
     #
     # === Parameters
     # type<String>:: Request service (e.g. '/booter/set_r_s_version')
     # payload<String>:: Associated payload, optional
-    # opts<Hash>:: Options as allowed by nanite, optional
+    # opts<Hash>:: Options as allowed by Push packet, optional
     #
     # === Return
     # true:: Always return true

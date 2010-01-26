@@ -46,7 +46,7 @@ module RightScale
   # - File.read('/sys/block/...') will hang if run in a multithread ruby
   #   process because it will use async IO
   # - `cat /sys/block/...` will deadlock with the `uptime` command ran
-  #   from nanite's hearbeat callback
+  #   from agents's hearbeat callback
   class LinuxBlockDevice
     def self.info
       @@info

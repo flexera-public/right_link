@@ -22,7 +22,7 @@
 
 module RightScale
 
-  # This class allows sending requests to nanite agents without having
+  # This class allows sending requests to agents without having
   # to run a local mapper.
   # It is used by Actor.request which can be used by actors than need
   # to send requests to remote agents.

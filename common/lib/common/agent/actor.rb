@@ -21,7 +21,8 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 module RightScale
-  # This mixin provides nanite actor functionality.
+
+  # This mixin provides agent actor functionality.
   #
   # To use it simply include it your class containing the functionality to be exposed:
   #
@@ -79,17 +80,17 @@ module RightScale
     end # ClassMethods     
     
     module InstanceMethods
-      # Send nanite request to another agent (through the mapper)
+      # Send request to another agent (through the mapper)
       def request(*args, &blk)
         MapperProxy.instance.request(*args, &blk)
       end
       
-      # Send nanite push to another agent (through the mapper)
+      # Send push to another agent (through the mapper)
       def push(*args)
         MapperProxy.instance.push(*args)
       end
 
-      # Send nanite tag query to mapper
+      # Send tag query to mapper
       def query_tags(*args, &blk)
         MapperProxy.instance.query_tags(*args, &blk)
       end
