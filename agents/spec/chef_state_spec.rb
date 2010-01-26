@@ -46,7 +46,7 @@ describe RightScale::ChefState do
   end
 
   it 'should initialize' do
-    RightScale::ChefState.init
+    RightScale::ChefState.init(true)
     RightScale::ChefState.run_list.should == []
     RightScale::ChefState.attributes.should == {}
   end
