@@ -1,6 +1,3 @@
 .idea
 tags
 .DS_Store
-#TODO figure out why the tests don't clean up after themselves
-common/spec/config.yml
-config.yml

@@ -36,6 +36,10 @@ describe RightScale::Agent do
       @agent = RightScale::Agent.start
     end
 
+    after(:each) do
+      FileUtils.rm_rf(File.expand_path(File.join(@agent.options[:root], 'config.yml'))) if @agent
+    end
+
     it "for daemonize is false" do
       @agent.options.should include(:daemonize)
       @agent.options[:daemonize].should == false
@@ -109,6 +113,10 @@ describe RightScale::Agent do
       @agent = RightScale::Agent.start
     end
 
+    after(:each) do
+      FileUtils.rm_rf(File.expand_path(File.join(@agent.options[:root], 'config.yml'))) if @agent
+    end
+ 
   end
 
   describe "Passed in Options" do
@@ -120,6 +128,11 @@ describe RightScale::Agent do
       @queue = flexmock("queue", :subscribe => {})
       @amq = flexmock("AMQueue", :queue => @queue, :fanout => @fanout)
       flexmock(MQ).should_receive(:new).and_return(@amq)
+      @agent = nil
+    end
+
+    after(:each) do
+      FileUtils.rm_rf(File.expand_path(File.join(@agent.options[:root], 'config.yml'))) if @agent
     end
 
     # TODO figure out how to stub call to daemonize
@@ -130,92 +143,92 @@ describe RightScale::Agent do
     # end
 
     it "for format should override default (marshal)" do
-      agent = RightScale::Agent.start(:format => :json)
-      agent.options.should include(:format)
-      agent.options[:format].should == :json
+      @agent = RightScale::Agent.start(:format => :json)
+      @agent.options.should include(:format)
+      @agent.options[:format].should == :json
     end
 
     # TODO figure out how to avoid console output
     # it "for console should override default (false)" do
-    #   agent = RightScale::Agent.start(:console => true)
-    #   agent.options.should include(:console)
-    #   agent.options[:console].should == true
+    #   @agent = RightScale::Agent.start(:console => true)
+    #   @agent.options.should include(:console)
+    #   @agent.options[:console].should == true
     # end
 
     it "for user should override default (nanite)" do
-      agent = RightScale::Agent.start(:user => "me")
-      agent.options.should include(:user)
-      agent.options[:user].should == "me"
+      @agent = RightScale::Agent.start(:user => "me")
+      @agent.options.should include(:user)
+      @agent.options[:user].should == "me"
     end
 
     it "for pass(word) should override default (testing)" do
-      agent = RightScale::Agent.start(:pass => "secret")
-      agent.options.should include(:pass)
-      agent.options[:pass].should == "secret"
+      @agent = RightScale::Agent.start(:pass => "secret")
+      @agent.options.should include(:pass)
+      @agent.options[:pass].should == "secret"
     end
 
     it "for secure should override default (false)" do
-      agent = RightScale::Agent.start(:secure => true)
-      agent.options.should include(:secure)
-      agent.options[:secure].should == true
+      @agent = RightScale::Agent.start(:secure => true)
+      @agent.options.should include(:secure)
+      @agent.options[:secure].should == true
     end
 
     it "for host should override default (0.0.0.0)" do
-      agent = RightScale::Agent.start(:host => "127.0.0.1")
-      agent.options.should include(:host)
-      agent.options[:host].should == "127.0.0.1"
+      @agent = RightScale::Agent.start(:host => "127.0.0.1")
+      @agent.options.should include(:host)
+      @agent.options[:host].should == "127.0.0.1"
     end
 
     it "for log_level should override default (info)" do
-      agent = RightScale::Agent.start(:log_level => :debug)
-      agent.options.should include(:log_level)
-      agent.options[:log_level].should == :debug
+      @agent = RightScale::Agent.start(:log_level => :debug)
+      @agent.options.should include(:log_level)
+      @agent.options[:log_level].should == :debug
     end
 
     it "for vhost should override default (/nanite)" do
-      agent = RightScale::Agent.start(:vhost => "/virtual_host")
-      agent.options.should include(:vhost)
-      agent.options[:vhost].should == "/virtual_host"
+      @agent = RightScale::Agent.start(:vhost => "/virtual_host")
+      @agent.options.should include(:vhost)
+      @agent.options[:vhost].should == "/virtual_host"
     end
 
     it "for ping_time should override default (15)" do
-      agent = RightScale::Agent.start(:ping_time => 5)
-      agent.options.should include(:ping_time)
-      agent.options[:ping_time].should == 5
+      @agent = RightScale::Agent.start(:ping_time => 5)
+      @agent.options.should include(:ping_time)
+      @agent.options[:ping_time].should == 5
     end
 
     it "for default_services should override default ([])" do
-      agent = RightScale::Agent.start(:default_services => [:test])
-      agent.options.should include(:default_services)
-      agent.options[:default_services].should == [:test]
+      @agent = RightScale::Agent.start(:default_services => [:test])
+      @agent.options.should include(:default_services)
+      @agent.options[:default_services].should == [:test]
     end
 
     it "for root should override default (#{File.expand_path(File.join(File.dirname(__FILE__), '..'))})" do
-      agent = RightScale::Agent.start(:root => File.expand_path(File.dirname(__FILE__)))
-      agent.options.should include(:root)
-      agent.options[:root].should == File.expand_path(File.dirname(__FILE__))
+      @agent = RightScale::Agent.start(:root => File.expand_path(File.dirname(__FILE__)))
+      @agent.options.should include(:root)
+      @agent.options[:root].should == File.expand_path(File.dirname(__FILE__))
     end
 
     it "for file_root should override default (#{File.expand_path(File.join(File.dirname(__FILE__), '..', 'files'))})" do
-      agent = RightScale::Agent.start(:file_root => File.expand_path(File.dirname(__FILE__)))
-      agent.options.should include(:file_root)
-      agent.options[:file_root].should == File.expand_path(File.dirname(__FILE__))
+      @agent = RightScale::Agent.start(:file_root => File.expand_path(File.dirname(__FILE__)))
+      @agent.options.should include(:file_root)
+      @agent.options[:file_root].should == File.expand_path(File.dirname(__FILE__))
     end
 
     it "for a single tag should result in the agent's tags being set" do
-      agent = RightScale::Agent.start(:tag => "sample_tag")
-      agent.tags.should include("sample_tag")
+      @agent = RightScale::Agent.start(:tag => "sample_tag")
+      @agent.tags.should include("sample_tag")
     end
 
     it "for multiple tags should result in the agent's tags being set" do
-      agent = RightScale::Agent.start(:tag => ["sample_tag_1", "sample_tag_2"])
-      agent.tags.should include("sample_tag_1")
-      agent.tags.should include("sample_tag_2")
+      @agent = RightScale::Agent.start(:tag => ["sample_tag_1", "sample_tag_2"])
+      @agent.tags.should include("sample_tag_1")
+      @agent.tags.should include("sample_tag_2")
     end
     
     it "for threadpool_size" do
-      agent = RightScale::Agent.start(:threadpool_size => 5)
-      agent.dispatcher.evmclass.threadpool_size.should == 5
+      @agent = RightScale::Agent.start(:threadpool_size => 5)
+      @agent.dispatcher.evmclass.threadpool_size.should == 5
     end
     
   end
@@ -233,6 +246,10 @@ describe RightScale::Agent do
       @request = RightScale::Request.new('/foo/bar', '')
       @push = RightScale::Push.new('/foo/bar', '')
       @agent = RightScale::Agent.start
+    end
+
+    after(:each) do
+      FileUtils.rm_rf(File.expand_path(File.join(@agent.options[:root], 'config.yml'))) if @agent
     end
     
     it 'should correctly deny requests' do
