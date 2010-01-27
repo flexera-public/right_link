@@ -23,6 +23,13 @@
 # The daemonize method of AR clashes with the daemonize Chef attribute, we don't need that method so undef it
 undef :daemonize if methods.include?('daemonize')
 
+# must monkey patch Chef::Mixin::Command before chef loads in Windows in order
+# to replace Linux-specific run_command() method.
+if RightScale::RightLinkConfig[:platform].windows?
+  require File.expand_path(File.join(File.dirname(__FILE__), '..', 'lib', 'mixin', 'command'))
+end
+
+require 'chef'
 require 'chef/client'
 
 require File.join(File.dirname(__FILE__), 'providers', 'cronv0_7_12')
@@ -59,7 +66,7 @@ Chef::Platform.platforms[:default].merge!(:dns                 => Chef::Provider
 if RightScale::RightLinkConfig[:platform].windows?
 
   # create the Windows default platform hash before loading win32 providers.
-  Chef::Platform.platforms[:windows] = { :default => { } }
+  Chef::Platform.platforms[:windows] = { :default => { } } unless Chef::Platform.platforms[:windows]
 
   # load (and self-register) all win32 providers
   win32_providers = File.join(File.dirname(__FILE__), 'providers', 'win32', '*.rb').gsub("\\", "/")

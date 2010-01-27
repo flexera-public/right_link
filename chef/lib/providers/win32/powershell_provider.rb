@@ -22,8 +22,7 @@
 
 require 'fileutils'
 require 'right_popen'
-
-require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'mixin', 'command'))
+require 'chef/mixin/command'
 
 class Chef
 
@@ -32,7 +31,7 @@ class Chef
     # Powershell chef provider.
     class Powershell < Chef::Provider
 
-      include RightScale::Mixin::Command
+      include Chef::Mixin::Command  # monkey patched version for Windows
 
       # use a unique dir name instead of cluttering temp directory with leftover
       # scripts like the original script provider.

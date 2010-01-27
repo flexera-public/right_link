@@ -26,8 +26,7 @@
 
 require 'fileutils'
 require 'right_popen'
-
-require File.expand_path(File.join(File.dirname(__FILE__), '..', 'mixin', 'command'))
+require 'chef/mixin/command'
 
 class Chef
 
@@ -36,7 +35,7 @@ class Chef
     # RightScript chef provider.
     class RightScript < Chef::Provider
 
-      include RightScale::Mixin::Command
+      include Chef::Mixin::Command
 
       # No concept of a 'current' resource for RightScript execution, this is a no-op
       #

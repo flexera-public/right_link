@@ -40,11 +40,12 @@ class Chef
 end
 
 # self-register
-Chef::Platform.platforms[:windows][:default].merge!(:mount => Chef::Provider::Win32Unsupported,     # NTFS supports mount points, but that doesn't mean we will.
-                                                    :service => Chef::Provider::Win32Unsupported,   # not yet implemented.
+Chef::Platform.platforms[:windows][:default].merge!(:link => Chef::Provider::Win32Unsupported,      # not yet implemented. NTFS supports hard & symbolic links.
+                                                    :mount => Chef::Provider::Win32Unsupported,     # not yet implemented. NTFS supports mount points.
+                                                    :service => Chef::Provider::Win32Unsupported,   # not yet implemented. 'net' commands are used to start/stop services.
                                                     :bash => Chef::Provider::Win32Unsupported,      # we don't intend to support Linux
                                                     :csh => Chef::Provider::Win32Unsupported,       #  shells under Windows.
-                                                    :user => Chef::Provider::Win32Unsupported,      # not yet implemented.
-                                                    :group => Chef::Provider::Win32Unsupported,     # not yet implemented.
-                                                    :route => Chef::Provider::Win32Unsupported,     # not yet implemented.
-                                                    :ifconfig => Chef::Provider::Win32Unsupported)  # not yet implemented.
+                                                    :user => Chef::Provider::Win32Unsupported,      # not yet implemented. need a custom provider.
+                                                    :group => Chef::Provider::Win32Unsupported,     # not yet implemented. need a custom provider.
+                                                    :route => Chef::Provider::Win32Unsupported,     # not yet implemented. WMI supports DNS configuration.
+                                                    :ifconfig => Chef::Provider::Win32Unsupported)  # not yet implemented. WMI supports DNS configuration.

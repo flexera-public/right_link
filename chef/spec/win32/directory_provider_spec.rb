@@ -1,0 +1,162 @@
+# Copyright (c) 2010 RightScale Inc
+#
+# Permission is hereby granted, free of charge, to any person obtaining
+# a copy of this software and associated documentation directories (the
+# "Software"), to deal in the Software without restriction, including
+# without limitation the rights to use, copy, modify, merge, publish,
+# distribute, sublicense, and/or sell copies of the Software, and to
+# permit persons to whom the Software is furnished to do so, subject to
+# the following conditions:
+#
+# The above copyright notice and this permission notice shall be
+# included in all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+# NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+# LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+# OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+# WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+require File.expand_path(File.join(File.dirname(__FILE__), '..', 'spec_helper'))
+
+# FIX: rake spec should check parent directory name?
+if RightScale::RightLinkConfig[:platform].windows?
+
+  require 'fileutils'
+  require File.expand_path(File.join(File.dirname(__FILE__), '..', 'mock_auditor_proxy'))
+  require File.expand_path(File.join(File.dirname(__FILE__), '..', 'chef_runner'))
+
+  module DirectoryProviderSpec
+    # unique directory for temporary directories.
+    # note that Chef fails if backslashes appear in cookbook paths.
+    TEST_TEMP_PATH = File.expand_path(File.join(Dir.tmpdir, "directory-provider-spec-5DCDDAA5-DB31-4356-A8E0-DFE84179C1EA")).gsub("\\", "/")
+    TEST_COOKBOOKS_PATH = File.join(TEST_TEMP_PATH, 'cookbooks')
+    TEST_DIR_PATH = File.join(TEST_TEMP_PATH, 'data', 'test')
+    TEST_SUBDIR_PATH = File.join(TEST_DIR_PATH, 'subdir1', 'subdir2')
+
+    def create_test_cookbook
+      test_cookbook_path = File.join(TEST_COOKBOOKS_PATH, 'test')
+      test_recipes_path = File.join(test_cookbook_path, 'recipes')
+      FileUtils.mkdir_p(test_recipes_path)
+
+      # create (empty) dir using directory provider.
+      create_dir_recipe =
+<<EOF
+directory "#{TEST_DIR_PATH}" do
+  mode 0644
+  not_if { File.directory?("#{TEST_DIR_PATH}") }
+end
+
+directory "#{TEST_SUBDIR_PATH}" do
+  recursive true
+  only_if \"cmd.exe /C \\\"if exist \\\"#{TEST_SUBDIR_PATH.gsub("/", "\\")}\\\" exit 1\\\"\"
+end
+EOF
+      create_dir_recipe_path = File.join(test_recipes_path, 'create_dir_recipe.rb')
+      File.open(create_dir_recipe_path, "w") { |f| f.write(create_dir_recipe) }
+
+      # fail to create dir due to unsupported owner (or group) attribute.
+      fail_owner_create_dir_recipe =
+<<EOF
+directory "#{TEST_DIR_PATH}" do
+  owner "Administrator"
+  group "Administrators"
+end
+EOF
+      fail_owner_create_dir_recipe_path = File.join(test_recipes_path, 'fail_owner_create_dir_recipe.rb')
+      File.open(fail_owner_create_dir_recipe_path, "w") { |f| f.write(fail_owner_create_dir_recipe) }
+
+      # delete dir using directory provider.
+      delete_dir_recipe =
+<<EOF
+directory "#{TEST_SUBDIR_PATH}" do
+  action :delete
+end
+
+directory "#{TEST_DIR_PATH}" do
+  recursive true
+  action :delete
+end
+EOF
+      delete_dir_recipe_path = File.join(test_recipes_path, 'delete_dir_recipe.rb')
+      File.open(delete_dir_recipe_path, "w") { |f| f.write(delete_dir_recipe) }
+
+      # metadata
+      metadata =
+<<EOF
+maintainer "RightScale, Inc."
+version    "0.1"
+recipe     "test::create_dir_recipe", "Creates a directory"
+recipe     "test::fail_owner_create_dir_recipe", "Fails to creates a directory due to owner attribute"
+recipe     "test::delete_dir_recipe", "Deletes a directory"
+EOF
+      metadata_path = test_recipes_path = File.join(test_cookbook_path, 'metadata.rb')
+      File.open(metadata_path, "w") { |f| f.write(metadata) }
+    end
+
+    def cleanup
+      (FileUtils.rm_rf(TEST_TEMP_PATH) rescue nil) if File.directory?(TEST_TEMP_PATH)
+    end
+
+    module_function :create_test_cookbook, :cleanup
+  end
+
+  describe Chef::Provider::Directory do
+
+    before(:all) do
+      @old_logger = Chef::Log.logger
+      DirectoryProviderSpec.create_test_cookbook
+      FileUtils.mkdir_p(File.dirname(DirectoryProviderSpec::TEST_DIR_PATH))
+    end
+
+    before(:each) do
+      Chef::Log.logger = RightScale::Test::MockAuditorProxy.new
+    end
+
+    after(:all) do
+      Chef::Log.logger = @old_logger
+      DirectoryProviderSpec.cleanup
+    end
+
+    it "should create directories on windows" do
+      runner = lambda {
+        RightScale::Test::ChefRunner.run_chef(
+          DirectoryProviderSpec::TEST_COOKBOOKS_PATH,
+          'test::create_dir_recipe') }
+      runner.call.should == true
+      File.directory?(DirectoryProviderSpec::TEST_SUBDIR_PATH).should == true
+      FileUtils.rm_rf(DirectoryProviderSpec::TEST_DIR_PATH) rescue nil
+    end
+
+    it "should fail to create directories when owner or group attribute is used on windows" do
+      runner = lambda {
+        RightScale::Test::ChefRunner.run_chef(
+          DirectoryProviderSpec::TEST_COOKBOOKS_PATH,
+          'test::fail_owner_create_dir_recipe') }
+      result = false
+      begin
+        # note that should raise_error() does not handle NoMethodError for some reason.
+        runner.call
+      rescue NoMethodError
+        result = true
+      end
+      result.should == true
+    end
+
+    it "should delete directories on windows" do
+      run_list = []
+      2.times { run_list << 'test::delete_dir_recipe' }
+      FileUtils.mkdir_p(DirectoryProviderSpec::TEST_SUBDIR_PATH)
+      runner = lambda {
+        RightScale::Test::ChefRunner.run_chef(
+          DirectoryProviderSpec::TEST_COOKBOOKS_PATH,
+          run_list) }
+      runner.call.should == true
+      File.exists?(DirectoryProviderSpec::TEST_DIR_PATH).should == false
+    end
+
+  end
+
+end # if windows?

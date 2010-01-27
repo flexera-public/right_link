@@ -138,6 +138,10 @@ module RightScale
         Chef::Config[:cookbook_path] = (@right_scripts_cookbook.empty? ? [] : [ @right_scripts_cookbook.repo_dir ])
       end
       Chef::Config[:solo] = true
+
+      # must set file cache path for Windows case of using remote files, templates. etc.
+      platform = RightScale::RightLinkConfig[:platform]
+      Chef::Config[:file_cache_path] = File.join(platform.filesystem.cache_dir, 'chef') if platform.windows?
       true
     end
 
