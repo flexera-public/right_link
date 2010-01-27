@@ -28,6 +28,9 @@ require 'rubygems'
 # ActiveRecord is also loaded.
 require 'active_record' rescue nil
 
+# The daemonize method of AR clashes with the daemonize Chef attribute, we don't need that method so undef it
+undef :daemonize if methods.include?('daemonize')
+
 require 'flexmock'
 require 'spec'
 require 'eventmachine'
