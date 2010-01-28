@@ -28,6 +28,7 @@ module RightScale
 
   # A utility class that provides information about the platform on which RightLink is running.
   # Available information includes:
+  #  * which flavor cloud (EC2, Rackspace, Eucalyptus, ..)
   #  * which flavor operating system (Linux, Windows or Mac)
   #  * which OS release (a numeric value that is specific to the OS)
   #  * directories in which various bits of RightScale state may be found
@@ -51,6 +52,9 @@ module RightScale
   # * .linux?
   # * .mac?
   # * .windows?
+  # * .ec2?
+  # * .rackspace?
+  # * .eucalyptus?
   # * .filesystem
   #   * right_scale_state_dir
   #   * spool_dir
@@ -70,6 +74,16 @@ module RightScale
 
       @filesystem = nil
       @shell      = nil
+      @ssh        = nil
+
+      #Determine which cloud we're on by the cheap but simple expedient of reading
+      #the RightScale cloud file.
+      cloud_type = File.read(File.join(self.filesystem.right_scale_state_dir, 'cloud')) rescue nil
+      case cloud_type
+        when 'ec2':        @ec2 = true
+        when 'rackspace':  @rackspace = true
+        when 'eucalyptus': @eucalyptus = true
+      end
     end
 
     # An alias for RUBY_PLATFORM
@@ -105,6 +119,33 @@ module RightScale
     # false:: Otherwise
     def linux?
       @linux
+    end
+
+    # Are we in an EC2 cloud?
+    #
+    # === Return
+    # true:: If machine is located in an EC2 cloud
+    # false:: Otherwise
+    def ec2?
+      @ec2
+    end
+
+    # Are we in a Rackspace cloud?
+    #
+    # === Return
+    # true:: If machine is located in an EC2 cloud
+    # false:: Otherwise
+    def rackspace?
+      @rackspace
+    end
+
+    # Are we in a Eucalyptus cloud?
+    #
+    # === Return
+    # true:: If machine is located in an EC2 cloud
+    # false:: Otherwise
+    def eucalyptus?
+      @eucalyptus
     end
 
     # Filesystem config object
