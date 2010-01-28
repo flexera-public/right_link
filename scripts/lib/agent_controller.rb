@@ -433,6 +433,12 @@ module RightScale
     def configure_proxy(proxy_setting)
       ENV['HTTP_PROXY'] = proxy_setting
       ENV['http_proxy'] = proxy_setting
+
+      # Special case (ugh): EC2 metadata server should be accessed directly
+      if RightScale::Platform.ec2?
+        ENV['NO_PROXY'] = '169.254.169.254'
+        ENV['no_proxy'] = '169.254.169.254'
+      end
     end
 
     # Version information
