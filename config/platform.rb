@@ -78,7 +78,7 @@ module RightScale
 
       #Determine which cloud we're on by the cheap but simple expedient of reading
       #the RightScale cloud file.
-      cloud_type = File.read(File.join(self.filesystem.right_scale_state_dir, 'cloud')) rescue nil
+      cloud_type = File.read(File.join(self.filesystem.right_scale_state_dir, 'cloud')).strip rescue nil
       case cloud_type
         when 'ec2':        @ec2 = true
         when 'rackspace':  @rackspace = true
