@@ -93,44 +93,49 @@ module RightScale
       FileUtils.mkdir_p(dir) unless File.directory?(dir)
 
       if File.file?(STATE_FILE)
-        state = nil
-        File.open(STATE_FILE, 'r') { |f| state = JSON.load(f) }
+        state = read_json(STATE_FILE)
         RightLinkLog.debug("Initializing instance #{identity} with #{state.inspect}")
+
+
+        # Initial state reconciliation: use recorded state and uptime to determine how we last stopped.
+        # There are three basic scenarios to worry about:
+        #   0) first run -- Agent is starting up for the first time after a fresh install
+        #   1) reboot/restart -- Agent already ran; agent ID not changed; reboot detected: transition back to booting
+        #   2) bundled boot -- Agent already ran; agent ID changed: dump old state
+        #   3) decommission/crash -- Agent exited anyway; ID not changed; no reboot; keep old state entirely
         if (state['identity'] != identity) || !state['uptime'] || (uptime < state['uptime'].to_f)
-          # If identity or uptime has changed, then we are booting
+          # CASE 1/2 -- identity has changed or negative differential uptime; may be reboot or bundled boot
           RightLinkLog.debug("Reboot detected; transitioning state to booting")
           self.value = 'booting'
 
-          # If our identity has changed, then we are a bundled instance and we
-          # need to patch our identity and reset our past scripts.
+          # CASE 2 -- Our identity has changed; we are doing bundled boot.
+          # Patch our identity and reset our past scripts.
           if state['identity'] != identity
             RightLinkLog.debug("Bundled boot detected; resetting past scripts")
             @@past_scripts = []
-            File.open(SCRIPTS_FILE, 'w') do |f|
-              f.write(@@past_scripts.to_json)
-            end
+            write_json(SCRIPTS_FILE, @@past_scripts)
           end
         else
-          # Agent restarted by itself, keep the old state
+          # CASE 3 -- Restart without reboot; don't do anything special.
           @@value = state['value']
           @@startup_tags = state['startup_tags']
           update_logger
         end
       else
-        # Initial boot, create state file
+        # CASE 0 -- state file does not exist; initial boot, create state file
         RightLinkLog.debug("Initializing instance #{identity} with booting")
         self.value = 'booting'
       end
 
       if File.file?(SCRIPTS_FILE)
-        File.open(SCRIPTS_FILE, 'r') { |f| @@past_scripts = JSON.load(f) }
+        @@past_scripts = read_json(SCRIPTS_FILE)
       else
         @@past_scripts = []
       end
       RightLinkLog.debug("Past scripts: #{@@past_scripts.inspect}")
 
       if File.file?(LOGIN_POLICY_FILE)
-        File.open(LOGIN_POLICY_FILE, 'r') { |f| @@login_policy = JSON.load(f) rescue nil }
+        @@login_policy = read_json(LOGIN_POLICY_FILE) rescue nil #corrupt file here is not important enough to fail
       else
         @@login_policy = nil
       end
@@ -155,16 +160,9 @@ module RightScale
       @@value = val
       update_logger
       update_motd
-      if RECORDED_STATES.include?(val)
-        options = { :agent_identity => identity, :state => val }
-        RightScale::RequestForwarder.request('/state_recorder/record', options) do |r|
-          res = RightScale::OperationResult.from_results(r)
-          RightLinkLog.warn("Failed to record state: #{res.content}") unless res.success?
-        end
-      end
-      File.open(STATE_FILE, 'w') do |f|
-        f.write({ 'value' => val, 'identity' => @@identity, 'uptime' => uptime.to_s, 'startup_tags' => @@startup_tags }.to_json)
-      end
+
+      record_state(identity, val) if RECORDED_STATES.include?(val)
+      write_json(STATE_FILE, { 'value' => val, 'identity' => @@identity, 'uptime' => uptime.to_s, 'startup_tags' => @@startup_tags })
       @observers.each { |o| o.call(val) } if @observers
       val
     end
@@ -233,9 +231,7 @@ module RightScale
       new_script = !@@past_scripts.include?(nickname)
       if new_script
         @@past_scripts << nickname
-        File.open(SCRIPTS_FILE, 'w') do |f|
-          f.write(@@past_scripts.to_json)
-        end
+        write_json(SCRIPTS_FILE, @@past_scripts)
       end
       new_script
     end
@@ -307,6 +303,30 @@ module RightScale
       return nil
     end
 
+    private
+
+    #TODO docs
+    def self.read_json(path)
+      JSON.load(File.read(path))
+    end
+    
+    #TODO docs
+    def self.write_json(path, contents)
+      contents = contents.to_json unless contents.is_a?(String)
+      
+      File.open(path, 'w') do |f|
+        f.write(contents)
+      end
+    end
+
+    #TODO docs
+    def self.record_state(identity, new_state)
+      options = { :agent_identity => identity, :state => new_state }
+      RightScale::RequestForwarder.request('/state_recorder/record', options) do |r|
+        res = RightScale::OperationResult.from_results(r)
+        RightLinkLog.warn("Failed to record state: #{res.content}") unless res.success?
+      end
+    end
   end
 
 end

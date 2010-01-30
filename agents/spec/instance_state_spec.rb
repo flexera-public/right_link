@@ -40,18 +40,65 @@ describe RightScale::InstanceState do
     RightScale::InstanceState.identity.should == @identity
   end 
 
-  it 'should handle image bundling' do
-    flexmock(RightScale::RightLinkLog).should_receive(:debug)
-    RightScale::InstanceState.init(@identity)
-    flexmock(RightScale::RequestForwarder).should_receive(:request).
-            with('/state_recorder/record', { :state => "operational", :agent_identity => "1" }, Proc).
-            and_yield(@results_factory.success_results)
-    RightScale::InstanceState.value = 'operational'
-    flexmock(RightScale::RequestForwarder).should_receive(:request).
-            with('/state_recorder/record', { :state => "booting", :agent_identity => "2" }, Proc).
-            and_yield(@results_factory.success_results)
-    RightScale::InstanceState.init('2')
-    RightScale::InstanceState.value.should == 'booting'
+  context :init do
+    before(:each) do
+      flexmock(RightScale::RightLinkLog).should_receive(:debug).by_default
+    end
+
+    it 'should detect first run' do
+      flexmock(File).should_receive(:file?).with(RightScale::InstanceState::STATE_FILE).and_return(false)
+      flexmock(File).should_receive(:file?).with(RightScale::InstanceState::SCRIPTS_FILE).and_return(false)
+      flexmock(File).should_receive(:file?).with(RightScale::InstanceState::LOGIN_POLICY_FILE).and_return(false)
+
+      RightScale::InstanceState.init(@identity)
+
+      RightScale::InstanceState.value.should == 'booting'
+    end
+
+    context('when saved state exists') do
+      before(:each) do
+        #Simulate a successful first boot
+        saved_state = {'value' => 'operational', 'identity' => '1', 'uptime' => 100.0.to_s, 'startup_tags' => []}
+        flexmock(RightScale::InstanceState).should_receive(:read_json).with(RightScale::InstanceState::STATE_FILE).and_return(saved_state).by_default        
+      end
+
+      it 'should detect restart after decommission' do
+        #Simulate a prior decommission
+        saved_state = {'value' => 'decommissioned', 'identity' => '1', 'uptime' => 100.0.to_s, 'startup_tags' => []}
+        flexmock(RightScale::InstanceState).should_receive(:read_json).with(RightScale::InstanceState::STATE_FILE).and_return(saved_state)
+        flexmock(RightScale::InstanceState).should_receive(:uptime).and_return(999.0)
+        flexmock(RightScale::InstanceState).should_receive(:write_json).with(RightScale::InstanceState::STATE_FILE, Hash).never
+        flexmock(RightScale::InstanceState).should_receive(:write_json).with(RightScale::InstanceState::SCRIPTS_FILE, Array).never
+        flexmock(RightScale::InstanceState).should_receive(:record_state).never
+
+        RightScale::InstanceState.init(@identity)
+
+        RightScale::InstanceState.value.should == 'decommissioned'
+      end
+
+      it 'should detect reboot' do
+        flexmock(RightScale::InstanceState).should_receive(:uptime).and_return(1)
+        flexmock(RightScale::InstanceState).should_receive(:write_json).with(RightScale::InstanceState::STATE_FILE, Hash)
+        flexmock(RightScale::InstanceState).should_receive(:write_json).with(RightScale::InstanceState::SCRIPTS_FILE, Array).never
+        flexmock(RightScale::InstanceState).should_receive(:record_state).with('1', 'booting')
+
+        RightScale::InstanceState.init(@identity)
+
+        RightScale::InstanceState.identity.should == '1'
+        RightScale::InstanceState.value.should == 'booting'
+      end
+
+      it 'should detect bundled boot' do
+        flexmock(RightScale::InstanceState).should_receive(:write_json).with(RightScale::InstanceState::STATE_FILE, Hash)
+        flexmock(RightScale::InstanceState).should_receive(:write_json).with(RightScale::InstanceState::SCRIPTS_FILE, [])
+        flexmock(RightScale::InstanceState).should_receive(:record_state).with('2', 'booting')
+
+        RightScale::InstanceState.init('2')
+
+        RightScale::InstanceState.identity.should == '2'
+        RightScale::InstanceState.value.should == 'booting'
+      end
+    end
   end
 
   it 'should record script execution' do
