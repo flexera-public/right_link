@@ -38,6 +38,9 @@ module RightScale
     # Breakpoint dev tag namespace and prefix
     BREAKPOINT_TAG    = "#{DEV_TAG_NAMESPACE}break_point"
 
+    # Download once dev tag namespace and prefix
+    DOWNLOAD_ONCE_TAG = "#{DEV_TAG_NAMESPACE}download_cookbooks_once"
+
     # Is the instance running in dev mode?
     # dev mode tweaks the behavior of the RightLink agent to help
     # the development of Chef recipes.
@@ -83,6 +86,23 @@ module RightScale
         res = path && File.directory?(path) && Dir.entries(path) != [ '.', '..' ]
         break unless res
       end
+      res
+    end
+
+    # Whether cookbooks should be downloaded
+    # False if either a dev cookbooks path is used or the download once
+    # flag is set and cookbooks have already been downloaded
+    # Note: we know a cookbook is downloaded when this method is called.
+    #       Make sure this stays true.
+    #
+    # === Return
+    # true:: If cookbooks should be downloaded
+    # false:: Otherwise
+    def self.download_cookbooks?
+      res = !use_cookbooks_path? && !@download_once_and_downloaded
+      return false unless res
+      @download_once_and_downloaded = tag_value(DOWNLOAD_ONCE_TAG) == 'true' && @checked
+      @checked ||= true
       res
     end
 

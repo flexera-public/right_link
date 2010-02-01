@@ -204,7 +204,7 @@ module RightScale
     # true:: Always return true
     def download_repos
       # Skip download if in dev mode and cookbooks repos directories already have files in them
-      return true if DevState.use_cookbooks_path?
+      return true unless DevState.download_cookbooks?
 
       @auditor.create_new_section('Retrieving cookbooks') unless @cookbook_repos.empty?
       audit_time do
