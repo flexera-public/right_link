@@ -55,8 +55,7 @@ module RightScale
       recipes                 = bundle.executables.map    { |e| e.is_a?(RecipeInstantiation) ? e : @right_scripts_cookbook.recipe_from_right_script(e) }
       @cookbook_repos         = bundle.cookbook_repositories || []
       @downloader             = Downloader.new
-      @scraper                = Scraper.new(InstanceConfiguration::COOKBOOK_PATH)
-      @prepared_executables   = []
+      @scraper                = Scraper.new(InstanceConfiguration.cookbook_download_path)
 
       # We want to always do full-converge, leave the option in case we change our mind
       persist_run_list = bundle.full_converge
@@ -108,7 +107,6 @@ module RightScale
         install_packages if @ok
         download_repos if @ok
         converge if @ok
-        cleanup if @ok
       end
       true
     end
@@ -216,7 +214,12 @@ module RightScale
           output = []
           @scraper.scrape(repo, lambda { |o| output << o }) 
           if @scraper.succeeded
-            Chef::Config[:cookbook_path] << @scraper.repo_dir
+            cookbooks_path = repo.cookbooks_path || []
+            if cookbooks_path.empty?
+              Chef::Config[:cookbook_path] << @scraper.repo_dir
+            else
+              cookbooks_path.each { |p| Chef::Config[:cookbook_path] << File.join(@scraper.repo_dir, p) }
+            end
             @auditor.append_output(output.join("\n"))
           else
             report_failure("Failed to download cookbooks #{repo.url}", output.join("\n"))
@@ -248,14 +251,6 @@ module RightScale
       end
       report_success(c.node) if @ok
       true
-    end
-
-    # Remove temporary files
-    #
-    # === Return
-    # true:: Always return true
-    def cleanup
-      @right_scripts_cookbook.cleanup
     end
 
     # Initialize inputs patch and report success
@@ -312,8 +307,8 @@ module RightScale
       file, line, meth = e.backtrace[0].scan(/(.*):(\d+):in `(\w+)'/).flatten
       line_number = line.to_i
       if file && line && (line_number.to_s == line)
-        if file[0..InstanceConfiguration::COOKBOOK_PATH.size - 1] == InstanceConfiguration::COOKBOOK_PATH
-          path = "[COOKBOOKS]/" + file[InstanceConfiguration::COOKBOOK_PATH.size..file.size]
+        if file[0..InstanceConfiguration.cookbook_download_path.size - 1] == InstanceConfiguration::cookbook_download_path
+          path = "[COOKBOOKS]/" + file[InstanceConfiguration.cookbook_download_path.size..file.size]
         else
           path = file
         end

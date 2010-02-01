@@ -361,69 +361,6 @@ module RightScale
 
       end
 
-      class SSH
-
-        def initialize(platform)
-          @platform = platform
-        end
-
-        # Store public SSH key into ~/.ssh folder and create temporary script
-        # that wraps SSH and uses this key if repository does not have need SSH
-        # key for access then return nil
-        #
-        # === Parameters
-        # repo<RightScale::CookbookRepositoryInstantiation>:: cookbook repo
-        #
-        # === Return
-        # "":: in all cases because there is no command to run in windows
-        # whether or not the repo is private
-        def create_repo_ssh_command(repo)
-          return "" unless repo.ssh_key
-
-          # resolve key file path.
-          user_profile_dir_path = ENV['USERPROFILE']
-          fail unless user_profile_dir_path
-          ssh_keys_dir = File.join(user_profile_dir_path, '.ssh')
-          FileUtils.mkdir_p(ssh_keys_dir) unless File.directory?(ssh_keys_dir)
-          ssh_key_file_path = File.join(ssh_keys_dir, 'id_rsa')
-
-          # (re)create key file. must overwrite any existing credentials in case
-          # we are switching repositories and have different credentials for each.
-          File.open(ssh_key_file_path, 'w') { |f| f.puts(repo.ssh_key) }
-
-          # we need to create the "known_hosts" file or else the process will
-          # halt in windows waiting for a yes/no response to the unknown
-          # git host. this is normally handled by specifying
-          # "-o StrictHostKeyChecking=no" in the GIT_SSH executable, but it is
-          # still a mystery why this doesn't work properly in windows.
-          #
-          # HACK: we can make a failing GIT_SSH call which does not clone the
-          # repository but does silently create the proper "known_hosts" file.
-          ssh_temp_dir_path = File.join(@platform.filesystem.temp_dir, 'RightScale', 'ssh_temp')
-          (FileUtils.rm_rf(ssh_temp_dir_path) if File.directory?(ssh_temp_dir_path)) rescue nil
-          FileUtils.mkdir_p(ssh_temp_dir_path)
-          ssh_temp_dir_path = @platform.filesystem.long_path_to_short_path(ssh_temp_dir_path)
-          ssh_command_file = File.join(ssh_temp_dir_path, 'ssh.bat')
-          File.open(ssh_command_file, 'w') { |f| f.puts("ssh -o StrictHostKeyChecking=no %*") }
-          temp_cookbook_dir = File.join(ssh_temp_dir_path, 'temp_cookbook')
-          git_command = "git clone --quiet --depth 1 #{repo.url} #{temp_cookbook_dir}"
-          git_command = @platform.shell.format_redirect_both(git_command)
-
-          ENV['GIT_SSH']=@platform.filesystem.long_path_to_short_path(ssh_command_file)
-          `#{git_command}`
-          ENV['GIT_SSH']=nil
-          (FileUtils.rm_rf(ssh_temp_dir_path) if File.directory?(ssh_temp_dir_path)) rescue nil
-
-          # we cannot run a SSH command under windows (apparently) but we can
-          # run using the defaulted credentials in the user's .ssh directory.
-          # this is another good reason why we have our own RightScale account
-          # when running under windows. the problem we have is that SSH gives
-          # "Exit status 128" in verbose mode when we set GIT_SSH.
-          return ""
-        end
-
-      end
-
     end
   end
 end

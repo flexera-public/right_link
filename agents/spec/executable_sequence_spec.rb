@@ -33,9 +33,7 @@ describe RightScale::ExecutableSequence do
     before(:all) do
       flexmock(RightScale::RightLinkLog).should_receive(:debug)
       @attachment_file = File.expand_path(File.join(File.dirname(__FILE__), '__test_download__'))
-      File.open(@attachment_file, 'w') do |f|
-        f.write('Some attachment content')
-      end
+      File.open(@attachment_file, 'w') { |f| f.write('Some attachment content') }
       platform = RightScale::RightLinkConfig[:platform]
       @cache_dir = File.expand_path(File.join(platform.filesystem.temp_dir, 'executable_sequence_spec'))
       Chef::Resource::RightScript.const_set(:DEFAULT_CACHE_DIR_ROOT, @cache_dir)
@@ -56,6 +54,7 @@ describe RightScale::ExecutableSequence do
       @auditor.should_receive(:append_info)
       @auditor.should_receive(:append_output)
       @auditor.should_receive(:update_status)
+      @auditor.should_receive(:append_error) { |m| puts m }
 
       # prevent Chef logging reaching the console during spec test.
       logger = flexmock(::RightScale::RightLinkLog.logger)

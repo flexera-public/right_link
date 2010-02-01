@@ -27,11 +27,18 @@ module RightScale
   # Provide configuration information to instance agent
   class InstanceConfiguration
 
-    # Path to downloaded cookbooks
-    COOKBOOK_PATH = File.join(RightScale::RightLinkConfig.platform.filesystem.cache_dir, 'rightscale', 'cookbooks')
-
     # Path to scripts and scripts attachments cache
-    CACHE_PATH = File.join(RightScale::RightLinkConfig.platform.filesystem.cache_dir, 'rightscale', 'scripts')
+    CACHE_PATH = File.join(RightScale::RightLinkConfig.platform.filesystem.cache_dir, 'rightscale')
+
+    # Path to downloaded cookbooks
+    def self.cookbook_download_path
+      @cookbook_download_path ||= File.join(CACHE_PATH, 'cookbooks')
+    end
+
+    # Path to RightScript recipes cookbook
+    def self.right_scripts_repo_path
+      @right_scripts_repo_path ||= File.join(CACHE_PATH, 'right_scripts')
+    end
 
     # Maximum number of times agent should retry to download attachments
     MAX_ATTACH_DOWNLOAD_RETRIES = 10

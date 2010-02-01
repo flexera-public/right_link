@@ -152,38 +152,6 @@ module RightScale
 
       end
 
-      class SSH
-
-        def initialize(platform)
-          @platform = platform
-        end
-
-        # Store public SSH key into ~/.ssh folder and create temporary script
-        # that wraps SSH and uses this key if repository does not have need SSH
-        # key for access then return nil
-        #
-        # === Parameters
-        # repo<RightScale::CookbookRepositoryInstantiation>:: cookbook repo
-        #
-        # === Return
-        # repo_ssh_file<String>:: path to SSH wrapper script if repo is private
-        # "":: if repo is public
-        def create_repo_ssh_command(repo)
-          return '' unless repo.ssh_key
-          ssh_keys_dir = File.join(InstanceConfiguration::COOKBOOK_PATH, '.ssh')
-          FileUtils.mkdir_p(ssh_keys_dir) unless File.directory?(ssh_keys_dir)
-          ssh_key_name = repo.to_s + '.pub'
-          ssh_key_path = File.join(ssh_keys_dir, ssh_key_name)
-          File.open(ssh_key_path, 'w') { |f| f.puts(repo.ssh_key) }
-          File.chmod(0600, ssh_key_path)
-          ssh = File.join(InstanceConfiguration::COOKBOOK_PATH, 'ssh')
-          File.open(ssh, 'w') { |f| f.puts("ssh -i #{ssh_key_path} -o StrictHostKeyChecking=no $*") }
-          File.chmod(0755, ssh)
-          return "GIT_SSH=#{ssh}"
-        end
-
-      end
-
     end
   end
 end

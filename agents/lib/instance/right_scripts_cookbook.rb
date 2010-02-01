@@ -32,7 +32,7 @@ module RightScale
   class RightScriptsCookbook
 
     # Name of cookbook containing RightScript recipes
-    COOKBOOK_NAME = 'right_script_cookbook'
+    COOKBOOK_NAME = 'right_scripts_cookbook'
 
     # Path to generated cookbook repo
     attr_reader :repo_dir
@@ -49,12 +49,10 @@ module RightScale
       @audit_id     = audit_id
       @saved        = false
       @recipes      = {}
-      now           = Time.new
-      unique_dir    = "right_scripts_#{now.month}_#{now.day}_#{now.hour}_#{now.min}_#{now.sec}"
-      @repo_dir     = File.join(InstanceConfiguration::CACHE_PATH, unique_dir)
+      @repo_dir     = InstanceConfiguration.right_scripts_repo_path
       @cookbook_dir = File.join(@repo_dir, COOKBOOK_NAME)
       @recipes_dir  = File.join(@cookbook_dir, 'recipes')
-      cleanup
+      FileUtils.rm_rf(@cookbook_dir)
       FileUtils.mkdir_p(@recipes_dir)
     end
 
@@ -122,14 +120,6 @@ description "Automatically generated repo, do not modify"
       @saved = true
     end
 
-    # Remove cookbooks repository directory
-    #
-    # === Return
-    # true:: Always return true
-    def cleanup
-      FileUtils.rm_rf(@repo_dir) if File.directory?(@repo_dir)
-    end
-
     # Whether given recipe name corresponds to a converted RightScript
     #
     # === Parameters
@@ -159,7 +149,7 @@ description "Automatically generated repo, do not modify"
     # === Return
     # path<String>:: Path to directory used for attachments and source
     def cache_dir(script)
-      path = File.join(InstanceConfiguration::CACHE_PATH, script.object_id.to_s)
+      path = File.join(InstanceConfiguration::CACHE_PATH, 'right_scripts_content', script.object_id.to_s)
     end
 
     # Is there no RightScript recipe in repo?
@@ -169,11 +159,6 @@ description "Automatically generated repo, do not modify"
     # false:: Otherwise
     def empty?
       @recipes.empty?
-    end
-
-    # Delete temporary cookbook directory
-    def cleanup
-      FileUtils.rm_rf(@repo_dir) if File.directory?(@repo_dir)
     end
 
   end
