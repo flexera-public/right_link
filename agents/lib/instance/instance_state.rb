@@ -98,17 +98,17 @@ module RightScale
 
 
         # Initial state reconciliation: use recorded state and uptime to determine how we last stopped.
-        # There are three basic scenarios to worry about:
-        #   0) first run -- Agent is starting up for the first time after a fresh install
-        #   1) reboot/restart -- Agent already ran; agent ID not changed; reboot detected: transition back to booting
-        #   2) bundled boot -- Agent already ran; agent ID changed: dump old state
-        #   3) decommission/crash -- Agent exited anyway; ID not changed; no reboot; keep old state entirely
+        # There are four basic scenarios to worry about:
+        #  1) first run      -- Agent is starting up for the first time after a fresh install
+        #  2) reboot/restart -- Agent already ran; agent ID not changed; reboot detected: transition back to booting
+        #  3) bundled boot   -- Agent already ran; agent ID changed: dump old state
+        #  4) decomm/crash   -- Agent exited anyway; ID not changed; no reboot; keep old state entirely
         if (state['identity'] != identity) || !state['uptime'] || (uptime < state['uptime'].to_f)
-          # CASE 1/2 -- identity has changed or negative differential uptime; may be reboot or bundled boot
+          # CASE 2/3 -- identity has changed or negative differential uptime; may be reboot or bundled boot
           RightLinkLog.debug("Reboot detected; transitioning state to booting")
           self.value = 'booting'
 
-          # CASE 2 -- Our identity has changed; we are doing bundled boot.
+          # CASE 3 -- Our identity has changed; we are doing bundled boot.
           # Patch our identity and reset our past scripts.
           if state['identity'] != identity
             RightLinkLog.debug("Bundled boot detected; resetting past scripts")
@@ -116,13 +116,13 @@ module RightScale
             write_json(SCRIPTS_FILE, @@past_scripts)
           end
         else
-          # CASE 3 -- Restart without reboot; don't do anything special.
+          # CASE 4 -- Restart without reboot; don't do anything special.
           @@value = state['value']
           @@startup_tags = state['startup_tags']
           update_logger
         end
       else
-        # CASE 0 -- state file does not exist; initial boot, create state file
+        # CASE 1 -- state file does not exist; initial boot, create state file
         RightLinkLog.debug("Initializing instance #{identity} with booting")
         self.value = 'booting'
       end
@@ -161,7 +161,7 @@ module RightScale
       update_logger
       update_motd
 
-      record_state(identity, val) if RECORDED_STATES.include?(val)
+      record_state(val) if RECORDED_STATES.include?(val)
       write_json(STATE_FILE, { 'value' => val, 'identity' => @@identity, 'uptime' => uptime.to_s, 'startup_tags' => @@startup_tags })
       @observers.each { |o| o.call(val) } if @observers
       val
@@ -305,28 +305,52 @@ module RightScale
 
     private
 
-    #TODO docs
+    # Load JSON from given file
+    #
+    # === Parameters
+    # path(String):: Path to JSON file
+    #
+    # === Return
+    # json(String):: Resulting JSON string
+    #
+    # === Raise
+    # Errno::ENOENT:: Invalid path
+    # JSON Exception:: Invalid JSON content
     def self.read_json(path)
       JSON.load(File.read(path))
     end
     
-    #TODO docs
+    # Serialize object to JSON and write result to file, override existing file if any.
+    # Note: Do not serialize object if it's a string, allows passing raw JSON.
+    #
+    # === Parameters
+    # path(String):: Path to file being written
+    # contents(Object|String):: Object to be serialized into JSON or JSON string
+    #
+    # === Return
+    # true:: Always return true
     def self.write_json(path, contents)
       contents = contents.to_json unless contents.is_a?(String)
-      
-      File.open(path, 'w') do |f|
-        f.write(contents)
-      end
+      File.open(path, 'w') { |f| f.write(contents) }
+      true
     end
 
-    #TODO docs
-    def self.record_state(identity, new_state)
-      options = { :agent_identity => identity, :state => new_state }
+    # Record state transition with core agent
+    #
+    # === Parameters
+    # new_state(String):: One of RECORDED_STATES
+    #
+    # === Return
+    # true:: Always return true
+    def self.record_state(new_state)
+      options = { :agent_identity => @@identity, :state => new_state }
       RightScale::RequestForwarder.request('/state_recorder/record', options) do |r|
         res = RightScale::OperationResult.from_results(r)
         RightLinkLog.warn("Failed to record state: #{res.content}") unless res.success?
       end
+      true
     end
+
   end
 
 end

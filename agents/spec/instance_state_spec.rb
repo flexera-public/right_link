@@ -80,7 +80,7 @@ describe RightScale::InstanceState do
         flexmock(RightScale::InstanceState).should_receive(:uptime).and_return(1)
         flexmock(RightScale::InstanceState).should_receive(:write_json).with(RightScale::InstanceState::STATE_FILE, Hash)
         flexmock(RightScale::InstanceState).should_receive(:write_json).with(RightScale::InstanceState::SCRIPTS_FILE, Array).never
-        flexmock(RightScale::InstanceState).should_receive(:record_state).with('1', 'booting')
+        flexmock(RightScale::InstanceState).should_receive(:record_state).with('booting')
 
         RightScale::InstanceState.init(@identity)
 
@@ -91,7 +91,7 @@ describe RightScale::InstanceState do
       it 'should detect bundled boot' do
         flexmock(RightScale::InstanceState).should_receive(:write_json).with(RightScale::InstanceState::STATE_FILE, Hash)
         flexmock(RightScale::InstanceState).should_receive(:write_json).with(RightScale::InstanceState::SCRIPTS_FILE, [])
-        flexmock(RightScale::InstanceState).should_receive(:record_state).with('2', 'booting')
+        flexmock(RightScale::InstanceState).should_receive(:record_state).with('booting')
 
         RightScale::InstanceState.init('2')
 
