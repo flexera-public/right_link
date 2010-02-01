@@ -106,7 +106,7 @@ future.
 
 * [1] Nanite is http://github.com/ezmobius/nanite/tree/master
 * [2] Chef is http://wiki.opscode.com/display/chef/Home
-* [3] RightPopen is http://gemcutter.org/gems/right-popen
+* [3] RightPopen is http://gemcutter.org/gems/right_popen
 
 = LICENSE
 
