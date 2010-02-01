@@ -29,64 +29,6 @@ class Chef
     # monkey patch for Chef::Mixin::Command module which is Linux-only.
     module Command
 
-      # If command is a block, returns true if the block returns true, false if it returns false.
-      # ("Only run this resource if the block is true")
-      #
-      # If the command is not a block, executes the command.  If it returns any status other than
-      # 0, it returns false (clearly, a 0 status code is true)
-      #
-      # === Parameters
-      # command<Block>, <String>:: A block to check, or a string to execute
-      #
-      # === Returns
-      # true:: Returns true if the block is true, or if the command returns 0
-      # false:: Returns false if the block is false, or if the command returns a non-zero exit code.
-      def only_if(command)
-        if command.kind_of?(Proc)
-          res = command.call
-          unless res
-            return false
-          end
-        else
-          status = run_command(:command => command, :ignore_failure => true)
-          if status.exitstatus != 0
-            return false
-          end
-        end
-        true
-      end
-
-      module_function :only_if
-
-      # If command is a block, returns false if the block returns true, true if it returns false.
-      # ("Do not run this resource if the block is true")
-      #
-      # If the command is not a block, executes the command.  If it returns a 0 exitstatus, returns false.
-      # ("Do not run this resource if the command returns 0")
-      #
-      # === Parameters
-      # command<Block>, <String>:: A block to check, or a string to execute
-      #
-      # === Returns
-      # true:: Returns true if the block is false, or if the command returns a non-zero exit status.
-      # false:: Returns false if the block is true, or if the command returns a 0 exit status.
-      def not_if(command)
-        if command.kind_of?(Proc)
-          res = command.call
-          if res
-            return false
-          end
-        else
-          status = run_command(:command => command, :ignore_failure => true)
-          if status.exitstatus == 0
-            return false
-          end
-        end
-        true
-      end
-
-      module_function :not_if
-
       # Executes the given command while monitoring stdout and stderr for the
       # child process.
       #
