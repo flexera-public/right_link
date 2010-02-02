@@ -129,7 +129,7 @@ module RightScale
       log_msg = "#{super} <#{token}> #{type}"
       log_msg += " from #{id_to_s(from)}" if filter.nil? || filter.include?(:from)
       log_msg += " with scope #{scope}" if scope && (filter.nil? || filter.include?(:scope))
-      log_msg += " to #{id_to_s(target)}" if target && (filter.nil? || filter.include?(:target))
+      log_msg += " target #{id_to_s(target)}" if target && (filter.nil? || filter.include?(:target))
       log_msg += ", reply_to #{id_to_s(reply_to)}" if reply_to && (filter.nil? || filter.include?(:reply_to))
       log_msg += ", tags #{tags.inspect}" if tags && !tags.empty? && (filter.nil? || filter.include?(:tags))
       log_msg += ", payload #{payload.inspect}" if filter.nil? || filter.include?(:payload)
@@ -262,35 +262,35 @@ module RightScale
 
   end # Result
 
-  # packet that means an availability notification sent from actor to mapper
+  # packet that means an availability notification sent from agent to mapper
   #
-  # from     is sender identity
-  # services is a list of services provided by the node
-  # status   is a load of the node by default, but may be any criteria
-  #          agent may use to report it's availability, load, etc
-  # tags     is a list of tags associated with this service
-  # queue    is the name of this nanite's input queue; defaults to identity
+  # from         is sender identity
+  # services     is a list of services provided by the node
+  # status       is a load of the node by default, but may be any criteria
+  #              agent may use to report it's availability, load, etc
+  # tags         is a list of tags associated with this service
+  # shared_queue is the name of a queue shared between this agent and another
   class Register < Packet
 
-    attr_accessor :identity, :services, :status, :tags, :queue
+    attr_accessor :identity, :services, :status, :tags, :shared_queue
 
-    def initialize(identity, services, status, tags, queue, size=nil)
-      @status   = status
-      @tags     = tags
-      @identity = identity
-      @services = services
-      @queue    = queue || identity
-      @size     = size
+    def initialize(identity, services, status, tags, shared_queue=nil, size=nil)
+      @status       = status
+      @tags         = tags
+      @identity     = identity
+      @services     = services
+      @shared_queue = shared_queue
+      @size         = size
     end
 
     def self.json_create(o)
       i = o['data']
-      new(i['identity'], i['services'], i['status'], i['tags'], i['queue'], o['size'])
+      new(i['identity'], i['services'], i['status'], i['tags'], i['shared_queue'], o['size'])
     end
 
     def to_s
       log_msg = "#{super} #{id_to_s(identity)}"
-      log_msg += ", queue: #{queue}" if queue != identity
+      log_msg += ", shared_queue: #{shared_queue}" if shared_queue
       log_msg += ", services: #{services.join(', ')}" if services && !services.empty?
       log_msg += ", tags: #{tags.join(', ')}" if tags && !tags.empty?
       log_msg

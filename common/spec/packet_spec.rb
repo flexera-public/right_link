@@ -140,31 +140,31 @@ end
 
 describe "Packet: Register" do
   it "should dump/load as JSON objects" do
-    packet = RightScale::Register.new('0xdeadbeef', ['/foo/bar', '/nik/qux'], 0.8, ['foo'], '0xdeadbeef')
+    packet = RightScale::Register.new('0xdeadbeef', ['/foo/bar', '/nik/qux'], 0.8, ['foo'])
     packet2 = JSON.parse(packet.to_json)
     packet.identity.should == packet2.identity
     packet.services.should == packet2.services
     packet.status.should == packet2.status
-    packet.queue.should == packet2.queue
+    packet.shared_queue.should == packet2.shared_queue
   end
 
   it "should dump/load as Marshalled ruby objects" do
-    packet = RightScale::Register.new('0xdeadbeef', ['/foo/bar', '/nik/qux'], 0.8, ['foo'], 'queue')
+    packet = RightScale::Register.new('0xdeadbeef', ['/foo/bar', '/nik/qux'], 0.8, ['foo'], 'shared')
     packet2 = Marshal.load(Marshal.dump(packet))
     packet.identity.should == packet2.identity
     packet.services.should == packet2.services
     packet.status.should == packet2.status
-    packet.queue.should == packet2.queue
+    packet.shared_queue.should == packet2.shared_queue
   end
 
-  it "should set specified queue" do
-    packet = RightScale::Register.new('0xdeadbeef', ['/foo/bar', '/nik/qux'], 0.8, ['foo'], 'queue')
-    packet.queue.should == 'queue'
+  it "should set specified shared_queue" do
+    packet = RightScale::Register.new('0xdeadbeef', ['/foo/bar', '/nik/qux'], 0.8, ['foo'], 'shared')
+    packet.shared_queue.should == 'shared'
   end
 
-  it "should default queue to identity" do
-    packet = RightScale::Register.new('0xdeadbeef', ['/foo/bar', '/nik/qux'], 0.8, ['foo'], nil)
-    packet.queue.should == '0xdeadbeef'
+  it "should default shared_queue to nil" do
+    packet = RightScale::Register.new('0xdeadbeef', ['/foo/bar', '/nik/qux'], 0.8, ['foo'])
+    packet.shared_queue.should be_nil
    end
  end
 

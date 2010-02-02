@@ -45,6 +45,11 @@ describe RightScale::Agent do
       @agent.options[:daemonize].should == false
     end
 
+    it "for shared_queue is false" do
+      @agent.options.should include(:shared_queue)
+      @agent.options[:shared_queue].should == false
+    end
+
     it "for format is marshal" do
       @agent.options.should include(:format)
       @agent.options[:format].should == :marshal
@@ -148,6 +153,24 @@ describe RightScale::Agent do
       @agent.options[:format].should == :json
     end
 
+    it "for shared_queue should not be included if false" do
+#      @queue = flexmock("queue").should_receive(:subscribe).and_return({}).times(1)
+#      @amq = flexmock("AMQueue", :queue => @queue, :fanout => @fanout)
+#      flexmock(MQ).should_receive(:new).and_return(@amq)
+      agent = RightScale::Agent.start(:identity => "the_identity")
+      agent.options.should include(:shared_queue)
+      agent.options[:shared_queue].should be_false
+    end
+
+    it "for shared_queue should be included if not false" do
+#      @queue = flexmock("queue").should_receive(:subscribe).and_return({}).times(2)
+#      @amq = flexmock("AMQueue", :queue => @queue, :fanout => @fanout)
+#      flexmock(MQ).should_receive(:new).and_return(@amq)
+      agent = RightScale::Agent.start(:shared_queue => "my_shared_queue")
+      agent.options.should include(:shared_queue)
+      agent.options[:shared_queue].should == "my_shared_queue"
+    end
+
     # TODO figure out how to avoid console output
     # it "for console should override default (false)" do
     #   @agent = RightScale::Agent.start(:console => true)
@@ -231,53 +254,6 @@ describe RightScale::Agent do
       @agent.dispatcher.evmclass.threadpool_size.should == 5
     end
     
-  end
-  
-  describe "Security" do
-
-    before(:each) do
-      flexmock(EM).should_receive(:add_periodic_timer)
-      flexmock(AMQP).should_receive(:connect)
-      @fanout = flexmock("fanout", :publish => nil)
-      @queue = flexmock("queue", :subscribe => {}, :publish => {})
-      @amq = flexmock("AMQueue", :queue => @queue, :fanout => @fanout)
-      flexmock(MQ).should_receive(:new).and_return(@amq)
-      serializer = RightScale::Serializer.new
-      @request = RightScale::Request.new('/foo/bar', '')
-      @push = RightScale::Push.new('/foo/bar', '')
-      @agent = RightScale::Agent.start
-    end
-
-    after(:each) do
-      FileUtils.rm_rf(File.expand_path(File.join(@agent.options[:root], 'config.yml'))) if @agent
-    end
-    
-    it 'should correctly deny requests' do
-      security = flexmock("Security")
-      @agent.register_security(security)
-      
-      security.should_receive(:authorize).twice.and_return(false)
-      flexmock(@agent.dispatcher).should_receive(:dispatch).never
-      @agent.__send__(:receive, @request)
-      @agent.__send__(:receive, @push)
-    end
-
-    it 'should correctly authorize requests' do
-      security = flexmock("Security")
-      @agent.register_security(security)
-      
-      security.should_receive(:authorize).twice.and_return(true)
-      flexmock(@agent.dispatcher).should_receive(:dispatch).twice
-      @agent.__send__(:receive, @request)
-      @agent.__send__(:receive, @push)
-    end
-
-    it 'should be ignored when not specified' do
-      flexmock(@agent.dispatcher).should_receive(:dispatch).twice
-      @agent.__send__(:receive, @request)
-      @agent.__send__(:receive, @push)
-    end    
-
   end
 
 end

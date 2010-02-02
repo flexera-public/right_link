@@ -22,31 +22,39 @@
 
 module RightScale
 
+  # Agent for receiving messages from the mapper and acting upon them
+  # by dispatching them to a registered actor to perform. See load_actors
+  # for details on how the agent specific environment is loaded.
   class Agent
     include AMQPHelper
     include ConsoleHelper
     include DaemonizeHelper
 
-    attr_reader :identity, :options, :serializer, :dispatcher, :registry, :amq, :tags, :callbacks, :queue
+    attr_reader :identity, :options, :serializer, :dispatcher, :registry, :amq, :tags, :callbacks, :shared_queue
     attr_accessor :status_proc
 
     DEFAULT_OPTIONS = COMMON_DEFAULT_OPTIONS.merge({
       :user => 'nanite',
-      :queue => false,
+      :shared_queue => false,
       :ping_time => 15,
       :default_services => []
     }) unless defined?(DEFAULT_OPTIONS)
 
-    # Initializes a new agent and establishes AMQP connection.
+    # Initializes a new agent and establishes an AMQP connection.
     # This must be used inside EM.run block or if EventMachine reactor
     # is already started, for instance, by a Thin server that your Merb/Rails
     # application runs on.
+    #
+    # === Parameters
+    # opts(Hash):: Options for configuring, connecting, and running agent
     #
     # Agent options:
     #
     # identity    : identity of this agent, may be any string
     #
-    # queue       : name of AMPQ queue to use for input; defaults to identity
+    # shared_queue : name of AMPQ queue to be used for input in addition to identity queue,
+    #               this is a queue that is shared by multiple agents and hence, unlike the
+    #               identity queue, is only able to receive requests, not results
     #
     # status_proc : a callable object that returns agent load as a string,
     #               defaults to load averages string extracted from `uptime`
@@ -85,42 +93,58 @@ module RightScale
     #
     # threadpool_size: Number of threads to run operations in
     #
+    #
     # Connection options:
     #
-    # vhost    : AMQP broker vhost that should be used
+    # vhost       : AMQP broker vhost that should be used
     #
-    # user     : AMQP broker user
+    # user        : AMQP broker user
     #
-    # pass     : AMQP broker password
+    # pass        : AMQP broker password
     #
-    # host     : host AMQP broker (or node of interest) runs on,
-    #            defaults to 0.0.0.0
+    # host        : host AMQP broker (or node of interest) runs on,
+    #               defaults to 0.0.0.0
     #
-    # port     : port AMQP broker (or node of interest) runs on,
-    #            this defaults to 5672, port used by some widely
-    #            used AMQP brokers (RabbitMQ and ZeroMQ)
+    # port        : port AMQP broker (or node of interest) runs on,
+    #               this defaults to 5672, port used by some widely
+    #               used AMQP brokers (RabbitMQ and ZeroMQ)
     #
-    # callback : Hash of proc objects defining well known callbacks
-    #            Currently only the :exception callback is supported
-    #            This block gets called whenever a packet generates an exception
+    # callback    : Hash of proc objects defining well known callbacks
+    #               Currently only the :exception callback is supported
+    #               This block gets called whenever a packet generates an exception
     #
     # On start config.yml is read, so it is common to specify
     # options in the YAML file. However, when both Ruby code options
     # and YAML file specify option, Ruby code options take precedence.
-    def self.start(options = {})
-      agent = new(options)
+    #
+    # === Return
+    # agent(Agent):: New agent
+    def self.start(opts = {})
+      agent = new(opts)
       agent.run
       agent
     end
 
+    # Initialize the new agent
+    #
+    # === Parameters
+    # opts(Hash):: Configuration options
+    #
+    # === Return
+    # true:: Always return true
     def initialize(opts)
       set_configuration(opts)
       @tags = []
       @tags << opts[:tag] if opts[:tag]
       @tags.flatten!
       @options.freeze
+      true
     end
     
+    # Put the agent in service
+    #
+    # === Return
+    # true:: Always return true
     def run
       RightLinkLog.init(@identity, @options[:log_path])
       RightLinkLog.level = @options[:log_level] if @options[:log_level]
@@ -139,40 +163,53 @@ module RightScale
       setup_mapper_proxy
       load_actors
       setup_traps
-      setup_queue
+      setup_queues
       advertise_services
       setup_heartbeat
       at_exit { un_register } unless $TESTING
       start_console if @options[:console] && !@options[:daemonize]
+      true
     end
 
+    # Register an actor for this agent
+    #
+    # === Parameters
+    # actor(Actor):: Actor to be registered
+    # prefix(String):: Prefix to be used in place of actor's default_prefix
+    #
+    # === Return
+    # (Actor):: Actor registered
     def register(actor, prefix = nil)
-      registry.register(actor, prefix)
-    end
-
-    # Can be used in agent's initialization file to register a security module
-    # This security module 'authorize' method will be called back whenever the
-    # agent receives a request and will be given the corresponding deliverable.
-    # It should return 'true' for the request to proceed.
-    # Requests will return 'deny_token' or the string "Denied" by default when
-    # 'authorize' does not return 'true'.
-    def register_security(security, deny_token = "Denied")
-      @security = security
-      @deny_token = deny_token
+      @registry.register(actor, prefix)
     end
 
     # Update set of tags published by agent and notify mapper
     # Add tags in 'new_tags' and remove tags in 'old_tags'
+    #
+    # === Parameters
+    # new_tags(Array):: Tags to be added
+    # old_tags(Array):: Tags to be removed
+    #
+    # === Return
+    # true:: Always return true
     def update_tags(new_tags, old_tags)
       @tags += (new_tags || [])
       @tags -= (old_tags || [])
       @tags.uniq!
-      tag_update = TagUpdate.new(identity, new_tags, old_tags)
-      amq.fanout('registration', :no_declare => options[:secure]).publish(serializer.dump(tag_update))
+      tag_update = TagUpdate.new(@identity, new_tags, old_tags)
+      @amq.fanout('registration', :no_declare => @options[:secure]).publish(@serializer.dump(tag_update))
+      true
     end
 
     protected
 
+    # Set the agent's configuration using the supplied options
+    #
+    # === Parameters
+    # opts(Hash):: Configuration options
+    #
+    # === Return
+    # true:: Always return true
     def set_configuration(opts)
       @options = DEFAULT_OPTIONS.clone
       root = opts[:root] || @options[:root]
@@ -190,27 +227,30 @@ module RightScale
         @options[:log_path] = (@options[:log_dir] || @options[:root] || Dir.pwd)
       end
 
-      @callbacks = options[:callbacks]
-      @status_proc = options[:status_proc]
-      
-      # Note the return statement in case of identity being known;
-      # ensure all needed configurations occur before that line.
       if @options[:identity]
         @identity = "nanite-#{@options[:identity]}"
-        @queue = @options[:queue] || @identity
-        return @identity
+      else
+        token = AgentIdentity.generate
+        @identity = "nanite-#{token}"
+        File.open(File.expand_path(File.join(@options[:root], 'config.yml')), 'w') do |fd|
+          fd.write(YAML.dump(custom_config.merge(:identity => token)))
+        end
       end
 
-      token = AgentIdentity.generate
-      @identity = "nanite-#{token}"
-      @queue = @options[:queue] || @identity
-      File.open(File.expand_path(File.join(@options[:root], 'config.yml')), 'w') do |fd|
-        fd.write(YAML.dump(custom_config.merge(:identity => token)))
-      end
+      @callbacks = @options[:callbacks]
+      @status_proc = @options[:status_proc]
+      @shared_queue = @options[:shared_queue]
+
+      return @identity
     end
 
+    # Load the ruby code for the actors
+    #
+    # === Return
+    # false:: If there is no :root option
+    # true:: Otherwise
     def load_actors
-      return unless options[:root]
+      return false unless @options[:root]
       actors_dir = @options[:actors_dir] || "#{@options[:root]}/actors"
       RightLinkLog.warn("Actors dir #{actors_dir} does not exist or is not reachable") unless File.directory?(actors_dir)
       actors = @options[:actors]
@@ -219,90 +259,162 @@ module RightScale
         RightLinkLog.info("[setup] loading #{actor}")
         require actor
       end
-      init_path = @options[:initrb] || File.join(options[:root], 'init.rb')
+      init_path = @options[:initrb] || File.join(@options[:root], 'init.rb')
       if File.exist?(init_path)
         instance_eval(File.read(init_path), init_path) 
       else
         RightLinkLog.warn("init.rb #{init_path} does not exist or is not reachable") unless File.exists?(init_path)
       end
+      true
     end
 
-    def receive(packet)
+    # Receive and process a packet of any type
+    #
+    # === Parameters
+    # packet(Packet>:: Packet to receive
+    #
+    # === Return
+    # true:: Always return true
+    def receive_any(packet)
       RightLinkLog.debug("RECV #{packet.to_s}")
       case packet
       when Advertise
         RightLinkLog.info("RECV #{packet.to_s}") unless RightLinkLog.level == :debug
         advertise_services
       when Request, Push
-        if @security && !@security.authorize(packet)
-          RightLinkLog.warn("RECV NOT AUTHORIZED #{packet.to_s}")
-          if packet.kind_of?(Request)
-            r = Result.new(packet.token, packet.reply_to, @deny_token, identity)
-            amq.queue(packet.reply_to, :no_declare => options[:secure]).publish(serializer.dump(r))
-          end
-        else
-          RightLinkLog.info("RECV #{packet.to_s([:from, :tags])}") unless RightLinkLog.level == :debug
-          dispatcher.dispatch(packet)
-        end
+        RightLinkLog.info("RECV #{packet.to_s([:from, :tags])}") unless RightLinkLog.level == :debug
+        @dispatcher.dispatch(packet)
       when Result
         RightLinkLog.info("RECV #{packet.to_s([])}") unless RightLinkLog.level == :debug
         @mapper_proxy.handle_result(packet)
+      else
+        RightLinkLog.error("Agent #{@identity} received invalid packet: #{packet.to_s}")
       end
-    end
-    
-    def tag(*tags)
-      tags.each {|t| @tags << t}
-      @tags.uniq!
+      true
     end
 
-    def setup_queue
-      amq.queue(queue, :durable => true).subscribe(:ack => true) do |info, msg|
-        begin
-          info.ack
-          receive(serializer.load(msg))
-        rescue Exception => e
-          RightLinkLog.error("RECV #{e.message}")
-          callbacks[:exception].call(e, msg, self) rescue nil if callbacks && callbacks[:exception]
+    # Receive and process a Request or Push packet; any other type is invalid
+    #
+    # === Parameters
+    # packet(Packet>:: Packet to receive
+    #
+    # === Return
+    # true:: Always return true
+    def receive_request(packet)
+      RightLinkLog.debug("RECV #{packet.to_s}")
+      case packet
+      when Request, Push
+        RightLinkLog.info("RECV #{packet.to_s([:from, :tags])}") unless RightLinkLog.level == :debug
+        @dispatcher.dispatch(packet)
+      else
+        RightLinkLog.error("Agent #{@identity} received invalid request packet: #{packet.to_s}")
+      end
+      true
+    end
+
+    # Setup the queues for this agent
+    #
+    # === Return
+    # true:: Always return true
+    def setup_queues
+      [@identity, @shared_queue].compact.each do |queue|
+        # Restrict non-identity queues to only receiving requests
+        receive_method = if queue == @identity then :receive_any else :receive_request end
+
+        @amq.queue(queue, :durable => true).subscribe(:ack => true) do |info, msg|
+          begin
+            info.ack
+            __send__(receive_method, @serializer.load(msg))
+          rescue Exception => e
+            RightLinkLog.error("RECV #{e.message}")
+            @callbacks[:exception].call(e, msg, self) rescue nil if @callbacks && @callbacks[:exception]
+          end
         end
       end
+      true
     end
 
+    # Setup the periodic sending of a Ping packet to the heartbeat queue
+    #
+    # === Return
+    # true:: Always return true
     def setup_heartbeat
-      EM.add_periodic_timer(options[:ping_time]) do
-        amq.fanout('heartbeat', :no_declare => options[:secure]).publish(serializer.dump(Ping.new(identity, status_proc.call)))
+      EM.add_periodic_timer(@options[:ping_time]) do
+        @amq.fanout('heartbeat', :no_declare => @options[:secure]).publish(@serializer.dump(Ping.new(@identity, status_proc.call)))
       end
+      true
     end
     
+    # Setup the mapper proxy for use in handling results
+    #
+    # === Return
+    # @mapper_proxy(MapperProxy):: Mapper proxy created
     def setup_mapper_proxy
-      @mapper_proxy = MapperProxy.new(identity, options)
+      @mapper_proxy = MapperProxy.new(@identity, @options)
     end
     
+    # Setup signal traps
+    #
+    # === Return
+    # true:: Always return true
     def setup_traps
       ['INT', 'TERM'].each do |sig|
         old = trap(sig) do
           un_register
-          amq.instance_variable_get('@connection').close do
+          @amq.instance_variable_get('@connection').close do
             EM.stop
             old.call if old.is_a? Proc
           end
         end
       end
+      true
     end
     
+    # Store unique tags
+    #
+    # === Parameters
+    # tags(Array):: Tags to be added
+    #
+    # === Return
+    # @tags(Array):: Current tags
+    def tag(*tags)
+      tags.each {|t| @tags << t}
+      @tags.uniq!
+    end
+
+    # Unregister this agent if not already unregistered
+    #
+    # === Return
+    # true:: Always return true
     def un_register
       unless @unregistered
         @unregistered = true
         RightLinkLog.info("SEND [un_register]")
-        amq.fanout('registration', :no_declare => options[:secure]).publish(serializer.dump(UnRegister.new(identity)))
+        @amq.fanout('registration', :no_declare => @options[:secure]).publish(@serializer.dump(UnRegister.new(@identity)))
       end
+      true
     end
 
+    # Advertise the services provided by this agent
+    #
+    # === Return
+    # true:: Always return true
     def advertise_services
-      reg = Register.new(identity, registry.services, status_proc.call, self.tags, queue)
+      reg = Register.new(@identity, @registry.services, status_proc.call, self.tags, @shared_queue)
       RightLinkLog.info("SEND #{reg.to_s}")
-      amq.fanout('registration', :no_declare => options[:secure]).publish(serializer.dump(reg))
+      @amq.fanout('registration', :no_declare => @options[:secure]).publish(@serializer.dump(reg))
+      true
     end
 
+    # Parse the uptime string returned by the OS
+    # Expected to contain 'load averages' followed by three floating point numbers
+    #
+    # === Parameters
+    # up(String):: Uptime string
+    #
+    # === Return
+    # (Float):: Uptime value if parsable
+    # nil:: If not parsable
     def parse_uptime(up)
       if up =~ /load averages?: (.*)/
         a,b,c = $1.split(/\s+|,\s+/)
