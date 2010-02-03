@@ -47,7 +47,8 @@ describe Chef::Provider::ServerCollection do
                    'agent_id_2' => { 'tags' => ['tag1', 'tag3'] } }
     @result = {}
     @agent_hash.each { |k, v| @result[k] = v['tags'] }
-    @provider = Chef::Provider::ServerCollection.new(nil, nil)
+    @resource = Chef::Resource::ServerCollection.new("test")
+    @provider = Chef::Provider::ServerCollection.new(nil, @resource)
     @provider.instance_variable_set(:@node, {:server_collection => { 'resource_name' => nil }})
     @provider.instance_variable_set(:@new_resource, flexmock('resource', :name => 'resource_name', :tags => 'tag1', :agent_ids => nil))
   end
