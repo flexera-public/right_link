@@ -56,6 +56,7 @@
 #      --options, -o KEY=VAL:   Pass-through options
 #      --http-proxy, -P PROXY:  Use a proxy for all agent-originated HTTP traffic
 #      --test:                  Build test deployment using default test settings
+#      --quiet, -Q              Do not produce output
 #      --help:                  Display help
 #      --version:               Display version information
 
@@ -132,8 +133,10 @@ module RightScale
       File.open(conf_file, 'w') do |fd|
         fd.write(YAML.dump(cfg))
       end
-      puts "Generated configuration file for agent #{options[:agent]}:"
-      puts "  - config: #{conf_file}"
+      unless options[:quiet]
+        puts "Generated configuration file for agent #{options[:agent]}:"
+        puts "  - config: #{conf_file}"
+      end
         
       if options[:monit]
         pid_file = PidFile.new("#{options[:pid_prefix]}-#{cfg[:identity]}", :pid_dir => cfg[:pid_dir])
@@ -145,7 +148,7 @@ module RightScale
         start_prog = "/usr/bin/rnac --start #{options[:agent]}"
         stop_prog = "/usr/bin/rnac --kill #{pid_file}"
         setup_monit(options[:agent], pid_file, monit_config_file, start_prog, stop_prog) 
-        puts "  - monit config: #{monit_config_file}"
+        puts "  - monit config: #{monit_config_file}" unless options[:quiet]
       end
     end
 
@@ -154,6 +157,7 @@ module RightScale
       options = {}
       options[:agent] = ARGV[0]
       options[:options] = {}
+      options[:quiet] = false
       fail('No agent specified on the command line.', print_usage=true) if options[:agent].nil?
 
       opts = OptionParser.new do |opts|
@@ -183,6 +187,10 @@ module RightScale
           fail("Invalid option definition '#{e}' (use '=' to separate name and value)") unless e.include?('=')
           key, val = e.split(/=/)
           options[:options][key.gsub('-', '_').to_sym] = val
+        end
+
+        opts.on('-Q', '--quiet') do
+          options[:quiet] = true
         end
 
         opts.on_tail('--help') do
