@@ -40,24 +40,24 @@
 #    rad AGENT [options]
 #
 #    options:
-#      --identity, -i ID       Use base id ID to build agent's identity
-#      --queue, -q QUEUE       Use queue QUEUE for agent's input instead of identity
-#      --token, -t TOKEN       Use token TOKEN to build agent's identity
-#      --prefix, -r PREFIX:    Prefix nanite agent identity with PREFIX
-#      --user, -u USER:        Set agent AMQP username
-#      --password, -p PASS:    Set agent AMQP password
-#      --vhost, -v VHOST:      Set agent AMQP virtual host
-#      --port, -P PORT:        Set AMQP server port
-#      --host, -h HOST:        Set AMQP server host
-#      --alias ALIAS:          Use alias name for identity and base config
-#      --actors-dir, -a DIR:   Set directory containing actor classes
-#      --pid-dir, -z DIR:      Set directory containing pid file
-#      --monit, -w:            Generate monit configuration file
-#      --options, -o KEY=VAL:  Pass-through options
-#      --http-proxy, -P PROXY: Use a proxy for all agent-originated HTTP traffic
-#      --test:                 Build test deployment using default test settings
-#      --help:                 Display help
-#      --version:              Display version information
+#      --identity, -i ID        Use base id ID to build agent's identity
+#      --shared-queue, -q QUEUE Use QUEUE as input for agent in addition to identity queue
+#      --token, -t TOKEN        Use token TOKEN to build agent's identity
+#      --prefix, -r PREFIX:     Prefix nanite agent identity with PREFIX
+#      --user, -u USER:         Set agent AMQP username
+#      --password, -p PASS:     Set agent AMQP password
+#      --vhost, -v VHOST:       Set agent AMQP virtual host
+#      --port, -P PORT:         Set AMQP server port
+#      --host, -h HOST:         Set AMQP server host
+#      --alias ALIAS:           Use alias name for identity and base config
+#      --actors-dir, -a DIR:    Set directory containing actor classes
+#      --pid-dir, -z DIR:       Set directory containing pid file
+#      --monit, -w:             Generate monit configuration file
+#      --options, -o KEY=VAL:   Pass-through options
+#      --http-proxy, -P PROXY:  Use a proxy for all agent-originated HTTP traffic
+#      --test:                  Build test deployment using default test settings
+#      --help:                  Display help
+#      --version:               Display version information
 
 require 'optparse'
 require 'rdoc/ri/ri_paths' # For backwards compat with ruby 1.8.5
@@ -110,19 +110,19 @@ module RightScale
     # Generate configuration files
     def write_config(options)
       cfg = {}
-      cfg[:identity]   = options[:identity] if options[:identity]
-      cfg[:queue]      = options[:queue] if options[:queue]
-      cfg[:pid_dir]    = options[:pid_dir] || '/var/run'
-      cfg[:user]       = options[:user] if options[:user]
-      cfg[:pass]       = options[:pass] if options[:pass]
-      cfg[:vhost]      = options[:vhost] if options[:vhost]
-      cfg[:port]       = options[:port] if options[:port]
-      cfg[:host]       = options[:host] if options[:host]
-      cfg[:initrb]     = options[:init_rb_path] if options[:init_rb_path]
-      cfg[:actors]     = options[:actors] if options[:actors]
-      cfg[:actors_dir] = options[:actors_path] if options[:actors_path]
-      cfg[:format]     = 'secure'
-      cfg[:http_proxy] = options[:http_proxy] if options[:http_proxy]
+      cfg[:identity]     = options[:identity] if options[:identity]
+      cfg[:shared_queue] = options[:shared_queue] if options[:shared_queue]
+      cfg[:pid_dir]      = options[:pid_dir] || '/var/run'
+      cfg[:user]         = options[:user] if options[:user]
+      cfg[:pass]         = options[:pass] if options[:pass]
+      cfg[:vhost]        = options[:vhost] if options[:vhost]
+      cfg[:port]         = options[:port] if options[:port]
+      cfg[:host]         = options[:host] if options[:host]
+      cfg[:initrb]       = options[:init_rb_path] if options[:init_rb_path]
+      cfg[:actors]       = options[:actors] if options[:actors]
+      cfg[:actors_dir]   = options[:actors_path] if options[:actors_path]
+      cfg[:format]       = 'secure'
+      cfg[:http_proxy]   = options[:http_proxy] if options[:http_proxy]
       options[:options].each { |k, v| cfg[k] = v } if options[:options]
 
       agent_dir = gen_agent_dir(options[:agent])
@@ -163,8 +163,8 @@ module RightScale
           options[:actors_dir] = d
         end
 
-        opts.on('-q', '--queue QUEUE') do |q|
-          options[:queue] = q
+        opts.on('-q', '--shared-queue QUEUE') do |q|
+          options[:shared_queue] = q
         end
 
         opts.on('-z', '--pid-dir DIR') do |d|
