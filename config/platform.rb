@@ -76,14 +76,14 @@ module RightScale
       @shell      = nil
       @ssh        = nil
 
-      #Determine which cloud we're on by the cheap but simple expedient of reading
-      #the RightScale cloud file.
-      cloud_type = File.read(File.join(self.filesystem.right_scale_state_dir, 'cloud')) rescue nil
-      case cloud_type
-        when 'ec2':        @ec2 = true
-        when 'rackspace':  @rackspace = true
-        when 'eucalyptus': @eucalyptus = true
-      end
+      @ec2 = nil
+      @rackspace = nil
+      @eucalyptus = nil
+
+      # note that we must defer any use of filesystem until requested because
+      # Windows setup scripts attempt to use Platform before installing some
+      # of the required gems. don't attempt to call code that requires gems in
+      # initialize().
     end
 
     # An alias for RUBY_PLATFORM
@@ -127,6 +127,7 @@ module RightScale
     # true:: If machine is located in an EC2 cloud
     # false:: Otherwise
     def ec2?
+      resolve_cloud_type if @ec2.nil?
       @ec2
     end
 
@@ -136,6 +137,7 @@ module RightScale
     # true:: If machine is located in an EC2 cloud
     # false:: Otherwise
     def rackspace?
+      resolve_cloud_type if @rackspace.nil?
       @rackspace
     end
 
@@ -145,6 +147,7 @@ module RightScale
     # true:: If machine is located in an EC2 cloud
     # false:: Otherwise
     def eucalyptus?
+      resolve_cloud_type if @eucalyptus.nil?
       @eucalyptus
     end
 
@@ -245,6 +248,20 @@ module RightScale
 
     def require_windows
       require File.expand_path(File.join(File.dirname(__FILE__), 'platform', 'win32'))
+    end
+
+    # Determines which cloud we're on by the cheap but simple expedient of
+    # reading the RightScale cloud file.
+    def resolve_cloud_type
+      cloud_type = File.read(File.join(self.filesystem.right_scale_state_dir, 'cloud')) rescue nil
+      @ec2 = false
+      @rackspace = false
+      @eucalyptus = false
+      case cloud_type
+        when 'ec2':        @ec2 = true
+        when 'rackspace':  @rackspace = true
+        when 'eucalyptus': @eucalyptus = true
+      end
     end
 
   end
