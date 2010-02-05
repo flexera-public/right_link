@@ -317,17 +317,19 @@ module RightScale
     # === Return
     # true:: Always return true
     def setup_queues
-      [@identity, @shared_queue].compact.each do |queue|
-        # Restrict non-identity queues to only receiving requests
-        receive_method = if queue == @identity then :receive_any else :receive_request end
+      [@identity, @shared_queue].each do |queue|
+        if queue
+          # Restrict non-identity queues to only receiving requests
+          receive_method = if queue == @identity then :receive_any else :receive_request end
 
-        @amq.queue(queue, :durable => true).subscribe(:ack => true) do |info, msg|
-          begin
-            info.ack
-            __send__(receive_method, @serializer.load(msg))
-          rescue Exception => e
-            RightLinkLog.error("RECV #{e.message}")
-            @callbacks[:exception].call(e, msg, self) rescue nil if @callbacks && @callbacks[:exception]
+          @amq.queue(queue, :durable => true).subscribe(:ack => true) do |info, msg|
+            begin
+              info.ack
+              __send__(receive_method, @serializer.load(msg))
+            rescue Exception => e
+              RightLinkLog.error("RECV #{e.message}")
+              @callbacks[:exception].call(e, msg, self) rescue nil if @callbacks && @callbacks[:exception]
+            end
           end
         end
       end
