@@ -88,10 +88,10 @@ module RightScale
     # Build identity from base_id, token, prefix and agent name
     #
     # === Parameters
-    # options<Hash>:: Hash containting identity components
+    # options(Hash):: Hash containting identity components
     #
     # === Return
-    # options<Hash>::
+    # options(Hash)::
     def resolve_identity(options)
       if options[:base_id]
         base_id = options[:base_id].to_i

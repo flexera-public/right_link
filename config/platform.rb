@@ -89,7 +89,7 @@ module RightScale
     # An alias for RUBY_PLATFORM
     #
     # === Return
-    # name<String>:: RUBY_PLATFORM
+    # name(String):: RUBY_PLATFORM
     def name
       RUBY_PLATFORM
     end
@@ -154,7 +154,7 @@ module RightScale
     # Filesystem config object
     #
     # === Return
-    # fs<Filesystem>:: Platform-specific filesystem config object
+    # fs(Filesystem):: Platform-specific filesystem config object
     def filesystem
       if @filesystem.nil?
         if linux?

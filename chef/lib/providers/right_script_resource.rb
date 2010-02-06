@@ -51,9 +51,9 @@ class Chef
       # Initialize RightScript resource with default values
       #
       # === Parameters
-      # name<String>:: Nickname of RightScript
-      # collection<Array>:: Collection of included recipes
-      # node<Chef::Node>:: Node where resource will be used
+      # name(String):: Nickname of RightScript
+      # collection(Array):: Collection of included recipes
+      # node(Chef::Node):: Node where resource will be used
       def initialize(name, collection, node)
         super(name, collection, node)
         @resource_name = :right_script
@@ -63,7 +63,7 @@ class Chef
         @allowed_actions.push(:run)
       end
 
-      # <String> RightScript nickname
+      # (String) RightScript nickname
       def nickname(arg=nil)
         set_or_return(
           :nickname,
@@ -72,7 +72,7 @@ class Chef
         )
       end
 
-      # <String> Path to file containing RightScript source code
+      # (String) Path to file containing RightScript source code
       def source_file(arg=nil)
         set_or_return(
           :source_file,
@@ -81,7 +81,7 @@ class Chef
         )
       end
 
-      # <Hash> RightScript parameters values keyed by names
+      # (Hash) RightScript parameters values keyed by names
       def parameters(arg=nil)
         set_or_return(
           :parameters,
@@ -90,7 +90,7 @@ class Chef
         )
       end
 
-      # <String> Path to directory where attachments source should be saved
+      # (String) Path to directory where attachments source should be saved
       def cache_dir(arg=nil)
         set_or_return(
           :cache_dir,

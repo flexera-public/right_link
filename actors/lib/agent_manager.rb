@@ -32,7 +32,7 @@ class AgentManager
   # Always return success, used for troubleshooting
   #
   # === Return
-  # res<RightScale::OperationResult>:: Always returns success
+  # res(RightScale::OperationResult):: Always returns success
   def ping(_)
     res = RightScale::OperationResult.success
   end
@@ -40,10 +40,10 @@ class AgentManager
   # Change log level of agent
   #
   # === Parameter
-  # level<Symbol>:: One of :debug, :info, :warn, :error, :fatal
+  # level(Symbol):: One of :debug, :info, :warn, :error, :fatal
   #
   # === Return
-  # res<RightScale::OperationResult>:: Success if level was changed, error otherwise
+  # res(RightScale::OperationResult):: Success if level was changed, error otherwise
   def set_log_level(level)
     return RightScale::OperationResult.error("Invalid log level '#{level.to_s}'") unless LEVELS.include?(level)
     RightScale::RightLinkLog.level = level
@@ -53,10 +53,10 @@ class AgentManager
   # Eval given code in context of agent
   #
   # === Parameter
-  # code<String>:: Code to be evaled
+  # code(String):: Code to be evaled
   #
   # === Return
-  # res<RightScale::OperationResult>:: Success with result if code didn't raise an exception
+  # res(RightScale::OperationResult):: Success with result if code didn't raise an exception
   #                                    Failure with exception message otherwise
   def execute(code)
     begin
@@ -70,7 +70,7 @@ class AgentManager
   # Vote for re-enrollment
   #
   # === Return
-  # res<RightScale::OperationResult>:: Always returns success
+  # res(RightScale::OperationResult):: Always returns success
   def record_fault(_)
     RightScale::ReenrollManager.vote
     res = RightScale::OperationResult.success
@@ -81,8 +81,8 @@ class AgentManager
   # vote for re-enroll
   #
   # === Parameters
-  # e<Exception>:: Exception to be analyzed
-  # msg<String>:: Serialized message that triggered error
+  # e(Exception):: Exception to be analyzed
+  # msg(String):: Serialized message that triggered error
   #
   # === Return
   # true:: Always return true

@@ -43,11 +43,11 @@ module RightScale
     # Build hash of commands associating command names with block
     #
     # === Parameters
-    # agent_identity<String>:: Serialized instance agent identity
-    # scheduler<InstanceScheduler>:: Scheduler used by decommission command
+    # agent_identity(String):: Serialized instance agent identity
+    # scheduler(InstanceScheduler):: Scheduler used by decommission command
     #
     # === Return
-    # cmds<Hash>:: Hash of command blocks keyed by command names
+    # cmds(Hash):: Hash of command blocks keyed by command names
     def self.get(agent_identity, scheduler)
       cmds = {}
       target = new(agent_identity, scheduler)
@@ -58,8 +58,8 @@ module RightScale
     # Set token id used to send core requests
     #
     # === Parameter
-    # token_id<String>:: Instance token id
-    # scheduler<InstanceScheduler>:: Scheduler used by decommission command
+    # token_id(String):: Instance token id
+    # scheduler(InstanceScheduler):: Scheduler used by decommission command
     def initialize(agent_identity, scheduler)
       @agent_identity = agent_identity
       @scheduler = scheduler
@@ -70,7 +70,7 @@ module RightScale
     # List command implementation
     #
     # === Parameters
-    # opts<Hash>:: Should contain the instance command id
+    # opts(Hash):: Should contain the instance command id
     #
     # === Return
     # true:: Always return true
@@ -135,9 +135,9 @@ module RightScale
     # Helper method that sends given request and report status through command IO
     #
     # === Parameters
-    # request<String>:: Request that should be sent
-    # conn<EM::Connection>:: Connection used to send reply
-    # options<Hash>:: Request options
+    # request(String):: Request that should be sent
+    # conn(EM::Connection):: Connection used to send reply
+    # options(Hash):: Request options
     #
     # === Return
     # true:: Always return true

@@ -44,13 +44,13 @@ end
 
 # Adds RightScale server FQDNs to the rightscale_deprecated servers Mash
 #
-# NOTE: This is a hack to convert the RS_<server> tokens into something more 
+# NOTE: This is a hack to convert the RS_(server) tokens into something more 
 # intuative.  Hopefully this will be removed when we stop using EC2
 # userdata. 
 #
 # === Parameters
-# key<String>:: RightScale server token from user-data
-# data<String>::: FQDN for the RightScale server
+# key(String):: RightScale server token from user-data
+# data(String)::: FQDN for the RightScale server
 def add_server(key, data)
   rightscale_deprecated[:server] = Mash.new unless rightscale_deprecated.has_key?(:server)
   server_names = {

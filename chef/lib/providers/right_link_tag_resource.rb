@@ -30,9 +30,9 @@ class Chef
       # Initialize tag resource
       #
       # === Parameters
-      # name<String>:: Tag name
-      # collection<Array>:: Collection of included recipes
-      # node<Chef::Node>:: Node where resource will be used
+      # name(String):: Tag name
+      # collection(Array):: Collection of included recipes
+      # node(Chef::Node):: Node where resource will be used
       def initialize(name, collection=nil, node=nil)
         super(name, collection, node)
         @resource_name = :right_link_tag

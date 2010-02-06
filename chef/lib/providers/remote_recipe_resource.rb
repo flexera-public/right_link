@@ -30,9 +30,9 @@ class Chef
       # Initialize log resource with a name as the string to log
       #
       # === Parameters
-      # name<String>:: Message to log
-      # collection<Array>:: Collection of included recipes
-      # node<Chef::Node>:: Node where resource will be used
+      # name(String):: Message to log
+      # collection(Array):: Collection of included recipes
+      # node(Chef::Node):: Node where resource will be used
       def initialize(name, collection=nil, node=nil)
         super(name, collection, node)
         @resource_name = :remote_recipe

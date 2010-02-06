@@ -47,9 +47,9 @@ class Chef
       # Initialize DNS resource with default values
       #
       # === Parameters
-      # name<String>:: FQDN or Id for server
-      # collection<Array>:: Collection of included recipes
-      # node<Chef::Node>:: Node where resource will be used
+      # name(String):: FQDN or Id for server
+      # collection(Array):: Collection of included recipes
+      # node(Chef::Node):: Node where resource will be used
       def initialize(name, collection=nil, node=nil)
         super(name, collection, node)
         @resource_name = :dns
@@ -60,7 +60,7 @@ class Chef
         @action = :register        
       end
       
-      # <String> username for dns provider account
+      # (String) username for dns provider account
       def user(arg=nil)
         set_or_return(
           :user,
@@ -69,7 +69,7 @@ class Chef
         )
       end
 
-      # <String> password for dns provider account      
+      # (String) password for dns provider account      
       def passwd(arg=nil)
         set_or_return(
           :passwd,
@@ -78,7 +78,7 @@ class Chef
         )
       end
       
-      # <String> IP address in the format ddd.ddd.ddd.ddd 
+      # (String) IP address in the format ddd.ddd.ddd.ddd 
       def ip_address(arg=nil)
         set_or_return(
           :ip_address,

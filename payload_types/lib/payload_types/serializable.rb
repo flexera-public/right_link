@@ -44,10 +44,10 @@ module RightScale
       # Called by JSON serializer to serialise to JSON
       #
       # === Parameters
-      # *a<Array>:: Pass-through to Hash's 'to_json' method
+      # *a(Array):: Pass-through to Hash's 'to_json' method
       #
       # === Return
-      # json<String>:: JSON representation
+      # json(String):: JSON representation
       def to_json(*a)
         json = {
           'json_class' => self.class.name,
@@ -67,7 +67,7 @@ module RightScale
       # Use serialized members to compare two serializable instances
       #
       # === Parameters
-      # other<Serializable>:: Other instance to compare self to
+      # other(Serializable):: Other instance to compare self to
       #
       # === Return
       # true:: If both serializable have identical serialized fields
@@ -87,10 +87,10 @@ module RightScale
     # for keys as JSON serialization will produce strings instead
     #
     # === Parameters
-    # hash<Hash>:: Hash whose keys whould be symbolized
+    # hash(Hash):: Hash whose keys whould be symbolized
     #
     # === Return
-    # h<Hash>:: Hash with same values but symbol keys
+    # h(Hash):: Hash with same values but symbol keys
     def self.symbolize_keys(hash)
       hash.inject({}) do |h, (key, value)|
         h[(key.to_sym rescue key) || key] = value

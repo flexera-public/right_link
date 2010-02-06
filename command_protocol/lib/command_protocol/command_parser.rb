@@ -31,7 +31,7 @@ module RightScale
     # Block that will get called back whenever a command is successfully parsed
     #
     # === Raise
-    # <RightScale::Exceptions::Argument>: If block is missing
+    # (RightScale::Exceptions::Argument): If block is missing
     def initialize &block
       raise RightScale::Exceptions::Argument, 'Missing handler block' unless block
       @callback = block
@@ -43,7 +43,7 @@ module RightScale
     # Callback happens in next EM tick
     #
     # === Parameters
-    # chunk<String>:: Chunck of serialized command(s) to be parsed
+    # chunk(String):: Chunck of serialized command(s) to be parsed
     #
     # === Return
     # true:: If callback was called at least once

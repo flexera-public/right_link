@@ -31,7 +31,7 @@ module RightScale
     # Initialize multiplexer targets
     #
     # === Parameters
-    # targets<Object>:: Targets that should receive the method calls
+    # targets(Object):: Targets that should receive the method calls
     def initialize(*targets)
       @targets = targets || []
     end
@@ -39,10 +39,10 @@ module RightScale
     # Add object to list of multiplexed targets
     #
     # === Parameters
-    # target<Object>:: Add target to list of multiplexed targets
+    # target(Object):: Add target to list of multiplexed targets
     #
     # === Return
-    # self<RightScale::Multiplexer>:: self so operation can be chained
+    # self(RightScale::Multiplexer):: self so operation can be chained
     def add(target)
       @targets << target unless @targets.include?(target)
       self
@@ -51,10 +51,10 @@ module RightScale
     # Remove object from list of multiplexed targets
     #
     # === Parameters
-    # target<Object>:: Remove target from list of multiplexed targets
+    # target(Object):: Remove target from list of multiplexed targets
     #
     # === Return
-    # self<RightScale::Multiplexer>:: self so operation can be chained
+    # self(RightScale::Multiplexer):: self so operation can be chained
     def remove(target)
       @targets.delete_if { |t| t == target }
       self
@@ -63,11 +63,11 @@ module RightScale
     # Forward any method invokation to targets
     #
     # === Parameters
-    # m<Symbol>:: Method that should be multiplexed
-    # args<Array>:: Arguments
+    # m(Symbol):: Method that should be multiplexed
+    # args(Array):: Arguments
     #
     # === Return
-    # res<Object>:: Result of first target in list
+    # res(Object):: Result of first target in list
     def method_missing(m, *args)
       res = @targets.inject([]) { |res, t| res << t.__send__(m, *args) }
       res[0]

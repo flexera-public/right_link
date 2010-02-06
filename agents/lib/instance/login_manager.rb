@@ -33,7 +33,7 @@ module RightScale
     # Can the login manager function on this platform?
     #
     # === Return
-    # val<true|false> whether LoginManager works on this platform
+    # val(true|false) whether LoginManager works on this platform
     def supported_by_platform?
       return RightLinkConfig.platform.linux? || RightLinkConfig.platform.mac?
     end
@@ -43,10 +43,10 @@ module RightScale
     # the superuser account.
     #
     # === Parameters
-    # new_policy<LoginPolicy> the new login policy
+    # new_policy(LoginPolicy) the new login policy
     #
     # === Return
-    # description<String> a human-readable description of the update, suitable for auditing
+    # description(String) a human-readable description of the update, suitable for auditing
     def update_policy(new_policy)
       return false unless supported_by_platform?
 
@@ -72,7 +72,7 @@ module RightScale
     # Read ~root/.ssh/authorized_keys if it exists
     #
     # === Return
-    # authorized_keys<Array[<String>]> list of lines of authorized_keys file
+    # authorized_keys(Array[(String)]) list of lines of authorized_keys file
     def read_keys_file
       return [] unless File.exist?(ROOT_TRUSTED_KEYS_FILE)
       File.readlines(ROOT_TRUSTED_KEYS_FILE).map! { |l| l.chomp.strip }
@@ -81,7 +81,7 @@ module RightScale
     # Replace the contents of ~root/.ssh/authorized_keys
     #
     # === Parameters
-    # keys<Array[<String>]> list of lines that authorized_keys file should contain
+    # keys(Array[(String)]) list of lines that authorized_keys file should contain
     #
     # === Return
     # true:: always returns true
@@ -108,12 +108,12 @@ module RightScale
     # the return value is simply the public keys of new_users.
     #
     # === Parameters
-    # old_users<Array[<LoginUser>]> old login policy's users
-    # new_users<Array[<LoginUser>]> new login policy's users
-    # exclusive<true|false> if true, system keys are not preserved
+    # old_users(Array[(LoginUser)]) old login policy's users
+    # new_users(Array[(LoginUser)]) new login policy's users
+    # exclusive(true|false) if true, system keys are not preserved
     #
     # === Return
-    # authorized_keys<Array[<String>]> new set of trusted public keys
+    # authorized_keys(Array[(String)]) new set of trusted public keys
     #
     # === Raise
     # Exception:: desc
@@ -151,12 +151,12 @@ module RightScale
     # for appending to an audit entry. Contains formatting such as newlines and tabs.
     #
     # === Parameters
-    # num_users<Integer> total number of users
-    # num_system_users<Integer> number of preserved system keys
-    # policy<LoginPolicy> the effective login policy
+    # num_users(Integer) total number of users
+    # num_system_users(Integer) number of preserved system keys
+    # policy(LoginPolicy) the effective login policy
     #
     # === Return
-    # description<String>
+    # description(String)
     def describe_policy(num_users, num_system_users, policy)
       audit = "#{num_users} total authorized key(s).\n"
 
@@ -184,10 +184,10 @@ module RightScale
     # is applied.
     #
     # === Parameters
-    # policy<LoginPolicy> policy for which expiry is to be scheduled
+    # policy(LoginPolicy) policy for which expiry is to be scheduled
     #
     # === Return
-    # scheduled<true|false> true if expiry was scheduled, false otherwise
+    # scheduled(true|false) true if expiry was scheduled, false otherwise
     def schedule_expiry(policy)
       if @expiry_timer
         @expiry_timer.cancel

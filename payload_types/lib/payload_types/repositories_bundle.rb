@@ -30,10 +30,10 @@ module RightScale
 
     include Serializable
 
-    # <Array> Repositories instantiations
+    # (Array) Repositories instantiations
     attr_accessor :repositories
 
-    # <Integer> ID of corresponding audit entry
+    # (Integer) ID of corresponding audit entry
     attr_accessor :audit_id
 
     def initialize(*args)

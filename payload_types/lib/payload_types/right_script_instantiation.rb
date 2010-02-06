@@ -28,26 +28,26 @@ module RightScale
 
     include Serializable  
 
-    # <String> RightScript name
+    # (String) RightScript name
     attr_accessor :nickname
 
-    # <String> RightScript source
+    # (String) RightScript source
     attr_accessor :source
 
-    # <Hash> RightScript parameters
+    # (Hash) RightScript parameters
     # Hash of parameters names with associated value
     attr_accessor :parameters  
     
-    # <Array> RightScript attachments URLs, array of RightScriptAttachment
+    # (Array) RightScript attachments URLs, array of RightScriptAttachment
     attr_accessor :attachments
     
-    # <Array> RightScripts required packages
+    # (Array) RightScripts required packages
     attr_accessor :packages
 
-    # <Integer> RightScript id
+    # (Integer) RightScript id
     attr_accessor :id
 
-    # <Boolean> Whether script inputs are ready
+    # (Boolean) Whether script inputs are ready
     attr_accessor :ready
 
     def initialize(*args)

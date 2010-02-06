@@ -31,10 +31,10 @@ module RightScale
     # Serialize given command so it can be sent to command listener
     #
     # === Parameters
-    # command<Object>:: Command to serialize
+    # command(Object):: Command to serialize
     #
     # === Return
-    # data<String>:: Corresponding serialized data
+    # data(String):: Corresponding serialized data
     def self.dump(command)
       data = YAML::dump(command)
       data += SEPARATOR
@@ -43,13 +43,13 @@ module RightScale
     # Deserialize command that was previously serialized with +dump+
     #
     # === Parameters
-    # data<String>:: String containing serialized data
+    # data(String):: String containing serialized data
     #
     # === Return
-    # command<Object>:: Deserialized command
+    # command(Object):: Deserialized command
     #
     # === Raise
-    # <RightScale::Exceptions::IO>: If serialized data is incorrect
+    # (RightScale::Exceptions::IO): If serialized data is incorrect
     def self.load(data)
       command = YAML::load(data) rescue nil
       raise RightScale::Exceptions::IO, "Invalid serialized command:\n#{data}" unless command

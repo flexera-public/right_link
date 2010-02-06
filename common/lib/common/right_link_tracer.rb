@@ -45,7 +45,7 @@ module RightScale
     # defined on given class
     #
     # === Parameters
-    # klass<Class>:: Class whose methods should be traced
+    # klass(Class):: Class whose methods should be traced
     #
     # === Return
     # true:: Always return true
@@ -89,11 +89,11 @@ module RightScale
     # Can method be traced?
     #
     # === Parameters
-    # m<String>:: Method name
-    # static<Boolean>:: Whether method is a class method
+    # m(String):: Method name
+    # static(Boolean):: Whether method is a class method
     #
     # === Return
-    # traceable<Boolean>:: true if method can be traced, false otherwise
+    # traceable(Boolean):: true if method can be traced, false otherwise
     def self.traceable(m, static=false)
       traceable = !NON_TRACEABLE_METHODS.include?(m.to_sym) && m =~ /[a-zA-Z0-9]$/
       traceable &&= !NON_TRACEABLE_CLASS_METHODS.include?(m.to_sym) if static
@@ -103,7 +103,7 @@ module RightScale
     # Add tracing to all classes in given namespaces
     #
     # === Parameters
-    # namespaces<Array|String>:: Namespace(s) of classes whose methods should be traced
+    # namespaces(Array|String):: Namespace(s) of classes whose methods should be traced
     #
     # === Return
     # true:: Always return true

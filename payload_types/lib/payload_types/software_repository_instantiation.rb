@@ -29,13 +29,13 @@ module RightScale
 
     include Serializable
 
-    # <String> Software repository name
+    # (String) Software repository name
     attr_accessor :name
     
-    # <Array> Software repository base URL
+    # (Array) Software repository base URL
     attr_accessor :base_urls
     
-    # <Date> Frozen date if any
+    # (Date) Frozen date if any
     attr_accessor :frozen_date
         
     def initialize(*args)

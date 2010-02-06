@@ -43,13 +43,13 @@ module RightScale
     # in seconds
     MAX_AUDIT_DELAY = 2
 
-    # <Integer> Associated audit it
+    # (Integer) Associated audit it
     attr_accessor :audit_id
 
     # Initialize auditor proxy with given audit id
     #
     # === Parameters
-    # audit_id<Integer>:: ID of audit entry that should be appended to
+    # audit_id(Integer):: ID of audit entry that should be appended to
     def initialize(audit_id)
       @audit_id = audit_id
       @buffer = ''
@@ -58,7 +58,7 @@ module RightScale
     # Update audit summary
     #
     # === Parameters
-    # status<String>:: New audit entry status
+    # status(String):: New audit entry status
     #
     # === Return
     # true:: Always return true
@@ -69,7 +69,7 @@ module RightScale
     # Start new audit section
     #
     # === Parameters
-    # title<String>:: Title of new audit section, will replace audit status as well
+    # title(String):: Title of new audit section, will replace audit status as well
     #
     # === Return
     # true:: Always return true
@@ -80,7 +80,7 @@ module RightScale
     # Append output to current audit section
     #
     # === Parameters
-    # text<String>:: Output to append to audit entry
+    # text(String):: Output to append to audit entry
     #
     # === Return
     # true:: Always return true
@@ -99,7 +99,7 @@ module RightScale
     # indicate that text is not some output. Text will be line-wrapped.
     #
     # === Parameters
-    # text<String>:: Informational text to append to audit entry
+    # text(String):: Informational text to append to audit entry
     #
     # === Return
     # true:: Always return true
@@ -111,7 +111,7 @@ module RightScale
     # indicate that error message is not some output. Message will be line-wrapped.
     #
     # === Parameters
-    # text<String>:: Error text to append to audit entry
+    # text(String):: Error text to append to audit entry
     #
     # === Return
     # true:: Always return true
@@ -124,8 +124,8 @@ module RightScale
     # Flush output buffer then send audits to core agent and log failures
     #
     # === Parameters
-    # request<String>:: Request that should be sent to auditor actor
-    # text<String>:: Text to be audited
+    # request(String):: Request that should be sent to auditor actor
+    # text(String):: Text to be audited
     #
     # === Return
     # true:: Always return true
@@ -139,8 +139,8 @@ module RightScale
     # Actually send audits to core agent and log failures
     #
     # === Parameters
-    # request<String>:: Request that should be sent to auditor actor
-    # text<String>:: Text to be audited
+    # request(String):: Request that should be sent to auditor actor
+    # text(String):: Text to be audited
     #
     # === Return
     # true:: Always return true
@@ -177,10 +177,10 @@ module RightScale
     # Audit formatter method to call to format message sent through +request+
     #
     # === Parameters
-    # request<String>:: Request used to audit text
+    # request(String):: Request used to audit text
     #
     # === Return
-    # method<Symbol>:: Corresponding audit formatter method
+    # method(Symbol):: Corresponding audit formatter method
     def format_method(request)
       method = case request
         when 'update_status'      then :status

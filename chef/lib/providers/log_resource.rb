@@ -41,9 +41,9 @@ class Chef
       # Initialize log resource with a name as the string to log 
       #
       # === Parameters
-      # name<String>:: Message to log
-      # collection<Array>:: Collection of included recipes
-      # node<Chef::Node>:: Node where resource will be used
+      # name(String):: Message to log
+      # collection(Array):: Collection of included recipes
+      # node(Chef::Node):: Node where resource will be used
       def initialize(name, collection=nil, node=nil)
         super(name, collection, node)
         @resource_name = :log
@@ -51,7 +51,7 @@ class Chef
         @action = :write
       end
       
-      # <Symbol> Log level, one of :debug, :info, :warn, :error or :fatal
+      # (Symbol) Log level, one of :debug, :info, :warn, :error or :fatal
       def level(arg=nil)
         set_or_return(
           :level,

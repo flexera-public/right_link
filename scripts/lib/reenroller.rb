@@ -79,7 +79,7 @@ module RightScale
     # Create options hash from command line arguments
     #
     # === Return
-    # options<Hash>:: Hash of options as defined by the command line
+    # options(Hash):: Hash of options as defined by the command line
     def parse_args
       options = { :verbose => false }
 
@@ -112,13 +112,13 @@ module RightScale
     # Override default behavior by using 'ok_values' and/or 'error_values'
     #
     # === Parameters
-    # val<Object>:: Value to be tested
-    # default_ok<TrueClass|FalseClass>:: Whether default value is '[OK]' (true) or '[ERROR]' (false), '[OK]' by default
-    # ok_values<Array>:: Array of values that will cause +to_ok+ to return '[OK]' if defined, nil by default
-    # error_values<Array>:: Array of values that will cause +to_ok+ to return '[ERROR]' if defined, [nil, false] by default
+    # val(Object):: Value to be tested
+    # default_ok(Boolean):: Whether default value is '[OK]' (true) or '[ERROR]' (false), '[OK]' by default
+    # ok_values(Array):: Array of values that will cause +to_ok+ to return '[OK]' if defined, nil by default
+    # error_values(Array):: Array of values that will cause +to_ok+ to return '[ERROR]' if defined, [nil, false] by default
     #
     # === Return
-    # status<String>:: [OK] or [ERROR]
+    # status(String):: [OK] or [ERROR]
     def to_ok(val, default_value='[OK]', ok_values=nil, error_values=[nil, false])
       return '[OK]' if ok_values && ok_values.include?(val)
       return '[ERROR]' if error_values && error_values.include?(val)
@@ -128,7 +128,7 @@ module RightScale
     # Cleanup certificates
     #
     # === Parameters
-    # options<Hash>:: Options hash
+    # options(Hash):: Options hash
     #
     # === Return
     # true:: Always return true
@@ -141,7 +141,7 @@ module RightScale
     # Checks whether process with given pid is running
     #
     # === Parameters
-    # pid<Fixnum>:: Process id to be checked
+    # pid(Fixnum):: Process id to be checked
     #
     # === Return
     # true:: If process is running
@@ -156,7 +156,7 @@ module RightScale
     # Version information
     #
     # === Return
-    # ver<String>:: Version information
+    # ver(String):: Version information
     def version
       ver = "rs_reenroll #{VERSION.join('.')} - RightLink reenroller (c) 2009 RightScale"
     end

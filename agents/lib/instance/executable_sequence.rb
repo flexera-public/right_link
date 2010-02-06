@@ -46,7 +46,7 @@ module RightScale
     # Initialize sequence
     #
     # === Parameter
-    # bundle<RightScale::ExecutableBundle>:: Bundle to be run
+    # bundle(RightScale::ExecutableBundle):: Bundle to be run
     def initialize(bundle)
       @description            = bundle.to_s
       @auditor                = AuditorProxy.new(bundle.audit_id)
@@ -256,7 +256,7 @@ module RightScale
     # Initialize inputs patch and report success
     #
     # === Parameters
-    # node<ChefNode>:: Chef node used to converge, can be nil (patch is empty in this case)
+    # node(ChefNode):: Chef node used to converge, can be nil (patch is empty in this case)
     #
     # === Return
     # true:: Always return true
@@ -278,8 +278,8 @@ module RightScale
     # Set status with failure message and audit it
     #
     # === Parameters
-    # title<String>:: Title used to update audit status
-    # msg<String>:: Failure message
+    # title(String):: Title used to update audit status
+    # msg(String):: Failure message
     #
     # === Return
     # true:: Always return true
@@ -297,10 +297,10 @@ module RightScale
     # context of failure
     #
     # === Parameters
-    # e<Exception>:: Exception raised while executing Chef recipe
+    # e(Exception):: Exception raised while executing Chef recipe
     #
     # === Return
-    # msg<String>:: Human friendly error message
+    # msg(String):: Human friendly error message
     def chef_error(e)
       msg = "An error occurred during the execution of Chef. The error message was:\n\n"
       msg += e.message
@@ -339,10 +339,10 @@ module RightScale
     # if given index is negative or greater than the lines array size
     #
     # === Parameters
-    # lines<Array>:: Lines of text
-    # index<Integer>:: Index of line that should be formatted for context
-    # padding<Integer>:: Number of character to pad line with (includes prefix)
-    # prefix<String>:: Single character string used to prefix line
+    # lines(Array):: Lines of text
+    # index(Integer):: Index of line that should be formatted for context
+    # padding(Integer):: Number of character to pad line with (includes prefix)
+    # prefix(String):: Single character string used to prefix line
     #                  use line number if not specified
     def context_line(lines, index, padding, prefix=nil)
       return '' if index < 1 || index > lines.size
@@ -354,13 +354,13 @@ module RightScale
     # Block should return true when it succeeds
     #
     # === Parameters
-    # times<Integer>:: Number of times block should be retried before giving up
+    # times(Integer):: Number of times block should be retried before giving up
     #
     # === Block
     # Block to be executed
     #
     # === Return
-    # success<Boolean>:: true if execution was successful, false otherwise.
+    # success(Boolean):: true if execution was successful, false otherwise.
     def retry_execution(times=InstanceConfiguration::MAX_PACKAGES_INSTALL_RETRIES)
       count = 0
       success = false
@@ -377,7 +377,7 @@ module RightScale
     # Block whose execution should be timed
     #
     # === Return
-    # res<Object>:: Result returned by given block
+    # res(Object):: Result returned by given block
     def audit_time
       start_time = Time.now
       @auditor.append_info("Starting at #{start_time}")

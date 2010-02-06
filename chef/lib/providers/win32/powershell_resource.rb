@@ -38,9 +38,9 @@ class Chef
       # Initialize Powershell resource with default values
       #
       # === Parameters
-      # name<String>:: Nickname of Powershell
-      # collection<Array>:: Collection of included recipes
-      # node<Chef::Node>:: Node where resource will be used
+      # name(String):: Nickname of Powershell
+      # collection(Array):: Collection of included recipes
+      # node(Chef::Node):: Node where resource will be used
       def initialize(name, collection=nil, node=nil)
         super(name, collection, node)
         @resource_name = :powershell
@@ -51,7 +51,7 @@ class Chef
         @allowed_actions.push(:run)
       end
 
-      # <String> Powershell nickname
+      # (String) Powershell nickname
       def nickname(arg=nil)
         set_or_return(
           :nickname,
@@ -60,7 +60,7 @@ class Chef
         )
       end
 
-      # <String> text of Powershell source code if inline
+      # (String) text of Powershell source code if inline
       def source(arg=nil)
         set_or_return(
           :source,
@@ -69,7 +69,7 @@ class Chef
         )
       end
 
-      # <String> local path for external Powershell source file if not inline
+      # (String) local path for external Powershell source file if not inline
       def source_path(arg=nil)
         set_or_return(
           :source_path,
@@ -78,7 +78,7 @@ class Chef
         )
       end
 
-      # <Hash> Powershell parameters values keyed by names
+      # (Hash) Powershell parameters values keyed by names
       def parameters(arg=nil)
         set_or_return(
           :parameters,

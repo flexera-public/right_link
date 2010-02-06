@@ -30,9 +30,9 @@ class Chef
       # Initialize resource
       #
       # === Parameters
-      # name<String>:: Collection name
-      # collection<Array>:: Collection of included recipes
-      # node<Chef::Node>:: Node where resource will be used
+      # name(String):: Collection name
+      # collection(Array):: Collection of included recipes
+      # node(Chef::Node):: Node where resource will be used
       def initialize(name, collection=nil, node=nil)
         super(name, collection, node)
         @resource_name = :server_collection
@@ -43,11 +43,11 @@ class Chef
       # List of agent ids whose tags should be retrieved
       #
       # === Parameters
-      # arg<String|Array>:: List of agent ids (or single agent id) to set
+      # arg(String|Array):: List of agent ids (or single agent id) to set
       # nil:: Return list instead of setting
       #
       # === Return
-      # <Array>:: List of agent ids
+      # (Array):: List of agent ids
       def agent_ids(arg=nil)
         converted_arg = arg.is_a?(String) ? [ arg ] : arg
         set_or_return(
@@ -60,11 +60,11 @@ class Chef
       # List of tags used to query agents and associated tags
       #
       # === Parameters
-      # arg<String|Array>:: List of tags (or single tag) to set
+      # arg(String|Array):: List of tags (or single tag) to set
       # nil:: Return list instead of setting
       #
       # === Return
-      # <Array>:: List of tags
+      # (Array):: List of tags
       def tags(arg=nil)
         converted_arg = arg.is_a?(String) ? [ arg ] : arg
         set_or_return(

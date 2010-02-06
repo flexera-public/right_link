@@ -38,9 +38,9 @@ module RightScale
     # Send request or buffer it if we are in offline mode
     #
     # === Parameters
-    # type<String>:: Request service (e.g. '/booter/set_r_s_version')
-    # payload<String>:: Associated payload, optional
-    # opts<Hash>:: Options as allowed by Request packet, optional
+    # type(String):: Request service (e.g. '/booter/set_r_s_version')
+    # payload(String):: Associated payload, optional
+    # opts(Hash):: Options as allowed by Request packet, optional
     #
     # === Block
     # Handler block gets called back with request results
@@ -59,9 +59,9 @@ module RightScale
     # Send push or buffer it if we are in offline mode
     #
     # === Parameters
-    # type<String>:: Request service (e.g. '/booter/set_r_s_version')
-    # payload<String>:: Associated payload, optional
-    # opts<Hash>:: Options as allowed by Push packet, optional
+    # type(String):: Request service (e.g. '/booter/set_r_s_version')
+    # payload(String):: Associated payload, optional
+    # opts(Hash):: Options as allowed by Push packet, optional
     #
     # === Return
     # true:: Always return true
@@ -77,7 +77,7 @@ module RightScale
     # Send tag query or buffer it if we are in offline mode
     #
     # === Parameters
-    # opts<Hash>:: Hash containing tags and agent ids used for query
+    # opts(Hash):: Hash containing tags and agent ids used for query
     #
     # === Block
     # Handler block gets called back with query results
@@ -134,8 +134,8 @@ module RightScale
     # Vote for re-enrollment and reset trigger
     #
     # === Parameters
-    # timer_trigger<TrueClass|FalseClass>:: true if vote was triggered by timer, false if it
-    #                                       was triggered by amount of messages in in-memory queue
+    # timer_trigger(Boolean):: true if vote was triggered by timer, false if it
+    #                          was triggered by amount of messages in in-memory queue
     def self.vote(timer_trigger)
       RightScale::ReenrollManager.vote
       if timer_trigger
@@ -148,7 +148,7 @@ module RightScale
     # Queue given request/push in-memory
     #
     # === Parameters
-    # request<Hash>:: Request/push to be stored as a hash
+    # request(Hash):: Request/push to be stored as a hash
     #
     # === Return
     # true:: Always return true

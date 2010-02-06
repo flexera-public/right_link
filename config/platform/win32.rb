@@ -75,7 +75,7 @@ module RightScale
         # Is given command available in the PATH?
         #
         # === Parameters
-        # command_name<String>:: Name of command to be tested with
+        # command_name(String):: Name of command to be tested with
         # or without the expected windows file extension.
         #
         # === Return
@@ -89,7 +89,7 @@ module RightScale
         # command from linux (without the terminating newline).
         #
         # === Parameters
-        # command_name<String>:: Name of command to be tested with
+        # command_name(String):: Name of command to be tested with
         # or without the expected windows file extension.
         #
         # === Return
@@ -170,11 +170,11 @@ module RightScale
         # exist at least partially for the API call to succeed.
         #
         # === Parameters
-        # long_path<String>:: fully or partially existing long path to be
+        # long_path(String):: fully or partially existing long path to be
         # converted to its short path equivalent.
         #
         # === Return
-        # short_path<String>:: short path equivalent or same path if non-existent
+        # short_path(String):: short path equivalent or same path if non-existent
         def long_path_to_short_path(long_path)
           @@get_short_path_name = Windows::API.new('GetShortPathName', 'PPL', 'L') unless @@get_short_path_name
           if File.exists?(long_path)

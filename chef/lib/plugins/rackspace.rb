@@ -50,8 +50,8 @@ end
 # Names rackspace ip address
 #
 # === Parameters
-# name<Symbol>:: Use :public_ip or :private_ip
-# eth<Symbol>:: Interface name of public or private ip
+# name(Symbol):: Use :public_ip or :private_ip
+# eth(Symbol):: Interface name of public or private ip
 def get_ip_address(name, eth)
   network[:interfaces][eth][:addresses].each do |key, info|
     rackspace[name] = key if info['family'] == 'inet'

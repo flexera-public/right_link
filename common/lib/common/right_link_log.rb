@@ -39,7 +39,7 @@ module RightScale
       # Set whether to show time in logged messages.
       #
       # === Parameters
-      # show<Boolean>:: Whether time should be shown
+      # show(Boolean):: Whether time should be shown
       def self.show_time=(show=false)
         @@show_time = show
       end
@@ -48,10 +48,10 @@ module RightScale
       # otherwise, doesn't print the time.
       #
       # === Parameters
-      # severity<String>:: Severity of event
-      # time<Time>:: Date-time
-      # progname<String>:: Program name
-      # msg<Object>:: Message object that can be converted to a string
+      # severity(String):: Severity of event
+      # time(Time):: Date-time
+      # progname(String):: Program name
+      # msg(Object):: Message object that can be converted to a string
       #
       # === Return
       # Formatted message
@@ -68,7 +68,7 @@ module RightScale
       # and other random stuff gets put through "object.inspect".
       #
       # === Parameters
-      # msg<Object>:: Message object to be converted to string
+      # msg(Object):: Message object to be converted to string
       #
       # === Return
       # String
@@ -99,11 +99,11 @@ module RightScale
     # consistent with that of a Logger.
     #
     # === Parameters
-    # m<Symbol>:: Forwarded method name
-    # args<Array>:: Forwarded method arguments
+    # m(Symbol):: Forwarded method name
+    # args(Array):: Forwarded method arguments
     #
     # === Return
-    # res<Object>:: Result from first registered logger
+    # res(Object):: Result from first registered logger
     def self.method_missing(m, *args)
       self.init unless @initialized
       @logger.level = level_from_sym(self.level) if @level_frozen
@@ -113,13 +113,13 @@ module RightScale
     # Map symbol log level to Logger constant
     #
     # === Parameters
-    # sym<Symbol>:: Log level symbol, one of :debug, :info, :warn, :error or :fatal
+    # sym(Symbol):: Log level symbol, one of :debug, :info, :warn, :error or :fatal
     #
     # === Return
-    # lvl<Constant>:: One of Logger::DEBUG ... Logger::FATAL
+    # lvl(Constant):: One of Logger::DEBUG ... Logger::FATAL
     #
     # === Raise
-    # <RightScale::Exceptions::Argument>:: if level symbol is invalid
+    # (RightScale::Exceptions::Argument):: if level symbol is invalid
     def self.level_from_sym(sym)
       raise Exceptions::Argument, "Invalid log level symbol :#{sym}" unless LEVELS_MAP.include?(sym)
       lvl = LEVELS_MAP[sym]
@@ -128,13 +128,13 @@ module RightScale
     # Map Logger log level constant to symbol
     #
     # === Parameters
-    # lvl<Constant>:: Log level constant, one of Logger::DEBUG ... Logger::FATAL
+    # lvl(Constant):: Log level constant, one of Logger::DEBUG ... Logger::FATAL
     #
     # === Return
-    # sym<Symbol>:: One of :debug, :info, :warn, :error or :fatal
+    # sym(Symbol):: One of :debug, :info, :warn, :error or :fatal
     #
     # === Raise
-    # <RightScale::Exceptions::Argument>:: if level is invalid
+    # (RightScale::Exceptions::Argument):: if level is invalid
     def self.level_to_sym(lvl)
       @@inverted_levels_map ||= LEVELS_MAP.invert
       raise Exceptions::Argument, "Invalid log level: #{lvl}" unless @@inverted_levels_map.include?(lvl)
@@ -144,7 +144,7 @@ module RightScale
     # Read access to internal multiplexer
     #
     # === Return
-    # logger<RightScale::Multiplexer>:: Multiplexer logger
+    # logger(RightScale::Multiplexer):: Multiplexer logger
     def self.logger
       self.init unless @initialized
       logger = @logger
@@ -153,10 +153,10 @@ module RightScale
     # Add new logger to list of multiplexed loggers
     #
     # === Parameters
-    # logger<Object>:: Logger that should get log messages
+    # logger(Object):: Logger that should get log messages
     #
     # === Return
-    # @logger<RightScale::Multiplexer>:: Multiplexer logger
+    # @logger(RightScale::Multiplexer):: Multiplexer logger
     def self.add_logger(logger)
       self.init unless @initialized
       logger.level = level_from_sym(self.level)
@@ -166,10 +166,10 @@ module RightScale
     # Remove logger from list of multiplexed loggers
     #
     # === Parameters
-    # logger<Object>:: Logger to be removed
+    # logger(Object):: Logger to be removed
     #
     # === Return
-    # @logger<RightScale::Multiplexer>:: Multiplexer logger
+    # @logger(RightScale::Multiplexer):: Multiplexer logger
     def self.remove_logger(logger)
       self.init unless @initialized
       @logger.remove(logger)
@@ -179,7 +179,7 @@ module RightScale
     # This should be called before anything else.
     #
     # === Parameters
-    # val<Boolean>:: Whether syslog should be used (false) or
+    # val(Boolean):: Whether syslog should be used (false) or
     #                a nanite-specific log file (true)
     #
     # === Raise
@@ -203,12 +203,12 @@ module RightScale
     # initialized.
     #
     # === Parameters
-    # prog_name<String>:: An arbitrary string, or "nil"
+    # prog_name(String):: An arbitrary string, or "nil"
     #                     to use the default name which
     #                     is based on the nanite identity
     #
     # === Return
-    # program_name<String>:: The input string
+    # program_name(String):: The input string
     #
     # === Raise
     # RuntimeError:: If logger is already initialized
@@ -220,12 +220,12 @@ module RightScale
     # Sets the level for the Logger by symbol or by Logger constant
     #
     # === Parameters
-    # level<Object>:: One of :debug, :info, :warn, :error, :fatal or
+    # level(Object):: One of :debug, :info, :warn, :error, :fatal or
     #                 one of "debug", "info", "warn", "error", "fatal" or
     #                 one of Logger::INFO ... Logger::FATAL
     #
     # === Return
-    # level<Symbol>:: New log level, or current level if frozen
+    # level(Symbol):: New log level, or current level if frozen
     def self.level=(level)
       self.init unless @initialized
       unless @level_frozen
@@ -243,7 +243,7 @@ module RightScale
     # Current log level
     #
     # === Return
-    # level<Symbol>:: One of :debug, :info, :warn, :error or :fatal
+    # level(Symbol):: One of :debug, :info, :warn, :error or :fatal
     def self.level
       self.init unless @initialized
       level = level_to_sym(@level)
@@ -267,11 +267,11 @@ module RightScale
     # Initialize logger
     #
     # === Parameters
-    # identity<String>:: Log identity
-    # path<String>:: Log directory path
+    # identity(String):: Log identity
+    # path(String):: Log directory path
     #
     # === Return
-    # logger<RightScale::Multiplexer>:: logger instance
+    # logger(RightScale::Multiplexer):: logger instance
     def self.init(identity = nil, path = nil)
       unless @initialized
         @initialized = true

@@ -20,7 +20,7 @@ module RightScale
     # Keep block used to handle incoming data
     #
     # === Parameters
-    # handler<Proc>:: Incoming data handler should take two arguments:
+    # handler(Proc):: Incoming data handler should take two arguments:
     #                   * First argument contains command
     #                   * Second argument contains connection used to reply
     def initialize(handler)
@@ -31,7 +31,7 @@ module RightScale
     # EventMachine loop callback called whenever there is data coming from the socket
     #
     # === Parameter
-    # data<String>:: Incoming data
+    # data(String):: Incoming data
     #
     # === Return
     # true:: Always return true
@@ -72,8 +72,8 @@ module RightScale
     # true:: Always return true
     #
     # === Raise
-    # <RightScale::Exceptions::Argument>:: If block is missing
-    # <RightScale::Exceptions::Application>:: If +listen+ has already been called and +stop+ hasn't since
+    # (RightScale::Exceptions::Argument):: If block is missing
+    # (RightScale::Exceptions::Application):: If +listen+ has already been called and +stop+ hasn't since
     def listen &block
       raise Exceptions::Argument, 'Missing listener block' unless block_given?
       raise Exceptions::Application, 'Already listening' if listening
@@ -103,8 +103,8 @@ module RightScale
     # Write given data to socket, must be listening
     #
     # === Parameters
-    # conn<EM::Connection>:: Connection used to send data
-    # data<String>:: Data that should be written
+    # conn(EM::Connection):: Connection used to send data
+    # data(String):: Data that should be written
     #
     # === Return
     # true:: Always return true

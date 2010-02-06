@@ -28,9 +28,9 @@ module RightScale
     # Initialize serializer
     #
     # === Parameters
-    # agent_name<String>:: Name of agent used to build filename of certificate and key
-    # identity<String>:: Agent identity
-    # certs_dir<String>:: Path to directory containing agent private key and certificates
+    # agent_name(String):: Name of agent used to build filename of certificate and key
+    # identity(String):: Agent identity
+    # certs_dir(String):: Path to directory containing agent private key and certificates
     #
     # === Return
     # true:: Always return true

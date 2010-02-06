@@ -33,10 +33,10 @@ module RightScale
     CONTINUE = 2
     RETRY = 3
     
-    # <Integer> Status code
+    # (Integer) Status code
     attr_accessor :status_code
     
-    # <String> Message if any
+    # (String) Message if any
     attr_accessor :content
     
     def initialize(*args)
@@ -47,10 +47,10 @@ module RightScale
     # Instantiate from request results
     #
     # === Parameters
-    # results<Result>:: Nanite Result OR a Hash taken from a Result's "results" field
+    # results(Result):: Nanite Result OR a Hash taken from a Result's "results" field
     #
     # === Return
-    # result<RightScale::OperationResult>:: Converted operation result
+    # result(RightScale::OperationResult):: Converted operation result
     def self.from_results(results)
       r = results.kind_of?(Hash) ? results : results.results
       
@@ -69,10 +69,10 @@ module RightScale
     # Create new success status
     #
     # === Parameters
-    # content<Object>:: Any data associated with successful results - defaults to nil
+    # content(Object):: Any data associated with successful results - defaults to nil
     #
     # === Results
-    # result<OperationResult>:: Corresponding result
+    # result(OperationResult):: Corresponding result
     def self.success(content=nil)
       OperationResult.new(SUCCESS, content)
     end
@@ -80,10 +80,10 @@ module RightScale
     # Create new error status
     #
     # === Parameters
-    # message<String>:: Error message
+    # message(String):: Error message
     #
     # === Results
-    # result<OperationResult>:: Corresponding result
+    # result(OperationResult):: Corresponding result
     def self.error(message)
       OperationResult.new(ERROR, message)
     end
@@ -91,10 +91,10 @@ module RightScale
     # Create new continue status
     #
     # === Parameters
-    # content<Object>:: Any data associated with continue - defaults to nil
+    # content(Object):: Any data associated with continue - defaults to nil
     #
     # === Results
-    # result<OperationResult>:: Corresponding result
+    # result(OperationResult):: Corresponding result
     def self.continue(content=nil)
       OperationResult.new(CONTINUE, content)
     end
@@ -102,10 +102,10 @@ module RightScale
     # Create new retry status
     #
     # === Parameters
-    # content<Object>:: Any data associated with retry - defaults to nil
+    # content(Object):: Any data associated with retry - defaults to nil
     #
     # === Results
-    # result<OperationResult>:: Corresponding result
+    # result(OperationResult):: Corresponding result
     def self.retry(content=nil)
       OperationResult.new(RETRY, content)
     end

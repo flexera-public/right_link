@@ -31,15 +31,15 @@ module RightScale
     # Each command is expected to be a hash containing the :name and :options keys
     #
     # === Parameters
-    # agent_identity<String>:: Serialized instance agent identity
-    # scheduler<InstanceScheduler>:: Scheduler used by decommission command
+    # agent_identity(String):: Serialized instance agent identity
+    # scheduler(InstanceScheduler):: Scheduler used by decommission command
     #
     # === Return
     # true:: Always return true
     #
     # === Raise
-    # <RightScale::Exceptions::Application>:: If +start+ has already been called and +stop+ hasn't since
-    # <RightScale::Exceptions::IO>:: If named pipe creation failed
+    # (RightScale::Exceptions::Application):: If +start+ has already been called and +stop+ hasn't since
+    # (RightScale::Exceptions::IO):: If named pipe creation failed
     def self.start(agent_identity, scheduler)
       commands = InstanceCommands.get(agent_identity, scheduler)
       CommandIO.instance.listen do |c, conn|

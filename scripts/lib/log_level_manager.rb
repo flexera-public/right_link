@@ -64,7 +64,7 @@ module RightScale
     # Set log level
     #
     # === Parameters
-    # options<Hash>:: Hash of options as defined in +parse_args+
+    # options(Hash):: Hash of options as defined in +parse_args+
     #
     # === Return
     # true:: Always return true
@@ -86,7 +86,7 @@ module RightScale
     # Create options hash from command line arguments
     #
     # === Return
-    # options<Hash>:: Hash of options as defined by the command line
+    # options(Hash):: Hash of options as defined by the command line
     def parse_args
       options = { :verbose => false }
 
@@ -122,8 +122,8 @@ protected
     # Print error on console and exit abnormally
     #
     # === Parameter
-    # msg<String>:: Error message, default to nil (no message printed)
-    # print_usage<Boolean>:: Whether script usage should be printed, default to false
+    # msg(String):: Error message, default to nil (no message printed)
+    # print_usage(Boolean):: Whether script usage should be printed, default to false
     #
     # === Return
     # R.I.P. does not return
@@ -136,7 +136,7 @@ protected
     # Version information
     #
     # === Return
-    # ver<String>:: Version information
+    # ver(String):: Version information
     def version
       ver = "run_log_level #{VERSION.join('.')} - RightLink's dynamic log level manager (c) 2009 RightScale"
     end

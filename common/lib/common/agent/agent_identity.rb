@@ -39,10 +39,10 @@ module RightScale
     # Generate new id
     #
     # === Parameters
-    # prefix<String>:: Prefix used to scope identity
-    # agent_name<String>:: Name of agent (e.g. 'core', 'instance')
-    # base_id<Integer>:: Unique integer value
-    # token<String>:: Anonymizing token - Optional, will be generated randomly if not provided
+    # prefix(String):: Prefix used to scope identity
+    # agent_name(String):: Name of agent (e.g. 'core', 'instance')
+    # base_id(Integer):: Unique integer value
+    # token(String):: Anonymizing token - Optional, will be generated randomly if not provided
     #
     # === Raise
     # RightScale::Exceptions::Argument:: Invalid argument
@@ -91,7 +91,7 @@ module RightScale
     # Check validity of given serialized identity
     #
     # === Parameters
-    # serialized<String>:: Serialized identity to be tested
+    # serialized(String):: Serialized identity to be tested
     #
     # === Return
     # true:: If serialized identity is a valid identity token
@@ -110,10 +110,10 @@ module RightScale
     # Instantiate by parsing given token
     #
     # === Parameters
-    # serialized_id<String>:: Valid serialized agent identity (use 'valid?' to check first)
+    # serialized_id(String):: Valid serialized agent identity (use 'valid?' to check first)
     #
     # === Return
-    # id<RightScale::AgentIdentity>:: Corresponding agent identity
+    # id(RightScale::AgentIdentity):: Corresponding agent identity
     #
     # === Raise
     # RightScale::Exceptions::Argument:: Serialized agent identity is incorrect
@@ -130,7 +130,7 @@ module RightScale
     # Does given id correspond to an instance agent?
     #
     # === Parameters
-    # serialized_id<String>:: Valid serialized agent identity (use 'valid?' to check first)
+    # serialized_id(String):: Valid serialized agent identity (use 'valid?' to check first)
     #
     # === Return
     # true:: If given id corresponds to an instance agent
@@ -143,7 +143,7 @@ module RightScale
     # does NOT check validity of the ID itself.
     #
     # === Parameters
-    # name<String>:: string to test for well-formedness
+    # name(String):: string to test for well-formedness
     #
     # === Return
     # true:: If name is a valid Nanite name (begins with "nanite-")
@@ -155,10 +155,10 @@ module RightScale
     # Instantiate by parsing given nanite agent identity
     #
     # === Parameters
-    # nanite<String>:: Nanite agent identity
+    # nanite(String):: Nanite agent identity
     #
     # === Return
-    # serialized<String>:: Serialized agent id from nanite id
+    # serialized(String):: Serialized agent id from nanite id
     def self.serialized_from_nanite(nanite)
       serialized = nanite[7..-1] # 'nanite-'.length == 7
     end
@@ -166,10 +166,10 @@ module RightScale
     # Generate agent identity from serialized representation
     #
     # === Parameters
-    # serialized<String>:: Serialized agent identity
+    # serialized(String):: Serialized agent identity
     #
     # === Return
-    # nanite<String>:: Corresponding nanite id
+    # nanite(String):: Corresponding nanite id
     def self.nanite_from_serialized(serialized)
       nanite = "nanite-#{serialized}"
     end
@@ -177,7 +177,7 @@ module RightScale
     # String representation of identity
     #
     # === Return
-    # serialized<String>:: Serialized identity
+    # serialized(String):: Serialized identity
     def to_s
       serialized = "#{@prefix}#{@delimeter}#{@agent_name}#{@delimeter}#{@token}#{@delimeter}#{@base_id}"
     end
@@ -185,7 +185,7 @@ module RightScale
     # Comparison operator
     #
     # === Parameters
-    # other<AgentIdentity>:: Other agent identity
+    # other(AgentIdentity):: Other agent identity
     #
     # === Return
     # true:: If other is identical to self
@@ -203,10 +203,10 @@ module RightScale
     # Split given serialized id into its parts
     #
     # === Parameters
-    # serialized_id<String>:: Valid serialized agent identity (use 'valid?' to check first)
+    # serialized_id(String):: Valid serialized agent identity (use 'valid?' to check first)
     #
     # === Return
-    # <Array>:: Array of parts: prefix, agent name, token, base id and delimeter
+    # (Array):: Array of parts: prefix, agent name, token, base id and delimeter
     def self.parts(serialized_id)
       prefix = agent_name = token = bid = delimeter = nil
       if serialized_id.include?(ID_SEPARATOR)

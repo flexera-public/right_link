@@ -56,10 +56,10 @@ class Chef
       # Make the HTTPS request using 'curl'
       #
       # === Parameters
-      # query<String>:: Query string used to build request
+      # query(String):: Query string used to build request
       #
       # === Return
-      # res<String>:: Response content
+      # res(String):: Response content
       def post_change(query)
         res = `curl -S -s --retry 7 -k -o - -g -f 'https://www.dnsmadeeasy.com/servlet/updateip?#{query}'`
         #-S -s -o - -f -g

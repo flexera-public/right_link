@@ -79,7 +79,7 @@ module RightScale
     # Run recipe or RightScript (that is, schedule it)
     #
     # === Parameters
-    # options<Hash>:: Hash of options as defined in +parse_args+
+    # options(Hash):: Hash of options as defined in +parse_args+
     #
     # === Return
     # true:: Always return true
@@ -99,7 +99,7 @@ module RightScale
     # Create options hash from command line arguments
     #
     # === Return
-    # options<Hash>:: Hash of options as defined by the command line
+    # options(Hash):: Hash of options as defined by the command line
     def parse_args
       options = { :attributes => {}, :parameters => {}, :verbose => false }
 
@@ -155,8 +155,8 @@ protected
     # Print error on console and exit abnormally
     #
     # === Parameter
-    # msg<String>:: Error message, default to nil (no message printed)
-    # print_usage<Boolean>:: Whether script usage should be printed, default to false
+    # msg(String):: Error message, default to nil (no message printed)
+    # print_usage(Boolean):: Whether script usage should be printed, default to false
     #
     # === Return
     # R.I.P. does not return
@@ -169,10 +169,10 @@ protected
     # Map arguments options into forwarder actor compatible options
     #
     # === Parameters
-    # options<Hash>:: Arguments options
+    # options(Hash):: Arguments options
     #
     # === Return
-    # opts<Hash>:: Forwarder actor compatible options hash
+    # opts(Hash):: Forwarder actor compatible options hash
     def to_forwarder_options(options)
       opts = {}
       if options[:bundle_type] == :right_script
@@ -190,7 +190,7 @@ protected
     # Version information
     #
     # === Return
-    # ver<String>:: Version information
+    # ver(String):: Version information
     def version
       ver = "run_right_script/run_recipe #{VERSION.join('.')} - Interactive RightScript and Chef recipe scheduler (c) 2009 RightScale"
     end

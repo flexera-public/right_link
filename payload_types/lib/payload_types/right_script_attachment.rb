@@ -28,13 +28,13 @@ module RightScale
 
     include Serializable
   
-    # <String> S3 attachment URL
+    # (String) S3 attachment URL
     attr_accessor :url
     
-    # <String> Attachment file name
+    # (String) Attachment file name
     attr_accessor :file_name
     
-    # <String> Cache identifier
+    # (String) Cache identifier
     attr_accessor :etag
     
     def initialize (*args)

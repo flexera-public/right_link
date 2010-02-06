@@ -55,7 +55,7 @@ module RightScale
         # Is given command available in the PATH?
         #
         # === Parameters
-        # command_name<String>:: Name of command to be tested
+        # command_name(String):: Name of command to be tested
         #
         # === Return
         # true:: If command is in path
@@ -68,7 +68,7 @@ module RightScale
         # command from linux (without the terminating newline).
         #
         # === Parameters
-        # command_name<String>:: Name of command to be tested
+        # command_name(String):: Name of command to be tested
         #
         # === Return
         # path to first matching executable file in PATH or nil

@@ -57,22 +57,22 @@ module RightScale
     # Path to decommission log
     DECOMMISSION_LOG_FILE = File.join(RightLinkConfig[:platform].filesystem.log_dir, 'decommission')
 
-    # <String> One of STATES
+    # (String) One of STATES
     def self.value
       @@value
     end
 
-    # <String> Instance agent identity
+    # (String) Instance agent identity
     def self.identity
       @@identity
     end
 
-    # <Array[<String>]> Scripts that have already executed
+    # (Array[(String)]) Scripts that have already executed
     def self.past_scripts
       @@past_scripts
     end
 
-    # <LoginPolicy> The most recently enacted login policy
+    # (LoginPolicy) The most recently enacted login policy
     def self.login_policy
       @@login_policy
     end
@@ -82,7 +82,7 @@ module RightScale
     # is different OR if system uptime is less than persisted uptime.
     #
     # === Parameters
-    # identity<String>:: Instance identity
+    # identity(String):: Instance identity
     #
     # === Return
     # true:: Always return true
@@ -147,10 +147,10 @@ module RightScale
     # Set instance state
     #
     # === Parameters
-    # val<String> One of STATES
+    # val(String) One of STATES
     #
     # === Return
-    # val<String> new state
+    # val(String) new state
     #
     # === Raise
     # RightScale::Exceptions::Argument:: Invalid new value
@@ -170,10 +170,10 @@ module RightScale
     # Set startup tags
     #
     # === Parameters
-    # val<Array>:: List of tags
+    # val(Array):: List of tags
     #
     # === Return
-    # val<Array>:: List of tags
+    # val(Array):: List of tags
     def self.startup_tags=(val)
       @@startup_tags = val
     end
@@ -181,7 +181,7 @@ module RightScale
     # Tags retrieved on startup
     #
     # === Return
-    # tags<Array>:: List of tags retrieved on startup
+    # tags(Array):: List of tags retrieved on startup
     def self.startup_tags
       @@startup_tags
     end
@@ -222,7 +222,7 @@ module RightScale
     # Record script execution in scripts file
     #
     # === Parameters
-    # nickname<String>:: Nickname of RightScript which successfully executed
+    # nickname(String):: Nickname of RightScript which successfully executed
     #
     # === Return
     # true:: If script was added to past scripts collection
@@ -239,10 +239,10 @@ module RightScale
     # Record set of authorized login users
     #
     # === Parameters
-    # login_users<Array[<LoginUser>]> set of authorized login users
+    # login_users(Array[(LoginUser)]) set of authorized login users
     #
     # === Return
-    # login_users<Array[<LoginUser>]> authorized login users
+    # login_users(Array[(LoginUser)]) authorized login users
     #
     def self.login_policy=(login_policy)
       @@login_policy = login_policy.dup
@@ -257,10 +257,10 @@ module RightScale
     # Log file to be used for given instance state
     #
     # === Parameters
-    # state<String>:: Instance state, one of STATES
+    # state(String):: Instance state, one of STATES
     #
     # === Return
-    # log<String>:: Log file path
+    # log(String):: Log file path
     # nil:: Log file should not be changed
     def self.log_file(state)
       log_file = case state
@@ -272,7 +272,7 @@ module RightScale
     # Determine uptime of this system using the proc filesystem
     #
     # === Return
-    # uptime<Float>:: Uptime of this system in seconds, or 0.0 if undetermined 
+    # uptime(Float):: Uptime of this system in seconds, or 0.0 if undetermined 
     def self.uptime()
       return File.read('/proc/uptime').split(/\s+/)[0].to_f rescue 0.0
     end

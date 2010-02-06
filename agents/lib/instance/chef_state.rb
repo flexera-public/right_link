@@ -34,7 +34,7 @@ module RightScale
     # Load chef state from file
     #
     # === Parameters
-    # reset(TrueClass|FalseClass):: Discard persisted state if true, load it otherwise
+    # reset(Boolean):: Discard persisted state if true, load it otherwise
     #
     # === Return
     # true:: Always return true

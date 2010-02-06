@@ -32,7 +32,7 @@ class InstanceSetup
   # Boot if and only if instance state is 'booting'
   #
   # === Parameters
-  # agent_identity<String>:: Serialized agent identity for current agent
+  # agent_identity(String):: Serialized agent identity for current agent
   def initialize(agent_identity)
     @boot_retries = 0
     @agent_identity = agent_identity
@@ -46,7 +46,7 @@ class InstanceSetup
   # Retrieve current instance state
   #
   # === Return
-  # state<RightScale::OperationResult>:: Success operation result containing instance state
+  # state(RightScale::OperationResult):: Success operation result containing instance state
   def report_state
     state = RightScale::OperationResult.success(RightScale::InstanceState.value)
   end
@@ -55,7 +55,7 @@ class InstanceSetup
   # Start timer to give the amqp gem some time to retry connecting
   #
   # === Parameters
-  # status<Symbol>:: Connection status, one of :connected or :deconnected
+  # status(Symbol):: Connection status, one of :connected or :deconnected
   #
   # === Return
   # true:: Always return true
@@ -160,8 +160,8 @@ class InstanceSetup
   # Log error to local log file and set instance state to stranded
   #
   # === Parameters
-  # msg<String>:: Error message that will be audited and logged
-  # res<RightScale::OperationResult>:: Operation result with additional information
+  # msg(String):: Error message that will be audited and logged
+  # res(RightScale::OperationResult):: Operation result with additional information
   #
   # === Return
   # true:: Always return true
@@ -177,7 +177,7 @@ class InstanceSetup
   # for now log error and keep going (to replicate legacy behavior).
   #
   # === Parameters
-  # repositories<Array[<RepositoryInstantiation>]>:: repositories to be configured
+  # repositories(Array[(RepositoryInstantiation)]):: repositories to be configured
   #
   # === Return
   # true:: Always return true

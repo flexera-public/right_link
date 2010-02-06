@@ -41,7 +41,7 @@ module RightScale
     # Initialize audit logger, override Logger initialize since there is no need to initialize @logdev
     #
     # === Parameters
-    # auditor<RightScale::AuditorProxy>:: Audit proxy used to audit logs
+    # auditor(RightScale::AuditorProxy):: Audit proxy used to audit logs
     def initialize(auditor)
       @auditor = auditor
       @progname = nil
@@ -54,7 +54,7 @@ module RightScale
     # Raw output
     #
     # === Parameters
-    # msg<String>:: Raw string to be appended to audit
+    # msg(String):: Raw string to be appended to audit
     def <<(msg)
       @auditor.append_output(msg)
     end
@@ -62,9 +62,9 @@ module RightScale
     # Override Logger::add to audit instead of writing to log file
     #
     # === Parameters
-    # severity<Constant>:: One of Logger::DEBUG, Logger::INFO, Logger::WARN, Logger::ERROR or Logger::FATAL
-    # message<String>:: Message to be audited
-    # progname<String>:: Override default program name for that audit
+    # severity(Constant):: One of Logger::DEBUG, Logger::INFO, Logger::WARN, Logger::ERROR or Logger::FATAL
+    # message(String):: Message to be audited
+    # progname(String):: Override default program name for that audit
     #
     # === Block
     # Call given Block if any to build message if +message+ is nil

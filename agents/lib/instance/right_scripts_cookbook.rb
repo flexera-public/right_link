@@ -44,7 +44,7 @@ module RightScale
     # recipes generated from RightScripts
     #
     # === Parameters
-    # audit_id<Fixnum>:: ID of audit entry to be used for RightScripts auditing
+    # audit_id(Fixnum):: ID of audit entry to be used for RightScripts auditing
     def initialize(audit_id)
       @audit_id     = audit_id
       @saved        = false
@@ -59,13 +59,13 @@ module RightScale
     # Add RightScript instantiation to cookbook
     #
     # === Parameters
-    # script<RightScale::RightScriptInstantiation>:: RightScript to be added
+    # script(RightScale::RightScriptInstantiation):: RightScript to be added
     #
     # === Return
-    # recipe<RightScale::RecipeInstantiation>:: Recipe that wraps RightScript
+    # recipe(RightScale::RecipeInstantiation):: Recipe that wraps RightScript
     #
     # === Raise
-    # <RightScale::Exceptions::Application>:: If 'save' has been called
+    # (RightScale::Exceptions::Application):: If 'save' has been called
     def recipe_from_right_script(script)
       raise RightScale::Exceptions::Application, 'cannot create recipe after cookbook repo has been saved' if @saved
       path = script_path(script.nickname)
@@ -89,10 +89,10 @@ end
     # Produce file name for given script nickname
     #
     # === Parameters
-    # nickname<String>:: Script nick name
+    # nickname(String):: Script nick name
     #
     # === Return
-    # path<String>:: Path to corresponding recipe
+    # path(String):: Path to corresponding recipe
     def script_path(nickname)
       base_path = nickname.gsub(/[^0-9a-zA-Z_]/,'_')
       base_path = File.join(@recipes_dir, base_path)
@@ -112,7 +112,7 @@ end
         recipes = @recipes.keys.sort
         metadata_content = <<-EOS
 description "Automatically generated repo, do not modify"
-#{recipes.map { |r| "recipe \"#{COOKBOOK_NAME}::#{r}\", \"RightScript < #{@recipes[r]} >\"" }.join("\n")}
+#{recipes.map { |r| "recipe \"#{COOKBOOK_NAME}::#{r}\", \"RightScript ( #{@recipes[r]} )\"" }.join("\n")}
         EOS
         metadata_path = File.join(@cookbook_dir, 'metadata.rb')
         File.open(metadata_path, 'w') { |f| f.puts metadata_content }
@@ -123,7 +123,7 @@ description "Automatically generated repo, do not modify"
     # Whether given recipe name corresponds to a converted RightScript
     #
     # === Parameters
-    # recipe<String>:: Recipe nickname
+    # recipe(String):: Recipe nickname
     #
     # === Return
     # true:: If recipe was created from converting a RightScript
@@ -135,10 +135,10 @@ description "Automatically generated repo, do not modify"
     # Human friendly title for given recipe instantiation
     #
     # === Parameters
-    # recipe<String>:: Recipe nickname
+    # recipe(String):: Recipe nickname
     #
     # === Return
-    # title<String>:: Recipe title to be used in audits
+    # title(String):: Recipe title to be used in audits
     def self.recipe_title(recipe)
       title = right_script?(recipe) ? 'RightScript' : 'Chef recipe'
       title = "#{title} < #{recipe} >"
@@ -147,7 +147,7 @@ description "Automatically generated repo, do not modify"
     # Path to cache directory for given script
     #
     # === Return
-    # path<String>:: Path to directory used for attachments and source
+    # path(String):: Path to directory used for attachments and source
     def cache_dir(script)
       path = File.join(InstanceConfiguration::CACHE_PATH, 'right_scripts_content', script.object_id.to_s)
     end

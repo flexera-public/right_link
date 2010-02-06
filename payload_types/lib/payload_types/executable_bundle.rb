@@ -35,16 +35,16 @@ module RightScale
 
     include Serializable
 
-    # <Array> Collection of RightScripts and chef recipes instantiations
+    # (Array) Collection of RightScripts and chef recipes instantiations
     attr_accessor :executables
 
-    # <Array> Chef cookbook repositories
+    # (Array) Chef cookbook repositories
     attr_accessor :cookbook_repositories
 
-    # <Integer> ID of corresponding audit entry
+    # (Integer) ID of corresponding audit entry
     attr_accessor :audit_id
 
-    # <FalseClass|TrueClass> Whether a full or partical converge should be done
+    # (Boolean) Whether a full or partical converge should be done
     attr_accessor :full_converge
 
     def initialize(*args)
@@ -62,7 +62,7 @@ module RightScale
     # Human readable representation
     #
     # === Return
-    # desc<String>:: Auditable description
+    # desc(String):: Auditable description
     def to_s
       desc = @executables.collect { |e| "< #{e.nickname} >" }.join(', ') if @executables
       desc ||= 'empty bundle'

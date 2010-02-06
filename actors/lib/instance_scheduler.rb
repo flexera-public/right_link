@@ -30,7 +30,7 @@ class InstanceScheduler
   # Start worker thread for processing executable bundles
   #
   # === Parameters
-  # agent<RightScale::Agent>:: Host agent
+  # agent(RightScale::Agent):: Host agent
   def initialize(agent)
     @scheduled_bundles = Queue.new
     @decommissioning   = false
@@ -52,10 +52,10 @@ class InstanceScheduler
   # Schedule given script bundle so it's run as soon as possible
   #
   # === Parameter
-  # bundle<RightScale::ExecutableBundle>:: Bundle to be scheduled
+  # bundle(RightScale::ExecutableBundle):: Bundle to be scheduled
   #
   # === Return
-  # res<RightScale::OperationResult>:: Always returns success
+  # res(RightScale::OperationResult):: Always returns success
   def schedule_bundle(bundle)
     unless bundle.executables.empty?
       auditor = RightScale::AuditorProxy.new(bundle.audit_id)
@@ -70,8 +70,8 @@ class InstanceScheduler
   # schedule_bundle on this agent
   #
   # === Parameters
-  # options[:recipe]<String>:: Recipe name
-  # options[:json]<Hash>:: Serialized hash of attributes to be used when running recipe
+  # options[:recipe](String):: Recipe name
+  # options[:json](Hash):: Serialized hash of attributes to be used when running recipe
   #
   # === Return
   # true:: Always return true
@@ -89,10 +89,10 @@ class InstanceScheduler
   # Schedule decommission, returns an error if instance is already decommissioning
   #
   # === Parameter
-  # bundle<RightScale::ExecutableBundle>:: Decommission bundle
+  # bundle(RightScale::ExecutableBundle):: Decommission bundle
   #
   # === Return
-  # res<RightScale::OperationResult>:: Status value, either success or error with message
+  # res(RightScale::OperationResult):: Status value, either success or error with message
   def schedule_decommission(bundle)
     return res = RightScale::OperationResult.error('Instance is already decommissioning') if @decommissioning
     @scheduled_bundles.clear # Cancel any pending bundle

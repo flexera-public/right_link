@@ -34,9 +34,9 @@ module RightScale
     # incremented after each retry exponentially until it reaches the specified maximum retry period
     #
     # === Parameters
-    # retry_period<Integer>:: Retry period in seconds - defaults to 10 seconds
-    # use_backoff<Boolean>:: Whether download should use a backoff algorithm to space retries - defaults to true
-    # max_retry_period<Integer>:: Maximum retry period in seconds, only meaningful when using backoff algorithm -
+    # retry_period(Integer):: Retry period in seconds - defaults to 10 seconds
+    # use_backoff(Boolean):: Whether download should use a backoff algorithm to space retries - defaults to true
+    # max_retry_period(Integer):: Maximum retry period in seconds, only meaningful when using backoff algorithm -
     #                             defaults to 5 minutes
     def initialize(retry_period = 10, use_backoff = true, max_retry_period = 5 * 60)
       @retry_period = retry_period
@@ -46,25 +46,25 @@ module RightScale
       @found_curl = platform.filesystem.has_executable_in_path('curl')
     end
 
-    # <Integer> Retry period in seconds
+    # (Integer) Retry period in seconds
     attr_accessor :retry_period
 
-    # <Boolean> Whether download should use a backoff algorithm to space retries
+    # (Boolean) Whether download should use a backoff algorithm to space retries
     attr_accessor :use_backoff
 
-    # <Integer> Maximum retry period in seconds, only meaningful when using backoff algorithm
+    # (Integer) Maximum retry period in seconds, only meaningful when using backoff algorithm
     attr_accessor :max_retry_period
 
-    # <Integer> Size in bytes of last successful download (nil if none)
+    # (Integer) Size in bytes of last successful download (nil if none)
     attr_reader :size
 
-    # <Integer> Speed in bytes/seconds of last successful download (nil if none)
+    # (Integer) Speed in bytes/seconds of last successful download (nil if none)
     attr_reader :speed
 
     # Error message associated with last failure (nil if none)
     #
     # === Return
-    # error<String>:: Error message
+    # error(String):: Error message
     # nil:: No error occured during last download
     def error
       error = (@errors.nil? ||  @errors.empty?) ? nil : @errors.join("\n")
@@ -85,11 +85,11 @@ module RightScale
     # Requires 'curl' to be available on PATH.
     #
     # === Parameters
-    # url<String>:: URL to downloaded file
-    # dest<String>:: Path where file should be saved on disk
-    # username<String>:: Optional HTTP basic authentication username
-    # password<String>:: Optional HTTP basic authentication password
-    # max_retries<Integer>:: Maximum number of retries - defaults to DEFAULT_MAX_DOWNLOAD_RETRIES
+    # url(String):: URL to downloaded file
+    # dest(String):: Path where file should be saved on disk
+    # username(String):: Optional HTTP basic authentication username
+    # password(String):: Optional HTTP basic authentication password
+    # max_retries(Integer):: Maximum number of retries - defaults to DEFAULT_MAX_DOWNLOAD_RETRIES
     #
     # === Block
     # Call (optional) passed in block after each unsuccessful download attempt.
@@ -149,7 +149,7 @@ module RightScale
     # Message summarizing last successful download details
     #
     # === Return
-    # details<String>:: Message with last url, download size and speed
+    # details(String):: Message with last url, download size and speed
     def details
       "Downloaded #{sanitize_uri(@last_url)} (#{ scale(size.to_i).join(' ') }) at #{ scale(speed.to_i).join(' ') }/s"
     end
@@ -160,7 +160,7 @@ module RightScale
     # algorithm should be used
     #
     # === Return
-    # time_span<Integer>:: Number of seconds algorithm should wait before proceeding with next download attempt
+    # time_span(Integer):: Number of seconds algorithm should wait before proceeding with next download attempt
     def wait_time_span
       return @retry_period unless @use_backoff
       time_span = [ 2 ** @iteration * @retry_period, @max_retry_period ].min
@@ -181,7 +181,7 @@ module RightScale
     # Scale can be B, KB, MB or GB
     #
     # === Return
-    # scaled<Array>:: First element is scaled value, second element is scale ('B', 'KB', 'MB' or 'GB')
+    # scaled(Array):: First element is scaled value, second element is scale ('B', 'KB', 'MB' or 'GB')
     def scale(value)
       scaled = case value
         when 0..1023

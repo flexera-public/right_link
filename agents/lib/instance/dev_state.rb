@@ -57,7 +57,7 @@ module RightScale
     # this location if and only if it doesn't exist.
     #
     # === Return
-    # path<Array>:: Dev cookbooks repositories path
+    # path(Array):: Dev cookbooks repositories path
     # nil:: Use default cookbook download algorithm
     def self.cookbooks_path
       path = tag_value(COOKBOOK_PATH_TAG)
@@ -67,7 +67,7 @@ module RightScale
     # Name of first recipe in run list that should not be run
     #
     # === Return
-    # recipe<String>:: Name of recipe to break execution of sequence on
+    # recipe(String):: Name of recipe to break execution of sequence on
     def self.breakpoint
       recipe = tag_value(BREAKPOINT_TAG)
     end
@@ -111,10 +111,10 @@ module RightScale
     # Extract tag value for tag with given namespace and prefix
     #
     # === Parameters
-    # prefix<String>:: Tag namespace and prefix
+    # prefix(String):: Tag namespace and prefix
     #
     # === Return
-    # value<String>:: Corresponding tag value
+    # value(String):: Corresponding tag value
     def self.tag_value(prefix)
       tag = InstanceState.startup_tags.detect { |t| t =~ /^#{prefix}/ }
       value = tag[prefix.size + 1..-1] if tag

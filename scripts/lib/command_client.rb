@@ -33,11 +33,11 @@ module RightScale
     # Send command to running RightLink agent
     #
     # === Parameters
-    # options<Hash>:: Hash of options and command name
+    # options(Hash):: Hash of options and command name
     #   options[:name]:: Command name
     #   options[:...]:: Other command options
-    # verbose<Boolean>:: Whether client should display debug info
-    # timeout<Integer>:: Number of seconds we should wait for a reply from the instance agent
+    # verbose(Boolean):: Whether client should display debug info
+    # timeout(Integer):: Number of seconds we should wait for a reply from the instance agent
     #
     # === Block
     # handler: Command results handler
@@ -65,8 +65,8 @@ module RightScale
       # Initialize command
       #
       # === Parameters
-      # command<Hash>:: Command to be sent
-      # client<RightScale::CommandClient>:: Client whose response field should be initialized
+      # command(Hash):: Command to be sent
+      # client(RightScale::CommandClient):: Client whose response field should be initialized
       def initialize(command, client)
         @command = command
         @parser = CommandParser.new do |data|

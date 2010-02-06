@@ -32,7 +32,7 @@ class InstanceServices
   # Always return success, used for troubleshooting
   #
   # === Return
-  # res<RightScale::OperationResult>:: Always returns success
+  # res(RightScale::OperationResult):: Always returns success
   def update_login_policy(new_policy)
     status = nil
     

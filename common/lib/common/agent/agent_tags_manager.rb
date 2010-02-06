@@ -33,7 +33,7 @@ module RightScale
     # Retrieve current agent tags
     #
     # === Return
-    # tags<Array>:: All agent tags
+    # tags(Array):: All agent tags
     def tags
       raise TypeError, "Must set agent= before using tag manager" unless @agent
       tags = @agent.tags
@@ -42,7 +42,7 @@ module RightScale
     # Add given tags to agent
     #
     # === Parameters
-    # new_tags<Array>:: Tags to be added
+    # new_tags(Array):: Tags to be added
     #
     # === Return
     # true always return true
@@ -55,7 +55,7 @@ module RightScale
     # Remove given tags from agent
     #
     # === Parameters
-    # old_tags<Array>:: Tags to be removed
+    # old_tags(Array):: Tags to be removed
     #
     # === Return
     # true always return true

@@ -31,35 +31,35 @@ module RightScale
     # List of characters used to build cookbooks sha1 hash path component
     CHARS = ("a".."z").to_a + ("A".."Z").to_a + (0..9).to_a
 
-    # <Symbol> Type of repository: one of :git, :svn, :download or :local
+    # (Symbol) Type of repository: one of :git, :svn, :download or :local
     # * :git denotes a 'git' repository that should be retrieved via 'git clone'
     # * :svn denotes a 'svn' repository that should be retrieved via 'svn checkout'
     # * :download denotes a tar ball that should be retrieved via HTTP GET (HTTPS if url starts with https://)
     # * :local denotes an already available cookbook (useful for testing)
     attr_accessor :repo_type
 
-    # <String> URI to repository (e.g. git://github.com/opscode/chef-repo.git)
+    # (String) URI to repository (e.g. git://github.com/opscode/chef-repo.git)
     attr_accessor :url
 
-    # <String> git commit or svn branch that should be used to retrieve repository
+    # (String) git commit or svn branch that should be used to retrieve repository
     # Use 'master' for git and 'trunk' for svn if tag is nil.
     # Not used for raw repositories.
     attr_accessor :tag
 
-    # <Array> Path to cookbooks inside repostory
+    # (Array) Path to cookbooks inside repostory
     # Append to the location of the repository on disk prior to running chef.
     # Optional (use location of repository as cookbook path if nil)
     attr_accessor :cookbooks_path
 
-    # <String> Private SSH key used to retrieve git repositories
+    # (String) Private SSH key used to retrieve git repositories
     # Not used for svn and raw repositories.
     attr_accessor :ssh_key
 
-    # <String> Username used to retrieve svn and raw repositories
+    # (String) Username used to retrieve svn and raw repositories
     # Not used for git repositories.
     attr_accessor :username
 
-    # <String> Password used to retrieve svn and raw repositories
+    # (String) Password used to retrieve svn and raw repositories
     # Not used for git repositories.
     attr_accessor :password
 
@@ -78,10 +78,10 @@ module RightScale
     # Keys of hash should be the corresponding symolized field name
     #
     # === Parameters
-    # h<Hash>:: Hash of values used to initialize cookbook repository
+    # h(Hash):: Hash of values used to initialize cookbook repository
     #
     # === Return
-    # repo<RightScale::CookbookRepository>:: Corresponding instance
+    # repo(RightScale::CookbookRepository):: Corresponding instance
     def self.from_hash(h)
       repo = new(h[:repo_type], h[:url], h[:tag], h[:cookbooks_path], h[:ssh_key], h[:username], h[:password])
     end
@@ -94,7 +94,7 @@ module RightScale
     # Serialize cookbook repo instantiation into filename compatible string
     #
     # === Return
-    # ser<String>:: Serialized representation of cookbook repository
+    # ser(String):: Serialized representation of cookbook repository
     def to_s
       prefix = @repo_type == :local ? 'local' : (@url.include?('://') ? @url[(@url.index('://')  + 3)..(@url.size - 1)] : @url)
       base = prefix   

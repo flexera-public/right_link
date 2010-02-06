@@ -28,16 +28,16 @@ module RightScale
 
     include Serializable
 
-    # <String> Recipe nickname
+    # (String) Recipe nickname
     attr_accessor :nickname
 
-    # <Hash> Recipe override attributes (JSON string for RightLink v5)
+    # (Hash) Recipe override attributes (JSON string for RightLink v5)
     attr_accessor :attributes
 
-    # <Integer> Recipe id
+    # (Integer) Recipe id
     attr_accessor :id
 
-    # <Boolean> Whether recipe inputs are ready
+    # (Boolean) Whether recipe inputs are ready
     attr_accessor :ready
 
     def initialize(*args)
