@@ -112,7 +112,7 @@ end
         recipes = @recipes.keys.sort
         metadata_content = <<-EOS
 description "Automatically generated repo, do not modify"
-#{recipes.map { |r| "recipe \"#{COOKBOOK_NAME}::#{r}\", \"RightScript ( #{@recipes[r]} )\"" }.join("\n")}
+#{recipes.map { |r| "recipe \"#{COOKBOOK_NAME}::#{r}\", \"RightScript < #{@recipes[r]} >\"" }.join("\n")}
         EOS
         metadata_path = File.join(@cookbook_dir, 'metadata.rb')
         File.open(metadata_path, 'w') { |f| f.puts metadata_content }
