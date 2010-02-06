@@ -109,9 +109,14 @@ module RightScale
 
     VERSION = [0, 2]
     YAML_EXT = %w{ yml yaml }
-    FORCED_OPTIONS = { :format => :secure, :single_threaded => true }
+    FORCED_OPTIONS =
+    {
+      :format => :secure,
+      :threadpool_size => 1
+    }
     DEFAULT_OPTIONS =
     {
+      :single_threaded => true,
       :log_dir => RightLinkConfig[:platform].filesystem.log_dir,
       :daemonize => true
     }
@@ -328,7 +333,7 @@ module RightScale
       # Register exception handler
       @options[:callbacks] = { :exception => lambda { |e, msg, _| AgentManager.process_exception(e, msg) } }
 
-      # override default status proc for windows intance since "uptime" is not available.
+      # override default status proc for windows instance since "uptime" is not available.
       if RightLinkConfig[:platform].windows?
         @options[:status_proc] = lambda { 1 }
       end

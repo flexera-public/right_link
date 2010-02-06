@@ -61,7 +61,7 @@ module RightScale
         r # For unit tests
       end
 
-      if @options[:single_threaded] || @options[:thread_poolsize] == 1
+      if @options[:single_threaded]
         @evmclass.next_tick { callback.call(operation.call) }
       else
         @evmclass.defer(operation, callback)
