@@ -91,23 +91,24 @@ module RightScale
       [ @repo_type, @url, @tag, @cookbooks_path, @ssh_key, @username, @password ]
     end
 
-    # Serialize cookbook repo instantiation into filename compatible string
+    # Human friendly name used for audits
     #
     # === Return
-    # ser(String):: Serialized representation of cookbook repository
-    def to_s
-      prefix = @repo_type == :local ? 'local' : (@url.include?('://') ? @url[(@url.index('://')  + 3)..(@url.size - 1)] : @url)
-      base = prefix   
-      prefix = prefix.gsub(/[^a-zA-Z0-9]+/, '_')
-      base += tag if tag
-      base += @cookbooks_path.join("\n") if @cookbooks_path
-      n = Digest::SHA1.hexdigest(base).hex
-      cbp_hash = []
-      while n > 0
-        cbp_hash << CHARS[n.divmod(CHARS.size)[1]]
-        n = n.divmod(CHARS.size)[0]
-      end
-      ser = prefix + cbp_hash.to_s
+    # name(String):: Cookbook repository display name
+    def display_name
+      name = @url + (@tag && !@tag.empty? ? ":#{@tag}" : '')
+    end
+
+    # SVN username or git SSH key
+    # Provide compatibility for scraper
+    def first_credential
+      @ssh_key || @username
+    end
+
+    # SVN password
+    # Provide compatibility for scraper
+    def second_credential
+      @password
     end
 
   end

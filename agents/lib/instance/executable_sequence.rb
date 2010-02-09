@@ -212,7 +212,7 @@ module RightScale
           next if repo.repo_type == :local
           @auditor.append_info("Downloading #{repo.url}")
           output = []
-          @scraper.scrape(repo, lambda { |o| output << o }) 
+          @scraper.scrape(repo) { |o, _| @auditor.append_output(o) }
           if @scraper.succeeded
             cookbooks_path = repo.cookbooks_path || []
             if cookbooks_path.empty?
