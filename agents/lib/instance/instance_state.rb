@@ -96,25 +96,16 @@ module RightScale
         state = read_json(STATE_FILE)
         RightLinkLog.debug("Initializing instance #{identity} with #{state.inspect}")
 
-
         # Initial state reconciliation: use recorded state and uptime to determine how we last stopped.
         # There are four basic scenarios to worry about:
         #  1) first run      -- Agent is starting up for the first time after a fresh install
         #  2) reboot/restart -- Agent already ran; agent ID not changed; reboot detected: transition back to booting
-        #  3) bundled boot   -- Agent already ran; agent ID changed: dump old state
+        #  3) bundled boot   -- Agent already ran; agent ID changed: transition back to booting
         #  4) decomm/crash   -- Agent exited anyway; ID not changed; no reboot; keep old state entirely
         if (state['identity'] != identity) || !state['uptime'] || (uptime < state['uptime'].to_f)
           # CASE 2/3 -- identity has changed or negative differential uptime; may be reboot or bundled boot
-          RightLinkLog.debug("Reboot detected; transitioning state to booting")
+          RightLinkLog.debug("Reboot/bundle/start detected; transitioning state to booting")
           self.value = 'booting'
-
-          # CASE 3 -- Our identity has changed; we are doing bundled boot.
-          # Patch our identity and reset our past scripts.
-          if state['identity'] != identity
-            RightLinkLog.debug("Bundled boot detected; resetting past scripts")
-            @@past_scripts = []
-            write_json(SCRIPTS_FILE, @@past_scripts)
-          end
         else
           # CASE 4 -- Restart without reboot; don't do anything special.
           @@value = state['value']
