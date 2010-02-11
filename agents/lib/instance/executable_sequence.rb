@@ -212,13 +212,13 @@ module RightScale
           next if repo.repo_type == :local
           @auditor.append_info("Downloading #{repo.url}")
           output = []
-          @scraper.scrape(repo) { |o, _| @auditor.append_output(o) }
-          if @scraper.succeeded
+          result = @scraper.scrape(repo) { |o, _| @auditor.append_output(o) }
+          if result
             cookbooks_path = repo.cookbooks_path || []
             if cookbooks_path.empty?
-              Chef::Config[:cookbook_path] << @scraper.repo_dir
+              Chef::Config[:cookbook_path] << @scraper.last_repo_dir
             else
-              cookbooks_path.each { |p| Chef::Config[:cookbook_path] << File.join(@scraper.repo_dir, p) }
+              cookbooks_path.each { |p| Chef::Config[:cookbook_path] << File.join(@scraper.last_repo_dir, p) }
             end
             @auditor.append_output(output.join("\n"))
           else
