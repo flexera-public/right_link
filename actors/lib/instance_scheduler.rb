@@ -148,9 +148,9 @@ class InstanceScheduler
       sequence.callback do
         RightScale::RequestForwarder.push('/updater/update_inputs', { :agent_identity => @agent_identity,
                                                                       :patch          => sequence.inputs_patch })
-        EM.defer { run_bundles }
+        defer_run(bundle.audit_id)
       end
-      sequence.errback  { EM.defer { run_bundles } }
+      sequence.errback  { defer_run(bundle.audit_id) }
       sequence.run
     else
       # If we got here through rnac --decommission then there is a callback setup and we should
@@ -161,7 +161,30 @@ class InstanceScheduler
       else
         EM.next_tick { terminate }
       end
-    end 
+    end
+    true
+  end
+
+  # Schedule Chef thread
+  # Note: Be sure to catch exceptions as EM will not restart a thread from the pool that died
+  #
+  # === Parameters
+  # audit_id(Integer):: Id of audit used to record potential errors
+  #
+  # === Return
+  # true:: Always return true
+  def defer_run(audit_id)
+    EM.defer do
+      begin
+        run_bundles
+      rescue Exception => e
+        msg = "Chef execution failed with exception: #{e.message}"
+        RightLinkLog.error(msg + "\n" + e.backtrace.join("\n"))
+        auditor = AuditorProxy.new(bundle.audit_id)
+        auditor.append_error(msg)
+        fail
+      end
+    end
     true
   end
 

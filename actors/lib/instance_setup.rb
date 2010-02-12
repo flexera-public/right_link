@@ -165,9 +165,9 @@ class InstanceSetup
   #
   # === Return
   # true:: Always return true
-  def strand(msg, res)
+  def strand(msg, res=nil)
     RightScale::InstanceState.value = 'stranded'
-    msg += ": #{res.content}" if res.content
+    msg += ": #{res.content}" if res && res.content
     @auditor.append_error(msg) if @auditor
     true
   end
@@ -322,7 +322,15 @@ class InstanceSetup
     # We want to be able to use Chef providers which use EM (e.g. so they can use RightScale::popen3), this means
     # that we need to synchronize the chef thread with the EM thread since providers run synchronously. So create
     # a thread here and run the sequence in it. Use EM.next_tick to switch back to EM's thread.
-    EM.defer { sequence.run }
+    EM.defer do
+      begin
+        sequence.run
+      rescue Exception => e
+        msg = "Execution of Chef failed with exception: #{e.message}"
+        RightScale::RightLinkLog.error(msg + "\n" + e.backtrace.join("\n"))
+        strand(msg)
+      end
+    end
     
     true
   end
