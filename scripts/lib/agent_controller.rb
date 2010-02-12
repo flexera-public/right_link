@@ -1,25 +1,3 @@
-#
-# Copyright (c) 2009 RightScale Inc
-#
-# Permission is hereby granted, free of charge, to any person obtaining
-# a copy of this software and associated documentation files (the
-# "Software"), to deal in the Software without restriction, including
-# without limitation the rights to use, copy, modify, merge, publish,
-# distribute, sublicense, and/or sell copies of the Software, and to
-# permit persons to whom the Software is furnished to do so, subject to
-# the following conditions:
-#
-# The above copyright notice and this permission notice shall be
-# included in all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-# NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
-# LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-# OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
-# WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
 # === Synopsis:
 #   RightScale Nanite Controller (rnac) - (c) 2009 RightScale
 #
@@ -312,18 +290,15 @@ module RightScale
     # Trigger execution of decommission scripts in instance agent and wait for it to be done
     # then causes agent to terminate
     def run_decommission
-      puts "Attempting to decommission local instance..."
+      puts "Decommissioning..."
       begin
         @client = CommandClient.new
-        @client.send_command({ :name => 'decommission' }, verbose=false, timeout=100) do |r|
-          puts r
-          @client.send_command({ :name => 'terminate' }, verbose=false, timeout=10)
-        end
-        return true
+        @client.send_command({ :name => 'decommission' }, verbose=false, timeout=100) { |r| puts r }
       rescue Exception => e
         puts "Failed to decommission or else time limit was exceeded (#{e.message}).\nConfirm that the local instance is still running."
+        return false
       end
-      false
+      true
     end
 
     # Start nanite agent, return true
@@ -453,3 +428,25 @@ module RightScale
 
   end
 end
+
+#
+# Copyright (c) 2009 RightScale Inc
+#
+# Permission is hereby granted, free of charge, to any person obtaining
+# a copy of this software and associated documentation files (the
+# "Software"), to deal in the Software without restriction, including
+# without limitation the rights to use, copy, modify, merge, publish,
+# distribute, sublicense, and/or sell copies of the Software, and to
+# permit persons to whom the Software is furnished to do so, subject to
+# the following conditions:
+#
+# The above copyright notice and this permission notice shall be
+# included in all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+# NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+# LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+# OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+# WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
