@@ -1,25 +1,3 @@
-#
-# Copyright (c) 2009 RightScale Inc
-#
-# Permission is hereby granted, free of charge, to any person obtaining
-# a copy of this software and associated documentation files (the
-# "Software"), to deal in the Software without restriction, including
-# without limitation the rights to use, copy, modify, merge, publish,
-# distribute, sublicense, and/or sell copies of the Software, and to
-# permit persons to whom the Software is furnished to do so, subject to
-# the following conditions:
-#
-# The above copyright notice and this permission notice shall be
-# included in all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-# NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
-# LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-# OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
-# WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
 # === Synopsis:
 #   RightScale Agent Deployer (rad) - (c) 2009 RightScale
 #
@@ -139,16 +117,8 @@ module RightScale
       end
         
       if options[:monit]
-        pid_file = PidFile.new("#{options[:pid_prefix]}-#{cfg[:identity]}", :pid_dir => cfg[:pid_dir])
-        if File.exists?("/etc/monit.d") 
-          monit_config_file = File.join("/etc/monit.d", "#{options[:agent]}-#{options[:identity]}-monit.conf")
-        else
-          monit_config_file = File.join(agent_dir, "#{options[:agent]}-#{options[:identity]}-monit.conf")
-        end
-        start_prog = "/usr/bin/rnac --start #{options[:agent]}"
-        stop_prog = "/usr/bin/rnac --kill #{pid_file}"
-        setup_monit(options[:agent], pid_file, monit_config_file, start_prog, stop_prog) 
-        puts "  - monit config: #{monit_config_file}" unless options[:quiet]
+        config_file = setup_monit(options)
+        puts "  - monit config: #{config_file}" unless options[:quiet]
       end
     end
 
@@ -214,15 +184,26 @@ protected
     end
 
     # Create monit configuration file
-    def setup_monit(agent, pidfile, monit_config_file, start_prog, stop_prog)
-      File.open(monit_config_file, "w") do |f|
-        f.puts "check process #{agent} "
-        f.puts "\twith pidfile \"#{pidfile}\""
-        f.puts "\tstart program \"#{start_prog}\""
-        f.puts "\tstop program \"#{stop_prog}\""
+    def setup_monit(options)
+      agent = options[:agent]
+      pid_file = PidFile.new("#{options[:pid_prefix]}-#{options[:identity]}", :pid_dir => options[:pid_dir] || '/var/run')
+      monit_config_file = if File.exists?('/opt/rightscale/etc/monit.d')
+        File.join('/opt/rightscale/etc/monit.d', "#{agent}-#{options[:identity]}.conf")
+      else
+        File.join(gen_agent_dir(agent), "#{agent}-#{options[:identity]}-monit.conf")
+      end
+      File.open(monit_config_file, 'w') do |f|
+        f.puts <<-EOF
+check process #{agent}
+  with pidfile \"#{pid_file}\"
+  start program \"/usr/bin/rnac --start #{agent}\"
+  stop program \"/usr/bin/rnac --stop #{agent}\"
+  mode manual
+        EOF
       end
       # monit requires strict perms on this file
       File.chmod 0600, monit_config_file
+      monit_config_file
     end
 
     def config_file(agent)
@@ -242,3 +223,25 @@ protected
 
   end
 end
+
+#
+# Copyright (c) 2009 RightScale Inc
+#
+# Permission is hereby granted, free of charge, to any person obtaining
+# a copy of this software and associated documentation files (the
+# "Software"), to deal in the Software without restriction, including
+# without limitation the rights to use, copy, modify, merge, publish,
+# distribute, sublicense, and/or sell copies of the Software, and to
+# permit persons to whom the Software is furnished to do so, subject to
+# the following conditions:
+#
+# The above copyright notice and this permission notice shall be
+# included in all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+# NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+# LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+# OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+# WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
