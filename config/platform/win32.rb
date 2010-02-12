@@ -292,6 +292,25 @@ module RightScale
         # === Returns
         # executable_command(string):: executable command string
         def format_powershell_command(shell_script_file_path, *arguments)
+          return format_powershell_command4(POWERSHELL_V1x0_EXECUTABLE_PATH, nil, nil, shell_script_file_path, *arguments)
+        end
+
+        # Formats a powershell command using the given script path and arguments.
+        # Allows for specifying powershell from a specific installed location.
+        # This method is only implemented for Windows.
+        #
+        # === Parameters
+        # powershell_exe_path(String):: path to powershell executable
+        # shell_script_file_path(String):: shell script file path
+        # arguments(Array):: variable stringizable arguments
+        #
+        # === Returns
+        # executable_command(string):: executable command string
+        def format_powershell_command4(powershell_exe_path,
+                                       lines_before_script,
+                                       lines_after_script,
+                                       shell_script_file_path,
+                                       *arguments)
           # special case for powershell scripts.
           escaped = []
           [shell_script_file_path, arguments].flatten.each do |arg|
@@ -299,14 +318,26 @@ module RightScale
             escaped << (value.index(' ') ? "'#{value.gsub("'", "''")}'" : value)
           end
 
+          # resolve lines before & after script.
+          lines_before_script ||= []
+          lines_after_script ||= []
+
           # execute powershell with Unrestricted execution policy. the issue
           # is that powershell by default will only run digitally-signed
           # scripts.
-          #
+          # FIX: search for any attempt to alter execution policy in lines
+          # before insertion.
           # FIX: support digitally signed scripts and/or signing on the fly by
           # checking for a signature file side-by-side with script.
-          powershell_command = "&{set-executionpolicy -executionPolicy Unrestricted; &#{escaped.join(" ")}; set-executionPolicy Default; exit $LastExitCode}"
-          return format_executable_command(POWERSHELL_V1x0_EXECUTABLE_PATH, "-command", powershell_command)
+          lines_before_script.insert(0, "set-executionpolicy -executionPolicy Unrestricted")
+          lines_after_script << "set-executionPolicy Default"
+          lines_after_script << "exit $LastExitCode"
+
+          # format powershell command string.
+          powershell_command = "&{#{lines_before_script.join("; ")}; &#{escaped.join(" ")}; #{lines_after_script.join("; ")}}"
+
+          # combine command string with powershell executable and arguments.
+          return format_executable_command(powershell_exe_path, "-command", powershell_command)
         end
 
         # Formats a shell command using the given script path and arguments.

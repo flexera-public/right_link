@@ -21,6 +21,7 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 require 'fileutils'
+require 'chef/resource/script'
 
 class Chef
 
@@ -33,7 +34,7 @@ class Chef
     # powershell "My Powershell Script" do
     #   source "write-output \"Running powershell v1.0 script\""
     # end
-    class Powershell < Chef::Resource
+    class Powershell < Chef::Resource::Script
 
       # Initialize Powershell resource with default values
       #
@@ -44,6 +45,7 @@ class Chef
       def initialize(name, collection=nil, node=nil)
         super(name, collection, node)
         @resource_name = :powershell
+        @interpreter = "powershell"
         @parameters = {}
         @source = nil
         @source_path = nil
@@ -80,11 +82,17 @@ class Chef
 
       # (Hash) Powershell parameters values keyed by names
       def parameters(arg=nil)
+        # FIX: support Windows alpha demo-style parameters for now. document
+        # that they are deprecated and to use a simple hash. this method of
+        # parameter passing may be deprecated altogether in future.
+        if arg.kind_of?(Chef::Node::Attribute)
+          arg = arg.attribute
+        end
+
         set_or_return(
           :parameters,
           arg,
-          #:kind_of => [ Hash ]
-          :kind_of => [ Chef::Node::Attribute ] # Change back to Hash when Chef is fixed
+          :kind_of => [ Hash ]
         )
       end
 

@@ -62,10 +62,13 @@ class Chef
           raise RightScale::Exceptions::Exec, "#{args[:cwd]} does not exist or is not a directory"
         end
 
-        status = nil
+        run_started_at = Time.now
+        status         = nil
         ::Dir.chdir(args[:cwd]) do
           status = execute(args[:command])
         end
+        duration = Time.now - run_started_at
+        ::Chef::Log.info("Script duration: #{duration}")
 
         unless args[:ignore_failure]
           args[:returns] ||= 0
@@ -73,6 +76,7 @@ class Chef
             raise RightScale::Exceptions::Exec, "\"#{args[:command]}\" returned #{status.exitstatus}, expected #{args[:returns]}"
           end
         end
+
         status
       end
 

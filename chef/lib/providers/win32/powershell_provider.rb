@@ -21,17 +21,14 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 require 'fileutils'
-require 'right_popen'
-require 'chef/mixin/command'
+require 'chef/provider/execute'
 
 class Chef
 
   class Provider
 
     # Powershell chef provider.
-    class Powershell < Chef::Provider
-
-      include Chef::Mixin::Command  # monkey patched version for Windows
+    class Powershell < Chef::Provider::Execute
 
       # use a unique dir name instead of cluttering temp directory with leftover
       # scripts like the original script provider.
@@ -55,7 +52,6 @@ class Chef
       # === Raise
       # RightScale::Exceptions::Exec:: Invalid process exit status
       def action_run
-        run_started_at   = Time.now
         nickname         = @new_resource.name
         source           = @new_resource.source
         script_file_path = @new_resource.source_path
@@ -77,23 +73,15 @@ class Chef
           ENV['RS_REBOOT'] = current_state.past_scripts.include?(nickname) ? '1' : nil
 
           # 3. execute and wait
-          status = run_script_file(script_file_path)
-          duration = Time.now - run_started_at
+          command = format_command(script_file_path)
+          @new_resource.command(command)
+          ::Chef::Log.info("Running \"#{nickname}\"")
+          super
 
-          # 4. Handle process exit status
-          if status
-            ::Chef::Log.info("Script exit status: #{status.exitstatus}")
-          else
-            ::Chef::Log.info("Script exit status: UNKNOWN; presumed success")
-          end
-          ::Chef::Log.info("Script duration: #{duration}")
-
-          if !status || status.success?
-            current_state.record_script_execution(nickname)
-            @new_resource.updated = true
-          else
-            raise RightScale::Exceptions::Exec, "Powershell < #{nickname} > returned #{status.exitstatus}"
-          end
+          # super provider raises an exception on failure, so record success at
+          # this point.
+          current_state.record_script_execution(nickname)
+          @new_resource.updated = true
         ensure
           (FileUtils.rm_rf(SCRIPT_TEMP_DIR_PATH) rescue nil) if ::File.directory?(SCRIPT_TEMP_DIR_PATH)
         end
@@ -107,19 +95,18 @@ class Chef
         RightScale::InstanceState
       end
 
-      # Runs the given powershell script.
+      # Formats a command to run the given powershell script.
       #
       # === Parameters
       # script_file_path(String):: powershell script file path
       #
       # == Returns
-      # result(Status):: result of running script
-      def run_script_file(script_file_path)
+      # command(String):: command to execute
+      def format_command(script_file_path)
         platform = RightScale::RightLinkConfig[:platform]
         shell    = platform.shell
-        command  = shell.format_powershell_command(script_file_path)
 
-        return execute(command)
+        return shell.format_powershell_command4(@new_resource.interpreter, nil, nil, script_file_path)
       end
 
     end

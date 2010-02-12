@@ -44,6 +44,56 @@ module RightScale
   module Test
     module ChefRunner
 
+      # Generates the path for the cookbooks directory for a given base path.
+      #
+      # === Parameters
+      # base_path(String):: path to base cookbooks directory.
+      #
+      # === Returns
+      # cookbooks_path(String):: path to created cookbooks directory
+      def get_cookbooks_path(base_path)
+        # Chef fails if cookbook paths contain backslashes.
+        return File.join(base_path, "cookbooks").gsub("\\", "/")
+      end
+
+      module_function :get_cookbooks_path
+
+      # Creates a cookbook from a hash of recipe names to text.
+      #
+      # === Parameters
+      # base_path(String):: path to base cookbooks directory.
+      # recipes(Hash):: hash of recipe names to text.
+      # cookbook_name(String):: name of cookbook (defaults to 'test')
+      #
+      # === Returns
+      # cookbooks_path(String):: path to created cookbooks directory
+      def create_cookbook(base_path, recipes, cookbook_name = 'test')
+        cookbooks_path = get_cookbooks_path(base_path)
+        cookbook_path = File.join(cookbooks_path, cookbook_name)
+        recipes_path = File.join(cookbook_path, 'recipes')
+        FileUtils.mkdir_p(recipes_path)
+        metadata_text =
+<<EOF
+maintainer "RightScale, Inc."
+version    "0.1"
+EOF
+        recipes.keys.each do |key|
+          recipe_name = key.to_s
+          recipe_text = recipes[key]
+          recipe_path = File.join(recipes_path, recipe_name + ".rb")
+          File.open(recipe_path, "w") { |f| f.write(recipe_text) }
+          metadata_text += "recipe     \"#{cookbook_name}\"::#{recipe_name}, \"Description of #{recipe_name}\"\n"
+        end
+
+        # metadata
+        metadata_path = recipes_path = File.join(cookbook_path, 'metadata.rb')
+        File.open(metadata_path, "w") { |f| f.write(metadata_text) }
+
+        return cookbooks_path
+      end
+
+      module_function :create_cookbook
+
       # Runs a Chef recipe.
       #
       # === Parameters

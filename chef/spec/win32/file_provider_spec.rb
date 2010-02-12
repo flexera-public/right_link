@@ -29,85 +29,59 @@ if RightScale::RightLinkConfig[:platform].windows?
   require File.expand_path(File.join(File.dirname(__FILE__), '..', 'chef_runner'))
 
   module FileProviderSpec
-    # unique directory for temporary files.
-    # note that Chef fails if backslashes appear in cookbook paths.
     TEST_TEMP_PATH = File.expand_path(File.join(Dir.tmpdir, "file-provider-spec-0C1CE753-0089-4ac7-B689-FB74F31E90F5")).gsub("\\", "/")
-    TEST_COOKBOOKS_PATH = File.join(TEST_TEMP_PATH, 'cookbooks')
+    TEST_COOKBOOKS_PATH = RightScale::Test::ChefRunner.get_cookbooks_path(TEST_TEMP_PATH)
     TEST_FILE_PATH = File.join(TEST_TEMP_PATH, 'data', 'test_file.txt')
 
-    def create_test_cookbook
-      test_cookbook_path = File.join(TEST_COOKBOOKS_PATH, 'test')
-      test_recipes_path = File.join(test_cookbook_path, 'recipes')
-      FileUtils.mkdir_p(test_recipes_path)
-
-      # create (empty) file using file provider.
-      create_file_recipe =
+    def create_cookbook
+      RightScale::Test::ChefRunner.create_cookbook(
+        TEST_TEMP_PATH,
+          {
+            :create_file_recipe => (
 <<EOF
 file "#{TEST_FILE_PATH}" do
   mode 0644
 end
 EOF
-      create_file_recipe_path = File.join(test_recipes_path, 'create_file_recipe.rb')
-      File.open(create_file_recipe_path, "w") { |f| f.write(create_file_recipe) }
-
-      # fail to create file due to unsupported owner (or group) attribute.
-      fail_owner_create_file_recipe =
+          ), :fail_owner_create_file_recipe => (
 <<EOF
 file "#{TEST_FILE_PATH}" do
   owner "Administrator"
   group "Administrators"
 end
 EOF
-      fail_owner_create_file_recipe_path = File.join(test_recipes_path, 'fail_owner_create_file_recipe.rb')
-      File.open(fail_owner_create_file_recipe_path, "w") { |f| f.write(fail_owner_create_file_recipe) }
-
-      # touch file using file provider.
-      touch_file_recipe =
+          ), :touch_file_recipe => (
 <<EOF
 file "#{TEST_FILE_PATH}" do
   action :touch
 end
 EOF
-      touch_file_recipe_path = File.join(test_recipes_path, 'touch_file_recipe.rb')
-      File.open(touch_file_recipe_path, "w") { |f| f.write(touch_file_recipe) }
-
-      # delete file using file provider.
-      delete_file_recipe =
+          ), :delete_file_recipe => (
 <<EOF
 file "#{TEST_FILE_PATH}" do
   backup 2
   action :delete
 end
 EOF
-      delete_file_recipe_path = File.join(test_recipes_path, 'delete_file_recipe.rb')
-      File.open(delete_file_recipe_path, "w") { |f| f.write(delete_file_recipe) }
-
-      # metadata
-      metadata =
-<<EOF
-maintainer "RightScale, Inc."
-version    "0.1"
-recipe     "test::create_file_recipe", "Creates a file"
-recipe     "test::fail_owner_create_file_recipe", "Fails to creates a file due to owner attribute"
-recipe     "test::touch_file_recipe", "Touches a file"
-recipe     "test::delete_file_recipe", "Deletes a file"
-EOF
-      metadata_path = test_recipes_path = File.join(test_cookbook_path, 'metadata.rb')
-      File.open(metadata_path, "w") { |f| f.write(metadata) }
+          )
+        }
+      )
     end
+
+    module_function :create_cookbook
 
     def cleanup
       (FileUtils.rm_rf(TEST_TEMP_PATH) rescue nil) if File.directory?(TEST_TEMP_PATH)
     end
 
-    module_function :create_test_cookbook, :cleanup
+    module_function :cleanup
   end
 
   describe Chef::Provider::File do
 
     before(:all) do
       @old_logger = Chef::Log.logger
-      FileProviderSpec.create_test_cookbook
+      FileProviderSpec.create_cookbook
       FileUtils.mkdir_p(File.dirname(FileProviderSpec::TEST_FILE_PATH))
     end
 

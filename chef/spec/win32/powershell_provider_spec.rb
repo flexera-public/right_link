@@ -29,66 +29,50 @@ if RightScale::RightLinkConfig[:platform].windows?
   require File.expand_path(File.join(File.dirname(__FILE__), '..', 'chef_runner'))
 
   module PowershellProviderSpec
-
-    # unique directory for temporary files.
     TEST_TEMP_PATH = File.expand_path(File.join(Dir.tmpdir, "powershell-provider-spec-17AE1F97-496D-4f07-ABD7-4D989FA3D7A6"))
+    TEST_COOKBOOKS_PATH = RightScale::Test::ChefRunner.get_cookbooks_path(TEST_TEMP_PATH)
 
-    # cookbooks (note that Chef fails if backslashes appear cookbook paths)
-    TEST_COOKBOOKS_PATH = File.join(TEST_TEMP_PATH, "cookbooks").gsub("\\", "/")
-
-    def create_test_cookbook
-      test_cookbook_path = File.join(TEST_COOKBOOKS_PATH, 'test')
-      test_recipes_path = File.join(test_cookbook_path, 'recipes')
-      FileUtils.mkdir_p(test_recipes_path)
-
-      # successful powershell resource using powershell provider.
-      succeed_powershell_recipe =
+    def create_cookbook
+      RightScale::Test::ChefRunner.create_cookbook(
+        TEST_TEMP_PATH,
+        {
+          :succeed_powershell_recipe => (
 <<EOF
 powershell 'test::succeed_powershell_recipe' do
   source \"write-output \\\"message for stdout\\\"\\nwrite-error \\\"message for stderr\\\"\\n\"
 end
 EOF
-      succeed_powershell_recipe_path = File.join(test_recipes_path, 'succeed_powershell_recipe.rb')
-      File.open(succeed_powershell_recipe_path, "w") { |f| f.write(succeed_powershell_recipe) }
-
-      # failing powershell resource.
-      fail_powershell_recipe =
+          ), :fail_powershell_recipe => (
 <<EOF
 powershell 'test::fail_powershell_recipe' do
   source \"exit 99\\n\"
 end
 EOF
-      fail_powershell_recipe_path = File.join(test_recipes_path, 'fail_powershell_recipe.rb')
-      File.open(fail_powershell_recipe_path, "w") { |f| f.write(fail_powershell_recipe) }
-
-      # print PSHOME variable.
-      print_pshome_recipe =
+          ), :expected_exit_code_recipe => (
+<<EOF
+powershell 'test::expected_exit_code_recipe' do
+  source \"exit 77\\n\"
+  returns 77
+end
+EOF
+          ), :print_pshome_recipe => (
 <<EOF
 powershell 'test::print_pshome_recipe' do
   source \"$PSHOME\\n\"
 end
 EOF
-      print_pshome_recipe_path = File.join(test_recipes_path, 'print_pshome_recipe.rb')
-      File.open(print_pshome_recipe_path, "w") { |f| f.write(print_pshome_recipe) }
-
-      # metadata
-      metadata =
-<<EOF
-maintainer "RightScale, Inc."
-version    "0.1"
-recipe     "test::succeed_powershell_recipe", "Succeeds running a powershell script"
-recipe     "test::fail_powershell_recipe", "Fails running a powershell script"
-recipe     "test::print_pshome_recipe", "Prints the PSHOME variable"
-EOF
-      metadata_path = test_recipes_path = File.join(test_cookbook_path, 'metadata.rb')
-      File.open(metadata_path, "w") { |f| f.write(metadata) }
+          )
+        }
+      )
     end
+
+    module_function :create_cookbook
 
     def cleanup
       (FileUtils.rm_rf(TEST_TEMP_PATH) rescue nil) if File.directory?(TEST_TEMP_PATH)
     end
 
-    module_function :create_test_cookbook, :cleanup
+    module_function :cleanup
 
     class MockInstanceState
       def self.past_scripts
@@ -119,7 +103,7 @@ EOF
 
     before(:all) do
       @old_logger = Chef::Log.logger
-      PowershellProviderSpec.create_test_cookbook
+      PowershellProviderSpec.create_cookbook
     end
 
     before(:each) do
@@ -131,7 +115,7 @@ EOF
       PowershellProviderSpec.cleanup
     end
 
-    it "should run chef scripts on windows" do
+    it "should run powershell recipes on windows" do
       runner = lambda {
         RightScale::Test::ChefRunner.run_chef(
           PowershellProviderSpec::TEST_COOKBOOKS_PATH,
@@ -145,12 +129,20 @@ EOF
       Chef::Log.logger.info_text.should include("message for stdout")
     end
 
-    it "should raise exceptions for failing chef scripts on windows" do
+    it "should raise exceptions for failing powershell recipes on windows" do
       runner = lambda {
         RightScale::Test::ChefRunner.run_chef(
           PowershellProviderSpec::TEST_COOKBOOKS_PATH,
           'test::fail_powershell_recipe') }
       runner.should raise_error(RightScale::Exceptions::Exec)
+    end
+
+    it "should not raise exceptions for expected exit codes on windows" do
+      runner = lambda {
+        RightScale::Test::ChefRunner.run_chef(
+          PowershellProviderSpec::TEST_COOKBOOKS_PATH,
+          'test::expected_exit_code_recipe') }
+      runner.call.should == true
     end
 
     it "should run 32-bit powershell on all platforms" do

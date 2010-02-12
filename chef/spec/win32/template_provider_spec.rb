@@ -29,28 +29,17 @@ if RightScale::RightLinkConfig[:platform].windows?
   require File.expand_path(File.join(File.dirname(__FILE__), '..', 'chef_runner'))
 
   module TemplateProviderSpec
-    # unique directory for temporary files.
-    # note that Chef fails if backslashes appear in cookbook paths.
     TEST_TEMP_PATH = File.expand_path(File.join(Dir.tmpdir, "template-provider-spec-3FEFA392-2624-4e6d-8279-7D0BEB1CC7A2")).gsub("\\", "/")
-    TEST_COOKBOOKS_PATH = File.join(TEST_TEMP_PATH, 'cookbooks')
+    TEST_COOKBOOKS_PATH = RightScale::Test::ChefRunner.get_cookbooks_path(TEST_TEMP_PATH)
     TEST_COOKBOOK_PATH = File.join(TEST_COOKBOOKS_PATH, 'test')
     SOURCE_FILE_PATH = File.join(TEST_COOKBOOK_PATH, 'templates', 'default', 'test.erb')
     TEST_FILE_PATH = File.join(TEST_TEMP_PATH, 'data', 'template_file.txt')
 
-    def create_test_cookbook
-      test_recipes_path = File.join(TEST_COOKBOOK_PATH, 'recipes')
-      FileUtils.mkdir_p(test_recipes_path)
-      FileUtils.mkdir_p(File.dirname(SOURCE_FILE_PATH))
-
-      # template source.
-      source_text =
-<<EOF
-<%= @var1 %> can work in <%= @var2 %>.
-EOF
-      File.open(SOURCE_FILE_PATH, "w") { |f| f.write(source_text) }
-
-      # create file using template provider.
-      create_templated_file_recipe =
+    def create_cookbook
+      RightScale::Test::ChefRunner.create_cookbook(
+        TEST_TEMP_PATH,
+          {
+            :create_templated_file_recipe => (
 <<EOF
 template "#{TEST_FILE_PATH}" do
   source "#{File.basename(SOURCE_FILE_PATH)}"
@@ -58,32 +47,33 @@ template "#{TEST_FILE_PATH}" do
   variables( :var1 => 'Chef', :var2 => 'Windows' )
 end
 EOF
-      create_templated_file_recipe_path = File.join(test_recipes_path, 'create_templated_file_recipe.rb')
-      File.open(create_templated_file_recipe_path, "w") { |f| f.write(create_templated_file_recipe) }
+          )
+        }
+      )
 
-      # metadata
-      metadata =
+      # template source.
+      FileUtils.mkdir_p(File.dirname(SOURCE_FILE_PATH))
+      source_text =
 <<EOF
-maintainer "RightScale, Inc."
-version    "0.1"
-recipe     "test::create_templated_file_recipe", "Creates a file from a template"
+<%= @var1 %> can work in <%= @var2 %>.
 EOF
-      metadata_path = test_recipes_path = File.join(TEST_COOKBOOK_PATH, 'metadata.rb')
-      File.open(metadata_path, "w") { |f| f.write(metadata) }
+      File.open(SOURCE_FILE_PATH, "w") { |f| f.write(source_text) }
     end
+
+    module_function :create_cookbook
 
     def cleanup
       (FileUtils.rm_rf(TEST_TEMP_PATH) rescue nil) if File.directory?(TEST_TEMP_PATH)
     end
 
-    module_function :create_test_cookbook, :cleanup
+    module_function :cleanup
   end
 
   describe Chef::Provider::Template do
 
     before(:all) do
       @old_logger = Chef::Log.logger
-      TemplateProviderSpec.create_test_cookbook
+      TemplateProviderSpec.create_cookbook
       FileUtils.mkdir_p(File.dirname(TemplateProviderSpec::TEST_FILE_PATH))
     end
 

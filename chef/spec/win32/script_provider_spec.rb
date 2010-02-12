@@ -29,61 +29,44 @@ if RightScale::RightLinkConfig[:platform].windows?
   require File.expand_path(File.join(File.dirname(__FILE__), '..', 'chef_runner'))
 
   module ScriptProviderSpec
-    # unique directory for temporary files.
     TEST_TEMP_PATH = File.expand_path(File.join(Dir.tmpdir, "script-provider-spec-46C1FDCC-DF6A-4472-B41F-409629045FD1"))
+    TEST_COOKBOOKS_PATH = RightScale::Test::ChefRunner.get_cookbooks_path(TEST_TEMP_PATH)
 
-    # cookbooks (note that Chef fails if backslashes appear cookbook paths)
-    TEST_COOKBOOKS_PATH = File.join(TEST_TEMP_PATH, "cookbooks").gsub("\\", "/")
-
-    def create_test_cookbook
-      test_cookbook_path = File.join(TEST_COOKBOOKS_PATH, 'test')
-      test_recipes_path = File.join(test_cookbook_path, 'recipes')
-      FileUtils.mkdir_p(test_recipes_path)
-
-      # successful ruby resource using script provider.
-      succeed_ruby_recipe =
+    def create_cookbook
+      RightScale::Test::ChefRunner.create_cookbook(
+        TEST_TEMP_PATH,
+        {
+          :succeed_ruby_recipe => (
 <<EOF
 ruby 'test::succeed_ruby_recipe' do
   code \"puts \\\"message for stdout\\\"\\n$stderr.puts \\\"message for stderr\\\"\\n\"
 end
 EOF
-      succeed_ruby_recipe_path = File.join(test_recipes_path, 'succeed_ruby_recipe.rb')
-      File.open(succeed_ruby_recipe_path, "w") { |f| f.write(succeed_ruby_recipe) }
-
-      # failing ruby resource.
-      fail_ruby_recipe =
+          ), :fail_ruby_recipe => (
 <<EOF
 ruby 'test::fail_ruby_recipe' do
   code \"exit 99\\n\"
 end
 EOF
-      fail_ruby_recipe_path = File.join(test_recipes_path, 'fail_ruby_recipe.rb')
-      File.open(fail_ruby_recipe_path, "w") { |f| f.write(fail_ruby_recipe) }
-
-      # metadata
-      metadata =
-<<EOF
-maintainer "RightScale, Inc."
-version    "0.1"
-recipe     "test::succeed_ruby_recipe", "Succeeds running a ruby script"
-recipe     "test::fail_ruby_recipe", "Fails running a ruby script"
-EOF
-      metadata_path = test_recipes_path = File.join(test_cookbook_path, 'metadata.rb')
-      File.open(metadata_path, "w") { |f| f.write(metadata) }
+          )
+        }
+      )
     end
+
+    module_function :create_cookbook
 
     def cleanup
       (FileUtils.rm_rf(TEST_TEMP_PATH) rescue nil) if File.directory?(TEST_TEMP_PATH)
     end
 
-    module_function :create_test_cookbook, :cleanup
+    module_function :cleanup
   end
 
   describe Chef::Provider::Script do
 
     before(:all) do
       @old_logger = Chef::Log.logger
-      ScriptProviderSpec.create_test_cookbook
+      ScriptProviderSpec.create_cookbook
     end
 
     before(:each) do

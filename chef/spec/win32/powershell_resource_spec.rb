@@ -55,8 +55,16 @@ if RightScale::RightLinkConfig[:platform].windows?
     end
 
     it "should accept vaild parameters" do
-      @resource.parameters Chef::Node::Attribute.new(nil, nil, nil)  # mock chef attribute
+      # FIX: use of Chef::Node::Attribute is deprecated but still supported for now.
+      @resource.parameters Chef::Node::Attribute.new({"TEST_X" => "x", "TEST_Y" => "y"}, nil, nil)
+
+      @resource.parameters("TEST_X" => "x", "TEST_Y" => "y")
       lambda { @resource.parameters 123 }.should raise_error(ArgumentError)
+    end
+
+    it "should accept valid returns" do
+      @resource.returns 77
+      lambda { @resource.returns "bogus" }.should raise_error(ArgumentError)
     end
 
   end

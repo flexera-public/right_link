@@ -29,60 +29,50 @@ if RightScale::RightLinkConfig[:platform].windows?
   require File.expand_path(File.join(File.dirname(__FILE__), '..', 'chef_runner'))
 
   module RemoteFileProviderSpec
-    # unique directory for temporary files.
-    # note that Chef fails if backslashes appear in cookbook paths.
     TEST_TEMP_PATH = File.expand_path(File.join(Dir.tmpdir, "remote-file-provider-spec-7C75ED9D-E143-4092-9472-0A8598192B59")).gsub("\\", "/")
-    TEST_COOKBOOKS_PATH = File.join(TEST_TEMP_PATH, 'cookbooks')
+    TEST_COOKBOOKS_PATH = RightScale::Test::ChefRunner.get_cookbooks_path(TEST_TEMP_PATH)
     TEST_COOKBOOK_PATH = File.join(TEST_COOKBOOKS_PATH, 'test')
     SOURCE_FILE_PATH = File.join(TEST_COOKBOOK_PATH, 'files', 'default', 'test.txt')
     TEST_FILE_PATH = File.join(TEST_TEMP_PATH, 'data', 'test.txt')
 
-    def create_test_cookbook
-      test_recipes_path = File.join(TEST_COOKBOOK_PATH, 'recipes')
-      FileUtils.mkdir_p(test_recipes_path)
-      FileUtils.mkdir_p(File.dirname(SOURCE_FILE_PATH))
-
-      # template source.
-      source_text =
-<<EOF
-Remote file test
-EOF
-      File.open(SOURCE_FILE_PATH, "w") { |f| f.write(source_text) }
-
-      # create file using remote file provider.
-      create_remote_file_recipe =
+    def create_cookbook
+      RightScale::Test::ChefRunner.create_cookbook(
+        TEST_TEMP_PATH,
+        {
+          :create_remote_file_recipe => (
 <<EOF
 remote_file "#{TEST_FILE_PATH}" do
   source "#{File.basename(SOURCE_FILE_PATH)}"
   mode 0440
 end
 EOF
-      create_remote_file_recipe_path = File.join(test_recipes_path, 'create_remote_file_recipe.rb')
-      File.open(create_remote_file_recipe_path, "w") { |f| f.write(create_remote_file_recipe) }
+          )
+        }
+      )
 
-      # metadata
-      metadata =
+      # template source.
+      FileUtils.mkdir_p(File.dirname(SOURCE_FILE_PATH))
+      source_text =
 <<EOF
-maintainer "RightScale, Inc."
-version    "0.1"
-recipe     "test::create_remote_file_recipe", "Creates a file from a remote source"
+Remote file test
 EOF
-      metadata_path = test_recipes_path = File.join(TEST_COOKBOOK_PATH, 'metadata.rb')
-      File.open(metadata_path, "w") { |f| f.write(metadata) }
+      File.open(SOURCE_FILE_PATH, "w") { |f| f.write(source_text) }
     end
+
+    module_function :create_cookbook
 
     def cleanup
       (FileUtils.rm_rf(TEST_TEMP_PATH) rescue nil) if File.directory?(TEST_TEMP_PATH)
     end
 
-    module_function :create_test_cookbook, :cleanup
+    module_function :cleanup
   end
 
   describe Chef::Provider::RemoteFile do
 
     before(:all) do
       @old_logger = Chef::Log.logger
-      RemoteFileProviderSpec.create_test_cookbook
+      RemoteFileProviderSpec.create_cookbook
       FileUtils.mkdir_p(File.dirname(RemoteFileProviderSpec::TEST_FILE_PATH))
     end
 

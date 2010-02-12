@@ -29,20 +29,16 @@ if RightScale::RightLinkConfig[:platform].windows?
   require File.expand_path(File.join(File.dirname(__FILE__), '..', 'chef_runner'))
 
   module DirectoryProviderSpec
-    # unique directory for temporary directories.
-    # note that Chef fails if backslashes appear in cookbook paths.
     TEST_TEMP_PATH = File.expand_path(File.join(Dir.tmpdir, "directory-provider-spec-5DCDDAA5-DB31-4356-A8E0-DFE84179C1EA")).gsub("\\", "/")
-    TEST_COOKBOOKS_PATH = File.join(TEST_TEMP_PATH, 'cookbooks')
+    TEST_COOKBOOKS_PATH = RightScale::Test::ChefRunner.get_cookbooks_path(TEST_TEMP_PATH)
     TEST_DIR_PATH = File.join(TEST_TEMP_PATH, 'data', 'test')
     TEST_SUBDIR_PATH = File.join(TEST_DIR_PATH, 'subdir1', 'subdir2')
 
-    def create_test_cookbook
-      test_cookbook_path = File.join(TEST_COOKBOOKS_PATH, 'test')
-      test_recipes_path = File.join(test_cookbook_path, 'recipes')
-      FileUtils.mkdir_p(test_recipes_path)
-
-      # create (empty) dir using directory provider.
-      create_dir_recipe =
+    def create_cookbook
+      RightScale::Test::ChefRunner.create_cookbook(
+        TEST_TEMP_PATH,
+          {
+            :create_dir_recipe => (
 <<EOF
 directory "#{TEST_DIR_PATH}" do
   mode 0644
@@ -54,22 +50,16 @@ directory "#{TEST_SUBDIR_PATH}" do
   only_if \"cmd.exe /C \\\"if exist \\\"#{TEST_SUBDIR_PATH.gsub("/", "\\")}\\\" exit 1\\\"\"
 end
 EOF
-      create_dir_recipe_path = File.join(test_recipes_path, 'create_dir_recipe.rb')
-      File.open(create_dir_recipe_path, "w") { |f| f.write(create_dir_recipe) }
-
-      # fail to create dir due to unsupported owner (or group) attribute.
-      fail_owner_create_dir_recipe =
+        ),
+        :fail_owner_create_dir_recipe => (
 <<EOF
 directory "#{TEST_DIR_PATH}" do
   owner "Administrator"
   group "Administrators"
 end
 EOF
-      fail_owner_create_dir_recipe_path = File.join(test_recipes_path, 'fail_owner_create_dir_recipe.rb')
-      File.open(fail_owner_create_dir_recipe_path, "w") { |f| f.write(fail_owner_create_dir_recipe) }
-
-      # delete dir using directory provider.
-      delete_dir_recipe =
+        ),
+        :delete_dir_recipe => (
 <<EOF
 directory "#{TEST_SUBDIR_PATH}" do
   action :delete
@@ -80,34 +70,25 @@ directory "#{TEST_DIR_PATH}" do
   action :delete
 end
 EOF
-      delete_dir_recipe_path = File.join(test_recipes_path, 'delete_dir_recipe.rb')
-      File.open(delete_dir_recipe_path, "w") { |f| f.write(delete_dir_recipe) }
-
-      # metadata
-      metadata =
-<<EOF
-maintainer "RightScale, Inc."
-version    "0.1"
-recipe     "test::create_dir_recipe", "Creates a directory"
-recipe     "test::fail_owner_create_dir_recipe", "Fails to creates a directory due to owner attribute"
-recipe     "test::delete_dir_recipe", "Deletes a directory"
-EOF
-      metadata_path = test_recipes_path = File.join(test_cookbook_path, 'metadata.rb')
-      File.open(metadata_path, "w") { |f| f.write(metadata) }
+          )
+        }
+      )
     end
+
+    module_function :create_cookbook
 
     def cleanup
       (FileUtils.rm_rf(TEST_TEMP_PATH) rescue nil) if File.directory?(TEST_TEMP_PATH)
     end
 
-    module_function :create_test_cookbook, :cleanup
+    module_function :cleanup
   end
 
   describe Chef::Provider::Directory do
 
     before(:all) do
       @old_logger = Chef::Log.logger
-      DirectoryProviderSpec.create_test_cookbook
+      DirectoryProviderSpec.create_cookbook
       FileUtils.mkdir_p(File.dirname(DirectoryProviderSpec::TEST_DIR_PATH))
     end
 
