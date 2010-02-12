@@ -53,10 +53,14 @@ module RightScale
       end
       
       callback = lambda do |r|
-        if deliverable.kind_of?(Request)
-          r = Result.new(deliverable.token, deliverable.reply_to, r, identity)
-          RightLinkLog.info("SEND #{r.to_s([])}")
-          amq.queue(deliverable.reply_to, :no_declare => options[:secure]).publish(serializer.dump(r))
+        begin
+          if deliverable.kind_of?(Request)
+            r = Result.new(deliverable.token, deliverable.reply_to, r, identity)
+            RightLinkLog.info("SEND #{r.to_s([])}")
+            amq.queue(deliverable.reply_to, :no_declare => options[:secure]).publish(serializer.dump(r))
+          end
+        rescue Exception => e
+          RightLinkLog.error("Callback following dispatch failed with #{e.class.name}: #{e.message}\n #{e.backtrace.join("\n  ")}")
         end
         r # For unit tests
       end
