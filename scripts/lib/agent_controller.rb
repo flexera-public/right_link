@@ -129,7 +129,7 @@ module RightScale
         options = file_options
         RightLinkLog.program_name = syslog_program_name(options)
         RightLinkLog.log_to_file_only(options[:log_to_file_only])
-        configure_proxy(options[:http_proxy]) if options[:http_proxy]
+        configure_proxy(options[:http_proxy], options[:no_http_proxy]) if options[:http_proxy]
       end 
       options.merge!(FORCED_OPTIONS)
       options_with_default = {}
@@ -410,15 +410,11 @@ module RightScale
     end
 
     # Enable the use of an HTTP proxy for this process and its subprocesses
-    def configure_proxy(proxy_setting)
+    def configure_proxy(proxy_setting, exceptions)
       ENV['HTTP_PROXY'] = proxy_setting
       ENV['http_proxy'] = proxy_setting
-
-      # Special case (ugh): EC2 metadata server should be accessed directly
-      if RightScale::Platform.ec2?
-        ENV['NO_PROXY'] = '169.254.169.254'
-        ENV['no_proxy'] = '169.254.169.254'
-      end
+      ENV['NO_PROXY']   = exceptions
+      ENV['no_proxy']   = exceptions
     end
 
     # Version information

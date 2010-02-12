@@ -33,6 +33,7 @@
 #      --monit, -w:             Generate monit configuration file
 #      --options, -o KEY=VAL:   Pass-through options
 #      --http-proxy, -P PROXY:  Use a proxy for all agent-originated HTTP traffic
+#      --no-http-proxy          Comma-separated list of proxy exceptions
 #      --test:                  Build test deployment using default test settings
 #      --quiet, -Q              Do not produce output
 #      --help:                  Display help
@@ -102,6 +103,7 @@ module RightScale
       cfg[:actors_dir]   = options[:actors_path] if options[:actors_path]
       cfg[:format]       = 'secure'
       cfg[:http_proxy]   = options[:http_proxy] if options[:http_proxy]
+      cfg[:no_http_proxy]= options[:no_http_proxy] if options[:no_http_proxy]
       options[:options].each { |k, v| cfg[k] = v } if options[:options]
 
       agent_dir = gen_agent_dir(options[:agent])
@@ -151,6 +153,10 @@ module RightScale
 
         opts.on('-P', '--http-proxy PROXY') do |proxy|
           options[:http_proxy] = proxy
+        end
+
+        opts.on('--no-http-proxy NOPROXY') do |no_proxy|
+          options[:no_http_proxy] = no_proxy
         end
 
         opts.on('-o', '--options OPT') do |e|

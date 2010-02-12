@@ -79,8 +79,8 @@ class Chef
         @new_resource.parameters.each { |key, val| ENV[key] = val }
         ENV['ATTACH_DIR'] = ENV['RS_ATTACH_DIR'] = @new_resource.cache_dir
         ENV['RS_REBOOT']  = RightScale::InstanceState.past_scripts.include?(nickname) ? '1' : nil
-        #RightScripts expect to find RS_DISTRO or RS_DIST in the environment; provide it for them.
-        #Massage the distro name into the format they expect (all lower case, one word, no release info).
+        # RightScripts expect to find RS_DISTRO or RS_DIST in the environment; provide it for them.
+        # Massage the distro name into the format they expect (all lower case, one word, no release info).
         if platform.linux?
           distro = platform.linux.distro.downcase 
           ENV['RS_DISTRO'] = distro
@@ -90,6 +90,8 @@ class Chef
         # 2. Fork and wait
         status = run_script_file(@new_resource.source_file)
         duration = Time.now - run_started_at
+        # Security paranoia: wipe inputs from env so next script can't see them
+        @new_resource.parameters.each { |key, val| ENV[key] = nil }
 
         # 3. Handle process exit status
         if status
