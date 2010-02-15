@@ -44,7 +44,7 @@ module RightScale
     MAX_ATTACH_DOWNLOAD_RETRIES = 10
 
     # Maximum number of times agent should retry installing packages
-    MAX_PACKAGES_INSTALL_RETRIES = 10
+    MAX_PACKAGES_INSTALL_RETRIES = 3
 
   end
  

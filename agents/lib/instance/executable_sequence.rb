@@ -182,7 +182,7 @@ module RightScale
       @auditor.create_new_section("Installing packages: #{packages}")
       success = false
       audit_time do
-        success = retry_execution do
+        success = retry_execution('Installation of packages failed, retrying...') do
           if File.executable? '/usr/bin/yum'
             @auditor.append_output(`yum install -y #{packages} 2>&1`)
           elsif File.executable? '/usr/bin/apt-get'
@@ -355,6 +355,7 @@ module RightScale
     # Block should return true when it succeeds
     #
     # === Parameters
+    # retry_message(String):: Message to audit before retrying
     # times(Integer):: Number of times block should be retried before giving up
     #
     # === Block
@@ -362,12 +363,13 @@ module RightScale
     #
     # === Return
     # success(Boolean):: true if execution was successful, false otherwise.
-    def retry_execution(times=InstanceConfiguration::MAX_PACKAGES_INSTALL_RETRIES)
+    def retry_execution(retry_message, times=InstanceConfiguration::MAX_PACKAGES_INSTALL_RETRIES)
       count = 0
       success = false
       begin
         count += 1
         success = yield
+        @auditor.append_info("\n#{retry_message}\n") unless success || count > times                  
       end while !success && count <= times
       success
     end

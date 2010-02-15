@@ -147,7 +147,7 @@ module RightScale
     def internal_send_request(request, text)
       log_method = request == 'append_error' ? :error : :info
       log_text = AuditFormatter.send(format_method(request), text)[:detail]
-      RightLinkLog.__send__(log_method, "AUDIT #{log_text.chomp}")
+      log_text.chomp.split("\n").each { |l| RightLinkLog.__send__(log_method, l) }
       a = { :audit_id => @audit_id, :text => text }
       RightScale::RequestForwarder.push("/auditor/#{request}", a)
       true
