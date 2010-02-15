@@ -186,6 +186,7 @@ module RightScale
           if File.executable? '/usr/bin/yum'
             @auditor.append_output(`yum install -y #{packages} 2>&1`)
           elsif File.executable? '/usr/bin/apt-get'
+            ENV['DEBIAN_FRONTEND']="noninteractive"
             @auditor.append_output(`apt-get install -y #{packages} 2>&1`)
           else
             report_failure('Failed to install packages', 'Cannot find yum nor apt-get binary in /usr/bin')
