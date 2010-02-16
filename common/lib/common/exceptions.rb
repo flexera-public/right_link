@@ -20,11 +20,19 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+require 'chef/exceptions'
+
 module RightScale
   class Exceptions
     class Application < RuntimeError; end
     class Argument < RuntimeError; end
-    class Exec < RuntimeError; end
     class IO < RuntimeError; end
+    class Exec < Chef::Exceptions::Exec
+      def initialize(msg, cwd=nil)
+        super(msg)
+        @path = cwd
+      end
+      attr_reader :path    # Path where command was run
+    end
   end
 end

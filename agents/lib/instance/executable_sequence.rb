@@ -303,35 +303,41 @@ module RightScale
     # === Return
     # msg(String):: Human friendly error message
     def chef_error(e)
-      msg = "An error occurred during the execution of Chef. The error message was:\n\n"
-      msg += e.message
-      file, line, meth = e.backtrace[0].scan(/(.*):(\d+):in `(\w+)'/).flatten
-      line_number = line.to_i
-      if file && line && (line_number.to_s == line)
-        if file[0..InstanceConfiguration.cookbook_download_path.size - 1] == InstanceConfiguration::cookbook_download_path
-          path = "[COOKBOOKS]/" + file[InstanceConfiguration.cookbook_download_path.size..file.size]
-        else
-          path = file
-        end
-        msg += "\n\nThe error occurred line #{line} of #{path}"
-        msg += " in method '#{meth}'" if meth
-        context = ""
-        if File.readable?(file)
-          File.open(file, 'r') do |f|
-            lines = f.readlines
-            lines_count = lines.size
-            if lines_count >= line_number
-              upper = [lines_count, line_number + 2].max
-              padding = upper.to_s.size
-              context += context_line(lines, line_number - 2, padding)
-              context += context_line(lines, line_number - 1, padding)
-              context += context_line(lines, line_number, padding, '*')
-              context += context_line(lines, line_number + 1, padding)
-              context += context_line(lines, line_number + 2, padding)
+      if e.is_a?(RightScale::Exceptions::Exec)
+        msg = "An external command returned an error during the execution of Chef:\n\n"
+        msg += e.message
+        msg += "\n\nThe command was run from \"#{e.path}\"" if e.path
+      else
+        msg = "An error occurred during the execution of Chef. The error message was:\n\n"
+        msg += e.message
+        file, line, meth = e.backtrace[0].scan(/(.*):(\d+):in `(\w+)'/).flatten
+        line_number = line.to_i
+        if file && line && (line_number.to_s == line)
+          if file[0..InstanceConfiguration.cookbook_download_path.size - 1] == InstanceConfiguration::cookbook_download_path
+            path = "[COOKBOOKS]/" + file[InstanceConfiguration.cookbook_download_path.size..file.size]
+          else
+            path = file
+          end
+          msg += "\n\nThe error occurred line #{line} of #{path}"
+          msg += " in method '#{meth}'" if meth
+          context = ""
+          if File.readable?(file)
+            File.open(file, 'r') do |f|
+              lines = f.readlines
+              lines_count = lines.size
+              if lines_count >= line_number
+                upper = [lines_count, line_number + 2].max
+                padding = upper.to_s.size
+                context += context_line(lines, line_number - 2, padding)
+                context += context_line(lines, line_number - 1, padding)
+                context += context_line(lines, line_number, padding, '*')
+                context += context_line(lines, line_number + 1, padding)
+                context += context_line(lines, line_number + 2, padding)
+              end
             end
           end
+          msg += " while executing:\n\n#{context}" unless context.empty?
         end
-        msg += " while executing:\n\n#{context}" unless context.empty?
       end
       msg
     end

@@ -38,7 +38,7 @@ class Chef
       # command(String or Array):: A complete command with options to execute or a command and options as an Array (required).
       # creates(String):: The absolute path to a file that prevents the command from running if it exists (defaults to nil).
       # cwd(String): Working directory to execute command in (defaults to Dir.tmpdir).
-      # returns(String): The single exit value command is expected to return, otherwise causes an exception (defaults to zero).
+      # returns(Array): Array of exit values command is expected to return, otherwise causes an exception (defaults to zero).
       # ignore_failure(Boolean): true to return the failed status, false to raise an exception on failure (defaults to false).
       # environment(Hash): Pairs of environment variable names and their values to set before execution (defaults to empty).
       #
@@ -71,9 +71,10 @@ class Chef
         ::Chef::Log.info("Script duration: #{duration}")
 
         unless args[:ignore_failure]
-          args[:returns] ||= 0
-          if status.exitstatus != args[:returns]
-            raise RightScale::Exceptions::Exec, "\"#{args[:command]}\" returned #{status.exitstatus}, expected #{args[:returns]}"
+          args[:returns] ||= [ 0 ]
+          args[:returns] = [ args[:returns] ] unless args[:returns].is_a?(Array)
+          if !args[:returns].include?(status.exitstatus)
+            raise RightScale::Exceptions::Exec.new("\"#{args[:command]}\" returned #{status.exitstatus}, expected #{args[:returns].join(' or ')}.", args[:cwd])
           end
         end
 
