@@ -31,7 +31,6 @@ require File.expand_path(File.join(File.dirname(__FILE__), '..', 'lib', 'mixin',
 require 'chef'
 require 'chef/client'
 
-require File.join(File.dirname(__FILE__), 'providers', 'cronv0_7_12')
 require File.join(File.dirname(__FILE__), 'providers', 'dns_dnsmadeeasy_provider')
 require File.join(File.dirname(__FILE__), 'providers', 'dns_resource')
 require File.join(File.dirname(__FILE__), 'providers', 'executable_schedule_provider')

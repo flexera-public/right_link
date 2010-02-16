@@ -36,8 +36,7 @@ class Chef
       # === Return
       # true:: Always return true
       def load_current_resource
-        #TODO: Currently, we are using the cron provider from chef 0.7.12. Update the following code when we upgrade chef.
-        @original_cron_provider = Chef::Provider::Cronv0_7_12.new(@node, @new_resource.cron_resource)
+        @original_cron_provider = Chef::Provider::Cron.new(@node, @new_resource.cron_resource)
         @original_cron_provider.load_current_resource
         @current_resource = @original_cron_provider.current_resource
         true
