@@ -234,8 +234,10 @@ module RightScale
           when String  then level_from_sym(level.to_sym)
           else level
         end
-        @logger.info("[setup] setting log level to #{level_to_sym(new_level).to_s.upcase}")
-        @logger.level = @level = new_level
+        if new_level != @level
+          @logger.info("[setup] setting log level to #{level_to_sym(new_level).to_s.upcase}")
+          @logger.level = @level = new_level
+        end
       end
       level = level_to_sym(@level)
     end
