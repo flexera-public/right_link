@@ -22,3 +22,4 @@
 
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'spec', 'spec_helper'))
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'agents', 'lib', 'instance'))
+require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'chef', 'lib', 'providers'))
