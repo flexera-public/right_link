@@ -20,7 +20,16 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require 'chef/exceptions'
+begin
+  require 'chef/exceptions'
+rescue LoadError
+  # Do not require the chef gem to be installed just to load this code
+  module Chef
+    class Exceptions
+      class Exec < RuntimeError; end
+    end
+  end
+end
 
 module RightScale
   class Exceptions

@@ -17,8 +17,8 @@
 #     rnac -s AGENT -c
 #
 #   Terminate agent with given ID token:
-#     rnac --terminate ID
-#     rnac -t ID
+#     rnac --term-agent ID
+#     rnac -T ID
 #
 #   Terminate all agents:
 #     rnac --killall
