@@ -153,9 +153,13 @@ class InstanceScheduler
       sequence.errback  { defer_run(bundle.audit_id) }
       sequence.run
     else
+      RightScale::InstanceState.value = 'decommissioned' if @decommissioning
+      # Tell the registrar to delete our queue
+      EM.next_tick do
+        RightScale::RequestForwarder.push('/registrar/remove', { :agent_identity => @agent_identity })
+      end
       # If we got here through rnac --decommission then there is a callback setup and we should
       # call it. rnac will then tell us to terminate. Otherwise terminate right away.
-      RightScale::InstanceState.value = 'decommissioned' if @decommissioning
       if @post_decommission_callback
         EM.next_tick { @post_decommission_callback.call }
       else
