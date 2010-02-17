@@ -195,12 +195,12 @@ module RightScale
     # === Return
     # true:: Always return true
     def self.update_logger
+      previous_level = nil
+      if @current_logger
+        previous_level = @current_logger.level
+        RightLinkLog.remove_logger(@current_logger)
+      end
       if file = log_file(@@value)
-        previous_level = nil
-        if @current_logger
-          previous_level = @current_logger.level
-          RightLinkLog.remove_logger(@current_logger)
-        end
         dir = File.dirname(file)
         FileUtils.mkdir_p(dir) unless File.directory?(dir)
         @current_logger = ::Logger.new(File.open(file, 'w'))
