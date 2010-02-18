@@ -256,8 +256,8 @@ module RightScale
           when 'run'          then start_agent
           when 'stop'         then stop_agent(id)
           when 'show'         then show_agent(id)
-          when 'decommission' then run_decommission
-          when 'shutdown'     then run_shutdown
+          when 'decommission' then run_command('Decommissioning...', 'decommission')
+          when 'shutdown'     then run_command('Shutting down...', 'terminate')
         end
       rescue SystemExit
         true
@@ -293,27 +293,14 @@ module RightScale
       exit(1)
     end
 
-    # Trigger execution of decommission scripts in instance agent and wait for it to be done.
-    def run_decommission
-      puts "Decommissioning..."
+    # Trigger execution of given command in instance agent and wait for it to be done.
+    def run_command(msg, name)
+      puts msg
       begin
         @client = CommandClient.new
-        @client.send_command({ :name => 'decommission' }, verbose=false, timeout=100) { |r| puts r }
+        @client.send_command({ :name => name }, verbose=false, timeout=100) { |r| puts r }
       rescue Exception => e
-        puts "Failed to decommission or else time limit was exceeded (#{e.message}).\nConfirm that the local instance is still running."
-        return false
-      end
-      true
-    end
-
-    # Trigger self-termination of instance agent.
-    def run_shutdown
-      puts "Shutting down..."
-      begin
-        @client = CommandClient.new
-        @client.send_command({ :name => 'terminate' }, verbose=false, timeout=100) { |r| puts r }
-      rescue Exception => e
-        puts "Failed to terminate or else time limit was exceeded (#{e.message}).\nConfirm that the local instance is still running."
+        puts "Failed or else time limit was exceeded (#{e.message}).\nConfirm that the local instance is still running."
         return false
       end
       true
