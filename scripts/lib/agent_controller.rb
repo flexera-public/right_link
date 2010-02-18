@@ -43,6 +43,7 @@
 #      --killall, -K:       Stop all running agents
 #      --status, -U:        List running agents on local machine
 #      --decommission, -d:  Send decom signal to instance agent
+#      --shutdown, -S:      Sends a terminate request to instance agent.
 #      --identity, -i ID    Use base id ID to build agent's identity
 #      --token, -t TOKEN    Use token TOKEN to build agent's identity
 #      --prefix, -r PREFIX  Prefix agent's identity with PREFIX
@@ -230,6 +231,10 @@ module RightScale
           options[:console] = true
         end
 
+        opts.on("-S", "--shutdown") do
+          options[:action] = 'shutdown'
+        end
+
         opts.on("--help") do
           RDoc::usage_from_file(__FILE__)
         end
@@ -252,6 +257,7 @@ module RightScale
           when 'stop'         then stop_agent(id)
           when 'show'         then show_agent(id)
           when 'decommission' then run_decommission
+          when 'shutdown'     then run_shutdown
         end
       rescue SystemExit
         true
@@ -287,8 +293,7 @@ module RightScale
       exit(1)
     end
 
-    # Trigger execution of decommission scripts in instance agent and wait for it to be done
-    # then causes agent to terminate
+    # Trigger execution of decommission scripts in instance agent and wait for it to be done.
     def run_decommission
       puts "Decommissioning..."
       begin
@@ -296,6 +301,19 @@ module RightScale
         @client.send_command({ :name => 'decommission' }, verbose=false, timeout=100) { |r| puts r }
       rescue Exception => e
         puts "Failed to decommission or else time limit was exceeded (#{e.message}).\nConfirm that the local instance is still running."
+        return false
+      end
+      true
+    end
+
+    # Trigger self-termination of instance agent.
+    def run_shutdown
+      puts "Shutting down..."
+      begin
+        @client = CommandClient.new
+        @client.send_command({ :name => 'terminate' }, verbose=false, timeout=100) { |r| puts r }
+      rescue Exception => e
+        puts "Failed to terminate or else time limit was exceeded (#{e.message}).\nConfirm that the local instance is still running."
         return false
       end
       true
