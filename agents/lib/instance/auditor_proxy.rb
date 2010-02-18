@@ -76,7 +76,6 @@ module RightScale
     # === Return
     # true:: Always return true
     def create_new_section(title, options={})
-      options[:category] ||= EventCategories::CATEGORY_NOTIFICATION
       send_request('create_new_section', normalize_options(title, options))
     end
 
@@ -103,11 +102,13 @@ module RightScale
     #
     # === Parameters
     # text(String):: Informational text to append to audit entry
+    # options[:category](String):: Optional, must be one of RightScale::EventCategories::CATEGORIES
     #
     # === Return
     # true:: Always return true
-    def append_info(text)
-      send_request('append_info', :text => text)
+    def append_info(text, options={})
+      options[:category] ||= EventCategories::NONE # Do not event by default
+      send_request('append_info', normalize_options(text, options))
     end
 
     # Append error message to current audit section. A special marker will be prepended to each line of audit to
@@ -119,7 +120,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def append_error(text)
-      send_request('append_error', :text => text)
+      send_request('append_error', :text => text, :category => EventCategories::CATEGORY_ERROR)
     end
 
     protected

@@ -36,7 +36,9 @@ class InstanceServices
   def update_login_policy(new_policy)
     status = nil
     
-    request("/auditor/create_entry", :agent_identity=>@agent_identity, :summary=>'Updating managed login policy') do |r|
+    request("/auditor/create_entry", :agent_identity => @agent_identity,
+                                     :summary        =>'Updating managed login policy',
+                                     :category       => RightScale::EventCategories::CATEGORY_SECURITY) do |r|
       res = RightScale::OperationResult.from_results(r)
       if res.success?
         auditor = RightScale::AuditorProxy.new(res.content)

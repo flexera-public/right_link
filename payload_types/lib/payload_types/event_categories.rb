@@ -27,10 +27,12 @@ module RightScale
   # For now only support generic and security categories
   class EventCategories
 
+    NONE                  = 'None'.freeze         # No notification
     CATEGORY_NOTIFICATION = 'Notification'.freeze # Generic notification
     CATEGORY_SECURITY     = 'Security'.freeze     # Security topic notification
+    CATEGORY_ERROR        = 'Error'.freeze        # Error event
 
-    CATEGORIES            = [ CATEGORY_NOTIFICATION, CATEGORY_SECURITY ]
+    CATEGORIES            = [ CATEGORY_NOTIFICATION, CATEGORY_SECURITY, CATEGORY_ERROR ]
 
   end
 end
