@@ -33,7 +33,7 @@ module RightScale
         if process_running? pid
           raise "#{@pid_file} already exists (pid: #{pid})"
         else
-          Log.info "removing stale pid file: #{@pid_file}"
+          RightLinkLog.info "removing stale pid file: #{@pid_file}"
           remove
         end
       end
