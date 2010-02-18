@@ -59,22 +59,25 @@ module RightScale
     #
     # === Parameters
     # status(String):: New audit entry status
+    # options[:category](String):: Optional, must be one of RightScale::EventCategories::CATEGORIES
     #
     # === Return
     # true:: Always return true
-    def update_status(status)
-      send_request('update_status', status)
+    def update_status(status, options={})
+      send_request('update_status', normalize_options(status, options))
     end
 
     # Start new audit section
     #
     # === Parameters
     # title(String):: Title of new audit section, will replace audit status as well
+    # options[:category](String):: Optional, must be one of RightScale::EventCategories::CATEGORIES
     #
     # === Return
     # true:: Always return true
-    def create_new_section(title)
-      send_request('create_new_section', title)
+    def create_new_section(title, options={})
+      options[:category] ||= EventCategories::CATEGORY_NOTIFICATION
+      send_request('create_new_section', normalize_options(title, options))
     end
 
     # Append output to current audit section
@@ -104,7 +107,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def append_info(text)
-      send_request('append_info', text)
+      send_request('append_info', :text => text)
     end
 
     # Append error message to current audit section. A special marker will be prepended to each line of audit to
@@ -116,7 +119,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def append_error(text)
-      send_request('append_error', text)
+      send_request('append_error', :text => text)
     end
 
     protected
@@ -125,14 +128,14 @@ module RightScale
     #
     # === Parameters
     # request(String):: Request that should be sent to auditor actor
-    # text(String):: Text to be audited
+    # options(Hash):: Text to be audited with optional arguments (event category)
     #
     # === Return
     # true:: Always return true
-    def send_request(request, text)
+    def send_request(request, options)
       EM.next_tick do
         flush_buffer
-        internal_send_request(request, text)
+        internal_send_request(request, options)
       end
     end
 
@@ -144,13 +147,32 @@ module RightScale
     #
     # === Return
     # true:: Always return true
-    def internal_send_request(request, text)
+    def internal_send_request(request, options)
       log_method = request == 'append_error' ? :error : :info
-      log_text = AuditFormatter.send(format_method(request), text)[:detail]
+      log_text = AuditFormatter.send(format_method(request), options[:text])[:detail]
       log_text.chomp.split("\n").each { |l| RightLinkLog.__send__(log_method, l) }
-      a = { :audit_id => @audit_id, :text => text }
-      RightScale::RequestForwarder.push("/auditor/#{request}", a)
+      options[:audit_id] = @audit_id
+      RightScale::RequestForwarder.push("/auditor/#{request}", options)
       true
+    end
+
+    # Normalize options for creating new audit section of updating audit summary
+    #
+    # === Parameters
+    # text(String):: New section title or new status
+    # options(Hash):: Optional hash specifying category
+    #
+    # === Return
+    # opts(Hash):: Options hash ready for calling corresponding auditor operation
+    def normalize_options(text, options)
+      opts = options || {}
+      opts[:text] = text
+      opts[:category] ||= EventCategories::CATEGORY_NOTIFICATION
+      unless EventCategories::CATEGORIES.include?(opts[:category])
+        RightLinkLog.warn("Invalid notification category '#{opts[:category]}', using generic category instead")
+        opts[:category] = EventCategories::CATEGORY_NOTIFICATION
+      end
+      opts
     end
 
     # Send any buffered output to auditor
@@ -160,7 +182,7 @@ module RightScale
     def flush_buffer
       @timer.cancel if @timer
       unless @buffer.empty?
-        internal_send_request('append_output', @buffer)
+        internal_send_request('append_output', :text => @buffer)
         @buffer = ''
       end
     end

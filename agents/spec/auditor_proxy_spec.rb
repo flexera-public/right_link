@@ -26,25 +26,45 @@ describe RightScale::AuditorProxy do
 
   before(:each) do
     @proxy = RightScale::AuditorProxy.new(1)
-    @instance = flexmock('instance')
-    flexmock(RightScale::MapperProxy).should_receive(:instance).and_return(@instance)
+    @mapper_proxy = flexmock('mapper proxy instance')
+    flexmock(RightScale::MapperProxy).should_receive(:instance).and_return(@mapper_proxy)
   end
 
   it 'should log and audit errors' do
     flexmock(RightScale::RightLinkLog).should_receive(:error).once.with("*ERROR> ERROR")
-    @instance.should_receive(:push).once.and_return { |*_| EM.stop }
+    @mapper_proxy.should_receive(:push).once.and_return { |*_| EM.stop }
     EM.run { @proxy.append_error('ERROR') }
   end
 
   it 'should log statuses' do
     flexmock(RightScale::RightLinkLog).should_receive(:info).once.with("*RS> STATUS")
-    @instance.should_receive(:push).once.and_return { |*_| EM.stop }
+    @mapper_proxy.should_receive(:push).once.and_return { |*_| EM.stop }
     EM.run { @proxy.update_status('STATUS') }
   end
 
-it 'should log outputs' do
+  it 'should revert to default event category when an invalid category is given' do
+    flexmock(RightScale::RightLinkLog).should_receive(:info).once.with("*RS> STATUS")
+    @mapper_proxy.should_receive(:push).once.and_return do |_, options|
+      options[:text].should == 'STATUS'
+      options[:category].should == RightScale::EventCategories::CATEGORY_NOTIFICATION
+      EM.stop
+    end
+    EM.run { @proxy.update_status('STATUS', :category => '__INVALID__') }
+  end
+
+  it 'should honor the event category' do
+    flexmock(RightScale::RightLinkLog).should_receive(:info).once.with("*RS> STATUS")
+    @mapper_proxy.should_receive(:push).once.and_return do |_, options| 
+      options[:text].should == 'STATUS'
+      options[:category].should == RightScale::EventCategories::CATEGORY_SECURITY
+      EM.stop
+    end
+    EM.run { @proxy.update_status('STATUS', :category => RightScale::EventCategories::CATEGORY_SECURITY) }
+  end
+
+  it 'should log outputs' do
     flexmock(RightScale::RightLinkLog).should_receive(:info).once.with("OUTPUT").and_return { |*_| EM.stop }
-    @instance.should_receive(:push).once
+    @mapper_proxy.should_receive(:push).once
     EM.run do
       EM.add_timer(RightScale::AuditorProxy::MAX_AUDIT_DELAY + 1) { EM.stop }
       @proxy.append_output('OUTPUT')
@@ -54,13 +74,13 @@ it 'should log outputs' do
   it 'should log sections' do
     flexmock(RightScale::RightLinkLog).should_receive(:info).once.ordered.with("#{ '****' * 20 }")
     flexmock(RightScale::RightLinkLog).should_receive(:info).once.ordered.with("*RS>#{ 'SECTION'.center(72) }****")
-    @instance.should_receive(:push).once.and_return { |*_| EM.stop }
+    @mapper_proxy.should_receive(:push).once.and_return { |*_| EM.stop }
     EM.run { @proxy.create_new_section('SECTION') }
   end
 
   it 'should log information' do
     flexmock(RightScale::RightLinkLog).should_receive(:info).once.with("*RS> INFO")
-    @instance.should_receive(:push).once.and_return { |*_| EM.stop }
+    @mapper_proxy.should_receive(:push).once.and_return { |*_| EM.stop }
     EM.run { @proxy.append_info('INFO') }
   end
 

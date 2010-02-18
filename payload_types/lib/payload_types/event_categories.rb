@@ -21,15 +21,16 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-require File.join(File.dirname(__FILE__), 'payload_types', 'serializable')
-require File.join(File.dirname(__FILE__), 'payload_types', 'cookbook_repository')
-require File.join(File.dirname(__FILE__), 'payload_types', 'executable_bundle')
-require File.join(File.dirname(__FILE__), 'payload_types', 'event_categories')
-require File.join(File.dirname(__FILE__), 'payload_types', 'operation_result')
-require File.join(File.dirname(__FILE__), 'payload_types', 'recipe_instantiation')
-require File.join(File.dirname(__FILE__), 'payload_types', 'repositories_bundle')
-require File.join(File.dirname(__FILE__), 'payload_types', 'software_repository_instantiation')
-require File.join(File.dirname(__FILE__), 'payload_types', 'right_script_attachment')
-require File.join(File.dirname(__FILE__), 'payload_types', 'right_script_instantiation')
-require File.join(File.dirname(__FILE__), 'payload_types', 'login_policy')
-require File.join(File.dirname(__FILE__), 'payload_types', 'login_user')
+module RightScale
+
+  # List of event categories used by auditor
+  # For now only support generic and security categories
+  class EventCategories
+
+    CATEGORY_NOTIFICATION = 'Notification'.freeze # Generic notification
+    CATEGORY_SECURITY     = 'Security'.freeze     # Security topic notification
+
+    CATEGORIES            = [ CATEGORY_NOTIFICATION, CATEGORY_SECURITY ]
+
+  end
+end
