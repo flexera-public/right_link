@@ -32,16 +32,16 @@ describe RightScale::Multiplexer do
   end
 
   it 'should multiplex' do
-    @target1.should_receive(:some_method).once.with('arg', 'arg2')
-    @target2.should_receive(:some_method).once.with('arg', 'arg2')
-    @target3.should_receive(:some_method).once.with('arg', 'arg2')
+    @target1.should_receive(:some_method).once.with('arg', 'arg2').once
+    @target2.should_receive(:some_method).once.with('arg', 'arg2').once
+    @target3.should_receive(:some_method).once.with('arg', 'arg2').once
     @multiplexer.some_method('arg', 'arg2')
   end
 
   it 'should retrieve the first result' do
-    @target1.should_receive(:some_method).once.with('arg', 'arg2').and_return('res1')
-    @target2.should_receive(:some_method).once.with('arg', 'arg2').and_return('res2')
-    @target3.should_receive(:some_method).once.with('arg', 'arg2').and_return('res3')
+    @target1.should_receive(:some_method).once.with('arg', 'arg2').and_return('res1').once
+    @target2.should_receive(:some_method).once.with('arg', 'arg2').and_return('res2').once
+    @target3.should_receive(:some_method).once.with('arg', 'arg2').and_return('res3').once
     @multiplexer.some_method('arg', 'arg2').should == 'res1'
   end
 

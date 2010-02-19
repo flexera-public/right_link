@@ -81,7 +81,7 @@ describe "RightScale::Dispatcher" do
 
   before(:each) do
     flexmock(RightScale::RightLinkLog).should_receive(:info)
-    flexmock(RightScale::RightLinkLog).should_receive(:error)
+    flexmock(RightScale::RightLinkLog).should_receive(:error).by_default
     amq = flexmock('amq', :queue => flexmock('queue', :publish => nil))
     @actor = Foo.new
     @registry = RightScale::ActorRegistry.new
@@ -125,7 +125,7 @@ describe "RightScale::Dispatcher" do
 
   it "should call the on_exception callback if something goes wrong" do
     req = RightScale::Request.new('/foo/i_kill_you', nil)
-    flexmock(@actor).should_receive(:handle_exception).with(:i_kill_you, req, Exception)
+    flexmock(@actor).should_receive(:handle_exception).with(:i_kill_you, req, Exception).once
     @dispatcher.dispatch(req)
   end
 
@@ -150,7 +150,7 @@ describe "RightScale::Dispatcher" do
   end
 
   it "should log error if something goes wrong" do
-    RightScale::RightLinkLog.should_receive(:error)
+    RightScale::RightLinkLog.should_receive(:error).once
     req = RightScale::Request.new('/foo/i_kill_you', nil)
     @dispatcher.dispatch(req)
   end

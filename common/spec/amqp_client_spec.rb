@@ -43,7 +43,7 @@ describe AMQP::Client do
 
     context 'and no :retry' do
       it 'should reconnect immediately' do
-        flexmock(EM).should_receive(:reconnect)
+        flexmock(EM).should_receive(:reconnect).once
         flexmock(EM).should_receive(:add_timer).never
 
         @sut.reconnect()
@@ -65,7 +65,7 @@ describe AMQP::Client do
       it 'should reconnect immediately' do
         @sut.settings[:retry] = true
 
-        flexmock(EM).should_receive(:reconnect)
+        flexmock(EM).should_receive(:reconnect).once
         flexmock(EM).should_receive(:add_timer).never
 
         @sut.reconnect()

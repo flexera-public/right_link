@@ -23,6 +23,9 @@
 require File.join(File.dirname(__FILE__), 'spec_helper')
 
 describe RightScale::MapperProxy do
+
+  include FlexMock::ArgumentTypes
+
   describe "when fetching the instance" do
     before do
       RightScale::MapperProxy.class_eval do
@@ -49,7 +52,7 @@ describe RightScale::MapperProxy do
   describe "when requesting a message" do
     before do
       flexmock(AMQP).should_receive(:connect)
-      @fanout = flexmock("fanout", :publish => true)
+      @fanout = flexmock("fanout", :publish => true).by_default
       @queue = flexmock("queue", :subscribe => {})
       @amq = flexmock("AMQueue", :queue => @queue, :fanout => @fanout)
       flexmock(MQ).should_receive(:new).and_return(@amq)
@@ -59,64 +62,62 @@ describe RightScale::MapperProxy do
     
     it "should raise an error if mapper proxy is not initialized" do
       lambda {
-        flexmock(@instance).should_receive(:identity).and_return nil
+        flexmock(@instance).should_receive(:identity).and_return(nil).once
         @instance.request('/welcome/aboard', 'iZac'){|response|}
       }.should raise_error("Mapper proxy not initialized")
     end
     
     it "should create a request object" do
-      @fanout.should_receive(:publish).with do |request|
+      @fanout.should_receive(:publish).with(on do |request|
         request = @instance.serializer.load(request)
         request.class.should == RightScale::Request
-      end
+      end).once
       
       @instance.request('/welcome/aboard', 'iZac'){|response|}
     end
     
     it "should set correct attributes on the request message" do
-      @fanout.should_receive(:publish).with do |request|
+      @fanout.should_receive(:publish).with(on do |request|
         request = @instance.serializer.load(request)
         request.token.should_not == nil
         request.persistent.should_not == true
         request.from.should == 'mapperproxy'
-      end
+      end).once
       
       @instance.request('/welcome/aboard', 'iZac'){|response|}
     end
     
     it "should mark the message as persistent when the option is specified on the parameter" do
-      @fanout.should_receive(:publish).with do |request|
+      @fanout.should_receive(:publish).with(on do |request|
         request = @instance.serializer.load(request)
         request.persistent.should == true
-      end
+      end).once
       
       @instance.request('/welcome/aboard', 'iZac', :persistent => true){|response|}
     end
     
     it "should set the correct target if specified" do
-      @fanout.should_receive(:publish).with do |request|
+      @fanout.should_receive(:publish).with(on do |request|
         request = @instance.serializer.load(request)
         request.target.should == 'my-target'
-      end
+      end).once
       
       @instance.request('/welcome/aboard', 'iZac', :target => 'my-target'){|response|}
     end
     
     it "should mark the message as persistent when the option is set globally" do
       @instance.options[:persistent] = true
-      @fanout.should_receive(:publish).with do |request|
+      @fanout.should_receive(:publish).with(on do |request|
         request = @instance.serializer.load(request)
         request.persistent.should == true
-      end
+      end).once
       
       @instance.request('/welcome/aboard', 'iZac'){|response|}
     end
 
     it "should store the result handler" do
       result_handler = lambda {}
-      flexmock(RightScale::AgentIdentity).should_receive(:generate).and_return('abc')
-      flexmock(@fanout).should_receive(:fanout)
-      
+      flexmock(RightScale::AgentIdentity).should_receive(:generate).and_return('abc').once
       @instance.request('/welcome/aboard', 'iZac',{}, &result_handler)
       
       @instance.pending_requests['abc'][:result_handler].should == result_handler
@@ -126,7 +127,7 @@ describe RightScale::MapperProxy do
   describe "when pushing a message" do
     before do
       flexmock(AMQP).should_receive(:connect)
-      @fanout = flexmock("fanout", :publish => true)
+      @fanout = flexmock("fanout", :publish => true).by_default
       @queue = flexmock("queue", :subscribe => {})
       @amq = flexmock("AMQueue", :queue => @queue, :fanout => @fanout)
       flexmock(MQ).should_receive(:new).and_return(@amq)
@@ -136,55 +137,55 @@ describe RightScale::MapperProxy do
     
     it "should raise an error if mapper proxy is not initialized" do
       lambda {
-        flexmock(@instance).should_receive(:identity).and_return nil
+        flexmock(@instance).should_receive(:identity).and_return(nil).once
         @instance.push('/welcome/aboard', 'iZac')
       }.should raise_error("Mapper proxy not initialized")
     end
     
     it "should create a push object" do
-      @fanout.should_receive(:publish).with do |push|
+      @fanout.should_receive(:publish).with(on do |push|
         push = @instance.serializer.load(push)
         push.class.should == RightScale::Push
-      end
+      end).once
       
       @instance.push('/welcome/aboard', 'iZac')
     end
     
     it "should set the correct target if specified" do
-      @fanout.should_receive(:publish).with do |push|
+      @fanout.should_receive(:publish).with(on do |push|
         push = @instance.serializer.load(push)
         push.target.should == 'my-target'
-      end
+      end).once
       
       @instance.push('/welcome/aboard', 'iZac', :target => 'my-target')
     end
     
     it "should set correct attributes on the push message" do
-      @fanout.should_receive(:publish).with do |push|
+      @fanout.should_receive(:publish).with(on do |push|
         push = @instance.serializer.load(push)
         push.token.should_not == nil
         push.persistent.should_not == true
         push.from.should == 'mapperproxy'
-      end
+      end).once
       
       @instance.push('/welcome/aboard', 'iZac')
     end
     
     it "should mark the message as persistent when the option is specified on the parameter" do
-      @fanout.should_receive(:publish).with do |push|
+      @fanout.should_receive(:publish).with(on do |push|
         push = @instance.serializer.load(push)
         push.persistent.should == true
-      end
+      end).once
       
       @instance.push('/welcome/aboard', 'iZac', :persistent => true)
     end
     
     it "should mark the message as persistent when the option is set globally" do
       @instance.options[:persistent] = true
-      @fanout.should_receive(:publish).with do |push|
+      @fanout.should_receive(:publish).with(on do |push|
         push = @instance.serializer.load(push)
         push.persistent.should == true
-      end
+      end).once
       
       @instance.push('/welcome/aboard', 'iZac')
     end

@@ -60,22 +60,22 @@ describe RightScale::Serializer do
 
     it "should cascade through available serializers" do
       serializer = RightScale::Serializer.new
-      flexmock(serializer).should_receive(:cascade_serializers).with(:dump, "hello")
+      flexmock(serializer).should_receive(:cascade_serializers).with(:dump, "hello").once
       serializer.dump("hello")
     end
 
     it "should try all three supported formats (JSON, Marshal, YAML)" do
-      flexmock(JSON).should_receive(:dump).with("hello").and_raise(StandardError)
-      flexmock(Marshal).should_receive(:dump).with("hello").and_raise(StandardError)
-      flexmock(YAML).should_receive(:dump).with("hello").and_raise(StandardError)
+      flexmock(JSON).should_receive(:dump).with("hello").and_raise(StandardError).once
+      flexmock(Marshal).should_receive(:dump).with("hello").and_raise(StandardError).once
+      flexmock(YAML).should_receive(:dump).with("hello").and_raise(StandardError).once
 
       lambda { RightScale::Serializer.new.dump("hello") }.should raise_error(RightScale::Serializer::SerializationError)
     end
 
     it "should raise SerializationError if packet could not be serialized" do
-      flexmock(JSON).should_receive(:dump).with("hello").and_raise(StandardError)
-      flexmock(Marshal).should_receive(:dump).with("hello").and_raise(StandardError)
-      flexmock(YAML).should_receive(:dump).with("hello").and_raise(StandardError)
+      flexmock(JSON).should_receive(:dump).with("hello").and_raise(StandardError).once
+      flexmock(Marshal).should_receive(:dump).with("hello").and_raise(StandardError).once
+      flexmock(YAML).should_receive(:dump).with("hello").and_raise(StandardError).once
 
       serializer = RightScale::Serializer.new
       lambda { serializer.dump("hello") }.should raise_error(RightScale::Serializer::SerializationError)
@@ -83,7 +83,7 @@ describe RightScale::Serializer do
 
     it "should return serialized packet" do
       serialized_packet = flexmock("Packet")
-      flexmock(Marshal).should_receive(:dump).with("hello").and_return(serialized_packet)
+      flexmock(Marshal).should_receive(:dump).with("hello").and_return(serialized_packet).once
 
       serializer = RightScale::Serializer.new(:marshal)
       serializer.dump("hello").should == serialized_packet
@@ -95,22 +95,22 @@ describe RightScale::Serializer do
 
     it "should cascade through available serializers" do
       serializer = RightScale::Serializer.new
-      flexmock(serializer).should_receive(:cascade_serializers).with(:load, "olleh")
+      flexmock(serializer).should_receive(:cascade_serializers).with(:load, "olleh").once
       serializer.load("olleh")
     end
 
     it "should try all three supported formats (JSON, Marshal, YAML)" do
-      flexmock(JSON).should_receive(:load).with("olleh").and_raise(StandardError)
-      flexmock(Marshal).should_receive(:load).with("olleh").and_raise(StandardError)
-      flexmock(YAML).should_receive(:load).with("olleh").and_raise(StandardError)
+      flexmock(JSON).should_receive(:load).with("olleh").and_raise(StandardError).once
+      flexmock(Marshal).should_receive(:load).with("olleh").and_raise(StandardError).once
+      flexmock(YAML).should_receive(:load).with("olleh").and_raise(StandardError).once
 
       lambda { RightScale::Serializer.new.load("olleh") }.should raise_error(RightScale::Serializer::SerializationError)
     end
 
     it "should raise SerializationError if packet could not be de-serialized" do
-      flexmock(JSON).should_receive(:load).with("olleh").and_raise(StandardError)
-      flexmock(Marshal).should_receive(:load).with("olleh").and_raise(StandardError)
-      flexmock(YAML).should_receive(:load).with("olleh").and_raise(StandardError)
+      flexmock(JSON).should_receive(:load).with("olleh").and_raise(StandardError).once
+      flexmock(Marshal).should_receive(:load).with("olleh").and_raise(StandardError).once
+      flexmock(YAML).should_receive(:load).with("olleh").and_raise(StandardError).once
 
       serializer = RightScale::Serializer.new
       lambda { serializer.load("olleh") }.should raise_error(RightScale::Serializer::SerializationError)
@@ -118,7 +118,7 @@ describe RightScale::Serializer do
 
     it "should return de-serialized packet" do
       deserialized_packet = flexmock("Packet")
-      flexmock(Marshal).should_receive(:load).with("olleh").and_return(deserialized_packet)
+      flexmock(Marshal).should_receive(:load).with("olleh").and_return(deserialized_packet).once
 
       serializer = RightScale::Serializer.new(:marshal)
       serializer.load("olleh").should == deserialized_packet

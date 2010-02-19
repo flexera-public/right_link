@@ -63,9 +63,7 @@ describe String do
   describe ".to_const_path" do
 
     it "should snake-case the string" do
-      str = "hello"
-      flexmock(str).should_receive(:snake_case).and_return("snake-cased hello")
-      str.to_const_path
+      "Hello::World".to_const_path.should == "hello/world"
     end
 
     it "should leave (snake-cased) string without '::' unchanged" do
