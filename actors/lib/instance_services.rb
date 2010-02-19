@@ -38,7 +38,7 @@ class InstanceServices
     
     request("/auditor/create_entry", :agent_identity => @agent_identity,
                                      :summary        =>'Updating managed login policy',
-                                     :category       => RightScale::EventCategories::CATEGORY_SECURITY) do |r|
+                                     :category       => RightScale::EventCategories::NONE) do |r|
       res = RightScale::OperationResult.from_results(r)
       if res.success?
         auditor = RightScale::AuditorProxy.new(res.content)
@@ -49,11 +49,11 @@ class InstanceServices
 
       begin
         audit = RightScale::LoginManager.instance.update_policy(new_policy)
-        auditor.create_new_section("Managed login policy updated")
+        auditor.create_new_section('Managed login policy updated', :category=>RightScale::EventCategories::CATEGORY_SECURITY)
         auditor.append_info(audit)
         status = RightScale::OperationResult.success
       rescue Exception => e
-        auditor.create_new_section('Failed to update managed login policy')
+        auditor.create_new_section('Failed to update managed login policy', :category=>RightScale::EventCategories::CATEGORY_SECURITY)
         auditor.append_error("Error applying policy: #{e.message}")
         RightScale::RightLinkLog.error("#{e.class.name}: #{e.message}\n#{e.backtrace.join("\n")}")
         status = RightScale::OperationResult.error("#{e.class.name} - #{e.message}")
