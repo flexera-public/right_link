@@ -185,7 +185,7 @@ class InstanceScheduler
         msg = "Chef execution failed with exception: #{e.message}"
         RightLinkLog.error(msg + "\n" + e.backtrace.join("\n"))
         auditor = AuditorProxy.new(bundle.audit_id)
-        auditor.append_error(msg)
+        auditor.append_error(msg, :category=>RightScale::EventCategories::CATEGORY_ERROR)
         fail
       end
     end

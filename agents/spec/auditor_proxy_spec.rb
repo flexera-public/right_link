@@ -34,7 +34,7 @@ describe RightScale::AuditorProxy do
     flexmock(RightScale::RightLinkLog).should_receive(:error).once.with("*ERROR> ERROR")
     @mapper_proxy.should_receive(:push).once.and_return do |_, options|
       options[:text].should == 'ERROR'
-      options[:category].should == RightScale::EventCategories::CATEGORY_ERROR
+      options[:category].should == RightScale::EventCategories::NONE
       EM.stop
     end
     EM.run { @proxy.append_error('ERROR') }

@@ -90,8 +90,10 @@ module RightScale
         RightLinkLog.debug(message)
       when Logger::INFO, Logger::WARN, Logger::UNKNOWN
         @auditor.append_output(msg)
-      when Logger::ERROR, Logger::FATAL
+      when Logger::ERROR
         @auditor.append_error(msg)
+      when Logger::FATAL
+        @auditor.append_error(msg, :category=>RightScale::EventCategories::CATEGORY_ERROR)
       end
       true
     end

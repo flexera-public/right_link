@@ -107,7 +107,7 @@ class InstanceSetup
           auditor.append_info(audit)
         rescue Exception => e
           auditor.create_new_section('Failed to enable managed login')
-          auditor.append_error("Error applying policy: #{e.message}")
+          auditor.append_error("Error applying login policy: #{e.message}", :category=>RightScale::EventCategories::CATEGORY_ERROR)
           RightScale::RightLinkLog.error("#{e.class.name}: #{e.message}\n#{e.backtrace.join("\n")}")
         end
       else
@@ -168,7 +168,7 @@ class InstanceSetup
   def strand(msg, res=nil)
     RightScale::InstanceState.value = 'stranded'
     msg += ": #{res.content}" if res && res.content
-    @auditor.append_error(msg) if @auditor
+    @auditor.append_error(msg, :category=>RightScale::EventCategories::CATEGORY_ERROR) if @auditor
     true
   end
 

@@ -288,7 +288,7 @@ module RightScale
       @ok = false
       RightLinkLog.error(msg)
       @auditor.update_status("failed: #{ @description }")
-      @auditor.append_error(title)
+      @auditor.append_error(title, :category=>RightScale::EventCategories::CATEGORY_ERROR)
       @auditor.append_error(msg)
       EM.next_tick { fail }
       true

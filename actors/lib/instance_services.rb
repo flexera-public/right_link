@@ -54,7 +54,7 @@ class InstanceServices
         status = RightScale::OperationResult.success
       rescue Exception => e
         auditor.create_new_section('Failed to update managed login policy', :category=>RightScale::EventCategories::CATEGORY_SECURITY)
-        auditor.append_error("Error applying policy: #{e.message}")
+        auditor.append_error("Error applying login policy: #{e.message}", :category=>RightScale::EventCategories::CATEGORY_ERROR)
         RightScale::RightLinkLog.error("#{e.class.name}: #{e.message}\n#{e.backtrace.join("\n")}")
         status = RightScale::OperationResult.error("#{e.class.name} - #{e.message}")
       end            
