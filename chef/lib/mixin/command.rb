@@ -65,7 +65,7 @@ class Chef
         run_started_at = Time.now
         status         = nil
         ::Dir.chdir(args[:cwd]) do
-          status = execute(args[:command])
+          status = execute(args[:command], args[:environment])
         end
         duration = Time.now - run_started_at
         ::Chef::Log.info("Script duration: #{duration}")
@@ -87,11 +87,13 @@ class Chef
       #
       # === Parameters
       # command(String):: command to execute
+      # env(Hash):: Hash of environment variables values keyed by name, optional
+      #             Note: not supported on Windows atm
       #
       # == Returns
       # status(String):: result of running script
-      def execute(command)
-        return RightPopenExecutor.new.execute(command)
+      def execute(command, env=nil)
+        return RightPopenExecutor.new.execute(command, env)
       end
 
       module_function :execute
@@ -107,11 +109,16 @@ class Chef
           @execute_status       = nil
         end
 
-        def execute(command)
+        def execute(command, env=nil)
           ::Chef::Log.debug("Executing \"#{command}\"")
 
           @execute_mutex.synchronize do
-            RightScale.popen3(command, self, :on_read_stdout, :on_read_stderr, :on_exit)
+            RightScale.popen3(:command        => command,
+                              :environment    => env,
+                              :target         => self,
+                              :stdout_handler => :on_read_stdout,
+                              :stderr_handler => :on_read_stderr,
+                              :exit_handler   => :on_exit)
             @execute_exited_event.wait(@execute_mutex)
           end
 
