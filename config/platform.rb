@@ -258,9 +258,9 @@ module RightScale
       @rackspace = false
       @eucalyptus = false
       case cloud_type
-        when 'ec2':        @ec2 = true
-        when 'rackspace':  @rackspace = true
-        when 'eucalyptus': @eucalyptus = true
+        when 'ec2' then ec2 = true
+        when 'rackspace' then @rackspace = true
+        when 'eucalyptus' then eucalyptus = true
       end
     end
 
