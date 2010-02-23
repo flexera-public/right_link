@@ -28,6 +28,7 @@ module RightScale
   class AgentTagsManager
     include Singleton
 
+    # (Agent) Agent being managed
     attr_accessor :agent
 
     # Retrieve current agent tags

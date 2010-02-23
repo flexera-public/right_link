@@ -22,10 +22,8 @@
 
 module RightScale
 
-  # This class allows sending requests to agents without having
-  # to run a local mapper.
-  # It is used by Actor.request which can be used by actors than need
-  # to send requests to remote agents.
+  # This class allows sending requests to agents without having to run a local mapper.
+  # It is used by Actor.request which is used by actors that need to send requests to remote agents.
   # All requests go through the mapper for security purposes.
   class MapperProxy
         
@@ -33,14 +31,37 @@ module RightScale
     require 'amqp'
   
     include AMQPHelper
-    
-    attr_accessor :pending_requests, :identity, :options, :amqp, :serializer
 
-    # Accessor for actor
+    # (Hash) Pending requests; key is request token and value is hash with :result_handler value being a block
+    attr_accessor :pending_requests
+
+    # (String) Identity of the mapper proxy
+    attr_accessor :identity
+
+    # (Hash) Configurations options applied in this mapper proxy
+    attr_accessor :options
+
+    # (MQ) AMQP broker for queueing messages
+    attr_accessor :amqp
+
+    # (Serializer) Serializer used for marshaling messages
+    attr_accessor :serializer
+
+    # Accessor for use by actor
+    #
+    # === Return
+    # (MapperProxy):: This mapper proxy instance if defined, otherwise nil
     def self.instance
       @@instance if defined?(@@instance)
     end
 
+    # Initialize mapper proxy
+    #
+    # === Parameters
+    # id(String):: Identity of associated agent
+    #
+    # === Options
+    #
     def initialize(id, opts)
       @options = opts || {}
       @identity = id
@@ -51,6 +72,21 @@ module RightScale
     end
 
     # Send request to given agent through the mapper
+    #
+    # === Parameters
+    # type(String):: The dispatch route for the request
+    # payload(Object):: Payload to send.  This will get marshalled en route.
+    #
+    # === Options
+    # :persistent(Boolean):: true instructs the AMQP broker to save messages to persistent storage so
+    #   that they aren't lost when the broker is restarted. Default is false.
+    # :secure(Boolean):: true indicates to use Security features of rabbitmq to restrict nanites to themselves
+    #
+    # === Block
+    # Optional block used to process result
+    #
+    # === Return
+    # (MQ::Exchange):: AMQP exchange to which request is published
     def request(type, payload = '', opts = {}, &blk)
       raise "Mapper proxy not initialized" unless identity && options
       request = Request.new(type, payload, opts)
@@ -63,6 +99,18 @@ module RightScale
     end    
 
     # Send push to given agent through the mapper
+    #
+    # === Parameters
+    # type(String):: The dispatch route for the request
+    # payload(Object):: Payload to send.  This will get marshalled en route.
+    #
+    # === Options
+    # :persistent(Boolean):: true instructs the AMQP broker to save messages to persistent storage so
+    #   that they aren't lost when the broker is restarted. Default is false.
+    # :secure(Boolean):: true indicates to use Security features of rabbitmq to restrict nanites to themselves
+    #
+    # === Return
+    # (MQ::Exchange):: AMQP exchange to which request is published
     def push(type, payload = '', opts = {})
       raise "Mapper proxy not initialized" unless identity && options
       push = Push.new(type, payload, opts)
@@ -74,6 +122,17 @@ module RightScale
     end
 
     # Send tag query to mapper
+    #
+    # === Options
+    # :persistent(Boolean):: true instructs the AMQP broker to save messages to persistent storage so
+    #   that they aren't lost when the broker is restarted. Default is false.
+    # :secure(Boolean):: true indicates to use Security features of rabbitmq to restrict nanites to themselves
+    #
+    # === Block
+    # Optional block used to process result
+    #
+    # === Return
+    # (MQ::Exchange):: AMQP exchange to which request is published
     def query_tags(opts, &blk)
       raise "Mapper proxy not initialized" unless identity && options
       tag_query = TagQuery.new(identity, opts)
@@ -85,6 +144,13 @@ module RightScale
     end
 
     # Update tags registered by mapper for agent
+    #
+    # === Parameters
+    # new_tags(Array):: Tags to be added
+    # obsolete_tags(Array):: Tags to be deleted
+    #
+    # === Return
+    # (MQ::Exchange):: AMQP exchange to which request is published
     def update_tags(new_tags, obsolete_tags)
       raise "Mapper proxy not initialized" unless identity && options
       update = TagUpdate.new(identity, new_tags, obsolete_tags)
@@ -93,9 +159,16 @@ module RightScale
     end
 
     # Handle final result
+    #
+    # === Parameters
+    # res(Packet):: Packet received as result of request
+    #
+    # === Return
+    # true:: Always return true
     def handle_result(res)
       handlers = pending_requests.delete(res.token)
       handlers[:result_handler].call(res) if handlers && handlers[:result_handler]
+      true
     end
 
   end # MapperProxy

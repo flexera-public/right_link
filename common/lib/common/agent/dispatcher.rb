@@ -24,9 +24,38 @@ module RightScale
 
   # Dispatching of payload to specified actor
   class Dispatcher
-    attr_reader :registry, :serializer, :identity, :amq, :options
+
+    # (ActorRegistry) Registry for actors
+    attr_reader :registry
+
+    # (Serializer) Serializer used for marshaling messages
+    attr_reader :serializer
+
+    # (String) Identity of associated agent
+    attr_reader :identity
+
+    # (MQ) AMQP broker for queueing messages
+    attr_reader :amq
+
+    # (Hash) Configuration options applied in the dispatcher
+    attr_reader :options
+
+    # (EM) Event machine class (exposed for unit tests)
     attr_accessor :evmclass
 
+    # Initialize dispatcher
+    #
+    # === Parameters
+    # amq(MQ):: AMQP broker for queueing messages
+    # registry(ActorRegistry):: Registry for actors
+    # serializer(Serializer):: Serializer used for marshaling messages
+    # identity(String):: Identity of associated agent
+    #
+    # === Options
+    # :secure(Boolean):: true indicates to use Security features of rabbitmq to restrict nanites to themselves
+    # :single_threaded(Boolean):: true indicates to run all operations in one thread; false indicates
+    #   to do requested work on event machine defer thread and all else, such as pings on main thread
+    # :threadpool_size(Integer):: Number of threads in event machine thread pool
     def initialize(amq, registry, serializer, identity, options)
       @amq = amq
       @registry = registry
@@ -37,6 +66,15 @@ module RightScale
       @evmclass.threadpool_size = (@options[:threadpool_size] || 20).to_i
     end
 
+    # Dispatch request to appropriate actor method for servicing
+    # Work is done in background defer thread if :single_threaded option is false
+    # Handles returning of result to requester including logging any exceptions
+    #
+    # === Parameters
+    # deliverable(Packet):: Packet containing request
+    #
+    # === Return
+    # r(Result):: Result from dispatched request
     def dispatch(deliverable)
       prefix, meth = deliverable.type.split('/')[1..-1]
       meth ||= :index
@@ -74,10 +112,27 @@ module RightScale
 
     private
 
+    # Produce error string including message and backtrace
+    #
+    # === Parameters
+    # e(Exception):: Exception
+    #
+    # === Return
+    # description(String):: Error message
     def describe_error(e)
-      "#{e.class.name}: #{e.message}\n #{e.backtrace.join("\n  ")}"
+      description = "#{e.class.name}: #{e.message}\n #{e.backtrace.join("\n  ")}"
     end
 
+    # Handle exception by logging it and calling the actors exception callback method
+    #
+    # === Parameters
+    # actor(Actor):: Actor that failed to process request
+    # meth(String):: Name of actor method being dispatched to
+    # deliverable(Packet):: Packet that dispatcher is acting upon
+    # e(Exception):: Exception that was raised
+    #
+    # === Return
+    # error(String):: Error description for this exception
     def handle_exception(actor, meth, deliverable, e)
       error = describe_error(e)
       RightLinkLog.error(error)

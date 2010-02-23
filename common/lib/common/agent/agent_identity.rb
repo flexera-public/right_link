@@ -24,6 +24,7 @@ module RightScale
   
   # Agent identity management
   class AgentIdentity
+
     # Cutover time at which agents began using new separator
     SEPARATOR_EPOCH = Time.at(1256702400) unless defined?(SEPARATOR_EPOCH) #Tue Oct 27 21:00:00 -0700 2009
 
@@ -42,7 +43,7 @@ module RightScale
     # prefix(String):: Prefix used to scope identity
     # agent_name(String):: Name of agent (e.g. 'core', 'instance')
     # base_id(Integer):: Unique integer value
-    # token(String):: Anonymizing token - Optional, will be generated randomly if not provided
+    # token(String):: Unique identity token, will be generated randomly if not provided
     #
     # === Raise
     # RightScale::Exceptions::Argument:: Invalid argument
@@ -66,6 +67,9 @@ module RightScale
     end
 
     # Generate unique identity
+    #
+    # === Return
+    # id(String):: Random hexadecimal string
     def self.generate
       values = [
         rand(0x0010000),
@@ -76,7 +80,7 @@ module RightScale
         rand(0x1000000),
         rand(0x1000000),
       ]
-      "%04x%04x%04x%04x%04x%06x%06x" % values
+      id = "%04x%04x%04x%04x%04x%06x%06x" % values
     end
 
     # Check whether identity corresponds to an instance agent
@@ -113,10 +117,10 @@ module RightScale
     # serialized_id(String):: Valid serialized agent identity (use 'valid?' to check first)
     #
     # === Return
-    # id(RightScale::AgentIdentity):: Corresponding agent identity
+    # id(AgentIdentity):: Corresponding agent identity
     #
     # === Raise
-    # RightScale::Exceptions::Argument:: Serialized agent identity is incorrect
+    # (RightScale::Exceptions::Argument):: Serialized agent identity is incorrect
     def self.parse(serialized_id)
       serialized_id = serialized_from_nanite(serialized_id) if valid_nanite?(serialized_id)
       prefix, agent_name, token, bid, delimeter = parts(serialized_id)
@@ -219,5 +223,6 @@ module RightScale
       [ prefix, agent_name, token, bid, delimeter ]
     end
 
-  end
-end
+  end # AgentIdentity
+
+end # RightScale

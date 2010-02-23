@@ -37,25 +37,53 @@ module RightScale
   #   end
   module Actor
 
+    # Callback invoked whenever Actor is included in another module or class.
+    #
+    # === Parameters
+    # base(Module):: Module that included Actor module
+    #
+    # === Return
+    # true:: Always return true
     def self.included(base)
-      base.class_eval do 
+      base.class_eval do
         include RightScale::Actor::InstanceMethods
         extend  RightScale::Actor::ClassMethods
       end # base.class_eval
+      true
     end # self.included
     
     module ClassMethods
+
+      # Construct default prefix by which actor is identified in requests
+      #
+      # === Return
+      # prefix(String):: Default prefix
       def default_prefix
-        to_s.to_const_path
+        prefix = to_s.to_const_path
       end
 
+      # Add methods to list of services supported by actor
+      #
+      # === Parameters
+      # meths(Array):: Symbol names for methods being exposed as actor services
+      #
+      # === Return
+      # @exposed(Array):: List of unique methods exposed
       def expose(*meths)
         @exposed ||= []
         meths.each do |meth|
           @exposed << meth unless @exposed.include?(meth)
         end
+        @exposed
       end
 
+      # Get /prefix/method paths that actor responds to
+      #
+      # === Parameters
+      # prefix(String):: Prefix by which actor is identified in requests
+      #
+      # === Return
+      # (Array):: /prefix/method strings
       def provides_for(prefix)
         return [] unless @exposed
         @exposed.select do |meth|
@@ -68,11 +96,30 @@ module RightScale
         end.map {|meth| "/#{prefix}/#{meth}".squeeze('/')}
       end
 
+      # Set method called when dispatching to this actor fails
+      #
+      # The callback method is required to accept the following parameters:
+      #   method(Symbol):: Actor method being dispatched to
+      #   deliverable(Packet):: Packet delivered to dispatcher
+      #   exception(Exception):: Exception raised
+      #
+      # === Parameters
+      # proc(Proc|Symbol|String):: Procedure to be called on exception
+      #
+      # === Block
+      # Block to be executed if no Proc provided
+      #
+      # === Return
+      # @exception_callback(Proc):: Callback procedure
       def on_exception(proc = nil, &blk)
         raise 'No callback provided for on_exception' unless proc || blk
         @exception_callback = proc || blk
       end
 
+      # Get exception callback procedure
+      #
+      # === Return
+      # @exception_callback(Proc):: Callback procedure
       def exception_callback
         @exception_callback
       end
@@ -80,17 +127,42 @@ module RightScale
     end # ClassMethods     
     
     module InstanceMethods
+
       # Send request to another agent (through the mapper)
+      #
+      # === Parameters
+      # args(Array):: Parameters for request
+      #
+      # === Block
+      # Optional block to be executed
+      #
+      # === Return
+      # (MQ::Exchange):: AMQP exchange to which request is published
       def request(*args, &blk)
         MapperProxy.instance.request(*args, &blk)
       end
       
       # Send push to another agent (through the mapper)
+      #
+      # === Parameters
+      # args(Array):: Parameters for push
+      #
+      # === Return
+      # (MQ::Exchange):: AMQP exchange to which push is published
       def push(*args)
         MapperProxy.instance.push(*args)
       end
 
       # Send tag query to mapper
+      #
+      # === Parameters
+      # args(Array):: Parameters for tag query
+      #
+      # === Block
+      # Optional block to be executed
+      #
+      # === Return
+      # (MQ::Exchange):: AMQP exchange to which tag query is published
       def query_tags(*args, &blk)
         MapperProxy.instance.query_tags(*args, &blk)
       end

@@ -23,16 +23,44 @@
 module RightScale
 
   # Agent for receiving messages from the mapper and acting upon them
-  # by dispatching them to a registered actor to perform. See load_actors
+  # by dispatching to a registered actor to perform. See load_actors
   # for details on how the agent specific environment is loaded.
   class Agent
     include AMQPHelper
     include ConsoleHelper
     include DaemonizeHelper
 
-    attr_reader :identity, :options, :serializer, :dispatcher, :registry, :amq, :tags, :callbacks, :shared_queue
+    # (String) Identity of this agent
+    attr_reader :identity
+
+    # (Hash) Configuration options applied to the agent
+    attr_reader :options
+
+    # (Serializer) Serializer used for marshaling messages
+    attr_reader :serializer
+
+    # (Dispatcher) Dispatcher for messages received
+    attr_reader :dispatcher
+
+    # (ActorRegistry) Registry for this agents actors
+    attr_reader :registry
+
+    # (MQ) AMQP broker for queueing messages
+    attr_reader :amq
+
+    # (Array) Tag strings published to mapper by agent
+    attr_reader :tags
+
+    # (Hash) Callback procedures; key is callback symbol and value is callback procedure
+    attr_reader :callbacks
+
+    # (String) Name of AMQP input queue shared by this agent with others of same type
+    attr_reader :shared_queue
+
+    # (Proc) Callable object that returns agent load as a string
     attr_accessor :status_proc
 
+    # Default option settings for the agent
     DEFAULT_OPTIONS = COMMON_DEFAULT_OPTIONS.merge({
       :user => 'nanite',
       :shared_queue => false,
@@ -45,77 +73,54 @@ module RightScale
     # is already started, for instance, by a Thin server that your Merb/Rails
     # application runs on.
     #
-    # === Parameters
-    # opts(Hash):: Options for configuring, connecting, and running agent
+    # === Options
     #
     # Agent options:
     #
-    # identity    : identity of this agent, may be any string
-    #
-    # shared_queue : name of AMPQ queue to be used for input in addition to identity queue,
-    #               this is a queue that is shared by multiple agents and hence, unlike the
-    #               identity queue, is only able to receive requests, not results
-    #
-    # status_proc : a callable object that returns agent load as a string,
-    #               defaults to load averages string extracted from `uptime`
-    #
-    # format      : format to use for packets serialization. One of the three:
-    #               :marshall, :json, or :yaml. Defaults to
-    #               Ruby's Marshall format. For interoperability with
-    #               AMQP clients implemented in other languages, use JSON.
-    #
-    #               Note that agents use JSON gem,
-    #               and ActiveSupport's JSON encoder may cause clashes
-    #               if ActiveSupport is loaded after JSON gem.
-    #
-    # root        : application root for this agent, defaults to Dir.pwd
-    #
-    # log_dir     : path to directory where agent stores it's log file
-    #               if not given, app_root is used.
-    #
-    # file_root   : path to directory to files this agent provides
-    #               defaults to app_root/files
-    #
-    # ping_time   : time interval in seconds between two subsequent heartbeat messages
-    #               this agent broadcasts. Default value is 15.
-    #
-    # console     : true indicates to start interactive console
-    #
-    # daemonize   : true indicates to daemonize
-    #
-    # pid_dir     : path to the directory where the agent stores its pid file (only if daemonized)
-    #               defaults to the root or the current working directory.
-    #
-    # services    : list of services provided by this agent, by default
-    #               all methods exposed by actors are listed
-    #
-    # single_threaded: Run all operations in one thread
-    #
-    # threadpool_size: Number of threads to run operations in
-    #
+    # :identity(String):: Identity of this agent
+    # :shared_queue(String):: Name of AMPQ queue to be used for input in addition to identity queue.
+    #   This is a queue that is shared by multiple agents and hence, unlike the identity queue,
+    #   is only able to receive requests, not results.
+    # :status_proc(Proc):: Callable object that returns agent load as a string. Defaults to load
+    #   averages string extracted from `uptime`.
+    # :format(Symbol):: Format to use for packets serialization -- :marshal, :json or :yaml or :secure.
+    #   Defaults to Ruby's Marshall format. For interoperability with AMQP clients implemented in other
+    #   languages, use JSON. Note that the nanite code uses JSON gem, and ActiveSupport's JSON encoder
+    #   may cause clashes if ActiveSupport is loaded after JSON gem. Also, using the secure format
+    #   requires prior initialization of the serializer (see RightScale::SecureSerializer.init).
+    # :root(String):: Application root for this agent. Defaults to Dir.pwd.
+    # :log_dir(String):: Log file path. Defaults to the current working directory.
+    # :file_root(String):: Path to directory to files this agent provides. Defaults to app_root/files.
+    # :ping_time(Numeric):: Time interval in seconds between two subsequent heartbeat messages this agent
+    #   broadcasts. Default value is 15.
+    # :console(Boolean):: true indicates to start interactive console
+    # :daemonize(Boolean):: true indicates to daemonize
+    # :pid_dir(String):: Path to the directory where the agent stores its pid file (only if daemonized).
+    #   Defaults to the root or the current working directory.
+    # :persistent(Boolean):: true instructs the AMQP broker to save messages to persistent storage so
+    #   that they aren't lost when the broker is restarted. Default is false. Can be overridden on a
+    #   per-message basis using the request and push methods of MapperProxy.
+    # :callbacks(Hash):: Callbacks to be executed on specific events. Key is event (currently
+    #   only :exception is supported) and value is the Proc to be called back. For :exception
+    #   the parameters are exception, message being processed, and reference to agent. It gets called
+    #   whenever a packet generates an exception.
+    # :services(Symbol):: List of services provided by this agent. Defaults to all methods exposed by actors.
+    # :secure(Boolean):: true indicates to use Security features of rabbitmq to restrict nanites to themselves
+    # :single_threaded(Boolean):: true indicates to run all operations in one thread; false indicates
+    #   to do requested work on EM defer thread and all else, such as pings on main thread
+    # :threadpool_size(Integer):: Number of threads in EM thread pool
     #
     # Connection options:
     #
-    # vhost       : AMQP broker vhost that should be used
+    # :vhost(String):: AMQP broker vhost that should be used
+    # :user(String):: AMQP broker user
+    # :pass(String):: AMQP broker password
+    # :host(String):: Host AMQP broker (or node of interest) runs on. Defaults to 0.0.0.0.
+    # :port(Integer):: Port AMQP broker (or node of interest) runs on. Defaults to 5672, port used by
+    #   some widely used AMQP brokers (RabbitMQ and ZeroMQ).
     #
-    # user        : AMQP broker user
-    #
-    # pass        : AMQP broker password
-    #
-    # host        : host AMQP broker (or node of interest) runs on,
-    #               defaults to 0.0.0.0
-    #
-    # port        : port AMQP broker (or node of interest) runs on,
-    #               this defaults to 5672, port used by some widely
-    #               used AMQP brokers (RabbitMQ and ZeroMQ)
-    #
-    # callback    : Hash of proc objects defining well known callbacks
-    #               Currently only the :exception callback is supported
-    #               This block gets called whenever a packet generates an exception
-    #
-    # On start config.yml is read, so it is common to specify
-    # options in the YAML file. However, when both Ruby code options
-    # and YAML file specify option, Ruby code options take precedence.
+    # On start config.yml is read, so it is common to specify options in the YAML file. However, when both
+    # Ruby code options and YAML file specify options, Ruby code options take precedence.
     #
     # === Return
     # agent(Agent):: New agent
@@ -128,7 +133,7 @@ module RightScale
     # Initialize the new agent
     #
     # === Parameters
-    # opts(Hash):: Configuration options
+    # opts(Hash):: Configuration options per #start above
     #
     # === Return
     # true:: Always return true
