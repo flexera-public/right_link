@@ -52,9 +52,8 @@ describe RightScale::MapperProxy do
   describe "when requesting a message" do
     before do
       flexmock(AMQP).should_receive(:connect)
-      @fanout = flexmock("fanout", :publish => true).by_default
-      @queue = flexmock("queue", :subscribe => {})
-      @amq = flexmock("AMQueue", :queue => @queue, :fanout => @fanout)
+      @queue = flexmock("queue", :publish => true).by_default
+      @amq = flexmock("AMQueue", :queue => @queue)
       flexmock(MQ).should_receive(:new).and_return(@amq)
       RightScale::MapperProxy.new('mapperproxy', {})
       @instance = RightScale::MapperProxy.instance
@@ -68,7 +67,7 @@ describe RightScale::MapperProxy do
     end
     
     it "should create a request object" do
-      @fanout.should_receive(:publish).with(on do |request|
+      @queue.should_receive(:publish).with(on do |request|
         request = @instance.serializer.load(request)
         request.class.should == RightScale::Request
       end).once
@@ -77,7 +76,7 @@ describe RightScale::MapperProxy do
     end
     
     it "should set correct attributes on the request message" do
-      @fanout.should_receive(:publish).with(on do |request|
+      @queue.should_receive(:publish).with(on do |request|
         request = @instance.serializer.load(request)
         request.token.should_not == nil
         request.persistent.should_not == true
@@ -88,7 +87,7 @@ describe RightScale::MapperProxy do
     end
     
     it "should mark the message as persistent when the option is specified on the parameter" do
-      @fanout.should_receive(:publish).with(on do |request|
+      @queue.should_receive(:publish).with(on do |request|
         request = @instance.serializer.load(request)
         request.persistent.should == true
       end).once
@@ -97,7 +96,7 @@ describe RightScale::MapperProxy do
     end
     
     it "should set the correct target if specified" do
-      @fanout.should_receive(:publish).with(on do |request|
+      @queue.should_receive(:publish).with(on do |request|
         request = @instance.serializer.load(request)
         request.target.should == 'my-target'
       end).once
@@ -107,7 +106,7 @@ describe RightScale::MapperProxy do
     
     it "should mark the message as persistent when the option is set globally" do
       @instance.options[:persistent] = true
-      @fanout.should_receive(:publish).with(on do |request|
+      @queue.should_receive(:publish).with(on do |request|
         request = @instance.serializer.load(request)
         request.persistent.should == true
       end).once
@@ -127,9 +126,8 @@ describe RightScale::MapperProxy do
   describe "when pushing a message" do
     before do
       flexmock(AMQP).should_receive(:connect)
-      @fanout = flexmock("fanout", :publish => true).by_default
-      @queue = flexmock("queue", :subscribe => {})
-      @amq = flexmock("AMQueue", :queue => @queue, :fanout => @fanout)
+      @queue = flexmock("queue", :publish => true).by_default
+      @amq = flexmock("AMQueue", :queue => @queue)
       flexmock(MQ).should_receive(:new).and_return(@amq)
       RightScale::MapperProxy.new('mapperproxy', {})
       @instance = RightScale::MapperProxy.instance
@@ -143,7 +141,7 @@ describe RightScale::MapperProxy do
     end
     
     it "should create a push object" do
-      @fanout.should_receive(:publish).with(on do |push|
+      @queue.should_receive(:publish).with(on do |push|
         push = @instance.serializer.load(push)
         push.class.should == RightScale::Push
       end).once
@@ -152,7 +150,7 @@ describe RightScale::MapperProxy do
     end
     
     it "should set the correct target if specified" do
-      @fanout.should_receive(:publish).with(on do |push|
+      @queue.should_receive(:publish).with(on do |push|
         push = @instance.serializer.load(push)
         push.target.should == 'my-target'
       end).once
@@ -161,7 +159,7 @@ describe RightScale::MapperProxy do
     end
     
     it "should set correct attributes on the push message" do
-      @fanout.should_receive(:publish).with(on do |push|
+      @queue.should_receive(:publish).with(on do |push|
         push = @instance.serializer.load(push)
         push.token.should_not == nil
         push.persistent.should_not == true
@@ -172,7 +170,7 @@ describe RightScale::MapperProxy do
     end
     
     it "should mark the message as persistent when the option is specified on the parameter" do
-      @fanout.should_receive(:publish).with(on do |push|
+      @queue.should_receive(:publish).with(on do |push|
         push = @instance.serializer.load(push)
         push.persistent.should == true
       end).once
@@ -182,7 +180,7 @@ describe RightScale::MapperProxy do
     
     it "should mark the message as persistent when the option is set globally" do
       @instance.options[:persistent] = true
-      @fanout.should_receive(:publish).with(on do |push|
+      @queue.should_receive(:publish).with(on do |push|
         push = @instance.serializer.load(push)
         push.persistent.should == true
       end).once

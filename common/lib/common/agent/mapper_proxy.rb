@@ -45,7 +45,7 @@ module RightScale
       @options = opts || {}
       @identity = id
       @pending_requests = {}
-      @amqp = start_amqp(options)
+      @amqp = start_amqp(@options)
       @serializer = Serializer.new(options[:format])
       @@instance = self
     end
@@ -59,7 +59,7 @@ module RightScale
       request.persistent = opts.key?(:persistent) ? opts[:persistent] : options[:persistent]
       pending_requests[request.token] = { :result_handler => blk }
       RightLinkLog.info("SEND #{request.to_s([:tags, :target])}")
-      amqp.fanout('request', :no_declare => options[:secure]).publish(serializer.dump(request))
+      amqp.queue('request', :no_declare => options[:secure]).publish(serializer.dump(request))
     end    
 
     # Send push to given agent through the mapper
@@ -70,7 +70,7 @@ module RightScale
       push.token = AgentIdentity.generate
       push.persistent = opts.key?(:persistent) ? opts[:persistent] : options[:persistent]
       RightLinkLog.info("SEND #{push.to_s([:tags, :target])}")
-      amqp.fanout('request', :no_declare => options[:secure]).publish(serializer.dump(push))
+      amqp.queue('request', :no_declare => options[:secure]).publish(serializer.dump(push))
     end
 
     # Send tag query to mapper
@@ -81,7 +81,7 @@ module RightScale
       tag_query.persistent = opts.key?(:persistent) ? opts[:persistent] : options[:persistent]      
       pending_requests[tag_query.token] = { :result_handler => blk }
       RightLinkLog.info("SEND #{tag_query.to_s}")
-      amqp.fanout('request', :no_declare => options[:secure]).publish(serializer.dump(tag_query))
+      amqp.queue('request', :no_declare => options[:secure]).publish(serializer.dump(tag_query))
     end
 
     # Update tags registered by mapper for agent
