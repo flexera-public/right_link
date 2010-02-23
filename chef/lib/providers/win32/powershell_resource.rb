@@ -82,6 +82,8 @@ class Chef
 
       # (Hash) Powershell parameters values keyed by names
       def parameters(arg=nil)
+        return environment if arg.nil?
+
         # FIX: support Windows alpha demo-style parameters for now. document
         # that they are deprecated and to use a simple hash. this method of
         # parameter passing may be deprecated altogether in future.
@@ -89,11 +91,15 @@ class Chef
           arg = arg.attribute
         end
 
-        set_or_return(
-          :parameters,
-          arg,
-          :kind_of => [ Hash ]
-        )
+        # FIX: parameters is really a duplication of the environment hash from
+        # the ExecuteResource, so merge the two hashes, if necessary.
+        env = environment
+        if env.nil?
+          env = arg
+        else
+          env.merge!(arg)
+        end
+        environment(env)
       end
 
     end

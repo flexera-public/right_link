@@ -59,7 +59,7 @@ if RightScale::RightLinkConfig[:platform].windows?
       @resource.parameters Chef::Node::Attribute.new({"TEST_X" => "x", "TEST_Y" => "y"}, nil, nil)
 
       @resource.parameters("TEST_X" => "x", "TEST_Y" => "y")
-      lambda { @resource.parameters 123 }.should raise_error(ArgumentError)
+      lambda { @resource.parameters 123 }.should raise_error(TypeError)
     end
 
     it "should accept valid returns" do

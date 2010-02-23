@@ -55,7 +55,7 @@ class Chef
         nickname         = @new_resource.name
         source           = @new_resource.source
         script_file_path = @new_resource.source_path
-        parameters       = @new_resource.parameters
+        environment      = @new_resource.environment
         current_state    = instance_state
 
         # 1. Write script source into file, if necessary.
@@ -69,8 +69,9 @@ class Chef
 
         begin
           # 2. Setup environment.
-          parameters.each { |key, val| ENV[key] = val }
-          ENV['RS_REBOOT'] = current_state.past_scripts.include?(nickname) ? '1' : nil
+          environment = {} if environment.nil?
+          environment['RS_REBOOT'] = current_state.past_scripts.include?(nickname) ? '1' : nil
+          @new_resource.environment(environment)
 
           # 3. execute and wait
           command = format_command(script_file_path)

@@ -61,6 +61,39 @@ powershell 'test::print_pshome_recipe' do
   source \"$PSHOME\\n\"
 end
 EOF
+          ), :set_env_var_recipe => (
+<<EOF
+powershell 'test::set_env_var_recipe' do
+  source_text =
+<<EOPS
+  [Environment]::SetEnvironmentVariable("ps_provider_spec_machine", "ps provider spec test value", "Machine")
+  [Environment]::SetEnvironmentVariable("ps_provider_spec_user", "ps provider spec test value", "User")
+EOPS
+  source source_text
+end
+EOF
+          ), :check_env_var_recipe => (
+<<EOF
+powershell 'test::check_env_var_recipe' do
+  source_text =
+<<EOPS
+  if ("$env:ps_provider_spec_machine" -eq "")
+  {
+    Write-Error "ps_provider_spec_machine env was not set"
+    exit 100
+  }
+  if ("$env:ps_provider_spec_user" -eq "")
+  {
+    Write-Error "ps_provider_spec_user env was not set"
+    exit 101
+  }
+  Write-Output "ps_provider_spec_machine and ps_provider_spec_user were set as expected"
+  [Environment]::SetEnvironmentVariable("ps_provider_spec_machine", "", "Machine")
+  [Environment]::SetEnvironmentVariable("ps_provider_spec_user", "", "User")
+EOPS
+  source source_text
+end
+EOF
           )
         }
       )
@@ -164,6 +197,14 @@ EOF
       runner.call.should == true
       Chef::Log.logger.error_text.chomp.should == ""
       Chef::Log.logger.info_text.chomp.gsub("\\", "/").downcase.should include(expected_pshome.downcase)
+    end
+
+    it "should preserve scripted environment variable changes between powershell scripts" do
+      runner = lambda {
+        RightScale::Test::ChefRunner.run_chef(
+          PowershellProviderSpec::TEST_COOKBOOKS_PATH,
+          ['test::set_env_var_recipe', 'test::check_env_var_recipe']) }
+      runner.call.should == true
     end
 
   end
