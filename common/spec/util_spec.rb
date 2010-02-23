@@ -38,11 +38,11 @@ describe String do
       end
     end
 
-    it "should separate numbers from word it starts with uppercase letter" do
-      "1234Foo".snake_case.should == "1234_foo"
+    it "should not separate numbers from word that starts with uppercase letter" do
+      "1234Foo".snake_case.should == "1234foo"
     end
 
-    it "should not separate numbers from word starts with lowercase letter" do
+    it "should not separate numbers from word that starts with lowercase letter" do
       "1234foo".snake_case.should == "1234foo"
     end
 
