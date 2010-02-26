@@ -88,11 +88,16 @@ module RightScale
     # true:: Always return true
     def append_output(text)
       EM.next_tick do
-        @buffer << text
-        if @buffer.size > MIN_AUDIT_SIZE
-          flush_buffer
-        else
-          reset_timer
+        begin
+          @buffer << text
+          if @buffer.size > MIN_AUDIT_SIZE
+            flush_buffer
+          else
+            reset_timer
+          end
+        rescue Exception => e
+          msg = "AuditorProxy output append failed with exception: #{e.message}"
+          RightLinkLog.error(msg + "\n" + e.backtrace.join("\n"))
         end
       end
     end
@@ -136,8 +141,13 @@ module RightScale
     # true:: Always return true
     def send_request(request, options)
       EM.next_tick do
-        flush_buffer
-        internal_send_request(request, options)
+        begin
+          flush_buffer
+          internal_send_request(request, options)
+        rescue Exception => e
+          msg = "AuditorProxy send request failed with exception: #{e.message}"
+          RightLinkLog.error(msg + "\n" + e.backtrace.join("\n"))
+        end
       end
     end
 
@@ -182,10 +192,15 @@ module RightScale
     # === Return
     # Always return true
     def flush_buffer
-      @timer.cancel if @timer
-      unless @buffer.empty?
-        internal_send_request('append_output', :text => @buffer)
-        @buffer = ''
+      begin
+        @timer.cancel if @timer
+        unless @buffer.empty?
+          internal_send_request('append_output', :text => @buffer)
+          @buffer = ''
+        end
+      rescue Exception => e
+        msg = "AuditorProxy flush buffer failed with exception: #{e.message}"
+        RightLinkLog.error(msg + "\n" + e.backtrace.join("\n"))
       end
     end
 

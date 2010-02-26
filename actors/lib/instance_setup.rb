@@ -61,7 +61,14 @@ class InstanceSetup
   # true:: Always return true
   def connection_status(status)
     if status == :deconnected
-      @offline_timer ||= EM::Timer.new(RECONNECT_GRACE_PERIOD) { RightScale::RequestForwarder.enable_offline_mode }
+      @offline_timer ||= EM::Timer.new(RECONNECT_GRACE_PERIOD) do
+        begin
+          RightScale::RequestForwarder.enable_offline_mode
+        rescue Exception => e
+          msg = "InstanceSetup offline mode enable failed with exception: #{e.message}"
+          RightLinkLog.error(msg + "\n" + e.backtrace.join("\n"))
+        end
+      end
     else
       # Cancel offline timer if there was one
       if @offline_timer
@@ -81,12 +88,17 @@ class InstanceSetup
   # === Return
   # true:: Always return true
   def init_boot
-    request("/booter/set_r_s_version", { :agent_identity => @agent_identity, :r_s_version => 6 }) do |r|
-      res = RightScale::OperationResult.from_results(r)
-      strand("Failed to set_r_s_version", res) unless res.success?
-      enable_managed_login
+    begin
+      request("/booter/set_r_s_version", { :agent_identity => @agent_identity, :r_s_version => 6 }) do |r|
+        res = RightScale::OperationResult.from_results(r)
+        strand("Failed to set_r_s_version", res) unless res.success?
+        enable_managed_login
+      end
+      true
+    rescue Exception => e
+      msg = "InstanceSetup boot initialization failed with exception: #{e.message}"
+      RightScale::RightLinkLog.error(msg + "\n" + e.backtrace.join("\n"))
     end
-    true
   end
 
   # Enable managed SSH for this instance, then continue with boot. Ensures that
@@ -308,14 +320,19 @@ class InstanceSetup
     sequence = RightScale::ExecutableSequence.new(bundle)
     sequence.callback do
       EM.next_tick do
-        RightScale::RequestForwarder.push('/updater/update_inputs', { :agent_identity => @agent_identity,
-                                                                      :patch          => sequence.inputs_patch })
-        yield RightScale::OperationResult.success
+        begin
+          RightScale::RequestForwarder.push('/updater/update_inputs', { :agent_identity => @agent_identity,
+                                                                        :patch          => sequence.inputs_patch })
+          yield RightScale::OperationResult.success
+        rescue Exception => e
+          msg = "InstanceSetup inputs update failed with exception: #{e.message}"
+          RightScale::RightLinkLog.error(msg + "\n" + e.backtrace.join("\n"))
+        end
       end
     end
     sequence.errback  do
       EM.next_tick do
-        yield RightScale::OperationResult.error("Failed to run boot bundle")
+        (yield RightScale::OperationResult.error("Failed to run boot bundle")) rescue nil
       end
     end
 
@@ -326,7 +343,7 @@ class InstanceSetup
       begin
         sequence.run
       rescue Exception => e
-        msg = "Execution of Chef failed with exception: #{e.message}"
+        msg = "InstanceSetup execution of boot sequence failed with exception: #{e.message}"
         RightScale::RightLinkLog.error(msg + "\n" + e.backtrace.join("\n"))
         strand(msg)
       end

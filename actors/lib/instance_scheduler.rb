@@ -40,11 +40,16 @@ class InstanceScheduler
     # We need to wait until after the InstanceSetup actor has run its
     # bundle in the Chef thread before we can use it
     EM.next_tick do
-      if RightScale::InstanceState.value != 'booting'
-        @running = true
-        EM.defer { run_bundles }
-      else
-        RightScale::InstanceState.observe { |s| EM.defer { run_bundles } if s != 'booting' && !@running; @running = true }
+      begin
+        if RightScale::InstanceState.value != 'booting'
+          @running = true
+          EM.defer { run_bundles }
+        else
+          RightScale::InstanceState.observe { |s| EM.defer { run_bundles } if s != 'booting' && !@running; @running = true }
+        end
+      rescue Exception => e
+        msg = "InstanceScheduler initialization failed with exception: #{e.message}"
+        RightScale::RightLinkLog.error(msg + "\n" + e.backtrace.join("\n"))
       end
     end
   end
@@ -138,56 +143,51 @@ class InstanceScheduler
 
   # Worker thread loop which runs bundles pushed to the scheduled bundles queue
   # Push the string 'end' to the queue to end the thread
+  # Catch exceptions as EM will not restart a thread from the pool that died
   #
   # === Return
   # true:: Always return true
   def run_bundles
+  begin
     bundle = @scheduled_bundles.shift
-    if bundle != 'end'
-      sequence = RightScale::ExecutableSequence.new(bundle)
-      sequence.callback do
-        RightScale::RequestForwarder.push('/updater/update_inputs', { :agent_identity => @agent_identity,
-                                                                      :patch          => sequence.inputs_patch })
-        defer_run(bundle.audit_id)
-      end
-      sequence.errback  { defer_run(bundle.audit_id) }
-      sequence.run
-    else
-      RightScale::InstanceState.value = 'decommissioned' if @decommissioning
-      # Tell the registrar to delete our queue
-      EM.next_tick do
-        RightScale::RequestForwarder.push('/registrar/remove', { :agent_identity => @agent_identity })
-      end
-      # If we got here through rnac --decommission then there is a callback setup and we should
-      # call it. rnac will then tell us to terminate. Otherwise terminate right away.
-      if @post_decommission_callback
-        EM.next_tick { @post_decommission_callback.call }
+      if bundle != 'end'
+        sequence = RightScale::ExecutableSequence.new(bundle)
+        sequence.callback do
+          RightScale::RequestForwarder.push('/updater/update_inputs', { :agent_identity => @agent_identity,
+                                                                        :patch          => sequence.inputs_patch })
+          EM.defer { run_bundles }
+        end
+        sequence.errback { EM.defer { run_bundles } }
+        sequence.run
       else
-        EM.next_tick { terminate }
+        RightScale::InstanceState.value = 'decommissioned' if @decommissioning
+        # Tell the registrar to delete our queue
+        EM.next_tick do
+          RightScale::RequestForwarder.push('/registrar/remove', { :agent_identity => @agent_identity })
+        end
+        # If we got here through rnac --decommission then there is a callback setup and we should
+        # call it. rnac will then tell us to terminate. Otherwise terminate right away.
+        if @post_decommission_callback
+          EM.next_tick do
+            begin
+              @post_decommission_callback.call
+            rescue Exception => e
+              msg = "InstanceScheduler post decommission callback failed with exception: #{e.message}"
+              RightScale::RightLinkLog.error(msg + "\n" + e.backtrace.join("\n"))
+            end
+          end
+        else
+          EM.next_tick { terminate rescue nil }
+        end
       end
-    end
-    true
-  end
-
-  # Schedule Chef thread
-  # Note: Be sure to catch exceptions as EM will not restart a thread from the pool that died
-  #
-  # === Parameters
-  # audit_id(Integer):: Id of audit used to record potential errors
-  #
-  # === Return
-  # true:: Always return true
-  def defer_run(audit_id)
-    EM.defer do
-      begin
-        run_bundles
-      rescue Exception => e
-        msg = "Chef execution failed with exception: #{e.message}"
-        RightLinkLog.error(msg + "\n" + e.backtrace.join("\n"))
+    rescue Exception => e
+      msg = "InstanceScheduler chef bundle execution failed with exception: #{e.message}"
+      RightScale::RightLinkLog.error(msg + "\n" + e.backtrace.join("\n"))
+      if bundle != 'end'
         auditor = AuditorProxy.new(bundle.audit_id)
         auditor.append_error(msg, :category=>RightScale::EventCategories::CATEGORY_ERROR)
-        fail
       end
+      fail rescue nil
     end
     true
   end

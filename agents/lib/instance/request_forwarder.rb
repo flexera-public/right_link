@@ -137,11 +137,16 @@ module RightScale
     # timer_trigger(Boolean):: true if vote was triggered by timer, false if it
     #                          was triggered by amount of messages in in-memory queue
     def self.vote(timer_trigger)
-      RightScale::ReenrollManager.vote
-      if timer_trigger
-        @vote_timer = EM::Timer.new(VOTE_DELAY) { vote(timer_trigger=true) }
-      else
-        @vote_count = 0
+      begin
+        RightScale::ReenrollManager.vote
+        if timer_trigger
+          @vote_timer = EM::Timer.new(VOTE_DELAY) { vote(timer_trigger=true) }
+        else
+          @vote_count = 0
+        end
+      rescue Exception => e
+        msg = "RequestForwarder vote for enrollment failed with exception: #{e.message}"
+        RightLinkLog.error(msg + "\n" + e.backtrace.join("\n"))
       end
     end
 
@@ -167,25 +172,30 @@ module RightScale
     # === Return
     # true:: Always return true
     def self.flush_queue
-      if @stop_flush
-        @stop_flush = false
-        @flushing = false
-      else
-        request = @requests.shift
-        case request[:kind]
-        when :push
-          MapperProxy.instance.push(request[:type], request[:payload], request[:options])
-        when :request
-          MapperProxy.instance.request(request[:type], request[:payload], request[:options], request[:callback])
-        when :tag_query
-          MapperProxy.instance.query_tags(request[:options], request[:callback])
-        end
-        if @requests.empty?
-          @offline_mode = false
+      begin
+        if @stop_flush
+          @stop_flush = false
           @flushing = false
         else
-          EM.next_tick { flush_queue }
+          request = @requests.shift
+          case request[:kind]
+          when :push
+            MapperProxy.instance.push(request[:type], request[:payload], request[:options])
+          when :request
+            MapperProxy.instance.request(request[:type], request[:payload], request[:options], request[:callback])
+          when :tag_query
+            MapperProxy.instance.query_tags(request[:options], request[:callback])
+          end
+          if @requests.empty?
+            @offline_mode = false
+            @flushing = false
+          else
+            EM.next_tick { flush_queue }
+          end
         end
+      rescue Exception => e
+        msg = "RequestForwarder flush of queued request failed with exception: #{e.message}"
+        RightLinkLog.error(msg + "\n" + e.backtrace.join("\n"))
       end
     end
 

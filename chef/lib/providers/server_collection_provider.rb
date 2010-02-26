@@ -59,11 +59,21 @@ class Chef
         @mutex.synchronize do
           EM.next_tick do
             # Create the timer in the EM Thread
-            @timeout_timer = EM::Timer.new(QUERY_TIMEOUT) do
-              @mutex.synchronize do
-                status = :failed
-                @loaded_event.signal
+            begin
+              @timeout_timer = EM::Timer.new(QUERY_TIMEOUT) do
+                begin
+                  @mutex.synchronize do
+                    status = :failed
+                    @loaded_event.signal
+                  end
+                rescue Exception => e
+                  msg = "ServerCollection signal event failed for #{@new_resource.name} with exception: #{e.message}"
+                  RightScale::RightLinkLog.error(msg + "\n" + e.backtrace.join("\n"))
+                end
               end
+            rescue Exception => e
+              msg = "ServerCollection timer creation failed for #{@new_resource.name} with exception: #{e.message}"
+              RightScale::RightLinkLog.error(msg + "\n" + e.backtrace.join("\n"))
             end
           end
           RightScale::RequestForwarder.query_tags({:agent_ids => @new_resource.agent_ids, :tags => @new_resource.tags}) do |r|

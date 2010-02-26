@@ -21,18 +21,19 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 require 'rubygems'
+require File.join(File.dirname(__FILE__), 'right_link_log')
 
 class MQ
   class Queue
     # Asks the broker to redeliver all unacknowledged messages on a
-    # specifieid channel. Zero or more messages may be redelivered.
+    # specified channel. Zero or more messages may be redelivered.
     #
     # * requeue (default false)
     # If this parameter is false, the message will be redelivered to the original recipient.
     # If this flag is true, the server will attempt to requeue the message, potentially then
     # delivering it to an alternative subscriber.
     #
-    def recover requeue = false
+    def recover(requeue = false)
       @mq.callback{
         @mq.send Protocol::Basic::Recover.new({ :requeue => requeue })
       }
@@ -42,11 +43,11 @@ class MQ
 end
 
 # monkey patch to the amqp gem that adds :no_declare => true option for new 
-# Exchange objects. This allows us to send messeages to exchanges that are
-# declared by the mappers and that we have no configuration priviledges on.
+# Exchange objects. This allows us to send messages to exchanges that are
+# declared by the mappers and that we have no configuration privileges on.
 # temporary until we get this into amqp proper
 MQ::Exchange.class_eval do
-  def initialize mq, type, name, opts = {}
+  def initialize(mq, type, name, opts = {})
     @mq = mq
     @type, @name, @opts = type, name, opts
     @mq.exchanges[@name = name] ||= self
@@ -54,8 +55,8 @@ MQ::Exchange.class_eval do
 
     @mq.callback{
       @mq.send AMQP::Protocol::Exchange::Declare.new({ :exchange => name,
-                                                 :type => type,
-                                                 :nowait => true }.merge(opts))
+                                                       :type => type,
+                                                       :nowait => true }.merge(opts))
     } unless name == "amq.#{type}" or name == ''  or opts[:no_declare]
   end
 end
@@ -65,10 +66,17 @@ begin
   require 'amqp'
 
   AMQP::Client.module_eval do
-    def reconnect force = false
+    def reconnect(force = false)
       if @reconnecting and not force
-        # wait 1 second after first reconnect attempt, in between each subsequent attempt
-        EM.add_timer(1){ reconnect(true) }
+        # Wait 1 second after first reconnect attempt, in between each subsequent attempt
+        EM.add_timer(1) do
+          begin
+             reconnect(true)
+          rescue Exception => e
+            msg = "AMQP client reconnect failed with exception: #{e.message}"
+            RightScale::RightLinkLog.error(msg + "\n" + e.backtrace.join("\n"))
+          end
+        end
         return
       end
 
@@ -86,11 +94,18 @@ begin
         again = again.call if again.is_a?(Proc)
 
         if again == false
-          #do not retry connection
+          # Do not retry connection
           raise StandardError, "Could not reconnect to server #{@settings[:host]}:#{@settings[:port]}"
         elsif again.is_a?(Numeric)
-          #retry connection after N seconds
-          EM.add_timer(again){ reconnect(true) }
+          # Retry connection after N seconds
+          EM.add_timer(again) do
+            begin
+              reconnect(true)
+            rescue Exception => e
+              msg = "AMQP client reconnect failed with exception: #{e.message}"
+              RightScale::RightLinkLog.error(msg + "\n" + e.backtrace.join("\n"))
+            end
+          end
           return
         elsif (again != true && again != nil)
           raise StandardError, "Could not interpret reconnection retry action #{again}"
@@ -98,9 +113,10 @@ begin
       end
 
       log 'reconnecting'
-      EM.reconnect @settings[:host], @settings[:port], self
+      EM.reconnect(@settings[:host], @settings[:port], self)
     end
   end
+
 rescue LoadError
   # LoadError indicates that the AMQP gem is not installed; we can ignore this
 end

@@ -272,7 +272,14 @@ module RightScale
         @inputs_patch = ChefState.empty_patch
       end
       @auditor.update_status("completed: #{@description}")
-      EM.next_tick { succeed }
+      EM.next_tick do
+        begin
+          succeed
+        rescue Exception => e
+          msg = "ExecutableSequence report success failed with exception: #{e.message}"
+          RightLinkLog.error(msg + "\n" + e.backtrace.join("\n"))
+        end
+      end
       true
     end
 
@@ -290,7 +297,14 @@ module RightScale
       @auditor.update_status("failed: #{ @description }")
       @auditor.append_error(title, :category=>RightScale::EventCategories::CATEGORY_ERROR)
       @auditor.append_error(msg)
-      EM.next_tick { fail }
+      EM.next_tick do
+        begin
+          fail
+        rescue Exception => e
+          msg = "ExecutableSequence report failure failed with exception: #{e.message}"
+          RightLinkLog.error(msg + "\n" + e.backtrace.join("\n"))
+        end
+      end
       true
     end
 
