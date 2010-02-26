@@ -325,6 +325,8 @@ module RightScale
           @@agent = Agent.start(@options)
         end
 
+      rescue SystemExit
+        raise # Let parents of forked (daemonized) processes die
       rescue Exception => e
         puts "#{name} failed with: #{e.message} in \n#{e.backtrace.join("\n")}"
       end
