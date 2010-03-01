@@ -20,46 +20,43 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-module RightScale
+require File.join(File.dirname(__FILE__), 'spec_helper')
 
-  # Tracks reenroll votes and trigger reenroll as necessary
-  class ReenrollManager
+describe EventMachine do
 
-    # Number of votes required to trigger re-enroll
-    REENROLL_THRESHOLD = 3
+  it "should not repeatedly run deferred task if task raises an exception" do
+    error = nil
+    count = 0
+    EM.error_handler { |e| error = e; raise e if (count += 1) > 1 }
 
-    # Delay in seconds until votes count is reset if no more votes occur
-    # This value should be more than two hours as this is the period at which
-    # votes will get generated in offline mode
-    RESET_DELAY = 7200 # 2 hours
-
-    # Vote for re-enrolling, if threshold is reached re-enroll
-    # If no vote occurs in the next two hours, then reset counter
-    #
-    # === Return
-    # true:: Always return true
-    def self.vote
-      @total_votes ||= 0
-      @reenrolling ||= false
-      @total_votes += 1
-      @reset_timer.cancel if @reset_timer
-      @reset_timer = EM::Timer.new(RESET_DELAY) { reset_votes }
-      if @total_votes >= REENROLL_THRESHOLD && !@reenrolling
-        @reenrolling = true
-        system('rs_reenroll')
+    begin
+      EM.run do
+        EM.add_timer(1) { EM.next_tick { EM.stop } }
+        EM.next_tick { raise 'test' }
       end
-      true
+    rescue Exception => error
+      error.should == nil
     end
 
-    # Reset votes count
-    #
-    # === Return
-    # true:: Always return true
-    def self.reset_votes
-      @total_votes = 0
-      @reset_timer = nil
-      true
-    end
+    EM.error_handler(nil)
 
+    error.class.should == RuntimeError
+    error.message.should == 'test'
+    count.should == 1
   end
+
+  it "should end EM loop if deferred task raises an exception and there is no error handler" do
+    count = 0
+    begin
+      EM.run do
+        EM.add_timer(0) { raise 'test' }
+      end
+    rescue Exception => error
+      error.class.should == RuntimeError
+      error.message.should == 'test'
+      count += 1
+    end
+    count.should == 1
+  end
+
 end

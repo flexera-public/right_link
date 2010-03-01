@@ -40,16 +40,11 @@ class InstanceScheduler
     # We need to wait until after the InstanceSetup actor has run its
     # bundle in the Chef thread before we can use it
     EM.next_tick do
-      begin
-        if RightScale::InstanceState.value != 'booting'
-          @running = true
-          EM.defer { run_bundles }
-        else
-          RightScale::InstanceState.observe { |s| EM.defer { run_bundles } if s != 'booting' && !@running; @running = true }
-        end
-      rescue Exception => e
-        msg = "InstanceScheduler initialization failed with exception: #{e.message}"
-        RightScale::RightLinkLog.error(msg + "\n" + e.backtrace.join("\n"))
+      if RightScale::InstanceState.value != 'booting'
+        @running = true
+        EM.defer { run_bundles }
+      else
+        RightScale::InstanceState.observe { |s| EM.defer { run_bundles } if s != 'booting' && !@running; @running = true }
       end
     end
   end
@@ -168,20 +163,13 @@ class InstanceScheduler
         # If we got here through rnac --decommission then there is a callback setup and we should
         # call it. rnac will then tell us to terminate. Otherwise terminate right away.
         if @post_decommission_callback
-          EM.next_tick do
-            begin
-              @post_decommission_callback.call
-            rescue Exception => e
-              msg = "InstanceScheduler post decommission callback failed with exception: #{e.message}"
-              RightScale::RightLinkLog.error(msg + "\n" + e.backtrace.join("\n"))
-            end
-          end
+          EM.next_tick { @post_decommission_callback.call }
         else
           EM.next_tick { terminate rescue nil }
         end
       end
     rescue Exception => e
-      msg = "InstanceScheduler chef bundle execution failed with exception: #{e.message}"
+      msg = "Chef bundle execution failed with exception: #{e.message}"
       RightScale::RightLinkLog.error(msg + "\n" + e.backtrace.join("\n"))
       if bundle != 'end'
         auditor = AuditorProxy.new(bundle.audit_id)

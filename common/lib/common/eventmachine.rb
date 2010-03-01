@@ -20,46 +20,20 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-module RightScale
+module EventMachine
 
-  # Tracks reenroll votes and trigger reenroll as necessary
-  class ReenrollManager
-
-    # Number of votes required to trigger re-enroll
-    REENROLL_THRESHOLD = 3
-
-    # Delay in seconds until votes count is reset if no more votes occur
-    # This value should be more than two hours as this is the period at which
-    # votes will get generated in offline mode
-    RESET_DELAY = 7200 # 2 hours
-
-    # Vote for re-enrolling, if threshold is reached re-enroll
-    # If no vote occurs in the next two hours, then reset counter
-    #
-    # === Return
-    # true:: Always return true
-    def self.vote
-      @total_votes ||= 0
-      @reenrolling ||= false
-      @total_votes += 1
-      @reset_timer.cancel if @reset_timer
-      @reset_timer = EM::Timer.new(RESET_DELAY) { reset_votes }
-      if @total_votes >= REENROLL_THRESHOLD && !@reenrolling
-        @reenrolling = true
-        system('rs_reenroll')
-      end
-      true
+  # Monkey patch so that EM deferred tasks that fail and get caught by an
+  # EM.error_handler get deleted from queue rather than executed repeatedly
+  def self.run_deferred_callbacks
+    until (@resultqueue ||= []).empty?
+      result,cback = @resultqueue.pop
+      cback.call result if cback
     end
 
-    # Reset votes count
-    #
-    # === Return
-    # true:: Always return true
-    def self.reset_votes
-      @total_votes = 0
-      @reset_timer = nil
-      true
+    @next_tick_queue ||= []
+    if (l = @next_tick_queue.length) > 0
+      l.times { cback=@next_tick_queue.shift and cback.call }
     end
-
   end
+
 end

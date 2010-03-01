@@ -321,6 +321,11 @@ module RightScale
 
         puts "#{name} started."
 
+        EM.error_handler do |e|
+          msg = "EM block execution failed with exception: #{e.message}"
+          RightLinkLog.error(msg + "\n" + e.backtrace.join("\n"))
+        end
+
         EM.run do
           @@agent = Agent.start(@options)
         end

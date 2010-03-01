@@ -21,7 +21,6 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 require 'rubygems'
-require File.join(File.dirname(__FILE__), 'right_link_log')
 
 class MQ
   class Queue
@@ -69,14 +68,7 @@ begin
     def reconnect(force = false)
       if @reconnecting and not force
         # Wait 1 second after first reconnect attempt, in between each subsequent attempt
-        EM.add_timer(1) do
-          begin
-             reconnect(true)
-          rescue Exception => e
-            msg = "AMQP client reconnect failed with exception: #{e.message}"
-            RightScale::RightLinkLog.error(msg + "\n" + e.backtrace.join("\n"))
-          end
-        end
+        EM.add_timer(1) { reconnect(true) }
         return
       end
 
@@ -98,14 +90,7 @@ begin
           raise StandardError, "Could not reconnect to server #{@settings[:host]}:#{@settings[:port]}"
         elsif again.is_a?(Numeric)
           # Retry connection after N seconds
-          EM.add_timer(again) do
-            begin
-              reconnect(true)
-            rescue Exception => e
-              msg = "AMQP client reconnect failed with exception: #{e.message}"
-              RightScale::RightLinkLog.error(msg + "\n" + e.backtrace.join("\n"))
-            end
-          end
+          EM.add_timer(again) { reconnect(true) }
           return
         elsif (again != true && again != nil)
           raise StandardError, "Could not interpret reconnection retry action #{again}"

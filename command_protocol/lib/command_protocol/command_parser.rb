@@ -55,16 +55,7 @@ module RightScale
         commands = []
         commands << CommandSerializer.load(@buildup)
         (1..chunks.size - 2).each { |i| commands << CommandSerializer.load(chunks[i]) }
-        commands.each do |cmd|
-          EM.next_tick do
-            begin
-              @callback.call(cmd)
-            rescue Exception => e
-              msg = "CommandParser callback failed with exception: #{e.message}"
-              RightLinkLog.error(msg + "\n" + e.backtrace.join("\n"))
-            end
-          end
-        end
+        commands.each { |cmd| EM.next_tick { @callback.call(cmd) } }
         @buildup = chunks.last
       end
       do_call

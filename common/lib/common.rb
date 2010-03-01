@@ -28,6 +28,7 @@ require 'yaml'
 require 'openssl'
 
 require File.expand_path(File.join(__FILE__, '..', '..', '..', 'config', 'right_link_config'))
+require File.join(File.dirname(__FILE__), 'common', 'eventmachine')
 require File.join(File.dirname(__FILE__), 'common', 'amqp')
 require File.join(File.dirname(__FILE__), 'common', 'util')
 require File.join(File.dirname(__FILE__), 'common', 'config')
