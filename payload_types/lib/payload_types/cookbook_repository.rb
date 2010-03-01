@@ -98,6 +98,7 @@ module RightScale
     def display_name
       name = @url + (@tag && !@tag.empty? ? ":#{@tag}" : '')
     end
+    alias :to_s :display_name
 
     # SVN username or git SSH key
     # Provide compatibility for scraper
