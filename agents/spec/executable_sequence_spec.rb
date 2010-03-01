@@ -127,22 +127,24 @@ describe RightScale::ExecutableSequence do
       run_sequence.should be_false
     end
 
-# FIXME: Occasionally behaves oddly and have not been able to debug
-#    it 'should report invalid attachments' do
-#      @script.should_receive(:packages).and_return(nil)
-#      @script.should_receive(:source).and_return(format_script_text(0))
-#      @sequence = RightScale::ExecutableSequence.new(@bundle)
-#      @sequence.instance_variable_set(:@auditor, @auditor)
-#      attachment = flexmock('A3')
-#      attachment.should_receive(:url).and_return("http://thisurldoesnotexist.wrong")
-#      attachment.should_receive(:file_name).and_return("<FILENAME>") # to display any error message
-#      downloader = RightScale::Downloader.new(retry_period=0.1, use_backoff=false)
-#      @sequence.instance_variable_set(:@downloader, downloader)
-#      flexmock(@auditor).should_receive(:append_error).twice
-#      @script.should_receive(:attachments).at_least.once.and_return([ attachment ])
-#      flexmock(RightScale::RightLinkLog).should_receive(:error)
-#      run_sequence.should be_false
-#    end
+    # Beware that this test may fail if run in a Cox internet service environment because
+    # they redirect 404's to one of their pages. If `curl http://thisurldoesnotexist.wrong`
+    # gives back html code, that is likely the cause of this test failing.
+    it 'should report invalid attachments' do
+      @script.should_receive(:packages).and_return(nil)
+      @script.should_receive(:source).and_return(format_script_text(0))
+      @sequence = RightScale::ExecutableSequence.new(@bundle)
+      @sequence.instance_variable_set(:@auditor, @auditor)
+      attachment = flexmock('A3')
+      attachment.should_receive(:url).and_return("http://thisurldoesnotexist.wrong")
+      attachment.should_receive(:file_name).and_return("<FILENAME>") # to display any error message
+      downloader = RightScale::Downloader.new(retry_period=0.1, use_backoff=false)
+      @sequence.instance_variable_set(:@downloader, downloader)
+      flexmock(@auditor).should_receive(:append_error).twice
+      @script.should_receive(:attachments).at_least.once.and_return([ attachment ])
+      flexmock(RightScale::RightLinkLog).should_receive(:error)
+      run_sequence.should be_false
+    end
 
   end
 
