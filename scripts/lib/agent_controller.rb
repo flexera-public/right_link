@@ -216,11 +216,15 @@ module RightScale
           # ensure log directory exists (for windows, etc.)
           FileUtils.mkdir_p(options[:log_dir]) unless File.directory?(options[:log_dir])
         end
-        
+
         opts.on("--pid-dir DIR") do |dir|
           options[:pid_dir] = dir
         end
-        
+
+        opts.on("--startup-delay SEC") do |sec|
+          options[:startup_delay] = sec.to_i
+        end
+
         opts.on("-f", "--foreground") do
           options[:daemonize] = false
           #Squelch Ruby VM warnings about various things 

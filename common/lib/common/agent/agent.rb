@@ -109,6 +109,7 @@ module RightScale
     # :single_threaded(Boolean):: true indicates to run all operations in one thread; false indicates
     #   to do requested work on EM defer thread and all else, such as pings on main thread
     # :threadpool_size(Integer):: Number of threads in EM thread pool
+    # :infrastructure(Boolean):: true indicates this agent is in the RightScale infrastructure
     #
     # Connection options:
     #
@@ -338,6 +339,20 @@ module RightScale
           end
         end
       end
+
+      if @options[:infrastructure]
+        # An infrastructure agent must also bind to the advertise exchange so that a mapper
+        # that comes up after this agent can learn of its existence 
+        @amq.queue("advertise-#{@identity}").bind(@amq.fanout('advertise')).subscribe do |_, msg|
+          begin
+            receive_any(@serializer.load(msg))
+          rescue Exception => e
+            RightLinkLog.error("RECV #{e.message}")
+            @callbacks[:exception].call(e, msg, self) rescue nil if @callbacks && @callbacks[:exception]
+          end
+        end
+      end
+
       true
     end
 
