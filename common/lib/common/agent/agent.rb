@@ -109,7 +109,7 @@ module RightScale
     # :single_threaded(Boolean):: true indicates to run all operations in one thread; false indicates
     #   to do requested work on EM defer thread and all else, such as pings on main thread
     # :threadpool_size(Integer):: Number of threads in EM thread pool
-    # :infrastructure(Boolean):: true indicates this agent is in the RightScale infrastructure
+    # :infrastructure(Boolean):: true indicates this agent is part of the RightScale infrastructure
     #
     # Connection options:
     #
@@ -338,8 +338,10 @@ module RightScale
       queue = @amq.queue(@identity, :durable => true)
       binding = queue.bind(@amq.direct(@identity, :durable => true))
 
-      # An infrastructure agent must also bind to the advertise exchange so that
-      # a mapper that comes up after this agent can learn of its existence
+      # A RightScale infrastructure agent must also bind to the advertise exchange so that
+      # a mapper that comes up after this agent can learn of its existence. The identity
+      # queue binds to both the identity and advertise exchanges, therefore the advertise
+      # exchange must be durable to match the identity exchange.
       queue.bind(@amq.fanout('advertise', :durable => true)) if @options[:infrastructure]
 
       binding.subscribe(:ack => true) do |info, msg|

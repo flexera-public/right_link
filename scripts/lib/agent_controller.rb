@@ -161,6 +161,7 @@ module RightScale
 
       opts = OptionParser.new do |opts|
         parse_common(opts, options)
+        parse_other_args(opts, options)
 
         opts.on("-s", "--start AGENT") do |a|
           options[:action] = 'run'
@@ -221,10 +222,6 @@ module RightScale
           options[:pid_dir] = dir
         end
 
-        opts.on("--startup-delay SEC") do |sec|
-          options[:startup_delay] = sec.to_i
-        end
-
         opts.on("-f", "--foreground") do
           options[:daemonize] = false
           #Squelch Ruby VM warnings about various things 
@@ -248,6 +245,10 @@ module RightScale
       opts.parse(ARGV)
       resolve_identity(options)
       options
+    end
+
+    # Parse any other arguments used by agent
+    def parse_other_args(opts, options)
     end
 
     protected

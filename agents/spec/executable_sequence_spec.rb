@@ -127,8 +127,8 @@ describe RightScale::ExecutableSequence do
       run_sequence.should be_false
     end
 
-    # Beware that this test may fail if run in a Cox internet service environment because
-    # they redirect 404's to one of their pages. If `curl http://thisurldoesnotexist.wrong`
+    # Beware that this test will fail if run in an internet service environment that
+    # redirects 404's to one of their pages. If `curl http://thisurldoesnotexist.wrong`
     # gives back html code, that is likely the cause of this test failing.
     it 'should report invalid attachments' do
       @script.should_receive(:packages).and_return(nil)

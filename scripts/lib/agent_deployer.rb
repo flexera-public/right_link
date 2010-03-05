@@ -134,6 +134,7 @@ module RightScale
 
       opts = OptionParser.new do |opts|
         parse_common(opts, options)
+        parse_other_args(opts, options)
 
         opts.on('-a', '--actors-dir DIR') do |d|
           options[:actors_dir] = d
@@ -178,6 +179,10 @@ module RightScale
       opts.parse!(ARGV)
       resolve_identity(options)
       options
+    end
+
+    # Parse any other arguments used by agent
+    def parse_other_args(opts, options)
     end
 
 protected
