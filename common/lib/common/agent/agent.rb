@@ -323,36 +323,51 @@ module RightScale
     # === Return
     # true:: Always return true
     def setup_queues
-      [@identity, @shared_queue].each do |queue|
-        if queue
-          # Restrict non-identity queues to only receiving requests
-          receive_method = if queue == @identity then :receive_any else :receive_request end
+      setup_identity_queue
+      setup_shared_queue if @shared_queue
+      true
+    end
 
-          @amq.queue(queue, :durable => true).subscribe(:ack => true) do |info, msg|
-            begin
-              info.ack
-              __send__(receive_method, @serializer.load(msg))
-            rescue Exception => e
-              RightLinkLog.error("RECV #{e.message}")
-              @callbacks[:exception].call(e, msg, self) rescue nil if @callbacks && @callbacks[:exception]
-            end
-          end
+    # Setup identity queue for this agent
+    #
+    # === Return
+    # true:: Always return true
+    def setup_identity_queue
+      # Explicitly create direct exchange and bind queue to it
+      # since may be binding this queue to multiple exchanges
+      queue = @amq.queue(@identity, :durable => true)
+      binding = queue.bind(@amq.direct(@identity, :durable => true))
+
+      # An infrastructure agent must also bind to the advertise exchange so that
+      # a mapper that comes up after this agent can learn of its existence
+      queue.bind(@amq.fanout('advertise', :durable => true)) if @options[:infrastructure]
+
+      binding.subscribe(:ack => true) do |info, msg|
+        begin
+          info.ack
+          receive_any(@serializer.load(msg))
+        rescue Exception => e
+          RightLinkLog.error("RECV #{e.message}")
+          @callbacks[:exception].call(e, msg, self) rescue nil if @callbacks && @callbacks[:exception]
         end
       end
+    end
 
-      if @options[:infrastructure]
-        # An infrastructure agent must also bind to the advertise exchange so that a mapper
-        # that comes up after this agent can learn of its existence 
-        @amq.queue("advertise-#{@identity}").bind(@amq.fanout('advertise')).subscribe do |_, msg|
-          begin
-            receive_any(@serializer.load(msg))
-          rescue Exception => e
-            RightLinkLog.error("RECV #{e.message}")
-            @callbacks[:exception].call(e, msg, self) rescue nil if @callbacks && @callbacks[:exception]
-          end
+    # Setup shared queue for this agent
+    # This queue is only allowed to receive requests
+    #
+    # === Return
+    # true:: Always return true
+    def setup_shared_queue
+      @amq.queue(@shared_queue).subscribe(:ack => true) do |info, msg|
+        begin
+          info.ack
+          receive_request(@serializer.load(msg))
+        rescue Exception => e
+          RightLinkLog.error("RECV #{e.message}")
+          @callbacks[:exception].call(e, msg, self) rescue nil if @callbacks && @callbacks[:exception]
         end
       end
-
       true
     end
 
