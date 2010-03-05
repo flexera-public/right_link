@@ -78,6 +78,23 @@ module RightScale
         else id
       end
     end
+    
+    # Token used to trace execution of operation across multiple packets, may be nil 
+    def trace
+      audit_id = self.respond_to?(:payload) && payload.is_a?(Hash) && payload['audit_id']  
+      tok = self.respond_to?(:token) && token
+      tr = ''
+      if audit_id || tok
+        tr = '<'        
+        if audit_id 
+          tr += audit_id.to_s
+          tr += ':' if tok
+        end
+        tr += tok if tok
+        tr += '>'
+      end
+      tr  
+    end
 
   end # Packet
 
@@ -126,7 +143,7 @@ module RightScale
     end
 
     def to_s(filter=nil)
-      log_msg = "#{super} <#{token}> #{type}"
+      log_msg = "#{super} #{trace} #{type}"
       log_msg += " from #{id_to_s(from)}" if filter.nil? || filter.include?(:from)
       log_msg += " with scope #{scope}" if scope && (filter.nil? || filter.include?(:scope))
       log_msg += " target #{id_to_s(target)}" if target && (filter.nil? || filter.include?(:target))
@@ -181,7 +198,7 @@ module RightScale
     end
 
     def to_s(filter=nil)
-      log_msg = "#{super} <#{token}> #{type}"
+      log_msg = "#{super} #{trace} #{type}"
       log_msg += " from #{id_to_s(from)}" if filter.nil? || filter.include?(:from)
       log_msg += " with scope #{scope}" if scope && (filter.nil? || filter.include?(:scope))
       log_msg += ", target #{id_to_s(target)}" if target && (filter.nil? || filter.include?(:target))
@@ -220,7 +237,7 @@ module RightScale
     end
 
     def to_s(filter=nil)
-      log_msg = "#{super} <#{token}>"
+      log_msg = "#{super} #{trace}"
       log_msg += " from #{id_to_s(from)}" if filter.nil? || filter.include?(:from)
       log_msg += " agent_ids #{agent_ids.inspect}" 
       log_msg += " tags: #{tags.inspect}" 
@@ -253,7 +270,7 @@ module RightScale
     end
 
     def to_s(filter=nil)
-      log_msg = "#{super} <#{token}>"
+      log_msg = "#{super} #{trace}"
       log_msg += " from #{id_to_s(from)}" if filter.nil? || filter.include?(:from)
       log_msg += " to #{id_to_s(to)}" if filter.nil? || filter.include?(:to)
       log_msg += " results: #{results.inspect}" if filter.nil? || filter.include?(:results)
