@@ -67,7 +67,7 @@ module RightScale
       @identity = id
       @pending_requests = {}
       @amqp = start_amqp(@options)
-      @serializer = Serializer.new(options[:format])
+      @serializer = Serializer.new(@options[:format])
       @@instance = self
     end
 
@@ -88,14 +88,14 @@ module RightScale
     # === Return
     # (MQ::Exchange):: AMQP exchange to which request is published
     def request(type, payload = '', opts = {}, &blk)
-      raise "Mapper proxy not initialized" unless identity && options
+      raise "Mapper proxy not initialized" unless identity && @options
       request = Request.new(type, payload, opts)
-      request.from = identity
+      request.from = @identity
       request.token = AgentIdentity.generate
-      request.persistent = opts.key?(:persistent) ? opts[:persistent] : options[:persistent]
-      pending_requests[request.token] = { :result_handler => blk }
+      request.persistent = opts.key?(:persistent) ? opts[:persistent] : @options[:persistent]
+      @pending_requests[request.token] = { :result_handler => blk }
       RightLinkLog.info("SEND #{request.to_s([:tags, :target])}")
-      amqp.queue('request', :no_declare => options[:secure]).publish(serializer.dump(request))
+      @amqp.queue('request', :no_declare => @options[:secure]).publish(@serializer.dump(request))
     end    
 
     # Send push to given agent through the mapper
@@ -112,50 +112,13 @@ module RightScale
     # === Return
     # (MQ::Exchange):: AMQP exchange to which request is published
     def push(type, payload = '', opts = {})
-      raise "Mapper proxy not initialized" unless identity && options
+      raise "Mapper proxy not initialized" unless identity && @options
       push = Push.new(type, payload, opts)
-      push.from = identity
+      push.from = @identity
       push.token = AgentIdentity.generate
-      push.persistent = opts.key?(:persistent) ? opts[:persistent] : options[:persistent]
+      push.persistent = opts.key?(:persistent) ? opts[:persistent] : @options[:persistent]
       RightLinkLog.info("SEND #{push.to_s([:tags, :target])}")
-      amqp.queue('request', :no_declare => options[:secure]).publish(serializer.dump(push))
-    end
-
-    # Send tag query to mapper
-    #
-    # === Options
-    # :persistent(Boolean):: true instructs the AMQP broker to save messages to persistent storage so
-    #   that they aren't lost when the broker is restarted. Default is false.
-    # :secure(Boolean):: true indicates to use Security features of rabbitmq to restrict nanites to themselves
-    #
-    # === Block
-    # Optional block used to process result
-    #
-    # === Return
-    # (MQ::Exchange):: AMQP exchange to which request is published
-    def query_tags(opts, &blk)
-      raise "Mapper proxy not initialized" unless identity && options
-      tag_query = TagQuery.new(identity, opts)
-      tag_query.token = AgentIdentity.generate
-      tag_query.persistent = opts.key?(:persistent) ? opts[:persistent] : options[:persistent]      
-      pending_requests[tag_query.token] = { :result_handler => blk }
-      RightLinkLog.info("SEND #{tag_query.to_s}")
-      amqp.queue('request', :no_declare => options[:secure]).publish(serializer.dump(tag_query))
-    end
-
-    # Update tags registered by mapper for agent
-    #
-    # === Parameters
-    # new_tags(Array):: Tags to be added
-    # obsolete_tags(Array):: Tags to be deleted
-    #
-    # === Return
-    # (MQ::Exchange):: AMQP exchange to which request is published
-    def update_tags(new_tags, obsolete_tags)
-      raise "Mapper proxy not initialized" unless identity && options
-      update = TagUpdate.new(identity, new_tags, obsolete_tags)
-      RightLinkLog.info("SEND #{update.to_s}")
-      amqp.fanout('registration', :no_declare => options[:secure]).publish(serializer.dump(update))
+      @amqp.queue('request', :no_declare => @options[:secure]).publish(@serializer.dump(push))
     end
 
     # Handle final result
@@ -166,7 +129,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def handle_result(res)
-      handlers = pending_requests.delete(res.token)
+      handlers = @pending_requests.delete(res.token)
       handlers[:result_handler].call(res) if handlers && handlers[:result_handler]
       true
     end

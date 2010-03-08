@@ -89,7 +89,6 @@ class InstanceSetup
   def enable_managed_login
     request('/booter/get_login_policy', {:agent_identity => @agent_identity}) do |r|
       res = RightScale::OperationResult.from_results(r)
-
       if res.success?
         policy  = res.content
         auditor = RightScale::AuditorProxy.new(policy.audit_id)
@@ -231,6 +230,8 @@ class InstanceSetup
           msg += ": #{res.content}" if res.content
           yield RightScale::OperationResult.error(msg)
         end
+      else
+        yield RightScale::OperationResult.error("Failed to retrieve agent to get startup tags, got: #{res.content}")
       end
     end
   end

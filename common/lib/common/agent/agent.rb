@@ -287,7 +287,7 @@ module RightScale
     # Receive and process a packet of any type
     #
     # === Parameters
-    # packet(Packet>:: Packet to receive
+    # packet(Packet):: Packet to receive
     #
     # === Return
     # true:: Always return true

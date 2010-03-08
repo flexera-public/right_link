@@ -224,13 +224,15 @@ module RightScale
 
   end # Push
 
-  # Tag query: retrieve agent ids with associated tags that match given tags
+  # Deprecated: instead use Request of type /mapper/list_agents with :tags and :agent_ids in payload
+  #
+  # Tag query: retrieve agents with specified tags and/or ids
   #
   # Options:
   # from  is sender identity
   # opts  Hash of options, two options are supported, at least one must be set:
   #       :tags is an array of tags defining a query that returned agents tags must match
-  #       :agent_ids is an array of agents whose tags should be returned
+  #       :agent_ids is an array of ids of agents that should be returned
   class TagQuery < Packet
 
     attr_accessor :from, :token, :agent_ids, :tags, :persistent

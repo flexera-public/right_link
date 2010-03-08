@@ -153,19 +153,6 @@ module RightScale
         MapperProxy.instance.push(*args)
       end
 
-      # Send tag query to mapper
-      #
-      # === Parameters
-      # args(Array):: Parameters for tag query
-      #
-      # === Block
-      # Optional block to be executed
-      #
-      # === Return
-      # (MQ::Exchange):: AMQP exchange to which tag query is published
-      def query_tags(*args, &blk)
-        MapperProxy.instance.query_tags(*args, &blk)
-      end
     end # InstanceMethods
     
   end # Actor

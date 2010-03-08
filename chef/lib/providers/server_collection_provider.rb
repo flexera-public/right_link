@@ -66,15 +66,20 @@ class Chef
               end
             end
           end
-          RightScale::RequestForwarder.query_tags({:agent_ids => @new_resource.agent_ids, :tags => @new_resource.tags}) do |r|
-            @mutex.synchronize do
-              if status == :pending
-                result = r.results
-                status = :succeeded
-                @timeout_timer.cancel
-                @timeout_timer = nil
-                @loaded_event.signal
+          RightScale::RequestForwarder.request("/mapper/list_agents", :agent_ids => @new_resource.agent_ids, :tags => @new_resource.tags) do |r|
+            res = RightScale::OperationResult.from_results(r)
+            if res.success?
+              @mutex.synchronize do
+                if status == :pending
+                  result = res.content
+                  status = :succeeded
+                  @timeout_timer.cancel
+                  @timeout_timer = nil
+                  @loaded_event.signal
+                end
               end
+            else
+              RightScale::RightLinkLog.error("Failed to get tagged servers, got: #{res.content}")
             end
           end
           @loaded_event.wait(@mutex)
@@ -88,8 +93,8 @@ class Chef
         true
       end
 
-    end
+    end # ServerCollection
 
-  end
+  end # Provider
 
-end
+end # Chef

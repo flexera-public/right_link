@@ -25,32 +25,40 @@ require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'agent
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'agents', 'lib', 'instance', 'dev_state'))
 require 'thread'
 
-# Need to monkey patch to test, flexmock doens't cut it as we need to
-# define a custom behavior that yield and you can't yield from a block
-module RightScale
-  class RequestForwarder
-    def self.query_tags(_, &blk)
-      EM.next_tick do
-         yield @@res if @@res
-      end                                    
-    end
-    def self.set_query_tags_result(res)
-      @@res = Result.new('token', 'to', res, 'from')
-    end
-  end
-end
-
 describe Chef::Provider::ServerCollection do
 
+  before(:all) do
+    @old_request_forwarder = RightScale::RequestForwarder
+
+    # Need to monkey patch to test, flexmock doesn't cut it as we need to
+    # define a custom behavior that yields and you can't yield from a block
+    module RightScale
+      class RequestForwarder
+        def self.request(type, payload = '', opts = {}, &blk)
+          EM.next_tick do
+            yield @@res if @@res
+          end
+        end
+        def self.set_list_agents_result(res)
+          @@res = Result.new('token', 'to', res, 'from')
+        end
+      end
+    end
+  end
+
   before(:each) do
-    @agent_hash = {'agent_id_1' => { 'tags' => ['tag1', 'tag2'] },
-                   'agent_id_2' => { 'tags' => ['tag1', 'tag3'] } }
+    @agents = {'agent_id1' => { 'tags' => ['tag1', 'tag2'] },
+               'agent_id2' => { 'tags' => ['tag1', 'tag3'] } }
     @result = {}
-    @agent_hash.each { |k, v| @result[k] = v['tags'] }
+    @agents.each { |k, v| @result[k] = v['tags'] }
     @resource = Chef::Resource::ServerCollection.new("test")
     @provider = Chef::Provider::ServerCollection.new(nil, @resource)
     @provider.instance_variable_set(:@node, {:server_collection => { 'resource_name' => nil }})
     @provider.instance_variable_set(:@new_resource, flexmock('resource', :name => 'resource_name', :tags => 'tag1', :agent_ids => nil))
+  end
+
+  after(:all) do
+    RightScale::RequestForwarder = @old_request_forwarder
   end
 
   def perform_load
@@ -70,7 +78,7 @@ describe Chef::Provider::ServerCollection do
   end
 
   it 'should load the collection synchronously' do
-    RightScale::RequestForwarder.set_query_tags_result(@agent_hash)
+    RightScale::RequestForwarder.set_list_agents_result({ 'mapper_id1' => RightScale::OperationResult.success(@agents) })
     perform_load
     @provider.instance_variable_get(:@node)[:server_collection]['resource_name'].should == @result
   end
@@ -79,7 +87,7 @@ describe Chef::Provider::ServerCollection do
     old_timeout = Chef::Provider::ServerCollection::QUERY_TIMEOUT
     begin
       Chef::Provider::ServerCollection.const_set(:QUERY_TIMEOUT, 0.5)
-      RightScale::RequestForwarder.set_query_tags_result(nil)
+      RightScale::RequestForwarder.set_list_agents_result(nil)
       perform_load
       @provider.instance_variable_get(:@node)[:server_collection]['resource_name'].should == {}
     ensure

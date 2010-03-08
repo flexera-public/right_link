@@ -73,8 +73,6 @@ module RightScale
       flexmock(MapperProxy).should_receive(:instance).and_return(mapper_proxy).by_default
       mapper_proxy.should_receive(:request).and_yield(@results_factory.success_results)
       mapper_proxy.should_receive(:push)
-      tags = flexmock('tags', :results => { :tags => { 'tags' => ['a_tag'] } })
-      mapper_proxy.should_receive(:query_tags).and_yield(tags)
       InstanceState.init(@identity)
     end
 

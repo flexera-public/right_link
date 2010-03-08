@@ -44,12 +44,16 @@ class InstanceSetup
   def self.login_policy=(login_policy)
     @@login_policy = login_policy
   end
+  def self.agents=(agents)
+    @@agents = agents
+  end
   def request(operation, *args)
     case operation
       when "/booter/set_r_s_version" then yield @@factory.success_results
       when "/booter/get_repositories" then yield @@repos
       when "/booter/get_boot_bundle" then yield @@bundle
       when "/booter/get_login_policy" then yield @@login_policy
+      when "/mapper/list_agents" then yield @@agents
       else raise ArgumentError.new("Don't know how to mock #{operation}")
     end
   end
@@ -105,6 +109,10 @@ describe InstanceSetup do
     InstanceSetup.login_policy = login_policy
     InstanceSetup.repos        = repos
     InstanceSetup.bundle       = bundle
+
+    result = RightScale::OperationResult.success({ 'agent_id1' => { 'tags' => ['tag1'] } })
+    agents = flexmock('result', :results => { 'mapper_id1' => result })
+    InstanceSetup.agents       = agents
 
     EM.run do
       @setup.__send__(:initialize, @agent_identity.to_s)
