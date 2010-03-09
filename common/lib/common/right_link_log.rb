@@ -26,11 +26,14 @@ require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'co
 require 'syslog_logger' unless RightScale::RightLinkConfig[:platform].windows?
 require File.join(File.dirname(__FILE__), 'multiplexer')
 require File.join(File.dirname(__FILE__), 'exceptions')
+require 'singleton'
 
 module RightScale
 
   # Logs both to syslog and to local file
   class RightLinkLog
+
+    include Singleton
 
     # Default formatter for a RightLinkLog
     class Formatter < Logger::Formatter
@@ -40,7 +43,7 @@ module RightScale
       #
       # === Parameters
       # show(Boolean):: Whether time should be shown
-      def self.show_time=(show=false)
+      def show_time=(show=false)
         @@show_time = show
       end
 
@@ -94,6 +97,11 @@ module RightScale
 
     @@inverted_levels_map = nil
 
+    def initialize
+      # Was log ever used?
+      @initialized = false
+    end
+
     # Forward all method calls to underlying Logger object created with init.
     # Return the result of only the first registered logger to keep the interface
     # consistent with that of a Logger.
@@ -104,10 +112,23 @@ module RightScale
     #
     # === Return
     # res(Object):: Result from first registered logger
-    def self.method_missing(m, *args)
-      self.init unless @initialized
-      @logger.level = level_from_sym(self.level) if @level_frozen
+    def method_missing(m, *args)
+      init unless @initialized
+      @logger.level = level_from_sym(level) if @level_frozen
       res = @logger.__send__(m, *args)
+    end
+
+    # Forward all class method calls to the singleton instance to keep the interface as it was
+    #prior to introducing the singleton.
+    #
+    # === Parameters
+    # m(Symbol):: Forwarded method name
+    # args(Array):: Forwarded method arguments
+    #
+    # === Return
+    # res(Object):: Result from first the singleton
+    def self.method_missing(m, *args)
+       RightLinkLog.instance.send(m, *args)
     end
 
     # Map symbol log level to Logger constant
@@ -120,7 +141,7 @@ module RightScale
     #
     # === Raise
     # (RightScale::Exceptions::Argument):: if level symbol is invalid
-    def self.level_from_sym(sym)
+    def level_from_sym(sym)
       raise Exceptions::Argument, "Invalid log level symbol :#{sym}" unless LEVELS_MAP.include?(sym)
       lvl = LEVELS_MAP[sym]
     end
@@ -135,7 +156,7 @@ module RightScale
     #
     # === Raise
     # (RightScale::Exceptions::Argument):: if level is invalid
-    def self.level_to_sym(lvl)
+    def level_to_sym(lvl)
       @@inverted_levels_map ||= LEVELS_MAP.invert
       raise Exceptions::Argument, "Invalid log level: #{lvl}" unless @@inverted_levels_map.include?(lvl)
       sym = @@inverted_levels_map[lvl]
@@ -145,8 +166,8 @@ module RightScale
     #
     # === Return
     # logger(RightScale::Multiplexer):: Multiplexer logger
-    def self.logger
-      self.init unless @initialized
+    def logger
+      init unless @initialized
       logger = @logger
     end
 
@@ -157,9 +178,9 @@ module RightScale
     #
     # === Return
     # @logger(RightScale::Multiplexer):: Multiplexer logger
-    def self.add_logger(logger)
-      self.init unless @initialized
-      logger.level = level_from_sym(self.level)
+    def add_logger(logger)
+      init unless @initialized
+      logger.level = level_from_sym(RightLinkLog.instance.level)
       @logger.add(logger)
     end
 
@@ -170,8 +191,8 @@ module RightScale
     #
     # === Return
     # @logger(RightScale::Multiplexer):: Multiplexer logger
-    def self.remove_logger(logger)
-      self.init unless @initialized
+    def remove_logger(logger)
+      init unless @initialized
       @logger.remove(logger)
     end
 
@@ -184,7 +205,7 @@ module RightScale
     #
     # === Raise
     # RuntimeError:: If logger is already initialized
-    def self.log_to_file_only(val)
+    def log_to_file_only(val)
       raise 'Logger already initialized' if @initialized
       @log_to_file_only = !!val
     end
@@ -194,7 +215,7 @@ module RightScale
     # === Return
     # true:: if logger has been initialized
     # false:: Otherwise
-    def self.initialized
+    def initialized
       @initialized
     end
 
@@ -212,7 +233,7 @@ module RightScale
     #
     # === Raise
     # RuntimeError:: If logger is already initialized
-    def self.program_name=(prog_name)
+    def program_name=(prog_name)
       raise 'Logger already initialized' if @initialized
       @program_name = prog_name
     end
@@ -226,8 +247,8 @@ module RightScale
     #
     # === Return
     # level(Symbol):: New log level, or current level if frozen
-    def self.level=(level)
-      self.init unless @initialized
+    def level=(level)
+      init unless @initialized
       unless @level_frozen
         new_level = case level
           when Symbol  then level_from_sym(level)
@@ -246,8 +267,8 @@ module RightScale
     #
     # === Return
     # level(Symbol):: One of :debug, :info, :warn, :error or :fatal
-    def self.level
-      self.init unless @initialized
+    def level
+      init unless @initialized
       level = level_to_sym(@level)
     end
 
@@ -256,15 +277,12 @@ module RightScale
     #
     # === Return
     # true:: Always return true
-    def self.force_debug
+    def force_debug
       self.level = :debug
       @level_frozen = true
     end
 
     protected
-
-    # Was log ever used?
-    @initialized = false
 
     # Initialize logger
     #
@@ -274,7 +292,7 @@ module RightScale
     #
     # === Return
     # logger(RightScale::Multiplexer):: logger instance
-    def self.init(identity = nil, path = nil)
+    def init(identity = nil, path = nil)
       unless @initialized
         @initialized = true
         @level_frozen = false

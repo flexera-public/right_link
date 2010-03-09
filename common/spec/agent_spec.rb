@@ -21,6 +21,7 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 require File.join(File.dirname(__FILE__), 'spec_helper')
+require 'tmpdir'
 
 describe RightScale::Agent do
 
@@ -204,6 +205,25 @@ describe RightScale::Agent do
       @agent = RightScale::Agent.start(:host => "127.0.0.1")
       @agent.options.should include(:host)
       @agent.options[:host].should == "127.0.0.1"
+    end
+
+    it "for log_dir" do
+      # testing path, remove it before the test to verify the directory is
+      # actually created
+      test_log_path = File.expand_path(File.join(Dir.tmpdir, "right_net", "testing"))
+      FileUtils.rm_rf(test_log_path)
+
+      @agent = RightScale::Agent.start(:log_dir => File.expand_path(File.join(Dir.tmpdir, "right_net", "testing")))
+
+      # passing log_dir will cause log_path to be set to the same value and the
+      # directory wil be created
+      @agent.options.should include(:log_dir)
+      @agent.options[:log_dir].should == test_log_path
+
+      @agent.options.should include(:log_path)
+      @agent.options[:log_path].should == test_log_path
+
+      File.directory?(@agent.options[:log_path]).should == true
     end
 
     it "for log_level should override default (info)" do

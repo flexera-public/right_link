@@ -229,8 +229,11 @@ module RightScale
       @options.update(custom_config.merge(opts))
       @options[:file_root] ||= File.join(@options[:root], 'files')
       @options[:log_path] = false
-      if @options[:daemonize]
+      if @options[:daemonize] || @options[:log_dir]
         @options[:log_path] = (@options[:log_dir] || @options[:root] || Dir.pwd)
+
+        # create the path if is does not exist.  Added for windows, but is a good practice.
+        FileUtils.mkdir_p(@options[:log_dir])
       end
 
       if @options[:identity]

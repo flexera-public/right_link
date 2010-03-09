@@ -153,7 +153,9 @@ module RightScale
     # Monkey path RightLink logger to not log by default
     # Define env var RS_LOG to override this behavior and have
     # the logger log normally
-    alias :original_method_missing :method_missing
+    class << self
+      alias :original_method_missing :method_missing
+    end
     def self.method_missing(m, *args)
       original_method_missing(m, *args) if ENV['RS_LOG']
     end
