@@ -20,10 +20,14 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-ENV['RS_LOG'] = 'true'
+
 require File.join(File.dirname(__FILE__), 'spec_helper')
 
 describe RightScale::RightLinkLog do
+
+  before(:all) do
+    ENV['RS_LOG'] = 'true'
+  end
 
   before(:each) do
     Singleton.__init__(RightScale::RightLinkLog)
@@ -31,6 +35,8 @@ describe RightScale::RightLinkLog do
 
   after(:all) do
     Singleton.__init__(RightScale::RightLinkLog)
+
+    ENV['RS_LOG'] = nil
   end
 
   it 'default level should be info' do
