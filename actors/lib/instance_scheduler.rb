@@ -26,6 +26,8 @@ class InstanceScheduler
 
   expose :schedule_bundle, :execute
 
+  SHUTDOWN_DELAY = 180 # Number of seconds to wait for decommission scripts to finish before forcing shutdown
+
   # Setup signal traps for running decommission scripts
   # Start worker thread for processing executable bundles
   #
@@ -77,7 +79,7 @@ class InstanceScheduler
   # true:: Always return true
   def execute(options)
     options[:agent_identity] = RightScale::AgentIdentity.serialized_from_nanite(@agent_identity)
-    request('/forwarder/schedule_recipe', options) do |r|
+    RightScale::RequestForwarder.request('/forwarder/schedule_recipe', options) do |r|
       res = RightScale::OperationResult.from_results(r)
       unless res.success?
         RightScale::RightLinkLog.info("Failed to execute recipe: #{res.content}")
@@ -94,11 +96,23 @@ class InstanceScheduler
   # === Return
   # res(RightScale::OperationResult):: Status value, either success or error with message
   def schedule_decommission(bundle)
+    # This is the tricky bit: only set a post decommission callback if there wasn't one already set
+    # by 'run_decommission'. This default callback will shutdown the instance for soft-termination.
+    # The callback set by 'run_decommission' can do other things before calling 'terminate' manually.
+    # 'terminate' will *not* shutdown the machine. This is so that when running the decommission
+    # sequence as part of a non-soft termination we don't call shutdown. It also happens to be
+    # useful for testing...
+    # To summarize: if 'schedule_decommission' is called from a RightNet request then shutdown otherwise
+    # don't.
+    Thread.new { sleep SHUTDOWN_DELAY; RightScale::Platform.controller.shutdown } unless @post_decommission_callback
+    @post_decommission_callback ||= lambda { RightScale::Platform.controller.shutdown }
+
     return res = RightScale::OperationResult.error('Instance is already decommissioning') if @decommissioning
     @scheduled_bundles.clear # Cancel any pending bundle
     RightScale::InstanceState.value = 'decommissioning'
     @decommissioning = true
     schedule_bundle(bundle)
+    @scheduled_bundles.push('end')
     res = RightScale::OperationResult.success
   end
 
@@ -111,14 +125,13 @@ class InstanceScheduler
   # true:: Aways return true
   def run_decommission(&callback)
     @post_decommission_callback = callback
-    request('/booter/get_decommission_bundle', :agent_identity => @agent_identity) do |r|
+    RightScale::RequestForwarder.request('/booter/get_decommission_bundle', :agent_identity => @agent_identity) do |r|
       res = RightScale::OperationResult.from_results(r)
       if res.success?
         schedule_decommission(res.content)
       else
         RightScale::RightLinkLog.debug("Failed to retrieve decommission bundle: #{res.content}")
       end
-      @scheduled_bundles.push('end')
     end
     true
   end
@@ -143,8 +156,8 @@ class InstanceScheduler
   # === Return
   # true:: Always return true
   def run_bundles
-  begin
-    bundle = @scheduled_bundles.shift
+    begin
+      bundle = @scheduled_bundles.shift
       if bundle != 'end'
         sequence = RightScale::ExecutableSequence.new(bundle)
         sequence.callback do
@@ -161,11 +174,12 @@ class InstanceScheduler
           RightScale::RequestForwarder.push('/registrar/remove', { :agent_identity => @agent_identity })
         end
         # If we got here through rnac --decommission then there is a callback setup and we should
-        # call it. rnac will then tell us to terminate. Otherwise terminate right away.
-        if @post_decommission_callback
-          EM.next_tick { @post_decommission_callback.call }
+        # call it. rnac will then tell us to terminate.
+        # If we got here through a request then callback is set to shut us down
+        if cb = @post_decommission_callback
+          EM.next_tick { @post_decommission_callback = nil; cb.call }
         else
-          EM.next_tick { terminate rescue nil }
+          EM.next_tick { terminate }
         end
       end
     rescue Exception => e
@@ -175,7 +189,7 @@ class InstanceScheduler
         auditor = AuditorProxy.new(bundle.audit_id)
         auditor.append_error(msg, :category=>RightScale::EventCategories::CATEGORY_ERROR)
       end
-      fail rescue nil
+      fail
     end
     true
   end

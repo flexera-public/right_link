@@ -36,6 +36,7 @@ module RightScale
     class Application < RuntimeError; end
     class Argument < RuntimeError; end
     class IO < RuntimeError; end
+    class PlatformError < StandardError; end
     class Exec < Chef::Exceptions::Exec
       def initialize(msg, cwd=nil)
         super(msg)

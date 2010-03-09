@@ -24,7 +24,6 @@
 # some install-time gem dependency issues.
 
 module RightScale
-  class PlatformError < StandardError; end
 
   # A utility class that provides information about the platform on which RightLink is running.
   # Available information includes:
@@ -75,9 +74,10 @@ module RightScale
       @filesystem = nil
       @shell      = nil
       @ssh        = nil
+      @controller = nil
 
-      @ec2 = nil
-      @rackspace = nil
+      @ec2        = nil
+      @rackspace  = nil
       @eucalyptus = nil
 
       # note that we must defer any use of filesystem until requested because
@@ -151,26 +151,20 @@ module RightScale
       @eucalyptus
     end
 
+    # Controller object
+    #
+    # === Return
+    # c(Controller):: Platform-specific controller object
+    def controller
+      platform_service(:controller)
+    end
+
     # Filesystem config object
     #
     # === Return
     # fs(Filesystem):: Platform-specific filesystem config object
     def filesystem
-      if @filesystem.nil?
-        if linux?
-          require_linux
-          @filesystem = Linux::Filesystem.new
-        elsif mac?
-          require_mac
-          @filesystem = Darwin::Filesystem.new
-        elsif windows?
-          require_windows
-          @filesystem = Win32::Filesystem.new
-        else
-          raise PlatformError.new("Don't know about the filesystem on this platform")
-        end
-      end
-      return @filesystem
+      platform_service(:filesystem)
     end
 
     # Shell information object
@@ -178,21 +172,7 @@ module RightScale
     # === Return
     # platform specific shell information object
     def shell
-      if @shell.nil?
-        if linux?
-          require_linux
-          @shell = Linux::Shell.new
-        elsif mac?
-          require_mac
-          @shell = Darwin::Shell.new
-        elsif windows?
-          require_windows
-          @shell = Win32::Shell.new
-        else
-          raise PlatformError.new("Don't know about the shell on this platform")
-        end
-      end
-      return @shell
+      platform_service(:shell)
     end
 
     # SSH information object
@@ -200,21 +180,7 @@ module RightScale
     # === Return
     # platform specific ssh object
     def ssh
-      if @ssh.nil?
-        if linux?
-          require_linux
-          @ssh = Linux::SSH.new(self)
-        elsif mac?
-          require_mac
-          @ssh = Darwin::SSH.new(self)
-        elsif windows?
-          require_windows
-          @ssh = Win32::SSH.new(self)
-        else
-          raise PlatformError.new("Don't know about the SSH on this platform")
-        end
-      end
-      return @ssh
+      platform_service(:ssh)
     end
 
     # Linux platform-specific platform object
@@ -262,6 +228,38 @@ module RightScale
         when 'rackspace' then @rackspace = true
         when 'eucalyptus' then eucalyptus = true
       end
+    end
+
+    # Retrieve platform specific service implementation
+    #
+    # === Parameters
+    # name(Symbol):: Service name, one of :filesystem, :shell, :ssh, :controller
+    #
+    # === Return
+    # res(Object):: Service instance
+    #
+    # === Raise
+    # RightScale::Exceptions::PlatformError:: If the service is not known
+    def platform_service(name)
+      instance_var = "@#{name.to_s}".to_sym
+      const_name = name.to_s.gsub(/^[a-z]|\s+[a-z]/) { |a| a.upcase }.gsub(/\s/, '') # Poor man's camelize
+
+      unless res = self.instance_variable_get(instance_var)
+        if linux?
+          require_linux
+          res = Linux.const_get(const_name).new
+        elsif mac?
+          require_mac
+          res = Darwin.const_get(const_name).new
+        elsif windows?
+          require_windows
+          res = Win32.const_get(const_name).new
+        else
+          raise PlatformError.new("Don't know about service '#{name}'")
+        end
+        instance_variable_set(instance_var, res)
+      end
+      return res
     end
 
   end

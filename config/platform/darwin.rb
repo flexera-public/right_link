@@ -130,6 +130,13 @@ module RightScale
 
       end
 
+      class Controller
+        # Shutdown machine now
+        def shutdown
+          `shutdown -h now`
+        end
+      end
+
     end
   end
 end

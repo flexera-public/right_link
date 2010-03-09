@@ -152,6 +152,13 @@ module RightScale
 
       end
 
+      class Controller
+        # Shutdown machine now
+        def shutdown
+          `init 0`
+        end
+      end
+
     end
   end
 end
