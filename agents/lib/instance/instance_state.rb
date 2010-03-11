@@ -57,6 +57,9 @@ module RightScale
     # Path to decommission log
     DECOMMISSION_LOG_FILE = File.join(RightLinkConfig[:platform].filesystem.log_dir, 'decommission')
 
+    # Number of seconds to wait for cloud to shutdown instance
+    FORCE_SHUTDOWN_DELAY = 180
+
     # (String) One of STATES
     def self.value
       @@value
@@ -147,7 +150,7 @@ module RightScale
     # RightScale::Exceptions::Argument:: Invalid new value
     def self.value=(val)
       raise RightScale::Exceptions::Argument, "Invalid instance state '#{val}'" unless STATES.include?(val)
-      RightLinkLog.debug("Transitioning state from #{@@value rescue 'nil'} to #{val}")
+      RightLinkLog.info("Transitioning state from #{@@value rescue 'nil'} to #{val}")
       @@value = val
       update_logger
       update_motd
@@ -156,6 +159,23 @@ module RightScale
       write_json(STATE_FILE, { 'value' => val, 'identity' => @@identity, 'uptime' => uptime.to_s, 'startup_tags' => @@startup_tags })
       @observers.each { |o| o.call(val) } if @observers
       val
+    end
+
+    # Ask core agent to shut ourselves down for soft termination
+    # Add a timer to force shutdown if we haven't heard back from the cloud or the request hangs
+    #
+    # === Parameters
+    # user_id(Integer):: ID of user that triggered soft-termination
+    #
+    # === Return
+    # true:: Always return true
+    def self.shutdown(user_id)
+      options = { :agent_identity => @@identity, :state => 'decommissioned', :user_id => user_id }
+      RightScale::RequestForwarder.request('/state_recorder/record', options) do |r|
+        res = RightScale::OperationResult.from_results(r)
+        RightScale::Platform.controller.shutdown unless res.success?
+      end
+      EM.add_timer(FORCE_SHUTDOWN_DELAY) { RightScale::Platform.controller.shutdown }
     end
 
     # Set startup tags

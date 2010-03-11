@@ -35,7 +35,6 @@ class InstanceScheduler
   # agent(RightScale::Agent):: Host agent
   def initialize(agent)
     @scheduled_bundles = Queue.new
-    @decommissioning   = false
     @agent_identity    = agent.identity
     @running           = false
     # Wait until instance setup actor has initialized the instance state
@@ -91,32 +90,36 @@ class InstanceScheduler
   # Schedule decommission, returns an error if instance is already decommissioning
   #
   # === Parameter
-  # bundle(RightScale::ExecutableBundle):: Decommission bundle
+  # options[:bundle](RightScale::ExecutableBundle):: Decommission bundle
+  # options[:user_id](Integer):: User id which requested decommission
   #
   # === Return
   # res(RightScale::OperationResult):: Status value, either success or error with message
-  def schedule_decommission(bundle)
+  def schedule_decommission(options)
+    return res = RightScale::OperationResult.error('Instance is already decommissioning') if RightScale::InstanceState.value == 'decommissioning'
+    options = RightScale::SerializationHelper.symbolize_keys(options)
+
     # This is the tricky bit: only set a post decommission callback if there wasn't one already set
     # by 'run_decommission'. This default callback will shutdown the instance for soft-termination.
     # The callback set by 'run_decommission' can do other things before calling 'terminate' manually.
     # 'terminate' will *not* shutdown the machine. This is so that when running the decommission
-    # sequence as part of a non-soft termination we don't call shutdown. It also happens to be
-    # useful for testing...
-    # To summarize: if 'schedule_decommission' is called from a RightNet request then shutdown otherwise
-    # don't.
-    Thread.new { sleep SHUTDOWN_DELAY; RightScale::Platform.controller.shutdown } unless @post_decommission_callback
-    @post_decommission_callback ||= lambda { RightScale::Platform.controller.shutdown }
+    # sequence as part of a non-soft termination we don't call shutdown.
+    unless @post_decommission_callback
+      @shutdown_timeout = EM::Timer.new(SHUTDOWN_DELAY) { RightScale::InstanceState.shutdown(options[:user_id]) }
+      @post_decommission_callback = lambda { @shutdown_timeout.cancel; RightScale::InstanceState.shutdown(options[:user_id]) }
+    end
 
-    return res = RightScale::OperationResult.error('Instance is already decommissioning') if @decommissioning
     @scheduled_bundles.clear # Cancel any pending bundle
     RightScale::InstanceState.value = 'decommissioning'
-    @decommissioning = true
-    schedule_bundle(bundle)
+    schedule_bundle(options[:bundle])
     @scheduled_bundles.push('end')
     res = RightScale::OperationResult.success
   end
 
   # Schedule decommission and call given block back once decommission bundle has run
+  # Note: Overrides existing post decommission callback if there was one
+  # This is so that if the instance is being hard-terminated after soft-termination has started
+  # then we won't try to tell the core agent to terminate us again once decommission is done
   #
   # === Block
   # Block to yield once decommission is done
@@ -125,12 +128,18 @@ class InstanceScheduler
   # true:: Aways return true
   def run_decommission(&callback)
     @post_decommission_callback = callback
-    RightScale::RequestForwarder.request('/booter/get_decommission_bundle', :agent_identity => @agent_identity) do |r|
-      res = RightScale::OperationResult.from_results(r)
-      if res.success?
-        schedule_decommission(res.content)
-      else
-        RightScale::RightLinkLog.debug("Failed to retrieve decommission bundle: #{res.content}")
+    if RightScale::InstanceState.value == 'decommissioned'
+      # We are already decommissioned, just call the post decommission callback
+      callback.call if callback
+    elsif RightScale::InstanceState.value != 'decommissioning'
+      # Trigger decommission
+      RightScale::RequestForwarder.request('/booter/get_decommission_bundle', :agent_identity => @agent_identity) do |r|
+        res = RightScale::OperationResult.from_results(r)
+        if res.success?
+          schedule_decommission(:bundle => res.content)
+        else
+          RightScale::RightLinkLog.debug("Failed to retrieve decommission bundle: #{res.content}")
+        end
       end
     end
     true
@@ -168,7 +177,7 @@ class InstanceScheduler
         sequence.errback { EM.defer { run_bundles } }
         sequence.run
       else
-        RightScale::InstanceState.value = 'decommissioned' if @decommissioning
+        RightScale::InstanceState.value = 'decommissioned'
         # Tell the registrar to delete our queue
         EM.next_tick do
           RightScale::RequestForwarder.push('/registrar/remove', { :agent_identity => @agent_identity })
