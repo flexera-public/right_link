@@ -156,7 +156,7 @@ protected
       if options[:bundle_type] == :right_script
         opts[:right_script_id] = options[:id] if options[:id]
         opts[:right_script]    = options[:name] if options[:name] && !options[:id]
-        opts[:arguments]       = options[:parameters]
+        opts[:arguments]       = options[:parameters] unless options[:parameters].empty
       else
         opts[:recipe_id] = options[:id] if options[:id]
         opts[:recipe]    = options[:name] if options[:name] && !options[:id]
