@@ -116,8 +116,8 @@ class Chef
             RightScale.popen3(:command        => command,
                               :environment    => env,
                               :target         => self,
-                              :stdout_handler => :on_read_stdout,
-                              :stderr_handler => :on_read_stderr,
+                              :stdout_handler => :on_read_output,
+                              :stderr_handler => :on_read_output,
                               :exit_handler   => :on_exit)
             @execute_exited_event.wait(@execute_mutex)
           end
@@ -133,20 +133,8 @@ class Chef
         #
         # === Return
         # true:: Always return true
-        def on_read_stdout(data)
+        def on_read_output(data)
           ::Chef::Log.info(data)
-        end
-
-        # Data available in STDERR pipe event
-        # Audit error
-        #
-        # === Parameters
-        # data(String):: STDERR data
-        #
-        # === Return
-        # true:: Always return true
-        def on_read_stderr(data)
-          ::Chef::Log.error(data)
         end
 
         # Process exited event
