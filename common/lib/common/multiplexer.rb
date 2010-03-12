@@ -60,6 +60,17 @@ module RightScale
       self
     end
 
+    # Access target at given index
+    #
+    # === Parameters
+    # index(Integer):: Target index
+    #
+    # === Return
+    # target(Object):: Target at index 'index' or nil if none
+    def [](index)
+      target = @targets[index]
+    end
+
     # Forward any method invokation to targets
     #
     # === Parameters

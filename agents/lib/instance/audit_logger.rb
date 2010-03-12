@@ -38,6 +38,9 @@ module RightScale
   # Used in combination with Chef to audit recipe execution output.
   class AuditLogger < ::Logger
 
+    # Underlying auditor proxy
+    attr_reader :auditor
+
     # Initialize audit logger, override Logger initialize since there is no need to initialize @logdev
     #
     # === Parameters
