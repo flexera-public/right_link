@@ -53,6 +53,7 @@ module RightScale
     def initialize(audit_id)
       @audit_id = audit_id
       @buffer = ''
+      @timer = nil
     end
 
     # Update audit summary
@@ -182,7 +183,10 @@ module RightScale
     # === Return
     # Always return true
     def flush_buffer
-      @timer.cancel if @timer
+      if @timer
+        @timer.cancel
+        @timer = nil
+      end
       unless @buffer.empty?
         internal_send_request('append_output', :text => @buffer)
         @buffer = ''
@@ -194,8 +198,11 @@ module RightScale
     # === Return
     # true:: Always return true
     def reset_timer
-      @timer.cancel if @timer
-      @timer = EM::Timer.new(MAX_AUDIT_DELAY) { flush_buffer }
+      # note we are using a single PeriodicTimer because we were running out of
+      # one-shot timers with verbose script output. calling cancel on a one-shot
+      # timer sends a message but does not immediately remove the timer from EM
+      # which maxes out at 1000 one-shot timers.
+      (@timer = EventMachine::PeriodicTimer.new(MAX_AUDIT_DELAY) { flush_buffer }) unless @timer
     end
 
     # Audit formatter method to call to format message sent through +request+
