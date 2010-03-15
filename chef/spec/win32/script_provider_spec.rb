@@ -84,7 +84,12 @@ EOF
           ScriptProviderSpec::TEST_COOKBOOKS_PATH,
           'test::succeed_ruby_recipe') }
       runner.call.should == true
-      Chef::Log.logger.error_text.should include("message for stderr")
+
+      # note that Chef::Mixin::Command has changed to redirect both stdout and
+      # stderr to info because the stderr stream is used for verbose output and
+      # not necessarily errors by some Linux utilities.
+      Chef::Log.logger.error_text.should == "";
+      Chef::Log.logger.info_text.should include("message for stderr")
       Chef::Log.logger.info_text.should include("message for stdout")
     end
 

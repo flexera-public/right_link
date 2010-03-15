@@ -158,8 +158,13 @@ EOF
       # note the powershell write-error method prints the cause of the error
       # (i.e. our script) prior to printing the error message and may insert
       # newlines into the message to wrap it for the console.
-      Chef::Log.logger.error_text.gsub("\n", "").should include("message for stderr")
-      Chef::Log.logger.info_text.should include("message for stdout")
+      #
+      # note that Chef::Mixin::Command has changed to redirect both stdout and
+      # stderr to info because the stderr stream is used for verbose output and
+      # not necessarily errors by some Linux utilities.
+      Chef::Log.logger.error_text.should == "";
+      Chef::Log.logger.info_text.gsub("\n", "").should include("message for stderr")
+      Chef::Log.logger.info_text.gsub("\n", "").should include("message for stdout")
     end
 
     it "should raise exceptions for failing powershell recipes on windows" do
