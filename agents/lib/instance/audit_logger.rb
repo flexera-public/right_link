@@ -101,6 +101,20 @@ module RightScale
       true
     end
 
+    # Start new audit section
+    # Note: This is a special 'log' method which allows us to create audit sections before
+    # running RightScripts
+    #
+    # === Parameters
+    # title(String):: Title of new audit section, will replace audit status as well
+    # options[:category](String):: Optional, must be one of RightScale::EventCategories::CATEGORIES
+    #
+    # === Return
+    # true:: Always return true
+    def create_new_section(title, options={})
+      @auditor.create_new_section(title, options)
+    end
+
   end
 
 end
