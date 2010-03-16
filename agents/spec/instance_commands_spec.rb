@@ -34,7 +34,9 @@ describe RightScale::InstanceCommands do
   it 'should list commands' do
     flexmock(RightScale::CommandIO.instance).should_receive(:reply).and_return do |conn, r|
       conn.should == 42
-      r.count("\n").should == @commands.size + 6
+      # r is YAML, 2 lines for each command, one less command printed (the list command)
+      # plus one header line
+      r.count("\n").should == (@commands.size - 1) * 2 + 1
     end
     RightScale::InstanceCommands.new(@agent_identity, @scheduler).send(:list_command, {:conn => 42}).should be_true
   end

@@ -127,8 +127,10 @@ module RightScale
     #
     # === Return
     # res(Object):: Result from first the singleton
-    def self.method_missing(m, *args)
-       RightLinkLog.instance.send(m, *args)
+    class << self
+      def method_missing(m, *args)
+        RightLinkLog.instance.send(m, *args)
+      end
     end
 
     # Map symbol log level to Logger constant

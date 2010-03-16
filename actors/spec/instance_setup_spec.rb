@@ -63,6 +63,9 @@ describe InstanceSetup do
     @agent_identity = RightScale::AgentIdentity.new('rs', 'test', 1)
     @setup = flexmock(InstanceSetup.allocate)
     @setup.should_receive(:configure_repositories).and_return(RightScale::OperationResult.success)
+    tags_manager_mock = flexmock(RightScale::AgentTagsManager)
+    tags_manager_mock.should_receive(:tags).and_yield []
+    flexmock(RightScale::AgentTagsManager).should_receive(:instance).and_return(tags_manager_mock)
     @auditor = RightScale::AuditorProxyMock.new
     flexmock(RightScale::AuditorProxy).should_receive(:new).and_return(@auditor)
     @results_factory = RightScale::ResultsMock.new

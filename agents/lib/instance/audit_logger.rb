@@ -54,6 +54,19 @@ module RightScale
       @logdev = nil
     end
 
+    # Return level as a symbol
+    #
+    # === Return
+    # level(Symbol):: One of :debug, :info, :warn, :error or :fatal
+    alias :level_orig :level
+    def level
+      level = { Logger::DEBUG => :debug,
+                Logger::INFO  => :info,
+                Logger::WARN  => :warn,
+                Logger::ERROR => :error,
+                Logger::FATAL => :fatal }[level_orig]
+    end
+
     # Raw output
     #
     # === Parameters

@@ -157,7 +157,7 @@ module RightScale
       alias :original_method_missing :method_missing
     end
     def self.method_missing(m, *args)
-      original_method_missing(m, *args) if ENV['RS_LOG']
+      original_method_missing(m, *args) unless [:debug, :info, :warm, :error, :fatal].include?(m)
     end
   end
 end
