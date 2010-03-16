@@ -14,7 +14,7 @@
 #     rad AGENT --user USER --pass PASSWORD --vhost VHOST --port PORT --host HOST
 #     rad AGENT -u USER -p PASSWORD -v VHOST -P PORT -h HOST
 #
-#  === Usage:
+# === Usage:
 #    rad AGENT [options]
 #
 #    options:
@@ -175,8 +175,11 @@ module RightScale
           exit
         end
       end
-
-      opts.parse!(ARGV)
+      begin
+        opts.parse!(ARGV)
+      rescue Exception => e
+        puts e.message + "\nUse rad --help for additional information"
+      end
       resolve_identity(options)
       options
     end

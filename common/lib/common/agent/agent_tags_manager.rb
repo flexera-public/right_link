@@ -31,13 +31,22 @@ module RightScale
     # (Agent) Agent being managed
     attr_accessor :agent
 
-    # Retrieve current agent tags
+    # Retrieve current agent tags and give result to block, asynchronous
+    #
+    # === Block
+    # Given block should take one argument which will be set with an array
+    # initialized with the tags of this instance
     #
     # === Return
-    # tags(Array):: All agent tags
+    # true:: Always return true
     def tags
       raise TypeError, "Must set agent= before using tag manager" unless @agent
-      tags = @agent.tags
+      RequestForwarder.query_tags(:agent_ids => [@agent.identity]) do |res|
+        res = res.results
+        tags = (res.size == 1 ? res[res.keys[0]]['tags'] : [])
+        yield tags
+      end
+      true
     end
 
     # Add given tags to agent

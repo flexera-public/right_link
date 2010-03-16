@@ -19,7 +19,7 @@
 #     rs_run_right_script -i 14 -p APPLICATION=text:Mephisto
 #     rs_run_right_script --identity 14 --parameter APPLICATION=text:Mephisto
 #
-#  === Usage:
+# === Usage:
 #    rs_run_recipe --identity, -i ID [--json, -j JSON_FILE] [--verbose, -v]
 #    rs_run_recipe --name, -n NAME [--json, -j JSON_FILE] [--verbose, -v]
 #    rs_run_right_script --identity, -i ID [--parameter, -p NAME=type:VALUE]* [--verbose, -v]
@@ -123,8 +123,11 @@ module RightScale
         puts version
         exit
       end
-
-      opts.parse!(ARGV)
+      begin
+        opts.parse!(ARGV)
+      rescue Exception => e
+        puts e.message + "\nUse --help for additional information"
+      end
       options
     end
 

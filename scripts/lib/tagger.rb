@@ -1,28 +1,32 @@
 # === Synopsis:
-#   RightScale Log Level Manager (rs_log_level)
-#   (c) 2009 RightScale
+#   RightScale Tagger (rs_tag)
+#   (c) 2010 RightScale
 #
-#   Log level manager allows setting and retrieving the RightLink agent
-#   log level.
+#   Tagger allows querying, adding and removing tags on the current instance
 #
 # === Examples:
-#   Retrieve log level:
-#     rs_log_level
+#   Retrieve all tags:
+#     rs_tag --list
+#     rs_tag -l
 #
-#   Set log level to debug:
-#     rs_log_level --log-level debug
-#     rs_log_level -l debug
+#   Add tag 'a_tag' to instance:
+#     rs_tag --add a_tag
+#     rs_tag -a a_tag
+#
+#   Remove tag 'a_tag':
+#     rs_tag --remove a_tag
+#     rs_tag -r a_tag
 #
 # === Usage
-#    rs_set_log_level [--log-level, -l debug|info|warn|error|fatal]
+#    rs_tag (--list, -l | --add, -a name | --remove, -r name)
 #
 #    Options:
-#      --log-level, -l LVL  Set log level of RightLink agent
-#      --verbose, -v        Display debug information
-#      --help:              Display help
-#      --version:           Display version information
-#
-#    No options prints the current RightLink agent log level
+#      --list, -l        List current server tags
+#      --add, -a NAME    Add tag NAME
+#      --remove, -r NAME Remove tag NAME
+#      --verbose, -v     Display debug information
+#      --help:           Display help
+#      --version:        Display version information
 #
 $:.push(File.dirname(__FILE__))
 
@@ -35,11 +39,11 @@ require File.join(File.dirname(__FILE__), '..', '..', 'actors', 'lib', 'agent_ma
 
 module RightScale
 
-  class LogLevelManager
+  class Tagger
 
     VERSION = [0, 1]
 
-    # Set log level
+    # Manage instance tags
     #
     # === Parameters
     # options(Hash):: Hash of options as defined in +parse_args+
@@ -47,13 +51,24 @@ module RightScale
     # === Return
     # true:: Always return true
     def run(options)
-      level = options[:level]
-      cmd = { :name => (level ? 'set_log_level' : 'get_log_level') }
-      cmd[:level] = level.to_sym if level
+      unless options.include?(:action)
+        puts "Missing argument, rs_tag --help for additional information"
+        exit 1
+      end
+      cmd = { :name => options[:action] }
+      cmd[:tag] = options[:tag] if options[:tag]
       client = CommandClient.new
       begin
-        client.send_command(cmd, options[:verbose]) do |lvl|
-          puts "Agent log level: #{lvl.to_s.upcase}"
+        client.send_command(cmd, options[:verbose]) do |res|
+          if options[:action] == :get_tags
+            if res.empty?
+              puts "No server tag found"
+            else
+              puts "Server tags (#{res.size}):\n#{res.map { |tag| "  - #{tag}" }.join("\n")}\n"
+            end
+          else
+            puts res
+          end
         end
       rescue Exception => e
         fail(e.message)
@@ -70,9 +85,18 @@ module RightScale
 
       opts = OptionParser.new do |opts|
 
-        opts.on('-l', '--log-level LEVEL') do |l|
-          fail("Invalid log level '#{l}'") unless AgentManager::LEVELS.include?(l.to_sym)
-          options[:level] = l
+        opts.on('-l', '--list') do
+          options[:action] = :get_tags
+        end
+
+        opts.on('-a', '--add NAME') do |n|
+          options[:action] = :add_tag
+          options[:tag] = n
+        end
+
+        opts.on('-r', '--remove NAME') do |n|
+          options[:action] = :remove_tag
+          options[:tag] = n
         end
 
         opts.on('-v', '--verbose') do
@@ -94,7 +118,7 @@ module RightScale
       begin
         opts.parse!(ARGV)
       rescue Exception => e
-        puts e.message + "\nUse --help for additional information"
+        puts e.message + "\nUse rs_tag --help for additional information"
       end
       options
     end
@@ -120,14 +144,14 @@ protected
     # === Return
     # ver(String):: Version information
     def version
-      ver = "run_log_level #{VERSION.join('.')} - RightLink's dynamic log level manager (c) 2009 RightScale"
+      ver = "rs_tagger #{VERSION.join('.')} - RightLink's tagger (c) 2010 RightScale"
     end
 
   end
 end
 
 #
-# Copyright (c) 2009 RightScale Inc
+# Copyright (c) 2010 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the

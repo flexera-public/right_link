@@ -33,6 +33,7 @@ echo Installing scripts from $RIGHT_NET_SCRIPTS
 	rm -f /usr/bin/rs_run_recipe
 	rm -f /usr/bin/rs_log_level
 	rm -f /usr/bin/rs_reenroll
+	rm -f /usr/bin/rs_tag
 ln -s $RIGHT_NET_SCRIPTS/rnac.rb /usr/bin/rnac
 chmod a+x $RIGHT_NET_SCRIPTS/rnac.rb
 ln -s $RIGHT_NET_SCRIPTS/rad.rb /usr/bin/rad
@@ -45,3 +46,5 @@ ln -s $RIGHT_NET_SCRIPTS/rs_log_level.rb /usr/bin/rs_log_level
 chmod a+x $RIGHT_NET_SCRIPTS/rs_log_level.rb
 ln -s $RIGHT_NET_SCRIPTS/rs_reenroll.rb /usr/bin/rs_reenroll
 chmod a+x $RIGHT_NET_SCRIPTS/rs_reenroll.rb
+ln -s $RIGHT_NET_SCRIPTS/rs_tag.rb /usr/bin/rs_tag
+chmod a+x $RIGHT_NET_SCRIPTS/rs_tag.rb

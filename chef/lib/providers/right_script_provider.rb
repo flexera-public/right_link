@@ -96,7 +96,7 @@ class Chef
         status = run_script_file(@new_resource.source_file)
         duration = Time.now - run_started_at
         # Security paranoia: wipe inputs from env so next script can't see them
-        @new_resource.parameters.each { |key, val| ENV[key] = nil }
+        @new_resource.parameters.each { |key, _| ENV[key] = nil }
 
         # 3. Handle process exit status
         if status

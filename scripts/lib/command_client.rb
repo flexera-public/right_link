@@ -35,7 +35,7 @@ module RightScale
     # === Parameters
     # options(Hash):: Hash of options and command name
     #   options[:name]:: Command name
-    #   options[:...]:: Other command options
+    #   options[:...]:: Other command specific options, passed through to agent
     # verbose(Boolean):: Whether client should display debug info
     # timeout(Integer):: Number of seconds we should wait for a reply from the instance agent
     #
@@ -53,7 +53,9 @@ module RightScale
         RightLinkLog.error(msg + "\n" + e.backtrace.join("\n"))
       end
       EM.run do
-        EM.connect('127.0.0.1', RightScale::CommandConstants::SOCKET_PORT, ConnectionHandler, options, self)
+        command = options.dup
+        command[:verbose] = verbose
+        EM.connect('127.0.0.1', RightScale::CommandConstants::SOCKET_PORT, ConnectionHandler, command, self)
         EM.add_timer(timeout) { EM.stop; raise 'Timed out waiting for instance agent reply' }
       end
       handler.call(@response) if handler && @response

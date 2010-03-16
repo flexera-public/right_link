@@ -217,32 +217,27 @@ class InstanceSetup
   # === Return
   # true:: Always return true
   def prepare_boot_bundle(&cb)
-    query_tags(:agent_ids => RightScale::AgentIdentity.nanite_from_serialized(@agent_identity)) do |res|
-      res = res.results
-      if res.size > 1
-        yield RightScale::OperationResult.error("Failed to retrieve startup tags, got #{res.inspect}")
+    RightScale::AgentTagsManager.instance.tags do |tags|
+      RightScale::InstanceState.startup_tags = tags
+      if tags.empty?
+        @auditor.append_info("No tags discovered on startup")
       else
-        RightScale::InstanceState.startup_tags = tags = (res.size == 1 ? res[res.keys[0]]['tags'] : [])
-        if tags.empty?
-          @auditor.append_info("No tags discovered on startup")
-        else
-          @auditor.append_info("Tags discovered on startup: '#{tags.join("', '")}'")
-        end
-        options = { :agent_identity => @agent_identity, :audit_id => @auditor.audit_id }
-        request("/booter/get_boot_bundle", options) do |r|
-          res = RightScale::OperationResult.from_results(r)
-          if res.success?
-            bundle = res.content
-            if bundle.executables.any? { |e| !e.ready }
-              retrieve_missing_inputs(bundle) { cb.call(RightScale::OperationResult.success(bundle)) }
-            else
-              yield RightScale::OperationResult.success(bundle)
-            end
+        @auditor.append_info("Tags discovered on startup: '#{tags.join("', '")}'")
+      end
+      options = { :agent_identity => @agent_identity, :audit_id => @auditor.audit_id }
+      request("/booter/get_boot_bundle", options) do |r|
+        res = RightScale::OperationResult.from_results(r)
+        if res.success?
+          bundle = res.content
+          if bundle.executables.any? { |e| !e.ready }
+            retrieve_missing_inputs(bundle) { cb.call(RightScale::OperationResult.success(bundle)) }
           else
-            msg = "Failed to retrieve boot scripts"
-            msg += ": #{res.content}" if res.content
-            yield RightScale::OperationResult.error(msg)
+            yield RightScale::OperationResult.success(bundle)
           end
+        else
+          msg = "Failed to retrieve boot scripts"
+          msg += ": #{res.content}" if res.content
+          yield RightScale::OperationResult.error(msg)
         end
       end
     end

@@ -32,7 +32,7 @@
 #     rnac --start AGENT --foreground
 #     rnac -s AGENT -f
 #
-#  === Usage:
+# === Usage:
 #    rnac [options]
 #
 #    options:
@@ -242,7 +242,11 @@ module RightScale
 
       end
 
-      opts.parse(ARGV)
+      begin
+        opts.parse(ARGV)
+      rescue Exception => e
+        puts e.message + "\nUse rnac --help for additional information"
+      end
       resolve_identity(options)
       options
     end

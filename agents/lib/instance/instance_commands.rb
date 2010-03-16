@@ -37,7 +37,10 @@ module RightScale
       :set_log_level    => 'Set log level to options[:level]',
       :get_log_level    => 'Get log level',
       :decommission     => 'Run instance decommission bundle synchronously',
-      :terminate        => 'Terminate agent'
+      :terminate        => 'Terminate agent',
+      :get_tags         => 'Retrieve instance tags',
+      :add_tag          => 'Add given tag',
+      :remove_tag       => 'Remove given tag'
     }
 
     # Build hash of commands associating command names with block
@@ -130,6 +133,32 @@ module RightScale
     def terminate_command(opts)
       CommandIO.instance.reply(opts[:conn], "Terminating")
       @scheduler.terminate
+    end
+
+    # Get tags command
+    #
+    # === Return
+    # true
+    def get_tags_command(opts)
+      RightScale::AgentTagsManager.instance.tags { |t| CommandIO.instance.reply(opts[:conn], t) }
+    end
+
+    # Add given tag
+    #
+    # === Return
+    # true
+    def add_tag_command(opts)
+      RightScale::AgentTagsManager.instance.add_tags(opts[:tag])
+      CommandIO.instance.reply(opts[:conn], "Request to add tag '#{opts[:tag]}' sent successfully.")
+    end
+
+    # Remove given tag
+    #
+    # === Return
+    # true
+    def remove_tag_command(opts)
+      RightScale::AgentTagsManager.instance.remove_tags(opts[:tag])
+      CommandIO.instance.reply(opts[:conn], "Request to remove tag '#{opts[:tag]}' sent successfully.")
     end
 
     # Helper method that sends given request and report status through command IO
