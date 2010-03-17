@@ -346,7 +346,7 @@ module RightScale
       # Explicitly create direct exchange and bind queue to it
       # since may be binding this queue to multiple exchanges
       queue = @amq.queue(@identity, :durable => true)
-      binding = queue.bind(@amq.direct(@identity, :durable => true))
+      binding = queue.bind(@amq.direct(@identity, :durable => true, :auto_delete => true))
 
       # A RightScale infrastructure agent must also bind to the advertise exchange so that
       # a mapper that comes up after this agent can learn of its existence. The identity

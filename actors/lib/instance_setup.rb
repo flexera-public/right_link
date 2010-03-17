@@ -230,8 +230,6 @@ class InstanceSetup
           msg += ": #{res.content}" if res.content
           yield RightScale::OperationResult.error(msg)
         end
-      else
-        yield RightScale::OperationResult.error("Failed to retrieve agent to get startup tags, got: #{res.content}")
       end
     end
   end
