@@ -79,12 +79,20 @@ class Chef
         @new_resource.parameters.each { |key, val| ENV[key] = val }
         ENV['ATTACH_DIR'] = ENV['RS_ATTACH_DIR'] = @new_resource.cache_dir
         ENV['RS_REBOOT']  = RightScale::InstanceState.past_scripts.include?(nickname) ? 'true' : nil
-        # RightScripts expect to find RS_DISTRO or RS_DIST in the environment; provide it for them.
+        # RightScripts expect to find RS_DISTRO, RS_DIST and RS_ARCH in the environment.
         # Massage the distro name into the format they expect (all lower case, one word, no release info).
         if platform.linux?
           distro = platform.linux.distro.downcase 
           ENV['RS_DISTRO'] = distro
           ENV['RS_DIST']   = distro
+          arch_info=`uname -i`.downcase + `uname -m`.downcase
+          if arch_info =~ /i386/ || arch_info =~ /i686/
+              ENV['RS_ARCH'] = "i386"
+          elsif arch_info =~ /64/
+              ENV['RS_ARCH'] = "x86_64"
+          else
+              ENV['RS_ARCH'] = "unknown"
+          end
         end
 
         # 2. Fork and wait
