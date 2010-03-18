@@ -118,7 +118,8 @@ class Chef
                               :target         => self,
                               :stdout_handler => :on_read_output,
                               :stderr_handler => :on_read_output,
-                              :exit_handler   => :on_exit)
+                              :exit_handler   => :on_exit,
+                              :temp_dir       => RightScale::InstanceConfiguration::CACHE_PATH)
             @execute_exited_event.wait(@execute_mutex)
           end
 
