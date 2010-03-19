@@ -66,6 +66,7 @@ describe InstanceScheduler do
     @success_result = { '1' => RightScale::OperationResult.success(@bundle) }
     @decommissioning_args = [ '/state_recorder/record', { :state => 'decommissioning', :agent_identity => '1' }, Proc ]
     @decommissioned_args = [ '/state_recorder/record', { :state => 'decommissioned', :agent_identity => '1', :user_id => 42 }, Proc ]
+    setup_script_execution
   end
 
   after(:all) do
