@@ -154,26 +154,31 @@ module RightScale
     def run
       RightLinkLog.init(@identity, @options[:log_path])
       RightLinkLog.level = @options[:log_level] if @options[:log_level]
-      @serializer = Serializer.new(@options[:format])
-      @status_proc ||= lambda { parse_uptime(`uptime 2> /dev/null`) rescue 'no status' }
-      pid_file = PidFile.new(@identity, @options)
-      pid_file.check
-      if @options[:daemonize]
-        daemonize(@identity, @options)
-        pid_file.write
-        at_exit { pid_file.remove }
+      begin
+        @serializer = Serializer.new(@options[:format])
+        @status_proc ||= lambda { parse_uptime(`uptime 2> /dev/null`) rescue 'no status' }
+        pid_file = PidFile.new(@identity, @options)
+        pid_file.check
+        if @options[:daemonize]
+          daemonize(@identity, @options)
+          pid_file.write
+          at_exit { pid_file.remove }
+        end
+        @amq = start_amqp(@options)
+        @registry = ActorRegistry.new
+        @dispatcher = Dispatcher.new(@amq, @registry, @serializer, @identity, @options)
+        setup_mapper_proxy
+        load_actors
+        setup_traps
+        setup_queues
+        advertise_services
+        setup_heartbeat
+        at_exit { un_register } unless $TESTING
+        start_console if @options[:console] && !@options[:daemonize]
+      rescue Exception => e
+        RightLinkLog.error("Agent failed startup: #{e.message}\n" + e.backtrace.join("\n"))
+        raise e
       end
-      @amq = start_amqp(@options)
-      @registry = ActorRegistry.new
-      @dispatcher = Dispatcher.new(@amq, @registry, @serializer, @identity, @options)
-      setup_mapper_proxy
-      load_actors
-      setup_traps
-      setup_queues
-      advertise_services
-      setup_heartbeat
-      at_exit { un_register } unless $TESTING
-      start_console if @options[:console] && !@options[:daemonize]
       true
     end
 
