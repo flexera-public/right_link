@@ -390,6 +390,18 @@ module RightScale
           return cmd + " 1>#{target} 2>&1"
         end
 
+        # Gets the current system uptime.
+        #
+        # === Return
+        # the time the machine has been up in seconds, 0 if there was an error.
+        def uptime
+          begin
+            # convert to int then to float because float response parsed time does not have enough precision to be a float.  
+            return (Time.now - Time.parse(`echo | wmic OS Get LastBootUpTime`.match(/(\d{14})\.\d{6}(-\d{3})/)[1..2].to_s)).to_i.to_f
+          rescue
+            return 0.0
+          end
+        end
       end
 
       class Controller

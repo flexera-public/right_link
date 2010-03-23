@@ -110,7 +110,8 @@ module RightScale
       File.makedirs(agent_dir) unless File.exist?(agent_dir)
       conf_file = config_file(options[:agent])
       File.delete(conf_file) if File.exist?(conf_file)
-      File.open(conf_file, 'w') do |fd|
+      File.open(conf_file, 'w') { |fd| fd.puts "# Created at #{Time.new}" }
+      File.open(conf_file, 'a') do |fd|
         fd.write(YAML.dump(cfg))
       end
       unless options[:quiet]

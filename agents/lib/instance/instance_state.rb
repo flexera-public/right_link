@@ -285,7 +285,7 @@ module RightScale
     # === Return
     # uptime(Float):: Uptime of this system in seconds, or 0.0 if undetermined 
     def self.uptime()
-      return File.read('/proc/uptime').split(/\s+/)[0].to_f rescue 0.0
+      return RightScale::RightLinkConfig[:platform].shell.uptime
     end
 
     # Purely for informational purposes, attempt to update the Unix MOTD file

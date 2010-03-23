@@ -150,6 +150,13 @@ module RightScale
           return cmd + " 1>#{target} 2>&1"
         end
 
+        # Gets the current system uptime.
+        #
+        # === Return
+        # the time the machine has been up in seconds, 0 if there was an error.
+        def uptime
+          return File.read('/proc/uptime').split(/\s+/)[0].to_f rescue 0.0
+        end
       end
 
       class Controller
