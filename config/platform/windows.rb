@@ -145,7 +145,7 @@ module RightScale
         # Temp directory for the current platform
         def temp_dir
           if @temp_dir.nil?
-            @@get_temp_dir_api = Windows::API.new('GetTempPath', 'LP', 'L') unless @@get_temp_dir_api
+            @@get_temp_dir_api = Win32::API.new('GetTempPath', 'LP', 'L') unless @@get_temp_dir_api
             buffer = 0.chr * MAX_PATH
             @@get_temp_dir_api.call(buffer.length, buffer)
             @temp_dir = pretty_path(buffer.unpack('A*').first.chomp('\\'))
@@ -176,7 +176,7 @@ module RightScale
         # === Return
         # short_path(String):: short path equivalent or same path if non-existent
         def long_path_to_short_path(long_path)
-          @@get_short_path_name = Windows::API.new('GetShortPathName', 'PPL', 'L') unless @@get_short_path_name
+          @@get_short_path_name = Win32::API.new('GetShortPathName', 'PPL', 'L') unless @@get_short_path_name
           if File.exists?(long_path)
             length = MAX_PATH
             while true
