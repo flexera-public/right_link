@@ -22,7 +22,7 @@
 
 class Chef
   class Provider
-    class Win32Unsupported < Chef::Provider::Execute
+    class WindowsUnsupported < Chef::Provider::Execute
 
       class UnsupportedException < StandardError
         def initialize(resource)
@@ -40,12 +40,12 @@ class Chef
 end
 
 # self-register
-Chef::Platform.platforms[:windows][:default].merge!(:link => Chef::Provider::Win32Unsupported,      # not yet implemented. NTFS supports hard & symbolic links.
-                                                    :mount => Chef::Provider::Win32Unsupported,     # not yet implemented. NTFS supports mount points.
-                                                    :service => Chef::Provider::Win32Unsupported,   # not yet implemented. 'net' commands are used to start/stop services.
-                                                    :bash => Chef::Provider::Win32Unsupported,      # we don't intend to support Linux
-                                                    :csh => Chef::Provider::Win32Unsupported,       #  shells under Windows.
-                                                    :user => Chef::Provider::Win32Unsupported,      # not yet implemented. need a custom provider.
-                                                    :group => Chef::Provider::Win32Unsupported,     # not yet implemented. need a custom provider.
-                                                    :route => Chef::Provider::Win32Unsupported,     # not yet implemented. WMI supports DNS configuration.
-                                                    :ifconfig => Chef::Provider::Win32Unsupported)  # not yet implemented. WMI supports DNS configuration.
+Chef::Platform.platforms[:windows][:default].merge!(:link => Chef::Provider::WindowsUnsupported,      # not yet implemented. NTFS supports hard & symbolic links.
+                                                    :mount => Chef::Provider::WindowsUnsupported,     # not yet implemented. NTFS supports mount points.
+                                                    :service => Chef::Provider::WindowsUnsupported,   # not yet implemented. 'net' commands are used to start/stop services.
+                                                    :bash => Chef::Provider::WindowsUnsupported,      # we don't intend to support Linux
+                                                    :csh => Chef::Provider::WindowsUnsupported,       #  shells under Windows.
+                                                    :user => Chef::Provider::WindowsUnsupported,      # not yet implemented. need a custom provider.
+                                                    :group => Chef::Provider::WindowsUnsupported,     # not yet implemented. need a custom provider.
+                                                    :route => Chef::Provider::WindowsUnsupported,     # not yet implemented. WMI supports DNS configuration.
+                                                    :ifconfig => Chef::Provider::WindowsUnsupported)  # not yet implemented. WMI supports DNS configuration.

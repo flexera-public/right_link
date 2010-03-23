@@ -52,7 +52,7 @@ cloud_state_dir File.join(platform.filesystem.spool_dir, 'cloud')
 # this file due to chicken-and-egg problems with mixlib-config. If you change it
 # here, please change it there and vice-versa.
 if platform.windows?
-  # note that we cannot use the provided win32 gem.bat because it pulls any
+  # note that we cannot use the provided windows gem.bat because it pulls any
   # ruby.exe on the PATH instead of using the companion ruby.exe from the same
   # bin directory.
   candidate_path = File.join(platform.filesystem.company_program_files_dir, 'SandBox')
@@ -62,7 +62,7 @@ if platform.windows?
     # We need to specify the path to the ruby interpreter we need to use as the gem implementation
     # on Windows will pick whichever ruby is in the path
     sandbox_gem_cmd  "\"#{sandbox_ruby_cmd}\" \"#{File.join(sandbox_path, 'Ruby', 'bin', 'gem.exe')}\""
-    sandbox_git_cmd  File.join(sandbox_path, 'bin', 'win32', 'git.cmd')
+    sandbox_git_cmd  File.join(sandbox_path, 'bin', 'windows', 'git.cmd')
   else
     # Development setup
     sandbox_path nil

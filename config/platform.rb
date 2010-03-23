@@ -213,7 +213,7 @@ module RightScale
     end
 
     def require_windows
-      require File.expand_path(File.join(File.dirname(__FILE__), 'platform', 'win32'))
+      require File.expand_path(File.join(File.dirname(__FILE__), 'platform', 'windows'))
     end
 
     # Determines which cloud we're on by the cheap but simple expedient of
@@ -253,7 +253,7 @@ module RightScale
           res = Darwin.const_get(const_name).new
         elsif windows?
           require_windows
-          res = Win32.const_get(const_name).new
+          res = Windows.const_get(const_name).new
         else
           raise PlatformError.new("Don't know about service '#{name}'")
         end

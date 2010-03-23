@@ -63,12 +63,12 @@ Chef::Platform.platforms[:default].merge!(:dns                 => Chef::Provider
 
 if RightScale::RightLinkConfig[:platform].windows?
 
-  # create the Windows default platform hash before loading win32 providers.
+  # create the Windows default platform hash before loading windows providers.
   Chef::Platform.platforms[:windows] = { :default => { } } unless Chef::Platform.platforms[:windows]
 
-  # load (and self-register) all win32 providers
-  win32_providers = File.join(File.dirname(__FILE__), 'providers', 'win32', '*.rb').gsub("\\", "/")
-  Dir[win32_providers].each do |rb_file|
+  # load (and self-register) all Windows providers
+  windows_providers = File.join(File.dirname(__FILE__), 'providers', 'windows', '*.rb').gsub("\\", "/")
+  Dir[windows_providers].each do |rb_file|
     require File.expand_path(rb_file)
   end
 

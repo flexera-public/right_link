@@ -60,7 +60,7 @@ end
 
 module RightScale
   class Platform
-    class Win32
+    class Windows
 
       class Filesystem
         MAX_PATH = 260
@@ -202,7 +202,7 @@ module RightScale
           end
         end
 
-        # specific to the win32 environment to aid in resolving paths to
+        # specific to the windows environment to aid in resolving paths to
         # executables in test scenarios.
         def company_program_files_dir
           return pretty_path(File.join(Dir::PROGRAM_FILES, 'RightScale'))
