@@ -1,0 +1,9 @@
+ChefNodeCmdlet/Debug/
+ChefNodeCmdlet/Release/
+ChefNodeCmdlet/ChefNodeCmdlet/obj
+ChefNodeCmdlet/TestChefNodeCmdlet/obj
+bin/ChefNodeCmdlet.dll
+*.aps
+*.ncb
+*.suo
+*.csproj.user
