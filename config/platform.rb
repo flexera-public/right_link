@@ -242,7 +242,7 @@ module RightScale
     # RightScale::Exceptions::PlatformError:: If the service is not known
     def platform_service(name)
       instance_var = "@#{name.to_s}".to_sym
-      const_name = name.to_s.gsub(/^[a-z]|\s+[a-z]/) { |a| a.upcase }.gsub(/\s/, '') # Poor man's camelize
+      const_name = name.to_s.camelize
 
       unless res = self.instance_variable_get(instance_var)
         if linux?

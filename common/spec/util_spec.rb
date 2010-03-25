@@ -80,4 +80,20 @@ describe String do
 
   end
 
+  describe '.camelize' do
+
+    it 'should camelize the string' do
+      'hello/world_hello'.camelize.should == 'Hello::WorldHello'
+    end
+
+    it 'should camelize strings with integers' do
+      '1hel2lo3/4wor5ld6_7hel8lo9'.camelize.should == '1hel2lo3::4wor5ld67hel8lo9'
+    end
+
+    it 'should leave camelized strings alone' do
+      '1Hel2lo3::4Wor5ld67Hel8lo9'.camelize.should == '1Hel2lo3::4Wor5ld67Hel8lo9'
+    end
+    
+  end
+
 end # String

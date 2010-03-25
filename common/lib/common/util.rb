@@ -53,7 +53,7 @@ class String
 
   # Convert constant name to constant
   #
-  # "FooBar::Baz".to_const => FooBar::Baz
+  #    "FooBar::Baz".to_const => FooBar::Baz
   #
   # @return [Constant] Constant corresponding to given name or nil if no
   #   constant with that name exists
@@ -70,6 +70,18 @@ class String
     end
     constant
   end
+
+  # Reverse operation of snake case:
+  #
+  #    "some_string/some_other_string" => "SomeString::SomeOtherString"
+  #
+  # @return [String] Camelized string
+  #
+  # @api public
+  def camelize
+    gsub(/\/(.?)/) { "::" + $1.upcase }.gsub(/(^|_)(.)/) { $2.upcase }
+  end
+
 end
 
 class Object
