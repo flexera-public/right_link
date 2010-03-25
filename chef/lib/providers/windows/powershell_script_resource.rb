@@ -27,24 +27,24 @@ class Chef
 
   class Resource
 
-    # Powershell chef resource.
-    # Allows defining recipes which wrap Powershell v1.0 scripts.
+    # Powershell script chef resource.
+    # Allows defining recipes which wrap Powershell scripts.
     #
     # === Example
     # powershell "My Powershell Script" do
-    #   source "write-output \"Running powershell v1.0 script\""
+    #   source "write-output \"Running powershell script\""
     # end
-    class Powershell < Chef::Resource::Script
+    class PowershellScript < Chef::Resource::Script
 
-      # Initialize Powershell resource with default values
+      # Initialize Powershell script resource with default values
       #
       # === Parameters
-      # name(String):: Nickname of Powershell
+      # name(String):: Nickname of Powershell script
       # collection(Array):: Collection of included recipes
       # node(Chef::Node):: Node where resource will be used
       def initialize(name, collection=nil, node=nil)
         super(name, collection, node)
-        @resource_name = :powershell
+        @resource_name = :powershell_script
         @interpreter = "powershell"
         @parameters = {}
         @source = nil
