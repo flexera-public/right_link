@@ -28,7 +28,7 @@ if RightScale::RightLinkConfig[:platform].windows?
   require File.expand_path(File.join(File.dirname(__FILE__), '..', 'mock_auditor_proxy'))
   require File.expand_path(File.join(File.dirname(__FILE__), '..', 'chef_runner'))
 
-  module PowershellScriptProviderSpec
+  module PowershellProviderSpec
     TEST_TEMP_PATH = File.expand_path(File.join(Dir.tmpdir, "powershell-provider-spec-17AE1F97-496D-4f07-ABD7-4D989FA3D7A6"))
     TEST_COOKBOOKS_PATH = RightScale::Test::ChefRunner.get_cookbooks_path(TEST_TEMP_PATH)
 
@@ -124,19 +124,19 @@ EOF
   # artifacts, but this seems like overkill for a standalone Chef test.
   class Chef
     class Provider
-      class PowershellScript
+      class Powershell
         def instance_state
-          return PowershellScriptProviderSpec::MockInstanceState
+          return PowershellProviderSpec::MockInstanceState
         end
       end
     end
   end
 
-  describe Chef::Provider::PowershellScript do
+  describe Chef::Provider::Powershell do
 
     before(:all) do
       @old_logger = Chef::Log.logger
-      PowershellScriptProviderSpec.create_cookbook
+      PowershellProviderSpec.create_cookbook
     end
 
     before(:each) do
@@ -145,13 +145,13 @@ EOF
 
     after(:all) do
       Chef::Log.logger = @old_logger
-      PowershellScriptProviderSpec.cleanup
+      PowershellProviderSpec.cleanup
     end
 
     it "should run powershell recipes on windows" do
       runner = lambda {
         RightScale::Test::ChefRunner.run_chef(
-          PowershellScriptProviderSpec::TEST_COOKBOOKS_PATH,
+          PowershellProviderSpec::TEST_COOKBOOKS_PATH,
           'test::succeed_powershell_recipe') }
       runner.call.should == true
 
@@ -170,7 +170,7 @@ EOF
     it "should raise exceptions for failing powershell recipes on windows" do
       runner = lambda {
         RightScale::Test::ChefRunner.run_chef(
-          PowershellScriptProviderSpec::TEST_COOKBOOKS_PATH,
+          PowershellProviderSpec::TEST_COOKBOOKS_PATH,
           'test::fail_powershell_recipe') }
       runner.should raise_error(RightScale::Exceptions::Exec)
     end
@@ -178,7 +178,7 @@ EOF
     it "should not raise exceptions for expected exit codes on windows" do
       runner = lambda {
         RightScale::Test::ChefRunner.run_chef(
-          PowershellScriptProviderSpec::TEST_COOKBOOKS_PATH,
+          PowershellProviderSpec::TEST_COOKBOOKS_PATH,
           'test::expected_exit_code_recipe') }
       runner.call.should == true
     end
@@ -197,7 +197,7 @@ EOF
 
       runner = lambda {
         RightScale::Test::ChefRunner.run_chef(
-          PowershellScriptProviderSpec::TEST_COOKBOOKS_PATH,
+          PowershellProviderSpec::TEST_COOKBOOKS_PATH,
           'test::print_pshome_recipe') }
       runner.call.should == true
       Chef::Log.logger.error_text.chomp.should == ""
@@ -207,7 +207,7 @@ EOF
     it "should preserve scripted environment variable changes between powershell scripts" do
       runner = lambda {
         RightScale::Test::ChefRunner.run_chef(
-          PowershellScriptProviderSpec::TEST_COOKBOOKS_PATH,
+          PowershellProviderSpec::TEST_COOKBOOKS_PATH,
           ['test::set_env_var_recipe', 'test::check_env_var_recipe']) }
       runner.call.should == true
     end

@@ -25,15 +25,15 @@ require File.join(File.dirname(__FILE__), '..', 'spec_helper')
 # FIX: rake spec should check parent directory name?
 if RightScale::RightLinkConfig[:platform].windows?
 
-  describe Chef::Resource::PowershellScript do
+  describe Chef::Resource::Powershell do
 
     before(:each) do
-      @resource = Chef::Resource::PowershellScript.new("testing")
+      @resource = Chef::Resource::Powershell.new("testing")
     end
 
-    it "should create a new Chef::Resource::PowershellScript" do
+    it "should create a new Chef::Resource::Powershell" do
       @resource.should be_a_kind_of(Chef::Resource)
-      @resource.should be_a_kind_of(Chef::Resource::PowershellScript)
+      @resource.should be_a_kind_of(Chef::Resource::Powershell)
     end
 
     it "should have a name of powershell" do

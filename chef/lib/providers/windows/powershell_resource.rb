@@ -27,19 +27,19 @@ class Chef
 
   class Resource
 
-    # Powershell script chef resource.
-    # Allows defining recipes which wrap Powershell scripts.
+    # Powershell chef resource.
+    # Allows defining recipes which wrap Powershell v1.0 scripts.
     #
     # === Example
     # powershell "My Powershell Script" do
-    #   source "write-output \"Running powershell script\""
+    #   source "write-output \"Running powershell v1.0 script\""
     # end
-    class PowershellScript < Chef::Resource::Script
+    class Powershell < Chef::Resource::Script
 
-      # Initialize Powershell script resource with default values
+      # Initialize Powershell resource with default values
       #
       # === Parameters
-      # name(String):: Nickname of Powershell script
+      # name(String):: Nickname of Powershell
       # collection(Array):: Collection of included recipes
       # node(Chef::Node):: Node where resource will be used
       def initialize(name, collection=nil, node=nil)
@@ -51,10 +51,9 @@ class Chef
         @source_path = nil
         @action = :run
         @allowed_actions.push(:run)
-        @provider = Chef::Provider::PowershellScript
       end
 
-      # (String) Powershell script nickname
+      # (String) Powershell nickname
       def nickname(arg=nil)
         set_or_return(
           :nickname,
@@ -63,7 +62,7 @@ class Chef
         )
       end
 
-      # (String) text of Powershell script source code if inline
+      # (String) text of Powershell source code if inline
       def source(arg=nil)
         set_or_return(
           :source,
@@ -72,7 +71,7 @@ class Chef
         )
       end
 
-      # (String) local path for external Powershell script source file if not inline
+      # (String) local path for external Powershell source file if not inline
       def source_path(arg=nil)
         set_or_return(
           :source_path,
@@ -81,7 +80,7 @@ class Chef
         )
       end
 
-      # (Hash) Powershell script parameters values keyed by names
+      # (Hash) Powershell parameters values keyed by names
       def parameters(arg=nil)
         return environment if arg.nil?
 

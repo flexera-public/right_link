@@ -27,14 +27,14 @@ class Chef
 
   class Provider
 
-    # Powershell script chef provider.
-    class PowershellScript < Chef::Provider::Execute
+    # Powershell chef provider.
+    class Powershell < Chef::Provider::Execute
 
       # use a unique dir name instead of cluttering temp directory with leftover
       # scripts like the original script provider.
       SCRIPT_TEMP_DIR_PATH = ::File.join(::Dir.tmpdir, "chef-powershell-06D9AC00-8D64-4213-A46A-611FBAFB4426")
 
-      # No concept of a 'current' resource for Powershell script execution, this is a no-op
+      # No concept of a 'current' resource for Powershell execution, this is a no-op
       #
       # === Return
       # true:: Always return true
@@ -42,7 +42,7 @@ class Chef
         true
       end
 
-      # Actually run Powershell script
+      # Actually run Powershell
       # Rely on RightScale::popen3 to spawn process and receive both standard and error outputs.
       # Synchronize with EM thread so that execution is synchronous even though RightScale::popen3 is asynchronous.
       #
@@ -63,7 +63,7 @@ class Chef
           (raise RightScale::Exceptions::Exec, "Missing script file \"#{script_file_path}\"") unless ::File.file?(script_file_path)
         else
           FileUtils.mkdir_p(SCRIPT_TEMP_DIR_PATH)
-          script_file_path = ::File.join(SCRIPT_TEMP_DIR_PATH, "powershell_script_provider_source.ps1")
+          script_file_path = ::File.join(SCRIPT_TEMP_DIR_PATH, "powershell_provider_source.ps1")
           ::File.open(script_file_path, "w") { |f| f.write(source) }
         end
 
@@ -115,4 +115,4 @@ class Chef
 end
 
 # self-register
-Chef::Platform.platforms[:windows][:default].merge!(:powershell_script => Chef::Provider::PowershellScript)
+Chef::Platform.platforms[:windows][:default].merge!(:powershell => Chef::Provider::Powershell)
