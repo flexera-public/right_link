@@ -41,19 +41,11 @@
     </Reference>
     <Reference Include="System.Management.Automation, Version=1.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\..\..\..\..\..\..\..\Program Files\Reference Assemblies\Microsoft\WindowsPowerShell\v1.0\System.Management.Automation.dll</HintPath>
+      <HintPath>..\..\..\..\..\..\..\..\..\Windows\winsxs\msil_system.management.automation_31bf3856ad364e35_7.0.6002.18111_none_14b22ca46865e010\System.Management.Automation.dll</HintPath>
     </Reference>
-    <Reference Include="System.Xml.Linq">
-      <RequiredTargetFramework>3.5</RequiredTargetFramework>
-    </Reference>
-    <Reference Include="System.Data.DataSetExtensions">
-      <RequiredTargetFramework>3.5</RequiredTargetFramework>
-    </Reference>
-    <Reference Include="System.Data" />
-    <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="ChefNodeHeader.cs" />
+    <Compile Include="ChefNodeCmdletException.cs" />
     <Compile Include="GetChefNodeCommand.cs" />
     <Compile Include="GetChefNodeRequest.cs" />
     <Compile Include="GetChefNodeResponse.cs" />

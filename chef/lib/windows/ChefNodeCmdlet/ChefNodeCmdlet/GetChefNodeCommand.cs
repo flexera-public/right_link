@@ -25,6 +25,7 @@ using System.Collections;
 using System.Management.Automation;
 using RightScale.Common.Protocol;
 using RightScale.Chef.Protocol;
+using RightScale.Powershell.Exceptions;
 
 namespace RightScale
 {
@@ -65,13 +66,22 @@ namespace RightScale
                         }
 
                         pipeClient.Connect(Constants.CHEF_NODE_CONNECT_TIMEOUT_MSECS);
-                        pipeClient.Send(new ChefNodeHeader(Constants.CommandType.GET_CHEFNODE));
 
                         GetChefNodeRequest request = new GetChefNodeRequest(path);
-                        GetChefNodeResponse response = pipeClient.SendReceive<GetChefNodeResponse>(request);
+                        IDictionary responseHash = (IDictionary)transport.NormalizeDeserializedObject(pipeClient.SendReceive<object>(request));
+
+                        if (null == responseHash)
+                        {
+                            throw new ChefNodeCmdletException("Failed to get expected response.");
+                        }
+                        if (ChefNodeCmdletException.HasError(responseHash))
+                        {
+                            throw new ChefNodeCmdletException(responseHash);
+                        }
 
                         // can't write a null object to pipeline, so write nothing in the null case.
-                        object nodeValue = transport.NormalizeDeserializedObject(response.NodeValue);
+                        string NODE_VALUE_KEY = "NodeValue";
+                        object nodeValue = responseHash.Contains(NODE_VALUE_KEY) ? responseHash[NODE_VALUE_KEY] : null;
 
                         if (null != nodeValue)
                         {

@@ -25,6 +25,7 @@ using System.Collections;
 using System.Management.Automation;
 using RightScale.Common.Protocol;
 using RightScale.Chef.Protocol;
+using RightScale.Powershell.Exceptions;
 
 namespace RightScale
 {
@@ -101,17 +102,27 @@ namespace RightScale
 
                 protected override void ProcessRecord()
                 {
-                    PipeClient pipeClient = new PipeClient(Constants.CHEF_NODE_PIPE_NAME, new JsonTransport());
+                    ITransport transport = new JsonTransport();
+                    PipeClient pipeClient = new PipeClient(Constants.CHEF_NODE_PIPE_NAME, transport);
 
                     try
                     {
                         pipeClient.Connect(Constants.CHEF_NODE_CONNECT_TIMEOUT_MSECS);
-                        pipeClient.Send(new ChefNodeHeader(Constants.CommandType.SET_CHEFNODE));
 
                         SetChefNodeRequest request = null;
 
                         request = new SetChefNodeRequest(path, ConvertValue(nodeValue));
-                        pipeClient.SendReceive<SetChefNodeResponse>(request);
+
+                        IDictionary responseHash = (IDictionary)transport.NormalizeDeserializedObject(pipeClient.SendReceive<object>(request));
+
+                        if (null == responseHash)
+                        {
+                            throw new ChefNodeCmdletException("Failed to get expected response.");
+                        }
+                        if (ChefNodeCmdletException.HasError(responseHash))
+                        {
+                            throw new ChefNodeCmdletException(responseHash);
+                        }
                     }
                     catch (TimeoutException e)
                     {

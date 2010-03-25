@@ -70,47 +70,46 @@ namespace TestChefNodeCmdlet
                 {
                     Console.WriteLine("Waiting for client to connect...");
                     pipeServer.WaitForConnection();
-                    for (bool receiving = true; receiving; )
+                    for (; ; )
                     {
-                        ChefNodeHeader header = pipeServer.Receive<ChefNodeHeader>();
+                        IDictionary requestHash = (IDictionary)transport.NormalizeDeserializedObject(pipeServer.Receive<object>());
 
-                        if (null == header)
+                        if (null == requestHash)
                         {
                             break;
                         }
 
-                        switch (header.CommandType)
+                        string pathKey = "Path";
+                        string nodeValueKey = "NodeValue";
+
+                        if (1 == requestHash.Keys.Count && requestHash.Contains(pathKey))
                         {
-                        case Constants.CommandType.GET_CHEFNODE:
-                            {
-                                GetChefNodeRequest request = pipeServer.Receive<GetChefNodeRequest>();
-                                Console.WriteLine(String.Format("Received: {0}", request.ToString()));
+                            GetChefNodeRequest request = new GetChefNodeRequest((ICollection)requestHash[pathKey]);
+                            Console.WriteLine(String.Format("Received: {0}", request.ToString()));
 
-                                object nodeValue = QueryNodeHash(nodeHash, request.Path);
-                                GetChefNodeResponse response = new GetChefNodeResponse(request.Path, nodeValue);
+                            object nodeValue = QueryNodeHash(nodeHash, request.Path);
+                            GetChefNodeResponse response = new GetChefNodeResponse(request.Path, nodeValue);
 
-                                Console.WriteLine(String.Format("Responding: {0}", response.ToString()));
-                                pipeServer.Send(response);
-                            }
-                            break;
-                        case Constants.CommandType.SET_CHEFNODE:
-                            {
-                                SetChefNodeRequest request = pipeServer.Receive<SetChefNodeRequest>();
-                                Console.WriteLine(String.Format("Received: {0}", request.ToString()));
+                            Console.WriteLine(String.Format("Responding: {0}", response.ToString()));
+                            pipeServer.Send(response);
+                        }
+                        else if (2 == requestHash.Keys.Count && requestHash.Contains(pathKey) && requestHash.Contains(nodeValueKey))
+                        {
+                            SetChefNodeRequest request = new SetChefNodeRequest((ICollection)requestHash[pathKey], requestHash[nodeValueKey]);
+                            Console.WriteLine(String.Format("Received: {0}", request.ToString()));
 
-                                InsertNodeHash(nodeHash, request.Path, transport.NormalizeDeserializedObject(request.NodeValue));
+                            InsertNodeHash(nodeHash, request.Path, transport.NormalizeDeserializedObject(request.NodeValue));
 
-                                SetChefNodeResponse response = new SetChefNodeResponse(request.Path);
-                                Console.WriteLine(String.Format("Responding: {0}", response.ToString()));
-                                pipeServer.Send(response);
+                            SetChefNodeResponse response = new SetChefNodeResponse(request.Path);
+                            Console.WriteLine(String.Format("Responding: {0}", response.ToString()));
+                            pipeServer.Send(response);
 
-                                // save change to node file.
-                                WriteTextFile(nodeFilePath, transport.ConvertObjectToString(nodeHash, true));
-                            }
-                            break;
-                        default:
+                            // save change to node file.
+                            WriteTextFile(nodeFilePath, transport.ConvertObjectToString(nodeHash, true));
+                        }
+                        else
+                        {
                             // unknown request type; hang up and try again.
-                            receiving = false;
                             break;
                         }
                     }

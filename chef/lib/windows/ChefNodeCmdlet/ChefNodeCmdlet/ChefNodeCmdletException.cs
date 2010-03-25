@@ -21,56 +21,62 @@
 // WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 /////////////////////////////////////////////////////////////////////////
 using System;
+using System.Collections;
 
 namespace RightScale
 {
-    namespace Chef
+    namespace Powershell
     {
-        namespace Protocol
+        namespace Exceptions
         {
-            // data for a get-ChefNode response
-            public class GetChefNodeResponse
+            // Summary:
+            //      base exception class for exceptions thrown by common code.
+            class ChefNodeCmdletException : Exception
             {
-                public string[] Path
-                {
-                    get { return path; }
-                    set { path = value; }
-                }
+                public static string ERROR_KEY = "Error";
+                public static string DETAIL_KEY = "Detail";
 
-                public object NodeValue
-                {
-                    get { return nodeValue; }
-                    set { nodeValue = value; }
-                }
-
-                public GetChefNodeResponse()
+                public ChefNodeCmdletException()
+                    : base()
                 {
                 }
 
-                public GetChefNodeResponse(string[] path, object nodeValue)
+                public ChefNodeCmdletException(Exception e)
+                    : base(e.Message, e)
                 {
-                    this.path = path;
-                    this.nodeValue = nodeValue;
                 }
 
-                public override string ToString()
+                public ChefNodeCmdletException(string message)
+                    : base(message)
                 {
-                    object value = nodeValue;
+                }
 
-                    if (null == nodeValue)
+                public ChefNodeCmdletException(string message, Exception innerException)
+                    : base(message, innerException)
+                {
+                }
+
+                public ChefNodeCmdletException(IDictionary response)
+                    : base(CreateMessage(response))
+                {
+                }
+
+                public static bool HasError(IDictionary response)
+                {
+                    return response.Contains(ERROR_KEY);
+                }
+
+                private static string CreateMessage(IDictionary response)
+                {
+                    string message = response[ERROR_KEY].ToString();
+
+                    if (response.Contains(DETAIL_KEY))
                     {
-                        value = "NULL";
-                    }
-                    else if (nodeValue is String)
-                    {
-                        value = "\"" + nodeValue + "\"";
+                        message = String.Format("{0}\n{1}", message, response[DETAIL_KEY]);
                     }
 
-                    return String.Format("GetChefNodeResponse: SET {{ Path = node[{0}], NodeValue = {1} }}", String.Join("][", path), value);
+                    return message;
                 }
-
-                private string[] path;
-                private object nodeValue;
             }
         }
     }

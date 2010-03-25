@@ -104,7 +104,7 @@ namespace RightScale
                     {
                         string text = streamReader.ReadLine();
 
-                        return transport.ConvertStringToObject<T>(text);
+                        return (null == text) ? default(T) : transport.ConvertStringToObject<T>(text);
                     }
                 }
 

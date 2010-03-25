@@ -21,6 +21,7 @@
 // WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 /////////////////////////////////////////////////////////////////////////
 using System;
+using System.Collections;
 
 namespace RightScale
 {
@@ -47,9 +48,15 @@ namespace RightScale
                 {
                 }
 
-                public SetChefNodeRequest(string[] path, object nodeValue)
+                public SetChefNodeRequest(ICollection path, object nodeValue)
                 {
-                    this.path = path;
+                    this.path = new string[path.Count];
+
+                    int index = 0;
+                    foreach (object element in path)
+                    {
+                        this.path[index++] = element.ToString();
+                    }
                     this.nodeValue = nodeValue;
                 }
 
