@@ -178,7 +178,7 @@ module RightScale
       rescue SystemExit => e
         raise e
       rescue Exception => e
-        RightLinkLog.error("Agent failed startup: #{e.message}\n" + e.backtrace.join("\n"))
+        RightLinkLog.error("Agent failed startup: #{e.message}\n" + e.backtrace.join("\n")) unless e.message == "exit"
         raise e
       end
       true
