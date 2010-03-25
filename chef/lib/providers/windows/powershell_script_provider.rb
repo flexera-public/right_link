@@ -27,14 +27,14 @@ class Chef
 
   class Provider
 
-    # Powershell chef provider.
+    # Powershell script chef provider.
     class PowershellScript < Chef::Provider::Execute
 
       # use a unique dir name instead of cluttering temp directory with leftover
       # scripts like the original script provider.
       SCRIPT_TEMP_DIR_PATH = ::File.join(::Dir.tmpdir, "chef-powershell-06D9AC00-8D64-4213-A46A-611FBAFB4426")
 
-      # No concept of a 'current' resource for Powershell execution, this is a no-op
+      # No concept of a 'current' resource for Powershell script execution, this is a no-op
       #
       # === Return
       # true:: Always return true

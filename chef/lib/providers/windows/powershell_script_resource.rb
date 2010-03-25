@@ -44,16 +44,17 @@ class Chef
       # node(Chef::Node):: Node where resource will be used
       def initialize(name, collection=nil, node=nil)
         super(name, collection, node)
-        @resource_name = :powershell_script
+        @resource_name = :powershell
         @interpreter = "powershell"
         @parameters = {}
         @source = nil
         @source_path = nil
         @action = :run
         @allowed_actions.push(:run)
+        @provider = Chef::Provider::PowershellScript
       end
 
-      # (String) Powershell nickname
+      # (String) Powershell script nickname
       def nickname(arg=nil)
         set_or_return(
           :nickname,
@@ -62,7 +63,7 @@ class Chef
         )
       end
 
-      # (String) text of Powershell source code if inline
+      # (String) text of Powershell script source code if inline
       def source(arg=nil)
         set_or_return(
           :source,
@@ -71,7 +72,7 @@ class Chef
         )
       end
 
-      # (String) local path for external Powershell source file if not inline
+      # (String) local path for external Powershell script source file if not inline
       def source_path(arg=nil)
         set_or_return(
           :source_path,
@@ -80,7 +81,7 @@ class Chef
         )
       end
 
-      # (Hash) Powershell parameters values keyed by names
+      # (Hash) Powershell script parameters values keyed by names
       def parameters(arg=nil)
         return environment if arg.nil?
 
