@@ -59,7 +59,19 @@ module RightScale
       json = obj.to_json
       if must_encrypt
         certs = @store.get_recipients(obj)
-        json = EncryptedDocument.new(json, certs).encrypted_data if certs
+        if certs
+          json = EncryptedDocument.new(json, certs).encrypted_data
+        else
+          target = case obj
+          when Request, Push
+            obj.target
+          when Result
+            obj.to
+          else # Register, UnRegister, Ping, Advertise
+            nil
+          end
+          RightLinkLog.warn("No certs for object being sent to #{target}\n") if target
+        end
       end
       sig = Signature.new(json, @cert, @key)
       { 'id' => @identity, 'data' => json, 'signature' => sig.data, 'encrypted' => !certs.nil? }.to_json
