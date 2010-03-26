@@ -56,6 +56,7 @@ module RightScale
       @cookbook_repos         = bundle.cookbook_repositories || []
       @downloader             = Downloader.new
       @scraper                = Scraper.new(InstanceConfiguration.cookbook_download_path)
+      @powershell_providers   = nil
 
       # We want to always do full-converge, leave the option in case we change our mind
       persist_run_list = bundle.full_converge
@@ -106,6 +107,7 @@ module RightScale
         download_attachments if @ok
         install_packages if @ok
         download_repos if @ok
+        setup_powershell_providers if Platform.windows?
         converge if @ok
       end
       true
@@ -231,6 +233,17 @@ module RightScale
       true
     end
 
+    # Create Powershell providers from cookbook repos
+    #
+    #
+    # === Return
+    # true:: Always return true
+    def setup_powershell_providers
+      dynamic_provider = DynamicPowershellProvider.new
+      dynamic_provider.generate_providers(Chef::Config[:cookbook_path])
+      @powershell_providers = dynamic_provider.providers
+    end
+
     # Chef converge
     #
     # === Return
@@ -250,6 +263,7 @@ module RightScale
         report_failure('Chef converge failed', chef_error(e))
         RightLinkLog.debug("Chef failed with '#{e.message}' at\n" + e.backtrace.join("\n"))
       end
+      @powershell_providers.each { |p| p.terminate } if @powershell_providers  
       report_success(c.node) if @ok
       true
     end
