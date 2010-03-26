@@ -78,7 +78,12 @@ module RightScale
         else id
       end
     end
-    
+
+    # Return target to be used for encrypting the packet
+    def target_for_encryption
+      nil
+    end
+
     # Token used to trace execution of operation across multiple packets, may be nil 
     def trace
       audit_id = self.respond_to?(:payload) && payload.is_a?(Hash) && payload['audit_id']  
@@ -153,6 +158,11 @@ module RightScale
       log_msg
     end
 
+    # Return target to be used for encrypting the packet
+    def target_for_encryption
+      @target
+    end
+
   end # Request
 
   # packet that means a work push from mapper
@@ -205,6 +215,11 @@ module RightScale
       log_msg += ", tags #{tags.inspect}" if tags && !tags.empty? && (filter.nil? || filter.include?(:tags))
       log_msg += ", payload #{payload.inspect}" if filter.nil? || filter.include?(:payload)
       log_msg
+    end
+
+    # Return target to be used for encrypting the packet
+    def target_for_encryption
+      @target
     end
 
   end # Push
@@ -275,6 +290,11 @@ module RightScale
       log_msg += " to #{id_to_s(to)}" if filter.nil? || filter.include?(:to)
       log_msg += " results: #{results.inspect}" if filter.nil? || filter.include?(:results)
       log_msg
+    end
+
+    # Return target to be used for encrypting the packet
+    def target_for_encryption
+      @to
     end
 
   end # Result
