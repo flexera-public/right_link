@@ -41,10 +41,15 @@ module RightScale
     # true:: Always return true
     def tags
       raise TypeError, "Must set agent= before using tag manager" unless @agent
-      RequestForwarder.query_tags(:agent_ids => [@agent.identity]) do |res|
-        res = res.results
-        tags = (res.size == 1 ? res[res.keys[0]]['tags'] : [])
-        yield tags
+      RightScale::RequestForwarder.request("/mapper/list_agents", :agent_ids => [@agent.identity]) do |r|
+        res = RightScale::OperationResult.from_results(r)
+        if res.success?
+          result = res.content
+          tags = (result.size == 1 ? result[result.keys[0]]['tags'] : [])
+          yield tags
+        else
+          RightScale::RightLinkLog.error("Failed to get identified server, got: #{res.content}")
+        end
       end
       true
     end
