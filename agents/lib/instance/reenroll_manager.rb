@@ -45,6 +45,7 @@ module RightScale
       @reset_timer.cancel if @reset_timer
       @reset_timer = EM::Timer.new(RESET_DELAY) { reset_votes }
       if @total_votes >= REENROLL_THRESHOLD && !@reenrolling
+        RightLinkLog.info('[re-enroll] Re-enroll threshold reached, shutting down and re-enrolling')
         @reenrolling = true
         system('rs_reenroll')
       end
