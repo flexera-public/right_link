@@ -32,24 +32,22 @@ describe RightScale::DynamicPowershellProvider do
 
   it 'should create Powershell provider classes dynamically' do
     init = lambda { |p|
-      p.instance_eval("def init;end;def term;end")
+      p.instance_eval("def init1;end")
       p.class_eval("def test1;end")
     }
     @provider.send(:create_provider_class, 'TestMod::TestSubMod::TestProvider', Object, &init)
     Object.const_defined?('TestMod').should be_true
     TestMod.const_defined?('TestSubMod').should be_true
     TestMod::TestSubMod.const_defined?('TestProvider').should be_true
-    (TestMod::TestSubMod::TestProvider.instance_methods - Chef::Provider.instance_methods).should == [ 'test1' ]
-    (TestMod::TestSubMod::TestProvider.methods - Chef::Provider.methods).sort.should == [ 'init', 'term' ]
+    (TestMod::TestSubMod::TestProvider.instance_methods - RightScale::PowershellProviderBase.instance_methods).should == [ 'test1' ]
+    (TestMod::TestSubMod::TestProvider.methods - RightScale::PowershellProviderBase.methods).sort.should == [ 'init1' ]
   end
 
   it 'should undefine methods of previously created Powershell providers' do
     init = lambda { |p|
-      p.instance_eval("def init;end;def term;end")
       p.class_eval("def test1;end")
     }
     init2 = lambda { |p|
-      p.instance_eval("def init2;end;def term2;end")
       p.class_eval("def test2;end")
     }
     @provider.send(:create_provider_class, 'TestMod::TestSubMod::TestProvider', Object, &init)
@@ -57,8 +55,7 @@ describe RightScale::DynamicPowershellProvider do
     Object.const_defined?('TestMod').should be_true
     TestMod.const_defined?('TestSubMod').should be_true
     TestMod::TestSubMod.const_defined?('TestProvider').should be_true
-    (TestMod::TestSubMod::TestProvider.instance_methods - Chef::Provider.instance_methods).should == [ 'test2' ]
-    (TestMod::TestSubMod::TestProvider.methods - Chef::Provider.methods).sort.should == [ 'init2', 'term2' ]
+    (TestMod::TestSubMod::TestProvider.instance_methods - RightScale::PowershellProviderBase.instance_methods).should == [ 'test2' ]
   end
 
   describe 'given valid action scripts' do

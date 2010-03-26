@@ -180,8 +180,7 @@ module RightScale
         if mod.const_defined?(name)
           # Was already previously defined, undef all the known methods
           cls = mod.const_get(name)
-          cls.instance_eval('undef :init; undef :term')
-          (cls.instance_methods - Chef::Provider.instance_methods).each { |m| cls.class_eval("undef #{m}") }
+          (cls.instance_methods - RightScale::PowershellProviderBase.instance_methods).each { |m| cls.class_eval("undef #{m}") }
           init.call(cls)
         else
           # New class
