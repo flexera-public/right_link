@@ -103,7 +103,7 @@ class Chef
 
       # Resolves a loadable location for the ChefNodeCmdlet.dll
       def self.locate_chef_node_cmdlet
-        cmdlet_path = ::File.expand_path(::File.join(::File.dirname(__FILE__), '..', '..', 'windows', 'bin', 'ChefNodeCmdlet.dll')).gsub("/", "\\")
+        cmdlet_path = ::File.expand_path(::File.join(::File.dirname(__FILE__), '..', '..', 'windows', 'bin', 'ChefNodeCmdlet.dll'))
 
         # handle case of running spec tests from a network drive by copying .dll
         # to the system drive. Powershell silently fails to load modules from
@@ -120,7 +120,7 @@ class Chef
           cmdlet_path = ::File.join(temp_dir, ::File.basename(cmdlet_path))
         end
 
-        return RightScale::RightLinkConfig[:platform].filesystem.long_path_to_short_path(cmdlet_path)
+        return RightScale::RightLinkConfig[:platform].filesystem.long_path_to_short_path(cmdlet_path).gsub("/", "\\")
       end
 
       CHEF_NODE_CMDLET_DLL_PATH = locate_chef_node_cmdlet
