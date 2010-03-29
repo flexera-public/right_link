@@ -23,6 +23,8 @@
 # note that the plaform-specific submodules will be loaded on demand to resolve
 # some install-time gem dependency issues.
 
+require File.expand_path(File.join(File.dirname(__FILE__), '..', 'common', 'lib', 'common', 'util'))
+
 module RightScale
 
   # A utility class that provides information about the platform on which RightLink is running.
