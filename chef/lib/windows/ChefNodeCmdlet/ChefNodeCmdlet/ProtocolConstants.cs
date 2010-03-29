@@ -38,7 +38,10 @@ namespace RightScale
 
                 public static string CHEF_NODE_PIPE_NAME = "chef_node_D1D6B540-5125-4c00-8ABF-412417774DD5";
 
+                public static int MAX_CLIENT_RETRIES = 10;
+
                 public static int CHEF_NODE_CONNECT_TIMEOUT_MSECS = 30000;
+                public static int SLEEP_BETWEEN_CLIENT_RETRIES_MSECS = 100;
             }
         }
     }

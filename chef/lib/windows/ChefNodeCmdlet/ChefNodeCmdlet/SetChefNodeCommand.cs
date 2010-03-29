@@ -23,6 +23,7 @@
 using System;
 using System.Collections;
 using System.Management.Automation;
+using System.Threading;
 using RightScale.Common.Protocol;
 using RightScale.Chef.Protocol;
 using RightScale.Powershell.Exceptions;
@@ -102,40 +103,55 @@ namespace RightScale
 
                 protected override void ProcessRecord()
                 {
-                    ITransport transport = new JsonTransport();
-                    PipeClient pipeClient = new PipeClient(Constants.CHEF_NODE_PIPE_NAME, transport);
-
-                    try
+                    // iterate attempting to connect, send and receive to Chef node server.
+                    for (int tryIndex = 0; tryIndex < Constants.MAX_CLIENT_RETRIES; ++tryIndex)
                     {
-                        pipeClient.Connect(Constants.CHEF_NODE_CONNECT_TIMEOUT_MSECS);
+                        ITransport transport = new JsonTransport();
+                        PipeClient pipeClient = new PipeClient(Constants.CHEF_NODE_PIPE_NAME, transport);
 
-                        SetChefNodeRequest request = null;
-
-                        request = new SetChefNodeRequest(path, ConvertValue(nodeValue));
-
-                        IDictionary responseHash = (IDictionary)transport.NormalizeDeserializedObject(pipeClient.SendReceive<object>(request));
-
-                        if (null == responseHash)
+                        try
                         {
-                            throw new ChefNodeCmdletException("Failed to get expected response.");
+                            pipeClient.Connect(Constants.CHEF_NODE_CONNECT_TIMEOUT_MSECS);
+
+                            SetChefNodeRequest request = new SetChefNodeRequest(path, ConvertValue(nodeValue));
+                            IDictionary responseHash = (IDictionary)transport.NormalizeDeserializedObject(pipeClient.SendReceive<object>(request));
+
+                            if (null == responseHash)
+                            {
+                                if (tryIndex + 1 < Constants.MAX_CLIENT_RETRIES)
+                                {
+                                    // delay retry a few ticks to yield time in case server is busy.
+                                    Thread.Sleep(Constants.SLEEP_BETWEEN_CLIENT_RETRIES_MSECS);
+                                    continue;
+                                }
+                                else
+                                {
+                                    string message = String.Format("Failed to get expected response after {0} retries.", Constants.MAX_CLIENT_RETRIES);
+
+                                    throw new ChefNodeCmdletException(message);
+                                }
+                            }
+                            if (ChefNodeCmdletException.HasError(responseHash))
+                            {
+                                throw new ChefNodeCmdletException(responseHash);
+                            }
+
+                            // done.
+                            break;
                         }
-                        if (ChefNodeCmdletException.HasError(responseHash))
+                        catch (TimeoutException e)
                         {
-                            throw new ChefNodeCmdletException(responseHash);
+                            ThrowTerminatingError(new ErrorRecord(e, "Connection timed out", ErrorCategory.OperationTimeout, pipeClient));
                         }
-                    }
-                    catch (TimeoutException e)
-                    {
-                        ThrowTerminatingError(new ErrorRecord(e, "Connection timed out", ErrorCategory.OperationTimeout, pipeClient));
-                    }
-                    catch (Exception e)
-                    {
-                        ThrowTerminatingError(new ErrorRecord(e, "Unexpected exception", ErrorCategory.NotSpecified, pipeClient));
-                    }
-                    finally
-                    {
-                        pipeClient.Close();
-                        pipeClient = null;
+                        catch (Exception e)
+                        {
+                            ThrowTerminatingError(new ErrorRecord(e, "Unexpected exception", ErrorCategory.NotSpecified, pipeClient));
+                        }
+                        finally
+                        {
+                            pipeClient.Close();
+                            pipeClient = null;
+                        }
                     }
                 }
 

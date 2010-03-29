@@ -23,6 +23,7 @@
 using System;
 using System.Collections;
 using System.Management.Automation;
+using System.Threading;
 using RightScale.Common.Protocol;
 using RightScale.Chef.Protocol;
 using RightScale.Powershell.Exceptions;
@@ -42,66 +43,86 @@ namespace RightScale
                     get { return path; }
                     set { path = value; }
                 }
-                private string[] path;
 
                 protected override void ProcessRecord()
                 {
-                    ITransport transport = new JsonTransport();
-                    PipeClient pipeClient = new PipeClient(Constants.CHEF_NODE_PIPE_NAME, transport);
-
-                    try
+                    // iterate attempting to connect, send and receive to Chef node server.
+                    for (int tryIndex = 0; tryIndex < Constants.MAX_CLIENT_RETRIES; ++tryIndex)
                     {
-                        // check that path contains no empty strings with the exception of special root query case.
-                        //
-                        // note that powershell already validated case of empty array.
-                        if (1 != path.Length || path[0].Length != 0)
+                        ITransport transport = new JsonTransport();
+                        PipeClient pipeClient = new PipeClient(Constants.CHEF_NODE_PIPE_NAME, transport);
+
+                        try
                         {
-                            foreach (string element in path)
+                            // check that path contains no empty strings with the exception of special root query case.
+                            //
+                            // note that powershell already validated case of empty array.
+                            if (1 != path.Length || path[0].Length != 0)
                             {
-                                if (0 == element.Length)
+                                foreach (string element in path)
                                 {
-                                    throw new ArgumentException("At least one element of the Path array argument was empty.");
+                                    if (0 == element.Length)
+                                    {
+                                        throw new ArgumentException("At least one element of the Path array argument was empty.");
+                                    }
                                 }
                             }
+
+                            GetChefNodeRequest request = new GetChefNodeRequest(path);
+
+                            pipeClient.Connect(Constants.CHEF_NODE_CONNECT_TIMEOUT_MSECS);
+
+                            IDictionary responseHash = (IDictionary)transport.NormalizeDeserializedObject(pipeClient.SendReceive<object>(request));
+
+                            if (null == responseHash)
+                            {
+                                if (tryIndex + 1 < Constants.MAX_CLIENT_RETRIES)
+                                {
+                                    // delay retry a few ticks to yield time in case server is busy.
+                                    Thread.Sleep(Constants.SLEEP_BETWEEN_CLIENT_RETRIES_MSECS);
+                                    continue;
+                                }
+                                else
+                                {
+                                    string message = String.Format("Failed to get expected response after {0} retries.", Constants.MAX_CLIENT_RETRIES);
+
+                                    throw new ChefNodeCmdletException(message);
+                                }
+                            }
+                            if (ChefNodeCmdletException.HasError(responseHash))
+                            {
+                                throw new ChefNodeCmdletException(responseHash);
+                            }
+
+                            // can't write a null object to pipeline, so write nothing in the null case.
+                            string NODE_VALUE_KEY = "NodeValue";
+                            object nodeValue = responseHash.Contains(NODE_VALUE_KEY) ? responseHash[NODE_VALUE_KEY] : null;
+
+                            if (null != nodeValue)
+                            {
+                                WriteObject(nodeValue, nodeValue is ICollection);
+                            }
+
+                            // done.
+                            break;
                         }
-
-                        pipeClient.Connect(Constants.CHEF_NODE_CONNECT_TIMEOUT_MSECS);
-
-                        GetChefNodeRequest request = new GetChefNodeRequest(path);
-                        IDictionary responseHash = (IDictionary)transport.NormalizeDeserializedObject(pipeClient.SendReceive<object>(request));
-
-                        if (null == responseHash)
+                        catch (TimeoutException e)
                         {
-                            throw new ChefNodeCmdletException("Failed to get expected response.");
+                            ThrowTerminatingError(new ErrorRecord(e, "Connection timed out", ErrorCategory.OperationTimeout, pipeClient));
                         }
-                        if (ChefNodeCmdletException.HasError(responseHash))
+                        catch (Exception e)
                         {
-                            throw new ChefNodeCmdletException(responseHash);
+                            ThrowTerminatingError(new ErrorRecord(e, "Unexpected exception", ErrorCategory.NotSpecified, pipeClient));
                         }
-
-                        // can't write a null object to pipeline, so write nothing in the null case.
-                        string NODE_VALUE_KEY = "NodeValue";
-                        object nodeValue = responseHash.Contains(NODE_VALUE_KEY) ? responseHash[NODE_VALUE_KEY] : null;
-
-                        if (null != nodeValue)
+                        finally
                         {
-                            WriteObject(nodeValue, nodeValue is ICollection);
+                            pipeClient.Close();
+                            pipeClient = null;
                         }
-                    }
-                    catch (TimeoutException e)
-                    {
-                        ThrowTerminatingError(new ErrorRecord(e, "Connection timed out", ErrorCategory.OperationTimeout, pipeClient));
-                    }
-                    catch (Exception e)
-                    {
-                        ThrowTerminatingError(new ErrorRecord(e, "Unexpected exception", ErrorCategory.NotSpecified, pipeClient));
-                    }
-                    finally
-                    {
-                        pipeClient.Close();
-                        pipeClient = null;
                     }
                 }
+
+                private string[] path;
             }
         }
     }
