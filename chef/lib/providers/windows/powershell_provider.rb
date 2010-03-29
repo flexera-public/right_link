@@ -120,7 +120,7 @@ class Chef
           cmdlet_path = ::File.join(temp_dir, ::File.basename(cmdlet_path))
         end
 
-        return cmdlet_path
+        return RightScale::RightLinkConfig[:platform].filesystem.long_path_to_short_path(cmdlet_path)
       end
 
       CHEF_NODE_CMDLET_DLL_PATH = locate_chef_node_cmdlet
@@ -141,7 +141,7 @@ class Chef
         shell    = platform.shell
 
         # import ChefNodeCmdlet.dll to allow powershell scripts to call get-ChefNode, etc.
-        lines_before_script = ["import-module \"#{CHEF_NODE_CMDLET_DLL_PATH}\""]
+        lines_before_script = ["import-module #{CHEF_NODE_CMDLET_DLL_PATH}"]
 
         return shell.format_powershell_command4(@new_resource.interpreter, lines_before_script, nil, script_file_path)
       end
