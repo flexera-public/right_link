@@ -24,11 +24,17 @@ begin
   require 'rubygems'
   require 'win32/dir'
   require 'windows/api'
+  require 'win32ole'
 rescue LoadError => e
   raise e if !!(RUBY_PLATFORM =~ /mswin/)
 end
 
 require 'fileutils'
+
+# ohai 0.3.6 has a bug which causes WMI data to be imported using the default
+# Windows code page. the workaround is to set the win32ole gem's code page to
+# UTF-8, which is probably a good general Ruby on Windows practice in any case.
+WIN32OLE.codepage = WIN32OLE::CP_UTF8
 
 # win32/process monkey-patches the Process class but drops support for any kill
 # signals which are not directly portable. some signals are acceptable, if not

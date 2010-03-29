@@ -7,3 +7,4 @@ bin/ChefNodeCmdlet.dll
 *.ncb
 *.suo
 *.csproj.user
+*.build.txt

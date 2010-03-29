@@ -22,6 +22,7 @@
 
 require 'fileutils'
 require 'chef/provider/execute'
+require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'windows', 'chef_node_server'))
 
 class Chef
 
@@ -67,6 +68,12 @@ class Chef
           ::File.open(script_file_path, "w") { |f| f.write(source) }
         end
 
+        # create ChefNodeServer for powershell scripts to get/set node values.
+        #
+        # FIX: should be managed at a higher level and be started/stopped once
+        # per convergence.
+        chef_node_server = ::RightScale::Windows::ChefNodeServer.new(:node => @node, :verbose => false)
+
         begin
           # 2. Setup environment.
           environment = {} if environment.nil?
@@ -74,6 +81,7 @@ class Chef
           @new_resource.environment(environment)
 
           # 3. execute and wait
+          chef_node_server.start
           command = format_command(script_file_path)
           @new_resource.command(command)
           ::Chef::Log.info("Running \"#{nickname}\"")
@@ -85,12 +93,37 @@ class Chef
           @new_resource.updated = true
         ensure
           (FileUtils.rm_rf(SCRIPT_TEMP_DIR_PATH) rescue nil) if ::File.directory?(SCRIPT_TEMP_DIR_PATH)
+          chef_node_server.stop rescue nil
         end
 
         true
       end
 
       protected
+
+      # Resolves a loadable location for the ChefNodeCmdlet.dll
+      def self.locate_chef_node_cmdlet
+        cmdlet_path = ::File.expand_path(::File.join(::File.dirname(__FILE__), '..', '..', 'windows', 'bin', 'ChefNodeCmdlet.dll')).gsub("/", "\\")
+
+        # handle case of running spec tests from a network drive by copying .dll
+        # to the system drive. Powershell silently fails to load modules from
+        # network drives, so the .dll needs to be copied locally ro tun. the
+        # .dll location will be the HOMEDRIVE in release use cases or on the
+        # build/test machine so this is only meant for VM images running tests
+        # from a shared drive.
+        homedrive = ENV['HOMEDRIVE']
+        if homedrive && homedrive.upcase != cmdlet_path[0,2].upcase
+          temp_dir = ::File.expand_path(::File.join(RightScale::RightLinkConfig[:platform].filesystem.temp_dir, 'powershell_provider-B6169A26-91B5-4e3e-93AD-F0B4F6EF107E'))
+          FileUtils.rm_rf(temp_dir) if ::File.directory?(temp_dir)
+          FileUtils.mkdir_p(temp_dir)
+          FileUtils.cp_r(::File.join(::File.dirname(cmdlet_path), '.'), temp_dir)
+          cmdlet_path = ::File.join(temp_dir, ::File.basename(cmdlet_path))
+        end
+
+        return cmdlet_path
+      end
+
+      CHEF_NODE_CMDLET_DLL_PATH = locate_chef_node_cmdlet
 
       def instance_state
         RightScale::InstanceState
@@ -107,7 +140,10 @@ class Chef
         platform = RightScale::RightLinkConfig[:platform]
         shell    = platform.shell
 
-        return shell.format_powershell_command4(@new_resource.interpreter, nil, nil, script_file_path)
+        # import ChefNodeCmdlet.dll to allow powershell scripts to call get-ChefNode, etc.
+        lines_before_script = ["import-module \"#{CHEF_NODE_CMDLET_DLL_PATH}\""]
+
+        return shell.format_powershell_command4(@new_resource.interpreter, lines_before_script, nil, script_file_path)
       end
 
     end

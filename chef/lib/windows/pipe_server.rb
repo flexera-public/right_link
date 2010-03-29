@@ -81,6 +81,7 @@ module RightScale
 
       # Callback from EM to unbind.
       def unbind
+        puts "unbound" if @verbose
         @pipe.close rescue nil
         @connected = false
         @pipe = nil
@@ -103,7 +104,7 @@ module RightScale
           puts "connection pending" if @verbose
           connected
           if @pipe.read
-            consume_pipe_buffer
+            consume_pipe_buffer if not @pipe.pending?
           else
             disconnect
           end
@@ -137,7 +138,7 @@ module RightScale
         when READING_STATE
           puts "still reading request" if @verbose
           if @pipe.read
-            consume_pipe_buffer
+            consume_pipe_buffer if not @pipe.pending?
           else
             disconnect
           end
@@ -207,7 +208,6 @@ module RightScale
         else
           @data = buffer
         end
-        puts "consumed: #{buffer}" if @verbose
 
         # newline delimits each complete request. the pending flag is not an
         # indication that the complete request has been received because the

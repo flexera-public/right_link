@@ -74,3 +74,18 @@ namespace :autotest do
     setup_auto_test
   end
 end
+
+# Currently only need to build for Windows.
+if !!(RUBY_PLATFORM =~ /mswin/)
+  desc "Builds any binaries local to right_net or right_link"
+  task :build do
+    ms_build_path = "#{ENV['WINDIR']}\\Microsoft.NET\\Framework\\v3.5\\msbuild.exe"
+    Dir.chdir(File.join(RIGHT_BOT_ROOT, 'chef', 'lib', 'windows', 'ChefNodeCmdlet')) do
+      # note that we can build C# components using msbuild instead of needing to
+      # have Developer Studio installed.
+      build_command = "#{ms_build_path} ChefNodeCmdlet.sln /t:clean,build /p:configuration=Release > ChefNodeCmdlet.build.txt 2>&1"
+      puts "#{build_command}"
+      `#{build_command}`
+    end
+  end
+end

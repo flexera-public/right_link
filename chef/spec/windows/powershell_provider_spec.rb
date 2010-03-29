@@ -39,7 +39,11 @@ if RightScale::RightLinkConfig[:platform].windows?
           :succeed_powershell_recipe => (
 <<EOF
 powershell 'test::succeed_powershell_recipe' do
-  source \"write-output \\\"message for stdout\\\"\\nwrite-error \\\"message for stderr\\\"\\n\"
+  source_text =
+<<EOPS
+  write-output "message for stdout"
+EOPS
+  source source_text
 end
 EOF
           ), :fail_powershell_recipe => (
@@ -92,6 +96,19 @@ powershell 'test::check_env_var_recipe' do
   [Environment]::SetEnvironmentVariable("ps_provider_spec_user", "", "User")
 EOPS
   source source_text
+end
+EOF
+          ), :get_chef_node_recipe => (
+<<EOF
+powershell 'test::get_chef_node_recipe' do
+  @node[:powershell_provider_spec] = {:get_chef_node_recipe => 'get_chef_node_recipe_test_value'}
+  source \"get-chefnode powershell_provider_spec,get_chef_node_recipe\"
+end
+EOF
+          ), :set_chef_node_recipe => (
+<<EOF
+powershell 'test::set_chef_node_recipe' do
+  source \"set-chefnode powershell_provider_spec,set_chef_node_recipe 123\"
 end
 EOF
           )
@@ -161,9 +178,10 @@ EOF
       #
       # note that Chef::Mixin::Command has changed to redirect both stdout and
       # stderr to info because the stderr stream is used for verbose output and
-      # not necessarily errors by some Linux utilities.
+      # not necessarily errors by some Linux utilities. we cannot now test that
+      # stdout and stderr are preserved as independent text streams because they
+      # are being interleaved.
       Chef::Log.logger.error_text.should == "";
-      Chef::Log.logger.info_text.gsub("\n", "").should include("message for stderr")
       Chef::Log.logger.info_text.gsub("\n", "").should include("message for stdout")
     end
 
@@ -210,6 +228,27 @@ EOF
           PowershellProviderSpec::TEST_COOKBOOKS_PATH,
           ['test::set_env_var_recipe', 'test::check_env_var_recipe']) }
       runner.call.should == true
+    end
+
+    it "should get chef nodes by powershell cmdlet" do
+      runner = lambda {
+        RightScale::Test::ChefRunner.run_chef(
+          PowershellProviderSpec::TEST_COOKBOOKS_PATH,
+          'test::get_chef_node_recipe') }
+      runner.call.should == true
+      Chef::Log::logger.info_text.should include("get_chef_node_recipe_test_value")
+    end
+
+    it "should set chef nodes by powershell cmdlet" do
+      test_node = nil
+      runner = lambda {
+        RightScale::Test::ChefRunner.run_chef(
+          PowershellProviderSpec::TEST_COOKBOOKS_PATH,
+          'test::set_chef_node_recipe') do |chef_client|
+            test_node = chef_client.node
+          end }
+      runner.call.should == true
+      test_node[:powershell_provider_spec][:set_chef_node_recipe].should == 123
     end
 
   end

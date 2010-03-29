@@ -98,15 +98,62 @@ EOF
       #
       # === Parameters
       # cookbook_path(String):: path to cookbook containing recipes in run_list.
-      # 
+      #
       # run_list(String or Array):: fully-qualified recipe name(s) including cookbook name.
+      #
+      # block(Proc):: block to run after starting Chef or nil.
       #
       # === Returns
       # true always
       #
       # === Raises
       # RightScale::Exceptions::Exec on failure
-      def run_chef(cookbook_path, run_list)
+      def run_chef(cookbook_path, run_list, &block)
+        inner_run_chef(cookbook_path, run_list, false, &block)
+      end
+
+      module_function :run_chef
+
+      # Runs a Chef recipe.
+      #
+      # === Parameters
+      # cookbook_path(String):: path to cookbook containing recipes in run_list.
+      #
+      # run_list(String or Array):: fully-qualified recipe name(s) including cookbook name.
+      #
+      # block(Proc):: block to run after starting Chef or nil.
+      #
+      # === Returns
+      # true always
+      #
+      # === Raises
+      # RightScale::Exceptions::Exec on failure
+      def run_chef_as_server(cookbook_path, run_list, &block)
+        inner_run_chef(cookbook_path, run_list, true, &block)
+      end
+
+      module_function :run_chef_as_server
+
+      protected
+
+      # Runs a Chef recipe.
+      #
+      # === Parameters
+      # cookbook_path(String):: path to cookbook containing recipes in run_list.
+      #
+      # run_list(String or Array):: fully-qualified recipe name(s) including cookbook name.
+      #
+      # run_as_server(Boolean):: true if Chef eventmachine will remain running
+      # until cancelled (by Ctrl+C), false to stop eventmachine after running
+      #
+      # block(Proc):: block to run after starting Chef or nil.
+      #
+      # === Returns
+      # true always
+      #
+      # === Raises
+      # RightScale::Exceptions::Exec on failure
+      def inner_run_chef(cookbook_path, run_list, run_as_server, &block)
         # minimal chef configuration.
         ::Chef::Config[:solo] = true
         ::Chef::Config[:cookbook_path] = cookbook_path
@@ -123,16 +170,20 @@ EOF
         done = false
         last_exception = nil
 
+        if run_as_server
+          puts "Hit Ctrl+C to cancel Chef server."
+        end
         EM.threadpool_size = 1
         EM.run do
           EM.defer do
             begin
               chef_client.run_solo
+              block.call(chef_client) if block
             rescue Exception => e
               # can't raise exeception out of EM, so cache it here.
               last_exception = e
             end
-            done = true
+            done = (not run_as_server)
           end
           timer = EM::PeriodicTimer.new(0.1) do
             if done
@@ -157,13 +208,12 @@ EOF
               raise message
             end
           end
-
         end
 
         true
       end
 
-      module_function :run_chef
+      module_function :inner_run_chef
 
     end
   end
