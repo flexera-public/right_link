@@ -424,12 +424,14 @@ end
 # Platform specific implementation of File.normalize_path
 class File
 
-  # On *nix systems, resolves to File.normalize_path
-  # On Windows systems, resolves to File.normalize_path.to_short_path
+  # First expand the path then shorten the directory.
+  # Only shorten the directory and not the file name because 'gem' wants
+  # long file names
   def self.normalize_path(file_name, *dir_string)
     @fs ||= RightScale::Platform::Windows::Filesystem.new
     path = File.expand_path(file_name, *dir_string)
-    @fs.long_path_to_short_path(path)
+    dir = @fs.long_path_to_short_path(File.dirname(path))
+    File.join(dir, File.basename(path))
   end
 
 end
