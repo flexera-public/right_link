@@ -78,8 +78,13 @@ class String
   # @return [String] Camelized string
   #
   # @api public
-  def camelize
-    gsub(/\/(.?)/) { "::" + $1.upcase }.gsub(/(^|_)(.)/) { $2.upcase }
+  if !String.public_method_defined?(:camelize)
+    def camelize(first_letter = :upper)
+      case first_letter
+        when :upper then gsub(/\/(.?)/) { "::" + $1.upcase }.gsub(/(^|_)(.)/) { $2.upcase }
+        when :lower then first + camelize(self)[1..-1]
+      end
+    end
   end
 
 end
