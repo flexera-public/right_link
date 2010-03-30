@@ -32,10 +32,10 @@ describe RightScale::ExecutableSequence do
 
     before(:all) do
       flexmock(RightScale::RightLinkLog).should_receive(:debug)
-      @attachment_file = File.expand_path(File.join(File.dirname(__FILE__), '__test_download__'))
+      @attachment_file = File.normalize_path(File.join(File.dirname(__FILE__), '__test_download__'))
       File.open(@attachment_file, 'w') { |f| f.write('Some attachment content') }
       platform = RightScale::RightLinkConfig[:platform]
-      @cache_dir = File.expand_path(File.join(platform.filesystem.temp_dir, 'executable_sequence_spec'))
+      @cache_dir = File.normalize_path(File.join(platform.filesystem.temp_dir, 'executable_sequence_spec'))
       Chef::Resource::RightScript.const_set(:DEFAULT_CACHE_DIR_ROOT, @cache_dir)
     end
 

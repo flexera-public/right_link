@@ -21,7 +21,7 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 require 'spec'
-require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'spec', 'spec_helper'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'spec', 'spec_helper'))
 
 module RightScale
 

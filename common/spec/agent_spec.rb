@@ -40,7 +40,7 @@ describe RightScale::Agent do
     end
 
     after(:each) do
-      FileUtils.rm_rf(File.expand_path(File.join(@agent.options[:root], 'config.yml'))) if @agent
+      FileUtils.rm_rf(File.normalize_path(File.join(@agent.options[:root], 'config.yml'))) if @agent
     end
 
     it "for daemonize is false" do
@@ -122,7 +122,7 @@ describe RightScale::Agent do
     end
 
     after(:each) do
-      FileUtils.rm_rf(File.expand_path(File.join(@agent.options[:root], 'config.yml'))) if @agent
+      FileUtils.rm_rf(File.normalize_path(File.join(@agent.options[:root], 'config.yml'))) if @agent
     end
  
   end
@@ -142,7 +142,7 @@ describe RightScale::Agent do
     end
 
     after(:each) do
-      FileUtils.rm_rf(File.expand_path(File.join(@agent.options[:root], 'config.yml'))) if @agent
+      FileUtils.rm_rf(File.normalize_path(File.join(@agent.options[:root], 'config.yml'))) if @agent
     end
 
     # TODO figure out how to stub call to daemonize
@@ -210,10 +210,10 @@ describe RightScale::Agent do
     it "for log_dir" do
       # testing path, remove it before the test to verify the directory is
       # actually created
-      test_log_path = File.expand_path(File.join(Dir.tmpdir, "right_net", "testing"))
+      test_log_path = File.normalize_path(File.join(Dir.tmpdir, "right_net", "testing"))
       FileUtils.rm_rf(test_log_path)
 
-      @agent = RightScale::Agent.start(:log_dir => File.expand_path(File.join(Dir.tmpdir, "right_net", "testing")))
+      @agent = RightScale::Agent.start(:log_dir => File.normalize_path(File.join(Dir.tmpdir, "right_net", "testing")))
 
       # passing log_dir will cause log_path to be set to the same value and the
       # directory wil be created
@@ -250,16 +250,16 @@ describe RightScale::Agent do
       @agent.options[:default_services].should == [:test]
     end
 
-    it "for root should override default (#{File.expand_path(File.join(File.dirname(__FILE__), '..'))})" do
-      @agent = RightScale::Agent.start(:root => File.expand_path(File.dirname(__FILE__)))
+    it "for root should override default (#{File.normalize_path(File.join(File.dirname(__FILE__), '..'))})" do
+      @agent = RightScale::Agent.start(:root => File.normalize_path(File.dirname(__FILE__)))
       @agent.options.should include(:root)
-      @agent.options[:root].should == File.expand_path(File.dirname(__FILE__))
+      @agent.options[:root].should == File.normalize_path(File.dirname(__FILE__))
     end
 
-    it "for file_root should override default (#{File.expand_path(File.join(File.dirname(__FILE__), '..', 'files'))})" do
-      @agent = RightScale::Agent.start(:file_root => File.expand_path(File.dirname(__FILE__)))
+    it "for file_root should override default (#{File.normalize_path(File.join(File.dirname(__FILE__), '..', 'files'))})" do
+      @agent = RightScale::Agent.start(:file_root => File.normalize_path(File.dirname(__FILE__)))
       @agent.options.should include(:file_root)
-      @agent.options[:file_root].should == File.expand_path(File.dirname(__FILE__))
+      @agent.options[:file_root].should == File.normalize_path(File.dirname(__FILE__))
     end
 
     it "for a single tag should result in the agent's tags being set" do

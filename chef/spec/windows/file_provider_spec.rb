@@ -19,17 +19,17 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require File.expand_path(File.join(File.dirname(__FILE__), '..', 'spec_helper'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'spec_helper'))
 
 # FIX: rake spec should check parent directory name?
 if RightScale::RightLinkConfig[:platform].windows?
 
   require 'fileutils'
-  require File.expand_path(File.join(File.dirname(__FILE__), '..', 'mock_auditor_proxy'))
-  require File.expand_path(File.join(File.dirname(__FILE__), '..', 'chef_runner'))
+  require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'mock_auditor_proxy'))
+  require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'chef_runner'))
 
   module FileProviderSpec
-    TEST_TEMP_PATH = File.expand_path(File.join(Dir.tmpdir, "file-provider-spec-0C1CE753-0089-4ac7-B689-FB74F31E90F5")).gsub("\\", "/")
+    TEST_TEMP_PATH = File.normalize_path(File.join(Dir.tmpdir, "file-provider-spec-0C1CE753-0089-4ac7-B689-FB74F31E90F5")).gsub("\\", "/")
     TEST_COOKBOOKS_PATH = RightScale::Test::ChefRunner.get_cookbooks_path(TEST_TEMP_PATH)
     TEST_FILE_PATH = File.join(TEST_TEMP_PATH, 'data', 'test_file.txt')
 

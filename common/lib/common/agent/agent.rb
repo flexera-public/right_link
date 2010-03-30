@@ -225,7 +225,7 @@ module RightScale
       @options = DEFAULT_OPTIONS.clone
       root = opts[:root] || @options[:root]
       custom_config = if root
-        file = File.expand_path(File.join(root, 'config.yml'))
+        file = File.normalize_path(File.join(root, 'config.yml'))
         File.exists?(file) ? (YAML.load(IO.read(file)) || {}) : {}
       else
         {}
@@ -246,7 +246,7 @@ module RightScale
       else
         token = AgentIdentity.generate
         @identity = "nanite-#{token}"
-        File.open(File.expand_path(File.join(@options[:root], 'config.yml')), 'w') do |fd|
+        File.open(File.normalize_path(File.join(@options[:root], 'config.yml')), 'w') do |fd|
           fd.write(YAML.dump(custom_config.merge(:identity => token)))
         end
       end

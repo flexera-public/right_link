@@ -181,7 +181,7 @@ module RightScale
         #
         # === Return
         # short_path(String):: short path equivalent or same path if non-existent
-        def long_path_to_short_path(long_path)
+        def .filesystem.long_path_to_short_path(long_path)
           @@get_short_path_name = Win32::API.new('GetShortPathName', 'PPL', 'L') unless @@get_short_path_name
           if File.exists?(long_path)
             length = MAX_PATH
@@ -419,4 +419,17 @@ module RightScale
 
     end
   end
+end
+
+# Platform specific implementation of File.normalize_path
+class File
+
+  # On *nix systems, resolves to File.normalize_path
+  # On Windows systems, resolves to File.normalize_path.to_short_path
+  def self.normalize_path(file_name, *dir_string)
+    @fs ||= RightScale::Platform::Windows::Filesystem.new
+    path = File.expand_path(file_name, *dir_string)
+    @fs.long_path_to_short_path.(path)
+  end
+
 end

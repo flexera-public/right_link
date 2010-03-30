@@ -27,7 +27,6 @@ require 'json'
 require 'yaml'
 require 'openssl'
 
-require File.expand_path(File.join(__FILE__, '..', '..', '..', 'config', 'right_link_config'))
 require File.join(File.dirname(__FILE__), 'common', 'eventmachine')
 require File.join(File.dirname(__FILE__), 'common', 'amqp')
 require File.join(File.dirname(__FILE__), 'common', 'util')
@@ -37,7 +36,7 @@ require File.join(File.dirname(__FILE__), 'common', 'console')
 require File.join(File.dirname(__FILE__), 'common', 'daemonize')
 require File.join(File.dirname(__FILE__), 'common', 'pid_file')
 require File.join(File.dirname(__FILE__), 'common', 'exceptions')
-require File.expand_path(File.join(File.dirname(__FILE__), 'common', 'right_link_log'))
+require File.normalize_path(File.join(File.dirname(__FILE__), 'common', 'right_link_log'))
 require File.join(File.dirname(__FILE__), 'common', 'multiplexer')
 require File.join(File.dirname(__FILE__), 'common', 'right_link_tracer')
 require File.join(File.dirname(__FILE__), 'common', 'audit_formatter')

@@ -22,7 +22,8 @@
 
 require 'mixlib/config'
 require File.join(File.dirname(__FILE__), 'platform')
-require File.expand_path(File.join(File.dirname(__FILE__), '..', 'payload_types', 'lib', 'protocol'))
+RightScale::Platform.load_platform_specific # To define 'File.normalize_path'
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'payload_types', 'lib', 'protocol'))
 
 module RightScale
 

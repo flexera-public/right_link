@@ -20,14 +20,14 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require File.expand_path(File.join(File.dirname(__FILE__), '..', 'spec_helper'))
-require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'lib', 'windows', 'chef_node_server'))
-require File.expand_path(File.join(File.dirname(__FILE__), '..', 'mock_auditor_proxy'))
-require File.expand_path(File.join(File.dirname(__FILE__), '..', 'chef_runner'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'spec_helper'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'lib', 'windows', 'chef_node_server'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'mock_auditor_proxy'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'chef_runner'))
 
 Chef::Log.logger = RightScale::Test::MockAuditorProxy.new
 
-TEST_TEMP_PATH = File.expand_path(File.join(Dir.tmpdir, "run-chef-node-server-9791A30A-3FCE-4f5b-AEEB-72D82B3689AE"))
+TEST_TEMP_PATH = File.normalize_path(File.join(Dir.tmpdir, "run-chef-node-server-9791A30A-3FCE-4f5b-AEEB-72D82B3689AE"))
 TEST_COOKBOOKS_PATH = RightScale::Test::ChefRunner.get_cookbooks_path(TEST_TEMP_PATH)
 
 RightScale::Test::ChefRunner.run_chef_as_server(TEST_COOKBOOKS_PATH, []) do |chef_client|

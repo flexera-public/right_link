@@ -169,3 +169,14 @@ module RightScale
     end
   end
 end
+
+# Platform specific implementation of File.normalize_path
+class File
+
+  # On *nix systems, resolves to File.normalize_path
+  # On Windows systems, resolves to File.normalize_path.to_short_path
+  def self.normalize_path(file_name, *dir_string)
+    File.expand_path(file_name, *dir_string)
+  end
+
+end

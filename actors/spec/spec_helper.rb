@@ -21,5 +21,5 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'spec', 'spec_helper'))
-require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'agents', 'lib', 'instance'))
-require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'chef', 'lib', 'providers'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'agents', 'lib', 'instance'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'chef', 'lib', 'providers'))

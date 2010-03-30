@@ -88,6 +88,22 @@ module RightScale
       # initialize().
     end
 
+    # Load platform specific implementation
+    #
+    # === Return
+    # true:: Always return true
+    def load_platform_specific
+      if linux?
+        require_linux
+      elsif mac?
+        require_mac
+      elsif windows?
+        require_windows
+      else
+        raise PlatformError.new('Unknown platform')
+      end
+    end
+    
     # An alias for RUBY_PLATFORM
     #
     # === Return
@@ -247,17 +263,13 @@ module RightScale
       const_name = name.to_s.camelize
 
       unless res = self.instance_variable_get(instance_var)
+        load_platform_specific
         if linux?
-          require_linux
           res = Linux.const_get(const_name).new
         elsif mac?
-          require_mac
           res = Darwin.const_get(const_name).new
         elsif windows?
-          require_windows
           res = Windows.const_get(const_name).new
-        else
-          raise PlatformError.new("Don't know about service '#{name}'")
         end
         instance_variable_set(instance_var, res)
       end

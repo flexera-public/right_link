@@ -22,7 +22,7 @@
 
 require 'time'  # defines Time.rfc2822()
 require 'logger'
-require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'config', 'right_link_config'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'config', 'right_link_config'))
 require 'syslog_logger' unless RightScale::RightLinkConfig[:platform].windows?
 require File.join(File.dirname(__FILE__), 'multiplexer')
 require File.join(File.dirname(__FILE__), 'exceptions')

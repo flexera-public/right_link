@@ -36,8 +36,9 @@ require 'spec'
 require 'eventmachine'
 require 'fileutils'
 
-require File.expand_path(File.join(File.dirname(__FILE__), '..', 'common', 'lib', 'common'))
-require File.expand_path(File.join(File.dirname(__FILE__), '..', 'payload_types', 'lib', 'payload_types'))
+require File.expand_path(File.join(File.dirname(__FILE__), '..', 'config', 'right_link_config'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'common', 'lib', 'common'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'payload_types', 'lib', 'payload_types'))
 require File.join(File.dirname(__FILE__), 'results_mock')
 
 $:.push File.join(File.dirname( __FILE__), '..', 'actors', 'lib')
@@ -54,7 +55,7 @@ module RightScale
 
   module SpecHelpers
 
-    RIGHT_LINK_SPEC_HELPER_TEMP_PATH = File.expand_path(File.join(RightScale::RightLinkConfig[:platform].filesystem.temp_dir, 'right_link_spec_helper'))
+    RIGHT_LINK_SPEC_HELPER_TEMP_PATH = File.normalize_path(File.join(RightScale::RightLinkConfig[:platform].filesystem.temp_dir, 'right_link_spec_helper'))
 
     # Setup instance state for tests
     # Use different identity to reset list of past scripts
@@ -146,7 +147,7 @@ module RightScale
 
 end # RightScale
 
-require File.expand_path(File.join(__FILE__, '..', '..', 'common', 'lib', 'common', 'right_link_log'))
+require File.normalize_path(File.join(__FILE__, '..', '..', 'common', 'lib', 'common', 'right_link_log'))
 
 module RightScale
   class RightLinkLog
@@ -162,7 +163,7 @@ module RightScale
   end
 end
 
-require File.expand_path(File.join(__FILE__, '..', '..', 'agents', 'lib', 'instance', 'instance_state'))
+require File.normalize_path(File.join(__FILE__, '..', '..', 'agents', 'lib', 'instance', 'instance_state'))
 
 module RightScale
   class InstanceState

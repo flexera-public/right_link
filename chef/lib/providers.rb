@@ -26,7 +26,7 @@ undef :daemonize if methods.include?('daemonize')
 # must monkey patch Chef::Mixin::Command before chef loads in Windows in order
 # to replace Linux-specific run_command() method. Linux side also benefits from
 # how right_popen divides stdout from stderr in logging.
-require File.expand_path(File.join(File.dirname(__FILE__), '..', 'lib', 'mixin', 'command'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'mixin', 'command'))
 
 require 'chef'
 require 'chef/client'
@@ -69,7 +69,7 @@ if RightScale::RightLinkConfig[:platform].windows?
   # load (and self-register) all Windows providers
   windows_providers = File.join(File.dirname(__FILE__), 'providers', 'windows', '*.rb').gsub("\\", "/")
   Dir[windows_providers].each do |rb_file|
-    require File.expand_path(rb_file)
+    require File.normalize_path(rb_file)
   end
 
 end

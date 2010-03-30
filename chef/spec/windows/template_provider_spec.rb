@@ -19,17 +19,17 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require File.expand_path(File.join(File.dirname(__FILE__), '..', 'spec_helper'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'spec_helper'))
 
 # FIX: rake spec should check parent directory name?
 if RightScale::RightLinkConfig[:platform].windows?
 
   require 'fileutils'
-  require File.expand_path(File.join(File.dirname(__FILE__), '..', 'mock_auditor_proxy'))
-  require File.expand_path(File.join(File.dirname(__FILE__), '..', 'chef_runner'))
+  require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'mock_auditor_proxy'))
+  require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'chef_runner'))
 
   module TemplateProviderSpec
-    TEST_TEMP_PATH = File.expand_path(File.join(Dir.tmpdir, "template-provider-spec-3FEFA392-2624-4e6d-8279-7D0BEB1CC7A2")).gsub("\\", "/")
+    TEST_TEMP_PATH = File.normalize_path(File.join(Dir.tmpdir, "template-provider-spec-3FEFA392-2624-4e6d-8279-7D0BEB1CC7A2")).gsub("\\", "/")
     TEST_COOKBOOKS_PATH = RightScale::Test::ChefRunner.get_cookbooks_path(TEST_TEMP_PATH)
     TEST_COOKBOOK_PATH = File.join(TEST_COOKBOOKS_PATH, 'test')
     SOURCE_FILE_PATH = File.join(TEST_COOKBOOK_PATH, 'templates', 'default', 'test.erb')

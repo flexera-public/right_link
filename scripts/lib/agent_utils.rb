@@ -58,7 +58,7 @@ module RightScale
 
     # Path to cert folder
     def certs_dir
-      File.expand_path(File.join(root_path, '..', 'certs'))
+      File.normalize_path(File.join(root_path, '..', 'certs'))
     end
     
     # Path to scripts folder

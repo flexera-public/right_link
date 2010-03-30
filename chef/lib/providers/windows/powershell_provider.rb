@@ -22,7 +22,7 @@
 
 require 'fileutils'
 require 'chef/provider/execute'
-require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'windows', 'chef_node_server'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'windows', 'chef_node_server'))
 
 class Chef
 
@@ -103,7 +103,7 @@ class Chef
 
       # Resolves a loadable location for the ChefNodeCmdlet.dll
       def self.locate_chef_node_cmdlet
-        cmdlet_path = ::File.expand_path(::File.join(::File.dirname(__FILE__), '..', '..', 'windows', 'bin', 'ChefNodeCmdlet.dll'))
+        cmdlet_path = ::File.normalize_path(::File.join(::File.dirname(__FILE__), '..', '..', 'windows', 'bin', 'ChefNodeCmdlet.dll'))
 
         # handle case of running spec tests from a network drive by copying .dll
         # to the system drive. Powershell silently fails to load modules from
@@ -113,7 +113,7 @@ class Chef
         # from a shared drive.
         homedrive = ENV['HOMEDRIVE']
         if homedrive && homedrive.upcase != cmdlet_path[0,2].upcase
-          temp_dir = ::File.expand_path(::File.join(RightScale::RightLinkConfig[:platform].filesystem.temp_dir, 'powershell_provider-B6169A26-91B5-4e3e-93AD-F0B4F6EF107E'))
+          temp_dir = ::File.normalize_path(::File.join(RightScale::RightLinkConfig[:platform].filesystem.temp_dir, 'powershell_provider-B6169A26-91B5-4e3e-93AD-F0B4F6EF107E'))
           FileUtils.rm_rf(temp_dir) if ::File.directory?(temp_dir)
           FileUtils.mkdir_p(temp_dir)
           FileUtils.cp_r(::File.join(::File.dirname(cmdlet_path), '.'), temp_dir)

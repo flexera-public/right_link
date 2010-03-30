@@ -24,7 +24,7 @@ module RightScale
 
   class PidFile
     def initialize(identity, options)
-      @pid_dir = File.expand_path(options[:pid_dir] || options[:root] || Dir.pwd)
+      @pid_dir = File.normalize_path(options[:pid_dir] || options[:root] || Dir.pwd)
       @pid_file = File.join(@pid_dir, "nanite.#{identity}.pid")
     end
     

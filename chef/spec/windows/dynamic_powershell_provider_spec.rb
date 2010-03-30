@@ -19,10 +19,10 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require File.expand_path(File.join(File.dirname(__FILE__), '..', 'spec_helper'))
-require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'lib', 'windows', 'dynamic_powershell_provider'))
-require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'lib', 'windows', 'powershell_provider_base'))
-require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'lib', 'windows', 'powershell_host'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'spec_helper'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'lib', 'windows', 'dynamic_powershell_provider'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'lib', 'windows', 'powershell_provider_base'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'lib', 'windows', 'powershell_host'))
 
 describe RightScale::DynamicPowershellProvider do
 

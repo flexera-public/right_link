@@ -121,7 +121,7 @@ module RightScale
     # true:: Always return true
     def configure_chef
       # Ohai plugins path and logging
-      ohai_plugins = File.expand_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'chef', 'lib', 'plugins'))
+      ohai_plugins = File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'chef', 'lib', 'plugins'))
       Ohai::Config[:plugin_path].unshift(ohai_plugins)
       Ohai::Config.log_level RightLinkLog.level
 

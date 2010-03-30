@@ -25,7 +25,7 @@
 # name value
 
 # Root path to RightScale files
-rs_root_path File.expand_path(File.join(File.dirname(__FILE__), '..', '..'))
+rs_root_path File.normalize_path(File.join(File.dirname(__FILE__), '..', '..'))
 
 # Current RightLink protocol version
 protocol_version RightScale::CURRENT_PROTOCOL_VERSION
