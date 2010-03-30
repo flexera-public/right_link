@@ -429,7 +429,7 @@ class File
   def self.normalize_path(file_name, *dir_string)
     @fs ||= RightScale::Platform::Windows::Filesystem.new
     path = File.expand_path(file_name, *dir_string)
-    @fs.long_path_to_short_path.(path)
+    @fs.long_path_to_short_path(path)
   end
 
 end
