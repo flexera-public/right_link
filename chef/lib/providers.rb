@@ -66,6 +66,12 @@ if RightScale::RightLinkConfig[:platform].windows?
   # create the Windows default platform hash before loading windows providers.
   Chef::Platform.platforms[:windows] = { :default => { } } unless Chef::Platform.platforms[:windows]
 
+  # load (and self-register) all Windows chef libraries
+  windows_chef = File.join(File.dirname(__FILE__), 'windows', '*.rb').gsub("\\", "/")
+  Dir[windows_chef].each do |rb_file|
+    require File.normalize_path(rb_file)
+  end
+  
   # load (and self-register) all Windows providers
   windows_providers = File.join(File.dirname(__FILE__), 'providers', 'windows', '*.rb').gsub("\\", "/")
   Dir[windows_providers].each do |rb_file|
