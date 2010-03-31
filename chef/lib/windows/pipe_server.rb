@@ -90,9 +90,10 @@ module RightScale
 
       # Forces detachment of the handler on EM's next tick.
       def force_detach
-        # Use next tick to prevent issue in EM where descriptors list
-        # gets out-of-sync when calling detach in an unbind callback
-        EM.next_tick { detach unless @unbound }
+        # No need to use next tick to prevent issue in EM where 
+        # descriptors list gets out-of-sync when calling detach 
+        # in an unbind callback
+        detach unless @unbound
       end
 
       protected
