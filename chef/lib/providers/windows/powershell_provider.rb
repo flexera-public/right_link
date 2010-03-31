@@ -72,7 +72,7 @@ class Chef
         #
         # FIX: should be managed at a higher level and be started/stopped once
         # per convergence.
-        chef_node_server = ::RightScale::Windows::ChefNodeServer.new(:node => @node, :verbose => false)
+        chef_node_server = ::RightScale::Windows::ChefNodeServer.new(:node => @node, :logger => Chef::Log.logger)
 
         begin
           # 2. Setup environment.

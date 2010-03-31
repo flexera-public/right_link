@@ -41,8 +41,8 @@ namespace RightScale
 
                 public static int MAX_CLIENT_RETRIES = 10;
 
-                public static int CHEF_NODE_CONNECT_TIMEOUT_MSECS = 30 * 1000;
-                public static int NEXT_ACTION_CONNECT_TIMEOUT_MSECS = 30 * 60 * 1000;   // 30 minutes
+                public static int CHEF_NODE_CONNECT_TIMEOUT_MSECS = 30 * 1000;      // 30 seconds
+                public static int NEXT_ACTION_CONNECT_TIMEOUT_MSECS = 30 * 1000;    // 30 seconds
                 public static int SLEEP_BETWEEN_CLIENT_RETRIES_MSECS = 100;
             }
         }

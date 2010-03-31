@@ -32,14 +32,29 @@ namespace RightScale
             // data for a get-NextAction request
             public class GetNextActionRequest
             {
+                static public string LAST_EXIT_CODE_KEY = "LastExitCode";
+
+                public int LastExitCode
+                {
+                    get { return lastExitCode; }
+                    set { lastExitCode = value; }
+                }
+
                 public GetNextActionRequest()
                 {
                 }
 
+                public GetNextActionRequest(int lastExitCode)
+                {
+                    this.lastExitCode = lastExitCode;
+                }
+
                 public override string ToString()
                 {
-                    return String.Format("GetNextActionRequest:");
+                    return String.Format("GetNextActionRequest: {{ LastExitCode = {0} }}", lastExitCode);
                 }
+
+                private int lastExitCode;
             }
         }
     }

@@ -38,71 +38,96 @@ module RightScale
 
       CONNECTING_STATE = 0  # state between client connections
       READING_STATE    = 1  # after connection, receiving request
-      WRITING_STATE    = 2  # received request, respond before disconnecting
+      RESPONDING_STATE = 2  # received request, calculating response
+      WRITING_STATE    = 3  # calculated response, respond before disconnecting
 
-      SLEEP_DELAY_MSECS = 0.01
+      WAIT_SLEEP_DELAY_MSECS = 0.001     # yield to avoid busy looping
+      ASYNC_IO_SLEEP_DELAY_MSECS = 0.01  # yield to allow async I/O time to process
 
       # === Parameters
-      # target(Object):: Object defining handler methods to be called.
+      # options(Hash):: A hash containing the following options by token name:
       #
-      # pipe_handler(String):: Token for pipe handler method name.
+      # target(Object):: Object defining handler methods to be called (required).
       #
-      # pipe(IO):: pipe object.
-      def initialize(target, pipe_handler, pipe, verbose)
-        @target = target
-        @pipe_handler = pipe_handler
-        @pipe = pipe
+      # request_handler(Token):: Token for request handler method name (required).
+      #
+      # request_query(Token):: Token for request query method name if server
+      # needs time to calculate a response (allows event loop to continue until
+      # such time as request_query returns true).
+      #
+      # pipe(IO):: pipe object (required).
+      #
+      # logger(Logger):: logger or nil
+      def initialize(options)
+        raise "Missing required :target" unless @target = options[:target]
+        raise "Missing required :request_handler" unless @request_handler = options[:request_handler]
+        raise "Missing require :pipe" unless @pipe = options[:pipe]
+        @request_query = options[:request_query]
+        @logger = options[:logger]
         @unbound = false
         @state = CONNECTING_STATE
         @data = nil
-        @verbose = verbose
       end
 
       # Callback from EM to asynchronously read the pipe stream. Note that this
       # callback mechanism is deprecated after EM v0.12.8
       def notify_readable
-        if @pipe.wait(SLEEP_DELAY_MSECS)
+        if @pipe.wait(WAIT_SLEEP_DELAY_MSECS)
           if @pipe.pending?
             handle_pending
           else
             handle_non_pending
           end
+
+          # sleep a little to allow asynchronous I/O time to complete and
+          # avoid busy looping.
+          sleep ASYNC_IO_SLEEP_DELAY_MSECS
         end
       rescue Exception => e
-        puts "#{e.message}\n#{e.backtrace.join("\n")}"
+        log_error("#{e.class}: #{e.message}\n#{e.backtrace.join("\n")}")
         (disconnect rescue nil) if @state != CONNECTING_STATE
       end
 
       # Callback from EM to receive data, which we also use to handle the
       # asynchronous data we read ourselves.
       def receive_data(data)
-        return @target.method(@pipe_handler).call(data)
+        return @target.method(@request_handler).call(data)
       end
 
       # Callback from EM to unbind.
       def unbind
-        puts "unbound" if @verbose
+        log_debug("unbound")
         @pipe.close rescue nil
         @connected = false
         @pipe = nil
         @unbound = true
       end
 
-      # Forces detachment of the handler on EM's next tick.
+      # Forces detachment of the handler unless already unbound.
       def force_detach
-        # No need to use next tick to prevent issue in EM where 
-        # descriptors list gets out-of-sync when calling detach 
+        # No need to use next tick to prevent issue in EM where
+        # descriptors list gets out-of-sync when calling detach
         # in an unbind callback
         detach unless @unbound
       end
 
       protected
 
+      # Logs error if enabled
+      def log_error(message)
+        @logger.error(message) if @logger
+      end
+
+      # Logs debug if enabled
+      def log_debug(message)
+        @logger.debug(message) if @logger
+      end
+
       # Handles any pending I/O from asynchronous pipe server.
       def handle_pending
         case @state
         when CONNECTING_STATE
-          puts "connection pending" if @verbose
+          log_debug("connection pending")
           connected
           if @pipe.read
             consume_pipe_buffer if not @pipe.pending?
@@ -110,74 +135,79 @@ module RightScale
             disconnect
           end
         when READING_STATE
-          puts "read pending" if @verbose
+          log_debug("read pending")
           if @pipe.transferred == 0
             disconnect
           else
             consume_pipe_buffer
           end
+        when RESPONDING_STATE
+          log_debug("unexpected pending io while responding")
+          disconnect
         when WRITING_STATE
-          puts "write pending" if @verbose
+          log_debug("write pending")
           if @pipe.transferred >= @pipe.size
             write_complete
           end
         end
-
-        # sleep a little to allow asynchronous I/O time to complete and
-        # avoid busy looping.
-        sleep SLEEP_DELAY_MSECS
       end
 
       # Handles state progression when there is no pending I/O.
       def handle_non_pending
         case @state
         when CONNECTING_STATE
-          puts "waiting for connection" if @verbose
+          log_debug("waiting for connection")
           if @pipe.connect
             connected
           end
         when READING_STATE
-          puts "still reading request" if @verbose
+          log_debug("still reading request")
           if @pipe.read
             consume_pipe_buffer if not @pipe.pending?
           else
             disconnect
           end
+        when RESPONDING_STATE
+          respond if (@request_query.nil? || @target.method(@request_query).call(@data))
         when WRITING_STATE
-          puts "done writing request" if @verbose
+          log_debug("done writing request")
           write_complete
         end
-        # sleep a little to allow asynchronous I/O time to complete and
-        # avoid busy looping.
-        sleep SLEEP_DELAY_MSECS
       end
 
       # Acknowledges client connected by changing to reading state.
       def connected
-        puts "connected" if @verbose
+        log_debug("connected")
 
         # sleep a little to allow asynchronous I/O time to complete and
-        # avoid busy looping.
-        sleep SLEEP_DELAY_MSECS
+        # avoid busy looping before reading from pipe.
+        sleep ASYNC_IO_SLEEP_DELAY_MSECS
         @state = READING_STATE
       end
 
       # Acknowledges request received by invoking EM receive_data method.
       def read_complete
-        puts "read_complete" if @verbose
+        log_debug("read_complete")
         if @data && @data.length > 0
-          puts "received: #{@data}" if @verbose
-          response = receive_data(@data)
-          if response && response.length > 0
-            puts "writing response = #{response}" if @verbose
-            if @pipe.write(response)
-              if @pipe.pending?
-                @state = WRITING_STATE
-              else
-                write_complete
-              end
+          log_debug("received: #{@data}")
+          @state = RESPONDING_STATE
+        else
+          disconnect
+        end
+      end
+
+      # Asks the server implementation for the calculated response and puts it
+      # on the wire.
+      def respond
+        response = receive_data(@data)
+        @data = nil
+        if response && response.length > 0
+          log_debug("writing response = #{response}")
+          if @pipe.write(response)
+            if @pipe.pending?
+              @state = WRITING_STATE
             else
-              disconnect
+              write_complete
             end
           else
             disconnect
@@ -185,18 +215,17 @@ module RightScale
         else
           disconnect
         end
-        @data = nil
       end
 
       # Acknowledges response sent by disconnecting and waiting for next client.
       def write_complete
-        puts "write_complete" if @verbose
+        log_debug("write_complete")
         disconnect
       end
 
       # Disconnects from client and resumes waiting for next client.
       def disconnect
-        puts "disconnect" if @verbose
+        log_debug("disconnect")
         @pipe.disconnect
         @state = CONNECTING_STATE
       end

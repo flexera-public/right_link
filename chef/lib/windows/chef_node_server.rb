@@ -47,10 +47,10 @@ module RightScale
       #
       # node(Hash):: data node or empty (default)
       #
-      # verbose(Boolean):: true if printing verbose output, false to be silent (default)
+      # logger(Logger):: logger or nil
       def initialize(options = {})
         @node = options[:node] || {}
-        @verbose = options[:verbose] || false
+        @logger = options[:logger]
         @pipe_eventable = nil
       end
 
@@ -59,12 +59,22 @@ module RightScale
       def start
         flags = ::Win32::Pipe::ACCESS_DUPLEX | ::Win32::Pipe::OVERLAPPED
         pipe = PipeServer.new(CHEF_NODE_PIPE_NAME, 0, flags)
-        @pipe_eventable = EM.attach(pipe, PipeServerHandler, self, :request_handler, pipe, @verbose)
+        begin
+          options = {:target => self,
+                     :request_handler => :request_handler,
+                     :pipe => pipe,
+                     :logger => @logger}
+          @pipe_eventable = EM.attach(pipe, PipeServerHandler, options)
+        rescue
+          pipe.close rescue nil
+          raise
+        end
       end
 
       # Stops the pipe server by detaching the eventable from the event machine.
       def stop
         @pipe_eventable.force_detach if @pipe_eventable
+        @pipe_eventable = nil
       end
 
       # Handler for data node requests. Expects complete requests and responses

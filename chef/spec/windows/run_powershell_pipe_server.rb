@@ -21,18 +21,40 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 require File.expand_path(File.join(File.dirname(__FILE__), '..', 'spec_helper'))
-require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'lib', 'windows', 'chef_node_server'))
-require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'mock_auditor_proxy'))
-require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'chef_runner'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'lib', 'windows', 'powershell_pipe_server'))
+require 'eventmachine'
+
+unless 2 == ARGV.size && ARGV[0] == "-na"
+  puts "Usage: -na <nextActionPath>"
+  puts
+  puts "The nextActionPath is a text file containing a list of actions to execute in powershell."
+  exit
+end
+
+queue = Queue.new
+File.open(ARGV[1], "r") do |f|
+  while (next_action = f.gets)
+    queue.push(next_action) if next_action.chomp!.length > 0
+  end
+end
+done = false
 
 logger = Logger.new(STDOUT)
 logger.level = Logger::DEBUG
-Chef::Log.logger = logger
 
-TEST_TEMP_PATH = File.normalize_path(File.join(Dir.tmpdir, "run-chef-node-server-9791A30A-3FCE-4f5b-AEEB-72D82B3689AE"))
-TEST_COOKBOOKS_PATH = RightScale::Test::ChefRunner.get_cookbooks_path(TEST_TEMP_PATH)
-
-RightScale::Test::ChefRunner.run_chef_as_server(TEST_COOKBOOKS_PATH, []) do |chef_client|
-  chef_node_server = ::RightScale::Windows::ChefNodeServer.new(:node => chef_client.node, :logger => logger)
-  chef_node_server.start
+puts "Hit Ctrl+C to cancel server"
+EM.run do
+  EM.defer do
+    powershell_pipe_server = ::RightScale::Windows::PowershellPipeServer.new(:queue => queue, :logger => logger)
+    powershell_pipe_server.start
+  end
+  timer = EM::PeriodicTimer.new(0.1) do
+    if done && queue.empty?
+      timer.cancel
+      EM.stop
+    elsif queue.empty?
+      queue.push "exit"  # ensure exit command at end of queue
+      done = true
+    end
+  end
 end

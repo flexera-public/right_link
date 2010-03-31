@@ -47,7 +47,9 @@ namespace RightScale
 
                         try
                         {
-                            GetNextActionRequest request = new GetNextActionRequest();
+                            // FIX: query the current value of $LastExitCode from powershell host.
+                            int lastExitCode = 0;
+                            GetNextActionRequest request = new GetNextActionRequest(lastExitCode);
 
                             pipeClient.Connect(Constants.NEXT_ACTION_CONNECT_TIMEOUT_MSECS);
 
@@ -64,7 +66,6 @@ namespace RightScale
                                 else
                                 {
                                     string message = String.Format("Failed to get expected response after {0} retries.", Constants.MAX_CLIENT_RETRIES);
-
                                     throw new GetNextActionException(message);
                                 }
                             }
@@ -87,10 +88,19 @@ namespace RightScale
                             //
                             //  while ($TRUE)
                             //  {
-                            //      $nextAction = get-NextAction -ea Stop
-                            //      write-output $nextAction
-                            //      Invoke-Command -scriptblock $nextAction
-                            //      sleep 1
+                            //      $Error.clear()
+                            //      $nextAction = $NULL
+                            //      $nextAction = get-NextAction
+                            //      if ($Error.Count -eq 0)
+                            //      {
+                            //          write-output $nextAction
+                            //          Invoke-Command -scriptblock $nextAction
+                            //          sleep 1
+                            //      }
+                            //      else
+                            //      {
+                            //          break
+                            //      }
                             //  }
                             ScriptBlock scriptBlock = ScriptBlock.Create(nextAction);
 
