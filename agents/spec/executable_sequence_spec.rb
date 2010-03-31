@@ -21,8 +21,8 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 require File.join(File.dirname(__FILE__), 'spec_helper')
-require File.join(File.dirname(__FILE__), '..', '..', 'chef', 'lib', 'plugins')
-require File.join(File.dirname(__FILE__), '..', '..', 'chef', 'lib', 'providers')
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'chef', 'lib', 'plugins'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'chef', 'lib', 'providers'))
 
 describe RightScale::ExecutableSequence do
 
