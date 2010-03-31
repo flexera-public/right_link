@@ -21,6 +21,7 @@
 // WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 /////////////////////////////////////////////////////////////////////////
 using System;
+using System.Collections;
 
 namespace RightScale
 {
@@ -28,30 +29,17 @@ namespace RightScale
     {
         namespace Protocol
         {
-            // data for a set-ChefNode response
-            public class SetChefNodeResponse
+            // data for a get-NextAction request
+            public class GetNextActionRequest
             {
-                public string[] Path
+                public GetNextActionRequest()
                 {
-                    get { return path; }
-                    set { path = value; }
-                }
-
-                public SetChefNodeResponse()
-                {
-                }
-
-                public SetChefNodeResponse(string[] path)
-                {
-                    this.path = path;
                 }
 
                 public override string ToString()
                 {
-                    return String.Format("SetChefNodeResponse: {{ Path = node[{0}] }}", String.Join("][", path));
+                    return String.Format("GetNextActionRequest:");
                 }
-
-                private string[] path;
             }
         }
     }

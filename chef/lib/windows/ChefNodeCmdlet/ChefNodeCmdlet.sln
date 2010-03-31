@@ -8,6 +8,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestChefNodeCmdlet", "TestC
 		{F421745A-3ADE-473A-83DE-C7A3DF1B9557} = {F421745A-3ADE-473A-83DE-C7A3DF1B9557}
 	EndProjectSection
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestNextActionCmdlet", "TestNextActionCmdlet\TestNextActionCmdlet.csproj", "{9AF14C55-5808-4335-9BAA-74BD8DE5205B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -22,6 +24,10 @@ Global
 		{3691CA56-6927-4789-9102-0841E99B3F16}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{3691CA56-6927-4789-9102-0841E99B3F16}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{3691CA56-6927-4789-9102-0841E99B3F16}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9AF14C55-5808-4335-9BAA-74BD8DE5205B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9AF14C55-5808-4335-9BAA-74BD8DE5205B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9AF14C55-5808-4335-9BAA-74BD8DE5205B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9AF14C55-5808-4335-9BAA-74BD8DE5205B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

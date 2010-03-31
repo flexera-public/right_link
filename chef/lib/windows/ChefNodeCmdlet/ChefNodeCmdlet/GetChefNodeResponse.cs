@@ -31,6 +31,9 @@ namespace RightScale
             // data for a get-ChefNode response
             public class GetChefNodeResponse
             {
+                public static string PATH_KEY = "Path";
+                public static string NODE_VALUE_KEY = "NodeValue";
+
                 public string[] Path
                 {
                     get { return path; }
@@ -66,7 +69,7 @@ namespace RightScale
                         value = "\"" + nodeValue + "\"";
                     }
 
-                    return String.Format("GetChefNodeResponse: SET {{ Path = node[{0}], NodeValue = {1} }}", String.Join("][", path), value);
+                    return String.Format("GetChefNodeResponse: {{ Path = node[{0}], NodeValue = {1} }}", String.Join("][", path), value);
                 }
 
                 private string[] path;

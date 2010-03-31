@@ -73,7 +73,7 @@ namespace RightScale
                         value = "\"" + nodeValue + "\"";
                     }
 
-                    return String.Format("SetChefNodeRequest: SET {{ Path = node[{0}], NodeValue = {1} }}", String.Join("][", path), value);
+                    return String.Format("SetChefNodeRequest: {{ Path = node[{0}], NodeValue = {1} }}", String.Join("][", path), value);
                 }
 
                 private string[] path;

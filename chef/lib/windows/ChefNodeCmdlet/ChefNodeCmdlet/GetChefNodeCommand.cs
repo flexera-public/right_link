@@ -86,17 +86,16 @@ namespace RightScale
                                 {
                                     string message = String.Format("Failed to get expected response after {0} retries.", Constants.MAX_CLIENT_RETRIES);
 
-                                    throw new ChefNodeCmdletException(message);
+                                    throw new GetChefNodeException(message);
                                 }
                             }
-                            if (ChefNodeCmdletException.HasError(responseHash))
+                            if (ChefNodeCmdletExceptionBase.HasError(responseHash))
                             {
-                                throw new ChefNodeCmdletException(responseHash);
+                                throw new GetChefNodeException(responseHash);
                             }
 
                             // can't write a null object to pipeline, so write nothing in the null case.
-                            string NODE_VALUE_KEY = "NodeValue";
-                            object nodeValue = responseHash.Contains(NODE_VALUE_KEY) ? responseHash[NODE_VALUE_KEY] : null;
+                            object nodeValue = responseHash.Contains(GetChefNodeResponse.NODE_VALUE_KEY) ? responseHash[GetChefNodeResponse.NODE_VALUE_KEY] : null;
 
                             if (null != nodeValue)
                             {
@@ -109,6 +108,10 @@ namespace RightScale
                         catch (TimeoutException e)
                         {
                             ThrowTerminatingError(new ErrorRecord(e, "Connection timed out", ErrorCategory.OperationTimeout, pipeClient));
+                        }
+                        catch (GetChefNodeException e)
+                        {
+                            ThrowTerminatingError(new ErrorRecord(e, "get-ChefNode exception", ErrorCategory.InvalidResult, pipeClient));
                         }
                         catch (Exception e)
                         {

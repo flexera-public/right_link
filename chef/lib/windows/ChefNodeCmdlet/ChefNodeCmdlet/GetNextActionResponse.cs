@@ -28,30 +28,32 @@ namespace RightScale
     {
         namespace Protocol
         {
-            // data for a set-ChefNode response
-            public class SetChefNodeResponse
+            // data for a get-NextAction response
+            public class GetNextActionResponse
             {
-                public string[] Path
+                public static string NEXT_ACTION_KEY = "NextAction";
+
+                public string NextAction
                 {
-                    get { return path; }
-                    set { path = value; }
+                    get { return nextAction; }
+                    set { nextAction = value; }
                 }
 
-                public SetChefNodeResponse()
+                public GetNextActionResponse()
                 {
                 }
 
-                public SetChefNodeResponse(string[] path)
+                public GetNextActionResponse(string nextAction)
                 {
-                    this.path = path;
+                    this.nextAction = nextAction;
                 }
 
                 public override string ToString()
                 {
-                    return String.Format("SetChefNodeResponse: {{ Path = node[{0}] }}", String.Join("][", path));
+                    return String.Format("GetNextActionResponse: {{ NextAction \"{0}\" }}", nextAction);
                 }
 
-                private string[] path;
+                private string nextAction;
             }
         }
     }

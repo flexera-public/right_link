@@ -45,10 +45,13 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="ChefNodeCmdletException.cs" />
+    <Compile Include="Exceptions.cs" />
     <Compile Include="GetChefNodeCommand.cs" />
     <Compile Include="GetChefNodeRequest.cs" />
     <Compile Include="GetChefNodeResponse.cs" />
+    <Compile Include="GetNextActionCommand.cs" />
+    <Compile Include="GetNextActionRequest.cs" />
+    <Compile Include="GetNextActionResponse.cs" />
     <Compile Include="JsonTransport.cs" />
     <Compile Include="PipeClient.cs" />
     <Compile Include="PipeServer.cs" />

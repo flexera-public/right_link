@@ -128,12 +128,12 @@ namespace RightScale
                                 {
                                     string message = String.Format("Failed to get expected response after {0} retries.", Constants.MAX_CLIENT_RETRIES);
 
-                                    throw new ChefNodeCmdletException(message);
+                                    throw new SetChefNodeException(message);
                                 }
                             }
-                            if (ChefNodeCmdletException.HasError(responseHash))
+                            if (ChefNodeCmdletExceptionBase.HasError(responseHash))
                             {
-                                throw new ChefNodeCmdletException(responseHash);
+                                throw new SetChefNodeException(responseHash);
                             }
 
                             // done.
@@ -142,6 +142,10 @@ namespace RightScale
                         catch (TimeoutException e)
                         {
                             ThrowTerminatingError(new ErrorRecord(e, "Connection timed out", ErrorCategory.OperationTimeout, pipeClient));
+                        }
+                        catch (SetChefNodeException e)
+                        {
+                            ThrowTerminatingError(new ErrorRecord(e, "set-ChefNode exception", ErrorCategory.InvalidResult, pipeClient));
                         }
                         catch (Exception e)
                         {

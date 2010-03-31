@@ -2,6 +2,7 @@ ChefNodeCmdlet/Debug/
 ChefNodeCmdlet/Release/
 ChefNodeCmdlet/ChefNodeCmdlet/obj
 ChefNodeCmdlet/TestChefNodeCmdlet/obj
+ChefNodeCmdlet/TestNextActionCmdlet/obj
 bin/ChefNodeCmdlet.dll
 *.aps
 *.ncb
