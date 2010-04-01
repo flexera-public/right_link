@@ -36,12 +36,12 @@ module RightScale
     def initialize(options = {})
       @execute_status = nil
       @command_queue  = Queue.new
-      @node           = options[:chef_node] || nil
+      @node           = options[:chef_node]
 
-      @pipe_server      = RightScale::Windows::PowershellPipeServer.new(:queue => @command_queue, :logger =>  Chef::Log.logger)
+      @pipe_server      = RightScale::Windows::PowershellPipeServer.new(:queue => @command_queue, :logger => Chef::Log.logger)
       @chef_node_server = RightScale::Windows::ChefNodeServer.new(:node => @node, :logger => Chef::Log.logger)
-                
-      client_command = format_command(::File.normalize_path(::File.join(::File.dirname(__FILE__), '..', '..', 'lib', 'windows', 'scripts', 'run_loop.ps1')))
+      
+      client_command = format_command(RUN_LOOP_SCRIPT_PATH)
       execute(client_command, nil)
       
       @active = true
@@ -77,8 +77,8 @@ module RightScale
     protected
     
     # Resolves a loadable location for the ChefNodeCmdlet.dll
-    def self.locate_chef_node_cmdlet
-      cmdlet_path = ::File.normalize_path(::File.join(::File.dirname(__FILE__), '..', '..', 'lib', 'windows', 'bin', 'ChefNodeCmdlet.dll'))
+    def self.locate_local_windows_modules
+      windows_path = ::File.normalize_path(::File.join(::File.dirname(__FILE__), '..', '..', 'lib', 'windows'))
 
       # handle case of running spec tests from a network drive by copying .dll
       # to the system drive. Powershell silently fails to load modules from
@@ -87,18 +87,21 @@ module RightScale
       # build/test machine so this is only meant for VM images running tests
       # from a shared drive.
       homedrive = ENV['HOMEDRIVE']
-      if homedrive && homedrive.upcase != cmdlet_path[0,2].upcase
+      if homedrive && homedrive.upcase != windows_path[0,2].upcase
         temp_dir = ::File.normalize_path(::File.join(RightScale::RightLinkConfig[:platform].filesystem.temp_dir, 'powershell_host-82D5D281-5E7C-423A-88C2-69E9B7D3F37E'))
         FileUtils.rm_rf(temp_dir) if ::File.directory?(temp_dir)
         FileUtils.mkdir_p(temp_dir)
-        FileUtils.cp_r(::File.join(::File.dirname(cmdlet_path), '.'), temp_dir)
-        cmdlet_path = ::File.join(temp_dir, ::File.basename(cmdlet_path))
+        FileUtils.cp_r(::File.join(windows_path, 'bin', '.'), ::File.join(temp_dir, 'bin'))
+        FileUtils.cp_r(::File.join(windows_path, 'scripts', '.'), ::File.join(temp_dir, 'scripts'))
+        windows_path = temp_dir
       end
 
-      return RightScale::RightLinkConfig[:platform].filesystem.long_path_to_short_path(cmdlet_path).gsub("/", "\\")
+      return windows_path
     end
 
-    CHEF_NODE_CMDLET_DLL_PATH = locate_chef_node_cmdlet
+    LOCAL_WINDOWS_PATH = locate_local_windows_modules
+    CHEF_NODE_CMDLET_DLL_PATH = File.join(LOCAL_WINDOWS_PATH, 'bin', 'ChefNodeCmdlet.dll').gsub("/", "\\")
+    RUN_LOOP_SCRIPT_PATH = File.join(LOCAL_WINDOWS_PATH, 'scripts', 'run_loop.ps1').gsub("/", "\\")
 
     # Formats a command to run the given powershell script.
     #
