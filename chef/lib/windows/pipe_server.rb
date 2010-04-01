@@ -72,7 +72,7 @@ module RightScale
       # Callback from EM to asynchronously read the pipe stream. Note that this
       # callback mechanism is deprecated after EM v0.12.8
       def notify_readable
-        if @pipe.wait(WAIT_SLEEP_DELAY_MSECS)
+        if @state == RESPONDING_STATE || @pipe.wait(WAIT_SLEEP_DELAY_MSECS)
           if @pipe.pending?
             handle_pending
           else
@@ -142,8 +142,7 @@ module RightScale
             consume_pipe_buffer
           end
         when RESPONDING_STATE
-          log_debug("unexpected pending io while responding")
-          disconnect
+          responding
         when WRITING_STATE
           log_debug("write pending")
           if @pipe.transferred >= @pipe.size
@@ -168,7 +167,7 @@ module RightScale
             disconnect
           end
         when RESPONDING_STATE
-          respond if (@request_query.nil? || @target.method(@request_query).call(@data))
+          responding
         when WRITING_STATE
           log_debug("done writing request")
           write_complete
@@ -194,6 +193,14 @@ module RightScale
         else
           disconnect
         end
+      end
+
+      # Determines if the server implementation requires a callback to see if
+      # a response is available of if the response must be delayed. In the latter
+      # case, the event machine is allowed to continue until the request_query
+      # method returns true.
+      def responding
+        respond if (@request_query.nil? || @target.method(@request_query).call(@data))
       end
 
       # Asks the server implementation for the calculated response and puts it
@@ -228,16 +235,19 @@ module RightScale
         log_debug("disconnect")
         @pipe.disconnect
         @state = CONNECTING_STATE
+        @data = nil
       end
 
       # Consumes the current contents of the pipe buffer.
       def consume_pipe_buffer
         buffer = @pipe.buffer.clone
+        log_debug("before consume @data = #{@data}")
         if @data
           @data += buffer
         else
           @data = buffer
         end
+        log_debug("after consume @data = #{@data}")
 
         # newline delimits each complete request. the pending flag is not an
         # indication that the complete request has been received because the

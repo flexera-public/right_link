@@ -100,7 +100,7 @@ module RightScale
       # === Returns
       # response(String):: true if response is ready
       def request_handler(request_data)
-        # parse request linewise.
+        # assume request_data is a single line with a possible newline trailing.
         request = JSON.load(request_data.chomp)
         if 1 == request.keys.size && request.has_key?(LAST_EXIT_CODE_KEY)
           # pop the next action from the queue.
