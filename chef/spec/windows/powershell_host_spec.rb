@@ -26,8 +26,8 @@ require File.expand_path(File.join(File.dirname(__FILE__), '..', 'spec_helper'))
 if RightScale::RightLinkConfig[:platform].windows?
   
   require 'fileutils'
-  require File.expand_path(File.join(File.dirname(__FILE__), '..', 'mock_auditor_proxy'))
-  require File.expand_path(File.join(File.dirname(__FILE__), '..', 'chef_runner'))
+  require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'mock_auditor_proxy'))
+  require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'chef_runner'))
   
   
   module PowershellHostSpec

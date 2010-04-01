@@ -30,7 +30,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def self.init
-      @@ps_instance = PowershellHost.new
+      @@ps_instance = PowershellHost.new(:chef_node => @node)
       true
     end
 
