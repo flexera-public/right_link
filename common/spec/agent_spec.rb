@@ -63,9 +63,9 @@ describe RightScale::Agent do
       @agent.options[:console].should == false
     end
 
-    it "for user is nanite" do
+    it "for user is agent" do
       @agent.options.should include(:user)
-      @agent.options[:user].should == "nanite"
+      @agent.options[:user].should == "agent"
     end
 
     it "for pass(word) is testing" do
@@ -88,9 +88,9 @@ describe RightScale::Agent do
       @agent.options[:log_level].should == :info
     end
 
-    it "for vhost is /nanite" do
+    it "for vhost is /right_net" do
       @agent.options.should include(:vhost)
-      @agent.options[:vhost].should == "/nanite"
+      @agent.options[:vhost].should == "/right_net"
     end
 
     it "for ping_time is 15" do
@@ -232,7 +232,7 @@ describe RightScale::Agent do
       @agent.options[:log_level].should == :debug
     end
 
-    it "for vhost should override default (/nanite)" do
+    it "for vhost should override default (/right_net)" do
       @agent = RightScale::Agent.start(:vhost => "/virtual_host")
       @agent.options.should include(:vhost)
       @agent.options[:vhost].should == "/virtual_host"

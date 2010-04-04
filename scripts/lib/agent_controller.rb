@@ -24,9 +24,9 @@
 #     rnac --killall
 #     rnac -K
 #
-#   List running agents on /nanite vhost on local machine:
-#     rnac --status --vhost /nanite
-#     rnac -U -v /nanite
+#   List running agents on /right_net vhost on local machine:
+#     rnac --status --vhost /right_net
+#     rnac -U -v /right_net
 #
 #   Start new agent in foreground:
 #     rnac --start AGENT --foreground

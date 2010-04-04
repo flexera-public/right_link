@@ -24,7 +24,7 @@ module RightScale
 
   COMMON_DEFAULT_OPTIONS = {
     :pass => 'testing',
-    :vhost => '/nanite',
+    :vhost => '/right_net',
     :secure => false,
     :host => '0.0.0.0',
     :log_level => :info,

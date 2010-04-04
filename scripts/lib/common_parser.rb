@@ -30,9 +30,9 @@ module RightScale
     def parse_common(opts, options)
 
       opts.on("--test") do 
-        options[:user] = 'nanite'
+        options[:user] = 'test'
         options[:pass] = 'testing'
-        options[:vhost] = '/nanite'
+        options[:vhost] = '/right_net'
         options[:host] = 'localhost'
         options[:test] = true
       end

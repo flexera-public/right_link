@@ -62,7 +62,7 @@ module RightScale
 
     # Default option settings for the agent
     DEFAULT_OPTIONS = COMMON_DEFAULT_OPTIONS.merge({
-      :user => 'nanite',
+      :user => 'agent',
       :shared_queue => false,
       :ping_time => 15,
       :default_services => []
