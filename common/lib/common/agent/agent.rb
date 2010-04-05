@@ -175,6 +175,8 @@ module RightScale
         setup_heartbeat
         at_exit { un_register } unless $TESTING
         start_console if @options[:console] && !@options[:daemonize]
+      rescue SystemExit => e
+        raise e
       rescue Exception => e
         RightLinkLog.error("Agent failed startup: #{e.message}\n" + e.backtrace.join("\n"))
         raise e

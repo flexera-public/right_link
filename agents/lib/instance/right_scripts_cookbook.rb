@@ -128,7 +128,7 @@ description "Automatically generated repo, do not modify"
     # === Return
     # true:: If recipe was created from converting a RightScript
     # false:: Otherwise
-    def right_script?(recipe)
+    def self.right_script?(recipe)
       recipe =~ /^#{COOKBOOK_NAME}::/
     end
 

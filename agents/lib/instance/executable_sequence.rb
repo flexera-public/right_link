@@ -85,7 +85,7 @@ module RightScale
         @run_list = ChefState.merge_run_lists!(ChefState.run_list.dup, @run_list)
       end
       if persist_run_list
-        ChefState.merge_run_list(@run_list.select { |r| !@right_scripts_cookbook.right_script?(r) })
+        ChefState.merge_run_list(@run_list.select { |r| !RightScriptsCookbook.right_script?(r) })
       end
 
     end
