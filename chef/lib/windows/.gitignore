@@ -4,6 +4,7 @@ ChefNodeCmdlet/ChefNodeCmdlet/obj
 ChefNodeCmdlet/TestChefNodeCmdlet/obj
 ChefNodeCmdlet/TestNextActionCmdlet/obj
 bin/ChefNodeCmdlet.dll
+bin/ChefNodeCmdlet.dll-Help.xml
 *.aps
 *.ncb
 *.suo

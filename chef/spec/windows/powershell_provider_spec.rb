@@ -111,6 +111,114 @@ powershell 'test::set_chef_node_recipe' do
   source \"set-chefnode powershell_provider_spec,set_chef_node_recipe 123\"
 end
 EOF
+          ), :get_current_resource_recipe => (
+<<EOF
+powershell 'test::get_current_resource_recipe' do
+  source_text =
+<<EOPS
+  $currentResource = Get-CurrentResource ""
+  if ($currentResource)
+  {
+    Write-Error "Unexpected current resource for powershell provider"
+    exit 100
+  }
+EOPS
+  source source_text
+end
+EOF
+          ), :set_current_resource_recipe => (
+<<EOF
+powershell 'test::set_current_resource_recipe' do
+  source_text =
+<<EOPS
+  $Error.clear()
+  Set-CurrentResource "" 123
+  Set-CurrentResource my_hash @{a="A"}
+  if (2 -ne $Error.count)
+  {
+    Write-Error "Expected setting current resource to fail for powershell provider"
+    exit 100
+  }
+EOPS
+  source source_text
+end
+EOF
+          ), :get_new_resource_recipe => (
+<<EOF
+powershell 'test::get_new_resource_recipe' do
+  returns 10
+  source_text =
+<<EOPS
+  $newResource = Get-NewResource ""
+  if ($newResource)
+  {
+    $returnsValue = Get-NewResource returns
+    if ($returnsValue -eq 10)
+    {
+      if ($returnsValue -ne $newResource.returns)
+      {
+        Write-Error "Same value queried by two different paths were not equal"
+        exit 100
+      }
+      else
+      {
+        exit 10
+      }
+    }
+    else
+    {
+      Write-Error "unable to query new resource returns value"
+      exit 101
+    }
+  }
+  else
+  {
+    Write-Error "unable to query new resource"
+    exit 102
+  }
+EOPS
+  source source_text
+end
+EOF
+          ), :set_new_resource_recipe => (
+<<EOF
+powershell 'test::set_new_resource_recipe' do
+  parameters "a"=>"A", "b"=>"B"
+  source_text =
+<<EOPS
+  $Error.clear()
+  Set-NewResource "" 123
+  if (1 -ne $Error.count)
+  {
+    Write-Error "Expected setting root of new resource to fail"
+    exit 100
+  }
+  $Error.clear()
+  $parameters = Get-NewResource parameters
+  if (0 -ne $Error.count)
+  {
+    Write-Error "Failed to get parameters value"
+    exit 101
+  }
+  $parameters.x = "X"
+  $parameters.y = "Y"
+  Set-NewResource parameters -HashValue $parameters
+  if (0 -ne $Error.count)
+  {
+    Write-Error "Failed to set parameters value"
+    exit 102
+  }
+  $parameters = $NULL
+  $parameters = Get-NewResource parameters
+  if ($parameters.a -ne "A" -or $parameters.b -ne "B" -or $parameters.x -ne "X" -or $parameters.y -ne "Y")
+  {
+    $parameters > "powershell_provider_spec_set_new_resource_recipe.txt"
+    exit 103
+  }
+EOPS
+  source source_text
+end
+EOF
           )
         }
       )
@@ -249,6 +357,38 @@ EOF
           end }
       runner.call.should == true
       test_node[:powershell_provider_spec][:set_chef_node_recipe].should == 123
+    end
+
+    it "should fail to get current resource by powershell cmdlet for powershell provider" do
+      runner = lambda {
+        RightScale::Test::ChefRunner.run_chef(
+          PowershellProviderSpec::TEST_COOKBOOKS_PATH,
+          'test::get_current_resource_recipe') }
+      runner.call.should == true
+    end
+
+    it "should fail to set current resource by powershell cmdlet for powershell provider" do
+      runner = lambda {
+        RightScale::Test::ChefRunner.run_chef(
+          PowershellProviderSpec::TEST_COOKBOOKS_PATH,
+          'test::set_current_resource_recipe') }
+      runner.call.should == true
+    end
+
+    it "should get new resource by powershell cmdlet" do
+      runner = lambda {
+        RightScale::Test::ChefRunner.run_chef(
+          PowershellProviderSpec::TEST_COOKBOOKS_PATH,
+          'test::get_new_resource_recipe') }
+      runner.call.should == true
+    end
+
+    it "should set new resource by powershell cmdlet" do
+      runner = lambda {
+        RightScale::Test::ChefRunner.run_chef(
+          PowershellProviderSpec::TEST_COOKBOOKS_PATH,
+          'test::set_new_resource_recipe') }
+      runner.call.should == true
     end
 
   end

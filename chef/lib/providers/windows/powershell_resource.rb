@@ -91,8 +91,11 @@ class Chef
           arg = arg.attribute
         end
 
-        # FIX: parameters is really a duplication of the environment hash from
-        # the ExecuteResource, so merge the two hashes, if necessary.
+        # parameters is really a duplication of the environment hash from
+        # the ExecuteResource, so merge the two hashes, if necessary. it seems
+        # valid to continue to distinguish symantically between parameters and
+        # environment because the user does not necessarily need to know that
+        # they are implemented to be the same hash.
         env = environment
         if env.nil?
           env = arg
@@ -100,6 +103,7 @@ class Chef
           env.merge!(arg)
         end
         environment(env)
+        @parameters = @environment
       end
 
     end

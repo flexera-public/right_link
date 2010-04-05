@@ -32,8 +32,6 @@ namespace RightScale
             // data for a get-NextAction request
             public class GetNextActionRequest
             {
-                static public string LAST_EXIT_CODE_KEY = "LastExitCode";
-
                 public int LastExitCode
                 {
                     get { return lastExitCode; }

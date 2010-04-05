@@ -91,7 +91,10 @@ module RightScale
       # Callback from EM to receive data, which we also use to handle the
       # asynchronous data we read ourselves.
       def receive_data(data)
-        return @target.method(@request_handler).call(data)
+        # automagically append a newlineto make it easier to parse response.
+        result = @target.method(@request_handler).call(data)
+        result += "\n" unless result[-1] == "\n"[0]
+        return result
       end
 
       # Callback from EM to unbind.

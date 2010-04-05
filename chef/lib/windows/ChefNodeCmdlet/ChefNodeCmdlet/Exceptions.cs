@@ -31,7 +31,7 @@ namespace RightScale
         {
             // Summary:
             //      base exception class for exceptions thrown by common code.
-            class ChefNodeCmdletExceptionBase : Exception
+            public class ChefNodeCmdletExceptionBase : Exception
             {
                 public static string ERROR_KEY = "Error";
                 public static string DETAIL_KEY = "Detail";
@@ -117,6 +117,62 @@ namespace RightScale
                 }
 
                 public GetNextActionException(IDictionary response)
+                    : base(response)
+                {
+                }
+            }
+
+            // exceptions for Get-CurrentResource cmdlet
+            class GetCurrentResourceException : ChefNodeCmdletExceptionBase
+            {
+                public GetCurrentResourceException(string message)
+                    : base(message)
+                {
+                }
+
+                public GetCurrentResourceException(IDictionary response)
+                    : base(response)
+                {
+                }
+            }
+
+            // exceptions for Set-CurrentResource cmdlet
+            class SetCurrentResourceException : ChefNodeCmdletExceptionBase
+            {
+                public SetCurrentResourceException(string message)
+                    : base(message)
+                {
+                }
+
+                public SetCurrentResourceException(IDictionary response)
+                    : base(response)
+                {
+                }
+            }
+
+            // exceptions for Get-NewResource cmdlet
+            class GetNewResourceException : ChefNodeCmdletExceptionBase
+            {
+                public GetNewResourceException(string message)
+                    : base(message)
+                {
+                }
+
+                public GetNewResourceException(IDictionary response)
+                    : base(response)
+                {
+                }
+            }
+
+            // exceptions for Get-NewResource cmdlet
+            class SetNewResourceException : ChefNodeCmdletExceptionBase
+            {
+                public SetNewResourceException(string message)
+                    : base(message)
+                {
+                }
+
+                public SetNewResourceException(IDictionary response)
                     : base(response)
                 {
                 }

@@ -36,11 +36,13 @@ module RightScale
     class ChefNodeServer
 
       CHEF_NODE_PIPE_NAME = 'chef_node_D1D6B540-5125-4c00-8ABF-412417774DD5'
+      COMMAND_KEY = "Command"
       PATH_KEY = "Path"
       NODE_VALUE_KEY = "NodeValue"
 
       attr_reader :node
-      attr_accessor :verbose
+      attr_accessor :current_resource
+      attr_accessor :new_resource
 
       # === Parameters
       # options(Hash):: hash of options including the following
@@ -52,6 +54,8 @@ module RightScale
         @node = options[:node] || {}
         @logger = options[:logger]
         @pipe_eventable = nil
+        @current_resource = nil
+        @new_resource = nil
       end
 
       # Starts the pipe server by creating an asynchronous named pipe. Returns
@@ -81,27 +85,27 @@ module RightScale
       # to appear serialized as JSON on individual lines (i.e. delimited by
       # newlines). note that JSON text escapes newline characters within string
       # values and normally only includes whitespace for human-readability.
-      def request_handler(data)
-        # parse request linewise.
-        io = StringIO.new(data)
-        while (line = io.gets) do
-          if line.chomp.length > 0
-            request = JSON.load(line) rescue {}
-            if 1 == request.keys.size && request[PATH_KEY]
-              return handle_get_chef_node_request(request[PATH_KEY])
-            elsif 2 == request.keys.size && request[PATH_KEY] && request.has_key?(NODE_VALUE_KEY)
-              return handle_set_chef_node_request(request[PATH_KEY], request[NODE_VALUE_KEY])
-            else
-              raise "Invalid request"
-            end
-          end
+      def request_handler(request_data)
+        # assume request_data is a single line with a possible newline trailing.
+        request = JSON.load(request_data.chomp)
+        if request.has_key?(COMMAND_KEY)
+          handler = REQUEST_HANDLERS[request[COMMAND_KEY]]
+          log_debug("handler = #{handler}")
+          return self.send(handler, request) if handler
         end
-        return nil
+        raise "Invalid request"
       rescue Exception => e
         return JSON.dump( { :Error => "#{e.class}: #{e.message}", :Detail => e.backtrace.join("\n") } ) + "\n"
       end
 
       private
+
+      REQUEST_HANDLERS = {"GetChefNodeRequest" => :handle_get_chef_node_request,
+                          "SetChefNodeRequest" => :handle_set_chef_node_request,
+                          "GetCurrentResourceRequest" => :handle_get_current_resource_request,
+                          "SetCurrentResourceRequest" => :handle_set_current_resource_request,
+                          "GetNewResourceRequest" => :handle_get_new_resource_request,
+                          "SetNewResourceRequest" => :handle_set_new_resource_request }
 
       # exception for a circular reference in node structure.
       class CircularReferenceException < StandardError
@@ -117,47 +121,198 @@ module RightScale
         end
       end
 
-      # Handles a get-ChefNode request by finding the node matching the path,
+      # Determines if debug log is enabled
+      def is_log_debug?
+        return @logger && @logger.debug?
+      end
+
+      # Logs debug if enabled
+      def log_debug(message)
+        @logger.debug(message) if @logger
+      end
+
+      # Handles a Get-ChefNode request by finding the node matching the path,
       # normalizing and then JSONing the data out.
       #
       # === Parameters
-      # path(Array):: array containing path elements.
+      # request(Hash):: hash containing the following parameters:
+      # 
+      # PATH_KEY(Array):: array of path elements
       #
       # === Returns
       # response(String):: JSON structure containing found value or error
-      def handle_get_chef_node_request(path)
-        node_value = get_node_value(path) rescue nil
-        node_value = normalize_node_value(node_value)
-        begin
-          return JSON.dump( { :Path => path, :NodeValue => node_value } ) + "\n"
-        rescue JSON::GeneratorError
-          # attempt to return keys in case a hash contains some values which
-          # cause JSON to fail. it is possible that the keys cause the failure.
-          if node_value.kind_of? Hash
-            return JSON.dump( { :Path => path, :NodeValue => node_value.keys } ) + "\n"
-          else
-            if @verbose
-              string_value = node_value.to_s
-              puts "JSON rejected value: #{string_value}"
-            end
-            raise
-          end
-        end
+      def handle_get_chef_node_request(request)
+        return handle_get_from_hash_request(request, @node)
       end
 
-      # Handles a set-ChefNode request by attempting to build the hash hierarchy
+      # Handles a Set-ChefNode request by attempting to build the hash hierarchy
       # to the requested path depth and the inserting the given value.
       #
       # === Parameters
-      # path(Array):: array containing path elements.
+      # request(Hash):: hash containing the following parameters:
       #
-      # node_value(Object):: value to insert
+      # PATH_KEY(Array):: array of path elements
+      #
+      # NODE_VALUE_KEY(Object):: node value to set
       #
       # === Returns
       # response(String):: JSON structure containing acknowledgement or error
-      def handle_set_chef_node_request(path, node_value)
-        set_node_value(path, node_value)
-        return JSON.dump( { :Path => path } ) + "\n"
+      def handle_set_chef_node_request(request)
+        handle_set_into_hash_request(request, @node)
+      end
+
+      # Handles a Get-CurrentResource request.
+      #
+      # === Parameters
+      # request(Hash):: hash containing the following parameters:
+      #
+      # === Returns
+      # response(String):: JSON structure containing current resource or error
+      def handle_get_current_resource_request(request)
+        return handle_get_resource_request(request, @current_resource)
+      end
+
+      # Handles a Set-CurrentResource request.
+      #
+      # === Parameters
+      # request(Hash):: hash containing the following parameters:
+      #
+      # === Returns
+      # response(String):: empty JSON structure or error.
+      def handle_set_current_resource_request(request)
+        return handle_set_resource_request(request, @current_resource)
+      end
+
+      # Handles a Get-NewResource request.
+      #
+      # === Parameters
+      # request(Hash):: hash containing the following parameters:
+      #
+      # PATH_KEY(Array):: array of path elements
+      #
+      # === Returns
+      # response(String):: JSON structure containing new resource or error
+      def handle_get_new_resource_request(request)
+        return handle_get_resource_request(request, @new_resource)
+      end
+
+      # Handles a Set-NewResource request.
+      #
+      # === Parameters
+      # request(Hash):: hash containing no additional parameters.
+      #
+      # PATH_KEY(Array):: array of path elements
+      #
+      # NODE_VALUE_KEY(Object):: node value to set
+      #
+      # === Returns
+      # response(String):: empty JSON structure or error.
+      def handle_set_new_resource_request(request)
+        return handle_set_resource_request(request, @new_resource)
+      end
+
+      # Handles a get from hash request by normalizing and then JSONing
+      # the current resource, if any.
+      #
+      # === Parameters
+      # request(Hash):: hash containing no additional parameters.
+      #
+      # hash(Hash):: a hash or hash-like object containing data to query.
+      #
+      # === Returns
+      # response(String):: JSON structure containing current resource or error
+      def handle_get_from_hash_request(request, hash)
+        raise "Missing required Path parameter" unless path = request[PATH_KEY]
+        node_value = get_node_value_from_hash(path, hash) rescue nil
+        node_value = normalize_node_value(node_value)
+        return JSON.dump( { :Path => path, :NodeValue => node_value } )
+      end
+
+      # Handles a set into hash request.
+      #
+      # === Parameters
+      # request(Hash):: hash containing no additional parameters.
+      #
+      # hash(Hash):: a hash or hash-like object containing data to query.
+      #
+      # === Returns
+      # response(String):: JSON structure containing current resource or error
+      def handle_set_into_hash_request(request, hash)
+        raise "Missing required Path parameter" unless path = request[PATH_KEY]
+        raise "Missing required NodeValue parameter" unless request.has_key?(NODE_VALUE_KEY)  # value can be nil
+        node_value = request[NODE_VALUE_KEY]
+        set_node_value_into_hash(path, hash, node_value)
+        return JSON.dump( { :Path => path } )
+      end
+
+      # Handles a get resource request by normalizing and then JSONing
+      # the current resource, if any.
+      #
+      # === Parameters
+      # request(Hash):: hash containing no additional parameters.
+      #
+      # resource(Object):: resource for response.
+      #
+      # === Returns
+      # response(String):: JSON structure containing current resource or error
+      def handle_get_resource_request(request, resource)
+        # note that Chef::Resource and subclasses support :to_hash which will
+        # give us the interesting instance variables.
+        if resource && resource.respond_to?(:to_hash)
+          resource = resource.to_hash
+          resource = Mash.new(resource) unless resource.kind_of?(Mash)
+        end
+        return handle_get_from_hash_request(request, resource)
+      end
+
+      # Handles a set resource request by attempting to set member variables or
+      # set hash pairs depending on type.
+      #
+      # === Parameters
+      # request(Hash):: hash containing the following parameters:
+      #
+      # resource(Object):: resource object to modify by request.
+      #
+      # === Returns
+      # response(String):: JSON structure containing acknowledgement or error
+      def handle_set_resource_request(request, resource)
+        # resource may or may not support hash insertion, but we can reuse the
+        # generic code which parses parameters and inserts into a new hash.
+        hash = {}
+        result = handle_set_into_hash_request(request, hash)
+
+        # note that Chef::Resource and subclasses support :to_hash no :from_hash
+        # and so have to set instance variables by mutator. we also want to
+        # support hash types which will likely support both :has_key? and
+        # :to_hash so check for :has_key? first.
+        if resource.respond_to?(:has_key?)
+          hash.each do |key, value|
+            # note it is non-trivial here to determine if keys are supposed to
+            # be tokens or strings, so always use Mash-like objects for such
+            # resources.
+            resource[key] = value
+          end
+        elsif resource.respond_to?(:to_hash)
+          # set any instance variables by public mutator (which may fail due
+          # to validation, etc.).
+          hash.each do |key, value|
+            # Chef resources normally implement validating accessor/mutator
+            # single methods which take either nil for get or the value to
+            # set, but also check the name= method for completeness.
+            name_equals_sym = (key + "=").to_sym
+            if resource.respond_to?(name_equals_sym)
+              log_debug("calling resource.#{name_equals_sym} #{value.inspect}") if is_log_debug?
+              resource.send(name_equals_sym, value)
+            else
+              log_debug("calling resource.#{key} #{value.inspect}") if is_log_debug?
+              resource.send(key.to_sym, value)
+            end
+          end
+        else
+          raise "Resource of type #{resource.class} cannot be modified."
+        end
+
+        return result
       end
 
       # Queries the node value given by path from the node for this server.
@@ -165,14 +320,18 @@ module RightScale
       # === Parameters
       # path(Array):: array containing path elements.
       #
+      # hash(Hash):: hash or hash-like object to query.
+      #
       # === Returns
       # node_value(Object):: node value from path or nil
-      def get_node_value(path)
+      def get_node_value_from_hash(path, hash)
         # special case for the empty path element
-        return @node if (1 == path.length && path[0].to_s.length == 0)
+        return hash if (1 == path.length && path[0].to_s.length == 0)
 
         node_by_path = node_by_path_statement(path)
-        instance_eval node_by_path
+        result = instance_eval node_by_path
+        log_debug("#{node_by_path} = #{result.inspect}") if is_log_debug?
+        return result
       end
 
       # Inserts the node value given by path into the node for this server,
@@ -181,8 +340,10 @@ module RightScale
       # === Parameters
       # path(Array):: array containing path elements.
       #
+      # hash(Hash):: hash or hash-like object to query.
+      #
       # node_value(Object):: value to insert.
-      def set_node_value(path, node_value)
+      def set_node_value_into_hash(path, hash, node_value)
         # build up hash structure incrementally to avoid forcing the caller to
         # explicitly insert all of the hashes described by the path.
         raise InvalidPathException, "Cannot set the root node" if (path.empty? || path[0].empty?)
@@ -190,7 +351,7 @@ module RightScale
         path[0..-2].each do |element|
           raise InvalidPathException, "At least one path element was empty" if element.empty?
           parent_path << element
-          parent_node = get_node_value(parent_path)
+          parent_node = get_node_value_from_hash(parent_path, hash)
           if parent_node.nil? || false == parent_node.respond_to?(:has_key?)
             node_by_path = node_by_path_statement(parent_path)
             instance_eval "#{node_by_path} = {}"
@@ -200,6 +361,7 @@ module RightScale
         # insert node value.
         node_by_path = node_by_path_statement(path)
         instance_eval "#{node_by_path} = node_value"
+        get_node_value_from_hash(path, hash) if is_log_debug?  # assumes get has logging
       end
 
       # Generates an evaluatable statement for querying Chef node by path.
@@ -207,7 +369,7 @@ module RightScale
       # === Parameters
       # path(Array):: array containing path elements.
       def node_by_path_statement(path)
-        return "@node[\"#{path.join('"]["')}\"]"
+        return "hash[\"#{path.join('"]["')}\"]"
       end
 
       # Nnormalizes the given node value to produce simple containers, hashes
@@ -221,19 +383,7 @@ module RightScale
       # === Returns
       # normal_value(Object):: normalized value
       def normalize_node_value(node_value)
-        normalize_node_value2(node_value, Set.new)
-      rescue CircularReferenceException
-        # primitives don't have circular references, arrays are undisplayable if
-        # they contain a circular reference.
-        raise if node_value.kind_of?(Array)
-
-        # node must be a hash at this point so return a flat array of keys for
-        # information purposes. this at least gives the user some clue as to why
-        # the full data cannot be sent.
-        puts "handling circular reference by responding with key set" if @verbose
-        result = []
-        node_value.each { |key, value| result << key.to_s }
-        return result
+        normalize_node_value3(node_value, [], Set.new)
       end
 
       # Recursively normalizes the given node value to produce simple
@@ -243,36 +393,63 @@ module RightScale
       # === Parameters
       # node_value(Object):: value to normalize
       #
+      # depth(Array):: current depth of hash keys or empty
+      #
       # node_value_set(Set):: set used for circular reference detection.
       #
       # === Returns
       # normal_value(Object):: normalized value
-      def normalize_node_value2(node_value, node_value_set)
+      def normalize_node_value3(node_value, depth, node_value_set)
         return nil if node_value.nil?
-        if node_value_set.add?(node_value.object_id)
-          case node_value
-          when FalseClass, TrueClass, Numeric, String
-            return node_value
-          when Array
+        case node_value
+        when FalseClass, TrueClass, Numeric, String
+          # primitives can appear repeatedly but are not a circular reference.
+          return node_value
+        when Array
+          # arrays can contain circular references.
+          if node_value_set.add?(node_value.object_id)
             result = []
-            node_value.each { |array_value| result << normalize_node_value2(array_value, node_value_set) }
+            node_value.each { |array_value| result << normalize_node_value3(array_value, depth, node_value_set) }
             return result
           else
-            # note that the root node (i.e. Chef::Node) does not respond to
-            # has_key? but otherwise behaves like a hash.
-            if node_value.respond_to?(:has_key?) || node_value.kind_of?(Chef::Node)
+            raise CircularReferenceException, "Circular reference detected at depth = #{depth.join(', ')}"
+          end
+        when Chef::Node
+          # the Chef root node is a special case because we don't want to return
+          # the entire node in a JSON stream. only return the root keys.
+          result = []
+          node_value.each { |key, value| result << key.to_s }
+          return result
+        else
+          # note that the root node (i.e. Chef::Node) does not respond to
+          # has_key? but otherwise behaves like a hash.
+          if node_value.respond_to?(:has_key?) || node_value.kind_of?(Chef::Node)
+            # hashes can contain circular references.
+            if node_value_set.add?(node_value.object_id)
               result = {}
-              node_value.each { |key, value| result[key.to_s] = normalize_node_value2(value, node_value_set) }
+              node_value.each do |key, value|
+                depth.push key
+                begin
+                  # recursion.
+                  result[key.to_s] = normalize_node_value3(value, depth, node_value_set)
+                ensure
+                  depth.pop
+                end
+              end
               return result
             else
-              return node_value.to_s
+              log_debug("Handling circular reference for hash by responding with key set at depth = #{depth.join(', ')}")
+              result = []
+              node_value.each { |key, value| result << key.to_s }
+              return result
             end
+          else
+            # currently ignoring complex types except for converting them to
+            # string value.
+            return node_value.to_s
           end
-        else
-          raise CircularReferenceException, "Circular reference detected at depth >= #{node_value_set.size}"
         end
       end
-
     end
 
   end

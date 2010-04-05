@@ -34,24 +34,24 @@ namespace RightScale
     {
         namespace Commands
         {
-            // Provides the Set-ChefNode cmdlet.
-            [Cmdlet(VerbsCommon.Set, "ChefNode")]
+            // Provides the Set-NewResource cmdlet.
+            [Cmdlet(VerbsCommon.Set, "NewResource")]
             [CmdletBinding(DefaultParameterSetName = "ByPositionStringParameterSetName")]
-            public class SetChefNodeCommand : SetNodeValueCommandBase
+            public class SetNewResourceCommand : SetNodeValueCommandBase
             {
                 protected override SetNodeValueRequestBase CreateRequest()
                 {
-                    return new SetChefNodeRequest(Path, GetNormalizedValue());
+                    return new SetNewResourceRequest(Path, GetNormalizedValue());
                 }
 
                 protected override ChefNodeCmdletExceptionBase CreateException(string message)
                 {
-                    return new SetChefNodeException(message);
+                    return new SetNewResourceException(message);
                 }
 
                 protected override ChefNodeCmdletExceptionBase CreateException(IDictionary responseHash)
                 {
-                    return new SetChefNodeException(responseHash);
+                    return new SetNewResourceException(responseHash);
                 }
             }
         }

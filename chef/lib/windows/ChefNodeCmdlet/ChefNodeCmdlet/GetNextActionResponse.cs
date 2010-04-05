@@ -31,8 +31,6 @@ namespace RightScale
             // data for a get-NextAction response
             public class GetNextActionResponse
             {
-                public static string NEXT_ACTION_KEY = "NextAction";
-
                 public string NextAction
                 {
                     get { return nextAction; }

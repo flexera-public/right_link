@@ -29,55 +29,17 @@ namespace RightScale
     {
         namespace Protocol
         {
-            // data for a set-ChefNode request
-            public class SetChefNodeRequest
+            // data for a Set-ChefNode request
+            public class SetChefNodeRequest : SetNodeValueRequestBase
             {
-                public string[] Path
-                {
-                    get { return path; }
-                    set { path = value; }
-                }
-
-                public object NodeValue
-                {
-                    get { return nodeValue; }
-                    set { nodeValue = value; }
-                }
-
                 public SetChefNodeRequest()
                 {
                 }
 
                 public SetChefNodeRequest(ICollection path, object nodeValue)
+                    : base(path, nodeValue)
                 {
-                    this.path = new string[path.Count];
-
-                    int index = 0;
-                    foreach (object element in path)
-                    {
-                        this.path[index++] = element.ToString();
-                    }
-                    this.nodeValue = nodeValue;
                 }
-
-                public override string ToString()
-                {
-                    object value = nodeValue;
-
-                    if (null == nodeValue)
-                    {
-                        value = "NULL";
-                    }
-                    else if (nodeValue is String)
-                    {
-                        value = "\"" + nodeValue + "\"";
-                    }
-
-                    return String.Format("SetChefNodeRequest: {{ Path = node[{0}], NodeValue = {1} }}", String.Join("][", path), value);
-                }
-
-                private string[] path;
-                private object nodeValue;
             }
         }
     }

@@ -49,17 +49,36 @@
     <Compile Include="GetChefNodeCommand.cs" />
     <Compile Include="GetChefNodeRequest.cs" />
     <Compile Include="GetChefNodeResponse.cs" />
+    <Compile Include="GetCurrentResourceCommand.cs" />
+    <Compile Include="GetCurrentResourceRequest.cs" />
+    <Compile Include="GetCurrentResourceResponse.cs" />
+    <Compile Include="GetNewResourceCommand.cs" />
+    <Compile Include="GetNewResourceRequest.cs" />
+    <Compile Include="GetNewResourceResponse.cs" />
     <Compile Include="GetNextActionCommand.cs" />
     <Compile Include="GetNextActionRequest.cs" />
     <Compile Include="GetNextActionResponse.cs" />
+    <Compile Include="GetNodeValueCommandBase.cs" />
+    <Compile Include="GetNodeValueRequestBase.cs" />
+    <Compile Include="GetNodeValueResponseBase.cs" />
     <Compile Include="JsonTransport.cs" />
     <Compile Include="PipeClient.cs" />
     <Compile Include="PipeServer.cs" />
     <Compile Include="ProtocolConstants.cs" />
+    <Compile Include="ProtocolUtilities.cs" />
     <Compile Include="SetChefNodeCommand.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="SetChefNodeRequest.cs" />
     <Compile Include="SetChefNodeResponse.cs" />
+    <Compile Include="SetCurrentResourceCommand.cs" />
+    <Compile Include="SetCurrentResourceRequest.cs" />
+    <Compile Include="SetCurrentResourceResponse.cs" />
+    <Compile Include="SetNewResourceCommand.cs" />
+    <Compile Include="SetNewResourceRequest.cs" />
+    <Compile Include="SetNewResourceResponse.cs" />
+    <Compile Include="SetNodeValueCommandBase.cs" />
+    <Compile Include="SetNodeValueRequestBase.cs" />
+    <Compile Include="SetNodeValueResponseBase.cs" />
     <Compile Include="Transport.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
@@ -72,9 +91,11 @@
   -->
   <PropertyGroup>
     <PostBuildEvent>if "$(ConfigurationName)" equ "Release" (
-  if not exist "$(SolutionDir)..\bin" md "$(SolutionDir)..\bin"
-  xcopy /F /R /Y "$(TargetPath)" "$(SolutionDir)..\bin\*"
+  if not exist "$(ProjectDir)..\..\bin" md "$(ProjectDir)..\..\bin"
+  xcopy /F /R /Y "$(TargetPath)" "$(ProjectDir)..\..\bin\*"
+  xcopy /F /R /Y "$(ProjectDir)ChefNodeCmdlet.dll-Help.xml" "$(ProjectDir)..\..\bin\*"
 )
+
 </PostBuildEvent>
   </PropertyGroup>
 </Project>

@@ -30,35 +30,16 @@ namespace RightScale
         namespace Protocol
         {
             // data for a get-ChefNode request
-            public class GetChefNodeRequest
+            public class GetChefNodeRequest : GetNodeValueRequestBase
             {
-                public string[] Path
-                {
-                    get { return path; }
-                    set { path = value; }
-                }
-
                 public GetChefNodeRequest()
                 {
                 }
 
                 public GetChefNodeRequest(ICollection path)
+                    : base(path)
                 {
-                    this.path = new string[path.Count];
-
-                    int index = 0;
-                    foreach (object element in path)
-                    {
-                        this.path[index++] = element.ToString();
-                    }
                 }
-
-                public override string ToString()
-                {
-                    return String.Format("GetChefNodeRequest: {{ Path = node[{0}] }}", String.Join("][", path));
-                }
-
-                private string[] path;
             }
         }
     }

@@ -22,17 +22,15 @@
 
 require File.expand_path(File.join(File.dirname(__FILE__), '..', 'spec_helper'))
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'lib', 'windows', 'chef_node_server'))
-require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'mock_auditor_proxy'))
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'chef_runner'))
-
-logger = Logger.new(STDOUT)
-logger.level = Logger::DEBUG
-Chef::Log.logger = logger
 
 TEST_TEMP_PATH = File.normalize_path(File.join(Dir.tmpdir, "run-chef-node-server-9791A30A-3FCE-4f5b-AEEB-72D82B3689AE"))
 TEST_COOKBOOKS_PATH = RightScale::Test::ChefRunner.get_cookbooks_path(TEST_TEMP_PATH)
 
 RightScale::Test::ChefRunner.run_chef_as_server(TEST_COOKBOOKS_PATH, []) do |chef_client|
-  chef_node_server = ::RightScale::Windows::ChefNodeServer.new(:node => chef_client.node, :logger => logger)
+  Chef::Log.logger.level = Logger::DEBUG
+  chef_node_server = ::RightScale::Windows::ChefNodeServer.new(:node => chef_client.node, :logger => Chef::Log.logger)
+  chef_node_server.current_resource = Mash.new(:a => 'A', :b => 'B')
+  chef_node_server.new_resource = Chef::Resource::Powershell.new("test")
   chef_node_server.start
 end

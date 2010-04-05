@@ -1,4 +1,4 @@
-﻿/////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////
 // Copyright (c) 2010 RightScale Inc
 //
 // Permission is hereby granted, free of charge, to any person obtaining
@@ -21,37 +21,23 @@
 // WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 /////////////////////////////////////////////////////////////////////////
 using System;
-using System.Collections;
-using System.Management.Automation;
-using System.Threading;
-using RightScale.Common.Protocol;
-using RightScale.Chef.Protocol;
-using RightScale.Powershell.Exceptions;
 
 namespace RightScale
 {
-    namespace Powershell
+    namespace Chef
     {
-        namespace Commands
+        namespace Protocol
         {
-            // Provides the Set-ChefNode cmdlet.
-            [Cmdlet(VerbsCommon.Set, "ChefNode")]
-            [CmdletBinding(DefaultParameterSetName = "ByPositionStringParameterSetName")]
-            public class SetChefNodeCommand : SetNodeValueCommandBase
+            // response for Get-CurrentResource protocol.
+            public class GetCurrentResourceResponse : GetNodeValueResponseBase
             {
-                protected override SetNodeValueRequestBase CreateRequest()
+                public GetCurrentResourceResponse()
                 {
-                    return new SetChefNodeRequest(Path, GetNormalizedValue());
                 }
 
-                protected override ChefNodeCmdletExceptionBase CreateException(string message)
+                public GetCurrentResourceResponse(string[] path, object nodeValue)
+                    : base(path, nodeValue)
                 {
-                    return new SetChefNodeException(message);
-                }
-
-                protected override ChefNodeCmdletExceptionBase CreateException(IDictionary responseHash)
-                {
-                    return new SetChefNodeException(responseHash);
                 }
             }
         }

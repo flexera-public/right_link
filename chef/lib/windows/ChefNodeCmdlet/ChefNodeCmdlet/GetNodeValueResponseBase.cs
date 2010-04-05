@@ -1,4 +1,4 @@
-﻿/////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////
 // Copyright (c) 2010 RightScale Inc
 //
 // Permission is hereby granted, free of charge, to any person obtaining
@@ -21,38 +21,48 @@
 // WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 /////////////////////////////////////////////////////////////////////////
 using System;
-using System.Collections;
-using System.Management.Automation;
-using System.Threading;
-using RightScale.Common.Protocol;
-using RightScale.Chef.Protocol;
-using RightScale.Powershell.Exceptions;
 
 namespace RightScale
 {
-    namespace Powershell
+    namespace Chef
     {
-        namespace Commands
+        namespace Protocol
         {
-            // Provides the Set-ChefNode cmdlet.
-            [Cmdlet(VerbsCommon.Set, "ChefNode")]
-            [CmdletBinding(DefaultParameterSetName = "ByPositionStringParameterSetName")]
-            public class SetChefNodeCommand : SetNodeValueCommandBase
+            // Provides a base class for a get node response.
+            public abstract class GetNodeValueResponseBase
             {
-                protected override SetNodeValueRequestBase CreateRequest()
+                public string[] Path
                 {
-                    return new SetChefNodeRequest(Path, GetNormalizedValue());
+                    get { return path; }
+                    set { path = value; }
                 }
 
-                protected override ChefNodeCmdletExceptionBase CreateException(string message)
+                public object NodeValue
                 {
-                    return new SetChefNodeException(message);
+                    get { return nodeValue; }
+                    set { nodeValue = value; }
                 }
 
-                protected override ChefNodeCmdletExceptionBase CreateException(IDictionary responseHash)
+                public GetNodeValueResponseBase()
                 {
-                    return new SetChefNodeException(responseHash);
                 }
+
+                public GetNodeValueResponseBase(string[] path, object nodeValue)
+                {
+                    this.path = path;
+                    this.nodeValue = nodeValue;
+                }
+
+                public override string ToString()
+                {
+                    return String.Format("{0}: {{ Path = node[{1}], NodeValue = {2} }}",
+                                         GetType().Name,
+                                         String.Join("][", path),
+                                         Utilities.GetPrettyNodeValue(NodeValue));
+                }
+
+                private string[] path;
+                private object nodeValue;
             }
         }
     }

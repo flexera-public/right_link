@@ -74,6 +74,10 @@ class Chef
         # per convergence.
         chef_node_server = ::RightScale::Windows::ChefNodeServer.new(:node => @node, :logger => Chef::Log.logger)
 
+        # new_resource points to the powershell script resource in this limited
+        # context. there is no current resource in script execution context.
+        chef_node_server.new_resource = @new_resource
+
         begin
           # 2. Setup environment.
           environment = {} if environment.nil?

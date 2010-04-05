@@ -21,6 +21,7 @@
 // WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 /////////////////////////////////////////////////////////////////////////
 using System;
+using System.Collections;
 
 namespace RightScale
 {
@@ -28,28 +29,17 @@ namespace RightScale
     {
         namespace Protocol
         {
-            public class Constants
+            // data for a Set-NewResource request
+            public class SetNewResourceRequest : SetNodeValueRequestBase
             {
-                public enum CommandType
+                public SetNewResourceRequest()
                 {
-                    GET_CHEFNODE,
-                    SET_CHEFNODE,
                 }
 
-                public static string JSON_COMMAND_KEY = "Command";
-                public static string JSON_PATH_KEY = "Path";
-                public static string JSON_NODE_VALUE_KEY = "NodeValue";
-                public static string JSON_NEXT_ACTION_KEY = "NextAction";
-                public static string JSON_LAST_EXIT_CODE_KEY = "LastExitCode";
-
-                public static string CHEF_NODE_PIPE_NAME = "chef_node_D1D6B540-5125-4c00-8ABF-412417774DD5";
-                public static string NEXT_ACTION_PIPE_NAME = "next_action_2603D237-3DAE-4ae9-BB68-AF90AB875EFB";
-
-                public static int MAX_CLIENT_RETRIES = 10;
-
-                public static int CHEF_NODE_CONNECT_TIMEOUT_MSECS = 30 * 1000;      // 30 seconds
-                public static int NEXT_ACTION_CONNECT_TIMEOUT_MSECS = 30 * 1000;    // 30 seconds
-                public static int SLEEP_BETWEEN_CLIENT_RETRIES_MSECS = 100;
+                public SetNewResourceRequest(ICollection path, object nodeValue)
+                    : base(path, nodeValue)
+                {
+                }
             }
         }
     }

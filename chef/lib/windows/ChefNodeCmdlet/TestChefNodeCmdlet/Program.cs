@@ -59,6 +59,12 @@ namespace TestChefNodeCmdlet
             {
                 nodeHash = (IDictionary)transport.NormalizeDeserializedObject(transport.ConvertStringToObject<object>(nodeFileText));
             }
+            
+            // current and new resource hashes.
+            IDictionary currentResourceHash = new Hashtable();
+            currentResourceHash.Add("name", "test name");
+
+            IDictionary newResourceHash = new Hashtable(currentResourceHash);
 
             // create pipe server using JSON as transport.
             PipeServer pipeServer = new PipeServer(Constants.CHEF_NODE_PIPE_NAME, transport);
@@ -72,6 +78,7 @@ namespace TestChefNodeCmdlet
                     pipeServer.WaitForConnection();
                     for (; ; )
                     {
+                        // use duck typing to determine type of request.
                         IDictionary requestHash = (IDictionary)transport.NormalizeDeserializedObject(pipeServer.Receive<object>());
 
                         if (null == requestHash)
@@ -79,35 +86,96 @@ namespace TestChefNodeCmdlet
                             break;
                         }
 
-                        string pathKey = "Path";
-                        string nodeValueKey = "NodeValue";
+                        bool validRequest = false;
 
-                        if (1 == requestHash.Keys.Count && requestHash.Contains(pathKey))
+                        if (requestHash.Contains(Constants.JSON_COMMAND_KEY))
                         {
-                            GetChefNodeRequest request = new GetChefNodeRequest((ICollection)requestHash[pathKey]);
-                            Console.WriteLine(String.Format("Received: {0}", request.ToString()));
+                            if (requestHash.Contains(Constants.JSON_PATH_KEY) && requestHash.Contains(Constants.JSON_NODE_VALUE_KEY))
+                            {
+                                if (requestHash[Constants.JSON_COMMAND_KEY].ToString() == "SetChefNodeRequest")
+                                {
+                                    SetChefNodeRequest request = new SetChefNodeRequest((ICollection)requestHash[Constants.JSON_PATH_KEY],
+                                                                                        requestHash[Constants.JSON_NODE_VALUE_KEY]);
+                                    Console.WriteLine(String.Format("Received: {0}", request.ToString()));
 
-                            object nodeValue = QueryNodeHash(nodeHash, request.Path);
-                            GetChefNodeResponse response = new GetChefNodeResponse(request.Path, nodeValue);
+                                    InsertNodeHash(nodeHash, request.Path, transport.NormalizeDeserializedObject(request.NodeValue));
 
-                            Console.WriteLine(String.Format("Responding: {0}", response.ToString()));
-                            pipeServer.Send(response);
+                                    SetChefNodeResponse response = new SetChefNodeResponse(request.Path);
+                                    Console.WriteLine(String.Format("Responding: {0}", response.ToString()));
+                                    pipeServer.Send(response);
+
+                                    // save change to node file.
+                                    WriteTextFile(nodeFilePath, transport.ConvertObjectToString(nodeHash, true));
+                                    validRequest = true;
+                                }
+                                else if (requestHash[Constants.JSON_COMMAND_KEY].ToString() == "SetCurrentResourceRequest")
+                                {
+                                    SetCurrentResourceRequest request = new SetCurrentResourceRequest((ICollection)requestHash[Constants.JSON_PATH_KEY],
+                                                                                                      requestHash[Constants.JSON_NODE_VALUE_KEY]);
+                                    Console.WriteLine(String.Format("Received: {0}", request.ToString()));
+
+                                    InsertNodeHash(currentResourceHash, request.Path, transport.NormalizeDeserializedObject(request.NodeValue));
+
+                                    SetCurrentResourceResponse response = new SetCurrentResourceResponse();
+                                    Console.WriteLine(String.Format("Responding: {0}", response.ToString()));
+                                    pipeServer.Send(response);
+                                    validRequest = true;
+                                }
+                                else if (requestHash[Constants.JSON_COMMAND_KEY].ToString() == "SetNewResourceRequest")
+                                {
+                                    SetNewResourceRequest request = new SetNewResourceRequest((ICollection)requestHash[Constants.JSON_PATH_KEY],
+                                                                                              requestHash[Constants.JSON_NODE_VALUE_KEY]);
+                                    Console.WriteLine(String.Format("Received: {0}", request.ToString()));
+
+                                    InsertNodeHash(newResourceHash, request.Path, transport.NormalizeDeserializedObject(request.NodeValue));
+
+                                    SetNewResourceResponse response = new SetNewResourceResponse();
+                                    Console.WriteLine(String.Format("Responding: {0}", response.ToString()));
+                                    pipeServer.Send(response);
+                                    validRequest = true;
+                                }
+                            }
+                            else if (requestHash.Contains(Constants.JSON_PATH_KEY))
+                            {
+                                if (requestHash[Constants.JSON_COMMAND_KEY].ToString() == "GetChefNodeRequest")
+                                {
+                                    GetChefNodeRequest request = new GetChefNodeRequest((ICollection)requestHash[Constants.JSON_PATH_KEY]);
+                                    Console.WriteLine(String.Format("Received: {0}", request.ToString()));
+
+                                    object nodeValue = QueryNodeHash(nodeHash, request.Path);
+                                    GetChefNodeResponse response = new GetChefNodeResponse(request.Path, nodeValue);
+
+                                    Console.WriteLine(String.Format("Responding: {0}", response.ToString()));
+                                    pipeServer.Send(response);
+                                    validRequest = true;
+                                }
+                                else if (requestHash[Constants.JSON_COMMAND_KEY].ToString() == "GetCurrentResourceRequest")
+                                {
+                                    GetCurrentResourceRequest request = new GetCurrentResourceRequest((ICollection)requestHash[Constants.JSON_PATH_KEY]);
+                                    Console.WriteLine(String.Format("Received: {0}", request.ToString()));
+
+                                    object nodeValue = QueryNodeHash(currentResourceHash, request.Path);
+                                    GetCurrentResourceResponse response = new GetCurrentResourceResponse(request.Path, nodeValue);
+
+                                    Console.WriteLine(String.Format("Responding: {0}", response.ToString()));
+                                    pipeServer.Send(response);
+                                    validRequest = true;
+                                }
+                                else if (requestHash[Constants.JSON_COMMAND_KEY].ToString() == "GetNewResourceRequest")
+                                {
+                                    GetNewResourceRequest request = new GetNewResourceRequest((ICollection)requestHash[Constants.JSON_PATH_KEY]);
+                                    Console.WriteLine(String.Format("Received: {0}", request.ToString()));
+
+                                    object nodeValue = QueryNodeHash(newResourceHash, request.Path);
+                                    GetNewResourceResponse response = new GetNewResourceResponse(request.Path, nodeValue);
+
+                                    Console.WriteLine(String.Format("Responding: {0}", response.ToString()));
+                                    pipeServer.Send(response);
+                                    validRequest = true;
+                                }
+                            }
                         }
-                        else if (2 == requestHash.Keys.Count && requestHash.Contains(pathKey) && requestHash.Contains(nodeValueKey))
-                        {
-                            SetChefNodeRequest request = new SetChefNodeRequest((ICollection)requestHash[pathKey], requestHash[nodeValueKey]);
-                            Console.WriteLine(String.Format("Received: {0}", request.ToString()));
-
-                            InsertNodeHash(nodeHash, request.Path, transport.NormalizeDeserializedObject(request.NodeValue));
-
-                            SetChefNodeResponse response = new SetChefNodeResponse(request.Path);
-                            Console.WriteLine(String.Format("Responding: {0}", response.ToString()));
-                            pipeServer.Send(response);
-
-                            // save change to node file.
-                            WriteTextFile(nodeFilePath, transport.ConvertObjectToString(nodeHash, true));
-                        }
-                        else
+                        if (false == validRequest)
                         {
                             // unknown request type; hang up and try again.
                             break;

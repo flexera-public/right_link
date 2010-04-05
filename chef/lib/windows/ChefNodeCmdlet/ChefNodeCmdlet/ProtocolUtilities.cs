@@ -21,6 +21,7 @@
 // WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 /////////////////////////////////////////////////////////////////////////
 using System;
+using System.Collections;
 
 namespace RightScale
 {
@@ -28,16 +29,47 @@ namespace RightScale
     {
         namespace Protocol
         {
-            // data for a get-ChefNode response
-            public class GetChefNodeResponse : GetNodeValueResponseBase
+            public class Utilities
             {
-                public GetChefNodeResponse()
+                // Summary:
+                //  generates a printable form of an object passed via Chef node protocol.
+                //
+                // Returns:
+                //  printable string for a node value.
+                public static string GetPrettyNodeValue(object nodeValue)
                 {
+                    object prettyValue = nodeValue;
+
+                    if (null == nodeValue)
+                    {
+                        prettyValue = "NULL";
+                    }
+                    else if (nodeValue is String)
+                    {
+                        prettyValue = "\"" + nodeValue + "\"";
+                    }
+
+                    // FIX: hash and array
+
+                    return prettyValue.ToString();
                 }
 
-                public GetChefNodeResponse(string[] path, object nodeValue)
-                    : base(path, nodeValue)
+                // Summary:
+                //  converts a collection of object to an array of strings.
+                //
+                // Returns:
+                //  string array or empty
+                public static string[] CollectionToStringArray(ICollection collection)
                 {
+                    string[] array = new string[collection.Count];
+
+                    int index = 0;
+                    foreach (object element in collection)
+                    {
+                        array[index++] = element.ToString();
+                    }
+
+                    return array;
                 }
             }
         }

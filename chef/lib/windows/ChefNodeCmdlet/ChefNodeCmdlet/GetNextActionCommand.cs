@@ -34,6 +34,7 @@ namespace RightScale
     {
         namespace Commands
         {
+            // Provides the Set-NextAction cmdlet.
             [Cmdlet(VerbsCommon.Get, "NextAction")]
             public class GetNextActionCommand : Cmdlet
             {
@@ -75,7 +76,7 @@ namespace RightScale
                             }
 
                             // can't write a null object to pipeline, so write nothing in the null case.
-                            string nextAction = responseHash.Contains(GetNextActionResponse.NEXT_ACTION_KEY) ? responseHash[GetNextActionResponse.NEXT_ACTION_KEY].ToString() : null;
+                            string nextAction = responseHash.Contains(Constants.JSON_NEXT_ACTION_KEY) ? responseHash[Constants.JSON_NEXT_ACTION_KEY].ToString() : null;
 
                             if (null == nextAction)
                             {

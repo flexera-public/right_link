@@ -28,8 +28,8 @@ namespace RightScale
     {
         namespace Protocol
         {
-            // data for a set-ChefNode response
-            public class SetChefNodeResponse
+            // data for a Set-ChefNode response
+            public class SetChefNodeResponse : SetNodeValueResponseBase
             {
                 public string[] Path
                 {
