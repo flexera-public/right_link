@@ -105,8 +105,8 @@ class InstanceScheduler
     # 'terminate' will *not* shutdown the machine. This is so that when running the decommission
     # sequence as part of a non-soft termination we don't call shutdown.
     unless @post_decommission_callback
-      @shutdown_timeout = EM::Timer.new(SHUTDOWN_DELAY) { RightScale::InstanceState.shutdown(options[:user_id]) }
-      @post_decommission_callback = lambda { @shutdown_timeout.cancel; RightScale::InstanceState.shutdown(options[:user_id]) }
+      @shutdown_timeout = EM::Timer.new(SHUTDOWN_DELAY) { RightScale::InstanceState.shutdown(options[:user_id], options[:skip_db_update]) }
+      @post_decommission_callback = lambda { @shutdown_timeout.cancel; RightScale::InstanceState.shutdown(options[:user_id], options[:skip_db_update]) }
     end
 
     @scheduled_bundles.clear # Cancel any pending bundle

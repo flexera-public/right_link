@@ -166,12 +166,13 @@ module RightScale
     #
     # === Parameters
     # user_id(Integer):: ID of user that triggered soft-termination
+    # skip_db_update(Boolean):: Whether to requery instance state after call to Ec2 to terminate was made
     #
     # === Return
     # true:: Always return true
-    def self.shutdown(user_id)
-      options = { :agent_identity => @@identity, :state => 'decommissioned', :user_id => user_id }
-      RightScale::RequestForwarder.request('/state_recorder/record', options) do |r|
+    def self.shutdown(user_id, skip_db_update)
+      opts = { :agent_identity => @@identity, :state => 'decommissioned', :user_id => user_id, :skip_db_update => skip_db_update }
+      RightScale::RequestForwarder.request('/state_recorder/record', opts) do |r|
         res = RightScale::OperationResult.from_results(r)
         RightScale::Platform.controller.shutdown unless res.success?
       end
