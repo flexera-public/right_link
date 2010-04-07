@@ -2,7 +2,7 @@ while ($TRUE)
 {
     $Error.clear()
     $nextAction = $NULL
-    $nextAction = get-NextAction
+    $nextAction = get-NextAction $pipeName
     if ($Error.Count -eq 0)
     {
         write-output $nextAction

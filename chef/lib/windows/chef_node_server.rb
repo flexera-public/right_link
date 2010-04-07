@@ -23,6 +23,7 @@ require 'rubygems'
 require File.normalize_path(File.join(File.dirname(__FILE__), 'pipe_server'))
 require 'json'
 require 'set'
+require 'singleton'
 
 module RightScale
 
@@ -35,50 +36,57 @@ module RightScale
     # have circular references.
     class ChefNodeServer
 
+      include Singleton
+
       CHEF_NODE_PIPE_NAME = 'chef_node_D1D6B540-5125-4c00-8ABF-412417774DD5'
       COMMAND_KEY = "Command"
       PATH_KEY = "Path"
       NODE_VALUE_KEY = "NodeValue"
 
-      attr_reader :node
+      attr_reader   :node
       attr_accessor :current_resource
       attr_accessor :new_resource
 
+      # Starts the pipe server by creating an asynchronous named pipe. Returns
+      # control to the caller after adding the pipe to the event machine.
+      #
       # === Parameters
-      # options(Hash):: hash of options including the following
+      # options[:node](Node):: Chef node, required
       #
-      # node(Hash):: data node or empty (default)
-      #
-      # logger(Logger):: logger or nil
-      def initialize(options = {})
+      # === Return
+      # true:: If server was successfully started
+      # false:: Otherwise
+      def start(options)
+        return true if @pipe_eventable # Idempotent
+
         @node = options[:node] || {}
-        @logger = options[:logger]
         @pipe_eventable = nil
         @current_resource = nil
         @new_resource = nil
-      end
 
-      # Starts the pipe server by creating an asynchronous named pipe. Returns
-      # control to the caller after adding the pipe to the event machine.
-      def start
         flags = ::Win32::Pipe::ACCESS_DUPLEX | ::Win32::Pipe::OVERLAPPED
-        pipe = PipeServer.new(CHEF_NODE_PIPE_NAME, 0, flags)
+        pipe  = PipeServer.new(CHEF_NODE_PIPE_NAME, 0, flags)
+        res   = true
         begin
-          options = {:target => self,
+          options = {:target          => self,
                      :request_handler => :request_handler,
-                     :pipe => pipe,
-                     :logger => @logger}
+                     :pipe            => pipe}
           @pipe_eventable = EM.attach(pipe, PipeServerHandler, options)
-        rescue
+        rescue Exception => e
           pipe.close rescue nil
-          raise
+          res = false
         end
+        res
       end
 
       # Stops the pipe server by detaching the eventable from the event machine.
+      #
+      # === Return
+      # true:: Always return true
       def stop
         @pipe_eventable.force_detach if @pipe_eventable
         @pipe_eventable = nil
+        true
       end
 
       # Handler for data node requests. Expects complete requests and responses
@@ -90,7 +98,7 @@ module RightScale
         request = JSON.load(request_data.chomp)
         if request.has_key?(COMMAND_KEY)
           handler = REQUEST_HANDLERS[request[COMMAND_KEY]]
-          log_debug("handler = #{handler}")
+          RightLinkLog.debug("handler = #{handler}")
           return self.send(handler, request) if handler
         end
         raise "Invalid request"
@@ -100,12 +108,12 @@ module RightScale
 
       private
 
-      REQUEST_HANDLERS = {"GetChefNodeRequest" => :handle_get_chef_node_request,
-                          "SetChefNodeRequest" => :handle_set_chef_node_request,
+      REQUEST_HANDLERS = {"GetChefNodeRequest"        => :handle_get_chef_node_request,
+                          "SetChefNodeRequest"        => :handle_set_chef_node_request,
                           "GetCurrentResourceRequest" => :handle_get_current_resource_request,
                           "SetCurrentResourceRequest" => :handle_set_current_resource_request,
-                          "GetNewResourceRequest" => :handle_get_new_resource_request,
-                          "SetNewResourceRequest" => :handle_set_new_resource_request }
+                          "GetNewResourceRequest"     => :handle_get_new_resource_request,
+                          "SetNewResourceRequest"     => :handle_set_new_resource_request }
 
       # exception for a circular reference in node structure.
       class CircularReferenceException < StandardError
@@ -119,16 +127,6 @@ module RightScale
         def initialize(message)
           super(message)
         end
-      end
-
-      # Determines if debug log is enabled
-      def is_log_debug?
-        return @logger && @logger.debug?
-      end
-
-      # Logs debug if enabled
-      def log_debug(message)
-        @logger.debug(message) if @logger
       end
 
       # Handles a Get-ChefNode request by finding the node matching the path,
@@ -193,7 +191,7 @@ module RightScale
       # === Returns
       # response(String):: JSON structure containing new resource or error
       def handle_get_new_resource_request(request)
-        return handle_get_resource_request(request, @new_resource)
+        handle_get_resource_request(request, @new_resource)
       end
 
       # Handles a Set-NewResource request.
@@ -301,10 +299,11 @@ module RightScale
             # set, but also check the name= method for completeness.
             name_equals_sym = (key + "=").to_sym
             if resource.respond_to?(name_equals_sym)
-              log_debug("calling resource.#{name_equals_sym} #{value.inspect[0,64]}") if is_log_debug?
+              RightLinkLog.debug("calling resource.#{name_equals_sym} #{value.inspect[0,64]}")
               resource.send(name_equals_sym, value)
             else
-              log_debug("calling resource.#{key} #{value.inspect[0,64]}") if is_log_debug?
+              RightLinkLog.debug("calling resource.#{key} #{value.inspect[0,64]}")
+
               resource.send(key.to_sym, value)
             end
           end
@@ -330,7 +329,7 @@ module RightScale
 
         node_by_path = node_by_path_statement(path)
         result = instance_eval node_by_path
-        log_debug("#{node_by_path} = #{result.inspect[0,64]}") if is_log_debug?
+        RightLinkLog.debug("#{node_by_path} = #{result.inspect[0,64]}")
         return result
       end
 
@@ -343,6 +342,9 @@ module RightScale
       # hash(Hash):: hash or hash-like object to query.
       #
       # node_value(Object):: value to insert.
+      #
+      # === Return
+      # true:: Always return true
       def set_node_value_into_hash(path, hash, node_value)
         # build up hash structure incrementally to avoid forcing the caller to
         # explicitly insert all of the hashes described by the path.
@@ -361,7 +363,8 @@ module RightScale
         # insert node value.
         node_by_path = node_by_path_statement(path)
         instance_eval "#{node_by_path} = node_value"
-        get_node_value_from_hash(path, hash) if is_log_debug?  # assumes get has logging
+
+        true
       end
 
       # Generates an evaluatable statement for querying Chef node by path.
@@ -438,7 +441,7 @@ module RightScale
               end
               return result
             else
-              log_debug("Handling circular reference for hash by responding with key set at depth = #{depth.join(', ')}")
+              RightLinkLog.debug("Handling circular reference for hash by responding with key set at depth = #{depth.join(', ')}")
               result = []
               node_value.each { |key, value| result << key.to_s }
               return result

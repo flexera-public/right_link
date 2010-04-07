@@ -38,13 +38,20 @@ namespace RightScale
             [Cmdlet(VerbsCommon.Get, "NextAction")]
             public class GetNextActionCommand : Cmdlet
             {
+                [Parameter(Position = 0, Mandatory = true)]
+                public string PipeName
+                {
+                    get { return pipeName; }
+                    set { pipeName = value; }
+                }
+
                 protected override void ProcessRecord()
                 {
                     // iterate attempting to connect, send and receive to Chef node server.
                     for (int tryIndex = 0; tryIndex < Constants.MAX_CLIENT_RETRIES; ++tryIndex)
                     {
                         ITransport transport = new JsonTransport();
-                        PipeClient pipeClient = new PipeClient(Constants.NEXT_ACTION_PIPE_NAME, transport);
+                        PipeClient pipeClient = new PipeClient(PipeName, transport);
 
                         try
                         {
@@ -129,6 +136,9 @@ namespace RightScale
                         }
                     }
                 }
+
+                // Name of pipe to connect to passed from command line
+                protected string pipeName;
             }
         }
     }

@@ -68,16 +68,6 @@ class Chef
           ::File.open(script_file_path, "w") { |f| f.write(source) }
         end
 
-        # create ChefNodeServer for powershell scripts to get/set node values.
-        #
-        # FIX: should be managed at a higher level and be started/stopped once
-        # per convergence.
-        chef_node_server = ::RightScale::Windows::ChefNodeServer.new(:node => @node, :logger => Chef::Log.logger)
-
-        # new_resource points to the powershell script resource in this limited
-        # context. there is no current resource in script execution context.
-        chef_node_server.new_resource = @new_resource
-
         begin
           # 2. Setup environment.
           environment = {} if environment.nil?
@@ -85,7 +75,12 @@ class Chef
           @new_resource.environment(environment)
 
           # 3. execute and wait
-          chef_node_server.start
+          RightScale::Windows::ChefNodeServer.instance.start(:node => @node)
+
+          # new_resource points to the powershell script resource in this limited
+          # context. there is no current resource in script execution context.
+          RightScale::Windows::ChefNodeServer.instance.new_resource = @new_resource
+
           command = format_command(script_file_path)
           @new_resource.command(command)
           ::Chef::Log.info("Running \"#{nickname}\"")
@@ -97,7 +92,7 @@ class Chef
           @new_resource.updated = true
         ensure
           (FileUtils.rm_rf(SCRIPT_TEMP_DIR_PATH) rescue nil) if ::File.directory?(SCRIPT_TEMP_DIR_PATH)
-          chef_node_server.stop rescue nil
+          RightScale::Windows::ChefNodeServer.instance.stop rescue nil
         end
 
         true

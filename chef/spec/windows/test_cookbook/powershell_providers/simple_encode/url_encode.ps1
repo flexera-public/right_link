@@ -1,0 +1,1 @@
+[System.Web.HttpUtility]::UrlEncode("string to encode")

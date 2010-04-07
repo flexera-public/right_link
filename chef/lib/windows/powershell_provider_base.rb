@@ -24,13 +24,19 @@ module RightScale
 
   # Base class to dynamically generated Powershell Chef providers
   class PowershellProviderBase < Chef::Provider
+    def initialize(node, new_resource, collection=nil, definitions=nil, cookbook_loader=nil)
+      super(node, new_resource, collection, definitions, cookbook_loader)
+      self.class.init
+      # Have to wait until the Chef node server has been initialized before setting the new resource
+      RightScale::Windows::ChefNodeServer.instance.new_resource = new_resource
+    end
 
     # Initialize Powershell host, should be called before :run and :terminate
     #
     # === Return
     # true:: Always return true
     def self.init
-      @@ps_instance = PowershellHost.new(:chef_node => @node)
+      @ps_instance = PowershellHost.new(:node => @node, :provider_name => self.to_s.gsub("::","_") ) unless @ps_instance
       true
     end
 
@@ -42,8 +48,8 @@ module RightScale
     # === Return
     # true:: Always return true
     def self.run_script(script)
-      if @@ps_instance.active
-        @@ps_instance.run(script)
+      if @ps_instance && @ps_instance.active
+        @ps_instance.run(script)
       else
         RightLinkLog.error("Powershell provider #{self.class.name} could not run Powershell script #{script} because the Powershell host is not active")
       end
@@ -55,10 +61,20 @@ module RightScale
     # === Return
     # true:: Always return true
     def self.terminate
-      @@ps_instance.terminate if defined?(@@ps_instance)
+      if @ps_instance
+        @ps_instance.terminate
+        @ps_instance = nil
+      end
       true
     end
 
+    # Must override Chef's load_current_resource
+    #
+    # === Return
+    # true:: Always return true
+    def load_current_resource
+      # Dummy
+    end
   end
 
 end

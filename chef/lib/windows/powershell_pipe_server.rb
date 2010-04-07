@@ -33,47 +33,62 @@ module RightScale
     # expected to be an "exit" statement.
     class PowershellPipeServer
 
-      NEXT_ACTION_PIPE_NAME = 'next_action_2603D237-3DAE-4ae9-BB68-AF90AB875EFB'
+      # Request hash key associated with previous execution exit code
       LAST_EXIT_CODE_KEY = "LastExitCode"
+
+      # Response hash key associated with action to run
       NEXT_ACTION_KEY = :NextAction
 
-      attr_reader :node
-      attr_accessor :verbose
-
+      # Initialize pipe server
+      #
       # === Parameters
-      # options(Hash):: A hash of options including the following:
+      # options[:pipe_name](String):: Name of pipe to connect to (required)
       #
-      # queue(Queue):: queue of commands to execute (required).
-      #
-      # logger(Logger):: logger or nil
-      def initialize(options = {})
-        raise "Missing required :queue" unless @queue = options[:queue]
-        @logger = options[:logger]
+      # === Block
+      # Given block gets called back for each request
+      # It should take two arguments:
+      #   * First argument is either :is_ready or :respond
+      #     calls with :is_ready should return a boolean value set to true if there is a pending command
+      #     calls with :respond should return the pending command
+      #   * Second argument contains the request data (only set with :respond)
+      def initialize(options = {}, &callback)
+        raise ArgumentError, "Missing required :pipe_name" unless @pipe_name = options[:pipe_name]
+        @callback = callback
         @pipe_eventable = nil
       end
 
       # Starts the pipe server by creating an asynchronous named pipe. Returns
       # control to the caller after adding the pipe to the event machine.
+      #
+      # === Return
+      # true:: If server was successfully started
+      # false:: Otherwise
       def start
         flags = ::Win32::Pipe::ACCESS_DUPLEX | ::Win32::Pipe::OVERLAPPED
-        pipe = PipeServer.new(NEXT_ACTION_PIPE_NAME, 0, flags)
+        pipe  = PipeServer.new(@pipe_name, 0, flags)
+        res   = true
         begin
           options = {:target => self,
                      :request_handler => :request_handler,
                      :request_query => :request_query,
-                     :pipe => pipe,
-                     :logger => @logger}
+                     :pipe => pipe}
           @pipe_eventable = EM.attach(pipe, PipeServerHandler, options)
-        rescue
+        rescue Exception => e
           pipe.close rescue nil
-          raise
+          Chef::Log.error("Failed to start pipe server: #{e.message} from\n#{e.backtrace.join("\n")}")
+          res = false
         end
+        res
       end
 
       # Stops the pipe server by detaching the eventable from the event machine.
+      #
+      # === Return
+      # true:: Always return true
       def stop
         @pipe_eventable.force_detach if @pipe_eventable
         @pipe_eventable = nil
+        true
       end
 
       # Ready to respond if the next action queue is empty, otherwise continue
@@ -85,7 +100,7 @@ module RightScale
       # === Returns
       # result(Boolean):: true if response is ready
       def request_query(request_data)
-        return false == @queue.empty?
+        return @callback.call(:is_ready, nil)
       end
 
       # Handler for next action requests. Expects complete requests and
@@ -95,18 +110,19 @@ module RightScale
       # readability.
       #
       # === Parameters
-      # request_data(String):: request data
+      # request_data(String):: Request data
       #
       # === Returns
-      # response(String):: true if response is ready
+      # response(String):: Request response
       def request_handler(request_data)
         # assume request_data is a single line with a possible newline trailing.
         request = JSON.load(request_data.chomp)
         if 1 == request.keys.size && request.has_key?(LAST_EXIT_CODE_KEY)
           # pop the next action from the queue.
-          return JSON.dump(NEXT_ACTION_KEY => @queue.pop(true)) + "\n";
+          command = @callback.call(:respond, request_data)
+          return JSON.dump(NEXT_ACTION_KEY => command) + "\n";
         end
-        raise "Invalid request"
+        raise ArgumentError, "Invalid request"
       rescue Exception => e
         return JSON.dump(:Error => "#{e.class}: #{e.message}", :Detail => e.backtrace.join("\n")) + "\n"
       end

@@ -20,16 +20,4 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require File.expand_path(File.join(File.dirname(__FILE__), '..', 'spec_helper'))
-require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'lib', 'windows', 'chef_node_server'))
-require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'chef_runner'))
-
-TEST_TEMP_PATH = File.normalize_path(File.join(Dir.tmpdir, "run-chef-node-server-9791A30A-3FCE-4f5b-AEEB-72D82B3689AE"))
-TEST_COOKBOOKS_PATH = RightScale::Test::ChefRunner.get_cookbooks_path(TEST_TEMP_PATH)
-
-RightScale::Test::ChefRunner.run_chef_as_server(TEST_COOKBOOKS_PATH, []) do |chef_client|
-  Chef::Log.logger.level = Logger::DEBUG
-  RightScale::Windows::ChefNodeServer.instance.start(:node => chef_client.node)
-  RightScale::Windows::ChefNodeServer.instance.current_resource = Mash.new(:a => 'A', :b => 'B')
-  RightScale::Windows::ChefNodeServer.instance.new_resource = Chef::Resource::Powershell.new("test")
-end
+actions :echo_text

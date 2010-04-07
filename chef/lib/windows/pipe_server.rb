@@ -56,14 +56,11 @@ module RightScale
       # such time as request_query returns true).
       #
       # pipe(IO):: pipe object (required).
-      #
-      # logger(Logger):: logger or nil
       def initialize(options)
         raise "Missing required :target" unless @target = options[:target]
         raise "Missing required :request_handler" unless @request_handler = options[:request_handler]
         raise "Missing require :pipe" unless @pipe = options[:pipe]
         @request_query = options[:request_query]
-        @logger = options[:logger]
         @unbound = false
         @state = CONNECTING_STATE
         @data = nil
@@ -84,7 +81,7 @@ module RightScale
           sleep ASYNC_IO_SLEEP_DELAY_MSECS
         end
       rescue Exception => e
-        log_error("#{e.class}: #{e.message}\n#{e.backtrace.join("\n")}")
+        Chef::Log.error("Failed to send data to Powershell: #{e.message}\n#{e.backtrace.join("\n")}")
         (disconnect rescue nil) if @state != CONNECTING_STATE
       end
 
@@ -99,7 +96,7 @@ module RightScale
 
       # Callback from EM to unbind.
       def unbind
-        log_debug("unbound")
+        RightLinkLog.debug("unbound")
         @pipe.close rescue nil
         @connected = false
         @pipe = nil
@@ -116,21 +113,11 @@ module RightScale
 
       protected
 
-      # Logs error if enabled
-      def log_error(message)
-        @logger.error(message) if @logger
-      end
-
-      # Logs debug if enabled
-      def log_debug(message)
-        @logger.debug(message) if @logger
-      end
-
       # Handles any pending I/O from asynchronous pipe server.
       def handle_pending
         case @state
         when CONNECTING_STATE
-          log_debug("connection pending")
+          RightLinkLog.debug("connection pending")
           connected
           if @pipe.read
             consume_pipe_buffer if not @pipe.pending?
@@ -138,7 +125,7 @@ module RightScale
             disconnect
           end
         when READING_STATE
-          log_debug("read pending")
+          RightLinkLog.debug("read pending")
           if @pipe.transferred == 0
             disconnect
           else
@@ -147,7 +134,7 @@ module RightScale
         when RESPONDING_STATE
           responding
         when WRITING_STATE
-          log_debug("write pending")
+          RightLinkLog.debug("write pending")
           if @pipe.transferred >= @pipe.size
             write_complete
           end
@@ -158,12 +145,12 @@ module RightScale
       def handle_non_pending
         case @state
         when CONNECTING_STATE
-          log_debug("waiting for connection")
+          RightLinkLog.debug("waiting for connection")
           if @pipe.connect
             connected
           end
         when READING_STATE
-          log_debug("still reading request")
+          RightLinkLog.debug("still reading request")
           if @pipe.read
             consume_pipe_buffer if not @pipe.pending?
           else
@@ -172,14 +159,14 @@ module RightScale
         when RESPONDING_STATE
           responding
         when WRITING_STATE
-          log_debug("done writing request")
+          RightLinkLog.debug("done writing request")
           write_complete
         end
       end
 
       # Acknowledges client connected by changing to reading state.
       def connected
-        log_debug("connected")
+        RightLinkLog.debug("connected")
 
         # sleep a little to allow asynchronous I/O time to complete and
         # avoid busy looping before reading from pipe.
@@ -189,9 +176,9 @@ module RightScale
 
       # Acknowledges request received by invoking EM receive_data method.
       def read_complete
-        log_debug("read_complete")
+        RightLinkLog.debug("read_complete")
         if @data && @data.length > 0
-          log_debug("received: #{@data}")
+          RightLinkLog.debug("received: #{@data}")
           @state = RESPONDING_STATE
         else
           disconnect
@@ -212,7 +199,7 @@ module RightScale
         response = receive_data(@data)
         @data = nil
         if response && response.length > 0
-          log_debug("writing response = #{response}")
+          RightLinkLog.debug("writing response = #{response}")
           if @pipe.write(response)
             if @pipe.pending?
               @state = WRITING_STATE
@@ -229,13 +216,13 @@ module RightScale
 
       # Acknowledges response sent by disconnecting and waiting for next client.
       def write_complete
-        log_debug("write_complete")
+        RightLinkLog.debug("write_complete")
         disconnect
       end
 
       # Disconnects from client and resumes waiting for next client.
       def disconnect
-        log_debug("disconnect")
+        RightLinkLog.debug("disconnect")
         @pipe.disconnect
         @state = CONNECTING_STATE
         @data = nil
@@ -244,13 +231,13 @@ module RightScale
       # Consumes the current contents of the pipe buffer.
       def consume_pipe_buffer
         buffer = @pipe.buffer.clone
-        log_debug("before consume @data = #{@data}")
+        RightLinkLog.debug("before consume @data = #{@data}")
         if @data
           @data += buffer
         else
           @data = buffer
         end
-        log_debug("after consume @data = #{@data}")
+        RightLinkLog.debug("after consume @data = #{@data}")
 
         # newline delimits each complete request. the pending flag is not an
         # indication that the complete request has been received because the

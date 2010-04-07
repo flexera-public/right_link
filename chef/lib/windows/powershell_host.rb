@@ -27,26 +27,52 @@ module RightScale
   # log the script output.
   class PowershellHost
     
-    # Is the Powershell process running?
-    attr_reader :active
-    
     # Start the Powershell process synchronously
     # Set the instance variable :active to true once Powershell was
     # successfully started
+    #
+    # === Parameters
+    # options[:node]:: Chef @node object
+    # options[:provider_name]:: Associated Chef powershell provider name
     def initialize(options = {})
-      @execute_status = nil
-      @command_queue  = Queue.new
-      @node           = options[:chef_node]
+      RightLinkLog.debug("[PowershellHost] Initializing")
+      @node           = options[:node]
+      @pipe_name      = "#{options[:provider_name]}_#{Time.now.strftime("%Y-%m-%d-%H%M%S")}"
 
-      @pipe_server      = RightScale::Windows::PowershellPipeServer.new(:queue => @command_queue, :logger => Chef::Log.logger)
-      @chef_node_server = RightScale::Windows::ChefNodeServer.new(:node => @node, :logger => Chef::Log.logger)
+      @response_mutex = Mutex.new
+      @response_event = ConditionVariable.new
+
+      RightLinkLog.debug("[PowershellHost] Starting pipe server")
+      @pipe_server = RightScale::Windows::PowershellPipeServer.new(:pipe_name => @pipe_name) do |kind, _|
+        case kind
+          when :is_ready then query
+          when :respond  then respond
+        end
+      end
+
+      unless @pipe_server.start
+        @pipe_server = nil
+        return
+      end
+
+      RightLinkLog.debug("[PowershellHost] Starting chef node server")
+      RightScale::Windows::ChefNodeServer.instance.start(:node => @node)
+
+      RightLinkLog.debug("[PowershellHost] Starting host")
+      start_powershell_process
       
-      client_command = format_command(RUN_LOOP_SCRIPT_PATH)
-      execute(client_command, nil)
-      
-      @active = true
+      RightLinkLog.debug("[PowershellHost] Initialized")
     end
-    
+
+    # Is the Powershell process running?
+    #
+    # === Return
+    # true:: If the associated Powershell process is running
+    # false:: Otherwise
+    def active
+      !!@pipe_server
+    end
+
     # Run Powershell script in associated Powershell process
     # Log stdout and stderr to Chef logger
     #
@@ -59,10 +85,10 @@ module RightScale
     # === Raise
     # RightScale::Exceptions:ApplicationError:: If Powershell process is not running (i.e. :active is false)
     def run(script_path)
-      Chef::Log.logger.info("Powershell Host - Run #{script_path}")
-      @command_queue.push(". \"#{script_path}\"")  
+      RightLinkLog.debug("[PowershellHost] Running #{script_path}")
+      run_command(". \"#{script_path}\"")
     end
-    
+
     # Terminate associated Powershell process
     # :run cannot be called after :terminate
     # This method is idempotent
@@ -70,12 +96,90 @@ module RightScale
     # === Return
     # true:: Always return true
     def terminate
-      Chef::Log.logger.info("Powershell Host - Terminiated")
-      @command_queue.push("exit")
+      RightLinkLog.debug("[PowershellHost] Terminate requested")
+      run_command("exit")
     end
-    
+
     protected
-    
+
+    # Query whether there is a command to execute
+    # Also signal waiting Chef thread if a command executed
+    #
+    # === Return
+    # true:: If there is a command to execute
+    # false:: Otherwise
+    def query
+      @response_mutex.synchronize do
+        if @sent_command
+          @sent_command = false
+          @response_event.signal
+        end
+      end
+      return !!@pending_command
+    end
+
+    # Respond to pipe server request
+    # Send pending command
+    #
+    # === Return
+    # res(String):: Command to execute
+    def respond
+      @sent_command = true
+      res = @pending_command
+      @pending_command = nil
+
+      return res
+    end
+
+    # Start the associated powershell process
+    #
+    # === Return
+    # true:: Always return true
+    def start_powershell_process
+      platform = RightScale::RightLinkConfig[:platform]
+      shell    = platform.shell
+
+      # Import ChefNodeCmdlet.dll to allow powershell scripts to call get-ChefNode, etc.
+      # Also pass in name of pipe that client needs to connect to
+      lines_before_script = ["import-module #{CHEF_NODE_CMDLET_DLL_PATH}", "$pipeName='#{@pipe_name}'"]
+
+      command = shell.format_powershell_command4(RightScale::Platform::Windows::Shell::POWERSHELL_V1x0_EXECUTABLE_PATH, lines_before_script, nil, RUN_LOOP_SCRIPT_PATH)
+
+      RightLinkLog.debug("Starting powershell process for host #{command}")
+
+      RightScale.popen3(:command        => command,
+                        :environment    => nil,
+                        :target         => self,
+                        :stdout_handler => :on_read_output,
+                        :stderr_handler => :on_read_output,
+                        :exit_handler   => :on_exit,
+                        :temp_dir       => RightScale::InstanceConfiguration::CACHE_PATH)
+
+      return true
+    end
+
+    # executes a powershell command and waits until the command has completed
+    #
+    # === Argument
+    # command(String):: a powershell command
+    #
+    # === Return
+    # true:: Always return true
+    #
+    # === Raise
+    # RightScale::Exceptions::Application:: If Powershell process is not running (i.e. :active is false)
+    def run_command(command) 
+      raise RightScale::Exceptions::Application, "Powershell host not active, cannot run: #{command}" unless active
+      @response_mutex.synchronize do
+        @pending_command = command
+        @response_event.wait(@response_mutex)
+        @pending_command = nil
+        @sent_command = false
+      end
+
+      true
+    end
+
     # Resolves a loadable location for the ChefNodeCmdlet.dll
     def self.locate_local_windows_modules
       windows_path = ::File.normalize_path(::File.join(::File.dirname(__FILE__), '..', '..', 'lib', 'windows'))
@@ -100,69 +204,39 @@ module RightScale
     end
 
     LOCAL_WINDOWS_PATH = locate_local_windows_modules
-    CHEF_NODE_CMDLET_DLL_PATH = File.join(LOCAL_WINDOWS_PATH, 'bin', 'ChefNodeCmdlet.dll').gsub("/", "\\")
-    RUN_LOOP_SCRIPT_PATH = File.join(LOCAL_WINDOWS_PATH, 'scripts', 'run_loop.ps1').gsub("/", "\\")
+    CHEF_NODE_CMDLET_DLL_PATH = File.normalize_path(File.join(LOCAL_WINDOWS_PATH, 'bin', 'ChefNodeCmdlet.dll')).gsub("/", "\\")
+    RUN_LOOP_SCRIPT_PATH = File.normalize_path(File.join(LOCAL_WINDOWS_PATH, 'scripts', 'run_loop.ps1')).gsub("/", "\\")
 
-    # Formats a command to run the given powershell script.
+    # Data available in STDOUT pipe event
+    # Audit raw output
     #
     # === Parameters
-    # script_file_path(String):: powershell script file path
+    # data(String):: STDOUT data
     #
-    # == Returns
-    # command(String):: command to execute
-    def format_command(script_file_path)
-      platform = RightScale::RightLinkConfig[:platform]
-      shell    = platform.shell
-
-      # import ChefNodeCmdlet.dll to allow powershell scripts to call get-ChefNode, etc.
-      lines_before_script = ["import-module #{CHEF_NODE_CMDLET_DLL_PATH}"]
-
-      return shell.format_powershell_command4(RightScale::Platform::Windows::Shell::POWERSHELL_V1x0_EXECUTABLE_PATH, lines_before_script, nil, script_file_path)
+    # === Return
+    # true:: Always return true
+    def on_read_output(data)
+      ::Chef::Log.info(data)
     end
-    
-    
-    def execute(command, env=nil)
-        @pipe_server.start
-        @chef_node_server.start
-        
-        Chef::Log.debug("Executing \"#{command}\"")
-        
-        RightScale.popen3(:command        => command,
-                          :environment    => env,
-                          :target         => self,
-                          :stdout_handler => :on_read_output,
-                          :stderr_handler => :on_read_output,
-                          :exit_handler   => :on_exit,
-                          :temp_dir       => RightScale::InstanceConfiguration::CACHE_PATH)
 
-        return true
-      end
+    # Process exited event
+    # Record duration and process exist status and signal Chef thread so it can resume
+    #
+    # === Parameters
+    # status(Process::Status):: Process exit status
+    #
+    # === Return
+    # true:: Always return true
+    def on_exit(status)
+      RightLinkLog.debug("[PowershellHost] Stopping pipe server")
+      @pipe_server.stop
+      @pipe_server = nil
 
-      # Data available in STDOUT pipe event
-      # Audit raw output
-      #
-      # === Parameters
-      # data(String):: STDOUT data
-      #
-      # === Return
-      # true:: Always return true
-      def on_read_output(data)
-        ::Chef::Log.info(data)
-      end
+      RightLinkLog.debug("[PowershellHost] Stopping chef node server")
+      RightScale::Windows::ChefNodeServer.instance.stop
 
-      # Process exited event
-      # Record duration and process exist status and signal Chef thread so it can resume
-      #
-      # === Parameters
-      # status(Process::Status):: Process exit status
-      #
-      # === Return
-      # true:: Always return true
-      def on_exit(status)
-        @pipe_server.stop
-        @chef_node_server.stop
-        
-        @active = false
-      end
+      RightLinkLog.debug("[PowershellHost] Terminated")
+      @response_event.signal
+    end
   end
 end

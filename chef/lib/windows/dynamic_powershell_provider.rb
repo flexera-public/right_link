@@ -46,7 +46,7 @@ module RightScale
   #    |   |-- start.rb
   #    |   `-- stop.rb
   #    `-- resources
-  #        `-- iis.rb
+  #        `-- powershell_iis.rb
   #
   # In this example, the 'start.rb', 'stop.rb' and 'restart.rb' recipes would
   # use the 'start' and/or 'stop' actions implemented by the corresponding
@@ -91,6 +91,9 @@ module RightScale
     # initialized by 'generate_providers'
     attr_reader :providers
 
+    # chef class resource class naming
+    include Chef::Mixin::ConvertToClassName
+
     # Initialize instance
     def initialize
       @validation_errors = {}
@@ -112,9 +115,9 @@ module RightScale
       cookbooks_paths = [ cookbooks_paths ] unless cookbooks_paths.is_a?(Array)
       cookbooks_paths.each do |cookbooks_path|
         return [] unless File.directory?(cookbooks_path)
-        Dir[File.join(cookbooks_path, '*/')].each do |cookbook_path|
+        Dir[File.normalize_path(File.join(cookbooks_path, '*/'))].each do |cookbook_path|
           cookbook = File.basename(cookbook_path).camelize
-          Dir[File.join(cookbook_path, POWERSHELL_PROVIDERS_DIR_NAME, '*/')].each do |provider|
+          Dir[File.normalize_path(File.join(cookbook_path, POWERSHELL_PROVIDERS_DIR_NAME, '*/'))].each do |provider|
             name = "#{cookbook}::Powershell::#{File.basename(provider).camelize}"
             next if @providers_names.include?(name)
             generate_single_provider(name, provider)
@@ -140,7 +143,7 @@ module RightScale
       RightLinkLog.debug("[chef] Creating Powershell provider #{name}")
       all_scripts = Dir[File.join(path, "*#{Platform::Windows::Shell::POWERSHELL_V1x0_SCRIPT_EXTENSION}")]
       action_scripts = all_scripts.select { |s| is_action_script?(s) }
-      @providers << create_provider_class(name) do |provider|
+      new_provider = create_provider_class(name) do |provider|
         action_scripts.each do |script|
           action_name = 'action_' + File.basename(script, '.*').snake_case
           RightLinkLog.debug("[chef] Defining #{name}##{action_name} to run '#{script}'")
@@ -148,19 +151,55 @@ module RightScale
         end
         if load_script = all_scripts.detect { |s| File.basename(s, '.*').downcase == LOAD_SCRIPT }
           RightLinkLog.debug("[chef] Defining #{name}#load_current_resource to run '#{load_script}'")
-          provider.class_eval("def load_current_resource; #{name}.run_script('#{load_script}'); end")
+          provider.class_eval(<<-EOF
+          def load_current_resource;
+            @current_resoure = #{resource_class_name(name)}.new(@new_resource.name)
+            RightScale::Windows::ChefNodeServer.instance.current_resource = @current_resource
+            #{name}.run_script('#{load_script}')
+          end
+          EOF
+        )
         end
         if init_script = all_scripts.detect { |s| File.basename(s, '.*').downcase == INIT_SCRIPT }
           RightLinkLog.debug("[chef] Defining #{name}.init to run '#{init_script}'")
           provider.instance_eval("def init; super; run_script('#{init_script}'); end")
         end
         if term_script = all_scripts.detect { |s| File.basename(s, '.*').downcase == TERM_SCRIPT }
-          RightLinkLog.debug("[chef] Defining #{name}.term to run '#{term_script}'")
+          RightLinkLog.debug("[chef] Defining #{name}.terminate to run '#{term_script}'")
           provider.instance_eval("def terminate; run_script('#{term_script}'); super; end")
         end
         RightLinkLog.debug("[chef] Done creating #{name}")
       end
+
+      # register the provider with the default windows platform
+      Chef::Platform.platforms[:windows][:default].merge!(name.snake_case.gsub("::","_").to_sym => new_provider)
+
+      @providers << new_provider
       true
+    end
+
+    # Given a fully qualified provider class name, generate the fully qualified class name of the associated
+    # resource (for lightweight resources).
+    #
+    # Note: Uses Chef::Mixin::ConvertToClassName to create the resource name in the same manner Chef does when
+    # creating lightweight resources
+    #
+    # === Parameters
+    # fully_qualified_name(String):: fully qualified provider name.  Assumes the following <cookbook name>::<other scope(s)>::<provider name>
+    #
+    # === Return
+    # (String):: Fully qualified resource class name
+    def resource_class_name(fully_qualified_name)
+      fully_qualified_name_parts = fully_qualified_name.split("::")
+      cookbook_name = fully_qualified_name_parts.first.snake_case
+      provider_name = fully_qualified_name_parts.last.snake_case
+
+      # using same methods chef uses to generate the class name of the resources.
+      # Chef will also add the resource to the Chef::Resource namespace.
+      # _powershell is added because we add powershell to the provider namespace, this
+      # forces the resource file name to be "powershell_<provider_name>" 
+      rname = filename_to_qualified_string(cookbook_name, "powershell_#{provider_name}")
+      "Chef::Resource::#{convert_to_class_name(rname)}"
     end
 
     # Creates/overrides class with given name
@@ -178,7 +217,8 @@ module RightScale
       cls = nil
       if parts.size == 1
         if mod.const_defined?(name)
-          # Was already previously defined, undef all the known methods
+          # Was already previously defined, undef all the known *instance* methods
+          # (class methods are inherited and should not be undefined)
           cls = mod.const_get(name)
           (cls.instance_methods - RightScale::PowershellProviderBase.instance_methods).each { |m| cls.class_eval("undef #{m}") }
           init.call(cls)

@@ -28,7 +28,7 @@ class Chef
   class Client
     @@last_ohai = nil
     @@old_run_ohai = instance_method(:run_ohai)
-
+    
     def run_ohai
       if @@last_ohai
         @ohai = @@last_ohai
@@ -43,7 +43,7 @@ end
 module RightScale
   module Test
     module ChefRunner
-
+      
       # Generates the path for the cookbooks directory for a given base path.
       #
       # === Parameters
@@ -55,9 +55,9 @@ module RightScale
         # Chef fails if cookbook paths contain backslashes.
         return File.join(base_path, "cookbooks").gsub("\\", "/")
       end
-
+      
       module_function :get_cookbooks_path
-
+      
       # Creates a cookbook from a hash of recipe names to text.
       #
       # === Parameters
@@ -84,16 +84,16 @@ EOF
           File.open(recipe_path, "w") { |f| f.write(recipe_text) }
           metadata_text += "recipe     \"#{cookbook_name}\"::#{recipe_name}, \"Description of #{recipe_name}\"\n"
         end
-
+        
         # metadata
         metadata_path = recipes_path = File.join(cookbook_path, 'metadata.rb')
         File.open(metadata_path, "w") { |f| f.write(metadata_text) }
-
+        
         return cookbooks_path
       end
-
+      
       module_function :create_cookbook
-
+      
       # Runs a Chef recipe.
       #
       # === Parameters
@@ -111,9 +111,9 @@ EOF
       def run_chef(cookbook_path, run_list, &block)
         inner_run_chef(cookbook_path, run_list, false, &block)
       end
-
+      
       module_function :run_chef
-
+      
       # Runs a Chef recipe.
       #
       # === Parameters
@@ -131,11 +131,11 @@ EOF
       def run_chef_as_server(cookbook_path, run_list, &block)
         inner_run_chef(cookbook_path, run_list, true, &block)
       end
-
+      
       module_function :run_chef_as_server
-
+      
       protected
-
+      
       # Runs a Chef recipe.
       #
       # === Parameters
@@ -170,6 +170,14 @@ EOF
         done = false
         last_exception = nil
 
+        powershell_providers = nil
+        if platform.windows?
+          # generate the powershell providers if any in the cookbook
+          dynamic_provider = DynamicPowershellProvider.new
+          dynamic_provider.generate_providers(Chef::Config[:cookbook_path])
+          powershell_providers = dynamic_provider.providers
+        end
+
         if run_as_server
           puts "Hit Ctrl+C to cancel Chef server."
         end
@@ -182,7 +190,21 @@ EOF
             rescue Exception => e
               # can't raise exeception out of EM, so cache it here.
               last_exception = e
+            ensure
+              # terminate the powershell providers
+              Chef::Log.debug("*****************************")
+              (powershell_providers || []).each do |p|
+                begin
+                  Chef::Log.debug("TERMINATING #{p.inspect}")
+                  p.terminate
+                  Chef::Log.debug("*****************************")
+                rescue Exception => e
+                  Chef::Log.debug("*****************************\nKABOOM #{e.message + "\n" + e.backtrace.join("\n")}\n*****************************")
+                  last_exception = e
+                end
+              end
             end
+            Chef::Log.debug("*****************************\nSETTING DONE TO #{!run_as_server}\n*****************************")
             done = (not run_as_server)
           end
           timer = EM::PeriodicTimer.new(0.1) do
@@ -209,12 +231,11 @@ EOF
             end
           end
         end
-
         true
       end
-
+      
       module_function :inner_run_chef
-
+      
     end
   end
 end
