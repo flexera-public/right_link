@@ -301,10 +301,10 @@ module RightScale
             # set, but also check the name= method for completeness.
             name_equals_sym = (key + "=").to_sym
             if resource.respond_to?(name_equals_sym)
-              log_debug("calling resource.#{name_equals_sym} #{value.inspect}") if is_log_debug?
+              log_debug("calling resource.#{name_equals_sym} #{value.inspect[0,64]}") if is_log_debug?
               resource.send(name_equals_sym, value)
             else
-              log_debug("calling resource.#{key} #{value.inspect}") if is_log_debug?
+              log_debug("calling resource.#{key} #{value.inspect[0,64]}") if is_log_debug?
               resource.send(key.to_sym, value)
             end
           end
@@ -330,7 +330,7 @@ module RightScale
 
         node_by_path = node_by_path_statement(path)
         result = instance_eval node_by_path
-        log_debug("#{node_by_path} = #{result.inspect}") if is_log_debug?
+        log_debug("#{node_by_path} = #{result.inspect[0,64]}") if is_log_debug?
         return result
       end
 
