@@ -73,7 +73,7 @@ class InstanceSetup
   # === Return
   # true:: Always return true
   def init_boot
-    request("/booter/set_r_s_version", { :agent_identity => @agent_identity, :r_s_version => 6 }) do |r|
+    request("/booter/set_r_s_version", { :agent_identity => @agent_identity, :r_s_version => RightScale::RightLinkConfig.protocol_version }) do |r|
       res = RightScale::OperationResult.from_results(r)
       strand("Failed to set_r_s_version", res) unless res.success?
       enable_managed_login
