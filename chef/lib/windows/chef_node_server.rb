@@ -59,6 +59,7 @@ module RightScale
       def start(options)
         return true if @pipe_eventable # Idempotent
 
+        RightLinkLog.debug("[ChefNodeServer] - Starting")
         @node = options[:node] || {}
         @pipe_eventable = nil
         @current_resource = nil
@@ -76,6 +77,7 @@ module RightScale
           pipe.close rescue nil
           res = false
         end
+        RightLinkLog.debug("[ChefNodeServer] - Started = #{res}")
         res
       end
 
@@ -84,6 +86,7 @@ module RightScale
       # === Return
       # true:: Always return true
       def stop
+        RightLinkLog.debug("[ChefNodeServer] - Stopping - need to stop = #{!@pipe_eventable.nil?}")
         @pipe_eventable.force_detach if @pipe_eventable
         @pipe_eventable = nil
         true

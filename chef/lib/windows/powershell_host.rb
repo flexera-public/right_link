@@ -35,14 +35,14 @@ module RightScale
     # options[:node]:: Chef @node object
     # options[:provider_name]:: Associated Chef powershell provider name
     def initialize(options = {})
-      RightLinkLog.debug("[PowershellHost] Initializing")
+      RightLinkLog.debug(format_log_message("Initializing"))
       @node           = options[:node]
       @pipe_name      = "#{options[:provider_name]}_#{Time.now.strftime("%Y-%m-%d-%H%M%S")}"
 
       @response_mutex = Mutex.new
       @response_event = ConditionVariable.new
 
-      RightLinkLog.debug("[PowershellHost] Starting pipe server")
+      RightLinkLog.debug(format_log_message("Starting pipe server"))
       @pipe_server = RightScale::Windows::PowershellPipeServer.new(:pipe_name => @pipe_name) do |kind, _|
         case kind
           when :is_ready then query
@@ -55,14 +55,19 @@ module RightScale
         return
       end
 
-      RightLinkLog.debug("[PowershellHost] Starting chef node server")
+      RightLinkLog.debug(format_log_message("Starting chef node server"))
       RightScale::Windows::ChefNodeServer.instance.start(:node => @node)
 
-      RightLinkLog.debug("[PowershellHost] Starting host")
+      RightLinkLog.debug(format_log_message("Starting host"))
       start_powershell_process
       
-      RightLinkLog.debug("[PowershellHost] Initialized")
+      RightLinkLog.debug(format_log_message("Initialized"))
     end
+
+    def format_log_message(message)
+      "[PowershellHost #{@pipe_name}] - #{message}"
+    end
+
 
     # Is the Powershell process running?
     #
@@ -85,8 +90,9 @@ module RightScale
     # === Raise
     # RightScale::Exceptions:ApplicationError:: If Powershell process is not running (i.e. :active is false)
     def run(script_path)
-      RightLinkLog.debug("[PowershellHost] Running #{script_path}")
-      run_command(". \"#{script_path}\"")
+      RightLinkLog.debug(format_log_message("\n\n\n++++++++++++++++++++\nRunning #{script_path}"))
+      run_command("&\"#{script_path}\"")
+      RightLinkLog.debug(format_log_message("Finished #{script_path}\n++++++++++++++++++++\n\n\n"))
     end
 
     # Terminate associated Powershell process
@@ -96,8 +102,8 @@ module RightScale
     # === Return
     # true:: Always return true
     def terminate
-      RightLinkLog.debug("[PowershellHost] Terminate requested")
-      run_command("exit")
+      RightLinkLog.debug(format_log_message("Terminate requested"))
+      run_command("break")
     end
 
     protected
@@ -111,10 +117,12 @@ module RightScale
     def query
       @response_mutex.synchronize do
         if @sent_command
+          RightLinkLog.debug(format_log_message("Completed last command"))
           @sent_command = false
           @response_event.signal
         end
       end
+      RightLinkLog.debug(format_log_message("Command Ready??? #{!!@pending_command}"))
       return !!@pending_command
     end
 
@@ -127,7 +135,7 @@ module RightScale
       @sent_command = true
       res = @pending_command
       @pending_command = nil
-
+      RightLinkLog.debug(format_log_message("Responding with pending command #{res}"))
       return res
     end
 
@@ -145,7 +153,7 @@ module RightScale
 
       command = shell.format_powershell_command4(RightScale::Platform::Windows::Shell::POWERSHELL_V1x0_EXECUTABLE_PATH, lines_before_script, nil, RUN_LOOP_SCRIPT_PATH)
 
-      RightLinkLog.debug("Starting powershell process for host #{command}")
+      RightLinkLog.debug(format_log_message("Starting powershell process for host #{command}"))
 
       RightScale.popen3(:command        => command,
                         :environment    => nil,
@@ -228,14 +236,14 @@ module RightScale
     # === Return
     # true:: Always return true
     def on_exit(status)
-      RightLinkLog.debug("[PowershellHost] Stopping pipe server")
+      RightLinkLog.debug(format_log_message("Stopping pipe server"))
       @pipe_server.stop
       @pipe_server = nil
 
-      RightLinkLog.debug("[PowershellHost] Stopping chef node server")
+      RightLinkLog.debug(format_log_message("Stopping chef node server"))
       RightScale::Windows::ChefNodeServer.instance.stop
 
-      RightLinkLog.debug("[PowershellHost] Terminated")
+      RightLinkLog.debug(format_log_message("Terminated"))
       @response_event.signal
     end
   end
