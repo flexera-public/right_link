@@ -89,7 +89,7 @@ describe RightScale::DynamicPowershellProvider do
     it 'should generate the correct actions' do
       unless RightScale::Platform.const_defined?(:Windows)
         # Hack so these tests can be run on any platform
-        Object.module_eval "module RightScale;class Platform;class Windows;class Shell;POWERSHELL_V1x0_SCRIPT_EXTENSION='.ps1';end;end;end;end"
+        Object.module_eval "module RightScale;class Windows;end;class Platform;class Windows;class Shell;POWERSHELL_V1x0_SCRIPT_EXTENSION='.ps1';end;end;end;end"
 
         Chef::Platform.platforms.merge!({:windows => { :default => {} }}) 
       end
