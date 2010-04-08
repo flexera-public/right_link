@@ -42,10 +42,10 @@ if RightScale::RightLinkConfig[:platform].windows?
       begin
         Thread.new { @host.__send__(:run_command, 'fourty-two') }
         success = false
-        10.times do
+        20.times do
           success = @pipe_server.request_query(42)
           break if !success.nil?
-          sleep 0.1
+          sleep 0.5
         end
         success.should be_true
       ensure
@@ -57,10 +57,10 @@ if RightScale::RightLinkConfig[:platform].windows?
       begin
         Thread.new { @host.__send__(:run_command, 'fourty-two') }
         success = false
-        10.times do
+        20.times do
           success = @pipe_server.request_query(42)
           break if !success.nil?
-          sleep 0.1
+          sleep 0.5
         end
         success.should be_true
         res = @pipe_server.request_handler(JSON.dump({RightScale::Windows::PowershellPipeServer::LAST_EXIT_CODE_KEY => 42}))
@@ -75,10 +75,10 @@ if RightScale::RightLinkConfig[:platform].windows?
         Thread.new { @host.__send__(:run_command, 'fourty-two'); @host.__send__(:run_command, 'fourty-three') }
 
         success = false
-        10.times do
+        20.times do
           success = @pipe_server.request_query(42)
           break if !success.nil?
-          sleep 0.1
+          sleep 0.5
         end
         success.should be_true
         res = @pipe_server.request_handler(JSON.dump({RightScale::Windows::PowershellPipeServer::LAST_EXIT_CODE_KEY => 42}))
@@ -86,10 +86,10 @@ if RightScale::RightLinkConfig[:platform].windows?
         @response_event.signal
 
         success = false
-        10.times do
+        20.times do
           success = @pipe_server.request_query(43)
           break if !success.nil?
-          sleep 0.1
+          sleep 0.5
         end
         success.should be_true
         res = @pipe_server.request_handler(JSON.dump({RightScale::Windows::PowershellPipeServer::LAST_EXIT_CODE_KEY => 43}))
