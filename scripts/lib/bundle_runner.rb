@@ -40,6 +40,7 @@
 #      --version:           Display version information
 
 $:.push(File.dirname(__FILE__))
+require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'config', 'right_link_config'))
 require 'command_client'
 require 'optparse'
 require 'rdoc/ri/ri_paths' # For backwards compat with ruby 1.8.5
