@@ -45,6 +45,10 @@ if RightScale::RightLinkConfig[:platform].windows?
 
       @logs = ""
       flexmock(Chef::Log).should_receive(:info).and_return { |m| @logs << m }
+      flexmock(Chef::Log).should_receive(:level).and_return(Logger::DEBUG)
+
+      mock_instance_state = flexmock('MockInstanceState', :past_scripts => [], :record_script_execution => true)
+      flexmock(Chef::Provider::Powershell).new_instances.should_receive(:instance_state).and_return(mock_instance_state)
 
       #@debug_logs = ""
       #flexmock(Chef::Log).should_receive(:debug).and_return { |m| @debug_logs << m }
@@ -113,5 +117,35 @@ if RightScale::RightLinkConfig[:platform].windows?
       (@logs =~ /terminating echo/).should_not be_nil
     end
 
+    it "should run a recipe with mixed powershell script and powershell provider" do
+      runner = lambda {
+        RightScale::Test::ChefRunner.run_chef(PowershellBasedProviderSpec::TEST_COOKBOOK_PATH, 'test_cookbook::mix_of_powershell_script_and_powershell_providers')
+      }
+      runner.call.should == true
+      puts @logs
+      # TODO: verify order of execution
+      (@logs =~ /\/encode\/_init.ps1/).should_not be_nil
+      (@logs =~ /init encode/).should_not be_nil
+      (@logs =~ /\/encode\/url_encode.ps1/).should_not be_nil
+      (@logs =~ /encode\+first/).should_not be_nil
+
+      (@logs =~ /message from powershell script/).should_not be_nil
+
+      (@logs =~ /\/echo\/_load_current_resource.ps1/).should_not be_nil
+      (@logs =~ /load current resource for echo/).should_not be_nil
+      (@logs =~ /\/echo\/echo_text.ps1/).should_not be_nil
+      (@logs =~ /then echo/).should_not be_nil
+      (@logs =~ /fourty-two/).should_not be_nil
+
+      (@logs =~ /another powershell message/).should_not be_nil
+
+      (@logs =~ /\/encode\/_init.ps1/).should_not be_nil
+      (@logs =~ /init encode/).should_not be_nil
+      (@logs =~ /\/encode\/url_encode.ps1/).should_not be_nil
+      (@logs =~ /encode\+again/).should_not be_nil
+
+      (@logs =~ /\/echo\/_term.ps1/).should_not be_nil
+      (@logs =~ /terminating echo/).should_not be_nil
+    end
   end
 end
