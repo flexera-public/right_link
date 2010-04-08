@@ -92,7 +92,6 @@ class Chef
           @new_resource.updated = true
         ensure
           (FileUtils.rm_rf(SCRIPT_TEMP_DIR_PATH) rescue nil) if ::File.directory?(SCRIPT_TEMP_DIR_PATH)
-          RightScale::Windows::ChefNodeServer.instance.stop rescue nil
         end
 
         true

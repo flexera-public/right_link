@@ -191,6 +191,9 @@ EOF
               # can't raise exeception out of EM, so cache it here.
               last_exception = e
             ensure
+              # stop the chef node server
+              RightScale::Windows::ChefNodeServer.instance.stop rescue nil
+
               # terminate the powershell providers
               Chef::Log.debug("*****************************")
               (powershell_providers || []).each do |p|
