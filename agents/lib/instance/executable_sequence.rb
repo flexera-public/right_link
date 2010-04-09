@@ -263,8 +263,11 @@ module RightScale
         report_failure('Chef converge failed', chef_error(e))
         RightLinkLog.debug("Chef failed with '#{e.message}' at\n" + e.backtrace.join("\n"))
       end
-      RightScale::Windows::ChefNodeServer.instance.stop rescue nil if Platform.windows?
+      
+      # terminiate the providers before the node server as the provider term scripts may still use the node server
       @powershell_providers.each { |p| p.terminate } if @powershell_providers
+      RightScale::Windows::ChefNodeServer.instance.stop rescue nil if Platform.windows?
+
       report_success(c.node) if @ok
       true
     end
