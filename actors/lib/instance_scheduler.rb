@@ -105,8 +105,16 @@ class InstanceScheduler
     # 'terminate' will *not* shutdown the machine. This is so that when running the decommission
     # sequence as part of a non-soft termination we don't call shutdown.
     unless @post_decommission_callback
-      @shutdown_timeout = EM::Timer.new(SHUTDOWN_DELAY) { RightScale::InstanceState.shutdown(options[:user_id], options[:skip_db_update]) }
-      @post_decommission_callback = lambda { @shutdown_timeout.cancel; RightScale::InstanceState.shutdown(options[:user_id], options[:skip_db_update]) }
+      auditor = RightScale::AuditorProxy.new(options[:bundle].audit_id)
+      @shutdown_timeout = EM::Timer.new(SHUTDOWN_DELAY) do
+        msg = "Failed to decommission in less than #{SHUTDOWN_DELAY / 60} minutes, forcing shutdown"
+        auditor.append_error(msg, :category => RightScale::EventCategories::CATEGORY_ERROR)
+        RightScale::InstanceState.shutdown(options[:user_id], options[:skip_db_update]) 
+      end
+      @post_decommission_callback = lambda do
+        @shutdown_timeout.cancel
+        RightScale::InstanceState.shutdown(options[:user_id], options[:skip_db_update]) 
+      end
     end
 
     @scheduled_bundles.clear # Cancel any pending bundle
