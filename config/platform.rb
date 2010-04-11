@@ -20,6 +20,12 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+# This file may get required twice on Windows: Once using long path and once 
+# using short path. Since this is where we define the File.normalize_path
+# method to alleviate this issue, we have a chicken & egg problem. So detect if
+# we already required this file and skip the rest if that was the case
+unless defined?(RightScale::Platform)
+
 # note that the plaform-specific submodules will be loaded on demand to resolve
 # some install-time gem dependency issues.
 
@@ -278,3 +284,5 @@ module RightScale
 
   end
 end
+
+end # Unless already defined

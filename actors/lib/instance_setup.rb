@@ -94,8 +94,10 @@ class InstanceSetup
         auditor = RightScale::AuditorProxy.new(policy.audit_id)
         begin
           audit = RightScale::LoginManager.instance.update_policy(policy)
-          auditor.create_new_section("Managed login enabled")
-          auditor.append_info(audit)
+          if audit
+            auditor.create_new_section("Managed login enabled")
+            auditor.append_info(audit)
+          end
         rescue Exception => e
           auditor.create_new_section('Failed to enable managed login')
           auditor.append_error("Error applying login policy: #{e.message}", :category=>RightScale::EventCategories::CATEGORY_ERROR)
@@ -118,14 +120,16 @@ class InstanceSetup
     request("/booter/get_repositories", @agent_identity) do |r|
       res = RightScale::OperationResult.from_results(r)
       if res.success?
-        reps = res.content.repositories
         @auditor = RightScale::AuditorProxy.new(res.content.audit_id)
-        audit = "Using the following software repositories:\n"
-        reps.each { |rep| audit += "  - #{rep.to_s}\n" }
-        @auditor.create_new_section("Configuring software repositories")
-        @auditor.append_info(audit)
-        configure_repositories(reps)
-        @auditor.update_status("Software repositories configured")
+        unless RightScale::Platform.windows?
+          reps = res.content.repositories
+          audit = "Using the following software repositories:\n"
+          reps.each { |rep| audit += "  - #{rep.to_s}\n" }
+          @auditor.create_new_section("Configuring software repositories")
+          @auditor.append_info(audit)
+          configure_repositories(reps)
+          @auditor.update_status("Software repositories configured")
+        end
         @auditor.create_new_section('Preparing boot bundle')
         prepare_boot_bundle do |prep_res|
           if prep_res.success?
