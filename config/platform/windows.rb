@@ -413,7 +413,11 @@ module RightScale
       class Controller
         # Shutdown machine now
         def shutdown
-          `shutdown -s -f -t 01`
+          # Eww, we can't just call the normal shutdown on 64bit because of bitness
+          # Hack that will work on EC2, need to find a better way...
+          cmd = "c:\\WINDOWS\\ServicePackFiles\\amd64\\shutdown.exe"
+          cmd = 'shutdown.exe' unless File.exists?(cmd)
+          `#{cmd} -s -f -t 01`
         end
       end
 
