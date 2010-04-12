@@ -37,13 +37,13 @@ describe RightScale::AuditorProxy do
       options[:category].should == RightScale::EventCategories::NONE
       EM.stop
     end
-    EM.run { @proxy.append_error('ERROR') }
+    EM.run { @proxy.append_error('ERROR'); EM.add_timer(2) { EM.stop; raise 'timeout' } }
   end
 
   it 'should log statuses' do
     flexmock(RightScale::RightLinkLog).should_receive(:info).once.with("*RS> STATUS")
     @mapper_proxy.should_receive(:push).once.and_return { |*_| EM.stop }
-    EM.run { @proxy.update_status('STATUS') }
+    EM.run { @proxy.update_status('STATUS'); EM.add_timer(2) { EM.stop; raise 'timeout' } }
   end
 
   it 'should revert to default event category when an invalid category is given' do
@@ -53,7 +53,7 @@ describe RightScale::AuditorProxy do
       options[:category].should == RightScale::EventCategories::CATEGORY_NOTIFICATION
       EM.stop
     end
-    EM.run { @proxy.update_status('STATUS', :category => '__INVALID__') }
+    EM.run { @proxy.update_status('STATUS', :category => '__INVALID__'); EM.add_timer(2) { EM.stop; raise 'timeout' } }
   end
 
   it 'should honor the event category' do
@@ -63,7 +63,7 @@ describe RightScale::AuditorProxy do
       options[:category].should == RightScale::EventCategories::CATEGORY_SECURITY
       EM.stop
     end
-    EM.run { @proxy.update_status('STATUS', :category => RightScale::EventCategories::CATEGORY_SECURITY) }
+    EM.run { @proxy.update_status('STATUS', :category => RightScale::EventCategories::CATEGORY_SECURITY); EM.add_timer(2) { EM.stop; raise 'timeout' } }
   end
 
   it 'should log outputs' do
@@ -79,13 +79,13 @@ describe RightScale::AuditorProxy do
     flexmock(RightScale::RightLinkLog).should_receive(:info).once.ordered.with("#{ '****' * 20 }")
     flexmock(RightScale::RightLinkLog).should_receive(:info).once.ordered.with("*RS>#{ 'SECTION'.center(72) }****")
     @mapper_proxy.should_receive(:push).once.and_return { |*_| EM.stop }
-    EM.run { @proxy.create_new_section('SECTION') }
+    EM.run { @proxy.create_new_section('SECTION'); EM.add_timer(2) { EM.stop; raise 'timeout' } }
   end
 
   it 'should log information' do
     flexmock(RightScale::RightLinkLog).should_receive(:info).once.with("*RS> INFO")
     @mapper_proxy.should_receive(:push).once.and_return { |*_| EM.stop }
-    EM.run { @proxy.append_info('INFO') }
+    EM.run { @proxy.append_info('INFO'); EM.add_timer(2) { EM.stop; raise 'timeout' } }
   end
 
 end

@@ -23,7 +23,7 @@
 class InstanceServices
   include RightScale::Actor
 
-  expose :update_login_policy
+  expose :update_login_policy, :update_user_data
 
   def initialize(agent_identity)
     @agent_identity = agent_identity
@@ -61,6 +61,18 @@ class InstanceServices
     end
 
     status
+  end
+
+  # Update user data with given string, re-enroll once it has been updated
+  # This is useful for stopped instances that are re-started using obsolete
+  # user data
+  #
+  # === Parameters
+  # new_user_data(String):: New query string like user data
+  def update_user_data(new_user_data)
+    RightScale::UserDataWriter.write(new_user_data)
+    RightScale::RightLinkLog.info('[re-enroll] Re-enrolling after user data update')
+    system('rs_reenroll')
   end
 
 end

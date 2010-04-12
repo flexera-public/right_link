@@ -52,7 +52,7 @@ describe RightScale::ReenrollManager do
   it 'should reenroll after threshold is reached' do
     flexmock(RightScale::ReenrollManager).should_receive(:system).with('rs_reenroll').once
     EM.run do
-      (1..RightScale::ReenrollManager::REENROLL_THRESHOLD).each { RightScale::ReenrollManager.vote }
+      RightScale::ReenrollManager::REENROLL_THRESHOLD.times { RightScale::ReenrollManager.vote }
       RightScale::ReenrollManager.vote
       EM.stop
     end

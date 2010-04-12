@@ -4,10 +4,10 @@
 
 == Synopsis
 
-RightLink automates servers configuration and monitoring. It uses Nanite[1] as
+RightLink automates servers configuration and monitoring. It uses RabbitMQ as
 message bus and relies on Chef[2] for configuring. RightLink uses RightPopen[3]
 to monitor the stdout and stderr streams of scripted processes. Servers running
-the RightLink agent configures themselves on startup an register with the Nanite
+the RightLink agent configures themselves on startup an register with the 
 mapper so that operational recipes and scripts can be run at a later time.
 
 Refer to the wiki (https://github.com/rightscale/right_link/wikis) for up-to-date
@@ -25,11 +25,10 @@ of Chef recipes and RightScripts (shell scripts). These actors are:
 * <b>instance_scheduler/schedule_bundle</b>: Schedule the execution of a Chef recipe or RightScript
 
 RightLink retrieves the <i>execution bundles</i> containing all the information
-required to run the Chef recipe or RightScript from other nanite agents. An
-execution bundle consists of a sequence of Chef recipes and/or RightScripts
-together with any required data (Chef attributes, RightScript parameters,
-packages etc.). The exact definition can be found in the
-<i>lib/payload_types</i> library.
+required to run the Chef recipe or RightScript from other agents. An execution 
+bundle consists of a sequence of Chef recipes and/or RightScripts together with
+any required data (Chef attributes, RightScript parameters, packages etc.). The
+exact definition can be found in the <i>lib/payload_types</i> library.
 
 The agents RightLink relies on for operation are expected to provide the following actors and methods:
 
@@ -77,7 +76,7 @@ configure and manage the agent. Install these scripts by running the provided
 Installing the agent can then be done using the <b>rad</b> command line tool as
 follows:
 
-  rad instance --identity 1 --user nanite --password testing --vhost /nanite  --host localhost
+  rad instance --identity 1 --user right_link --password testing --vhost /right_link  --host localhost
 
 (see <tt>rad --help</tt> for information on the parameters).
 
@@ -89,7 +88,7 @@ command line tool:
 
 (again <tt>rnac --help</tt> for more details on the rnac tool)
 
-This requires that a RabbitMQ broker is running on localhost and has a /nanite
+This requires that a RabbitMQ broker is running on localhost and has a /right_link
 vhost configured with a Nanite mapper running and setup to use the Nanite
 secure serializer.
 
@@ -104,9 +103,8 @@ future.
 
 = ADDITIONAL RESOURCES
 
-* [1] Nanite is http://github.com/ezmobius/nanite/tree/master
-* [2] Chef is http://wiki.opscode.com/display/chef/Home
-* [3] RightPopen is http://gemcutter.org/gems/right_popen
+* [1] Chef is http://wiki.opscode.com/display/chef/Home
+* [2] RightPopen is http://gemcutter.org/gems/right_popen
 
 = LICENSE
 
