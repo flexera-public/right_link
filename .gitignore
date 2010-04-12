@@ -1,4 +1,4 @@
 .idea
 tags
 .DS_Store
-.swp
+*.swp
