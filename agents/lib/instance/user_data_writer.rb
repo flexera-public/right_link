@@ -59,7 +59,7 @@ module RightScale
     #
     # === Return
     # true:: Always return true
-    def handle_shebang_userdata(data)
+    def self.handle_shebang_userdata(data)
       hash = {}
 
       File.open(File.join(OUTPUT_DIR, 'user-data.txt')) do |f|
@@ -81,7 +81,7 @@ module RightScale
     #
     # === Return
     # true:: Always return true
-    def handle_querystring_userdata(data)
+    def self.handle_querystring_userdata(data)
       hash = {}
 
       data.split('&').each do |pair|
@@ -100,7 +100,7 @@ module RightScale
     #
     # === Return
     # true:: Always return true
-    def write_userdata(hash, include_txt)
+    def self.write_userdata(hash, include_txt)
       bash = File.open(File.join(OUTPUT_DIR, 'user-data.sh'),'w')
       ruby = File.open(File.join(OUTPUT_DIR, 'user-data.rb'),'w')
       text = File.open(File.join(OUTPUT_DIR, 'user-data.txt'), 'w') if include_txt
