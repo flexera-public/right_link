@@ -30,7 +30,7 @@ module RightScale
 
     # Amount of seconds that should be spent in offline mode before triggering
     # a reenroll vote
-    VOTE_DELAY = 3600 # 1 hour
+    VOTE_DELAY = 900 # 15 minutes
 
     # Maximum number of in-memory messages before triggering re-enroll vote
     MAX_QUEUED_MESSAGES = 1000
