@@ -25,10 +25,8 @@ require File.join(File.dirname(__FILE__), 'spec_helper')
 describe RightScale::ReenrollManager do
 
   before(:each) do
+		RightScale::ReenrollManager.reset_votes
     RightScale::ReenrollManager.instance_variable_set(:@total_votes, nil)
-    mapper_proxy = flexmock('MapperProxy')
-    flexmock(RightScale::MapperProxy).should_receive(:instance).and_return(mapper_proxy)
-    mapper_proxy.should_receive(:push)
   end
 
   it 'should allow voting for reenroll' do
