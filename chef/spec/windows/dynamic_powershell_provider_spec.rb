@@ -108,7 +108,7 @@ describe RightScale::DynamicPowershellProvider do
       Object.const_defined?(:Cookbook2).should be_true
       Cookbook2.const_defined?(:Powershell).should be_true
       Cookbook2::Powershell.const_defined?(:Scripts).should be_true
-      @provider.providers.sort.should == [ Cookbook::Powershell::Scripts, Cookbook2::Powershell::Scripts ]
+      @provider.providers.map(&:to_s).sort.should == [ 'Cookbook2::Powershell::Scripts', 'Cookbook::Powershell::Scripts' ]
       (Cookbook::Powershell::Scripts.instance_methods - RightScale::PowershellProviderBase.instance_methods + [ 'load_current_resource' ]).sort.should == @instance_methods
       (Cookbook::Powershell::Scripts.methods - Chef::Provider.methods).sort.should == [ 'init', 'run_script', 'terminate']
       (Cookbook2::Powershell::Scripts.instance_methods - RightScale::PowershellProviderBase.instance_methods).sort.should == @instance_methods2
