@@ -64,7 +64,7 @@ describe RightScale::ReenrollManager do
     begin
       RightScale::ReenrollManager.const_set(:RESET_DELAY, 0.1)
       EM.run do
-        (1..RightScale::ReenrollManager::REENROLL_THRESHOLD).each { RightScale::ReenrollManager.vote }
+        RightScale::ReenrollManager::REENROLL_THRESHOLD.times { RightScale::ReenrollManager.vote }
         RightScale::ReenrollManager.instance_variable_get(:@total_votes).should == RightScale::ReenrollManager::REENROLL_THRESHOLD
         EM.add_timer(0.5) do
           RightScale::ReenrollManager.instance_variable_get(:@total_votes).should == 0

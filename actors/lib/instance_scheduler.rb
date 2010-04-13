@@ -109,11 +109,11 @@ class InstanceScheduler
       @shutdown_timeout = EM::Timer.new(SHUTDOWN_DELAY) do
         msg = "Failed to decommission in less than #{SHUTDOWN_DELAY / 60} minutes, forcing shutdown"
         auditor.append_error(msg, :category => RightScale::EventCategories::CATEGORY_ERROR)
-        RightScale::InstanceState.shutdown(options[:user_id], options[:skip_db_update]) 
+        RightScale::InstanceState.shutdown(options[:user_id], options[:skip_db_update], options[:kind]) 
       end
       @post_decommission_callback = lambda do
         @shutdown_timeout.cancel
-        RightScale::InstanceState.shutdown(options[:user_id], options[:skip_db_update]) 
+        RightScale::InstanceState.shutdown(options[:user_id], options[:skip_db_update], options[:kind]) 
       end
     end
 
