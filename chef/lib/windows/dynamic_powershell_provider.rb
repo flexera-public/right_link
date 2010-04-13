@@ -162,7 +162,7 @@ module RightScale
         end
         if init_script = all_scripts.detect { |s| File.basename(s, '.*').downcase == INIT_SCRIPT }
           RightLinkLog.debug("[chef] Defining #{name}.init to run '#{init_script}'")
-          provider.instance_eval("def init; super; run_script('#{init_script}'); end")
+          provider.instance_eval("def init; run_script('#{init_script}') if super; end")
         end
         if term_script = all_scripts.detect { |s| File.basename(s, '.*').downcase == TERM_SCRIPT }
           RightLinkLog.debug("[chef] Defining #{name}.terminate to run '#{term_script}'")

@@ -34,10 +34,12 @@ module RightScale
     # Initialize Powershell host, should be called before :run and :terminate
     #
     # === Return
-    # true:: Always return true
+    # true:: If init script must be run
+    # false:: Otherwise
     def self.init
+      run_init = @ps_instance.nil?
       @ps_instance = PowershellHost.new(:node => @node, :provider_name => self.to_s.gsub("::","_") ) unless @ps_instance
-      true
+      run_init      
     end
 
     # Run powershell script in associated Powershell instance

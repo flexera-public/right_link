@@ -67,8 +67,8 @@ if RightScale::RightLinkConfig[:platform].windows?
       runner.call.should == true
 
       # TODO: verify order of execution
-      (@logs =~ /\/simple_encode\/_init.ps1/).should_not be_nil
-      (@logs =~ /init simple encode/).should_not be_nil
+      @logs.scan(/\/simple_encode\/_init.ps1/).length.should == 1
+      @logs.scan(/init simple encode/).length.should == 1
 
       (@logs =~ /\/simple_encode\/url_encode.ps1/).should_not be_nil
       (@logs =~ /string\+to\+encode/).should_not be_nil
@@ -78,8 +78,8 @@ if RightScale::RightLinkConfig[:platform].windows?
       (@logs =~ /\/simple_echo\/echo_text.ps1"/).should_not be_nil
       (@logs =~ /string to echo/).should_not be_nil
 
-      (@logs =~ /\/simple_echo\/_term.ps1/).should_not be_nil
-      (@logs =~ /terminating simple echo/).should_not be_nil
+      @logs.scan(/\/simple_echo\/_term.ps1/).length.should == 1
+      @logs.scan(/terminating simple echo/).length.should == 1
     end
 
     it "should run a recipe accessing the resource" do
@@ -89,8 +89,8 @@ if RightScale::RightLinkConfig[:platform].windows?
       runner.call.should == true
 
       # TODO: verify order of execution
-      (@logs =~ /\/encode\/_init.ps1/).should_not be_nil
-      (@logs =~ /init encode/).should_not be_nil
+      @logs.scan(/\/encode\/_init.ps1/).length.should == 1
+      @logs.scan(/init encode/).length.should == 1
       (@logs =~ /\/encode\/url_encode.ps1/).should_not be_nil
       (@logs =~ /encode\+this\+is\+a\+string\+with\+spaces/).should_not be_nil
 
@@ -123,8 +123,8 @@ if RightScale::RightLinkConfig[:platform].windows?
       runner.call.should == true
 
       # TODO: verify order of execution
-      (@logs =~ /\/encode\/_init.ps1/).should_not be_nil
-      (@logs =~ /init encode/).should_not be_nil
+      @logs.scan(/\/encode\/_init.ps1/).length.should == 1
+      @logs.scan(/init encode/).length.should == 1
       (@logs =~ /\/encode\/url_encode.ps1/).should_not be_nil
       (@logs =~ /encode\+first/).should_not be_nil
 
@@ -132,8 +132,6 @@ if RightScale::RightLinkConfig[:platform].windows?
       (@logs =~ /message from powershell script/).should_not be_nil
       (@logs =~ /Ran powershell\[echo_from_powershell_script\]/).should_not be_nil
 
-      (@logs =~ /\/encode\/_init.ps1/).should_not be_nil
-      (@logs =~ /init encode/).should_not be_nil
       (@logs =~ /\/encode\/url_encode.ps1/).should_not be_nil
       (@logs =~ /encode\+again/).should_not be_nil
 
@@ -157,8 +155,8 @@ if RightScale::RightLinkConfig[:platform].windows?
       (@logs =~ /echo again/).should_not be_nil
       (@logs =~ /fourty-two/).should_not be_nil
 
-      (@logs =~ /\/echo\/_term.ps1/).should_not be_nil
-      (@logs =~ /terminating echo/).should_not be_nil
+      @logs.scan(/\/echo\/_term.ps1/).length.should == 1
+      @logs.scan(/terminating echo/).length.should == 1
       (@logs =~ /break/).should_not be_nil
     end
   end

@@ -27,27 +27,40 @@ if RightScale::RightLinkConfig[:platform].windows?
   
   require 'fileutils'
 
-  describe RightScale::PowershellHost do
-      
-    before(:each) do
-      flexmock(RightScale::Windows::PowershellPipeServer).new_instances.should_receive(:start).and_return(true)
-      flexmock(RightScale::Windows::PowershellPipeServer).new_instances.should_receive(:stop).and_return(true)
-      flexmock(RightScale).should_receive(:popen3).and_return(true)
+  module RightScale::PowershellHostSpec
+
+    def init_test
       @host = RightScale::PowershellHost.new(:chef_node=>flexmock('Node'), :provider_name => "PowershellTest" )
       @pipe_server = @host.instance_variable_get(:@pipe_server)
       @response_event = @host.instance_variable_get(:@response_event)
     end
-      
+
+    def simulate_request_query(data)
+      pending_command = nil
+      until !pending_command.nil?
+        pending_command = @host.instance_variable_get(:@pending_command)
+        sleep 0.5
+      end
+      success = @pipe_server.request_query(data)
+      success
+    end
+  end
+
+  describe RightScale::PowershellHost do
+    include RightScale::PowershellHostSpec
+
+    before(:each) do
+      flexmock(RightScale::Windows::PowershellPipeServer).new_instances.should_receive(:start).and_return(true)
+      flexmock(RightScale::Windows::PowershellPipeServer).new_instances.should_receive(:stop).and_return(true)
+      flexmock(RightScale).should_receive(:popen3).and_return(true)
+
+      init_test
+    end
+
     it "should handle is_ready queries" do
       begin
         Thread.new { @host.__send__(:run_command, 'fourty-two') }
-        success = false
-        20.times do
-          success = @pipe_server.request_query(42)
-          break if !success.nil?
-          sleep 0.5
-        end
-        success.should be_true
+        simulate_request_query(42).should be_true
       ensure
         @response_event.signal
       end
@@ -56,13 +69,8 @@ if RightScale::RightLinkConfig[:platform].windows?
     it "should handle respond queries" do
       begin
         Thread.new { @host.__send__(:run_command, 'fourty-two') }
-        success = false
-        20.times do
-          success = @pipe_server.request_query(42)
-          break if !success.nil?
-          sleep 0.5
-        end
-        success.should be_true
+
+        simulate_request_query(42).should be_true
         res = @pipe_server.request_handler(JSON.dump({RightScale::Windows::PowershellPipeServer::LAST_EXIT_CODE_KEY => 42}))
         res.should == JSON.dump({ :NextAction => 'fourty-two' }) + "\n"
       ensure
@@ -74,24 +82,12 @@ if RightScale::RightLinkConfig[:platform].windows?
       begin
         Thread.new { @host.__send__(:run_command, 'fourty-two'); @host.__send__(:run_command, 'fourty-three') }
 
-        success = false
-        20.times do
-          success = @pipe_server.request_query(42)
-          break if !success.nil?
-          sleep 0.5
-        end
-        success.should be_true
+        simulate_request_query(42).should be_true
         res = @pipe_server.request_handler(JSON.dump({RightScale::Windows::PowershellPipeServer::LAST_EXIT_CODE_KEY => 42}))
         res.should == JSON.dump({ :NextAction => 'fourty-two' }) + "\n"
         @response_event.signal
 
-        success = false
-        20.times do
-          success = @pipe_server.request_query(43)
-          break if !success.nil?
-          sleep 0.5
-        end
-        success.should be_true
+        simulate_request_query(43).should be_true
         res = @pipe_server.request_handler(JSON.dump({RightScale::Windows::PowershellPipeServer::LAST_EXIT_CODE_KEY => 43}))
         res.should == JSON.dump({ :NextAction => 'fourty-three' }) + "\n"
         @response_event.signal
