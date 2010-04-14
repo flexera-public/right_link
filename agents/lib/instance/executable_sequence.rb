@@ -215,8 +215,8 @@ module RightScale
           next if repo.repo_type == :local
           @auditor.append_info("Downloading #{repo.url}")
           output = []
-          result = @scraper.scrape(repo) { |o, _| @auditor.append_output(o + "\n") }
-          if result
+          @scraper.scrape(repo) { |o, _| @auditor.append_output(o + "\n") }
+          if @scraper.succeeded?
             cookbooks_path = repo.cookbooks_path || []
             if cookbooks_path.empty?
               Chef::Config[:cookbook_path] << @scraper.last_repo_dir
@@ -225,7 +225,7 @@ module RightScale
             end
             @auditor.append_output(output.join("\n"))
           else
-            report_failure("Failed to download cookbooks #{repo.url}", output.join("\n"))
+            report_failure("Failed to download cookbooks #{repo.url}", @scraper.errors.join("\n"))
             return true
           end
         end
