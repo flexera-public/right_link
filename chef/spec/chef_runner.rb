@@ -135,7 +135,9 @@ EOF
       module_function :run_chef_as_server
       
       protected
-      
+
+      TEMP_DIR_NAME = "chef-runner-FF628CD5-9D48-46ff-BC11-D9DE3CC2215A"
+
       # Runs a Chef recipe.
       #
       # === Parameters
@@ -154,12 +156,17 @@ EOF
       # === Raises
       # RightScale::Exceptions::Exec on failure
       def inner_run_chef(cookbook_path, run_list, run_as_server, &block)
+
+        # ensure local drive for cookbook because scripts cannot run from
+        # network locations (in windows).
+        platform = RightScale::RightLinkConfig[:platform]
+        cookbook_path = platform.filesystem.ensure_local_drive_path(cookbook_path, TEMP_DIR_NAME)
+
         # minimal chef configuration.
         ::Chef::Config[:solo] = true
         ::Chef::Config[:cookbook_path] = cookbook_path
 
         # must set file cache path for Windows case of using remote files, templates. etc.
-        platform = RightScale::RightLinkConfig[:platform]
         Chef::Config[:file_cache_path] = File.join(platform.filesystem.cache_dir, 'chef') if platform.windows?
 
         # prepare to run solo chef.
@@ -191,9 +198,6 @@ EOF
               # can't raise exeception out of EM, so cache it here.
               last_exception = e
             ensure
-              # stop the chef node server
-              RightScale::Windows::ChefNodeServer.instance.stop rescue nil
-
               # terminate the powershell providers
               Chef::Log.debug("*****************************")
               (powershell_providers || []).each do |p|
@@ -206,6 +210,9 @@ EOF
                   last_exception = e
                 end
               end
+
+              # stop the chef node server
+              RightScale::Windows::ChefNodeServer.instance.stop rescue nil
             end
             Chef::Log.debug("*****************************\nSETTING DONE TO #{!run_as_server}\n*****************************")
             done = (not run_as_server)
@@ -216,6 +223,11 @@ EOF
               EM.stop
             end
           end
+        end
+
+        # remove temporary cookbook directory, if necessary.
+        Dir.chdir(platform.filesystem.temp_dir) do
+          (FileUtils.rm_rf(TEMP_DIR_NAME) rescue nil) if ::File.directory?(TEMP_DIR_NAME)
         end
 
         # reraise with full backtrace for debugging purposes. this assumes the
@@ -238,7 +250,7 @@ EOF
       end
       
       module_function :inner_run_chef
-      
+
     end
   end
 end

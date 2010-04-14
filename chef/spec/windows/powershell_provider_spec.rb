@@ -219,6 +219,18 @@ EOPS
   source source_text
 end
 EOF
+          ), :debug_output_recipe => (
+<<EOF
+powershell 'test::debug_output_recipe' do
+  Chef::Log.logger.level = Logger::DEBUG
+  source_text =
+<<EOPS
+  Write-Verbose "verbose message"
+  Write-Debug "debug message"
+EOPS
+  source source_text
+end
+EOF
           )
         }
       )
@@ -389,6 +401,23 @@ EOF
           PowershellProviderSpec::TEST_COOKBOOKS_PATH,
           'test::set_new_resource_recipe') }
       runner.call.should == true
+    end
+
+    it "should write debug to output stream when debugging is enabled" do
+      old_level = Chef::Log.level
+      begin
+        runner = lambda {
+          RightScale::Test::ChefRunner.run_chef(
+            PowershellProviderSpec::TEST_COOKBOOKS_PATH,
+            'test::debug_output_recipe') }
+        runner.call.should == true
+
+        debug_output = Chef::Log.logger.info_text
+        debug_output.should include("debug message")
+        debug_output.should include("verbose message")
+      ensure
+        Chef::Log.level = old_level
+      end
     end
 
   end

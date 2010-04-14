@@ -1,5 +1,6 @@
 maintainer "RightScale, Inc."
 version    "0.1"
+recipe     "test_cookbook::debug_output_recipe", "Tests that debug and verbose messages are written to the output stream"
 recipe     "test_cookbook::run_powershell_based_simple_recipe", "Run a powershell based test"
 recipe     "test_cookbook::run_powershell_based_recipe_with_resources", "Run a powershell based test using resources"
 recipe     "test_cookbook::mix_of_powershell_script_and_powershell_providers", "Run a powershell based test mix of scripts and providers"

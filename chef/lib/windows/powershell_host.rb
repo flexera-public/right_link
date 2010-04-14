@@ -149,7 +149,13 @@ module RightScale
 
       # Import ChefNodeCmdlet.dll to allow powershell scripts to call get-ChefNode, etc.
       # Also pass in name of pipe that client needs to connect to
-      lines_before_script = ["import-module #{CHEF_NODE_CMDLET_DLL_PATH}", "$pipeName='#{@pipe_name}'"]
+      lines_before_script = ["import-module #{CHEF_NODE_CMDLET_DLL_PATH}", "$RS_pipeName='#{@pipe_name}'"]
+
+      # enable debug and verbose powershell output if log level allows for it.
+      if RightLinkLog.debug?
+        lines_before_script << "$VerbosePreference = 'Continue'"
+        lines_before_script << "$DebugPreference = 'Continue'"
+      end
 
       command = shell.format_powershell_command4(RightScale::Platform::Windows::Shell::POWERSHELL_V1x0_EXECUTABLE_PATH, lines_before_script, nil, RUN_LOOP_SCRIPT_PATH)
 
@@ -188,32 +194,12 @@ module RightScale
       true
     end
 
-    # Resolves a loadable location for the ChefNodeCmdlet.dll
-    def self.locate_local_windows_modules
-      windows_path = ::File.normalize_path(::File.join(::File.dirname(__FILE__), '..', '..', 'lib', 'windows'))
-
-      # handle case of running spec tests from a network drive by copying .dll
-      # to the system drive. Powershell silently fails to load modules from
-      # network drives, so the .dll needs to be copied locally ro tun. the
-      # .dll location will be the HOMEDRIVE in release use cases or on the
-      # build/test machine so this is only meant for VM images running tests
-      # from a shared drive.
-      homedrive = ENV['HOMEDRIVE']
-      if homedrive && homedrive.upcase != windows_path[0,2].upcase
-        temp_dir = ::File.normalize_path(::File.join(RightScale::RightLinkConfig[:platform].filesystem.temp_dir, 'powershell_host-82D5D281-5E7C-423A-88C2-69E9B7D3F37E'))
-        FileUtils.rm_rf(temp_dir) if ::File.directory?(temp_dir)
-        FileUtils.mkdir_p(temp_dir)
-        FileUtils.cp_r(::File.join(windows_path, 'bin', '.'), ::File.join(temp_dir, 'bin'))
-        FileUtils.cp_r(::File.join(windows_path, 'scripts', '.'), ::File.join(temp_dir, 'scripts'))
-        windows_path = temp_dir
-      end
-
-      return windows_path
-    end
-
-    LOCAL_WINDOWS_PATH = locate_local_windows_modules
-    CHEF_NODE_CMDLET_DLL_PATH = File.normalize_path(File.join(LOCAL_WINDOWS_PATH, 'bin', 'ChefNodeCmdlet.dll')).gsub("/", "\\")
-    RUN_LOOP_SCRIPT_PATH = File.normalize_path(File.join(LOCAL_WINDOWS_PATH, 'scripts', 'run_loop.ps1')).gsub("/", "\\")
+    TEMP_DIR_NAME = 'powershell_host-82D5D281-5E7C-423A-88C2-69E9B7D3F37E'
+    SOURCE_WINDOWS_PATH = ::File.normalize_path(::File.dirname(__FILE__))
+    LOCAL_WINDOWS_BIN_PATH = RightScale::RightLinkConfig[:platform].filesystem.ensure_local_drive_path(::File.join(SOURCE_WINDOWS_PATH, 'bin'), TEMP_DIR_NAME)
+    LOCAL_WINDOWS_SCRIPTS_PATH = RightScale::RightLinkConfig[:platform].filesystem.ensure_local_drive_path(::File.join(SOURCE_WINDOWS_PATH, 'scripts'), TEMP_DIR_NAME)
+    CHEF_NODE_CMDLET_DLL_PATH = ::File.normalize_path(::File.join(LOCAL_WINDOWS_BIN_PATH, 'ChefNodeCmdlet.dll')).gsub("/", "\\")
+    RUN_LOOP_SCRIPT_PATH = File.normalize_path(File.join(LOCAL_WINDOWS_SCRIPTS_PATH, 'run_loop.ps1')).gsub("/", "\\")
 
     # Data available in STDOUT pipe event
     # Audit raw output
@@ -239,9 +225,6 @@ module RightScale
       RightLinkLog.debug(format_log_message("Stopping pipe server"))
       @pipe_server.stop
       @pipe_server = nil
-
-      RightLinkLog.debug(format_log_message("Stopping chef node server"))
-      RightScale::Windows::ChefNodeServer.instance.stop
 
       RightLinkLog.debug(format_log_message("Terminated"))
       @response_event.signal

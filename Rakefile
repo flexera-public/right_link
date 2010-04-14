@@ -12,6 +12,11 @@ require 'fileutils'
 
 RIGHT_BOT_ROOT = File.dirname(__FILE__)
 
+# allows for debugging of order of spec files by reading a specific ordering of
+# files from a text file, if present. all too frequently, success or failure
+# depends on the order in which tests execute.
+RAKE_SPEC_ORDER_FILE_PATH = ::File.join(RIGHT_BOT_ROOT, "rake_spec_order_list.txt")
+
 # Setup path to spec files and spec options
 #
 # === Parameters
@@ -22,6 +27,25 @@ RIGHT_BOT_ROOT = File.dirname(__FILE__)
 def setup_spec(t)
   t.spec_opts = ['--options', "\"#{RIGHT_BOT_ROOT}/spec/spec.opts\""]
   t.spec_files = FileList["#{RIGHT_BOT_ROOT}/**/spec/**/*_spec.rb"]
+
+  # optionally read or write spec order for debugging purposes. use a stubbed
+  # file with the text "FILL ME" to get the spec ordering for the current
+  # machine.
+  if ::File.file?(RAKE_SPEC_ORDER_FILE_PATH)
+    if ::File.read(RAKE_SPEC_ORDER_FILE_PATH).chomp == "FILL ME"
+      ::File.open(RAKE_SPEC_ORDER_FILE_PATH, "w") do |f|
+        f.puts t.spec_files.to_a.join("\n")
+      end
+    else
+      t.spec_files = FileList.new
+      ::File.open(RAKE_SPEC_ORDER_FILE_PATH, "r") do |f|
+        while (line = f.gets) do
+          line = line.chomp
+          (t.spec_files << line) if not line.empty?
+        end
+      end
+    end
+  end
   t
 end
 

@@ -88,6 +88,12 @@ module RightScale
         def pretty_path(path)
           return path
         end
+
+        # for windows compatibility; has no significance in linux
+        def ensure_local_drive_path(path, temp_dir_name)
+          return path
+        end
+
       end
 
       class Shell

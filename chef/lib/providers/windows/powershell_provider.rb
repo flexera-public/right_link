@@ -99,29 +99,10 @@ class Chef
 
       protected
 
-      # Resolves a loadable location for the ChefNodeCmdlet.dll
-      def self.locate_chef_node_cmdlet
-        cmdlet_path = ::File.normalize_path(::File.join(::File.dirname(__FILE__), '..', '..', 'windows', 'bin', 'ChefNodeCmdlet.dll'))
-
-        # handle case of running spec tests from a network drive by copying .dll
-        # to the system drive. Powershell silently fails to load modules from
-        # network drives, so the .dll needs to be copied locally ro tun. the
-        # .dll location will be the HOMEDRIVE in release use cases or on the
-        # build/test machine so this is only meant for VM images running tests
-        # from a shared drive.
-        homedrive = ENV['HOMEDRIVE']
-        if homedrive && homedrive.upcase != cmdlet_path[0,2].upcase
-          temp_dir = ::File.normalize_path(::File.join(RightScale::RightLinkConfig[:platform].filesystem.temp_dir, 'powershell_provider-B6169A26-91B5-4e3e-93AD-F0B4F6EF107E'))
-          FileUtils.rm_rf(temp_dir) if ::File.directory?(temp_dir)
-          FileUtils.mkdir_p(temp_dir)
-          FileUtils.cp_r(::File.join(::File.dirname(cmdlet_path), '.'), temp_dir)
-          cmdlet_path = ::File.join(temp_dir, ::File.basename(cmdlet_path))
-        end
-
-        return RightScale::RightLinkConfig[:platform].filesystem.long_path_to_short_path(cmdlet_path).gsub("/", "\\")
-      end
-
-      CHEF_NODE_CMDLET_DLL_PATH = locate_chef_node_cmdlet
+      TEMP_DIR_NAME = 'powershell_provider-B6169A26-91B5-4e3e-93AD-F0B4F6EF107E'
+      SOURCE_WINDOWS_PATH = ::File.normalize_path(::File.join(::File.dirname(__FILE__), '..', '..', 'windows'))
+      LOCAL_WINDOWS_BIN_PATH = RightScale::RightLinkConfig[:platform].filesystem.ensure_local_drive_path(::File.join(SOURCE_WINDOWS_PATH, 'bin'), TEMP_DIR_NAME)
+      CHEF_NODE_CMDLET_DLL_PATH = ::File.normalize_path(::File.join(LOCAL_WINDOWS_BIN_PATH, 'ChefNodeCmdlet.dll')).gsub("/", "\\")
 
       def instance_state
         RightScale::InstanceState
@@ -141,6 +122,11 @@ class Chef
         # import ChefNodeCmdlet.dll to allow powershell scripts to call get-ChefNode, etc.
         lines_before_script = ["import-module #{CHEF_NODE_CMDLET_DLL_PATH}"]
 
+        # enable debug and verbose powershell output if log level allows for it.
+        if ::Chef::Log.debug?
+          lines_before_script << "$VerbosePreference = 'Continue'"
+          lines_before_script << "$DebugPreference = 'Continue'"
+        end
         return shell.format_powershell_command4(@new_resource.interpreter, lines_before_script, nil, script_file_path)
       end
 

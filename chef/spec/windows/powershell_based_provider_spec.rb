@@ -43,7 +43,10 @@ if RightScale::RightLinkConfig[:platform].windows?
       # redirect the Chef logs to a file before creating the chef client
       ::Chef::Log.logger = Logger.new(@log_file)
 
+      @errors = ""
       @logs = ""
+      flexmock(Chef::Log).should_receive(:error).and_return { |m| @errors << m }
+      flexmock(RightScale::RightLinkLog).should_receive(:error).and_return { |m| @errors << m }
       flexmock(Chef::Log).should_receive(:info).and_return { |m| @logs << m }
       #flexmock(Chef::Log).should_receive(:level).and_return(Logger::DEBUG)
 
@@ -65,6 +68,7 @@ if RightScale::RightLinkConfig[:platform].windows?
         RightScale::Test::ChefRunner.run_chef(PowershellBasedProviderSpec::TEST_COOKBOOK_PATH, 'test_cookbook::run_powershell_based_simple_recipe')
       }
       runner.call.should == true
+      @errors.should == ""
 
       # TODO: verify order of execution
       @logs.scan(/\/simple_encode\/_init.ps1/).length.should == 1
@@ -87,6 +91,7 @@ if RightScale::RightLinkConfig[:platform].windows?
         RightScale::Test::ChefRunner.run_chef(PowershellBasedProviderSpec::TEST_COOKBOOK_PATH, 'test_cookbook::run_powershell_based_recipe_with_resources')
       }
       runner.call.should == true
+      @errors.should == ""
 
       # TODO: verify order of execution
       @logs.scan(/\/encode\/_init.ps1/).length.should == 1
@@ -121,6 +126,7 @@ if RightScale::RightLinkConfig[:platform].windows?
         RightScale::Test::ChefRunner.run_chef(PowershellBasedProviderSpec::TEST_COOKBOOK_PATH, 'test_cookbook::mix_of_powershell_script_and_powershell_providers')
       }
       runner.call.should == true
+      @errors.should == ""
 
       # TODO: verify order of execution
       @logs.scan(/\/encode\/_init.ps1/).length.should == 1
@@ -158,6 +164,26 @@ if RightScale::RightLinkConfig[:platform].windows?
       @logs.scan(/\/echo\/_term.ps1/).length.should == 1
       @logs.scan(/terminating echo/).length.should == 1
       (@logs =~ /break/).should_not be_nil
+    end
+
+    it "should write debug to output stream when debugging is enabled" do
+      # suppress console debug output while testing since powershell debug
+      # output is printed to the info stream.
+      flexmock(RightScale::RightLinkLog).should_receive(:debug)
+      runner = lambda {
+        old_level = RightScale::RightLinkLog.level
+        begin
+          RightScale::RightLinkLog.level = Logger::DEBUG
+          RightScale::Test::ChefRunner.run_chef(PowershellBasedProviderSpec::TEST_COOKBOOK_PATH, 'test_cookbook::debug_output_recipe')
+        ensure
+          RightScale::RightLinkLog.level = old_level
+        end
+      }
+      runner.call.should == true
+      @errors.should == ""
+
+      @logs.should include("debug message")
+      @logs.should include("verbose message")
     end
   end
 end

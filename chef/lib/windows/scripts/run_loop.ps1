@@ -3,7 +3,7 @@ while ($TRUE)
 {
     $Error.clear()
     $nextAction = $NULL
-    $nextAction = get-NextAction $pipeName
+    $nextAction = get-NextAction $RS_pipeName
     if ($Error.Count -eq 0)
     {
         write-output $nextAction

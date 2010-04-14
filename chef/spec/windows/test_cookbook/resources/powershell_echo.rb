@@ -20,6 +20,6 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-actions :echo_text
+actions :echo_text, :echo_verbose, :echo_debug
 
 attribute :message, :kind_of => String

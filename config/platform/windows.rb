@@ -222,6 +222,38 @@ module RightScale
         def pretty_path(path)
           return path.gsub("\\", "/")
         end
+
+        # Ensures a local drive location for the file or folder given by path
+        # by copying to a local temp directory given by name only if the item
+        # does not appear on the home drive. This method is useful because
+        # secure applications refuse to run scripts from network locations, etc.
+        # Replaces any similar files in temp dir to ensure latest updates.
+        #
+        # === Parameters
+        # path(String):: path to file or directory to be placed locally.
+        #
+        # temp_dir_name(String):: name (or relative path) of temp directory to
+        # use only if the file or folder is not on a local drive.
+        #
+        # === Returns
+        # result(String):: local drive path
+        def ensure_local_drive_path(path, temp_dir_name)
+          homedrive = ENV['HOMEDRIVE']
+          if homedrive && homedrive.upcase != path[0,2].upcase
+            local_dir = ::File.join(temp_dir, temp_dir_name)
+            FileUtils.mkdir_p(local_dir)
+            local_path = ::File.join(local_dir, ::File.basename(path))
+            if ::File.directory?(path)
+              FileUtils.rm_rf(local_path) if ::File.directory?(local_path)
+              FileUtils.cp_r(::File.join(path, '.'), local_path)
+            else
+              FileUtils.cp(path, local_path)
+            end
+            path = local_path
+          end
+          return path
+        end
+
       end
 
       # Provides utilities for formatting executable shell commands, etc.

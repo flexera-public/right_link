@@ -50,10 +50,12 @@ module RightScale
     # === Return
     # true:: Always return true
     def self.run_script(script)
-      if @ps_instance && @ps_instance.active
-        @ps_instance.run(script)
-      else
-        RightLinkLog.error("Powershell provider #{self.class.name} could not run Powershell script #{script} because the Powershell host is not active")
+      if @ps_instance
+        if @ps_instance.active
+          @ps_instance.run(script)
+        else
+          RightLinkLog.error("Powershell provider #{self} could not run Powershell script #{script} because the Powershell host is not active")
+        end
       end
       true
     end
