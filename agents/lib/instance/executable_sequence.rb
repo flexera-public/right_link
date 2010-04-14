@@ -264,7 +264,7 @@ module RightScale
         RightLinkLog.debug("Chef failed with '#{e.message}' at\n" + e.backtrace.join("\n"))
       end
       
-      # terminiate the providers before the node server as the provider term scripts may still use the node server
+      # terminate the providers before the node server as the provider term scripts may still use the node server
       @powershell_providers.each { |p| p.terminate } if @powershell_providers
       RightScale::Windows::ChefNodeServer.instance.stop rescue nil if Platform.windows?
 

@@ -26,6 +26,8 @@ class InstanceSetup
 
   expose :report_state
 
+  # Amount of seconds to wait between set_r_s_version calls attemps
+  RECONNECT_DELAY = 5
 
   # Boot if and only if instance state is 'booting'
   #
@@ -75,8 +77,12 @@ class InstanceSetup
   def init_boot
     request("/booter/set_r_s_version", { :agent_identity => @agent_identity, :r_s_version => RightScale::RightLinkConfig.protocol_version }) do |r|
       res = RightScale::OperationResult.from_results(r)
-      strand("Failed to set_r_s_version", res) unless res.success?
-      enable_managed_login
+      if res.success?
+        enable_managed_login
+      else
+        # Retry in RECONNECT_DELAY seconds, retry forever, nothing else we can do
+        EM.add_timer(RECONNECT_DELAY) { init_boot }
+      end
     end
     true
   end
