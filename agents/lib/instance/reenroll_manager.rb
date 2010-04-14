@@ -33,6 +33,15 @@ module RightScale
     # votes will get generated in offline mode
     RESET_DELAY = 7200 # 2 hours
 
+    # Are we currently reenrolling?
+    #
+    # === Return
+    # true:: If we are currently re-enrolling (note: process is going away)
+    # false:: Otherwise
+    def self.reenrolling?
+      @reenrolling
+    end
+
     # Vote for re-enrolling, if threshold is reached re-enroll
     # If no vote occurs in the next two hours, then reset counter
     #
@@ -46,8 +55,7 @@ module RightScale
       @reset_timer = EM::Timer.new(RESET_DELAY) { reset_votes }
       if @total_votes >= REENROLL_THRESHOLD && !@reenrolling
         RightLinkLog.info('[re-enroll] Re-enroll threshold reached, shutting down and re-enrolling')
-        @reenrolling = true
-        system('rs_reenroll&')
+        reenroll!
       end
       true
     end
@@ -62,5 +70,22 @@ module RightScale
       true
     end
 
+    # Trigger reenroll
+    #
+    # === Parameters
+    # args(String):: Arguments to be passed through to rs_reenroll
+    #
+    # === Return
+    # true:: If command ran successfully
+    # false:: Otherwise
+    def self.reenroll!(args=nil)
+      cmd = "rs_reenroll #{args}"
+      cmd += '&' unless Platform.windows?
+      @reenrolling = true
+      AMQP.stop { EM.stop } rescue nil
+      system(cmd)
+    end
+
   end
+
 end

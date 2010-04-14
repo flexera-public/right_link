@@ -69,11 +69,14 @@ class InstanceServices
   #
   # === Parameters
   # new_user_data(String):: New query string like user data
+  #
+  # === Return
+  # true:: Always return true
   def update_user_data(new_user_data)
     RightScale::UserDataWriter.write(new_user_data)
     RightScale::RightLinkLog.info('[re-enroll] Re-enrolling after user data update')
-    system('rs_reenroll --resume&')
-    AMQP.stop { EM.stop }
+    RightScale::ReenrollManager.reenroll!('--resume')
+    true
   end
 
 end
