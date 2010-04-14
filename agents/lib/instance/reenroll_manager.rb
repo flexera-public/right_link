@@ -47,7 +47,7 @@ module RightScale
       if @total_votes >= REENROLL_THRESHOLD && !@reenrolling
         RightLinkLog.info('[re-enroll] Re-enroll threshold reached, shutting down and re-enrolling')
         @reenrolling = true
-        system('rs_reenroll')
+        system('rs_reenroll&')
       end
       true
     end

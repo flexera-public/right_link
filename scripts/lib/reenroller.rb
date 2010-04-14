@@ -63,9 +63,15 @@ module RightScale
           res = Process.kill(KILL, pid) rescue nil
           puts to_ok(res) if options[:verbose]
         end
+        # Now stop monit so it doesn't get in the way
+        system('/opt/rightscale/sandbox/bin/monit -c /opt/rightscale/etc/monitrc quit')
         cleanup_certificates(options)
-        puts 'Restarting RightLink daemon...' if options[:verbose]
-        res = system('/etc/init.d/rightlink start > /dev/null')
+
+        # Resume option bypasses cloud state initialization so that we can
+        # override the user data
+        puts((options[:resume] ? 'Resuming' : 'Restarting') + ' RightLink daemon...') if options[:verbose]
+        action = (options[:resume] ? 'resume' : 'start')
+        res = system("/etc/init.d/rightlink #{action} > /dev/null")
       end
       true
     end
@@ -78,6 +84,10 @@ module RightScale
       options = { :verbose => false }
 
       opts = OptionParser.new do |opts|
+
+       opts.on('-r', '--resume') do
+          options[:resume] = true
+        end
 
        opts.on('-v', '--verbose') do
           options[:verbose] = true

@@ -72,14 +72,8 @@ class InstanceServices
   def update_user_data(new_user_data)
     RightScale::UserDataWriter.write(new_user_data)
     RightScale::RightLinkLog.info('[re-enroll] Re-enrolling after user data update')
-    AMQP.stop do
-      EM.stop
-      # Fork and setsid to avoid zombie process
-      Process.exit! if fork
-      Process.setsid
-      Process.exit! if fork
-      system('rs_reenroll')
-    end
+    system('rs_reenroll --resume&')
+    AMQP.stop { EM.stop }
   end
 
 end
