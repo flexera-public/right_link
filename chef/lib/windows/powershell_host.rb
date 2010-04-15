@@ -37,7 +37,8 @@ module RightScale
     def initialize(options = {})
       RightLinkLog.debug(format_log_message("Initializing"))
       @node           = options[:node]
-      @pipe_name      = "#{options[:provider_name]}_#{Time.now.strftime("%Y-%m-%d-%H%M%S")}"
+      @provider_name  = options[:provider_name]
+      @pipe_name      = "#{@provider_name}_#{Time.now.strftime("%Y-%m-%d-%H%M%S")}"
 
       @response_mutex = Mutex.new
       @response_event = ConditionVariable.new
@@ -104,6 +105,7 @@ module RightScale
     def terminate
       RightLinkLog.debug(format_log_message("Terminate requested"))
       run_command("break")
+      RightLinkLog.debug(format_log_message("Terminate signal sent"))
     end
 
     protected
@@ -182,7 +184,7 @@ module RightScale
     #
     # === Raise
     # RightScale::Exceptions::Application:: If Powershell process is not running (i.e. :active is false)
-    def run_command(command) 
+    def run_command(command)
       raise RightScale::Exceptions::Application, "Powershell host not active, cannot run: #{command}" unless active
       @response_mutex.synchronize do
         @pending_command = command
@@ -190,6 +192,9 @@ module RightScale
         @pending_command = nil
         @sent_command = false
       end
+
+      # the powershell provider script the host runs will return exit code of 100 if the last action threw an exception.
+      raise RightScale::Exceptions::Exec, "An error occurred executing the last action for the provider \"#{@provider_name}\"" if @exit_status && @exit_status.exitstatus == 100
 
       true
     end
@@ -222,10 +227,13 @@ module RightScale
     # === Return
     # true:: Always return true
     def on_exit(status)
+      @exit_status = status
+
       RightLinkLog.debug(format_log_message("Stopping pipe server"))
       @pipe_server.stop
       @pipe_server = nil
 
+      # signal response to ensure proper termination
       RightLinkLog.debug(format_log_message("Terminated"))
       @response_event.signal
     end

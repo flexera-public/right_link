@@ -199,22 +199,25 @@ EOF
               last_exception = e
             ensure
               # terminate the powershell providers
-              Chef::Log.debug("*****************************")
-              (powershell_providers || []).each do |p|
-                begin
-                  Chef::Log.debug("TERMINATING #{p.inspect}")
-                  p.terminate
-                  Chef::Log.debug("*****************************")
-                rescue Exception => e
-                  Chef::Log.debug("*****************************\nKABOOM #{e.message + "\n" + e.backtrace.join("\n")}\n*****************************")
-                  last_exception = e
+              Chef::Log.debug("***************************** TERMINIATING PROVIDERS *****************************")
+
+              # terminiate the providers before the node server as the provider term scripts may still use the node server
+              if powershell_providers
+                powershell_providers.each do |p|
+                  begin
+                    p.terminate
+                  rescue Exception => e
+                    Chef::Log.debug("Error terminating '#{p.inspect}': '#{e.message}' at\n #{e.backtrace.join("\n")}")
+                  end
                 end
               end
+              Chef::Log.debug("***************************** PROVIDERS TERMINATED *****************************")
 
-              # stop the chef node server
-              RightScale::Windows::ChefNodeServer.instance.stop rescue nil
+              # kill the chef node provider
+              RightScale::Windows::ChefNodeServer.instance.stop rescue nil if Platform.windows?
             end
-            Chef::Log.debug("*****************************\nSETTING DONE TO #{!run_as_server}\n*****************************")
+
+            Chef::Log.debug("***************************** SETTING DONE TO #{!run_as_server} *****************************")
             done = (not run_as_server)
           end
           timer = EM::PeriodicTimer.new(0.1) do

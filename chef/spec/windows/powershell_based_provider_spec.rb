@@ -42,6 +42,7 @@ if RightScale::RightLinkConfig[:platform].windows?
 
       # redirect the Chef logs to a file before creating the chef client
       ::Chef::Log.logger = Logger.new(@log_file)
+      RightScale::RightLinkLog.level = :debug
 
       @errors = ""
       @logs = ""
@@ -184,6 +185,17 @@ if RightScale::RightLinkConfig[:platform].windows?
 
       @logs.should include("debug message")
       @logs.should include("verbose message")
+    end
+    
+    it "should stop the chef run when a powershell action throws" do
+      runner = lambda {
+        RightScale::Test::ChefRunner.run_chef(PowershellBasedProviderSpec::TEST_COOKBOOK_PATH, 'test_cookbook::run_powershell_based_recipe_with_failing_action')
+      }
+
+      runner.should raise_error(RightScale::Exceptions::Exec)
+
+      #There 'Should' be string in the error log...
+      @errors.length.should > 0
     end
   end
 end

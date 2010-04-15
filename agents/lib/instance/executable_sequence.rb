@@ -262,12 +262,24 @@ module RightScale
       rescue Exception => e
         report_failure('Chef converge failed', chef_error(e))
         RightLinkLog.debug("Chef failed with '#{e.message}' at\n" + e.backtrace.join("\n"))
+      ensure
+        # terminate the powershell providers
+        RightLinkLog.debug("***************************** TERMINIATING PROVIDERS *****************************")
+        # terminiate the providers before the node server as the provider term scripts may still use the node server
+        if @powershell_providers
+          @powershell_providers.each do |p|
+            begin
+              p.terminate
+            rescue Exception => e
+              RightLinkLog.debug("Error terminating '#{p.inspect}': '#{e.message}' at\n #{e.backtrace.join("\n")}")
+            end
+          end
+        end
+        RightLinkLog.debug("***************************** PROVIDERS TERMINATED *****************************")
+        # kill the chef node provider
+        RightScale::Windows::ChefNodeServer.instance.stop rescue nil if Platform.windows?
       end
       
-      # terminate the providers before the node server as the provider term scripts may still use the node server
-      @powershell_providers.each { |p| p.terminate } if @powershell_providers
-      RightScale::Windows::ChefNodeServer.instance.stop rescue nil if Platform.windows?
-
       report_success(c.node) if @ok
       true
     end

@@ -1,0 +1,1 @@
+Get-Item "foo" -ea Stop
