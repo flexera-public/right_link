@@ -2,27 +2,27 @@ set-executionPolicy Default
 while ($TRUE)
 {
     $Error.clear()
-    $lastError  = $NULL
-    $nextAction = $NULL
-    $nextAction = get-NextAction $RS_pipeName
+    $RS_lastError  = $NULL
+    $RS_nextAction = $NULL
+    $RS_nextAction = get-NextAction $RS_pipeName
     if ($Error.Count -eq 0)
     {
         try
         {
-            write-output $nextAction
+            write-output $RS_nextAction
             set-executionpolicy -executionPolicy Unrestricted
-            invoke-command -scriptblock $nextAction
+            invoke-command -scriptblock $RS_nextAction
         }
         catch
         {
-            $lastError = $_
+            $RS_lastError = $_
         }
         finally
         {
             set-executionPolicy Default
-            if ($lastError -ne $NULL)
+            if ($RS_lastError -ne $NULL)
             {
-                write-output $lastError
+                write-output $RS_lastError
                 exit 100
             }
         }
