@@ -48,10 +48,6 @@ module RightScale
     # === Raise
     # RuntimeError:: Timed out waiting for result
     def send_command(options, verbose=false, timeout=20, &handler)
-      EM.error_handler do |e|
-        msg = "EM block execution failed with exception: #{e.message}"
-        RightLinkLog.error(msg + "\n" + e.backtrace.join("\n"))
-      end
       EM.run do
         command = options.dup
         command[:verbose] = verbose
