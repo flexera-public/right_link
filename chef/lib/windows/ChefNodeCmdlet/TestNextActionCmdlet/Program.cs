@@ -34,17 +34,20 @@ namespace TestNextActionCmdlet
         static void Main(string[] args)
         {
             // resolve persistent node path.
+            string pipeName = null;
             string nextActionPath = null;
 
-            if (2 == args.Length && args[0] == "-na")
+            if (4 == args.Length && args[0] == "-pn" && args[2] == "-na")
             {
-                nextActionPath = args[1];
+                pipeName = args[1];
+                nextActionPath = args[3];
             }
             else
             {
-                Console.WriteLine("Usage: TestNextActionCmdlet -na <nextActionPath>");
+                Console.WriteLine("Usage: -pn <pipe name> -na <next action file path>");
                 Console.WriteLine();
-                Console.WriteLine("The nextActionPath is a text file containing a list of actions to execute in powershell.");
+                Console.WriteLine("The <pipe name> is any legal file name which uniquely distinguishes the pipe server.");
+                Console.WriteLine("The <next action file path> is a text file containing a list of actions to execute in PowerShell.");
                 return;
             }
 
@@ -61,7 +64,7 @@ namespace TestNextActionCmdlet
                 ITransport transport = new JsonTransport();
 
                 // create pipe server using JSON as transport.
-                PipeServer pipeServer = new PipeServer(Constants.NEXT_ACTION_PIPE_NAME, transport);
+                PipeServer pipeServer = new PipeServer(pipeName, transport);
 
                 Console.WriteLine("Hit Ctrl+C to stop the server.");
 

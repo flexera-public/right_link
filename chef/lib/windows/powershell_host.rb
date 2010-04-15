@@ -124,7 +124,7 @@ module RightScale
           @response_event.signal
         end
       end
-      RightLinkLog.debug(format_log_message("Command Ready??? #{!!@pending_command}"))
+      #RightLinkLog.debug(format_log_message("Command Ready??? #{!!@pending_command}"))  # too chatty for debug log
       return !!@pending_command
     end
 

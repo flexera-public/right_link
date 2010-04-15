@@ -175,6 +175,7 @@ EOF
         chef_client = ::Chef::Client.new
         chef_client.json_attribs = attribs
         done = false
+        chef_node_server_terminated = false
         last_exception = nil
 
         powershell_providers = nil
@@ -185,9 +186,6 @@ EOF
           powershell_providers = dynamic_provider.providers
         end
 
-        if run_as_server
-          puts "Hit Ctrl+C to cancel Chef server."
-        end
         EM.threadpool_size = 1
         EM.run do
           EM.defer do
@@ -212,18 +210,24 @@ EOF
                 end
               end
               Chef::Log.debug("***************************** PROVIDERS TERMINATED *****************************")
-
-              # kill the chef node provider
-              RightScale::Windows::ChefNodeServer.instance.stop rescue nil if Platform.windows?
             end
 
-            Chef::Log.debug("***************************** SETTING DONE TO #{!run_as_server} *****************************")
-            done = (not run_as_server)
+            if run_as_server
+              puts "Hit Ctrl+C to cancel Chef server."
+            else
+              done = true
+            end
           end
           timer = EM::PeriodicTimer.new(0.1) do
             if done
-              timer.cancel
-              EM.stop
+              if chef_node_server_terminated
+                timer.cancel
+                EM.stop
+              else
+                # kill the chef node provider
+                RightScale::Windows::ChefNodeServer.instance.stop rescue nil if Platform.windows?
+                chef_node_server_terminated = true
+              end
             end
           end
         end

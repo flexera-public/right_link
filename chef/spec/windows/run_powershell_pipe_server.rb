@@ -24,15 +24,17 @@ require File.expand_path(File.join(File.dirname(__FILE__), '..', 'spec_helper'))
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'lib', 'windows', 'powershell_pipe_server'))
 require 'eventmachine'
 
-unless 2 == ARGV.size && ARGV[0] == "-na"
-  puts "Usage: -na <nextActionPath>"
+unless 4 == ARGV.size && ARGV[0] == "-pn" && ARGV[2] == "-na"
+  puts "Usage: -pn <pipe name> -na <next action file path>"
   puts
-  puts "The nextActionPath is a text file containing a list of actions to execute in powershell."
+  puts "The <pipe name> is any legal file name which uniquely distinguishes the pipe server."
+  puts "The <next action file path> is a text file containing a list of actions to execute in PowerShell."
   exit
 end
 
 queue = Queue.new
-File.open(ARGV[1], "r") do |f|
+pipe_name = ARGV[1]
+File.open(ARGV[3], "r") do |f|
   while (next_action = f.gets)
     queue.push(next_action) if next_action.chomp!.length > 0
   end
@@ -42,11 +44,16 @@ done = false
 logger = Logger.new(STDOUT)
 logger.level = Logger::DEBUG
 
-puts "Hit Ctrl+C to cancel server"
 EM.run do
   EM.defer do
-    powershell_pipe_server = ::RightScale::Windows::PowershellPipeServer.new(:queue => queue, :logger => logger)
+    powershell_pipe_server = ::RightScale::Windows::PowershellPipeServer.new(:pipe_name => pipe_name) do |action, request|
+      case action
+      when :is_ready then !queue.empty?
+      when :respond then queue.pop
+      end
+    end
     powershell_pipe_server.start
+    puts "Hit Ctrl+C to cancel server"
   end
   timer = EM::PeriodicTimer.new(0.1) do
     if done && queue.empty?
@@ -58,3 +65,5 @@ EM.run do
     end
   end
 end
+
+exit 0  # prevents Test::Unit from displaying strange usage help text
