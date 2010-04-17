@@ -166,7 +166,7 @@ module RightScale
         end
         if term_script = all_scripts.detect { |s| File.basename(s, '.*').downcase == TERM_SCRIPT }
           RightLinkLog.debug("[chef] Defining #{name}.terminate to run '#{term_script}'")
-          provider.instance_eval("def terminate; run_script('#{term_script}'); super; end")
+          provider.instance_eval("def terminate; begin; run_script('#{term_script}'); ensure; super; end; end")
         end
         RightLinkLog.debug("[chef] Done creating #{name}")
       end

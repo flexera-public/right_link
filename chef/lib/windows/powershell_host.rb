@@ -69,16 +69,6 @@ module RightScale
       "[PowershellHost #{@pipe_name}] - #{message}"
     end
 
-
-    # Is the Powershell process running?
-    #
-    # === Return
-    # true:: If the associated Powershell process is running
-    # false:: Otherwise
-    def active
-      !!@pipe_server
-    end
-
     # Run Powershell script in associated Powershell process
     # Log stdout and stderr to Chef logger
     #
@@ -91,9 +81,9 @@ module RightScale
     # === Raise
     # RightScale::Exceptions:ApplicationError:: If Powershell process is not running (i.e. :active is false)
     def run(script_path)
-      RightLinkLog.debug(format_log_message("\n\n\n++++++++++++++++++++\nRunning #{script_path}"))
+      RightLinkLog.debug(format_log_message("Running #{script_path}"))
       run_command("&\"#{script_path}\"")
-      RightLinkLog.debug(format_log_message("Finished #{script_path}\n++++++++++++++++++++\n\n\n"))
+      RightLinkLog.debug(format_log_message("Finished #{script_path}"))
     end
 
     # Terminate associated Powershell process
@@ -110,6 +100,15 @@ module RightScale
 
     protected
 
+    # Is the Powershell process running?
+    #
+    # === Return
+    # true:: If the associated Powershell process is running
+    # false:: Otherwise
+    def active
+      !!@pipe_server
+    end
+
     # Query whether there is a command to execute
     # Also signal waiting Chef thread if a command executed
     #
@@ -124,7 +123,6 @@ module RightScale
           @response_event.signal
         end
       end
-      #RightLinkLog.debug(format_log_message("Command Ready??? #{!!@pending_command}"))  # too chatty for debug log
       return !!@pending_command
     end
 
@@ -229,7 +227,7 @@ module RightScale
     def on_exit(status)
       @exit_status = status
 
-      RightLinkLog.debug(format_log_message("Stopping pipe server"))
+      RightLinkLog.debug(format_log_message("Stopping host server"))
       @pipe_server.stop
       @pipe_server = nil
 

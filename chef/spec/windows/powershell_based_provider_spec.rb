@@ -33,7 +33,7 @@ if RightScale::RightLinkConfig[:platform].windows?
     TEST_COOKBOOK_PATH = File.normalize_path(File.dirname(__FILE__))
   end
   
-  describe "given a cookbook containing a powershell provider" do
+  describe "Powershell::Provider - Given a cookbook containing a powershell provider" do
 
     before(:each) do
       @original_logger = ::Chef::Log.logger
@@ -187,15 +187,23 @@ if RightScale::RightLinkConfig[:platform].windows?
       @logs.should include("verbose message")
     end
     
-    it "should stop the chef run when a powershell action throws" do
+    it "should stop the chef run when a powershell action throws, and be able to run another recipe with the same provider" do
       runner = lambda {
         RightScale::Test::ChefRunner.run_chef(PowershellBasedProviderSpec::TEST_COOKBOOK_PATH, 'test_cookbook::run_powershell_based_recipe_with_failing_action')
       }
-
       runner.should raise_error(RightScale::Exceptions::Exec)
 
       #There 'Should' be string in the error log...
       @errors.length.should > 0
+
+      @errors = ""
+      runner = lambda {
+        RightScale::Test::ChefRunner.run_chef(PowershellBasedProviderSpec::TEST_COOKBOOK_PATH, 'test_cookbook::run_powershell_based_recipe_with_resources')
+      }
+      runner.should_not raise_error
+
+      #There 'Should' NOT be string in the error log...
+      @errors.should == ""
     end
   end
 end
