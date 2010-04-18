@@ -93,27 +93,31 @@ class InstanceSetup
   # === Return
   # true:: Always return true
   def enable_managed_login
-    request('/booter/get_login_policy', {:agent_identity => @agent_identity}) do |r|
-      res = RightScale::OperationResult.from_results(r)
-      if res.success?
-        policy  = res.content
-        auditor = RightScale::AuditorProxy.new(policy.audit_id)
-        begin
-          audit = RightScale::LoginManager.instance.update_policy(policy)
-          if audit
-            auditor.create_new_section("Managed login enabled")
-            auditor.append_info(audit)
-          end
-        rescue Exception => e
-          auditor.create_new_section('Failed to enable managed login')
-          auditor.append_error("Error applying login policy: #{e.message}", :category=>RightScale::EventCategories::CATEGORY_ERROR)
-          RightScale::RightLinkLog.error("#{e.class.name}: #{e.message}\n#{e.backtrace.join("\n")}")
-        end
-      else
-        RightScale::RightLinkLog.error("Could not get login policy: #{res.content}")
-      end
-
+    if RightScale::Platform.windows?
       boot
+    else
+      request('/booter/get_login_policy', {:agent_identity => @agent_identity}) do |r|
+        res = RightScale::OperationResult.from_results(r)
+        if res.success?
+          policy  = res.content
+          auditor = RightScale::AuditorProxy.new(policy.audit_id)
+          begin
+            audit = RightScale::LoginManager.instance.update_policy(policy)
+            if audit
+              auditor.create_new_section("Managed login enabled")
+              auditor.append_info(audit)
+            end
+          rescue Exception => e
+            auditor.create_new_section('Failed to enable managed login')
+            auditor.append_error("Error applying login policy: #{e.message}", :category=>RightScale::EventCategories::CATEGORY_ERROR)
+            RightScale::RightLinkLog.error("#{e.class.name}: #{e.message}\n#{e.backtrace.join("\n")}")
+          end
+        else
+          RightScale::RightLinkLog.error("Could not get login policy: #{res.content}")
+        end
+
+        boot
+      end
     end
   end
 
