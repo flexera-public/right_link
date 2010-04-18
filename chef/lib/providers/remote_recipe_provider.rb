@@ -40,26 +40,47 @@ class Chef
       # === Return
       # true:: Always return true
       def action_run
-        tags = @new_resource.recipients_tags
+        tags       = @new_resource.recipients_tags
+        recipients = @new_resource.recipients
         attributes = { :remote_recipe => { :tags => tags,
                                            :from => RightScale::MapperProxy.instance.identity } }
         attributes.merge!(@new_resource.attributes) if @new_resource.attributes
         options = { :recipe => @new_resource.recipe, :json => attributes.to_json }
-        @new_resource.recipients.each do |target|
-          RightScale::RequestForwarder.push('/instance_scheduler/execute',
-                                            options, 
-                                            :target => target)
-        end if @new_resource.recipients
+        if recipients && !recipients.empty?
+          target = if (s = recipients.size) == 1
+                     'one remote instance'
+                   else
+                     "#{s} remote instances"
+                   end
+          Chef::Log.info("Scheduling execution of #{@new_resource.recipe.inspect} on #{target}")
+          recipients.each do |recipient|
+            RightScale::RequestForwarder.push('/instance_scheduler/execute',
+                                              options,
+                                              :target => recipient)
+          end
+        end
         if tags && !tags.empty?
           selector = (@new_resource.scope == :single ? :least_loaded : :all)
+          target_tag = if tags.size == 1
+                         "tag #{tags.first.inspect}"
+                       else
+                         "tags #{tags.map { |t| t.inspect }.join(', ')}"
+                       end
+          target = if selector == :all
+                     "all instances with #{target_tag}"
+                   else
+                     "one instance with #{target_tag}"
+                   end
+          Chef::Log.info("Scheduling execution of #{@new_resource.recipe.inspect} on #{target}")
           RightScale::RequestForwarder.push('/instance_scheduler/execute', options,
                                    :tags => tags, :selector => selector)
         end
         true
       end
-
+ 
     end
 
   end
-
+ 
 end
+          
