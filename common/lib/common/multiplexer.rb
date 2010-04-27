@@ -28,6 +28,9 @@ module RightScale
     # Access to underlying multiplexed objects
     attr_reader :targets
 
+    # Undefine warn to prevent Kernel#warn from being called
+    undef warn
+
     # Initialize multiplexer targets
     #
     # === Parameters

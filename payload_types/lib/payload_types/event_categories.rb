@@ -32,7 +32,7 @@ module RightScale
     CATEGORY_SECURITY     = 'Security'.freeze     # Security topic notification
     CATEGORY_ERROR        = 'Error'.freeze        # Error event
 
-    CATEGORIES            = [ CATEGORY_NOTIFICATION, CATEGORY_SECURITY, CATEGORY_ERROR ]
+    CATEGORIES            = [ NONE, CATEGORY_NOTIFICATION, CATEGORY_SECURITY, CATEGORY_ERROR ]
 
   end
 end

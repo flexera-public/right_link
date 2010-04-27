@@ -97,6 +97,9 @@ module RightScale
 
     @@inverted_levels_map = nil
 
+    # Undefine warn to prevent Kernel#warn from being called
+    undef warn
+
     def initialize
       # Was log ever used?
       @initialized = false
@@ -119,7 +122,7 @@ module RightScale
     end
 
     # Forward all class method calls to the singleton instance to keep the interface as it was
-    #prior to introducing the singleton.
+    # prior to introducing the singleton.
     #
     # === Parameters
     # m(Symbol):: Forwarded method name

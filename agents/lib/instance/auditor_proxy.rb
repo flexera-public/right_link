@@ -172,7 +172,7 @@ module RightScale
       opts[:text] = text
       opts[:category] ||= EventCategories::CATEGORY_NOTIFICATION
       unless EventCategories::CATEGORIES.include?(opts[:category])
-        RightLinkLog.warn("Invalid notification category '#{opts[:category]}', using generic category instead")
+        RightLinkLog.warn("Invalid category '#{opts[:category]}' for notification '#{opts[:text]}', using generic category instead")
         opts[:category] = EventCategories::CATEGORY_NOTIFICATION
       end
       opts

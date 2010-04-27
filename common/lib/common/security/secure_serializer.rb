@@ -63,7 +63,7 @@ module RightScale
           json = EncryptedDocument.new(json, certs).encrypted_data
         else
           target = if obj.respond_to?(:target_for_encryption) then obj.target_for_encryption else nil end
-          RightLinkLog.warn("No certs for object being sent to #{target}\n")
+          RightLinkLog.warn("No certs for object #{obj.class} being sent to #{target.inspect}\n")
         end
       end
       sig = Signature.new(json, @cert, @key)
