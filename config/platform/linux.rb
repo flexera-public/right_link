@@ -50,6 +50,15 @@ module RightScale
         distro =~ /CentOS/i
       end
 
+      # Is this machine running Suse
+      #
+      # === Return
+      # true:: If Linux distro is Suse
+      # false:: Otherwise
+      def suse?
+        distro =~ /SUSE/i
+      end
+
       class Filesystem
 
         # Is given command available in the PATH?

@@ -183,8 +183,10 @@ module RightScale
           elsif File.executable? '/usr/bin/apt-get'
             ENV['DEBIAN_FRONTEND']="noninteractive"
             @auditor.append_output(`apt-get install -y #{packages} 2>&1`)
+          elsif File.executable? '/usr/bin/zypper'
+            @auditor.append_output(`zypper --no-gpg-checks -n #{packages} 2>&1`)
           else
-            report_failure('Failed to install packages', 'Cannot find yum nor apt-get binary in /usr/bin')
+            report_failure('Failed to install packages', 'Cannot find yum nor apt-get nor zypper binary in /usr/bin')
             return true # Not much more we can do here
           end
           $?.success?
