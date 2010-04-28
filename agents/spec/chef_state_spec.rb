@@ -38,7 +38,6 @@ describe RightScale::ChefState do
   end
 
   after(:each) do
-    RightScale::ChefState.run_list = []
     RightScale::ChefState.attributes = {}
     File.delete(@chef_file) if File.file?(@chef_file)
     RightScale::ChefState::const_set(:STATE_FILE, @old_chef_file)
@@ -47,26 +46,14 @@ describe RightScale::ChefState do
 
   it 'should initialize' do
     RightScale::ChefState.init(true)
-    RightScale::ChefState.run_list.should == []
     RightScale::ChefState.attributes.should == {}
   end
 
   it 'should reset' do
-    RightScale::ChefState.run_list = [ 1, 2, 3, 4 ]
     RightScale::ChefState.attributes = { :one => 'two' }
-    RightScale::ChefState.run_list.should == [ 1, 2, 3, 4 ]
     RightScale::ChefState.attributes.should == { :one => 'two' }
     RightScale::ChefState.init(reset=true)
-    RightScale::ChefState.run_list.should == []
     RightScale::ChefState.attributes.should == {}
-  end
-
-  it 'should merge run lists' do
-    RightScale::ChefState.run_list = [ 1, 2, 3, 4 ]
-    RightScale::ChefState.merge_run_list([3, 5])
-    RightScale::ChefState.run_list.should == [ 1, 2, 3, 4, 5 ]
-    RightScale::ChefState.merge_run_list([1,2, 3, 5, 6])
-    RightScale::ChefState.run_list.should == [ 1, 2, 3, 4, 5, 6 ]
   end
 
   it 'should merge attributes' do
@@ -78,9 +65,8 @@ describe RightScale::ChefState do
   end
 
   it 'should persist the state' do
-    RightScale::ChefState.run_list = [ 1, 2, 3, 4 ]
     RightScale::ChefState.attributes = { :one => 'two' }
-    JSON.load(IO.read(@chef_file)).should == { 'run_list' => [ 1, 2, 3, 4 ], 'attributes' => { 'one' => 'two' } }
+    JSON.load(IO.read(@chef_file)).should == { 'attributes' => { 'one' => 'two' } }
   end
 
   it 'should create patch from hashes' do

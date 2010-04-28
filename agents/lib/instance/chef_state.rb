@@ -40,7 +40,6 @@ module RightScale
     # true:: Always return true
     def self.init(reset=false)
       return true if initialized? && !reset
-      @@run_list = []
       @@attributes = {}
       dir = File.dirname(STATE_FILE)
       FileUtils.mkdir_p(dir) unless File.directory?(dir)
@@ -49,11 +48,10 @@ module RightScale
       elsif File.file?(STATE_FILE)
         File.open(STATE_FILE, 'r') do |f|
           js = JSON.load(f) rescue {}
-          @@run_list = js['run_list'] || []
           @@attributes = js['attributes'] || {}
         end
       end
-      RightLinkLog.debug("Initializing chef state with run list #{@@run_list.inspect} and attributes #{@@attributes.inspect}")
+      RightLinkLog.debug("Initializing chef state with attributes #{@@attributes.inspect}")
       true
     end
 
@@ -64,16 +62,7 @@ module RightScale
     # true:: If 'init' has been called
     # false:: Otherwise
     def self.initialized?
-      !!(defined?(@@run_list) && defined?(@@attributes))
-    end
-
-    # Current run list
-    #
-    # === Return
-    # run_list(Array):: List of recipes making up run list
-    def self.run_list
-      init
-      @@run_list
+      !!defined?(@@attributes)
     end
 
     # Current node attributes
@@ -83,22 +72,6 @@ module RightScale
     def self.attributes
       init
       @@attributes
-    end
-
-    # Set run list
-    # Note: can't set it to nil. Setting the run list to nil will
-    # cause the run list to be initialized if it hasn't yet but won't
-    # assign the value nil to it.
-    #
-    # === Parameters
-    # run_list(Array):: List of recipes making up the run list
-    #
-    # === Return
-    # true:: Always return true
-    def self.run_list=(val)
-      init
-      @@run_list = val if val
-      save_state
     end
 
     # Set node attributes
@@ -117,18 +90,6 @@ module RightScale
       save_state
     end
 
-    # Append given run list to current run list
-    #
-    # === Parameters
-    # recipe(String):: Recipe to be added
-    #
-    # === Return
-    # true:: Always return true
-    def self.merge_run_list(list)
-      self.run_list = merge_run_lists!(run_list, list) if list
-      true
-    end
-
     # Merge given attributes into node attributes
     #
     # === Parameters
@@ -139,19 +100,6 @@ module RightScale
     def self.merge_attributes(attribs)
       self.attributes = deep_merge!(attributes, attribs) if attribs
       true
-    end
-
-    # Merge two run list
-    #
-    # === Parameters
-    # first(Array):: Run list that should be merged into
-    # second(Array):: Merged in run list
-    #
-    # === Return
-    # first(Array):: Merged run list
-    def self.merge_run_lists!(first, second)
-      second.each { |r| first << r unless first.include?(r) }
-      first
     end
 
     # Perform a deep merge between given hashes
@@ -240,7 +188,7 @@ module RightScale
     # true:: Always return true
     def self.save_state
       begin
-        js = { 'run_list' => @@run_list, 'attributes' => @@attributes }.to_json
+        js = { 'attributes' => @@attributes }.to_json
         File.open(STATE_FILE, 'w') { |f| f.puts js }
       rescue Exception => e
         RightLinkLog.warn("Failed to save Chef state: #{e.message}")

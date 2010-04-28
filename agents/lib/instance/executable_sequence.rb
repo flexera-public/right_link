@@ -58,10 +58,6 @@ module RightScale
       @scraper                = Scraper.new(InstanceConfiguration.cookbook_download_path)
       @powershell_providers   = nil
 
-      # We want to always do full-converge, leave the option in case we change our mind
-      persist_run_list = bundle.full_converge
-      bundle.full_converge = true
-
       # Initializes run list for this sequence (partial converge support)
       @run_list = []
       @inputs = {}
@@ -69,7 +65,6 @@ module RightScale
       recipes.each do |recipe|
         if recipe.nickname == breakpoint
           @auditor.append_info("Breakpoint set, running recipes up to < #{breakpoint} >")
-          bundle.full_converge = false
           break
         end
         @run_list << recipe.nickname
@@ -79,15 +74,6 @@ module RightScale
       # Retrieve node attributes and deep merge in inputs
       @attributes = ChefState.attributes
       ChefState.deep_merge!(@attributes, @inputs)
-
-      # Setup run list
-      if bundle.full_converge
-        @run_list = ChefState.merge_run_lists!(ChefState.run_list.dup, @run_list)
-      end
-      if persist_run_list
-        ChefState.merge_run_list(@run_list.select { |r| !RightScriptsCookbook.right_script?(r) })
-      end
-
     end
 
     # Run given executable bundle
@@ -250,7 +236,7 @@ module RightScale
     # true:: Always return true
     def converge
       @auditor.create_new_section("Converging")
-      @auditor.append_info("Run list: < #{@run_list.join(" >, < ")} >")
+      @auditor.append_info("Run list: '#{@run_list.join("', '")} '")
       attribs = { 'recipes' => @run_list }
       attribs.merge!(@attributes) if @attributes
       c = Chef::Client.new
