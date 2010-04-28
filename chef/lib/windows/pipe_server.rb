@@ -20,11 +20,6 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 require 'rubygems'
-begin
-  gem 'eventmachine', '=0.12.8.1'  # patched version for Windows-only socket close fix
-rescue Gem::LoadError
-  gem 'eventmachine', '=0.12.8'  # notify_readable is deprecated, so currently cannot use >=0.12.10 in Windows gem
-end
 require 'eventmachine'
 require 'win32/pipe'
 require 'tempfile'
