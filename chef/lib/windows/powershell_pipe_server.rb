@@ -72,7 +72,8 @@ module RightScale
                      :request_handler => :request_handler,
                      :request_query => :request_query,
                      :pipe => pipe}
-          @pipe_eventable = EM.attach(pipe, PipeServerHandler, options)
+          @pipe_eventable = EM.watch(pipe, PipeServerHandler, options)
+          @pipe_eventable.notify_readable = true
         rescue Exception => e
           pipe.close rescue nil
           Chef::Log.error("Failed to start pipe server: #{e.message} from\n#{e.backtrace.join("\n")}")

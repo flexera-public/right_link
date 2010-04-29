@@ -72,7 +72,8 @@ module RightScale
           options = {:target          => self,
                      :request_handler => :request_handler,
                      :pipe            => pipe}
-          @pipe_eventable = EM.attach(pipe, PipeServerHandler, options)
+          @pipe_eventable = EM.watch(pipe, PipeServerHandler, options)
+          @pipe_eventable.notify_readable = true
         rescue Exception => e
           pipe.close rescue nil
           res = false
