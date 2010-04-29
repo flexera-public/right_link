@@ -26,7 +26,10 @@ require 'rubygems'
 # ActiveRecord in order to ensure that a monkey patch is correctly applied. Since Nanite is designed to be compatible
 # with Rails, we tentatively try to load AR here, in case RightLink specs are ever executed in a context where
 # ActiveRecord is also loaded.
-require 'active_record' rescue nil
+begin
+  require 'active_record'
+rescue LoadError => e
+end
 
 # The daemonize method of AR clashes with the daemonize Chef attribute, we don't need that method so undef it
 undef :daemonize if methods.include?('daemonize')
