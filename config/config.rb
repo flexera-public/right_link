@@ -58,11 +58,21 @@ if platform.windows?
   candidate_path = File.join(platform.filesystem.company_program_files_dir, 'SandBox')
   if File.directory?(candidate_path)
     sandbox_path candidate_path
-    sandbox_ruby_cmd File.join(sandbox_path, 'Ruby', 'bin', 'ruby.exe')
-    # We need to specify the path to the ruby interpreter we need to use as the gem implementation
-    # on Windows will pick whichever ruby is in the path
-    sandbox_gem_cmd  "\"#{sandbox_ruby_cmd}\" \"#{File.join(sandbox_path, 'Ruby', 'bin', 'gem.exe')}\""
-    sandbox_git_cmd  File.join(sandbox_path, 'bin', 'windows', 'git.cmd')
+    
+    # allow the automated test environment to specify a non-program files
+    # location for tools.
+    if ENV['RS_RUBY_EXE'] && ENV['RS_GEM']
+      sandbox_ruby_cmd ENV['RS_RUBY_EXE']
+      sandbox_gem_cmd ENV['RS_GEM']
+    else
+      sandbox_ruby_cmd File.join(sandbox_path, 'Ruby', 'bin', 'ruby.exe')
+      sandbox_gem_cmd  "\"#{sandbox_ruby_cmd}\" \"#{File.join(sandbox_path, 'Ruby', 'bin', 'gem.exe')}\""
+    end
+    if ENV['RS_GIT_EXE']
+      sandbox_git_cmd ENV['RS_GIT_EXE']
+    else
+      sandbox_git_cmd File.join(sandbox_path, 'bin', 'windows', 'git.cmd')
+    end
   else
     # Development setup
     sandbox_path nil
