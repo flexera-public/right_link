@@ -25,6 +25,36 @@ require File.join(File.dirname(__FILE__), 'spec_helper')
 describe RightScale::LoginManager do
   include RightScale::SpecHelpers
 
+  # equivalent of x.minutes for dev setup without activesupport
+  def minutes(count)
+    return count * 60
+  end
+
+  # equivalent of x.minutes.from_now for dev setup without activesupport
+  def minutes_from_now(count)
+    return Time.now + minutes(count)
+  end
+
+  # equivalent of 1.hours for dev setup without activesupport
+  def one_hour
+    return 60 * 60
+  end
+
+  # equivalent of 1.hours.from_now for dev setup without activesupport
+  def one_hour_from_now
+    return Time.now + one_hour
+  end
+
+  # equivalent of 1.hours.ago for dev setup without activesupport
+  def one_hour_ago
+    return Time.now - one_hour
+  end
+
+  # equivalent of 1.days.ago for dev setup without activesupport
+  def one_day_ago
+    return Time.now - 24 * one_hour
+  end
+
   before(:all) do
     flexmock(RightScale::RightLinkLog).should_receive(:debug).by_default
     @mgr = RightScale::LoginManager.instance
@@ -42,7 +72,7 @@ describe RightScale::LoginManager do
       @system_keys = [ "ssh-rsa #{rand(3**32).to_s(32)} someone@localhost",
                        "ssh-dsa #{rand(3**32).to_s(32)} root@localhost" ]
 
-      @policy = RightScale::LoginPolicy.new(1234, 1.hours.ago)
+      @policy = RightScale::LoginPolicy.new(1234, one_hour_ago)
       @policy_keys = []
       (0...3).each do |i|
         num = rand(2**32).to_s(32)
@@ -53,7 +83,7 @@ describe RightScale::LoginManager do
     end
 
     it "should only add non-expired users" do
-      @policy.users[0].expires_at = 1.days.ago
+      @policy.users[0].expires_at = one_day_ago
       flexmock(@mgr).should_receive(:write_keys_file).with((@policy_keys[1..2]).sort)
       @mgr.update_policy(@policy)
     end
@@ -113,7 +143,7 @@ describe RightScale::LoginManager do
 
   context :schedule_expiry do
     before(:each) do
-      @policy = RightScale::LoginPolicy.new(1234, 1.hours.ago)
+      @policy = RightScale::LoginPolicy.new(1234, one_hour_ago)
       @policy_keys = []
     end
 
@@ -136,14 +166,14 @@ describe RightScale::LoginManager do
 
     context 'when a user will expire in 1 hour' do
       before(:each) do
-        u1 = RightScale::LoginUser.new("v0-1234", "rs1234", "ssh-rsa aaa 1234@rightscale.com", "1234@rightscale.com", true, 1.hours.from_now)
+        u1 = RightScale::LoginUser.new("v0-1234", "rs1234", "ssh-rsa aaa 1234@rightscale.com", "1234@rightscale.com", true, one_hour_from_now)
         u2 = RightScale::LoginUser.new("v0-2345", "rs2345", "ssh-rsa bbb 2345@rightscale.com", "2345@rightscale.com", true, nil)
         @policy.users << u1
         @policy.users << u2
       end
 
       it 'should create a timer for 1 hour' do
-        flexmock(EventMachine::Timer).should_receive(:new).with(1.hours+1, Proc)
+        flexmock(EventMachine::Timer).should_receive(:new).with(one_hour + 1, Proc)
         policy = @policy
         @mgr.instance_eval {
           schedule_expiry(policy).should == true
@@ -152,12 +182,12 @@ describe RightScale::LoginManager do
 
       context 'and a user will expire in 15 minutes' do
         before(:each) do
-          u3 = RightScale::LoginUser.new("v0-1234", "rs1234", "ssh-rsa aaa 1234@rightscale.com", "1234@rightscale.com", true, 15.minutes.from_now)
+          u3 = RightScale::LoginUser.new("v0-1234", "rs1234", "ssh-rsa aaa 1234@rightscale.com", "1234@rightscale.com", true, minutes_from_now(15))
           @policy.users << u3
         end
 
         it 'should create a timer for 15 minutes' do
-          flexmock(EventMachine::Timer).should_receive(:new).with(15.minutes+1, Proc)
+          flexmock(EventMachine::Timer).should_receive(:new).with(minutes(15) + 1, Proc)
           policy = @policy
           @mgr.instance_eval {
             schedule_expiry(policy).should == true
