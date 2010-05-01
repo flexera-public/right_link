@@ -24,7 +24,7 @@ class InstanceScheduler
 
   include RightScale::Actor
 
-  expose :schedule_bundle, :execute, :schedule_decommssion
+  expose :schedule_bundle, :execute, :schedule_decommission
 
   SHUTDOWN_DELAY = 180 # Number of seconds to wait for decommission scripts to finish before forcing shutdown
 
