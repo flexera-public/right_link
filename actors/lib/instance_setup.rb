@@ -92,7 +92,7 @@ class InstanceSetup
       if res.success?
         enable_managed_login
       else
-        RightLinkLog.warn("Failed to record r_s_version: #{res.content}")
+        RightScale::RightLinkLog.warn("Failed to record r_s_version: #{res.content}")
         # Retry in RECONNECT_DELAY seconds, retry forever, nothing else we can do
         EM.add_timer(RECONNECT_DELAY) { init_boot }
       end
