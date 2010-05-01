@@ -40,7 +40,7 @@ class InstanceSetup
   # options[:auto_shutdown](TrueClass|FalseClass):: Whether instance should shutdown if it cannot boot
   #                                                 under SUICIDE_DELAY and this is the initial boot
   def initialize(options)
-    agent_identity = options[:agent_identity]
+    agent_identity = options[:identity]
     should_suicide = options[:auto_shutdown] && RightScale::InstanceState.initial_boot
     @suicide_timer = EM.add_timer(SUICIDE_DELAY) do
       RightScale::RightLinkLog.error "Shutting down after having tried to boot for #{SUICIDE_DELAY / 60} minutes"
