@@ -32,6 +32,7 @@
 #      --pid-dir, -z DIR:       Set directory containing pid file
 #      --monit, -w:             Generate monit configuration file
 #      --options, -o KEY=VAL:   Pass-through options
+#      --auto-shutdown          Shutdown server if it fails to get boot bundle in 45 minutes on first boot
 #      --http-proxy, -P PROXY:  Use a proxy for all agent-originated HTTP traffic
 #      --no-http-proxy          Comma-separated list of proxy exceptions
 #      --test:                  Build test deployment using default test settings
@@ -90,20 +91,21 @@ module RightScale
     # Generate configuration files
     def write_config(options)
       cfg = {}
-      cfg[:identity]     = options[:identity] if options[:identity]
-      cfg[:shared_queue] = options[:shared_queue] if options[:shared_queue]
-      cfg[:pid_dir]      = options[:pid_dir] || '/var/run'
-      cfg[:user]         = options[:user] if options[:user]
-      cfg[:pass]         = options[:pass] if options[:pass]
-      cfg[:vhost]        = options[:vhost] if options[:vhost]
-      cfg[:port]         = options[:port] if options[:port]
-      cfg[:host]         = options[:host] if options[:host]
-      cfg[:initrb]       = options[:init_rb_path] if options[:init_rb_path]
-      cfg[:actors]       = options[:actors] if options[:actors]
-      cfg[:actors_dir]   = options[:actors_path] if options[:actors_path]
-      cfg[:format]       = 'secure'
-      cfg[:http_proxy]   = options[:http_proxy] if options[:http_proxy]
-      cfg[:no_http_proxy]= options[:no_http_proxy] if options[:no_http_proxy]
+      cfg[:identity]      = options[:identity] if options[:identity]
+      cfg[:shared_queue]  = options[:shared_queue] if options[:shared_queue]
+      cfg[:pid_dir]       = options[:pid_dir] || '/var/run'
+      cfg[:user]          = options[:user] if options[:user]
+      cfg[:pass]          = options[:pass] if options[:pass]
+      cfg[:vhost]         = options[:vhost] if options[:vhost]
+      cfg[:port]          = options[:port] if options[:port]
+      cfg[:host]          = options[:host] if options[:host]
+      cfg[:initrb]        = options[:init_rb_path] if options[:init_rb_path]
+      cfg[:actors]        = options[:actors] if options[:actors]
+      cfg[:actors_dir]    = options[:actors_path] if options[:actors_path]
+      cfg[:format]        = 'secure'
+      cfg[:auto_shutdown] = options[:auto_shutdown] 
+      cfg[:http_proxy]    = options[:http_proxy] if options[:http_proxy]
+      cfg[:no_http_proxy] = options[:no_http_proxy] if options[:no_http_proxy]
       options[:options].each { |k, v| cfg[k] = v } if options[:options]
 
       agent_dir = gen_agent_dir(options[:agent])
@@ -131,6 +133,7 @@ module RightScale
       options[:agent] = ARGV[0]
       options[:options] = {}
       options[:quiet] = false
+      options[:auto_shutdown] = false
       fail('No agent specified on the command line.', print_usage=true) if options[:agent].nil?
 
       opts = OptionParser.new do |opts|
@@ -151,6 +154,10 @@ module RightScale
 
         opts.on('-w', '--monit') do
           options[:monit] = true
+        end
+
+        opts.on('--auto-shutdown') do 
+          options[:auto_shutdown] = true
         end
 
         opts.on('-P', '--http-proxy PROXY') do |proxy|

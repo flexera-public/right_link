@@ -29,11 +29,23 @@ class InstanceSetup
   # Amount of seconds to wait between set_r_s_version calls attemps
   RECONNECT_DELAY = 5
 
+  # Amount of seconds to wait before shutting down if boot hasn't completed
+  SUICIDE_DELAY = 45 * 60
+
   # Boot if and only if instance state is 'booting'
+  # Prime timer for shutdown on unsuccessful boot ('suicide' functionality)
   #
   # === Parameters
-  # agent_identity(String):: Serialized agent identity for current agent
-  def initialize(agent_identity)
+  # options[:agent_identity](String):: Serialized agent identity for current agent
+  # options[:auto_shutdown](TrueClass|FalseClass):: Whether instance should shutdown if it cannot boot
+  #                                                 under SUICIDE_DELAY and this is the initial boot
+  def initialize(options)
+    agent_identity = options[:agent_identity]
+    should_suicide = options[:auto_shutdown] && RightScale::InstanceState.initial_boot
+    @suicide_timer = EM.add_timer(SUICIDE_DELAY) do
+      RightScale::RightLinkLog.error "Shutting down after having tried to boot for #{SUICIDE_DELAY / 60} minutes"
+      RightScale::Platform.controller.shutdown 
+    end if should_suicide 
     @boot_retries = 0
     @agent_identity = agent_identity
     RightScale::InstanceState.init(agent_identity)
@@ -303,6 +315,9 @@ class InstanceSetup
   # === Return
   # true:: Always return true
   def run_boot_bundle(bundle)
+    # Cancel suicide timer if it has been primed
+    @suicide_timer.cancel unless @suicide_timer.nil?
+
     # Force full converge on boot so that Chef state gets persisted
     sequence = RightScale::ExecutableSequence.new(bundle)
     sequence.callback do

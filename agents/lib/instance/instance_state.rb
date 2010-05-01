@@ -92,6 +92,7 @@ module RightScale
     def self.init(identity)
       @@identity = identity
       @@startup_tags = []
+      @@initial_boot = false
       dir = File.dirname(STATE_FILE)
       FileUtils.mkdir_p(dir) unless File.directory?(dir)
 
@@ -119,6 +120,7 @@ module RightScale
         # CASE 1 -- state file does not exist; initial boot, create state file
         RightLinkLog.debug("Initializing instance #{identity} with booting")
         self.value = 'booting'
+        @@initial_boot = true
       end
 
       if File.file?(SCRIPTS_FILE)
@@ -159,6 +161,14 @@ module RightScale
       write_json(STATE_FILE, { 'value' => val, 'identity' => @@identity, 'uptime' => uptime.to_s, 'startup_tags' => @@startup_tags })
       @observers.each { |o| o.call(val) } if @observers
       val
+    end
+
+    # Initial boot value
+    # 
+    # === Return
+    # res(TrueClass|FalseClass):: Whether this is the instance first boot
+    def self.initial_boot
+      res = @@initial_boot
     end
 
     # Ask core agent to shut ourselves down for soft termination
