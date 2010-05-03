@@ -64,6 +64,9 @@ module RightScale
     DEFAULT_OPTIONS = COMMON_DEFAULT_OPTIONS.merge({
       :user => 'agent',
       :shared_queue => false,
+      :fresh_timeout => nil,
+      :retry_interval => nil,
+      :retry_limit => nil,
       :ping_time => 15,
       :default_services => []
     }) unless defined?(DEFAULT_OPTIONS)
@@ -100,6 +103,9 @@ module RightScale
     # :persistent(Boolean):: true instructs the AMQP broker to save messages to persistent storage so
     #   that they aren't lost when the broker is restarted. Default is false. Can be overridden on a
     #   per-message basis using the request and push methods of MapperProxy.
+    # :fresh_timeout(Integer):: Maximum age in seconds before a request times out and is rejected
+    # :retry_interval(Integer):: Number of seconds between request retries
+    # :retry_limit(Integer):: Maximum number of request retries before timeout
     # :callbacks(Hash):: Callbacks to be executed on specific events. Key is event (currently
     #   only :exception is supported) and value is the Proc to be called back. For :exception
     #   the parameters are exception, message being processed, and reference to agent. It gets called
@@ -356,11 +362,12 @@ module RightScale
 
       binding.subscribe(:ack => true) do |info, msg|
         begin
-          info.ack
           receive_any(@serializer.load(msg))
         rescue Exception => e
           RightLinkLog.error("RECV #{e.message}")
           @callbacks[:exception].call(e, msg, self) rescue nil if @callbacks && @callbacks[:exception]
+        ensure
+          info.ack
         end
       end
     end
@@ -373,11 +380,12 @@ module RightScale
     def setup_shared_queue
       @amq.queue(@shared_queue).subscribe(:ack => true) do |info, msg|
         begin
-          info.ack
           receive_request(@serializer.load(msg))
         rescue Exception => e
           RightLinkLog.error("RECV #{e.message}")
           @callbacks[:exception].call(e, msg, self) rescue nil if @callbacks && @callbacks[:exception]
+        ensure
+          info.ack
         end
       end
       true

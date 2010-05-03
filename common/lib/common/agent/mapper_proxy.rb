@@ -86,7 +86,7 @@ module RightScale
     # Optional block used to process result
     #
     # === Return
-    # (MQ::Exchange):: AMQP exchange to which request is published
+    # true:: Always return true
     def request(type, payload = '', opts = {}, &blk)
       raise "Mapper proxy not initialized" unless identity && @options
       request = Request.new(type, payload, opts)
@@ -95,8 +95,52 @@ module RightScale
       request.persistent = opts.key?(:persistent) ? opts[:persistent] : @options[:persistent]
       @pending_requests[request.token] = { :result_handler => blk }
       RightLinkLog.info("SEND #{request.to_s([:tags, :target])}")
+      request_with_retry(request, nil_if_zero(:retry_interval), nil_if_zero(:retry_limit), 0)
+      true
+    end
+
+    # Send request with retry if do not receive a result in time
+    # Send timeout and delete pending request if reach retry limit
+    #
+    # === Parameters
+    # request(Request):: Request to be sent
+    # retry_interval(Integer):: Number of seconds to wait before retrying, nil means never retry
+    # retry_limit(Integer):: Maximum number of retries, nil means never retry
+    # retry_count(Integer):: Number of retries so far
+    #
+    # === Return
+    # true:: Always return true
+    def request_with_retry(request, retry_interval, retry_limit, retry_count)
       @amqp.queue('request', :no_declare => @options[:secure]).publish(@serializer.dump(request))
-    end    
+
+      if retry_interval && retry_limit
+        if retry_count <= retry_limit
+          EM.add_timer(retry_interval) do
+            if @pending_requests[request.token]
+              RightLinkLog.info("RESEND ##{retry_count} #{request.to_s([:tags, :target])}")
+              request_with_retry(request, retry_interval, retry_limit, retry_count + 1)
+            end
+          end
+        else
+          RightLinkLog.info("RESEND END #{request.to_s([:tags, :target])}")
+          timeout = @options[:retry_interval] * (@options[:retry_limit] + 1)
+          result = OperationResult.timeout("Timed out after #{timeout} seconds and #{@options[:retry_limit] + 1} attempts")
+          handle_result(Result.new(request.token, request.reply_to, result, @options[:identity]))
+        end
+      end
+      true
+    end
+
+    # Convert option value to nil if equals 0
+    #
+    # === Parameters
+    # opt(Symbol):: Option symbol whose option value is nil or an integer
+    #
+    # === Return
+    # (Integer):: Converted option value
+    def nil_if_zero(opt)
+      if !@options[opt] || @options[opt] == 0 then nil else @options[opt] end
+    end
 
     # Send push to given agent through the mapper
     #
@@ -110,7 +154,7 @@ module RightScale
     # :secure(Boolean):: true indicates to use Security features of rabbitmq to restrict nanites to themselves
     #
     # === Return
-    # (MQ::Exchange):: AMQP exchange to which request is published
+    # true:: Always return true
     def push(type, payload = '', opts = {})
       raise "Mapper proxy not initialized" unless identity && @options
       push = Push.new(type, payload, opts)
@@ -119,6 +163,7 @@ module RightScale
       push.persistent = opts.key?(:persistent) ? opts[:persistent] : @options[:persistent]
       RightLinkLog.info("SEND #{push.to_s([:tags, :target])}")
       @amqp.queue('request', :no_declare => @options[:secure]).publish(@serializer.dump(push))
+      true
     end
 
     # Handle final result

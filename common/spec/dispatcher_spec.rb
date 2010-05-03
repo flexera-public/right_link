@@ -155,4 +155,8 @@ describe "RightScale::Dispatcher" do
     @dispatcher.dispatch(req)
   end
 
+  it "should reject requests that are too old" do
+    
+  end
+
 end # RightScale::Dispatcher

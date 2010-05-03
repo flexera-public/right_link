@@ -32,6 +32,7 @@ module RightScale
     ERROR = 1
     CONTINUE = 2
     RETRY = 3
+    TIMEOUT = 4
     
     # (Integer) Status code
     attr_accessor :status_code
@@ -98,7 +99,7 @@ module RightScale
     def self.continue(content=nil)
       OperationResult.new(CONTINUE, content)
     end
-    
+
     # Create new retry status
     #
     # === Parameters
@@ -109,7 +110,18 @@ module RightScale
     def self.retry(content=nil)
       OperationResult.new(RETRY, content)
     end
-    
+
+    # Create new timeout status
+    #
+    # === Parameters
+    # content(Object):: Any data associated with timeout - defaults to nil
+    #
+    # === Results
+    # result(OperationResult):: Corresponding result
+    def self.timeout(content=nil)
+      OperationResult.new(TIMEOUT, content)
+    end
+
     # Was last operation successful?
     #
     # === Results

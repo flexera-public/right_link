@@ -21,24 +21,27 @@
 #      --identity, -i ID        Use base id ID to build agent's identity
 #      --shared-queue, -q QUEUE Use QUEUE as input for agent in addition to identity queue
 #      --token, -t TOKEN        Use token TOKEN to build agent's identity
-#      --prefix, -r PREFIX:     Prefix nanite agent identity with PREFIX
-#      --user, -u USER:         Set agent AMQP username
-#      --password, -p PASS:     Set agent AMQP password
-#      --vhost, -v VHOST:       Set agent AMQP virtual host
-#      --port, -P PORT:         Set AMQP server port
-#      --host, -h HOST:         Set AMQP server host
-#      --alias ALIAS:           Use alias name for identity and base config
-#      --actors-dir, -a DIR:    Set directory containing actor classes
-#      --pid-dir, -z DIR:       Set directory containing pid file
-#      --monit, -w:             Generate monit configuration file
-#      --options, -o KEY=VAL:   Pass-through options
+#      --prefix, -r PREFIX      Prefix agent identity with PREFIX
+#      --user, -u USER          Set agent AMQP username
+#      --password, -p PASS      Set agent AMQP password
+#      --vhost, -v VHOST        Set agent AMQP virtual host
+#      --port, -P PORT          Set AMQP server port
+#      --host, -h HOST          Set AMQP server host
+#      --alias ALIAS            Use alias name for identity and base config
+#      --actors-dir, -a DIR     Set directory containing actor classes
+#      --pid-dir, -z DIR        Set directory containing pid file
+#      --monit, -w              Generate monit configuration file
+#      --options, -o KEY=VAL    Pass-through options
 #      --auto-shutdown          Shutdown server if it fails to get boot bundle in 45 minutes on first boot
-#      --http-proxy, -P PROXY:  Use a proxy for all agent-originated HTTP traffic
+#      --http-proxy, -P PROXY   Use a proxy for all agent-originated HTTP traffic
 #      --no-http-proxy          Comma-separated list of proxy exceptions
-#      --test:                  Build test deployment using default test settings
+#      --fresh_timeout SEC      Maximum age in seconds before a request times out and is rejected
+#      --retry_interval SEC     Number of seconds between request retries
+#      --retry_limit COUNT      Maximum number of request retries before timeout
+#      --test                   Build test deployment using default test settings
 #      --quiet, -Q              Do not produce output
-#      --help:                  Display help
-#      --version:               Display version information
+#      --help                   Display help
+#      --version                Display version information
 
 require 'optparse'
 require 'rdoc/ri/ri_paths' # For backwards compat with ruby 1.8.5
@@ -91,21 +94,25 @@ module RightScale
     # Generate configuration files
     def write_config(options)
       cfg = {}
-      cfg[:identity]      = options[:identity] if options[:identity]
-      cfg[:shared_queue]  = options[:shared_queue] if options[:shared_queue]
-      cfg[:pid_dir]       = options[:pid_dir] || '/var/run'
-      cfg[:user]          = options[:user] if options[:user]
-      cfg[:pass]          = options[:pass] if options[:pass]
-      cfg[:vhost]         = options[:vhost] if options[:vhost]
-      cfg[:port]          = options[:port] if options[:port]
-      cfg[:host]          = options[:host] if options[:host]
-      cfg[:initrb]        = options[:init_rb_path] if options[:init_rb_path]
-      cfg[:actors]        = options[:actors] if options[:actors]
-      cfg[:actors_dir]    = options[:actors_path] if options[:actors_path]
-      cfg[:format]        = 'secure'
-      cfg[:auto_shutdown] = options[:auto_shutdown] 
-      cfg[:http_proxy]    = options[:http_proxy] if options[:http_proxy]
-      cfg[:no_http_proxy] = options[:no_http_proxy] if options[:no_http_proxy]
+      cfg[:identity]       = options[:identity] if options[:identity]
+      cfg[:shared_queue]   = options[:shared_queue] if options[:shared_queue]
+      cfg[:pid_dir]        = options[:pid_dir] || '/var/run'
+      cfg[:user]           = options[:user] if options[:user]
+      cfg[:pass]           = options[:pass] if options[:pass]
+      cfg[:vhost]          = options[:vhost] if options[:vhost]
+      cfg[:port]           = options[:port] if options[:port]
+      cfg[:host]           = options[:host] if options[:host]
+      cfg[:initrb]         = options[:init_rb_path] if options[:init_rb_path]
+      cfg[:actors]         = options[:actors] if options[:actors]
+      cfg[:actors_dir]     = options[:actors_path] if options[:actors_path]
+      cfg[:format]         = 'secure'
+      cfg[:persistent]     = true
+      cfg[:fresh_timeout]  = options[:fresh_timeout] || 15 * 60
+      cfg[:retry_interval] = options[:retry_interval] || 3 * 60
+      cfg[:retry_limit]    = options[:retry_limit] || 5
+      cfg[:auto_shutdown]  = options[:auto_shutdown]
+      cfg[:http_proxy]     = options[:http_proxy] if options[:http_proxy]
+      cfg[:no_http_proxy]  = options[:no_http_proxy] if options[:no_http_proxy]
       options[:options].each { |k, v| cfg[k] = v } if options[:options]
 
       agent_dir = gen_agent_dir(options[:agent])
@@ -166,6 +173,18 @@ module RightScale
 
         opts.on('--no-http-proxy NOPROXY') do |no_proxy|
           options[:no_http_proxy] = no_proxy
+        end
+
+        opts.on('--fresh_timeout SEC') do |sec|
+          options[:fresh_timeout] = sec
+        end
+
+        opts.on('--retry_interval SEC') do |sec|
+          options[:retry_interval] = sec
+        end
+
+        opts.on('--retry_limit COUNT') do |count|
+          options[:retry_limit] = count
         end
 
         opts.on('-o', '--options OPT') do |e|

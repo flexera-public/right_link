@@ -52,6 +52,7 @@ module RightScale
     # identity(String):: Identity of associated agent
     #
     # === Options
+    # :fresh_timeout(Integer):: Maximum age in seconds before a request times out and is rejected
     # :secure(Boolean):: true indicates to use Security features of rabbitmq to restrict nanites to themselves
     # :single_threaded(Boolean):: true indicates to run all operations in one thread; false indicates
     #   to do requested work on event machine defer thread and all else, such as pings on main thread
@@ -69,6 +70,7 @@ module RightScale
     # Dispatch request to appropriate actor method for servicing
     # Work is done in background defer thread if :single_threaded option is false
     # Handles returning of result to requester including logging any exceptions
+    # Rejects requests that are too old
     #
     # === Parameters
     # deliverable(Packet):: Packet containing request
@@ -76,6 +78,17 @@ module RightScale
     # === Return
     # r(Result):: Result from dispatched request
     def dispatch(deliverable)
+      if (deliverable.respond_to?(:created_at) &&
+          (created_at = deliverable.created_at) &&
+          deliverable.created_at > 0 &&
+          (fresh_timeout = @options[:fresh_timeout]))
+        age = Time.now.to_i - created_at
+        if age > fresh_timeout
+          RightLinkLog.info("REJECT #{deliverable.type} because age #{age} > #{fresh_timeout} sec")
+          return nil
+        end
+      end
+
       prefix, meth = deliverable.type.split('/')[1..-1]
       meth ||= :index
       actor = registry.actor_for(prefix)
