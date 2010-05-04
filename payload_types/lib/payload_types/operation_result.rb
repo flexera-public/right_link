@@ -48,7 +48,7 @@ module RightScale
     # Instantiate from request results
     #
     # === Parameters
-    # results(Result):: Nanite Result OR a Hash taken from a Result's "results" field
+    # results(Result):: Result OR a Hash taken from a Result's "results" field
     #
     # === Return
     # result(RightScale::OperationResult):: Converted operation result
@@ -147,6 +147,15 @@ module RightScale
     # false:: Otherwise
     def retry?
       status_code == RETRY
+    end
+
+    # Was last operation status TIMEOUT?
+    #
+    # === Results
+    # true:: If status is TIMEOUT
+    # false:: Otherwise
+    def timeout?
+      status_code == TIMEOUT
     end
 
     # Array of serialized fields given to constructor

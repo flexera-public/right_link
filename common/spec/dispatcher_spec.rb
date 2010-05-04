@@ -82,11 +82,11 @@ describe "RightScale::Dispatcher" do
   before(:each) do
     flexmock(RightScale::RightLinkLog).should_receive(:info)
     flexmock(RightScale::RightLinkLog).should_receive(:error).by_default
-    amq = flexmock('amq', :queue => flexmock('queue', :publish => nil))
+    @amq = flexmock('amq', :queue => flexmock('queue', :publish => nil))
     @actor = Foo.new
     @registry = RightScale::ActorRegistry.new
     @registry.register(@actor, nil)
-    @dispatcher = RightScale::Dispatcher.new(amq, @registry, RightScale::Serializer.new(:marshal), '0xfunkymonkey', {})
+    @dispatcher = RightScale::Dispatcher.new(@amq, @registry, RightScale::Serializer.new(:marshal), '0xfunkymonkey', {})
     @dispatcher.evmclass = EMMock
   end
 
@@ -155,8 +155,45 @@ describe "RightScale::Dispatcher" do
     @dispatcher.dispatch(req)
   end
 
-  it "should reject requests that are too old" do
-    
+  it "should reject requests that are stale" do
+    @dispatcher = RightScale::Dispatcher.new(@amq, @registry, RightScale::Serializer.new(:marshal),
+                                             '0xfunkymonkey', :fresh_timeout => 15)
+    @dispatcher.evmclass = EMMock
+    req = RightScale::Request.new('/foo/bar', 'you', :created_at => (Time.now.to_i - 16))
+    @dispatcher.dispatch(req).should == nil
+  end
+
+  it "should not reject requests that are fresh" do
+    @dispatcher = RightScale::Dispatcher.new(@amq, @registry, RightScale::Serializer.new(:marshal),
+    '0xfunkymonkey', :fresh_timeout => 15)
+    @dispatcher.evmclass = EMMock
+    req = RightScale::Request.new('/foo/bar', 'you', :created_at => (Time.now.to_i - 14))
+    res = @dispatcher.dispatch(req)
+    res.should(be_kind_of(RightScale::Result))
+    res.token.should == req.token
+    res.results.should == ['hello', 'you']
+  end
+
+  it "should not check age of requests if no fresh_timeout" do
+    @dispatcher = RightScale::Dispatcher.new(@amq, @registry, RightScale::Serializer.new(:marshal),
+                                             '0xfunkymonkey', :fresh_timeout => nil)
+    @dispatcher.evmclass = EMMock
+    req = RightScale::Request.new('/foo/bar', 'you', :created_at => (Time.now.to_i - 15))
+    res = @dispatcher.dispatch(req)
+    res.should(be_kind_of(RightScale::Result))
+    res.token.should == req.token
+    res.results.should == ['hello', 'you']
+  end
+
+  it "should not check age of requests with created_at value of 0" do
+    @dispatcher = RightScale::Dispatcher.new(@amq, @registry, RightScale::Serializer.new(:marshal),
+                                             '0xfunkymonkey', :fresh_timeout => 15)
+    @dispatcher.evmclass = EMMock
+    req = RightScale::Request.new('/foo/bar', 'you', :created_at => 0)
+    res = @dispatcher.dispatch(req)
+    res.should(be_kind_of(RightScale::Result))
+    res.token.should == req.token
+    res.results.should == ['hello', 'you']
   end
 
 end # RightScale::Dispatcher

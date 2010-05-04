@@ -70,7 +70,7 @@ module RightScale
     # Dispatch request to appropriate actor method for servicing
     # Work is done in background defer thread if :single_threaded option is false
     # Handles returning of result to requester including logging any exceptions
-    # Rejects requests that are too old
+    # Rejects requests that are not fresh enough
     #
     # === Parameters
     # deliverable(Packet):: Packet containing request
@@ -78,10 +78,7 @@ module RightScale
     # === Return
     # r(Result):: Result from dispatched request
     def dispatch(deliverable)
-      if (deliverable.respond_to?(:created_at) &&
-          (created_at = deliverable.created_at) &&
-          deliverable.created_at > 0 &&
-          (fresh_timeout = @options[:fresh_timeout]))
+      if (created_at = deliverable.created_at) > 0 && (fresh_timeout = @options[:fresh_timeout])
         age = Time.now.to_i - created_at
         if age > fresh_timeout
           RightLinkLog.info("REJECT #{deliverable.type} because age #{age} > #{fresh_timeout} sec")

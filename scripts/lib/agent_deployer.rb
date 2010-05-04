@@ -109,7 +109,7 @@ module RightScale
       cfg[:persistent]     = true
       cfg[:fresh_timeout]  = options[:fresh_timeout] || 15 * 60
       cfg[:retry_interval] = options[:retry_interval] || 3 * 60
-      cfg[:retry_limit]    = options[:retry_limit] || 5
+      cfg[:retry_limit]    = options[:retry_limit] || 4
       cfg[:auto_shutdown]  = options[:auto_shutdown]
       cfg[:http_proxy]     = options[:http_proxy] if options[:http_proxy]
       cfg[:no_http_proxy]  = options[:no_http_proxy] if options[:no_http_proxy]

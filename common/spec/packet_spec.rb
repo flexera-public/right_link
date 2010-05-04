@@ -80,6 +80,7 @@ describe "Packet: Request" do
     packet.from.should == packet2.from
     packet.token.should == packet2.token
     packet.reply_to.should == packet2.reply_to
+    packet.created_at.should == packet2.created_at
   end
 
   it "should dump/load as Marshalled ruby objects" do
@@ -90,29 +91,30 @@ describe "Packet: Request" do
     packet.from.should == packet2.from
     packet.token.should == packet2.token
     packet.reply_to.should == packet2.reply_to
+    packet.created_at.should == packet2.created_at
   end
 end
 
 
-describe "Packet: TagQuery" do
+describe "Packet: Push" do
   it "should dump/load as JSON objects" do
-    packet = RightScale::TagQuery.new('from', :token => '0xdeadbeef', :tags => [ 'one', 'two'] , :agent_ids => [ 'some_agent', 'some_other_agent'])
+    packet = RightScale::Push.new('/some/foo', 'payload', :from => 'from', :token => '0xdeadbeef')
     packet2 = JSON.parse(packet.to_json)
+    packet.type.should == packet2.type
+    packet.payload.should == packet2.payload
     packet.from.should == packet2.from
     packet.token.should == packet2.token
-    packet.tags.should == packet2.tags
-    packet.agent_ids.should == packet2.agent_ids
-    packet.persistent.should == packet2.persistent
+    packet.created_at.should == packet2.created_at
   end
 
   it "should dump/load as Marshalled ruby objects" do
-    packet = RightScale::TagQuery.new('from', :token => '0xdeadbeef', :tags => [ 'one', 'two'] , :agent_ids => [ 'some_agent', 'some_other_agent'])
+    packet = RightScale::Push.new('/some/foo', 'payload', :from => 'from', :token => '0xdeadbeef')
     packet2 = Marshal.load(Marshal.dump(packet))
+    packet.type.should == packet2.type
+    packet.payload.should == packet2.payload
     packet.from.should == packet2.from
     packet.token.should == packet2.token
-    packet.tags.should == packet2.tags
-    packet.agent_ids.should == packet2.agent_ids
-    packet.persistent.should == packet2.persistent
+    packet.created_at.should == packet2.created_at
   end
 end
 
@@ -197,5 +199,60 @@ describe "Packet: Ping" do
     packet2 = Marshal.load(Marshal.dump(packet))
     packet.identity.should == packet2.identity
     packet.status.should == packet2.status
+  end
+end
+
+
+describe "Packet: Advertise" do
+  it "should dump/load as JSON objects" do
+    packet = RightScale::Advertise.new
+    packet2 = JSON.parse(packet.to_json)
+  end
+
+  it "should dump/load as Marshalled ruby objects" do
+    packet = RightScale::Advertise.new
+    packet2 = Marshal.load(Marshal.dump(packet))
+  end
+end
+
+
+describe "Packet: TagUpdate" do
+  it "should dump/load as JSON objects" do
+    packet = RightScale::TagUpdate.new('from', [ 'one', 'two'] , [ 'zero'])
+    packet2 = JSON.parse(packet.to_json)
+    packet.identity.should == packet2.identity
+    packet.new_tags.should == packet2.new_tags
+    packet.obsolete_tags.should == packet2.obsolete_tags
+  end
+
+  it "should dump/load as Marshalled ruby objects" do
+    packet = RightScale::TagUpdate.new('from', [ 'one', 'two'] , [ 'zero'])
+    packet2 = Marshal.load(Marshal.dump(packet))
+    packet.identity.should == packet2.identity
+    packet.new_tags.should == packet2.new_tags
+    packet.obsolete_tags.should == packet2.obsolete_tags
+  end
+end
+
+
+describe "Packet: TagQuery" do
+  it "should dump/load as JSON objects" do
+    packet = RightScale::TagQuery.new('from', :token => '0xdeadbeef', :tags => [ 'one', 'two'] , :agent_ids => [ 'some_agent', 'some_other_agent'])
+    packet2 = JSON.parse(packet.to_json)
+    packet.from.should == packet2.from
+    packet.token.should == packet2.token
+    packet.tags.should == packet2.tags
+    packet.agent_ids.should == packet2.agent_ids
+    packet.persistent.should == packet2.persistent
+  end
+
+  it "should dump/load as Marshalled ruby objects" do
+    packet = RightScale::TagQuery.new('from', :token => '0xdeadbeef', :tags => [ 'one', 'two'] , :agent_ids => [ 'some_agent', 'some_other_agent'])
+    packet2 = Marshal.load(Marshal.dump(packet))
+    packet.from.should == packet2.from
+    packet.token.should == packet2.token
+    packet.tags.should == packet2.tags
+    packet.agent_ids.should == packet2.agent_ids
+    packet.persistent.should == packet2.persistent
   end
 end

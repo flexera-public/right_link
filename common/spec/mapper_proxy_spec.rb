@@ -71,7 +71,6 @@ describe RightScale::MapperProxy do
         request = @instance.serializer.load(request)
         request.class.should == RightScale::Request
       end).once
-      
       @instance.request('/welcome/aboard', 'iZac'){|response|}
     end
     
@@ -82,7 +81,6 @@ describe RightScale::MapperProxy do
         request.persistent.should_not == true
         request.from.should == 'mapperproxy'
       end).once
-      
       @instance.request('/welcome/aboard', 'iZac'){|response|}
     end
     
@@ -91,7 +89,6 @@ describe RightScale::MapperProxy do
         request = @instance.serializer.load(request)
         request.persistent.should == true
       end).once
-      
       @instance.request('/welcome/aboard', 'iZac', :persistent => true){|response|}
     end
     
@@ -100,7 +97,6 @@ describe RightScale::MapperProxy do
         request = @instance.serializer.load(request)
         request.target.should == 'my-target'
       end).once
-      
       @instance.request('/welcome/aboard', 'iZac', :target => 'my-target'){|response|}
     end
     
@@ -110,7 +106,6 @@ describe RightScale::MapperProxy do
         request = @instance.serializer.load(request)
         request.persistent.should == true
       end).once
-      
       @instance.request('/welcome/aboard', 'iZac'){|response|}
     end
 
@@ -118,8 +113,108 @@ describe RightScale::MapperProxy do
       result_handler = lambda {}
       flexmock(RightScale::AgentIdentity).should_receive(:generate).and_return('abc').once
       @instance.request('/welcome/aboard', 'iZac',{}, &result_handler)
-      
       @instance.pending_requests['abc'][:result_handler].should == result_handler
+    end
+
+    describe "with retry" do
+      it "should convert retry option to nil if 0" do
+        RightScale::MapperProxy.new('mapperproxy', :retry_interval => 0)
+        @instance = RightScale::MapperProxy.instance
+        @instance.__send__(:nil_if_zero, :retry_interval).should == nil
+      end
+
+      it "should not convert retry option to nil if not 0" do
+        RightScale::MapperProxy.new('mapperproxy', :retry_interval => 1)
+        @instance = RightScale::MapperProxy.instance
+        @instance.__send__(:nil_if_zero, :retry_interval).should == 1
+      end
+
+      it "should leave retry option as nil if nil" do
+        RightScale::MapperProxy.new('mapperproxy', :retry_interval => nil)
+        @instance = RightScale::MapperProxy.instance
+        @instance.__send__(:nil_if_zero, :retry_interval).should == nil
+      end
+
+      it "should not setup for retry if retry_interval nil" do
+        flexmock(EM).should_receive(:add_timer).never
+        RightScale::MapperProxy.new('mapperproxy', :retry_interval => nil)
+        @instance = RightScale::MapperProxy.instance
+        @queue.should_receive(:publish).once
+        @instance.request('/welcome/aboard', 'iZac') {|response|}
+      end
+
+      it "should not setup for retry if retry_limit nil" do
+        flexmock(EM).should_receive(:add_timer).never
+        RightScale::MapperProxy.new('mapperproxy', :retry_limit => nil)
+        @instance = RightScale::MapperProxy.instance
+        @queue.should_receive(:publish).once
+        @instance.request('/welcome/aboard', 'iZac') {|response|}
+      end
+
+      it "should setup for retry if retry_interval and retry_limit not nil" do
+        flexmock(EM).should_receive(:add_timer).with(180, any).once
+        RightScale::MapperProxy.new('mapperproxy', :retry_interval => 180, :retry_limit => 4)
+        @instance = RightScale::MapperProxy.instance
+        @queue.should_receive(:publish).once
+        @instance.request('/welcome/aboard', 'iZac') {|response|}
+      end
+
+      it "should succeed after retrying once" do
+        EM.run do
+          token = 'abc'
+          result = RightScale::OperationResult.timeout
+          flexmock(RightScale::AgentIdentity).should_receive(:generate).and_return(token).once
+          flexmock(RightScale::RightLinkLog).should_receive(:info).twice
+          RightScale::MapperProxy.new('mapperproxy', :retry_interval => 0.2, :retry_limit => 2)
+          @instance = RightScale::MapperProxy.instance
+          @queue.should_receive(:publish).twice
+          @instance.request('/welcome/aboard', 'iZac') do |response|
+            result = RightScale::OperationResult.from_results(response)
+          end
+          EM.add_timer(0.3) do
+            @instance.handle_result(RightScale::Result.new(token, nil, {'from' => RightScale::OperationResult.success}, nil))
+          end
+          EM.add_timer(1) do
+            EM.stop
+            result.success?.should == true
+          end
+        end
+      end
+
+      it "should timeout after retrying twice" do
+        EM.run do
+          result = RightScale::OperationResult.success
+          flexmock(RightScale::RightLinkLog).should_receive(:info).times(3)
+          flexmock(RightScale::RightLinkLog).should_receive(:warn).once
+          RightScale::MapperProxy.new('mapperproxy', :retry_interval => 0.2, :retry_limit => 2)
+          @instance = RightScale::MapperProxy.instance
+          @queue.should_receive(:publish).times(3)
+          @instance.request('/welcome/aboard', 'iZac') do |response|
+            result = RightScale::OperationResult.from_results(response)
+          end
+          EM.add_timer(1) do
+            EM.stop
+            result.timeout?.should == true
+            result.content.should == "Timeout after 0.6 seconds and 3 attempts"
+          end
+        end
+      end
+
+      it "should retry with same request created_at value" do
+        EM.run do
+          token = 'abc'
+          created_at = 1000
+          flexmock(RightScale::AgentIdentity).should_receive(:generate).and_return(token).once
+          RightScale::MapperProxy.new('mapperproxy', :retry_interval => 0.2, :retry_limit => 1)
+          @instance = RightScale::MapperProxy.instance
+          @queue.should_receive(:publish).with(on do |request|
+            request = @instance.serializer.load(request)
+            request.created_at.should == created_at
+          end).twice
+          @instance.request('/welcome/aboard', 'iZac', :created_at => created_at) {|response|}
+          EM.add_timer(0.5) { EM.stop }
+        end
+      end
     end
   end
 

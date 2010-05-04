@@ -503,7 +503,7 @@ module RightScale
     #
     # === Parameters
     # size(Integer):: Size of request in bytes used only for marshalling
-    def initialize(size=nil)
+    def initialize(size = nil)
       @size = size
     end
     
@@ -530,8 +530,8 @@ module RightScale
     #
     # === Parameters
     # identity(String):: Sender identity
-    # new_tags(Array of Symbol):: List of new tags
-    # obsolete_tags(Array of Symbol):: List of tags to be deleted
+    # new_tags(Array):: List of new tags
+    # obsolete_tags(Array):: List of tags to be deleted
     # size(Integer):: Size of request in bytes used only for marshalling
     def initialize(identity, new_tags, obsolete_tags, size = nil)
       @identity      = identity

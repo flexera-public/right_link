@@ -99,49 +99,6 @@ module RightScale
       true
     end
 
-    # Send request with retry if do not receive a result in time
-    # Send timeout and delete pending request if reach retry limit
-    #
-    # === Parameters
-    # request(Request):: Request to be sent
-    # retry_interval(Integer):: Number of seconds to wait before retrying, nil means never retry
-    # retry_limit(Integer):: Maximum number of retries, nil means never retry
-    # retry_count(Integer):: Number of retries so far
-    #
-    # === Return
-    # true:: Always return true
-    def request_with_retry(request, retry_interval, retry_limit, retry_count)
-      @amqp.queue('request', :no_declare => @options[:secure]).publish(@serializer.dump(request))
-
-      if retry_interval && retry_limit
-        if retry_count <= retry_limit
-          EM.add_timer(retry_interval) do
-            if @pending_requests[request.token]
-              RightLinkLog.info("RESEND ##{retry_count} #{request.to_s([:tags, :target])}")
-              request_with_retry(request, retry_interval, retry_limit, retry_count + 1)
-            end
-          end
-        else
-          RightLinkLog.info("RESEND END #{request.to_s([:tags, :target])}")
-          timeout = @options[:retry_interval] * (@options[:retry_limit] + 1)
-          result = OperationResult.timeout("Timed out after #{timeout} seconds and #{@options[:retry_limit] + 1} attempts")
-          handle_result(Result.new(request.token, request.reply_to, result, @options[:identity]))
-        end
-      end
-      true
-    end
-
-    # Convert option value to nil if equals 0
-    #
-    # === Parameters
-    # opt(Symbol):: Option symbol whose option value is nil or an integer
-    #
-    # === Return
-    # (Integer):: Converted option value
-    def nil_if_zero(opt)
-      if !@options[opt] || @options[opt] == 0 then nil else @options[opt] end
-    end
-
     # Send push to given agent through the mapper
     #
     # === Parameters
@@ -177,6 +134,85 @@ module RightScale
       handlers = @pending_requests.delete(res.token)
       handlers[:result_handler].call(res) if handlers && handlers[:result_handler]
       true
+    end
+
+    protected
+
+    # Send request with retry if do not receive a result in time
+    # Send timeout and delete pending request if reach retry limit
+    #
+    # === Parameters
+    # request(Request):: Request to be sent
+    # retry_interval(Numeric):: Number of seconds to wait before retrying, nil means never retry
+    # retry_limit(Integer):: Maximum number of retries, nil means never retry
+    # retry_count(Integer):: Number of retries so far
+    #
+    # === Return
+    # true:: Always return true
+    def request_with_retry(request, retry_interval, retry_limit, retry_count)
+      @amqp.queue('request', :no_declare => @options[:secure]).publish(@serializer.dump(request))
+
+      if retry_interval && retry_limit
+        add_timer(retry_interval) do
+          if @pending_requests[request.token]
+            if retry_count < retry_limit
+              RightLinkLog.info("RESEND ##{retry_count} #{request.to_s([:tags, :target])}")
+              request_with_retry(request, retry_interval, retry_limit, retry_count + 1)
+            else
+              RightLinkLog.warn("TIMEOUT #{request.to_s([:tags, :target])}")
+              attempts = retry_limit + 1
+              timeout = retry_interval * attempts
+              result = OperationResult.timeout("Timeout after #{timeout} seconds and #{attempts} attempts")
+              from = @options[:identity]
+              handle_result(Result.new(request.token, request.reply_to, {from => result}, from))
+            end
+          end
+        end
+      end
+      true
+    end
+
+    # Add a one-shot timer to the EM event loop
+    # Execute block on thread used by the Dispatcher so that all shared data is accessed
+    # from the same thread, with option :single_threaded indicating the thread to use
+    # Log an error if the block fails
+    #
+    # === Parameters
+    # delay(Integer):: Seconds to delay before executing block
+    #
+    # === Block
+    # Code to be executed after the delay; must be provided
+    #
+    # === Return
+    # true:: Always return true
+    def add_timer(delay)
+      blk = Proc.new do
+        begin
+          yield
+        rescue Exception => e
+          RightLinkLog.error("Time-delayed task failed with #{e.class.name}: #{e.message}\n #{e.backtrace.join("\n")}")
+        end
+      end
+
+      EM.add_timer(delay) do
+        if @options[:single_threaded]
+          blk.call
+        else
+          EM.defer { blk.call }
+        end
+      end
+      true
+    end
+
+    # Convert option value to nil if equals 0
+    #
+    # === Parameters
+    # opt(Symbol):: Option symbol whose option value is nil or an integer
+    #
+    # === Return
+    # (Integer):: Converted option value
+    def nil_if_zero(opt)
+      if !@options[opt] || @options[opt] == 0 then nil else @options[opt] end
     end
 
   end # MapperProxy

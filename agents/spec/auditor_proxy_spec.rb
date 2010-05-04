@@ -59,7 +59,7 @@ describe RightScale::AuditorProxy do
 
   it 'should honor the event category' do
     flexmock(RightScale::RightLinkLog).should_receive(:info).once.with("*RS> STATUS")
-    @forwarder.should_receive(:push).once.and_return do |_, options| 
+    @forwarder.should_receive(:push).once.and_return do |_, options|
       options[:text].should == 'STATUS'
       options[:category].should == RightScale::EventCategories::CATEGORY_SECURITY
       EM.stop
@@ -87,6 +87,15 @@ describe RightScale::AuditorProxy do
     flexmock(RightScale::RightLinkLog).should_receive(:info).once.with("*RS> INFO")
     @forwarder.should_receive(:push).once.and_return { |*_| EM.stop }
     EM.run { @proxy.append_info('INFO'); EM.add_timer(PROXY_TIMEOUT) { EM.stop; raise 'timeout' } }
+  end
+
+  it 'should not send audits with persistence' do
+    flexmock(RightScale::RightLinkLog).should_receive(:error).once.with("*ERROR> ERROR")
+    @forwarder.should_receive(:push).once.and_return do |_, _, opts|
+      opts[:persistent].should == false
+      EM.stop
+    end
+    EM.run { @proxy.append_error('ERROR'); EM.add_timer(PROXY_TIMEOUT) { EM.stop; raise 'timeout' } }
   end
 
 end
