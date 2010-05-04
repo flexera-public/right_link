@@ -24,10 +24,10 @@
 module Apt
 
   module Ubuntu
-    SUPPORTED_REPOS = ['hardy', 'intrepid', 'jaunty', 'karmic']
+    SUPPORTED_REPOS = ['hardy', 'intrepid', 'jaunty', 'karmic', 'lucid' ]
     
     # The different generate classes will always generate an exception ("string") if there's anything that went wrong. If no exception, things went well.
-    [ 'Hardy', 'Intrepid', 'Jaunty', 'Karmic' ].each do |c|
+    [ 'Hardy', 'Intrepid', 'Jaunty', 'Karmic' , 'Lucid' ].each do |c|
       module_eval <<-EOS
         class #{c}
           def self.generate(description, base_urls, frozen_date="latest")
