@@ -242,6 +242,11 @@ class InstanceSetup
       else
         @auditor.append_info("Tags discovered on startup: '#{tags.join("', '")}'")
       end
+      if @suicide_timer && !tags.include?('rs_launch:type=auto')
+        # Someone removed the tag explicitely, cancel the timer
+        @suicide_timer.cancel
+        @suicide_timer = nil
+      end
       options = { :agent_identity => @agent_identity, :audit_id => @auditor.audit_id }
       request("/booter/get_boot_bundle", options) do |r|
         res = RightScale::OperationResult.from_results(r)
