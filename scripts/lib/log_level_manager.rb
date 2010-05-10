@@ -31,7 +31,7 @@ require 'optparse'
 require 'rdoc/ri/ri_paths' # For backwards compat with ruby 1.8.5
 require 'rdoc/usage'
 require 'rdoc_patch'
-require 'command_client'
+require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'command_protocol', 'lib', 'command_protocol'))
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'actors', 'lib', 'agent_manager'))
 
 module RightScale
@@ -51,7 +51,7 @@ module RightScale
       level = options[:level]
       cmd = { :name => (level ? 'set_log_level' : 'get_log_level') }
       cmd[:level] = level.to_sym if level
-      client = CommandClient.new
+      client = CommandClient.new(RightScale::CommandConstants::INSTANCE_AGENT_SOCKET_PORT)
       begin
         client.send_command(cmd, options[:verbose]) do |lvl|
           puts "Agent log level: #{lvl.to_s.upcase}"

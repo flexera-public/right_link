@@ -67,6 +67,7 @@ module RightScale
       :fresh_timeout => nil,
       :retry_interval => nil,
       :retry_limit => nil,
+      :prefetch => nil,
       :ping_time => 15,
       :default_services => []
     }) unless defined?(DEFAULT_OPTIONS)
@@ -106,6 +107,9 @@ module RightScale
     # :fresh_timeout(Numeric):: Maximum age in seconds before a request times out and is rejected
     # :retry_interval(Numeric):: Number of seconds between request retries
     # :retry_limit(Integer):: Maximum number of request retries before timeout
+    # :prefetch(Integer):: Maximum number of messages the AMQP broker is to prefetch for this agent
+    #   before it receives an ack. Value 1 ensures that only last unacknowledged gets redelivered
+    #   if the agent crashes. Value 0 means unlimited prefetch.
     # :callbacks(Hash):: Callbacks to be executed on specific events. Key is event (currently
     #   only :exception is supported) and value is the Proc to be called back. For :exception
     #   the parameters are exception, message being processed, and reference to agent. It gets called
@@ -308,7 +312,22 @@ module RightScale
         @dispatcher.dispatch(packet)
       when Result
         RightLinkLog.info("RECV #{packet.to_s([])}") unless RightLinkLog.level == :debug
-        @mapper_proxy.handle_result(packet)
+
+        # Use defer thread instead of primary if not :single_threaded, consistent with dispatcher,
+        # so that all shared data is accessed from the same thread
+        # Do callback if there is an exception, consistent with identity queue handling
+        if @options[:single_threaded]
+          @mapper_proxy.handle_result(packet)
+        else
+          EM.defer do
+            begin
+              @mapper_proxy.handle_result(packet)
+            rescue Exception => e
+              RightLinkLog.error("RECV #{e.message}")
+              @callbacks[:exception].call(e, msg, self) rescue nil if @callbacks && @callbacks[:exception]
+            end
+          end
+        end
       else
         RightLinkLog.error("Agent #{@identity} received invalid packet: #{packet.to_s}")
       end
@@ -318,7 +337,7 @@ module RightScale
     # Receive and process a Request or Push packet; any other type is invalid
     #
     # === Parameters
-    # packet(Packet>:: Packet to receive
+    # packet(Packet):: Packet to receive
     #
     # === Return
     # true:: Always return true
@@ -339,6 +358,10 @@ module RightScale
     # === Return
     # true:: Always return true
     def setup_queues
+      if @amq.respond_to?(:prefetch) && @options.has_key?(:prefetch)
+        @amq.prefetch(@options[:prefetch])
+      end
+
       setup_identity_queue
       setup_shared_queue if @shared_queue
       true
@@ -362,12 +385,12 @@ module RightScale
 
       binding.subscribe(:ack => true) do |info, msg|
         begin
+          # Ack before processing to avoid risk of duplication after a crash
+          info.ack
           receive_any(@serializer.load(msg))
         rescue Exception => e
           RightLinkLog.error("RECV #{e.message}")
           @callbacks[:exception].call(e, msg, self) rescue nil if @callbacks && @callbacks[:exception]
-        ensure
-          info.ack
         end
       end
     end
@@ -380,12 +403,12 @@ module RightScale
     def setup_shared_queue
       @amq.queue(@shared_queue).subscribe(:ack => true) do |info, msg|
         begin
+          # Ack before processing to avoid risk of duplication after a crash
+          info.ack
           receive_request(@serializer.load(msg))
         rescue Exception => e
           RightLinkLog.error("RECV #{e.message}")
           @callbacks[:exception].call(e, msg, self) rescue nil if @callbacks && @callbacks[:exception]
-        ensure
-          info.ack
         end
       end
       true

@@ -74,10 +74,9 @@ require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'config',
 require File.join(File.dirname(__FILE__), 'agent_utils')
 require File.join(File.dirname(__FILE__), 'common_parser')
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'agents', 'lib', 'instance', 'instance_state'))
-require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'common', 'lib', 'common', 'agent', 'actor'))
-require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'common', 'lib', 'common', 'right_link_log'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'common', 'lib', 'common'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'command_protocol', 'lib', 'command_protocol'))
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'actors', 'lib', 'agent_manager'))
-require File.join(File.dirname(__FILE__), 'command_client')
 
 module RightScale
 
@@ -306,7 +305,7 @@ module RightScale
     def run_command(msg, name)
       puts msg
       begin
-        @client = CommandClient.new
+        @client = CommandClient.new(RightScale::CommandConstants::INSTANCE_AGENT_SOCKET_PORT)
         @client.send_command({ :name => name }, verbose=false, timeout=100) { |r| puts r }
       rescue Exception => e
         puts "Failed or else time limit was exceeded (#{e.message}).\nConfirm that the local instance is still running."
@@ -390,7 +389,7 @@ module RightScale
         if File.file?(pid_file.to_s)
           puts "Invalid pid file '#{pid_file.to_s}' content: #{IO.read(pid_file.to_s)}"
         else
-          puts "Non-existant pid file '#{pid_file.to_s}'"
+          puts "Non-existent pid file '#{pid_file.to_s}'"
         end
       end
       res

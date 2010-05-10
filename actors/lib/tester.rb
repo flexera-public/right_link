@@ -19,16 +19,39 @@
 # LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-#
 
-module RightScale
+class Tester
 
-  class CommandConstants
+  include RightScale::Actor
 
-    # Ports used for command protocol
-    INSTANCE_AGENT_SOCKET_PORT = 60000
-    CORE_AGENT_SOCKET_PORT = 60001
-    TEST_SOCKET_PORT = 60002
+  expose :test_ack, :test_persistent
 
+  # Receive test_ack command by exiting process if requested
+  #
+  # === Options
+  # :index(Integer):: Message index
+  # :exit(Boolean):: Whether to exit process
+  #
+  # === Return
+  # true:: Always return true
+  def test_ack(options)
+    options = RightScale::SerializationHelper.symbolize_keys(options)
+    RightScale::RightLinkLog.info("Received test_ack request, index = #{options[:index]} exit = #{options[:exit]}")
+    Process.exit! if options[:exit]
+    true
   end
+
+  # Receive test_persistent command and respond with success
+  #
+  # === Options
+  # :index(Integer):: Message index
+  #
+  # === Return
+  # (OperationResult):: Always return success
+  def test_persistent(options)
+    options = RightScale::SerializationHelper.symbolize_keys(options)
+    RightScale::RightLinkLog.info("Received test_persistent request, index = #{options[:index]}")
+    RightScale::OperationResult.success(options[:index])
+  end
+
 end

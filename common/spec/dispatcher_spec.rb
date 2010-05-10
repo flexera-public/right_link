@@ -159,7 +159,7 @@ describe "RightScale::Dispatcher" do
     @dispatcher = RightScale::Dispatcher.new(@amq, @registry, RightScale::Serializer.new(:marshal),
                                              '0xfunkymonkey', :fresh_timeout => 15)
     @dispatcher.evmclass = EMMock
-    req = RightScale::Request.new('/foo/bar', 'you', :created_at => (Time.now.to_i - 16))
+    req = RightScale::Request.new('/foo/bar', 'you', :created_at => (Time.now.to_f - 16))
     @dispatcher.dispatch(req).should == nil
   end
 
@@ -167,7 +167,7 @@ describe "RightScale::Dispatcher" do
     @dispatcher = RightScale::Dispatcher.new(@amq, @registry, RightScale::Serializer.new(:marshal),
     '0xfunkymonkey', :fresh_timeout => 15)
     @dispatcher.evmclass = EMMock
-    req = RightScale::Request.new('/foo/bar', 'you', :created_at => (Time.now.to_i - 14))
+    req = RightScale::Request.new('/foo/bar', 'you', :created_at => (Time.now.to_f - 14))
     res = @dispatcher.dispatch(req)
     res.should(be_kind_of(RightScale::Result))
     res.token.should == req.token
@@ -178,7 +178,7 @@ describe "RightScale::Dispatcher" do
     @dispatcher = RightScale::Dispatcher.new(@amq, @registry, RightScale::Serializer.new(:marshal),
                                              '0xfunkymonkey', :fresh_timeout => nil)
     @dispatcher.evmclass = EMMock
-    req = RightScale::Request.new('/foo/bar', 'you', :created_at => (Time.now.to_i - 15))
+    req = RightScale::Request.new('/foo/bar', 'you', :created_at => (Time.now.to_f - 15))
     res = @dispatcher.dispatch(req)
     res.should(be_kind_of(RightScale::Result))
     res.token.should == req.token

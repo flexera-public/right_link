@@ -44,9 +44,11 @@ register setup = InstanceSetup.new(options)
 register scheduler = InstanceScheduler.new(self)
 register AgentManager.new
 register InstanceServices.new(options[:identity])
+register Tester.new
 
 # Start command runner to enable running RightScripts and recipes from the command line
-RightScale::CommandRunner.start(options[:identity], scheduler)
+RightScale::CommandRunner.start(RightScale::CommandConstants::INSTANCE_AGENT_SOCKET_PORT,
+                                InstanceCommands.get(options[:identity], scheduler))
 
 # Load environment code if present
 # The file 'right_link_env.rb' should be generated before the RightLink

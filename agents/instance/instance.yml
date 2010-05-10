@@ -3,3 +3,4 @@ actors:
   - instance_scheduler
   - agent_manager
   - instance_services
+  - tester

@@ -41,7 +41,7 @@
 
 $:.push(File.dirname(__FILE__))
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'config', 'right_link_config'))
-require 'command_client'
+require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'command_protocol', 'lib', 'command_protocol'))
 require 'optparse'
 require 'rdoc/ri/ri_paths' # For backwards compat with ruby 1.8.5
 require 'rdoc/usage'
@@ -66,7 +66,7 @@ module RightScale
       fail('Missing identity or name argument', true) unless options[:id] || options[:name]
       cmd = { :options => to_forwarder_options(options) }
       cmd[:name] = options[:bundle_type] == :right_script ? 'run_right_script' : 'run_recipe'
-      client = CommandClient.new
+      client = CommandClient.new(RightScale::CommandConstants::INSTANCE_AGENT_SOCKET_PORT)
       begin
         client.send_command(cmd, options[:verbose], options[:timeout] || 20) { |r| puts r }
       rescue Exception => e

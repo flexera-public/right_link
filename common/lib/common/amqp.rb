@@ -81,6 +81,8 @@ begin
         mqs.each{ |_,mq| mq.reset } if mqs
 
         @reconnecting = true
+        @reconnect_try = 0
+        @reconnect_log = :warn
 
         again = @settings[:retry]
         again = again.call if again.is_a?(Proc)
@@ -94,6 +96,11 @@ begin
         end
       end
 
+      if (@reconnect_try % 30) == 0
+        RightScale::RightLinkLog.send(@reconnect_log, ["Reconnecting to AMQP broker #{@settings[:host]}:#{@settings[:port]}"])
+        @reconnect_log = :error if (@reconnect_try % 300) == 0
+      end
+      @reconnect_try += 1
       log 'reconnecting'
       EM.reconnect(@settings[:host], @settings[:port], self)
     end
@@ -113,7 +120,7 @@ module RightScale
         :host => options[:host],
         :port => (options[:port] || ::AMQP::PORT).to_i,
         :insist => options[:insist] || false,
-        :retry => options[:retry] || 15 )
+        :retry => options[:retry] || 10 )
       MQ.new(connection)
     end
   end

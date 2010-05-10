@@ -153,7 +153,7 @@ module RightScale
     #   :target(String):: Target nanite for the request
     #   :persistent(Boolean):: Indicates if this request should be saved to persistent storage
     #     by the AMQP broker
-    #   :created_at(Integer):: Time in seconds when this request was created for use in timing
+    #   :created_at(Numeric):: Time in seconds when this request was created for use in timing
     #     out the request; value 0 means never timeout; defaults to current time
     #   :tags(Array of Symbol):: List of tags to be used for selecting target for this request
     # size(Integer):: Size of request in bytes used only for marshalling
@@ -169,7 +169,7 @@ module RightScale
       @selector   = opts[:selector]
       @target     = opts[:target]
       @persistent = opts[:persistent]
-      @created_at = opts[:created_at] || Time.now.to_i
+      @created_at = opts[:created_at] || Time.now.to_f
       @tags       = opts[:tags] || []
     end
 
@@ -204,6 +204,7 @@ module RightScale
       log_msg += " target #{id_to_s(target)}" if target && (filter.nil? || filter.include?(:target))
       log_msg += ", reply_to #{id_to_s(reply_to)}" if reply_to && (filter.nil? || filter.include?(:reply_to))
       log_msg += ", tags #{tags.inspect}" if tags && !tags.empty? && (filter.nil? || filter.include?(:tags))
+      log_msg += ", persistent #{persistent.inspect}" if filter.nil? || filter.include?(:persistent)
       log_msg += ", payload #{payload.inspect}" if filter.nil? || filter.include?(:payload)
       log_msg
     end
@@ -240,7 +241,7 @@ module RightScale
     #   :target(String):: Target nanite for the request
     #   :persistent(Boolean):: Indicates if this request should be saved to persistent storage
     #     by the AMQP broker
-    #   :created_at(Integer):: Time in seconds when this request was created for use in timing
+    #   :created_at(Numeric):: Time in seconds when this request was created for use in timing
     #     out the request; value 0 means never timeout; defaults to current time
     #   :tags(Array of Symbol):: List of tags to be used for selecting target for this request
     # size(Integer):: Size of request in bytes used only for marshalling
@@ -255,7 +256,7 @@ module RightScale
       @selector   = opts[:selector]
       @target     = opts[:target]
       @persistent = opts[:persistent]
-      @created_at = opts[:created_at] || Time.now.to_i
+      @created_at = opts[:created_at] || Time.now.to_f
       @tags       = opts[:tags] || []
     end
 
@@ -288,6 +289,7 @@ module RightScale
       log_msg += " with scope #{scope}" if scope && (filter.nil? || filter.include?(:scope))
       log_msg += ", target #{id_to_s(target)}" if target && (filter.nil? || filter.include?(:target))
       log_msg += ", tags #{tags.inspect}" if tags && !tags.empty? && (filter.nil? || filter.include?(:tags))
+      log_msg += ", persistent #{persistent.inspect}" if filter.nil? || filter.include?(:persistent)
       log_msg += ", payload #{payload.inspect}" if filter.nil? || filter.include?(:payload)
       log_msg
     end

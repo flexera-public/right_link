@@ -20,9 +20,6 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'command_protocol', 'lib', 'command_protocol'))
-require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'common', 'lib', 'common'))
-
 module RightScale
 
   class CommandClient
@@ -30,14 +27,22 @@ module RightScale
     # Agent response if any
     attr_accessor :response
 
-    # Send command to running RightLink agent
+    # Create client
+    #
+    # === Parameters
+    # socket_port(Integer):: Socket port on which to connect to agent
+    def initialize(socket_port)
+      @socket_port = socket_port
+    end
+
+    # Send command to running agent
     #
     # === Parameters
     # options(Hash):: Hash of options and command name
     #   options[:name]:: Command name
     #   options[:...]:: Other command specific options, passed through to agent
     # verbose(Boolean):: Whether client should display debug info
-    # timeout(Integer):: Number of seconds we should wait for a reply from the instance agent
+    # timeout(Integer):: Number of seconds we should wait for a reply from the agent
     #
     # === Block
     # handler: Command results handler
@@ -51,8 +56,8 @@ module RightScale
       EM.run do
         command = options.dup
         command[:verbose] = verbose
-        EM.connect('127.0.0.1', RightScale::CommandConstants::SOCKET_PORT, ConnectionHandler, command, self)
-        EM.add_timer(timeout) { EM.stop; raise 'Timed out waiting for instance agent reply' }
+        EM.connect('127.0.0.1', @socket_port, ConnectionHandler, command, self)
+        EM.add_timer(timeout) { EM.stop; raise 'Timed out waiting for agent reply' }
       end
       handler.call(@response) if handler && @response
       true
@@ -60,7 +65,7 @@ module RightScale
 
     protected
 
-    # EventMachine connection handler which sends command to instance agent
+    # EventMachine connection handler which sends command to agent
     # and waits for response
     module ConnectionHandler
 
@@ -77,8 +82,8 @@ module RightScale
         end
       end
 
-      # Send command to instance agent
-      # Called by EventMachine after connection with instance agent has been established
+      # Send command to agent
+      # Called by EventMachine after connection with agent has been established
       #
       # === Return
       # true:: Always return true

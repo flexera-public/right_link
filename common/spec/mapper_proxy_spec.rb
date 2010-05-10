@@ -70,7 +70,7 @@ describe RightScale::MapperProxy do
       @queue.should_receive(:publish).with(on do |request|
         request = @instance.serializer.load(request)
         request.class.should == RightScale::Request
-      end).once
+      end, {:persistent => nil}).once
       @instance.request('/welcome/aboard', 'iZac'){|response|}
     end
     
@@ -78,17 +78,17 @@ describe RightScale::MapperProxy do
       @queue.should_receive(:publish).with(on do |request|
         request = @instance.serializer.load(request)
         request.token.should_not == nil
-        request.persistent.should_not == true
+        request.persistent.should be_false
         request.from.should == 'mapperproxy'
-      end).once
+      end, {:persistent => nil}).once
       @instance.request('/welcome/aboard', 'iZac'){|response|}
     end
     
     it "should mark the message as persistent when the option is specified on the parameter" do
       @queue.should_receive(:publish).with(on do |request|
         request = @instance.serializer.load(request)
-        request.persistent.should == true
-      end).once
+        request.persistent.should be_true
+      end, {:persistent => true}).once
       @instance.request('/welcome/aboard', 'iZac', :persistent => true){|response|}
     end
     
@@ -96,7 +96,7 @@ describe RightScale::MapperProxy do
       @queue.should_receive(:publish).with(on do |request|
         request = @instance.serializer.load(request)
         request.target.should == 'my-target'
-      end).once
+      end, {:persistent => nil}).once
       @instance.request('/welcome/aboard', 'iZac', :target => 'my-target'){|response|}
     end
     
@@ -104,8 +104,8 @@ describe RightScale::MapperProxy do
       @instance.options[:persistent] = true
       @queue.should_receive(:publish).with(on do |request|
         request = @instance.serializer.load(request)
-        request.persistent.should == true
-      end).once
+        request.persistent.should be_true
+      end, {:persistent => true}).once
       @instance.request('/welcome/aboard', 'iZac'){|response|}
     end
 
@@ -176,7 +176,7 @@ describe RightScale::MapperProxy do
           end
           EM.add_timer(1) do
             EM.stop
-            result.success?.should == true
+            result.success?.should be_true
           end
         end
       end
@@ -194,7 +194,7 @@ describe RightScale::MapperProxy do
           end
           EM.add_timer(1) do
             EM.stop
-            result.timeout?.should == true
+            result.timeout?.should be_true
             result.content.should == "Timeout after 0.6 seconds and 3 attempts"
           end
         end
@@ -210,7 +210,7 @@ describe RightScale::MapperProxy do
           @queue.should_receive(:publish).with(on do |request|
             request = @instance.serializer.load(request)
             request.created_at.should == created_at
-          end).twice
+          end, {:persistent => nil}).twice
           @instance.request('/welcome/aboard', 'iZac', :created_at => created_at) {|response|}
           EM.add_timer(0.5) { EM.stop }
         end
@@ -239,8 +239,7 @@ describe RightScale::MapperProxy do
       @queue.should_receive(:publish).with(on do |push|
         push = @instance.serializer.load(push)
         push.class.should == RightScale::Push
-      end).once
-      
+      end, {:persistent => nil}).once
       @instance.push('/welcome/aboard', 'iZac')
     end
     
@@ -248,8 +247,7 @@ describe RightScale::MapperProxy do
       @queue.should_receive(:publish).with(on do |push|
         push = @instance.serializer.load(push)
         push.target.should == 'my-target'
-      end).once
-      
+      end, {:persistent => nil}).once
       @instance.push('/welcome/aboard', 'iZac', :target => 'my-target')
     end
     
@@ -257,19 +255,17 @@ describe RightScale::MapperProxy do
       @queue.should_receive(:publish).with(on do |push|
         push = @instance.serializer.load(push)
         push.token.should_not == nil
-        push.persistent.should_not == true
+        push.persistent.should be_false
         push.from.should == 'mapperproxy'
-      end).once
-      
+      end, {:persistent => nil}).once
       @instance.push('/welcome/aboard', 'iZac')
     end
     
     it "should mark the message as persistent when the option is specified on the parameter" do
       @queue.should_receive(:publish).with(on do |push|
         push = @instance.serializer.load(push)
-        push.persistent.should == true
-      end).once
-      
+        push.persistent.should be_true
+      end, {:persistent => true}).once
       @instance.push('/welcome/aboard', 'iZac', :persistent => true)
     end
     
@@ -277,8 +273,8 @@ describe RightScale::MapperProxy do
       @instance.options[:persistent] = true
       @queue.should_receive(:publish).with(on do |push|
         push = @instance.serializer.load(push)
-        push.persistent.should == true
-      end).once
+        push.persistent.should be_true
+      end, {:persistent => true}).once
       
       @instance.push('/welcome/aboard', 'iZac')
     end

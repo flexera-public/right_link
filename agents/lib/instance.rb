@@ -25,8 +25,6 @@ require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'commo
 require File.join(File.dirname(__FILE__), 'instance', 'audit_logger')
 require File.join(File.dirname(__FILE__), 'instance', 'auditor_proxy')
 require File.join(File.dirname(__FILE__), 'instance', 'chef_state')
-require File.join(File.dirname(__FILE__), 'instance', 'command_io')
-require File.join(File.dirname(__FILE__), 'instance', 'command_runner')
 require File.join(File.dirname(__FILE__), 'instance', 'dev_state')
 require File.join(File.dirname(__FILE__), 'instance', 'downloader')
 require File.join(File.dirname(__FILE__), 'instance', 'duplicable')

@@ -22,17 +22,16 @@
 
 module RightScale
 
-  # Run commands exposed by instance agent
-  # External processes can send commands through sockets using port
-  # RightScale::CommandConstants::SOCKET_PORT
+  # Run commands exposed by an agent
+  # External processes can send commands through a socket with the specified port
   class CommandRunner
 
     # Command runner listens to commands and deserializes them using YAML
     # Each command is expected to be a hash containing the :name and :options keys
     #
     # === Parameters
-    # agent_identity(String):: Serialized instance agent identity
-    # scheduler(InstanceScheduler):: Scheduler used by decommission command
+    # socket_port(Integer):: Socket port on which to listen for connection
+    # commands(Hash):: Commands exposed by agent
     #
     # === Return
     # true:: Always return true
@@ -40,9 +39,8 @@ module RightScale
     # === Raise
     # (RightScale::Exceptions::Application):: If +start+ has already been called and +stop+ hasn't since
     # (RightScale::Exceptions::IO):: If named pipe creation failed
-    def self.start(agent_identity, scheduler)
-      commands = InstanceCommands.get(agent_identity, scheduler)
-      CommandIO.instance.listen do |c, conn|
+    def self.start(socket_port, commands)
+      CommandIO.instance.listen(socket_port) do |c, conn|
         begin
           cmd_name = c[:name].to_sym
           if commands.include?(cmd_name)
@@ -51,7 +49,7 @@ module RightScale
             RightLinkLog.info("Unknown command '#{cmd_name}'")
           end
         rescue Exception => e
-          RightLinkLog.info("Invalid command format '#{c.inspect}'")
+          RightLinkLog.info("Invalid command format (#{e.message}) '#{c.inspect}'")
         end
       end
       true

@@ -21,6 +21,7 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 require File.join(File.dirname(__FILE__), 'spec_helper')
+require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'command_protocol', 'lib', 'command_protocol'))
 
 describe RightScale::InstanceCommands do
 
@@ -36,7 +37,7 @@ describe RightScale::InstanceCommands do
       conn.should == 42
       # r is YAML, 2 lines for each command, one less command printed (the list command)
       # plus one header line
-      r.count("\n").should == (@commands.size - 1) * 2 + 1
+      r.count("\n").should == (@commands.reject {|k,_| k.to_s =~ /test/}.size - 1) * 2 + 1
     end
     RightScale::InstanceCommands.new(@agent_identity, @scheduler).send(:list_command, {:conn => 42}).should be_true
   end

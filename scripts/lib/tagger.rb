@@ -31,12 +31,12 @@
 $:.push(File.dirname(__FILE__))
 
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'config', 'right_link_config'))
+require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'command_protocol', 'lib', 'command_protocol'))
+require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'actors', 'lib', 'agent_manager'))
 require 'optparse'
 require 'rdoc/ri/ri_paths' # For backwards compat with ruby 1.8.5
 require 'rdoc/usage'
 require 'rdoc_patch'
-require 'command_client'
-require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'actors', 'lib', 'agent_manager'))
 
 module RightScale
 
@@ -58,7 +58,7 @@ module RightScale
       end
       cmd = { :name => options[:action] }
       cmd[:tag] = options[:tag] if options[:tag]
-      client = CommandClient.new
+      client = CommandClient.new(RightScale::CommandConstants::INSTANCE_AGENT_SOCKET_PORT)
       begin
         client.send_command(cmd, options[:verbose]) do |res|
           if options[:action] == :get_tags

@@ -19,7 +19,6 @@
 $:.push(File.dirname(__FILE__))
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'config', 'right_link_config'))
 require 'optparse'
-require 'command_client'
 require 'fileutils'
 require File.join(File.dirname(__FILE__), 'agent_utils')
 

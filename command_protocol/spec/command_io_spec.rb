@@ -21,7 +21,7 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 require File.join(File.dirname(__FILE__), 'spec_helper')
-require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'command_protocol', 'lib', 'command_protocol'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'command_protocol'))
 require 'ostruct'
 
 describe RightScale::CommandIO do
@@ -38,17 +38,21 @@ describe RightScale::CommandIO do
 
   # Serialize and send given input to command listener
   def send_input(input)
-    EM.connect('127.0.0.1', RightScale::CommandConstants::SOCKET_PORT, OutputHandler, input)
+    EM.connect('127.0.0.1', @socket_port, OutputHandler, input)
+  end
+
+  before(:all) do
+    @socket_port = RightScale::CommandConstants::TEST_SOCKET_PORT
   end
 
   it 'should detect missing blocks' do
-    lambda { RightScale::CommandIO.instance.listen }.should raise_error(RightScale::Exceptions::Argument)
+    lambda { RightScale::CommandIO.instance.listen(@socket_port) }.should raise_error(RightScale::Exceptions::Argument)
   end
 
   it 'should receive a command' do
     @input = ''
     EM.run do
-      RightScale::CommandIO.instance.listen { |input, _| @input = input; stop }
+      RightScale::CommandIO.instance.listen(@socket_port) { |input, _| @input = input; stop }
       send_input('input')
       EM.add_timer(2) { stop }
     end
@@ -58,7 +62,7 @@ describe RightScale::CommandIO do
   it 'should receive many commands' do
     @inputs = []
     EM.run do
-      RightScale::CommandIO.instance.listen do |input, _|
+      RightScale::CommandIO.instance.listen(@socket_port) do |input, _|
         @inputs << input
         stop if input == 'final'
       end

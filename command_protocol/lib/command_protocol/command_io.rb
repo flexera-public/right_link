@@ -43,7 +43,7 @@ module RightScale
   end
 
   # Class which allows listening for data and sending data on sockets
-  # This allows ohter processes running on the same machine to send commands to
+  # This allows other processes running on the same machine to send commands to
   # the agent without having to go through RabbitMQ.
   class CommandIO
 
@@ -61,6 +61,9 @@ module RightScale
     # Open command socket and wait for input on it
     # This can only be called again after 'stop_listening' was called
     #
+    # === Parameters
+    # socket_port(Integer):: Socket port on which to listen
+    #
     # === Block
     # The given block should take two arguments:
     #   * First argument will be given the commands sent through the socket
@@ -74,11 +77,11 @@ module RightScale
     # === Raise
     # (RightScale::Exceptions::Argument):: If block is missing
     # (RightScale::Exceptions::Application):: If +listen+ has already been called and +stop+ hasn't since
-    def listen &block
+    def listen(socket_port, &block)
       raise Exceptions::Argument, 'Missing listener block' unless block_given?
       raise Exceptions::Application, 'Already listening' if listening
       begin
-        @conn = EM.start_server('127.0.0.1', RightScale::CommandConstants::SOCKET_PORT, InputHandler, block)
+        @conn = EM.start_server('127.0.0.1', socket_port, InputHandler, block)
       rescue Exception => e
         RightLinkLog.error("Could not start commands listener: #{e.message}")
       end

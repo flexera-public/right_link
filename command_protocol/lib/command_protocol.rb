@@ -24,3 +24,6 @@
 require File.join(File.dirname(__FILE__), 'command_protocol', 'command_constants')
 require File.join(File.dirname(__FILE__), 'command_protocol', 'command_parser')
 require File.join(File.dirname(__FILE__), 'command_protocol', 'command_serializer')
+require File.join(File.dirname(__FILE__), 'command_protocol', 'command_io')
+require File.join(File.dirname(__FILE__), 'command_protocol', 'command_runner')
+require File.join(File.dirname(__FILE__), 'command_protocol', 'command_client')

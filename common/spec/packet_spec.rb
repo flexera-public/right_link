@@ -80,7 +80,8 @@ describe "Packet: Request" do
     packet.from.should == packet2.from
     packet.token.should == packet2.token
     packet.reply_to.should == packet2.reply_to
-    packet.created_at.should == packet2.created_at
+    # JSON decoding of floating point sometimes loses accuracy
+    (packet.created_at - packet2.created_at).abs.should <= 1.0e-05
   end
 
   it "should dump/load as Marshalled ruby objects" do
@@ -104,7 +105,8 @@ describe "Packet: Push" do
     packet.payload.should == packet2.payload
     packet.from.should == packet2.from
     packet.token.should == packet2.token
-    packet.created_at.should == packet2.created_at
+    # JSON decoding of floating point sometimes loses accuracy
+    (packet.created_at - packet2.created_at).abs.should <= 1.0e-05
   end
 
   it "should dump/load as Marshalled ruby objects" do

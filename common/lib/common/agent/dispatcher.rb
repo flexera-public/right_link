@@ -73,15 +73,15 @@ module RightScale
     # Rejects requests that are not fresh enough
     #
     # === Parameters
-    # deliverable(Packet):: Packet containing request
+    # deliverable(Request|Push):: Packet containing request
     #
     # === Return
     # r(Result):: Result from dispatched request
     def dispatch(deliverable)
-      if (created_at = deliverable.created_at) > 0 && (fresh_timeout = @options[:fresh_timeout])
+      if (created_at = deliverable.created_at.to_i) > 0 && (fresh_timeout = @options[:fresh_timeout])
         age = Time.now.to_i - created_at
         if age > fresh_timeout
-          RightLinkLog.info("REJECT #{deliverable.type} because age #{age} > #{fresh_timeout} sec")
+          RightLinkLog.info("REJECT #{deliverable.type} because age #{age} > #{fresh_timeout} second timeout")
           return nil
         end
       end
@@ -105,7 +105,8 @@ module RightScale
           if deliverable.kind_of?(Request)
             r = Result.new(deliverable.token, deliverable.reply_to, r, identity)
             RightLinkLog.info("SEND #{r.to_s([])}")
-            amq.queue(deliverable.reply_to, :no_declare => options[:secure]).publish(serializer.dump(r))
+            amq.queue(deliverable.reply_to, :no_declare => options[:secure]).
+              publish(serializer.dump(r), :persistent => deliverable.persistent)
           end
         rescue Exception => e
           RightLinkLog.error("Callback following dispatch failed with #{e.class.name}: #{e.message}\n #{e.backtrace.join("\n  ")}")

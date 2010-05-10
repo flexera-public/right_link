@@ -59,6 +59,17 @@ module RightScale
     #
     # === Parameters
     # id(String):: Identity of associated agent
+    # opts(Hash):: Options:
+    #   :format(Symbol):: Format to use for packets serialization -- :marshal, :json or :yaml or :secure
+    #   :identity(String):: Identity of this agent
+    #   :persistent(Boolean):: true instructs the AMQP broker to save messages to persistent storage so
+    #     that they aren't lost when the broker is restarted. Default is false. Can be overridden on a
+    #     per-message basis using the request and push methods of MapperProxy.
+    #   :retry_interval(Numeric):: Number of seconds between request retries
+    #   :retry_limit(Integer):: Maximum number of request retries before timeout
+    #   :secure(Boolean):: true indicates to use Security features of rabbitmq to restrict nanites to themselves
+    #   :single_threaded(Boolean):: true indicates to run all operations in one thread; false indicates
+    #     to do requested work on EM defer thread and all else, such as pings on main thread
     #
     # === Options
     #
@@ -119,7 +130,8 @@ module RightScale
       push.token = AgentIdentity.generate
       push.persistent = opts.key?(:persistent) ? opts[:persistent] : @options[:persistent]
       RightLinkLog.info("SEND #{push.to_s([:tags, :target])}")
-      @amqp.queue('request', :no_declare => @options[:secure]).publish(@serializer.dump(push))
+      @amqp.queue('request', :no_declare => @options[:secure]).
+        publish(@serializer.dump(push), :persistent => push.persistent)
       true
     end
 
@@ -138,8 +150,8 @@ module RightScale
 
     protected
 
-    # Send request with retry if do not receive a result in time
-    # Send timeout and delete pending request if reach retry limit
+    # Send request with one or more retries if do not receive a result in time
+    # Send timeout result if reach retry limit
     #
     # === Parameters
     # request(Request):: Request to be sent
@@ -150,7 +162,8 @@ module RightScale
     # === Return
     # true:: Always return true
     def request_with_retry(request, retry_interval, retry_limit, retry_count)
-      @amqp.queue('request', :no_declare => @options[:secure]).publish(@serializer.dump(request))
+      @amqp.queue('request', :no_declare => @options[:secure]).
+        publish(@serializer.dump(request), :persistent => request.persistent)
 
       if retry_interval && retry_limit
         add_timer(retry_interval) do
@@ -173,8 +186,8 @@ module RightScale
     end
 
     # Add a one-shot timer to the EM event loop
-    # Execute block on thread used by the Dispatcher so that all shared data is accessed
-    # from the same thread, with option :single_threaded indicating the thread to use
+    # Use defer thread instead of primary if not :single_threaded, consistent with dispatcher,
+    # so that all shared data is accessed from the same thread
     # Log an error if the block fails
     #
     # === Parameters

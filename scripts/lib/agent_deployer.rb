@@ -37,9 +37,10 @@
 #      --auto-shutdown          Shutdown server if it fails to get boot bundle in 45 minutes on first boot
 #      --http-proxy, -P PROXY   Use a proxy for all agent-originated HTTP traffic
 #      --no-http-proxy          Comma-separated list of proxy exceptions
-#      --fresh_timeout SEC      Maximum age in seconds before a request times out and is rejected
-#      --retry_interval SEC     Number of seconds between request retries
-#      --retry_limit COUNT      Maximum number of request retries before timeout
+#      --fresh-timeout SEC      Maximum age in seconds before a request times out and is rejected
+#      --retry-interval SEC     Number of seconds between request retries
+#      --retry-limit COUNT      Maximum number of request retries before timeout
+#      --prefetch COUNT         Maximum requests to prefetch before ack current
 #      --test                   Build test deployment using default test settings
 #      --quiet, -Q              Do not produce output
 #      --help                   Display help
@@ -112,6 +113,7 @@ module RightScale
       cfg[:fresh_timeout]  = options[:fresh_timeout] || 15 * 60
       cfg[:retry_interval] = options[:retry_interval] || 3 * 60
       cfg[:retry_limit]    = options[:retry_limit] || 4
+      cfg[:prefetch]       = options[:prefetch] || 1
       cfg[:auto_shutdown]  = options[:auto_shutdown]
       cfg[:http_proxy]     = options[:http_proxy] if options[:http_proxy]
       cfg[:no_http_proxy]  = options[:no_http_proxy] if options[:no_http_proxy]
@@ -181,16 +183,20 @@ module RightScale
           options[:no_http_proxy] = no_proxy
         end
 
-        opts.on('--fresh_timeout SEC') do |sec|
-          options[:fresh_timeout] = sec
+        opts.on('--fresh-timeout SEC') do |sec|
+          options[:fresh_timeout] = sec.to_i
         end
 
-        opts.on('--retry_interval SEC') do |sec|
-          options[:retry_interval] = sec
+        opts.on('--retry-interval SEC') do |sec|
+          options[:retry_interval] = sec.to_i
         end
 
-        opts.on('--retry_limit COUNT') do |count|
-          options[:retry_limit] = count
+        opts.on('--retry-limit COUNT') do |count|
+          options[:retry_limit] = count.to_i
+        end
+
+        opts.on('--prefetch COUNT') do |count|
+          options[:prefetch] = count.to_i
         end
 
         opts.on('-o', '--options OPT') do |e|
