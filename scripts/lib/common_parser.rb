@@ -20,6 +20,8 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+require 'uri'
+
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'common', 'lib', 'common', 'agent', 'agent_identity'))
 
 # Common options parser
@@ -49,6 +51,15 @@ module RightScale
         options[:prefix] = p
       end
 
+      opts.on("--url URL") do |url|
+        uri = URI.parse(url)
+        options[:user]  = uri.user     if uri.user
+        options[:pass]  = uri.password if uri.password
+        options[:host]  = uri.host
+        options[:port]  = uri.uri.port if uri.port
+        options[:vhost] = uri.path     if (uri.path && !uri.path.empty?)
+      end
+      
       opts.on("-u", "--user USER") do |user|
         options[:user] = user
       end
@@ -101,7 +112,9 @@ module RightScale
         end
         name = options[:alias] || options[:agent] || 'mapper'
         puts "NAME: #{name}"
-        options[:identity] = AgentIdentity.new(options[:prefix] || 'rs', name, base_id, options[:token]).to_s
+        token = options[:token]
+        token = RightScale::SecureIdentity.derive(base_id, options[:token]) if options[:secure_identity]
+        options[:identity] = AgentIdentity.new(options[:prefix] || 'rs', name, base_id, token).to_s
       end
     end
 

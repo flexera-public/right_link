@@ -21,7 +21,9 @@
 #      --identity, -i ID        Use base id ID to build agent's identity
 #      --shared-queue, -q QUEUE Use QUEUE as input for agent in addition to identity queue
 #      --token, -t TOKEN        Use token TOKEN to build agent's identity
+#      --secure-identity, -S    Derive actual token from given TOKEN and ID 
 #      --prefix, -r PREFIX      Prefix agent identity with PREFIX
+#      --url                    Set agent AMQP connection URL (host, port, user, pass, vhost)
 #      --user, -u USER          Set agent AMQP username
 #      --password, -p PASS      Set agent AMQP password
 #      --vhost, -v VHOST        Set agent AMQP virtual host
@@ -147,6 +149,10 @@ module RightScale
         parse_common(opts, options)
         parse_other_args(opts, options)
 
+        opts.on('-S', '--secure-identity') do
+          options[:secure_identity] = true
+        end
+        
         opts.on('-a', '--actors-dir DIR') do |d|
           options[:actors_dir] = d
         end

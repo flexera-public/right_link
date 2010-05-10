@@ -85,15 +85,12 @@ begin
         again = @settings[:retry]
         again = again.call if again.is_a?(Proc)
 
-        if again == false
-          # Do not retry connection
-          raise StandardError, "Could not reconnect to server #{@settings[:host]}:#{@settings[:port]}"
-        elsif again.is_a?(Numeric)
+        if again.is_a?(Numeric)
           # Retry connection after N seconds
           EM.add_timer(again) { reconnect(true) }
           return
-        elsif (again != true && again != nil)
-          raise StandardError, "Could not interpret reconnection retry action #{again}"
+        elsif ![nil, true].include?(again)
+          raise ::AMQP::Error, "Could not interpret :retry=>#{again.inspect}; expected nil, true or Numeric"
         end
       end
 
