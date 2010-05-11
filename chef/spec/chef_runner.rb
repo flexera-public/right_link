@@ -160,7 +160,11 @@ EOF
         ::Chef::Config[:cookbook_path] = cookbook_path
 
         # must set file cache path for Windows case of using remote files, templates. etc.
-        Chef::Config[:file_cache_path] = File.join(platform.filesystem.cache_dir, 'chef') if platform.windows?
+        if platform.windows?
+          file_cache_path = File.join(platform.filesystem.cache_dir, 'chef')
+          Chef::Config[:file_cache_path] = file_cache_path
+          Chef::Config[:cache_options][:path] = File.join(file_cache_path, 'checksums')
+        end
 
         # prepare to run solo chef.
         run_list = [ run_list ] unless run_list.kind_of?(Array)

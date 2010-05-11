@@ -130,7 +130,11 @@ module RightScale
 
       # must set file cache path for Windows case of using remote files, templates. etc.
       platform = RightScale::RightLinkConfig[:platform]
-      Chef::Config[:file_cache_path] = File.join(platform.filesystem.cache_dir, 'chef') if platform.windows?
+      if platform.windows?
+        file_cache_path = File.join(platform.filesystem.cache_dir, 'chef')
+        Chef::Config[:file_cache_path] = file_cache_path
+        Chef::Config[:cache_options][:path] = File.join(file_cache_path, 'checksums')
+      end
       true
     end
 
