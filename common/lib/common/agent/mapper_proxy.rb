@@ -130,7 +130,7 @@ module RightScale
       push.token = AgentIdentity.generate
       push.persistent = opts.key?(:persistent) ? opts[:persistent] : @options[:persistent]
       RightLinkLog.info("SEND #{push.to_s([:tags, :target])}")
-      @amqp.queue('request', :no_declare => @options[:secure]).
+      @amqp.queue('request', :durable => true, :no_declare => @options[:secure]).
         publish(@serializer.dump(push), :persistent => push.persistent)
       true
     end
@@ -162,7 +162,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def request_with_retry(request, retry_interval, retry_limit, retry_count)
-      @amqp.queue('request', :no_declare => @options[:secure]).
+      @amqp.queue('request', :durable => true, :no_declare => @options[:secure]).
         publish(@serializer.dump(request), :persistent => request.persistent)
 
       if retry_interval && retry_limit

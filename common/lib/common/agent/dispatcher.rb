@@ -105,7 +105,7 @@ module RightScale
           if deliverable.kind_of?(Request)
             r = Result.new(deliverable.token, deliverable.reply_to, r, identity)
             RightLinkLog.info("SEND #{r.to_s([])}")
-            amq.queue(deliverable.reply_to, :no_declare => options[:secure]).
+            @amq.queue(deliverable.reply_to, :durable => true, :no_declare => options[:secure]).
               publish(serializer.dump(r), :persistent => deliverable.persistent)
           end
         rescue Exception => e

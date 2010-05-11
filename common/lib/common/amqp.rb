@@ -120,7 +120,7 @@ module RightScale
         :host => options[:host],
         :port => (options[:port] || ::AMQP::PORT).to_i,
         :insist => options[:insist] || false,
-        :retry => options[:retry] || 10 )
+        :retry => options[:retry] || 15 )
       MQ.new(connection)
     end
   end

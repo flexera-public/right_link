@@ -401,7 +401,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def setup_shared_queue
-      @amq.queue(@shared_queue).subscribe(:ack => true) do |info, msg|
+      @amq.queue(@shared_queue, :durable => true).subscribe(:ack => true) do |info, msg|
         begin
           # Ack before processing to avoid risk of duplication after a crash
           info.ack
