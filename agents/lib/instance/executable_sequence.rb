@@ -101,6 +101,8 @@ module RightScale
 
     protected
 
+    @@last_ohai = nil
+
     # Configure chef so it can find cookbooks and so its logs go to the audits
     #
     # === Return
@@ -240,6 +242,23 @@ module RightScale
       attribs = { 'recipes' => @run_list }
       attribs.merge!(@attributes) if @attributes
       c = Chef::Client.new
+
+      # set aside last Ohai for refreshing instead of performing a full update
+      # on a new instance of Ohai for each converge. the performance problems
+      # are specific to Windows so there is no reason to provide special logic
+      # for Linux at this time. the problem is that providers need to register
+      # themselves properly with Ohai in order for refresh to work and some
+      # providers appear not to have the necessary "provides" statement.
+      disabling_ohai_providers = false
+      if Platform.windows?
+        if @@last_ohai
+          c.ohai = @@last_ohai
+        else
+          @@last_ohai = c.ohai
+          disabling_ohai_providers = true
+        end
+      end
+
       begin
         audit_time do
           c.json_attribs = attribs
@@ -260,11 +279,16 @@ module RightScale
             end
           end
         end
-        
-        # kill the chef node provider
-        RightScale::Windows::ChefNodeServer.instance.stop rescue nil if Platform.windows?
+
+        if Platform.windows?
+          # kill the chef node provider
+          RightScale::Windows::ChefNodeServer.instance.stop rescue nil
+
+          # disable Ohai providers after initial run, if necessary.
+          disable_static_ohai_windows_providers if disabling_ohai_providers
+        end
       end
-      
+
       report_success(c.node) if @ok
       true
     end
@@ -390,7 +414,7 @@ module RightScale
       begin
         count += 1
         success = yield
-        @auditor.append_info("\n#{retry_message}\n") unless success || count > times                  
+        @auditor.append_info("\n#{retry_message}\n") unless success || count > times
       end while !success && count <= times
       success
     end
@@ -408,6 +432,23 @@ module RightScale
       res = yield
       @auditor.append_info("Duration: #{'%.2f' % (Time.now - start_time)} seconds\n\n")
       res
+    end
+
+    # Prevents running any ohai providers which represent static or rarely
+    # updated information which is also time consuming to collect for every
+    # converge. the effect is to make Ohai::System::refresh_plugins run more
+    # efficiently.
+    #
+    # FIX: do we want to read this information from a configuration file?
+    def disable_static_ohai_windows_providers
+      disabled_plugins = Ohai::Config[:disabled_plugins]
+      disabled_plugins << "kernel"
+      disabled_plugins << "windows::kernel"
+      disabled_plugins << "network"
+      disabled_plugins << "windows::network"
+      disabled_plugins << "platform"
+      disabled_plugins << "windows::platform"
+      disabled_plugins.uniq!
     end
 
   end
