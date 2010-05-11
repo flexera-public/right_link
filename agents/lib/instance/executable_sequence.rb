@@ -27,6 +27,7 @@ require 'rubygems'
 require 'chef/log'
 require 'fileutils'
 require 'right_scraper'
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'chef', 'lib', 'static_ohai_data'))
 
 module RightScale
 
@@ -243,21 +244,9 @@ module RightScale
       attribs.merge!(@attributes) if @attributes
       c = Chef::Client.new
 
-      # set aside last Ohai for refreshing instead of performing a full update
-      # on a new instance of Ohai for each converge. the performance problems
-      # are specific to Windows so there is no reason to provide special logic
-      # for Linux at this time. the problem is that providers need to register
-      # themselves properly with Ohai in order for refresh to work and some
-      # providers appear not to have the necessary "provides" statement.
-      disabling_ohai_providers = false
-      if Platform.windows?
-        if @@last_ohai
-          c.ohai = @@last_ohai
-        else
-          @@last_ohai = c.ohai
-          disabling_ohai_providers = true
-        end
-      end
+      # use a refreshable Ohai for instead of performing a full update on a new
+      # instance of Ohai for each converge.
+      c.ohai = StaticOhaiData.instance.ohai
 
       begin
         audit_time do
@@ -280,13 +269,8 @@ module RightScale
           end
         end
 
-        if Platform.windows?
-          # kill the chef node provider
-          RightScale::Windows::ChefNodeServer.instance.stop rescue nil
-
-          # disable Ohai providers after initial run, if necessary.
-          disable_static_ohai_windows_providers if disabling_ohai_providers
-        end
+        # kill the chef node provider
+        RightScale::Windows::ChefNodeServer.instance.stop rescue nil if Platform.windows?
       end
 
       report_success(c.node) if @ok
@@ -432,23 +416,6 @@ module RightScale
       res = yield
       @auditor.append_info("Duration: #{'%.2f' % (Time.now - start_time)} seconds\n\n")
       res
-    end
-
-    # Prevents running any ohai providers which represent static or rarely
-    # updated information which is also time consuming to collect for every
-    # converge. the effect is to make Ohai::System::refresh_plugins run more
-    # efficiently.
-    #
-    # FIX: do we want to read this information from a configuration file?
-    def disable_static_ohai_windows_providers
-      disabled_plugins = Ohai::Config[:disabled_plugins]
-      disabled_plugins << "kernel"
-      disabled_plugins << "windows::kernel"
-      disabled_plugins << "network"
-      disabled_plugins << "windows::network"
-      disabled_plugins << "platform"
-      disabled_plugins << "windows::platform"
-      disabled_plugins.uniq!
     end
 
   end
