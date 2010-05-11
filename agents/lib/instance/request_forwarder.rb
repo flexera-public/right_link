@@ -205,7 +205,11 @@ module RightScale
         when :push
           MapperProxy.instance.push(request[:type], request[:payload], request[:options])
         when :request
-          MapperProxy.instance.request(request[:type], request[:payload], request[:options], request[:callback])
+          if request[:callback]
+            MapperProxy.instance.request(request[:type], request[:payload], request[:options]) { |r| request[:callback].call(r) }
+          else
+            MapperProxy.instance.request(request[:type], request[:payload], request[:options])
+          end
         end
         if @requests.empty?
           RightLinkLog.info("[offline] In-memory queue flushed, resuming normal operations") unless @mode == :initializing
