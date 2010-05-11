@@ -21,21 +21,14 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 require 'chef/client'
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'static_ohai_data'))
 
 # monkey patch to reduce how often sluggish ohai is invoked during spec test.
 # we don't need realtime info, so static info should be good enough for testing.
 class Chef
   class Client
-    @@last_ohai = nil
-    @@old_run_ohai = instance_method(:run_ohai)
-    
     def run_ohai
-      if @@last_ohai
-        @ohai = @@last_ohai
-      else
-        @@old_run_ohai.bind(self).call
-        @@last_ohai = @ohai
-      end
+      @ohai = RightScale::StaticOhaiData.instance.ohai
     end
   end
 end
