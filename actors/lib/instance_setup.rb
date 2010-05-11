@@ -52,7 +52,11 @@ class InstanceSetup
     RightScale::RightLinkLog.force_debug if RightScale::DevState.enabled?
     EM.threadpool_size = 1
     # Schedule boot sequence, don't run it now so agent is registered first
-    EM.next_tick { init_boot } if RightScale::InstanceState.value == 'booting'
+    if RightScale::InstanceState.value == 'booting'
+      EM.next_tick { RightScale::RequestForwarder.instance.init { init_boot } }
+    else
+      RightScale::RequestForwarder.instance.init
+    end
   end
 
   # Retrieve current instance state
@@ -72,9 +76,9 @@ class InstanceSetup
   # true:: Always return true
   def connection_status(status)
     if status == :deconnected
-      RightScale::RequestForwarder.enable_offline_mode
+      RightScale::RequestForwarder.instance.enable_offline_mode
     else
-      RightScale::RequestForwarder.disable_offline_mode
+      RightScale::RequestForwarder.instance.disable_offline_mode
     end
     true
   end
@@ -87,7 +91,7 @@ class InstanceSetup
   # === Return
   # true:: Always return true
   def init_boot
-    request("/booter/set_r_s_version", { :agent_identity => @agent_identity, :r_s_version => RightScale::RightLinkConfig.protocol_version }) do |r|
+    RightScale::RequestForwarder.instance.request("/booter/set_r_s_version", { :agent_identity => @agent_identity, :r_s_version => RightScale::RightLinkConfig.protocol_version }) do |r|
       res = RightScale::OperationResult.from_results(r)
       if res.success?
         enable_managed_login
@@ -283,7 +287,7 @@ class InstanceSetup
     recipes = bundle.executables.select { |e| e.is_a?(RightScale::RecipeInstantiation) }
     scripts_ids = scripts.select { |s| !s.ready }.map { |s| s.id }
     recipes_ids = recipes.select { |r| !r.ready }.map { |r| r.id }
-    RightScale::RequestForwarder.request('/booter/get_missing_attributes', { :agent_identity => @agent_identity,
+    RightScale::RequestForwarder.instance.request('/booter/get_missing_attributes', { :agent_identity => @agent_identity,
                                                                              :scripts_ids    => scripts_ids,
                                                                              :recipes_ids    => recipes_ids }) do |r|
       res = RightScale::OperationResult.from_results(r)
@@ -328,7 +332,7 @@ class InstanceSetup
     sequence = RightScale::ExecutableSequence.new(bundle)
     sequence.callback do
       EM.next_tick do
-        RightScale::RequestForwarder.push('/updater/update_inputs', { :agent_identity => @agent_identity,
+        RightScale::RequestForwarder.instance.push('/updater/update_inputs', { :agent_identity => @agent_identity,
                                                                       :patch          => sequence.inputs_patch })
         yield RightScale::OperationResult.success
       end

@@ -183,7 +183,7 @@ module RightScale
     # true:: Always return true
     def self.shutdown(user_id, skip_db_update, kind)
       opts = { :agent_identity => @@identity, :state => 'decommissioned', :user_id => user_id, :skip_db_update => skip_db_update, :kind => kind }
-      RightScale::RequestForwarder.request('/state_recorder/record', opts) do |r|
+      RightScale::RequestForwarder.instance.request('/state_recorder/record', opts) do |r|
         res = RightScale::OperationResult.from_results(r)
         RightScale::Platform.controller.shutdown unless res.success?
       end
@@ -367,7 +367,7 @@ module RightScale
     # true:: Always return true
     def self.record_state(new_state)
       options = { :agent_identity => @@identity, :state => new_state }
-      RightScale::RequestForwarder.request('/state_recorder/record', options) do |r|
+      RightScale::RequestForwarder.instance.request('/state_recorder/record', options) do |r|
         res = RightScale::OperationResult.from_results(r)
         RightLinkLog.warn("Failed to record state: #{res.content}") unless res.success?
       end

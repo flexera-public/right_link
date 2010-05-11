@@ -28,7 +28,7 @@ describe RightScale::AuditorProxy do
 
   before(:each) do
     @proxy = RightScale::AuditorProxy.new(1)
-    @forwarder = flexmock(RightScale::RequestForwarder)
+    @forwarder = flexmock(RightScale::RequestForwarder.instance)
   end
 
   it 'should log, audit and event errors' do

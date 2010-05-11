@@ -108,11 +108,11 @@ describe RightScale::InstanceState do
   end
 
   it 'should record startup tags when transitioning from booting' do
-    flexmock(RightScale::RequestForwarder).should_receive(:request).
+    flexmock(RightScale::RequestForwarder.instance).should_receive(:request).
             with('/state_recorder/record', { :state => "booting", :agent_identity => "1" }, Proc).
             and_yield(@results_factory.success_results)
     RightScale::InstanceState.init(@identity)
-    flexmock(RightScale::RequestForwarder).should_receive(:request).
+    flexmock(RightScale::RequestForwarder.instance).should_receive(:request).
             with('/state_recorder/record', { :state => "operational", :agent_identity => "1" }, Proc).
             and_yield(@results_factory.success_results)
     RightScale::InstanceState.startup_tags = [ 'a_tag', 'another_tag' ]

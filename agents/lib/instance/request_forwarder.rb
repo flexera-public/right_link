@@ -24,6 +24,8 @@ module RightScale
 
   class RequestForwarder
 
+    include Singleton
+
     # Maximum amount of seconds to wait before starting flushing queue
     # when disabling offline mode
     MAX_FLUSH_DELAY = 120 # 2 minutes
@@ -34,6 +36,44 @@ module RightScale
 
     # Maximum number of in-memory messages before triggering re-enroll vote
     MAX_QUEUED_MESSAGES = 1000
+    
+    # Initialize singleton instance
+    def initialize
+      @vote_count = 0
+      @mode = :initializing
+      @running = false
+      @in_init = false
+      @requests = []
+    end
+
+    # Is agent currently offline?
+    #
+    # === Return
+    # offline(TrueClass|FalseClass):: true if agent is disconnected or not initialized
+    def offline?
+      offline = @mode == :offline || !@running
+    end
+
+    # Initialize request forwarder, should be called once
+    # All requests sent prior to running 'init' are queued
+    # Requests will be sent once init has run
+    #
+    # === Block
+    # If a block is given it's executed before the offline queue is flushed
+    # This allows sending initialization requests before queued requests are sent
+    #
+    # === Return
+    # true:: Always return true
+    def init
+      unless @running
+        @running = true
+        @in_init = true
+        yield if block_given?
+        @in_init = false
+        flush_queue unless @requests.empty? || @mode == :offline
+        @mode = :online if @mode == :initializing
+      end
+    end
 
     # Send request or buffer it if we are in offline mode
     #
@@ -47,8 +87,8 @@ module RightScale
     #
     # === Return
     # true:: Always return true
-    def self.request(type, payload = '', opts = {}, &blk)
-      if @offline_mode
+    def request(type, payload = '', opts = {}, &blk)
+      if offline?
         queue_request(:kind => :request, :type => type, :payload => payload, :options => opts, :callback => blk)
       else
         MapperProxy.instance.request(type, payload, opts, &blk)
@@ -65,8 +105,8 @@ module RightScale
     #
     # === Return
     # true:: Always return true
-    def self.push(type, payload = '', opts = {})
-      if @offline_mode
+    def push(type, payload = '', opts = {})
+      if offline?
         queue_request(:kind => :push, :type => type, :payload => payload, :options => opts)
       else
         MapperProxy.instance.push(type, payload, opts)
@@ -79,10 +119,10 @@ module RightScale
     #
     # === Return
     # true:: Always return true
-    def self.enable_offline_mode
+    def enable_offline_mode
       RightLinkLog.info("[offline] Deconnection from broker detected, entering offline mode")
       RightLinkLog.info("[offline] Messages will be queued in memory until connection to broker is re-established")
-      if @offline_mode
+      if offline?
         if @flushing
           # If we were in offline mode then switched back to online but are still in the
           # process of flushing the in memory queue and are now switching to offline mode
@@ -91,7 +131,7 @@ module RightScale
         end
       else
         @requests = []
-        @offline_mode = true
+        @mode = :offline
         @vote_timer ||= EM::Timer.new(VOTE_DELAY) { vote(timer_trigger=true) }
       end
     end
@@ -100,8 +140,8 @@ module RightScale
     #
     # === Return
     # true:: Always return true
-    def self.disable_offline_mode
-      if @offline_mode
+    def disable_offline_mode
+      if offline?
         RightLinkLog.info("[offline] Connection to broker re-established")
         @vote_timer.cancel if @vote_timer
         @vote_timer = nil
@@ -120,7 +160,7 @@ module RightScale
     # === Parameters
     # timer_trigger(Boolean):: true if vote was triggered by timer, false if it
     #                          was triggered by amount of messages in in-memory queue
-    def self.vote(timer_trigger)
+    def vote(timer_trigger)
       RightScale::ReenrollManager.vote
       if timer_trigger
         @vote_timer = EM::Timer.new(VOTE_DELAY) { vote(timer_trigger=true) }
@@ -136,11 +176,15 @@ module RightScale
     #
     # === Return
     # true:: Always return true
-    def self.queue_request(request)
-      @vote_count ||= 0
-      @vote_count += 1
+    def queue_request(request)
+      @vote_count += 1 if @running
       vote(timer_trigger=false) if @vote_count >= MAX_QUEUED_MESSAGES
-      @requests << request
+      if @in_init
+        # We are in the initialization callback, requests should be put at the head of the queue
+        @requests.unshift(request)
+      else
+        @requests << request
+      end
       true
     end
 
@@ -150,12 +194,12 @@ module RightScale
     #
     # === Return
     # true:: Always return true
-    def self.flush_queue
+    def flush_queue
       if @stop_flush
         @stop_flush = false
         @flushing = false
       else
-        RightLinkLog.info("[offline] Starting flushing of in-memory queue")
+        RightLinkLog.info("[offline] Starting flushing of in-memory queue") unless @mode == :initializing
         request = @requests.shift
         case request[:kind]
         when :push
@@ -164,8 +208,8 @@ module RightScale
           MapperProxy.instance.request(request[:type], request[:payload], request[:options], request[:callback])
         end
         if @requests.empty?
-          RightLinkLog.info("[offline] In-memory queue flushed, resuming normal operations")
-          @offline_mode = false
+          RightLinkLog.info("[offline] In-memory queue flushed, resuming normal operations") unless @mode == :initializing
+          @mode = :online
           @flushing = false
         else
           EM.next_tick { flush_queue }

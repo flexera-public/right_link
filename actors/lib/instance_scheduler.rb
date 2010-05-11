@@ -78,7 +78,7 @@ class InstanceScheduler
   # true:: Always return true
   def execute(options)
     options[:agent_identity] = RightScale::AgentIdentity.serialized_from_nanite(@agent_identity)
-    RightScale::RequestForwarder.request('/forwarder/schedule_recipe', options) do |r|
+    RightScale::RequestForwarder.instance.request('/forwarder/schedule_recipe', options) do |r|
       res = RightScale::OperationResult.from_results(r)
       unless res.success?
         RightScale::RightLinkLog.info("Failed to execute recipe: #{res.content}")
@@ -141,7 +141,7 @@ class InstanceScheduler
       callback.call if callback
     elsif RightScale::InstanceState.value != 'decommissioning'
       # Trigger decommission
-      RightScale::RequestForwarder.request('/booter/get_decommission_bundle', :agent_identity => @agent_identity) do |r|
+      RightScale::RequestForwarder.instance.request('/booter/get_decommission_bundle', :agent_identity => @agent_identity) do |r|
         res = RightScale::OperationResult.from_results(r)
         if res.success?
           schedule_decommission(:bundle => res.content)
@@ -178,7 +178,7 @@ class InstanceScheduler
       if bundle != 'end'
         sequence = RightScale::ExecutableSequence.new(bundle)
         sequence.callback do
-          RightScale::RequestForwarder.push('/updater/update_inputs', { :agent_identity => @agent_identity,
+          RightScale::RequestForwarder.instance.push('/updater/update_inputs', { :agent_identity => @agent_identity,
                                                                         :patch          => sequence.inputs_patch })
           EM.defer { run_bundles }
         end
@@ -188,7 +188,7 @@ class InstanceScheduler
         RightScale::InstanceState.value = 'decommissioned'
         # Tell the registrar to delete our queue
         EM.next_tick do
-          RightScale::RequestForwarder.push('/registrar/remove', { :agent_identity => @agent_identity })
+          RightScale::RequestForwarder.instance.push('/registrar/remove', { :agent_identity => @agent_identity })
         end
         # If we got here through rnac --decommission then there is a callback setup and we should
         # call it. rnac will then tell us to terminate.

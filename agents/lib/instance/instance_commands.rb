@@ -257,7 +257,7 @@ module RightScale
     # true:: Always return true
     def send_request(request, conn, options)
       options[:agent_identity] = @agent_identity
-      RightScale::RequestForwarder.request(request, options) do |r|
+      RightScale::RequestForwarder.instance.request(request, options) do |r|
         res = OperationResult.from_results(r)
         CommandIO.instance.reply(conn, res.success? ? 'Request sent successfully' : "Request failed: #{res.content}")
       end

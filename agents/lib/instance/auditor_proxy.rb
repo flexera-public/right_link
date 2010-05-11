@@ -156,7 +156,7 @@ module RightScale
       log_text = AuditFormatter.send(format_method(request), options[:text])[:detail]
       log_text.chomp.split("\n").each { |l| RightLinkLog.__send__(log_method, l) }
       options[:audit_id] = @audit_id
-      RightScale::RequestForwarder.push("/auditor/#{request}", options, :persistent => false)
+      RightScale::RequestForwarder.instance.push("/auditor/#{request}", options, :persistent => false)
       true
     end
 
