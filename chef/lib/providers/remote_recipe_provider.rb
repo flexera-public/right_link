@@ -54,7 +54,7 @@ class Chef
                    end
           Chef::Log.info("Scheduling execution of #{@new_resource.recipe.inspect} on #{target}")
           recipients.each do |recipient|
-            RightScale::RequestForwarder.push('/instance_scheduler/execute',
+            RightScale::RequestForwarder.instance.push('/instance_scheduler/execute',
                                               options,
                                               :target => recipient)
           end
@@ -72,7 +72,7 @@ class Chef
                      "one instance with #{target_tag}"
                    end
           Chef::Log.info("Scheduling execution of #{@new_resource.recipe.inspect} on #{target}")
-          RightScale::RequestForwarder.push('/instance_scheduler/execute', options,
+          RightScale::RequestForwarder.instance.push('/instance_scheduler/execute', options,
                                    :tags => tags, :selector => selector)
         end
         true
