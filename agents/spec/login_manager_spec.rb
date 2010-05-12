@@ -30,6 +30,12 @@ describe RightScale::LoginManager do
     return count * 60
   end
 
+  #given a scalar value, return a range encompassing that value plus or minus
+  #n (where n = 3 by default)
+  def approximately(t, n=3)
+    return (t-n)..(t+n)
+  end
+
   # equivalent of x.minutes.from_now for dev setup without activesupport
   def minutes_from_now(count)
     return Time.now + minutes(count)
@@ -173,7 +179,7 @@ describe RightScale::LoginManager do
       end
 
       it 'should create a timer for 1 hour' do
-        flexmock(EventMachine::Timer).should_receive(:new).with(one_hour + 1, Proc)
+        flexmock(EventMachine::Timer).should_receive(:new).with(approximately(one_hour), Proc)
         policy = @policy
         @mgr.instance_eval {
           schedule_expiry(policy).should == true
@@ -187,7 +193,7 @@ describe RightScale::LoginManager do
         end
 
         it 'should create a timer for 15 minutes' do
-          flexmock(EventMachine::Timer).should_receive(:new).with(minutes(15) + 1, Proc)
+          flexmock(EventMachine::Timer).should_receive(:new).with(approximately(minutes(15)), Proc)
           policy = @policy
           @mgr.instance_eval {
             schedule_expiry(policy).should == true
