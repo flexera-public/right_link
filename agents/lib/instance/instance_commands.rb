@@ -40,10 +40,7 @@ module RightScale
       :terminate        => 'Terminate agent',
       :get_tags         => 'Retrieve instance tags',
       :add_tag          => 'Add given tag',
-      :remove_tag       => 'Remove given tag',
-      :test_ack         => 'Send messages to core agent to test message acks',
-      :test_persistent  => 'Send messages to core agent to test persistent handling',
-      :test_freshness   => 'Send message to core agent to test freshness'
+      :remove_tag       => 'Remove given tag'
     }
 
     # Build hash of commands associating command names with block
@@ -162,88 +159,6 @@ module RightScale
     def remove_tag_command(opts)
       RightScale::AgentTagsManager.instance.remove_tags(opts[:tag])
       CommandIO.instance.reply(opts[:conn], "Request to remove tag '#{opts[:tag]}' sent successfully.")
-    end
-
-    # Repeatedly push test_ack command to core agent tester
-    #
-    # === Parameters
-    # opts(Hash):: Options:
-    #   :conn(EM::Connection):: Connection used to send reply
-    #   :options(Hash):: Test command payload and options:
-    #     :index(Integer):: Starting index for iteration, defaults to 0
-    #     :times(Integer):: Number of times to send message
-    #     :exit(Integer):: Index at which core agent is to exit
-    #
-    # === Return
-    # true:: Always return true
-    def test_ack_command(opts)
-      options = opts[:options].dup
-      options[:agent_identity] = @agent_identity
-      options[:index] ||= 0
-      exit_index = options[:exit]
-      options[:times].times do
-        options[:exit] = (options[:index] == exit_index)
-        RightLinkLog.info("Sending test_ack, index = #{options[:index]} exit = #{options[:exit]}")
-        MapperProxy.instance.push("/tester/test_ack", options, options)
-        options[:index] += 1
-      end
-      CommandIO.instance.reply(opts[:conn], "Finished sending #{options[:times]} test_ack's")
-    end
-
-    # Repeatedly send test_persistent request to core agent tester and receive response
-    #
-    # === Parameters
-    # opts(Hash):: Options:
-    #   :conn(EM::Connection):: Connection used to send reply
-    #   :options(Hash):: Test command payload and options:
-    #     :index(Integer):: Starting index for iteration, defaults to 0
-    #     :times(Integer):: Number of times to send message
-    #     :target(String):: Serialized identity of instance agent being targeted
-    #
-    # === Return
-    # true:: Always return true
-    def test_persistent_command(opts)
-      options = opts[:options].dup
-      options[:agent_identity] = @agent_identity
-      options[:index] ||= 0
-      options[:times].times do
-        RightLinkLog.info("Sending test_persistent request, index = #{options[:index]}")
-        MapperProxy.instance.request("/tester/test_persistent", options, options) do |res|
-          res = RightScale::OperationResult.from_results(res)
-          RightScale::RightLinkLog.info("Received test_persistent response, index = #{res.content} " +
-                                        "status = #{res.status_code}")
-        end
-        options[:index] += 1
-      end
-      CommandIO.instance.reply(opts[:conn], "Finished sending #{options[:times]} test_persistent's")
-    end
-
-    # Repeatedly send test_freshness request to core agent tester and receive response
-    #
-    # === Parameters
-    # opts(Hash):: Options:
-    #   :conn(EM::Connection):: Connection used to send reply
-    #   :options(Hash):: Test command payload and options:
-    #     :index(Integer):: Starting index for iteration, defaults to 0
-    #     :times(Integer):: Number of times to send message
-    #     :kill(Integer):: Id of process to be killed, if any
-    #
-    # === Return
-    # true:: Always return true
-    def test_freshness_command(opts)
-      options = opts[:options].dup
-      options[:agent_identity] = @agent_identity
-      options[:index] ||= 0
-      options[:times].times do
-        RightLinkLog.info("Sending test_freshness request, index = #{options[:index]}")
-        MapperProxy.instance.request("/tester/test_freshness", options, options) do |res|
-          res = RightScale::OperationResult.from_results(res)
-          RightScale::RightLinkLog.info("Received test_freshness response, index = #{res.content} " +
-                                        "status = #{res.status_code}")
-        end
-        options[:index] += 1
-      end
-      CommandIO.instance.reply(opts[:conn], "Finished sending #{options[:times]} test_freshness's")
     end
 
     # Helper method that sends given request and report status through command IO
