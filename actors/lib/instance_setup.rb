@@ -41,6 +41,7 @@ class InstanceSetup
   #                                                 under SUICIDE_DELAY and this is the initial boot
   def initialize(options)
     agent_identity = options[:identity]
+    RightScale::InstanceState.init(agent_identity)
     should_suicide = options[:auto_shutdown] && RightScale::InstanceState.initial_boot
     @suicide_timer = EM.add_timer(SUICIDE_DELAY) do
       RightScale::RightLinkLog.error "Shutting down after having tried to boot for #{SUICIDE_DELAY / 60} minutes"
@@ -48,7 +49,6 @@ class InstanceSetup
     end if should_suicide 
     @boot_retries = 0
     @agent_identity = agent_identity
-    RightScale::InstanceState.init(agent_identity)
     RightScale::RightLinkLog.force_debug if RightScale::DevState.enabled?
     EM.threadpool_size = 1
     # Schedule boot sequence, don't run it now so agent is registered first

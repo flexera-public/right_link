@@ -70,7 +70,7 @@ module RightScale
         @in_init = true
         yield if block_given?
         @in_init = false
-        flush_queue unless @requests.empty? || @mode == :offline
+        flush_queue unless @mode == :offline
         @mode = :online if @mode == :initializing
       end
     end
@@ -148,7 +148,7 @@ module RightScale
         @stop_flush = false
         @flushing = true
         # Let's wait a bit not to flood the mapper
-        EM.add_timer(rand(MAX_FLUSH_DELAY)) { flush_queue }
+        EM.add_timer(rand(MAX_FLUSH_DELAY)) { flush_queue } if @running
       end
       true
     end
@@ -200,15 +200,17 @@ module RightScale
         @flushing = false
       else
         RightLinkLog.info("[offline] Starting flushing of in-memory queue") unless @mode == :initializing
-        request = @requests.shift
-        case request[:kind]
-        when :push
-          MapperProxy.instance.push(request[:type], request[:payload], request[:options])
-        when :request
-          if request[:callback]
-            MapperProxy.instance.request(request[:type], request[:payload], request[:options]) { |r| request[:callback].call(r) }
-          else
-            MapperProxy.instance.request(request[:type], request[:payload], request[:options])
+        unless @requests.empty?
+          request = @requests.shift
+          case request[:kind]
+          when :push
+            MapperProxy.instance.push(request[:type], request[:payload], request[:options])
+          when :request
+            if request[:callback]
+              MapperProxy.instance.request(request[:type], request[:payload], request[:options]) { |r| request[:callback].call(r) }
+            else
+              MapperProxy.instance.request(request[:type], request[:payload], request[:options])
+            end
           end
         end
         if @requests.empty?
