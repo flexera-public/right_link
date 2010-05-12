@@ -244,7 +244,7 @@ module RightScale
       begin
         opts.parse(ARGV)
       rescue Exception => e
-        puts e.message + "\nUse rnac --help for additional information"
+        fail(e.message, print_usage = true)
       end
       resolve_identity(options)
       options
@@ -327,7 +327,7 @@ module RightScale
           @options[:status_proc] = lambda { 1 }
         end
 
-        puts "#{name} started."
+        puts "#{name} being started"
 
         EM.error_handler do |e|
           msg = "EM block execution failed with exception: #{e.message}"

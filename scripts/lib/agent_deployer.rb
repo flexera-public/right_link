@@ -30,17 +30,18 @@
 #      --port, -P PORT          Set AMQP server port
 #      --host, -h HOST          Set AMQP server host
 #      --alias ALIAS            Use alias name for identity and base config
-#      --actors-dir, -a DIR     Set directory containing actor classes
 #      --pid-dir, -z DIR        Set directory containing pid file
 #      --monit, -w              Generate monit configuration file
 #      --options, -o KEY=VAL    Pass-through options
 #      --auto-shutdown          Shutdown server if it fails to get boot bundle in 45 minutes on first boot
 #      --http-proxy, -P PROXY   Use a proxy for all agent-originated HTTP traffic
 #      --no-http-proxy          Comma-separated list of proxy exceptions
-#      --fresh-timeout SEC      Maximum age in seconds before a request times out and is rejected
-#      --retry-interval SEC     Number of seconds between request retries
-#      --retry-limit COUNT      Maximum number of request retries before timeout
-#      --prefetch COUNT         Maximum requests to prefetch before ack current
+#      --fresh-timeout SEC      Set maximum age in seconds before a request times out and is rejected
+#      --retry-interval SEC     Set number of seconds between request retries
+#      --retry-limit COUNT      Set maximum number of request retries before timeout
+#      --prefetch COUNT         Set maximum requests to prefetch before ack current
+#      --actors-dir DIR         Set directory containing actor classes
+#      --agents-dir DIR         Set directory containing agent configuration
 #      --test                   Build test deployment using default test settings
 #      --quiet, -Q              Do not produce output
 #      --help                   Display help
@@ -75,21 +76,19 @@ module RightScale
 
     # Do deployment with given options
     def generate_config(options)
-      init_rb_path = nil
-      actors = nil
-      actors_path = nil
-      actors_path = options[:actors_dir] || actors_dir
-      cfg = agent_config(options[:agent], options[:alias])
+      agent = options[:alias] || options[:agent]
+      options[:agents_dir] ||= agent_dir(agent)
+      options[:actors_dir] ||= actors_dir
+      cfg = agent_config(options[:agents_dir], agent)
       fail("Cannot read configuration for agent #{options[:agent]}") unless cfg
       actors = cfg.delete(:actors)
       fail('Agent configuration does not define actors') unless actors && actors.respond_to?(:each)
       actors.each do |actor|
-        actor_file = File.join(actors_path, "#{actor}.rb")
+        actor_file = File.join(options[:actors_dir], "#{actor}.rb")
         fail("Cannot find actor file '#{actor_file}'") unless File.exist?(actor_file)
       end
-      options[:actors_path] = actors_path
       options[:actors] = actors
-      options[:init_rb_path] = File.join(agent_dir(options[:alias] || options[:agent]), (options[:alias] || options[:agent]) + ".rb")
+      options[:initrb] = File.join(options[:agents_dir], "#{agent}.rb")
       options[:pid_prefix] = 'nanite'
       write_config(options)
     end
@@ -105,9 +104,9 @@ module RightScale
       cfg[:vhost]          = options[:vhost] if options[:vhost]
       cfg[:port]           = options[:port] if options[:port]
       cfg[:host]           = options[:host] if options[:host]
-      cfg[:initrb]         = options[:init_rb_path] if options[:init_rb_path]
+      cfg[:initrb]         = options[:initrb] if options[:initrb]
       cfg[:actors]         = options[:actors] if options[:actors]
-      cfg[:actors_dir]     = options[:actors_path] if options[:actors_path]
+      cfg[:actors_dir]     = options[:actors_dir] if options[:actors_dir]
       cfg[:format]         = 'secure'
       cfg[:persistent]     = true
       cfg[:fresh_timeout]  = options[:fresh_timeout] || 15 * 60
@@ -119,22 +118,22 @@ module RightScale
       cfg[:no_http_proxy]  = options[:no_http_proxy] if options[:no_http_proxy]
       options[:options].each { |k, v| cfg[k] = v } if options[:options]
 
-      agent_dir = gen_agent_dir(options[:agent])
-      File.makedirs(agent_dir) unless File.exist?(agent_dir)
-      conf_file = config_file(options[:agent])
-      File.delete(conf_file) if File.exist?(conf_file)
-      File.open(conf_file, 'w') { |fd| fd.puts "# Created at #{Time.new}" }
-      File.open(conf_file, 'a') do |fd|
+      gen_dir = gen_agent_dir(options[:agent])
+      File.makedirs(gen_dir) unless File.exist?(gen_dir)
+      cfg_file = config_file(options[:agent])
+      File.delete(cfg_file) if File.exist?(cfg_file)
+      File.open(cfg_file, 'w') { |fd| fd.puts "# Created at #{Time.now}" }
+      File.open(cfg_file, 'a') do |fd|
         fd.write(YAML.dump(cfg))
       end
       unless options[:quiet]
         puts "Generated configuration file for agent #{options[:agent]}:"
-        puts "  - config: #{conf_file}"
+        puts "  - config: #{cfg_file}"
       end
         
       if options[:monit]
-        config_file = setup_monit(options)
-        puts "  - monit config: #{config_file}" unless options[:quiet]
+        cfg_file = setup_monit(options)
+        puts "  - monit config: #{cfg_file}" unless options[:quiet]
       end
     end
 
@@ -153,10 +152,6 @@ module RightScale
 
         opts.on('-S', '--secure-identity') do
           options[:secure_identity] = true
-        end
-        
-        opts.on('-a', '--actors-dir DIR') do |d|
-          options[:actors_dir] = d
         end
 
         opts.on('-q', '--shared-queue QUEUE') do |q|
@@ -199,6 +194,14 @@ module RightScale
           options[:prefetch] = count.to_i
         end
 
+        opts.on('--actors-dir DIR') do |d|
+          options[:actors_dir] = d
+        end
+
+        opts.on('--agents-dir DIR') do |d|
+          options[:agents_dir] = d
+        end
+
         opts.on('-o', '--options OPT') do |e|
           fail("Invalid option definition '#{e}' (use '=' to separate name and value)") unless e.include?('=')
           key, val = e.split(/=/)
@@ -217,7 +220,7 @@ module RightScale
       begin
         opts.parse!(ARGV)
       rescue Exception => e
-        puts e.message + "\nUse rad --help for additional information"
+        fail(e.message, print_usage = true)
       end
       resolve_identity(options)
       options
@@ -240,12 +243,12 @@ protected
     def setup_monit(options)
       agent = options[:agent]
       pid_file = PidFile.new("#{options[:pid_prefix]}-#{options[:identity]}", :pid_dir => options[:pid_dir] || '/var/run')
-      monit_config_file = if File.exists?('/opt/rightscale/etc/monit.d')
+      cfg_file = if File.exists?('/opt/rightscale/etc/monit.d')
         File.join('/opt/rightscale/etc/monit.d', "#{agent}-#{options[:identity]}.conf")
       else
         File.join(gen_agent_dir(agent), "#{agent}-#{options[:identity]}-monit.conf")
       end
-      File.open(monit_config_file, 'w') do |f|
+      File.open(cfg_file, 'w') do |f|
         f.puts <<-EOF
 check process #{agent}
   with pidfile \"#{pid_file}\"
@@ -255,20 +258,20 @@ check process #{agent}
         EOF
       end
       # monit requires strict perms on this file
-      File.chmod 0600, monit_config_file
-      monit_config_file
+      File.chmod 0600, cfg_file
+      cfg_file
     end
 
     def config_file(agent)
       File.join(gen_agent_dir(agent), 'config.yml')
     end
-    
-    def agent_config(agent, alias_name=nil)
-      cfg_file = File.join(agent_dir(alias_name || agent), "#{alias_name || agent}.yml")
+
+    def agent_config(agents_dir, agent)
+      cfg_file = File.join(agents_dir, "#{agent}.yml")
       return nil unless File.exist?(cfg_file)
       symbolize(YAML.load(IO.read(cfg_file))) rescue nil
     end
-
+ 
     # Version information
     def version
       "rad #{VERSION.join('.')} - RightScale Agent Deployer (c) 2009 RightScale"

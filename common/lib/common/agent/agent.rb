@@ -280,6 +280,7 @@ module RightScale
       actors_dir = @options[:actors_dir] || "#{@options[:root]}/actors"
       RightLinkLog.warn("Actors dir #{actors_dir} does not exist or is not reachable") unless File.directory?(actors_dir)
       actors = @options[:actors]
+      RightLinkLog.info("Agent #{@identity} actors #{actors.inspect}")
       Dir["#{actors_dir}/*.rb"].each do |actor|
         next if actors && !actors.include?(File.basename(actor, ".rb"))
         RightLinkLog.info("[setup] loading #{actor}")
@@ -287,7 +288,7 @@ module RightScale
       end
       init_path = @options[:initrb] || File.join(@options[:root], 'init.rb')
       if File.exist?(init_path)
-        instance_eval(File.read(init_path), init_path) 
+        instance_eval(File.read(init_path), init_path)
       else
         RightLinkLog.warn("init.rb #{init_path} does not exist or is not reachable") unless File.exists?(init_path)
       end
