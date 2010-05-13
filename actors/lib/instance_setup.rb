@@ -91,12 +91,17 @@ class InstanceSetup
   # === Return
   # true:: Always return true
   def init_boot
-    RightScale::RequestForwarder.instance.request("/booter/set_r_s_version", { :agent_identity => @agent_identity, :r_s_version => RightScale::RightLinkConfig.protocol_version }) do |r|
+    options = { :agent_identity => @agent_identity, :r_s_version => RightScale::RightLinkConfig.protocol_version, :aws_id => RightScale::InstanceState.aws_id }
+    RightScale::RequestForwarder.instance.request('/booter/declare', options) do |r|
       res = RightScale::OperationResult.from_results(r)
       if res.success?
         enable_managed_login
       else
-        RightScale::RightLinkLog.warn("Failed to record r_s_version: #{res.content}")
+        if res.retry?
+          RightScale::RightLinkLog.info("RightScale not ready, retrying in #{RECONNECT_DELAY} seconds...")
+        else
+          RightScale::RightLinkLog.warn("Failed to contact RightScale: #{res.content}, retrying in #{RECONNECT_DELAY} seconds...")
+        end
         # Retry in RECONNECT_DELAY seconds, retry forever, nothing else we can do
         EM.add_timer(RECONNECT_DELAY) { init_boot }
       end
