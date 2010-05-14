@@ -81,7 +81,7 @@ module RightScale
         gsub(/([A-Z]+)([A-Z][a-z])/,'\1_\2').
         gsub(/([a-z\d])([A-Z])/,'\1_\2').
         downcase }]"
-      log_msg += " (#{size.to_s.gsub(/(\d)(?=(\d\d\d)+(?!\d))/, "\\1,")} bytes)" if size && !size.to_s.empty?
+      log_msg += " (#{@size.to_s.gsub(/(\d)(?=(\d\d\d)+(?!\d))/, "\\1,")} bytes)" if @size && !@size.to_s.empty?
       log_msg
     end
 
@@ -134,7 +134,7 @@ module RightScale
   # Packet for a work request for an actor node that has an expected result
   class Request < Packet
 
-    attr_accessor :from, :scope, :payload, :type, :token, :reply_to, :selector, :target, :persistent, :created_at, :tags
+    attr_accessor :from, :scope, :payload, :type, :token, :reply_to, :selector, :target, :persistent, :created_at, :tags, :tries
 
     DEFAULT_OPTIONS = {:selector => :least_loaded}
 
@@ -156,6 +156,7 @@ module RightScale
     #   :created_at(Numeric):: Time in seconds when this request was created for use in timing
     #     out the request; value 0 means never timeout; defaults to current time
     #   :tags(Array of Symbol):: List of tags to be used for selecting target for this request
+    #   :tries(Array):: List of tokens for previous attempts to send this request
     # size(Integer):: Size of request in bytes used only for marshalling
     def initialize(type, payload, opts = {}, size = nil)
       opts = DEFAULT_OPTIONS.merge(opts)
@@ -171,6 +172,7 @@ module RightScale
       @persistent = opts[:persistent]
       @created_at = opts[:created_at] || Time.now.to_f
       @tags       = opts[:tags] || []
+      @tries      = opts[:tries] || []
     end
 
     # Create packet from unmarshalled JSON data
@@ -186,27 +188,34 @@ module RightScale
                                      :token      => i['token'],      :reply_to => i['reply_to'],
                                      :selector   => i['selector'],   :target   => i['target'],   
                                      :persistent => i['persistent'], :tags     => i['tags'],
-                                     :created_at => i['created_at'] },
+                                     :created_at => i['created_at'], :tries    => i['tries'] },
                                    o['size'])
     end
 
     # Generate log representation
     #
     # === Parameters
-    # filter(Array of Symbol):: Attributes to be included in output
+    # filter(Array of Symbol):: Attributes to be in cluded in output
     #
     # === Return
     # log_msg(String):: Log representation
     def to_s(filter = nil)
-      log_msg = "#{super} #{trace} #{type}"
-      log_msg += " from #{id_to_s(from)}" if filter.nil? || filter.include?(:from)
-      log_msg += " with scope #{scope}" if scope && (filter.nil? || filter.include?(:scope))
-      log_msg += " target #{id_to_s(target)}" if target && (filter.nil? || filter.include?(:target))
-      log_msg += ", reply_to #{id_to_s(reply_to)}" if reply_to && (filter.nil? || filter.include?(:reply_to))
-      log_msg += ", tags #{tags.inspect}" if tags && !tags.empty? && (filter.nil? || filter.include?(:tags))
-      log_msg += ", persistent #{persistent.inspect}" if filter.nil? || filter.include?(:persistent)
-      log_msg += ", payload #{payload.inspect}" if filter.nil? || filter.include?(:payload)
+      log_msg = "#{super} #{trace} #{@type}"
+      log_msg += " from #{id_to_s(@from)}" if filter.nil? || filter.include?(:from)
+      log_msg += " with scope #{@scope}" if @scope && (filter.nil? || filter.include?(:scope))
+      log_msg += " target #{id_to_s(@target)}" if @target && (filter.nil? || filter.include?(:target))
+      log_msg += ", reply_to #{id_to_s(@reply_to)}" if @reply_to && (filter.nil? || filter.include?(:reply_to))
+      log_msg += ", tags #{@tags.inspect}" if @tags && !@tags.empty? && (filter.nil? || filter.include?(:tags))
+      log_msg += ", tries #{tries_to_s}" if @tries && !@tries.empty? && (filter.nil? || filter.include?(:tries))
+      log_msg += ", persistent #{@persistent.inspect}" if @persistent && (filter.nil? || filter.include?(:persistent))
+      log_msg += ", payload #{@payload.inspect}" if filter.nil? || filter.include?(:payload)
       log_msg
+    end
+
+    def tries_to_s
+      log_msg = ""
+      @tries.each { |r| log_msg += "<#{r}>, " }
+      log_msg = log_msg[0..-3] if log_msg.size > 1
     end
 
     # Get target to be used for encrypting the packet
@@ -284,13 +293,13 @@ module RightScale
     # === Return
     # log_msg(String):: Log representation
     def to_s(filter = nil)
-      log_msg = "#{super} #{trace} #{type}"
-      log_msg += " from #{id_to_s(from)}" if filter.nil? || filter.include?(:from)
-      log_msg += " with scope #{scope}" if scope && (filter.nil? || filter.include?(:scope))
-      log_msg += ", target #{id_to_s(target)}" if target && (filter.nil? || filter.include?(:target))
-      log_msg += ", tags #{tags.inspect}" if tags && !tags.empty? && (filter.nil? || filter.include?(:tags))
-      log_msg += ", persistent #{persistent.inspect}" if filter.nil? || filter.include?(:persistent)
-      log_msg += ", payload #{payload.inspect}" if filter.nil? || filter.include?(:payload)
+      log_msg = "#{super} #{trace} #{@type}"
+      log_msg += " from #{id_to_s(@from)}" if filter.nil? || filter.include?(:from)
+      log_msg += " with scope #{@scope}" if @scope && (filter.nil? || filter.include?(:scope))
+      log_msg += ", target #{id_to_s(@target)}" if @target && (filter.nil? || filter.include?(:target))
+      log_msg += ", tags #{@tags.inspect}" if @tags && !@tags.empty? && (filter.nil? || filter.include?(:tags))
+      log_msg += ", persistent #{@persistent.inspect}" if @persistent && (filter.nil? || filter.include?(:persistent))
+      log_msg += ", payload #{@payload.inspect}" if filter.nil? || filter.include?(:payload)
       log_msg
     end
 
@@ -347,9 +356,9 @@ module RightScale
     # log_msg(String):: Log representation
     def to_s(filter = nil)
       log_msg = "#{super} #{trace}"
-      log_msg += " from #{id_to_s(from)}" if filter.nil? || filter.include?(:from)
-      log_msg += " to #{id_to_s(to)}" if filter.nil? || filter.include?(:to)
-      log_msg += " results: #{results.inspect}" if filter.nil? || filter.include?(:results)
+      log_msg += " from #{id_to_s(@from)}" if filter.nil? || filter.include?(:from)
+      log_msg += " to #{id_to_s(@to)}" if filter.nil? || filter.include?(:to)
+      log_msg += " results #{@results.inspect}" if filter.nil? || filter.include?(:results)
       log_msg
     end
 
@@ -405,10 +414,10 @@ module RightScale
     # === Return
     # log_msg(String):: Log representation
     def to_s
-      log_msg = "#{super} #{id_to_s(identity)}"
-      log_msg += ", shared_queue: #{shared_queue}" if shared_queue
-      log_msg += ", services: #{services.join(', ')}" if services && !services.empty?
-      log_msg += ", tags: #{tags.join(', ')}" if tags && !tags.empty?
+      log_msg = "#{super} #{id_to_s(@identity)}"
+      log_msg += ", shared_queue #{@shared_queue}" if @shared_queue
+      log_msg += ", services #{@services.inspect}" if @services && !@services.empty?
+      log_msg += ", tags #{@tags.inspect}" if @tags && !@tags.empty?
       log_msg
     end
 
@@ -447,7 +456,7 @@ module RightScale
     # === Return
     # (String):: Log representation
     def to_s
-      "#{super} #{id_to_s(identity)}"
+      "#{super} #{id_to_s(@identity)}"
     end
 
   end # UnRegister
@@ -491,7 +500,7 @@ module RightScale
     # === Return
     # (String):: Log representation
     def to_s
-      "#{super} #{id_to_s(identity)} status #{status}"
+      "#{super} #{id_to_s(@identity)} status #{@status}"
     end
 
   end # Ping
@@ -562,9 +571,9 @@ module RightScale
     # === Return
     # (String):: Log representation
     def to_s
-      log_msg = "#{super} #{id_to_s(identity)}"
-      log_msg += ", new tags: #{new_tags.join(', ')}" if new_tags && !new_tags.empty?
-      log_msg += ", obsolete tags: #{obsolete_tags.join(', ')}" if obsolete_tags && !obsolete_tags.empty?
+      log_msg = "#{super} #{id_to_s(@identity)}"
+      log_msg += ", new tags #{@new_tags.inspect}" if @new_tags && !@new_tags.empty?
+      log_msg += ", obsolete tags #{@obsolete_tags.inspect}" if @obsolete_tags && !@obsolete_tags.empty?
       log_msg
     end
 
@@ -618,9 +627,9 @@ module RightScale
     # log_msg(String):: Log representation
     def to_s(filter = nil)
       log_msg = "#{super} #{trace}"
-      log_msg += " from #{id_to_s(from)}" if filter.nil? || filter.include?(:from)
-      log_msg += " agent_ids #{agent_ids.inspect}"
-      log_msg += " tags: #{tags.inspect}"
+      log_msg += " from #{id_to_s(@from)}" if filter.nil? || filter.include?(:from)
+      log_msg += " agent_ids #{@agent_ids.inspect}"
+      log_msg += " tags #{@tags.inspect}"
       log_msg
     end
 

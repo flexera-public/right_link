@@ -34,14 +34,14 @@ module RightScale
     # (String) Identity of associated agent
     attr_reader :identity
 
+    # (Hash) Completed requests for dup checking; key is request token and value is time when completed
+    attr_reader :completed
+
     # (MQ) AMQP broker for queueing messages
     attr_reader :amq
 
-    # (Hash) Configuration options applied in the dispatcher
-    attr_reader :options
-
     # (EM) Event machine class (exposed for unit tests)
-    attr_accessor :evmclass
+    attr_accessor :em
 
     # Initialize dispatcher
     #
@@ -53,6 +53,11 @@ module RightScale
     #
     # === Options
     # :fresh_timeout(Integer):: Maximum age in seconds before a request times out and is rejected
+    # :completed_timeout(Integer):: Maximum time in seconds for retaining a request for duplicate checking,
+    #   defaults to :fresh_timeout if > 0, otherwise defaults to 10 minutes
+    # :completed_interval(Integer):: Number of seconds between checks for removing old requests,
+    #   defaults to 30 seconds
+    # :retry_dup_check(Boolean):: Whether to check for duplicate requests due to retries
     # :secure(Boolean):: true indicates to use Security features of rabbitmq to restrict nanites to themselves
     # :single_threaded(Boolean):: true indicates to run all operations in one thread; false indicates
     #   to do requested work on event machine defer thread and all else, such as pings on main thread
@@ -62,27 +67,49 @@ module RightScale
       @registry = registry
       @serializer = serializer
       @identity = identity
-      @options = options
-      @evmclass = EM
-      @evmclass.threadpool_size = (@options[:threadpool_size] || 20).to_i
+      @secure = options[:secure]
+      @single_threaded = options[:single_threaded]
+      @fresh_timeout = nil_if_zero(options[:fresh_timeout])
+      @retry_dup_check = options[:retry_dup_check]
+      @completed_timeout = options[:completed_timeout] || @fresh_timeout ? @fresh_timeout : (10 * 60)
+      @completed_interval = options[:completed_interval] || 30
+      @completed = {} # Only access from primary thread
+      @em = EM
+      @em.threadpool_size = (options[:threadpool_size] || 20).to_i
+      setup_completion_aging if @retry_dup_check
     end
 
     # Dispatch request to appropriate actor method for servicing
-    # Work is done in background defer thread if :single_threaded option is false
-    # Handles returning of result to requester including logging any exceptions
-    # Rejects requests that are not fresh enough
+    # Work is done in background defer thread if single threaded option is false
+    # Handle returning of result to requester including logging any exceptions
+    # Reject requests that are not fresh enough or that are duplicates of work already completed
     #
     # === Parameters
     # deliverable(Request|Push):: Packet containing request
     #
     # === Return
-    # r(Result):: Result from dispatched request
+    # r(Result):: Result from dispatched request, nil if not dispatched because dup or stale
     def dispatch(deliverable)
-      if (created_at = deliverable.created_at.to_i) > 0 && (fresh_timeout = @options[:fresh_timeout])
+      if @fresh_timeout && (created_at = deliverable.created_at.to_i) > 0
         age = Time.now.to_i - created_at
-        if age > fresh_timeout
-          RightLinkLog.info("REJECT #{deliverable.type} because age #{age} > #{fresh_timeout} second timeout")
+        if age > @fresh_timeout
+          RightLinkLog.info("REJECT STALE <#{deliverable.token}> age #{age} exceeds #{@fresh_timeout} second limit")
           return nil
+        end
+      end
+
+      if @retry_dup_check && deliverable.kind_of?(Request)
+        if @completed[deliverable.token]
+          RightLinkLog.info("REJECT DUP <#{deliverable.token}> of self")
+          return nil
+        end
+        if deliverable.respond_to?(:tries) && !deliverable.tries.empty?
+          deliverable.tries.each do |token|
+            if @completed[token]
+              RightLinkLog.info("REJECT RETRY DUP <#{deliverable.token}> of <#{token}>")
+              return nil
+            end
+          end
         end
       end
 
@@ -103,9 +130,11 @@ module RightScale
       callback = lambda do |r|
         begin
           if deliverable.kind_of?(Request)
+            completed_at = Time.now.to_i
+            @em.next_tick { @completed[deliverable.token] = completed_at } if @retry_dup_check && deliverable.token
             r = Result.new(deliverable.token, deliverable.reply_to, r, identity)
             RightLinkLog.info("SEND #{r.to_s([])}")
-            @amq.queue(deliverable.reply_to, :durable => true, :no_declare => options[:secure]).
+            @amq.queue(deliverable.reply_to, :durable => true, :no_declare => @secure).
               publish(serializer.dump(r), :persistent => deliverable.persistent)
           end
         rescue Exception => e
@@ -114,14 +143,27 @@ module RightScale
         r # For unit tests
       end
 
-      if @options[:single_threaded]
-        @evmclass.next_tick { callback.call(operation.call) }
+      if @single_threaded
+        @em.next_tick { callback.call(operation.call) }
       else
-        @evmclass.defer(operation, callback)
+        @em.defer(operation, callback)
       end
     end
 
     private
+
+    # Setup request completion aging
+    # All operations on @completed hash are done on primary thread
+    #
+    # === Return
+    # true:: Always return true
+    def setup_completion_aging
+      @em.add_periodic_timer(@completed_interval) do
+        age_limit = Time.now.to_i - @completed_timeout
+        @completed.reject! { |_, v| v < age_limit }
+      end
+      true
+    end
 
     # Produce error string including message and backtrace
     #
@@ -161,6 +203,17 @@ module RightScale
         RightLinkLog.error(error)
       end
       error
+    end
+
+    # Convert value to nil if equals 0
+    #
+    # === Parameters
+    # value(Integer|nil):: Value to be converted
+    #
+    # === Return
+    # (Integer|nil):: Converted value
+    def nil_if_zero(value)
+      if !value || value == 0 then nil else value end
     end
 
   end # Dispatcher

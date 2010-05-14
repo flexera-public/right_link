@@ -37,9 +37,10 @@
 #      --http-proxy, -P PROXY   Use a proxy for all agent-originated HTTP traffic
 #      --no-http-proxy          Comma-separated list of proxy exceptions
 #      --fresh-timeout SEC      Set maximum age in seconds before a request times out and is rejected
-#      --retry-interval SEC     Set number of seconds between request retries
-#      --retry-limit COUNT      Set maximum number of request retries before timeout
-#      --prefetch COUNT         Set maximum requests to prefetch before ack current
+#      --retry-timeout SEC      Set maximum number of seconds to retry request before give up
+#      --retry-interval SEC     Set number of seconds before initial request retry, increases exponentially
+#      --retry-dup-check BOOL   Set whether to check for duplicate requests due to retries
+#      --prefetch COUNT         Set maximum requests AMQP broker is to prefetch before current is ack'd
 #      --actors-dir DIR         Set directory containing actor classes
 #      --agents-dir DIR         Set directory containing agent configuration
 #      --test                   Build test deployment using default test settings
@@ -96,26 +97,27 @@ module RightScale
     # Generate configuration files
     def write_config(options)
       cfg = {}
-      cfg[:identity]       = options[:identity] if options[:identity]
-      cfg[:shared_queue]   = options[:shared_queue] if options[:shared_queue]
-      cfg[:pid_dir]        = options[:pid_dir] || '/var/run'
-      cfg[:user]           = options[:user] if options[:user]
-      cfg[:pass]           = options[:pass] if options[:pass]
-      cfg[:vhost]          = options[:vhost] if options[:vhost]
-      cfg[:port]           = options[:port] if options[:port]
-      cfg[:host]           = options[:host] if options[:host]
-      cfg[:initrb]         = options[:initrb] if options[:initrb]
-      cfg[:actors]         = options[:actors] if options[:actors]
-      cfg[:actors_dir]     = options[:actors_dir] if options[:actors_dir]
-      cfg[:format]         = 'secure'
-      cfg[:persistent]     = true
-      cfg[:fresh_timeout]  = options[:fresh_timeout] || 15 * 60
-      cfg[:retry_interval] = options[:retry_interval] || 3 * 60
-      cfg[:retry_limit]    = options[:retry_limit] || 4
-      cfg[:prefetch]       = options[:prefetch] || 1
-      cfg[:auto_shutdown]  = options[:auto_shutdown]
-      cfg[:http_proxy]     = options[:http_proxy] if options[:http_proxy]
-      cfg[:no_http_proxy]  = options[:no_http_proxy] if options[:no_http_proxy]
+      cfg[:identity]        = options[:identity] if options[:identity]
+      cfg[:shared_queue]    = options[:shared_queue] if options[:shared_queue]
+      cfg[:pid_dir]         = options[:pid_dir] || '/var/run'
+      cfg[:user]            = options[:user] if options[:user]
+      cfg[:pass]            = options[:pass] if options[:pass]
+      cfg[:vhost]           = options[:vhost] if options[:vhost]
+      cfg[:port]            = options[:port] if options[:port]
+      cfg[:host]            = options[:host] if options[:host]
+      cfg[:initrb]          = options[:initrb] if options[:initrb]
+      cfg[:actors]          = options[:actors] if options[:actors]
+      cfg[:actors_dir]      = options[:actors_dir] if options[:actors_dir]
+      cfg[:format]          = 'secure'
+      cfg[:persistent]      = true
+      cfg[:fresh_timeout]   = options[:fresh_timeout] || 10 * 60
+      cfg[:retry_timeout]   = options[:retry_timeout] || 10 * 60
+      cfg[:retry_interval]  = options[:retry_interval] || 30
+      cfg[:retry_dup_check] = options[:retry_dup_check]
+      cfg[:prefetch]        = options[:prefetch] || 1
+      cfg[:auto_shutdown]   = options[:auto_shutdown]
+      cfg[:http_proxy]      = options[:http_proxy] if options[:http_proxy]
+      cfg[:no_http_proxy]   = options[:no_http_proxy] if options[:no_http_proxy]
       options[:options].each { |k, v| cfg[k] = v } if options[:options]
 
       gen_dir = gen_agent_dir(options[:agent])
@@ -182,12 +184,16 @@ module RightScale
           options[:fresh_timeout] = sec.to_i
         end
 
+        opts.on('--retry-timeout SEC') do |sec|
+          options[:retry_timeout] = sec.to_i
+        end
+
         opts.on('--retry-interval SEC') do |sec|
           options[:retry_interval] = sec.to_i
         end
 
-        opts.on('--retry-limit COUNT') do |count|
-          options[:retry_limit] = count.to_i
+        opts.on('--retry-dup-check BOOL') do |b|
+          options[:retry_dup_check] = eval(b)
         end
 
         opts.on('--prefetch COUNT') do |count|

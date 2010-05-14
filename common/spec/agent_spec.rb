@@ -275,7 +275,7 @@ describe RightScale::Agent do
     
     it "for threadpool_size" do
       @agent = RightScale::Agent.start(:threadpool_size => 5)
-      @agent.dispatcher.evmclass.threadpool_size.should == 5
+      @agent.dispatcher.em.threadpool_size.should == 5
     end
     
   end

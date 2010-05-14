@@ -130,7 +130,16 @@ module RightScale
     def success?
       status_code == SUCCESS || status_code == CONTINUE
     end
-    
+
+    # Was last operation status ERROR?
+    #
+    # === Results
+    # true:: If status is ERROR
+    # false:: Otherwise
+    def error?
+      status_code == ERROR
+    end
+
     # Was last operation status CONTINUE?
     #
     # === Results

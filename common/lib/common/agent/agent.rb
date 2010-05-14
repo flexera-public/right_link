@@ -66,7 +66,7 @@ module RightScale
       :shared_queue => false,
       :fresh_timeout => nil,
       :retry_interval => nil,
-      :retry_limit => nil,
+      :retry_timeout => nil,
       :prefetch => nil,
       :ping_time => 15,
       :default_services => []
@@ -106,7 +106,7 @@ module RightScale
     #   per-message basis using the request and push methods of MapperProxy.
     # :fresh_timeout(Numeric):: Maximum age in seconds before a request times out and is rejected
     # :retry_interval(Numeric):: Number of seconds between request retries
-    # :retry_limit(Integer):: Maximum number of request retries before timeout
+    # :retry_timeout(Numeric):: Maximum number of seconds to retry request before give up
     # :prefetch(Integer):: Maximum number of messages the AMQP broker is to prefetch for this agent
     #   before it receives an ack. Value 1 ensures that only last unacknowledged gets redelivered
     #   if the agent crashes. Value 0 means unlimited prefetch.
@@ -309,26 +309,11 @@ module RightScale
         RightLinkLog.info("RECV #{packet.to_s}") unless RightLinkLog.level == :debug
         advertise_services
       when Request, Push
-        RightLinkLog.info("RECV #{packet.to_s([:from, :tags])}") unless RightLinkLog.level == :debug
+        RightLinkLog.info("RECV #{packet.to_s([:from, :tags, :tries])}") unless RightLinkLog.level == :debug
         @dispatcher.dispatch(packet)
       when Result
         RightLinkLog.info("RECV #{packet.to_s([])}") unless RightLinkLog.level == :debug
-
-        # Use defer thread instead of primary if not :single_threaded, consistent with dispatcher,
-        # so that all shared data is accessed from the same thread
-        # Do callback if there is an exception, consistent with identity queue handling
-        if @options[:single_threaded]
-          @mapper_proxy.handle_result(packet)
-        else
-          EM.defer do
-            begin
-              @mapper_proxy.handle_result(packet)
-            rescue Exception => e
-              RightLinkLog.error("RECV #{e.message}")
-              @callbacks[:exception].call(e, msg, self) rescue nil if @callbacks && @callbacks[:exception]
-            end
-          end
-        end
+        @mapper_proxy.handle_result(packet)
       else
         RightLinkLog.error("Agent #{@identity} received invalid packet: #{packet.to_s}")
       end
@@ -346,7 +331,7 @@ module RightScale
       RightLinkLog.debug("RECV #{packet.to_s}")
       case packet
       when Request, Push
-        RightLinkLog.info("RECV #{packet.to_s([:from, :tags])}") unless RightLinkLog.level == :debug
+        RightLinkLog.info("RECV #{packet.to_s([:from, :tags, :tries])}") unless RightLinkLog.level == :debug
         @dispatcher.dispatch(packet)
       else
         RightLinkLog.error("Agent #{@identity} received invalid request packet: #{packet.to_s}")

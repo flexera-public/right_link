@@ -38,12 +38,6 @@ module RightScale
     # (String) Identity of the mapper proxy
     attr_accessor :identity
 
-    # (Hash) Configurations options applied in this mapper proxy
-    attr_accessor :options
-
-    # (MQ) AMQP broker for queueing messages
-    attr_accessor :amqp
-
     # (Serializer) Serializer used for marshaling messages
     attr_accessor :serializer
 
@@ -60,13 +54,16 @@ module RightScale
     # === Parameters
     # id(String):: Identity of associated agent
     # opts(Hash):: Options:
+    #   :callbacks(Hash):: Callbacks to be executed on specific events. Key is event (currently
+    #     only :exception is supported) and value is the Proc to be called back. For :exception
+    #     the parameters are exception, message being processed, and reference to agent. It gets called
+    #     whenever a packet generates an exception.
     #   :format(Symbol):: Format to use for packets serialization -- :marshal, :json or :yaml or :secure
-    #   :identity(String):: Identity of this agent
     #   :persistent(Boolean):: true instructs the AMQP broker to save messages to persistent storage so
-    #     that they aren't lost when the broker is restarted. Default is false. Can be overridden on a
-    #     per-message basis using the request and push methods of MapperProxy.
-    #   :retry_interval(Numeric):: Number of seconds between request retries
-    #   :retry_limit(Integer):: Maximum number of request retries before timeout
+    #     that they aren't lost when the broker is restarted. Can be overridden on a per-message basis
+    #     using the request and push methods below.
+    #   :retry_timeout(Numeric):: Maximum number of seconds to retry request before give up
+    #   :retry_interval(Numeric):: Number of seconds before initial request retry, increases exponentially
     #   :secure(Boolean):: true indicates to use Security features of rabbitmq to restrict nanites to themselves
     #   :single_threaded(Boolean):: true indicates to run all operations in one thread; false indicates
     #     to do requested work on EM defer thread and all else, such as pings on main thread
@@ -74,11 +71,17 @@ module RightScale
     # === Options
     #
     def initialize(id, opts)
-      @options = opts || {}
       @identity = id
-      @pending_requests = {}
+      @options = opts || {}
+      @pending_requests = {} # Only access from primary thread
       @amqp = start_amqp(@options)
       @serializer = Serializer.new(@options[:format])
+      @secure = @options[:secure]
+      @persistent = @options[:persistent]
+      @single_threaded = @options[:single_threaded]
+      @retry_timeout = nil_if_zero(@options[:retry_timeout])
+      @retry_interval = nil_if_zero(@options[:retry_interval])
+      @callbacks = @options[:callbacks]
       @@instance = self
     end
 
@@ -88,25 +91,20 @@ module RightScale
     # type(String):: The dispatch route for the request
     # payload(Object):: Payload to send.  This will get marshalled en route.
     #
-    # === Options
-    # :persistent(Boolean):: true instructs the AMQP broker to save messages to persistent storage so
-    #   that they aren't lost when the broker is restarted. Default is false.
-    # :secure(Boolean):: true indicates to use Security features of rabbitmq to restrict nanites to themselves
-    #
     # === Block
     # Optional block used to process result
     #
     # === Return
     # true:: Always return true
     def request(type, payload = '', opts = {}, &blk)
-      raise "Mapper proxy not initialized" unless identity && @options
+      raise "Mapper proxy not initialized" unless identity
       request = Request.new(type, payload, opts)
       request.from = @identity
       request.token = AgentIdentity.generate
-      request.persistent = opts.key?(:persistent) ? opts[:persistent] : @options[:persistent]
+      request.persistent = opts.key?(:persistent) ? opts[:persistent] : @persistent
       @pending_requests[request.token] = { :result_handler => blk }
       RightLinkLog.info("SEND #{request.to_s([:tags, :target])}")
-      request_with_retry(request, nil_if_zero(:retry_interval), nil_if_zero(:retry_limit), 0)
+      request_with_retry(request, request.token)
       true
     end
 
@@ -116,26 +114,24 @@ module RightScale
     # type(String):: The dispatch route for the request
     # payload(Object):: Payload to send.  This will get marshalled en route.
     #
-    # === Options
-    # :persistent(Boolean):: true instructs the AMQP broker to save messages to persistent storage so
-    #   that they aren't lost when the broker is restarted. Default is false.
-    # :secure(Boolean):: true indicates to use Security features of rabbitmq to restrict nanites to themselves
-    #
     # === Return
     # true:: Always return true
     def push(type, payload = '', opts = {})
-      raise "Mapper proxy not initialized" unless identity && @options
+      raise "Mapper proxy not initialized" unless identity
       push = Push.new(type, payload, opts)
       push.from = @identity
       push.token = AgentIdentity.generate
-      push.persistent = opts.key?(:persistent) ? opts[:persistent] : @options[:persistent]
+      push.persistent = opts.key?(:persistent) ? opts[:persistent] : @persistent
       RightLinkLog.info("SEND #{push.to_s([:tags, :target])}")
-      @amqp.queue('request', :durable => true, :no_declare => @options[:secure]).
+      @amqp.queue('request', :durable => true, :no_declare => @secure).
         publish(@serializer.dump(push), :persistent => push.persistent)
       true
     end
 
     # Handle final result
+    # Use defer thread instead of primary if not single threaded, consistent with dispatcher,
+    # so that all shared data is accessed from the same thread
+    # Do callback if there is an exception, consistent with agent identity queue handling
     #
     # === Parameters
     # res(Packet):: Packet received as result of request
@@ -144,40 +140,20 @@ module RightScale
     # true:: Always return true
     def handle_result(res)
       handlers = @pending_requests.delete(res.token)
-      handlers[:result_handler].call(res) if handlers && handlers[:result_handler]
-      true
-    end
+      if handlers && handlers[:result_handler]
+        # Delete any pending retry requests
+        parent = handlers[:retry_parent]
+        @pending_requests.reject! { |k, v| k == parent || v[:retry_parent] == parent } if parent
 
-    protected
-
-    # Send request with one or more retries if do not receive a result in time
-    # Send timeout result if reach retry limit
-    #
-    # === Parameters
-    # request(Request):: Request to be sent
-    # retry_interval(Numeric):: Number of seconds to wait before retrying, nil means never retry
-    # retry_limit(Integer):: Maximum number of retries, nil means never retry
-    # retry_count(Integer):: Number of retries so far
-    #
-    # === Return
-    # true:: Always return true
-    def request_with_retry(request, retry_interval, retry_limit, retry_count)
-      @amqp.queue('request', :durable => true, :no_declare => @options[:secure]).
-        publish(@serializer.dump(request), :persistent => request.persistent)
-
-      if retry_interval && retry_limit
-        add_timer(retry_interval) do
-          if @pending_requests[request.token]
-            if retry_count < retry_limit
-              RightLinkLog.info("RESEND ##{retry_count} #{request.to_s([:tags, :target])}")
-              request_with_retry(request, retry_interval, retry_limit, retry_count + 1)
-            else
-              RightLinkLog.warn("TIMEOUT #{request.to_s([:tags, :target])}")
-              attempts = retry_limit + 1
-              timeout = retry_interval * attempts
-              result = OperationResult.timeout("Timeout after #{timeout} seconds and #{attempts} attempts")
-              from = @options[:identity]
-              handle_result(Result.new(request.token, request.reply_to, {from => result}, from))
+        if @single_threaded
+          EM.next_tick { handlers[:result_handler].call(res) }
+        else
+          EM.defer do
+            begin
+              handlers[:result_handler].call(res)
+            rescue Exception => e
+              RightLinkLog.error("RECV #{e.message}")
+              @callbacks[:exception].call(e, msg, self) rescue nil if @callbacks && @callbacks[:exception]
             end
           end
         end
@@ -185,47 +161,58 @@ module RightScale
       true
     end
 
-    # Add a one-shot timer to the EM event loop
-    # Use defer thread instead of primary if not :single_threaded, consistent with dispatcher,
-    # so that all shared data is accessed from the same thread
-    # Log an error if the block fails
+    protected
+
+    # Send request with one or more retries if do not receive a result in time
+    # Send timeout result if reach retry timeout limit
+    # Use exponential backoff for retry spacing
     #
     # === Parameters
-    # delay(Integer):: Seconds to delay before executing block
-    #
-    # === Block
-    # Code to be executed after the delay; must be provided
+    # request(Request):: Request to be sent
+    # parent(String):: Token for original request
+    # count(Integer):: Number of retries so far
+    # multiplier(Integer):: Multiplier for retry interval for exponential backoff
+    # elapsed(Integer):: Elapsed time in seconds since this request was first attempted
     #
     # === Return
     # true:: Always return true
-    def add_timer(delay)
-      blk = Proc.new do
-        begin
-          yield
-        rescue Exception => e
-          RightLinkLog.error("Time-delayed task failed with #{e.class.name}: #{e.message}\n #{e.backtrace.join("\n")}")
-        end
-      end
+    def request_with_retry(request, parent, count = 0, multiplier = 1, elapsed = 0)
+      @amqp.queue('request', :durable => true, :no_declare => @secure).
+        publish(@serializer.dump(request), :persistent => request.persistent)
 
-      EM.add_timer(delay) do
-        if @options[:single_threaded]
-          blk.call
-        else
-          EM.defer { blk.call }
+      if @retry_interval && @retry_timeout && parent
+        interval = @retry_interval * multiplier
+        EM.add_timer(interval) do
+          if @pending_requests[parent]
+            count += 1
+            elapsed += interval
+            if elapsed <= @retry_timeout
+              request.tries << request.token
+              request.token = AgentIdentity.generate
+              @pending_requests[parent][:retry_parent] = parent if count == 1
+              @pending_requests[request.token] = @pending_requests[parent]
+              RightLinkLog.info("RESEND #{request.to_s([:tags, :target, :tries])}")
+              request_with_retry(request, parent, count, multiplier * 2, elapsed)
+            else
+              RightLinkLog.warn("RESEND TIMEOUT after #{elapsed} seconds for #{request.to_s([:tags, :target, :tries])}")
+              result = OperationResult.timeout("Timeout after #{elapsed} seconds and #{count} attempts")
+              handle_result(Result.new(request.token, request.reply_to, {@identity => result}, from = @identity))
+            end
+          end
         end
       end
       true
     end
 
-    # Convert option value to nil if equals 0
+    # Convert value to nil if equals 0
     #
     # === Parameters
-    # opt(Symbol):: Option symbol whose option value is nil or an integer
+    # value(Integer|nil):: Value to be converted
     #
     # === Return
-    # (Integer):: Converted option value
-    def nil_if_zero(opt)
-      if !@options[opt] || @options[opt] == 0 then nil else @options[opt] end
+    # (Integer|nil):: Converted value
+    def nil_if_zero(value)
+      if !value || value == 0 then nil else value end
     end
 
   end # MapperProxy

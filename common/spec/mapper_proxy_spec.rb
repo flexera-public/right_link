@@ -99,15 +99,6 @@ describe RightScale::MapperProxy do
       end, {:persistent => nil}).once
       @instance.request('/welcome/aboard', 'iZac', :target => 'my-target'){|response|}
     end
-    
-    it "should mark the message as persistent when the option is set globally" do
-      @instance.options[:persistent] = true
-      @queue.should_receive(:publish).with(on do |request|
-        request = @instance.serializer.load(request)
-        request.persistent.should be_true
-      end, {:persistent => true}).once
-      @instance.request('/welcome/aboard', 'iZac'){|response|}
-    end
 
     it "should store the result handler" do
       result_handler = lambda {}
@@ -117,22 +108,30 @@ describe RightScale::MapperProxy do
     end
 
     describe "with retry" do
-      it "should convert retry option to nil if 0" do
-        RightScale::MapperProxy.new('mapperproxy', :retry_interval => 0)
+      it "should convert value to nil if 0" do
+        RightScale::MapperProxy.new('mapperproxy', {})
         @instance = RightScale::MapperProxy.instance
-        @instance.__send__(:nil_if_zero, :retry_interval).should == nil
+        @instance.__send__(:nil_if_zero, 0).should == nil
       end
 
-      it "should not convert retry option to nil if not 0" do
-        RightScale::MapperProxy.new('mapperproxy', :retry_interval => 1)
+      it "should not convert value to nil if not 0" do
+        RightScale::MapperProxy.new('mapperproxy', {})
         @instance = RightScale::MapperProxy.instance
-        @instance.__send__(:nil_if_zero, :retry_interval).should == 1
+        @instance.__send__(:nil_if_zero, 1).should == 1
       end
 
-      it "should leave retry option as nil if nil" do
-        RightScale::MapperProxy.new('mapperproxy', :retry_interval => nil)
+      it "should leave value as nil if nil" do
+        RightScale::MapperProxy.new('mapperproxy', {})
         @instance = RightScale::MapperProxy.instance
-        @instance.__send__(:nil_if_zero, :retry_interval).should == nil
+        @instance.__send__(:nil_if_zero, nil).should == nil
+      end
+
+      it "should not setup for retry if retry_timeout nil" do
+        flexmock(EM).should_receive(:add_timer).never
+        RightScale::MapperProxy.new('mapperproxy', :retry_timeout => nil)
+        @instance = RightScale::MapperProxy.instance
+        @queue.should_receive(:publish).once
+        @instance.request('/welcome/aboard', 'iZac') {|response|}
       end
 
       it "should not setup for retry if retry_interval nil" do
@@ -143,17 +142,9 @@ describe RightScale::MapperProxy do
         @instance.request('/welcome/aboard', 'iZac') {|response|}
       end
 
-      it "should not setup for retry if retry_limit nil" do
-        flexmock(EM).should_receive(:add_timer).never
-        RightScale::MapperProxy.new('mapperproxy', :retry_limit => nil)
-        @instance = RightScale::MapperProxy.instance
-        @queue.should_receive(:publish).once
-        @instance.request('/welcome/aboard', 'iZac') {|response|}
-      end
-
-      it "should setup for retry if retry_interval and retry_limit not nil" do
-        flexmock(EM).should_receive(:add_timer).with(180, any).once
-        RightScale::MapperProxy.new('mapperproxy', :retry_interval => 180, :retry_limit => 4)
+      it "should setup for retry if retry_timeout and retry_interval not nil" do
+        flexmock(EM).should_receive(:add_timer).with(60, any).once
+        RightScale::MapperProxy.new('mapperproxy', :retry_timeout => 60, :retry_interval => 60)
         @instance = RightScale::MapperProxy.instance
         @queue.should_receive(:publish).once
         @instance.request('/welcome/aboard', 'iZac') {|response|}
@@ -163,20 +154,22 @@ describe RightScale::MapperProxy do
         EM.run do
           token = 'abc'
           result = RightScale::OperationResult.timeout
-          flexmock(RightScale::AgentIdentity).should_receive(:generate).and_return(token).once
+          flexmock(RightScale::AgentIdentity).should_receive(:generate).and_return(token).twice
           flexmock(RightScale::RightLinkLog).should_receive(:info).twice
-          RightScale::MapperProxy.new('mapperproxy', :retry_interval => 0.2, :retry_limit => 2)
+          RightScale::MapperProxy.new('mapperproxy', :retry_timeout => 0.1, :retry_interval => 0.1)
           @instance = RightScale::MapperProxy.instance
           @queue.should_receive(:publish).twice
           @instance.request('/welcome/aboard', 'iZac') do |response|
             result = RightScale::OperationResult.from_results(response)
           end
-          EM.add_timer(0.3) do
+          EM.add_timer(0.15) do
+            @instance.pending_requests.empty?.should be_false
             @instance.handle_result(RightScale::Result.new(token, nil, {'from' => RightScale::OperationResult.success}, nil))
           end
-          EM.add_timer(1) do
+          EM.add_timer(0.3) do
             EM.stop
             result.success?.should be_true
+            @instance.pending_requests.empty?.should be_true
           end
         end
       end
@@ -186,16 +179,18 @@ describe RightScale::MapperProxy do
           result = RightScale::OperationResult.success
           flexmock(RightScale::RightLinkLog).should_receive(:info).times(3)
           flexmock(RightScale::RightLinkLog).should_receive(:warn).once
-          RightScale::MapperProxy.new('mapperproxy', :retry_interval => 0.2, :retry_limit => 2)
+          RightScale::MapperProxy.new('mapperproxy', :retry_timeout => 0.4, :retry_interval => 0.1)
           @instance = RightScale::MapperProxy.instance
           @queue.should_receive(:publish).times(3)
           @instance.request('/welcome/aboard', 'iZac') do |response|
             result = RightScale::OperationResult.from_results(response)
           end
+          @instance.pending_requests.empty?.should be_false
           EM.add_timer(1) do
             EM.stop
             result.timeout?.should be_true
-            result.content.should == "Timeout after 0.6 seconds and 3 attempts"
+            result.content.should == "Timeout after 0.7 seconds and 3 attempts"
+            @instance.pending_requests.empty?.should be_true
           end
         end
       end
@@ -204,15 +199,15 @@ describe RightScale::MapperProxy do
         EM.run do
           token = 'abc'
           created_at = 1000
-          flexmock(RightScale::AgentIdentity).should_receive(:generate).and_return(token).once
-          RightScale::MapperProxy.new('mapperproxy', :retry_interval => 0.2, :retry_limit => 1)
+          flexmock(RightScale::AgentIdentity).should_receive(:generate).and_return(token).twice
+          RightScale::MapperProxy.new('mapperproxy', :retry_timeout => 0.1, :retry_interval => 0.1)
           @instance = RightScale::MapperProxy.instance
           @queue.should_receive(:publish).with(on do |request|
             request = @instance.serializer.load(request)
             request.created_at.should == created_at
           end, {:persistent => nil}).twice
           @instance.request('/welcome/aboard', 'iZac', :created_at => created_at) {|response|}
-          EM.add_timer(0.5) { EM.stop }
+          EM.add_timer(0.3) { EM.stop }
         end
       end
     end
@@ -267,16 +262,6 @@ describe RightScale::MapperProxy do
         push.persistent.should be_true
       end, {:persistent => true}).once
       @instance.push('/welcome/aboard', 'iZac', :persistent => true)
-    end
-    
-    it "should mark the message as persistent when the option is set globally" do
-      @instance.options[:persistent] = true
-      @queue.should_receive(:publish).with(on do |push|
-        push = @instance.serializer.load(push)
-        push.persistent.should be_true
-      end, {:persistent => true}).once
-      
-      @instance.push('/welcome/aboard', 'iZac')
     end
   end
 end
