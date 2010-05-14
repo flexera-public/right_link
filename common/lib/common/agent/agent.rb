@@ -67,7 +67,7 @@ module RightScale
       :fresh_timeout => nil,
       :retry_interval => nil,
       :retry_timeout => nil,
-      :prefetch => nil,
+      :prefetch => 1,
       :ping_time => 15,
       :default_services => []
     }) unless defined?(DEFAULT_OPTIONS)
@@ -344,7 +344,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def setup_queues
-      if @amq.respond_to?(:prefetch) && @options.has_key?(:prefetch)
+      if @amq.respond_to?(:prefetch) && @options.has_key?(:prefetch) && @options[:prefetch]
         @amq.prefetch(@options[:prefetch])
       end
 
