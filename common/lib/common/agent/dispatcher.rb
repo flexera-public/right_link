@@ -57,7 +57,7 @@ module RightScale
     #   defaults to :fresh_timeout if > 0, otherwise defaults to 10 minutes
     # :completed_interval(Integer):: Number of seconds between checks for removing old requests,
     #   defaults to 30 seconds
-    # :retry_dup_check(Boolean):: Whether to check for duplicate requests due to retries
+    # :dup_check(Boolean):: Whether to check for and reject duplicate requests, e.g., due to retries
     # :secure(Boolean):: true indicates to use Security features of rabbitmq to restrict nanites to themselves
     # :single_threaded(Boolean):: true indicates to run all operations in one thread; false indicates
     #   to do requested work on event machine defer thread and all else, such as pings on main thread
@@ -70,13 +70,13 @@ module RightScale
       @secure = options[:secure]
       @single_threaded = options[:single_threaded]
       @fresh_timeout = nil_if_zero(options[:fresh_timeout])
-      @retry_dup_check = options[:retry_dup_check]
+      @dup_check = options[:dup_check]
       @completed_timeout = options[:completed_timeout] || @fresh_timeout ? @fresh_timeout : (10 * 60)
-      @completed_interval = options[:completed_interval] || 30
+      @completed_interval = options[:completed_interval] || 60
       @completed = {} # Only access from primary thread
       @em = EM
       @em.threadpool_size = (options[:threadpool_size] || 20).to_i
-      setup_completion_aging if @retry_dup_check
+      setup_completion_aging if @dup_check
     end
 
     # Dispatch request to appropriate actor method for servicing
@@ -98,7 +98,7 @@ module RightScale
         end
       end
 
-      if @retry_dup_check && deliverable.kind_of?(Request)
+      if @dup_check && deliverable.kind_of?(Request)
         if @completed[deliverable.token]
           RightLinkLog.info("REJECT DUP <#{deliverable.token}> of self")
           return nil
@@ -131,7 +131,7 @@ module RightScale
         begin
           if deliverable.kind_of?(Request)
             completed_at = Time.now.to_i
-            @em.next_tick { @completed[deliverable.token] = completed_at } if @retry_dup_check && deliverable.token
+            @completed[deliverable.token] = completed_at if @dup_check && deliverable.token
             r = Result.new(deliverable.token, deliverable.reply_to, r, identity)
             RightLinkLog.info("SEND #{r.to_s([])}")
             @amq.queue(deliverable.reply_to, :durable => true, :no_declare => @secure).

@@ -186,7 +186,7 @@ describe RightScale::MapperProxy do
             result = RightScale::OperationResult.from_results(response)
           end
           @instance.pending_requests.empty?.should be_false
-          EM.add_timer(1) do
+          EM.add_timer(1.2) do
             EM.stop
             result.timeout?.should be_true
             result.content.should == "Timeout after 0.7 seconds and 3 attempts"

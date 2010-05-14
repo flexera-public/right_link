@@ -204,7 +204,7 @@ describe "RightScale::Dispatcher" do
     flexmock(RightScale::RightLinkLog).should_receive(:info).once.with(on {|arg| arg =~ /REJECT DUP/})
     EM.run do
       @dispatcher = RightScale::Dispatcher.new(@amq, @registry, RightScale::Serializer.new(:marshal),
-                                               '0xfunkymonkey', :retry_dup_check => true)
+                                               '0xfunkymonkey', :dup_check => true)
       req = RightScale::Request.new('/foo/bar', 'you', :token => "try")
       @dispatcher.completed[req.token] = Time.now.to_i
       @dispatcher.dispatch(req).should == nil
@@ -216,7 +216,7 @@ describe "RightScale::Dispatcher" do
     flexmock(RightScale::RightLinkLog).should_receive(:info).once.with(on {|arg| arg =~ /REJECT RETRY DUP/})
     EM.run do
       @dispatcher = RightScale::Dispatcher.new(@amq, @registry, RightScale::Serializer.new(:marshal),
-                                               '0xfunkymonkey', :retry_dup_check => true)
+                                               '0xfunkymonkey', :dup_check => true)
       req = RightScale::Request.new('/foo/bar', 'you', :token => "try")
       req.tries.concat(["try1", "try2"])
       @dispatcher.completed["try2"] = Time.now.to_i
@@ -229,7 +229,7 @@ describe "RightScale::Dispatcher" do
     flexmock(RightScale::RightLinkLog).should_receive(:info).once.with(on {|arg| arg =~ /SEND/})
     EM.run do
       @dispatcher = RightScale::Dispatcher.new(@amq, @registry, RightScale::Serializer.new(:marshal),
-                                               '0xfunkymonkey', :retry_dup_check => true)
+                                               '0xfunkymonkey', :dup_check => true)
       req = RightScale::Request.new('/foo/bar', 'you', :token => "try")
       req.tries.concat(["try1", "try2"])
       @dispatcher.completed["try3"] = Time.now.to_i
@@ -238,7 +238,7 @@ describe "RightScale::Dispatcher" do
     end
   end
 
-  it "should not check for duplicates if retry_dup_check disabled" do
+  it "should not check for duplicates if dup_check disabled" do
     flexmock(RightScale::RightLinkLog).should_receive(:info).once.with(on {|arg| arg =~ /SEND/})
     EM.run do
       @dispatcher = RightScale::Dispatcher.new(@amq, @registry, RightScale::Serializer.new(:marshal),
@@ -255,7 +255,7 @@ describe "RightScale::Dispatcher" do
     flexmock(RightScale::RightLinkLog).should_receive(:info).once.with(on {|arg| arg =~ /SEND/})
     EM.run do
       @dispatcher = RightScale::Dispatcher.new(@amq, @registry, RightScale::Serializer.new(:marshal),
-                                               '0xfunkymonkey', :retry_dup_check => true,
+                                               '0xfunkymonkey', :dup_check => true,
                                                :fresh_timeout => 0.4, :completed_interval => 0.2)
       req = RightScale::Request.new('/foo/bar', 'you', :token => "try")
       @dispatcher.dispatch(req).should_not == nil
