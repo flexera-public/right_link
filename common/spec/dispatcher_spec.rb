@@ -262,7 +262,7 @@ describe "RightScale::Dispatcher" do
       EM.add_timer(0.1) do
         @dispatcher.completed.should_not == {}
       end
-      EM.add_timer(1) do
+      EM.add_timer(1.2) do
         @dispatcher.completed.should == {}
         EM.stop
       end
