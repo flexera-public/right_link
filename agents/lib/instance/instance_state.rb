@@ -327,18 +327,27 @@ module RightScale
     # nil:: always return nil
     def self.update_motd()
       return unless RightScale::RightLinkConfig.platform.linux?
-      
-      FileUtils.rm('/etc/motd') rescue nil
+
+      if File.directory?('/etc/update-motd.d')
+        #Ubuntu 10.04 and above use a dynamic MOTD update system. In this case we assume
+        #by convention that motd.tail will be appended to the dynamically-generated
+        #MOTD file.
+        motd = '/etc/motd.tail'
+      else
+        motd = '/etc/motd'
+      end
+
+      FileUtils.rm(motd) rescue nil
 
       etc = File.join(RightScale::RightLinkConfig[:rs_root_path], 'etc')
       if SUCCESSFUL_STATES.include?(@@value)
-        FileUtils.cp(File.join(etc, 'motd-complete'), '/etc/motd') rescue nil
+        FileUtils.cp(File.join(etc, 'motd-complete'), motd) rescue nil
         system('echo "RightScale installation complete. Details can be found in /var/log/messages" | wall') rescue nil
       elsif FAILED_STATES.include?(@@value)
-        FileUtils.cp(File.join(etc, 'motd-failed'), '/etc/motd') rescue nil
+        FileUtils.cp(File.join(etc, 'motd-failed'), motd) rescue nil
         system('echo "RightScale installation failed. Please review /var/log/messages" | wall') rescue nil
       else
-        FileUtils.cp(File.join(etc, 'motd'), '/etc/motd') rescue nil
+        FileUtils.cp(File.join(etc, 'motd'), motd) rescue nil
       end
 
       return nil
