@@ -103,16 +103,19 @@ module RightScale
     def write_userdata(hash)
       bash = File.open(File.join(@output_dir, 'user-data.sh'),'w')
       ruby = File.open(File.join(@output_dir, 'user-data.rb'),'w')
+      dict  = File.open(File.join(@output_dir, 'user-data.dict'),'w')
 
       hash.each_pair do |name, value|
         env_name = name.gsub(/\W/, '_').upcase
         env_name = 'EC2_' + env_name if @ec2_name_hack && (env_name !~ /^(RS_|EC2_)/)
         bash.puts "export #{env_name}=\"#{ShellUtilities::escape_shell_source_string(value)}\""
         ruby.puts "ENV['#{env_name}']='#{ShellUtilities::escape_ruby_source_string(value)}'"
+        dict.puts  "#{env_name}=#{value}"
       end
 
       bash.close
       ruby.close
+      dict.close      
       true
     end
 
