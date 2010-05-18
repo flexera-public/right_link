@@ -20,6 +20,8 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'common', 'lib', 'common'))
+
 module RightScale
 
   class CommandClient
