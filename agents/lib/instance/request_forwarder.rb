@@ -114,14 +114,12 @@ module RightScale
       true
     end
 
-    # Switch to Offline mode, in this mode requests are queued in memory
+    # Switch to offline mode, in this mode requests are queued in memory
     # rather than sent to the mapper, idempotent
     #
     # === Return
     # true:: Always return true
     def enable_offline_mode
-      RightLinkLog.info("[offline] Deconnection from broker detected, entering offline mode")
-      RightLinkLog.info("[offline] Messages will be queued in memory until connection to broker is re-established")
       if offline?
         if @flushing
           # If we were in offline mode then switched back to online but are still in the
@@ -130,6 +128,8 @@ module RightScale
           @stop_flush = true
         end
       else
+        RightLinkLog.info("[offline] Disconnect from broker detected, entering offline mode")
+        RightLinkLog.info("[offline] Messages will be queued in memory until connection to broker is re-established")
         @requests = []
         @mode = :offline
         @vote_timer ||= EM::Timer.new(VOTE_DELAY) { vote(timer_trigger=true) }
@@ -199,7 +199,7 @@ module RightScale
         @stop_flush = false
         @flushing = false
       else
-        RightLinkLog.info("[offline] Starting flushing of in-memory queue") unless @mode == :initializing
+        RightLinkLog.info("[offline] Starting flushing of in-memory queue of size #{@requests.size}") unless @mode == :initializing
         unless @requests.empty?
           request = @requests.shift
           case request[:kind]

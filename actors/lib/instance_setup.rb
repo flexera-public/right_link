@@ -67,15 +67,15 @@ class InstanceSetup
     state = RightScale::OperationResult.success(RightScale::InstanceState.value)
   end
 
-  # Handle deconnection notification from broker, enter offline mode when deconnected
+  # Handle disconnected notification from broker, enter offline mode
   #
   # === Parameters
-  # status(Symbol):: Connection status, one of :connected or :deconnected
+  # status(Symbol):: Connection status, one of :connected or :disconnected
   #
   # === Return
   # true:: Always return true
   def connection_status(status)
-    if status == :deconnected
+    if status == :disconnected
       RightScale::RequestForwarder.instance.enable_offline_mode
     else
       RightScale::RequestForwarder.instance.disable_offline_mode
