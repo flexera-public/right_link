@@ -121,7 +121,7 @@ module RightScale
 
       # Chef paths and run mode
       if DevState.use_cookbooks_path?
-        Chef::Config[:cookbook_path] = DevState.cookbooks_path
+        Chef::Config[:cookbook_path] = DevState.cookbooks_path.reverse
         Chef::Log.info("Using development cookbooks repositories path:\n\t- #{Chef::Config[:cookbook_path].join("\n\t- ")}")
       else
         Chef::Config[:cookbook_path] = (@right_scripts_cookbook.empty? ? [] : [ @right_scripts_cookbook.repo_dir ])
@@ -197,6 +197,8 @@ module RightScale
     end
 
     # Download cookbooks repositories, update @ok
+    # Note: Starting with Chef 0.8, the cookbooks repositories list must be traversed in reverse
+    # order to preserve the semantic of the dashboard (first repo has priority)
     #
     # === Return
     # true:: Always return true
@@ -206,7 +208,7 @@ module RightScale
 
       @auditor.create_new_section('Retrieving cookbooks') unless @cookbook_repos.empty?
       audit_time do
-        @cookbook_repos.each do |repo|
+        @cookbook_repos.reverse.each do |repo|
           next if repo.repo_type == :local
           @auditor.append_info("Downloading #{repo.url}")
           output = []
