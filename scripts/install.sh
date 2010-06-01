@@ -21,30 +21,50 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-if [ -d /opt/rightscale/right_link/scripts ]; then
-	export RIGHT_NET_SCRIPTS=/opt/rightscale/right_link/scripts
+#
+# First figure out where this script lives, which lets us infer
+# where the Ruby scripts live (parallel to this script).
+#
+FIXED_PATH_GUESS=/opt/rightscale/right_link/scripts
+ABSOL_PATH_GUESS=`dirname $0`
+if [ -e $FIXED_PATH_GUESS/install.sh ]
+then
+  RIGHT_LINK_SCRIPTS=$FIXED_PATH_GUESS
+elif [ -e $ABSOL_PATH_GUESS/install.sh ]
+then
+  pushd $ABSOL_PATH_GUESS > /dev/null
+  RIGHT_LINK_SCRIPTS=$PWD
+  popd > /dev/null
 else
-	export RIGHT_NET_SCRIPTS=`pwd`
+  echo "Cannot determine path from $0"
+  echo "Please invoke this script using its absolute path."
+  exit 1
 fi
-echo Installing scripts from $RIGHT_NET_SCRIPTS
-	rm -f /usr/bin/rnac
-	rm -f /usr/bin/rad
-	rm -f /usr/bin/rs_run_right_script
-	rm -f /usr/bin/rs_run_recipe
-	rm -f /usr/bin/rs_log_level
-	rm -f /usr/bin/rs_reenroll
-	rm -f /usr/bin/rs_tag
-ln -s $RIGHT_NET_SCRIPTS/rnac.rb /usr/bin/rnac
-chmod a+x $RIGHT_NET_SCRIPTS/rnac.rb
-ln -s $RIGHT_NET_SCRIPTS/rad.rb /usr/bin/rad
-chmod a+x $RIGHT_NET_SCRIPTS/rad.rb
-ln -s $RIGHT_NET_SCRIPTS/rs_run_right_script.rb /usr/bin/rs_run_right_script
-chmod a+x $RIGHT_NET_SCRIPTS/rs_run_right_script.rb
-ln -s $RIGHT_NET_SCRIPTS/rs_run_recipe.rb /usr/bin/rs_run_recipe
-chmod a+x $RIGHT_NET_SCRIPTS/rs_run_recipe.rb
-ln -s $RIGHT_NET_SCRIPTS/rs_log_level.rb /usr/bin/rs_log_level
-chmod a+x $RIGHT_NET_SCRIPTS/rs_log_level.rb
-ln -s $RIGHT_NET_SCRIPTS/rs_reenroll.rb /usr/bin/rs_reenroll
-chmod a+x $RIGHT_NET_SCRIPTS/rs_reenroll.rb
-ln -s $RIGHT_NET_SCRIPTS/rs_tag.rb /usr/bin/rs_tag
-chmod a+x $RIGHT_NET_SCRIPTS/rs_tag.rb
+
+#
+# Next locate a Ruby interpreter
+#
+if [ -e /opt/rightscale/sandbox/bin/ruby ]
+then
+  RUBY_BIN=/opt/rightscale/sandbox/bin/ruby
+else
+  RUBY_BIN=`which ruby`
+fi
+
+#
+# Finally, create stub scripts for all of the RightLink binaries
+#
+
+echo Installing scripts from $RIGHT_LINK_SCRIPTS ...
+
+for script in rnac rad rs_run_right_script rs_run_recipe rs_log_level rs_reenroll rs_tag
+do
+  echo Installing $script
+  cat > /usr/bin/$script <<EOF
+#!/bin/bash
+exec $RUBY_BIN $RIGHT_LINK_SCRIPTS/${script}.rb \$*
+EOF
+  chmod a+x /usr/bin/$script
+done
+
+echo Done.
