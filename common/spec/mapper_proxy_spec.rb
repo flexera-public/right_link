@@ -52,11 +52,11 @@ describe RightScale::MapperProxy do
   
   describe "when requesting a message" do
     before do
-      flexmock(AMQP).should_receive(:connect)
       @queue = flexmock("queue", :publish => true).by_default
-      @amq = flexmock("AMQueue", :queue => @queue)
-      flexmock(MQ).should_receive(:new).and_return(@amq)
-      RightScale::MapperProxy.new('mapperproxy', {})
+      connection = flexmock("connection", :connected? => true)
+      @mq = flexmock("mq", :queue => @queue, :connection => connection)
+      @brokers = [{:prefix => nil, :mq => @mq }]
+      RightScale::MapperProxy.new('mapperproxy', @brokers, {})
       @instance = RightScale::MapperProxy.instance
     end
     
@@ -110,26 +110,26 @@ describe RightScale::MapperProxy do
 
     describe "with retry" do
       it "should convert value to nil if 0" do
-        RightScale::MapperProxy.new('mapperproxy', {})
+        RightScale::MapperProxy.new('mapperproxy', @brokers, {})
         @instance = RightScale::MapperProxy.instance
         @instance.__send__(:nil_if_zero, 0).should == nil
       end
 
       it "should not convert value to nil if not 0" do
-        RightScale::MapperProxy.new('mapperproxy', {})
+        RightScale::MapperProxy.new('mapperproxy', @brokers, {})
         @instance = RightScale::MapperProxy.instance
         @instance.__send__(:nil_if_zero, 1).should == 1
       end
 
       it "should leave value as nil if nil" do
-        RightScale::MapperProxy.new('mapperproxy', {})
+        RightScale::MapperProxy.new('mapperproxy', @brokers, {})
         @instance = RightScale::MapperProxy.instance
         @instance.__send__(:nil_if_zero, nil).should == nil
       end
 
       it "should not setup for retry if retry_timeout nil" do
         flexmock(EM).should_receive(:add_timer).never
-        RightScale::MapperProxy.new('mapperproxy', :retry_timeout => nil)
+        RightScale::MapperProxy.new('mapperproxy', @brokers, :retry_timeout => nil)
         @instance = RightScale::MapperProxy.instance
         @queue.should_receive(:publish).once
         @instance.request('/welcome/aboard', 'iZac') {|response|}
@@ -137,7 +137,7 @@ describe RightScale::MapperProxy do
 
       it "should not setup for retry if retry_interval nil" do
         flexmock(EM).should_receive(:add_timer).never
-        RightScale::MapperProxy.new('mapperproxy', :retry_interval => nil)
+        RightScale::MapperProxy.new('mapperproxy', @brokers, :retry_interval => nil)
         @instance = RightScale::MapperProxy.instance
         @queue.should_receive(:publish).once
         @instance.request('/welcome/aboard', 'iZac') {|response|}
@@ -145,7 +145,7 @@ describe RightScale::MapperProxy do
 
       it "should setup for retry if retry_timeout and retry_interval not nil" do
         flexmock(EM).should_receive(:add_timer).with(60, any).once
-        RightScale::MapperProxy.new('mapperproxy', :retry_timeout => 60, :retry_interval => 60)
+        RightScale::MapperProxy.new('mapperproxy', @brokers, :retry_timeout => 60, :retry_interval => 60)
         @instance = RightScale::MapperProxy.instance
         @queue.should_receive(:publish).once
         @instance.request('/welcome/aboard', 'iZac') {|response|}
@@ -157,7 +157,7 @@ describe RightScale::MapperProxy do
           result = RightScale::OperationResult.timeout
           flexmock(RightScale::AgentIdentity).should_receive(:generate).and_return(token).twice
           flexmock(RightScale::RightLinkLog).should_receive(:info).twice
-          RightScale::MapperProxy.new('mapperproxy', :retry_timeout => 0.1, :retry_interval => 0.1)
+          RightScale::MapperProxy.new('mapperproxy', @brokers, :retry_timeout => 0.1, :retry_interval => 0.1)
           @instance = RightScale::MapperProxy.instance
           @queue.should_receive(:publish).twice
           @instance.request('/welcome/aboard', 'iZac') do |response|
@@ -202,7 +202,7 @@ describe RightScale::MapperProxy do
           token = 'abc'
           created_at = 1000
           flexmock(RightScale::AgentIdentity).should_receive(:generate).and_return(token).twice
-          RightScale::MapperProxy.new('mapperproxy', :retry_timeout => 0.1, :retry_interval => 0.1)
+          RightScale::MapperProxy.new('mapperproxy', @brokers, :retry_timeout => 0.1, :retry_interval => 0.1)
           @instance = RightScale::MapperProxy.instance
           @queue.should_receive(:publish).with(on do |request|
             request = @instance.serializer.load(request)
@@ -217,11 +217,11 @@ describe RightScale::MapperProxy do
 
   describe "when pushing a message" do
     before do
-      flexmock(AMQP).should_receive(:connect)
       @queue = flexmock("queue", :publish => true).by_default
-      @amq = flexmock("AMQueue", :queue => @queue)
-      flexmock(MQ).should_receive(:new).and_return(@amq)
-      RightScale::MapperProxy.new('mapperproxy', {})
+      connection = flexmock("connection", :connected? => true)
+      @mq = flexmock("mq", :queue => @queue, :connection => connection)
+      @brokers = [{:prefix => nil, :mq => @mq }]
+      RightScale::MapperProxy.new('mapperproxy', @brokers, {})
       @instance = RightScale::MapperProxy.instance
     end
     

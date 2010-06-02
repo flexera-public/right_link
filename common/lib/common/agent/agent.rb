@@ -45,8 +45,8 @@ module RightScale
     # (ActorRegistry) Registry for this agents actors
     attr_reader :registry
 
-    # (MQ) AMQP broker for queueing messages
-    attr_reader :amq
+    # (Array(Hash)) AMQP brokers for high availability operation
+    attr_reader :brokers
 
     # (Array) Tag strings published to mapper by agent
     attr_reader :tags
@@ -126,9 +126,12 @@ module RightScale
     # :vhost(String):: AMQP broker vhost that should be used
     # :user(String):: AMQP broker user
     # :pass(String):: AMQP broker password
-    # :host(String):: Host AMQP broker (or node of interest) runs on. Defaults to 0.0.0.0.
-    # :port(Integer):: Port AMQP broker (or node of interest) runs on. Defaults to 5672, port used by
-    #   some widely used AMQP brokers (RabbitMQ and ZeroMQ).
+    # :host(String):: Host AMQP broker runs on, comma-separated list of hosts to configure high
+    #   availability operation, defaults to 0.0.0.0
+    # :port(Integer):: Port AMQP broker runs on, comma-separated list of ports to configure high
+    #   availability operation, defaults to 5672 and increments thereof
+    # :prefix(String):: AMQP broker identifier that is used as prefix for queues/exchanges names,
+    #   comma-separated list to configure high availability operation
     #
     # On start config.yml is read, so it is common to specify options in the YAML file. However, when both
     # Ruby code options and YAML file specify options, Ruby code options take precedence.
@@ -174,10 +177,11 @@ module RightScale
           pid_file.write
           at_exit { pid_file.remove }
         end
-        @amq = start_amqp(@options)
+        @brokers = start_ha_amqp(@options)
+        @prefix = "#{@brokers[0][:prefix]}#{AgentIdentity::ID_SEPARATOR}" if @brokers[0][:prefix]
         @registry = ActorRegistry.new
-        @dispatcher = Dispatcher.new(@amq, @registry, @serializer, @identity, @options)
-        setup_mapper_proxy
+        @dispatcher = Dispatcher.new(@brokers[0][:mq], @registry, @serializer, @identity, @options)
+        @mapper_proxy = MapperProxy.new(@identity, @brokers, @options)
         load_actors
         setup_traps
         setup_queues
@@ -219,8 +223,10 @@ module RightScale
       @tags += (new_tags || [])
       @tags -= (old_tags || [])
       @tags.uniq!
-      tag_update = TagUpdate.new(@identity, new_tags, old_tags)
-      @amq.fanout('registration', :no_declare => @options[:secure]).publish(@serializer.dump(tag_update))
+      @brokers.each do |b|
+        tag_update = TagUpdate.new(agent_identity(b[:prefix]), new_tags, old_tags)
+        publish(b, 'registration', tag_update)
+      end
       true
     end
 
@@ -299,20 +305,21 @@ module RightScale
     #
     # === Parameters
     # packet(Packet):: Packet to receive
+    # via(String):: Display identifying broker where packet queued
     #
     # === Return
     # true:: Always return true
-    def receive_any(packet)
-      RightLinkLog.debug("RECV #{packet.to_s}")
+    def receive_any(packet, via)
+      RightLinkLog.debug("RECV #{via}#{packet.to_s}")
       case packet
       when Advertise
-        RightLinkLog.info("RECV #{packet.to_s}") unless RightLinkLog.level == :debug
+        RightLinkLog.info("RECV #{via}#{packet.to_s}") unless RightLinkLog.level == :debug
         advertise_services
       when Request, Push
-        RightLinkLog.info("RECV #{packet.to_s([:from, :tags, :tries])}") unless RightLinkLog.level == :debug
+        RightLinkLog.info("RECV #{via}#{packet.to_s([:from, :tags, :tries])}") unless RightLinkLog.level == :debug
         @dispatcher.dispatch(packet)
       when Result
-        RightLinkLog.info("RECV #{packet.to_s([])}") unless RightLinkLog.level == :debug
+        RightLinkLog.info("RECV #{via}#{packet.to_s([])}") unless RightLinkLog.level == :debug
         @mapper_proxy.handle_result(packet)
       else
         RightLinkLog.error("Agent #{@identity} received invalid packet: #{packet.to_s}")
@@ -324,14 +331,15 @@ module RightScale
     #
     # === Parameters
     # packet(Packet):: Packet to receive
+    # via(String):: Display identifying broker where packet queued
     #
     # === Return
     # true:: Always return true
-    def receive_request(packet)
-      RightLinkLog.debug("RECV #{packet.to_s}")
+    def receive_request(packet, via)
+      RightLinkLog.debug("RECV #{via}#{packet.to_s}")
       case packet
       when Request, Push
-        RightLinkLog.info("RECV #{packet.to_s([:from, :tags, :tries])}") unless RightLinkLog.level == :debug
+        RightLinkLog.info("RECV #{via}#{packet.to_s([:from, :tags, :tries])}") unless RightLinkLog.level == :debug
         @dispatcher.dispatch(packet)
       else
         RightLinkLog.error("Agent #{@identity} received invalid request packet: #{packet.to_s}")
@@ -344,8 +352,10 @@ module RightScale
     # === Return
     # true:: Always return true
     def setup_queues
-      if @amq.respond_to?(:prefetch) && @options.has_key?(:prefetch) && @options[:prefetch]
-        @amq.prefetch(@options[:prefetch])
+      @brokers.each do |b|
+        if b[:mq].respond_to?(:prefetch) && @options.has_key?(:prefetch) && @options[:prefetch]
+          b[:mq].prefetch(@options[:prefetch])
+        end
       end
 
       setup_identity_queue
@@ -358,25 +368,31 @@ module RightScale
     # === Return
     # true:: Always return true
     def setup_identity_queue
-      # Explicitly create direct exchange and bind queue to it
-      # since may be binding this queue to multiple exchanges
-      queue = @amq.queue(@identity, :durable => true)
-      binding = queue.bind(@amq.direct(@identity, :durable => true, :auto_delete => true))
+      @brokers.each do |b|
+        # Explicitly create direct exchange and bind queue to it
+        # since may be binding this queue to multiple exchanges
+        mq = b[:mq]
+        prefix = "#{b[:prefix]}#{AgentIdentity::ID_SEPARATOR}" if b[:prefix]
+        name = agent_identity(b[:prefix])
+        queue = mq.queue(name, :durable => true)
+        binding = queue.bind(mq.direct(name, :durable => true, :auto_delete => true))
 
-      # A RightScale infrastructure agent must also bind to the advertise exchange so that
-      # a mapper that comes up after this agent can learn of its existence. The identity
-      # queue binds to both the identity and advertise exchanges, therefore the advertise
-      # exchange must be durable to match the identity exchange.
-      queue.bind(@amq.fanout('advertise', :durable => true)) if @options[:infrastructure]
+        # A RightScale infrastructure agent must also bind to the advertise exchange so that
+        # a mapper that comes up after this agent can learn of its existence. The identity
+        # queue binds to both the identity and advertise exchanges, therefore the advertise
+        # exchange must be durable to match the identity exchange.
+        queue.bind(mq.fanout("#{prefix}advertise", :durable => true)) if @options[:infrastructure] && @prefix == prefix
 
-      binding.subscribe(:ack => true) do |info, msg|
-        begin
-          # Ack before processing to avoid risk of duplication after a crash
-          info.ack
-          receive_any(@serializer.load(msg))
-        rescue Exception => e
-          RightLinkLog.error("RECV #{e.message}")
-          @callbacks[:exception].call(e, msg, self) rescue nil if @callbacks && @callbacks[:exception]
+        binding.subscribe(:ack => true) do |info, msg|
+          begin
+            # Ack before processing to avoid risk of duplication after a crash
+            info.ack
+            via = "via #{b[:prefix]} " if b[:prefix]
+            receive_any(@serializer.load(msg), via)
+          rescue Exception => e
+            RightLinkLog.error("RECV #{e.message}")
+            @callbacks[:exception].call(e, msg, self) rescue nil if @callbacks && @callbacks[:exception]
+          end
         end
       end
     end
@@ -387,11 +403,12 @@ module RightScale
     # === Return
     # true:: Always return true
     def setup_shared_queue
-      @amq.queue(@shared_queue, :durable => true).subscribe(:ack => true) do |info, msg|
+      @brokers[0][:mq].queue("#{@prefix}#{@shared_queue}", :durable => true).subscribe(:ack => true) do |info, msg|
         begin
           # Ack before processing to avoid risk of duplication after a crash
           info.ack
-          receive_request(@serializer.load(msg))
+          via = "via #{brokers[0][:prefix]} " if brokers[0][:prefix]
+          receive_request(@serializer.load(msg), via)
         rescue Exception => e
           RightLinkLog.error("RECV #{e.message}")
           @callbacks[:exception].call(e, msg, self) rescue nil if @callbacks && @callbacks[:exception]
@@ -405,20 +422,14 @@ module RightScale
     # === Return
     # true:: Always return true
     def setup_heartbeat
-      EM.add_periodic_timer(@options[:ping_time]) do
-        @amq.fanout('heartbeat', :no_declare => @options[:secure]).publish(@serializer.dump(Ping.new(@identity, status_proc.call)))
+      @brokers.each do |b|
+        EM.add_periodic_timer(@options[:ping_time]) do
+          publish(b, 'heartbeat', Ping.new(agent_identity(b[:prefix]), status_proc.call))
+        end
       end
       true
     end
-    
-    # Setup the mapper proxy for use in handling results
-    #
-    # === Return
-    # @mapper_proxy(MapperProxy):: Mapper proxy created
-    def setup_mapper_proxy
-      @mapper_proxy = MapperProxy.new(@identity, @options)
-    end
-    
+
     # Setup signal traps
     #
     # === Return
@@ -427,9 +438,15 @@ module RightScale
       ['INT', 'TERM'].each do |sig|
         old = trap(sig) do
           un_register
-          @amq.instance_variable_get('@connection').close do
-            EM.stop
-            old.call if old.is_a? Proc
+          count = @brokers.size
+          @brokers.each do |b|
+            b[:mq].instance_variable_get('@connection').close do
+              count -= 1
+              if count == 0
+                EM.stop
+                old.call if old.is_a? Proc
+              end
+            end
           end
         end
       end
@@ -448,6 +465,37 @@ module RightScale
       @tags.uniq!
     end
 
+    # Create identity for this agent for use with given broker
+    #
+    # === Parameters
+    # prefix(String):: Agent identity prefix identifying a broker
+    #
+    # === Return
+    # (String):: Agent identity
+    def agent_identity(prefix)
+      if prefix
+        @identity.gsub(@prefix, "#{prefix}#{AgentIdentity::ID_SEPARATOR}")
+      else
+        @identity
+      end
+    end
+
+    # Publish packet to exchange
+    #
+    # === Parameters
+    # broker(Hash):: AMQP broker
+    # exchange(String):: Exchange name
+    # packet(Packet):: Packet to be serialized and published
+    #
+    # === Return
+    # true:: Always return true
+    def publish(broker, exchange, packet)
+      prefix = "#{broker[:prefix]}#{AgentIdentity::ID_SEPARATOR}" if broker[:prefix]
+      broker[:mq].fanout("#{prefix}#{exchange}", :no_declare => @options[:secure]).
+        publish(@serializer.dump(packet))
+      true
+    end
+
     # Unregister this agent if not already unregistered
     #
     # === Return
@@ -455,8 +503,11 @@ module RightScale
     def un_register
       unless @unregistered
         @unregistered = true
-        RightLinkLog.info("SEND [un_register]")
-        @amq.fanout('registration', :no_declare => @options[:secure]).publish(@serializer.dump(UnRegister.new(@identity)))
+        @brokers.each do |b|
+          via = "via #{b[:prefix]} " if b[:prefix]
+          RightLinkLog.info("SEND #{via}[un_register]")
+          publish(b, 'registration', UnRegister.new(agent_identity(b[:prefix])))
+        end
       end
       true
     end
@@ -466,9 +517,14 @@ module RightScale
     # === Return
     # true:: Always return true
     def advertise_services
-      reg = Register.new(@identity, @registry.services, status_proc.call, self.tags, @shared_queue)
-      RightLinkLog.info("SEND #{reg.to_s}")
-      @amq.fanout('registration', :no_declare => @options[:secure]).publish(@serializer.dump(reg))
+      shared_queue = "#{@prefix}#{@shared_queue}" if @shared_queue
+      @brokers.each do |b|
+        reg = Register.new(agent_identity(b[:prefix]), @registry.services, status_proc.call, self.tags, shared_queue)
+        via = "via #{b[:prefix]} " if b[:prefix]
+        RightLinkLog.info("SEND #{via}#{reg.to_s}")
+        publish(b, 'registration', reg)
+        shared_queue = nil
+      end
       true
     end
 

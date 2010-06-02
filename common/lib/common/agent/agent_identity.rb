@@ -44,10 +44,11 @@ module RightScale
     # agent_name(String):: Name of agent (e.g. 'core', 'instance')
     # base_id(Integer):: Unique integer value
     # token(String):: Unique identity token, will be generated randomly if not provided
+    # separator(String):: Character used to separate identity components, defaults to ID_SEPARATOR
     #
     # === Raise
     # RightScale::Exceptions::Argument:: Invalid argument
-    def initialize(prefix, agent_name, base_id, token=nil, delimeter=nil)
+    def initialize(prefix, agent_name, base_id, token=nil, separator=nil)
       err = "Prefix cannot contain '#{ID_SEPARATOR}'" if prefix && prefix.include?(ID_SEPARATOR)
       err = "Prefix cannot contain '#{ID_SEPARATOR_OLD}'" if prefix && prefix.include?(ID_SEPARATOR_OLD)
       err = "Agent name cannot contain '#{ID_SEPARATOR}'" if agent_name.include?(ID_SEPARATOR)
@@ -59,7 +60,7 @@ module RightScale
       err = "Token cannot contain '#{ID_SEPARATOR_OLD}'" if token && token.include?(ID_SEPARATOR_OLD)
       raise RightScale::Exceptions::Argument, err if err
 
-      @delimeter  = delimeter || ID_SEPARATOR
+      @separator  = separator || ID_SEPARATOR
       @prefix     = prefix
       @agent_name = agent_name
       @token      = token || self.class.generate
@@ -123,12 +124,12 @@ module RightScale
     # (RightScale::Exceptions::Argument):: Serialized agent identity is incorrect
     def self.parse(serialized_id)
       serialized_id = serialized_from_nanite(serialized_id) if valid_nanite?(serialized_id)
-      prefix, agent_name, token, bid, delimeter = parts(serialized_id)
+      prefix, agent_name, token, bid, separator = parts(serialized_id)
       raise RightScale::Exceptions::Argument, "Invalid agent identity token" unless prefix && agent_name && token && bid
       base_id = bid.to_i
       raise RightScale::Exceptions::Argument, "Invalid agent identity token (Base ID)" unless base_id.to_s == bid
 
-      id = AgentIdentity.new(prefix, agent_name, base_id, token, delimeter)
+      id = AgentIdentity.new(prefix, agent_name, base_id, token, separator)
     end
 
     # Does given id correspond to an instance agent?
@@ -183,7 +184,7 @@ module RightScale
     # === Return
     # serialized(String):: Serialized identity
     def to_s
-      serialized = "#{@prefix}#{@delimeter}#{@agent_name}#{@delimeter}#{@token}#{@delimeter}#{@base_id}"
+      serialized = "#{@prefix}#{@separator}#{@agent_name}#{@separator}#{@token}#{@separator}#{@base_id}"
     end
 
     # Comparison operator
@@ -210,17 +211,17 @@ module RightScale
     # serialized_id(String):: Valid serialized agent identity (use 'valid?' to check first)
     #
     # === Return
-    # (Array):: Array of parts: prefix, agent name, token, base id and delimeter
+    # (Array):: Array of parts: prefix, agent name, token, base id and separator
     def self.parts(serialized_id)
-      prefix = agent_name = token = bid = delimeter = nil
+      prefix = agent_name = token = bid = separator = nil
       if serialized_id.include?(ID_SEPARATOR)
         prefix, agent_name, token, bid = serialized_id.split(ID_SEPARATOR)
-        delimeter = ID_SEPARATOR
+        separator = ID_SEPARATOR
       elsif serialized_id.include?(ID_SEPARATOR_OLD)
         prefix, agent_name, token, bid = serialized_id.split(ID_SEPARATOR_OLD)
-        delimeter = ID_SEPARATOR_OLD
+        separator = ID_SEPARATOR_OLD
       end
-      [ prefix, agent_name, token, bid, delimeter ]
+      [ prefix, agent_name, token, bid, separator ]
     end
 
   end # AgentIdentity

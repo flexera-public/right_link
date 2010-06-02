@@ -113,7 +113,23 @@ rescue LoadError => e
 end
 
 module RightScale
+
   module AMQPHelper
+
+    # Open AMQP broker connection
+    #
+    # === Parameters
+    # options(Hash):: AMQP broker configuration options:
+    #   :user(String):: User name
+    #   :pass(String):: Password
+    #   :vhost(String):: Virtual host path name
+    #   :insist(Boolean):: Whether to suppress redirection of connection
+    #   :retry(Integer|Proc):: Number of seconds before try to reconnect or proc returning same
+    #   :host(String):: Host name
+    #   :port(String|Integer):: Port number
+    #
+    # === Return
+    # (MQ):: AMQP broker connection
     def start_amqp(options)
       connection = AMQP.connect(
         :user => options[:user],
@@ -125,5 +141,48 @@ module RightScale
         :retry => options[:retry] || 15 )
       MQ.new(connection)
     end
-  end
-end
+
+    # Open connections to multiple AMQP brokers for high availability operation
+    #
+    # === Parameters
+    # options(Hash):: AMQP broker configuration options:
+    #   :user(String):: User name
+    #   :pass(String):: Password
+    #   :vhost(String):: Virtual host path name
+    #   :insist(Boolean):: Whether to suppress redirection of connection
+    #   :retry(Integer|Proc):: Number of seconds before try to reconnect or proc returning same
+    #   :host(String):: Comma-separated host names, reused if only one specified
+    #   :port(String):: Comma-separated port number, defaults to AMQP::PORT with incrementing as needed
+    #   :prefix(String):: Comma-separated broker identifiers that are used as queue/exchange name prefixes
+    #
+    # === Return
+    # (Array(Hash)):: AMQP brokers
+    #   :prefix(String):: Broker identifier that is used as queue/exchange name prefix
+    #   :mq(MQ):: AMQP connection to broker
+    def start_ha_amqp(options)
+      amqp_opts = {
+        :user => options[:user],
+        :pass => options[:pass],
+        :vhost => options[:vhost],
+        :insist => options[:insist],
+        :retry => options[:retry] }
+      hosts = if options[:host] then options[:host].split(',') else [ nil ] end
+      ports = if options[:port] then options[:port].split(',') else [ ::AMQP::PORT ] end
+      prefixes = if options[:prefix] then options[:prefix].split(',') else [ nil ] end
+      i = 0
+      prefixes.map do |p|
+        amqp_opts[:host] = if hosts[i] then hosts[i] else hosts[0] end
+        amqp_opts[:port] = if ports[i] then ports[i] else ports[0].to_i + i end
+        i += 1
+        { :prefix => p, :mq => start_amqp(amqp_opts) }
+      end
+    end
+
+    # Determine whether AMQP broker connection is available for service
+    def usable(mq)
+      mq.__send__(:connection).connected?
+    end
+
+  end # AMQPHelper
+
+end # RightScale

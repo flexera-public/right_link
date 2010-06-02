@@ -53,6 +53,9 @@ module RightScale
     #
     # === Parameters
     # id(String):: Identity of associated agent
+    # brokers(Array(Hash)):: AMQP brokers in priority order
+    #   :prefix(String):: Broker identifier used as queue/exchange name prefix
+    #   :mq(MQ):: AMQP connection to broker
     # opts(Hash):: Options:
     #   :callbacks(Hash):: Callbacks to be executed on specific events. Key is event (currently
     #     only :exception is supported) and value is the Proc to be called back. For :exception
@@ -67,14 +70,12 @@ module RightScale
     #   :secure(Boolean):: true indicates to use Security features of rabbitmq to restrict nanites to themselves
     #   :single_threaded(Boolean):: true indicates to run all operations in one thread; false indicates
     #     to do requested work on EM defer thread and all else, such as pings on main thread
-    #
-    # === Options
-    #
-    def initialize(id, opts)
+    def initialize(id, brokers, opts)
       @identity = id
       @options = opts || {}
       @pending_requests = {} # Only access from primary thread
-      @amqp = start_amqp(@options)
+      @brokers = brokers
+      @prefix = "#{@brokers[0][:prefix]}#{AgentIdentity::ID_SEPARATOR}" if @brokers[0][:prefix]
       @serializer = Serializer.new(@options[:format])
       @secure = @options[:secure]
       @persistent = @options[:persistent]
@@ -82,6 +83,7 @@ module RightScale
       @retry_timeout = nil_if_zero(@options[:retry_timeout])
       @retry_interval = nil_if_zero(@options[:retry_interval])
       @callbacks = @options[:callbacks]
+      @last_route = nil
       @@instance = self
     end
 
@@ -103,7 +105,6 @@ module RightScale
       request.token = AgentIdentity.generate
       request.persistent = opts.key?(:persistent) ? opts[:persistent] : @persistent
       @pending_requests[request.token] = { :result_handler => blk }
-      RightLinkLog.info("SEND #{request.to_s([:tags, :target])}")
       request_with_retry(request, request.token)
       true
     end
@@ -122,9 +123,7 @@ module RightScale
       push.from = @identity
       push.token = AgentIdentity.generate
       push.persistent = opts.key?(:persistent) ? opts[:persistent] : @persistent
-      RightLinkLog.info("SEND #{push.to_s([:tags, :target])}")
-      @amqp.queue('request', :durable => true, :no_declare => @secure).
-        publish(@serializer.dump(push), :persistent => push.persistent)
+      route(push)
       true
     end
 
@@ -177,8 +176,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def request_with_retry(request, parent, count = 0, multiplier = 1, elapsed = 0)
-      @amqp.queue('request', :durable => true, :no_declare => @secure).
-        publish(@serializer.dump(request), :persistent => request.persistent)
+      route(request, count > 1)
 
       if @retry_interval && @retry_timeout && parent
         interval = @retry_interval * multiplier
@@ -191,7 +189,6 @@ module RightScale
               request.token = AgentIdentity.generate
               @pending_requests[parent][:retry_parent] = parent if count == 1
               @pending_requests[request.token] = @pending_requests[parent]
-              RightLinkLog.info("RESEND #{request.to_s([:tags, :target, :tries])}")
               request_with_retry(request, parent, count, multiplier * 2, elapsed)
             else
               RightLinkLog.warn("RESEND TIMEOUT after #{elapsed} seconds for #{request.to_s([:tags, :target, :tries])}")
@@ -201,6 +198,41 @@ module RightScale
           end
         end
       end
+      true
+    end
+
+    # Route request to a working broker
+    #
+    # === Parameters
+    # request(Push|Request):: Request packet to be sent
+    # is_retry(Boolean):: Whether this is a retry attempt
+    #
+    # === Return
+    # true:: Always return true
+    #
+    # === Raise
+    # (RightScale::Exceptions::IO):: If cannot find a usable AMQP connection
+    def route(request, is_retry = false)
+      brokers = @brokers.reject { |b| !usable(b[:mq]) }
+      count = brokers.size
+      brokers.each do |b|
+        count -= 1
+        if count == 0 || b != @last_route
+          @last_route = b
+          prefix = "#{b[:prefix]}#{AgentIdentity::ID_SEPARATOR}" if b[:prefix]
+          request.from.gsub!(@prefix, prefix) if prefix && prefix != @prefix
+          via = "via #{b[:prefix]} " if b[:prefix]
+          if is_retry
+            RightLinkLog.info("RESEND #{via}#{request.to_s([:tags, :target, :tries])}")
+          else
+            RightLinkLog.info("SEND #{via}#{request.to_s([:tags, :target])}")
+          end
+          b[:mq].queue("#{prefix}request", :durable => true, :no_declare => @secure).
+            publish(@serializer.dump(request), :persistent => request.persistent)
+          return true
+        end
+      end
+      raise RightScale::Exceptions::IO, "None of #{@connections.size} AMQP connections are usable"
       true
     end
 

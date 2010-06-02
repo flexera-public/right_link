@@ -56,7 +56,7 @@ module RightScale
         options[:user]  = uri.user     if uri.user
         options[:pass]  = uri.password if uri.password
         options[:host]  = uri.host
-        options[:port]  = uri.uri.port if uri.port
+        options[:port]  = uri.port     if uri.port
         options[:vhost] = uri.path     if (uri.path && !uri.path.empty?)
       end
       
@@ -99,7 +99,7 @@ module RightScale
     # Build identity from base_id, token, prefix and agent name
     #
     # === Parameters
-    # options(Hash):: Hash containting identity components
+    # options(Hash):: Hash containing identity components
     #
     # === Return
     # options(Hash)::
@@ -114,7 +114,8 @@ module RightScale
         puts "NAME: #{name}"
         token = options[:token]
         token = RightScale::SecureIdentity.derive(base_id, options[:token]) if options[:secure_identity]
-        options[:identity] = AgentIdentity.new(options[:prefix] || 'rs', name, base_id, token).to_s
+        prefix = options[:prefix].split(',').first if options[:prefix]
+        options[:identity] = AgentIdentity.new(prefix || 'rs', name, base_id, token).to_s
       end
     end
 

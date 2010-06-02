@@ -34,8 +34,8 @@ describe RightScale::Agent do
       @fanout = flexmock("fanout", :publish => nil)
       @bind = flexmock("bind", :subscribe => nil)
       @queue = flexmock("queue", :subscribe => {}, :bind => @bind)
-      @amq = flexmock("AMQueue", :queue => @queue, :fanout => @fanout, :direct => @direct)
-      flexmock(MQ).should_receive(:new).and_return(@amq)
+      @mq = flexmock("AMQueue", :queue => @queue, :fanout => @fanout, :direct => @direct)
+      flexmock(MQ).should_receive(:new).and_return(@mq)
       @agent = RightScale::Agent.start
     end
 
@@ -136,8 +136,8 @@ describe RightScale::Agent do
       @fanout = flexmock("fanout", :publish => nil)
       @bind = flexmock("bind", :subscribe => nil)
       @queue = flexmock("queue", :subscribe => {}, :bind => @bind)
-      @amq = flexmock("AMQueue", :queue => @queue, :fanout => @fanout, :direct => @direct)
-      flexmock(MQ).should_receive(:new).and_return(@amq)
+      @mq = flexmock("mq", :queue => @queue, :fanout => @fanout, :direct => @direct)
+      flexmock(MQ).should_receive(:new).and_return(@mq)
       @agent = nil
     end
 
@@ -160,8 +160,8 @@ describe RightScale::Agent do
 
     it "for shared_queue should not be included if false" do
 #      @queue = flexmock("queue").should_receive(:subscribe).and_return({}).times(1)
-#      @amq = flexmock("AMQueue", :queue => @queue, :fanout => @fanout)
-#      flexmock(MQ).should_receive(:new).and_return(@amq)
+#      @mq = flexmock("mq", :queue => @queue, :fanout => @fanout)
+#      flexmock(MQ).should_receive(:new).and_return(@mq)
       agent = RightScale::Agent.start(:identity => "the_identity")
       agent.options.should include(:shared_queue)
       agent.options[:shared_queue].should be_false
@@ -169,8 +169,8 @@ describe RightScale::Agent do
 
     it "for shared_queue should be included if not false" do
 #      @queue = flexmock("queue").should_receive(:subscribe).and_return({}).times(2)
-#      @amq = flexmock("AMQueue", :queue => @queue, :fanout => @fanout)
-#      flexmock(MQ).should_receive(:new).and_return(@amq)
+#      @mq = flexmock("mq", :queue => @queue, :fanout => @fanout)
+#      flexmock(MQ).should_receive(:new).and_return(@mq)
       agent = RightScale::Agent.start(:shared_queue => "my_shared_queue")
       agent.options.should include(:shared_queue)
       agent.options[:shared_queue].should == "my_shared_queue"

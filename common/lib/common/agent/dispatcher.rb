@@ -46,7 +46,7 @@ module RightScale
     # Initialize dispatcher
     #
     # === Parameters
-    # amq(MQ):: AMQP broker for queueing messages
+    # mq(MQ):: AMQP broker connection
     # registry(ActorRegistry):: Registry for actors
     # serializer(Serializer):: Serializer used for marshaling messages
     # identity(String):: Identity of associated agent
@@ -62,8 +62,8 @@ module RightScale
     # :single_threaded(Boolean):: true indicates to run all operations in one thread; false indicates
     #   to do requested work on event machine defer thread and all else, such as pings on main thread
     # :threadpool_size(Integer):: Number of threads in event machine thread pool
-    def initialize(amq, registry, serializer, identity, options)
-      @amq = amq
+    def initialize(mq, registry, serializer, identity, options)
+      @mq = mq
       @registry = registry
       @serializer = serializer
       @identity = identity
@@ -134,7 +134,7 @@ module RightScale
             @completed[deliverable.token] = completed_at if @dup_check && deliverable.token
             r = Result.new(deliverable.token, deliverable.reply_to, r, identity)
             RightLinkLog.info("SEND #{r.to_s([])}")
-            @amq.queue(deliverable.reply_to, :durable => true, :no_declare => @secure).
+            @mq.queue(deliverable.reply_to, :durable => true, :no_declare => @secure).
               publish(serializer.dump(r), :persistent => deliverable.persistent)
           end
         rescue Exception => e

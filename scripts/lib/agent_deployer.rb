@@ -27,8 +27,8 @@
 #      --user, -u USER          Set agent AMQP username
 #      --password, -p PASS      Set agent AMQP password
 #      --vhost, -v VHOST        Set agent AMQP virtual host
-#      --port, -P PORT          Set AMQP server port
-#      --host, -h HOST          Set AMQP server host
+#      --port, -P PORT          Set AMQP broker port
+#      --host, -h HOST          Set AMQP broker host
 #      --alias ALIAS            Use alias name for identity and base config
 #      --pid-dir, -z DIR        Set directory containing pid file
 #      --monit, -w              Generate monit configuration file
@@ -110,6 +110,7 @@ module RightScale
       cfg[:actors]          = options[:actors] if options[:actors]
       cfg[:actors_dir]      = options[:actors_dir] if options[:actors_dir]
       cfg[:format]          = 'secure'
+      cfg[:prefix]          = options[:prefix]
       cfg[:prefetch]        = options[:prefetch] || 1
       cfg[:persistent]      = options[:persistent] || true
       cfg[:fresh_timeout]   = options[:fresh_timeout] || 10 * 60
