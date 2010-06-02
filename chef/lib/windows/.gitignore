@@ -10,3 +10,4 @@ bin/ChefNodeCmdlet.dll-Help.xml
 *.suo
 *.csproj.user
 *.build.txt
+*.sln.cache
