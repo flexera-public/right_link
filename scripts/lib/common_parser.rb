@@ -114,8 +114,7 @@ module RightScale
         puts "NAME: #{name}"
         token = options[:token]
         token = RightScale::SecureIdentity.derive(base_id, options[:token]) if options[:secure_identity]
-        prefix = options[:prefix].split(',').first if options[:prefix]
-        options[:identity] = AgentIdentity.new(prefix || 'rs', name, base_id, token).to_s
+        options[:identity] = AgentIdentity.new(options[:prefix] || 'rs', name, base_id, token).to_s
       end
     end
 

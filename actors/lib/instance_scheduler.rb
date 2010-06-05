@@ -161,7 +161,7 @@ class InstanceScheduler
   def terminate
     RightScale::RightLinkLog.info("Instance agent #{@agent_identity} terminating")
     RightScale::CommandRunner.stop
-    Process.kill('TERM', Process.pid)
+    EM.add_timer(2) { Process.kill('TERM', Process.pid) }
   end
 
   protected

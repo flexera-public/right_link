@@ -37,8 +37,8 @@ module RightScale
     # (Hash) Completed requests for dup checking; key is request token and value is time when completed
     attr_reader :completed
 
-    # (MQ) AMQP broker for queueing messages
-    attr_reader :amq
+    # (HA_MQ) High availability AMQP broker
+    attr_reader :broker
 
     # (EM) Event machine class (exposed for unit tests)
     attr_accessor :em
@@ -46,7 +46,7 @@ module RightScale
     # Initialize dispatcher
     #
     # === Parameters
-    # mq(MQ):: AMQP broker connection
+    # broker(HA_MQ):: High availability AMQP broker
     # registry(ActorRegistry):: Registry for actors
     # serializer(Serializer):: Serializer used for marshaling messages
     # identity(String):: Identity of associated agent
@@ -62,8 +62,8 @@ module RightScale
     # :single_threaded(Boolean):: true indicates to run all operations in one thread; false indicates
     #   to do requested work on event machine defer thread and all else, such as pings on main thread
     # :threadpool_size(Integer):: Number of threads in event machine thread pool
-    def initialize(mq, registry, serializer, identity, options)
-      @mq = mq
+    def initialize(broker, registry, serializer, identity, options)
+      @broker = broker
       @registry = registry
       @serializer = serializer
       @identity = identity
@@ -134,8 +134,8 @@ module RightScale
             @completed[deliverable.token] = completed_at if @dup_check && deliverable.token
             r = Result.new(deliverable.token, deliverable.reply_to, r, identity)
             RightLinkLog.info("SEND #{r.to_s([])}")
-            @mq.queue(deliverable.reply_to, :durable => true, :no_declare => @secure).
-              publish(serializer.dump(r), :persistent => deliverable.persistent)
+            exchange = {:type => :queue, :name => deliverable.reply_to, :options => {:durable => true, :no_declare => @secure}}
+            @broker.publish(exchange, serializer.dump(r), :persistent => deliverable.persistent)
           end
         rescue Exception => e
           RightLinkLog.error("Callback following dispatch failed with #{e.class.name}: #{e.message}\n #{e.backtrace.join("\n  ")}")

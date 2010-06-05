@@ -110,7 +110,6 @@ module RightScale
       cfg[:actors]          = options[:actors] if options[:actors]
       cfg[:actors_dir]      = options[:actors_dir] if options[:actors_dir]
       cfg[:format]          = 'secure'
-      cfg[:prefix]          = options[:prefix]
       cfg[:prefetch]        = options[:prefetch] || 1
       cfg[:persistent]      = options[:persistent] || true
       cfg[:fresh_timeout]   = options[:fresh_timeout] || 10 * 60

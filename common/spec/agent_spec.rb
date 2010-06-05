@@ -29,13 +29,14 @@ describe RightScale::Agent do
 
     before(:all) do
       flexmock(EM).should_receive(:add_periodic_timer)
-      flexmock(AMQP).should_receive(:connect)
       @direct = flexmock("direct", :publish => nil)
       @fanout = flexmock("fanout", :publish => nil)
       @bind = flexmock("bind", :subscribe => nil)
       @queue = flexmock("queue", :subscribe => {}, :bind => @bind)
-      @mq = flexmock("AMQueue", :queue => @queue, :fanout => @fanout, :direct => @direct)
-      flexmock(MQ).should_receive(:new).and_return(@mq)
+      @mq = flexmock("mq", :queue => @queue, :fanout => @fanout, :direct => @direct)
+      @broker = flexmock("Broker", :subscribe => true, :publish => true, :prefetch => true).by_default
+      @broker.should_receive(:each).and_yield(@mq)
+      flexmock(RightScale::HA_MQ).should_receive(:new).and_return(@broker)
       @agent = RightScale::Agent.start
     end
 
@@ -131,13 +132,14 @@ describe RightScale::Agent do
 
     before(:each) do
       flexmock(EM).should_receive(:add_periodic_timer)
-      flexmock(AMQP).should_receive(:connect)
       @direct = flexmock("direct", :publish => nil)
       @fanout = flexmock("fanout", :publish => nil)
       @bind = flexmock("bind", :subscribe => nil)
       @queue = flexmock("queue", :subscribe => {}, :bind => @bind)
       @mq = flexmock("mq", :queue => @queue, :fanout => @fanout, :direct => @direct)
-      flexmock(MQ).should_receive(:new).and_return(@mq)
+      @broker = flexmock("Broker", :subscribe => true, :publish => true, :prefetch => true).by_default
+      @broker.should_receive(:each).and_yield(@mq)
+      flexmock(RightScale::HA_MQ).should_receive(:new).and_return(@broker)
       @agent = nil
     end
 

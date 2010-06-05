@@ -114,75 +114,215 @@ end
 
 module RightScale
 
-  module AMQPHelper
+  # Manage multiple AMQP broker connections to achieve a high availability service
+  class HA_MQ
 
-    # Open AMQP broker connection
+    STATUS = [:uninitialized, :connected, :disconnected, :closed]
+    INACCESSIBLE = [:uninitialized, :closed]
+
+    # Create connections to all configured AMQP brokers
     #
     # === Parameters
-    # options(Hash):: AMQP broker configuration options:
+    # options(Hash):: Configuration options:
     #   :user(String):: User name
     #   :pass(String):: Password
     #   :vhost(String):: Virtual host path name
     #   :insist(Boolean):: Whether to suppress redirection of connection
     #   :retry(Integer|Proc):: Number of seconds before try to reconnect or proc returning same
-    #   :host(String):: Host name
-    #   :port(String|Integer):: Port number
+    #   :host(String):: Comma-separated list of AMQP broker hosts; if only one, it is reapplied
+    #     to successive ports; if none, defaults to 0.0.0.0
+    #   :port(String):: Comma-separated list of AMQP broker ports corresponding to :host list;
+    #      if only one, it is incremented and applied to successive hosts; if none, defaults to 5672
+    #
+    # === Raise
+    # (RightScale::Exceptions::Argument):: If :host and :port are not matched lists
+    def initialize(options)
+      hosts = if options[:host] then options[:host].split(',') else [ nil ] end
+      ports = if options[:port] then options[:port].to_s.split(',') else [ ::AMQP::PORT ] end
+      if hosts.size != ports.size && (hosts.size != 1 || ports.size != 1)
+        raise RightScale::Exceptions::Argument, "Unmatched AMQP host/port lists -- " +
+                                                "hosts: #{options[:host].inspect} ports: #{options[:port].inspect}"
+      end
+      i = -1
+      @mqs = if hosts.size > 1
+        hosts.map { |host| i += 1; connect(host, if ports[i] then ports[i].to_i else ports[0].to_i + i end, options) }
+      else
+        ports.map { |port| i += 1; connect(if hosts[i] then hosts[i] else hosts[0] end, port, options) }
+      end
+    end
+
+    # Iterate over AMQP broker connections
+    #
+    # === Block
+    # Required block to which each AMQP broker connection is passed
+    def each
+      @mqs.each { |mq| yield mq[:mq] unless INACCESSIBLE.include?(mq[:status]) }
+    end
+
+    # Set prefetch value for each AMQP broker
+    #
+    # === Parameters
+    # value(Integer):: Maximum number of messages the AMQP broker is to prefetch
+    #   before it receives an ack. Value 1 ensures that only last unacknowledged
+    #   gets redelivered if the broker crashes. Value 0 means unlimited prefetch.
     #
     # === Return
-    # (MQ):: AMQP broker connection
-    def start_amqp(options)
+    # true:: Always return true
+    def prefetch(value)
+      @mqs.each do |mq|
+        mq[:mq].prefetch(value) unless INACCESSIBLE.include?(mq[:status])
+      end
+      true
+    end
+
+    # Subscribe an AMQP queue to an AMQP exchange
+    #
+    # === Parameters
+    # queue(Hash):: AMQP queue being subscribed with keys :name and :options
+    # exchange(Hash):: AMQP exchange to subscribe to with keys :type, :name, and :options
+    # options(Hash):: AMQP subscribe options
+    #
+    # === Block
+    # Required block called each time exchange matches message to queue
+    #
+    # === Return
+    # true:: Always return true
+    def subscribe(queue, exchange, options = {}, &blk)
+      @mqs.each do |mq|
+        unless INACCESSIBLE.include?(mq[:status])
+          q = mq[:mq].queue(queue[:name], queue[:options])
+          x = mq[:mq].__send__(exchange[:type], exchange[:name], exchange[:options])
+          q.bind(x).subscribe(options, &blk)
+        end
+      end
+      true
+    end
+
+    # Delete queue
+    #
+    # === Parameters
+    # name(String):: Queue name
+    #
+    # === Return
+    # true:: Always return true
+    def delete(name)
+      @mqs.each do |mq|
+        mq[:mq].queue(name).delete rescue nil
+      end
+      true
+    end
+
+    # Publish message to AMQP exchange
+    #
+    # === Parameters
+    # exchange(Hash):: AMQP exchange to subscribe to with keys :type, :name, and :options
+    # message(String):: Serialized message to publish
+    # options(Hash):: AMQP publish options
+    #
+    # === Return
+    # true:: Always return true
+    #
+    # === Raise
+    # (RightScale::Exceptions::IO):: If cannot find a usable AMQP broker connection
+    def publish(exchange, message, options = {})
+      @mqs.each do |mq|
+        if mq[:status] == :connected && (options[:restrict].nil? || options[:restrict].include?("#{mq[:address]}"))
+          mq[:mq].__send__(exchange[:type], exchange[:name], exchange[:options]).publish(message, options)
+          return true
+        end
+      end
+      count = (options[:restrict].size if options[:restrict]) || @mqs.size
+      raise RightScale::Exceptions::IO, "None of #{count} AMQP connections are usable"
+      true
+    end
+
+    # Store block to be called when there is a change in connection status
+    #
+    # === Block
+    # Required block to be called when usable connection count crosses 0|1 threshold
+    #
+    # === Return
+    # true:: Always return true
+    def connection_status(&blk)
+      @connection_status = blk
+      true
+    end
+
+    # Close all AMQP broker connections
+    #
+    # === Block
+    # optional block to be executed after all connections are closed
+    def close
+      @mqs.each do |mq|
+        mq[:mq].instance_variable_get('@connection').close if mq[:status] != :uninitialized
+        mq[:status] = :closed
+      end
+      yield if block_given?
+    end
+
+    protected
+
+    # Make AMQP broker connection and register for status updates
+    #
+    # === Parameters
+    # host(String):: AMQP broker host
+    # port(Integer):: AMQP broker port
+    # options(Hash):: Options required to create an AMQP connection other than :host and :port
+    #
+    # === Return
+    # mq(Hash):: AMQP broker
+    #   :mq(MQ):: AMQP connection
+    #   :address(String):: Host:port address of broker
+    #   :status(Symbol):: Status of connection
+    def connect(host, port, options)
       connection = AMQP.connect(
         :user => options[:user],
         :pass => options[:pass],
         :vhost => options[:vhost],
-        :host => options[:host],
-        :port => (options[:port] || ::AMQP::PORT).to_i,
+        :host => host,
+        :port => port,
         :insist => options[:insist] || false,
         :retry => options[:retry] || 15 )
-      MQ.new(connection)
-    end
-
-    # Open connections to multiple AMQP brokers for high availability operation
-    #
-    # === Parameters
-    # options(Hash):: AMQP broker configuration options:
-    #   :user(String):: User name
-    #   :pass(String):: Password
-    #   :vhost(String):: Virtual host path name
-    #   :insist(Boolean):: Whether to suppress redirection of connection
-    #   :retry(Integer|Proc):: Number of seconds before try to reconnect or proc returning same
-    #   :host(String):: Comma-separated host names, reused if only one specified
-    #   :port(String):: Comma-separated port number, defaults to AMQP::PORT with incrementing as needed
-    #   :prefix(String):: Comma-separated broker identifiers that are used as queue/exchange name prefixes
-    #
-    # === Return
-    # (Array(Hash)):: AMQP brokers
-    #   :prefix(String):: Broker identifier that is used as queue/exchange name prefix
-    #   :mq(MQ):: AMQP connection to broker
-    def start_ha_amqp(options)
-      amqp_opts = {
-        :user => options[:user],
-        :pass => options[:pass],
-        :vhost => options[:vhost],
-        :insist => options[:insist],
-        :retry => options[:retry] }
-      hosts = if options[:host] then options[:host].split(',') else [ nil ] end
-      ports = if options[:port] then options[:port].split(',') else [ ::AMQP::PORT ] end
-      prefixes = if options[:prefix] then options[:prefix].split(',') else [ nil ] end
-      i = 0
-      prefixes.map do |p|
-        amqp_opts[:host] = if hosts[i] then hosts[i] else hosts[0] end
-        amqp_opts[:port] = if ports[i] then ports[i] else ports[0].to_i + i end
-        i += 1
-        { :prefix => p, :mq => start_amqp(amqp_opts) }
+      address = "#{host}:#{port}"
+      begin
+        mq = {:mq => MQ.new(connection), :address => address, :status => :connected}
+        mq[:mq].__send__(:connection).connection_status { |status| update_status(mq, status) }
+        mq
+      rescue Exception => e
+        RightLinkLog.warn("Failed to connect to broker at #{host}:#{port}")
+        {:mq => nil, :address => address, :status => :uninitialized}
       end
     end
 
-    # Determine whether AMQP broker connection is available for service
-    def usable(mq)
-      mq.__send__(:connection).connected?
+    # Count number of usable AMQP broker connections
+    #
+    # === Return
+    # count(Integer):: Number of usable connections
+    def connected
+      count = 0
+      @mqs.each { |mq| count += 1 if mq[:status] == :connected }
+      count
     end
 
-  end # AMQPHelper
+    # Callback from AMQP with connection status
+    #
+    # === Parameters
+    # mq(Hash):: AMQP broker reporting status
+    # status(Symbol):: Status of connection (:connected, :disconnected)
+    #
+    # === Return
+    # true:: Always return true
+    def update_status(mq, status)
+      before = connected
+      mq[:status] = status
+      after = connected
+      if before == 0 && after > 0
+        @connection_status.call(:connected) if @connection_status
+      elsif before > 0 && after == 0
+        @connection_status.call(:disconnected) if @connection_status
+      end
+    end
+
+  end # HA_MQ
 
 end # RightScale
