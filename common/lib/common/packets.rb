@@ -358,7 +358,7 @@ module RightScale
       log_msg = "#{super} #{trace}"
       log_msg += " from #{id_to_s(@from)}" if filter.nil? || filter.include?(:from)
       log_msg += " to #{id_to_s(@to)}" if filter.nil? || filter.include?(:to)
-      log_msg += " results #{@results.inspect}" if filter.nil? || filter.include?(:results)
+      log_msg += " results #{@results.inspect}" 
       log_msg
     end
 
