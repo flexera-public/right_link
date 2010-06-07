@@ -155,6 +155,7 @@ module RightScale
       @tags << opts[:tag] if opts[:tag]
       @tags.flatten!
       @options.freeze
+      @terminating = false
       true
     end
     
@@ -355,17 +356,17 @@ module RightScale
     # === Return
     # true:: Always return true
     def setup_identity_queue
-      @broker.each do |mq|
+      @broker.each do |b|
         # Explicitly create direct exchange and bind queue to it
         # since may be binding this queue to multiple exchanges
-        queue = mq.queue(@identity, :durable => true)
-        binding = queue.bind(mq.direct(@identity, :durable => true, :auto_delete => true))
+        queue = b[:mq].queue(@identity, :durable => true)
+        binding = queue.bind(b[:mq].direct(@identity, :durable => true, :auto_delete => true))
 
         # A RightScale infrastructure agent must also bind to the advertise exchange so that
         # a mapper that comes up after this agent can learn of its existence. The identity
         # queue binds to both the identity and advertise exchanges, therefore the advertise
         # exchange must be durable to match the identity exchange.
-        queue.bind(mq.fanout("advertise", :durable => true)) if @options[:infrastructure]
+        queue.bind(b[:mq].fanout("advertise", :durable => true)) if @options[:infrastructure]
 
         binding.subscribe(:ack => true) do |info, msg|
           begin
@@ -419,6 +420,7 @@ module RightScale
     def setup_traps
       ['INT', 'TERM'].each do |sig|
         old = trap(sig) do
+          @terminating = true
           un_register
           @broker.close do
             EM.stop
@@ -451,7 +453,11 @@ module RightScale
     # true:: Always return true
     def publish(name, packet)
       exchange = {:type => :fanout, :name => name, :options => {:no_declare => @options[:secure]}}
-      @broker.publish(exchange, @serializer.dump(packet))
+      begin
+        @broker.publish(exchange, @serializer.dump(packet))
+      rescue Exception => e
+        RightLinkLog.error("Failed to publish #{packet.class} to #{name} exchange: #{e.message}") unless @terminating
+      end
       true
     end
 

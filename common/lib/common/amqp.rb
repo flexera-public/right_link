@@ -139,7 +139,7 @@ module RightScale
     def initialize(options)
       hosts = if options[:host] then options[:host].split(',') else [ nil ] end
       ports = if options[:port] then options[:port].to_s.split(',') else [ ::AMQP::PORT ] end
-      if hosts.size != ports.size && (hosts.size != 1 || ports.size != 1)
+      if hosts.size != ports.size && hosts.size != 1 && ports.size != 1
         raise RightScale::Exceptions::Argument, "Unmatched AMQP host/port lists -- " +
                                                 "hosts: #{options[:host].inspect} ports: #{options[:port].inspect}"
       end
@@ -156,7 +156,7 @@ module RightScale
     # === Block
     # Required block to which each AMQP broker connection is passed
     def each
-      @mqs.each { |mq| yield mq[:mq] unless INACCESSIBLE.include?(mq[:status]) }
+      @mqs.each { |mq| yield mq unless INACCESSIBLE.include?(mq[:status]) }
     end
 
     # Set prefetch value for each AMQP broker
@@ -169,9 +169,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def prefetch(value)
-      @mqs.each do |mq|
-        mq[:mq].prefetch(value) unless INACCESSIBLE.include?(mq[:status])
-      end
+      @mqs.each { |mq| mq[:mq].prefetch(value) unless INACCESSIBLE.include?(mq[:status]) }
       true
     end
 
@@ -206,34 +204,43 @@ module RightScale
     # === Return
     # true:: Always return true
     def delete(name)
-      @mqs.each do |mq|
-        mq[:mq].queue(name).delete rescue nil
-      end
+      @mqs.each { |mq| mq[:mq].queue(name).delete rescue nil }
       true
     end
 
-    # Publish message to AMQP exchange
+    # Publish message to AMQP exchange of first usable broker, or all usable brokers
+    # if fanout requested
     #
     # === Parameters
     # exchange(Hash):: AMQP exchange to subscribe to with keys :type, :name, and :options
     # message(String):: Serialized message to publish
-    # options(Hash):: AMQP publish options
+    # options(Hash):: Publish options -- standard AMQP ones plus
+    #   :fanout(Boolean):: true means publish to all usable brokers
+    #   :restrict(Array(String)):: Host:port addresses of restricted broker set to use
     #
     # === Return
-    # true:: Always return true
+    # ids(Array(AgentIdentity)):: Identity of all AMQP brokers where message was published
     #
     # === Raise
     # (RightScale::Exceptions::IO):: If cannot find a usable AMQP broker connection
     def publish(exchange, message, options = {})
+      ids = []
       @mqs.each do |mq|
         if mq[:status] == :connected && (options[:restrict].nil? || options[:restrict].include?("#{mq[:address]}"))
-          mq[:mq].__send__(exchange[:type], exchange[:name], exchange[:options]).publish(message, options)
-          return true
+          begin
+            mq[:mq].__send__(exchange[:type], exchange[:name], exchange[:options]).publish(message, options)
+            ids << mq[:identity]
+            break unless options[:fanout]
+          rescue Exception => e
+            RightLinkLog.error("Failed to publish to exchange #{exchange.inspect} on AMQP broker #{mq[:identity]}: #{e.message}")
+          end
         end
       end
-      count = (options[:restrict].size if options[:restrict]) || @mqs.size
-      raise RightScale::Exceptions::IO, "None of #{count} AMQP connections are usable"
-      true
+      if ids.empty?
+        count = (options[:restrict].size if options[:restrict]) || @mqs.size
+        raise RightScale::Exceptions::IO, "None of #{count} AMQP broker connections are usable"
+      end
+      ids
     end
 
     # Store block to be called when there is a change in connection status
@@ -275,6 +282,7 @@ module RightScale
     #   :address(String):: Host:port address of broker
     #   :status(Symbol):: Status of connection
     def connect(host, port, options)
+      port = port.to_i
       connection = AMQP.connect(
         :user => options[:user],
         :pass => options[:pass],
@@ -284,12 +292,14 @@ module RightScale
         :insist => options[:insist] || false,
         :retry => options[:retry] || 15 )
       address = "#{host}:#{port}"
+      identity = AgentIdentity.new('rs', 'broker', port, host)
       begin
-        mq = {:mq => MQ.new(connection), :address => address, :status => :connected}
+        mq = {:mq => MQ.new(connection), :identity => identity, :address => address, :status => :connected}
         mq[:mq].__send__(:connection).connection_status { |status| update_status(mq, status) }
+        RightLinkLog.info("Connected to AMQP broker #{identity}")
         mq
       rescue Exception => e
-        RightLinkLog.warn("Failed to connect to broker at #{host}:#{port}")
+        RightLinkLog.warn("Failed to connect to AMQP broker #{identity}")
         {:mq => nil, :address => address, :status => :uninitialized}
       end
     end
@@ -316,6 +326,7 @@ module RightScale
       before = connected
       mq[:status] = status
       after = connected
+      RightLinkLog.info("AMQP broker #{mq[:identity]} is now #{status}. There are now #{after} usable brokers.")
       if before == 0 && after > 0
         @connection_status.call(:connected) if @connection_status
       elsif before > 0 && after == 0
