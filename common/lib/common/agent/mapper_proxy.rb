@@ -167,7 +167,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def request_with_retry(request, parent, count = 0, multiplier = 1, elapsed = 0)
-      publish(request, count > 1)
+      publish(request, count > 0)
 
       if @retry_interval && @retry_timeout && parent
         interval = @retry_interval * multiplier
