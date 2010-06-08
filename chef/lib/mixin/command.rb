@@ -20,20 +20,8 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-begin
-  gem 'chef'
-rescue LoadError => e
-  File.open('/tmp/chef_log-insanity', 'a') do |f|
-    f.puts "PWD is #{Dir.pwd}"
-    f.puts "Why in the world does this load error only happen in CI?"
-    f.puts e.message
-    f.puts $:.join("\n")
-    puts "Why in the world does this load error only happen in CI?"
-    puts e.message
-    puts $:.join("\n")
-    raise e
-  end
-end
+require 'chef/log'
+require 'chef/mixin/command'
 
 class Chef
   module Mixin
