@@ -21,8 +21,7 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 begin
-  require 'chef/log'
-  require 'chef/mixin/command'
+  require 'chef'
 rescue LoadError => e
   File.open('/tmp/chef_log-insanity', 'a') do |f|
     f.puts "Why in the world does this load error only happen in CI?"
