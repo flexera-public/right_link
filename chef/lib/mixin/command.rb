@@ -21,9 +21,10 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 begin
-  require 'chef'
+  gem 'chef'
 rescue LoadError => e
   File.open('/tmp/chef_log-insanity', 'a') do |f|
+    f.puts "PWD is #{Dir.pwd}"
     f.puts "Why in the world does this load error only happen in CI?"
     f.puts e.message
     f.puts $:.join("\n")
