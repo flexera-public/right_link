@@ -130,7 +130,7 @@ module RightScale
     #   :insist(Boolean):: Whether to suppress redirection of connection
     #   :retry(Integer|Proc):: Number of seconds before try to reconnect or proc returning same
     #   :host(String):: Comma-separated list of AMQP broker hosts; if only one, it is reapplied
-    #     to successive ports; if none, defaults to 0.0.0.0
+    #     to successive ports; if none, defaults to localhost
     #   :port(String):: Comma-separated list of AMQP broker ports corresponding to :host list;
     #      if only one, it is incremented and applied to successive hosts; if none, defaults to 5672
     #

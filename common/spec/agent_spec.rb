@@ -79,9 +79,9 @@ describe RightScale::Agent do
       @agent.options[:secure].should == false
     end
 
-    it "for host is 0.0.0.0" do
+    it "for host is localhost" do
       @agent.options.should include(:host)
-      @agent.options[:host].should == "0.0.0.0"
+      @agent.options[:host].should == "localhost"
     end
 
     it "for log_level is info" do
@@ -203,7 +203,7 @@ describe RightScale::Agent do
       @agent.options[:secure].should == true
     end
 
-    it "for host should override default (0.0.0.0)" do
+    it "for host should override default (localhost)" do
       @agent = RightScale::Agent.start(:host => "127.0.0.1")
       @agent.options.should include(:host)
       @agent.options[:host].should == "127.0.0.1"

@@ -26,7 +26,7 @@ module RightScale
     :pass => 'testing',
     :vhost => '/right_net',
     :secure => false,
-    :host => '0.0.0.0',
+    :host => 'localhost',
     :log_level => :info,
     :format => :marshal,
     :daemonize => false,

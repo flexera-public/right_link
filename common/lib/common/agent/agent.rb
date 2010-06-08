@@ -127,7 +127,7 @@ module RightScale
     # :user(String):: AMQP broker user
     # :pass(String):: AMQP broker password
     # :host(String):: Comma-separated list of AMQP broker hosts; if only one, it is reapplied
-    #   to successive ports; if none, defaults to 0.0.0.0
+    #   to successive ports; if none, defaults to localhost
     # :port(Integer):: Comma-separated list of AMQP broker ports corresponding to hosts; if only one,
     #   it is incremented and applied to successive hosts; if none, defaults to 5672
     #
