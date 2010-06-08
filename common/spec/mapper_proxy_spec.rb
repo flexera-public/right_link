@@ -176,7 +176,7 @@ describe RightScale::MapperProxy do
       end
 
       it "should timeout after retrying twice" do
-        pending 'Too difficult to get timing right for Windows' if !RightScale::Platform.windows?
+        pending 'Too difficult to get timing right for Windows' if RightScale::Platform.windows?
         EM.run do
           result = RightScale::OperationResult.success
           flexmock(RightScale::RightLinkLog).should_receive(:info).times(3)
