@@ -27,14 +27,31 @@ describe InstanceServices do
 
   include RightScale::SpecHelpers
 
-  it 'should update login policy' do
-    pending
-#    @mgr = RightScale::LoginManager.instance
-#    @policy = RightScale::LoginPolicy.new
-#    flexmock(@mgr).should_receive(:update_policy).with(@policy).and_return(true)
-#
-#    @services = InstanceServices.new
-#    @services.update_login_policy(@policy)
+  before(:each) do
+    @auditor_proxy = flexmock(RightScale::AuditorProxy)
+    @auditor_proxy.should_receive(:create_new_section).by_default
+    @auditor_proxy.should_receive(:append_info).by_default
+
+    @mgr = RightScale::LoginManager.instance
+    @policy = RightScale::LoginPolicy.new
+    @services = InstanceServices.new('bogus_agent_id')
+
+    #update_login_policy should audit its execution
+    flexmock(@services).should_receive(:request).
+            with('/auditor/create_entry', Hash, Proc).
+            and_yield(RightScale::ResultsMock.new.success_results('bogus_content'))
+    flexmock(RightScale::AuditorProxy).should_receive(:new).with('bogus_content').and_return(@auditor_proxy)
   end
 
+  it 'should update login policy' do
+    flexmock(@mgr).should_receive(:update_policy).with(@policy).and_return(true)
+
+    @services.update_login_policy(@policy)
+  end
+
+  it 'should audit failures when they occur' do
+    error = "I'm sorry Dave, I can't do that."
+    @auditor_proxy.should_receive(:append_error).with(/#{error}/, Hash)
+    flexmock(@mgr).should_receive(:update_policy).with(@policy).and_raise(Exception.new(error))
+  end
 end
