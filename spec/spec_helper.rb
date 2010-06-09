@@ -174,5 +174,9 @@ module RightScale
     def self.update_logger
       true
     end
+
+    def self.update_motd
+      true
+    end
   end
 end
