@@ -23,6 +23,9 @@
 begin
   require 'chef/exceptions'
 rescue LoadError
+  # Make sure we're dealing with a legitimate missing-file LoadError
+  raise e unless e.message =~ /^no such file to load/
+
   # Do not require the chef gem to be installed just to load this code
   module Chef
     class Exceptions

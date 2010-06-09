@@ -106,8 +106,10 @@ begin
     end
   end
 
-rescue LoadError
-  # LoadError indicates that the AMQP gem is not installed; we can ignore this
+rescue LoadError => e
+  # Make sure we're dealing with a legitimate missing-file LoadError
+  raise e unless e.message =~ /^no such file to load/
+  # Missing 'amqp' indicates that the AMQP gem is not installed; we can ignore this
 end
 
 module RightScale

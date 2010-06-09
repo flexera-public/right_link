@@ -29,6 +29,8 @@ require 'rubygems'
 begin
   require 'active_record'
 rescue LoadError => e
+  # Make sure we're dealing with a legitimate missing-file LoadError
+  raise e unless e.message =~ /^no such file to load/
 end
 
 # The daemonize method of AR clashes with the daemonize Chef attribute, we don't need that method so undef it
