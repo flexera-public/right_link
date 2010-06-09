@@ -22,7 +22,7 @@
 
 begin
   require 'chef/exceptions'
-rescue LoadError
+rescue LoadError => e
   # Make sure we're dealing with a legitimate missing-file LoadError
   raise e unless e.message =~ /^no such file to load/
 
