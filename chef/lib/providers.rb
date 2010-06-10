@@ -35,8 +35,6 @@ require File.join(File.dirname(__FILE__), 'providers', 'dns_dnsmadeeasy_provider
 require File.join(File.dirname(__FILE__), 'providers', 'dns_resource')
 require File.join(File.dirname(__FILE__), 'providers', 'executable_schedule_provider')
 require File.join(File.dirname(__FILE__), 'providers', 'executable_schedule_resource')
-require File.join(File.dirname(__FILE__), 'providers', 'log_provider_chef')
-require File.join(File.dirname(__FILE__), 'providers', 'log_resource')
 require File.join(File.dirname(__FILE__), 'providers', 'remote_recipe_provider')
 require File.join(File.dirname(__FILE__), 'providers', 'remote_recipe_resource')
 require File.join(File.dirname(__FILE__), 'providers', 'right_link_tag_provider')
@@ -55,7 +53,6 @@ require File.join(File.dirname(__FILE__), 'providers', 'server_collection_resour
 # each new provider.
 Chef::Platform.platforms[:default].merge!(:dns                 => Chef::Provider::DnsMadeEasy,
                                           :executable_schedule => Chef::Provider::ExecutableSchedule,
-                                          :log                 => Chef::Provider::Log::ChefLog,
                                           :remote_recipe       => Chef::Provider::RemoteRecipe,
                                           :right_link_tag      => Chef::Provider::RightLinkTag,
                                           :right_script        => Chef::Provider::RightScript,
