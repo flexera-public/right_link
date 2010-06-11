@@ -386,7 +386,7 @@ module RightScale
   # Packet for availability notification from an agent to the mappers
   class Register < Packet
 
-    attr_accessor :identity, :services, :status, :tags, :shared_queue
+    attr_accessor :identity, :services, :status, :tags, :brokers, :shared_queue
 
     # Create packet
     #
@@ -396,11 +396,13 @@ module RightScale
     # status(Any):: Load of the node by default, but may be any criteria
     #   agent may use to report its availability, load, etc
     # tags(Array of Symbol):: List of tags associated with this service
+    # brokers(Array|nil):: Identity of agent's brokers with nil meaning not supported
     # shared_queue(String):: Name of a queue shared between this agent and another
     # size(Integer):: Size of request in bytes used only for marshalling
-    def initialize(identity, services, status, tags, shared_queue = nil, size = nil)
+    def initialize(identity, services, status, tags, brokers, shared_queue = nil, size = nil)
       @status       = status
       @tags         = tags
+      @brokers      = brokers
       @identity     = identity
       @services     = services
       @shared_queue = shared_queue
@@ -416,7 +418,7 @@ module RightScale
     # (Register):: New packet
     def self.json_create(o)
       i = o['data']
-      new(i['identity'], i['services'], i['status'], i['tags'], i['shared_queue'], o['size'])
+      new(i['identity'], i['services'], i['status'], i['tags'], i['brokers'], i['shared_queue'], o['size'])
     end
 
     # Generate log representation
@@ -427,6 +429,7 @@ module RightScale
       log_msg = "#{super} #{id_to_s(@identity)}"
       log_msg += ", shared_queue #{@shared_queue}" if @shared_queue
       log_msg += ", services #{@services.inspect}" if @services && !@services.empty?
+      log_msg += ", brokers #{@brokers.inspect}" if @brokers && !@brokers.empty?
       log_msg += ", tags #{@tags.inspect}" if @tags && !@tags.empty?
       log_msg
     end
@@ -475,7 +478,7 @@ module RightScale
   # Heartbeat packet
   class Ping < Packet
 
-    attr_accessor :identity, :status
+    attr_accessor :identity, :status, :brokers
 
     # Create packet
     #
@@ -483,10 +486,12 @@ module RightScale
     # identity(String):: Sender identity
     # status(Any):: Load of the node by default, but may be any criteria
     #   agent may use to report its availability, load, etc
+    # brokers(Array|nil):: Identity of agent's brokers with nil meaning not supported
     # size(Integer):: Size of request in bytes used only for marshalling
-    def initialize(identity, status, size = nil)
+    def initialize(identity, status, brokers = nil, size = nil)
       @status   = status
       @identity = identity
+      @brokers  = brokers
       @size     = size
     end
 
@@ -499,7 +504,7 @@ module RightScale
     # (Ping):: New packet
     def self.json_create(o)
       i = o['data']
-      new(i['identity'], i['status'], o['size'])
+      new(i['identity'], i['status'], i['brokers'], o['size'])
     end
 
     # Generate log representation
@@ -510,7 +515,7 @@ module RightScale
     # === Return
     # (String):: Log representation
     def to_s
-      "#{super} #{id_to_s(@identity)} status #{@status}"
+      "#{super} #{id_to_s(@identity)} status #{@status} brokers #{@brokers.inspect}"
     end
 
   end # Ping

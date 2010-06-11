@@ -58,7 +58,7 @@ module RightScale
     # :completed_interval(Integer):: Number of seconds between checks for removing old requests,
     #   defaults to 30 seconds
     # :dup_check(Boolean):: Whether to check for and reject duplicate requests, e.g., due to retries
-    # :secure(Boolean):: true indicates to use Security features of rabbitmq to restrict nanites to themselves
+    # :secure(Boolean):: true indicates to use Security features of rabbitmq to restrict agents to themselves
     # :single_threaded(Boolean):: true indicates to run all operations in one thread; false indicates
     #   to do requested work on event machine defer thread and all else, such as pings on main thread
     # :threadpool_size(Integer):: Number of threads in event machine thread pool

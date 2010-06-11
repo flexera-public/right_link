@@ -408,7 +408,7 @@ module RightScale
     # true:: Always return true
     def setup_heartbeat
       EM.add_periodic_timer(@options[:ping_time]) do
-        publish('heartbeat', Ping.new(@identity, status_proc.call))
+        publish('heartbeat', Ping.new(@identity, status_proc.call, @broker.connected))
       end
       true
     end
@@ -479,7 +479,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def advertise_services
-      reg = Register.new(@identity, @registry.services, status_proc.call, self.tags, @shared_queue)
+      reg = Register.new(@identity, @registry.services, status_proc.call, self.tags, @broker.connected, @shared_queue)
       RightLinkLog.info("SEND #{reg.to_s}")
       publish('registration', reg)
       true

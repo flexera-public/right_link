@@ -60,7 +60,7 @@ module RightScale
     #     using the request and push methods below.
     #   :retry_timeout(Numeric):: Maximum number of seconds to retry request before give up
     #   :retry_interval(Numeric):: Number of seconds before initial request retry, increases exponentially
-    #   :secure(Boolean):: true indicates to use Security features of rabbitmq to restrict nanites to themselves
+    #   :secure(Boolean):: true indicates to use Security features of rabbitmq to restrict agents to themselves
     #   :single_threaded(Boolean):: true indicates to run all operations in one thread; false indicates
     #     to do requested work on EM defer thread and all else, such as pings on main thread
     def initialize(id, broker, opts)
@@ -147,6 +147,8 @@ module RightScale
             end
           end
         end
+      else
+        RightLinkLog.debug("RECV NO PENDING #{res.to_s([])}")
       end
       true
     end

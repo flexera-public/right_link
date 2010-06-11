@@ -132,23 +132,74 @@ module RightScale
     #   :host(String):: Comma-separated list of AMQP broker hosts; if only one, it is reapplied
     #     to successive ports; if none, defaults to localhost
     #   :port(String):: Comma-separated list of AMQP broker ports corresponding to :host list;
-    #      if only one, it is incremented and applied to successive hosts; if none, defaults to 5672
+    #      if only one, it is incremented and applied to successive hosts; if none, defaults to AMQP::PORT
     #
     # === Raise
     # (RightScale::Exceptions::Argument):: If :host and :port are not matched lists
     def initialize(options)
-      hosts = if options[:host] then options[:host].split(',') else [ nil ] end
-      ports = if options[:port] then options[:port].to_s.split(',') else [ ::AMQP::PORT ] end
+      @mqs = self.class.identities(options[:host], options[:port]).map { |i| connect(i, options) }
+    end
+
+    # Construct broker identity list from host and port information
+    #
+    # === Parameters
+    # host{String):: Comma-separated list of AMQP broker hosts; if only one, it is reapplied
+    #   to successive ports; if none, defaults to localhost
+    # port(String|Integer):: Comma-separated list of AMQP broker ports corresponding to :host list;
+    #   if only one, it is incremented and applied to successive hosts; if none, defaults to AMQP::PORT
+    #
+    # === Returns
+    # (Array(String)):: List of broker identities
+    #
+    # === Raise
+    # (RightScale::Exceptions::Argument):: If host and port are not matched lists
+    def self.identities(host, port)
+      hosts = if host then host.split(',') else [ nil ] end
+      ports = if port then port.to_s.split(',') else [ ::AMQP::PORT ] end
       if hosts.size != ports.size && hosts.size != 1 && ports.size != 1
         raise RightScale::Exceptions::Argument, "Unmatched AMQP host/port lists -- " +
-                                                "hosts: #{options[:host].inspect} ports: #{options[:port].inspect}"
+                                                "hosts: #{host.inspect} ports: #{port.inspect}"
       end
       i = -1
-      @mqs = if hosts.size > 1
-        hosts.map { |host| i += 1; connect(host, if ports[i] then ports[i].to_i else ports[0].to_i + i end, options) }
+      if hosts.size > 1
+        hosts.map { |host| i += 1; identity(host, if ports[i] then ports[i].to_i else ports[0].to_i + i end) }
       else
-        ports.map { |port| i += 1; connect(if hosts[i] then hosts[i] else hosts[0] end, port, options) }
+        ports.map { |port| i += 1; identity(if hosts[i] then hosts[i] else hosts[0] end, port.to_i) }
       end
+    end
+
+    # Construct a broker identity from its host and port
+    #
+    # === Parameters
+    # host{String):: IP host for individual broker
+    # port(Integer):: TCP port number for individual broker
+    #
+    # === Returns
+    # (String):: Unique broker identity
+    def self.identity(host, port)
+      AgentIdentity.new('rs', 'broker', port, host).to_s
+    end
+
+    # Extract host name from broker identity
+    #
+    # === Parameters
+    # identity{String):: Broker identity
+    #
+    # === Returns
+    # (String):: IP host name
+    def self.host(identity)
+      AgentIdentity.parse(AgentIdentity.nanite_from_serialized(identity)).token
+    end
+
+    # Extract port number from broker identity
+    #
+    # === Parameters
+    # identity{String):: Broker identity
+    #
+    # === Returns
+    # (Integer):: TCP port number
+    def self.port(identity)
+      AgentIdentity.parse(AgentIdentity.nanite_from_serialized(identity)).base_id
     end
 
     # Iterate over AMQP broker connections
@@ -216,7 +267,7 @@ module RightScale
     # message(String):: Serialized message to publish
     # options(Hash):: Publish options -- standard AMQP ones plus
     #   :fanout(Boolean):: true means publish to all usable brokers
-    #   :restrict(Array(String)):: Host:port addresses of restricted broker set to use
+    #   :brokers(Array):: Identity of brokers allowed to use
     #
     # === Return
     # ids(Array(AgentIdentity)):: Identity of all AMQP brokers where message was published
@@ -225,8 +276,9 @@ module RightScale
     # (RightScale::Exceptions::IO):: If cannot find a usable AMQP broker connection
     def publish(exchange, message, options = {})
       ids = []
+      allow = options[:brokers] || []
       @mqs.each do |mq|
-        if mq[:status] == :connected && (options[:restrict].nil? || options[:restrict].include?("#{mq[:address]}"))
+        if mq[:status] == :connected && (allow.empty? || allow.include?(mq[:identity]))
           begin
             mq[:mq].__send__(exchange[:type], exchange[:name], exchange[:options]).publish(message, options)
             ids << mq[:identity]
@@ -237,8 +289,9 @@ module RightScale
         end
       end
       if ids.empty?
-        count = (options[:restrict].size if options[:restrict]) || @mqs.size
-        raise RightScale::Exceptions::IO, "None of #{count} AMQP broker connections are usable"
+        allowed = "the allowed " unless allow.empty?
+        count = (options[:brokers].size if options[:brokers]) || @mqs.size
+        raise RightScale::Exceptions::IO, "None of #{allowed}#{count} AMQP broker connections are usable"
       end
       ids
     end
@@ -253,6 +306,14 @@ module RightScale
     def connection_status(&blk)
       @connection_status = blk
       true
+    end
+
+    # Get identity of usable AMQP brokers
+    #
+    # === Return
+    # (Array):: Identity of usable brokers
+    def connected
+      @mqs.inject([]) { |c, mq| if mq[:status] == :connected then c << mq[:identity] else c end }
     end
 
     # Close all AMQP broker connections
@@ -272,46 +333,32 @@ module RightScale
     # Make AMQP broker connection and register for status updates
     #
     # === Parameters
-    # host(String):: AMQP broker host
-    # port(Integer):: AMQP broker port
+    # identity(String):: Broker identity containing host and port
     # options(Hash):: Options required to create an AMQP connection other than :host and :port
     #
     # === Return
     # mq(Hash):: AMQP broker
     #   :mq(MQ):: AMQP connection
-    #   :address(String):: Host:port address of broker
     #   :status(Symbol):: Status of connection
-    def connect(host, port, options)
-      port = port.to_i
+    #   :identity(String):: Broker identity
+    def connect(identity, options)
       connection = AMQP.connect(
         :user => options[:user],
         :pass => options[:pass],
         :vhost => options[:vhost],
-        :host => host,
-        :port => port,
+        :host => self.class.host(identity),
+        :port => self.class.port(identity),
         :insist => options[:insist] || false,
         :retry => options[:retry] || 15 )
-      address = "#{host}:#{port}"
-      identity = AgentIdentity.new('rs', 'broker', port, host)
       begin
-        mq = {:mq => MQ.new(connection), :identity => identity, :address => address, :status => :connected}
+        mq = {:mq => MQ.new(connection), :identity => identity, :status => :connected}
         mq[:mq].__send__(:connection).connection_status { |status| update_status(mq, status) }
         RightLinkLog.info("Connected to AMQP broker #{identity}")
         mq
       rescue Exception => e
         RightLinkLog.warn("Failed to connect to AMQP broker #{identity}")
-        {:mq => nil, :address => address, :status => :uninitialized}
+        {:mq => nil, :identity => identity, :status => :uninitialized}
       end
-    end
-
-    # Count number of usable AMQP broker connections
-    #
-    # === Return
-    # count(Integer):: Number of usable connections
-    def connected
-      count = 0
-      @mqs.each { |mq| count += 1 if mq[:status] == :connected }
-      count
     end
 
     # Callback from AMQP with connection status
@@ -323,9 +370,9 @@ module RightScale
     # === Return
     # true:: Always return true
     def update_status(mq, status)
-      before = connected
+      before = connected.size
       mq[:status] = status
-      after = connected
+      after = connected.size
       RightLinkLog.info("AMQP broker #{mq[:identity]} is now #{status}. There are now #{after} usable brokers.")
       if before == 0 && after > 0
         @connection_status.call(:connected) if @connection_status

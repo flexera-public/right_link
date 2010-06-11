@@ -144,30 +144,32 @@ end
 
 describe "Packet: Register" do
   it "should dump/load as JSON objects" do
-    packet = RightScale::Register.new('0xdeadbeef', ['/foo/bar', '/nik/qux'], 0.8, ['foo'])
+    packet = RightScale::Register.new('0xdeadbeef', ['/foo/bar', '/nik/qux'], 0.8, ['foo'], ['b1', 'b2'])
     packet2 = JSON.parse(packet.to_json)
     packet.identity.should == packet2.identity
     packet.services.should == packet2.services
     packet.status.should == packet2.status
+    packet.brokers.should == packet2.brokers
     packet.shared_queue.should == packet2.shared_queue
   end
 
   it "should dump/load as Marshalled ruby objects" do
-    packet = RightScale::Register.new('0xdeadbeef', ['/foo/bar', '/nik/qux'], 0.8, ['foo'], 'shared')
+    packet = RightScale::Register.new('0xdeadbeef', ['/foo/bar', '/nik/qux'], 0.8, ['foo'], nil, 'shared')
     packet2 = Marshal.load(Marshal.dump(packet))
     packet.identity.should == packet2.identity
     packet.services.should == packet2.services
     packet.status.should == packet2.status
+    packet.brokers.should == packet2.brokers
     packet.shared_queue.should == packet2.shared_queue
   end
 
   it "should set specified shared_queue" do
-    packet = RightScale::Register.new('0xdeadbeef', ['/foo/bar', '/nik/qux'], 0.8, ['foo'], 'shared')
+    packet = RightScale::Register.new('0xdeadbeef', ['/foo/bar', '/nik/qux'], 0.8, ['foo'], nil, 'shared')
     packet.shared_queue.should == 'shared'
   end
 
   it "should default shared_queue to nil" do
-    packet = RightScale::Register.new('0xdeadbeef', ['/foo/bar', '/nik/qux'], 0.8, ['foo'])
+    packet = RightScale::Register.new('0xdeadbeef', ['/foo/bar', '/nik/qux'], 0.8, ['foo'], nil)
     packet.shared_queue.should be_nil
    end
  end
@@ -190,10 +192,11 @@ end
 
 describe "Packet: Ping" do
   it "should dump/load as JSON objects" do
-    packet = RightScale::Ping.new('0xdeadbeef', 0.8)
+    packet = RightScale::Ping.new('0xdeadbeef', 0.8, ['b1', 'b2'])
     packet2 = JSON.parse(packet.to_json)
     packet.identity.should == packet2.identity
     packet.status.should == packet2.status
+    packet.brokers.should == packet2.brokers
   end
 
   it "should dump/load as Marshalled ruby objects" do
@@ -201,6 +204,7 @@ describe "Packet: Ping" do
     packet2 = Marshal.load(Marshal.dump(packet))
     packet.identity.should == packet2.identity
     packet.status.should == packet2.status
+    packet.brokers.should == packet2.brokers
   end
 end
 
