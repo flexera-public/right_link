@@ -28,9 +28,6 @@ module RightScale
     # (ActorRegistry) Registry for actors
     attr_reader :registry
 
-    # (Serializer) Serializer used for marshaling messages
-    attr_reader :serializer
-
     # (String) Identity of associated agent
     attr_reader :identity
 
@@ -48,7 +45,6 @@ module RightScale
     # === Parameters
     # broker(HA_MQ):: High availability AMQP broker
     # registry(ActorRegistry):: Registry for actors
-    # serializer(Serializer):: Serializer used for marshaling messages
     # identity(String):: Identity of associated agent
     #
     # === Options
@@ -62,10 +58,9 @@ module RightScale
     # :single_threaded(Boolean):: true indicates to run all operations in one thread; false indicates
     #   to do requested work on event machine defer thread and all else, such as pings on main thread
     # :threadpool_size(Integer):: Number of threads in event machine thread pool
-    def initialize(broker, registry, serializer, identity, options)
+    def initialize(broker, registry, identity, options)
       @broker = broker
       @registry = registry
-      @serializer = serializer
       @identity = identity
       @secure = options[:secure]
       @single_threaded = options[:single_threaded]
@@ -135,7 +130,7 @@ module RightScale
             r = Result.new(deliverable.token, deliverable.reply_to, r, identity)
             RightLinkLog.info("SEND #{r.to_s([])}")
             exchange = {:type => :queue, :name => deliverable.reply_to, :options => {:durable => true, :no_declare => @secure}}
-            @broker.publish(exchange, serializer.dump(r), :persistent => deliverable.persistent)
+            @broker.publish(exchange, r, :persistent => deliverable.persistent)
           end
         rescue Exception => e
           RightLinkLog.error("Callback following dispatch failed with #{e.class.name}: #{e.message}\n #{e.backtrace.join("\n  ")}")

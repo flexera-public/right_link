@@ -176,9 +176,9 @@ module RightScale
           pid_file.write
           at_exit { pid_file.remove }
         end
-        @broker = HA_MQ.new(@options)
+        @broker = HA_MQ.new(@serializer, @options)
         @registry = ActorRegistry.new
-        @dispatcher = Dispatcher.new(@broker, @registry, @serializer, @identity, @options)
+        @dispatcher = Dispatcher.new(@broker, @registry, @identity, @options)
         @mapper_proxy = MapperProxy.new(@identity, @broker, @options)
         load_actors
         setup_traps
@@ -447,14 +447,14 @@ module RightScale
     #
     # === Parameters
     # name(String):: Exchange name
-    # packet(Packet):: Packet to be serialized and published
+    # packet(Packet):: Packet to be published
     #
     # === Return
     # true:: Always return true
     def publish(name, packet)
       exchange = {:type => :fanout, :name => name, :options => {:no_declare => @options[:secure]}}
       begin
-        @broker.publish(exchange, @serializer.dump(packet))
+        @broker.publish(exchange, packet)
       rescue Exception => e
         RightLinkLog.error("Failed to publish #{packet.class} to #{name} exchange: #{e.message}") unless @terminating
       end

@@ -33,9 +33,6 @@ module RightScale
     # (String) Identity of the mapper proxy
     attr_accessor :identity
 
-    # (Serializer) Serializer used for marshaling messages
-    attr_accessor :serializer
-
     # Accessor for use by actor
     #
     # === Return
@@ -54,7 +51,6 @@ module RightScale
     #     only :exception is supported) and value is the Proc to be called back. For :exception
     #     the parameters are exception, message being processed, and reference to agent. It gets called
     #     whenever a packet generates an exception.
-    #   :format(Symbol):: Format to use for packets serialization -- :marshal, :json or :yaml or :secure
     #   :persistent(Boolean):: true instructs the AMQP broker to save messages to persistent storage so
     #     that they aren't lost when the broker is restarted. Can be overridden on a per-message basis
     #     using the request and push methods below.
@@ -68,7 +64,6 @@ module RightScale
       @options = opts || {}
       @pending_requests = {} # Only access from primary thread
       @broker = broker
-      @serializer = Serializer.new(@options[:format])
       @secure = @options[:secure]
       @persistent = @options[:persistent]
       @single_threaded = @options[:single_threaded]
@@ -209,7 +204,7 @@ module RightScale
         RightLinkLog.info("SEND #{request.to_s([:tags, :target])}")
       end
       exchange = {:type => :fanout, :name => "request", :options => {:durable => true, :no_declare => @secure}}
-      @broker.publish(exchange, @serializer.dump(request), :persistent => request.persistent)
+      @broker.publish(exchange, request, :persistent => request.persistent)
       true
     end
 

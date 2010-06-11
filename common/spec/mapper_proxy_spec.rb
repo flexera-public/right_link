@@ -66,7 +66,6 @@ describe RightScale::MapperProxy do
     
     it "should create a request object" do
       @broker.should_receive(:publish).with(hsh(:name => "request"), on do |request|
-        request = @instance.serializer.load(request)
         request.class.should == RightScale::Request
       end, {:persistent => nil}).once
       @instance.request('/welcome/aboard', 'iZac'){|response|}
@@ -74,7 +73,6 @@ describe RightScale::MapperProxy do
     
     it "should set correct attributes on the request message" do
       @broker.should_receive(:publish).with(hsh(:name => "request"), on do |request|
-        request = @instance.serializer.load(request)
         request.token.should_not == nil
         request.persistent.should be_false
         request.from.should == 'mapperproxy'
@@ -84,7 +82,6 @@ describe RightScale::MapperProxy do
     
     it "should mark the message as persistent when the option is specified on the parameter" do
       @broker.should_receive(:publish).with(hsh(:name => "request"), on do |request|
-        request = @instance.serializer.load(request)
         request.persistent.should be_true
       end, {:persistent => true}).once
       @instance.request('/welcome/aboard', 'iZac', :persistent => true){|response|}
@@ -92,7 +89,6 @@ describe RightScale::MapperProxy do
     
     it "should set the correct target if specified" do
       @broker.should_receive(:publish).with(hsh(:name => "request"), on do |request|
-        request = @instance.serializer.load(request)
         request.target.should == 'my-target'
       end, {:persistent => nil}).once
       @instance.request('/welcome/aboard', 'iZac', :target => 'my-target'){|response|}
@@ -202,7 +198,6 @@ describe RightScale::MapperProxy do
           RightScale::MapperProxy.new('mapperproxy', @broker, :retry_timeout => 0.1, :retry_interval => 0.1)
           @instance = RightScale::MapperProxy.instance
           @broker.should_receive(:publish).with(hsh(:name => "request"), on do |request|
-            request = @instance.serializer.load(request)
             request.created_at.should == created_at
           end, {:persistent => nil}).twice
           @instance.request('/welcome/aboard', 'iZac', :created_at => created_at) {|response|}
@@ -228,7 +223,6 @@ describe RightScale::MapperProxy do
     
     it "should create a push object" do
       @broker.should_receive(:publish).with(hsh(:name => "request"), on do |push|
-        push = @instance.serializer.load(push)
         push.class.should == RightScale::Push
       end, {:persistent => nil}).once
       @instance.push('/welcome/aboard', 'iZac')
@@ -236,7 +230,6 @@ describe RightScale::MapperProxy do
     
     it "should set the correct target if specified" do
       @broker.should_receive(:publish).with(hsh(:name => "request"), on do |push|
-        push = @instance.serializer.load(push)
         push.target.should == 'my-target'
       end, {:persistent => nil}).once
       @instance.push('/welcome/aboard', 'iZac', :target => 'my-target')
@@ -244,7 +237,6 @@ describe RightScale::MapperProxy do
     
     it "should set correct attributes on the push message" do
       @broker.should_receive(:publish).with(hsh(:name => "request"), on do |push|
-        push = @instance.serializer.load(push)
         push.token.should_not == nil
         push.persistent.should be_false
         push.from.should == 'mapperproxy'
@@ -254,7 +246,6 @@ describe RightScale::MapperProxy do
     
     it "should mark the message as persistent when the option is specified on the parameter" do
       @broker.should_receive(:publish).with(hsh(:name => "request"), on do |push|
-        push = @instance.serializer.load(push)
         push.persistent.should be_true
       end, {:persistent => true}).once
       @instance.push('/welcome/aboard', 'iZac', :persistent => true)

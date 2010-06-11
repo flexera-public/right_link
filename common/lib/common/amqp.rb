@@ -123,6 +123,7 @@ module RightScale
     # Create connections to all configured AMQP brokers
     #
     # === Parameters
+    # serializer(Serializer):: Serializer used for marshaling packets being published
     # options(Hash):: Configuration options:
     #   :user(String):: User name
     #   :pass(String):: Password
@@ -136,7 +137,8 @@ module RightScale
     #
     # === Raise
     # (RightScale::Exceptions::Argument):: If :host and :port are not matched lists
-    def initialize(options)
+    def initialize(serializer, options = {})
+      @serializer = serializer
       @mqs = self.class.identities(options[:host], options[:port]).map { |i| connect(i, options) }
     end
 
@@ -259,24 +261,27 @@ module RightScale
       true
     end
 
-    # Publish message to AMQP exchange of first usable broker, or all usable brokers
+    # Publish packet to AMQP exchange of first usable broker, or all usable brokers
     # if fanout requested
     #
     # === Parameters
     # exchange(Hash):: AMQP exchange to subscribe to with keys :type, :name, and :options
-    # message(String):: Serialized message to publish
+    # packet(Packet):: Packet to serialize and publish
     # options(Hash):: Publish options -- standard AMQP ones plus
     #   :fanout(Boolean):: true means publish to all usable brokers
-    #   :brokers(Array):: Identity of brokers allowed to use
+    #   :brokers(Array):: Identity of brokers allowed to use, defaults to all
+    #   :serialized(Boolean):: true if packet already serialized, this is an escape for
+    #     special situations like enrollment and causes logging here to be more limited
     #
     # === Return
-    # ids(Array(AgentIdentity)):: Identity of all AMQP brokers where message was published
+    # ids(Array):: Identity of AMQP brokers where packet was published
     #
     # === Raise
     # (RightScale::Exceptions::IO):: If cannot find a usable AMQP broker connection
-    def publish(exchange, message, options = {})
+    def publish(exchange, packet, options = {})
       ids = []
       allow = options[:brokers] || []
+      message = if options[:serialized] then packet else @serializer.dump(packet) end
       @mqs.each do |mq|
         if mq[:status] == :connected && (allow.empty? || allow.include?(mq[:identity]))
           begin
@@ -373,7 +378,7 @@ module RightScale
       before = connected.size
       mq[:status] = status
       after = connected.size
-      RightLinkLog.info("AMQP broker #{mq[:identity]} is now #{status}. There are now #{after} usable brokers.")
+      RightLinkLog.info("AMQP broker #{mq[:identity]} is now #{status} for total of #{after} usable brokers.")
       if before == 0 && after > 0
         @connection_status.call(:connected) if @connection_status
       elsif before > 0 && after == 0
