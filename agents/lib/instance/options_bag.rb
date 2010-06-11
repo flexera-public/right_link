@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2009 RightScale Inc
+# Copyright (c) 2010 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -19,34 +19,47 @@
 # LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-#
-require File.join(File.dirname(__FILE__), 'spec_helper')
-require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'common', 'lib', 'common', 'right_link_log'))
 
-describe RightScale::AuditLogger do
+require 'json'
 
-  before(:each) do
-    @auditor = flexmock(RightScale::AuditorProxyStub.instance)
-    @logger = RightScale::AuditLogger.new(1)
-    @logger.level = Logger::DEBUG
-  end
+module RightScale
 
-  it 'should append info text' do
-    @auditor.should_receive(:append_output).times(3)
-    @logger.info
-    @logger.warn
-    @logger.unknown
-  end
+  # Store agent options in environment variable so child processes
+  # can access them too
+  class OptionsBag
 
-  it 'should log debug text' do
-    flexmock(RightScale::RightLinkLog).should_receive(:debug).once
-    @logger.debug
-  end
+    # (String) Name of environment variable containing serialized options hash
+    OPTIONS_ENV = 'RS_OPTIONS'
 
-  it 'should append error text' do
-    @auditor.should_receive(:append_error).twice
-    @logger.error
-    @logger.fatal
+    # Store options
+    #
+    # === Parameters
+    # opts(Hash):: Options to be stored, override any options stored earlier
+    #
+    # === Result
+    # opts(Hash):: Options to be stored
+    def self.store(opts)
+      ENV[OPTIONS_ENV] = JSON.dump(opts)
+      opts
+    end
+
+    # Load previously stored options (may have been stored in a parent process)
+    #
+    # === Return
+    # opts(Hash):: Previously stored options, empty hash if there is none
+    def self.load
+      return {} unless serialized = ENV[OPTIONS_ENV]
+      begin
+        opts = JSON.load(serialized)
+        opts = SerializationHelper.symbolize_keys(opts)
+      rescue Exception => e
+        RightLinkLog.warn("Failed to deserialize options: #{e.message}")
+        opts = {}
+      end
+      opts
+    end
+
   end
 
 end
+

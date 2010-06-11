@@ -26,9 +26,8 @@ module RightScale
   class CommandConstants
 
     # Ports used for command protocol
-    INSTANCE_AGENT_SOCKET_PORT = 60000
-    CORE_AGENT_SOCKET_PORT = 60001
-    TEST_SOCKET_PORT = 60002
+    BASE_INSTANCE_AGENT_SOCKET_PORT = 60000
+    BASE_CORE_AGENT_SOCKET_PORT = 70000
 
   end
 end

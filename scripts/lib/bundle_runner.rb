@@ -42,16 +42,20 @@
 $:.push(File.dirname(__FILE__))
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'config', 'right_link_config'))
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'command_protocol', 'lib', 'command_protocol'))
+require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'payload_types', 'lib', 'payload_types'))
 require 'optparse'
 require 'rdoc/ri/ri_paths' # For backwards compat with ruby 1.8.5
 require 'rdoc/usage'
 require 'yaml'
 require 'rdoc_patch'
 require 'agent_utils'
+require 'json'
 
 module RightScale
 
   class BundleRunner
+
+    include Utils
 
     VERSION = [0, 1]
 
@@ -60,15 +64,30 @@ module RightScale
     # === Parameters
     # options(Hash):: Hash of options as defined in +parse_args+
     #
+    # === Block
+    # If a block is given it should take one argument corresponding to the 
+    # reply sent back by the agent
+    #
     # === Return
     # true:: Always return true
-    def run(options)
+    def run(options, &callback)
       fail('Missing identity or name argument', true) unless options[:id] || options[:name]
       cmd = { :options => to_forwarder_options(options) }
       cmd[:name] = options[:bundle_type] == :right_script ? 'run_right_script' : 'run_recipe'
-      client = CommandClient.new(RightScale::CommandConstants::INSTANCE_AGENT_SOCKET_PORT)
+      config_options = agent_options('instance')
+      listen_port = config_options[:listen_port]
+      fail('Could not retrieve listen port', false) unless listen_port
+      client = CommandClient.new(listen_port, config_options[:cookie])
+      callback ||= lambda do |r|
+        response = OperationResult.from_results(JSON.load(r)) rescue nil
+        if response.respond_to?(:success?) && response.success?
+          puts "Request processed successfully."
+        else
+          puts "Failed to process request: #{response.respond_to(:content) && response.content || '<unknown error>'}"
+        end
+      end
       begin
-        client.send_command(cmd, options[:verbose], options[:timeout] || 20) { |r| puts r }
+        client.send_command(cmd, options[:verbose], options[:timeout] || 20) { |r| callback.call(r) }
       rescue Exception => e
         fail(e.message)
       end

@@ -190,7 +190,7 @@ module RightScale
       rescue SystemExit => e
         raise e
       rescue Exception => e
-        RightLinkLog.error("Agent failed startup: #{e.message}\n" + e.backtrace.join("\n")) unless e.message == "exit"
+        RightLinkLog.error("Agent failed: #{e.message}\n" + e.backtrace.join("\n")) unless e.message == "exit"
         raise e
       end
       true
@@ -288,7 +288,7 @@ module RightScale
         require actor
       end
       init_path = @options[:initrb] || File.join(@options[:root], 'init.rb')
-      if File.exist?(init_path)
+      if File.exists?(init_path)
         instance_eval(File.read(init_path), init_path)
       else
         RightLinkLog.warn("init.rb #{init_path} does not exist or is not reachable") unless File.exists?(init_path)

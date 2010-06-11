@@ -31,16 +31,24 @@ module RightScale
     # The commands should be implemented in methods in this class named '<name>_command'
     # where <name> is the name of the command.
     COMMANDS = {
-      :list             => 'List all available commands with their description',
-      :run_recipe       => 'Run recipe with id given in options[:id] and optionally JSON given in options[:json]',
-      :run_right_script => 'Run RightScript with id given in options[:id] and arguments given in hash options[:arguments] (e.g. { \'application\' => \'text:Mephisto\' })',
-      :set_log_level    => 'Set log level to options[:level]',
-      :get_log_level    => 'Get log level',
-      :decommission     => 'Run instance decommission bundle synchronously',
-      :terminate        => 'Terminate agent',
-      :get_tags         => 'Retrieve instance tags',
-      :add_tag          => 'Add given tag',
-      :remove_tag       => 'Remove given tag'
+      :list                     => 'List all available commands with their description',
+      :run_recipe               => 'Run recipe with id given in options[:id] and optionally JSON given in options[:json]',
+      :run_right_script         => 'Run RightScript with id given in options[:id] and arguments given in hash options[:arguments] (e.g. { \'application\' => \'text:Mephisto\' })',
+      :send_request             => 'Send request to remote agent',
+      :send_push                => 'Send push to remote agent',
+      :set_log_level            => 'Set log level to options[:level]',
+      :get_log_level            => 'Get log level',
+      :decommission             => 'Run instance decommission bundle synchronously',
+      :terminate                => 'Terminate agent',
+      :get_tags                 => 'Retrieve instance tags',
+      :add_tag                  => 'Add given tag',
+      :remove_tag               => 'Remove given tag',
+      :audit_update_status      => 'Update last audit title',
+      :audit_create_new_section => 'Create new audit section',
+      :audit_append_output      => 'Append process output to audit',
+      :audit_append_info        => 'Append info message to audit',
+      :audit_append_error       => 'Append error message to audit',
+      :set_inputs_patch         => 'Set inputs patch post execution'
     }
 
     # Build hash of commands associating command names with block
@@ -73,7 +81,7 @@ module RightScale
     # List command implementation
     #
     # === Parameters
-    # opts(Hash):: Should contain the connection for sending data
+    # opts[:conn](EM::Connection):: Connection used to send reply
     #
     # === Return
     # true:: Always return true
@@ -87,6 +95,10 @@ module RightScale
 
     # Run recipe command implementation
     #
+    # === Parameters
+    # opts[:conn](EM::Connection):: Connection used to send reply
+    # opts[:options](Hash):: Pass-through options sent to forwarder
+    #
     # === Return
     # true:: Always return true
     def run_recipe_command(opts)
@@ -95,13 +107,52 @@ module RightScale
 
     # Run RightScript command implementation
     #
+    # === Parameters
+    # opts[:conn](EM::Connection):: Connection used to send reply
+    # opts[:options](Hash):: Pass-through options sent to forwarder
+    #
     # === Return
     # true:: Always return true
     def run_right_script_command(opts)
       send_request('/forwarder/schedule_right_script', opts[:conn], opts[:options])
     end
 
+    # Send request to remote agent
+    #
+    # === Parameters
+    # opts[:conn](EM::Connection):: Connection used to send reply
+    # opts[:type](String):: Request type
+    # opts[:payload](String):: Request payload
+    # opts[:options](Hash):: Request options
+    #
+    # === Return
+    # true:: Always return true
+    def send_request_command(opts)
+      send_request(opts[:type], opts[:conn], opts[:payload], opts[:options])
+    end
+
+    # Send push to remote agent
+    #
+    # === Parameters
+    # opts[:conn](EM::Connection):: Connection used to send reply
+    # opts[:type](String):: Request type
+    # opts[:payload](String):: Request payload
+    # opts[:options](Hash):: Request options
+    #
+    # === Return
+    # true:: Always return true
+    def send_push_command(opts)
+      opts[:agent_identity] = @agent_identity
+      RequestForwarder.instance.push(opts[:type], opts[:payload], opts[:options])
+      CommandIO.instance.reply(opts[:conn], "OK")
+      true
+    end
+    
     # Set log level command
+    #
+    # === Parameters
+    # opts[:conn](EM::Connection):: Connection used to send reply
+    # opts[:level](Symbol):: One of :debug, :info, :warn, :error or :fatal
     #
     # === Return
     # true:: Always return true
@@ -112,6 +163,9 @@ module RightScale
 
     # Get log level command
     #
+    # === Parameters
+    # opts[:conn](EM::Connection):: Connection used to send reply
+    #
     # === Return
     # true:: Always return true
     def get_log_level_command(opts)
@@ -120,6 +174,9 @@ module RightScale
 
     # Decommission command
     #
+    # === Parameters
+    # opts[:conn](EM::Connection):: Connection used to send reply
+    #
     # === Return
     # true
     def decommission_command(opts)
@@ -127,6 +184,9 @@ module RightScale
     end
 
     # Terminate command
+    #
+    # === Parameters
+    # opts[:conn](EM::Connection):: Connection used to send reply
     #
     # === Return
     # true
@@ -137,27 +197,38 @@ module RightScale
 
     # Get tags command
     #
+    # === Parameters
+    # opts[:conn](EM::Connection):: Connection used to send reply
+    #
     # === Return
     # true
     def get_tags_command(opts)
-      RightScale::AgentTagsManager.instance.tags { |t| CommandIO.instance.reply(opts[:conn], t) }
+      AgentTagsManager.instance.tags { |t| CommandIO.instance.reply(opts[:conn], t) }
     end
 
     # Add given tag
     #
+    # === Parameters
+    # opts[:conn](EM::Connection):: Connection used to send reply
+    # opts[:tag](String):: Tag to be added
+    #
     # === Return
     # true
     def add_tag_command(opts)
-      RightScale::AgentTagsManager.instance.add_tags(opts[:tag])
+      AgentTagsManager.instance.add_tags(opts[:tag])
       CommandIO.instance.reply(opts[:conn], "Request to add tag '#{opts[:tag]}' sent successfully.")
     end
 
     # Remove given tag
     #
+    # === Parameters
+    # opts[:conn](EM::Connection):: Connection used to send reply
+    # opts[:tag](String):: Tag to be removed
+    #
     # === Return
     # true
     def remove_tag_command(opts)
-      RightScale::AgentTagsManager.instance.remove_tags(opts[:tag])
+      AgentTagsManager.instance.remove_tags(opts[:tag])
       CommandIO.instance.reply(opts[:conn], "Request to remove tag '#{opts[:tag]}' sent successfully.")
     end
 
@@ -171,6 +242,7 @@ module RightScale
     # true:: Always return true
     def audit_update_status_command(opts)
       AuditorProxy.instance.update_status(opts[:content], opts[:options])
+      CommandIO.instance.reply(opts[:conn], "OK")
     end
 
     # Update audit summary
@@ -183,6 +255,7 @@ module RightScale
     # true:: Always return true
     def audit_create_new_section_command(opts)
       AuditorProxy.instance.create_new_section(opts[:content], opts[:options])
+      CommandIO.instance.reply(opts[:conn], "OK")
     end
 
     # Update audit summary
@@ -195,6 +268,7 @@ module RightScale
     # true:: Always return true
     def audit_append_output_command(opts)
       AuditorProxy.instance.append_output(opts[:content], opts[:options])
+      CommandIO.instance.reply(opts[:conn], "OK")
     end
 
     # Update audit summary
@@ -207,6 +281,7 @@ module RightScale
     # true:: Always return true
     def audit_append_info_command(opts)
       AuditorProxy.instance.append_info(opts[:content], opts[:options])
+      CommandIO.instance.reply(opts[:conn], "OK")
     end
 
     # Update audit summary
@@ -219,6 +294,7 @@ module RightScale
     # true:: Always return true
     def audit_append_error_command(opts)
       AuditorProxy.instance.append_error(opts[:content], opts[:options])
+      CommandIO.instance.reply(opts[:conn], "OK")
     end
 
     # Update inputs patch to be sent back to core after cook process finishes
@@ -230,12 +306,9 @@ module RightScale
     # === Return
     # true:: Always return true
     def set_inputs_patch_command(opts)
-      if s = @scheduler.sequence
-        s.inputs_patch = opts[:patch]
-        CommandIO.instance.reply(opts[:conn], "OK")
-      else
-        CommandIO.instance.reply(opts[:conn], "No active sequence")
-      end
+      RightScale::RequestForwarder.instance.push('/updater/update_inputs', { :agent_identity => @agent_identity,
+                                                                             :patch          => opts[:patch] })
+      CommandIO.instance.reply(opts[:conn], "OK")
     end
 
     # Helper method that sends given request and report status through command IO
@@ -247,11 +320,11 @@ module RightScale
     #
     # === Return
     # true:: Always return true
-    def send_request(request, conn, options)
-      options[:agent_identity] = @agent_identity
-      RightScale::RequestForwarder.instance.request(request, options) do |r|
-        res = OperationResult.from_results(r)
-        CommandIO.instance.reply(conn, res.success? ? 'Request sent successfully' : "Request failed: #{res.content}")
+    def send_request(request, conn, payload, options={})
+      payload[:agent_identity] = @agent_identity
+      RequestForwarder.instance.request(request, payload, options) do |r|
+        reply = JSON.dump(r) rescue '\"Failed to serialize response\"'
+        CommandIO.instance.reply(conn, reply)
       end
       true
     end

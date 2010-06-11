@@ -85,7 +85,7 @@ metadata_expire=30
 END
 
         target_filename = "#{Yum::BaseRepositoryDir}/#{opts[:repo_filename]}.repo"
-        File.rename(target_filename,"#{Yum::BaseRepositoryDir}/.#{opts[:repo_filename]}.repo.#{`date +%Y%m%d%M%S`.strip}") if File.exist?("#{Yum::BaseRepositoryDir}/#{opts[:repo_filename]}.repo")
+        File.rename(target_filename,"#{Yum::BaseRepositoryDir}/.#{opts[:repo_filename]}.repo.#{`date +%Y%m%d%M%S`.strip}") if File.exists?("#{Yum::BaseRepositoryDir}/#{opts[:repo_filename]}.repo")
         File.open(target_filename,'w') { |f| f.write(config_body) }
         puts "Yum config file for Epel successfully generated in #{target_filename}"
         mirror_list

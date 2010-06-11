@@ -162,7 +162,7 @@ module RightScale
     # RightScale::Exceptions::Argument:: Invalid new value
     def self.value=(val)
       raise RightScale::Exceptions::Argument, "Invalid instance state '#{val}'" unless STATES.include?(val)
-      RightLinkLog.info("Transitioning state from #{@@value rescue 'nil'} to #{val}")
+      RightLinkLog.info("Transitioning state from #{@@value rescue 'pending'} to #{val}")
       @@value = val
       update_logger
       update_motd

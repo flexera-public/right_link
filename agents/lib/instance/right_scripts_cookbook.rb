@@ -42,11 +42,7 @@ module RightScale
 
     # Setup temporary directory for cookbook repo containing
     # recipes generated from RightScripts
-    #
-    # === Parameters
-    # audit_id(Fixnum):: ID of audit entry to be used for RightScripts auditing
-    def initialize(audit_id)
-      @audit_id     = audit_id
+    def initialize
       @saved        = false
       @recipes      = {}
       @repo_dir     = InstanceConfiguration.right_scripts_repo_path
@@ -99,7 +95,7 @@ end
       candidate_path = RightLinkConfig[:platform].shell.format_script_file_name(base_path)
       i = 1
       path = candidate_path
-      path = candidate_path + (i += 1).to_s while File.exist?(path)
+      path = candidate_path + (i += 1).to_s while File.exists?(path)
       path
     end
 

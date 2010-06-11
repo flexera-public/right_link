@@ -41,7 +41,7 @@ languages[:ruby][:host_os] = run_ruby "puts ::Config::CONFIG['host_os']"
 languages[:ruby][:host_vendor] = run_ruby "puts ::Config::CONFIG['host_vendor']"
 
 bin_dir = run_ruby("puts ::Config::CONFIG['bindir']")
-if File.exist?("#{bin_dir}\/gem")
+if File.exists?("#{bin_dir}\/gem")
 	languages[:ruby][:gems_dir] = run_ruby "puts %x{#{bin_dir}\/gem env gemdir}.chomp!"
 end
 languages[:ruby][:ruby_bin] = run_ruby "puts File.join(::Config::CONFIG['bindir'], ::Config::CONFIG['ruby_install_name'])"

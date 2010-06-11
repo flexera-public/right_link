@@ -79,8 +79,7 @@ describe InstanceScheduler do
   end
 
   it 'should decommission' do
-    flexmock(RightScale::ExecutableSequence).should_receive(:new).and_return(@success_sequence)
-    flexmock(RightScale::RequestForwarder.instance).should_receive(:push).with('/updater/update_inputs', Hash).once.and_return(true)
+    flexmock(RightScale::ExecutableSequenceProxy).should_receive(:new).and_return(@success_sequence)
     flexmock(RightScale::RequestForwarder.instance).should_receive(:request).with(*@decommissioning_args).once
     flexmock(RightScale::RequestForwarder.instance).should_receive(:request).with(*@decommissioned_args).once.and_return { EM.stop }
     flexmock(@auditor).should_receive(:append_error).never
@@ -92,8 +91,7 @@ describe InstanceScheduler do
   end
 
   it 'should trigger shutdown even if decommission fails but not update inputs' do
-    flexmock(RightScale::ExecutableSequence).should_receive(:new).and_return(@failure_sequence)
-    flexmock(RightScale::RequestForwarder.instance).should_receive(:push).with('/updater/update_inputs', Hash).never
+    flexmock(RightScale::ExecutableSequenceProxy).should_receive(:new).and_return(@failure_sequence)
     flexmock(RightScale::RequestForwarder.instance).should_receive(:request).with(*@decommissioning_args).once
     flexmock(RightScale::RequestForwarder.instance).should_receive(:request).with(*@decommissioned_args).once.and_return { EM.stop }
     flexmock(@auditor).should_receive(:append_error).never
@@ -116,8 +114,7 @@ describe InstanceScheduler do
   end
 
   it 'should *not* transition to decommissioned state nor shutdown after decommissioning from rnac' do
-    flexmock(RightScale::ExecutableSequence).should_receive(:new).and_return(@success_sequence)
-    flexmock(RightScale::RequestForwarder.instance).should_receive(:push).with('/updater/update_inputs', Hash).once.and_return(true)
+    flexmock(RightScale::ExecutableSequenceProxy).should_receive(:new).and_return(@success_sequence)
     flexmock(RightScale::RequestForwarder.instance).should_receive(:request).with('/booter/get_decommission_bundle', Hash, Proc).and_yield(@success_result)
     flexmock(RightScale::RequestForwarder.instance).should_receive(:request).with(*@decommissioning_args).once
     flexmock(RightScale::RequestForwarder.instance).should_receive(:request).with(*@decommissioned_args).never
@@ -130,7 +127,7 @@ describe InstanceScheduler do
   end
 
   it 'should force transition to decommissioned state after SHUTDOWN_DELAY when decommission hangs' do
-    flexmock(RightScale::ExecutableSequence).should_receive(:new).and_return(@success_sequence)
+    flexmock(RightScale::ExecutableSequenceProxy).should_receive(:new).and_return(@success_sequence)
     flexmock(RightScale::RequestForwarder.instance).should_receive(:request).with(*@decommissioning_args).once
     flexmock(RightScale::RequestForwarder.instance).should_receive(:request).with(*@decommissioned_args).once.and_return { EM.stop }
     begin
@@ -147,9 +144,8 @@ describe InstanceScheduler do
   end
 
   it 'should force shutdown when request to transition to decommissioned state fails' do
-    flexmock(RightScale::ExecutableSequence).should_receive(:new).and_return(@success_sequence)
+    flexmock(RightScale::ExecutableSequenceProxy).should_receive(:new).and_return(@success_sequence)
     flexmock(RightScale::RequestForwarder.instance).should_receive(:request).with(*@decommissioning_args).once
-    flexmock(RightScale::RequestForwarder.instance).should_receive(:push).with('/updater/update_inputs', Hash).once.and_return(true)
     flexmock(RightScale::RequestForwarder.instance).should_receive(:request).with(*@decommissioned_args).once.and_yield({ '1' => RightScale::OperationResult.error('test')})
     flexmock(@controller).should_receive(:shutdown).once.and_return { EM.stop }
     EM.run do

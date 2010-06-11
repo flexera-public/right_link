@@ -123,7 +123,7 @@ module RightScale
         root_dir = gen_agent_dir(options[:agent])
         fail("Deployment directory #{root_dir} is missing.") if !File.directory?(root_dir)
         cfg = File.join(root_dir, 'config.yml')
-        fail("Deployment is missing configuration file in #{root_dir}.") unless File.exist?(cfg)
+        fail("Deployment is missing configuration file in #{root_dir}.") unless File.exists?(cfg)
         file_options = symbolize(YAML.load(IO.read(cfg))) rescue {} || {}
         file_options.merge!(options)
         options = file_options
@@ -264,8 +264,8 @@ module RightScale
           when 'run'          then start_agent
           when 'stop'         then stop_agent(id)
           when 'show'         then show_agent(id)
-          when 'decommission' then run_command('Decommissioning...', 'decommission')
-          when 'shutdown'     then run_command('Shutting down...', 'terminate')
+          when 'decommission' then run_command(id, 'Decommissioning...', 'decommission')
+          when 'shutdown'     then run_command(id, 'Shutting down...', 'terminate')
         end
       rescue SystemExit
         true
@@ -302,13 +302,24 @@ module RightScale
     end
 
     # Trigger execution of given command in instance agent and wait for it to be done.
-    def run_command(msg, name)
+    def run_command(id, msg, name)
+      agent_name = AgentIdentity.parse(id).agent_name rescue 'instance'
+      unless agent_name
+        puts "Invalid agent identity #{id}"
+        return false
+      end
+      options = agent_options(agent_name)
+      listen_port = options[:listen_port]
+      unless listen_port
+        puts "Failed to retrieve listen port for agent #{id}"
+        return false
+      end
       puts msg
       begin
-        @client = CommandClient.new(RightScale::CommandConstants::INSTANCE_AGENT_SOCKET_PORT)
+        @client = CommandClient.new(listen_port, options[:cookie])
         @client.send_command({ :name => name }, verbose=false, timeout=100) { |r| puts r }
       rescue Exception => e
-        puts "Failed or else time limit was exceeded (#{e.message}).\nConfirm that the local instance is still running."
+        puts "Failed or else time limit was exceeded (#{e.message}).\nConfirm that the local instance is still running.\n#{e.backtrace.join("\n")}"
         return false
       end
       true
@@ -372,7 +383,7 @@ module RightScale
     # Kill process with pid in given pid file
     def try_kill(pid_file)
       res = false
-      if pid = pid_file.read_pid
+      if pid = pid_file.read_pid[:pid]
         begin
           Process.kill('TERM', pid)
           res = true
@@ -393,7 +404,7 @@ module RightScale
     # Show status of process with pid in given pid file
     def show(pid_file)
       res = false
-      if pid = pid_file.read_pid
+      if pid = pid_file.read_pid[:pid]
         pid = Process.getpgid(pid) rescue -1
         if pid != -1
           psdata = `ps up #{pid}`.split("\n").last.split

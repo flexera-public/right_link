@@ -55,6 +55,7 @@ RightScale::RightLinkLog.init
 
 $TESTING = true
 $VERBOSE = nil # Disable constant redefined warning
+TEST_SOCKET_PORT = 80000
 
 module RightScale
 

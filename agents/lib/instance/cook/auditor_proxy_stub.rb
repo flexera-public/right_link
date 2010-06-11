@@ -29,9 +29,17 @@ module RightScale
 
     include Singleton
 
-    # Initialize command client
-    def initialize
-      @client = CommandClient.new(CommandConstants::INSTANCE_AGENT_SOCKET_PORT)
+    # Initialize command protocol, call prior to calling any instance method
+    #
+    # === Parameters
+    # options[:listen_port]:: Command server listen port
+    # options[:cookie]:: Command protocol cookie
+    #
+    # === Return
+    # true:: Always return true
+    def self.init(client)
+      @@client = client
+      true
     end
 
     # Update audit summary
@@ -69,7 +77,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def append_output(text, options)
-      send_command(:audit_append_output, text)
+      send_command(:audit_append_output, text, options)
     end
 
     # Append info text to current audit section. A special marker will be prepended to each line of audit to
@@ -112,10 +120,9 @@ module RightScale
     # true:: Always return true
     def send_command(cmd, content, options={})
       options ||= {}
-      options[:source] = :cook
       begin
-        cmd = { :name => cmd, :options => { :content => content, :options => options } }
-        @client.send_command(cmd) do |res|
+        cmd = { :name => cmd, :content => content, :options => options }
+        @@client.send_command(cmd) do |res|
           unless res == "OK"
             $stderr.puts 'Failed to audit'
             $stderr.puts "Failed to audit (#{cmd[:name]}) - #{res}"

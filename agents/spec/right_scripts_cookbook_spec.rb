@@ -36,7 +36,7 @@ describe RightScale::RightScriptsCookbook do
     @old_cache_path = RightScale::InstanceConfiguration::CACHE_PATH
     @temp_cache_path = File.join(File.dirname(__FILE__), 'test_cb')
     RightScale::InstanceConfiguration.const_set(:CACHE_PATH, @temp_cache_path)
-    @cookbook = RightScale::RightScriptsCookbook.new(audit_id=1)
+    @cookbook = RightScale::RightScriptsCookbook.new
   end
 
   after(:each) do

@@ -23,26 +23,20 @@
 # The daemonize method of AR clashes with the daemonize Chef attribute, we don't need that method so undef it
 undef :daemonize if methods.include?('daemonize')
 
-require 'rubygems'
-require 'chef/log'
-require 'fileutils'
-require 'right_scraper'
-require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'chef', 'lib', 'static_ohai_data'))
+require File.normalize_path(File.join(RightScale::RightLinkConfig[:right_link_path], 'chef', 'lib', 'static_ohai_data'))
 
 module RightScale
 
   # Bundle sequence, includes installing dependent packages,
   # downloading attachments and running scripts in given bundle.
   # Also downloads cookbooks and run recipes in given bundle.
-  # If an agent identity is given then the executable sequence will attempt
-  # to retrieve missing attributes. It will do so indefinitely until the missing
-  # attributes are provided by the core agent.
+  # Runs in separate (runner) process.
   class ExecutableSequence
 
     include EM::Deferrable
 
-    # Patch to be applied to inputs after Chef run
-    attr_reader :inputs_patch
+    # Patch to be applied to inputs stored in core
+    attr_accessor :inputs_patch
 
     # Initialize sequence
     #
@@ -174,17 +168,17 @@ module RightScale
       @scripts.each { |s| packages.push(s.packages) if s.packages && !s.packages.empty? }
       return true if packages.empty?
       packages = packages.uniq.join(' ')
-      AuditorProxy.instance.create_new_section("Installing packages: #{packages}", :audit_id => @audit_id)
+      AuditorProxyStub.instance.create_new_section("Installing packages: #{packages}", :audit_id => @audit_id)
       success = false
       audit_time do
         success = retry_execution('Installation of packages failed, retrying...') do
           if File.executable? '/usr/bin/yum'
-            AuditorProxy.instance.append_output(`yum install -y #{packages} 2>&1`, :audit_id => @audit_id)
+            AuditorProxyStub.instance.append_output(`yum install -y #{packages} 2>&1`, :audit_id => @audit_id)
           elsif File.executable? '/usr/bin/apt-get'
             ENV['DEBIAN_FRONTEND']="noninteractive"
-            AuditorProxy.instance.append_output(`apt-get install -y #{packages} 2>&1`, :audit_id => @audit_id)
+            AuditorProxyStub.instance.append_output(`apt-get install -y #{packages} 2>&1`, :audit_id => @audit_id)
           elsif File.executable? '/usr/bin/zypper'
-            AuditorProxy.instance.append_output(`zypper --no-gpg-checks -n #{packages} 2>&1`, :audit_id => @audit_id)
+            AuditorProxyStub.instance.append_output(`zypper --no-gpg-checks -n #{packages} 2>&1`, :audit_id => @audit_id)
           else
             report_failure('Failed to install packages', 'Cannot find yum nor apt-get nor zypper binary in /usr/bin')
             return true # Not much more we can do here
@@ -206,13 +200,13 @@ module RightScale
       # Skip download if in dev mode and cookbooks repos directories already have files in them
       return true unless DevState.download_cookbooks?
 
-      AuditorProxy.instance.create_new_section('Retrieving cookbooks', :audit_id => @audit_id) unless @cookbook_repos.empty?
+      AuditorProxyStub.instance.create_new_section('Retrieving cookbooks', :audit_id => @audit_id) unless @cookbook_repos.empty?
       audit_time do
         @cookbook_repos.reverse.each do |repo|
           next if repo.repo_type == :local
-          AuditorProxy.instance.append_info("Downloading #{repo.url}", :audit_id => @audit_id)
+          AuditorProxyStub.instance.append_info("Downloading #{repo.url}", :audit_id => @audit_id)
           output = []
-          @scraper.scrape(repo) { |o, _| AuditorProxy.instance.append_output(o + "\n", :audit_id => @audit_id) }
+          @scraper.scrape(repo) { |o, _| AuditorProxyStub.instance.append_output(o + "\n", :audit_id => @audit_id) }
           if @scraper.succeeded?
             cookbooks_path = repo.cookbooks_path || []
             if cookbooks_path.empty?
@@ -220,7 +214,7 @@ module RightScale
             else
               cookbooks_path.each { |p| Chef::Config[:cookbook_path] << File.join(@scraper.last_repo_dir, p) }
             end
-            AuditorProxy.instance.append_output(output.join("\n"), :audit_id => @audit_id)
+            AuditorProxyStub.instance.append_output(output.join("\n"), :audit_id => @audit_id)
           else
             report_failure("Failed to download cookbooks #{repo.url}", @scraper.errors.join("\n"))
             return true
@@ -246,8 +240,8 @@ module RightScale
     # === Return
     # true:: Always return true
     def converge
-      AuditorProxy.instance.create_new_section("Converging", :audit_id => @audit_id)
-      AuditorProxy.instance.append_info("Run list: '#{@run_list.join("', '")} '", :audit_id => @audit_id)
+      AuditorProxyStub.instance.create_new_section("Converging", :audit_id => @audit_id)
+      AuditorProxyStub.instance.append_info("Run list: '#{@run_list.join("', '")} '", :audit_id => @audit_id)
       attribs = { 'recipes' => @run_list }
       attribs.merge!(@attributes) if @attributes
       c = Chef::Client.new
@@ -280,7 +274,6 @@ module RightScale
         # kill the chef node provider
         RightScale::Windows::ChefNodeServer.instance.stop rescue nil if Platform.windows?
       end
-
       report_success(c.node) if @ok
       true
     end
@@ -298,7 +291,7 @@ module RightScale
       # We don't want to send back new attributes (ohai etc.)
       patch[:right_only] = {}
       @inputs_patch = patch
-      AuditorProxy.instance.update_status("completed: #{@description}", :audit_id => @audit_id)
+      AuditorProxyStub.instance.update_status("completed: #{@description}", :audit_id => @audit_id)
       EM.next_tick { succeed }
       true
     end
@@ -314,9 +307,9 @@ module RightScale
     def report_failure(title, msg)
       @ok = false
       RightLinkLog.error(msg)
-      AuditorProxy.instance.update_status("failed: #{ @description }", :audit_id => @audit_id)
-      AuditorProxy.instance.append_error(title, :category => RightScale::EventCategories::CATEGORY_ERROR, :audit_id => @audit_id)
-      AuditorProxy.instance.append_error(msg, :audit_id => @audit_id)
+      AuditorProxyStub.instance.update_status("failed: #{ @description }", :audit_id => @audit_id)
+      AuditorProxyStub.instance.append_error(title, :category => RightScale::EventCategories::CATEGORY_ERROR, :audit_id => @audit_id)
+      AuditorProxyStub.instance.append_error(msg, :audit_id => @audit_id)
       EM.next_tick { fail }
       true
     end
@@ -402,7 +395,7 @@ module RightScale
       begin
         count += 1
         success = yield
-        AuditorProxy.instance.append_info("\n#{retry_message}\n", :audit_id => @audit_id) unless success || count > times
+        AuditorProxyStub.instance.append_info("\n#{retry_message}\n", :audit_id => @audit_id) unless success || count > times
       end while !success && count <= times
       success
     end
@@ -416,9 +409,9 @@ module RightScale
     # res(Object):: Result returned by given block
     def audit_time
       start_time = Time.now
-      AuditorProxy.instance.append_info("Starting at #{start_time}", :audit_id => @audit_id)
+      AuditorProxyStub.instance.append_info("Starting at #{start_time}", :audit_id => @audit_id)
       res = yield
-      AuditorProxy.instance.append_info("Duration: #{'%.2f' % (Time.now - start_time)} seconds\n\n", :audit_id => @audit_id)
+      AuditorProxyStub.instance.append_info("Duration: #{'%.2f' % (Time.now - start_time)} seconds\n\n", :audit_id => @audit_id)
       res
     end
 

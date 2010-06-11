@@ -337,11 +337,11 @@ class InstanceSetup
     @suicide_timer.cancel unless @suicide_timer.nil?
 
     # Force full converge on boot so that Chef state gets persisted
-    sequence = RightScale::ExecutableSequence.new(bundle)
+    sequence = RightScale::ExecutableSequenceProxy.new(bundle)
     sequence.callback do
       EM.next_tick do
         RightScale::RequestForwarder.instance.push('/updater/update_inputs', { :agent_identity => @agent_identity,
-                                                                      :patch          => sequence.inputs_patch })
+                                                                               :patch          => sequence.inputs_patch })
         yield RightScale::OperationResult.success
       end
     end

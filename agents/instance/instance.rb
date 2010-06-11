@@ -35,19 +35,24 @@ require File.join(BASE_DIR, 'payload_types', 'lib', 'payload_types')
 require File.join(BASE_DIR, 'repo_conf_generators', 'lib', 'repo_conf_generators')
 require 'right_popen'
 
-RightScale::SecureSerializerInitializer.init(options[:agent] || 'instance', options[:identity], RightScale::RightLinkConfig[:certs_dir])
+RightScale::SecureSerializerInitializer.init(@options[:agent] || 'instance', @identity, RightScale::RightLinkConfig[:certs_dir])
 
 #Initialize any singletons that have dependencies on non-singletons
 RightScale::AgentTagsManager.instance.agent = self
 
-register setup = InstanceSetup.new(options)
+register setup = InstanceSetup.new(@options)
 register scheduler = InstanceScheduler.new(self)
 register AgentManager.new
-register InstanceServices.new(options[:identity])
+register InstanceServices.new(@identity)
 
 # Start command runner to enable running RightScripts and recipes from the command line
-RightScale::CommandRunner.start(RightScale::CommandConstants::INSTANCE_AGENT_SOCKET_PORT,
-                                InstanceCommands.get(options[:identity], scheduler))
+cmd_opts = RightScale::CommandRunner.start(RightScale::CommandConstants::BASE_INSTANCE_AGENT_SOCKET_PORT,
+                                           @identity,
+                                           InstanceCommands.get(@identity, scheduler),
+                                           @options)
+
+# Set environment variable containing options so child (cook) process can retrieve them
+RightScale::OptionsBag.store(@options.merge(cmd_opts))
 
 # Load environment code if present
 # The file 'right_link_env.rb' should be generated before the RightLink

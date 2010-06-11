@@ -35,7 +35,7 @@ describe RightScale::Downloader do
   end
  
   after(:all) do
-    FileUtils.rm_rf(@dest_dir) if File.exist?(@dest_dir)
+    FileUtils.rm_rf(@dest_dir) if File.exists?(@dest_dir)
   end
 
   it 'should report initialize defaults' do
@@ -108,7 +108,7 @@ describe RightScale::Downloader do
     folder = nil
     begin
       folder = File.join(File.dirname(__FILE__), rand(10000000).to_s)
-    end until !File.exist?(folder)
+    end until !File.exists?(folder)
     folder
   end
 

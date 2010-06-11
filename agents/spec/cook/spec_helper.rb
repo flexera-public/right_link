@@ -1,3 +1,4 @@
+
 #
 # Copyright (c) 2009 RightScale Inc
 #
@@ -19,34 +20,7 @@
 # LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-#
-require File.join(File.dirname(__FILE__), 'spec_helper')
-require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'common', 'lib', 'common', 'right_link_log'))
 
-describe RightScale::AuditLogger do
-
-  before(:each) do
-    @auditor = flexmock(RightScale::AuditorProxyStub.instance)
-    @logger = RightScale::AuditLogger.new(1)
-    @logger.level = Logger::DEBUG
-  end
-
-  it 'should append info text' do
-    @auditor.should_receive(:append_output).times(3)
-    @logger.info
-    @logger.warn
-    @logger.unknown
-  end
-
-  it 'should log debug text' do
-    flexmock(RightScale::RightLinkLog).should_receive(:debug).once
-    @logger.debug
-  end
-
-  it 'should append error text' do
-    @auditor.should_receive(:append_error).twice
-    @logger.error
-    @logger.fatal
-  end
-
-end
+require File.expand_path(File.join(File.dirname(__FILE__), '..', 'spec_helper'))
+require File.normalize_path(File.join(RightScale::RightLinkConfig[:right_link_path], 'command_protocol', 'lib', 'command_protocol'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'lib', 'instance', 'cook'))

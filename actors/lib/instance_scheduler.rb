@@ -25,6 +25,10 @@ class InstanceScheduler
   include RightScale::Actor
 
   expose :schedule_bundle, :execute, :schedule_decommission
+  
+  # (RightScale::ExecutableSequenceProxy) Executable sequence proxy accessed 
+  # via command protocol from Cook process
+  attr_reader :sequence 
 
   SHUTDOWN_DELAY = 180 # Number of seconds to wait for decommission scripts to finish before forcing shutdown
 
@@ -173,16 +177,13 @@ class InstanceScheduler
   # true:: Always return true
   def run_bundles
     begin
+      @sequence = nil
       bundle = @scheduled_bundles.shift
       if bundle != 'end'
-        sequence = RightScale::ExecutableSequence.new(bundle)
-        sequence.callback do
-          RightScale::RequestForwarder.instance.push('/updater/update_inputs', { :agent_identity => @agent_identity,
-                                                                        :patch          => sequence.inputs_patch })
-          EM.defer { run_bundles }
-        end
-        sequence.errback { EM.defer { run_bundles } }
-        sequence.run
+        @sequence = RightScale::ExecutableSequenceProxy.new(bundle)
+        @sequence.callback { EM.defer { run_bundles } }
+        @sequence.errback { EM.defer { run_bundles } }
+        @sequence.run
       else
         RightScale::InstanceState.value = 'decommissioned'
         # Tell the registrar to delete our queue

@@ -26,33 +26,72 @@ module RightScale
   # External processes can send commands through a socket with the specified port
   class CommandRunner
 
+    class << self
+      # (Integer) Port command runner is listening on
+      attr_reader :listen_port
+
+      # (String) Cookie used by command protocol
+      attr_reader :cookie
+    end
+
     # Command runner listens to commands and deserializes them using YAML
     # Each command is expected to be a hash containing the :name and :options keys
     #
     # === Parameters
-    # socket_port(Integer):: Socket port on which to listen for connection
+    # socket_port(Integer):: Base socket port on which to listen for connection,
+    #                        increment and retry if port already taken
+    # identity(String):: Agent identity
     # commands(Hash):: Commands exposed by agent
+    # options(Hash):: Optional, options used to retrieve agent pid file
+    #                 If present pid file will get updated with listen port
     #
     # === Return
-    # true:: Always return true
+    # cmd_options[:cookie](String):: Command protocol cookie
+    # cmd_options[:listen_port](Integer):: Command server listen port
     #
     # === Raise
     # (RightScale::Exceptions::Application):: If +start+ has already been called and +stop+ hasn't since
-    # (RightScale::Exceptions::IO):: If named pipe creation failed
-    def self.start(socket_port, commands)
-      CommandIO.instance.listen(socket_port) do |c, conn|
-        begin
-          cmd_name = c[:name].to_sym
-          if commands.include?(cmd_name)
-            commands[cmd_name].call(c, conn)
-          else
-            RightLinkLog.info("Unknown command '#{cmd_name}'")
+    def self.start(socket_port, identity, commands, options=nil)
+      cmd_options = nil
+      @listen_port = socket_port
+      begin
+        CommandIO.instance.listen(socket_port) do |c, conn|
+          begin
+            cmd_cookie = c[:cookie]
+            if cmd_cookie == cookie
+              cmd_name = c[:name].to_sym
+              if commands.include?(cmd_name)
+                commands[cmd_name].call(c, conn)
+              else
+                RightLinkLog.warn("Unknown command '#{cmd_name}', known commands: #{commands.keys.join(', ')}")
+              end
+            else
+              RightLinkLog.error("Invalid cookie used by command protocol client (#{cmd_cookie})")
+            end
+          rescue Exception => e
+            RightLinkLog.warn("Command failed (#{e.message}) '#{c.inspect}' at\n#{e.backtrace.join("\n")}")
           end
-        rescue Exception => e
-          RightLinkLog.info("Command failed (#{e.message}) '#{c.inspect}'")
         end
+
+        @cookie = AgentIdentity.generate
+        cmd_options = { :listen_port => @listen_port, :cookie => @cookie }
+        # Now update pid file with command port and cookie
+        if options
+          pid_file = PidFile.new(identity, options)
+          if pid_file.exists?
+            pid_file.set_command_options(cmd_options)
+          else
+            RightLinkLog.warn("Failed to update listen port in PID file - no pid file found for agent with identity #{identity}")
+          end
+        end
+
+        RightLinkLog.info("Command server started listening on port #{@listen_port}")
+      rescue Exceptions::IO
+        # Port already taken, increment and retry
+        cmd_options = start(socket_port + 1, identity, commands, options)
       end
-      true
+
+      cmd_options
     end
 
     # Stop command runner, cleanup all opened file descriptors and delete pipe
@@ -62,6 +101,7 @@ module RightScale
     # false:: Otherwise
     def self.stop
       CommandIO.instance.stop_listening
+      RightLinkLog.info("Command server stopped listening")
     end
 
   end

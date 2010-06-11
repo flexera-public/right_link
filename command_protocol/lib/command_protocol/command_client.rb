@@ -33,8 +33,24 @@ module RightScale
     #
     # === Parameters
     # socket_port(Integer):: Socket port on which to connect to agent
-    def initialize(socket_port)
+    # cookie(String):: Cookie associated with command server
+    def initialize(socket_port, cookie)
       @socket_port = socket_port
+      @cookie = cookie
+      @pending = 0
+    end
+
+    # Stop command client 
+    #
+    # === Block
+    # Given block gets called back once last response has been received or timeout
+    def stop(&close_handler)
+      if @pending > 0
+        @close_timeout = EM::Timer.new(@last_timeout) { close_handler.call }
+        @close_handler = lambda { @close_timeout.cancel; close_handler.call }
+      else
+        close_handler.call
+      end
     end
 
     # Send command to running agent
@@ -53,15 +69,30 @@ module RightScale
     # true:: Always return true
     #
     # === Raise
-    # RuntimeError:: Timed out waiting for result
+    # RuntimeError:: Timed out waiting for result, raised in EM thread
     def send_command(options, verbose=false, timeout=20, &handler)
-      EM.run do
+      return if @closing
+      @last_timeout = timeout
+      manage_em = !EM.reactor_running?
+      response_handler = lambda do 
+        EM.stop if manage_em
+        handler.call(@response) if handler && @response
+        @pending -= 1
+        @close_handler.call if @close_handler && @pending == 0
+      end
+      send_handler = lambda do
+        @pending += 1
         command = options.dup
         command[:verbose] = verbose
-        EM.connect('127.0.0.1', @socket_port, ConnectionHandler, command, self)
-        EM.add_timer(timeout) { EM.stop; raise 'Timed out waiting for agent reply' }
+        command[:cookie] = @cookie
+        EM.connect('127.0.0.1', @socket_port, ConnectionHandler, command, self, response_handler)
+        EM.add_timer(timeout) { EM.stop; raise 'Timed out waiting for agent reply' } if manage_em
       end
-      handler.call(@response) if handler && @response
+      if manage_em
+        EM.run { send_handler.call }
+      else
+        send_handler.call
+      end
       true
     end
 
@@ -76,11 +107,12 @@ module RightScale
       # === Parameters
       # command(Hash):: Command to be sent
       # client(RightScale::CommandClient):: Client whose response field should be initialized
-      def initialize(command, client)
+      # callback(Proc):: Called back after response has been set
+      def initialize(command, client, callback)
         @command = command
         @parser = CommandParser.new do |data|
           client.response = data
-          EM.stop
+          callback.call
         end
       end
 

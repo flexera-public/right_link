@@ -77,13 +77,14 @@ module RightScale
     # === Raise
     # (RightScale::Exceptions::Argument):: If block is missing
     # (RightScale::Exceptions::Application):: If +listen+ has already been called and +stop+ hasn't since
+    # (RightScale::Exceptions::Application):: If port is already bound
     def listen(socket_port, &block)
       raise Exceptions::Argument, 'Missing listener block' unless block_given?
       raise Exceptions::Application, 'Already listening' if listening
       begin
         @conn = EM.start_server('127.0.0.1', socket_port, InputHandler, block)
       rescue Exception => e
-        RightLinkLog.error("Could not start commands listener: #{e.message}")
+        raise Exceptions::IO, 'Listen port unavailable' if e.message =~ /no acceptor/
       end
       true
     end

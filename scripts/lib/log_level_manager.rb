@@ -31,12 +31,15 @@ require 'optparse'
 require 'rdoc/ri/ri_paths' # For backwards compat with ruby 1.8.5
 require 'rdoc/usage'
 require 'rdoc_patch'
+require 'agent_utils'
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'command_protocol', 'lib', 'command_protocol'))
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'actors', 'lib', 'agent_manager'))
 
 module RightScale
 
   class LogLevelManager
+
+    include Utils
 
     VERSION = [0, 1]
 
@@ -51,7 +54,10 @@ module RightScale
       level = options[:level]
       cmd = { :name => (level ? 'set_log_level' : 'get_log_level') }
       cmd[:level] = level.to_sym if level
-      client = CommandClient.new(RightScale::CommandConstants::INSTANCE_AGENT_SOCKET_PORT)
+      config_options = agent_options('instance')
+      listen_port = config_options[:listen_port]
+      fail('Could not retrieve agent listen port') unless listen_port
+      client = CommandClient.new(listen_port, config_options[:cookie])
       begin
         client.send_command(cmd, options[:verbose]) do |lvl|
           puts "Agent log level: #{lvl.to_s.upcase}"

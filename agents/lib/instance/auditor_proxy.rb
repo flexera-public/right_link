@@ -47,13 +47,9 @@ module RightScale
     # in seconds
     MAX_AUDIT_DELAY = 2
 
-    # (Integer) Associated audit it
-    attr_accessor :audit_id
-
     # Initialize auditor proxy with given audit id
     def initialize
       @buffers = {}
-      @timers = {}
     end
 
     # Update audit summary
@@ -95,14 +91,14 @@ module RightScale
     # ApplicationError:: If audit id is missing from passed-in options
     def append_output(text, options)
       audit_id = options[:audit_id]
-      raise RightScale::ApplicationError.new('Audit id is required to audit output') unless audit_id
+      raise RightScale::Exceptions::Application.new('Audit id is required to audit output') unless audit_id
       EM.next_tick do
         @buffers[audit_id] ||= ''
         @buffers[audit_id] << text
         if @buffers[audit_id].size > MIN_AUDIT_SIZE
-          flush_buffer(audit_id)
+          flush_buffer
         else
-          reset_timer(audit_id)
+          reset_timer
         end
       end
     end
@@ -126,6 +122,7 @@ module RightScale
     #
     # === Parameters
     # text(String):: Error text to append to audit entry
+    # options[:category](String):: Optional, must be one of RightScale::EventCategories::CATEGORIES
     #
     # === Return
     # true:: Always return true
@@ -146,7 +143,7 @@ module RightScale
     # true:: Always return true
     def send_request(request, options)
       EM.next_tick do
-        flush_buffer(options[:audit_id])
+        flush_buffer
         internal_send_request(request, options)
       end
     end
@@ -162,10 +159,8 @@ module RightScale
     # true:: Always return true
     def internal_send_request(request, options)
       log_method = request == 'append_error' ? :error : :info
-      log_text = options[:source] ? "[#{options[:source]}] " : ''
-      log_text += AuditFormatter.send(format_method(request), options[:text])[:detail]
+      log_text = AuditFormatter.send(format_method(request), options[:text])[:detail]
       log_text.chomp.split("\n").each { |l| RightLinkLog.__send__(log_method, l) }
-      options[:audit_id] = @audit_id
       RightScale::RequestForwarder.instance.push("/auditor/#{request}", options, :persistent => false)
       true
     end
@@ -196,15 +191,10 @@ module RightScale
     #
     # === Return
     # Always return true
-    def flush_buffer(audit_id)
-      if @timers[audit_id]
-        @timers[audit_id].cancel
-        @timers.delete(audit_id)
-      end
-      if @buffers[audit_id]
-        internal_send_request('append_output', :text => @buffers[audit_id])
-        @buffers.delete(audit_id)
-      end
+    def flush_buffer
+      @timer.cancel if @timer
+      @buffers.each { |audit_id, txt| internal_send_request('append_output', :text => txt, :audit_id => audit_id) }
+      @buffers = {}
     end
 
     # Set or reset timer for buffer flush
@@ -214,12 +204,12 @@ module RightScale
     #
     # === Return
     # true:: Always return true
-    def reset_timer(audit_id)
+    def reset_timer
       # note we are using a single PeriodicTimer because we were running out of
       # one-shot timers with verbose script output. calling cancel on a one-shot
       # timer sends a message but does not immediately remove the timer from EM
       # which maxes out at 1000 one-shot timers.
-      (@timers[audit_id] = EventMachine::PeriodicTimer.new(MAX_AUDIT_DELAY) { flush_buffer(audit_id) }) unless @timers[audit_id]
+      @timer = EventMachine::PeriodicTimer.new(MAX_AUDIT_DELAY) { flush_buffer } unless @timer
     end
 
     # Audit formatter method to call to format message sent through +request+

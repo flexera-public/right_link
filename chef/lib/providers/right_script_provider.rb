@@ -63,7 +63,7 @@ class Chef
         begin
           meta_data = ::File.join(RightScale::RightLinkConfig[:cloud_state_dir], 'meta-data.rb')
           #metadata does not exist on all clouds, hence the conditional
-          load(meta_data) if ::File.exist?(meta_data)
+          load(meta_data) if ::File.exists?(meta_data)
         rescue Exception => e
           ::Chef::Log.info("Could not load cloud metadata; script will execute without metadata in environment!")
           RightScale::RightLinkLog.error("#{e.class.name}: #{e.message}, #{e.backtrace[0]}")

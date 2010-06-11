@@ -40,10 +40,12 @@ class Chef
       # === Return
       # true:: Always return true
       def action_run
-        tags       = @new_resource.recipients_tags
-        recipients = @new_resource.recipients
-        attributes = { :remote_recipe => { :tags => tags,
-                                           :from => RightScale::MapperProxy.instance.identity } }
+        tags          = @new_resource.recipients_tags
+        recipients    = @new_resource.recipients
+        agent_options = RightScale::OptionsBag.load
+        identity      = RightScale::AgentIdentity.nanite_from_serialized(agent_options[:identity])
+        attributes    = { :remote_recipe => { :tags => tags,
+                                              :from => identity } }
         attributes.merge!(@new_resource.attributes) if @new_resource.attributes
         options = { :recipe => @new_resource.recipe, :json => attributes.to_json }
         if recipients && !recipients.empty?
@@ -54,7 +56,7 @@ class Chef
                    end
           Chef::Log.info("Scheduling execution of #{@new_resource.recipe.inspect} on #{target}")
           recipients.each do |recipient|
-            RightScale::RequestForwarder.instance.push('/instance_scheduler/execute',
+            RightScale::Cook.instance.push('/instance_scheduler/execute',
                                               options,
                                               :target => recipient)
           end
@@ -72,7 +74,7 @@ class Chef
                      "one instance with #{target_tag}"
                    end
           Chef::Log.info("Scheduling execution of #{@new_resource.recipe.inspect} on #{target}")
-          RightScale::RequestForwarder.instance.push('/instance_scheduler/execute', options,
+          RightScale::Cook.instance.push('/instance_scheduler/execute', options,
                                    :tags => tags, :selector => selector)
         end
         true

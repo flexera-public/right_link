@@ -37,10 +37,13 @@ require 'optparse'
 require 'rdoc/ri/ri_paths' # For backwards compat with ruby 1.8.5
 require 'rdoc/usage'
 require 'rdoc_patch'
+require 'agent_utils'
 
 module RightScale
 
   class Tagger
+
+    include Utils
 
     VERSION = [0, 1]
 
@@ -58,7 +61,10 @@ module RightScale
       end
       cmd = { :name => options[:action] }
       cmd[:tag] = options[:tag] if options[:tag]
-      client = CommandClient.new(RightScale::CommandConstants::INSTANCE_AGENT_SOCKET_PORT)
+      config_options = agent_options('instance')
+      listen_port = config_options[:listen_port]
+      fail('Could not retrieve agent listen port') unless listen_port
+      client = CommandClient.new(listen_port, config_options[:cookie])
       begin
         client.send_command(cmd, options[:verbose]) do |res|
           if options[:action] == :get_tags

@@ -21,8 +21,9 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 require File.join(File.dirname(__FILE__), 'spec_helper')
-require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'chef', 'lib', 'plugins'))
-require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'chef', 'lib', 'providers'))
+require 'right_scraper'
+require File.normalize_path(File.join(RightScale::RightLinkConfig[:right_link_path], 'chef', 'lib', 'plugins'))
+require File.normalize_path(File.join(RightScale::RightLinkConfig[:right_link_path], 'chef', 'lib', 'providers'))
 
 describe RightScale::ExecutableSequence do
 
@@ -48,12 +49,11 @@ describe RightScale::ExecutableSequence do
 
       @bundle = RightScale::ExecutableBundle.new([ @script ], [], 0)
 
-      @auditor = flexmock(RightScale::AuditorProxy.instance)
+      @auditor = flexmock(RightScale::AuditorProxyStub.instance)
       @auditor.should_receive(:create_new_section)
       @auditor.should_receive(:append_info)
       @auditor.should_receive(:append_output)
       @auditor.should_receive(:update_status)
-      @auditor.should_receive(:append_error) { |m| puts m }
 
       # prevent Chef logging reaching the console during spec test.
       logger = flexmock(::RightScale::RightLinkLog.logger)

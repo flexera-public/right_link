@@ -19,34 +19,23 @@
 # LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-#
-require File.join(File.dirname(__FILE__), 'spec_helper')
-require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'common', 'lib', 'common', 'right_link_log'))
 
-describe RightScale::AuditLogger do
+module RightScale
 
-  before(:each) do
-    @auditor = flexmock(RightScale::AuditorProxyStub.instance)
-    @logger = RightScale::AuditLogger.new(1)
-    @logger.level = Logger::DEBUG
-  end
+  # Manages and persists cook process state
+  class CookState
 
-  it 'should append info text' do
-    @auditor.should_receive(:append_output).times(3)
-    @logger.info
-    @logger.warn
-    @logger.unknown
-  end
+    class << self
 
-  it 'should log debug text' do
-    flexmock(RightScale::RightLinkLog).should_receive(:debug).once
-    @logger.debug
-  end
+      # (Integer) Command listen port
+      attr_accessor :listen_port
 
-  it 'should append error text' do
-    @auditor.should_receive(:append_error).twice
-    @logger.error
-    @logger.fatal
+      # (String) Command server cookie
+      attr_accessor :cookie
+
+    end
+
   end
 
 end
+

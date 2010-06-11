@@ -142,7 +142,7 @@ module RightScale
     # true:: Always return true
     def cleanup_certificates(options)
       puts 'Cleaning up certificates...' if options[:verbose]
-      FileUtils.rm_rf(certs_dir) if File.exist?(certs_dir)
+      FileUtils.rm_rf(certs_dir) if File.exists?(certs_dir)
       FileUtils.mkdir_p(certs_dir)
     end
 

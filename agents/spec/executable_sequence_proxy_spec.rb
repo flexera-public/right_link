@@ -98,12 +98,12 @@ describe RightScale::ExecutableSequenceProxy do
 
     it 'should call the cook utility' do
       mock_output = File.join(File.dirname(__FILE__), 'cook_mock_output')
-      File.delete(mock_output) if File.exist?(mock_output)
+      File.delete(mock_output) if File.exists?(mock_output)
       flexmock(@proxy).should_receive(:cook_path).and_return(File.join(File.dirname(__FILE__), 'cook_mock.rb'))
-      flexmock(@proxy).should_receive(:report_success).and_return { |*args| EM.stop }
+      flexmock(@proxy).should_receive(:succeed).and_return { |*args| EM.stop }
       flexmock(@proxy).should_receive(:report_failure).and_return { |*args| puts args.inspect; EM.stop }
       EM.run do
-        EM.add_timer(5) { puts '** Timeout'; EM.stop }
+        EM.add_timer(5) { EM.stop; raise 'Timeout' }
         EM.defer { @proxy.run }
       end
       begin

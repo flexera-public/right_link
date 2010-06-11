@@ -22,31 +22,51 @@
 
 require File.join(File.dirname(__FILE__), 'spec_helper')
 
+module RightScale
+
+  class CommandIOMock < CommandIO
+
+    include Singleton
+
+    def trigger_listen(payload)
+      @test_callback.call(payload)
+    end
+
+    def listen(socket_port, &block)
+      @test_callback = block
+      true
+    end
+
+  end
+
+end
+
 describe RightScale::CommandRunner do
 
   before(:all) do
     @command_payload = { :name => 'test', :options => 'options' }
-    @socket_port = RightScale::CommandConstants::TEST_SOCKET_PORT
+    @socket_port = TEST_SOCKET_PORT
   end
 
   it 'should handle invalid formats' do
     flexmock(RightScale::CommandIO.instance).should_receive(:listen).and_yield(['invalid yaml'])
     flexmock(RightScale::RightLinkLog).should_receive(:info).once
-    RightScale::CommandRunner.start(@socket_port, {})
+    RightScale::CommandRunner.start(@socket_port, RightScale::AgentIdentity.generate, commands={})
   end
 
   it 'should handle non-existent commands' do
     flexmock(RightScale::CommandIO.instance).should_receive(:listen).and_yield(@command_payload)
     flexmock(RightScale::RightLinkLog).should_receive(:info).once
-    RightScale::CommandRunner.start(@socket_port, {})
+    RightScale::CommandRunner.start(@socket_port, RightScale::AgentIdentity.generate, commands={})
   end
 
   it 'should run commands' do
     commands = { :test => lambda { |opt, _| @opt = opt } }
-    flexmock(RightScale::CommandIO.instance).should_receive(:listen).twice.and_yield(@command_payload)
-    RightScale::CommandRunner.start(@socket_port, commands)
-    RightScale::CommandRunner.start(@socket_port, commands)
-    @opt.should == @command_payload
+    flexmock(RightScale::CommandIO).should_receive(:instance).and_return(RightScale::CommandIOMock.instance)
+    cmd_options = RightScale::CommandRunner.start(@socket_port, RightScale::AgentIdentity.generate, commands)
+    payload = @command_payload.merge(cmd_options)
+    RightScale::CommandIOMock.instance.trigger_listen(payload)
+    @opt.should == payload
   end
 
 end

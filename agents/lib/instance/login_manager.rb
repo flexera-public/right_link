@@ -74,7 +74,7 @@ module RightScale
     # === Return
     # authorized_keys(Array[(String)]) list of lines of authorized_keys file
     def read_keys_file
-      return [] unless File.exist?(ROOT_TRUSTED_KEYS_FILE)
+      return [] unless File.exists?(ROOT_TRUSTED_KEYS_FILE)
       File.readlines(ROOT_TRUSTED_KEYS_FILE).map! { |l| l.chomp.strip }
     end
 

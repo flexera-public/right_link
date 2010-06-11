@@ -42,7 +42,7 @@ describe RightScale::CommandIO do
   end
 
   before(:all) do
-    @socket_port = RightScale::CommandConstants::TEST_SOCKET_PORT
+    @socket_port = TEST_SOCKET_PORT
   end
 
   it 'should detect missing blocks' do

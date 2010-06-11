@@ -86,7 +86,35 @@ module RightScale
       agent = Agent.new(options.merge(:agent_identity => id))
       PidFile.new(agent.identity, agent.options)
     end
-        
+
+    # Retrieve agent options from generated agent configuration file
+    #
+    # === Parameters
+    # agent(String):: Name of agent
+    #
+    # === Return
+    # options[:agent_identity](String):: Agent identity
+    # options[:log_path](String):: Log path
+    # options[:pid](Integer):: Agent process pid if available
+    # options[:listen_port](Integer):: Agent command listen port if available
+    # options[:cookie](String):: Agent command cookie if available
+    # options(Hash):: Other serialized configuration options
+    def agent_options(agent)
+      options = {}
+      root_dir = gen_agent_dir(agent)
+      if File.directory?(root_dir)
+        cfg = File.join(root_dir, 'config.yml')
+        if File.exists?(cfg)
+          options = symbolize(YAML.load(IO.read(cfg))) rescue {} || {}
+          options[:agent_identity] = "nanite-#{options[:identity]}"
+          options[:log_path] = options[:log_dir] || Platform.filesystem.log_dir
+          pid_file = PidFile.new(options[:agent_identity], options)
+          options.merge!(pid_file.read_pid) if pid_file.exists?
+        end
+      end
+      options
+    end
+ 
     # Produces a hash with keys as symbols from given hash
     def symbolize(h)
       sym = {}

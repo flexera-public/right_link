@@ -87,7 +87,7 @@ module RightScale
       fail('Agent configuration does not define actors') unless actors && actors.respond_to?(:each)
       actors.each do |actor|
         actor_file = File.join(options[:actors_dir], "#{actor}.rb")
-        fail("Cannot find actor file '#{actor_file}'") unless File.exist?(actor_file)
+        fail("Cannot find actor file '#{actor_file}'") unless File.exists?(actor_file)
       end
       options[:actors] = actors
       options[:initrb] = File.join(options[:agents_dir], "#{agent}.rb")
@@ -122,9 +122,9 @@ module RightScale
       options[:options].each { |k, v| cfg[k] = v } if options[:options]
 
       gen_dir = gen_agent_dir(options[:agent])
-      File.makedirs(gen_dir) unless File.exist?(gen_dir)
+      File.makedirs(gen_dir) unless File.exists?(gen_dir)
       cfg_file = config_file(options[:agent])
-      File.delete(cfg_file) if File.exist?(cfg_file)
+      File.delete(cfg_file) if File.exists?(cfg_file)
       File.open(cfg_file, 'w') { |fd| fd.puts "# Created at #{Time.now}" }
       File.open(cfg_file, 'a') do |fd|
         fd.write(YAML.dump(cfg))
@@ -279,7 +279,7 @@ check process #{agent}
 
     def agent_config(agents_dir, agent)
       cfg_file = File.join(agents_dir, "#{agent}.yml")
-      return nil unless File.exist?(cfg_file)
+      return nil unless File.exists?(cfg_file)
       symbolize(YAML.load(IO.read(cfg_file))) rescue nil
     end
  

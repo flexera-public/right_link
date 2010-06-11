@@ -51,6 +51,7 @@ module RightScale
       RightScale.popen3(:command        => "#{RightLinkConfig[:sandbox_ruby_cmd]} #{cook_path}",
                         :input          => "#{JSON.dump(@bundle)}\n",
                         :target         => self,
+                        :environment    => { OptionsBag::OPTIONS_ENV => ENV[OptionsBag::OPTIONS_ENV] },
                         :stdout_handler => :on_read_stdout, 
                         :stderr_handler => :on_read_stderr, 
                         :exit_handler   => :on_exit)
@@ -85,38 +86,32 @@ module RightScale
     # === Return
     # true:: Always return true
     def on_read_stderr(data)
-      @succeeded = false
       @error_message ||= ''
       @error_message << data
     end
 
     # Handle runner process exited event
+    # Note: success and failure reports are handled by the cook process for normal
+    # scenarios. We only handle cook process execution failures here.
     #
     # === Parameters
     # status(Process::Status):: Exit status
-    def on_exit(status)
-      if status.success? && @succeeded
-        report_success
-      else
-        if @error_message
-          report_failure(*@error_message.split("\n", 2))
-        else
-          report_failure('Execution failed', "Chef process returned an error (#{status.exitstatus})")
-        end
-      end
-    end
-
-    # Initialize inputs patch and report success
     #
     # === Return
     # true:: Always return true
-    def report_success
-      AuditorProxy.instance.update_status("completed: #{@description}", :audit_id => @bundle.audit_id)
-      succeed
+    def on_exit(status)
+      if @error_message
+        title, message = @error_message.split("\n", 2)
+        report_failure(title, message || title)
+      elsif !status.success?
+        report_failure("Chef process failure", "Chef process failed with return code #{status.exitstatus}")
+      else
+        succeed
+      end
       true
     end
-
-    # Set status with failure message and audit it
+    
+    # Report cook process execution failure
     #
     # === Parameters
     # title(String):: Title used to update audit status
@@ -124,12 +119,9 @@ module RightScale
     #
     # === Return
     # true:: Always return true
-    def report_failure(title, msg=title)
-      RightLinkLog.error(msg)
-      AuditorProxy.instance.update_status("failed: #{ @description }", :audit_id => @bundle.audit_id)
-      AuditorProxy.instance.append_error(title, 
-                                         :category => RightScale::EventCategories::CATEGORY_ERROR,
-                                         :audit_id => @bundle.audit_id)
+    def report_failure(title, msg)
+      AuditorProxy.instance.update_status("failed: #{ @bundle.to_s }", :audit_id => @bundle.audit_id)
+      AuditorProxy.instance.append_error(title, :category => RightScale::EventCategories::CATEGORY_ERROR, :audit_id => @bundle.audit_id)
       AuditorProxy.instance.append_error(msg, :audit_id => @bundle.audit_id)
       fail
       true
