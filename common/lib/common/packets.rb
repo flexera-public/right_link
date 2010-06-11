@@ -1,4 +1,3 @@
-#
 # Copyright (c) 2009 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
@@ -358,7 +357,18 @@ module RightScale
       log_msg = "#{super} #{trace}"
       log_msg += " from #{id_to_s(@from)}" if filter.nil? || filter.include?(:from)
       log_msg += " to #{id_to_s(@to)}" if filter.nil? || filter.include?(:to)
-      log_msg += " results #{@results.inspect}" 
+      if filter.nil? || !filter.include?(:results)
+        if !@results.nil?
+          if @results.is_a?(RightScale::OperationResult)
+            res = @results # Will be true when logging a 'SEND'
+          elsif @results.is_a?(Hash) && @results.size == 1 # Will be true when logging a 'RECV'
+            res = @results.values.first
+          end
+          log_msg += " #{res.to_s}" if res
+        end
+      else
+        log_msg += " results #{@results.inspect}"
+      end
       log_msg
     end
 

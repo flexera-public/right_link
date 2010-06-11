@@ -45,6 +45,20 @@ module RightScale
       @content     = args[1] if args.size > 1
     end
 
+    # User friendly error code, does not include content
+    #
+    # === Return
+    # s(String):: Name of result code
+    def to_s
+      s = case @status_code
+        when SUCCESS  then 'success'
+        when ERROR    then 'error'
+        when CONTINUE then 'continue'
+        when RETRY    then 'retry'
+        when TIMEOUT  then 'timeout'
+      end
+    end
+
     # Instantiate from request results
     #
     # === Parameters
