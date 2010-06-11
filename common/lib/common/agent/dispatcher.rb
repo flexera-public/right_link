@@ -128,9 +128,8 @@ module RightScale
             completed_at = Time.now.to_i
             @completed[deliverable.token] = completed_at if @dup_check && deliverable.token
             r = Result.new(deliverable.token, deliverable.reply_to, r, identity)
-            RightLinkLog.info("SEND #{r.to_s([])}")
             exchange = {:type => :queue, :name => deliverable.reply_to, :options => {:durable => true, :no_declare => @secure}}
-            @broker.publish(exchange, r, :persistent => deliverable.persistent)
+            @broker.publish(exchange, r, :persistent => deliverable.persistent, :log_filter => [])
           end
         rescue Exception => e
           RightLinkLog.error("Callback following dispatch failed with #{e.class.name}: #{e.message}\n #{e.backtrace.join("\n  ")}")

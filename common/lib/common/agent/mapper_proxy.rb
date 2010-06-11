@@ -164,7 +164,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def request_with_retry(request, parent, count = 0, multiplier = 1, elapsed = 0)
-      publish(request, count > 0)
+      publish(request)
 
       if @retry_interval && @retry_timeout && parent
         interval = @retry_interval * multiplier
@@ -192,19 +192,13 @@ module RightScale
     # Publish request
     #
     # === Parameters
-    # request(Push|Request):: Request packet to be sent
-    # is_retry(Boolean):: Whether this is a retry attempt
+    # request(Push|Request):: Packet to be sent
     #
     # === Return
     # true:: Always return true
-    def publish(request, is_retry = false)
-      if is_retry
-        RightLinkLog.info("RESEND #{request.to_s([:tags, :target, :tries])}")
-      else
-        RightLinkLog.info("SEND #{request.to_s([:tags, :target])}")
-      end
+    def publish(request)
       exchange = {:type => :fanout, :name => "request", :options => {:durable => true, :no_declare => @secure}}
-      @broker.publish(exchange, request, :persistent => request.persistent)
+      @broker.publish(exchange, request, :persistent => request.persistent, :log_filter => [:tags, :target, :tries])
       true
     end
 

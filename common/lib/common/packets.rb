@@ -38,8 +38,16 @@ module RightScale
 
   # Base class for all packets flowing through the mappers
   # Knows how to dump itself to JSON
+  # All derived classes are required to support :version and :size
   class Packet
 
+    # Current version of protocol
+    VERSION = 1
+
+    # Default version for packet senders unaware of this versioning
+    DEFAULT_VERSION = 0
+
+    attr_reader :version
     attr_accessor :size
 
     def initialize
@@ -71,7 +79,7 @@ module RightScale
     # Generate log representation
     #
     # === Parameters
-    # filter(Array of Symbol):: Attributes to be included in output
+    # filter(Array(Symbol)):: Attributes to be included in output
     #
     # === Return
     # log_msg(String):: Log representation
@@ -154,14 +162,14 @@ module RightScale
     #     by the AMQP broker
     #   :created_at(Numeric):: Time in seconds when this request was created for use in timing
     #     out the request; value 0 means never timeout; defaults to current time
-    #   :tags(Array of Symbol):: List of tags to be used for selecting target for this request
+    #   :tags(Array(Symbol)):: List of tags to be used for selecting target for this request
     #   :tries(Array):: List of tokens for previous attempts to send this request
+    # version(Integer):: Version of protocol used only for marshalling
     # size(Integer):: Size of request in bytes used only for marshalling
-    def initialize(type, payload, opts = {}, size = nil)
+    def initialize(type, payload, opts = {}, version = VERSION, size = nil)
       opts = DEFAULT_OPTIONS.merge(opts)
       @type       = type
       @payload    = payload
-      @size       = size
       @from       = opts[:from]
       @scope      = opts[:scope]
       @token      = opts[:token]
@@ -172,6 +180,8 @@ module RightScale
       @created_at = opts[:created_at] || Time.now.to_f
       @tags       = opts[:tags] || []
       @tries      = opts[:tries] || []
+      @version    = version
+      @size       = size
     end
 
     # Create packet from unmarshalled JSON data
@@ -188,13 +198,13 @@ module RightScale
                                      :selector   => i['selector'],   :target   => i['target'],   
                                      :persistent => i['persistent'], :tags     => i['tags'],
                                      :created_at => i['created_at'], :tries    => i['tries'] },
-                                   o['size'])
+          i['version'] || DEFAULT_VERSION, o['size'])
     end
 
     # Generate log representation
     #
     # === Parameters
-    # filter(Array of Symbol):: Attributes to be in cluded in output
+    # filter(Array(Symbol)):: Attributes to be included in output
     #
     # === Return
     # log_msg(String):: Log representation
@@ -251,13 +261,12 @@ module RightScale
     #     by the AMQP broker
     #   :created_at(Numeric):: Time in seconds when this request was created for use in timing
     #     out the request; value 0 means never timeout; defaults to current time
-    #   :tags(Array of Symbol):: List of tags to be used for selecting target for this request
+    #   :tags(Array(Symbol)):: List of tags to be used for selecting target for this request
     # size(Integer):: Size of request in bytes used only for marshalling
-    def initialize(type, payload, opts = {}, size = nil)
+    def initialize(type, payload, opts = {}, version = VERSION, size = nil)
       opts = DEFAULT_OPTIONS.merge(opts)
       @type       = type
       @payload    = payload
-      @size       = size
       @from       = opts[:from]
       @scope      = opts[:scope]
       @token      = opts[:token]
@@ -266,6 +275,8 @@ module RightScale
       @persistent = opts[:persistent]
       @created_at = opts[:created_at] || Time.now.to_f
       @tags       = opts[:tags] || []
+      @version    = version
+      @size       = size
     end
 
     # Create packet from unmarshalled JSON data
@@ -281,13 +292,13 @@ module RightScale
                                      :token  => i['token'],  :selector   => i['selector'],
                                      :target => i['target'], :persistent => i['persistent'],
                                      :tags   => i['tags'],   :created_at => i['created_at'] },
-                                   o['size'])
+          i['version'] || DEFAULT_VERSION, o['size'])
     end
 
     # Generate log representation
     #
     # === Parameters
-    # filter(Array of Symbol):: Attributes to be included in output
+    # filter(Array(Symbol)):: Attributes to be included in output
     #
     # === Return
     # log_msg(String):: Log representation
@@ -316,7 +327,7 @@ module RightScale
   # Packet for a work result notification sent from actor node
   class Result < Packet
 
-  attr_accessor :token, :results, :to, :from
+    attr_accessor :token, :results, :to, :from
 
     # Create packet
     #
@@ -326,12 +337,13 @@ module RightScale
     # results(Any):: Arbitrary data that is transferred from actor, a result of actor's work
     # from(String):: Sender identity
     # size(Integer):: Size of request in bytes used only for marshalling
-    def initialize(token, to, results, from, size = nil)
-      @token = token
-      @to = to
-      @from = from
+    def initialize(token, to, results, from, version = VERSION, size = nil)
+      @token   = token
+      @to      = to
+      @from    = from
       @results = results
-      @size = size
+      @version = version
+      @size    = size
     end
 
     # Create packet from unmarshalled JSON data
@@ -343,13 +355,13 @@ module RightScale
     # (Result):: New packet
     def self.json_create(o)
       i = o['data']
-      new(i['token'], i['to'], i['results'], i['from'], o['size'])
+      new(i['token'], i['to'], i['results'], i['from'], i['version'] || DEFAULT_VERSION, o['size'])
     end
 
     # Generate log representation
     #
     # === Parameters
-    # filter(Array of Symbol):: Attributes to be included in output
+    # filter(Array(Symbol)):: Attributes to be included in output
     #
     # === Return
     # log_msg(String):: Log representation
@@ -395,17 +407,18 @@ module RightScale
     # services(Array):: List of services provided by the node
     # status(Any):: Load of the node by default, but may be any criteria
     #   agent may use to report its availability, load, etc
-    # tags(Array of Symbol):: List of tags associated with this service
+    # tags(Array(Symbol)):: List of tags associated with this service
     # brokers(Array|nil):: Identity of agent's brokers with nil meaning not supported
     # shared_queue(String):: Name of a queue shared between this agent and another
     # size(Integer):: Size of request in bytes used only for marshalling
-    def initialize(identity, services, status, tags, brokers, shared_queue = nil, size = nil)
+    def initialize(identity, services, status, tags, brokers, shared_queue = nil, version = VERSION, size = nil)
       @status       = status
       @tags         = tags
       @brokers      = brokers
       @identity     = identity
       @services     = services
       @shared_queue = shared_queue
+      @version      = version
       @size         = size
     end
 
@@ -418,14 +431,18 @@ module RightScale
     # (Register):: New packet
     def self.json_create(o)
       i = o['data']
-      new(i['identity'], i['services'], i['status'], i['tags'], i['brokers'], i['shared_queue'], o['size'])
+      new(i['identity'], i['services'], i['status'], i['tags'], i['brokers'], i['shared_queue'],
+          i['version'] || DEFAULT_VERSION, o['size'])
     end
 
     # Generate log representation
     #
+    # === Parameters
+    # filter(Array(Symbol)):: Attributes to be included in output
+    #
     # === Return
     # log_msg(String):: Log representation
-    def to_s
+    def to_s(filter = nil)
       log_msg = "#{super} #{id_to_s(@identity)}"
       log_msg += ", shared_queue #{@shared_queue}" if @shared_queue
       log_msg += ", services #{@services.inspect}" if @services && !@services.empty?
@@ -447,9 +464,10 @@ module RightScale
     # === Parameters
     # identity(String):: Sender identity
     # size(Integer):: Size of request in bytes used only for marshalling
-    def initialize(identity, size = nil)
+    def initialize(identity, version = VERSION, size = nil)
       @identity = identity
-      @size = size
+      @version  = version
+      @size     = size
     end
 
     # Create packet from unmarshalled JSON data
@@ -461,14 +479,17 @@ module RightScale
     # (UnRegister):: New packet
     def self.json_create(o)
       i = o['data']
-      new(i['identity'], o['size'])
+      new(i['identity'], i['version'] || DEFAULT_VERSION, o['size'])
     end
   
     # Generate log representation
     #
+    # === Parameters
+    # filter(Array(Symbol)):: Attributes to be included in output
+    #
     # === Return
     # (String):: Log representation
-    def to_s
+    def to_s(filter = nil)
       "#{super} #{id_to_s(@identity)}"
     end
 
@@ -488,10 +509,11 @@ module RightScale
     #   agent may use to report its availability, load, etc
     # brokers(Array|nil):: Identity of agent's brokers with nil meaning not supported
     # size(Integer):: Size of request in bytes used only for marshalling
-    def initialize(identity, status, brokers = nil, size = nil)
+    def initialize(identity, status, brokers = nil, version = VERSION, size = nil)
       @status   = status
       @identity = identity
       @brokers  = brokers
+      @version  = version
       @size     = size
     end
 
@@ -504,17 +526,17 @@ module RightScale
     # (Ping):: New packet
     def self.json_create(o)
       i = o['data']
-      new(i['identity'], i['status'], i['brokers'], o['size'])
+      new(i['identity'], i['status'], i['brokers'], i['version'] || DEFAULT_VERSION, o['size'])
     end
 
     # Generate log representation
     #
     # === Parameters
-    # filter(Array of Symbol):: Attributes to be included in output
+    # filter(Array(Symbol)):: Attributes to be included in output
     #
     # === Return
     # (String):: Log representation
-    def to_s
+    def to_s(filter = nil)
       "#{super} #{id_to_s(@identity)} status #{@status} brokers #{@brokers.inspect}"
     end
 
@@ -529,8 +551,9 @@ module RightScale
     #
     # === Parameters
     # size(Integer):: Size of request in bytes used only for marshalling
-    def initialize(size = nil)
-      @size = size
+    def initialize(version = VERSION, size = nil)
+      @version = version
+      @size    = size
     end
     
     # Create packet from unmarshalled JSON data
@@ -541,7 +564,8 @@ module RightScale
     # === Return
     # (Advertise):: New packet
     def self.json_create(o)
-      new(o['size'])
+      i = o['data']
+      new(i['version'] || DEFAULT_VERSION, o['size'])
     end
 
   end # Advertise
@@ -559,10 +583,11 @@ module RightScale
     # new_tags(Array):: List of new tags
     # obsolete_tags(Array):: List of tags to be deleted
     # size(Integer):: Size of request in bytes used only for marshalling
-    def initialize(identity, new_tags, obsolete_tags, size = nil)
+    def initialize(identity, new_tags, obsolete_tags, version = VERSION, size = nil)
       @identity      = identity
       @new_tags      = new_tags
       @obsolete_tags = obsolete_tags
+      @version       = version
       @size          = size
     end
 
@@ -575,17 +600,17 @@ module RightScale
     # (TagUpdate):: New packet
     def self.json_create(o)
       i = o['data']
-      new(i['identity'], i['new_tags'], i['obsolete_tags'], o['size'])
+      new(i['identity'], i['new_tags'], i['obsolete_tags'], i['version'] || DEFAULT_VERSION, o['size'])
     end
 
     # Generate log representation
     #
     # === Parameters
-    # filter(Array of Symbol):: Attributes to be included in output
+    # filter(Array(Symbol)):: Attributes to be included in output
     #
     # === Return
     # (String):: Log representation
-    def to_s
+    def to_s(filter = nil)
       log_msg = "#{super} #{id_to_s(@identity)}"
       log_msg += ", new tags #{@new_tags.inspect}" if @new_tags && !@new_tags.empty?
       log_msg += ", obsolete tags #{@obsolete_tags.inspect}" if @obsolete_tags && !@obsolete_tags.empty?
@@ -610,12 +635,13 @@ module RightScale
     #   :tags(Array):: Tags defining a query that returned agents tags must match
     #   :agent_ids(Array):: ids of agents that should be returned
     # size(Integer):: Size of request in bytes used only for marshalling
-    def initialize(from, opts, size = nil)
+    def initialize(from, opts, version = VERSION, size = nil)
       @from       = from
       @token      = opts[:token]
       @agent_ids  = opts[:agent_ids]
       @tags       = opts[:tags]
       @persistent = opts[:persistent]
+      @version    = version
       @size       = size
     end
 
@@ -630,13 +656,13 @@ module RightScale
       i = o['data']
       new(i['from'], { :token => i['token'], :agent_ids => i['agent_ids'],
                        :tags => i['tags'],   :persistent => i['persistent'] },
-                     o['size'])
+          i['version'] || DEFAULT_VERSION, o['size'])
     end
 
     # Generate log representation
     #
     # === Parameters
-    # filter(Array of Symbol):: Attributes to be included in output
+    # filter(Array(Symbol)):: Attributes to be included in output
     #
     # === Return
     # log_msg(String):: Log representation

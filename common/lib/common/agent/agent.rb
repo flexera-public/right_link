@@ -408,7 +408,7 @@ module RightScale
     # true:: Always return true
     def setup_heartbeat
       EM.add_periodic_timer(@options[:ping_time]) do
-        publish('heartbeat', Ping.new(@identity, status_proc.call, @broker.connected))
+        publish('heartbeat', Ping.new(@identity, status_proc.call, @broker.connected, :no_log => true))
       end
       true
     end
@@ -448,13 +448,14 @@ module RightScale
     # === Parameters
     # name(String):: Exchange name
     # packet(Packet):: Packet to be published
+    # options(Hash):: Publish options
     #
     # === Return
     # true:: Always return true
-    def publish(name, packet)
+    def publish(name, packet, options = {})
       exchange = {:type => :fanout, :name => name, :options => {:no_declare => @options[:secure]}}
       begin
-        @broker.publish(exchange, packet)
+        @broker.publish(exchange, packet, options)
       rescue Exception => e
         RightLinkLog.error("Failed to publish #{packet.class} to #{name} exchange: #{e.message}") unless @terminating
       end
@@ -468,7 +469,6 @@ module RightScale
     def un_register
       unless @unregistered
         @unregistered = true
-        RightLinkLog.info("SEND [un_register]")
         publish('registration', UnRegister.new(@identity))
       end
       true
@@ -480,7 +480,6 @@ module RightScale
     # true:: Always return true
     def advertise_services
       reg = Register.new(@identity, @registry.services, status_proc.call, self.tags, @broker.connected, @shared_queue)
-      RightLinkLog.info("SEND #{reg.to_s}")
       publish('registration', reg)
       true
     end

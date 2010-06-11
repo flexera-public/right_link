@@ -166,7 +166,6 @@ describe "RightScale::Dispatcher" do
   end
 
   it "should not reject requests that are fresh" do
-    flexmock(RightScale::RightLinkLog).should_receive(:info).once.with(on {|arg| arg =~ /SEND/})
     @dispatcher = RightScale::Dispatcher.new(@broker, @registry, '0xfunkymonkey', :fresh_timeout => 15)
     @dispatcher.em = EMMock
     req = RightScale::Request.new('/foo/bar', 'you', :created_at => (Time.now.to_f - 14))
@@ -220,7 +219,6 @@ describe "RightScale::Dispatcher" do
   end
 
   it "should not reject non-duplicate requests" do
-    flexmock(RightScale::RightLinkLog).should_receive(:info).once.with(on {|arg| arg =~ /SEND/})
     EM.run do
       @dispatcher = RightScale::Dispatcher.new(@broker, @registry, '0xfunkymonkey', :dup_check => true)
       req = RightScale::Request.new('/foo/bar', 'you', :token => "try")
@@ -232,7 +230,6 @@ describe "RightScale::Dispatcher" do
   end
 
   it "should not check for duplicates if dup_check disabled" do
-    flexmock(RightScale::RightLinkLog).should_receive(:info).once.with(on {|arg| arg =~ /SEND/})
     EM.run do
       @dispatcher = RightScale::Dispatcher.new(@broker, @registry, '0xfunkymonkey', {})
       req = RightScale::Request.new('/foo/bar', 'you', :token => "try")
@@ -244,7 +241,6 @@ describe "RightScale::Dispatcher" do
   end
 
   it "should remove old completed requests when timeout" do
-    flexmock(RightScale::RightLinkLog).should_receive(:info).once.with(on {|arg| arg =~ /SEND/})
     EM.run do
       @dispatcher = RightScale::Dispatcher.new(@broker, @registry, '0xfunkymonkey', :dup_check => true,
                                                :fresh_timeout => 0.4, :completed_interval => 0.2)

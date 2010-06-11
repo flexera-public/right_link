@@ -271,7 +271,10 @@ module RightScale
     #   :fanout(Boolean):: true means publish to all usable brokers
     #   :brokers(Array):: Identity of brokers allowed to use, defaults to all
     #   :serialized(Boolean):: true if packet already serialized, this is an escape for
-    #     special situations like enrollment and causes logging here to be more limited
+    #     special situations like enrollment, also implicitly disables publish logging
+    #   :log_filter(Array(Symbol)):: Filters to be applied in to_s when displaying packet
+    #   :log_data(String):: Additional data to display at end of log entry
+    #   :no_log(Boolean):: Disable publish logging
     #
     # === Return
     # ids(Array):: Identity of AMQP brokers where packet was published
@@ -280,11 +283,16 @@ module RightScale
     # (RightScale::Exceptions::IO):: If cannot find a usable AMQP broker connection
     def publish(exchange, packet, options = {})
       ids = []
+      index = 0
       allow = options[:brokers] || []
       message = if options[:serialized] then packet else @serializer.dump(packet) end
       @mqs.each do |mq|
         if mq[:status] == :connected && (allow.empty? || allow.include?(mq[:identity]))
           begin
+            unless options[:no_log] || options[:serialized]
+              re = "RE" if packet.respond_to?(:tries) && !packet.tries.empty?
+              RightLinkLog.info("#{re}SEND v#{packet.version},b#{index} #{packet.to_s(options[:log_filter])} #{options[:log_data]}")
+            end
             mq[:mq].__send__(exchange[:type], exchange[:name], exchange[:options]).publish(message, options)
             ids << mq[:identity]
             break unless options[:fanout]
@@ -292,6 +300,7 @@ module RightScale
             RightLinkLog.error("Failed to publish to exchange #{exchange.inspect} on AMQP broker #{mq[:identity]}: #{e.message}")
           end
         end
+        index += 1
       end
       if ids.empty?
         allowed = "the allowed " unless allow.empty?

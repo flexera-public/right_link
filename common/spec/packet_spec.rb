@@ -82,6 +82,7 @@ describe "Packet: Request" do
     packet.reply_to.should == packet2.reply_to
     # JSON decoding of floating point sometimes loses accuracy
     (packet.created_at - packet2.created_at).abs.should <= 1.0e-05
+    packet.version.should == packet2.version
   end
 
   it "should dump/load as Marshalled ruby objects" do
@@ -93,6 +94,13 @@ describe "Packet: Request" do
     packet.token.should == packet2.token
     packet.reply_to.should == packet2.reply_to
     packet.created_at.should == packet2.created_at
+    packet.version.should == packet2.version
+  end
+
+  it "should use default version if none supplied" do
+    packet = RightScale::Request.new('/some/foo', 'payload', {}, nil)
+    JSON.parse(packet.to_json).version == RightScale::Packet::DEFAULT_VERSION
+    Marshal.load(Marshal.dump(packet)).version == RightScale::Packet::DEFAULT_VERSION
   end
 end
 
@@ -107,6 +115,7 @@ describe "Packet: Push" do
     packet.token.should == packet2.token
     # JSON decoding of floating point sometimes loses accuracy
     (packet.created_at - packet2.created_at).abs.should <= 1.0e-05
+    packet.version.should == packet2.version
   end
 
   it "should dump/load as Marshalled ruby objects" do
@@ -117,6 +126,13 @@ describe "Packet: Push" do
     packet.from.should == packet2.from
     packet.token.should == packet2.token
     packet.created_at.should == packet2.created_at
+    packet.version.should == packet2.version
+  end
+
+  it "should use default version if none supplied" do
+    packet = RightScale::Push.new('/some/foo', 'payload', {}, nil)
+    JSON.parse(packet.to_json).version == RightScale::Packet::DEFAULT_VERSION
+    Marshal.load(Marshal.dump(packet)).version == RightScale::Packet::DEFAULT_VERSION
   end
 end
 
@@ -129,6 +145,7 @@ describe "Packet: Result" do
     packet.to.should == packet2.to
     packet.results.should == packet2.results
     packet.from.should == packet2.from
+    packet.version.should == packet2.version
   end
 
   it "should dump/load as Marshalled ruby objects" do
@@ -138,6 +155,13 @@ describe "Packet: Result" do
     packet.to.should == packet2.to
     packet.results.should == packet2.results
     packet.from.should == packet2.from
+    packet.version.should == packet2.version
+  end
+
+  it "should use default version if none supplied" do
+    packet = RightScale::Result.new('0xdeadbeef', 'to', 'results', 'from', nil)
+    JSON.parse(packet.to_json).version == RightScale::Packet::DEFAULT_VERSION
+    Marshal.load(Marshal.dump(packet)).version == RightScale::Packet::DEFAULT_VERSION
   end
 end
 
@@ -151,6 +175,7 @@ describe "Packet: Register" do
     packet.status.should == packet2.status
     packet.brokers.should == packet2.brokers
     packet.shared_queue.should == packet2.shared_queue
+    packet.version.should == packet2.version
   end
 
   it "should dump/load as Marshalled ruby objects" do
@@ -161,6 +186,7 @@ describe "Packet: Register" do
     packet.status.should == packet2.status
     packet.brokers.should == packet2.brokers
     packet.shared_queue.should == packet2.shared_queue
+    packet.version.should == packet2.version
   end
 
   it "should set specified shared_queue" do
@@ -172,7 +198,13 @@ describe "Packet: Register" do
     packet = RightScale::Register.new('0xdeadbeef', ['/foo/bar', '/nik/qux'], 0.8, ['foo'], nil)
     packet.shared_queue.should be_nil
    end
- end
+
+  it "should use default version if none supplied" do
+    packet = RightScale::Register.new('0xdeadbeef', ['/foo/bar', '/nik/qux'], 0.8, ['foo'], nil, 'shared', nil)
+    JSON.parse(packet.to_json).version == RightScale::Packet::DEFAULT_VERSION
+    Marshal.load(Marshal.dump(packet)).version == RightScale::Packet::DEFAULT_VERSION
+  end
+end
 
 
 describe "Packet: UnRegister" do
@@ -180,12 +212,20 @@ describe "Packet: UnRegister" do
     packet = RightScale::UnRegister.new('0xdeadbeef')
     packet2 = JSON.parse(packet.to_json)
     packet.identity.should == packet2.identity
+    packet.version.should == packet2.version
   end
 
   it "should dump/load as Marshalled ruby objects" do
     packet = RightScale::UnRegister.new('0xdeadbeef')
     packet2 = Marshal.load(Marshal.dump(packet))
     packet.identity.should == packet2.identity
+    packet.version.should == packet2.version
+  end
+
+  it "should use default version if none supplied" do
+    packet = RightScale::UnRegister.new('0xdeadbeef', nil)
+    JSON.parse(packet.to_json).version == RightScale::Packet::DEFAULT_VERSION
+    Marshal.load(Marshal.dump(packet)).version == RightScale::Packet::DEFAULT_VERSION
   end
 end
 
@@ -197,6 +237,7 @@ describe "Packet: Ping" do
     packet.identity.should == packet2.identity
     packet.status.should == packet2.status
     packet.brokers.should == packet2.brokers
+    packet.version.should == packet2.version
   end
 
   it "should dump/load as Marshalled ruby objects" do
@@ -205,6 +246,13 @@ describe "Packet: Ping" do
     packet.identity.should == packet2.identity
     packet.status.should == packet2.status
     packet.brokers.should == packet2.brokers
+    packet.version.should == packet2.version
+  end
+
+  it "should use default version if none supplied" do
+    packet = RightScale::Ping.new('0xdeadbeef', 0.8, ['b1', 'b2'], nil)
+    JSON.parse(packet.to_json).version == RightScale::Packet::DEFAULT_VERSION
+    Marshal.load(Marshal.dump(packet)).version == RightScale::Packet::DEFAULT_VERSION
   end
 end
 
@@ -219,6 +267,12 @@ describe "Packet: Advertise" do
     packet = RightScale::Advertise.new
     packet2 = Marshal.load(Marshal.dump(packet))
   end
+
+  it "should use default version if none supplied" do
+    packet = RightScale::Advertise.new(nil)
+    JSON.parse(packet.to_json).version == RightScale::Packet::DEFAULT_VERSION
+    Marshal.load(Marshal.dump(packet)).version == RightScale::Packet::DEFAULT_VERSION
+  end
 end
 
 
@@ -229,6 +283,7 @@ describe "Packet: TagUpdate" do
     packet.identity.should == packet2.identity
     packet.new_tags.should == packet2.new_tags
     packet.obsolete_tags.should == packet2.obsolete_tags
+    packet.version.should == packet2.version
   end
 
   it "should dump/load as Marshalled ruby objects" do
@@ -237,6 +292,13 @@ describe "Packet: TagUpdate" do
     packet.identity.should == packet2.identity
     packet.new_tags.should == packet2.new_tags
     packet.obsolete_tags.should == packet2.obsolete_tags
+    packet.version.should == packet2.version
+  end
+
+  it "should use default version if none supplied" do
+    packet = RightScale::TagUpdate.new('from', [ 'one', 'two'] , [ 'zero'], nil)
+    JSON.parse(packet.to_json).version == RightScale::Packet::DEFAULT_VERSION
+    Marshal.load(Marshal.dump(packet)).version == RightScale::Packet::DEFAULT_VERSION
   end
 end
 
@@ -250,6 +312,7 @@ describe "Packet: TagQuery" do
     packet.tags.should == packet2.tags
     packet.agent_ids.should == packet2.agent_ids
     packet.persistent.should == packet2.persistent
+    packet.version.should == packet2.version
   end
 
   it "should dump/load as Marshalled ruby objects" do
@@ -260,5 +323,12 @@ describe "Packet: TagQuery" do
     packet.tags.should == packet2.tags
     packet.agent_ids.should == packet2.agent_ids
     packet.persistent.should == packet2.persistent
+    packet.version.should == packet2.version
+  end
+
+  it "should use default version if none supplied" do
+    packet = RightScale::TagQuery.new('from', {}, nil)
+    JSON.parse(packet.to_json).version == RightScale::Packet::DEFAULT_VERSION
+    Marshal.load(Marshal.dump(packet)).version == RightScale::Packet::DEFAULT_VERSION
   end
 end
