@@ -24,12 +24,22 @@ require File.join(File.dirname(__FILE__), 'spec_helper')
 
 describe RightScale::ReenrollManager do
 
-  before(:each) do
+  def clean_reenroll_manager
     timer = RightScale::ReenrollManager.instance_variable_get(:@reset_timer)
-		timer.cancel if timer
+    timer.cancel if timer
     RightScale::ReenrollManager.instance_variable_set(:@total_votes, nil)
     RightScale::ReenrollManager.instance_variable_set(:@reenrolling, nil)
     RightScale::ReenrollManager.instance_variable_set(:@reset_timer, nil)
+    RightScale::ReenrollManager.instance_variable_set(:@reenrolling, nil)
+    flexmock(RightScale::ReenrollManager).should_receive(:reenroll!).and_return(true)
+  end
+
+  before(:each) do
+    clean_reenroll_manager
+  end
+
+  after(:each) do
+    clean_reenroll_manager
   end
 
   it 'should allow voting for reenroll' do

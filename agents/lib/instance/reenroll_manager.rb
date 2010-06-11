@@ -42,6 +42,14 @@ module RightScale
       @reenrolling
     end
 
+    # Set reenrolling flag
+    # 
+    # === Return
+    # true:: Always return true
+    def self.set_reenrolling
+      @reenrolling = true
+    end
+
     # Vote for re-enrolling, if threshold is reached re-enroll
     # If no vote occurs in the next two hours, then reset counter
     #
@@ -55,6 +63,7 @@ module RightScale
       @reset_timer = EM::Timer.new(RESET_DELAY) { reset_votes }
       if @total_votes >= REENROLL_THRESHOLD && !@reenrolling
         RightLinkLog.info('[re-enroll] Re-enroll threshold reached, shutting down and re-enrolling')
+        set_reenrolling
         reenroll!
       end
       true
@@ -81,7 +90,6 @@ module RightScale
     def self.reenroll!(args=nil)
       cmd = "rs_reenroll #{args}"
       cmd += '&' unless Platform.windows?
-      @reenrolling = true
       AMQP.stop { EM.stop } rescue nil
       system(cmd)
     end
