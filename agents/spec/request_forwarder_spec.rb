@@ -35,6 +35,7 @@ describe RightScale::RequestForwarder do
     RightScale::RequestForwarder.instance.instance_variable_set(:@vote_count, 0)
     @mapper_proxy = flexmock('MapperProxy')
     flexmock(RightScale::MapperProxy).should_receive(:instance).and_return(@mapper_proxy)
+    flexmock(RightScale::ReenrollManager).should_receive(:reenroll!).and_return(true)
   end
 
   it 'should forward requests' do
