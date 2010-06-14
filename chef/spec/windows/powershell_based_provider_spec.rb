@@ -24,15 +24,15 @@ require File.expand_path(File.join(File.dirname(__FILE__), '..', 'spec_helper'))
 
 # FIX: rake spec should check parent directory name?
 if RightScale::RightLinkConfig[:platform].windows?
-  
+
   require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'mock_auditor_proxy'))
   require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'chef_runner'))
-  
+
   module PowershellBasedProviderSpec
     TEST_TEMP_PATH = File.normalize_path(File.join(Dir.tmpdir, "powershell-based-provider-spec-8f3dd90c-b3f3-40d3-bf48-66508b9348b7"))
     TEST_COOKBOOK_PATH = File.normalize_path(File.dirname(__FILE__))
   end
-  
+
   describe "Powershell::Provider - Given a cookbook containing a powershell provider" do
 
     before(:each) do
@@ -60,7 +60,11 @@ if RightScale::RightLinkConfig[:platform].windows?
       # reset the original logger and delete the log file for this run unless explicitly kept
       ::Chef::Log.logger = @original_logger
       @log_file.close rescue nil
-      FileUtils.rm_f(@log_file_name) unless ENV['RS_LOG_KEEP']
+      if ENV['RS_LOG_KEEP']
+        puts "Log saved to \"#{@log_file_name}\""
+      else
+        FileUtils.rm_f(@log_file_name)
+      end
     end
 
 
@@ -72,19 +76,20 @@ if RightScale::RightLinkConfig[:platform].windows?
       @errors.should == ""
 
       # TODO: verify order of execution
-      @logs.scan(/\/simple_encode\/_init.ps1/).length.should == 1
-      @logs.scan(/init simple encode/).length.should == 1
+      logs = @logs.gsub("\n", "")
+      logs.scan(/\/simple_encode\/_init.ps1/).length.should == 1
+      logs.scan(/init simple encode/).length.should == 1
 
-      (@logs =~ /\/simple_encode\/url_encode.ps1/).should_not be_nil
-      (@logs =~ /string\+to\+encode/).should_not be_nil
+      (logs =~ /\/simple_encode\/url_encode.ps1/).should_not be_nil
+      (logs =~ /string\+to\+encode/).should_not be_nil
 
-      (@logs =~ /\/simple_echo\/_load_current_resource.ps1/).should_not be_nil
-      (@logs =~ /load current resource for simple echo/).should_not be_nil
-      (@logs =~ /\/simple_echo\/echo_text.ps1"/).should_not be_nil
-      (@logs =~ /string to echo/).should_not be_nil
+      (logs =~ /\/simple_echo\/_load_current_resource.ps1/).should_not be_nil
+      (logs =~ /load current resource for simple echo/).should_not be_nil
+      (logs =~ /\/simple_echo\/echo_text.ps1"/).should_not be_nil
+      (logs =~ /string to echo/).should_not be_nil
 
-      @logs.scan(/\/simple_echo\/_term.ps1/).length.should == 1
-      @logs.scan(/terminating simple echo/).length.should == 1
+      logs.scan(/\/simple_echo\/_term.ps1/).length.should == 1
+      logs.scan(/terminating simple echo/).length.should == 1
     end
 
     it "should run a recipe accessing the resource" do
@@ -95,31 +100,32 @@ if RightScale::RightLinkConfig[:platform].windows?
       @errors.should == ""
 
       # TODO: verify order of execution
-      @logs.scan(/\/encode\/_init.ps1/).length.should == 1
-      @logs.scan(/init encode/).length.should == 1
-      (@logs =~ /\/encode\/url_encode.ps1/).should_not be_nil
-      (@logs =~ /encode\+this\+is\+a\+string\+with\+spaces/).should_not be_nil
+      logs = @logs.gsub("\n", "")
+      logs.scan(/\/encode\/_init.ps1/).length.should == 1
+      logs.scan(/init encode/).length.should == 1
+      (logs =~ /\/encode\/url_encode.ps1/).should_not be_nil
+      (logs =~ /encode\+this\+is\+a\+string\+with\+spaces/).should_not be_nil
 
-      (@logs =~ /\/echo\/_load_current_resource.ps1/).should_not be_nil
-      (@logs =~ /load current resource for echo/).should_not be_nil
-      (@logs =~ /\/echo\/echo_text.ps1/).should_not be_nil
-      (@logs =~ /echo this is a string with spaces/).should_not be_nil
-      (@logs =~ /fourty-two/).should_not be_nil
+      (logs =~ /\/echo\/_load_current_resource.ps1/).should_not be_nil
+      (logs =~ /load current resource for echo/).should_not be_nil
+      (logs =~ /\/echo\/echo_text.ps1/).should_not be_nil
+      (logs =~ /echo this is a string with spaces/).should_not be_nil
+      (logs =~ /fourty-two/).should_not be_nil
 
-      (@logs =~ /\/encode\/_init.ps1/).should_not be_nil
-      (@logs =~ /init encode/).should_not be_nil
-      (@logs =~ /\/encode\/url_encode.ps1/).should_not be_nil
-      (@logs =~ /SECOND\+STRING\+TO\+ENCODE/).should_not be_nil
+      (logs =~ /\/encode\/_init.ps1/).should_not be_nil
+      (logs =~ /init encode/).should_not be_nil
+      (logs =~ /\/encode\/url_encode.ps1/).should_not be_nil
+      (logs =~ /SECOND\+STRING\+TO\+ENCODE/).should_not be_nil
 
-      (@logs =~ /\/echo\/_load_current_resource.ps1/).should_not be_nil
-      (@logs =~ /load current resource for echo/).should_not be_nil
-      (@logs =~ /\/echo\/echo_text.ps1/).should_not be_nil
-      (@logs =~ /SECOND STRING TO ECHO/).should_not be_nil
-      (@logs =~ /fourty-two/).should_not be_nil
+      (logs =~ /\/echo\/_load_current_resource.ps1/).should_not be_nil
+      (logs =~ /load current resource for echo/).should_not be_nil
+      (logs =~ /\/echo\/echo_text.ps1/).should_not be_nil
+      (logs =~ /SECOND STRING TO ECHO/).should_not be_nil
+      (logs =~ /fourty-two/).should_not be_nil
 
-      (@logs =~ /\/echo\/_term.ps1/).should_not be_nil
-      (@logs =~ /terminating echo/).should_not be_nil
-      (@logs =~ /break/).should_not be_nil
+      (logs =~ /\/echo\/_term.ps1/).should_not be_nil
+      (logs =~ /terminating echo/).should_not be_nil
+      (logs =~ /break/).should_not be_nil
     end
 
     it "should run a recipe with mixed powershell script and powershell provider" do
@@ -130,41 +136,42 @@ if RightScale::RightLinkConfig[:platform].windows?
       @errors.should == ""
 
       # TODO: verify order of execution
-      @logs.scan(/\/encode\/_init.ps1/).length.should == 1
-      @logs.scan(/init encode/).length.should == 1
-      (@logs =~ /\/encode\/url_encode.ps1/).should_not be_nil
-      (@logs =~ /encode\+first/).should_not be_nil
+      logs = @logs.gsub("\n", "")
+      logs.scan(/\/encode\/_init.ps1/).length.should == 1
+      logs.scan(/init encode/).length.should == 1
+      (logs =~ /\/encode\/url_encode.ps1/).should_not be_nil
+      (logs =~ /encode\+first/).should_not be_nil
 
-      (@logs =~ /Running "echo_from_powershell_script"/).should_not be_nil
-      (@logs =~ /message from powershell script/).should_not be_nil
-      (@logs =~ /Ran powershell\[echo_from_powershell_script\]/).should_not be_nil
+      (logs =~ /Running "echo_from_powershell_script"/).should_not be_nil
+      (logs =~ /message from powershell script/).should_not be_nil
+      (logs =~ /Ran powershell\[echo_from_powershell_script\]/).should_not be_nil
 
-      (@logs =~ /\/encode\/url_encode.ps1/).should_not be_nil
-      (@logs =~ /encode\+again/).should_not be_nil
+      (logs =~ /\/encode\/url_encode.ps1/).should_not be_nil
+      (logs =~ /encode\+again/).should_not be_nil
 
-      (@logs =~ /\/echo\/_load_current_resource.ps1/).should_not be_nil
-      (@logs =~ /load current resource for echo/).should_not be_nil
-      (@logs =~ /\/echo\/echo_text.ps1/).should_not be_nil
-      (@logs =~ /then echo/).should_not be_nil
-      (@logs =~ /fourty-two/).should_not be_nil
+      (logs =~ /\/echo\/_load_current_resource.ps1/).should_not be_nil
+      (logs =~ /load current resource for echo/).should_not be_nil
+      (logs =~ /\/echo\/echo_text.ps1/).should_not be_nil
+      (logs =~ /then echo/).should_not be_nil
+      (logs =~ /fourty-two/).should_not be_nil
 
-      (@logs =~ /Running "echo_from_powershell_script_again"/).should_not be_nil
-      (@logs =~ /another powershell message/).should_not be_nil
-      (@logs =~ /Ran powershell\[echo_from_powershell_script_again\]/).should_not be_nil
+      (logs =~ /Running "echo_from_powershell_script_again"/).should_not be_nil
+      (logs =~ /another powershell message/).should_not be_nil
+      (logs =~ /Ran powershell\[echo_from_powershell_script_again\]/).should_not be_nil
 
-      (@logs =~ /Running "echo_from_powershell_script_once_more"/).should_not be_nil
-      (@logs =~ /another powershell message/).should_not be_nil
-      (@logs =~ /Ran powershell\[echo_from_powershell_script_once_more\]/).should_not be_nil
+      (logs =~ /Running "echo_from_powershell_script_once_more"/).should_not be_nil
+      (logs =~ /another powershell message/).should_not be_nil
+      (logs =~ /Ran powershell\[echo_from_powershell_script_once_more\]/).should_not be_nil
 
-      (@logs =~ /\/echo\/_load_current_resource.ps1/).should_not be_nil
-      (@logs =~ /load current resource for echo/).should_not be_nil
-      (@logs =~ /\/echo\/echo_text.ps1/).should_not be_nil
-      (@logs =~ /echo again/).should_not be_nil
-      (@logs =~ /fourty-two/).should_not be_nil
+      (logs =~ /\/echo\/_load_current_resource.ps1/).should_not be_nil
+      (logs =~ /load current resource for echo/).should_not be_nil
+      (logs =~ /\/echo\/echo_text.ps1/).should_not be_nil
+      (logs =~ /echo again/).should_not be_nil
+      (logs =~ /fourty-two/).should_not be_nil
 
-      @logs.scan(/\/echo\/_term.ps1/).length.should == 1
-      @logs.scan(/terminating echo/).length.should == 1
-      (@logs =~ /break/).should_not be_nil
+      logs.scan(/\/echo\/_term.ps1/).length.should == 1
+      logs.scan(/terminating echo/).length.should == 1
+      (logs =~ /break/).should_not be_nil
     end
 
     it "should write debug to output stream when debugging is enabled" do
@@ -183,10 +190,11 @@ if RightScale::RightLinkConfig[:platform].windows?
       runner.call.should == true
       @errors.should == ""
 
-      @logs.should include("debug message")
-      @logs.should include("verbose message")
+      logs = @logs.gsub("\n", "")
+      logs.should include("debug message")
+      logs.should include("verbose message")
     end
-    
+
     it "should stop the chef run when a powershell action throws, and be able to run another recipe with the same provider" do
       runner = lambda {
         RightScale::Test::ChefRunner.run_chef(PowershellBasedProviderSpec::TEST_COOKBOOK_PATH, 'test_cookbook::run_powershell_based_recipe_with_failing_action')
