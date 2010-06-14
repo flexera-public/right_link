@@ -49,7 +49,7 @@ module RightScale
             RightLinkLog.info("Unknown command '#{cmd_name}'")
           end
         rescue Exception => e
-          RightLinkLog.info("Invalid command format (#{e.message}) '#{c.inspect}'")
+          RightLinkLog.info("Command failed (#{e.message}) '#{c.inspect}'")
         end
       end
       true

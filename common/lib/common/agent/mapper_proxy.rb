@@ -197,8 +197,12 @@ module RightScale
     # === Return
     # true:: Always return true
     def publish(request)
-      exchange = {:type => :fanout, :name => "request", :options => {:durable => true, :no_declare => @secure}}
-      @broker.publish(exchange, request, :persistent => request.persistent, :log_filter => [:tags, :target, :tries])
+      begin
+        exchange = {:type => :fanout, :name => "request", :options => {:durable => true, :no_declare => @secure}}
+        @broker.publish(exchange, request, :persistent => request.persistent, :log_filter => [:tags, :target, :tries])
+      rescue Exception => e
+        RightLinkLog.error("Failed to publish #{request.to_s([:tags, :target, :tries])}: #{e.message}")
+      end
       true
     end
 
