@@ -296,50 +296,6 @@ module RightScale
       true
     end
 
-    # Receive and process a packet of any type
-    #
-    # === Parameters
-    # packet(Packet):: Packet to receive
-    #
-    # === Return
-    # true:: Always return true
-    def receive_any(packet)
-      RightLinkLog.debug("RECV #{packet.to_s}")
-      case packet
-      when Advertise
-        RightLinkLog.info("RECV #{packet.to_s}") unless RightLinkLog.level == :debug
-        advertise_services
-      when Request, Push
-        RightLinkLog.info("RECV #{packet.to_s([:from, :tags, :tries])}") unless RightLinkLog.level == :debug
-        @dispatcher.dispatch(packet)
-      when Result
-        RightLinkLog.info("RECV #{packet.to_s([])}") unless RightLinkLog.level == :debug
-        @mapper_proxy.handle_result(packet)
-      else
-        RightLinkLog.error("Agent #{@identity} received invalid packet: #{packet.to_s}")
-      end
-      true
-    end
-
-    # Receive and process a Request or Push packet; any other type is invalid
-    #
-    # === Parameters
-    # packet(Packet):: Packet to receive
-    #
-    # === Return
-    # true:: Always return true
-    def receive_request(packet)
-      RightLinkLog.debug("RECV #{packet.to_s}")
-      case packet
-      when Request, Push
-        RightLinkLog.info("RECV #{packet.to_s([:from, :tags, :tries])}") unless RightLinkLog.level == :debug
-        @dispatcher.dispatch(packet)
-      else
-        RightLinkLog.error("Agent #{@identity} received invalid request packet: #{packet.to_s}")
-      end
-      true
-    end
-
     # Setup the queues for this agent
     #
     # === Return
@@ -356,7 +312,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def setup_identity_queue
-      @broker.each do |b|
+      @broker.each_usable do |b|
         # Explicitly create direct exchange and bind queue to it
         # since may be binding this queue to multiple exchanges
         queue = b[:mq].queue(@identity, :durable => true)
@@ -370,11 +326,17 @@ module RightScale
 
         binding.subscribe(:ack => true) do |info, msg|
           begin
-            # Ack before processing to avoid risk of duplication after a crash
+            # Ack now before processing message to avoid risk of duplication after a crash
             info.ack
-            receive_any(@serializer.load(msg))
+            filter = [:from, :tags, :tries]
+            packet = @broker.receive(b, msg, Advertise => nil, Request => filter, Push => filter, Result => [])
+            case packet
+            when Advertise then advertise_services
+            when Request, Push then @dispatcher.dispatch(packet)
+            when Result then @mapper_proxy.handle_result(packet)
+            end
           rescue Exception => e
-            RightLinkLog.error("RECV #{e.message}")
+            RightLinkLog.error("RECV - Identity queue processing error: #{e.message}")
             @callbacks[:exception].call(e, msg, self) rescue nil if @callbacks && @callbacks[:exception]
           end
         end
@@ -389,13 +351,12 @@ module RightScale
     def setup_shared_queue
       queue = {:name => @shared_queue, :options => {:durable => true}}
       exchange = {:type => :direct, :name => @shared_queue, :options => {:durable => true}}
-      @broker.subscribe(queue, exchange, :ack => true) do |info, request|
+      filter = [:from, :tags, :tries]
+      @broker.subscribe(queue, exchange, :ack => true, Request => filter, Push => filter, :category => "request") do |request|
         begin
-          # Ack before processing to avoid risk of duplication after a crash
-          info.ack
-          receive_request(@serializer.load(request))
+          @dispatcher.dispatch(request) if request
         rescue Exception => e
-          RightLinkLog.error("RECV #{e.message}")
+          RightLinkLog.error("RECV - Shared queue processing error: #{e.message}")
           @callbacks[:exception].call(e, request, self) rescue nil if @callbacks && @callbacks[:exception]
         end
       end
@@ -408,7 +369,7 @@ module RightScale
     # true:: Always return true
     def setup_heartbeat
       EM.add_periodic_timer(@options[:ping_time]) do
-        publish('heartbeat', Ping.new(@identity, status_proc.call, @broker.connected, :no_log => true))
+        publish('heartbeat', Ping.new(@identity, status_proc.call, @broker.connected), :no_log => true)
       end
       true
     end

@@ -137,13 +137,13 @@ module RightScale
             begin
               handlers[:result_handler].call(res)
             rescue Exception => e
-              RightLinkLog.error("RECV #{e.message}")
+              RightLinkLog.error("RECV - Result processing error: #{e.message}")
               @callbacks[:exception].call(e, msg, self) rescue nil if @callbacks && @callbacks[:exception]
             end
           end
         end
       else
-        RightLinkLog.debug("RECV NO PENDING #{res.to_s([])}")
+        RightLinkLog.debug("RECV - No pending request for #{res.to_s([])}")
       end
       true
     end
