@@ -41,20 +41,26 @@ class InstanceServices
                                      :category       => RightScale::EventCategories::NONE) do |r|
       res = RightScale::OperationResult.from_results(r)
       if res.success?
-        auditor = RightScale::AuditorProxy.new(res.content)
+        audit_id = res.content
       else
         RightScale::RightLinkLog.error("Could not create audit entry for policy update: #{res.content}")
-        auditor = RightScale::AuditorProxy.new(nil)
+        audit_id = nil
       end
 
       begin
         audit = RightScale::LoginManager.instance.update_policy(new_policy)
-        auditor.create_new_section('Managed login policy updated', :category=>RightScale::EventCategories::CATEGORY_SECURITY)
-        auditor.append_info(audit)
+        RightScale::AuditorProxy.instance.create_new_section('Managed login policy updated', 
+                                                 :category => RightScale::EventCategories::CATEGORY_SECURITY, 
+                                                 :audit_id => audit_id)
+        RightScale::AuditorProxy.instance.append_info(audit, :audit_id => audit_id)
         status = RightScale::OperationResult.success
       rescue Exception => e
-        auditor.create_new_section('Failed to update managed login policy', :category=>RightScale::EventCategories::CATEGORY_SECURITY)
-        auditor.append_error("Error applying login policy: #{e.message}", :category=>RightScale::EventCategories::CATEGORY_ERROR)
+        RightScale::AuditorProxy.instance.create_new_section('Failed to update managed login policy',
+                                                 :category => RightScale::EventCategories::CATEGORY_SECURITY,
+                                                 :audit_id => audit_id)
+        RightScale::AuditorProxy.instance.append_error("Error applying login policy: #{e.message}",
+                                           :category => RightScale::EventCategories::CATEGORY_ERROR,
+                                           :audit_id => audit_id)
         RightScale::RightLinkLog.error("#{e.class.name}: #{e.message}\n#{e.backtrace.join("\n")}")
         status = RightScale::OperationResult.error("#{e.class.name} - #{e.message}")
       end            

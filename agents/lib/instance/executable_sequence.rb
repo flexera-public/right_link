@@ -50,8 +50,8 @@ module RightScale
     # bundle(RightScale::ExecutableBundle):: Bundle to be run
     def initialize(bundle)
       @description            = bundle.to_s
-      @auditor                = AuditorProxy.new(bundle.audit_id)
-      @right_scripts_cookbook = RightScriptsCookbook.new(@auditor.audit_id)
+      @audit_id               = bundle.audit_id
+      @right_scripts_cookbook = RightScriptsCookbook.new
       @scripts                = bundle.executables.select { |e| e.is_a?(RightScriptInstantiation) }
       recipes                 = bundle.executables.map    { |e| e.is_a?(RecipeInstantiation) ? e : @right_scripts_cookbook.recipe_from_right_script(e) }
       @cookbook_repos         = bundle.cookbook_repositories || []
@@ -65,7 +65,7 @@ module RightScale
       breakpoint = DevState.breakpoint
       recipes.each do |recipe|
         if recipe.nickname == breakpoint
-          @auditor.append_info("Breakpoint set, running recipes up to < #{breakpoint} >")
+          AuditorProxyStub.instance.append_info("Breakpoint set, running recipes up to < #{breakpoint} >", :audit_id => @audit_id)
           break
         end
         @run_list << recipe.nickname
@@ -115,7 +115,7 @@ module RightScale
       Ohai::Config.log_level RightLinkLog.level
 
       # Chef logging
-      logger = Multiplexer.new(AuditLogger.new(@auditor), RightLinkLog.logger)
+      logger = Multiplexer.new(AuditLogger.new(@audit_id), RightLinkLog.logger)
       Chef::Log.logger = logger
       Chef::Log.logger.level = RightLinkLog.level_from_sym(RightLinkLog.level)
 
@@ -144,15 +144,15 @@ module RightScale
     # true:: Always return true
     def download_attachments
       unless @scripts.all? { |s| s.attachments.empty? }
-        @auditor.create_new_section('Downloading attachments')
+        AuditorProxyStub.instance.create_new_section('Downloading attachments', :audit_id => @audit_id)
         audit_time do
           @scripts.each do |script|
             attach_dir = @right_scripts_cookbook.cache_dir(script)
             script.attachments.each do |a|
               script_file_path = File.join(attach_dir, a.file_name)
-              @auditor.update_status("Downloading #{a.file_name} into #{script_file_path}")
+              AuditorProxyStub.instance.update_status("Downloading #{a.file_name} into #{script_file_path}", :audit_id => @audit_id)
               if @downloader.download(a.url, script_file_path)
-                @auditor.append_info(@downloader.details)
+                AuditorProxyStub.instance.append_info(@downloader.details, :audit_id => @audit_id)
               else
                 report_failure("Failed to download attachment '#{a.file_name}'", @downloader.error)
                 return true
@@ -174,17 +174,17 @@ module RightScale
       @scripts.each { |s| packages.push(s.packages) if s.packages && !s.packages.empty? }
       return true if packages.empty?
       packages = packages.uniq.join(' ')
-      @auditor.create_new_section("Installing packages: #{packages}")
+      AuditorProxy.instance.create_new_section("Installing packages: #{packages}", :audit_id => @audit_id)
       success = false
       audit_time do
         success = retry_execution('Installation of packages failed, retrying...') do
           if File.executable? '/usr/bin/yum'
-            @auditor.append_output(`yum install -y #{packages} 2>&1`)
+            AuditorProxy.instance.append_output(`yum install -y #{packages} 2>&1`, :audit_id => @audit_id)
           elsif File.executable? '/usr/bin/apt-get'
             ENV['DEBIAN_FRONTEND']="noninteractive"
-            @auditor.append_output(`apt-get install -y #{packages} 2>&1`)
+            AuditorProxy.instance.append_output(`apt-get install -y #{packages} 2>&1`, :audit_id => @audit_id)
           elsif File.executable? '/usr/bin/zypper'
-            @auditor.append_output(`zypper --no-gpg-checks -n #{packages} 2>&1`)
+            AuditorProxy.instance.append_output(`zypper --no-gpg-checks -n #{packages} 2>&1`, :audit_id => @audit_id)
           else
             report_failure('Failed to install packages', 'Cannot find yum nor apt-get nor zypper binary in /usr/bin')
             return true # Not much more we can do here
@@ -206,13 +206,13 @@ module RightScale
       # Skip download if in dev mode and cookbooks repos directories already have files in them
       return true unless DevState.download_cookbooks?
 
-      @auditor.create_new_section('Retrieving cookbooks') unless @cookbook_repos.empty?
+      AuditorProxy.instance.create_new_section('Retrieving cookbooks', :audit_id => @audit_id) unless @cookbook_repos.empty?
       audit_time do
         @cookbook_repos.reverse.each do |repo|
           next if repo.repo_type == :local
-          @auditor.append_info("Downloading #{repo.url}")
+          AuditorProxy.instance.append_info("Downloading #{repo.url}", :audit_id => @audit_id)
           output = []
-          @scraper.scrape(repo) { |o, _| @auditor.append_output(o + "\n") }
+          @scraper.scrape(repo) { |o, _| AuditorProxy.instance.append_output(o + "\n", :audit_id => @audit_id) }
           if @scraper.succeeded?
             cookbooks_path = repo.cookbooks_path || []
             if cookbooks_path.empty?
@@ -220,7 +220,7 @@ module RightScale
             else
               cookbooks_path.each { |p| Chef::Config[:cookbook_path] << File.join(@scraper.last_repo_dir, p) }
             end
-            @auditor.append_output(output.join("\n"))
+            AuditorProxy.instance.append_output(output.join("\n"), :audit_id => @audit_id)
           else
             report_failure("Failed to download cookbooks #{repo.url}", @scraper.errors.join("\n"))
             return true
@@ -246,8 +246,8 @@ module RightScale
     # === Return
     # true:: Always return true
     def converge
-      @auditor.create_new_section("Converging")
-      @auditor.append_info("Run list: '#{@run_list.join("', '")} '")
+      AuditorProxy.instance.create_new_section("Converging", :audit_id => @audit_id)
+      AuditorProxy.instance.append_info("Run list: '#{@run_list.join("', '")} '", :audit_id => @audit_id)
       attribs = { 'recipes' => @run_list }
       attribs.merge!(@attributes) if @attributes
       c = Chef::Client.new
@@ -293,16 +293,12 @@ module RightScale
     # === Return
     # true:: Always return true
     def report_success(node)
-      if node
-        ChefState.merge_attributes(node.attribute)
-        patch = ChefState.create_patch(@inputs, ChefState.attributes)
-        # We don't want to send back new attributes (ohai etc.)
-        patch[:right_only] = {}
-        @inputs_patch = patch
-      else
-        @inputs_patch = ChefState.empty_patch
-      end
-      @auditor.update_status("completed: #{@description}")
+      ChefState.merge_attributes(node.attribute) if node
+      patch = ChefState.create_patch(@inputs, ChefState.attributes)
+      # We don't want to send back new attributes (ohai etc.)
+      patch[:right_only] = {}
+      @inputs_patch = patch
+      AuditorProxy.instance.update_status("completed: #{@description}", :audit_id => @audit_id)
       EM.next_tick { succeed }
       true
     end
@@ -318,9 +314,9 @@ module RightScale
     def report_failure(title, msg)
       @ok = false
       RightLinkLog.error(msg)
-      @auditor.update_status("failed: #{ @description }")
-      @auditor.append_error(title, :category=>RightScale::EventCategories::CATEGORY_ERROR)
-      @auditor.append_error(msg)
+      AuditorProxy.instance.update_status("failed: #{ @description }", :audit_id => @audit_id)
+      AuditorProxy.instance.append_error(title, :category => RightScale::EventCategories::CATEGORY_ERROR, :audit_id => @audit_id)
+      AuditorProxy.instance.append_error(msg, :audit_id => @audit_id)
       EM.next_tick { fail }
       true
     end
@@ -406,7 +402,7 @@ module RightScale
       begin
         count += 1
         success = yield
-        @auditor.append_info("\n#{retry_message}\n") unless success || count > times
+        AuditorProxy.instance.append_info("\n#{retry_message}\n", :audit_id => @audit_id) unless success || count > times
       end while !success && count <= times
       success
     end
@@ -420,9 +416,9 @@ module RightScale
     # res(Object):: Result returned by given block
     def audit_time
       start_time = Time.now
-      @auditor.append_info("Starting at #{start_time}")
+      AuditorProxy.instance.append_info("Starting at #{start_time}", :audit_id => @audit_id)
       res = yield
-      @auditor.append_info("Duration: #{'%.2f' % (Time.now - start_time)} seconds\n\n")
+      AuditorProxy.instance.append_info("Duration: #{'%.2f' % (Time.now - start_time)} seconds\n\n", :audit_id => @audit_id)
       res
     end
 

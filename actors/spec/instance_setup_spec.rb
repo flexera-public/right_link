@@ -70,15 +70,16 @@ describe InstanceSetup do
     tags_manager_mock = flexmock(RightScale::AgentTagsManager)
     tags_manager_mock.should_receive(:tags).and_yield []
     flexmock(RightScale::AgentTagsManager).should_receive(:instance).and_return(tags_manager_mock)
-    @auditor = RightScale::AuditorProxyMock.new
-    flexmock(RightScale::AuditorProxy).should_receive(:new).and_return(@auditor)
+    @auditor = RightScale::AuditorProxyMock.instance
+    flexmock(RightScale::AuditorProxy).should_receive(:instance).and_return(@auditor)
     @results_factory = RightScale::ResultsMock.new
     InstanceSetup.results_factory = @results_factory
     @mgr = RightScale::LoginManager.instance
     flexmock(@mgr).should_receive(:supported_by_platform?).and_return(true)
     flexmock(@mgr).should_receive(:write_keys_file).and_return(true)
+    status = flexmock('status', :success? => true)
+    flexmock(RightScale).should_receive(:popen3).and_return { |o| o[:target].send(o[:exit_handler], status) }
     setup_state
-    setup_script_execution
 
     # prevent Chef logging reaching the console during spec test.
     logger = flexmock(::RightScale::RightLinkLog.logger)
@@ -127,6 +128,9 @@ describe InstanceSetup do
     bundle = RightScale::InstantiationMock.script_bundle('__TestScripts', '__TestScripts_too')
     boot(policy, repos, bundle)
     res = @setup.report_state
+    if !res.success? || res.content != 'operational'
+      @auditor.audits.each { |a| puts a[:text] }
+    end
     res.should be_success
     res.content.should == 'operational'
   end

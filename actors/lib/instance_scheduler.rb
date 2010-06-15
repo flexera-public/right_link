@@ -59,8 +59,7 @@ class InstanceScheduler
   # res(RightScale::OperationResult):: Always returns success
   def schedule_bundle(bundle)
     unless bundle.executables.empty?
-      auditor = RightScale::AuditorProxy.new(bundle.audit_id)
-      auditor.update_status("Scheduling execution of #{bundle.to_s}")
+      RightScale::AuditorProxy.instance.update_status("Scheduling execution of #{bundle.to_s}", :audit_id => bundle.audit_id)
       @scheduled_bundles.push(bundle)
     end
     res = RightScale::OperationResult.success
@@ -105,10 +104,9 @@ class InstanceScheduler
     # 'terminate' will *not* shutdown the machine. This is so that when running the decommission
     # sequence as part of a non-soft termination we don't call shutdown.
     unless @post_decommission_callback
-      auditor = RightScale::AuditorProxy.new(options[:bundle].audit_id)
       @shutdown_timeout = EM::Timer.new(SHUTDOWN_DELAY) do
         msg = "Failed to decommission in less than #{SHUTDOWN_DELAY / 60} minutes, forcing shutdown"
-        auditor.append_error(msg, :category => RightScale::EventCategories::CATEGORY_ERROR)
+        RightScale::AuditorProxy.instance.append_error(msg, :category => RightScale::EventCategories::CATEGORY_ERROR, :audit_id => options[:bundle].audit_id)
         RightScale::InstanceState.shutdown(options[:user_id], options[:skip_db_update], options[:kind]) 
       end
       @post_decommission_callback = lambda do
@@ -204,8 +202,7 @@ class InstanceScheduler
       msg = "Chef bundle execution failed with exception: #{e.message}"
       RightScale::RightLinkLog.error(msg + "\n" + e.backtrace.join("\n"))
       if bundle != 'end'
-        auditor = AuditorProxy.new(bundle.audit_id)
-        auditor.append_error(msg, :category=>RightScale::EventCategories::CATEGORY_ERROR)
+        RightScale::AuditorProxy.instance.append_error(msg, :category => RightScale::EventCategories::CATEGORY_ERROR, :audit_id => bundle.audit_id)
       end
       fail
     end

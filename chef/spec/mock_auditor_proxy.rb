@@ -21,12 +21,16 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 require 'logger'
+require 'singleton'
 
 module RightScale
   module Test
 
     # mocks the AuditorProxy class used by RightLink for testing.
     class MockAuditorProxy < Logger
+
+      include Singleton
+
       def initialize
         super(nil)
         @debug_text = ""

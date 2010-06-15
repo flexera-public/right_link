@@ -26,17 +26,19 @@ module RightScale
 
   class AuditorProxyMock < AuditorProxy
 
+    include Singleton
+
     attr_accessor :audits
   
-    def initialize(audit_id = 1)
-      #super(audit_id)
+    def initialize
       @audits = []
-      @buffer = ''
+      @buffers = {}
+      @timers = {}
     end
 
     # Override raw audit to accumulate audits
-    def send_request(request, text)
-      a = { :audit_id => audit_id, :request => request, :text => text }
+    def send_request(request, options = {})
+      a = { :audit_id => options[:audit_id], :request => request, :text => options[:text] }
       @audits << a
     end
 

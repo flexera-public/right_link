@@ -52,9 +52,9 @@ describe InstanceScheduler do
     EM.instance_variable_set(:@threadqueue, [])
     EM.instance_variable_set(:@next_tick_queue, nil)
 
-    @auditor = RightScale::AuditorProxyMock.new
+    @auditor = RightScale::AuditorProxyMock.instance
     @controller = ControllerMock.new
-    flexmock(RightScale::AuditorProxy).should_receive(:new).and_return(@auditor)
+    flexmock(RightScale::AuditorProxy).should_receive(:instance).and_return(@auditor)
     flexmock(RightScale::Platform).should_receive(:controller).and_return(@controller)
     flexmock(RightScale::RequestForwarder.instance).should_receive(:push).with('/registrar/remove', Hash).and_return(true)
     flexmock(RightScale::RequestForwarder.instance).should_receive(:request).with('/state_recorder/record', { :state => 'operational', :agent_identity => '1' }, Proc).once

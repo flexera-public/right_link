@@ -122,16 +122,17 @@ class InstanceSetup
         res = RightScale::OperationResult.from_results(r)
         if res.success?
           policy  = res.content
-          auditor = RightScale::AuditorProxy.new(policy.audit_id)
           begin
             audit = RightScale::LoginManager.instance.update_policy(policy)
             if audit
-              auditor.create_new_section("Managed login enabled")
-              auditor.append_info(audit)
+              RightScale::AuditorProxy.instance.create_new_section("Managed login enabled", :audit_id => policy.audit_id)
+              RightScale::AuditorProxy.instance.append_info(audit, :audit_id => policy.audit_id)
             end
           rescue Exception => e
-            auditor.create_new_section('Failed to enable managed login')
-            auditor.append_error("Error applying login policy: #{e.message}", :category=>RightScale::EventCategories::CATEGORY_ERROR)
+            RightScale::AuditorProxy.instance.create_new_section('Failed to enable managed login', :audit_id => policy.audit_id)
+            RightScale::AuditorProxy.instance.append_error("Error applying login policy: #{e.message}", 
+                                               :category => RightScale::EventCategories::CATEGORY_ERROR,
+                                               :audit_id => policy.audit_id)
             RightScale::RightLinkLog.error("#{e.class.name}: #{e.message}\n#{e.backtrace.join("\n")}")
           end
         else
@@ -152,20 +153,20 @@ class InstanceSetup
     request("/booter/get_repositories", @agent_identity) do |r|
       res = RightScale::OperationResult.from_results(r)
       if res.success?
-        @auditor = RightScale::AuditorProxy.new(res.content.audit_id)
+        @audit_id = res.content.audit_id
         unless RightScale::Platform.windows?
           reps = res.content.repositories
           audit = "Using the following software repositories:\n"
           reps.each { |rep| audit += "  - #{rep.to_s}\n" }
-          @auditor.create_new_section("Configuring software repositories")
-          @auditor.append_info(audit)
+          RightScale::AuditorProxy.instance.create_new_section("Configuring software repositories", :audit_id => @audit_id)
+          RightScale::AuditorProxy.instance.append_info(audit, :audit_id => @audit_id)
           configure_repositories(reps)
-          @auditor.update_status("Software repositories configured")
+          RightScale::AuditorProxy.instance.update_status("Software repositories configured", :audit_id => @audit_id)
         end
-        @auditor.create_new_section('Preparing boot bundle')
+        RightScale::AuditorProxy.instance.create_new_section('Preparing boot bundle', :audit_id => @audit_id)
         prepare_boot_bundle do |prep_res|
           if prep_res.success?
-            @auditor.update_status('Boot bundle ready')
+            RightScale::AuditorProxy.instance.update_status('Boot bundle ready', :audit_id => @audit_id)
             run_boot_bundle(prep_res.content) do |boot_res|
               if boot_res.success?
                 RightScale::InstanceState.value = 'operational'
@@ -195,7 +196,9 @@ class InstanceSetup
   def strand(msg, res=nil)
     RightScale::InstanceState.value = 'stranded'
     msg += ": #{res.content}" if res && res.content
-    @auditor.append_error(msg, :category=>RightScale::EventCategories::CATEGORY_ERROR) if @auditor
+    RightScale::AuditorProxy.instance.append_error(msg, 
+                                                   :category => RightScale::EventCategories::CATEGORY_ERROR,
+                                                   :audit_id => @audit_id) if @audit_id
     true
   end
 
@@ -227,7 +230,7 @@ class InstanceSetup
     end
     if system('which apt-get')
       ENV['DEBIAN_FRONTEND'] = 'noninteractive' # this prevents prompts
-      @auditor.append_output(`apt-get update 2>&1`)
+      RightScale::AuditorProxy.instance.append_output(`apt-get update 2>&1`, :audit_id => @audit_id)
     elsif system('which yum') 
       `yum clean metadata`
     end
@@ -247,16 +250,16 @@ class InstanceSetup
     RightScale::AgentTagsManager.instance.tags do |tags|
       RightScale::InstanceState.startup_tags = tags
       if tags.empty?
-        @auditor.append_info("No tags discovered on startup")
+        RightScale::AuditorProxy.instance.append_info("No tags discovered on startup", :audit_id => @audit_id)
       else
-        @auditor.append_info("Tags discovered on startup: '#{tags.join("', '")}'")
+        RightScale::AuditorProxy.instance.append_info("Tags discovered on startup: '#{tags.join("', '")}'", :audit_id => @audit_id)
       end
       if @suicide_timer && !tags.include?('rs_launch:type=auto')
         # Someone removed the tag explicitely, cancel the timer
         @suicide_timer.cancel
         @suicide_timer = nil
       end
-      options = { :agent_identity => @agent_identity, :audit_id => @auditor.audit_id }
+      options = { :agent_identity => @agent_identity, :audit_id => @audit_id }
       request("/booter/get_boot_bundle", options) do |r|
         res = RightScale::OperationResult.from_results(r)
         if res.success?
@@ -315,7 +318,7 @@ class InstanceSetup
           yield
         else
           titles = pending_executables.map { |e| RightScale::RightScriptsCookbook.recipe_title(e.nickname) }
-          @auditor.append_info("Missing inputs for #{titles.join(", ")}, waiting...")
+          RightScale::AuditorProxy.instance.append_info("Missing inputs for #{titles.join(", ")}, waiting...", :audit_id => @audit_id)
           sleep(20)
           retrieve_missing_inputs(bundle, &cb)
         end

@@ -48,8 +48,7 @@ describe RightScale::ExecutableSequence do
 
       @bundle = RightScale::ExecutableBundle.new([ @script ], [], 0)
 
-      @auditor = flexmock('AuditorProxy')
-      @auditor.should_receive(:audit_id).and_return(1)
+      @auditor = flexmock(RightScale::AuditorProxy.instance)
       @auditor.should_receive(:create_new_section)
       @auditor.should_receive(:append_info)
       @auditor.should_receive(:append_output)
@@ -99,7 +98,6 @@ describe RightScale::ExecutableSequence do
         @script.should_receive(:packages).and_return(nil)
         @script.should_receive(:source).and_return(format_script_text(0))
         @sequence = RightScale::ExecutableSequence.new(@bundle)
-        @sequence.instance_variable_set(:@auditor, @auditor)
         flexmock(@sequence).should_receive(:install_packages).and_return(true)
         attachment = flexmock('A1')
         attachment.should_receive(:file_name).at_least.once.and_return('test_download')
@@ -116,7 +114,6 @@ describe RightScale::ExecutableSequence do
       @script.should_receive(:packages).and_return(nil)
       @script.should_receive(:source).and_return(format_script_text(1))
       @sequence = RightScale::ExecutableSequence.new(@bundle)
-      @sequence.instance_variable_set(:@auditor, @auditor)
       flexmock(@sequence).should_receive(:install_packages).and_return(true)
       attachment = flexmock('A2')
       attachment.should_receive(:file_name).at_least.once.and_return('test_download')
@@ -134,13 +131,12 @@ describe RightScale::ExecutableSequence do
       @script.should_receive(:packages).and_return(nil)
       @script.should_receive(:source).and_return(format_script_text(0))
       @sequence = RightScale::ExecutableSequence.new(@bundle)
-      @sequence.instance_variable_set(:@auditor, @auditor)
       attachment = flexmock('A3')
       attachment.should_receive(:url).and_return("http://thisurldoesnotexist.wrong")
       attachment.should_receive(:file_name).and_return("<FILENAME>") # to display any error message
       downloader = RightScale::Downloader.new(retry_period=0.1, use_backoff=false)
       @sequence.instance_variable_set(:@downloader, downloader)
-      flexmock(@auditor).should_receive(:append_error).twice
+      @auditor.should_receive(:append_error).twice
       @script.should_receive(:attachments).at_least.once.and_return([ attachment ])
       flexmock(RightScale::RightLinkLog).should_receive(:error)
       run_sequence.should be_false

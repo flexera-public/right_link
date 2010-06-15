@@ -26,8 +26,8 @@ require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'commo
 describe RightScale::AuditLogger do
 
   before(:each) do
-    @auditor = flexmock('Auditor')
-    @logger = RightScale::AuditLogger.new(@auditor)
+    @auditor = flexmock(RightScale::AuditorProxy.instance)
+    @logger = RightScale::AuditLogger.new(1)
     @logger.level = Logger::DEBUG
   end
 

@@ -86,7 +86,7 @@ EOF
     end
 
     before(:each) do
-      Chef::Log.logger = RightScale::Test::MockAuditorProxy.new
+      Chef::Log.logger = RightScale::Test::MockAuditorProxy.instance
     end
 
     after(:all) do

@@ -28,7 +28,7 @@ describe InstanceServices do
   include RightScale::SpecHelpers
 
   before(:each) do
-    @auditor_proxy = flexmock(RightScale::AuditorProxy)
+    @auditor_proxy = flexmock(RightScale::AuditorProxy.instance)
     @auditor_proxy.should_receive(:create_new_section).by_default
     @auditor_proxy.should_receive(:append_info).by_default
 
@@ -40,7 +40,6 @@ describe InstanceServices do
     flexmock(@services).should_receive(:request).
             with('/auditor/create_entry', Hash, Proc).
             and_yield(RightScale::ResultsMock.new.success_results('bogus_content'))
-    flexmock(RightScale::AuditorProxy).should_receive(:new).with('bogus_content').and_return(@auditor_proxy)
   end
 
   it 'should update login policy' do

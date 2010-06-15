@@ -24,10 +24,10 @@ require File.join(File.dirname(__FILE__), 'spec_helper')
 
 describe RightScale::AuditorProxy do
 
-	PROXY_TIMEOUT = 5
+  PROXY_TIMEOUT = 5
 
   before(:each) do
-    @proxy = RightScale::AuditorProxy.new(1)
+    @proxy = RightScale::AuditorProxy.instance
     @forwarder = flexmock(RightScale::RequestForwarder.instance)
   end
 
@@ -72,7 +72,7 @@ describe RightScale::AuditorProxy do
     @forwarder.should_receive(:push).once
     EM.run do
       EM.add_timer(RightScale::AuditorProxy::MAX_AUDIT_DELAY + 1) { EM.stop }
-      @proxy.append_output('OUTPUT')
+      @proxy.append_output('OUTPUT', :audit_id => 1)
     end
   end
 

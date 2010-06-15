@@ -161,6 +161,83 @@ module RightScale
       CommandIO.instance.reply(opts[:conn], "Request to remove tag '#{opts[:tag]}' sent successfully.")
     end
 
+    # Update audit summary
+    #
+    # === Parameters
+    # opts[:conn](EM::Connection):: Connection used to send reply
+    # opts[:title](Hash):: Chef attributes hash
+    #
+    # === Return
+    # true:: Always return true
+    def audit_update_status_command(opts)
+      AuditorProxy.instance.update_status(opts[:content], opts[:options])
+    end
+
+    # Update audit summary
+    #
+    # === Parameters
+    # opts[:conn](EM::Connection):: Connection used to send reply
+    # opts[:title](Hash):: Chef attributes hash
+    #
+    # === Return
+    # true:: Always return true
+    def audit_create_new_section_command(opts)
+      AuditorProxy.instance.create_new_section(opts[:content], opts[:options])
+    end
+
+    # Update audit summary
+    #
+    # === Parameters
+    # opts[:conn](EM::Connection):: Connection used to send reply
+    # opts[:title](Hash):: Chef attributes hash
+    #
+    # === Return
+    # true:: Always return true
+    def audit_append_output_command(opts)
+      AuditorProxy.instance.append_output(opts[:content], opts[:options])
+    end
+
+    # Update audit summary
+    #
+    # === Parameters
+    # opts[:conn](EM::Connection):: Connection used to send reply
+    # opts[:title](Hash):: Chef attributes hash
+    #
+    # === Return
+    # true:: Always return true
+    def audit_append_info_command(opts)
+      AuditorProxy.instance.append_info(opts[:content], opts[:options])
+    end
+
+    # Update audit summary
+    #
+    # === Parameters
+    # opts[:conn](EM::Connection):: Connection used to send reply
+    # opts[:title](Hash):: Chef attributes hash
+    #
+    # === Return
+    # true:: Always return true
+    def audit_append_error_command(opts)
+      AuditorProxy.instance.append_error(opts[:content], opts[:options])
+    end
+
+    # Update inputs patch to be sent back to core after cook process finishes
+    #
+    # === Parameters
+    # opts[:conn](EM::Connection):: Connection used to send reply
+    # opts[:patch](Hash):: Patch to be forwarded to core
+    #
+    # === Return
+    # true:: Always return true
+    def set_inputs_patch_command(opts)
+      if s = @scheduler.sequence
+        s.inputs_patch = opts[:patch]
+        CommandIO.instance.reply(opts[:conn], "OK")
+      else
+        CommandIO.instance.reply(opts[:conn], "No active sequence")
+      end
+    end
+
     # Helper method that sends given request and report status through command IO
     #
     # === Parameters

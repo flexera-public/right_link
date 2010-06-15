@@ -38,15 +38,15 @@ module RightScale
   # Used in combination with Chef to audit recipe execution output.
   class AuditLogger < ::Logger
 
-    # Underlying auditor proxy
-    attr_reader :auditor
+    # Underlying audit id
+    attr_reader :audit_id
 
     # Initialize audit logger, override Logger initialize since there is no need to initialize @logdev
     #
     # === Parameters
-    # auditor(RightScale::AuditorProxy):: Audit proxy used to audit logs
-    def initialize(auditor)
-      @auditor = auditor
+    # audit_id(Integer):: Audit id used to audit logs
+    def initialize(audit_id)
+      @audit_id = audit_id
       @progname = nil
       @level = INFO
       @default_formatter = AuditLogFormatter.new
@@ -72,7 +72,7 @@ module RightScale
     # === Parameters
     # msg(String):: Raw string to be appended to audit
     def <<(msg)
-      @auditor.append_output(msg)
+      AuditorProxy.instance.append_output(msg, :audit_id => @audit_id)
     end
 
     # Override Logger::add to audit instead of writing to log file
@@ -105,11 +105,12 @@ module RightScale
       when Logger::DEBUG
         RightLinkLog.debug(message)
       when Logger::INFO, Logger::WARN, Logger::UNKNOWN
-        @auditor.append_output(msg)
+        AuditorProxy.instance.append_output(msg, :audit_id => @audit_id)
       when Logger::ERROR
-        @auditor.append_error(msg)
+        AuditorProxy.instance.append_error(msg, :audit_id => @audit_id)
       when Logger::FATAL
-        @auditor.append_error(msg, :category=>RightScale::EventCategories::CATEGORY_ERROR)
+        AuditorProxy.instance.append_error(msg, :category => RightScale::EventCategories::CATEGORY_ERROR,
+                                                :audit_id => audit_id)
       end
       true
     end
@@ -125,7 +126,8 @@ module RightScale
     # === Return
     # true:: Always return true
     def create_new_section(title, options={})
-      @auditor.create_new_section(title, options)
+      options[:audit_id] = @audit_id
+      AuditorProxy.instance.create_new_section(title, options)
     end
 
   end
