@@ -1,4 +1,3 @@
-set-executionPolicy Default
 while ($TRUE)
 {
     $Error.clear()
@@ -10,7 +9,6 @@ while ($TRUE)
         try
         {
             write-output $RS_nextAction
-            set-executionpolicy -executionPolicy Unrestricted
             invoke-command -scriptblock $RS_nextAction
         }
         catch
@@ -19,7 +17,6 @@ while ($TRUE)
         }
         finally
         {
-            set-executionPolicy Default
             if ($RS_lastError -ne $NULL)
             {
                 write-output $RS_lastError

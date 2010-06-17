@@ -231,6 +231,28 @@ EOPS
   source source_text
 end
 EOF
+          ), :execution_policy_recipe => (
+<<EOF
+powershell 'test::execution_policy_recipe' do
+  source_text =
+<<EOPS
+  $local_machine_policy = get-executionpolicy -Scope LocalMachine
+  if($local_machine_policy -ne "Restricted")
+  {
+    Write-Error "Expected get-executionpolicy -Scope LocalMachine == 'Restricted', but was $local_machine_policy"
+    exit 100
+  }
+
+  $process_policy = get-executionpolicy -Scope Process
+  if ($process_policy -ne "RemoteSigned")
+  {
+    Write-Error "Expected get-executionpolicy -Scope Process == 'RemoteSigned', but was $process_policy"
+    exit 101
+  }
+EOPS
+  source source_text
+end
+EOF
           )
         }
       )
@@ -310,7 +332,7 @@ EOF
         RightScale::Test::ChefRunner.run_chef(
           PowershellProviderSpec::TEST_COOKBOOKS_PATH,
           'test::fail_powershell_recipe') }
-      runner.should raise_error(RightScale::Exceptions::Exec)
+      runner.should raise_exception(RightScale::Exceptions::Exec)
     end
 
     it "should not raise exceptions for expected exit codes on windows" do
@@ -420,6 +442,17 @@ EOF
       end
     end
 
+    it "should change the execution policy of the current process, but not the local machine" do
+      runner = lambda {
+        RightScale::Test::ChefRunner.run_chef(
+          PowershellProviderSpec::TEST_COOKBOOKS_PATH,
+          'test::execution_policy_recipe') }
+      runner.call.should == true
+
+      # ensure the policy is not changed after the test
+      (`powershell -command get-executionpolicy -Scope LocalMachine` =~ /Restricted/).should_not be_nil
+      (`powershell -command get-executionpolicy -Scope Process` =~ /Undefined/).should_not be_nil
+    end
   end
 
 end # if windows?

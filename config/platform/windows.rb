@@ -367,8 +367,7 @@ module RightScale
           # before insertion.
           # FIX: support digitally signed scripts and/or signing on the fly by
           # checking for a signature file side-by-side with script.
-          lines_before_script.insert(0, "set-executionpolicy -executionPolicy Unrestricted")
-          lines_after_script << "set-executionPolicy Default"
+          lines_before_script.insert(0, "set-executionpolicy -executionPolicy RemoteSigned -Scope Process")
           lines_after_script << "exit $LastExitCode"
 
           # format powershell command string.
@@ -434,7 +433,7 @@ module RightScale
         # the time the machine has been up in seconds, 0 if there was an error.
         def uptime
           begin
-            # convert to int then to float because float response parsed time does not have enough precision to be a float.  
+            # convert to int then to float because float response parsed time does not have enough precision to be a float.
             return (Time.now - Time.parse(`echo | wmic OS Get LastBootUpTime`.match(/(\d{14})\.\d{6}(-\d{3})/)[1..2].to_s)).to_i.to_f
           rescue
             return 0.0
