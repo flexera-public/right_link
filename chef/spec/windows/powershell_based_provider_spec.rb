@@ -247,7 +247,7 @@ EOF
       expected_message.gsub!("\\\\s", "\\s+").gsub!("\\.\\*", ".*")
 
       # find the log message
-      (logs.match(expected_message)).should_not be_nil
+      logs.should match(expected_message)
     end
 
   end

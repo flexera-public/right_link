@@ -489,7 +489,7 @@ EOF
       logs = Chef::Log::logger.info_text.gsub("\n", "")
 
       # should containing the expected exception
-      (logs.match(expected_message)).should_not be_nil
+      logs.should match(expected_message)
 
       # should not contain output after the exception was thrown
       (logs =~ /Should never get here/).should be_nil
