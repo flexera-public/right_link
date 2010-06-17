@@ -51,7 +51,7 @@ if RightScale::RightLinkConfig[:platform].windows?
       flexmock(Chef::Log).should_receive(:info).and_return { |m| @logs << m }
       #flexmock(Chef::Log).should_receive(:level).and_return(Logger::DEBUG)
 
-      # mock out Powershell script internals so we can run tests using the POwershell script provider
+      # mock out Powershell script internals so we can run tests using the Powershell script provider
       mock_instance_state = flexmock('MockInstanceState', :past_scripts => [], :record_script_execution => true)
       flexmock(Chef::Provider::Powershell).new_instances.should_receive(:instance_state).and_return(mock_instance_state)
     end
@@ -199,7 +199,7 @@ if RightScale::RightLinkConfig[:platform].windows?
       runner = lambda {
         RightScale::Test::ChefRunner.run_chef(PowershellBasedProviderSpec::TEST_COOKBOOK_PATH, 'test_cookbook::run_powershell_based_recipe_with_failing_action')
       }
-      runner.should raise_error(RightScale::Exceptions::Exec)
+      runner.should raise_exception(RightScale::Exceptions::Exec)
 
       #There 'Should' be string in the error log...
       @errors.length.should > 0
@@ -213,5 +213,42 @@ if RightScale::RightLinkConfig[:platform].windows?
       #There 'Should' NOT be string in the error log...
       @errors.should == ""
     end
+
+    it "should produce a readable powershell error when an exception is thrown from a provider action" do
+      runner = lambda {
+        RightScale::Test::ChefRunner.run_chef(PowershellBasedProviderSpec::TEST_COOKBOOK_PATH, 'test_cookbook::run_powershell_based_recipe_with_failing_action')
+      }
+      runner.should raise_exception(RightScale::Exceptions::Exec)
+
+      #There 'Should' be string in the error log...
+      @errors.length.should > 0
+      errors = @errors.gsub("\n", "")
+      (errors =~ /Unexpected exit code from action. Expected one of .* but returned 1.  Command/).should_not be_nil
+
+      logs = @logs.gsub("\n", "")
+
+      message_format = <<-EOF
+Get-Item : Cannot find path '.*foo' because it does not exist.
+At .*:2 char:9
++ Get-Item <<<<  "foo" -ea Stop
+    + CategoryInfo          : ObjectNotFound: (.*foo:String) [Get-Item], ItemNotFoundException
+    + FullyQualifiedErrorId : PathNotFound,Microsoft.PowerShell.Commands.GetItemCommand
++
++ The exception occurred near:
++
++       $testvar = 1
++       Get-Item  <<<< "foo" -ea Stop
++       exit
+EOF
+      # replace newlines and spaces
+      expected_message = Regexp.escape(message_format.gsub("\n", "").gsub(/\s+/, "\\s"))
+
+      # un-escape the escaped regex strings
+      expected_message.gsub!("\\\\s", "\\s+").gsub!("\\.\\*", ".*")
+
+      # find the log message
+      (logs.match(expected_message)).should_not be_nil
+    end
+
   end
 end

@@ -253,6 +253,19 @@ EOPS
   source source_text
 end
 EOF
+          ), :exception_out_of_recipe => (
+<<EOF
+powershell 'test::exception_out_of_recipe' do
+  source_text =
+<<EOPS
+  write-output "Line 1"
+  $testvar = 2
+  Throw [System.IndexOutOfRangeException]
+  write-output "Should never get here"
+EOPS
+  source source_text
+end
+EOF
           )
         }
       )
@@ -452,6 +465,34 @@ EOF
       # ensure the policy is not changed after the test
       (`powershell -command get-executionpolicy -Scope LocalMachine` =~ /Restricted/).should_not be_nil
       (`powershell -command get-executionpolicy -Scope Process` =~ /Undefined/).should_not be_nil
+    end
+
+    it "should produce a readable powershell error when an exception is thrown from a script" do
+      runner = lambda {
+        RightScale::Test::ChefRunner.run_chef(
+          PowershellProviderSpec::TEST_COOKBOOKS_PATH,
+          'test::exception_out_of_recipe') }
+      runner.should raise_exception(RightScale::Exceptions::Exec)
+      message_format = <<-EOF
+System.IndexOutOfRangeException
+At .*:3 char:8
++   Throw <<<<  [System.IndexOutOfRangeException]
+    + CategoryInfo          : OperationStopped: (System.IndexOutOfRangeException:RuntimeType) [], RuntimeException
+    + FullyQualifiedErrorId : System.IndexOutOfRangeException
+EOF
+      # replace newlines and spaces
+      expected_message = Regexp.escape(message_format.gsub("\n", "").gsub(/\s+/, "\\s"))
+
+      # un-escape the escaped regex strings
+      expected_message.gsub!("\\\\s", "\\s+").gsub!("\\.\\*", ".*")
+
+      logs = Chef::Log::logger.info_text.gsub("\n", "")
+
+      # should containing the expected exception
+      (logs.match(expected_message)).should_not be_nil
+
+      # should not contain output after the exception was thrown
+      (logs =~ /Should never get here/).should be_nil
     end
   end
 

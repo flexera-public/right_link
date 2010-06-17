@@ -21,12 +21,12 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 module RightScale
-  
+
   # This class is responsible for managing a Powershell process instance
   # It allows running Powershell scripts in the associated instance and will
   # log the script output.
   class PowershellHost
-    
+
     # Start the Powershell process synchronously
     # Set the instance variable :active to true once Powershell was
     # successfully started
@@ -38,6 +38,7 @@ module RightScale
       RightLinkLog.debug(format_log_message("Initializing"))
       @node           = options[:node]
       @provider_name  = options[:provider_name]
+      @returns        = options[:returns] || [0]
       @pipe_name      = "#{@provider_name}_#{Time.now.strftime("%Y-%m-%d-%H%M%S")}"
 
       @response_mutex = Mutex.new
@@ -61,7 +62,7 @@ module RightScale
 
       RightLinkLog.debug(format_log_message("Starting host"))
       start_powershell_process
-      
+
       RightLinkLog.debug(format_log_message("Initialized"))
     end
 
@@ -192,7 +193,7 @@ module RightScale
       end
 
       # the powershell provider script the host runs will return exit code of 100 if the last action threw an exception.
-      raise RightScale::Exceptions::Exec, "An error occurred executing the last action for the provider \"#{@provider_name}\"" if @exit_status && @exit_status.exitstatus == 100
+      raise RightScale::Exceptions::Exec, "Unexpected exit code from action. Expected one of [#{@returns.join(", ")}] but returned #{@exit_status.exitstatus}.  Command: #{command}" if @exit_status && !@returns.include?(@exit_status.exitstatus)
 
       true
     end
