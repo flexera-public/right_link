@@ -225,7 +225,7 @@ if RightScale::RightLinkConfig[:platform].windows?
       errors = @errors.gsub("\n", "")
       (errors =~ /Unexpected exit code from action. Expected one of .* but returned 1.  Command/).should_not be_nil
 
-      logs = @logs.gsub("\n", "")
+      logs = @logs.gsub(/\s+/, "")
 
       message_format = <<-EOF
 Get-Item : Cannot find path '.*foo' because it does not exist.
@@ -241,10 +241,10 @@ At .*:2 char:9
 +       exit
 EOF
       # replace newlines and spaces
-      expected_message = Regexp.escape(message_format.gsub("\n", "").gsub(/\s+/, "\\s"))
+      expected_message = Regexp.escape(message_format.gsub(/\s+/, ""))
 
       # un-escape the escaped regex strings
-      expected_message.gsub!("\\\\s", "\\s+").gsub!("\\.\\*", ".*")
+      expected_message.gsub!("\\.\\*", ".*")
 
       # find the log message
       logs.should match(expected_message)

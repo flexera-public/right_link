@@ -480,13 +480,13 @@ At .*:3 char:8
     + CategoryInfo          : OperationStopped: (System.IndexOutOfRangeException:RuntimeType) [], RuntimeException
     + FullyQualifiedErrorId : System.IndexOutOfRangeException
 EOF
-      # replace newlines and spaces
-      expected_message = Regexp.escape(message_format.gsub("\n", "").gsub(/\s+/, "\\s"))
+      # remove newlines and spaces
+      expected_message = Regexp.escape(message_format.gsub(/\s+/, ""))
 
       # un-escape the escaped regex strings
-      expected_message.gsub!("\\\\s", "\\s+").gsub!("\\.\\*", ".*")
+      expected_message.gsub!("\\.\\*", ".*")
 
-      logs = Chef::Log::logger.info_text.gsub("\n", "")
+      logs = Chef::Log::logger.info_text.gsub(/\s+/, "")
 
       # should containing the expected exception
       logs.should match(expected_message)
