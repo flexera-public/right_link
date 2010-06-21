@@ -41,22 +41,23 @@ class MQ
   end
 end
 
-# monkey patch to the amqp gem that adds :no_declare => true option for new 
-# Exchange objects. This allows us to send messages to exchanges that are
-# declared by the mappers and that we have no configuration privileges on.
+# monkey patch to the amqp gem that adds :no_declare => true option for new Queue objects.
+# This allows an instance that has no configuration privileges to enroll without blowing
+# up the AMQP gem when it tries to subscribe to its queue before it has been created.
+# Exchange :no_declare support is already in the eventmachine-0.12.10 gem.
 # temporary until we get this into amqp proper
-MQ::Exchange.class_eval do
-  def initialize(mq, type, name, opts = {})
+MQ::Queue.class_eval do
+  def initialize mq, name, opts = {}
     @mq = mq
-    @type, @name, @opts = type, name, opts
-    @mq.exchanges[@name = name] ||= self
-    @key = opts[:key]
-
-    @mq.callback{
-      @mq.send AMQP::Protocol::Exchange::Declare.new({ :exchange => name,
-                                                       :type => type,
-                                                       :nowait => true }.merge(opts))
-    } unless name == "amq.#{type}" or name == ''  or opts[:no_declare]
+    @opts = opts
+    @bindings ||= {}
+    @mq.queues[@name = name] ||= self
+    unless name == "amq.#{type}" or name == '' or opts[:no_declare]
+      @mq.callback{
+        @mq.send AMQP::Protocol::Queue::Declare.new({ :queue => name,
+                                                      :nowait => true }.merge(opts))
+      }
+    end
   end
 end
 
@@ -103,6 +104,23 @@ begin
       @reconnect_try += 1
       log 'reconnecting'
       EM.reconnect(@settings[:host], @settings[:port], self)
+    end
+  end
+
+  # monkey patch AMQP to clean up @conn when an error is raised after a broker request failure,
+  # otherwise AMQP becomes unusable
+  AMQP.module_eval do
+    def self.start *args, &blk
+      begin
+        EM.run{
+          @conn ||= connect *args
+          @conn.callback(&blk) if blk
+          @conn
+        }
+      rescue Exception => e
+        @conn = nil
+        raise e
+      end
     end
   end
 
@@ -211,7 +229,8 @@ module RightScale
     #
     # === Parameters
     # queue(Hash):: AMQP queue being subscribed with keys :name and :options
-    # exchange(Hash):: AMQP exchange to subscribe to with keys :type, :name, and :options
+    # exchange(Hash|nil):: AMQP exchange to subscribe to with keys :type, :name, and :options,
+    #   nil means use empty exchange by directly subscribing to queue
     # options(Hash):: Subscribe options:
     #   :ack(Boolean):: Explicitly acknowledge received messages to AMQP
     #   :no_unserialize(Boolean):: Do not unserialize message, this is an escape for special
@@ -234,28 +253,31 @@ module RightScale
     #
     # === Return
     # ids(Array):: Identity of AMQP brokers where successfully subscribed
-    def subscribe(queue, exchange, options = {}, &blk)
+    def subscribe(queue, exchange = nil, options = {}, &blk)
       ids = []
       each_usable do |b|
         begin
           q = b[:mq].queue(queue[:name], queue[:options] || {})
-          x = b[:mq].__send__(exchange[:type], exchange[:name], exchange[:options] || {})
+          if exchange
+            x = b[:mq].__send__(exchange[:type], exchange[:name], exchange[:options] || {})
+            q = q.bind(x)
+          end
           if options[:ack]
             # Ack now before processing to avoid risk of duplication after a crash
-            q.bind(x).subscribe(:ack => true) do |info, message|
+            q.subscribe(:ack => true) do |info, msg|
               info.ack
               if options[:no_unserialize] || @serializer.nil?
-                blk.call(b, message)
+                blk.call(b, msg)
               else
-                blk.call(receive(b, message, options))
+                blk.call(receive(b, queue[:name], msg, options))
               end
             end
           else
-            q.bind(x).subscribe do |message|
+            q.subscribe do |msg|
               if options[:no_unserialize] || @serializer.nil?
-                blk.call(b, message)
+                blk.call(b, msg)
               else
-                blk.call(receive(b, message, options))
+                blk.call(receive(b, queue[:name], msg, options))
               end
             end
           end
@@ -272,7 +294,8 @@ module RightScale
     #
     # === Parameters
     # broker(Hash):: Broker that delivered message
-    # message(String):: Serialized packet
+    # queue(String):: Name of queue
+    # msg(String):: Serialized packet
     # options(Hash):: Subscribe options:
     #   (packet class)(Array(Symbol)):: Filters to be applied in to_s when logging packet to :info,
     #     only packet classes specified are accepted, others are not processed but are logged with error
@@ -282,19 +305,24 @@ module RightScale
     #
     # === Return
     # (Packet|nil):: Unserialized packet or nil if not of right type
-    def receive(broker, message, options = {})
-      packet = @serializer.load(message)
-      if options.key?(packet.class)
-        unless options[:no_log]
-          log_filter = options[packet.class] unless RightLinkLog.level == :debug
-          RightLinkLog.__send__(RightLinkLog.level,
-            "RECV #{broker[:alias]} #{packet.to_s(log_filter)} #{options[:log_data]}")
+    def receive(broker, queue, msg, options = {})
+      begin
+        packet = @serializer.load(msg)
+        if options.key?(packet.class)
+          unless options[:no_log]
+            log_filter = options[packet.class] unless RightLinkLog.level == :debug
+            RightLinkLog.__send__(RightLinkLog.level,
+              "RECV #{broker[:alias]} #{packet.to_s(log_filter)} #{options[:log_data]}")
+          end
+          packet
+        else
+          category = options[:category] + " " if options[:category]
+          RightLinkLog.warn("RECV #{broker[:alias]} - Invalid #{category}packet type: #{packet.class}")
+          nil
         end
-        packet
-      else
-        category = options[:category] + " " if options[:category]
-        RightLinkLog.warn("RECV #{broker[:alias]} - Invalid #{category}packet type: #{packet.class}")
-        nil
+      rescue Exception => e
+        RightLinkLog.error("RECV #{broker[:alias]} - Failed to receive from queue #{queue}: #{e.message}")
+        raise e
       end
     end
 
@@ -322,7 +350,7 @@ module RightScale
     def publish(exchange, packet, options = {})
       ids = []
       allow = options[:brokers] || []
-      message = if options[:no_serialize] || @serializer.nil? then packet else @serializer.dump(packet) end
+      msg = if options[:no_serialize] || @serializer.nil? then packet else @serializer.dump(packet) end
       each_usable do |b|
         if allow.empty? || allow.include?(b[:identity])
           begin
@@ -332,12 +360,11 @@ module RightScale
               RightLinkLog.__send__(RightLinkLog.level,
                 "#{re}SEND #{b[:alias]} #{packet.to_s(log_filter)} #{options[:log_data]}")
             end
-            b[:mq].__send__(exchange[:type], exchange[:name], exchange[:options] || {}).publish(message, options)
+            b[:mq].__send__(exchange[:type], exchange[:name], exchange[:options] || {}).publish(msg, options)
             ids << b[:identity]
             break unless options[:fanout]
           rescue Exception => e
-            RightLinkLog.error("Failed to publish to exchange #{exchange.inspect} " +
-                               "on AMQP broker #{b[:identity]}, alias #{b[:alias]}: #{e.message}")
+            RightLinkLog.error("#{re}SEND #{b[:alias]} - Failed to publish to exchange #{exchange.inspect}: #{e.message}")
           end
         end
       end

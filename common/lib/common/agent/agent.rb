@@ -308,28 +308,18 @@ module RightScale
     end
 
     # Setup identity queue for this agent
+    # For infrastructure agents also attach queue to advertise exchange
     #
     # === Return
     # true:: Always return true
     def setup_identity_queue
       @broker.each_usable do |b|
-        # Explicitly create direct exchange and bind queue to it
-        # since may be binding this queue to multiple exchanges
-        queue = b[:mq].queue(@identity, :durable => true)
-        binding = queue.bind(b[:mq].direct(@identity, :durable => true, :auto_delete => true))
-
-        # A RightScale infrastructure agent must also bind to the advertise exchange so that
-        # a mapper that comes up after this agent can learn of its existence. The identity
-        # queue binds to both the identity and advertise exchanges, therefore the advertise
-        # exchange must be durable to match the identity exchange.
-        queue.bind(b[:mq].fanout("advertise", :durable => true)) if @options[:infrastructure]
-
-        binding.subscribe(:ack => true) do |info, msg|
+        handler = lambda do |info, msg|
           begin
             # Ack now before processing message to avoid risk of duplication after a crash
             info.ack
             filter = [:from, :tags, :tries]
-            packet = @broker.receive(b, msg, Advertise => nil, Request => filter, Push => filter, Result => [])
+            packet = @broker.receive(b, @identity, msg, Advertise => nil, Request => filter, Push => filter, Result => [])
             case packet
             when Advertise then advertise_services
             when Request, Push then @dispatcher.dispatch(packet)
@@ -339,6 +329,23 @@ module RightScale
             RightLinkLog.error("RECV - Identity queue processing error: #{e.message}")
             @callbacks[:exception].call(e, msg, self) rescue nil if @callbacks && @callbacks[:exception]
           end
+        end
+
+        queue = b[:mq].queue(@identity, :durable => true)
+        if @options[:infrastructure]
+          # Explicitly create direct exchange and bind queue to it
+          # since binding this queue to multiple exchanges
+          binding = queue.bind(b[:mq].direct(@identity, :durable => true, :auto_delete => true))
+
+          # A RightScale infrastructure agent must also bind to the advertise exchange so that
+          # a mapper that comes up after this agent can learn of its existence. The identity
+          # queue binds to both the identity and advertise exchanges, therefore the advertise
+          # exchange must be durable to match the identity exchange.
+          queue.bind(b[:mq].fanout("advertise", :durable => true)) if @options[:infrastructure]
+
+          binding.subscribe(:ack => true, &handler)
+        else
+          queue.subscribe(:ack => true, &handler)  
         end
       end
     end
