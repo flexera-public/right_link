@@ -42,8 +42,8 @@
 #      --kill, -k PIDFILE:  Kill process with given pid file
 #      --killall, -K:       Stop all running agents
 #      --status, -U:        List running agents on local machine
-#      --decommission, -d:  Send decom signal to instance agent
-#      --shutdown, -S:      Sends a terminate request to instance agent.
+#      --decommission, -d:  Send decommission signal to instance agent
+#      --shutdown, -S:      Sends a terminate request to instance agent
 #      --identity, -i ID    Use base id ID to build agent's identity
 #      --token, -t TOKEN    Use token TOKEN to build agent's identity
 #      --prefix, -r PREFIX  Prefix agent's identity with PREFIX
@@ -362,11 +362,6 @@ module RightScale
       else
         show(agent_pid_file_from_id(@options, id))
       end
-    end
-
-    # Name of agent at runtime (may differ for configuration by using alias)
-    def runtime_name
-      @options[:alias] || @options[:agent]
     end
 
     # Human readable name for managed entity
