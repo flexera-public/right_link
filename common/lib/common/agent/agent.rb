@@ -176,7 +176,8 @@ module RightScale
           pid_file.write
           at_exit { pid_file.remove }
         end
-        @broker = HA_MQ.new(@serializer, @options)
+        select = if @options[:infrastructure] then :random else :ordered end
+        @broker = HA_MQ.new(@serializer, @options.merge(:select => select))
         @registry = ActorRegistry.new
         @dispatcher = Dispatcher.new(@broker, @registry, @identity, @options)
         @mapper_proxy = MapperProxy.new(@identity, @broker, @options)

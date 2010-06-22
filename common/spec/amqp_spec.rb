@@ -24,6 +24,7 @@ require File.join(File.dirname(__FILE__), 'spec_helper')
 require 'tmpdir'
 
 describe RightScale::HA_MQ do
+  include FlexMock::ArgumentTypes
 
   describe "Addressing" do
 
@@ -324,6 +325,15 @@ describe RightScale::HA_MQ do
       ha_mq.publish({:type => :direct, :name => "exchange"}, @packet).should == ["rs-broker-host_b-5672"]
     end
 
+    it "should publish to a randomly selected, connected broker if random requested" do
+      @serializer.should_receive(:dump).with(@packet).and_return(@message).once
+      @mq.should_receive(:direct).with("exchange", {}).and_return(@direct).once
+      @direct.should_receive(:publish).with(@message, {}).once
+      ha_mq = RightScale::HA_MQ.new(@serializer, :host => "host_a, host_b, host_c", :select => :random)
+      srand(100)
+      ha_mq.publish({:type => :direct, :name => "exchange"}, @packet).should == ["rs-broker-host_b-5672"]
+    end
+
     it "should publish to all connected brokers if fanout requested" do
       @serializer.should_receive(:dump).with(@packet).and_return(@message).once
       @mq.should_receive(:direct).with("exchange", {}).and_return(@direct).twice
@@ -331,6 +341,39 @@ describe RightScale::HA_MQ do
       ha_mq = RightScale::HA_MQ.new(@serializer, :host => "host_a, host_b")
       ha_mq.publish({:type => :direct, :name => "exchange"}, @packet, :fanout => true).
         should == ["rs-broker-host_a-5672", "rs-broker-host_b-5672"]
+    end
+
+    it "should publish to first connected broker in selected broker list if requested" do
+      @serializer.should_receive(:dump).with(@packet).and_return(@message).once
+      @mq.should_receive(:direct).with("exchange", {}).and_return(@direct).once
+      @direct.should_receive(:publish).with(@message, Hash).once
+      ha_mq = RightScale::HA_MQ.new(@serializer, :host => "host_a, host_b, host_c")
+      ha_mq.publish({:type => :direct, :name => "exchange"}, @packet,
+                    :brokers => ["rs-broker-host_c-5672", "rs-broker-host_a-5672"]).
+        should == ["rs-broker-host_c-5672"]
+    end
+
+    it "should publish to first connected broker in selected broker list if requested even if initialized with random" do
+      @serializer.should_receive(:dump).with(@packet).and_return(@message).once
+      @mq.should_receive(:direct).with("exchange", {}).and_return(@direct).once
+      @direct.should_receive(:publish).with(@message, Hash).once
+      ha_mq = RightScale::HA_MQ.new(@serializer, :host => "host_a, host_b, host_c", :select => :random)
+      flexmock(ha_mq).should_receive(:rand).never
+      ha_mq.publish({:type => :direct, :name => "exchange"}, @packet,
+                    :brokers => ["rs-broker-host_c-5672", "rs-broker-host_a-5672"]).
+        should == ["rs-broker-host_c-5672"]
+    end
+
+    it "should publish to randomly selected, connected broker in selected broker list if random requested" do
+      @serializer.should_receive(:dump).with(@packet).and_return(@message).once
+      @mq.should_receive(:direct).with("exchange", {}).and_return(@direct).once
+      @direct.should_receive(:publish).with(@message, Hash).once
+      ha_mq = RightScale::HA_MQ.new(@serializer, :host => "host_a, host_b, host_c")
+      srand(100)
+      ha_mq.publish({:type => :direct, :name => "exchange"}, @packet,
+                    :brokers => ["rs-broker-host_c-5672", "rs-broker-host_a-5672"],
+                    :select => :random).
+        should == ["rs-broker-host_a-5672"]
     end
 
     it "should log an error if the publish fails" do

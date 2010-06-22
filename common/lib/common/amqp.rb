@@ -175,13 +175,18 @@ module RightScale
     #     e.g., "host_a:0, host_c:2"
     #   :port(String|Integer):: Comma-separated list of AMQP broker port numbers corresponding to :host list;
     #     if only one, it is incremented and applied to successive hosts; if none, defaults to AMQP::PORT
+    #   :select(Symbol):: Broker selection algorithm when publishing a message: :random or :ordered,
+    #     defaults to :ordered, value can be overridden on publish call
     #
     # === Raise
     # (RightScale::Exceptions::Argument):: If :host and :port are not matched lists
     def initialize(serializer, options = {})
       @serializer = serializer
       index = -1
+      @select = options[:select] || :ordered
       @brokers = self.class.addresses(options[:host], options[:port]).map { |a| connect(a, options) }
+      @brokers_hash = {}
+      @brokers.each { |b| @brokers_hash[b[:identity]] = b }
     end
 
     # Parse host and port information to form list of broker address information
@@ -333,8 +338,10 @@ module RightScale
     # exchange(Hash):: AMQP exchange to subscribe to with keys :type, :name, and :options
     # packet(Packet):: Packet to serialize and publish
     # options(Hash):: Publish options -- standard AMQP ones plus
-    #   :fanout(Boolean):: true means publish to all usable brokers
-    #   :brokers(Array):: Identity of brokers allowed to use, defaults to all
+    #   :fanout(Boolean):: true means publish to all allowed usable brokers
+    #   :brokers(Array):: Identity of brokers allowed to use, defaults to all if nil or empty
+    #   :select(Symbol):: Broker selection algorithm: :random or :ordered,
+    #     defaults to @select if :brokers is nil, otherwise defaults to :ordered
     #   :no_serialize(Boolean):: Do not serialize packet because it is already serialized,
     #     this is an escape for special situations like enrollment, also implicitly disables
     #     publish logging; this option is implicitly invoked if initialize without a serializer
@@ -349,10 +356,9 @@ module RightScale
     # (RightScale::Exceptions::IO):: If cannot find a usable AMQP broker connection
     def publish(exchange, packet, options = {})
       ids = []
-      allow = options[:brokers] || []
       msg = if options[:no_serialize] || @serializer.nil? then packet else @serializer.dump(packet) end
-      each_usable do |b|
-        if allow.empty? || allow.include?(b[:identity])
+      use(options).each do |b|
+        if b[:status] == :connected
           begin
             unless options[:no_log] || options[:no_serialize] || @serializer.nil?
               re = "RE" if packet.respond_to?(:tries) && !packet.tries.empty?
@@ -369,7 +375,7 @@ module RightScale
         end
       end
       if ids.empty?
-        allowed = "the allowed " unless allow.empty?
+        allowed = "the allowed " if options[:brokers]
         count = (options[:brokers].size if options[:brokers]) || @brokers.size
         raise RightScale::Exceptions::IO, "None of #{allowed}#{count} AMQP broker connections are usable"
       end
@@ -549,7 +555,7 @@ module RightScale
         mq = MQ.new(connection)
         broker = {:mq => mq, :connection => connection, :identity => identity, :alias => alias_, :status => :connected}
         mq.__send__(:connection).connection_status { |status| update_status(broker, status) }
-        RightLinkLog.info("[setup] Connected to AMQP broker #{identity} #{broker[:mq]}, alias #{alias_}")
+        RightLinkLog.info("[setup] Connected to AMQP broker #{identity}, alias #{alias_}")
         broker
       rescue Exception => e
         RightLinkLog.error("[setup] Failed to connect to AMQP broker #{identity}, alias #{alias_}: #{e.message}")
@@ -570,13 +576,36 @@ module RightScale
       broker[:status] = status
       after = connected
       RightLinkLog.info("[status] AMQP broker #{broker[:identity]} #{broker[:mq]}, alias #{broker[:alias]}, is now #{status} " +
-                        "for a total of #{after.size} usable brokers. Before=#{before} After=#{after}") unless before == after
+                        "for a total of #{after.size} usable brokers") unless before == after
       if before.size == 0 && after.size > 0
         @connection_status.call(:connected) if @connection_status
       elsif before.size > 0 && after.size == 0
         @connection_status.call(:disconnected) if @connection_status
       end
       true
+    end
+
+    # Select the brokers to be used in the desired order
+    #
+    # === Parameters
+    # options(Hash):: Selection options:
+    #   :brokers(Array):: Identity of brokers allowed to use, defaults to all if nil or empty
+    #   :select(Symbol):: Broker selection algorithm: :random or :ordered,
+    #     defaults to @select if :brokers is nil, otherwise defaults to :ordered
+    #
+    # === Return
+    # (Array):: Allowed brokers in the order to be used
+    def use(options)
+      choices, select = if options[:brokers] && !options[:brokers].empty?
+        [options[:brokers].map { |a| @brokers_hash[a] }, options[:select]]
+      else
+        [@brokers, (options[:select] || @select)]
+      end
+      if select == :random
+        choices.sort_by { rand }
+      else
+        choices
+      end
     end
 
   end # HA_MQ
