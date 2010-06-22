@@ -43,7 +43,7 @@ class InstanceSetup
     agent_identity = options[:identity]
     RightScale::InstanceState.init(agent_identity)
     should_suicide = options[:auto_shutdown] && RightScale::InstanceState.initial_boot
-    @suicide_timer = EM.add_timer(SUICIDE_DELAY) do
+    @suicide_timer = EM::Timer.new(SUICIDE_DELAY) do
       RightScale::RightLinkLog.error "Shutting down after having tried to boot for #{SUICIDE_DELAY / 60} minutes"
       RightScale::Platform.controller.shutdown 
     end if should_suicide 
