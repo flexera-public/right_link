@@ -51,8 +51,8 @@ module RightScale
       # 3. Run bundle
       @@instance = self
       success = nil
-      RightLinkLog.init(options[:agent_identity], options[:log_path])
-      InstanceState.init(options[:agent_identity])
+      RightLinkLog.init(options[:identity], options[:log_path])
+      InstanceState.init(options[:identity])
       sequence = ExecutableSequence.new(bundle)
       EM.run do
         begin
