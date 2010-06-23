@@ -106,7 +106,7 @@ module RightScale
         cfg = File.join(root_dir, 'config.yml')
         if File.exists?(cfg)
           options = symbolize(YAML.load(IO.read(cfg))) rescue {} || {}
-          options[:agent_identity] = "nanite-#{options[:identity]}"
+          options[:agent_identity] = AgentIdentity.nanite_from_serialized(options[:identity])
           options[:log_path] = options[:log_dir] || Platform.filesystem.log_dir
           pid_file = PidFile.new(options[:agent_identity], options)
           options.merge!(pid_file.read_pid) if pid_file.exists?
