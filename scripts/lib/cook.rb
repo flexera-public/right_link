@@ -16,6 +16,8 @@ BASE_DIR = File.normalize_path(File.join(File.dirname(__FILE__), '..', '..'))
 
 require File.join(BASE_DIR, 'agents', 'lib', 'instance')
 require File.join(BASE_DIR, 'agents', 'lib', 'instance', 'cook')
+require File.join(BASE_DIR, 'chef', 'lib', 'providers')
+require File.join(BASE_DIR, 'chef', 'lib', 'plugins')
 require File.join(BASE_DIR, 'common', 'lib', 'common')
 require File.join(BASE_DIR, 'command_protocol', 'lib', 'command_protocol')
 require File.join(BASE_DIR, 'payload_types', 'lib', 'payload_types')
