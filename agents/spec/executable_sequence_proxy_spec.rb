@@ -55,9 +55,13 @@ describe RightScale::ExecutableSequenceProxy do
       cmd = o[:command] 
       o[:target].send(o[:exit_handler], status)
     end
-    @proxy.run 
-    cook_util_path = File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'scripts', 'lib', 'cook.rb'))
-    cmd.should include("ruby \"#{cook_util_path}\"")
+    @proxy.run
+
+    # note that normalize_path makes it tricky to guess at full command string
+    # so it is best to rely on config constants.
+    cook_util_path = File.join(RightScale::RightLinkConfig[:right_link_path], 'scripts', 'lib', 'cook.rb')
+    expected = "#{RightScale::RightLinkConfig[:sandbox_ruby_cmd]} \"#{cook_util_path}\""
+    cmd.should == expected
   end
 
   it 'should report failures when cook fails' do
