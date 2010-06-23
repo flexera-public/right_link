@@ -35,6 +35,7 @@ module RightScale
     def initialize(identity, options)
       @pid_dir = File.normalize_path(options[:pid_dir] || options[:root] || Dir.pwd)
       @pid_file = File.join(@pid_dir, "nanite.#{identity}.pid")
+      @cookie_file = File.join(@pid_dir, "nanite.#{identity}.cookie")
     end
 
     # Check whether pid file can be created
@@ -60,7 +61,7 @@ module RightScale
     # true:: Always return true
     def write
       FileUtils.mkdir_p(@pid_dir)
-      open(@pid_file,'w') { |f| f.write(YAML.dump({ :pid => Process.pid })) }
+      open(@pid_file,'w') { |f| f.write(Process.pid) }
       File.chmod(0644, @pid_file)
       true
     end
@@ -74,10 +75,9 @@ module RightScale
     # === Return
     # true:: Always return true
     def set_command_options(options)
-      content = read_pid
-      content[:listen_port] = options[:listen_port]
-      content[:cookie] = options[:cookie]
-      open(@pid_file,'w') { |f| f.write(YAML.dump(content)) }
+      content = { :listen_port => options[:listen_port], :cookie => options[:cookie] }
+      open(@cookie_file,'w') { |f| f.write(YAML.dump(content)) }
+      File.chmod(0600, @cookie_file)
       true
     end
 
@@ -87,6 +87,7 @@ module RightScale
     # true:: Always return true
     def remove
       File.delete(@pid_file) if exists?
+      File.delete(@cookie_file) if File.exists?(@cookie_file)
       true
     end
     
@@ -97,7 +98,13 @@ module RightScale
     # content(Hash):: Hash containing 3 keys :pid, :cookie and :port
     def read_pid
       content = {}
-      open(@pid_file,'r') { |f| content = YAML.load(f.read) rescue {} } if exists?
+      if exists?
+        open(@pid_file,'r') { |f| content[:pid] = f.read.to_i }
+        open(@cookie_file,'r') do |f|
+          command_options = YAML.load(f.read) rescue {}
+          content.merge!(command_options)
+        end if File.exists?(@cookie_file)
+      end
       content
     end
     
