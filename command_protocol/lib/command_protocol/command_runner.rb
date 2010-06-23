@@ -58,7 +58,7 @@ module RightScale
         CommandIO.instance.listen(socket_port) do |c, conn|
           begin
             cmd_cookie = c[:cookie]
-            if cmd_cookie == cookie
+            if cmd_cookie == @cookie
               cmd_name = c[:name].to_sym
               if commands.include?(cmd_name)
                 commands[cmd_name].call(c, conn)

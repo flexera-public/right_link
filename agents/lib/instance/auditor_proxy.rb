@@ -47,7 +47,7 @@ module RightScale
     # in seconds
     MAX_AUDIT_DELAY = 2
 
-    # Initialize auditor proxy with given audit id
+    # Initialize auditor proxy
     def initialize
       @buffers = {}
     end
@@ -186,9 +186,6 @@ module RightScale
 
     # Send any buffered output to auditor
     #
-    # === Parameters
-    # audit_id(Integer):: Key in buffers hash corresponding to buffer that should be flushed
-    #
     # === Return
     # Always return true
     def flush_buffer
@@ -198,9 +195,6 @@ module RightScale
     end
 
     # Set or reset timer for buffer flush
-    #
-    # === Parameters
-    # audit_id(Integer):: Key in buffers hash corresponding to timer that should be reset
     #
     # === Return
     # true:: Always return true
