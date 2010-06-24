@@ -19,81 +19,29 @@
 # LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-require 'logger'
-require 'singleton'
-
 module RightScale
   module Test
+    module MockAuditorProxy
+      def mock_chef_log(logger)
+        flexmock(Chef::Log).should_receive(:debug).and_return { |m| logger.debug_text << m }
+        flexmock(Chef::Log).should_receive(:error).and_return { |m| logger.error_text << m }
+        flexmock(Chef::Log).should_receive(:fatal).and_return { |m| logger.fatal_text << m }
+        flexmock(Chef::Log).should_receive(:info).and_return { |m| logger.info_text << m }
+        flexmock(Chef::Log).should_receive(:warn).and_return { |m| logger.warn_text << m }
+      end
 
-    # mocks the AuditorProxy class used by RightLink for testing.
-    class MockAuditorProxy < Logger
+      module_function :mock_chef_log
+    end
 
-      include Singleton
+    class MockLogger
+      attr_accessor :debug_text, :error_text, :fatal_text, :info_text, :warn_text
 
       def initialize
-        super(nil)
         @debug_text = ""
         @error_text = ""
         @fatal_text = ""
         @info_text = ""
         @warn_text = ""
-      end
-
-      attr_reader :debug_text, :error_text, :fatal_text, :info_text, :warn_text
-
-      def ensure_newline(message)
-        return "#{message.chomp}\n"
-      end
-
-      def append_debug(message)
-        @debug_text << ensure_newline(message)
-      end
-
-      def append_error(message)
-        @error_text << ensure_newline(message)
-      end
-
-      def append_fatal(message)
-        @fatal_text << ensure_newline(message)
-      end
-
-      def append_info(message)
-        @info_text << ensure_newline(message)
-      end
-
-      def append_output(message)
-        @info_text << ensure_newline(message)
-      end
-
-      def append_warn(message)
-        @warn_text << ensure_newline(message)
-      end
-
-      def add(severity, message = nil, progname = nil, &block)
-        severity ||= Logger::UNKNOWN
-        if severity < @level
-          return true
-        end
-        progname ||= @progname
-        if message.nil?
-          if block
-            message = block.call
-          else
-            message = progname
-            progname = @progname
-          end
-        end
-
-        case severity
-        when Logger::DEBUG then append_debug(message)
-        when Logger::ERROR then append_error(message)
-        when Logger::FATAL then append_fatal(message)
-        when Logger::INFO then append_info(message)
-        when Logger::WARN then append_warn(message)
-        end
-
-        true
       end
     end
   end

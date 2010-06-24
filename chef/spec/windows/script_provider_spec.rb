@@ -63,18 +63,18 @@ EOF
   end
 
   describe Chef::Provider::Script do
-
+    include RightScale::Test::MockAuditorProxy
+    
     before(:all) do
-      @old_logger = Chef::Log.logger
       ScriptProviderSpec.create_cookbook
     end
 
     before(:each) do
-      Chef::Log.logger = RightScale::Test::MockAuditorProxy.instance
+      @logger = RightScale::Test::MockLogger.new
+      mock_chef_log(@logger)
     end
 
     after(:all) do
-      Chef::Log.logger = @old_logger
       ScriptProviderSpec.cleanup
     end
 
@@ -88,9 +88,9 @@ EOF
       # note that Chef::Mixin::Command has changed to redirect both stdout and
       # stderr to info because the stderr stream is used for verbose output and
       # not necessarily errors by some Linux utilities.
-      Chef::Log.logger.error_text.should == "";
-      Chef::Log.logger.info_text.should include("message for stderr")
-      Chef::Log.logger.info_text.should include("message for stdout")
+      @logger.error_text.should == "";
+      @logger.info_text.should include("message for stderr")
+      @logger.info_text.should include("message for stdout")
     end
 
     it "should raise exceptions for failing chef scripts on windows" do

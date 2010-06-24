@@ -70,19 +70,19 @@ EOF
   end
 
   describe Chef::Provider::Template do
+    include RightScale::Test::MockAuditorProxy
 
     before(:all) do
-      @old_logger = Chef::Log.logger
       TemplateProviderSpec.create_cookbook
       FileUtils.mkdir_p(File.dirname(TemplateProviderSpec::TEST_FILE_PATH))
     end
 
     before(:each) do
-      Chef::Log.logger = RightScale::Test::MockAuditorProxy.instance
+      @logger = RightScale::Test::MockLogger.new
+      mock_chef_log(@logger)
     end
 
     after(:all) do
-      Chef::Log.logger = @old_logger
       TemplateProviderSpec.cleanup
     end
 

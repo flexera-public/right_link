@@ -85,19 +85,19 @@ EOF
   end
 
   describe Chef::Provider::Directory do
+    include RightScale::Test::MockAuditorProxy
 
     before(:all) do
-      @old_logger = Chef::Log.logger
       DirectoryProviderSpec.create_cookbook
       FileUtils.mkdir_p(File.dirname(DirectoryProviderSpec::TEST_DIR_PATH))
     end
 
     before(:each) do
-      Chef::Log.logger = RightScale::Test::MockAuditorProxy.instance
+      @logger = RightScale::Test::MockLogger.new
+      mock_chef_log(@logger)
     end
 
     after(:all) do
-      Chef::Log.logger = @old_logger
       DirectoryProviderSpec.cleanup
     end
 

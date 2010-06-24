@@ -34,6 +34,7 @@ if RightScale::RightLinkConfig[:platform].windows?
   end
 
   describe "Powershell::Provider - Given a cookbook containing a powershell provider" do
+    include RightScale::Test::MockAuditorProxy
 
     before(:each) do
       @original_logger = ::Chef::Log.logger
@@ -44,12 +45,11 @@ if RightScale::RightLinkConfig[:platform].windows?
       ::Chef::Log.logger = Logger.new(@log_file)
       RightScale::RightLinkLog.level = :debug
 
-      @errors = ""
-      @logs = ""
-      flexmock(Chef::Log).should_receive(:error).and_return { |m| @errors << m }
-      flexmock(RightScale::RightLinkLog).should_receive(:error).and_return { |m| @errors << m }
-      flexmock(Chef::Log).should_receive(:info).and_return { |m| @logs << m }
-      #flexmock(Chef::Log).should_receive(:level).and_return(Logger::DEBUG)
+      @logger = RightScale::Test::MockLogger.new
+      mock_chef_log(@logger)
+
+      flexmock(RightScale::RightLinkLog).should_receive(:error).and_return { |m| @logger.error_text << m }
+      # flexmock(Chef::Log).should_receive(:level).and_return(Logger::DEBUG)
 
       # mock out Powershell script internals so we can run tests using the Powershell script provider
       mock_instance_state = flexmock('MockInstanceState', :past_scripts => [], :record_script_execution => true)
@@ -73,10 +73,10 @@ if RightScale::RightLinkConfig[:platform].windows?
         RightScale::Test::ChefRunner.run_chef(PowershellBasedProviderSpec::TEST_COOKBOOK_PATH, 'test_cookbook::run_powershell_based_simple_recipe')
       }
       runner.call.should == true
-      @errors.should == ""
+      @logger.error_text.should == ""
 
       # TODO: verify order of execution
-      logs = @logs.gsub("\n", "")
+      logs = @logger.info_text.gsub("\n", "")
       logs.scan(/\/simple_encode\/_init.ps1/).length.should == 1
       logs.scan(/init simple encode/).length.should == 1
 
@@ -97,10 +97,10 @@ if RightScale::RightLinkConfig[:platform].windows?
         RightScale::Test::ChefRunner.run_chef(PowershellBasedProviderSpec::TEST_COOKBOOK_PATH, 'test_cookbook::run_powershell_based_recipe_with_resources')
       }
       runner.call.should == true
-      @errors.should == ""
+      @logger.error_text.should == ""
 
       # TODO: verify order of execution
-      logs = @logs.gsub("\n", "")
+      logs = @logger.info_text.gsub("\n", "")
       logs.scan(/\/encode\/_init.ps1/).length.should == 1
       logs.scan(/init encode/).length.should == 1
       (logs =~ /\/encode\/url_encode.ps1/).should_not be_nil
@@ -133,10 +133,10 @@ if RightScale::RightLinkConfig[:platform].windows?
         RightScale::Test::ChefRunner.run_chef(PowershellBasedProviderSpec::TEST_COOKBOOK_PATH, 'test_cookbook::mix_of_powershell_script_and_powershell_providers')
       }
       runner.call.should == true
-      @errors.should == ""
+      @logger.error_text.should == ""
 
       # TODO: verify order of execution
-      logs = @logs.gsub("\n", "")
+      logs = @logger.info_text.gsub("\n", "")
       logs.scan(/\/encode\/_init.ps1/).length.should == 1
       logs.scan(/init encode/).length.should == 1
       (logs =~ /\/encode\/url_encode.ps1/).should_not be_nil
@@ -188,9 +188,9 @@ if RightScale::RightLinkConfig[:platform].windows?
         end
       }
       runner.call.should == true
-      @errors.should == ""
+      @logger.error_text.should == ""
 
-      logs = @logs.gsub("\n", "")
+      logs = @logger.info_text.gsub("\n", "")
       logs.should include("debug message")
       logs.should include("verbose message")
     end
@@ -202,16 +202,16 @@ if RightScale::RightLinkConfig[:platform].windows?
       runner.should raise_exception(RightScale::Exceptions::Exec)
 
       #There 'Should' be string in the error log...
-      @errors.length.should > 0
+      @logger.error_text.length.should > 0
 
-      @errors = ""
+      @logger.error_text = ""
       runner = lambda {
         RightScale::Test::ChefRunner.run_chef(PowershellBasedProviderSpec::TEST_COOKBOOK_PATH, 'test_cookbook::run_powershell_based_recipe_with_resources')
       }
       runner.should_not raise_error
 
       #There 'Should' NOT be string in the error log...
-      @errors.should == ""
+      @logger.error_text.should == ""
     end
 
     it "should produce a readable powershell error when an exception is thrown from a provider action" do
@@ -221,11 +221,9 @@ if RightScale::RightLinkConfig[:platform].windows?
       runner.should raise_exception(RightScale::Exceptions::Exec)
 
       #There 'Should' be string in the error log...
-      @errors.length.should > 0
-      errors = @errors.gsub("\n", "")
-      (errors =~ /Unexpected exit code from action. Expected one of .* but returned 1.  Command/).should_not be_nil
-
-      logs = @logs.gsub(/\s+/, "")
+      @logger.error_text.length.should > 0
+      errors = @logger.error_text.gsub(/\s+/, "")
+      errors.should match("Unexpected exit code from action. Expected one of .* but returned 1.  Command".gsub(/\s+/, ""))
 
       message_format = <<-EOF
 Get-Item : Cannot find path '.*foo' because it does not exist.
@@ -247,6 +245,7 @@ EOF
       expected_message.gsub!("\\.\\*", ".*")
 
       # find the log message
+      logs = @logger.info_text.gsub(/\s+/, "")
       logs.should match(expected_message)
     end
 

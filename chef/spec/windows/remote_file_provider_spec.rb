@@ -69,19 +69,19 @@ EOF
   end
 
   describe Chef::Provider::RemoteFile do
+    include RightScale::Test::MockAuditorProxy
 
     before(:all) do
-      @old_logger = Chef::Log.logger
       RemoteFileProviderSpec.create_cookbook
       FileUtils.mkdir_p(File.dirname(RemoteFileProviderSpec::TEST_FILE_PATH))
     end
 
     before(:each) do
-      Chef::Log.logger = RightScale::Test::MockAuditorProxy.instance
+      @logger = RightScale::Test::MockLogger.new
+      mock_chef_log(@logger)
     end
 
     after(:all) do
-      Chef::Log.logger = @old_logger
       RemoteFileProviderSpec.cleanup
     end
 
