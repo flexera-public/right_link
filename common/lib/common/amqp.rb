@@ -52,7 +52,7 @@ MQ::Queue.class_eval do
     @opts = opts
     @bindings ||= {}
     @mq.queues[@name = name] ||= self
-    unless name == "amq.#{type}" or name == '' or opts[:no_declare]
+    unless opts[:no_declare]
       @mq.callback{
         @mq.send AMQP::Protocol::Queue::Declare.new({ :queue => name,
                                                       :nowait => true }.merge(opts))

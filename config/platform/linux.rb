@@ -23,13 +23,28 @@
 module RightScale
   class Platform
     class Linux
+      FEDORA_REL = '/etc/fedora-release'
+      FEDORA_SIG = /Fedora release ([0-9]+) \(.*\)/
+
       attr_reader :distro, :release, :codename
 
       #Initialize
       def initialize
-        @distro  = `lsb_release -is`.strip
-        @release =  `lsb_release -rs`.strip
-        @codename = `lsb_release -cs`.strip
+        system('lsb_release --help')
+
+        if $?.success?
+          # Use the lsb_release utility if it's available
+          @distro  = `lsb_release -is`.strip
+          @release =  `lsb_release -rs`.strip
+          @codename = `lsb_release -cs`.strip
+        elsif File.exist?(FEDORA_REL) && (match = FEDORA_SIG.match(File.read(FEDORA_REL)))
+          # Parse the fedora-release file if it exists
+          @distro   = 'Fedora'
+          @release  = match[1]
+          @codename = match[2]
+        else
+          @distro = @release = @codename = 'unknown'
+        end
       end
 
       # Is this machine running Ubuntu?
