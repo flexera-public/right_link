@@ -60,6 +60,16 @@ module Process
         end
       end
     end
+
+    # implements getpgid() for Windws
+    def self.getpgid(pid)
+      # FIX: we currently only use this to check if the process is running.
+      # it is possible to get the parent process id for a process in Windows if
+      # we actually need this info.
+      return Process.kill(0, pid).contains?(pid) ? 0 : -1
+    rescue
+      raise Errno::ESRCH
+    end
   end
 end
 

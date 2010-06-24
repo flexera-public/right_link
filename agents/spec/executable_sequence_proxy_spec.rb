@@ -114,7 +114,7 @@ describe RightScale::ExecutableSequenceProxy do
         output = File.read(mock_output)
         output.should == "#{JSON.dump(@bundle)}\n"
       ensure
-        File.delete(mock_output)
+        (File.delete(mock_output) if File.file?(mock_output)) rescue nil
       end
     end
 
