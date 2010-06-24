@@ -173,9 +173,9 @@ module RightScale
         pid_file.check
         if @options[:daemonize]
           daemonize(@identity, @options)
-          pid_file.write
-          at_exit { pid_file.remove }
         end
+        pid_file.write
+        at_exit { pid_file.remove }
         select = if @options[:infrastructure] then :random else :ordered end
         @broker = HA_MQ.new(@serializer, @options.merge(:select => select))
         @registry = ActorRegistry.new
