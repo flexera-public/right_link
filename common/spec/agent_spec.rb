@@ -37,6 +37,8 @@ describe RightScale::Agent do
       @broker = flexmock("Broker", :subscribe => true, :publish => true, :prefetch => true, :connected => ["b1"]).by_default
       @broker.should_receive(:each_usable).and_yield({:mq => @mq})
       flexmock(RightScale::HA_MQ).should_receive(:new).and_return(@broker)
+      flexmock(RightScale::PidFile).should_receive(:new).
+              and_return(flexmock("pid file", :check=>true, :write=>true, :remove=>true))
       @agent = RightScale::Agent.start
     end
 
@@ -140,6 +142,8 @@ describe RightScale::Agent do
       @broker = flexmock("Broker", :subscribe => true, :publish => true, :prefetch => true, :connected => ["b1"]).by_default
       @broker.should_receive(:each_usable).and_yield({:mq => @mq})
       flexmock(RightScale::HA_MQ).should_receive(:new).and_return(@broker)
+      flexmock(RightScale::PidFile).should_receive(:new).
+              and_return(flexmock("pid file", :check=>true, :write=>true, :remove=>true))
       @agent = nil
     end
 
