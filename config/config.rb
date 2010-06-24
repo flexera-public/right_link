@@ -24,14 +24,18 @@
 # Configuration values are listed with the format:
 # name value
 
-# Root path to RightScale files
-rs_root_path File.normalize_path(File.join(File.dirname(__FILE__), '..', '..'))
-
 # Current RightLink protocol version
 protocol_version 8
 
 # Path to RightLink root folder
-right_link_path File.join(rs_root_path, 'right_link')
+right_link_path File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'right_link'))
+
+# Root path to RightScale files
+# 
+# note that use of parent of right_link_path makes rs_root_path normalized while
+# the leaf of right_link_path remains "right_link" (i.e. long name instead of
+# short name) under Windows.
+rs_root_path File.dirname(right_link_path)
 
 # Path to directory containing the certificates used to sign and encrypt all
 # outgoing messages as well as to check the signature and decrypt any incoming

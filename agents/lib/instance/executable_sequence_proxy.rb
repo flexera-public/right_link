@@ -48,7 +48,7 @@ module RightScale
     # true:: Always return true
     def run
       @succeeded = true
-      RightScale.popen3(:command        => "#{RightLinkConfig[:sandbox_ruby_cmd]} #{cook_path}",
+      RightScale.popen3(:command        => "#{RightLinkConfig[:sandbox_ruby_cmd]} \"#{cook_path}\"",
                         :input          => "#{JSON.dump(@bundle)}\n",
                         :target         => self,
                         :environment    => { OptionsBag::OPTIONS_ENV => ENV[OptionsBag::OPTIONS_ENV] },
@@ -64,7 +64,7 @@ module RightScale
     # === Return
     # path(String):: Path to ruby script used to run Chef
     def cook_path
-      path = "\"#{File.join(RightLinkConfig[:right_link_path], 'scripts', 'lib', 'cook.rb')}\""
+      return File.join(RightLinkConfig[:right_link_path], 'scripts', 'lib', 'cook.rb')
     end
 
     # Handle cook standard output, should not get called
