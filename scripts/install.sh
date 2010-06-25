@@ -47,9 +47,9 @@ fi
 if [ -e /opt/rightscale/sandbox/bin/ruby ]
 then
   RUBY_BIN=/opt/rightscale/sandbox/bin/ruby
-elif [ ! -z `which zzruby` ]
+elif [ ! -z `which ruby` ]
 then
-  RUBY_BIN=`which zzruby`
+  RUBY_BIN=`which ruby`
 elif [ ! -z $1 ]
 then
   RUBY_BIN=$1
