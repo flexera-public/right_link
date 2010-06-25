@@ -332,6 +332,8 @@ module RightScale
           end
         end
 
+        RightLinkLog.info("[setup] Subscribing queue #{@identity} on #{b[:alias]}")
+
         queue = b[:mq].queue(@identity, :durable => true)
         if @options[:infrastructure]
           # Explicitly create direct exchange and bind queue to it

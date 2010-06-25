@@ -141,7 +141,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def disable_offline_mode
-      if offline?
+      if offline? && @running
         RightLinkLog.info("[offline] Connection to broker re-established")
         @vote_timer.cancel if @vote_timer
         @vote_timer = nil
