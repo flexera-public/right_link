@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -e
 #
 # Copyright (c) 2009 RightScale Inc
 #
@@ -47,8 +47,20 @@ fi
 if [ -e /opt/rightscale/sandbox/bin/ruby ]
 then
   RUBY_BIN=/opt/rightscale/sandbox/bin/ruby
-else
-  RUBY_BIN=`which ruby`
+elif [ ! -z `which zzruby` ]
+then
+  RUBY_BIN=`which zzruby`
+elif [ ! -z $1 ]
+then
+  RUBY_BIN=$1
+fi
+
+if [ -z $RUBY_BIN ]
+then
+  echo "Can't locate Ruby interpreter! Run this script again and either:"
+  echo " 1) ensure 'ruby' is in your path somewhere, or"
+  echo " 2) supply the full path to 'ruby' as a cmd-line argument to this script"
+  exit 1
 fi
 
 #
