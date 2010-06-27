@@ -36,9 +36,6 @@ module RightScale
     # (Hash) Configuration options applied to the agent
     attr_reader :options
 
-    # (Serializer) Serializer used for marshaling messages
-    attr_reader :serializer
-
     # (Dispatcher) Dispatcher for messages received
     attr_reader :dispatcher
 
@@ -158,7 +155,7 @@ module RightScale
       @terminating = false
       true
     end
-    
+
     # Put the agent in service
     #
     # === Return
@@ -167,31 +164,52 @@ module RightScale
       RightLinkLog.init(@identity, @options[:log_path])
       RightLinkLog.level = @options[:log_level] if @options[:log_level]
       begin
-        @serializer = Serializer.new(@options[:format])
-        @status_proc ||= lambda { parse_uptime(`uptime 2> /dev/null`) rescue 'no status' }
+        # Capture process id in file after optional daemonize
         pid_file = PidFile.new(@identity, @options)
         pid_file.check
-        if @options[:daemonize]
-          daemonize(@identity, @options)
-        end
+        daemonize(@identity, @options) if @options[:daemonize]
         pid_file.write
         at_exit { pid_file.remove }
+
+        # Initiate AMQP broker connection
         select = if @options[:infrastructure] then :random else :ordered end
-        @broker = HA_MQ.new(@serializer, @options.merge(:select => select))
-        @registry = ActorRegistry.new
-        @dispatcher = Dispatcher.new(@broker, @registry, @identity, @options)
-        @mapper_proxy = MapperProxy.new(@identity, @broker, @options)
-        load_actors
-        setup_traps
-        setup_queues
-        advertise_services
-        setup_heartbeat
-        at_exit { un_register } unless $TESTING
-        start_console if @options[:console] && !@options[:daemonize]
+        @broker = HA_MQ.new(Serializer.new(@options[:format]), @options.merge(:select => select))
+        connect_timeout = EM::Timer.new(60) do
+          RightLinkLog.error("Failed to connect to any AMQP brokers")
+          EM.stop
+        end
+
+        # Wait for confirmation that broker connected before proceeding,
+        # otherwise at risk of losing any published messages
+        @broker.connection_status(:one_off => true) do |status|
+          connect_timeout.cancel
+          if status == :connected
+            EM.next_tick do
+              begin
+                @registry = ActorRegistry.new
+                @dispatcher = Dispatcher.new(@broker, @registry, @identity, @options)
+                @mapper_proxy = MapperProxy.new(@identity, @broker, @options)
+                load_actors
+                setup_traps
+                setup_queues
+                advertise_services
+                setup_heartbeat
+                at_exit { un_register } unless $TESTING
+                start_console if @options[:console] && !@options[:daemonize]
+              rescue Exception => e
+                RightLinkLog.error("Agent failed startup: #{e.message}\n" + e.backtrace.join("\n")) unless e.message == "exit"
+                EM.stop
+              end
+            end
+          else
+            RightLinkLog.error("Failed to connect to any AMQP brokers")
+            EM.stop
+          end
+        end
       rescue SystemExit => e
         raise e
       rescue Exception => e
-        RightLinkLog.error("Agent failed: #{e.message}\n" + e.backtrace.join("\n")) unless e.message == "exit"
+        RightLinkLog.error("Agent failed startup: #{e.message}\n" + e.backtrace.join("\n")) unless e.message == "exit"
         raise e
       end
       true
@@ -266,7 +284,7 @@ module RightScale
       end
 
       @callbacks = @options[:callbacks]
-      @status_proc = @options[:status_proc]
+      @status_proc = @options[:status_proc] || lambda { parse_uptime(`uptime 2> /dev/null`) rescue 'no status' }
       @shared_queue = @options[:shared_queue]
 
       return @identity

@@ -69,7 +69,7 @@ module RightScale
     # Set token id used to send core requests
     #
     # === Parameter
-    # token_id(String):: Instance token id
+    # agent_identity(String):: Serialized instance agent identity
     # scheduler(InstanceScheduler):: Scheduler used by decommission command
     def initialize(agent_identity, scheduler)
       @agent_identity = agent_identity

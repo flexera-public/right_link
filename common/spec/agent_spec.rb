@@ -29,6 +29,10 @@ describe RightScale::Agent do
 
     before(:all) do
       flexmock(EM).should_receive(:add_periodic_timer)
+      flexmock(EM).should_receive(:next_tick).and_yield
+      @timer = flexmock("timer")
+      flexmock(EM::Timer).should_receive(:new).and_return(@timer)
+      @timer.should_receive(:cancel)
       @direct = flexmock("direct", :publish => nil)
       @fanout = flexmock("fanout", :publish => nil)
       @bind = flexmock("bind", :subscribe => nil)
@@ -36,6 +40,7 @@ describe RightScale::Agent do
       @mq = flexmock("mq", :queue => @queue, :fanout => @fanout, :direct => @direct)
       @broker = flexmock("Broker", :subscribe => true, :publish => true, :prefetch => true, :connected => ["b1"]).by_default
       @broker.should_receive(:each_usable).and_yield({:mq => @mq})
+      @broker.should_receive(:connection_status).and_yield(:connected)
       flexmock(RightScale::HA_MQ).should_receive(:new).and_return(@broker)
       flexmock(RightScale::PidFile).should_receive(:new).
               and_return(flexmock("pid file", :check=>true, :write=>true, :remove=>true))
@@ -134,6 +139,10 @@ describe RightScale::Agent do
 
     before(:each) do
       flexmock(EM).should_receive(:add_periodic_timer)
+      flexmock(EM).should_receive(:next_tick).and_yield
+      @timer = flexmock("timer")
+      flexmock(EM::Timer).should_receive(:new).and_return(@timer)
+      @timer.should_receive(:cancel)
       @direct = flexmock("direct", :publish => nil)
       @fanout = flexmock("fanout", :publish => nil)
       @bind = flexmock("bind", :subscribe => nil)
@@ -141,6 +150,7 @@ describe RightScale::Agent do
       @mq = flexmock("mq", :queue => @queue, :fanout => @fanout, :direct => @direct)
       @broker = flexmock("Broker", :subscribe => true, :publish => true, :prefetch => true, :connected => ["b1"]).by_default
       @broker.should_receive(:each_usable).and_yield({:mq => @mq})
+      @broker.should_receive(:connection_status).and_yield(:connected)
       flexmock(RightScale::HA_MQ).should_receive(:new).and_return(@broker)
       flexmock(RightScale::PidFile).should_receive(:new).
               and_return(flexmock("pid file", :check=>true, :write=>true, :remove=>true))

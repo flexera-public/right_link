@@ -144,23 +144,6 @@ end
 
 module RightScale
 
-  # Helper for deferring close action until all AMQP connections are closed
-  class HA_MQ_CloseHandler
-
-    include EM::Deferrable
-
-    def initialize(count)
-      @count = count
-      @closed = 0
-    end
-
-    def close_one
-      @closed += 1
-      succeed if @closed == @count
-    end
-
-  end
-
   # Manage multiple AMQP broker connections to achieve a high availability service
   class HA_MQ
 
@@ -375,7 +358,7 @@ module RightScale
       ids = []
       msg = if options[:no_serialize] || @serializer.nil? then packet else @serializer.dump(packet) end
       use(options).each do |b|
-        if [:connecting, :connected].include?(b[:status])
+        if b[:status] == :connected
           begin
             unless options[:no_log] || options[:no_serialize] || @serializer.nil?
               re = "RE" if packet.respond_to?(:tries) && !packet.tries.empty?
@@ -490,7 +473,7 @@ module RightScale
     # === Block
     # Required block to which each AMQP broker connection is passed
     def each_usable
-      @brokers.each { |b| yield b if [:connecting, :connected].include?(b[:status]) }
+      @brokers.each { |b| yield b if b[:status] == :connected }
     end
 
     # Set prefetch value for each AMQP broker
@@ -509,13 +492,21 @@ module RightScale
 
     # Store block to be called when there is a change in connection status
     #
+    # === Parameters
+    # options(Hash):: Connection monitoring options
+    #   :one_off(Boolean):: Only report status update once
+    #   :boundary(Symbol):: :any if only report change on any (0/1) boundary,
+    #     :all if only report change on all (n-1/n) boundary, defaults to :any
+    #
     # === Block
-    # Required block to be called when usable connection count crosses 0|1 threshold
+    # Block to be called when usable connection count crosses 0|1 threshold
+    # If no block given, any existing block is removed
     #
     # === Return
     # true:: Always return true
-    def connection_status(&blk)
-      @connection_status = blk
+    def connection_status(options = {}, &blk)
+      @connection_status_options = options
+      @connection_status = if blk then blk else nil end
       true
     end
 
@@ -532,7 +523,7 @@ module RightScale
     # === Block
     # Optional block to be executed after all connections are closed
     def close(&blk)
-      handler = HA_MQ_CloseHandler.new(@brokers.size)
+      handler = CloseHandler.new(@brokers.size)
       handler.callback { blk.call if blk }
 
       @brokers.each do |b|
@@ -551,6 +542,23 @@ module RightScale
     end
 
     protected
+
+    # Helper for deferring close action until all AMQP connections are closed
+    class CloseHandler
+
+      include EM::Deferrable
+
+      def initialize(count)
+        @count = count
+        @closed = 0
+      end
+
+      def close_one
+        @closed += 1
+        succeed if @closed == @count
+      end
+
+    end
 
     # Make AMQP broker connection and register for status updates
     #
@@ -610,10 +618,25 @@ module RightScale
         RightLinkLog.info("[status] AMQP broker #{broker[:identity]}, alias #{broker[:alias]}, is now #{status} " +
                           "for a total of #{after.size} usable brokers")
       end
-      if before.size == 0 && after.size > 0
-        @connection_status.call(:connected) if @connection_status
-      elsif before.size > 0 && after.size == 0
-        @connection_status.call(:disconnected) if @connection_status
+      if @connection_status
+        update = if @connection_status_options[:boundary] == :all
+          max = @brokers.size
+          if before.size < max && after.size == max
+            :connected
+          elsif before.size == max && after.size < max
+            :disconnected
+          end
+        else
+          if before.size == 0 && after.size > 0
+            :connected
+          elsif before.size > 0 && after.size == 0
+            :disconnected
+          end
+        end
+        if update
+          @connection_status.call(update)
+          @connection_status = nil if @connection_status_options[:one_off]
+        end
       end
       true
     end
