@@ -38,21 +38,29 @@ namespace RightScale
                     set { lastExitCode = value; }
                 }
 
+                public string LastErrorMessage
+                {
+                    get { return lastErrorMessage; }
+                    set { lastErrorMessage = value; }
+                }
+
                 public GetNextActionRequest()
                 {
                 }
 
-                public GetNextActionRequest(int lastExitCode)
+                public GetNextActionRequest(int lastExitCode, string lastErrorMessage)
                 {
                     this.lastExitCode = lastExitCode;
+                    this.lastErrorMessage = lastErrorMessage;
                 }
 
                 public override string ToString()
                 {
-                    return String.Format("GetNextActionRequest: {{ LastExitCode = {0} }}", lastExitCode);
+                    return String.Format("GetNextActionRequest: {{ LastExitCode = {0}, LastErrorMessage = \"{1}\" }}", lastExitCode, lastErrorMessage);
                 }
 
-                private int lastExitCode;
+                private int     lastExitCode;
+                private string  lastErrorMessage;
             }
         }
     }

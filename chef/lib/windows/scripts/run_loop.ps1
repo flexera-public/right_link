@@ -1,54 +1,63 @@
-$RS_lastReturnCode = 0
+$RS_LastExitCode = 0
+$RS_LastError = ""
 while ($TRUE)
 {
-    $Error.clear()
-    $RS_lastReturnCode = 0
-    $RS_nextAction = $NULL
-    $RS_nextAction = get-NextAction $RS_pipeName
-    if ($Error.Count -eq 0)
+    try
     {
-        try
+        $Error.clear()
+        $LastExitCode = 0
+        $RS_nextAction = $NULL
+        $RS_nextAction = get-NextAction $RS_pipeName $RS_LastExitCode $RS_LastError
+        if ($RS_LastError -ne "")
+        {
+            exit $RS_LastExitCode
+        }
+        elseif($Error.Count -eq 0)
         {
             write-output $RS_nextAction
             invoke-command -scriptblock $RS_nextAction
-            $RS_lastReturnCode = $LastExitCode
+            $RS_LastExitCode = $LastExitCode
+            $RS_LastError = ""
         }
-        catch
+        else
         {
-            $exception_string = "+ The exception occurred near:`n+"
-
-            $script_info    = $_.InvocationInfo
-            $script_source  = get-content $script_info.ScriptName
-            $first_line     = [system.math]::max($script_info.ScriptLineNumber - 3, 0)
-            $last_line      = [system.math]::min($script_info.ScriptLineNumber + 3, $script_source.length)
-            for($i=$first_line; $i -lt $last_line; $i++)
-            {
-                if (($i+1) -eq $script_info.ScriptLineNumber)
-                {
-                    $first_part     = $script_info.Line.Substring(0, $script_info.OffsetInLine)
-                    $second_part    = $script_info.Line.Substring($script_info.OffsetInLine, $script_info.Line.length - $script_info.OffsetInLine)
-
-                    $output = "`n+`t$first_part <<<< $second_part"
-                }
-                else
-                {
-                    $output = "`n+`t" + $script_source[$i]
-                }
-                $exception_string += $output
-            }
-
-            $error_string = $_ | out-string
-            $error_string = $error_string.TrimEnd() + "`n+`n" +  $exception_string + "`n"
-
-            write-output $error_string
-
-            exit 1
+            break
         }
     }
-    else
+    catch
     {
-        break
+        if ($RS_LastError -ne "")
+        {
+            exit $RS_LastExitCode
+        }
+        
+        $ScriptSnip = ""
+
+        $ErrorRecord    = $_
+        $InvocationInfo = $ErrorRecord.InvocationInfo
+        $ScriptSource  = get-content $InvocationInfo.ScriptName
+        $FirstLine     = [system.math]::max($InvocationInfo.ScriptLineNumber - 4, 0)
+        $LastLine      = [system.math]::min($InvocationInfo.ScriptLineNumber + 4, $ScriptSource.length)
+        for($i=$FirstLine; $i -lt $LastLine; $i++)
+        {
+            $LineNumber = $i+1
+            if ($LineNumber -eq $InvocationInfo.ScriptLineNumber)
+            {
+                $FirstPart     = $InvocationInfo.Line.Substring(0, $InvocationInfo.OffsetInLine - 1)
+                $SecondPart    = $InvocationInfo.Line.Substring($InvocationInfo.OffsetInLine, $InvocationInfo.Line.length - $InvocationInfo.OffsetInLine)
+
+                $ScriptSnip += "`n    + $LineNumber" + ":`t$FirstPart <<<< $SecondPart"
+            }
+            else
+            {
+                $ScriptSnip +=  "`n    + $LineNumber" + ":`t" + $ScriptSource[$i]
+            }
+        }
+
+        $RS_LastError =  ($ErrorRecord | Out-String).TrimEnd() + "`n    +`n    + Script error near:" +  $ScriptSnip + "`n"
+        $RS_LastExitCode = 1
+        write-output $RS_LastError
     }
 }
 
-exit $RS_lastReturnCode
+exit $RS_LastExitCode

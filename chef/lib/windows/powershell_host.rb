@@ -26,7 +26,6 @@ module RightScale
   # It allows running Powershell scripts in the associated instance and will
   # log the script output.
   class PowershellHost
-
     # Start the Powershell process synchronously
     # Set the instance variable :active to true once Powershell was
     # successfully started
@@ -36,19 +35,18 @@ module RightScale
     # options[:provider_name]:: Associated Chef powershell provider name
     def initialize(options = {})
       RightLinkLog.debug(format_log_message("Initializing"))
-      @node           = options[:node]
-      @provider_name  = options[:provider_name]
-      @returns        = options[:returns] || [0]
-      @pipe_name      = "#{@provider_name}_#{Time.now.strftime("%Y-%m-%d-%H%M%S")}"
+      @node             = options[:node]
+      @provider_name    = options[:provider_name]
+      @pipe_name        = "#{@provider_name}_#{Time.now.strftime("%Y-%m-%d-%H%M%S")}"
 
       @response_mutex = Mutex.new
       @response_event = ConditionVariable.new
 
       RightLinkLog.debug(format_log_message("Starting pipe server"))
-      @pipe_server = RightScale::Windows::PowershellPipeServer.new(:pipe_name => @pipe_name) do |kind, _|
+      @pipe_server = RightScale::Windows::PowershellPipeServer.new(:pipe_name => @pipe_name) do |kind, payload|
         case kind
           when :is_ready then query
-          when :respond  then respond
+          when :respond  then respond(payload)
         end
       end
 
@@ -77,14 +75,15 @@ module RightScale
     # script_path(String):: Full path to Powershell script to be run
     #
     # === Return
-    # true:: Always return true
+    # res[exit_code](Number):: The exit code of the script that was run. nil if no exit status was available.
     #
     # === Raise
     # RightScale::Exceptions:ApplicationError:: If Powershell process is not running (i.e. :active is false)
     def run(script_path)
       RightLinkLog.debug(format_log_message("Running #{script_path}"))
-      run_command("&\"#{script_path}\"")
+      res = run_command("&\"#{script_path}\"")
       RightLinkLog.debug(format_log_message("Finished #{script_path}"))
+      res
     end
 
     # Terminate associated Powershell process
@@ -95,8 +94,10 @@ module RightScale
     # true:: Always return true
     def terminate
       RightLinkLog.debug(format_log_message("Terminate requested"))
-      run_command("break")
+      res = run_command("break")
       RightLinkLog.debug(format_log_message("Terminate signal sent"))
+
+      true
     end
 
     protected
@@ -132,10 +133,26 @@ module RightScale
     #
     # === Return
     # res(String):: Command to execute
-    def respond
-      @sent_command = true
-      res = @pending_command
-      @pending_command = nil
+    def respond(payload)
+      if @last_command.nil?
+        RightLinkLog.debug(format_log_message("Processing first command #{@pending_command}"))
+        # this is the first command to be requested, send the command
+        @last_command = @pending_command
+        res = @pending_command
+        @pending_command = ""
+      else
+        # this is the second time around, grab the results of the last command, and send a no-op
+        # the run_loop script will exit if an exception was thrown, and continue if the last
+        # command did not throw
+        @exit_code = payload[RightScale::Windows::PowershellPipeServer::LAST_EXIT_CODE_KEY]
+        @error_msg = payload[RightScale::Windows::PowershellPipeServer::LAST_ERROR_MESSAGE_KEY]
+
+        # setup the exit conditions
+        res = @pending_command
+        @pending_command = nil
+        @sent_command = true
+      end
+
       RightLinkLog.debug(format_log_message("Responding with pending command #{res}"))
       return res
     end
@@ -179,7 +196,7 @@ module RightScale
     # command(String):: a powershell command
     #
     # === Return
-    # true:: Always return true
+    # res[exit_code](Number):: The exit code of the script that was run. nil if no exit status was available.
     #
     # === Raise
     # RightScale::Exceptions::Application:: If Powershell process is not running (i.e. :active is false)
@@ -187,15 +204,16 @@ module RightScale
       raise RightScale::Exceptions::Application, "Powershell host not active, cannot run: #{command}" unless active
       @response_mutex.synchronize do
         @pending_command = command
+        @last_command = nil
+        RightLinkLog.debug(format_log_message("Waiting to process #{command}"))
         @response_event.wait(@response_mutex)
+        RightLinkLog.debug(format_log_message("Finished processing #{command}"))
         @pending_command = nil
         @sent_command = false
       end
 
-      # the powershell provider script the host runs will return exit code of 100 if the last action threw an exception.
-      raise RightScale::Exceptions::Exec, "Unexpected exit code from action. Expected one of [#{@returns.join(", ")}] but returned #{@exit_status.exitstatus}.  Command: #{command}" if @exit_status && !@returns.include?(@exit_status.exitstatus)
-
-      true
+      res = {:exit_code => @exit_code, :error_msg => @error_msg}
+      res
     end
 
     TEMP_DIR_NAME = 'powershell_host-82D5D281-5E7C-423A-88C2-69E9B7D3F37E'

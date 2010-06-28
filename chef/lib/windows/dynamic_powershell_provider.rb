@@ -162,7 +162,7 @@ module RightScale
         end
         if init_script = all_scripts.detect { |s| File.basename(s, '.*').downcase == INIT_SCRIPT }
           RightLinkLog.debug("[chef] Defining #{name}.init to run '#{init_script}'")
-          provider.instance_eval("def init; run_script('#{init_script}') if super; end")
+          provider.instance_eval("def init(node); run_script('#{init_script}') if super(node); end")
         end
         if term_script = all_scripts.detect { |s| File.basename(s, '.*').downcase == TERM_SCRIPT }
           RightLinkLog.debug("[chef] Defining #{name}.terminate to run '#{term_script}'")
@@ -197,7 +197,7 @@ module RightScale
       # using same methods chef uses to generate the class name of the resources.
       # Chef will also add the resource to the Chef::Resource namespace.
       # _powershell is added because we add powershell to the provider namespace, this
-      # forces the resource file name to be "powershell_<provider_name>" 
+      # forces the resource file name to be "powershell_<provider_name>"
       rname = filename_to_qualified_string(cookbook_name, "powershell_#{provider_name}")
       "Chef::Resource::#{convert_to_class_name(rname)}"
     end

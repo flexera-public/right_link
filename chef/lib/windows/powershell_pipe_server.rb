@@ -34,7 +34,8 @@ module RightScale
     class PowershellPipeServer
 
       # Request hash key associated with previous execution exit code
-      LAST_EXIT_CODE_KEY = "LastExitCode"
+      LAST_EXIT_CODE_KEY      = "LastExitCode"
+      LAST_ERROR_MESSAGE_KEY  = "LastErrorMessage"
 
       # Response hash key associated with action to run
       NEXT_ACTION_KEY = :NextAction
@@ -118,9 +119,9 @@ module RightScale
       def request_handler(request_data)
         # assume request_data is a single line with a possible newline trailing.
         request = JSON.load(request_data.chomp)
-        if 1 == request.keys.size && request.has_key?(LAST_EXIT_CODE_KEY)
+        if 2 == request.keys.size && request.has_key?(LAST_EXIT_CODE_KEY) && request.has_key?(LAST_ERROR_MESSAGE_KEY)
           # pop the next action from the queue.
-          command = @callback.call(:respond, request_data)
+          command = @callback.call(:respond, request)
           return JSON.dump(NEXT_ACTION_KEY => command) + "\n";
         end
         raise ArgumentError, "Invalid request"

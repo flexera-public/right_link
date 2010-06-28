@@ -24,7 +24,7 @@ require File.expand_path(File.join(File.dirname(__FILE__), '..', 'spec_helper'))
 
 # FIX: rake spec should check parent directory name?
 if RightScale::RightLinkConfig[:platform].windows?
-  
+
   require 'fileutils'
 
   module RightScale::PowershellHostSpec
@@ -71,7 +71,7 @@ if RightScale::RightLinkConfig[:platform].windows?
         Thread.new { @host.__send__(:run_command, 'fourty-two') }
 
         simulate_request_query(42).should be_true
-        res = @pipe_server.request_handler(JSON.dump({RightScale::Windows::PowershellPipeServer::LAST_EXIT_CODE_KEY => 42}))
+        res = @pipe_server.request_handler(JSON.dump({RightScale::Windows::PowershellPipeServer::LAST_EXIT_CODE_KEY => 42, RightScale::Windows::PowershellPipeServer::LAST_ERROR_MESSAGE_KEY => "An Error occured"}))
         res.should == JSON.dump({ :NextAction => 'fourty-two' }) + "\n"
       ensure
         @response_event.signal
@@ -83,12 +83,12 @@ if RightScale::RightLinkConfig[:platform].windows?
         Thread.new { @host.__send__(:run_command, 'fourty-two'); @host.__send__(:run_command, 'fourty-three') }
 
         simulate_request_query(42).should be_true
-        res = @pipe_server.request_handler(JSON.dump({RightScale::Windows::PowershellPipeServer::LAST_EXIT_CODE_KEY => 42}))
+        res = @pipe_server.request_handler(JSON.dump({RightScale::Windows::PowershellPipeServer::LAST_EXIT_CODE_KEY => 42, RightScale::Windows::PowershellPipeServer::LAST_ERROR_MESSAGE_KEY => "An Error occured"}))
         res.should == JSON.dump({ :NextAction => 'fourty-two' }) + "\n"
         @response_event.signal
 
         simulate_request_query(43).should be_true
-        res = @pipe_server.request_handler(JSON.dump({RightScale::Windows::PowershellPipeServer::LAST_EXIT_CODE_KEY => 43}))
+        res = @pipe_server.request_handler(JSON.dump({RightScale::Windows::PowershellPipeServer::LAST_EXIT_CODE_KEY => 43, RightScale::Windows::PowershellPipeServer::LAST_ERROR_MESSAGE_KEY => "Another Error occured"}))
         res.should == JSON.dump({ :NextAction => 'fourty-three' }) + "\n"
         @response_event.signal
       end

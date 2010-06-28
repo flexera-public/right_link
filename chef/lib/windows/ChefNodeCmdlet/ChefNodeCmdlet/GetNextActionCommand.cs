@@ -45,6 +45,20 @@ namespace RightScale
                     set { pipeName = value; }
                 }
 
+                [Parameter(Position = 1, Mandatory = false)]
+                public int LastActionExitCode
+                {
+                    get { return lastActionExitCode; }
+                    set { lastActionExitCode = value; }
+                }
+
+                [Parameter(Position = 2, Mandatory = false)]
+                public string LastActionErrorMessage
+                {
+                    get { return lastActionErrorMessage; }
+                    set { lastActionErrorMessage = value; }
+                }
+
                 protected override void ProcessRecord()
                 {
                     // iterate attempting to connect, send and receive to Chef node server.
@@ -56,8 +70,7 @@ namespace RightScale
                         try
                         {
                             // FIX: query the current value of $LastExitCode from powershell host.
-                            int lastExitCode = 0;
-                            GetNextActionRequest request = new GetNextActionRequest(lastExitCode);
+                            GetNextActionRequest request = new GetNextActionRequest(LastActionExitCode, LastActionErrorMessage);
 
                             pipeClient.Connect(Constants.NEXT_ACTION_CONNECT_TIMEOUT_MSECS);
 
@@ -137,8 +150,9 @@ namespace RightScale
                     }
                 }
 
-                // Name of pipe to connect to passed from command line
-                protected string pipeName;
+                protected int       lastActionExitCode;        // The exit code of the last action that was run
+                protected string    lastActionErrorMessage;    // The text of the error that occurred running the last action
+                protected string    pipeName;                  // Name of pipe to connect to passed from command line
             }
         }
     }

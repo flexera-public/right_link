@@ -99,7 +99,7 @@ describe RightScale::DynamicPowershellProvider do
 
         # need Chef::Platform[:windows][:default] to be defined because
         # code generation adds new providers to the windows chef platform
-        Chef::Platform.platforms.merge!({:windows => { :default => {} }}) 
+        Chef::Platform.platforms.merge!({:windows => { :default => {} }})
       end
       @provider.generate_providers(@cookbooks_dir)
       Object.const_defined?(:Cookbook).should be_true
@@ -123,15 +123,15 @@ describe RightScale::DynamicPowershellProvider do
       host_mock.should_receive(:terminate).once.ordered
       host_mock.should_receive(:run).once.with(@term_script).ordered
       host_mock.should_receive(:terminate).once.ordered
-      
+
       Chef::Resource.const_set("CookbookPowershellScripts", Class.new(Chef::Resource))
-      resource = flexmock('Resource', :cookbook_name=>'cookbook', :name=>'foo') 
+      resource = flexmock('Resource', :cookbook_name=>'cookbook', :name=>'foo')
       cb = Cookbook::Powershell::Scripts.new(nil, resource)
       cb.load_current_resource
       cb.action_action1
       cb.action_action2
       Cookbook::Powershell::Scripts.terminate
-      Cookbook2::Powershell::Scripts.init
+      Cookbook2::Powershell::Scripts.init(nil)
       Cookbook2::Powershell::Scripts.terminate
     end
 

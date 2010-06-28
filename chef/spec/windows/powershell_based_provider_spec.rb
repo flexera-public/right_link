@@ -49,7 +49,8 @@ if RightScale::RightLinkConfig[:platform].windows?
       mock_chef_log(@logger)
 
       flexmock(RightScale::RightLinkLog).should_receive(:error).and_return { |m| @logger.error_text << m }
-      # flexmock(Chef::Log).should_receive(:level).and_return(Logger::DEBUG)
+      flexmock(RightScale::RightLinkLog).should_receive(:info).and_return { |m| @logger.info_text << m }
+      flexmock(Chef::Log).should_receive(:level).and_return(Logger::DEBUG)
 
       # mock out Powershell script internals so we can run tests using the Powershell script provider
       mock_instance_state = flexmock('MockInstanceState', :past_scripts => [], :record_script_execution => true)
@@ -223,7 +224,7 @@ if RightScale::RightLinkConfig[:platform].windows?
       #There 'Should' be string in the error log...
       @logger.error_text.length.should > 0
       errors = @logger.error_text.gsub(/\s+/, "")
-      errors.should match("Unexpected exit code from action. Expected one of .* but returned 1.  Command".gsub(/\s+/, ""))
+      errors.should match("Unexpected exit code from action. Expected 0 but returned 1.  Script".gsub(/\s+/, ""))
 
       message_format = <<-EOF
 Get-Item : Cannot find path '.*foo' because it does not exist.
@@ -231,12 +232,11 @@ At .*:2 char:9
 + Get-Item <<<<  "foo" -ea Stop
     + CategoryInfo          : ObjectNotFound: (.*foo:String) [Get-Item], ItemNotFoundException
     + FullyQualifiedErrorId : PathNotFound,Microsoft.PowerShell.Commands.GetItemCommand
-+
-+ The exception occurred near:
-+
-+       $testvar = 1
-+       Get-Item  <<<< "foo" -ea Stop
-+       exit
+    +
+    + Script error near:
+    + 1:    $testvar = 1
+    + 2:    Get-Item  <<<< "foo" -ea Stop
+    + 3:    exit
 EOF
       # replace newlines and spaces
       expected_message = Regexp.escape(message_format.gsub(/\s+/, ""))
@@ -245,8 +245,7 @@ EOF
       expected_message.gsub!("\\.\\*", ".*")
 
       # find the log message
-      logs = @logger.info_text.gsub(/\s+/, "")
-      logs.should match(expected_message)
+      errors.should match(expected_message)
     end
 
   end

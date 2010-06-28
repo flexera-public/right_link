@@ -27,7 +27,7 @@ module RightScale
 
     def initialize(node, new_resource, collection=nil, definitions={}, cookbook_loader=nil)
       super(node, new_resource, collection, definitions, cookbook_loader)
-      self.class.init
+      self.class.init(node)
       # Have to wait until the Chef node server has been initialized before setting the new resource
       RightScale::Windows::ChefNodeServer.instance.new_resource = new_resource
     end
@@ -37,10 +37,10 @@ module RightScale
     # === Return
     # true:: If init script must be run
     # false:: Otherwise
-    def self.init
+    def self.init(node)
       run_init = @ps_instance.nil?
-      @ps_instance = PowershellHost.new(:node => @node, :provider_name => self.to_s.gsub("::","_") ) unless @ps_instance
-      run_init      
+      @ps_instance = PowershellHost.new(:node => node, :provider_name => self.to_s.gsub("::", "_")) unless @ps_instance
+      run_init
     end
 
     # Run powershell script in associated Powershell instance
@@ -52,8 +52,16 @@ module RightScale
     # true:: Always return true
     def self.run_script(script)
       if @ps_instance
-        @ps_instance.run(script)
+        res = @ps_instance.run(script)
+
+        # the powershell provider script the host runs will return exit code of 100 if the last action threw an exception.
+        if res && res[:exit_code] && res[:exit_code] != 0
+          message = "Unexpected exit code from action. Expected 0 but returned #{res[:exit_code]}.  Script: #{script}\n"
+          message += "#{res[:error_msg]}"
+          raise RightScale::Exceptions::Exec, message
+        end
       end
+
       true
     end
 
