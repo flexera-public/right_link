@@ -24,10 +24,18 @@ class AgentManager
 
   include RightScale::Actor
 
-  expose :ping, :set_log_level, :execute, :record_fault
+  expose :ping, :set_log_level, :execute, :connect, :record_fault
 
   # Valid log levels
   LEVELS = [:debug, :info, :warn, :error, :fatal]
+
+  # Initialize broker
+  #
+  # === Parameters
+  # agent(RightScale::Agent):: This agent
+  def initialize(agent)
+    @agent = agent
+  end
 
   # Always return success, used for troubleshooting
   #
@@ -64,6 +72,32 @@ class AgentManager
     rescue Exception => e
       return RightScale::OperationResult.error(e.message + " at\n" + e.backtrace.join("\n"))
     end
+  end
+
+  # Connect agent to an additional broker or reconnect it if connection has failed
+  # Assumes agent already has credentials on this broker and identity queue exists
+  #
+  # === Parameters
+  # options(Hash):: Connect options:
+  #   :host(String):: Host name of broker
+  #   :port(Integer):: Port number of broker
+  #   :id(Integer):: Small unique id associated with this broker for use in forming alias
+  #   :priority(Integer|nil):: Priority position of this broker in list for use
+  #     by this agent with nil meaning add to end of list
+  #
+  # === Return
+  # true:: Always return true
+  def connect(options)
+    options = RightScale::SerializationHelper.symbolize_keys(options)
+    res = RightScale::OperationResult.success
+    begin
+      if error = @agent.connect(options[:host], options[:port], options[:id], options[:priority])
+        res = RightScale::OperationResult.error(error)
+      end
+    rescue Exception => e
+      res = RightScale::OperationResult.error("Failed to connect to broker: #{e.message}")
+    end
+    res
   end
 
   # Process fault (i.e. mapper failed to decrypt one of our packets)

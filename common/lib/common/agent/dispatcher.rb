@@ -116,7 +116,7 @@ module RightScale
         begin
           args = [ deliverable.payload ]
           args.push(deliverable) if actor.method(meth).arity == 2
-          actor.send(meth, *args)
+          actor.__send__(meth, *args)
         rescue Exception => e
           handle_exception(actor, meth, deliverable, e)
         end

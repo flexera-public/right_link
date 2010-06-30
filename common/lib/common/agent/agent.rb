@@ -69,6 +69,9 @@ module RightScale
       :default_services => []
     }) unless defined?(DEFAULT_OPTIONS)
 
+    # Seconds to wait for broker connection
+    BROKER_CONNECT_TIMEOUT = 60
+
     # Initializes a new agent and establishes an AMQP connection.
     # This must be used inside EM.run block or if EventMachine reactor
     # is already started, for instance, by a Thin server that your Merb/Rails
@@ -171,18 +174,11 @@ module RightScale
         pid_file.write
         at_exit { pid_file.remove }
 
-        # Initiate AMQP broker connection
-        select = if @options[:infrastructure] then :random else :ordered end
-        @broker = HA_MQ.new(Serializer.new(@options[:format]), @options.merge(:select => select))
-        connect_timeout = EM::Timer.new(60) do
-          RightLinkLog.error("Failed to connect to any AMQP brokers")
-          EM.stop
-        end
-
-        # Wait for confirmation that broker connected before proceeding,
-        # otherwise at risk of losing any published messages
-        @broker.connection_status(:one_off => true) do |status|
-          connect_timeout.cancel
+        # Initiate AMQP broker connection, wait for connection before proceeding
+        # otherwise messages published on failed connection will be lost
+        order = if @options[:infrastructure] then :random else :priority end
+        @broker = HA_MQ.new(Serializer.new(@options[:format]), @options.merge(:order => order))
+        @broker.connection_status(:one_off => BROKER_CONNECT_TIMEOUT) do |status|
           if status == :connected
             EM.next_tick do
               begin
@@ -244,6 +240,49 @@ module RightScale
       true
     end
 
+    # Connect to an additional broker or reconnect it if connection has failed
+    # Subscribe to identity queue on this broker
+    # Update config file if this is a new broker
+    # Assumes already has credentials on this broker and identity queue exists
+    #
+    # === Parameters
+    # host(String):: Host name of broker
+    # port(Integer):: Port number of broker
+    # id(Integer):: Small unique id associated with this broker for use in forming alias
+    # priority(Integer|nil):: Priority position of this broker in list for use
+    #   by this agent with nil meaning add to end of list
+    #
+    # === Return
+    # res(String|nil):: Error message if failed, otherwise nil
+    def connect(host, port, id, priority = nil)
+      brokers = @broker.brokers.map { |b| {:identity => b[:identity], :alias => b[:alias], :status => b[:status]} }
+      RightLinkLog.info("Current broker configuration: #{brokers.inspect}")
+      RightLinkLog.info("Requested to connect to broker at host #{host.inspect} port #{port.inspect} " +
+                        "id #{id.inspect} priority #{priority.inspect}")
+      res = nil
+      begin
+        @broker.connect(host, port, id, priority) do |b|
+          @broker.connection_status(:one_off => BROKER_CONNECT_TIMEOUT, :brokers => [b[:identity]]) do |status|
+            if status == :connected
+              setup_identity_queue(b)
+              advertise_services
+              unless update_configuration(:host => @broker.hosts, :port => @broker.ports)
+                res = "Successfully connected to #{b[:identity]} but failed to update config file"
+              end
+            else
+              res = "Failed to connect to #{b[:identity]}, status #{status.inspect}"
+            end
+            RightLinkLog.error(res) if res
+            return res
+          end
+        end
+      rescue Exception => e
+        res = "Failed to connect to broker #{HA_MQ.identity(host, port)}: #{e.message}"
+      end
+      RightLinkLog.error(res) if res
+      res
+    end
+
     protected
 
     # Set the agent's configuration using the supplied options
@@ -290,6 +329,30 @@ module RightScale
       return @identity
     end
 
+    # Update agent's persisted configuration
+    # Note that @options are frozen and therefore not updated
+    #
+    # === Parameters
+    # opts(Hash):: Options being updated
+    #
+    # === Return
+    # (Boolean):: true if successful, otherwise false
+    def update_configuration(opts)
+      res = false
+      root = opts[:root] || @options[:root]
+      config = if root
+        file = File.normalize_path(File.join(root, 'config.yml'))
+        File.exists?(file) ? (YAML.load(IO.read(file)) || nil) : nil
+      end
+      if config
+        File.open(File.normalize_path(File.join(root, 'config.yml')), 'w') do |fd|
+          fd.write(YAML.dump(config.merge(opts)))
+        end
+        res = true
+      end
+      res
+    end
+
     # Load the ruby code for the actors
     #
     # === Return
@@ -300,7 +363,7 @@ module RightScale
       actors_dir = @options[:actors_dir] || "#{@options[:root]}/actors"
       RightLinkLog.warn("Actors dir #{actors_dir} does not exist or is not reachable") unless File.directory?(actors_dir)
       actors = @options[:actors]
-      RightLinkLog.info("Agent #{@identity} actors #{actors.inspect}")
+      RightLinkLog.info("[setup] Agent #{@identity} with actors #{actors.inspect}")
       Dir["#{actors_dir}/*.rb"].each do |actor|
         next if actors && !actors.include?(File.basename(actor, ".rb"))
         RightLinkLog.info("[setup] loading #{actor}")
@@ -321,7 +384,7 @@ module RightScale
     # true:: Always return true
     def setup_queues
       @broker.prefetch(@options[:prefetch]) if @options[:prefetch]
-      setup_identity_queue
+      @broker.each_usable { |b| setup_identity_queue(b) }
       setup_shared_queue if @shared_queue
       true
     end
@@ -329,45 +392,46 @@ module RightScale
     # Setup identity queue for this agent
     # For infrastructure agents also attach queue to advertise exchange
     #
+    # === Parameters
+    # broker(Hash):: Individual broker to which agent is connected
+    #
     # === Return
     # true:: Always return true
-    def setup_identity_queue
-      @broker.each_usable do |b|
-        handler = lambda do |info, msg|
-          begin
-            # Ack now before processing message to avoid risk of duplication after a crash
-            info.ack
-            filter = [:from, :tags, :tries]
-            packet = @broker.receive(b, @identity, msg, Advertise => nil, Request => filter, Push => filter, Result => [])
-            case packet
-            when Advertise then advertise_services
-            when Request, Push then @dispatcher.dispatch(packet)
-            when Result then @mapper_proxy.handle_result(packet)
-            end
-          rescue Exception => e
-            RightLinkLog.error("RECV - Identity queue processing error: #{e.message}")
-            @callbacks[:exception].call(e, msg, self) rescue nil if @callbacks && @callbacks[:exception]
+    def setup_identity_queue(broker)
+      handler = lambda do |info, msg|
+        begin
+          # Ack now before processing message to avoid risk of duplication after a crash
+          info.ack
+          filter = [:from, :tags, :tries]
+          packet = @broker.receive(broker, @identity, msg, Advertise => nil, Request => filter, Push => filter, Result => [])
+          case packet
+          when Advertise then advertise_services
+          when Request, Push then @dispatcher.dispatch(packet)
+          when Result then @mapper_proxy.handle_result(packet)
           end
+        rescue Exception => e
+          RightLinkLog.error("RECV - Identity queue processing error: #{e.message}")
+          @callbacks[:exception].call(e, msg, self) rescue nil if @callbacks && @callbacks[:exception]
         end
+      end
 
-        RightLinkLog.info("[setup] Subscribing queue #{@identity} on #{b[:alias]}")
+      RightLinkLog.info("[setup] Subscribing queue #{@identity} on #{broker[:alias]}")
 
-        queue = b[:mq].queue(@identity, :durable => true)
-        if @options[:infrastructure]
-          # Explicitly create direct exchange and bind queue to it
-          # since binding this queue to multiple exchanges
-          binding = queue.bind(b[:mq].direct(@identity, :durable => true, :auto_delete => true))
+      queue = broker[:mq].queue(@identity, :durable => true)
+      if @options[:infrastructure]
+        # Explicitly create direct exchange and bind queue to it
+        # since binding this queue to multiple exchanges
+        binding = queue.bind(broker[:mq].direct(@identity, :durable => true, :auto_delete => true))
 
-          # A RightScale infrastructure agent must also bind to the advertise exchange so that
-          # a mapper that comes up after this agent can learn of its existence. The identity
-          # queue binds to both the identity and advertise exchanges, therefore the advertise
-          # exchange must be durable to match the identity exchange.
-          queue.bind(b[:mq].fanout("advertise", :durable => true)) if @options[:infrastructure]
+        # A RightScale infrastructure agent must also bind to the advertise exchange so that
+        # a mapper that comes up after this agent can learn of its existence. The identity
+        # queue binds to both the identity and advertise exchanges, therefore the advertise
+        # exchange must be durable to match the identity exchange.
+        queue.bind(broker[:mq].fanout("advertise", :durable => true)) if @options[:infrastructure]
 
-          binding.subscribe(:ack => true, &handler)
-        else
-          queue.subscribe(:ack => true, &handler)  
-        end
+        binding.subscribe(:ack => true, &handler)
+      else
+        queue.subscribe(:ack => true, &handler)
       end
     end
 
@@ -397,7 +461,7 @@ module RightScale
     # true:: Always return true
     def setup_heartbeat
       EM.add_periodic_timer(@options[:ping_time]) do
-        publish('heartbeat', Ping.new(@identity, status_proc.call, @broker.connected), :no_log => true)
+        publish('heartbeat', Ping.new(@identity, status_proc.call, @broker.usable, @broker.failed), :no_log => true)
       end
       true
     end
@@ -468,7 +532,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def advertise_services
-      reg = Register.new(@identity, @registry.services, status_proc.call, self.tags, @broker.connected, @shared_queue)
+      reg = Register.new(@identity, @registry.services, status_proc.call, self.tags, @broker.usable, @shared_queue)
       publish('registration', reg)
       true
     end

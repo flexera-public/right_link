@@ -192,11 +192,12 @@ end
 
 describe "Packet: Ping" do
   it "should dump/load as JSON objects" do
-    packet = RightScale::Ping.new('0xdeadbeef', 0.8, ['b1', 'b2'])
+    packet = RightScale::Ping.new('0xdeadbeef', 0.8, ['b1', 'b2'], ['b3'])
     packet2 = JSON.parse(packet.to_json)
     packet.identity.should == packet2.identity
     packet.status.should == packet2.status
-    packet.brokers.should == packet2.brokers
+    packet.usable.should == packet2.usable
+    packet.failed.should == packet2.failed
   end
 
   it "should dump/load as Marshalled ruby objects" do
@@ -204,7 +205,8 @@ describe "Packet: Ping" do
     packet2 = Marshal.load(Marshal.dump(packet))
     packet.identity.should == packet2.identity
     packet.status.should == packet2.status
-    packet.brokers.should == packet2.brokers
+    packet.usable.should == packet2.usable
+    packet.failed.should == packet2.failed
   end
 end
 

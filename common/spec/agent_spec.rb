@@ -38,7 +38,8 @@ describe RightScale::Agent do
       @bind = flexmock("bind", :subscribe => nil)
       @queue = flexmock("queue", :subscribe => {}, :bind => @bind)
       @mq = flexmock("mq", :queue => @queue, :fanout => @fanout, :direct => @direct)
-      @broker = flexmock("Broker", :subscribe => true, :publish => true, :prefetch => true, :connected => ["b1"]).by_default
+      @broker = flexmock("Broker", :subscribe => true, :publish => true, :prefetch => true,
+                         :usable => ["b1"], :failed => []).by_default
       @broker.should_receive(:each_usable).and_yield({:mq => @mq})
       @broker.should_receive(:connection_status).and_yield(:connected)
       flexmock(RightScale::HA_MQ).should_receive(:new).and_return(@broker)
@@ -148,7 +149,8 @@ describe RightScale::Agent do
       @bind = flexmock("bind", :subscribe => nil)
       @queue = flexmock("queue", :subscribe => {}, :bind => @bind)
       @mq = flexmock("mq", :queue => @queue, :fanout => @fanout, :direct => @direct)
-      @broker = flexmock("Broker", :subscribe => true, :publish => true, :prefetch => true, :connected => ["b1"]).by_default
+      @broker = flexmock("Broker", :subscribe => true, :publish => true, :prefetch => true,
+                         :usable => ["b1"], :failed => []).by_default
       @broker.should_receive(:each_usable).and_yield({:mq => @mq})
       @broker.should_receive(:connection_status).and_yield(:connected)
       flexmock(RightScale::HA_MQ).should_receive(:new).and_return(@broker)

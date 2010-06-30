@@ -484,7 +484,7 @@ module RightScale
   # Heartbeat packet
   class Ping < Packet
 
-    attr_accessor :identity, :status, :brokers
+    attr_accessor :identity, :status, :usable, :failed
 
     # Create packet
     #
@@ -492,12 +492,15 @@ module RightScale
     # identity(String):: Sender identity
     # status(Any):: Load of the node by default, but may be any criteria
     #   agent may use to report its availability, load, etc
-    # brokers(Array|nil):: Identity of agent's brokers with nil meaning not supported
+    # usable(Array|nil):: Identity of agent's usable brokers, nil means not supported
+    # failed(Array|nil):: Identity of agent's failed brokers, i.e., ones it never was able
+    #   to connect to, nil means not supported
     # size(Integer):: Size of request in bytes used only for marshalling
-    def initialize(identity, status, brokers = nil, size = nil)
+    def initialize(identity, status, usable = nil, failed = nil, size = nil)
       @status   = status
       @identity = identity
-      @brokers  = brokers
+      @usable   = usable
+      @failed   = failed
       @size     = size
     end
 
@@ -510,7 +513,7 @@ module RightScale
     # (Ping):: New packet
     def self.json_create(o)
       i = o['data']
-      new(i['identity'], i['status'], i['brokers'], o['size'])
+      new(i['identity'], i['status'], i['usable'], i['failed'], o['size'])
     end
 
     # Generate log representation
@@ -521,7 +524,7 @@ module RightScale
     # === Return
     # (String):: Log representation
     def to_s(filter = nil)
-      "#{super} #{id_to_s(@identity)} status #{@status} brokers #{@brokers.inspect}"
+      "#{super} #{id_to_s(@identity)} status #{@status}, usable #{@usable.inspect}, failed #{@failed.inspect}"
     end
 
   end # Ping
@@ -536,9 +539,9 @@ module RightScale
     # === Parameters
     # size(Integer):: Size of request in bytes used only for marshalling
     def initialize(size = nil)
-      @size    = size
+      @size = size
     end
-    
+
     # Create packet from unmarshalled JSON data
     #
     # === Parameters

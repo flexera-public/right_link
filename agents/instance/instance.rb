@@ -42,7 +42,7 @@ RightScale::AgentTagsManager.instance.agent = self
 
 register setup = InstanceSetup.new(@options)
 register scheduler = InstanceScheduler.new(self)
-register AgentManager.new
+register AgentManager.new(self)
 register InstanceServices.new(@identity)
 
 # Start command runner to enable running RightScripts and recipes from the command line

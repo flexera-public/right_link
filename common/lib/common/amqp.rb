@@ -110,7 +110,8 @@ begin
       end
 
       if (@reconnect_try % 30) == 0
-        RightScale::RightLinkLog.send(@reconnect_log, "Reconnecting to AMQP broker #{@settings[:host]}:#{@settings[:port]}")
+        RightScale::RightLinkLog.send(@reconnect_log, "Attempting reconnect to broker " +
+                                      "#{RightScale::HA_MQ.identity(@settings[:host], @settings[:port])}")
         @reconnect_log = :error if (@reconnect_try % 300) == 0
       end
       @reconnect_try += 1
@@ -147,9 +148,24 @@ module RightScale
   # Manage multiple AMQP broker connections to achieve a high availability service
   class HA_MQ
 
-    STATUS = [:uninitialized, :connecting, :connected, :disconnected, :closed, :failed]
+    STATUS = [
+      :connecting,   # Initiated AMQP connection but not yet confirmed that connected
+      :connected,    # Confirmed AMQP connection that is declared usable
+      :disconnected, # Notified by AMQP that connection has been lost and attempting to reconnect
+      :closed,       # AMQP connection closed explicitly or because of too many failed connect attempts
+      :failed        # Failed to connect due to internal failure or AMQP failure to connect
+    ]
+
+    # Maximum attempts to reconnect a failed connection
+    MAX_RECONNECT_ATTEMPTS = 5
 
     # (Array(Hash)) Priority ordered list of AMQP brokers (exposed only for unit test purposes)
+    #   :mq(MQ):: AMQP broker channel
+    #   :connection(EM::Connection):: AMQP connection
+    #   :identity(String):: Broker identity
+    #   :alias(String):: Broker alias used in logs
+    #   :status(Symbol):: Status of connection
+    #   :tries(Integer):: Number of attempts to reconnect a failed connection
     attr_accessor :brokers
 
     # Create connections to all configured AMQP brokers
@@ -170,16 +186,18 @@ module RightScale
     #     e.g., "host_a:0, host_c:2"
     #   :port(String|Integer):: Comma-separated list of AMQP broker port numbers corresponding to :host list;
     #     if only one, it is incremented and applied to successive hosts; if none, defaults to AMQP::PORT
-    #   :select(Symbol):: Broker selection algorithm when publishing a message: :random or :ordered,
-    #     defaults to :ordered, value can be overridden on publish call
+    #   :order(Symbol):: Broker selection order when publishing a message: :random or :priority,
+    #     defaults to :priority, value can be overridden on publish call
     #
     # === Raise
     # (RightScale::Exceptions::Argument):: If :host and :port are not matched lists
     def initialize(serializer, options = {})
+      @options = options
+      @connection_status = {}
       @serializer = serializer
       index = -1
-      @select = options[:select] || :ordered
-      @brokers = self.class.addresses(options[:host], options[:port]).map { |a| connect(a, options) }
+      @select = options[:order] || :priority
+      @brokers = self.class.addresses(options[:host], options[:port]).map { |a| internal_connect(a, options) }
       @brokers_hash = {}
       @brokers.each { |b| @brokers_hash[b[:identity]] = b }
     end
@@ -257,11 +275,11 @@ module RightScale
     # === Return
     # ids(Array):: Identity of AMQP brokers where successfully subscribed
     def subscribe(queue, exchange = nil, options = {}, &blk)
+      to_exchange = " to exchange #{exchange[:name]}" if exchange
       ids = []
       each_usable do |b|
         begin
-          x = " to exchange #{exchange[:name]}" if exchange
-          RightLinkLog.info("[setup] Subscribing queue #{queue[:name]}#{x} on #{b[:alias]}")
+          RightLinkLog.info("[setup] Subscribing queue #{queue[:name]}#{to_exchange} on broker #{b[:alias]}")
           q = b[:mq].queue(queue[:name], queue[:options] || {})
           if exchange
             x = b[:mq].__send__(exchange[:type], exchange[:name], exchange[:options] || {})
@@ -288,8 +306,7 @@ module RightScale
           end
           ids << b[:identity]
         rescue Exception => e
-          RightLinkLog.error("Failed to subscribe queue #{queue.inspect} to exchange #{exchange.inspect} " +
-                             "on AMQP broker #{b[:identity]}, alias #{b[:alias]}: #{e.message}")
+          RightLinkLog.error("Failed subscribing queue #{queue.inspect}#{to_exchange} on broker #{b[:alias]}: #{e.message}")
         end
       end
       ids
@@ -306,7 +323,7 @@ module RightScale
     #     only packet classes specified are accepted, others are not processed but are logged with error
     #   :category(String):: Packet category description to be used in error messages
     #   :log_data(String):: Additional data to display at end of log entry
-    #   :no_log(Boolean):: Disable receive logging
+    #   :no_log(Boolean):: Disable receive logging unless debug level
     #
     # === Return
     # (Packet|nil):: Unserialized packet or nil if not of right type
@@ -314,7 +331,7 @@ module RightScale
       begin
         packet = @serializer.load(msg)
         if options.key?(packet.class)
-          unless options[:no_log]
+          unless options[:no_log] && RightLinkLog.level != :debug
             log_filter = options[packet.class] unless RightLinkLog.level == :debug
             RightLinkLog.__send__(RightLinkLog.level,
               "RECV #{broker[:alias]} #{packet.to_s(log_filter)} #{options[:log_data]}")
@@ -326,7 +343,7 @@ module RightScale
           nil
         end
       rescue Exception => e
-        RightLinkLog.error("RECV #{broker[:alias]} - Failed to receive from queue #{queue}: #{e.message}")
+        RightLinkLog.error("RECV #{broker[:alias]} - Failed receiving from queue #{queue}: #{e.message}")
         raise e
       end
     end
@@ -340,14 +357,14 @@ module RightScale
     # options(Hash):: Publish options -- standard AMQP ones plus
     #   :fanout(Boolean):: true means publish to all allowed usable brokers
     #   :brokers(Array):: Identity of brokers allowed to use, defaults to all if nil or empty
-    #   :select(Symbol):: Broker selection algorithm: :random or :ordered,
-    #     defaults to @select if :brokers is nil, otherwise defaults to :ordered
+    #   :order(Symbol):: Broker selection order: :random or :priority,
+    #     defaults to @select if :brokers is nil, otherwise defaults to :priority
     #   :no_serialize(Boolean):: Do not serialize packet because it is already serialized,
     #     this is an escape for special situations like enrollment, also implicitly disables
     #     publish logging; this option is implicitly invoked if initialize without a serializer
     #   :log_filter(Array(Symbol)):: Filters to be applied in to_s when logging packet to :info
     #   :log_data(String):: Additional data to display at end of log entry
-    #   :no_log(Boolean):: Disable publish logging
+    #   :no_log(Boolean):: Disable publish logging unless debug level
     #
     # === Return
     # ids(Array):: Identity of AMQP brokers where packet was successfully published
@@ -360,7 +377,7 @@ module RightScale
       use(options).each do |b|
         if b[:status] == :connected
           begin
-            unless options[:no_log] || options[:no_serialize] || @serializer.nil?
+            unless (options[:no_log] && RightLinkLog.level != :debug) || options[:no_serialize] || @serializer.nil?
               re = "RE" if packet.respond_to?(:tries) && !packet.tries.empty?
               log_filter = options[:log_filter] unless RightLinkLog.level == :debug
               RightLinkLog.__send__(RightLinkLog.level,
@@ -370,14 +387,14 @@ module RightScale
             ids << b[:identity]
             break unless options[:fanout]
           rescue Exception => e
-            RightLinkLog.error("#{re}SEND #{b[:alias]} - Failed to publish to exchange #{exchange.inspect}: #{e.message}")
+            RightLinkLog.error("#{re}SEND #{b[:alias]} - Failed publishing to exchange #{exchange.inspect}: #{e.message}")
           end
         end
       end
       if ids.empty?
         allowed = "the allowed " if options[:brokers]
         count = (options[:brokers].size if options[:brokers]) || @brokers.size
-        raise RightScale::Exceptions::IO, "None of #{allowed}#{count} AMQP broker connections are usable"
+        raise RightScale::Exceptions::IO, "None of #{allowed}#{count} broker connections are usable"
       end
       ids
     end
@@ -396,8 +413,7 @@ module RightScale
           b[:mq].queue(name).delete
           ids << b[:identity]
         rescue Exception => e
-          RightLinkLog.error("Failed to delete queue #{name.inspect} " +
-                             "on AMQP broker #{b[:identity]}, alias #{b[:alias]}: #{e.message}")
+          RightLinkLog.error("Failed deleting queue #{name.inspect} on broker #{b[:alias]}: #{e.message}")
         end
       end
       ids
@@ -411,7 +427,41 @@ module RightScale
     # === Return
     # (Array):: Broker aliases
     def aliases(identities)
-      identities.map { |i| (@brokers_hash[i] || @brokers_hash[AgentIdentity.serialized_from_nanite(i)])[:alias] rescue nil }
+      identities.map { |i| alias_(i) }
+    end
+
+    # Convert broker identity to its alias
+    #
+    # === Parameters
+    # identity(String):: Broker identity with or without nanite prefix
+    #
+    # === Return
+    # (String|nil):: Broker alias, or nil if not a known broker
+    def alias_(identity)
+      (@brokers_hash[identity] || @brokers_hash[AgentIdentity.serialized_from_nanite(identity)])[:alias] rescue nil
+    end
+
+    # Convert broker identity to its id used in alias
+    #
+    # === Parameters
+    # identity(String):: Broker identity with or without nanite prefix
+    #
+    # === Return
+    # (Integer|nil):: Broker alias ia, or nil if not a known broker
+    def id_(identity)
+      alias_(identity)[1..-1].to_i rescue nil
+    end
+
+    # Find broker with given alias id
+    #
+    # === Parameters
+    # id(Integer):: Broker alias id
+    #
+    # === Return
+    # (Hash|nil):: Broker if found, otherwise nil
+    def find(id)
+      each { |b| return b if b[:alias][1..-1].to_i == id } if id
+      nil
     end
 
     # Parse host and port information to form list of broker identities
@@ -443,7 +493,7 @@ module RightScale
     # === Returns
     # (String):: Unique broker identity
     def self.identity(host, port)
-      AgentIdentity.new('rs', 'broker', port, host.gsub('-', '~')).to_s
+      AgentIdentity.new('rs', 'broker', port.to_i, host.gsub('-', '~')).to_s
     end
 
     # Extract host name from broker identity
@@ -454,7 +504,7 @@ module RightScale
     # === Returns
     # (String):: IP host name
     def self.host(identity)
-      AgentIdentity.parse(AgentIdentity.nanite_from_serialized(identity)).token.gsub('~', '-')
+      AgentIdentity.parse(identity).token.gsub('~', '-')
     end
 
     # Extract port number from broker identity
@@ -465,7 +515,31 @@ module RightScale
     # === Returns
     # (Integer):: TCP port number
     def self.port(identity)
-      AgentIdentity.parse(AgentIdentity.nanite_from_serialized(identity)).base_id
+      AgentIdentity.parse(identity).base_id
+    end
+
+    # Form string of hosts and associated ids
+    #
+    # === Return
+    # (String):: Comma separated list of host:id
+    def hosts
+      @brokers.map { |b| "#{self.class.host(b[:identity])}:#{b[:alias][1..-1]}" }.join(",")
+    end
+
+    # Form string of hosts and associated ids
+    #
+    # === Return
+    # (String):: Comma separated list of host:id
+    def ports
+      @brokers.map { |b| "#{self.class.port(b[:identity])}:#{b[:alias][1..-1]}" }.join(",")
+    end
+
+    # Iterate over AMQP broker connections
+    #
+    # === Block
+    # Required block to which each AMQP broker connection is passed
+    def each
+      @brokers.each { |b| yield b }
     end
 
     # Iterate over usable AMQP broker connections
@@ -474,6 +548,23 @@ module RightScale
     # Required block to which each AMQP broker connection is passed
     def each_usable
       @brokers.each { |b| yield b if b[:status] == :connected }
+    end
+
+    # Get identity of usable AMQP brokers
+    #
+    # === Return
+    # (Array):: Identity of usable brokers
+    def usable
+      @brokers.inject([]) { |c, b| if b[:status] == :connected then c << b[:identity] else c end }
+    end
+
+    # Get identity of failed AMQP brokers, i.e., ones that were never successfully connected,
+    # not ones that are just disconnected
+    #
+    # === Return
+    # (Array):: Identity of failed brokers
+    def failed
+      @brokers.inject([]) { |c, b| if b[:status] == :failed then c << b[:identity] else c end }
     end
 
     # Set prefetch value for each AMQP broker
@@ -490,32 +581,103 @@ module RightScale
       true
     end
 
-    # Store block to be called when there is a change in connection status
+    # Make new connection to broker at specified address unless already connected
     #
     # === Parameters
-    # options(Hash):: Connection monitoring options
-    #   :one_off(Boolean):: Only report status update once
-    #   :boundary(Symbol):: :any if only report change on any (0/1) boundary,
-    #     :all if only report change on all (n-1/n) boundary, defaults to :any
+    # host{String):: IP host name or address for individual broker
+    # port(Integer):: TCP port number for individual broker
+    # id(Integer):: Small unique id associated with this broker for use in forming alias
+    # priority(Integer|nil):: Priority position of this broker in list for use
+    #   by this agent with nil meaning add to end of list
     #
     # === Block
-    # Block to be called when usable connection count crosses 0|1 threshold
-    # If no block given, any existing block is removed
+    # Optional block is executed after initiating the connection unless already
+    # connected to this broker, only block argument is the broker hash
     #
     # === Return
-    # true:: Always return true
-    def connection_status(options = {}, &blk)
-      @connection_status_options = options
-      @connection_status = if blk then blk else nil end
-      true
+    # broker(Hash):: Broker for which connection initiated
+    #
+    # === Raise
+    # Exception:: If exceed maximum attempts to reconnect
+    # Exception:: If host and port do not match an existing broker but id does
+    # Exception:: If requested priority position would leave a gap in the list
+    def connect(host, port, id, priority = nil, &blk)
+      broker = nil
+      identity = self.class.identity(host, port)
+      existing = @brokers_hash[identity]
+      if existing && existing[:status] == :connected
+        RightLinkLog.info("Ignoring request to reconnect #{identity} because already connected")
+      elsif existing && existing[:tries] >= MAX_RECONNECT_ATTEMPTS
+        existing[:status] = :closed
+        raise Exception, "Exceeded maximum of #{MAX_RECONNECT_ATTEMPTS} attempts to reconnect to #{identity}, closing broker"
+      elsif !existing && b = find(id)
+        raise Exception, "Not allowed to change host or port of existing broker #{b[:identity]}, " +
+                         "alias b#{id}, to #{host} and #{port.inspect}"
+      else
+        broker = internal_connect({:host => host, :port => port, :id => id}, @options)
+        broker[:tries] = existing[:tries] + 1 if existing && broker[:status] == :failed
+        i = 0; @brokers.each { |b| break if b[:identity] == identity; i += 1 }
+        if priority && priority < i
+          @brokers.insert(priority, broker)
+        elsif priority && priority > i
+          if connection_closable(broker)
+            broker[:status] = :closed
+            broker[:connection].close
+          end
+          raise Exception, "Requested priority position #{priority} for #{identity} " +
+                           "would leave gap in broker list of size #{@brokers.size}"
+        elsif connection_closable(@brokers[i])
+          @brokers[i][:status] = :closed
+          @brokers[i][:connection].close
+          @brokers[i] = broker
+        else
+          @brokers[i] = broker
+        end
+        @brokers_hash[identity] = broker
+        yield broker if block_given?
+      end
+      broker
     end
 
-    # Get identity of connected AMQP brokers
+    # Store block to be called when there is a change in connection status
+    # Each call to this method stores another block
+    #
+    # === Parameters
+    # options(Hash):: Connection status monitoring options
+    #   :one_off(Integer):: Seconds to wait for status change; only send update once;
+    #     if timeout, report :timeout as the status
+    #   :boundary(Symbol):: :any if only report change on any (0/1) boundary,
+    #     :all if only report change on all (n-1/n) boundary, defaults to :any
+    #   :brokers(Array):: Only report a status change for these identified brokers
+    #
+    # === Block
+    # Block to be called when usable connection count crosses a status boundary
     #
     # === Return
-    # (Array):: Identity of usable brokers
-    def connected
-      @brokers.inject([]) { |c, b| if b[:status] == :connected then c << b[:identity] else c end }
+    # id(String):: Identifier associated with connection status request
+    def connection_status(options = {}, &blk)
+      id = AgentIdentity.generate
+      @connection_status[id] = {:boundary => options[:boundary], :brokers => brokers, :block => blk}
+      if timeout = options[:one_off]
+        @connection_status[id][:timer] = EM::Timer.new(timeout) do
+          if @connection_status[id]
+            @connection_status[id][:block].call(:timeout)
+            @connection_status.delete(id)
+          end
+        end
+      end
+      id
+    end
+
+    # Determine whether broker is in a state to have a connection to be closed
+    #
+    # === Parameters
+    # broker(Hash):: Broker to be tested
+    #
+    # === Return
+    # (Boolean):: true if can close, otherwise false
+    def connection_closable(broker)
+      ![:closed, :failed].include?(broker[:status]) if broker
     end
 
     # Close all AMQP broker connections
@@ -527,16 +689,16 @@ module RightScale
       handler.callback { blk.call if blk }
 
       @brokers.each do |b|
-        if [:uninitialized, :closed, :failed].include?(b[:status])
-          handler.close_one
-        else
+        if connection_closable(b)
           begin
             b[:connection].close { b[:status] = :closed; handler.close_one }
           rescue Exception => e
-            RightLinkLog.error("Failed to close AMQP broker #{b[:identity]}, alias #{b[:alias]}: #{e.message}")
+            RightLinkLog.error("Failed to close broker #{b[:alias]}: #{e.message}")
             b[:status] = :closed
             handler.close_one
           end
+        else
+          handler.close_one
         end
       end
     end
@@ -566,37 +728,37 @@ module RightScale
     # address(Hash):: Broker address
     #   :host(String:: IP host name or address
     #   :port(Integer):: TCP port number for individual broker
-    #   :id(String):: Unique id associated with this broker for use in forming alias
+    #   :id(String):: Small id associated with this broker for use in forming alias
     # options(Hash):: Options required to create an AMQP connection other than :host and :port
     #
     # === Return
     # broker(Hash):: AMQP broker
-    #   :mq(MQ):: AMQP broker channel
-    #   :connection(EM::Connection):: AMQP connection
-    #   :status(Symbol):: Status of connection
-    #   :identity(String):: Broker identity
-    #   :alias(String):: Broker alias used in logs
-    def connect(address, options)
-      identity = self.class.identity(address[:host], address[:port])
-      alias_ = "b#{address[:id]}"
-
+    def internal_connect(address, options)
+      broker = {
+        :mq => nil,
+        :connection => nil,
+        :identity => self.class.identity(address[:host], address[:port]),
+        :alias => "b#{address[:id]}",
+        :status => :connecting,
+        :tries => 0
+      }
       begin
-        connection = AMQP.connect(:user => options[:user],
-                                  :pass => options[:pass],
-                                  :vhost => options[:vhost],
-                                  :host => address[:host],
-                                  :port => address[:port],
-                                  :insist => options[:insist] || false,
-                                  :retry => options[:retry] || 15 )
-        mq = MQ.new(connection)
-        broker = {:mq => mq, :connection => connection, :identity => identity, :alias => alias_, :status => :connecting}
-        mq.__send__(:connection).connection_status { |status| update_status(broker, status) }
-        RightLinkLog.info("[setup] Connecting to AMQP broker #{identity}, alias #{alias_}")
-        broker
+        RightLinkLog.info("[setup] Connecting to broker #{broker[:identity]}, alias #{broker[:alias]}")
+        broker[:connection] = AMQP.connect(:user => options[:user],
+                                           :pass => options[:pass],
+                                           :vhost => options[:vhost],
+                                           :host => address[:host],
+                                           :port => address[:port],
+                                           :insist => options[:insist] || false,
+                                           :retry => options[:retry] || 15)
+        broker[:mq] = MQ.new(broker[:connection])
+        broker[:mq].__send__(:connection).connection_status { |status| update_status(broker, status) }
       rescue Exception => e
-        RightLinkLog.error("Failed to connect to AMQP broker #{identity}, alias #{alias_}: #{e.message}")
-        {:mq => nil, :connection => nil, :identity => identity, :alias => alias_, :status => :uninitialized}
+        broker[:status] = :failed
+        RightLinkLog.error("Failed connecting to #{broker[:alias]}: #{e.message}")
+        broker[:connection].close if broker[:connection]
       end
+      broker
     end
 
     # Callback from AMQP with connection status
@@ -608,35 +770,41 @@ module RightScale
     # === Return
     # true:: Always return true
     def update_status(broker, status)
-      before = connected
+      before = usable
       broker[:status] = status
-      after = connected
+      after = usable
       if status == :failed
-        RightLinkLog.error("Failed to connect to AMQP broker #{broker[:identity]}, alias #{broker[:alias]}")
+        RightLinkLog.error("Failed to connect to broker #{broker[:alias]}")
       end
       unless before == after
-        RightLinkLog.info("[status] AMQP broker #{broker[:identity]}, alias #{broker[:alias]}, is now #{status} " +
-                          "for a total of #{after.size} usable brokers")
+        RightLinkLog.info("[status] Broker #{broker[:alias]} is now #{status}, usable brokers: [#{aliases(after).join(", ")}]")
       end
-      if @connection_status
-        update = if @connection_status_options[:boundary] == :all
-          max = @brokers.size
-          if before.size < max && after.size == max
-            :connected
-          elsif before.size == max && after.size < max
-            :disconnected
+      @connection_status.reject! do |k, v|
+        reject = false
+        unless v[:brokers].nil? || v[:brokers].include?(broker[:idenitity])
+          update = if v[:boundary] == :all
+            max = @brokers.size
+            if before.size < max && after.size == max
+              :connected
+            elsif before.size == max && after.size < max
+              :disconnected
+            end
+          else
+            if before.size == 0 && after.size > 0
+              :connected
+            elsif before.size > 0 && after.size == 0
+              :disconnected
+            end
           end
-        else
-          if before.size == 0 && after.size > 0
-            :connected
-          elsif before.size > 0 && after.size == 0
-            :disconnected
+          if update
+            v[:block].call(update)
+            if v[:timer]
+              v[:timer].cancel
+              reject = true
+            end
           end
         end
-        if update
-          @connection_status.call(update)
-          @connection_status = nil if @connection_status_options[:one_off]
-        end
+        reject
       end
       true
     end
@@ -646,16 +814,16 @@ module RightScale
     # === Parameters
     # options(Hash):: Selection options:
     #   :brokers(Array):: Identity of brokers allowed to use, defaults to all if nil or empty
-    #   :select(Symbol):: Broker selection algorithm: :random or :ordered,
-    #     defaults to @select if :brokers is nil, otherwise defaults to :ordered
+    #   :order(Symbol):: Broker selection order: :random or :priority,
+    #     defaults to @select if :brokers is nil, otherwise defaults to :priority
     #
     # === Return
     # (Array):: Allowed brokers in the order to be used
     def use(options)
       choices, select = if options[:brokers] && !options[:brokers].empty?
-        [options[:brokers].map { |a| @brokers_hash[a] }, options[:select]]
+        [options[:brokers].map { |a| @brokers_hash[a] }, options[:order]]
       else
-        [@brokers, (options[:select] || @select)]
+        [@brokers, (options[:order] || @select)]
       end
       if select == :random
         choices.sort_by { rand }
