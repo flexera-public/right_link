@@ -453,7 +453,7 @@ module RightScale
           filter = [:from, :tags, :tries]
           packet = @broker.receive(broker, @identity, msg, Advertise => nil, Request => filter, Push => filter, Result => [])
           case packet
-          when Advertise then advertise_services
+          when Advertise then advertise_services(@broker.usable)
           when Request, Push then @dispatcher.dispatch(packet)
           when Result then @mapper_proxy.handle_result(packet)
           end
