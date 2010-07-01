@@ -188,7 +188,7 @@ module RightScale
                 load_actors
                 setup_traps
                 setup_queues
-                advertise_services
+                advertise_services(@broker.usable)
                 setup_heartbeat
                 at_exit { un_register } unless $TESTING
                 start_console if @options[:console] && !@options[:daemonize]
@@ -251,21 +251,22 @@ module RightScale
     # id(Integer):: Small unique id associated with this broker for use in forming alias
     # priority(Integer|nil):: Priority position of this broker in list for use
     #   by this agent with nil meaning add to end of list
+    # force(Boolean):: Reconnect even if already connected
     #
     # === Return
     # res(String|nil):: Error message if failed, otherwise nil
-    def connect(host, port, id, priority = nil)
+    def connect(host, port, id, priority = nil, force = false)
       brokers = @broker.brokers.map { |b| {:identity => b[:identity], :alias => b[:alias], :status => b[:status]} }
       RightLinkLog.info("Current broker configuration: #{brokers.inspect}")
-      RightLinkLog.info("Requested to connect to broker at host #{host.inspect} port #{port.inspect} " +
+      RightLinkLog.info("Received request to connect to broker at host #{host.inspect} port #{port.inspect} " +
                         "id #{id.inspect} priority #{priority.inspect}")
       res = nil
       begin
-        @broker.connect(host, port, id, priority) do |b|
+        @broker.connect(host, port, id, priority, force) do |b|
           @broker.connection_status(:one_off => BROKER_CONNECT_TIMEOUT, :brokers => [b[:identity]]) do |status|
             if status == :connected
               setup_identity_queue(b)
-              advertise_services
+              advertise_services(@broker.usable)
               unless update_configuration(:host => @broker.hosts, :port => @broker.ports)
                 res = "Successfully connected to #{b[:identity]} but failed to update config file"
               end
@@ -278,6 +279,53 @@ module RightScale
         end
       rescue Exception => e
         res = "Failed to connect to broker #{HA_MQ.identity(host, port)}: #{e.message}"
+      end
+      RightLinkLog.error(res) if res
+      res
+    end
+
+    # Disconnect from a broker and optionally remove it from the configuration
+    # Refuse to do so if it is the last connected broker
+    #
+    # === Parameters
+    # host(String):: Host name of broker
+    # port(Integer):: Port number of broker
+    # remove(Boolean):: Whether to remove broker from configuration rather than just closing it,
+    #   defaults to false
+    #
+    # === Return
+    # res(String|nil):: Error message if failed, otherwise nil
+    def disconnect(host, port, remove = false)
+      brokers = @broker.brokers.map { |b| {:identity => b[:identity], :alias => b[:alias], :status => b[:status]} }
+      RightLinkLog.info("Current broker configuration: #{brokers.inspect}")
+      and_remove = " and remove" if remove
+      RightLinkLog.info("Received request to disconnect#{and_remove} broker at host #{host.inspect} port #{port.inspect}")
+      identity = HA_MQ.identity(host, port)
+      usable = @broker.usable
+      res = nil
+      if usable.include?(identity) && usable.size == 1
+        res = "Cannot disconnect from #{identity} because it is that last usable broker for this agent"
+      elsif @broker.get(identity)
+        begin
+          if usable.include?(identity)
+            # Need to advertise that no longer connected so that no more messages are routed through it
+            usable.delete(identity)
+            advertise_services(usable)
+          end
+          if remove
+            @broker.remove(host, port) do |identity|
+              unless update_configuration(:host => @broker.hosts, :port => @broker.ports)
+                res = "Successfully disconnected from #{identity} but failed to update config file"
+              end
+            end
+          else
+            @broker.close(identity)
+          end
+        rescue Exception => e
+          res = "Failed to disconnect from broker #{identity}: #{e.message}"
+        end
+      else
+        res = "Cannot disconnect from #{identity} because not configured for this agent"
       end
       RightLinkLog.error(res) if res
       res
@@ -461,7 +509,8 @@ module RightScale
     # true:: Always return true
     def setup_heartbeat
       EM.add_periodic_timer(@options[:ping_time]) do
-        publish('heartbeat', Ping.new(@identity, status_proc.call, @broker.usable, @broker.failed), :no_log => true)
+        publish('heartbeat', Ping.new(@identity, status_proc.call, @broker.usable, @broker.failed(backoff = true)),
+                :no_log => true)
       end
       true
     end
@@ -529,10 +578,13 @@ module RightScale
 
     # Advertise the services provided by this agent
     #
+    # === Parameters
+    # usable(Array):: Identity of usable brokers
+    #
     # === Return
     # true:: Always return true
-    def advertise_services
-      reg = Register.new(@identity, @registry.services, status_proc.call, self.tags, @broker.usable, @shared_queue)
+    def advertise_services(usable)
+      reg = Register.new(@identity, @registry.services, status_proc.call, self.tags, usable, @shared_queue)
       publish('registration', reg)
       true
     end
