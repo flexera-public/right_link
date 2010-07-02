@@ -53,36 +53,36 @@ describe RightScale::HA_MQ do
 
     it "should form list of broker addresses from specified hosts and ports" do
       RightScale::HA_MQ.addresses("first,second", "5672, 5674").should ==
-        [{:host => "first", :port => 5672, :id => "0"}, {:host => "second", :port => 5674, :id => "1"}]
+        [{:host => "first", :port => 5672, :id => 0}, {:host => "second", :port => 5674, :id => 1}]
     end
 
     it "should form list of broker addresses from specified hosts and ports and use ids associated with hosts" do
       RightScale::HA_MQ.addresses("first:1,second:2", "5672, 5674").should ==
-        [{:host => "first", :port => 5672, :id => "1"}, {:host => "second", :port => 5674, :id => "2"}]
+        [{:host => "first", :port => 5672, :id => 1}, {:host => "second", :port => 5674, :id => 2}]
     end
 
     it "should form list of broker addresses from specified hosts and ports and use ids associated with ports" do
       RightScale::HA_MQ.addresses("host", "5672:0, 5674:2").should ==
-        [{:host => "host", :port => 5672, :id => "0"}, {:host => "host", :port => 5674, :id => "2"}]
+        [{:host => "host", :port => 5672, :id => 0}, {:host => "host", :port => 5674, :id => 2}]
     end
 
     it "should use default host and port for broker identity if none provided" do
-      RightScale::HA_MQ.addresses(nil, nil).should == [{:host => "localhost", :port => 5672, :id => "0"}]
+      RightScale::HA_MQ.addresses(nil, nil).should == [{:host => "localhost", :port => 5672, :id => 0}]
     end
 
     it "should reuse host if there is only one but multiple ports" do
       RightScale::HA_MQ.addresses("first", "5672, 5674").should ==
-        [{:host => "first", :port => 5672, :id => "0"}, {:host => "first", :port => 5674, :id => "1"}]
+        [{:host => "first", :port => 5672, :id => 0}, {:host => "first", :port => 5674, :id => 1}]
     end
 
     it "should reuse port if there is only one but multiple hosts" do
       RightScale::HA_MQ.addresses("first, second", 5672).should ==
-        [{:host => "first", :port => 5672, :id => "0"}, {:host => "second", :port => 5672, :id => "1"}]
+        [{:host => "first", :port => 5672, :id => 0}, {:host => "second", :port => 5672, :id => 1}]
     end
 
     it "should apply ids associated with host" do
       RightScale::HA_MQ.addresses("first:0, third:2", 5672).should ==
-        [{:host => "first", :port => 5672, :id => "0"}, {:host => "third", :port => 5672, :id => "2"}]
+        [{:host => "first", :port => 5672, :id => 0}, {:host => "third", :port => 5672, :id => 2}]
     end
 
     it "should not allow mismatched number of hosts and ports" do
@@ -953,18 +953,29 @@ describe RightScale::HA_MQ do
       end
     end
 
+    it "should give broker status list" do
+      ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first, second")
+      ha_mq.status.should == [{:alias => "b0", :identity => "rs-broker-first-5672", :status => :connecting, :tries => 0},
+                              {:alias => "b1", :identity => "rs-broker-second-5672", :status => :connecting, :tries => 0}]
+      ha_mq.brokers[0][:status] = :failed
+      ha_mq.brokers[0][:tries] = 2
+      ha_mq.brokers[1][:status] = :connected
+      ha_mq.status.should == [{:alias => "b0", :identity => "rs-broker-first-5672", :status => :failed, :tries => 2},
+                              {:alias => "b1", :identity => "rs-broker-second-5672", :status => :connected, :tries => 0}]
+    end
+
     it "should provide connection status callback when cross 0/1 connection boundary" do
       ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first, second")
       connected = 0
       disconnected = 0
       ha_mq.connection_status do |status|
         if status == :connected
-          ha_mq.brokers[0][:status].should == :connected ||
-          ha_mq.brokers[1][:status].should == :connected
+          (ha_mq.brokers[0][:status] == :connected ||
+           ha_mq.brokers[1][:status] == :connected).should be_true
           connected += 1
         elsif status == :disconnected
-          ha_mq.brokers[0][:status].should == :disconnected &&
-          ha_mq.brokers[1][:status].should == :disconnected
+          (ha_mq.brokers[0][:status] == :disconnected &&
+           ha_mq.brokers[1][:status] == :disconnected).should be_true
           disconnected += 1
         end
       end
@@ -994,12 +1005,12 @@ describe RightScale::HA_MQ do
       disconnected = 0
       ha_mq.connection_status(:boundary => :all) do |status|
         if status == :connected
-          ha_mq.brokers[0][:status].should == :connected &&
-          ha_mq.brokers[1][:status].should == :connected
+          (ha_mq.brokers[0][:status] == :connected &&
+           ha_mq.brokers[1][:status] == :connected).should be_true
           connected += 1
         elsif status == :disconnected
-          ha_mq.brokers[0][:status].should == :disconnected ||
-          ha_mq.brokers[1][:status].should == :disconnected
+          (ha_mq.brokers[0][:status] == :disconnected ||
+           ha_mq.brokers[1][:status] == :disconnected).should be_true
           disconnected += 1
         end
       end
@@ -1019,6 +1030,44 @@ describe RightScale::HA_MQ do
       connected.should == 1
       disconnected.should == 1
       ha_mq.__send__(:update_status, ha_mq.brokers[1], :connected)
+      connected.should == 2
+      disconnected.should == 1
+    end
+
+    it "should provide connection status callback for specific broker set" do
+      ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first, second, third")
+      connected = 0
+      disconnected = 0
+      ha_mq.connection_status(:brokers => ["rs-broker-first-5672", "rs-broker-third-5672"]) do |status|
+        if status == :connected
+          (ha_mq.brokers[0][:status] == :connected ||
+           ha_mq.brokers[2][:status] == :connected).should be_true
+          connected += 1
+        elsif status == :disconnected
+          (ha_mq.brokers[0][:status] == :disconnected &&
+           ha_mq.brokers[2][:status] == :disconnected).should be_true
+          disconnected += 1
+        end
+      end
+      ha_mq.__send__(:update_status, ha_mq.brokers[1], :connected)
+      connected.should == 0
+      disconnected.should == 0
+      ha_mq.__send__(:update_status, ha_mq.brokers[0], :connected)
+      connected.should == 1
+      disconnected.should == 0
+      ha_mq.__send__(:update_status, ha_mq.brokers[2], :connected)
+      connected.should == 1
+      disconnected.should == 0
+      ha_mq.__send__(:update_status, ha_mq.brokers[0], :disconnected)
+      connected.should == 1
+      disconnected.should == 0
+      ha_mq.__send__(:update_status, ha_mq.brokers[1], :disconnected)
+      connected.should == 1
+      disconnected.should == 0
+      ha_mq.__send__(:update_status, ha_mq.brokers[2], :disconnected)
+      connected.should == 1
+      disconnected.should == 1
+      ha_mq.__send__(:update_status, ha_mq.brokers[2], :connected)
       connected.should == 2
       disconnected.should == 1
     end

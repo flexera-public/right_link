@@ -167,6 +167,8 @@ module RightScale
     #   :alias(String):: Broker alias used in logs
     #   :status(Symbol):: Status of connection
     #   :tries(Integer):: Number of attempts to reconnect a failed connection
+    #   :backoff(Integer):: Number of times should ignore failed query for given broker in order
+    #     to achieve exponential backoff on connect attempts when failed
     attr_accessor :brokers
 
     # Create connections to all configured AMQP brokers
@@ -232,7 +234,7 @@ module RightScale
           h = host.split(/:\s*/)
           port = if ports[i] then ports[i].to_i else ports[0].to_i end
           port = port.to_s.split(/:\s*/)[0]
-          {:host => h[0], :port => port.to_i, :id => h[1] || i.to_s}
+          {:host => h[0], :port => port.to_i, :id => (h[1] || i.to_s).to_i}
         end
       else
         ports.map do |port|
@@ -240,7 +242,7 @@ module RightScale
           p = port.to_s.split(/:\s*/)
           host = if hosts[i] then hosts[i] else hosts[0] end
           host = host.split(/:\s*/)[0]
-          {:host => host, :port => p[0].to_i, :id => p[1] || i.to_s}
+          {:host => host, :port => p[0].to_i, :id => (p[1] || i.to_s).to_i}
         end
       end
     end
@@ -357,7 +359,7 @@ module RightScale
     # packet(Packet):: Packet to serialize and publish
     # options(Hash):: Publish options -- standard AMQP ones plus
     #   :fanout(Boolean):: true means publish to all allowed usable brokers
-    #   :brokers(Array):: Identity of brokers allowed to use, defaults to all if nil or empty
+    #   :brokers(Array):: Identity of brokers selected for use, defaults to all if nil or empty
     #   :order(Symbol):: Broker selection order: :random or :priority,
     #     defaults to @select if :brokers is nil, otherwise defaults to :priority
     #   :no_serialize(Boolean):: Do not serialize packet because it is already serialized,
@@ -375,7 +377,8 @@ module RightScale
     def publish(exchange, packet, options = {})
       ids = []
       msg = if options[:no_serialize] || @serializer.nil? then packet else @serializer.dump(packet) end
-      use(options).each do |b|
+      brokers = use(options)
+      brokers.each do |b|
         if b[:status] == :connected
           begin
             unless (options[:no_log] && RightLinkLog.level != :debug) || options[:no_serialize] || @serializer.nil?
@@ -393,9 +396,9 @@ module RightScale
         end
       end
       if ids.empty?
-        allowed = "the allowed " if options[:brokers]
-        count = (options[:brokers].size if options[:brokers]) || @brokers.size
-        raise RightScale::Exceptions::IO, "None of #{allowed}#{count} broker connections are usable"
+        selected = "selected " if options[:brokers]
+        list = aliases(brokers.map { |b| b[:identity] }).join(", ")
+        raise RightScale::Exceptions::IO, "None of #{selected}brokers [#{list}] are usable"
       end
       ids
     end
@@ -719,7 +722,7 @@ module RightScale
     # id(String):: Identifier associated with connection status request
     def connection_status(options = {}, &blk)
       id = AgentIdentity.generate
-      @connection_status[id] = {:boundary => options[:boundary], :brokers => brokers, :block => blk}
+      @connection_status[id] = {:boundary => options[:boundary], :brokers => options[:brokers], :block => blk}
       if timeout = options[:one_off]
         @connection_status[id][:timer] = EM::Timer.new(timeout) do
           if @connection_status[id]
@@ -729,6 +732,18 @@ module RightScale
         end
       end
       id
+    end
+
+    # Get broker status
+    #
+    # === Return
+    # (Array(Hash)):: Status of each configured broker:
+    #   :identity(String):: Broker identity
+    #   :alias(String):: Broker alias used in logs
+    #   :status(Symbol):: Status of connection
+    #   :tries(Integer):: Number of attempts to reconnect a failed connection
+    def status
+      @brokers.map { |b| b.reject { |k, _| ![:identity, :alias, :status, :tries].include?(k) } }
     end
 
     # Determine whether broker is in a state to have a connection to be closed
@@ -845,10 +860,11 @@ module RightScale
     end
 
     # Callback from AMQP with connection status
+    # Makes client callback with :connected or :disconnected status if boundary crossed
     #
     # === Parameters
     # broker(Hash):: AMQP broker reporting status
-    # status(Symbol):: Status of connection (:connected, :disconnected, :closed, :failed)
+    # status(Symbol):: Status of connection (:connected, :disconnected, :failed, :closed)
     #
     # === Return
     # true:: Always return true
@@ -864,18 +880,22 @@ module RightScale
       end
       @connection_status.reject! do |k, v|
         reject = false
-        unless v[:brokers].nil? || v[:brokers].include?(broker[:idenitity])
+        if v[:brokers].nil? || v[:brokers].include?(broker[:identity])
+          b, a, n = if v[:brokers].nil?
+            [before, after, @brokers.size]
+          else
+            [before & v[:brokers], after & v[:brokers], v[:brokers].size]
+          end
           update = if v[:boundary] == :all
-            max = @brokers.size
-            if before.size < max && after.size == max
+            if b.size < n && a.size == n
               :connected
-            elsif before.size == max && after.size < max
+            elsif b.size == n && a.size < n
               :disconnected
             end
           else
-            if before.size == 0 && after.size > 0
+            if b.size == 0 && a.size > 0
               :connected
-            elsif before.size > 0 && after.size == 0
+            elsif b.size > 0 && a.size == 0
               :disconnected
             end
           end
@@ -896,7 +916,7 @@ module RightScale
     #
     # === Parameters
     # options(Hash):: Selection options:
-    #   :brokers(Array):: Identity of brokers allowed to use, defaults to all if nil or empty
+    #   :brokers(Array):: Identity of brokers selected for use, defaults to all if nil or empty
     #   :order(Symbol):: Broker selection order: :random or :priority,
     #     defaults to @select if :brokers is nil, otherwise defaults to :priority
     #

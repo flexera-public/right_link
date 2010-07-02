@@ -256,25 +256,27 @@ module RightScale
     # === Return
     # res(String|nil):: Error message if failed, otherwise nil
     def connect(host, port, id, priority = nil, force = false)
-      brokers = @broker.brokers.map { |b| {:identity => b[:identity], :alias => b[:alias], :status => b[:status]} }
-      RightLinkLog.info("Current broker configuration: #{brokers.inspect}")
+      even_if = " even if already connected" if force
       RightLinkLog.info("Received request to connect to broker at host #{host.inspect} port #{port.inspect} " +
-                        "id #{id.inspect} priority #{priority.inspect}")
+                        "id #{id.inspect} priority #{priority.inspect}#{even_if}")
+      RightLinkLog.info("Current broker configuration: #{@broker.status.inspect}")
       res = nil
       begin
         @broker.connect(host, port, id, priority, force) do |b|
           @broker.connection_status(:one_off => BROKER_CONNECT_TIMEOUT, :brokers => [b[:identity]]) do |status|
-            if status == :connected
-              setup_identity_queue(b)
-              advertise_services(@broker.usable)
-              unless update_configuration(:host => @broker.hosts, :port => @broker.ports)
-                res = "Successfully connected to #{b[:identity]} but failed to update config file"
+            begin
+              if status == :connected
+                setup_identity_queue(b)
+                advertise_services(@broker.usable)
+                unless update_configuration(:host => @broker.hosts, :port => @broker.ports)
+                  RightLinkLog.warn("Successfully connected to #{b[:identity]} but failed to update config file")
+                end
+              else
+                RightLinkLog.error("Failed to connect to #{b[:identity]}, status #{status.inspect}")
               end
-            else
-              res = "Failed to connect to #{b[:identity]}, status #{status.inspect}"
+            rescue Exception => e
+              RightLinkLog.error("Failed to connect to #{b[:identity]}, status #{status.inspect}: #{e.message}")
             end
-            RightLinkLog.error(res) if res
-            return res
           end
         end
       rescue Exception => e
@@ -296,10 +298,10 @@ module RightScale
     # === Return
     # res(String|nil):: Error message if failed, otherwise nil
     def disconnect(host, port, remove = false)
-      brokers = @broker.brokers.map { |b| {:identity => b[:identity], :alias => b[:alias], :status => b[:status]} }
-      RightLinkLog.info("Current broker configuration: #{brokers.inspect}")
       and_remove = " and remove" if remove
-      RightLinkLog.info("Received request to disconnect#{and_remove} broker at host #{host.inspect} port #{port.inspect}")
+      RightLinkLog.info("Received request to disconnect#{and_remove} broker at host #{host.inspect} " +
+                        "port #{port.inspect}")
+      RightLinkLog.info("Current broker configuration: #{@broker.status.inspect}")
       identity = HA_MQ.identity(host, port)
       usable = @broker.usable
       res = nil
