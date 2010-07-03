@@ -477,7 +477,7 @@ module RightScale
         # a mapper that comes up after this agent can learn of its existence. The identity
         # queue binds to both the identity and advertise exchanges, therefore the advertise
         # exchange must be durable to match the identity exchange.
-        queue.bind(broker[:mq].fanout("advertise", :durable => true)) if @options[:infrastructure]
+        queue.bind(broker[:mq].fanout("advertise", :durable => true))
 
         binding.subscribe(:ack => true, &handler)
       else
@@ -511,8 +511,8 @@ module RightScale
     # true:: Always return true
     def setup_heartbeat
       EM.add_periodic_timer(@options[:ping_time]) do
-        publish('heartbeat', Ping.new(@identity, status_proc.call, @broker.usable, @broker.failed(backoff = true)),
-                :no_log => true)
+        failed = @broker.failed(backoff = true) unless @options[:infrastructure]
+        publish('heartbeat', Ping.new(@identity, status_proc.call, @broker.usable, failed), :no_log => true)
       end
       true
     end
