@@ -275,6 +275,12 @@ describe RightScale::HA_MQ do
       ha_mq.subscribe({:name => "queue"}, {:type => :direct, :name => "exchange"}) {|p| p.should == nil}
     end
 
+    it "should subscribe queue to exchange when still connecting" do
+      @bind.should_receive(:subscribe).and_yield(@message).once
+      ha_mq = RightScale::HA_MQ.new(@serializer)
+      ha_mq.subscribe({:name => "queue"}, {:type => :direct, :name => "exchange"}) {|p| p.should == nil}
+    end
+
     it "should subscribe queue to empty exchange if no exchange specified" do
       @queue.should_receive(:subscribe).and_yield(@message).once
       ha_mq = RightScale::HA_MQ.new(@serializer)

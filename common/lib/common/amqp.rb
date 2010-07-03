@@ -247,7 +247,7 @@ module RightScale
       end
     end
 
-    # Subscribe an AMQP queue to an AMQP exchange on usable AMQP brokers
+    # Subscribe an AMQP queue to an AMQP exchange on usable AMQP brokers or ones still connecting
     # Handle AMQP message acknowledgement if requested
     # Unserialize received responses and log them as specified
     #
@@ -280,36 +280,39 @@ module RightScale
     def subscribe(queue, exchange = nil, options = {}, &blk)
       to_exchange = " to exchange #{exchange[:name]}" if exchange
       ids = []
-      each_usable do |b|
-        begin
-          RightLinkLog.info("[setup] Subscribing queue #{queue[:name]}#{to_exchange} on broker #{b[:alias]}")
-          q = b[:mq].queue(queue[:name], queue[:options] || {})
-          if exchange
-            x = b[:mq].__send__(exchange[:type], exchange[:name], exchange[:options] || {})
-            q = q.bind(x)
-          end
-          if options[:ack]
-            # Ack now before processing to avoid risk of duplication after a crash
-            q.subscribe(:ack => true) do |info, msg|
-              info.ack
-              if options[:no_unserialize] || @serializer.nil?
-                blk.call(b, msg)
-              else
-                blk.call(receive(b, queue[:name], msg, options))
+      @brokers.each do |b|
+        # Allow connecting here because subscribing may happen before all have confirmed connected
+        if [:connected, :connecting].include?(b[:status])
+          begin
+            RightLinkLog.info("[setup] Subscribing queue #{queue[:name]}#{to_exchange} on broker #{b[:alias]}")
+            q = b[:mq].queue(queue[:name], queue[:options] || {})
+            if exchange
+              x = b[:mq].__send__(exchange[:type], exchange[:name], exchange[:options] || {})
+              q = q.bind(x)
+            end
+            if options[:ack]
+              # Ack now before processing to avoid risk of duplication after a crash
+              q.subscribe(:ack => true) do |info, msg|
+                info.ack
+                if options[:no_unserialize] || @serializer.nil?
+                  blk.call(b, msg)
+                else
+                  blk.call(receive(b, queue[:name], msg, options))
+                end
+              end
+            else
+              q.subscribe do |msg|
+                if options[:no_unserialize] || @serializer.nil?
+                  blk.call(b, msg)
+                else
+                  blk.call(receive(b, queue[:name], msg, options))
+                end
               end
             end
-          else
-            q.subscribe do |msg|
-              if options[:no_unserialize] || @serializer.nil?
-                blk.call(b, msg)
-              else
-                blk.call(receive(b, queue[:name], msg, options))
-              end
-            end
+            ids << b[:identity]
+          rescue Exception => e
+            RightLinkLog.error("Failed subscribing queue #{queue.inspect}#{to_exchange} on broker #{b[:alias]}: #{e.message}")
           end
-          ids << b[:identity]
-        rescue Exception => e
-          RightLinkLog.error("Failed subscribing queue #{queue.inspect}#{to_exchange} on broker #{b[:alias]}: #{e.message}")
         end
       end
       ids
