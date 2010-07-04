@@ -188,7 +188,7 @@ module RightScale
                 load_actors
                 setup_traps
                 setup_queues
-                advertise_services(@broker.usable)
+                advertise_services(@broker.connected)
                 setup_heartbeat
                 at_exit { un_register } unless $TESTING
                 start_console if @options[:console] && !@options[:daemonize]
@@ -267,7 +267,7 @@ module RightScale
             begin
               if status == :connected
                 setup_identity_queue(b)
-                advertise_services(@broker.usable)
+                advertise_services(@broker.connected)
                 unless update_configuration(:host => @broker.hosts, :port => @broker.ports)
                   RightLinkLog.warn("Successfully connected to #{b[:identity]} but failed to update config file")
                 end
@@ -303,16 +303,16 @@ module RightScale
                         "port #{port.inspect}")
       RightLinkLog.info("Current broker configuration: #{@broker.status.inspect}")
       identity = HA_MQ.identity(host, port)
-      usable = @broker.usable
+      connected = @broker.connected
       res = nil
-      if usable.include?(identity) && usable.size == 1
-        res = "Cannot disconnect from #{identity} because it is that last usable broker for this agent"
+      if connected.include?(identity) && connected.size == 1
+        res = "Cannot disconnect from #{identity} because it is the last connected broker for this agent"
       elsif @broker.get(identity)
         begin
-          if usable.include?(identity)
+          if connected.include?(identity)
             # Need to advertise that no longer connected so that no more messages are routed through it
-            usable.delete(identity)
-            advertise_services(usable)
+            connected.delete(identity)
+            advertise_services(connected)
           end
           if remove
             @broker.remove(host, port) do |identity|
@@ -455,7 +455,7 @@ module RightScale
           filter = [:from, :tags, :tries]
           packet = @broker.receive(broker, @identity, msg, Advertise => nil, Request => filter, Push => filter, Result => [])
           case packet
-          when Advertise then advertise_services(@broker.usable)
+          when Advertise then advertise_services(@broker.connected)
           when Request, Push then @dispatcher.dispatch(packet)
           when Result then @mapper_proxy.handle_result(packet)
           end
@@ -512,7 +512,7 @@ module RightScale
     def setup_heartbeat
       EM.add_periodic_timer(@options[:ping_time]) do
         failed = @broker.failed(backoff = true) unless @options[:infrastructure]
-        publish('heartbeat', Ping.new(@identity, status_proc.call, @broker.usable, failed), :no_log => true)
+        publish('heartbeat', Ping.new(@identity, status_proc.call, @broker.connected, failed), :no_log => true)
       end
       true
     end
@@ -581,12 +581,12 @@ module RightScale
     # Advertise the services provided by this agent
     #
     # === Parameters
-    # usable(Array):: Identity of usable brokers
+    # connected(Array):: Identity of connected brokers
     #
     # === Return
     # true:: Always return true
-    def advertise_services(usable)
-      reg = Register.new(@identity, @registry.services, status_proc.call, self.tags, usable, @shared_queue)
+    def advertise_services(connected)
+      reg = Register.new(@identity, @registry.services, status_proc.call, self.tags, connected, @shared_queue)
       publish('registration', reg)
       true
     end

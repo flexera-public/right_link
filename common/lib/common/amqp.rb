@@ -154,7 +154,7 @@ module RightScale
 
     STATUS = [
       :connecting,   # Initiated AMQP connection but not yet confirmed that connected
-      :connected,    # Confirmed AMQP connection that is declared usable
+      :connected,    # Confirmed AMQP connection
       :disconnected, # Notified by AMQP that connection has been lost and attempting to reconnect
       :closed,       # AMQP connection closed explicitly or because of too many failed connect attempts
       :failed        # Failed to connect due to internal failure or AMQP failure to connect
@@ -247,7 +247,8 @@ module RightScale
       end
     end
 
-    # Subscribe an AMQP queue to an AMQP exchange on usable AMQP brokers or ones still connecting
+    # Subscribe an AMQP queue to an AMQP exchange on AMQP brokers are connected or still connecting
+    # Allow connecting here because subscribing may happen before all have confirmed connected
     # Handle AMQP message acknowledgement if requested
     # Unserialize received responses and log them as specified
     #
@@ -279,39 +280,36 @@ module RightScale
     def subscribe(queue, exchange = nil, options = {}, &blk)
       to_exchange = " to exchange #{exchange[:name]}" if exchange
       ids = []
-      @brokers.each do |b|
-        # Allow connecting here because subscribing may happen before all have confirmed connected
-        if [:connected, :connecting].include?(b[:status])
-          begin
-            RightLinkLog.info("[setup] Subscribing queue #{queue[:name]}#{to_exchange} on broker #{b[:alias]}")
-            q = b[:mq].queue(queue[:name], queue[:options] || {})
-            if exchange
-              x = b[:mq].__send__(exchange[:type], exchange[:name], exchange[:options] || {})
-              q = q.bind(x)
-            end
-            if options[:ack]
-              # Ack now before processing to avoid risk of duplication after a crash
-              q.subscribe(:ack => true) do |info, msg|
-                info.ack
-                if options[:no_unserialize] || @serializer.nil?
-                  blk.call(b[:identity], msg)
-                else
-                  blk.call(b[:identity], receive(b, queue[:name], msg, options))
-                end
-              end
-            else
-              q.subscribe do |msg|
-                if options[:no_unserialize] || @serializer.nil?
-                  blk.call(b[:identity], msg)
-                else
-                  blk.call(b[:identity], receive(b, queue[:name], msg, options))
-                end
-              end
-            end
-            ids << b[:identity]
-          rescue Exception => e
-            RightLinkLog.error("Failed subscribing queue #{queue.inspect}#{to_exchange} on broker #{b[:alias]}: #{e.message}")
+      each_usable do |b|
+        begin
+          RightLinkLog.info("[setup] Subscribing queue #{queue[:name]}#{to_exchange} on broker #{b[:alias]}")
+          q = b[:mq].queue(queue[:name], queue[:options] || {})
+          if exchange
+            x = b[:mq].__send__(exchange[:type], exchange[:name], exchange[:options] || {})
+            q = q.bind(x)
           end
+          if options[:ack]
+            # Ack now before processing to avoid risk of duplication after a crash
+            q.subscribe(:ack => true) do |info, msg|
+              info.ack
+              if options[:no_unserialize] || @serializer.nil?
+                blk.call(b[:identity], msg)
+              else
+                blk.call(b[:identity], receive(b, queue[:name], msg, options))
+              end
+            end
+          else
+            q.subscribe do |msg|
+              if options[:no_unserialize] || @serializer.nil?
+                blk.call(b[:identity], msg)
+              else
+                blk.call(b[:identity], receive(b, queue[:name], msg, options))
+              end
+            end
+          end
+          ids << b[:identity]
+        rescue Exception => e
+          RightLinkLog.error("Failed subscribing queue #{queue.inspect}#{to_exchange} on broker #{b[:alias]}: #{e.message}")
         end
       end
       ids
@@ -353,14 +351,14 @@ module RightScale
       end
     end
 
-    # Publish packet to AMQP exchange of first usable broker, or all usable brokers
+    # Publish packet to AMQP exchange of first connected broker, or all connected brokers
     # if fanout requested
     #
     # === Parameters
     # exchange(Hash):: AMQP exchange to subscribe to with keys :type, :name, and :options
     # packet(Packet):: Packet to serialize and publish
     # options(Hash):: Publish options -- standard AMQP ones plus
-    #   :fanout(Boolean):: true means publish to all allowed usable brokers
+    #   :fanout(Boolean):: true means publish to all connected brokers
     #   :brokers(Array):: Identity of brokers selected for use, defaults to all if nil or empty
     #   :order(Symbol):: Broker selection order: :random or :priority,
     #     defaults to @select if :brokers is nil, otherwise defaults to :priority
@@ -375,7 +373,7 @@ module RightScale
     # ids(Array):: Identity of AMQP brokers where packet was successfully published
     #
     # === Raise
-    # (RightScale::Exceptions::IO):: If cannot find a usable AMQP broker connection
+    # (RightScale::Exceptions::IO):: If cannot find a connected AMQP broker
     def publish(exchange, packet, options = {})
       ids = []
       msg = if options[:no_serialize] || @serializer.nil? then packet else @serializer.dump(packet) end
@@ -400,7 +398,7 @@ module RightScale
       if ids.empty?
         selected = "selected " if options[:brokers]
         list = aliases(brokers.map { |b| b[:identity] }).join(", ")
-        raise RightScale::Exceptions::IO, "None of #{selected}brokers [#{list}] are usable"
+        raise RightScale::Exceptions::IO, "None of #{selected}brokers [#{list}] are usable for publishing"
       end
       ids
     end
@@ -466,7 +464,7 @@ module RightScale
     # === Return
     # (Hash|nil):: Broker attributes if found, otherwise nil
     def get(id)
-      each { |b| return b if b[:identity] == id || b[:alias] == id || b[:alias][1..-1].to_i == id } if id
+      @brokers.each { |b| return b if b[:identity] == id || b[:alias] == id || b[:alias][1..-1].to_i == id } if id
       nil
     end
 
@@ -540,27 +538,20 @@ module RightScale
       @brokers.map { |b| "#{self.class.port(b[:identity])}:#{b[:alias][1..-1]}" }.join(",")
     end
 
-    # Iterate over AMQP broker connections
-    #
-    # === Block
-    # Required block to which each AMQP broker connection is passed
-    def each
-      @brokers.each { |b| yield b }
-    end
-
     # Iterate over usable AMQP broker connections
+    # A broker is considered usable if still connecting or confirmed connected
     #
     # === Block
     # Required block to which each AMQP broker connection is passed
     def each_usable
-      @brokers.each { |b| yield b if b[:status] == :connected }
+      @brokers.each { |b| yield b if [:connected, :connecting].include?(b[:status]) }
     end
 
-    # Get identity of usable AMQP brokers
+    # Get identity of connected AMQP brokers
     #
     # === Return
-    # (Array):: Identity of usable brokers
-    def usable
+    # (Array):: Identity of connected brokers
+    def connected
       @brokers.inject([]) { |c, b| if b[:status] == :connected then c << b[:identity] else c end }
     end
 
@@ -596,7 +587,7 @@ module RightScale
       end
     end
 
-    # Set prefetch value for each AMQP broker
+    # Set prefetch value for each usable AMQP broker
     #
     # === Parameters
     # value(Integer):: Maximum number of messages the AMQP broker is to prefetch
@@ -718,7 +709,7 @@ module RightScale
     #   :brokers(Array):: Only report a status change for these identified brokers
     #
     # === Block
-    # Block to be called when usable connection count crosses a status boundary
+    # Block to be called when connected count crosses a status boundary
     #
     # === Return
     # id(String):: Identifier associated with connection status request
@@ -871,14 +862,14 @@ module RightScale
     # === Return
     # true:: Always return true
     def update_status(broker, status)
-      before = usable
+      before = connected
       broker[:status] = status
-      after = usable
+      after = connected
       if status == :failed
         RightLinkLog.error("Failed to connect to broker #{broker[:alias]}")
       end
       unless before == after
-        RightLinkLog.info("[status] Broker #{broker[:alias]} is now #{status}, usable brokers: [#{aliases(after).join(", ")}]")
+        RightLinkLog.info("[status] Broker #{broker[:alias]} is now #{status}, connected brokers: [#{aliases(after).join(", ")}]")
       end
       @connection_status.reject! do |k, v|
         reject = false

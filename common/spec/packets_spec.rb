@@ -196,7 +196,7 @@ describe "Packet: Ping" do
     packet2 = JSON.parse(packet.to_json)
     packet.identity.should == packet2.identity
     packet.status.should == packet2.status
-    packet.usable.should == packet2.usable
+    packet.connected.should == packet2.connected
     packet.failed.should == packet2.failed
   end
 
@@ -205,7 +205,7 @@ describe "Packet: Ping" do
     packet2 = Marshal.load(Marshal.dump(packet))
     packet.identity.should == packet2.identity
     packet.status.should == packet2.status
-    packet.usable.should == packet2.usable
+    packet.connected.should == packet2.connected
     packet.failed.should == packet2.failed
   end
 end

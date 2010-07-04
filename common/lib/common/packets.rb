@@ -484,7 +484,7 @@ module RightScale
   # Heartbeat packet
   class Ping < Packet
 
-    attr_accessor :identity, :status, :usable, :failed
+    attr_accessor :identity, :status, :connected, :failed
 
     # Create packet
     #
@@ -492,16 +492,16 @@ module RightScale
     # identity(String):: Sender identity
     # status(Any):: Load of the node by default, but may be any criteria
     #   agent may use to report its availability, load, etc
-    # usable(Array|nil):: Identity of agent's usable brokers, nil means not supported
+    # connected(Array|nil):: Identity of agent's connected brokers, nil means not supported
     # failed(Array|nil):: Identity of agent's failed brokers, i.e., ones it never was able
     #   to connect to, nil means not supported
     # size(Integer):: Size of request in bytes used only for marshalling
-    def initialize(identity, status, usable = nil, failed = nil, size = nil)
-      @status   = status
-      @identity = identity
-      @usable   = usable
-      @failed   = failed
-      @size     = size
+    def initialize(identity, status, connected = nil, failed = nil, size = nil)
+      @status    = status
+      @identity  = identity
+      @connected = connected
+      @failed    = failed
+      @size      = size
     end
 
     # Create packet from unmarshalled JSON data
@@ -513,7 +513,7 @@ module RightScale
     # (Ping):: New packet
     def self.json_create(o)
       i = o['data']
-      new(i['identity'], i['status'], i['usable'], i['failed'], o['size'])
+      new(i['identity'], i['status'], i['connected'], i['failed'], o['size'])
     end
 
     # Generate log representation
@@ -524,7 +524,7 @@ module RightScale
     # === Return
     # (String):: Log representation
     def to_s(filter = nil)
-      "#{super} #{id_to_s(@identity)} status #{@status}, usable #{@usable.inspect}, failed #{@failed.inspect}"
+      "#{super} #{id_to_s(@identity)} status #{@status}, connected #{@connected.inspect}, failed #{@failed.inspect}"
     end
 
   end # Ping
