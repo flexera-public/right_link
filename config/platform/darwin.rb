@@ -139,7 +139,21 @@ module RightScale
         # === Return
         # the time the machine has been up in seconds, 0 if there was an error.
         def uptime
-          return File.read('/proc/uptime').split(/\s+/)[0].to_f rescue 0.0
+          return (Time.now.to_i.to_f - booted_at.to_f) rescue 0.0
+        end
+
+        # Gets the time at which the system was booted
+        #
+        # === Return
+        # the UTC timestamp at which the system was booted
+        def booted_at
+          match = /sec = ([0-9]+)/.match(`sysctl kern.boottime`)
+
+          if match && (match[1].to_i > 0)
+            return match[1].to_i
+          else
+            return nil
+          end
         end
       end
 

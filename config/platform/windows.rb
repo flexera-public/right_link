@@ -443,10 +443,22 @@ module RightScale
         # the time the machine has been up in seconds, 0 if there was an error.
         def uptime
           begin
-            # convert to int then to float because float response parsed time does not have enough precision to be a float.
-            return (Time.now - Time.parse(`echo | wmic OS Get LastBootUpTime`.match(/(\d{14})\.\d{6}(-\d{3})/)[1..2].to_s)).to_i.to_f
-          rescue
+            # Time-Time returns a float; no need to convert
+            return Time.now - booted_at
+          rescue Exception
             return 0.0
+          end
+        end
+
+        # Gets the time at which the system was booted
+        #
+        # === Return
+        # the UTC timestamp at which the system was booted
+        def booted_at
+          begin
+            return Time.parse(`echo | wmic OS Get LastBootUpTime`.match(/(\d{14})\.\d{6}(-\d{3})/)[1..2].to_s).to_i
+          rescue Exception
+            return nil
           end
         end
       end

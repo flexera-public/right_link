@@ -82,7 +82,7 @@ module RightScale
 
     # Set instance id with given id
     # Load persisted state if any, compare instance ids and force boot if instance ID
-    # is different OR if system uptime is less than persisted uptime.
+    # is different OR if system booted_at is different from persisted booted_at.
     #
     # === Parameters
     # identity(String):: Instance identity
@@ -101,14 +101,14 @@ module RightScale
         state = read_json(STATE_FILE)
         RightLinkLog.debug("Initializing instance #{identity} with #{state.inspect}")
 
-        # Initial state reconciliation: use recorded state and uptime to determine how we last stopped.
+        # Initial state reconciliation: use recorded state and boot timestamp to determine how we last stopped.
         # There are four basic scenarios to worry about:
         #  1) first run      -- Agent is starting up for the first time after a fresh install
         #  2) reboot/restart -- Agent already ran; agent ID not changed; reboot detected: transition back to booting
         #  3) bundled boot   -- Agent already ran; agent ID changed: transition back to booting
         #  4) decomm/crash   -- Agent exited anyway; ID not changed; no reboot; keep old state entirely
-        if (state['identity'] != identity) || !state['uptime'] || (uptime < state['uptime'].to_f)
-          # CASE 2/3 -- identity has changed or negative differential uptime; may be reboot or bundled boot
+        if (state['identity'] != identity) || !state['booted_at'] || (booted_at != state['booted_at'].to_i)
+          # CASE 2/3 -- identity or boot time has changed; may be reboot or bundled boot
           RightLinkLog.debug("Reboot/bundle/start detected; transitioning state to booting")
           self.value = 'booting'
         else
@@ -168,7 +168,9 @@ module RightScale
       update_motd
 
       record_state(val) if RECORDED_STATES.include?(val)
-      write_json(STATE_FILE, { 'value' => val, 'identity' => @@identity, 'uptime' => uptime.to_s, 'startup_tags' => @@startup_tags })
+      write_json(STATE_FILE, { 'value' => val, 'identity' => @@identity,
+                               'uptime' => uptime.to_s, 'booted_at' => booted_at.to_s, 
+                               'startup_tags' => @@startup_tags })
       @observers.each { |o| o.call(val) } if @observers
       val
     end
@@ -310,12 +312,20 @@ module RightScale
       end
     end
 
-    # Determine uptime of this system using the proc filesystem
+    # Determine uptime of this system.
     #
     # === Return
     # uptime(Float):: Uptime of this system in seconds, or 0.0 if undetermined 
     def self.uptime()
       return RightScale::RightLinkConfig[:platform].shell.uptime
+    end
+
+    # Determine the wall-clock time at which this system was last booted.
+    #
+    # === Return
+    # booted_at(Integer):: UTC timestamp of system's last boot
+    def self.booted_at()
+      return RightScale::RightLinkConfig[:platform].shell.booted_at
     end
 
     # Purely for informational purposes, attempt to update the Unix MOTD file

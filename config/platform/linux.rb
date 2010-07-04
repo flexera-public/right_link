@@ -186,6 +186,20 @@ module RightScale
         def uptime
           return File.read('/proc/uptime').split(/\s+/)[0].to_f rescue 0.0
         end
+
+        # Gets the time at which the system was booted
+        #
+        # === Return
+        # the UTC timestamp at which the system was booted
+        def booted_at
+          match = /btime ([0-9]+)/.match(File.read('/proc/stat')) rescue nil
+
+          if match && (match[1].to_i > 0)
+            return match[1].to_i
+          else
+            return nil
+          end
+        end
       end
 
       class Controller

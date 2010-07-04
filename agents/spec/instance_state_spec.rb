@@ -57,16 +57,22 @@ describe RightScale::InstanceState do
 
     context('when saved state exists') do
       before(:each) do
+        @first_booted_at = Time.at(Time.now.to_i - 5*60).to_i
         #Simulate a successful first boot
-        saved_state = {'value' => 'operational', 'identity' => '1', 'uptime' => 100.0.to_s, 'startup_tags' => []}
+        saved_state = {'value' => 'operational', 'identity' => '1',
+                       'uptime' => (120.0).to_s, 'booted_at' => @first_booted_at.to_s,
+                       'startup_tags' => []}
         flexmock(RightScale::InstanceState).should_receive(:read_json).with(RightScale::InstanceState::STATE_FILE).and_return(saved_state).by_default        
       end
 
       it 'should detect restart after decommission' do
         #Simulate a prior decommission
-        saved_state = {'value' => 'decommissioned', 'identity' => '1', 'uptime' => 100.0.to_s, 'startup_tags' => []}
+        saved_state = {'value' => 'decommissioned', 'identity' => '1',
+                       'uptime' => (120.0).to_s, 'booted_at' => @first_booted_at.to_s,
+                       'startup_tags' => []}
         flexmock(RightScale::InstanceState).should_receive(:read_json).with(RightScale::InstanceState::STATE_FILE).and_return(saved_state)
-        flexmock(RightScale::InstanceState).should_receive(:uptime).and_return(999.0)
+        flexmock(RightScale::InstanceState).should_receive(:uptime).and_return(300.0)
+        flexmock(RightScale::InstanceState).should_receive(:booted_at).and_return(@first_booted_at)
         flexmock(RightScale::InstanceState).should_receive(:write_json).with(RightScale::InstanceState::STATE_FILE, Hash).never
         flexmock(RightScale::InstanceState).should_receive(:write_json).with(RightScale::InstanceState::SCRIPTS_FILE, Array).never
         flexmock(RightScale::InstanceState).should_receive(:record_state).never
@@ -77,7 +83,9 @@ describe RightScale::InstanceState do
       end
 
       it 'should detect reboot' do
-        flexmock(RightScale::InstanceState).should_receive(:uptime).and_return(1)
+        @rebooted_at = @first_booted_at + 300
+        flexmock(RightScale::InstanceState).should_receive(:uptime).and_return(1.0)
+        flexmock(RightScale::InstanceState).should_receive(:booted_at).and_return(@rebooted_at)
         flexmock(RightScale::InstanceState).should_receive(:write_json).with(RightScale::InstanceState::STATE_FILE, Hash)
         flexmock(RightScale::InstanceState).should_receive(:write_json).with(RightScale::InstanceState::SCRIPTS_FILE, Array).never
         flexmock(RightScale::InstanceState).should_receive(:record_state).with('booting')
