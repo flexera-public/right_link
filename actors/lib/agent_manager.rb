@@ -48,14 +48,17 @@ class AgentManager
   # Change log level of agent
   #
   # === Parameter
-  # level(Symbol):: One of :debug, :info, :warn, :error, :fatal
+  # level(Symbol|String):: One of :debug, :info, :warn, :error, :fatal
   #
   # === Return
   # res(RightScale::OperationResult):: Success if level was changed, error otherwise
   def set_log_level(level)
-    return RightScale::OperationResult.error("Invalid log level '#{level.to_s}'") unless LEVELS.include?(level)
-    RightScale::RightLinkLog.level = level
-    res = RightScale::OperationResult.success
+    res = if LEVELS.include?(level.to_sym)
+      RightScale::RightLinkLog.level = level.to_sym
+      RightScale::OperationResult.success
+    else
+      RightScale::OperationResult.error("Invalid log level '#{level.to_s}'")
+    end
   end
 
   # Eval given code in context of agent
