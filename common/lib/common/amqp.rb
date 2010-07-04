@@ -270,10 +270,9 @@ module RightScale
     #
     # === Block
     # Required block is called each time exchange matches a message to the queue
-    # Normally it is passed the unserialized packet as its only parameter,
-    # which is nil if the received message is not of the right type
-    # If :no_unserialize is requested, the two parameters are the broker delivering
-    # the message and the unserialized message
+    # Its arguments are the identity of the broker delivering the message and the message,
+    # which is unserialized unless :no_unserialize was specified
+    # If the message is unserialized and it is not of the right type, the message passed is nil
     #
     # === Return
     # ids(Array):: Identity of AMQP brokers where successfully subscribed
@@ -295,17 +294,17 @@ module RightScale
               q.subscribe(:ack => true) do |info, msg|
                 info.ack
                 if options[:no_unserialize] || @serializer.nil?
-                  blk.call(b, msg)
+                  blk.call(b[:identity], msg)
                 else
-                  blk.call(receive(b, queue[:name], msg, options))
+                  blk.call(b[:identity], receive(b, queue[:name], msg, options))
                 end
               end
             else
               q.subscribe do |msg|
                 if options[:no_unserialize] || @serializer.nil?
-                  blk.call(b, msg)
+                  blk.call(b[:identity], msg)
                 else
-                  blk.call(receive(b, queue[:name], msg, options))
+                  blk.call(b[:identity], receive(b, queue[:name], msg, options))
                 end
               end
             end

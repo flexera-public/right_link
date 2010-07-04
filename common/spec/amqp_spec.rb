@@ -272,20 +272,20 @@ describe RightScale::HA_MQ do
       @bind.should_receive(:subscribe).and_yield(@message).once
       ha_mq = RightScale::HA_MQ.new(@serializer)
       ha_mq.brokers[0][:status] = :connected
-      ha_mq.subscribe({:name => "queue"}, {:type => :direct, :name => "exchange"}) {|p| p.should == nil}
+      ha_mq.subscribe({:name => "queue"}, {:type => :direct, :name => "exchange"}) {|b, p| p.should == nil}
     end
 
     it "should subscribe queue to exchange when still connecting" do
       @bind.should_receive(:subscribe).and_yield(@message).once
       ha_mq = RightScale::HA_MQ.new(@serializer)
-      ha_mq.subscribe({:name => "queue"}, {:type => :direct, :name => "exchange"}) {|p| p.should == nil}
+      ha_mq.subscribe({:name => "queue"}, {:type => :direct, :name => "exchange"}) {|b, p| p.should == nil}
     end
 
     it "should subscribe queue to empty exchange if no exchange specified" do
       @queue.should_receive(:subscribe).and_yield(@message).once
       ha_mq = RightScale::HA_MQ.new(@serializer)
       ha_mq.brokers[0][:status] = :connected
-      ha_mq.subscribe({:name => "queue"}) {|p| p.should == nil}
+      ha_mq.subscribe({:name => "queue"}) {|b, p| p.should == nil}
     end
 
     it "should subscribe queue to exchange in each usable broker" do
@@ -293,7 +293,7 @@ describe RightScale::HA_MQ do
       ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first, second")
       ha_mq.brokers[0][:status] = :disconnected
       ha_mq.brokers[1][:status] = :connected
-      ha_mq.subscribe({:name => "queue"}, {:type => :direct, :name => "exchange"}) {|p| p.should == nil}
+      ha_mq.subscribe({:name => "queue"}, {:type => :direct, :name => "exchange"}) {|b, p| p.should == nil}
     end
 
     it "should ack received message if requested" do
@@ -302,7 +302,7 @@ describe RightScale::HA_MQ do
       ha_mq = RightScale::HA_MQ.new(@serializer)
       ha_mq.brokers[0][:status] = :connected
       ha_mq.subscribe({:name => "queue"}, {:type => :direct, :name => "exchange"},
-                      :ack => true) {|p| p.should == nil}
+                      :ack => true) {|b, p| p.should == nil}
     end
 
     it "should receive message causing it to be unserialized and logged" do
@@ -314,7 +314,7 @@ describe RightScale::HA_MQ do
       ha_mq = RightScale::HA_MQ.new(@serializer)
       ha_mq.brokers[0][:status] = :connected
       ha_mq.subscribe({:name => "queue"}, {:type => :direct, :name => "exchange"},
-                      RightScale::Request => nil) {|p| p.class.should == RightScale::Request}
+                      RightScale::Request => nil) {|b, p| p.class.should == RightScale::Request}
     end
 
     it "should return identity of brokers that were subscribed to" do
@@ -322,7 +322,7 @@ describe RightScale::HA_MQ do
       ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first, second")
       ha_mq.brokers[0][:status] = :connected
       ha_mq.brokers[1][:status] = :connected
-      ids = ha_mq.subscribe({:name => "queue"}, {:type => :direct, :name => "exchange"}) {|p| p.should == nil}
+      ids = ha_mq.subscribe({:name => "queue"}, {:type => :direct, :name => "exchange"}) {|b, p| p.should == nil}
       ids.should == ["rs-broker-first-5672", "rs-broker-second-5672"]
     end
 
@@ -334,7 +334,7 @@ describe RightScale::HA_MQ do
       ha_mq = RightScale::HA_MQ.new(@serializer)
       ha_mq.brokers[0][:status] = :connected
       ha_mq.subscribe({:name => "queue"}, {:type => :direct, :name => "exchange"}, :no_unserialize => true) do |b, m|
-        b[:mq].should == @mq
+        b.should == "rs-broker-localhost-5672"
         m.should == @message
       end
     end
@@ -346,7 +346,7 @@ describe RightScale::HA_MQ do
       @bind.should_receive(:subscribe).and_raise(Exception)
       ha_mq = RightScale::HA_MQ.new(@serializer)
       ha_mq.brokers[0][:status] = :connected
-      ha_mq.subscribe({:name => "queue"}, {:type => :direct, :name => "exchange"}) {|p|}
+      ha_mq.subscribe({:name => "queue"}, {:type => :direct, :name => "exchange"}) {|b, p|}
     end
 
   end # Subscribing

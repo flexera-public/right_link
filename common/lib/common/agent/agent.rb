@@ -494,7 +494,7 @@ module RightScale
       queue = {:name => @shared_queue, :options => {:durable => true}}
       exchange = {:type => :direct, :name => @shared_queue, :options => {:durable => true}}
       filter = [:from, :tags, :tries]
-      @broker.subscribe(queue, exchange, :ack => true, Request => filter, Push => filter, :category => "request") do |request|
+      @broker.subscribe(queue, exchange, :ack => true, Request => filter, Push => filter, :category => "request") do |_, request|
         begin
           @dispatcher.dispatch(request) if request
         rescue Exception => e
