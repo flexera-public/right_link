@@ -25,7 +25,9 @@
 # name value
 
 # Current RightLink protocol version
-protocol_version 8
+# 9: Introduced multiple brokers, which extended protocol but did not introduce any
+#    downrev incompatibilities, but wanted clear demarcation if needed to resolve issues
+protocol_version 9
 
 # Path to RightLink root folder
 right_link_path File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'right_link'))
