@@ -335,7 +335,7 @@ module RightScale
       begin
         packet = @serializer.load(msg)
         if options.key?(packet.class)
-          unless options[:no_log] && RightLinkLog.level != :debug
+          unless options[:no_log]
             log_filter = options[packet.class] unless RightLinkLog.level == :debug
             RightLinkLog.__send__(RightLinkLog.level,
               "RECV #{broker[:alias]} #{packet.to_s(log_filter)} #{options[:log_data]}")
@@ -382,7 +382,7 @@ module RightScale
       brokers.each do |b|
         if b[:status] == :connected
           begin
-            unless (options[:no_log] && RightLinkLog.level != :debug) || options[:no_serialize] || @serializer.nil?
+            unless options[:no_log] || options[:no_serialize] || @serializer.nil?
               re = "RE" if packet.respond_to?(:tries) && !packet.tries.empty?
               log_filter = options[:log_filter] unless RightLinkLog.level == :debug
               RightLinkLog.__send__(RightLinkLog.level,
