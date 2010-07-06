@@ -201,6 +201,7 @@ module RightScale
       index = -1
       @select = options[:order] || :priority
       @brokers = self.class.addresses(options[:host], options[:port]).map { |a| internal_connect(a, options) }
+      @closed = false
       @brokers_hash = {}
       @brokers.each { |b| @brokers_hash[b[:identity]] = b }
     end
@@ -766,6 +767,8 @@ module RightScale
     # === Raise
     # Exception:: If broker unknown
     def close(identity = nil, &blk)
+      return if @closed
+      @closed = true
       close = if identity
         b = @brokers_hash[identity]
         raise Exception, "Cannot close unknown broker #{identity}" unless b
