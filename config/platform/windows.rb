@@ -443,7 +443,7 @@ module RightScale
         # the time the machine has been up in seconds, 0 if there was an error.
         def uptime
           begin
-            return Time.now.to_i.to_f - booted_at.to_f
+            return Time.now.to_f - booted_at.to_f
           rescue Exception
             return 0.0
           end
