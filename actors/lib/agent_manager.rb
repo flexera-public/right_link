@@ -53,8 +53,9 @@ class AgentManager
   # === Return
   # res(RightScale::OperationResult):: Success if level was changed, error otherwise
   def set_log_level(level)
-    res = if LEVELS.include?(level.to_sym)
-      RightScale::RightLinkLog.level = level.to_sym
+    level = level.to_sym if level.is_a?(String)
+    res = if LEVELS.include?(level)
+      RightScale::RightLinkLog.level = level
       RightScale::OperationResult.success
     else
       RightScale::OperationResult.error("Invalid log level '#{level.to_s}'")
