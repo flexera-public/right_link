@@ -60,7 +60,7 @@ describe RightScale::InstanceState do
         @first_booted_at = Time.at(Time.now.to_i - 5*60).to_i
         #Simulate a successful first boot
         saved_state = {'value' => 'operational', 'identity' => '1',
-                       'uptime' => (120.0).to_s, 'booted_at' => @first_booted_at.to_s,
+                       'uptime' => 120.0, 'booted_at' => @first_booted_at,
                        'startup_tags' => []}
         flexmock(RightScale::InstanceState).should_receive(:read_json).with(RightScale::InstanceState::STATE_FILE).and_return(saved_state).by_default        
       end
@@ -68,7 +68,7 @@ describe RightScale::InstanceState do
       it 'should detect restart after decommission' do
         #Simulate a prior decommission
         saved_state = {'value' => 'decommissioned', 'identity' => '1',
-                       'uptime' => (120.0).to_s, 'booted_at' => @first_booted_at.to_s,
+                       'uptime' => 120.0, 'booted_at' => @first_booted_at,
                        'startup_tags' => []}
         flexmock(RightScale::InstanceState).should_receive(:read_json).with(RightScale::InstanceState::STATE_FILE).and_return(saved_state)
         flexmock(RightScale::InstanceState).should_receive(:uptime).and_return(300.0)

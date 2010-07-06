@@ -107,7 +107,7 @@ module RightScale
         #  2) reboot/restart -- Agent already ran; agent ID not changed; reboot detected: transition back to booting
         #  3) bundled boot   -- Agent already ran; agent ID changed: transition back to booting
         #  4) decomm/crash   -- Agent exited anyway; ID not changed; no reboot; keep old state entirely
-        if (state['identity'] != identity) || !state['booted_at'] || (booted_at != state['booted_at'].to_i)
+        if (state['identity'] != identity) || !state['booted_at'] || (booted_at != state['booted_at'])
           # CASE 2/3 -- identity or boot time has changed; may be reboot or bundled boot
           RightLinkLog.debug("Reboot/bundle/start detected; transitioning state to booting")
           self.value = 'booting'
@@ -169,7 +169,7 @@ module RightScale
 
       record_state(val) if RECORDED_STATES.include?(val)
       write_json(STATE_FILE, { 'value' => val, 'identity' => @@identity,
-                               'uptime' => uptime.to_s, 'booted_at' => booted_at.to_s, 
+                               'uptime' => uptime, 'booted_at' => booted_at, 
                                'startup_tags' => @@startup_tags })
       @observers.each { |o| o.call(val) } if @observers
       val
