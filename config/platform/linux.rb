@@ -30,7 +30,7 @@ module RightScale
 
       #Initialize
       def initialize
-        system('lsb_release --help')
+        system('lsb_release --help > /dev/null 2>&1')
 
         if $?.success?
           # Use the lsb_release utility if it's available
