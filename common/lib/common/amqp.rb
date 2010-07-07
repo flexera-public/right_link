@@ -684,7 +684,7 @@ module RightScale
       if broker = @brokers_hash[identity]
         RightLinkLog.info("Removing #{identity}, alias #{broker[:alias]} from broker list")
         if connection_closable(broker)
-          # Not using HA_MQ#close here because broker being removed immediately
+          # Not using close_one here because broker being removed immediately
           broker[:connection].close
           update_status(broker, :closed)
         end
@@ -752,48 +752,57 @@ module RightScale
     end
 
     # Close all AMQP broker connections
-    # Invoke connection status callbacks only if individual connection is being closed
-    # and it is not already disabled
-    #
-    # === Parameters
-    # identity(String|nil):: Identity of broker to close, nil means close all
     #
     # === Block
-    # Optional block to be executed after all requested connections are closed
+    # Optional block to be executed after all connections are closed
+    #
+    # === Return
+    # true:: Always return true
+    def close(&blk)
+      unless @closed
+        @closed = true
+        handler = CloseHandler.new(@brokers.size)
+        handler.callback { blk.call if blk }
+        @brokers.each { |b| close_one(b[:identity], propagate = false) { handler.close_one } rescue nil }
+      end
+      true
+    end
+
+    # Close an individual AMQP broker connection
+    #
+    # === Parameters
+    # identity(String):: Broker identity
+    # propagate(Boolean):: Whether to propagate connection status updates
+    #
+    # === Block
+    # Optional block to be executed after connection closed
     #
     # === Return
     # true:: Always return true
     #
     # === Raise
     # Exception:: If broker unknown
-    def close(identity = nil, &blk)
-      return if @closed
-      @closed = true
-      close = if identity
-        b = @brokers_hash[identity]
-        raise Exception, "Cannot close unknown broker #{identity}" unless b
-        [b]
-      else
-        @brokers
-      end
+    def close_one(identity, propagate = true)
+      broker = @brokers_hash[identity]
+      raise Exception, "Cannot close unknown broker #{identity}" unless broker
 
-      handler = CloseHandler.new(close.size)
-      handler.callback { blk.call if blk }
-
-      close.each do |b|
-        if connection_closable(b)
-          begin
-            update_status(b, :closed) if identity
-            b[:connection].close { b[:status] = :closed; handler.close_one }
-          rescue Exception => e
-            RightLinkLog.error("Failed to close broker #{b[:alias]}: #{e.message}")
-            b[:status] = :closed
-            handler.close_one
+      if connection_closable(broker)
+        begin
+          update_status(broker, :closed) if propagate
+          broker[:connection].close do
+            broker[:status] = :closed
+            yield if block_given?
           end
-        else
-          handler.close_one
+        rescue Exception => e
+          RightLinkLog.error("Failed to close broker #{broker[:alias]}: #{e.message}")
+          broker[:status] = :closed
+          yield if block_given?
         end
+      else
+        broker[:status] = :closed
+        yield if block_given?
       end
+      true
     end
 
     protected

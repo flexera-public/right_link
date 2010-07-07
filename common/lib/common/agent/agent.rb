@@ -321,7 +321,7 @@ module RightScale
               end
             end
           else
-            @broker.close(identity)
+            @broker.close_one(identity)
           end
         rescue Exception => e
           res = "Failed to disconnect from broker #{identity}: #{e.message}"
@@ -452,12 +452,17 @@ module RightScale
         begin
           # Ack now before processing message to avoid risk of duplication after a crash
           info.ack
-          filter = [:from, :tags, :tries]
-          packet = @broker.receive(broker, @identity, msg, Advertise => nil, Request => filter, Push => filter, Result => [])
-          case packet
-          when Advertise then advertise_services(@broker.connected)
-          when Request, Push then @dispatcher.dispatch(packet)
-          when Result then @mapper_proxy.handle_result(packet)
+          if msg == "nil"
+            # This happens as part of connecting to a broker
+            RightLinkLog.debug("RECV #{broker[:alias]} nil message ignored")
+          else
+            filter = [:from, :tags, :tries]
+            packet = @broker.receive(broker, @identity, msg, Advertise => nil, Request => filter, Push => filter, Result => [])
+            case packet
+            when Advertise then advertise_services(@broker.connected)
+            when Request, Push then @dispatcher.dispatch(packet)
+            when Result then @mapper_proxy.handle_result(packet)
+            end
           end
         rescue Exception => e
           RightLinkLog.error("RECV - Identity queue processing error: #{e.message}")

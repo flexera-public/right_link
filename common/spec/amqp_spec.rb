@@ -1139,11 +1139,12 @@ describe RightScale::HA_MQ do
     end
 
     it "should close all broker connections and execute block after all connections are closed" do
-      @connection.should_receive(:close).twice
+      @connection.should_receive(:close).and_yield.twice
       ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first, second")
       ha_mq.brokers[0][:status].should == :connecting; ha_mq.brokers[1][:status].should == :connecting
-      ha_mq.close { ha_mq.brokers[0][:status].should == :closed; ha_mq.brokers[1][:status].should == :closed }
-      ha_mq.brokers[0][:status].should == :connecting; ha_mq.brokers[1][:status].should == :connecting
+      called = false
+      ha_mq.close { called = true; ha_mq.brokers[0][:status].should == :closed; ha_mq.brokers[1][:status].should == :closed }
+      called.should be_true
     end
 
     it "should close broker connections when no block supplied" do
@@ -1156,24 +1157,50 @@ describe RightScale::HA_MQ do
       @connection.should_receive(:close).and_raise(Exception).twice
       flexmock(RightScale::RightLinkLog).should_receive(:error).twice
       ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first, second")
-      ha_mq.close { ha_mq.brokers[0][:status].should == :closed; ha_mq.brokers[1][:status].should == :closed }
+      ha_mq.close
+      ha_mq.brokers[0][:status].should == :closed; ha_mq.brokers[1][:status].should == :closed
     end
 
-    it "should close individual broker connection when requested" do
+    it "should close an individual broker connection" do
       @connection.should_receive(:close).once
       ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first, second")
-      ha_mq.close("rs-broker-first-5672")
+      flexmock(ha_mq).should_receive(:update_status).once
+      ha_mq.close_one("rs-broker-first-5672")
     end
 
-    it "should invoke connection status callback updates only if identity specified and connection not already disabled" do
-      @connection.should_receive(:close).once
+    it "should close an individual broker connection and execute block if given" do
+      @connection.should_receive(:close).and_yield.once
+      ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first, second")
+      flexmock(ha_mq).should_receive(:update_status).once
+      called = false
+      ha_mq.close_one("rs-broker-first-5672") { called = true; ha_mq.brokers[0][:status].should == :closed }
+      called.should be_true
+    end
+
+    it "should propagate connection status callback updates only if connection not already disabled" do
+      @connection.should_receive(:close).twice
       ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first, second, third")
       ha_mq.brokers[0][:status] = :connected
       ha_mq.brokers[1][:status] = :failed
       ha_mq.brokers[2][:status] = :connected
       flexmock(ha_mq).should_receive(:update_status).once
-      res = ha_mq.close("rs-broker-first-5672")
-      res = ha_mq.close("rs-broker-second-5672")
+      res = ha_mq.close_one("rs-broker-first-5672")
+      res = ha_mq.close_one("rs-broker-second-5672")
+      res = ha_mq.close_one("rs-broker-third-5672", propagate = false)
+    end
+
+    it "should change failed status to closed" do
+      @connection.should_receive(:close).never
+      ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first, second, third")
+      ha_mq.brokers[1][:status] = :failed
+      res = ha_mq.close_one("rs-broker-second-5672")
+      ha_mq.brokers[1][:status].should == :closed
+    end
+
+    it "should raise exception if unknown broker" do
+      ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first")
+      runner = lambda { ha_mq.close_one("rs-broker-second-5672") }
+      runner.should raise_exception(Exception, /Cannot close unknown broker/)
     end
 
   end # Closing
