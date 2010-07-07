@@ -102,6 +102,30 @@ module RightScale
       @client.send_command(cmd)
     end
 
+    # Add given tag to tags exposed by corresponding server
+    #
+    # === Parameters
+    # tag(String):: Tag to be added
+    #
+    # === Return
+    # true:: Always return true
+    def add_tag(tag_name)
+      cmd = { :name => :add_tag, :tag => tag_name }
+      @client.send_command(cmd)
+    end
+
+    # Remove given tag from tags exposed by corresponding server
+    #
+    # === Parameters
+    # tag(String):: Tag to be removed
+    #
+    # === Return
+    # true:: Always return true
+    def remove_tag(tag_name)
+      cmd = { :name => :remove_tag, :tag => tag_name }
+      @client.send_command(cmd)
+    end
+
     # Access cook instance from anywhere to send requests to core through 
     # command protocol
     def self.instance

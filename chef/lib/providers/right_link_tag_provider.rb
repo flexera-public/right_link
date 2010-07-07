@@ -40,7 +40,7 @@ class Chef
       # === Return
       # true:: Always return true
       def action_publish
-        RightScale::AgentTagsManager.instance.add_tags(@new_resource.name)
+        RightScale::Cook.instance.add_tag(@new_resource.name)
         true
       end
 
@@ -49,7 +49,7 @@ class Chef
       # === Return
       # true:: Always return true
       def action_remove
-        RightScale::AgentTagsManager.instance.remove_tags(@new_resource.name)
+        RightScale::Cook.instance.remove_tag(@new_resource.name)
         true
       end
 
