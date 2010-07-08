@@ -49,7 +49,7 @@ module RightScale
         @close_timeout = EM::Timer.new(@last_timeout) { close_handler.call(timeout=true) }
         @close_handler = lambda { @close_timeout.cancel; close_handler.call(timeout=false) }
       else
-        close_handler.call
+        close_handler.call(timeout=false)
       end
     end
 

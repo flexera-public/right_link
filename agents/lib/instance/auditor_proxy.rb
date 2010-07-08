@@ -128,7 +128,7 @@ module RightScale
     # true:: Always return true
     def append_error(text, options={})
       options[:category] ||= EventCategories::NONE # Do not event by default
-      send_request('append_error', :text => text, :category => options[:category])
+      send_request('append_error', normalize_options(text, options))
     end
 
     protected
