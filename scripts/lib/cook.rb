@@ -59,7 +59,7 @@ module RightScale
       EM.run do
         begin
           sequence.callback { success = true; send_inputs_patch(sequence) }
-          sequence.errback { success = false; @client.stop { EM.stop } }
+          sequence.errback { success = false; stop }
           EM.defer { sequence.run }
         rescue Exception => e
           fail('Execution failed', "Execution failed (#{e.message}) from\n#{e.backtrace.join("\n")}")
@@ -158,7 +158,7 @@ module RightScale
       begin
         cmd = { :name => :set_inputs_patch, :patch => sequence.inputs_patch }
         @client.send_command(cmd)
-        @client.stop { EM.stop }
+        stop
       rescue Exception => e
         fail('Failed to update inputs', "Failed to apply inputs patch after execution (#{e.message}) from\n#{e.backtrace.join("\n")}")
       end
@@ -173,6 +173,14 @@ module RightScale
         @client.close { exit(1) } 
       else
         exit(1)
+      end
+    end
+
+    # Stop command client then stop EM
+    def stop
+      @client.stop do |timeout|
+        RightLinkLog.info('Failed to stop command client cleanly, forcing shutdown...') if timeout
+        EM.stop
       end
     end
 

@@ -46,8 +46,8 @@ module RightScale
     # Given block gets called back once last response has been received or timeout
     def stop(&close_handler)
       if @pending > 0
-        @close_timeout = EM::Timer.new(@last_timeout) { close_handler.call }
-        @close_handler = lambda { @close_timeout.cancel; close_handler.call }
+        @close_timeout = EM::Timer.new(@last_timeout) { close_handler.call(timeout=true) }
+        @close_handler = lambda { @close_timeout.cancel; close_handler.call(timeout=false) }
       else
         close_handler.call
       end
@@ -111,6 +111,7 @@ module RightScale
       def initialize(command, client, callback)
         @command = command
         @parser = CommandParser.new do |data|
+          close_connection
           client.response = data
           callback.call
         end
