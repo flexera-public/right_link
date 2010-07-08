@@ -39,8 +39,9 @@
 #      --fresh-timeout SEC      Set maximum age in seconds before a request times out and is rejected
 #      --retry-timeout SEC      Set maximum number of seconds to retry request before give up
 #      --retry-interval SEC     Set number of seconds before initial request retry, increases exponentially
-#      --dup-check BOOL         Set whether to check for and reject duplicate requests, .e.g., due to retries
-#      --persistent BOOL        Set default handling for persistence of messages being sent via AMQP
+#      --[no-]dup-check         Set whether to check for and reject duplicate requests, .e.g., due to retries
+#      --persist SET            Set default handling for persistence of messages being sent via AMQP
+#                               (none, all, push, or request)
 #      --prefetch COUNT         Set maximum requests AMQP broker is to prefetch before current is ack'd
 #      --actors-dir DIR         Set directory containing actor classes
 #      --agents-dir DIR         Set directory containing agent configuration
@@ -111,11 +112,11 @@ module RightScale
       cfg[:actors_dir]      = options[:actors_dir] if options[:actors_dir]
       cfg[:format]          = 'secure'
       cfg[:prefetch]        = options[:prefetch] || 1
-      cfg[:persistent]      = options[:persistent] || true
+      cfg[:persist]         = options[:persist] || 'push'
       cfg[:fresh_timeout]   = options[:fresh_timeout] || 10 * 60
-      cfg[:retry_timeout]   = options[:retry_timeout]
-      cfg[:retry_interval]  = options[:retry_interval]
-      cfg[:dup_check]       = options[:dup_check]
+      cfg[:retry_timeout]   = options[:retry_timeout] || 10 * 60
+      cfg[:retry_interval]  = options[:retry_interval] || 15
+      cfg[:dup_check]       = options[:dup_check].nil? ? true : options[:dup_check]
       cfg[:auto_shutdown]   = options[:auto_shutdown]
       cfg[:http_proxy]      = options[:http_proxy] if options[:http_proxy]
       cfg[:no_http_proxy]   = options[:no_http_proxy] if options[:no_http_proxy]
@@ -193,12 +194,12 @@ module RightScale
           options[:retry_interval] = sec.to_i
         end
 
-        opts.on('--dup-check BOOL') do |b|
-          options[:dup_check] = eval(b)
+        opts.on('--[no-]dup-check') do |b|
+          options[:dup_check] = b
         end
 
-        opts.on('--persistent BOOL') do |b|
-          options[:persistent] = eval(b)
+        opts.on('--persist SET') do |set|
+          options[:persist] = set
         end
 
         opts.on('--prefetch COUNT') do |count|

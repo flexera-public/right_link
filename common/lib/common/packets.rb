@@ -40,6 +40,12 @@ module RightScale
   # Knows how to dump itself to JSON
   class Packet
 
+    # Current version of protocol
+    VERSION = RightLinkConfig.protocol_version
+
+    # Default version for packet senders unaware of this versioning
+    DEFAULT_VERSION = 0
+
     attr_accessor :size
 
     def initialize
@@ -386,7 +392,7 @@ module RightScale
   # Packet for availability notification from an agent to the mappers
   class Register < Packet
 
-    attr_accessor :identity, :services, :status, :tags, :brokers, :shared_queue
+    attr_accessor :identity, :services, :status, :tags, :brokers, :shared_queue, :version
 
     # Create packet
     #
@@ -398,14 +404,16 @@ module RightScale
     # tags(Array(Symbol)):: List of tags associated with this service
     # brokers(Array|nil):: Identity of agent's brokers with nil meaning not supported
     # shared_queue(String):: Name of a queue shared between this agent and another
+    # version(Integer):: Protocol version of agent registering
     # size(Integer):: Size of request in bytes used only for marshalling
-    def initialize(identity, services, status, tags, brokers, shared_queue = nil, size = nil)
+    def initialize(identity, services, status, tags, brokers, shared_queue = nil, version = VERSION, size = nil)
       @status       = status
       @tags         = tags
       @brokers      = brokers
       @identity     = identity
       @services     = services
       @shared_queue = shared_queue
+      @version      = version
       @size         = size
     end
 
@@ -418,7 +426,8 @@ module RightScale
     # (Register):: New packet
     def self.json_create(o)
       i = o['data']
-      new(i['identity'], i['services'], i['status'], i['tags'], i['brokers'], i['shared_queue'], o['size'])
+      new(i['identity'], i['services'], i['status'], i['tags'], i['brokers'], i['shared_queue'],
+          i['version'] || DEFAULT_VERSION, o['size'])
     end
 
     # Generate log representation
@@ -430,6 +439,7 @@ module RightScale
     # log_msg(String):: Log representation
     def to_s(filter = nil)
       log_msg = "#{super} #{id_to_s(@identity)}"
+      log_msg += ", version #{@version}"
       log_msg += ", shared_queue #{@shared_queue}" if @shared_queue
       log_msg += ", services #{@services.inspect}" if @services && !@services.empty?
       log_msg += ", brokers #{@brokers.inspect}" if @brokers && !@brokers.empty?

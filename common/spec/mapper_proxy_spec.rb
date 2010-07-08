@@ -67,7 +67,7 @@ describe RightScale::MapperProxy do
     it "should create a request object" do
       @broker.should_receive(:publish).with(hsh(:name => "request"), on do |request|
         request.class.should == RightScale::Request
-      end, hsh(:persistent => nil)).once
+      end, hsh(:persistent => false)).once
       @instance.request('/welcome/aboard', 'iZac'){|response|}
     end
     
@@ -76,7 +76,7 @@ describe RightScale::MapperProxy do
         request.token.should_not == nil
         request.persistent.should be_false
         request.from.should == 'mapperproxy'
-      end, hsh(:persistent => nil)).once
+      end, hsh(:persistent => false)).once
       @instance.request('/welcome/aboard', 'iZac'){|response|}
     end
     
@@ -90,7 +90,7 @@ describe RightScale::MapperProxy do
     it "should set the correct target if specified" do
       @broker.should_receive(:publish).with(hsh(:name => "request"), on do |request|
         request.target.should == 'my-target'
-      end, hsh(:persistent => nil)).once
+      end, hsh(:persistent => false)).once
       @instance.request('/welcome/aboard', 'iZac', :target => 'my-target'){|response|}
     end
 
@@ -197,7 +197,7 @@ describe RightScale::MapperProxy do
           @instance = RightScale::MapperProxy.instance
           @broker.should_receive(:publish).with(hsh(:name => "request"), on do |request|
             request.created_at.should == created_at
-          end, hsh(:persistent => nil)).twice
+          end, hsh(:persistent => false)).twice
           @instance.request('/welcome/aboard', 'iZac', :created_at => created_at) {|response|}
           EM.add_timer(0.3) { EM.stop }
         end
@@ -222,14 +222,14 @@ describe RightScale::MapperProxy do
     it "should create a push object" do
       @broker.should_receive(:publish).with(hsh(:name => "request"), on do |push|
         push.class.should == RightScale::Push
-      end, hsh(:persistent => nil)).once
+      end, hsh(:persistent => false)).once
       @instance.push('/welcome/aboard', 'iZac')
     end
     
     it "should set the correct target if specified" do
       @broker.should_receive(:publish).with(hsh(:name => "request"), on do |push|
         push.target.should == 'my-target'
-      end, hsh(:persistent => nil)).once
+      end, hsh(:persistent => false)).once
       @instance.push('/welcome/aboard', 'iZac', :target => 'my-target')
     end
     
@@ -238,7 +238,7 @@ describe RightScale::MapperProxy do
         push.token.should_not == nil
         push.persistent.should be_false
         push.from.should == 'mapperproxy'
-      end, hsh(:persistent => nil)).once
+      end, hsh(:persistent => false)).once
       @instance.push('/welcome/aboard', 'iZac')
     end
     

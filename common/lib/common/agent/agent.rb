@@ -101,9 +101,13 @@ module RightScale
     # :daemonize(Boolean):: true indicates to daemonize
     # :pid_dir(String):: Path to the directory where the agent stores its pid file (only if daemonized).
     #   Defaults to the root or the current working directory.
-    # :persistent(Boolean):: true instructs the AMQP broker to save messages to persistent storage so
-    #   that they aren't lost when the broker is restarted. Default is false. Can be overridden on a
-    #   per-message basis using the request and push methods of MapperProxy.
+    # :persist(String):: Instructions for the AMQP broker for saving messages to persistent storage
+    #   so they aren't lost when the broker is restarted:
+    #     none - do not persist any messages
+    #     all - persist all push and request messages
+    #     push - only persist one-way request messages
+    #     request - only persist two-way request messages and their associated result
+    #   Can be overridden on a per-message basis using the persistence option.
     # :fresh_timeout(Numeric):: Maximum age in seconds before a request times out and is rejected
     # :retry_interval(Numeric):: Number of seconds between request retries
     # :retry_timeout(Numeric):: Maximum number of seconds to retry request before give up

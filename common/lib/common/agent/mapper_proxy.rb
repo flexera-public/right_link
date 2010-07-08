@@ -51,9 +51,13 @@ module RightScale
     #     only :exception is supported) and value is the Proc to be called back. For :exception
     #     the parameters are exception, message being processed, and reference to agent. It gets called
     #     whenever a packet generates an exception.
-    #   :persistent(Boolean):: true instructs the AMQP broker to save messages to persistent storage so
-    #     that they aren't lost when the broker is restarted. Can be overridden on a per-message basis
-    #     using the request and push methods below.
+    #   :persist(Symbol):: Instructions for the AMQP broker for saving messages to persistent storage
+    #     so they aren't lost when the broker is restarted:
+    #       none - do not persist any messages
+    #       all - persist all push and request messages
+    #       push - only persist one-way request messages
+    #       request - only persist two-way request messages and their associated result
+    #     Can be overridden on a per-message basis using the persistence option.
     #   :retry_timeout(Numeric):: Maximum number of seconds to retry request before give up
     #   :retry_interval(Numeric):: Number of seconds before initial request retry, increases exponentially
     #   :secure(Boolean):: true indicates to use Security features of rabbitmq to restrict agents to themselves
@@ -65,7 +69,7 @@ module RightScale
       @pending_requests = {} # Only access from primary thread
       @broker = broker
       @secure = @options[:secure]
-      @persistent = @options[:persistent]
+      @persist = @options[:persist]
       @single_threaded = @options[:single_threaded]
       @retry_timeout = nil_if_zero(@options[:retry_timeout])
       @retry_interval = nil_if_zero(@options[:retry_interval])
@@ -89,7 +93,7 @@ module RightScale
       request = Request.new(type, payload, opts)
       request.from = @identity
       request.token = AgentIdentity.generate
-      request.persistent = opts.key?(:persistent) ? opts[:persistent] : @persistent
+      request.persistent = opts.key?(:persistent) ? opts[:persistent] : ['all', 'request'].include?(@persist)
       @pending_requests[request.token] = { :result_handler => blk }
       request_with_retry(request, request.token)
       true
@@ -108,7 +112,7 @@ module RightScale
       push = Push.new(type, payload, opts)
       push.from = @identity
       push.token = AgentIdentity.generate
-      push.persistent = opts.key?(:persistent) ? opts[:persistent] : @persistent
+      push.persistent = opts.key?(:persistent) ? opts[:persistent] : ['all', 'push'].include?(@persist)
       publish(push)
       true
     end

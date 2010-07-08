@@ -149,7 +149,6 @@ module RightScale
     end
 
     # Actually send audits to core agent and log failures
-    # Explicitly force audit message to not be persistent on route to reduce overhead
     #
     # === Parameters
     # request(String):: Request that should be sent to auditor actor
@@ -161,7 +160,7 @@ module RightScale
       log_method = request == 'append_error' ? :error : :info
       log_text = AuditFormatter.send(format_method(request), options[:text])[:detail]
       log_text.chomp.split("\n").each { |l| RightLinkLog.__send__(log_method, l) }
-      RightScale::RequestForwarder.instance.push("/auditor/#{request}", options, :persistent => false)
+      RightScale::RequestForwarder.instance.push("/auditor/#{request}", options)
       true
     end
 

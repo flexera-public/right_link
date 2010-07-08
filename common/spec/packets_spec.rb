@@ -151,6 +151,7 @@ describe "Packet: Register" do
     packet.status.should == packet2.status
     packet.brokers.should == packet2.brokers
     packet.shared_queue.should == packet2.shared_queue
+    packet.version.should == packet2.version
   end
 
   it "should dump/load as Marshalled ruby objects" do
@@ -172,6 +173,17 @@ describe "Packet: Register" do
     packet = RightScale::Register.new('0xdeadbeef', ['/foo/bar', '/nik/qux'], 0.8, ['foo'], nil)
     packet.shared_queue.should be_nil
    end
+
+  it "should use current version by default when constructing" do
+    packet = RightScale::Register.new('0xdeadbeef', ['/foo/bar', '/nik/qux'], 0.8, ['foo'], nil, 'shared', nil)
+    packet.version == RightScale::Packet::VERSION
+  end
+
+  it "should use default version if none supplied when unmarshalling" do
+    packet = RightScale::Register.new('0xdeadbeef', ['/foo/bar', '/nik/qux'], 0.8, ['foo'], nil, 'shared', nil)
+    JSON.parse(packet.to_json).version == RightScale::Packet::DEFAULT_VERSION
+    Marshal.load(Marshal.dump(packet)).version == RightScale::Packet::DEFAULT_VERSION
+  end
 end
 
 

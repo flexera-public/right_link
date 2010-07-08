@@ -89,13 +89,4 @@ describe RightScale::AuditorProxy do
     EM.run { @proxy.append_info('INFO'); EM.add_timer(PROXY_TIMEOUT) { EM.stop; raise 'timeout' } }
   end
 
-  it 'should not send audits with persistence' do
-    flexmock(RightScale::RightLinkLog).should_receive(:error).once.with("*ERROR> ERROR")
-    @forwarder.should_receive(:push).once.and_return do |_, _, opts|
-      opts[:persistent].should == false
-      EM.stop
-    end
-    EM.run { @proxy.append_error('ERROR'); EM.add_timer(PROXY_TIMEOUT) { EM.stop; raise 'timeout' } }
-  end
-
 end

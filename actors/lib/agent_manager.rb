@@ -42,7 +42,8 @@ class AgentManager
   # === Return
   # res(RightScale::OperationResult):: Always returns success
   def ping(_)
-    res = RightScale::OperationResult.success(@agent.broker.status)
+    res = RightScale::OperationResult.success(:r_s_version => RightScale::RightLinkConfig.protocol_version,
+                                              :broker_status => @agent.broker.status)
   end
 
   # Change log level of agent
