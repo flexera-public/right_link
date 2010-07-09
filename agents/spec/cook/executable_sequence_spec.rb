@@ -49,7 +49,7 @@ describe RightScale::ExecutableSequence do
 
       @bundle = RightScale::ExecutableBundle.new([ @script ], [], 0)
 
-      @auditor = flexmock(RightScale::AuditorProxyStub.instance)
+      @auditor = flexmock(RightScale::AuditorStub.instance)
       @auditor.should_receive(:create_new_section)
       @auditor.should_receive(:append_info)
       @auditor.should_receive(:append_output)

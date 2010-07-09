@@ -72,7 +72,7 @@ module RightScale
     # === Parameters
     # msg(String):: Raw string to be appended to audit
     def <<(msg)
-      AuditorProxyStub.instance.append_output(msg, :audit_id => @audit_id)
+      AuditorStub.instance.append_output(msg, :audit_id => @audit_id)
     end
 
     # Override Logger::add to audit instead of writing to log file
@@ -105,11 +105,11 @@ module RightScale
       when Logger::DEBUG
         RightLinkLog.debug(message)
       when Logger::INFO, Logger::WARN, Logger::UNKNOWN
-        AuditorProxyStub.instance.append_output(msg, :audit_id => @audit_id)
+        AuditorStub.instance.append_output(msg, :audit_id => @audit_id)
       when Logger::ERROR
-        AuditorProxyStub.instance.append_error(msg, :audit_id => @audit_id)
+        AuditorStub.instance.append_error(msg, :audit_id => @audit_id)
       when Logger::FATAL
-        AuditorProxyStub.instance.append_error(msg, :category => RightScale::EventCategories::CATEGORY_ERROR,
+        AuditorStub.instance.append_error(msg, :category => RightScale::EventCategories::CATEGORY_ERROR,
                                                     :audit_id => @audit_id)
       end
       true
@@ -127,7 +127,7 @@ module RightScale
     # true:: Always return true
     def create_new_section(title, options={})
       options[:audit_id] = @audit_id
-      AuditorProxyStub.instance.create_new_section(title, options)
+      AuditorStub.instance.create_new_section(title, options)
     end
 
   end

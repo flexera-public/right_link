@@ -25,7 +25,7 @@ require 'singleton'
 module RightScale
 
   # Provides access to RightLink agent audit methods
-  class AuditorProxyStub
+  class AuditorStub
 
     include Singleton
 

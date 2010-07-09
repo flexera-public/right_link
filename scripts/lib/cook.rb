@@ -46,7 +46,7 @@ module RightScale
       fail('Missing command server listen port') unless options[:listen_port]
       fail('Missing command cookie') unless options[:cookie]
       @client = CommandClient.new(options[:listen_port], options[:cookie])
-      AuditorProxyStub.init(@client)
+      AuditorStub.init(@client)
 
       # 3. Run bundle
       @@instance = self

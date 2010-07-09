@@ -25,6 +25,6 @@
 # It's a short lived process that runs one Chef converge then dies
 # It talks back to the RightLink agent using the command protocol
 
-require File.normalize_path(File.join(File.dirname(__FILE__), 'cook', 'auditor_proxy_stub.rb'))
+require File.normalize_path(File.join(File.dirname(__FILE__), 'cook', 'auditor_stub.rb'))
 require File.normalize_path(File.join(File.dirname(__FILE__), 'cook', 'cook_state.rb'))
 require File.normalize_path(File.join(File.dirname(__FILE__), 'cook', 'executable_sequence.rb'))
