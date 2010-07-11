@@ -337,6 +337,27 @@ module RightScale
       res
     end
 
+    # Declare one or more broker connections unusable because connection setup has failed
+    # This will setup for another connect attempt via the mapper on the next ping
+    #
+    # === Parameters
+    # brokers(Array):: Identity of brokers
+    #
+    # === Return
+    # res(String|nil):: Error message if failed, otherwise nil
+    def connect_failed(brokers)
+      res = nil
+      begin
+        RightLinkLog.info("Connection setup for brokers #{brokers} has failed")
+        @broker.not_usable(brokers)
+        advertise_services(@broker.connected)
+      rescue Exception => e
+        res = "Failed to mark brokers #{brokers} as unusable: #{e.message}"
+        RightLinkLog.error(res)
+      end
+      res
+    end
+
     protected
 
     # Set the agent's configuration using the supplied options

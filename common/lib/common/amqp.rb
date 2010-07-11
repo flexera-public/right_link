@@ -698,6 +698,25 @@ module RightScale
       identity
     end
 
+    # Declare a broker connection as unusable
+    #
+    # === Parameters
+    # identities(Array):: Identity of brokers
+    #
+    # === Return
+    # true:: Always return true
+    #
+    # === Raises
+    # Exception:: If identified broker is unknown
+    def not_usable(identities)
+      identities.each do |id|
+        broker = @brokers_hash[id]
+        raise Exception, "Cannot mark unknown broker #{id} unusable" unless broker
+        broker[:connection].close if connection_closable(broker)
+        update_status(broker, :failed)
+      end
+    end
+ 
     # Store block to be called when there is a change in connection status
     # Each call to this method stores another block
     #

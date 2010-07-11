@@ -93,7 +93,7 @@ class AgentManager
   #   :force(Boolean):: Reconnect even if already connected
   #
   # === Return
-  # true:: Always return true
+  # res(RightScale::OperationResult):: Success unless exception is raised
   def connect(options)
     options = RightScale::SerializationHelper.symbolize_keys(options)
     res = RightScale::OperationResult.success
@@ -116,7 +116,7 @@ class AgentManager
   #   :remove(Boolean):: Remove broker from configuration in addition to disconnecting it
   #
   # === Return
-  # true:: Always return true
+  # res(RightScale::OperationResult):: Success unless exception is raised
   def disconnect(options)
     options = RightScale::SerializationHelper.symbolize_keys(options)
     res = RightScale::OperationResult.success
@@ -126,6 +126,26 @@ class AgentManager
       end
     rescue Exception => e
       res = RightScale::OperationResult.error("Failed to disconnect from broker: #{e.message}")
+    end
+    res
+  end
+
+  # Declare one or more broker connections unusable because connection setup has failed
+  #
+  # === Parameters
+  # options(Hash):: Failure options:
+  #   :brokers(Array):: Identity of brokers
+  #
+  # === Return
+  # res(RightScale::OperationResult):: Success unless exception is raised
+  def connect_failed(options)
+    res = RightScale::OperationResult.success
+    begin
+      if error = @agent.connect_failed(options[:brokers])
+        res = RightScale::OperationResult.error(error)
+      end
+    rescue Exception => e
+      res = RightScale::OperationResult.error("Failed to notify agent that brokers #{brokers} are unusable: #{e.message}")
     end
     res
   end

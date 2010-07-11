@@ -853,6 +853,15 @@ describe RightScale::HA_MQ do
       res = ha_mq.remove("second", 5672)
     end
 
+    it "should close connection and mark as failed when told broker is not usable" do
+      @connection.should_receive(:close).once
+      ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first, second")
+      ha_mq.brokers[0][:status] = :connected
+      ha_mq.brokers[1][:status] = :connected
+      res = ha_mq.not_usable(["rs-broker-first-5672"])
+      ha_mq.brokers[0][:status].should == :failed
+    end
+
   end
 
   describe "Monitoring" do
