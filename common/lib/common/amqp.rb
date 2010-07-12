@@ -408,14 +408,15 @@ module RightScale
     #
     # === Parameters
     # name(String):: Queue name
+    # options(Hash):: Queue declare options
     #
     # === Return
     # ids(Array):: Identity of AMQP brokers where queue was deleted
-    def delete(name)
+    def delete(name, options = {})
       ids = []
       each_usable do |b|
         begin
-          b[:mq].queue(name).delete
+          b[:mq].queue(name, options).delete
           ids << b[:identity]
         rescue Exception => e
           RightLinkLog.error("Failed deleting queue #{name.inspect} on broker #{b[:alias]}: #{e.message}")

@@ -660,7 +660,7 @@ describe RightScale::HA_MQ do
 
     it "should delete queue in each usable broker" do
       @queue.should_receive(:delete).once
-      @mq.should_receive(:queue).with("queue").and_return(@queue).once
+      @mq.should_receive(:queue).with("queue", {}).and_return(@queue).once
       ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first, second")
       ha_mq.brokers[0][:status] = :disconnected
       ha_mq.delete("queue").should == ["rs-broker-second-5672"]
