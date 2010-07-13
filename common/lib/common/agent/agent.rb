@@ -246,7 +246,7 @@ module RightScale
       else
         name = 'request'
         packet = Push.new("/mapper/update_tags", {:new_tags => new_tags, :obsolete_tags => obsolete_tags},
-                          :from => @identity, persistent => true)
+                          :from => @identity, :persistent => true)
       end
       exchange = {:type => :fanout, :name => name, :options => {:no_declare => @options[:secure], :durable => true}}
       publish(exchange, packet, :persistent => true)
