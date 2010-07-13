@@ -567,7 +567,8 @@ module RightScale
   end # Advertise
 
 
-  # Packet for an agent to update the mappers with its tags
+  # Packet for an infrastructure agent to update the mappers with its tags
+  # Deprecated for use by instance agents, they instead use /mapper/update_tags
   class TagUpdate < Packet
 
     attr_accessor :identity, :new_tags, :obsolete_tags

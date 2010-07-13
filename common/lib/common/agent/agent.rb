@@ -232,15 +232,24 @@ module RightScale
     #
     # === Parameters
     # new_tags(Array):: Tags to be added
-    # old_tags(Array):: Tags to be removed
+    # obsolete_tags(Array):: Tags to be removed
     #
     # === Return
     # true:: Always return true
-    def update_tags(new_tags, old_tags)
+    def update_tags(new_tags, obsolete_tags)
       @tags += (new_tags || [])
-      @tags -= (old_tags || [])
+      @tags -= (obsolete_tags || [])
       @tags.uniq!
-      publish(TagUpdate.new(@identity, new_tags, old_tags))
+      if @options[:infrastructure]
+        name = 'registration'
+        packet = TagUpdate.new(@identity, new_tags, obsolete_tags)
+      else
+        name = 'request'
+        packet = Push.new("/mapper/update_tags", {:new_tags => new_tags, :obsolete_tags => obsolete_tags},
+                          :from => @identity, persistent => true)
+      end
+      exchange = {:type => :fanout, :name => name, :options => {:no_declare => @options[:secure], :durable => true}}
+      publish(exchange, packet, :persistent => true)
       true
     end
 
@@ -542,15 +551,9 @@ module RightScale
     # true:: Always return true
     def setup_heartbeat
       EM.add_periodic_timer(@options[:ping_time]) do
-        begin
-          name = 'heartbeat'
-          exchange = {:type => :fanout, :name => name, :options => {:no_declare => @options[:secure]}}
-          failed = @broker.failed(backoff = true) unless @options[:infrastructure]
-          packet = Ping.new(@identity, status_proc.call, @broker.connected, failed)
-          @broker.publish(exchange, packet, :no_log => true)
-        rescue Exception => e
-          RightLinkLog.error("Failed to publish #{packet.class} to #{name} exchange: #{e.message}") unless @terminating
-        end
+        exchange = {:type => :fanout, :name => 'heartbeat', :options => {:no_declare => @options[:secure]}}
+        failed = @broker.failed(backoff = true) unless @options[:infrastructure]
+        publish(exchange, Ping.new(@identity, status_proc.call, @broker.connected, failed), :no_log => true)
       end
       true
     end
@@ -588,17 +591,17 @@ module RightScale
     # Publish packet to registration exchange
     #
     # === Parameters
+    # exchange(Hash):: Exchange to which to publish packet
     # packet(Packet):: Packet to be published
+    # options(Hash):: Publish options
     #
     # === Return
     # true:: Always return true
-    def publish(packet)
+    def publish(exchange, packet, options = {})
       begin
-        name = 'registration'
-        exchange = {:type => :fanout, :name => name, :options => {:no_declare => @options[:secure], :durable => true}}
-        @broker.publish(exchange, packet)
+        @broker.publish(exchange, packet, options)
       rescue Exception => e
-        RightLinkLog.error("Failed to publish #{packet.class} to #{name} exchange: #{e.message}") unless @terminating
+        RightLinkLog.error("Failed to publish #{packet.class} to #{exchange[:name]} exchange: #{e.message}") unless @terminating
       end
       true
     end
@@ -611,7 +614,8 @@ module RightScale
     # === Return
     # true:: Always return true
     def advertise_services(connected)
-      publish(Register.new(@identity, @registry.services, status_proc.call, self.tags, connected, @shared_queue))
+      exchange = {:type => :fanout, :name => 'registration', :options => {:no_declare => @options[:secure], :durable => true}}
+      publish(exchange, Register.new(@identity, @registry.services, status_proc.call, self.tags, connected, @shared_queue))
       true
     end
 
@@ -622,7 +626,8 @@ module RightScale
     def un_register
       unless @unregistered
         @unregistered = true
-        publish(UnRegister.new(@identity))
+        exchange = {:type => :fanout, :name => 'registration', :options => {:no_declare => @options[:secure], :durable => true}}
+        publish(exchange, UnRegister.new(@identity))
       end
       true
     end
