@@ -12,16 +12,16 @@ require 'fileutils'
 require 'right_scraper'
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'config', 'right_link_config'))
 
-BASE_DIR = File.normalize_path(File.join(File.dirname(__FILE__), '..', '..'))
+BASE_DIR = File.join(File.dirname(__FILE__), '..', '..')
 
-require File.join(BASE_DIR, 'agents', 'lib', 'instance')
-require File.join(BASE_DIR, 'agents', 'lib', 'instance', 'cook')
-require File.join(BASE_DIR, 'chef', 'lib', 'providers')
-require File.join(BASE_DIR, 'chef', 'lib', 'plugins')
-require File.join(BASE_DIR, 'common', 'lib', 'common')
-require File.join(BASE_DIR, 'command_protocol', 'lib', 'command_protocol')
-require File.join(BASE_DIR, 'payload_types', 'lib', 'payload_types')
-require File.join(BASE_DIR, 'scripts', 'lib', 'agent_utils')
+require File.normalize_path(File.join(BASE_DIR, 'agents', 'lib', 'instance'))
+require File.normalize_path(File.join(BASE_DIR, 'agents', 'lib', 'instance', 'cook'))
+require File.normalize_path(File.join(BASE_DIR, 'chef', 'lib', 'providers'))
+require File.normalize_path(File.join(BASE_DIR, 'chef', 'lib', 'plugins'))
+require File.normalize_path(File.join(BASE_DIR, 'common', 'lib', 'common'))
+require File.normalize_path(File.join(BASE_DIR, 'command_protocol', 'lib', 'command_protocol'))
+require File.normalize_path(File.join(BASE_DIR, 'payload_types', 'lib', 'payload_types'))
+require File.normalize_path(File.join(BASE_DIR, 'scripts', 'lib', 'agent_utils'))
 
 module RightScale
 
@@ -126,7 +126,7 @@ module RightScale
       @client.send_command(cmd)
     end
 
-    # Access cook instance from anywhere to send requests to core through 
+    # Access cook instance from anywhere to send requests to core through
     # command protocol
     def self.instance
       @@instance
@@ -170,7 +170,7 @@ module RightScale
       $stderr.puts title
       $stderr.puts message || title
       if @client
-        @client.close { exit(1) } 
+        @client.close { exit(1) }
       else
         exit(1)
       end

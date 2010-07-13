@@ -40,7 +40,7 @@ module RightScale
       @pending = 0
     end
 
-    # Stop command client 
+    # Stop command client
     #
     # === Block
     # Given block gets called back once last response has been received or timeout
@@ -74,7 +74,7 @@ module RightScale
       return if @closing
       @last_timeout = timeout
       manage_em = !EM.reactor_running?
-      response_handler = lambda do 
+      response_handler = lambda do
         EM.stop if manage_em
         handler.call(@response) if handler && @response
         @pending -= 1
@@ -85,7 +85,7 @@ module RightScale
         command = options.dup
         command[:verbose] = verbose
         command[:cookie] = @cookie
-        EM.connect('127.0.0.1', @socket_port, ConnectionHandler, command, self, response_handler)
+        EM.next_tick { EM.connect('127.0.0.1', @socket_port, ConnectionHandler, command, self, response_handler) }
         EM.add_timer(timeout) { EM.stop; raise 'Timed out waiting for agent reply' } if manage_em
       end
       if manage_em
