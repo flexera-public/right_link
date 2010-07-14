@@ -6,11 +6,11 @@
 #
 
 require 'rubygems'
+require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'config', 'right_link_config'))
 require 'eventmachine'
 require 'chef'
 require 'fileutils'
 require 'right_scraper'
-require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'config', 'right_link_config'))
 
 BASE_DIR = File.join(File.dirname(__FILE__), '..', '..')
 
