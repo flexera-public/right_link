@@ -169,6 +169,31 @@ class InstanceScheduler
 
   protected
 
+  # Audit executable sequence status after it ran
+  #
+  # === Parameters
+  # succeeded(TrueClass|FalseClass):: Whether last execution was successful
+  #
+  # === Return
+  # true:: Always return true
+  def audit_status(succeeded)
+    bundle = @sequence.bundle if @sequence
+    if bundle
+      audit_id = bundle.audit_id
+      ran_decom = RightScale::InstanceState.value == 'decommissioning' && @scheduled_bundles.size <= 1
+      title = ran_decom ? 'decommission ' : ''
+      title += succeeded ? 'completed' : 'failed'
+      RightScale::AuditorProxy.instance.update_status("#{title}: #{bundle}", :audit_id => audit_id)
+      unless succeeded
+        RightScale::AuditorProxy.instance.append_error(@sequence.failure_title, :category => RightScale::EventCategories::CATEGORY_ERROR, :audit_id => audit_id)
+        RightScale::AuditorProxy.instance.append_error(@sequence.failure_message, :audit_id => audit_id)
+      end
+    else
+      RightLinkLog.warn("Missing bundle when updating execution status")
+    end
+    EM.defer { run_bundles }
+  end
+
   # Worker thread loop which runs bundles pushed to the scheduled bundles queue
   # Push the string 'end' to the queue to end the thread
   # Catch exceptions as EM will not restart a thread from the pool that died
@@ -181,8 +206,8 @@ class InstanceScheduler
       bundle = @scheduled_bundles.shift
       if bundle != 'end'
         @sequence = RightScale::ExecutableSequenceProxy.new(bundle)
-        @sequence.callback { EM.defer { run_bundles } }
-        @sequence.errback { EM.defer { run_bundles } }
+        @sequence.callback { audit_status(succeeded=true) }
+        @sequence.errback { audit_status(succeeded=false) }
         @sequence.run
       else
         RightScale::InstanceState.value = 'decommissioned'

@@ -33,6 +33,9 @@ module RightScale
     # (Hash) Inputs patch to be forwarded to core after each converge
     attr_accessor :inputs_patch
 
+    # Associated bundle
+    attr_reader :bundle
+
     # Initialize sequence
     #
     # === Parameter

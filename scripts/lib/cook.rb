@@ -46,7 +46,6 @@ module RightScale
       fail('Missing command server listen port') unless options[:listen_port]
       fail('Missing command cookie') unless options[:cookie]
       @client = CommandClient.new(options[:listen_port], options[:cookie])
-      AuditorStub.init(@client)
 
       # 3. Run bundle
       @@instance = self
@@ -58,6 +57,7 @@ module RightScale
       sequence = ExecutableSequence.new(bundle)
       EM.run do
         begin
+          AuditorStub.instance.init(options)
           sequence.callback { success = true; send_inputs_patch(sequence) }
           sequence.errback { success = false; stop }
           EM.defer { sequence.run }
@@ -134,6 +134,11 @@ module RightScale
 
     protected
 
+    # Initialize instance variables
+    def initialize
+      @client = nil
+    end
+
     # Load JSON content
     # fail if JSON is invalid
     #
@@ -170,17 +175,17 @@ module RightScale
       $stderr.puts title
       $stderr.puts message || title
       if @client
-        @client.close { exit(1) }
+        @client.stop { AuditorStub.instance.stop { exit(1) } }
       else
         exit(1)
       end
     end
 
-    # Stop command client then stop EM
+    # Stop command client then stop auditor stub then EM
     def stop
       @client.stop do |timeout|
-        RightLinkLog.info('Failed to stop command client cleanly, forcing shutdown...') if timeout
-        EM.stop
+        RightLinkLog.info('[cook] Failed to stop command client cleanly, forcing shutdown...') if timeout
+        AuditorStub.instance.stop { EM.stop }
       end
     end
 

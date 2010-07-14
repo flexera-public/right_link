@@ -342,12 +342,14 @@ class InstanceSetup
       EM.next_tick do
         RightScale::RequestForwarder.instance.push('/updater/update_inputs', { :agent_identity => @agent_identity,
                                                                                :patch          => sequence.inputs_patch })
+        RightScale::AuditorProxy.instance.update_status("boot completed: #{bundle}", :audit_id => @audit_id)
         yield RightScale::OperationResult.success
       end
     end
     sequence.errback  do
       EM.next_tick do
-        (yield RightScale::OperationResult.error("Failed to run boot bundle"))
+        RightScale::AuditorProxy.instance.update_status("boot failed: #{bundle}", :audit_id => @audit_id)
+        yield RightScale::OperationResult.error("Failed to run boot bundle")
       end
     end
 

@@ -109,12 +109,14 @@ module RightScale
     # === Parameters
     # conn(EM::Connection):: Connection used to send data
     # data(String):: Data that should be written
+    # close_after_writing(TrueClass|FalseClass):: Whether TCP connection with client should be
+    #                                             closed after reply is sent
     #
     # === Return
     # true:: Always return true
-    def reply(conn, data)
+    def reply(conn, data, close_after_writing=true)
       conn.send_data(CommandSerializer.dump(data))
-      conn.close_connection_after_writing
+      conn.close_connection_after_writing if close_after_writing
       true
     end
 

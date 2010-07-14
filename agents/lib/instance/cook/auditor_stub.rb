@@ -24,6 +24,86 @@ require 'singleton'
 
 module RightScale
 
+  # Wait up to 20 seconds before forcing disconnection to agent
+  STOP_TIMEOUT = 20 
+
+  # Class managing connection to agent
+  module AgentConnection
+
+    # Set command client cookie and initialize responses parser
+    def initialize(cookie)
+      @cookie  = cookie
+      @pending = 0
+      @parser  = CommandParser.new do |data|
+        RightLinkLog.warn("[cook] Invalid audit command response '#{data}'") unless data == 'OK'
+        @pending -= 1
+        on_stopped if @stopped_callback && @pending == 0
+      end
+    end
+
+    # Send command to running agent
+    #
+    # === Parameters
+    # options(Hash):: Hash of options and command name
+    #   options[:name]:: Command name
+    #   options[:...]:: Other command specific options, passed through to agent
+    #
+    # === Return
+    # true:: Always return true
+    def send_command(options)
+      return if @stopped_callback
+      @pending += 1
+      command = options.dup
+      command[:cookie] = @cookie
+      send_data(CommandSerializer.dump(command))
+      true
+    end
+
+    # Handle agent response
+    #
+    # === Return
+    # true:: Always return true
+    def receive_data(data)
+      @parser.parse_chunk(data)
+      true
+    end
+
+    # Stop command client, wait for all pending commands to finish prior
+    # to calling given callback
+    #
+    # === Return
+    # true:: Always return true
+    #
+    # === Block
+    # called once all pending commands have completed
+    def stop(&callback)
+      @stopped_callback = callback
+      if @pending > 0
+        RightLinkLog.info("[cook] Disconnecting from agent (#{@pending} responses pending)")
+        @stop_timeout = EM::Timer.new(STOP_TIMEOUT) do
+          RightLinkLog.warn("[cook] Time out waiting for responses from agent, forcing disconnection")
+          @stop_timeout = nil
+          on_stopped
+        end
+      else
+        on_stopped
+      end
+      true
+    end
+
+    # Called after all pending responses have been received
+    #
+    # === Return
+    # true:: Always return true
+    def on_stopped
+      close_connection
+      @stop_timeout.cancel if @stop_timeout
+      RightLinkLog.info("[cook] Disconnected from agent")
+      @stopped_callback.call
+    end
+
+  end
+
   # Provides access to RightLink agent audit methods
   class AuditorStub
 
@@ -37,9 +117,22 @@ module RightScale
     #
     # === Return
     # true:: Always return true
-    def self.init(client)
-      @@client = client
+    def init(options)
+      @agent_connection = EM.connect('127.0.0.1', options[:listen_port], AgentConnection, options[:cookie])
       true
+    end
+
+    # Stop command client, wait for all pending commands to finish prior
+    # to calling given callback
+    #
+    # === Block
+    # called once all pending commands have completed
+    def stop(&callback)
+      if @agent_connection
+        @agent_connection.stop(&callback) 
+      else
+        callback.call
+      end
     end
 
     # Update audit summary
@@ -108,7 +201,7 @@ module RightScale
     end
 
     protected
-    
+
     # Helper method used to send command client request to RightLink agent
     #
     # === Parameters
@@ -122,12 +215,7 @@ module RightScale
       options ||= {}
       begin
         cmd = { :name => cmd, :content => content, :options => options }
-        @@client.send_command(cmd) do |res|
-          unless res == "OK"
-            $stderr.puts 'Failed to audit'
-            $stderr.puts "Failed to audit (#{cmd[:name]}) - #{res}"
-          end
-        end
+        @agent_connection.send_command(cmd)
       rescue Exception => e
         $stderr.puts 'Failed to audit'
         $stderr.puts "Failed to audit (#{cmd[:name]}) - #{e.message} from\n#{e.backtrace.join("\n")}"

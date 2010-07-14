@@ -242,7 +242,7 @@ module RightScale
     # true:: Always return true
     def audit_update_status_command(opts)
       AuditorProxy.instance.update_status(opts[:content], opts[:options])
-      CommandIO.instance.reply(opts[:conn], "OK")
+      CommandIO.instance.reply(opts[:conn], "OK", close_after_writing=false)
     end
 
     # Update audit summary
@@ -255,7 +255,7 @@ module RightScale
     # true:: Always return true
     def audit_create_new_section_command(opts)
       AuditorProxy.instance.create_new_section(opts[:content], opts[:options])
-      CommandIO.instance.reply(opts[:conn], "OK")
+      CommandIO.instance.reply(opts[:conn], "OK", close_after_writing=false)
     end
 
     # Update audit summary
@@ -268,7 +268,7 @@ module RightScale
     # true:: Always return true
     def audit_append_output_command(opts)
       AuditorProxy.instance.append_output(opts[:content], opts[:options])
-      CommandIO.instance.reply(opts[:conn], "OK")
+      CommandIO.instance.reply(opts[:conn], "OK", close_after_writing=false)
     end
 
     # Update audit summary
@@ -281,7 +281,7 @@ module RightScale
     # true:: Always return true
     def audit_append_info_command(opts)
       AuditorProxy.instance.append_info(opts[:content], opts[:options])
-      CommandIO.instance.reply(opts[:conn], "OK")
+      CommandIO.instance.reply(opts[:conn], "OK", close_after_writing=false)
     end
 
     # Update audit summary
@@ -294,7 +294,7 @@ module RightScale
     # true:: Always return true
     def audit_append_error_command(opts)
       AuditorProxy.instance.append_error(opts[:content], opts[:options])
-      CommandIO.instance.reply(opts[:conn], "OK")
+      CommandIO.instance.reply(opts[:conn], "OK", close_after_writing=false)
     end
 
     # Update inputs patch to be sent back to core after cook process finishes

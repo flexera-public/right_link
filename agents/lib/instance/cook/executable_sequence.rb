@@ -38,6 +38,9 @@ module RightScale
     # Patch to be applied to inputs stored in core
     attr_accessor :inputs_patch
 
+    # Failure title and message if any
+    attr_reader :failure_title, :failure_message
+
     # Initialize sequence
     #
     # === Parameter
@@ -291,7 +294,6 @@ module RightScale
       # We don't want to send back new attributes (ohai etc.)
       patch[:right_only] = {}
       @inputs_patch = patch
-      AuditorStub.instance.update_status("completed: #{@description}", :audit_id => @audit_id)
       EM.next_tick { succeed }
       true
     end
@@ -306,10 +308,9 @@ module RightScale
     # true:: Always return true
     def report_failure(title, msg)
       @ok = false
+      @failure_title = title
+      @failure_message = msg
       RightLinkLog.error(msg)
-      AuditorStub.instance.update_status("failed: #{ @description }", :audit_id => @audit_id)
-      AuditorStub.instance.append_error(title, :category => RightScale::EventCategories::CATEGORY_ERROR, :audit_id => @audit_id)
-      AuditorStub.instance.append_error(msg, :audit_id => @audit_id)
       EM.next_tick { fail }
       true
     end
