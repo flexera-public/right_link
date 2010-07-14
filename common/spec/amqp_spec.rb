@@ -432,6 +432,14 @@ describe RightScale::HA_MQ do
       runner.should raise_exception(Exception)
     end
 
+    it "should display RERECV if the message being received is a retry" do
+      flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Connecting/).once
+      flexmock(RightScale::RightLinkLog).should_receive(:info).with(/^RERECV/).once
+      @packet.should_receive(:tries).and_return(["try1"]).once
+      ha_mq = RightScale::HA_MQ.new(@serializer)
+      ha_mq.each_usable { |b| ha_mq.receive(b, "queue", @message, RightScale::Request => nil).should == @packet }
+    end
+
   end # Receiving
 
   describe "Publishing" do
