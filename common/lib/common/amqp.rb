@@ -268,7 +268,7 @@ module RightScale
     #     only packet classes specified are accepted, others are not processed but are logged with error
     #   :category(String):: Packet category description to be used in error messages
     #   :log_data(String):: Additional data to display at end of log entry
-    #   :no_log(Boolean):: Disable receive logging
+    #   :no_log(Boolean):: Disable receive logging unless debug level
     #
     # === Block
     # Required block is called each time exchange matches a message to the queue
@@ -292,19 +292,29 @@ module RightScale
           if options[:ack]
             # Ack now before processing to avoid risk of duplication after a crash
             q.subscribe(:ack => true) do |info, msg|
-              info.ack
-              if options[:no_unserialize] || @serializer.nil?
-                blk.call(b[:identity], msg)
-              else
-                blk.call(b[:identity], receive(b, queue[:name], msg, options))
+              begin
+                info.ack
+                if options[:no_unserialize] || @serializer.nil?
+                  blk.call(b[:identity], msg)
+                else
+                  blk.call(b[:identity], receive(b, queue[:name], msg, options))
+                end
+              rescue Exception => e
+                RightLinkLog.error("Failed executing block for message from queue #{queue.inspect}#{to_exchange} " +
+                                   "on broker #{b[:alias]}: #{e.message}\n" + e.backtrace.join("\n"))
               end
             end
           else
             q.subscribe do |msg|
-              if options[:no_unserialize] || @serializer.nil?
-                blk.call(b[:identity], msg)
-              else
-                blk.call(b[:identity], receive(b, queue[:name], msg, options))
+              begin
+                if options[:no_unserialize] || @serializer.nil?
+                  blk.call(b[:identity], msg)
+                else
+                  blk.call(b[:identity], receive(b, queue[:name], msg, options))
+                end
+              rescue Exception => e
+                RightLinkLog.error("Failed executing block for message from queue #{queue.inspect}#{to_exchange} " +
+                                   "on broker #{b[:alias]}: #{e.message}\n" + e.backtrace.join("\n"))
               end
             end
           end
@@ -330,16 +340,15 @@ module RightScale
     #   :no_log(Boolean):: Disable receive logging unless debug level
     #
     # === Return
-    # (Packet|nil):: Unserialized packet or nil if not of right type
+    # (Packet|nil):: Unserialized packet or nil if not of right type or if there is an exception
     def receive(broker, queue, msg, options = {})
       begin
         packet = @serializer.load(msg)
         if options.key?(packet.class)
-          unless options[:no_log]
+          unless options[:no_log] && RightLinkLog.level != :debug
             re = "RE" if packet.respond_to?(:tries) && !packet.tries.empty?
             log_filter = options[packet.class] unless RightLinkLog.level == :debug
-            RightLinkLog.__send__(RightLinkLog.level,
-              "#{re}RECV #{broker[:alias]} #{packet.to_s(log_filter)} #{options[:log_data]}")
+            RightLinkLog.info("#{re}RECV #{broker[:alias]} #{packet.to_s(log_filter)} #{options[:log_data]}")
           end
           packet
         else
@@ -349,7 +358,7 @@ module RightScale
         end
       rescue Exception => e
         RightLinkLog.error("RECV #{broker[:alias]} - Failed receiving from queue #{queue}: #{e.message}")
-        raise e
+        nil
       end
     end
 
@@ -383,12 +392,13 @@ module RightScale
       brokers.each do |b|
         if b[:status] == :connected
           begin
-            unless options[:no_log] || options[:no_serialize] || @serializer.nil?
+            unless (options[:no_log] && RightLinkLog.level != :debug) || options[:no_serialize] || @serializer.nil?
               re = "RE" if packet.respond_to?(:tries) && !packet.tries.empty?
               log_filter = options[:log_filter] unless RightLinkLog.level == :debug
-              RightLinkLog.__send__(RightLinkLog.level,
-                "#{re}SEND #{b[:alias]} #{packet.to_s(log_filter)} #{options[:log_data]}")
+              RightLinkLog.info("#{re}SEND #{b[:alias]} #{packet.to_s(log_filter)} #{options[:log_data]}")
             end
+            RightLinkLog.debug("... publish options #{options.inspect}, exchange #{exchange[:name]}, " +
+                               "type #{exchange[:type]}, options #{exchange[:options].inspect}")
             b[:mq].__send__(exchange[:type], exchange[:name], exchange[:options] || {}).publish(msg, options)
             ids << b[:identity]
             break unless options[:fanout]

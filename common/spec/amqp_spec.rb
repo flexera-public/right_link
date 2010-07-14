@@ -317,6 +317,18 @@ describe RightScale::HA_MQ do
                       RightScale::Request => nil) {|b, p| p.class.should == RightScale::Request}
     end
 
+    it "should receive message and log exception if subscribe block fails" do
+      flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Connecting/).once
+      flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Subscribing/).once
+      flexmock(RightScale::RightLinkLog).should_receive(:error).with(/Failed executing block/).once
+      @serializer.should_receive(:load).with(@message).and_return(@packet).once
+      @bind.should_receive(:subscribe).and_yield(@message).once
+      ha_mq = RightScale::HA_MQ.new(@serializer)
+      ha_mq.brokers[0][:status] = :connected
+      ha_mq.subscribe({:name => "queue"}, {:type => :direct, :name => "exchange"},
+                      RightScale::Request => nil) {|b, p| raise Exception}
+    end
+
     it "should return identity of brokers that were subscribed to" do
       @bind.should_receive(:subscribe).and_yield(@message)
       ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first, second")
@@ -404,7 +416,7 @@ describe RightScale::HA_MQ do
       flexmock(RightScale::RightLinkLog).should_receive(:level).and_return(:debug)
       flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Connecting/).once
       flexmock(RightScale::RightLinkLog).should_receive(:info).with(/^RECV.*ALL/).never
-      flexmock(RightScale::RightLinkLog).should_receive(:debug).with(/^RECV.*ALL/).once
+      flexmock(RightScale::RightLinkLog).should_receive(:info).with(/^RECV.*ALL/).once
       @packet.should_receive(:to_s).with(nil).and_return("ALL").once
       ha_mq = RightScale::HA_MQ.new(@serializer)
       ha_mq.each_usable { |b| ha_mq.receive(b, "queue", @message, RightScale::Request => [:to]) }
@@ -424,12 +436,19 @@ describe RightScale::HA_MQ do
       ha_mq.each_usable { |b| ha_mq.receive(b, "queue", @message, RightScale::Request => nil, :no_log => true) }
     end
 
-    it "should log an error if exception prevents normal logging and should then raise this exception" do
+    it "should not log a message if requested not to unless debug level" do
+      flexmock(RightScale::RightLinkLog).should_receive(:level).and_return(:debug)
+      flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Connecting/).once
+      flexmock(RightScale::RightLinkLog).should_receive(:info).with(/^RECV/).once
+      ha_mq = RightScale::HA_MQ.new(@serializer)
+      ha_mq.each_usable { |b| ha_mq.receive(b, "queue", @message, RightScale::Request => nil, :no_log => true) }
+    end
+
+    it "should log an error if exception prevents normal logging and should then return nil" do
       flexmock(RightScale::RightLinkLog).should_receive(:error).with(/^RECV/).once
       @serializer.should_receive(:load).with(@message).and_raise(Exception).once
       ha_mq = RightScale::HA_MQ.new(@serializer)
-      runner = lambda { ha_mq.each_usable { |b| ha_mq.receive(b, "queue", @message).should == nil } }
-      runner.should raise_exception(Exception)
+      ha_mq.each_usable { |b| ha_mq.receive(b, "queue", @message).should == nil }
     end
 
     it "should display RERECV if the message being received is a retry" do
@@ -590,6 +609,18 @@ describe RightScale::HA_MQ do
       ha_mq.publish({:type => :direct, :name => "exchange"}, @packet, :no_log => true)
     end
 
+    it "should not log a message if requested not to unless debug level" do
+      flexmock(RightScale::RightLinkLog).should_receive(:level).and_return(:debug)
+      flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Connecting/).once
+      flexmock(RightScale::RightLinkLog).should_receive(:info).with(/^SEND/).once
+      @serializer.should_receive(:dump).with(@packet).and_return(@message).once
+      @mq.should_receive(:direct).with("exchange", {}).and_return(@direct).once
+      @direct.should_receive(:publish).with(@message, :no_log => true).once
+      ha_mq = RightScale::HA_MQ.new(@serializer)
+      ha_mq.brokers[0][:status] = :connected
+      ha_mq.publish({:type => :direct, :name => "exchange"}, @packet, :no_log => true)
+    end
+
     it "should display broker alias in the log" do
       flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Connecting/).once
       flexmock(RightScale::RightLinkLog).should_receive(:info).with(/^SEND b0 /).once
@@ -604,7 +635,7 @@ describe RightScale::HA_MQ do
     it "should filter the packet display for :info level" do
       flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Connecting/).once
       flexmock(RightScale::RightLinkLog).should_receive(:info).with(/^SEND.*TO YOU/).once
-      flexmock(RightScale::RightLinkLog).should_receive(:debug).with(/^SEND.*TO YOU/).never
+      flexmock(RightScale::RightLinkLog).should_receive(:info).with(/^SEND.*TO YOU/).never
       @packet.should_receive(:to_s).with([:to]).and_return("TO YOU").once
       @serializer.should_receive(:dump).with(@packet).and_return(@message).once
       @mq.should_receive(:direct).with("exchange", {}).and_return(@direct).once
@@ -612,14 +643,13 @@ describe RightScale::HA_MQ do
       ha_mq = RightScale::HA_MQ.new(@serializer)
       ha_mq.brokers[0][:status] = :connected
       ha_mq.publish({:type => :direct, :name => "exchange"}, @packet, :log_filter => [:to])
-
     end
 
     it "should not filter the packet display for :debug level" do
       flexmock(RightScale::RightLinkLog).should_receive(:level).and_return(:debug)
       flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Connecting/).once
       flexmock(RightScale::RightLinkLog).should_receive(:info).with(/^SEND.*ALL/).never
-      flexmock(RightScale::RightLinkLog).should_receive(:debug).with(/^SEND.*ALL/).once
+      flexmock(RightScale::RightLinkLog).should_receive(:info).with(/^SEND.*ALL/).once
       @packet.should_receive(:to_s).with(nil).and_return("ALL").once
       @serializer.should_receive(:dump).with(@packet).and_return(@message).once
       @mq.should_receive(:direct).with("exchange", {}).and_return(@direct).once
