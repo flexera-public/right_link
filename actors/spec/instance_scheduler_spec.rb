@@ -28,11 +28,14 @@ require File.join(File.dirname(__FILE__), 'instantiation_mock')
 # Since callback and errback take blocks ExecutableSequence cannot be mocked
 # easily using pure flexmock so define a mock class explicitely instead
 class ExecutableSequenceMock
-  def initialize(should_fail); @should_fail = should_fail; end
+  def initialize(bundle, should_fail); @bundle, @should_fail = bundle, should_fail; end
   def callback(&cb); @callback = cb; end
   def errback(&eb); @errback = eb; end
   def run; @should_fail ? @errback.call : @callback.call; end
   def inputs_patch; true; end
+  def bundle; @bundle; end
+  def failure_title; 'failure title'; end
+  def failure_message; 'failure message'; end
 end
 
 class ControllerMock
@@ -61,8 +64,8 @@ describe InstanceScheduler do
     RightScale::InstanceState.value = 'operational'
     @bundle = RightScale::InstantiationMock.script_bundle
     @scheduler = InstanceScheduler.new(RightScale::Agent.new({}))
-    @success_sequence = ExecutableSequenceMock.new(should_fail=false)
-    @failure_sequence = ExecutableSequenceMock.new(should_fail=true)
+    @success_sequence = ExecutableSequenceMock.new(@bundle, should_fail=false)
+    @failure_sequence = ExecutableSequenceMock.new(@bundle, should_fail=true)
     @success_result = { '1' => RightScale::OperationResult.success(@bundle) }
     @decommissioning_args = [ '/state_recorder/record', { :state => 'decommissioning', :agent_identity => '1' }, Proc ]
     @decommissioned_args = [ '/state_recorder/record', { :state => 'decommissioned', :agent_identity => '1', :user_id => 42, :skip_db_update => nil, :kind => nil }, Proc ]
@@ -94,7 +97,7 @@ describe InstanceScheduler do
     flexmock(RightScale::ExecutableSequenceProxy).should_receive(:new).and_return(@failure_sequence)
     flexmock(RightScale::RequestForwarder.instance).should_receive(:request).with(*@decommissioning_args).once
     flexmock(RightScale::RequestForwarder.instance).should_receive(:request).with(*@decommissioned_args).once.and_return { EM.stop }
-    flexmock(@auditor).should_receive(:append_error).never
+    flexmock(@auditor).should_receive(:append_error).twice
     EM.run do
       res = @scheduler.schedule_decommission(:bundle => @bundle, :user_id => 42)
       res.success?.should be_true

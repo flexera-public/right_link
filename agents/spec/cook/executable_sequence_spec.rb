@@ -136,10 +136,13 @@ describe RightScale::ExecutableSequence do
       attachment.should_receive(:file_name).and_return("<FILENAME>") # to display any error message
       downloader = RightScale::Downloader.new(retry_period=0.1, use_backoff=false)
       @sequence.instance_variable_set(:@downloader, downloader)
-      @auditor.should_receive(:append_error).twice
       @script.should_receive(:attachments).at_least.once.and_return([ attachment ])
       flexmock(RightScale::RightLinkLog).should_receive(:error)
+      @sequence.failure_title.should be_nil
+      @sequence.failure_message.should be_nil
       run_sequence.should be_false
+      @sequence.failure_title.should_not be_nil
+      @sequence.failure_message.should_not be_nil
     end
 
   end
