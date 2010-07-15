@@ -340,8 +340,10 @@ class InstanceSetup
     sequence = RightScale::ExecutableSequenceProxy.new(bundle)
     sequence.callback do
       EM.next_tick do
-        RightScale::RequestForwarder.instance.push('/updater/update_inputs', { :agent_identity => @agent_identity,
-                                                                               :patch          => sequence.inputs_patch })
+        if patch = sequence.inputs_patch
+          RightScale::RequestForwarder.instance.push('/updater/update_inputs', { :agent_identity => @agent_identity,
+                                                                                 :patch          => patch })
+        end
         RightScale::AuditorProxy.instance.update_status("boot completed: #{bundle}", :audit_id => @audit_id)
         yield RightScale::OperationResult.success
       end

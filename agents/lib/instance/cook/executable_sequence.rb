@@ -244,7 +244,7 @@ module RightScale
     # true:: Always return true
     def converge
       AuditorStub.instance.create_new_section("Converging", :audit_id => @audit_id)
-      AuditorStub.instance.append_info("Run list: '#{@run_list.join("', '")} '", :audit_id => @audit_id)
+      AuditorStub.instance.append_info("Run list: #{@run_list.join(', ')}", :audit_id => @audit_id)
       attribs = { 'recipes' => @run_list }
       attribs.merge!(@attributes) if @attributes
       c = Chef::Client.new

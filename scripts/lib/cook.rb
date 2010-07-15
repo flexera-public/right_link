@@ -52,9 +52,15 @@ module RightScale
       success = nil
       agent_identity  = options[:identity]
       nanite_identity = AgentIdentity.nanite_from_serialized(options[:identity])
+      RightLinkLog.program_name = 'RightLink'
+      RightLinkLog.log_to_file_only(options[:log_to_file_only])
       RightLinkLog.init(nanite_identity, options[:log_path])
       InstanceState.init(agent_identity)
       sequence = ExecutableSequence.new(bundle)
+      EM.error_handler do |e|
+        RightLinkLog.error("Chef process failed with #{e.message} from:\n\t#{e.backtrace.join("\n\t")}")
+        fail('Exception raised during Chef execution', "The following exception was raised during the execution of the Chef process:\n  #{e.message}")
+      end
       EM.run do
         begin
           AuditorStub.instance.init(options)
