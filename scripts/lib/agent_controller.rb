@@ -343,7 +343,7 @@ module RightScale
         EM.error_handler do |e|
           msg = "EM block execution failed with exception: #{e.message}"
           RightLinkLog.error(msg + "\n" + e.backtrace.join("\n"))
-          RightLinkLog.error("\n***** Exiting due to EM block exception ******\n")
+          RightLinkLog.error("\n\n===== Exiting due to EM block exception =====\n")
           EM.stop
         end
 

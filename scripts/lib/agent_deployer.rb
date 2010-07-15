@@ -115,7 +115,7 @@ module RightScale
       cfg[:persist]         = options[:persist] || 'push'
       cfg[:fresh_timeout]   = options[:fresh_timeout] || 10 * 60
       cfg[:retry_timeout]   = options[:retry_timeout] || 10 * 60
-      cfg[:retry_interval]  = options[:retry_interval] || 15
+      cfg[:retry_interval]  = options[:retry_interval] || 30
       cfg[:dup_check]       = options[:dup_check].nil? ? true : options[:dup_check]
       cfg[:auto_shutdown]   = options[:auto_shutdown]
       cfg[:http_proxy]      = options[:http_proxy] if options[:http_proxy]
