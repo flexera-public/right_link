@@ -139,6 +139,7 @@ class AgentManager
   # === Return
   # res(RightScale::OperationResult):: Success unless exception is raised
   def connect_failed(options)
+    options = RightScale::SerializationHelper.symbolize_keys(options)
     res = RightScale::OperationResult.success
     begin
       if error = @agent.connect_failed(options[:brokers])
