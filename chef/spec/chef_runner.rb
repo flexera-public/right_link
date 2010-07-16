@@ -21,17 +21,6 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 require 'chef/client'
-require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'static_ohai_data'))
-
-# monkey patch to reduce how often sluggish ohai is invoked during spec test.
-# we don't need realtime info, so static info should be good enough for testing.
-class Chef
-  class Client
-    def run_ohai
-      @ohai = RightScale::StaticOhaiData.instance.ohai
-    end
-  end
-end
 
 module RightScale
   module Test

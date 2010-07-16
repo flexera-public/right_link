@@ -23,9 +23,9 @@
 # The daemonize method of AR clashes with the daemonize Chef attribute, we don't need that method so undef it
 undef :daemonize if methods.include?('daemonize')
 
-require File.normalize_path(File.join(RightScale::RightLinkConfig[:right_link_path], 'chef', 'lib', 'static_ohai_data'))
-
 module RightScale
+
+  OHAI_RETRY_DELAY = 20 # Number of seconds to wait before retrying Ohai to get the hostname
 
   # Bundle sequence, includes installing dependent packages,
   # downloading attachments and running scripts in given bundle.
@@ -92,14 +92,12 @@ module RightScale
         install_packages if @ok
         download_repos if @ok
         setup_powershell_providers if Platform.windows?
-        converge if @ok
+        check_ohai { |o| converge(o) } if @ok
       end
       true
     end
 
     protected
-
-    @@last_ohai = nil
 
     # Configure chef so it can find cookbooks and so its logs go to the audits
     #
@@ -238,21 +236,42 @@ module RightScale
       @powershell_providers = dynamic_provider.providers
     end
 
-    # Chef converge
+    # Checks whether Ohai is ready and calls given block with it
+    # if that's the case otherwise schedules itself to try again
+    # indefinitely
+    #
+    # === Block
+    # Given block should take one argument which corresponds to
+    # ohai instance
     #
     # === Return
     # true:: Always return true
-    def converge
+    def check_ohai
+      ohai = Ohai::System.new
+      ohai.require_plugin('hostname')
+      if ohai['hostname']
+        yield(ohai)
+      else
+        RightLinkLog.warn("Could not determine node name from Ohai, will retry in #{OHAI_RETRY_DELAY}s...")
+        EM.add_timer(OHAI_RETRY_DELAY) { check_ohai }
+      end
+      true
+    end
+
+    # Chef converge
+    #
+    # === Parameters
+    # ohai(Ohai):: Ohai instance to be used by Chef
+    #
+    # === Return
+    # true:: Always return true
+    def converge(ohai)
       AuditorStub.instance.create_new_section("Converging", :audit_id => @audit_id)
       AuditorStub.instance.append_info("Run list: #{@run_list.join(', ')}", :audit_id => @audit_id)
       attribs = { 'recipes' => @run_list }
       attribs.merge!(@attributes) if @attributes
       c = Chef::Client.new
-
-      # use a refreshable Ohai for instead of performing a full update on a new
-      # instance of Ohai for each converge.
-      c.ohai = StaticOhaiData.instance.ohai
-
+      c.ohai = ohai
       begin
         audit_time do
           c.json_attribs = attribs
