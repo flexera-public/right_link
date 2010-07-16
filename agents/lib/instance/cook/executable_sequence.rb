@@ -248,8 +248,9 @@ module RightScale
     # true:: Always return true
     def check_ohai
       ohai = Ohai::System.new
+      ohai.require_plugin('os')
       ohai.require_plugin('hostname')
-      if ohai['hostname']
+      if ohai[:hostname]
         yield(ohai)
       else
         RightLinkLog.warn("Could not determine node name from Ohai, will retry in #{OHAI_RETRY_DELAY}s...")
