@@ -8,7 +8,7 @@ while ($TRUE)
         $LastExitCode = 0
         $RS_nextAction = $NULL
         $RS_nextAction = get-NextAction $RS_pipeName $RS_LastExitCode $RS_LastError
-        if ($RS_LastError -ne "")
+        if ($RS_LastError -ne "" -or $RS_LastExitCode -ne 0)
         {
             exit $RS_LastExitCode
         }
@@ -16,7 +16,11 @@ while ($TRUE)
         {
             write-output $RS_nextAction
             invoke-command -scriptblock $RS_nextAction
-            $RS_LastExitCode = $LastExitCode
+            $RS_LastExitCode = $global:LastExitCode
+            if ($NULL -eq $RS_LastExitCode)
+            {
+                $RS_LastExitCode = 0
+            }
             $RS_LastError = ""
         }
         else
@@ -26,11 +30,11 @@ while ($TRUE)
     }
     catch
     {
-        if ($RS_LastError -ne "")
+        if ($RS_LastError -ne "" -or $RS_LastExitCode -ne 0)
         {
             exit $RS_LastExitCode
         }
-        
+
         $ScriptSnip = ""
 
         $ErrorRecord    = $_
@@ -56,8 +60,9 @@ while ($TRUE)
 
         $RS_LastError =  ($ErrorRecord | Out-String).TrimEnd() + "`n    +`n    + Script error near:" +  $ScriptSnip + "`n"
         $RS_LastExitCode = 1
-        write-output $RS_LastError
     }
 }
+
+write-output "exiting run-loop"
 
 exit $RS_LastExitCode

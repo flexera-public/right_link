@@ -43,14 +43,16 @@ if RightScale::RightLinkConfig[:platform].windows?
 
       # redirect the Chef logs to a file before creating the chef client
       ::Chef::Log.logger = Logger.new(@log_file)
-      RightScale::RightLinkLog.level = :debug
+#      RightScale::RightLinkLog.level = :debug
+#      RightScale::RightLinkLog = ::Chef::Log.logger
+#      flexmock(Chef::Log).should_receive(:level).and_return(Logger::DEBUG)
 
       @logger = RightScale::Test::MockLogger.new
       mock_chef_log(@logger)
 
       flexmock(RightScale::RightLinkLog).should_receive(:error).and_return { |m| @logger.error_text << m }
       flexmock(RightScale::RightLinkLog).should_receive(:info).and_return { |m| @logger.info_text << m }
-      flexmock(Chef::Log).should_receive(:level).and_return(Logger::DEBUG)
+
 
       # mock out Powershell script internals so we can run tests using the Powershell script provider
       mock_instance_state = flexmock('MockInstanceState', :past_scripts => [], :record_script_execution => true)
@@ -78,6 +80,7 @@ if RightScale::RightLinkConfig[:platform].windows?
 
       # TODO: verify order of execution
       logs = @logger.info_text.gsub("\n", "")
+      puts logs
       logs.scan(/\/simple_encode\/_init.ps1/).length.should == 1
       logs.scan(/init simple encode/).length.should == 1
 
@@ -175,6 +178,14 @@ if RightScale::RightLinkConfig[:platform].windows?
       (logs =~ /break/).should_not be_nil
     end
 
+    it "should transfer Chef node changes from powershell provider back to ruby" do
+      runner = lambda {
+        RightScale::Test::ChefRunner.run_chef(PowershellBasedProviderSpec::TEST_COOKBOOK_PATH, 'test_cookbook::modify_chef_node')
+      }
+      runner.call.should == true
+
+    end
+
     it "should write debug to output stream when debugging is enabled" do
       # suppress console debug output while testing since powershell debug
       # output is printed to the info stream.
@@ -215,6 +226,25 @@ if RightScale::RightLinkConfig[:platform].windows?
       @logger.error_text.should == ""
     end
 
+    it "should stop the chef run when a powershell action exits non-zero, and be able to run another recipe with the same provider" do
+      runner = lambda {
+        RightScale::Test::ChefRunner.run_chef(PowershellBasedProviderSpec::TEST_COOKBOOK_PATH, 'test_cookbook::run_powershell_based_recipe_with_nonzero_exit')
+      }
+      runner.should raise_exception(RightScale::Exceptions::Exec)
+
+      # There 'Should' be string in the error log...
+      @logger.error_text.length.should > 0
+
+      @logger.error_text = ""
+      runner = lambda {
+        RightScale::Test::ChefRunner.run_chef(PowershellBasedProviderSpec::TEST_COOKBOOK_PATH, 'test_cookbook::run_powershell_based_recipe_with_resources')
+      }
+      runner.should_not raise_error
+
+      #There 'Should' NOT be string in the error log...
+      @logger.error_text.should == ""
+    end
+
     it "should produce a readable powershell error when an exception is thrown from a provider action" do
       runner = lambda {
         RightScale::Test::ChefRunner.run_chef(PowershellBasedProviderSpec::TEST_COOKBOOK_PATH, 'test_cookbook::run_powershell_based_recipe_with_failing_action')
@@ -237,7 +267,7 @@ At .*:2 char:9
     + 1:    $testvar = 1
     + 2:    Get-Item  <<<< "foo" -ea Stop
     + 3:    exit
-EOF
+      EOF
       # replace newlines and spaces
       expected_message = Regexp.escape(message_format.gsub(/\s+/, ""))
 

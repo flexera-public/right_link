@@ -4,3 +4,5 @@ recipe     "test_cookbook::debug_output_recipe", "Tests that debug and verbose m
 recipe     "test_cookbook::run_powershell_based_simple_recipe", "Run a powershell based test"
 recipe     "test_cookbook::run_powershell_based_recipe_with_resources", "Run a powershell based test using resources"
 recipe     "test_cookbook::mix_of_powershell_script_and_powershell_providers", "Run a powershell based test mix of scripts and providers"
+recipe     "test_cookbook::run_powershell_based_recipe_with_failing_action", "Run a powershell based that fils with an exception"
+recipe     "test_cookbook::run_powershell_based_recipe_with_nonzero_exit", "Run a powershell based that fils with an exception"
