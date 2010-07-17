@@ -22,6 +22,20 @@
 
 require 'chef/client'
 
+# monkey patch to reduce how often sluggish ohai is invoked during spec test.
+# we don't need realtime info, so static info should be good enough for testing.
+class Chef
+ class Client
+   def run_ohai
+     unless defined?(@@ohai)
+      @@ohai = Ohai::System.new
+      @@ohai.all_plugins
+     end
+     @ohai = @@ohai
+   end
+  end
+end
+
 module RightScale
   module Test
     module ChefRunner
