@@ -28,29 +28,6 @@ describe RightScale::HA_MQ do
 
   describe "Addressing" do
 
-    it "should use host and port to uniquely identity broker in AgentIdentity format" do
-      RightScale::HA_MQ.identity("localhost", 5672).should == "rs-broker-localhost-5672"
-      RightScale::HA_MQ.identity("10.21.102.23", 1234).should == "rs-broker-10.21.102.23-1234"
-    end
-
-    it "should replace '-' with '~' in host names when forming broker identity" do
-      RightScale::HA_MQ.identity("9-1-1", 5672).should == "rs-broker-9~1~1-5672"
-    end
-
-    it "should obtain host and port from a broker's identity" do
-      RightScale::HA_MQ.host("rs-broker-localhost-5672").should == "localhost"
-      RightScale::HA_MQ.port("rs-broker-localhost-5672").should == 5672
-      RightScale::HA_MQ.host("rs-broker-10.21.102.23-1234").should == "10.21.102.23"
-      RightScale::HA_MQ.port("rs-broker-10.21.102.23-1234").should == 1234
-      RightScale::HA_MQ.host("rs-broker-9~1~1-5672").should == "9-1-1"
-      RightScale::HA_MQ.port("rs-broker-9~1~1-5672").should == 5672
-    end
-
-    it "should list broker identities" do
-      RightScale::HA_MQ.identities("first,second", "5672, 5674").should ==
-        ["rs-broker-first-5672", "rs-broker-second-5674"]
-    end
-
     it "should form list of broker addresses from specified hosts and ports" do
       RightScale::HA_MQ.addresses("first,second", "5672, 5674").should ==
         [{:host => "first", :port => 5672, :id => 0}, {:host => "second", :port => 5674, :id => 1}]
@@ -170,6 +147,33 @@ describe RightScale::HA_MQ do
       flexmock(RightScale::RightLinkLog).should_receive(:info).by_default
     end
 
+    it "should use host and port to uniquely identity broker in AgentIdentity format" do
+      ha_mq = RightScale::HA_MQ.new(@serializer)
+      ha_mq.identity("localhost", 5672).should == "rs-broker-localhost-5672"
+      ha_mq.identity("10.21.102.23", 1234).should == "rs-broker-10.21.102.23-1234"
+    end
+
+    it "should replace '-' with '~' in host names when forming broker identity" do
+      ha_mq = RightScale::HA_MQ.new(@serializer)
+      ha_mq.identity("9-1-1", 5672).should == "rs-broker-9~1~1-5672"
+    end
+
+    it "should obtain host and port from a broker's identity" do
+      ha_mq = RightScale::HA_MQ.new(@serializer)
+      ha_mq.host("rs-broker-localhost-5672").should == "localhost"
+      ha_mq.port("rs-broker-localhost-5672").should == 5672
+      ha_mq.host("rs-broker-10.21.102.23-1234").should == "10.21.102.23"
+      ha_mq.port("rs-broker-10.21.102.23-1234").should == 1234
+      ha_mq.host("rs-broker-9~1~1-5672").should == "9-1-1"
+      ha_mq.port("rs-broker-9~1~1-5672").should == 5672
+    end
+
+    it "should list broker identities" do
+      ha_mq = RightScale::HA_MQ.new(@serializer)
+      ha_mq.identities("first,second", "5672, 5674").should ==
+        ["rs-broker-first-5672", "rs-broker-second-5674"]
+    end
+
     it "should convert identities into aliases" do
       ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first:0, third:2", :port => 5672)
       ha_mq.aliases(["rs-broker-third-5672"]).should == ["b2"]
@@ -192,6 +196,11 @@ describe RightScale::HA_MQ do
       ha_mq.alias_("rs-broker-third-5672").should == "b2"
     end
 
+    it "should convert nanite prefixed identity into alias" do
+      ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first:0, third:2", :port => 5672)
+      ha_mq.alias_("nanite-rs-broker-third-5672").should == "b2"
+    end
+
     it "should convert identity into nil alias when unknown" do
       ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first:0, third:2", :port => 5672)
       ha_mq.alias_("rs-broker-second-5672").should == nil
@@ -205,6 +214,21 @@ describe RightScale::HA_MQ do
     it "should convert identity into nil alias id when unknown" do
       ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first:0, third:2", :port => 5672)
       ha_mq.id_("rs-broker-second-5672").should == nil
+    end
+
+    it "should determine priority from identity" do
+      ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first:0, third:2", :port => 5672)
+      ha_mq.priority("rs-broker-third-5672").should == 1
+    end
+
+    it "should determine priority from identity with nanite prefix" do
+      ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first:0, third:2", :port => 5672)
+      ha_mq.priority("nanite-rs-broker-first-5672").should == 0
+    end
+
+    it "should return nil priority when unknown" do
+      ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first:0, third:2", :port => 5672)
+      ha_mq.priority("rs-broker-second-5672").should == nil
     end
 
     it "should generate host:id list" do

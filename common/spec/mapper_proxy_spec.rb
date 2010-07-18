@@ -51,9 +51,12 @@ describe RightScale::MapperProxy do
   end
   
   describe "when requesting a message" do
-    before do
-      @broker = flexmock("Broker", :subscribe => true, :publish => true).by_default
-      RightScale::MapperProxy.new('mapperproxy', @broker, {})
+    before(:each) do
+      flexmock(EM).should_receive(:next_tick).and_yield.by_default
+      @broker = flexmock("Broker", :subscribe => true, :publish => ["broker"],
+                         :host => "host", :port => 123, :id_ => 0, :priority => 0).by_default
+      @agent = flexmock("Agent", :identity => "agent", :broker => @broker, :options => {}).by_default
+      RightScale::MapperProxy.new(@agent)
       @instance = RightScale::MapperProxy.instance
     end
     
@@ -70,12 +73,17 @@ describe RightScale::MapperProxy do
       end, hsh(:persistent => false)).once
       @instance.request('/welcome/aboard', 'iZac'){|response|}
     end
+
+    it "should process request in next tick to preserve pending request data integrity" do
+      flexmock(EM).should_receive(:next_tick).and_yield.once
+      @instance.request('/welcome/aboard', 'iZac'){|response|}
+    end
     
     it "should set correct attributes on the request message" do
       @broker.should_receive(:publish).with(hsh(:name => "request"), on do |request|
         request.token.should_not == nil
         request.persistent.should be_false
-        request.from.should == 'mapperproxy'
+        request.from.should == 'agent'
       end, hsh(:persistent => false)).once
       @instance.request('/welcome/aboard', 'iZac'){|response|}
     end
@@ -103,26 +111,21 @@ describe RightScale::MapperProxy do
 
     describe "with retry" do
       it "should convert value to nil if 0" do
-        RightScale::MapperProxy.new('mapperproxy', @broker, {})
-        @instance = RightScale::MapperProxy.instance
         @instance.__send__(:nil_if_zero, 0).should == nil
       end
 
       it "should not convert value to nil if not 0" do
-        RightScale::MapperProxy.new('mapperproxy', @broker, {})
-        @instance = RightScale::MapperProxy.instance
         @instance.__send__(:nil_if_zero, 1).should == 1
       end
 
       it "should leave value as nil if nil" do
-        RightScale::MapperProxy.new('mapperproxy', @broker, {})
-        @instance = RightScale::MapperProxy.instance
         @instance.__send__(:nil_if_zero, nil).should == nil
       end
 
       it "should not setup for retry if retry_timeout nil" do
         flexmock(EM).should_receive(:add_timer).never
-        RightScale::MapperProxy.new('mapperproxy', @broker, :retry_timeout => nil)
+        @agent.should_receive(:options).and_return({:retry_timeout => nil})
+        RightScale::MapperProxy.new(@agent)
         @instance = RightScale::MapperProxy.instance
         @broker.should_receive(:publish).once
         @instance.request('/welcome/aboard', 'iZac') {|response|}
@@ -130,17 +133,28 @@ describe RightScale::MapperProxy do
 
       it "should not setup for retry if retry_interval nil" do
         flexmock(EM).should_receive(:add_timer).never
-        RightScale::MapperProxy.new('mapperproxy', @broker, :retry_interval => nil)
+        @agent.should_receive(:options).and_return({:retry_interval => nil})
+        RightScale::MapperProxy.new(@agent)
         @instance = RightScale::MapperProxy.instance
         @broker.should_receive(:publish).once
         @instance.request('/welcome/aboard', 'iZac') {|response|}
       end
 
-      it "should setup for retry if retry_timeout and retry_interval not nil" do
-        flexmock(EM).should_receive(:add_timer).with(60, any).once
-        RightScale::MapperProxy.new('mapperproxy', @broker, :retry_timeout => 60, :retry_interval => 60)
+      it "should not setup for retry if publish failed" do
+        flexmock(EM).should_receive(:add_timer).never
+        @agent.should_receive(:options).and_return({:retry_timeout => 60, :retry_interval => 60})
+        RightScale::MapperProxy.new(@agent)
         @instance = RightScale::MapperProxy.instance
-        @broker.should_receive(:publish).once
+        @broker.should_receive(:publish).and_return([]).once
+        @instance.request('/welcome/aboard', 'iZac') {|response|}
+      end
+
+      it "should setup for retry if retry_timeout and retry_interval not nil and publish successful" do
+        flexmock(EM).should_receive(:add_timer).with(60, any).once
+        @agent.should_receive(:options).and_return({:retry_timeout => 60, :retry_interval => 60})
+        RightScale::MapperProxy.new(@agent)
+        @instance = RightScale::MapperProxy.instance
+        @broker.should_receive(:publish).and_return(["broker"]).once
         @instance.request('/welcome/aboard', 'iZac') {|response|}
       end
 
@@ -149,9 +163,11 @@ describe RightScale::MapperProxy do
           token = 'abc'
           result = RightScale::OperationResult.timeout
           flexmock(RightScale::AgentIdentity).should_receive(:generate).and_return(token).twice
-          RightScale::MapperProxy.new('mapperproxy', @broker, :retry_timeout => 0.1, :retry_interval => 0.1)
+          @agent.should_receive(:options).and_return({:retry_timeout => 0.1, :retry_interval => 0.1})
+          RightScale::MapperProxy.new(@agent)
           @instance = RightScale::MapperProxy.instance
-          @broker.should_receive(:publish).twice
+          flexmock(@instance).should_receive(:check_connection).once
+          @broker.should_receive(:publish).and_return(["broker"]).twice
           @instance.request('/welcome/aboard', 'iZac') do |response|
             result = RightScale::OperationResult.from_results(response)
           end
@@ -172,9 +188,11 @@ describe RightScale::MapperProxy do
         EM.run do
           result = RightScale::OperationResult.success
           flexmock(RightScale::RightLinkLog).should_receive(:warn).once
-          RightScale::MapperProxy.new('mapperproxy', @broker, :retry_timeout => 0.4, :retry_interval => 0.1)
+          @agent.should_receive(:options).and_return({:retry_timeout => 0.4, :retry_interval => 0.1})
+          RightScale::MapperProxy.new(@agent)
           @instance = RightScale::MapperProxy.instance
-          @broker.should_receive(:publish).times(3)
+          flexmock(@instance).should_receive(:check_connection).once
+          @broker.should_receive(:publish).and_return(["broker"]).times(3)
           @instance.request('/welcome/aboard', 'iZac') do |response|
             result = RightScale::OperationResult.from_results(response)
           end
@@ -193,22 +211,71 @@ describe RightScale::MapperProxy do
           token = 'abc'
           created_at = 1000
           flexmock(RightScale::AgentIdentity).should_receive(:generate).and_return(token).twice
-          RightScale::MapperProxy.new('mapperproxy', @broker, :retry_timeout => 0.1, :retry_interval => 0.1)
+          @agent.should_receive(:options).and_return({:retry_timeout => 0.1, :retry_interval => 0.1})
+          RightScale::MapperProxy.new(@agent)
           @instance = RightScale::MapperProxy.instance
+          flexmock(@instance).should_receive(:check_connection).once
           @broker.should_receive(:publish).with(hsh(:name => "request"), on do |request|
             request.created_at.should == created_at
-          end, hsh(:persistent => false)).twice
+          end, hsh(:persistent => false)).and_return(["broker"]).twice
           @instance.request('/welcome/aboard', 'iZac', :created_at => created_at) {|response|}
           EM.add_timer(0.3) { EM.stop }
+        end
+      end
+
+      describe "and checking connection status" do
+        it "should not check connection if check already in progress" do
+          flexmock(EM).should_receive(:add_timer).never
+          @instance.pending_ping = true
+          flexmock(@instance).should_receive(:publish).never
+          @instance.__send__(:check_connection, ["broker"])
+        end
+
+        it "should publish ping to mapper" do
+          flexmock(EM).should_receive(:add_timer).once
+          broker_id = "broker"
+          flexmock(@instance).should_receive(:publish).with(on { |request| request.type.should == "/mapper/ping" },
+                                                            [broker_id]).once
+          @instance.__send__(:check_connection, broker_id)
+          @instance.pending_requests.size.should == 1
+        end
+
+        it "should not make any connection changes if receive ping response" do
+          flexmock(RightScale::AgentIdentity).should_receive(:generate).and_return('abc').once
+          timer = flexmock("Timer")
+          timer.should_receive(:cancel).once
+          flexmock(EM).should_receive(:add_timer).and_return(timer).once
+          flexmock(@instance).should_receive(:publish).once
+          @instance.__send__(:check_connection, "broker")
+          @instance.pending_ping.should == timer
+          @instance.pending_requests.size.should == 1
+          @instance.pending_requests['abc'][:result_handler].call(nil)
+          @instance.pending_ping.should == nil
+        end
+
+        it "should try to reconnect if ping times out" do
+          flexmock(RightScale::RightLinkLog).should_receive(:warn).once
+          flexmock(EM).should_receive(:add_timer).and_yield.once
+          flexmock(@agent).should_receive(:connect).once
+          @instance.__send__(:check_connection, "broker")
+          @instance.pending_ping.should == nil
+        end
+
+        it "should log error if attempt to reconnect fails" do
+          flexmock(RightScale::RightLinkLog).should_receive(:warn).once
+          flexmock(RightScale::RightLinkLog).should_receive(:error).with(/Failed to reconnect/).once
+          flexmock(EM).should_receive(:add_timer).and_yield.once
+          @instance.__send__(:check_connection, "broker")
         end
       end
     end
   end
 
   describe "when pushing a message" do
-    before do
+    before(:each) do
       @broker = flexmock("Broker", :subscribe => true, :publish => true).by_default
-      RightScale::MapperProxy.new('mapperproxy', @broker, {})
+      @agent = flexmock("Agent", :identity => "agent", :broker => @broker, :options => {}).by_default
+      RightScale::MapperProxy.new(@agent)
       @instance = RightScale::MapperProxy.instance
     end
     
@@ -237,7 +304,7 @@ describe RightScale::MapperProxy do
       @broker.should_receive(:publish).with(hsh(:name => "request"), on do |push|
         push.token.should_not == nil
         push.persistent.should be_false
-        push.from.should == 'mapperproxy'
+        push.from.should == 'agent'
       end, hsh(:persistent => false)).once
       @instance.push('/welcome/aboard', 'iZac')
     end

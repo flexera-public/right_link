@@ -111,7 +111,7 @@ begin
 
       if (@reconnect_try % 30) == 0
         RightScale::RightLinkLog.send(@reconnect_log, "Attempting reconnect to broker " +
-                                      "#{RightScale::HA_MQ.identity(@settings[:host], @settings[:port])}")
+          "#{RightScale::AgentIdentity.new('rs', 'broker', @settings[:port].to_i, @settings[:host].gsub('-', '~')).to_s}")
         @reconnect_log = :error if (@reconnect_try % 300) == 0
       end
       @reconnect_try += 1
@@ -455,7 +455,8 @@ module RightScale
     # === Return
     # (String|nil):: Broker alias, or nil if not a known broker
     def alias_(identity)
-      (@brokers_hash[identity] || @brokers_hash[AgentIdentity.serialized_from_nanite(identity)])[:alias] rescue nil
+      identity = AgentIdentity.parse(identity).to_s rescue nil
+      @brokers_hash[identity][:alias] rescue nil
     end
 
     # Convert broker identity to its id used in alias
@@ -467,6 +468,20 @@ module RightScale
     # (Integer|nil):: Broker alias ia, or nil if not a known broker
     def id_(identity)
       alias_(identity)[1..-1].to_i rescue nil
+    end
+
+    # Determine priority of broker
+    #
+    # === Parameters
+    # identity(String):: Broker identity with or without nanite prefix
+    #
+    # === Return
+    # (Integer|nil):: Broker priority, or nil if not a known broker
+    def priority(identity)
+      priority = 0
+      identity = AgentIdentity.parse(identity).to_s rescue nil
+      @brokers.each { |b| return priority if b[:identity] == identity; priority += 1 }
+      nil
     end
 
     # Find broker with given identity
@@ -496,8 +511,8 @@ module RightScale
     #
     # === Raise
     # (RightScale::Exceptions::Argument):: If host and port are not matched lists
-    def self.identities(host, port)
-      addresses(host, port).map { |a| identity(a[:host], a[:port]) }
+    def identities(host, port)
+      self.class.addresses(host, port).map { |a| identity(a[:host], a[:port]) }
     end
 
     # Construct a broker identity from its host and port of the form
@@ -509,7 +524,7 @@ module RightScale
     #
     # === Returns
     # (String):: Unique broker identity
-    def self.identity(host, port)
+    def identity(host, port)
       AgentIdentity.new('rs', 'broker', port.to_i, host.gsub('-', '~')).to_s
     end
 
@@ -520,7 +535,7 @@ module RightScale
     #
     # === Returns
     # (String):: IP host name
-    def self.host(identity)
+    def host(identity)
       AgentIdentity.parse(identity).token.gsub('~', '-')
     end
 
@@ -531,7 +546,7 @@ module RightScale
     #
     # === Returns
     # (Integer):: TCP port number
-    def self.port(identity)
+    def port(identity)
       AgentIdentity.parse(identity).base_id
     end
 
@@ -540,7 +555,7 @@ module RightScale
     # === Return
     # (String):: Comma separated list of host:id
     def hosts
-      @brokers.map { |b| "#{self.class.host(b[:identity])}:#{b[:alias][1..-1]}" }.join(",")
+      @brokers.map { |b| "#{host(b[:identity])}:#{b[:alias][1..-1]}" }.join(",")
     end
 
     # Form string of hosts and associated ids
@@ -548,7 +563,7 @@ module RightScale
     # === Return
     # (String):: Comma separated list of host:id
     def ports
-      @brokers.map { |b| "#{self.class.port(b[:identity])}:#{b[:alias][1..-1]}" }.join(",")
+      @brokers.map { |b| "#{port(b[:identity])}:#{b[:alias][1..-1]}" }.join(",")
     end
 
     # Iterate over usable AMQP broker connections
@@ -636,7 +651,7 @@ module RightScale
     # Exception:: If requested priority position would leave a gap in the list
     def connect(host, port, id, priority = nil, force = false, &blk)
       broker = nil
-      identity = self.class.identity(host, port)
+      identity = identity(host, port)
       existing = @brokers_hash[identity]
       if existing && existing[:status] == :connected && !force
         RightLinkLog.info("Ignored request to reconnect #{identity} because already connected")
@@ -692,7 +707,7 @@ module RightScale
     # === Return
     # identity(String|nil):: Identity of broker removed, or nil if unknown
     def remove(host, port, &blk)
-      identity = self.class.identity(host, port)
+      identity = identity(host, port)
       if broker = @brokers_hash[identity]
         RightLinkLog.info("Removing #{identity}, alias #{broker[:alias]} from broker list")
         if connection_closable(broker)
@@ -870,7 +885,7 @@ module RightScale
       broker = {
         :mq => nil,
         :connection => nil,
-        :identity   => self.class.identity(address[:host], address[:port]),
+        :identity   => identity(address[:host], address[:port]),
         :alias      => "b#{address[:id]}",
         :status     => :connecting,
         :tries      => 0,

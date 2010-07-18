@@ -37,13 +37,14 @@ class AgentManager
     @agent = agent
   end
 
-  # Always return success along with protocol version and broker
+  # Always return success along with identity, protocol version, and broker information
   # Used for troubleshooting
   #
   # === Return
   # res(RightScale::OperationResult):: Always returns success
   def ping(_)
-    res = RightScale::OperationResult.success(:version => RightScale::RightLinkConfig.protocol_version,
+    res = RightScale::OperationResult.success(:identity => @agent.options[:identity],
+                                              :version => RightScale::RightLinkConfig.protocol_version,
                                               :brokers => @agent.broker.status)
   end
 
@@ -146,7 +147,7 @@ class AgentManager
         res = RightScale::OperationResult.error(error)
       end
     rescue Exception => e
-      res = RightScale::OperationResult.error("Failed to notify agent that brokers #{brokers} are unusable: #{e.message}")
+      res = RightScale::OperationResult.error("Failed to notify agent that brokers #{options[:brokers]} are unusable: #{e.message}")
     end
     res
   end

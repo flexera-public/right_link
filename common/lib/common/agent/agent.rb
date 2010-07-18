@@ -188,7 +188,7 @@ module RightScale
               begin
                 @registry = ActorRegistry.new
                 @dispatcher = Dispatcher.new(@broker, @registry, @identity, @options)
-                @mapper_proxy = MapperProxy.new(@identity, @broker, @options)
+                @mapper_proxy = MapperProxy.new(self)
                 load_actors
                 setup_traps
                 setup_queues
@@ -293,7 +293,7 @@ module RightScale
           end
         end
       rescue Exception => e
-        res = "Failed to connect to broker #{HA_MQ.identity(host, port)}: #{e.message}"
+        res = "Failed to connect to broker #{@broker.identity(host, port)}: #{e.message}"
       end
       RightLinkLog.error(res) if res
       res
@@ -315,7 +315,7 @@ module RightScale
       RightLinkLog.info("Received request to disconnect#{and_remove} broker at host #{host.inspect} " +
                         "port #{port.inspect}")
       RightLinkLog.info("Current broker configuration: #{@broker.status.inspect}")
-      identity = HA_MQ.identity(host, port)
+      identity = @broker.identity(host, port)
       connected = @broker.connected
       res = nil
       if connected.include?(identity) && connected.size == 1
@@ -346,22 +346,33 @@ module RightScale
       res
     end
 
-    # Declare one or more broker connections unusable because connection setup has failed
-    # This will setup for another connect attempt via the mapper on the next ping
+    # Declare one or more broker connections unusable because connection has failed
+    # If these are the last usable connections, attempt to recreate them now; otherwise mark
+    # them is as unusable and defer reconnect attempt to next mapper ping, since this agent
+    # may still not be registered with those brokers
     #
     # === Parameters
-    # brokers(Array):: Identity of brokers
+    # ids(Array):: Identity of brokers
     #
     # === Return
     # res(String|nil):: Error message if failed, otherwise nil
-    def connect_failed(brokers)
+    def connect_failed(ids)
       res = nil
       begin
-        RightLinkLog.info("Connection setup for brokers #{brokers} has failed")
-        @broker.not_usable(brokers)
-        advertise_services(@broker.connected)
+        RightLinkLog.info("Connection to brokers #{ids.inspect} has failed")
+        connected = @broker.connected
+        if (connected - ids).empty?
+          # No more usable connections so try recreating now
+          ids.each do |id|
+            connect(@broker.host(id), @broker.port(id), @broker.id_(id), @broker.priority(id), force = true)
+          end
+        else
+          # Defer reconnect initiation to the mapper via ping
+          @broker.not_usable(ids)
+          advertise_services(@broker.connected)
+        end
       rescue Exception => e
-        res = "Failed to mark brokers #{brokers} as unusable: #{e.message}"
+        res = "Failed to mark brokers #{ids.inspect} as unusable: #{e.message}"
         RightLinkLog.error(res)
       end
       res
