@@ -358,6 +358,7 @@ module RightScale
         end
       rescue Exception => e
         RightLinkLog.error("RECV #{broker[:alias]} - Failed receiving from queue #{queue}: #{e.message}")
+        @exception_on_receive.call(msg, e, self) if @exception_on_receive 
         nil
       end
     end
@@ -772,6 +773,23 @@ module RightScale
         end
       end
       id
+    end
+
+    # Provide callback to be activated when the HA_MQ rescues an exception during operation.
+    #
+    # === Block
+    # Block to be called when an exception is raised while receiving 
+    #
+    # The block must accept three parameters:
+    #   msg(String):: the message content that caused an exception
+    #   e(Exception):: the exception that was raised
+    #   ha_mq(HA_MQ):: the HA_MQ object that raised the exception
+    #
+    # === Return
+    # true:: always returns true
+    def exception_on_receive(&blk)
+      @exception_on_receive = blk
+      true
     end
 
     # Get broker status
