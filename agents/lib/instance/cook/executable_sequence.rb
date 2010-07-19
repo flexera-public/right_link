@@ -25,7 +25,8 @@ undef :daemonize if methods.include?('daemonize')
 
 module RightScale
 
-  OHAI_RETRY_DELAY = 20 # Number of seconds to wait before retrying Ohai to get the hostname
+  OHAI_RETRY_MIN_DELAY = 20      # Min number of seconds to wait before retrying Ohai to get the hostname
+  OHAI_RETRY_MAX_DELAY = 20 * 60 # Max number of seconds to wait before retrying Ohai to get the hostname
 
   # Bundle sequence, includes installing dependent packages,
   # downloading attachments and running scripts in given bundle.
@@ -55,6 +56,7 @@ module RightScale
       @downloader             = Downloader.new
       @scraper                = Scraper.new(InstanceConfiguration.cookbook_download_path)
       @powershell_providers   = nil
+      @ohai_retry_delay       = OHAI_RETRY_MIN_DELAY
 
       # Initializes run list for this sequence (partial converge support)
       @run_list = []
@@ -253,8 +255,9 @@ module RightScale
       if ohai[:hostname]
         yield(ohai)
       else
-        RightLinkLog.warn("Could not determine node name from Ohai, will retry in #{OHAI_RETRY_DELAY}s...")
-        EM.add_timer(OHAI_RETRY_DELAY) { check_ohai }
+        RightLinkLog.warn("Could not determine node name from Ohai, will retry in #{@ohai_retry_delay}s...")
+        EM.add_timer(@ohai_retry_delay) { check_ohai }
+        @ohai_retry_delay = [ 2 * @ohai_retry_delay, OHAI_RETRY_MAX_DELAY ].min
       end
       true
     end
