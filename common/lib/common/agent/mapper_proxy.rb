@@ -223,7 +223,7 @@ module RightScale
     # true:: Always return true
     def check_connection(id)
       unless @pending_ping
-        @pending_ping = EM.add_timer(PING_TIMEOUT) do
+        @pending_ping = EM::Timer.new(PING_TIMEOUT) do
           begin
             @pending_ping = nil
             RightLinkLog.warn("Mapper ping via broker #{id} timed out after #{PING_TIMEOUT} seconds, attempting to reconnect")
@@ -233,9 +233,13 @@ module RightScale
           end
         end
         handler = lambda do |_|
-          if @pending_ping
-            @pending_ping.cancel
-            @pending_ping = nil
+          begin
+            if @pending_ping
+              @pending_ping.cancel
+              @pending_ping = nil
+            end
+          rescue Exception => e
+            RightLinkLog.error("Failed to cancel mapper ping: #{e.message}")
           end
         end
         request = Request.new("/mapper/ping", nil, {:from => @identity, :token => AgentIdentity.generate})

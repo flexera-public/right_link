@@ -225,14 +225,16 @@ describe RightScale::MapperProxy do
 
       describe "and checking connection status" do
         it "should not check connection if check already in progress" do
-          flexmock(EM).should_receive(:add_timer).never
+          timer = flexmock("Timer")
+          flexmock(EM::Timer).should_receive(:new).and_return(timer).never
           @instance.pending_ping = true
           flexmock(@instance).should_receive(:publish).never
           @instance.__send__(:check_connection, ["broker"])
         end
 
         it "should publish ping to mapper" do
-          flexmock(EM).should_receive(:add_timer).once
+          timer = flexmock("Timer")
+          flexmock(EM::Timer).should_receive(:new).and_return(timer).once
           broker_id = "broker"
           flexmock(@instance).should_receive(:publish).with(on { |request| request.type.should == "/mapper/ping" },
                                                             [broker_id]).once
@@ -244,7 +246,7 @@ describe RightScale::MapperProxy do
           flexmock(RightScale::AgentIdentity).should_receive(:generate).and_return('abc').once
           timer = flexmock("Timer")
           timer.should_receive(:cancel).once
-          flexmock(EM).should_receive(:add_timer).and_return(timer).once
+          flexmock(EM::Timer).should_receive(:new).and_return(timer).once
           flexmock(@instance).should_receive(:publish).once
           @instance.__send__(:check_connection, "broker")
           @instance.pending_ping.should == timer
@@ -255,7 +257,7 @@ describe RightScale::MapperProxy do
 
         it "should try to reconnect if ping times out" do
           flexmock(RightScale::RightLinkLog).should_receive(:warn).once
-          flexmock(EM).should_receive(:add_timer).and_yield.once
+          flexmock(EM::Timer).should_receive(:new).and_yield.once
           flexmock(@agent).should_receive(:connect).once
           @instance.__send__(:check_connection, "broker")
           @instance.pending_ping.should == nil
@@ -264,7 +266,7 @@ describe RightScale::MapperProxy do
         it "should log error if attempt to reconnect fails" do
           flexmock(RightScale::RightLinkLog).should_receive(:warn).once
           flexmock(RightScale::RightLinkLog).should_receive(:error).with(/Failed to reconnect/).once
-          flexmock(EM).should_receive(:add_timer).and_yield.once
+          flexmock(EM::Timer).should_receive(:new).and_yield.once
           @instance.__send__(:check_connection, "broker")
         end
       end
