@@ -576,6 +576,17 @@ module RightScale
       @brokers.each { |b| yield b if [:connected, :connecting].include?(b[:status]) }
     end
 
+    # Check whether broker is connected
+    #
+    # === Parameters
+    # identity{String):: Broker identity
+    #
+    # === Return
+    # (Boolean):: true if broker status is :connect, otherwise false, or nil if broker unknown
+    def connected?(identity)
+      @brokers_hash[identity][:status] == :connected rescue nil
+    end
+
     # Get identity of connected AMQP brokers
     #
     # === Return

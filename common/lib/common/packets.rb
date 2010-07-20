@@ -392,7 +392,7 @@ module RightScale
   # Packet for availability notification from an agent to the mappers
   class Register < Packet
 
-    attr_accessor :identity, :services, :status, :tags, :brokers, :shared_queue, :version
+    attr_accessor :identity, :services, :status, :tags, :brokers, :shared_queue, :created_at, :version
 
     # Create packet
     #
@@ -404,15 +404,17 @@ module RightScale
     # tags(Array(Symbol)):: List of tags associated with this service
     # brokers(Array|nil):: Identity of agent's brokers with nil meaning not supported
     # shared_queue(String):: Name of a queue shared between this agent and another
+    # created_at(Integer):: Current time in seconds for use in checking clock skew
     # version(Integer):: Protocol version of agent registering
     # size(Integer):: Size of request in bytes used only for marshalling
-    def initialize(identity, services, status, tags, brokers, shared_queue = nil, version = VERSION, size = nil)
+    def initialize(identity, services, status, tags, brokers, shared_queue = nil, created_at = nil, version = VERSION, size = nil)
       @status       = status
       @tags         = tags
       @brokers      = brokers
       @identity     = identity
       @services     = services
       @shared_queue = shared_queue
+      @created_at   = created_at || Time.now.to_i
       @version      = version
       @size         = size
     end
@@ -426,7 +428,7 @@ module RightScale
     # (Register):: New packet
     def self.json_create(o)
       i = o['data']
-      new(i['identity'], i['services'], i['status'], i['tags'], i['brokers'], i['shared_queue'],
+      new(i['identity'], i['services'], i['status'], i['tags'], i['brokers'], i['shared_queue'], i['created_at'],
           i['version'] || DEFAULT_VERSION, o['size'])
     end
 
@@ -494,7 +496,7 @@ module RightScale
   # Heartbeat packet
   class Ping < Packet
 
-    attr_accessor :identity, :status, :connected, :failed
+    attr_accessor :identity, :status, :connected, :failed, :created_at
 
     # Create packet
     #
@@ -505,13 +507,15 @@ module RightScale
     # connected(Array|nil):: Identity of agent's connected brokers, nil means not supported
     # failed(Array|nil):: Identity of agent's failed brokers, i.e., ones it never was able
     #   to connect to, nil means not supported
+    # created_at(Integer):: Current time in seconds for use in checking clock skew
     # size(Integer):: Size of request in bytes used only for marshalling
-    def initialize(identity, status, connected = nil, failed = nil, size = nil)
-      @status    = status
-      @identity  = identity
-      @connected = connected
-      @failed    = failed
-      @size      = size
+    def initialize(identity, status, connected = nil, failed = nil, created_at = nil, size = nil)
+      @status     = status
+      @identity   = identity
+      @connected  = connected
+      @failed     = failed
+      @created_at = created_at || Time.now.to_i
+      @size       = size
     end
 
     # Create packet from unmarshalled JSON data
@@ -523,7 +527,7 @@ module RightScale
     # (Ping):: New packet
     def self.json_create(o)
       i = o['data']
-      new(i['identity'], i['status'], i['connected'], i['failed'], o['size'])
+      new(i['identity'], i['status'], i['connected'], i['failed'], i['created_at'], o['size'])
     end
 
     # Generate log representation

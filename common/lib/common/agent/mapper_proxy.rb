@@ -101,12 +101,16 @@ module RightScale
       raise "Mapper proxy not initialized" unless identity
       # Using next_tick to ensure on primary thread since using @pending_requests
       EM.next_tick do
-        request = Request.new(type, payload, opts)
-        request.from = @identity
-        request.token = AgentIdentity.generate
-        request.persistent = opts.key?(:persistent) ? opts[:persistent] : ['all', 'request'].include?(@persist)
-        @pending_requests[request.token] = {:result_handler => blk}
-        request_with_retry(request, request.token)
+        begin
+          request = Request.new(type, payload, opts)
+          request.from = @identity
+          request.token = AgentIdentity.generate
+          request.persistent = opts.key?(:persistent) ? opts[:persistent] : ['all', 'request'].include?(@persist)
+          @pending_requests[request.token] = {:result_handler => blk}
+          request_with_retry(request, request.token)
+        rescue Exception => e
+          RightLinkLog.error("Failed to send #{type} request: #{e.message}")
+        end
       end
       true
     end
@@ -222,7 +226,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def check_connection(id)
-      unless @pending_ping
+      unless @pending_ping || !@broker.connected?(id)
         @pending_ping = EM::Timer.new(PING_TIMEOUT) do
           begin
             @pending_ping = nil

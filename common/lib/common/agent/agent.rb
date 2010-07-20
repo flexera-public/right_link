@@ -65,7 +65,7 @@ module RightScale
       :retry_interval => nil,
       :retry_timeout => nil,
       :prefetch => 1,
-      :ping_time => 15,
+      :ping_time => 60,
       :default_services => []
     }) unless defined?(DEFAULT_OPTIONS)
 

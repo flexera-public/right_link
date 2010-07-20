@@ -113,7 +113,7 @@ module RightScale
       cfg[:format]          = 'secure'
       cfg[:prefetch]        = options[:prefetch] || 1
       cfg[:persist]         = options[:persist] || 'push'
-      cfg[:fresh_timeout]   = options[:fresh_timeout] || 10 * 60
+      cfg[:fresh_timeout]   = options[:fresh_timeout] || 15 * 60
       cfg[:retry_timeout]   = options[:retry_timeout] || 10 * 60
       cfg[:retry_interval]  = options[:retry_interval] || 30
       cfg[:dup_check]       = options[:dup_check].nil? ? true : options[:dup_check]

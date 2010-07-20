@@ -102,9 +102,9 @@ describe RightScale::Agent do
       @agent.options[:vhost].should == "/right_net"
     end
 
-    it "for ping_time is 15" do
+    it "for ping_time is 60" do
       @agent.options.should include(:ping_time)
-      @agent.options[:ping_time].should == 15
+      @agent.options[:ping_time].should == 60
     end
 
     it "for default_services is []" do

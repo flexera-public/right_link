@@ -978,6 +978,14 @@ describe RightScale::HA_MQ do
       aliases.should == ["b0", "b1"]
     end
 
+    it "should tell whether a broker is connected" do
+      ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first, second")
+      ha_mq.connected?("rs-broker-first-5672").should be_false
+      ha_mq.brokers[1][:status] = :connected
+      ha_mq.connected?("rs-broker-second-5672").should be_true
+      ha_mq.connected?("rs-broker-third-5672").should be_nil
+    end
+
     it "should give list of connected brokers" do
       ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first, second")
       ha_mq.connected.should == []

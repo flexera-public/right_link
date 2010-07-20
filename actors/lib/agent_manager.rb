@@ -45,7 +45,8 @@ class AgentManager
   def ping(_)
     res = RightScale::OperationResult.success(:identity => @agent.options[:identity],
                                               :version => RightScale::RightLinkConfig.protocol_version,
-                                              :brokers => @agent.broker.status)
+                                              :brokers => @agent.broker.status,
+                                              :time => Time.now.to_i)
   end
 
   # Change log level of agent
@@ -68,7 +69,7 @@ class AgentManager
   # Eval given code in context of agent
   #
   # === Parameter
-  # code(String):: Code to be evaled
+  # code(String):: Code to be eval'd
   #
   # === Return
   # res(RightScale::OperationResult):: Success with result if code didn't raise an exception

@@ -151,6 +151,7 @@ describe "Packet: Register" do
     packet.status.should == packet2.status
     packet.brokers.should == packet2.brokers
     packet.shared_queue.should == packet2.shared_queue
+    packet.created_at.should == packet2.created_at
     packet.version.should == packet2.version
   end
 
@@ -162,6 +163,8 @@ describe "Packet: Register" do
     packet.status.should == packet2.status
     packet.brokers.should == packet2.brokers
     packet.shared_queue.should == packet2.shared_queue
+    packet.created_at.should == packet2.created_at
+    packet.version.should == packet2.version
   end
 
   it "should set specified shared_queue" do
@@ -210,6 +213,7 @@ describe "Packet: Ping" do
     packet.status.should == packet2.status
     packet.connected.should == packet2.connected
     packet.failed.should == packet2.failed
+    packet.created_at.should == packet2.created_at
   end
 
   it "should dump/load as Marshalled ruby objects" do
@@ -219,6 +223,7 @@ describe "Packet: Ping" do
     packet.status.should == packet2.status
     packet.connected.should == packet2.connected
     packet.failed.should == packet2.failed
+    packet.created_at.should == packet2.created_at
   end
 end
 
