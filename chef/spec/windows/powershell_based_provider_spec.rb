@@ -43,9 +43,11 @@ if RightScale::RightLinkConfig[:platform].windows?
 
       # redirect the Chef logs to a file before creating the chef client
       ::Chef::Log.logger = Logger.new(@log_file)
-#      RightScale::RightLinkLog.level = :debug
-#      RightScale::RightLinkLog = ::Chef::Log.logger
-#      flexmock(Chef::Log).should_receive(:level).and_return(Logger::DEBUG)
+      if ENV['DEBUG']
+        RightScale::RightLinkLog.level = :debug
+        RightScale::RightLinkLog = ::Chef::Log.logger
+        flexmock(Chef::Log).should_receive(:level).and_return(Logger::DEBUG)
+      end
 
       @logger = RightScale::Test::MockLogger.new
       mock_chef_log(@logger)
@@ -80,7 +82,7 @@ if RightScale::RightLinkConfig[:platform].windows?
 
       # TODO: verify order of execution
       logs = @logger.info_text.gsub("\n", "")
-      puts logs
+
       logs.scan(/\/simple_encode\/_init.ps1/).length.should == 1
       logs.scan(/init simple encode/).length.should == 1
 

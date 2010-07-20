@@ -116,12 +116,13 @@ module RightScale
       cookbooks_paths.each do |cookbooks_path|
         return [] unless File.directory?(cookbooks_path)
         Dir[File.normalize_path(File.join(cookbooks_path, '*/'))].each do |cookbook_path|
-          cookbook = File.basename(cookbook_path).camelize
-          Dir[File.normalize_path(File.join(cookbook_path, POWERSHELL_PROVIDERS_DIR_NAME, '*/'))].each do |provider|
-            name = "#{cookbook}::Powershell::#{File.basename(provider).camelize}"
-            next if @providers_names.include?(name)
-            generate_single_provider(name, provider)
-            providers << name
+          cookbook_name = File.basename(cookbook_path)
+          Dir[File.normalize_path(File.join(cookbook_path, POWERSHELL_PROVIDERS_DIR_NAME, '*/'))].each do |provider_file_path|
+            provider_name = filename_to_qualified_string(cookbook_name, provider_file_path)
+            provider_class_name = convert_to_class_name(provider_name)
+            next if @providers_names.include?(provider_class_name)
+            generate_single_provider(provider_class_name, provider_file_path)
+            providers << provider_name
           end
         end
       end
@@ -130,7 +131,6 @@ module RightScale
     end
 
     protected
-
     # Dynamically create provider class
     #
     # === Parameters
@@ -185,21 +185,13 @@ module RightScale
     # creating lightweight resources
     #
     # === Parameters
-    # fully_qualified_name(String):: fully qualified provider name.  Assumes the following <cookbook name>::<other scope(s)>::<provider name>
+    # provider_class_name(String):: unscoped provider class name.  Assumes the following <cookbook name><provider name>
     #
     # === Return
     # (String):: Fully qualified resource class name
-    def resource_class_name(fully_qualified_name)
-      fully_qualified_name_parts = fully_qualified_name.split("::")
-      cookbook_name = fully_qualified_name_parts.first.snake_case
-      provider_name = fully_qualified_name_parts.last.snake_case
-
-      # using same methods chef uses to generate the class name of the resources.
-      # Chef will also add the resource to the Chef::Resource namespace.
-      # _powershell is added because we add powershell to the provider namespace, this
-      # forces the resource file name to be "powershell_<provider_name>"
-      rname = filename_to_qualified_string(cookbook_name, "powershell_#{provider_name}")
-      "Chef::Resource::#{convert_to_class_name(rname)}"
+    def resource_class_name(provider_class_name)
+      # Chef lwr/p resource and provider base names are the same
+      "Chef::Resource::#{provider_class_name}"
     end
 
     # Creates/overrides class with given name

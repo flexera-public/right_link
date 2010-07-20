@@ -1,4 +1,4 @@
-test_cookbook_powershell_encode do
+test_cookbook_encode do
   action :url_encode
   message "encode first"
 end
@@ -8,12 +8,12 @@ powershell 'echo_from_powershell_script' do
   source source_text
 end
 
-test_cookbook_powershell_encode do
+test_cookbook_encode do
   action :url_encode
   message "encode again"
 end
 
-test_cookbook_powershell_echo do
+test_cookbook_echo do
   action :echo_text
   message "then echo"
 end
@@ -28,11 +28,7 @@ powershell 'echo_from_powershell_script_once_more' do
   source source_text
 end
 
-test_cookbook_powershell_echo do
+test_cookbook_echo do
   action :echo_text
   message "echo again"
 end
-
-
-
-

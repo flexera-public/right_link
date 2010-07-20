@@ -102,17 +102,13 @@ describe RightScale::DynamicPowershellProvider do
         Chef::Platform.platforms.merge!({:windows => { :default => {} }})
       end
       @provider.generate_providers(@cookbooks_dir)
-      Object.const_defined?(:Cookbook).should be_true
-      Cookbook.const_defined?(:Powershell).should be_true
-      Cookbook::Powershell.const_defined?(:Scripts).should be_true
-      Object.const_defined?(:Cookbook2).should be_true
-      Cookbook2.const_defined?(:Powershell).should be_true
-      Cookbook2::Powershell.const_defined?(:Scripts).should be_true
-      @provider.providers.map(&:to_s).sort.should == [ 'Cookbook2::Powershell::Scripts', 'Cookbook::Powershell::Scripts' ]
-      (Cookbook::Powershell::Scripts.instance_methods - RightScale::PowershellProviderBase.instance_methods + [ 'load_current_resource' ]).sort.should == @instance_methods
-      (Cookbook::Powershell::Scripts.methods - Chef::Provider.methods).sort.should == [ 'init', 'run_script', 'terminate']
-      (Cookbook2::Powershell::Scripts.instance_methods - RightScale::PowershellProviderBase.instance_methods).sort.should == @instance_methods2
-      (Cookbook2::Powershell::Scripts.methods - Chef::Provider.methods).sort.should == [ 'init', 'run_script', 'terminate']
+      Object.const_defined?(:CookbookScripts).should be_true
+      Object.const_defined?(:Cookbook2Scripts).should be_true
+      @provider.providers.map(&:to_s).sort.should == [ 'Cookbook2Scripts', 'CookbookScripts' ]
+      (CookbookScripts.instance_methods - RightScale::PowershellProviderBase.instance_methods + [ 'load_current_resource' ]).sort.should == @instance_methods
+      (CookbookScripts.methods - Chef::Provider.methods).sort.should == [ 'init', 'run_script', 'terminate']
+      (Cookbook2Scripts.instance_methods - RightScale::PowershellProviderBase.instance_methods).sort.should == @instance_methods2
+      (Cookbook2Scripts.methods - Chef::Provider.methods).sort.should == [ 'init', 'run_script', 'terminate']
       host_mock = flexmock('PowershellHost')
       flexmock(RightScale::PowershellHost).should_receive(:new).and_return(host_mock)
       host_mock.should_receive(:active).and_return(true)
@@ -124,15 +120,15 @@ describe RightScale::DynamicPowershellProvider do
       host_mock.should_receive(:run).once.with(@term_script).ordered
       host_mock.should_receive(:terminate).once.ordered
 
-      Chef::Resource.const_set("CookbookPowershellScripts", Class.new(Chef::Resource))
+      Chef::Resource.const_set("CookbookScripts", Class.new(Chef::Resource))
       resource = flexmock('Resource', :cookbook_name=>'cookbook', :name=>'foo')
-      cb = Cookbook::Powershell::Scripts.new(nil, resource)
+      cb = CookbookScripts.new(nil, resource)
       cb.load_current_resource
       cb.action_action1
       cb.action_action2
-      Cookbook::Powershell::Scripts.terminate
-      Cookbook2::Powershell::Scripts.init(nil)
-      Cookbook2::Powershell::Scripts.terminate
+      CookbookScripts.terminate
+      Cookbook2Scripts.init(nil)
+      Cookbook2Scripts.terminate
     end
 
   end
