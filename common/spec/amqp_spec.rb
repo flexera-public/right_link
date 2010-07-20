@@ -787,6 +787,17 @@ describe RightScale::HA_MQ do
                                 :identity => "rs-broker-second-5672", :status => :connected, :tries => 0}]
     end
 
+    it "should not do anything except log a message if asked to reconnect a broker that is currently being connected" do
+      flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Connecting to/).twice
+      flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Ignored request to reconnect/).once
+      ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first, second")
+      ha_mq.connect("second", 5672, 1)
+      ha_mq.brokers.should == [{:alias => "b0", :mq => @mq, :connection => @connection, :backoff => 0,
+                                :identity => "rs-broker-first-5672", :status => :connecting, :tries => 0},
+                               {:alias => "b1", :mq => @mq, :connection => @connection, :backoff => 0,
+                                :identity => "rs-broker-second-5672", :status => :connecting, :tries => 0}]
+    end
+
     it "should reconnect already connected broker if force specified" do
       flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Connecting to/).times(3)
       flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Ignored request to reconnect/).never

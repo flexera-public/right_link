@@ -642,6 +642,7 @@ module RightScale
     end
 
     # Make new connection to broker at specified address unless already connected
+    # or currently connecting
     #
     # === Parameters
     # host{String):: IP host name or address for individual broker
@@ -665,8 +666,8 @@ module RightScale
       broker = nil
       identity = identity(host, port)
       existing = @brokers_hash[identity]
-      if existing && existing[:status] == :connected && !force
-        RightLinkLog.info("Ignored request to reconnect #{identity} because already connected")
+      if existing && [:connected, :connecting].include?(existing[:status]) && !force
+        RightLinkLog.info("Ignored request to reconnect #{identity} because already #{existing[:status].to_s}")
       elsif !existing && b = get(id)
         raise Exception, "Not allowed to change host or port of existing broker #{b[:identity]}, " +
                          "alias b#{id}, to #{host} and #{port.inspect}"
