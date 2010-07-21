@@ -455,7 +455,18 @@ module RightScale
         # the UTC timestamp at which the system was booted
         def booted_at
           begin
-            return Time.parse(`echo | wmic OS Get LastBootUpTime`.match(/(\d{14})\.\d{6}(-\d{3})/)[1..2].to_s).to_i
+            wmic_output = `echo | wmic OS Get LastBootUpTime`
+
+            match = /(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})\.\d{6}([+-]\d{3})/.match(wmic_output)
+
+            year, mon, day, hour, min, sec, tz = match[1..-1]
+
+            #Convert timezone from [+-]mmm to [+-]hh:mm
+            tz = "#{tz[0...1]}#{(tz.to_i.abs / 60).to_s.rjust(2,'0')}:#{(tz.to_i.abs % 60).to_s.rjust(2,'0')}"
+
+            #Finally, parse the WMIC output as an XML-schema time, which is the only reliable
+            #way to parse a time with arbitrary zone in Ruby (?!)
+            return Time.xmlschema("#{year}-#{mon}-#{day}T#{hour}:#{min}:#{sec}#{tz}").to_i
           rescue Exception
             return nil
           end
