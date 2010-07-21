@@ -64,6 +64,27 @@ module RightScale
           sprintf("%s[%d]: %s\n", progname, Process.pid, msg2str(msg))
         end
       end
+
+      # Converts some argument to a Logger.severity() call to a string.  Regular strings
+      # pass through like normal, Exceptions get formatted as "message (class)\nbacktrace",
+      # and other random stuff gets put through "object.inspect".
+      #
+      # === Parameters
+      # msg(Object):: Message object to be converted to string
+      #
+      # === Return
+      # String
+      def msg2str(msg)
+        case msg
+        when ::String
+          msg
+        when ::Exception
+          "#{ msg.message } (#{ msg.class })\n" <<
+            (msg.backtrace || []).join("\n")
+        else
+          msg.inspect
+         end
+       end
     end
 
     # Map of log levels symbols associated with corresponding Logger constant
@@ -93,10 +114,10 @@ module RightScale
     #
     # === Return
     # res(Object):: Result from first registered logger
-    def method_missing(m, * args)
+    def method_missing(m, *args)
       init unless @initialized
       @logger.level = level_from_sym(level) if @level_frozen
-      res = @logger.__send__(m, * args)
+      res = @logger.__send__(m, *args)
     end
 
     # Forward all class method calls to the singleton instance to keep the interface as it was
@@ -109,8 +130,8 @@ module RightScale
     # === Return
     # res(Object):: Result from first the singleton
     class << self
-      def method_missing(m, * args)
-        RightLinkLog.instance.send(m, * args)
+      def method_missing(m, *args)
+        RightLinkLog.instance.send(m, *args)
       end
     end
 
