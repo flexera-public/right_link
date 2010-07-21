@@ -69,7 +69,7 @@ module RightScale
               RightLinkLog.error("Invalid cookie used by command protocol client (#{cmd_cookie})")
             end
           rescue Exception => e
-            RightLinkLog.warn("Command failed (#{e.message}) '#{c.inspect}' at\n#{e.backtrace.join("\n")}")
+            RightLinkLog.warn("Command failed (#{e.message}) at\n#{e.backtrace.join("\n")}")
           end
         end
 
