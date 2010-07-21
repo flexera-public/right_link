@@ -203,7 +203,7 @@ module RightScale
               else
                 RightLinkLog.warn("RESEND TIMEOUT after #{elapsed} seconds for #{request.to_s([:tags, :target, :tries])}")
                 result = OperationResult.timeout("Timeout after #{elapsed} seconds and #{count} attempts")
-                handle_result(Result.new(request.token, request.reply_to, {@identity => result}, from = @identity))
+                handle_result(Result.new(request.token, request.reply_to, {@identity => result}, @identity, request.tries))
               end
               check_connection(ids.first) if count == 1
             end

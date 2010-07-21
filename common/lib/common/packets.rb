@@ -219,6 +219,10 @@ module RightScale
       log_msg
     end
 
+    # Convert tries list to string representation
+    #
+    # === Return
+    # log_msg(String):: Tries list
     def tries_to_s
       log_msg = ""
       @tries.each { |r| log_msg += "<#{r}>, " }
@@ -326,7 +330,7 @@ module RightScale
   # Packet for a work result notification sent from actor node
   class Result < Packet
 
-    attr_accessor :token, :results, :to, :from
+    attr_accessor :token, :results, :to, :from, :tries, :created_at
 
     # Create packet
     #
@@ -335,13 +339,17 @@ module RightScale
     # to(String):: Identity of the node to which result should be delivered
     # results(Any):: Arbitrary data that is transferred from actor, a result of actor's work
     # from(String):: Sender identity
+    # tries(Array):: List of tokens for previous attempts to send associated request
+    # created_at(Numeric):: Time in seconds when this result was created
     # size(Integer):: Size of request in bytes used only for marshalling
-    def initialize(token, to, results, from, size = nil)
-      @token   = token
-      @to      = to
-      @from    = from
-      @results = results
-      @size    = size
+    def initialize(token, to, results, from, tries = nil, created_at = nil, size = nil)
+      @token      = token
+      @to         = to
+      @from       = from
+      @results    = results
+      @tries      = tries || []
+      @created_at = created_at || Time.now.to_f
+      @size       = size
     end
 
     # Create packet from unmarshalled JSON data
@@ -353,7 +361,7 @@ module RightScale
     # (Result):: New packet
     def self.json_create(o)
       i = o['data']
-      new(i['token'], i['to'], i['results'], i['from'], o['size'])
+      new(i['token'], i['to'], i['results'], i['from'], i['tries'], i['created_at'], o['size'])
     end
 
     # Generate log representation
@@ -379,7 +387,18 @@ module RightScale
       else
         log_msg += " results #{@results.inspect}"
       end
+      log_msg += ", tries #{tries_to_s}" if @tries && !@tries.empty? && (filter.nil? || filter.include?(:tries))
       log_msg
+    end
+
+    # Convert tries list to string representation
+    #
+    # === Return
+    # log_msg(String):: Tries list
+    def tries_to_s
+      log_msg = ""
+      @tries.each { |r| log_msg += "<#{r}>, " }
+      log_msg = log_msg[0..-3] if log_msg.size > 1
     end
 
     # Get target to be used for encrypting the packet
@@ -408,7 +427,7 @@ module RightScale
     # tags(Array(Symbol)):: List of tags associated with this service
     # brokers(Array|nil):: Identity of agent's brokers with nil meaning not supported
     # shared_queue(String):: Name of a queue shared between this agent and another
-    # created_at(Integer):: Current time in seconds for use in checking clock skew
+    # created_at(Numeric):: Time in seconds when this registration was created
     # version(Integer):: Protocol version of agent registering
     # size(Integer):: Size of request in bytes used only for marshalling
     def initialize(identity, services, status, tags, brokers, shared_queue = nil, created_at = nil, version = VERSION, size = nil)
@@ -418,7 +437,7 @@ module RightScale
       @identity     = identity
       @services     = services
       @shared_queue = shared_queue
-      @created_at   = created_at || Time.now.to_i
+      @created_at   = created_at || Time.now.to_f
       @version      = version
       @size         = size
     end
@@ -511,14 +530,14 @@ module RightScale
     # connected(Array|nil):: Identity of agent's connected brokers, nil means not supported
     # failed(Array|nil):: Identity of agent's failed brokers, i.e., ones it never was able
     #   to connect to, nil means not supported
-    # created_at(Integer):: Current time in seconds for use in checking clock skew
+    # created_at(Numeric):: Time in seconds when this ping was created
     # size(Integer):: Size of request in bytes used only for marshalling
     def initialize(identity, status, connected = nil, failed = nil, created_at = nil, size = nil)
       @status     = status
       @identity   = identity
       @connected  = connected
       @failed     = failed
-      @created_at = created_at || Time.now.to_i
+      @created_at = created_at || Time.now.to_f
       @size       = size
     end
 

@@ -127,12 +127,12 @@ module RightScale
           if deliverable.kind_of?(Request)
             completed_at = Time.now.to_i
             @completed[deliverable.token] = completed_at if @dup_check && deliverable.token
-            r = Result.new(deliverable.token, deliverable.reply_to, r, identity)
+            r = Result.new(deliverable.token, deliverable.reply_to, r, identity, deliverable.tries)
             exchange = {:type => :queue, :name => deliverable.reply_to, :options => {:durable => true, :no_declare => @secure}}
-            @broker.publish(exchange, r, :persistent => deliverable.persistent, :log_filter => [])
+            @broker.publish(exchange, r, :persistent => deliverable.persistent, :log_filter => [:tries])
           end
         rescue Exception => e
-          RightLinkLog.error("Callback following dispatch failed with #{e.class.name}: #{e.message}\n #{e.backtrace.join("\n  ")}")
+          RightLinkLog.error("Failed to publish result of dispatched request: #{e.message}")
         end
         r # For unit tests
       end

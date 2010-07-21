@@ -73,25 +73,27 @@ end
 
 describe "Packet: Request" do
   it "should dump/load as JSON objects" do
-    packet = RightScale::Request.new('/some/foo', 'payload', :from => 'from', :token => '0xdeadbeef', :reply_to => 'reply_to')
+    packet = RightScale::Request.new('/some/foo', 'payload', :from => 'from', :token => '0xdeadbeef', :reply_to => 'reply_to', :tries => ['try'])
     packet2 = JSON.parse(packet.to_json)
     packet.type.should == packet2.type
     packet.payload.should == packet2.payload
     packet.from.should == packet2.from
     packet.token.should == packet2.token
     packet.reply_to.should == packet2.reply_to
+    packet.tries.should == packet2.tries
     # JSON decoding of floating point sometimes loses accuracy
     (packet.created_at - packet2.created_at).abs.should <= 1.0e-05
   end
 
   it "should dump/load as Marshalled ruby objects" do
-    packet = RightScale::Request.new('/some/foo', 'payload', :from => 'from', :token => '0xdeadbeef', :reply_to => 'reply_to')
+    packet = RightScale::Request.new('/some/foo', 'payload', :from => 'from', :token => '0xdeadbeef', :reply_to => 'reply_to', :tries => ['try'])
     packet2 = Marshal.load(Marshal.dump(packet))
     packet.type.should == packet2.type
     packet.payload.should == packet2.payload
     packet.from.should == packet2.from
     packet.token.should == packet2.token
     packet.reply_to.should == packet2.reply_to
+    packet.tries.should == packet2.tries
     packet.created_at.should == packet2.created_at
   end
 end
@@ -123,21 +125,26 @@ end
 
 describe "Packet: Result" do
   it "should dump/load as JSON objects" do
-    packet = RightScale::Result.new('0xdeadbeef', 'to', 'results', 'from')
+    packet = RightScale::Result.new('0xdeadbeef', 'to', 'results', 'from', ['try'])
     packet2 = JSON.parse(packet.to_json)
     packet.token.should == packet2.token
     packet.to.should == packet2.to
     packet.results.should == packet2.results
     packet.from.should == packet2.from
+    packet.tries.should == packet2.tries
+    # JSON decoding of floating point sometimes loses accuracy
+    (packet.created_at - packet2.created_at).abs.should <= 1.0e-05
   end
 
   it "should dump/load as Marshalled ruby objects" do
-    packet = RightScale::Result.new('0xdeadbeef', 'to', 'results', 'from')
+    packet = RightScale::Result.new('0xdeadbeef', 'to', 'results', 'from', ['try'])
     packet2 = Marshal.load(Marshal.dump(packet))
     packet.token.should == packet2.token
     packet.to.should == packet2.to
     packet.results.should == packet2.results
     packet.from.should == packet2.from
+    packet.tries.should == packet2.tries
+    packet.created_at.should == packet2.created_at
   end
 end
 
@@ -151,7 +158,8 @@ describe "Packet: Register" do
     packet.status.should == packet2.status
     packet.brokers.should == packet2.brokers
     packet.shared_queue.should == packet2.shared_queue
-    packet.created_at.should == packet2.created_at
+    # JSON decoding of floating point sometimes loses accuracy
+    (packet.created_at - packet2.created_at).abs.should <= 1.0e-05
     packet.version.should == packet2.version
   end
 
@@ -213,7 +221,8 @@ describe "Packet: Ping" do
     packet.status.should == packet2.status
     packet.connected.should == packet2.connected
     packet.failed.should == packet2.failed
-    packet.created_at.should == packet2.created_at
+    # JSON decoding of floating point sometimes loses accuracy
+    (packet.created_at - packet2.created_at).abs.should <= 1.0e-05
   end
 
   it "should dump/load as Marshalled ruby objects" do
