@@ -63,6 +63,4 @@ while ($TRUE)
     }
 }
 
-write-output "exiting run-loop"
-
 exit $RS_LastExitCode
