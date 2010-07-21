@@ -145,7 +145,7 @@ module RightScale
     def parse_args
       options = {}
       options[:agent] = ARGV[0]
-      options[:options] = {}
+      options[:options] = { :secure => true }
       options[:quiet] = false
       options[:auto_shutdown] = false
       fail('No agent specified on the command line.', print_usage=true) if options[:agent].nil?

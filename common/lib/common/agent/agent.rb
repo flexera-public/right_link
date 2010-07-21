@@ -517,7 +517,7 @@ module RightScale
 
       RightLinkLog.info("[setup] Subscribing queue #{@identity} on #{broker[:alias]}")
 
-      queue = broker[:mq].queue(@identity, :durable => true)
+      queue = broker[:mq].queue(@identity, :durable => true, :no_declare => @options[:secure])
       if @options[:infrastructure]
         # Explicitly create direct exchange and bind queue to it
         # since binding this queue to multiple exchanges
