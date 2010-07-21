@@ -20,7 +20,6 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require 'time'  # defines Time.rfc2822()
 require 'logger'
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'config', 'right_link_config'))
 require 'syslog_logger' unless RightScale::RightLinkConfig[:platform].windows?
@@ -47,8 +46,8 @@ module RightScale
         @@show_time = show
       end
 
-      # Prints a log message as '[time] severity: message' if @@show_time == true;
-      # otherwise, doesn't print the time.
+      # Prints a log message as 'datetime progname[pid]: message' if @@show_time == true;
+      # otherwise, doesn't print the datetime.
       #
       # === Parameters
       # severity(String):: Severity of event
@@ -60,40 +59,19 @@ module RightScale
       # Formatted message
       def call(severity, time, progname, msg)
         if @@show_time
-          sprintf("[%s] %s: %s\n", time.rfc2822(), severity, msg2str(msg))
+          sprintf("%s %s[%d]: %s\n", format_datetime(time), progname, Process.pid, msg2str(msg))
         else
-          sprintf("%s: %s\n", severity, msg2str(msg))
-        end
-      end
-
-      # Converts some argument to a Logger.severity() call to a string.  Regular strings
-      # pass through like normal, Exceptions get formatted as "message (class)\nbacktrace",
-      # and other random stuff gets put through "object.inspect".
-      #
-      # === Parameters
-      # msg(Object):: Message object to be converted to string
-      #
-      # === Return
-      # String
-      def msg2str(msg)
-        case msg
-        when ::String
-          msg
-        when ::Exception
-          "#{ msg.message } (#{ msg.class })\n" <<
-            (msg.backtrace || []).join("\n")
-        else
-          msg.inspect
+          sprintf("%s[%d]: %s\n", progname, Process.pid, msg2str(msg))
         end
       end
     end
 
     # Map of log levels symbols associated with corresponding Logger constant
-    LEVELS_MAP = { :debug => Logger::DEBUG,
-                   :info  => Logger::INFO,
-                   :warn  => Logger::WARN,
-                   :error => Logger::ERROR,
-                   :fatal => Logger::FATAL } unless defined?(LEVELS_MAP)
+    LEVELS_MAP = {:debug => Logger::DEBUG,
+                  :info  => Logger::INFO,
+                  :warn  => Logger::WARN,
+                  :error => Logger::ERROR,
+                  :fatal => Logger::FATAL} unless defined?(LEVELS_MAP)
 
     @@inverted_levels_map = nil
 
@@ -115,10 +93,10 @@ module RightScale
     #
     # === Return
     # res(Object):: Result from first registered logger
-    def method_missing(m, *args)
+    def method_missing(m, * args)
       init unless @initialized
       @logger.level = level_from_sym(level) if @level_frozen
-      res = @logger.__send__(m, *args)
+      res = @logger.__send__(m, * args)
     end
 
     # Forward all class method calls to the singleton instance to keep the interface as it was
@@ -131,8 +109,8 @@ module RightScale
     # === Return
     # res(Object):: Result from first the singleton
     class << self
-      def method_missing(m, *args)
-        RightLinkLog.instance.send(m, *args)
+      def method_missing(m, * args)
+        RightLinkLog.instance.send(m, * args)
       end
     end
 
@@ -256,9 +234,12 @@ module RightScale
       init unless @initialized
       unless @level_frozen
         new_level = case level
-          when Symbol  then level_from_sym(level)
-          when String  then level_from_sym(level.to_sym)
-          else level
+          when Symbol then
+            level_from_sym(level)
+          when String then
+            level_from_sym(level.to_sym)
+          else
+            level
         end
         if new_level != @level
           @logger.info("[setup] Setting log level to #{level_to_sym(new_level).to_s.upcase}")
@@ -311,6 +292,8 @@ module RightScale
           end
           logger = Logger.new(file)
           logger.formatter = Formatter.new
+          logger.progname = @program_name || identity || 'RightLink'
+          logger.formatter.datetime_format = "%b %d %H:%M:%S"
         else
           logger = SyslogLogger.new(@program_name || identity || 'RightLink')
         end
