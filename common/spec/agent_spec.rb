@@ -45,7 +45,8 @@ describe RightScale::Agent do
       flexmock(RightScale::HA_MQ).should_receive(:new).and_return(@broker)
       flexmock(RightScale::PidFile).should_receive(:new).
               and_return(flexmock("pid file", :check=>true, :write=>true, :remove=>true))
-      @agent = RightScale::Agent.start
+      @identity = "rs-instance-123-1"
+      @agent = RightScale::Agent.start(:identity => @identity)
     end
 
     after(:each) do
@@ -156,6 +157,7 @@ describe RightScale::Agent do
       flexmock(RightScale::HA_MQ).should_receive(:new).and_return(@broker)
       flexmock(RightScale::PidFile).should_receive(:new).
               and_return(flexmock("pid file", :check=>true, :write=>true, :remove=>true))
+      @identity = "rs-core-123-1"
       @agent = nil
     end
 
@@ -171,7 +173,7 @@ describe RightScale::Agent do
     # end
 
     it "for format should override default (marshal)" do
-      @agent = RightScale::Agent.start(:format => :json)
+      @agent = RightScale::Agent.start(:identity => @identity, :format => :json)
       @agent.options.should include(:format)
       @agent.options[:format].should == :json
     end
@@ -180,7 +182,7 @@ describe RightScale::Agent do
 #      @queue = flexmock("queue").should_receive(:subscribe).and_return({}).times(1)
 #      @mq = flexmock("mq", :queue => @queue, :fanout => @fanout)
 #      flexmock(MQ).should_receive(:new).and_return(@mq)
-      agent = RightScale::Agent.start(:identity => "the_identity")
+      agent = RightScale::Agent.start(:identity => @identity)
       agent.options.should include(:shared_queue)
       agent.options[:shared_queue].should be_false
     end
@@ -189,38 +191,38 @@ describe RightScale::Agent do
 #      @queue = flexmock("queue").should_receive(:subscribe).and_return({}).times(2)
 #      @mq = flexmock("mq", :queue => @queue, :fanout => @fanout)
 #      flexmock(MQ).should_receive(:new).and_return(@mq)
-      agent = RightScale::Agent.start(:shared_queue => "my_shared_queue")
+      agent = RightScale::Agent.start(:shared_queue => "my_shared_queue", :identity => @identity)
       agent.options.should include(:shared_queue)
       agent.options[:shared_queue].should == "my_shared_queue"
     end
 
     # TODO figure out how to avoid console output
     # it "for console should override default (false)" do
-    #   @agent = RightScale::Agent.start(:console => true)
+    #   @agent = RightScale::Agent.start(:console => true, :identity => @identity)
     #   @agent.options.should include(:console)
     #   @agent.options[:console].should == true
     # end
 
     it "for user should override default (nanite)" do
-      @agent = RightScale::Agent.start(:user => "me")
+      @agent = RightScale::Agent.start(:user => "me", :identity => @identity)
       @agent.options.should include(:user)
       @agent.options[:user].should == "me"
     end
 
     it "for pass(word) should override default (testing)" do
-      @agent = RightScale::Agent.start(:pass => "secret")
+      @agent = RightScale::Agent.start(:pass => "secret", :identity => @identity)
       @agent.options.should include(:pass)
       @agent.options[:pass].should == "secret"
     end
 
     it "for secure should override default (false)" do
-      @agent = RightScale::Agent.start(:secure => true)
+      @agent = RightScale::Agent.start(:secure => true, :identity => @identity)
       @agent.options.should include(:secure)
       @agent.options[:secure].should == true
     end
 
     it "for host should override default (localhost)" do
-      @agent = RightScale::Agent.start(:host => "127.0.0.1")
+      @agent = RightScale::Agent.start(:host => "127.0.0.1", :identity => @identity)
       @agent.options.should include(:host)
       @agent.options[:host].should == "127.0.0.1"
     end
@@ -231,7 +233,8 @@ describe RightScale::Agent do
       test_log_path = File.normalize_path(File.join(Dir.tmpdir, "right_net", "testing"))
       FileUtils.rm_rf(test_log_path)
 
-      @agent = RightScale::Agent.start(:log_dir => File.normalize_path(File.join(Dir.tmpdir, "right_net", "testing")))
+      @agent = RightScale::Agent.start(:log_dir => File.normalize_path(File.join(Dir.tmpdir, "right_net", "testing")),
+                                       :identity => @identity)
 
       # passing log_dir will cause log_path to be set to the same value and the
       # directory wil be created
@@ -245,54 +248,56 @@ describe RightScale::Agent do
     end
 
     it "for log_level should override default (info)" do
-      @agent = RightScale::Agent.start(:log_level => :debug)
+      @agent = RightScale::Agent.start(:log_level => :debug, :identity => @identity)
       @agent.options.should include(:log_level)
       @agent.options[:log_level].should == :debug
     end
 
     it "for vhost should override default (/right_net)" do
-      @agent = RightScale::Agent.start(:vhost => "/virtual_host")
+      @agent = RightScale::Agent.start(:vhost => "/virtual_host", :identity => @identity)
       @agent.options.should include(:vhost)
       @agent.options[:vhost].should == "/virtual_host"
     end
 
     it "for ping_time should override default (15)" do
-      @agent = RightScale::Agent.start(:ping_time => 5)
+      @agent = RightScale::Agent.start(:ping_time => 5, :identity => @identity)
       @agent.options.should include(:ping_time)
       @agent.options[:ping_time].should == 5
     end
 
     it "for default_services should override default ([])" do
-      @agent = RightScale::Agent.start(:default_services => [:test])
+      @agent = RightScale::Agent.start(:default_services => [:test], :identity => @identity)
       @agent.options.should include(:default_services)
       @agent.options[:default_services].should == [:test]
     end
 
     it "for root should override default (#{File.normalize_path(File.join(File.dirname(__FILE__), '..'))})" do
-      @agent = RightScale::Agent.start(:root => File.normalize_path(File.dirname(__FILE__)))
+      @agent = RightScale::Agent.start(:root => File.normalize_path(File.dirname(__FILE__)),
+                                       :identity => @identity)
       @agent.options.should include(:root)
       @agent.options[:root].should == File.normalize_path(File.dirname(__FILE__))
     end
 
     it "for file_root should override default (#{File.normalize_path(File.join(File.dirname(__FILE__), '..', 'files'))})" do
-      @agent = RightScale::Agent.start(:file_root => File.normalize_path(File.dirname(__FILE__)))
+      @agent = RightScale::Agent.start(:file_root => File.normalize_path(File.dirname(__FILE__)),
+                                       :identity => @identity)
       @agent.options.should include(:file_root)
       @agent.options[:file_root].should == File.normalize_path(File.dirname(__FILE__))
     end
 
     it "for a single tag should result in the agent's tags being set" do
-      @agent = RightScale::Agent.start(:tag => "sample_tag")
+      @agent = RightScale::Agent.start(:tag => "sample_tag", :identity => @identity)
       @agent.tags.should include("sample_tag")
     end
 
     it "for multiple tags should result in the agent's tags being set" do
-      @agent = RightScale::Agent.start(:tag => ["sample_tag_1", "sample_tag_2"])
+      @agent = RightScale::Agent.start(:tag => ["sample_tag_1", "sample_tag_2"], :identity => @identity)
       @agent.tags.should include("sample_tag_1")
       @agent.tags.should include("sample_tag_2")
     end
     
     it "for threadpool_size" do
-      @agent = RightScale::Agent.start(:threadpool_size => 5)
+      @agent = RightScale::Agent.start(:threadpool_size => 5, :identity => @identity)
       @agent.dispatcher.em.threadpool_size.should == 5
     end
     

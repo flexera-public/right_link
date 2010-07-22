@@ -123,7 +123,6 @@ module RightScale
     # :single_threaded(Boolean):: true indicates to run all operations in one thread; false indicates
     #   to do requested work on EM defer thread and all else, such as pings on main thread
     # :threadpool_size(Integer):: Number of threads in EM thread pool
-    # :infrastructure(Boolean):: true indicates this agent is part of the RightScale infrastructure
     #
     # Connection options:
     #
@@ -492,7 +491,7 @@ module RightScale
     end
 
     # Setup identity queue for this agent
-    # For infrastructure agents also attach queue to advertise exchange
+    # For non-instance agents also attach queue to advertise exchange
     #
     # === Parameters
     # broker(Hash):: Individual broker to which agent is connected
@@ -525,30 +524,35 @@ module RightScale
       RightLinkLog.info("[setup] Subscribing queue #{@identity} on #{broker[:alias]}")
 
       queue = broker[:mq].queue(@identity, :durable => true, :no_declare => @options[:secure])
-      if @options[:infrastructure]
+
+      if AgentIdentity.parse(@identity).instance_agent?
+        queue.subscribe(:ack => true, &handler)
+      else
         # Explicitly create direct exchange and bind queue to it
         # since binding this queue to multiple exchanges
         binding = queue.bind(broker[:mq].direct(@identity, :durable => true, :auto_delete => true))
 
-        # A RightScale infrastructure agent must also bind to the advertise exchange so that
+        # Non-instance agents must also bind to the advertise exchange so that
         # a mapper that comes up after this agent can learn of its existence. The identity
         # queue binds to both the identity and advertise exchanges, therefore the advertise
         # exchange must be durable to match the identity exchange.
         queue.bind(broker[:mq].fanout("advertise", :durable => true))
 
         binding.subscribe(:ack => true, &handler)
-      else
-        queue.subscribe(:ack => true, &handler)
       end
     end
 
     # Setup shared queue for this agent
-    # Only for use by RightScale infrastructure agents
     # This queue is only allowed to receive requests
+    # Not for use by instance agents
     #
     # === Return
     # true:: Always return true
+    #
+    # === Raises
+    # Exception:: If this is an instance agent
     def setup_shared_queue
+      raise Exception, "Instance agents cannot use shared queues" if AgentIdentity.parse(@identity).instance_agent?
       queue = {:name => @shared_queue, :options => {:durable => true}}
       exchange = {:type => :direct, :name => @shared_queue, :options => {:durable => true}}
       filter = [:from, :tags, :tries, :persistent]
