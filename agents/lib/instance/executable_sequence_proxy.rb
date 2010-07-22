@@ -131,7 +131,6 @@ module RightScale
     # === Return
     # true:: Always return true
     def report_failure(title, msg)
-      AuditorProxy.instance.update_status("failed: #{ @bundle.to_s }", :audit_id => @bundle.audit_id)
       AuditorProxy.instance.append_error(title, :category => RightScale::EventCategories::CATEGORY_ERROR, :audit_id => @bundle.audit_id)
       AuditorProxy.instance.append_error(msg, :audit_id => @bundle.audit_id)
       fail

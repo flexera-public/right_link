@@ -184,10 +184,6 @@ class InstanceScheduler
       title = ran_decom ? 'decommission ' : ''
       title += succeeded ? 'completed' : 'failed'
       RightScale::AuditorProxy.instance.update_status("#{title}: #{bundle}", :audit_id => audit_id)
-      unless succeeded
-        RightScale::AuditorProxy.instance.append_error(@sequence.failure_title, :category => RightScale::EventCategories::CATEGORY_ERROR, :audit_id => audit_id)
-        RightScale::AuditorProxy.instance.append_error(@sequence.failure_message, :audit_id => audit_id)
-      end
     else
       RightLinkLog.warn("Missing bundle when updating execution status")
     end

@@ -97,7 +97,8 @@ describe InstanceScheduler do
     flexmock(RightScale::ExecutableSequenceProxy).should_receive(:new).and_return(@failure_sequence)
     flexmock(RightScale::RequestForwarder.instance).should_receive(:request).with(*@decommissioning_args).once
     flexmock(RightScale::RequestForwarder.instance).should_receive(:request).with(*@decommissioned_args).once.and_return { EM.stop }
-    flexmock(@auditor).should_receive(:append_error).twice
+    flexmock(@auditor).should_receive(:update_status).ordered.once.and_return { |s, _| s.should include('Scheduling execution of ') }
+    flexmock(@auditor).should_receive(:update_status).ordered.once.and_return { |s, _| s.should include('failed: ') }
     EM.run do
       res = @scheduler.schedule_decommission(:bundle => @bundle, :user_id => 42)
       res.success?.should be_true

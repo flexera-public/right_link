@@ -65,7 +65,7 @@ module RightScale
         begin
           AuditorStub.instance.init(options)
           sequence.callback { success = true; send_inputs_patch(sequence) }
-          sequence.errback { success = false; stop }
+          sequence.errback { success = false; report_failure(sequence, bundle.audit_id) }
           EM.defer { sequence.run }
         rescue Exception => e
           fail('Execution failed', "Execution failed (#{e.message}) from\n#{e.backtrace.join("\n")}")
@@ -169,11 +169,24 @@ module RightScale
       begin
         cmd = { :name => :set_inputs_patch, :patch => sequence.inputs_patch }
         @client.send_command(cmd)
-        stop
       rescue Exception => e
         fail('Failed to update inputs', "Failed to apply inputs patch after execution (#{e.message}) from\n#{e.backtrace.join("\n")}")
+      ensure
+        stop
       end
       true
+    end
+
+    # Report failure to core
+    def report_failure(sequence, audit_id)
+      begin
+        AuditorStub.instance.append_error(sequence.failure_title, :category => RightScale::EventCategories::CATEGORY_ERROR, :audit_id => audit_id) if sequence.failure_title
+        AuditorStub.instance.append_error(sequence.failure_message, :audit_id => audit_id) if sequence.failure_message
+      rescue Exception => e
+        fail('Failed to report failure', "Failed to report failure after execution (#{e.message}) from\n#{e.backtrace.join("\n")}")
+      ensure
+        stop
+      end
     end
 
     # Print failure message and exit abnormally

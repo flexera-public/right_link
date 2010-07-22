@@ -85,7 +85,7 @@ module RightScale
           end
         end
 
-        RightLinkLog.info("Command server started listening on port #{@listen_port}")
+        RightLinkLog.info("[setup] Command server started listening on port #{@listen_port}")
       rescue Exceptions::IO
         # Port already taken, increment and retry
         cmd_options = start(socket_port + 1, identity, commands, options)
@@ -101,7 +101,7 @@ module RightScale
     # false:: Otherwise
     def self.stop
       CommandIO.instance.stop_listening
-      RightLinkLog.info("Command server stopped listening")
+      RightLinkLog.info("[setup] Command server stopped listening")
     end
 
   end

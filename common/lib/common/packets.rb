@@ -118,7 +118,7 @@ module RightScale
     # === Return
     # tr(String):: Trace token, may be empty
     def trace
-      audit_id = self.respond_to?(:payload) && payload.is_a?(Hash) && payload['audit_id']  
+      audit_id = self.respond_to?(:payload) && payload.is_a?(Hash) && (payload['audit_id'] || payload[:audit_id])
       tok = self.respond_to?(:token) && token
       tr = ''
       if audit_id || tok
