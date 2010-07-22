@@ -76,6 +76,8 @@ module RightScale
         else
           error("Invalid operation result content: #{value.inspect}")
         end
+      elsif results.nil?
+        error("No results")
       else
         error("Invalid operation result type: #{results.inspect}")
       end
