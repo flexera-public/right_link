@@ -205,7 +205,9 @@ module RightScale
     # === Return
     # log_msg(String):: Log representation
     def to_s(filter = nil)
+      payload = PayloadFormatter.log(@type, @payload)
       log_msg = "#{super} #{trace} #{@type}"
+      log_msg += " #{payload}" if payload
       log_msg += " from #{id_to_s(@from)}" if filter.nil? || filter.include?(:from)
       log_msg += " with scope #{@scope}" if @scope && (filter.nil? || filter.include?(:scope))
       log_msg += " target #{id_to_s(@target)}" if @target && (filter.nil? || filter.include?(:target))
@@ -298,7 +300,9 @@ module RightScale
     # === Return
     # log_msg(String):: Log representation
     def to_s(filter = nil)
+      payload = PayloadFormatter.log(@type, @payload)
       log_msg = "#{super} #{trace} #{@type}"
+      log_msg += " #{payload}" if payload
       log_msg += " from #{id_to_s(@from)}" if filter.nil? || filter.include?(:from)
       log_msg += " with scope #{@scope}" if @scope && (filter.nil? || filter.include?(:scope))
       log_msg += ", target #{id_to_s(@target)}" if @target && (filter.nil? || filter.include?(:target))
