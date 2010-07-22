@@ -140,23 +140,23 @@ module RightScale
     # Only to be called from primary thread
     #
     # === Parameters
-    # res(Packet):: Packet received as result of request
+    # result(Packet):: Packet received as result of request
     #
     # === Return
     # true:: Always return true
-    def handle_result(res)
-      handlers = @pending_requests.delete(res.token)
+    def handle_result(result)
+      handlers = @pending_requests.delete(result.token)
       if handlers && handlers[:result_handler]
         # Delete any pending retry requests
         parent = handlers[:retry_parent]
         @pending_requests.reject! { |k, v| k == parent || v[:retry_parent] == parent } if parent
 
         if @single_threaded
-          EM.next_tick { handlers[:result_handler].call(res) }
+          EM.next_tick { handlers[:result_handler].call(result) }
         else
           EM.defer do
             begin
-              handlers[:result_handler].call(res)
+              handlers[:result_handler].call(result)
             rescue Exception => e
               RightLinkLog.error("RECV - Result processing error: #{e.message}")
               @callbacks[:exception].call(e, msg, self) rescue nil if @callbacks && @callbacks[:exception]
@@ -164,7 +164,7 @@ module RightScale
           end
         end
       else
-        RightLinkLog.debug("RECV - No pending request for #{res.to_s([])}")
+        RightLinkLog.debug("RECV - No pending request for #{result.to_s([])}")
       end
       true
     end
@@ -203,7 +203,7 @@ module RightScale
               else
                 RightLinkLog.warn("RESEND TIMEOUT after #{elapsed} seconds for #{request.to_s([:tags, :target, :tries])}")
                 result = OperationResult.timeout("Timeout after #{elapsed} seconds and #{count} attempts")
-                handle_result(Result.new(request.token, request.reply_to, {@identity => result}, @identity, request.tries))
+                handle_result(Result.new(request.token, request.reply_to, {@identity => result}, @identity))
               end
               check_connection(ids.first) if count == 1
             end
@@ -265,7 +265,7 @@ module RightScale
       begin
         exchange = {:type => :fanout, :name => "request", :options => {:durable => true, :no_declare => @secure}}
         ids = @broker.publish(exchange, request, :persistent => request.persistent,
-                              :log_filter => [:tags, :target, :tries], :brokers => ids)
+                              :log_filter => [:tags, :target, :tries, :persistent], :brokers => ids)
       rescue Exception => e
         RightLinkLog.error("Failed to publish #{request.to_s([:tags, :target, :tries])}: #{e.message}")
         ids = []

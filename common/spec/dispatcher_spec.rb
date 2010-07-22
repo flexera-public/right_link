@@ -88,7 +88,8 @@ describe "RightScale::Dispatcher" do
     @actor = Foo.new
     @registry = RightScale::ActorRegistry.new
     @registry.register(@actor, nil)
-    @dispatcher = RightScale::Dispatcher.new(@broker, @registry, '0xfunkymonkey', {})
+    @agent = flexmock("Agent", :identity => "agent", :broker => @broker, :registry => @registry, :options => {}).by_default
+    @dispatcher = RightScale::Dispatcher.new(@agent)
     @dispatcher.em = EMMock
   end
 
@@ -159,14 +160,40 @@ describe "RightScale::Dispatcher" do
 
   it "should reject requests that are stale" do
     flexmock(RightScale::RightLinkLog).should_receive(:info).once.with(on {|arg| arg =~ /REJECT STALE/})
-    @dispatcher = RightScale::Dispatcher.new(@broker, @registry, '0xfunkymonkey', :fresh_timeout => 15)
+    @agent.should_receive(:options).and_return(:fresh_timeout => 15)
+    @agent.should_receive(:advertise_services).once
+    @broker.should_receive(:publish).never
+    @dispatcher = RightScale::Dispatcher.new(@agent)
+    @dispatcher.em = EMMock
+    req = RightScale::Push.new('/foo/bar', 'you', :created_at => (Time.now.to_f - 16))
+    @dispatcher.dispatch(req).should == nil
+  end
+
+  it "should report stale requests to mapper if have reply_to" do
+    flexmock(RightScale::RightLinkLog).should_receive(:info).once.with(on {|arg| arg =~ /REJECT STALE/})
+    @agent.should_receive(:options).and_return(:fresh_timeout => 15)
+    @agent.should_receive(:advertise_services).once
+    @broker.should_receive(:publish).once
+    @dispatcher = RightScale::Dispatcher.new(@agent)
     @dispatcher.em = EMMock
     req = RightScale::Request.new('/foo/bar', 'you', :created_at => (Time.now.to_f - 16))
     @dispatcher.dispatch(req).should == nil
   end
 
+  it "should advertise services if has not done so recently" do
+    flexmock(RightScale::RightLinkLog).should_receive(:info).twice.with(on {|arg| arg =~ /REJECT STALE/})
+    @agent.should_receive(:options).and_return(:fresh_timeout => 15)
+    @agent.should_receive(:advertise_services).once
+    @dispatcher = RightScale::Dispatcher.new(@agent)
+    @dispatcher.em = EMMock
+    req = RightScale::Push.new('/foo/bar', 'you', :created_at => (Time.now.to_f - 16))
+    @dispatcher.dispatch(req).should == nil
+    @dispatcher.dispatch(req).should == nil
+  end
+
   it "should not reject requests that are fresh" do
-    @dispatcher = RightScale::Dispatcher.new(@broker, @registry, '0xfunkymonkey', :fresh_timeout => 15)
+    @agent.should_receive(:options).and_return(:fresh_timeout => 15)
+    @dispatcher = RightScale::Dispatcher.new(@agent)
     @dispatcher.em = EMMock
     req = RightScale::Request.new('/foo/bar', 'you', :created_at => (Time.now.to_f - 14))
     res = @dispatcher.dispatch(req)
@@ -176,7 +203,8 @@ describe "RightScale::Dispatcher" do
   end
 
   it "should not check age of requests if no fresh_timeout" do
-    @dispatcher = RightScale::Dispatcher.new(@broker, @registry, '0xfunkymonkey', :fresh_timeout => nil)
+    @agent.should_receive(:options).and_return(:fresh_timeout => nil)
+    @dispatcher = RightScale::Dispatcher.new(@agent)
     @dispatcher.em = EMMock
     req = RightScale::Request.new('/foo/bar', 'you', :created_at => (Time.now.to_f - 15))
     res = @dispatcher.dispatch(req)
@@ -186,7 +214,8 @@ describe "RightScale::Dispatcher" do
   end
 
   it "should not check age of requests with created_at value of 0" do
-    @dispatcher = RightScale::Dispatcher.new(@broker, @registry, '0xfunkymonkey', :fresh_timeout => 15)
+    @agent.should_receive(:options).and_return(:fresh_timeout => 15)
+    @dispatcher = RightScale::Dispatcher.new(@agent)
     @dispatcher.em = EMMock
     req = RightScale::Request.new('/foo/bar', 'you', :created_at => 0)
     res = @dispatcher.dispatch(req)
@@ -198,7 +227,8 @@ describe "RightScale::Dispatcher" do
   it "should reject duplicate requests" do
     flexmock(RightScale::RightLinkLog).should_receive(:info).once.with(on {|arg| arg =~ /REJECT DUP/})
     EM.run do
-      @dispatcher = RightScale::Dispatcher.new(@broker, @registry, '0xfunkymonkey', :dup_check => true)
+      @agent.should_receive(:options).and_return(:dup_check => true)
+      @dispatcher = RightScale::Dispatcher.new(@agent)
       req = RightScale::Request.new('/foo/bar', 'you', :token => "try")
       @dispatcher.completed[req.token] = Time.now.to_i
       @dispatcher.dispatch(req).should == nil
@@ -209,7 +239,8 @@ describe "RightScale::Dispatcher" do
   it "should reject duplicate retry requests" do
     flexmock(RightScale::RightLinkLog).should_receive(:info).once.with(on {|arg| arg =~ /REJECT RETRY DUP/})
     EM.run do
-      @dispatcher = RightScale::Dispatcher.new(@broker, @registry, '0xfunkymonkey', :dup_check => true)
+      @agent.should_receive(:options).and_return(:dup_check => true)
+      @dispatcher = RightScale::Dispatcher.new(@agent)
       req = RightScale::Request.new('/foo/bar', 'you', :token => "try")
       req.tries.concat(["try1", "try2"])
       @dispatcher.completed["try2"] = Time.now.to_i
@@ -220,7 +251,8 @@ describe "RightScale::Dispatcher" do
 
   it "should not reject non-duplicate requests" do
     EM.run do
-      @dispatcher = RightScale::Dispatcher.new(@broker, @registry, '0xfunkymonkey', :dup_check => true)
+      @agent.should_receive(:options).and_return(:dup_check => true)
+      @dispatcher = RightScale::Dispatcher.new(@agent)
       req = RightScale::Request.new('/foo/bar', 'you', :token => "try")
       req.tries.concat(["try1", "try2"])
       @dispatcher.completed["try3"] = Time.now.to_i
@@ -231,7 +263,7 @@ describe "RightScale::Dispatcher" do
 
   it "should not check for duplicates if dup_check disabled" do
     EM.run do
-      @dispatcher = RightScale::Dispatcher.new(@broker, @registry, '0xfunkymonkey', {})
+      @dispatcher = RightScale::Dispatcher.new(@agent)
       req = RightScale::Request.new('/foo/bar', 'you', :token => "try")
       req.tries.concat(["try1", "try2"])
       @dispatcher.completed["try2"] = Time.now.to_i
@@ -242,8 +274,8 @@ describe "RightScale::Dispatcher" do
 
   it "should remove old completed requests when timeout" do
     EM.run do
-      @dispatcher = RightScale::Dispatcher.new(@broker, @registry, '0xfunkymonkey', :dup_check => true,
-                                               :fresh_timeout => 0.4, :completed_interval => 0.2)
+      @agent.should_receive(:options).and_return(:dup_check => true, :fresh_timeout => 0.4, :completed_interval => 0.2)
+      @dispatcher = RightScale::Dispatcher.new(@agent)
       req = RightScale::Request.new('/foo/bar', 'you', :token => "try")
       @dispatcher.dispatch(req).should_not == nil
       EM.add_timer(0.1) do

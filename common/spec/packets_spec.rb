@@ -125,26 +125,54 @@ end
 
 describe "Packet: Result" do
   it "should dump/load as JSON objects" do
-    packet = RightScale::Result.new('0xdeadbeef', 'to', 'results', 'from', ['try'])
+    packet = RightScale::Result.new('0xdeadbeef', 'to', 'results', 'from', ['try'], true)
     packet2 = JSON.parse(packet.to_json)
     packet.token.should == packet2.token
     packet.to.should == packet2.to
     packet.results.should == packet2.results
     packet.from.should == packet2.from
     packet.tries.should == packet2.tries
+    packet.persistent.should == packet2.persistent
     # JSON decoding of floating point sometimes loses accuracy
     (packet.created_at - packet2.created_at).abs.should <= 1.0e-05
   end
 
   it "should dump/load as Marshalled ruby objects" do
-    packet = RightScale::Result.new('0xdeadbeef', 'to', 'results', 'from', ['try'])
+    packet = RightScale::Result.new('0xdeadbeef', 'to', 'results', 'from', ['try'], true)
     packet2 = Marshal.load(Marshal.dump(packet))
     packet.token.should == packet2.token
     packet.to.should == packet2.to
     packet.results.should == packet2.results
     packet.from.should == packet2.from
     packet.tries.should == packet2.tries
+    packet.persistent.should == packet2.persistent
     packet.created_at.should == packet2.created_at
+  end
+end
+
+
+describe "Packet: Stale" do
+  it "should dump/load as JSON objects" do
+    packet = RightScale::Stale.new('0xdeadbeef', 'token', 'from', 12345678, 87654321, 900)
+    packet2 = JSON.parse(packet.to_json)
+    packet.identity.should == packet2.identity
+    packet.token.should == packet2.token
+    packet.from.should == packet2.from
+    packet.timeout.should == packet2.timeout
+    # JSON decoding of floating point sometimes loses accuracy
+    (packet.created_at - packet2.created_at).abs.should <= 1.0e-05
+    (packet.received_at - packet2.received_at).abs.should <= 1.0e-05
+  end
+
+  it "should dump/load as Marshalled ruby objects" do
+    packet = RightScale::Stale.new('0xdeadbeef', 'token', 'from', 12345678, 87654321, 900)
+    packet2 = Marshal.load(Marshal.dump(packet))
+    packet.identity.should == packet2.identity
+    packet.token.should == packet2.token
+    packet.from.should == packet2.from
+    packet.timeout.should == packet2.timeout
+    packet.created_at.should == packet2.created_at
+    packet.received_at.should == packet2.received_at
   end
 end
 
@@ -221,8 +249,6 @@ describe "Packet: Ping" do
     packet.status.should == packet2.status
     packet.connected.should == packet2.connected
     packet.failed.should == packet2.failed
-    # JSON decoding of floating point sometimes loses accuracy
-    (packet.created_at - packet2.created_at).abs.should <= 1.0e-05
   end
 
   it "should dump/load as Marshalled ruby objects" do
@@ -232,7 +258,6 @@ describe "Packet: Ping" do
     packet.status.should == packet2.status
     packet.connected.should == packet2.connected
     packet.failed.should == packet2.failed
-    packet.created_at.should == packet2.created_at
   end
 end
 

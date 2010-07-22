@@ -180,19 +180,18 @@ module RightScale
 
         # Initiate AMQP broker connection, wait for connection before proceeding
         # otherwise messages published on failed connection will be lost
-        order = if @options[:infrastructure] then :random else :priority end
-        @broker = HA_MQ.new(Serializer.new(@options[:format]), @options.merge(:order => order))
+        @broker = HA_MQ.new(Serializer.new(@options[:format]), @options)
         @broker.connection_status(:one_off => BROKER_CONNECT_TIMEOUT) do |status|
           if status == :connected
             EM.next_tick do
               begin
                 @registry = ActorRegistry.new
-                @dispatcher = Dispatcher.new(@broker, @registry, @identity, @options)
+                @dispatcher = Dispatcher.new(self)
                 @mapper_proxy = MapperProxy.new(self)
                 load_actors
                 setup_traps
                 setup_queues
-                advertise_services(@broker.connected)
+                advertise_services
                 setup_heartbeat
                 at_exit { un_register } unless $TESTING
                 start_console if @options[:console] && !@options[:daemonize]
@@ -227,6 +226,20 @@ module RightScale
       @registry.register(actor, prefix)
     end
 
+    # Advertise the services provided by this agent
+    #
+    # === Parameters
+    # connected(Array):: Identity of connected brokers, defaults to all connected brokers
+    #
+    # === Return
+    # true:: Always return true
+    def advertise_services(connected = nil)
+      connected = @broker.connected unless connected
+      exchange = {:type => :fanout, :name => 'registration', :options => {:no_declare => @options[:secure], :durable => true}}
+      publish(exchange, Register.new(@identity, @registry.services, status_proc.call, self.tags, connected, @shared_queue))
+      true
+    end
+
     # Update set of tags published by agent and notify mapper
     # Add tags in 'new_tags' and remove tags in 'old_tags'
     #
@@ -240,15 +253,9 @@ module RightScale
       @tags += (new_tags || [])
       @tags -= (obsolete_tags || [])
       @tags.uniq!
-      if @options[:infrastructure]
-        name = 'registration'
-        packet = TagUpdate.new(@identity, new_tags, obsolete_tags)
-      else
-        name = 'request'
-        packet = Push.new("/mapper/update_tags", {:new_tags => new_tags, :obsolete_tags => obsolete_tags},
-                          :from => @identity, :persistent => true)
-      end
-      exchange = {:type => :fanout, :name => name, :options => {:no_declare => @options[:secure], :durable => true}}
+      exchange = {:type => :fanout, :name => "request", :options => {:no_declare => @options[:secure], :durable => true}}
+      packet = Push.new("/mapper/update_tags", {:new_tags => new_tags, :obsolete_tags => obsolete_tags},
+                        :from => @identity, :persistent => true)
       publish(exchange, packet, :persistent => true)
       true
     end
@@ -280,7 +287,7 @@ module RightScale
             begin
               if status == :connected
                 setup_identity_queue(b)
-                advertise_services(@broker.connected)
+                advertise_services
                 unless update_configuration(:host => @broker.hosts, :port => @broker.ports)
                   RightLinkLog.warn("Successfully connected to #{b[:identity]} but failed to update config file")
                 end
@@ -369,7 +376,7 @@ module RightScale
         else
           # Defer reconnect initiation to the mapper via ping
           @broker.not_usable(ids)
-          advertise_services(@broker.connected)
+          advertise_services
         end
       rescue Exception => e
         res = "Failed to mark brokers #{ids.inspect} as unusable: #{e.message}"
@@ -501,10 +508,10 @@ module RightScale
             # This happens as part of connecting to a broker
             RightLinkLog.debug("RECV #{broker[:alias]} nil message ignored")
           else
-            filter = [:from, :tags, :tries]
+            filter = [:from, :tags, :tries, :persistent]
             packet = @broker.receive(broker, @identity, msg, Advertise => nil, Request => filter, Push => filter, Result => [])
             case packet
-            when Advertise then advertise_services(@broker.connected)
+            when Advertise then advertise_services
             when Request, Push then @dispatcher.dispatch(packet)
             when Result then @mapper_proxy.handle_result(packet)
             end
@@ -544,7 +551,7 @@ module RightScale
     def setup_shared_queue
       queue = {:name => @shared_queue, :options => {:durable => true}}
       exchange = {:type => :direct, :name => @shared_queue, :options => {:durable => true}}
-      filter = [:from, :tags, :tries]
+      filter = [:from, :tags, :tries, :persistent]
       @broker.subscribe(queue, exchange, :ack => true, Request => filter, Push => filter, :category => "request") do |_, request|
         begin
           @dispatcher.dispatch(request) if request
@@ -563,8 +570,8 @@ module RightScale
     def setup_heartbeat
       EM.add_periodic_timer(@options[:ping_time]) do
         exchange = {:type => :fanout, :name => 'heartbeat', :options => {:no_declare => @options[:secure]}}
-        failed = @broker.failed(backoff = true) unless @options[:infrastructure]
-        publish(exchange, Ping.new(@identity, status_proc.call, @broker.connected, failed), :no_log => true)
+        packet = Ping.new(@identity, status_proc.call, @broker.connected, @broker.failed(backoff = true))
+        publish(exchange, packet, :no_log => true)
       end
       true
     end
@@ -614,19 +621,6 @@ module RightScale
       rescue Exception => e
         RightLinkLog.error("Failed to publish #{packet.class} to #{exchange[:name]} exchange: #{e.message}") unless @terminating
       end
-      true
-    end
-
-    # Advertise the services provided by this agent
-    #
-    # === Parameters
-    # connected(Array):: Identity of connected brokers
-    #
-    # === Return
-    # true:: Always return true
-    def advertise_services(connected)
-      exchange = {:type => :fanout, :name => 'registration', :options => {:no_declare => @options[:secure], :durable => true}}
-      publish(exchange, Register.new(@identity, @registry.services, status_proc.call, self.tags, connected, @shared_queue))
       true
     end
 

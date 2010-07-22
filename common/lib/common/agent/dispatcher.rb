@@ -25,6 +25,9 @@ module RightScale
   # Dispatching of payload to specified actor
   class Dispatcher
 
+    # (Integer) Seconds between registrations because of stale requests
+    ADVERTISE_INTERVAL = 5 * 60
+
     # (ActorRegistry) Registry for actors
     attr_reader :registry
 
@@ -43,25 +46,23 @@ module RightScale
     # Initialize dispatcher
     #
     # === Parameters
-    # broker(HA_MQ):: High availability AMQP broker
-    # registry(ActorRegistry):: Registry for actors
-    # identity(String):: Identity of associated agent
-    #
-    # === Options
-    # :fresh_timeout(Integer):: Maximum age in seconds before a request times out and is rejected
-    # :completed_timeout(Integer):: Maximum time in seconds for retaining a request for duplicate checking,
-    #   defaults to :fresh_timeout if > 0, otherwise defaults to 10 minutes
-    # :completed_interval(Integer):: Number of seconds between checks for removing old requests,
-    #   defaults to 30 seconds
-    # :dup_check(Boolean):: Whether to check for and reject duplicate requests, e.g., due to retries
-    # :secure(Boolean):: true indicates to use Security features of rabbitmq to restrict agents to themselves
-    # :single_threaded(Boolean):: true indicates to run all operations in one thread; false indicates
-    #   to do requested work on event machine defer thread and all else, such as pings on main thread
-    # :threadpool_size(Integer):: Number of threads in event machine thread pool
-    def initialize(broker, registry, identity, options)
-      @broker = broker
-      @registry = registry
-      @identity = identity
+    # agent(Agent):: Agent using this mapper proxy; uses its identity, broker, registry, and following options:
+    #   :fresh_timeout(Integer):: Maximum age in seconds before a request times out and is rejected
+    #   :completed_timeout(Integer):: Maximum time in seconds for retaining a request for duplicate checking,
+    #     defaults to :fresh_timeout if > 0, otherwise defaults to 10 minutes
+    #   :completed_interval(Integer):: Number of seconds between checks for removing old requests,
+    #     defaults to 30 seconds
+    #   :dup_check(Boolean):: Whether to check for and reject duplicate requests, e.g., due to retries
+    #   :secure(Boolean):: true indicates to use Security features of rabbitmq to restrict agents to themselves
+    #   :single_threaded(Boolean):: true indicates to run all operations in one thread; false indicates
+    #     to do requested work on event machine defer thread and all else, such as pings on main thread
+    #   :threadpool_size(Integer):: Number of threads in event machine thread pool
+    def initialize(agent)
+      @agent = agent
+      @broker = @agent.broker
+      @registry = @agent.registry
+      @identity = @agent.identity
+      options = @agent.options
       @secure = options[:secure]
       @single_threaded = options[:single_threaded]
       @fresh_timeout = nil_if_zero(options[:fresh_timeout])
@@ -69,6 +70,7 @@ module RightScale
       @completed_timeout = options[:completed_timeout] || @fresh_timeout ? @fresh_timeout : (10 * 60)
       @completed_interval = options[:completed_interval] || 60
       @completed = {} # Only access from primary thread
+      @last_advertise_time = 0
       @em = EM
       @em.threadpool_size = (options[:threadpool_size] || 20).to_i
       setup_completion_aging if @dup_check
@@ -78,58 +80,70 @@ module RightScale
     # Work is done in background defer thread if single threaded option is false
     # Handle returning of result to requester including logging any exceptions
     # Reject requests that are not fresh enough or that are duplicates of work already completed
+    # For stale requests report them to mapper and periodically advertise services in case mappers
+    # do not have accurate clock skew for this agent
     #
     # === Parameters
-    # deliverable(Request|Push):: Packet containing request
+    # request(Request|Push):: Packet containing request
     #
     # === Return
     # r(Result):: Result from dispatched request, nil if not dispatched because dup or stale
-    def dispatch(deliverable)
-      if @fresh_timeout && (created_at = deliverable.created_at.to_i) > 0
-        age = Time.now.to_i - created_at
+    def dispatch(request)
+      if @fresh_timeout && (created_at = request.created_at.to_i) > 0
+        time = Time.now.to_i
+        age = time - created_at
         if age > @fresh_timeout
-          RightLinkLog.info("REJECT STALE <#{deliverable.token}> age #{age} exceeds #{@fresh_timeout} second limit")
+          RightLinkLog.info("REJECT STALE <#{request.token}> age #{age} exceeds #{@fresh_timeout} second limit")
+          if (time - @last_advertise_time) > ADVERTISE_INTERVAL
+            @last_advertise_time = time
+            @agent.advertise_services
+          end
+          if request.respond_to?(:reply_to)
+            packet = Stale.new(@identity, request.token, request.from, request.created_at, time, @fresh_timeout)
+            exchange = {:type => :queue, :name => request.reply_to, :options => {:durable => true, :no_declare => @secure}}
+            @broker.publish(exchange, packet, :persistent => request.persistent)
+          end
           return nil
         end
       end
 
-      if @dup_check && deliverable.kind_of?(Request)
-        if @completed[deliverable.token]
-          RightLinkLog.info("REJECT DUP <#{deliverable.token}> of self")
+      if @dup_check && request.kind_of?(Request)
+        if @completed[request.token]
+          RightLinkLog.info("REJECT DUP <#{request.token}> of self")
           return nil
         end
-        if deliverable.respond_to?(:tries) && !deliverable.tries.empty?
-          deliverable.tries.each do |token|
+        if request.respond_to?(:tries) && !request.tries.empty?
+          request.tries.each do |token|
             if @completed[token]
-              RightLinkLog.info("REJECT RETRY DUP <#{deliverable.token}> of <#{token}>")
+              RightLinkLog.info("REJECT RETRY DUP <#{request.token}> of <#{token}>")
               return nil
             end
           end
         end
       end
 
-      prefix, meth = deliverable.type.split('/')[1..-1]
+      prefix, meth = request.type.split('/')[1..-1]
       meth ||= :index
       actor = registry.actor_for(prefix)
 
       operation = lambda do
         begin
-          args = [ deliverable.payload ]
-          args.push(deliverable) if actor.method(meth).arity == 2
+          args = [ request.payload ]
+          args.push(request) if actor.method(meth).arity == 2
           actor.__send__(meth, *args)
         rescue Exception => e
-          handle_exception(actor, meth, deliverable, e)
+          handle_exception(actor, meth, request, e)
         end
       end
       
       callback = lambda do |r|
         begin
-          if deliverable.kind_of?(Request)
+          if request.kind_of?(Request)
             completed_at = Time.now.to_i
-            @completed[deliverable.token] = completed_at if @dup_check && deliverable.token
-            r = Result.new(deliverable.token, deliverable.reply_to, r, identity, deliverable.tries)
-            exchange = {:type => :queue, :name => deliverable.reply_to, :options => {:durable => true, :no_declare => @secure}}
-            @broker.publish(exchange, r, :persistent => deliverable.persistent, :log_filter => [:tries])
+            @completed[request.token] = completed_at if @dup_check && request.token
+            r = Result.new(request.token, request.reply_to, r, identity, request.tries, request.persistent)
+            exchange = {:type => :queue, :name => request.reply_to, :options => {:durable => true, :no_declare => @secure}}
+            @broker.publish(exchange, r, :persistent => request.persistent, :log_filter => [:tries, :persistent])
           end
         rescue Exception => e
           RightLinkLog.error("Failed to publish result of dispatched request: #{e.message}")
@@ -175,21 +189,21 @@ module RightScale
     # === Parameters
     # actor(Actor):: Actor that failed to process request
     # meth(String):: Name of actor method being dispatched to
-    # deliverable(Packet):: Packet that dispatcher is acting upon
+    # request(Packet):: Packet that dispatcher is acting upon
     # e(Exception):: Exception that was raised
     #
     # === Return
     # error(String):: Error description for this exception
-    def handle_exception(actor, meth, deliverable, e)
+    def handle_exception(actor, meth, request, e)
       error = describe_error(e)
       RightLinkLog.error(error)
       begin
         if actor.class.exception_callback
           case actor.class.exception_callback
           when Symbol, String
-            actor.send(actor.class.exception_callback, meth.to_sym, deliverable, e)
+            actor.send(actor.class.exception_callback, meth.to_sym, request, e)
           when Proc
-            actor.instance_exec(meth.to_sym, deliverable, e, &actor.class.exception_callback)
+            actor.instance_exec(meth.to_sym, request, e, &actor.class.exception_callback)
           end
         end
       rescue Exception => e1

@@ -158,8 +158,8 @@ module RightScale
     #   :target(String):: Target nanite for the request
     #   :persistent(Boolean):: Indicates if this request should be saved to persistent storage
     #     by the AMQP broker
-    #   :created_at(Numeric):: Time in seconds when this request was created for use in timing
-    #     out the request; value 0 means never timeout; defaults to current time
+    #   :created_at(Fixnum):: Time in seconds in Unix-epoch when this request was created for
+    #      use in timing out the request; value 0 means never timeout; defaults to current time
     #   :tags(Array(Symbol)):: List of tags to be used for selecting target for this request
     #   :tries(Array):: List of tokens for previous attempts to send this request
     # size(Integer):: Size of request in bytes used only for marshalling
@@ -213,8 +213,8 @@ module RightScale
       log_msg += " target #{id_to_s(@target)}" if @target && (filter.nil? || filter.include?(:target))
       log_msg += ", reply_to #{id_to_s(@reply_to)}" if @reply_to && (filter.nil? || filter.include?(:reply_to))
       log_msg += ", tags #{@tags.inspect}" if @tags && !@tags.empty? && (filter.nil? || filter.include?(:tags))
+      log_msg += ", persistent" if @persistent && (filter.nil? || filter.include?(:persistent))
       log_msg += ", tries #{tries_to_s}" if @tries && !@tries.empty? && (filter.nil? || filter.include?(:tries))
-      log_msg += ", persistent #{@persistent.inspect}" if @persistent && (filter.nil? || filter.include?(:persistent))
       log_msg += ", payload #{@payload.inspect}" if filter.nil? || filter.include?(:payload)
       log_msg
     end
@@ -261,8 +261,8 @@ module RightScale
     #   :target(String):: Target nanite for the request
     #   :persistent(Boolean):: Indicates if this request should be saved to persistent storage
     #     by the AMQP broker
-    #   :created_at(Numeric):: Time in seconds when this request was created for use in timing
-    #     out the request; value 0 means never timeout; defaults to current time
+    #   :created_at(Fixnum):: Time in seconds in Unix-epoch when this request was created for
+    #     use in timing out the request; value 0 means never timeout; defaults to current time
     #   :tags(Array(Symbol)):: List of tags to be used for selecting target for this request
     # size(Integer):: Size of request in bytes used only for marshalling
     def initialize(type, payload, opts = {}, size = nil)
@@ -311,7 +311,7 @@ module RightScale
       log_msg += " with scope #{@scope}" if @scope && (filter.nil? || filter.include?(:scope))
       log_msg += ", target #{id_to_s(@target)}" if @target && (filter.nil? || filter.include?(:target))
       log_msg += ", tags #{@tags.inspect}" if @tags && !@tags.empty? && (filter.nil? || filter.include?(:tags))
-      log_msg += ", persistent #{@persistent.inspect}" if @persistent && (filter.nil? || filter.include?(:persistent))
+      log_msg += ", persistent" if @persistent && (filter.nil? || filter.include?(:persistent))
       log_msg += ", payload #{@payload.inspect}" if filter.nil? || filter.include?(:payload)
       log_msg
     end
@@ -330,7 +330,7 @@ module RightScale
   # Packet for a work result notification sent from actor node
   class Result < Packet
 
-    attr_accessor :token, :results, :to, :from, :tries, :created_at
+    attr_accessor :token, :results, :to, :from, :tries, :persistent, :created_at
 
     # Create packet
     #
@@ -340,14 +340,17 @@ module RightScale
     # results(Any):: Arbitrary data that is transferred from actor, a result of actor's work
     # from(String):: Sender identity
     # tries(Array):: List of tokens for previous attempts to send associated request
-    # created_at(Numeric):: Time in seconds when this result was created
+    # persistent(Boolean):: Indicates if this result should be saved to persistent storage
+    #   by the AMQP broker
+    # created_at(Fixnum):: Time in seconds in Unix-epoch when this result was created
     # size(Integer):: Size of request in bytes used only for marshalling
-    def initialize(token, to, results, from, tries = nil, created_at = nil, size = nil)
+    def initialize(token, to, results, from, tries = nil, persistent = nil, created_at = nil, size = nil)
       @token      = token
       @to         = to
       @from       = from
       @results    = results
       @tries      = tries || []
+      @persistent = persistent
       @created_at = created_at || Time.now.to_f
       @size       = size
     end
@@ -361,7 +364,7 @@ module RightScale
     # (Result):: New packet
     def self.json_create(o)
       i = o['data']
-      new(i['token'], i['to'], i['results'], i['from'], i['tries'], i['created_at'], o['size'])
+      new(i['token'], i['to'], i['results'], i['from'], i['tries'], i['persistent'], i['created_at'], o['size'])
     end
 
     # Generate log representation
@@ -375,6 +378,8 @@ module RightScale
       log_msg = "#{super} #{trace}"
       log_msg += " from #{id_to_s(@from)}" if filter.nil? || filter.include?(:from)
       log_msg += " to #{id_to_s(@to)}" if filter.nil? || filter.include?(:to)
+      log_msg += " persistent" if @persistent && (filter.nil? || filter.include?(:persistent))
+      log_msg += " tries #{tries_to_s}" if @tries && !@tries.empty? && (filter.nil? || filter.include?(:tries))
       if filter.nil? || !filter.include?(:results)
         if !@results.nil?
           if @results.is_a?(RightScale::OperationResult)
@@ -387,7 +392,6 @@ module RightScale
       else
         log_msg += " results #{@results.inspect}"
       end
-      log_msg += ", tries #{tries_to_s}" if @tries && !@tries.empty? && (filter.nil? || filter.include?(:tries))
       log_msg
     end
 
@@ -412,6 +416,61 @@ module RightScale
   end # Result
 
 
+  # Packet for reporting a stale request packet
+  class Stale < Packet
+
+    attr_accessor :identity, :token, :from, :created_at, :received_at, :timeout
+
+    # Create packet
+    #
+    # === Parameters
+    # identity(String):: Identity of agent reporting the stale request
+    # token(String):: Generated id for stale request
+    # from(String):: Identity of originator of stale request
+    # created_at(Fixnum):: Time in seconds in Unix-epoch when originator created message
+    #   plus any mapper adjustment for clock skew
+    # received_at(Fixnum):: Time in seconds in Unix-epoch when agent detected stale message
+    # timeout(Integer):: Maximum message age before considered stale
+    # size(Integer):: Size of request in bytes used only for marshalling
+    def initialize(identity, token, from, created_at, received_at, timeout, size = nil)
+      @identity    = identity
+      @token       = token
+      @from        = from
+      @created_at  = created_at
+      @received_at = received_at
+      @timeout     = timeout
+      @size        = size
+    end
+
+    # Create packet from unmarshalled JSON data
+    #
+    # === Parameters
+    # o(Hash):: JSON data
+    #
+    # === Return
+    # (Result):: New packet
+    def self.json_create(o)
+      i = o['data']
+      new(i['identity'], i['token'], i['from'], i['created_at'], i['received_at'], i['timeout'], o['size'])
+    end
+
+    # Generate log representation
+    #
+    # === Parameters
+    # filter(Array(Symbol)):: Attributes to be included in output
+    #
+    # === Return
+    # log_msg(String):: Log representation
+    def to_s(filter = nil)
+      log_msg = "#{super} #{trace} #{id_to_s(@identity)}"
+      log_msg += " from #{id_to_s(@from)} created_at #{@created_at.to_i}"
+      log_msg += " received_at #{@received_at.to_i} timeout #{@timeout}"
+      log_msg
+    end
+
+  end # Stale
+
+
   # Packet for availability notification from an agent to the mappers
   class Register < Packet
 
@@ -427,7 +486,7 @@ module RightScale
     # tags(Array(Symbol)):: List of tags associated with this service
     # brokers(Array|nil):: Identity of agent's brokers with nil meaning not supported
     # shared_queue(String):: Name of a queue shared between this agent and another
-    # created_at(Numeric):: Time in seconds when this registration was created
+    # created_at(Fixnum):: Time in seconds in Unix-epoch when this registration was created
     # version(Integer):: Protocol version of agent registering
     # size(Integer):: Size of request in bytes used only for marshalling
     def initialize(identity, services, status, tags, brokers, shared_queue = nil, created_at = nil, version = VERSION, size = nil)
@@ -530,14 +589,12 @@ module RightScale
     # connected(Array|nil):: Identity of agent's connected brokers, nil means not supported
     # failed(Array|nil):: Identity of agent's failed brokers, i.e., ones it never was able
     #   to connect to, nil means not supported
-    # created_at(Numeric):: Time in seconds when this ping was created
     # size(Integer):: Size of request in bytes used only for marshalling
-    def initialize(identity, status, connected = nil, failed = nil, created_at = nil, size = nil)
+    def initialize(identity, status, connected = nil, failed = nil, size = nil)
       @status     = status
       @identity   = identity
       @connected  = connected
       @failed     = failed
-      @created_at = created_at || Time.now.to_f
       @size       = size
     end
 
@@ -550,7 +607,7 @@ module RightScale
     # (Ping):: New packet
     def self.json_create(o)
       i = o['data']
-      new(i['identity'], i['status'], i['connected'], i['failed'], i['created_at'], o['size'])
+      new(i['identity'], i['status'], i['connected'], i['failed'], o['size'])
     end
 
     # Generate log representation
@@ -594,8 +651,9 @@ module RightScale
   end # Advertise
 
 
-  # Packet for an infrastructure agent to update the mappers with its tags
-  # Deprecated for use by instance agents, they instead use /mapper/update_tags
+  # Deprecated: instead use /mapper/update_tags
+  #
+  # Packet for an agent to update the mappers with its tags
   class TagUpdate < Packet
 
     attr_accessor :identity, :new_tags, :obsolete_tags
