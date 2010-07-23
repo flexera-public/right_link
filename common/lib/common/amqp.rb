@@ -137,6 +137,21 @@ begin
     end
   end
 
+  # This monkey patch catches exceptions that would otherwise cause EM to stop or be in a bad
+  # state if a top level EM error handler was setup. Instead close the connection and leave EM
+  # alone.
+  AMQP::Client.module_eval do
+    alias :orig_receive_data :receive_data
+    def receive_data(*args)
+      begin
+        orig_receive_data(*args)
+      rescue Exception => e
+        RightScale::RightLinkLog.error("Exception caught while processing AMQP frame: #{e.message}, closing connection.")
+        close_connection
+      end
+    end
+  end
+
 rescue LoadError => e
   # Make sure we're dealing with a legitimate missing-file LoadError
   raise e unless e.message =~ /^no such file to load/
