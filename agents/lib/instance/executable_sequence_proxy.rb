@@ -97,8 +97,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def on_read_stderr(data)
-      @error_message ||= ''
-      @error_message << data
+      AuditorProxy.instance.append_info(data, :audit_id => @bundle.audit_id)
     end
 
     # Handle runner process exited event
@@ -111,10 +110,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def on_exit(status)
-      if @error_message
-        title, message = @error_message.split("\n", 2)
-        report_failure(title, message || title)
-      elsif !status.success?
+      if !status.success?
         report_failure("Chef process failure", "Chef process failed with return code #{status.exitstatus}")
       else
         succeed
