@@ -73,31 +73,6 @@ describe RightScale::ExecutableSequenceProxy do
     @proxy.instance_variable_get(:@deferred_status).should == :failed
   end
 
-  it 'should report failures when cook outputs errors' do
-    status = flexmock('status', :success? => false, :exitstatus => 1)
-    flexmock(RightScale).should_receive(:popen3).and_return do |o| 
-      o[:target].send(o[:stderr_handler], 'blarg')
-      o[:target].send(o[:exit_handler], status)
-    end
-    @auditor.should_receive(:append_error).twice.with('blarg', Hash)
-    @proxy.instance_variable_get(:@deferred_status).should == nil
-    @proxy.run 
-    @proxy.instance_variable_get(:@deferred_status).should == :failed
-  end
-
-  it 'should report failures title and message from cook error outputs' do
-    status = flexmock('status', :success? => false, :exitstatus => 1)
-    flexmock(RightScale).should_receive(:popen3).and_return do |o| 
-      o[:target].send(o[:stderr_handler], "title\nmessage\nmessage_line2")
-      o[:target].send(o[:exit_handler], status)
-    end
-    @auditor.should_receive(:append_error).once.with('title', Hash)
-    @auditor.should_receive(:append_error).once.with("message\nmessage_line2", :audit_id => 42)
-    @proxy.instance_variable_get(:@deferred_status).should == nil
-    @proxy.run 
-    @proxy.instance_variable_get(:@deferred_status).should == :failed
-  end
-
   context 'when running popen3' do
 
     it 'should call the cook utility' do
