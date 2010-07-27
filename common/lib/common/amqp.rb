@@ -401,6 +401,7 @@ module RightScale
     #
     # === Raise
     # (RightScale::Exceptions::IO):: If cannot find a connected AMQP broker
+    # (RightScale::Exceptions::Config):: If a requested broker is unknown
     def publish(exchange, packet, options = {})
       ids = []
       msg = if options[:no_serialize] || @serializer.nil? then packet else @serializer.dump(packet) end
@@ -1019,10 +1020,19 @@ module RightScale
     # === Return
     # (Array):: Allowed brokers in the order to be used
     def use(options)
-      choices, select = if options[:brokers] && !options[:brokers].empty?
-        [options[:brokers].map { |a| @brokers_hash[a] }, options[:order]]
+      choices = []
+      select = options[:order]
+      if options[:brokers] && !options[:brokers].empty?
+        options[:brokers].each do |a|
+          if choice = @brokers_hash[a]
+            choices << choice
+          else
+            RightLinkLog.error("Invalid broker id #{a.inspect}, check server configuration")
+          end
+        end
       else
-        [@brokers, (options[:order] || @select)]
+        choices = @brokers
+        select ||= @select
       end
       if select == :random
         choices.sort_by { rand }

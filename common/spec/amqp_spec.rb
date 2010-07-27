@@ -555,6 +555,19 @@ describe RightScale::HA_MQ do
         should == ["rs-broker-third-5672"]
     end
 
+    it "should log an error if a selected broker is unknown but still publish with any remaining brokers" do
+      flexmock(RightScale::RightLinkLog).should_receive(:error).with(/Invalid broker id "rs-broker-third-5672"/).once
+      @serializer.should_receive(:dump).with(@packet).and_return(@message).once
+      @mq.should_receive(:direct).with("exchange", {}).and_return(@direct).once
+      @direct.should_receive(:publish).with(@message, Hash).once
+      ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first,second")
+      ha_mq.brokers[0][:status] = :connected
+      ha_mq.brokers[1][:status] = :connected
+      ha_mq.publish({:type => :direct, :name => "exchange"}, @packet,
+                    :brokers => ["rs-broker-third-5672", "rs-broker-first-5672"]).
+        should == ["rs-broker-first-5672"]
+    end
+
     it "should publish to first connected broker in selected broker list if requested even if initialized with random" do
       @serializer.should_receive(:dump).with(@packet).and_return(@message).once
       @mq.should_receive(:direct).with("exchange", {}).and_return(@direct).once
