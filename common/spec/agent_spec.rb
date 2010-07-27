@@ -23,6 +23,13 @@
 require File.join(File.dirname(__FILE__), 'spec_helper')
 require 'tmpdir'
 
+def run_in_em(stop_event_loop = true)
+  EM.run do
+    yield
+    EM.stop_event_loop if stop_event_loop
+  end
+end
+
 describe RightScale::Agent do
 
   describe "Default Option" do
@@ -150,7 +157,7 @@ describe RightScale::Agent do
       @bind = flexmock("bind", :subscribe => nil)
       @queue = flexmock("queue", :subscribe => {}, :bind => @bind)
       @mq = flexmock("mq", :queue => @queue, :fanout => @fanout, :direct => @direct)
-      @broker = flexmock("Broker", :subscribe => true, :publish => true, :prefetch => true,
+      @broker = flexmock("broker", :subscribe => true, :publish => true, :prefetch => true,
                          :connected => ["b1"], :failed => []).by_default
       @broker.should_receive(:each_usable).and_yield({:mq => @mq})
       @broker.should_receive(:connection_status).and_yield(:connected)
@@ -301,6 +308,199 @@ describe RightScale::Agent do
       @agent.dispatcher.em.threadpool_size.should == 5
     end
     
+  end
+
+  describe "Terminating" do
+
+    before(:each) do
+      flexmock(EM).should_receive(:add_periodic_timer)
+      flexmock(EM).should_receive(:next_tick).and_yield
+      @timer = flexmock("timer")
+      flexmock(EM::Timer).should_receive(:new).and_return(@timer).by_default
+      @timer.should_receive(:cancel).by_default
+      @direct = flexmock("direct", :publish => nil)
+      @fanout = flexmock("fanout", :publish => nil)
+      @bind = flexmock("bind", :subscribe => nil)
+      @queue = flexmock("queue", :subscribe => {}, :bind => @bind)
+      @mq = flexmock("mq", :queue => @queue, :fanout => @fanout, :direct => @direct)
+      @broker = flexmock("broker", :subscribe => true, :publish => true, :prefetch => true,
+                         :connected => ["b1"], :failed => []).by_default
+      @broker.should_receive(:each_usable).and_yield({:mq => @mq})
+      @broker.should_receive(:connection_status).and_yield(:connected)
+      flexmock(RightScale::HA_MQ).should_receive(:new).and_return(@broker)
+      flexmock(RightScale::PidFile).should_receive(:new).
+              and_return(flexmock("pid file", :check=>true, :write=>true, :remove=>true))
+      @mapper_proxy = flexmock("mapper_proxy")
+      flexmock(RightScale::MapperProxy).should_receive(:new).and_return(@mapper_proxy)
+      @dispatcher = flexmock("dispatcher")
+      flexmock(RightScale::Dispatcher).should_receive(:new).and_return(@dispatcher)
+      @identity = "rs-core-123-1"
+      @agent = nil
+    end
+
+    it "should unregister from mapper" do
+      @broker.should_receive(:unsubscribe).once
+      run_in_em do
+        @agent = RightScale::Agent.start(:user => "me", :identity => @identity)
+        flexmock(@agent).should_receive(:un_register).once
+        @agent.run
+        @agent.terminate
+      end
+    end
+
+    it "should unsubscribe from shared queue" do
+      @broker.should_receive(:unsubscribe).with("shared", Proc).once
+      run_in_em do
+        @agent = RightScale::Agent.start(:user => "me", :identity => @identity, :shared_queue => "shared")
+        flexmock(@agent).should_receive(:un_register).once
+        @agent.run
+        @agent.terminate
+      end
+    end
+
+    it "should wait to terminate if there are recent unfinished requests" do
+      @mapper_proxy.should_receive(:pending_requests).and_return(["request"]).once
+      @mapper_proxy.should_receive(:request_age).and_return(10).once
+      @dispatcher.should_receive(:dispatch_age).and_return(nil).once
+      @broker.should_receive(:unsubscribe).and_yield.once
+      flexmock(EM::Timer).should_receive(:new).with(20, Proc).once
+      run_in_em do
+        @agent = RightScale::Agent.start(:user => "me", :identity => @identity)
+        flexmock(@agent).should_receive(:un_register)
+        @agent.run
+        @agent.terminate
+      end
+    end
+
+    it "should wait to terminate if there are recent dispatches" do
+      @mapper_proxy.should_receive(:pending_requests).and_return([]).once
+      @mapper_proxy.should_receive(:request_age).and_return(nil).once
+      @dispatcher.should_receive(:dispatch_age).and_return(20).once
+      @broker.should_receive(:unsubscribe).and_yield.once
+      flexmock(EM::Timer).should_receive(:new).with(10, Proc).once
+      run_in_em do
+        @agent = RightScale::Agent.start(:user => "me", :identity => @identity)
+        flexmock(@agent).should_receive(:un_register)
+        @agent.run
+        @agent.terminate
+      end
+    end
+
+    it "should wait to terminate if there are recent unfinished requests or recent dispatches" do
+      @mapper_proxy.should_receive(:pending_requests).and_return(["request"]).once
+      @mapper_proxy.should_receive(:request_age).and_return(21).once
+      @dispatcher.should_receive(:dispatch_age).and_return(22).once
+      @broker.should_receive(:unsubscribe).and_yield.once
+      flexmock(EM::Timer).should_receive(:new).with(9, Proc).once
+      run_in_em do
+        @agent = RightScale::Agent.start(:user => "me", :identity => @identity)
+        flexmock(@agent).should_receive(:un_register)
+        @agent.run
+        @agent.terminate
+      end
+    end
+
+    it "should log that terminating and then log the reason for waiting to terminate" do
+      flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Agent rs-core-123-1 terminating/).once
+      flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Termination waiting 9 seconds for/).once
+      @mapper_proxy.should_receive(:pending_requests).and_return(["request"]).once
+      @mapper_proxy.should_receive(:request_age).and_return(21).once
+      @dispatcher.should_receive(:dispatch_age).and_return(22).once
+      @broker.should_receive(:unsubscribe).and_yield.once
+      flexmock(EM::Timer).should_receive(:new).with(9, Proc).once
+      run_in_em do
+        @agent = RightScale::Agent.start(:user => "me", :identity => @identity)
+        flexmock(@agent).should_receive(:un_register)
+        @agent.run
+        @agent.terminate
+      end
+    end
+
+    it "should not log reason for waiting to terminate if no need to wait" do
+      flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Agent rs-core-123-1 terminating/).once
+      flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Termination waiting/).never
+      @mapper_proxy.should_receive(:pending_requests).and_return([]).once
+      @mapper_proxy.should_receive(:request_age).and_return(nil).once
+      @dispatcher.should_receive(:dispatch_age).and_return(nil).once
+      @broker.should_receive(:unsubscribe).and_yield.once
+      flexmock(EM::Timer).should_receive(:new).with(0, Proc).once
+      run_in_em do
+        @agent = RightScale::Agent.start(:user => "me", :identity => @identity)
+        flexmock(@agent).should_receive(:un_register)
+        @agent.run
+        @agent.terminate
+      end
+    end
+
+    it "should continue with termination after waiting and log that continuing" do
+      flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Agent rs-core-123-1 terminating/).once
+      flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Termination waiting/).once
+      flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Continuing with termination/).once
+      @mapper_proxy.should_receive(:pending_requests).and_return(["request"]).twice
+      @mapper_proxy.should_receive(:request_age).and_return(10).twice
+      @dispatcher.should_receive(:dispatch_age).and_return(10).once
+      @broker.should_receive(:unsubscribe).and_yield.once
+      @broker.should_receive(:close).once
+      flexmock(EM::Timer).should_receive(:new).with(20, Proc).and_yield.once
+      run_in_em do
+        @agent = RightScale::Agent.start(:user => "me", :identity => @identity)
+        flexmock(@agent).should_receive(:un_register)
+        @agent.run
+        @agent.terminate
+      end
+    end
+
+    it "should execute block after all brokers have been closed" do
+      @mapper_proxy.should_receive(:pending_requests).and_return(["request"]).twice
+      @mapper_proxy.should_receive(:request_age).and_return(10).twice
+      @dispatcher.should_receive(:dispatch_age).and_return(10).once
+      @broker.should_receive(:unsubscribe).and_yield.once
+      @broker.should_receive(:close).and_yield.once
+      flexmock(EM::Timer).should_receive(:new).with(20, Proc).and_yield.once
+      run_in_em do
+        @agent = RightScale::Agent.start(:user => "me", :identity => @identity)
+        flexmock(@agent).should_receive(:un_register)
+        @agent.run
+        called = 0
+        @agent.terminate { called += 1 }
+        called.should == 1
+      end
+    end
+
+    it "should stop EM if no block specified" do
+      @mapper_proxy.should_receive(:pending_requests).and_return(["request"]).twice
+      @mapper_proxy.should_receive(:request_age).and_return(10).twice
+      @dispatcher.should_receive(:dispatch_age).and_return(10).once
+      @broker.should_receive(:unsubscribe).and_yield.once
+      @broker.should_receive(:close).once
+      flexmock(EM::Timer).should_receive(:new).with(20, Proc).and_yield.once
+      run_in_em(stop_event_loop = false) do
+        @agent = RightScale::Agent.start(:user => "me", :identity => @identity)
+        flexmock(@agent).should_receive(:un_register)
+        @agent.run
+        @agent.terminate
+      end
+    end
+
+    it "should terminate immediately if called a second time but should still execute block" do
+      @mapper_proxy.should_receive(:pending_requests).and_return(["request"]).once
+      @mapper_proxy.should_receive(:request_age).and_return(10).once
+      @dispatcher.should_receive(:dispatch_age).and_return(10).once
+      @broker.should_receive(:unsubscribe).and_yield.once
+      flexmock(EM::Timer).should_receive(:new).with(20, Proc).and_return(@timer).once
+      @timer.should_receive(:cancel).once
+      run_in_em do
+        @agent = RightScale::Agent.start(:user => "me", :identity => @identity)
+        flexmock(@agent).should_receive(:un_register)
+        @agent.run
+        called = 0
+        @agent.terminate { called += 1 }
+        called.should == 0
+        @agent.terminate { called += 1 }
+        called.should == 1
+      end
+    end
+
   end
 
 end

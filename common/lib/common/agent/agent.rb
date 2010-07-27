@@ -57,6 +57,9 @@ module RightScale
     # (Proc) Callable object that returns agent load as a string
     attr_accessor :status_proc
 
+    # Seconds to wait after last request received before terminating
+    TERMINATION_WAIT_TIME = 30
+
     # Default option settings for the agent
     DEFAULT_OPTIONS = COMMON_DEFAULT_OPTIONS.merge({
       :user => 'agent',
@@ -65,6 +68,7 @@ module RightScale
       :retry_interval => nil,
       :retry_timeout => nil,
       :prefetch => 1,
+      :persist => 'none',
       :ping_time => 60,
       :default_services => []
     }) unless defined?(DEFAULT_OPTIONS)
@@ -235,7 +239,8 @@ module RightScale
     def advertise_services(connected = nil)
       connected = @broker.connected unless connected
       exchange = {:type => :fanout, :name => 'registration', :options => {:no_declare => @options[:secure], :durable => true}}
-      publish(exchange, Register.new(@identity, @registry.services, status_proc.call, self.tags, connected, @shared_queue))
+      packet = Register.new(@identity, @registry.services, status_proc.call, self.tags, connected, @shared_queue)
+      publish(exchange, packet) unless @terminating
       true
     end
 
@@ -255,7 +260,7 @@ module RightScale
       exchange = {:type => :fanout, :name => "request", :options => {:no_declare => @options[:secure], :durable => true}}
       packet = Push.new("/mapper/update_tags", {:new_tags => new_tags, :obsolete_tags => obsolete_tags},
                         :from => @identity, :persistent => true)
-      publish(exchange, packet, :persistent => true)
+      publish(exchange, packet, :persistent => true) unless @terminating
       true
     end
 
@@ -384,6 +389,53 @@ module RightScale
       res
     end
 
+    # Gracefully terminate execution by allowing unfinished tasks to complete
+    # Immediately terminate if called a second time
+    #
+    # === Block
+    # Optional block to be executed after termination is complete
+    #
+    # === Return
+    # true:: Always return true
+    def terminate(&blk)
+      if @terminating
+        RightLinkLog.info("Terminating immediately")
+        @termination_timer.cancel if @termination_timer
+        if blk then blk.call else EM.stop end
+      else
+        @terminating = true
+        RightScale::RightLinkLog.info("Agent #{@options[:identity]} terminating")
+        un_register
+        @broker.unsubscribe(@shared_queue) do
+          requests = @mapper_proxy.pending_requests.size
+          request_age = @mapper_proxy.request_age
+          dispatch_age = @dispatcher.dispatch_age
+          wait_time = [TERMINATION_WAIT_TIME - (request_age || TERMINATION_WAIT_TIME),
+                       TERMINATION_WAIT_TIME - (dispatch_age || TERMINATION_WAIT_TIME), 0].max
+          if wait_time > 0
+            reason = ""
+            reason = "completion of #{requests} unfinished requests started as recently as #{request_age} seconds ago" if request_age
+            reason += " and " if request_age && dispatch_age
+            reason += "requests dispatched as recently as #{dispatch_age} seconds ago" if dispatch_age
+            RightLinkLog.info("Termination waiting #{wait_time} seconds for #{reason}")
+          end
+          @termination_timer = EM::Timer.new(wait_time) do
+            request_age = @mapper_proxy.request_age
+            if wait_time > 0 && request_age
+              requests = @mapper_proxy.pending_requests.size
+              RightLinkLog.info("Continuing with termination with #{requests} unfinished requests " +
+                                "started as recently as #{request_age} seconds ago")
+            elsif wait_time > 0
+              RightLinkLog.info("Continuing with termination")
+            end
+            @broker.close(&blk)
+            EM.stop unless blk
+          end
+        end
+      end
+      true
+    end
+
     protected
 
     # Set the agent's configuration using the supplied options
@@ -510,8 +562,9 @@ module RightScale
             filter = [:from, :tags, :tries, :persistent]
             packet = @broker.receive(broker, @identity, msg, Advertise => nil, Request => filter, Push => filter, Result => [])
             case packet
-            when Advertise then advertise_services
-            when Request, Push then @dispatcher.dispatch(packet)
+            when Advertise then advertise_services unless @terminating
+            when Request then @dispatcher.dispatch(packet) unless @terminating
+            when Push then @dispatcher.dispatch(packet) unless @terminating
             when Result then @mapper_proxy.handle_result(packet)
             end
           end
@@ -558,7 +611,7 @@ module RightScale
       filter = [:from, :tags, :tries, :persistent]
       @broker.subscribe(queue, exchange, :ack => true, Request => filter, Push => filter, :category => "request") do |_, request|
         begin
-          @dispatcher.dispatch(request) if request
+          @dispatcher.dispatch(request)
         rescue Exception => e
           RightLinkLog.error("RECV - Shared queue processing error: #{e.message}")
           @callbacks[:exception].call(e, request, self) rescue nil if @callbacks && @callbacks[:exception]
@@ -575,7 +628,7 @@ module RightScale
       EM.add_periodic_timer(@options[:ping_time]) do
         exchange = {:type => :fanout, :name => 'heartbeat', :options => {:no_declare => @options[:secure]}}
         packet = Ping.new(@identity, status_proc.call, @broker.connected, @broker.failed(backoff = true))
-        publish(exchange, packet, :no_log => true)
+        publish(exchange, packet, :no_log => true) unless @terminating
       end
       true
     end
@@ -587,9 +640,7 @@ module RightScale
     def setup_traps
       ['INT', 'TERM'].each do |sig|
         old = trap(sig) do
-          @terminating = true
-          un_register
-          @broker.close do
+          terminate do
             EM.stop
             old.call if old.is_a? Proc
           end
@@ -597,7 +648,7 @@ module RightScale
       end
       true
     end
-    
+
     # Store unique tags
     #
     # === Parameters

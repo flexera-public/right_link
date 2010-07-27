@@ -105,8 +105,18 @@ describe RightScale::MapperProxy do
     it "should store the result handler" do
       result_handler = lambda {}
       flexmock(RightScale::AgentIdentity).should_receive(:generate).and_return('abc').once
-      @instance.request('/welcome/aboard', 'iZac',{}, &result_handler)
+      @instance.request('/welcome/aboard', 'iZac', {}, &result_handler)
       @instance.pending_requests['abc'][:result_handler].should == result_handler
+    end
+
+    it "should store the request receive time" do
+      flexmock(RightScale::AgentIdentity).should_receive(:generate).and_return('abc').once
+      flexmock(Time).should_receive(:now).and_return(1000000).by_default
+      @instance.request_age.should be_nil
+      @instance.request('/welcome/aboard', 'iZac', {})
+      @instance.pending_requests['abc'][:receive_time].should == 1000000
+      flexmock(Time).should_receive(:now).and_return(1000100)
+      @instance.request_age.should == 100
     end
 
     describe "with retry" do

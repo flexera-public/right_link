@@ -263,10 +263,10 @@ module RightScale
       end
     end
 
-    # Subscribe an AMQP queue to an AMQP exchange on AMQP brokers are connected or still connecting
+    # Subscribe an AMQP queue to an AMQP exchange on all AMQP brokers that are connected or still connecting
     # Allow connecting here because subscribing may happen before all have confirmed connected
-    # Handle AMQP message acknowledgement if requested
-    # Unserialize received responses and log them as specified
+    # Do not wait for confirmation from AMQP broker that subscription is complete
+    # When a message is received, acknowledge, unserialize, and log it as specified
     #
     # === Parameters
     # queue(Hash):: AMQP queue being subscribed with keys :name and :options
@@ -286,10 +286,10 @@ module RightScale
     #   :no_log(Boolean):: Disable receive logging unless debug level
     #
     # === Block
-    # Required block is called each time exchange matches a message to the queue
+    # Required block that is called each time exchange matches a message to the queue
     # Its arguments are the identity of the broker delivering the message and the message,
     # which is unserialized unless :no_unserialize was specified
-    # If the message is unserialized and it is not of the right type, the message passed is nil
+    # If the message is unserialized and it is not of the right type, it is dropped after logging a warning
     #
     # === Return
     # ids(Array):: Identity of AMQP brokers where successfully subscribed
@@ -300,6 +300,7 @@ module RightScale
         begin
           RightLinkLog.info("[setup] Subscribing queue #{queue[:name]}#{to_exchange} on broker #{b[:alias]}")
           q = b[:mq].queue(queue[:name], queue[:options] || {})
+          b[:queues] << q
           if exchange
             x = b[:mq].__send__(exchange[:type], exchange[:name], exchange[:options] || {})
             q = q.bind(x)
@@ -312,7 +313,8 @@ module RightScale
                 if options[:no_unserialize] || @serializer.nil?
                   blk.call(b[:identity], msg)
                 else
-                  blk.call(b[:identity], receive(b, queue[:name], msg, options))
+                  packet = receive(b, queue[:name], msg, options)
+                  blk.call(b[:identity], packet) if packet
                 end
               rescue Exception => e
                 RightLinkLog.error("Failed executing block for message from queue #{queue.inspect}#{to_exchange} " +
@@ -325,7 +327,8 @@ module RightScale
                 if options[:no_unserialize] || @serializer.nil?
                   blk.call(b[:identity], msg)
                 else
-                  blk.call(b[:identity], receive(b, queue[:name], msg, options))
+                  packet = receive(b, queue[:name], msg, options)
+                  blk.call(b[:identity], packet) if packet
                 end
               rescue Exception => e
                 RightLinkLog.error("Failed executing block for message from queue #{queue.inspect}#{to_exchange} " +
@@ -341,7 +344,7 @@ module RightScale
       ids
     end
 
-    # Receive message by unserializing it, checking that it an acceptable type, and logging accordingly
+    # Receive message by unserializing it, checking that it is an acceptable type, and logging accordingly
     #
     # === Parameters
     # broker(Hash):: Broker that delivered message
@@ -376,6 +379,40 @@ module RightScale
         @exception_on_receive.call(msg, e, self) if @exception_on_receive 
         nil
       end
+    end
+
+    # Unsubscribe from the specified queues
+    # Silently ignore unknown queues
+    #
+    # === Parameters
+    # queue_names(Array):: Names of queues previously subscribed to
+    #
+    # === Block
+    # Optional block that is called with no parameters after all queues are unsubscribed
+    #
+    # === Return
+    # true:: Always return true
+    def unsubscribe(*queue_names, &blk)
+      count = @brokers.inject(0) { |c, b| c + b[:queues].inject(0) { |c, q| c + (queue_names.include?(q.name) ? 1 : 0) } }
+      if count == 0
+        blk.call if blk
+      else
+        handler = CountedDeferrable.new(count)
+        handler.callback { blk.call if blk }
+        @brokers.each do |b|
+          b[:queues].each do |q|
+            if queue_names.include?(q.name)
+              begin
+                q.unsubscribe { handler.completed_one }
+              rescue Exception => e
+                handler.completed_one
+                RightLinkLog.error("Failed unsubscribing from queue #{q.name} in broker #{b[:alias]}: #{e.message}")
+              end
+            end
+          end
+        end
+      end
+      true
     end
 
     # Publish packet to AMQP exchange of first connected broker, or all connected brokers
@@ -853,9 +890,16 @@ module RightScale
     def close(&blk)
       unless @closed
         @closed = true
-        handler = CloseHandler.new(@brokers.size)
+        handler = CountedDeferrable.new(@brokers.size)
         handler.callback { blk.call if blk }
-        @brokers.each { |b| close_one(b[:identity], propagate = false) { handler.close_one } rescue nil }
+        @brokers.each do |b|
+          begin
+            close_one(b[:identity], propagate = false) { handler.completed_one }
+          rescue Exception => e
+            handler.completed_one
+            RightLinkLog.error("Failed to close broker #{b[:alias]}: #{e.message}")
+          end
+        end
       end
       true
     end
@@ -899,19 +943,18 @@ module RightScale
 
     protected
 
-    # Helper for deferring close action until all AMQP connections are closed
-    class CloseHandler
+    # Helper for deferring block execution until specified number of actions have completed
+    class CountedDeferrable
 
       include EM::Deferrable
 
       def initialize(count)
         @count = count
-        @closed = 0
       end
 
-      def close_one
-        @closed += 1
-        succeed if @closed == @count
+      def completed_one
+        @count -= 1
+        succeed if @count == 0
       end
 
     end
@@ -934,6 +977,7 @@ module RightScale
         :identity   => identity(address[:host], address[:port]),
         :alias      => "b#{address[:id]}",
         :status     => :connecting,
+        :queues     => [],
         :tries      => 0,
         :backoff    => 0
       }

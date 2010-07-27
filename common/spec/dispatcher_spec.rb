@@ -288,4 +288,14 @@ describe "RightScale::Dispatcher" do
     end
   end
 
+  it "should return dispatch age of youngest request" do
+    flexmock(Time).should_receive(:now).and_return(1000000).by_default
+    @dispatcher.dispatch_age.should be_nil
+    @dispatcher.dispatch(RightScale::Push.new('/foo/bar', 'you'))
+    @dispatcher.dispatch_age.should be_nil
+    @dispatcher.dispatch(RightScale::Request.new('/foo/bar', 'you'))
+    flexmock(Time).should_receive(:now).and_return(1000100)
+    @dispatcher.dispatch_age.should == 100
+  end
+
 end # RightScale::Dispatcher

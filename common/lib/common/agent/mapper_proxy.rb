@@ -106,7 +106,7 @@ module RightScale
           request.from = @identity
           request.token = AgentIdentity.generate
           request.persistent = opts.key?(:persistent) ? opts[:persistent] : ['all', 'request'].include?(@persist)
-          @pending_requests[request.token] = {:result_handler => blk}
+          @pending_requests[request.token] = {:result_handler => blk, :receive_time => Time.now.to_i}
           request_with_retry(request, request.token)
         rescue Exception => e
           RightLinkLog.error("Failed to send #{type} request: #{e.message}")
@@ -167,6 +167,20 @@ module RightScale
         RightLinkLog.debug("RECV - No pending request for #{result.to_s([])}")
       end
       true
+    end
+
+    # Get age of youngest pending request
+    #
+    # === Return
+    # age(Integer|nil):: Age in seconds of youngest request, or nil if no pending requests
+    def request_age
+      time = Time.now.to_i
+      age = nil
+      @pending_requests.each_value do |request|
+        seconds = time - request[:receive_time]
+        age = seconds if age.nil? || seconds < age
+      end
+      age
     end
 
     protected
@@ -247,7 +261,7 @@ module RightScale
           end
         end
         request = Request.new("/mapper/ping", nil, {:from => @identity, :token => AgentIdentity.generate})
-        @pending_requests[request.token] = {:result_handler => handler}
+        @pending_requests[request.token] = {:result_handler => handler, :receive_time => Time.now.to_i}
         publish(request, [id])
       end
       true

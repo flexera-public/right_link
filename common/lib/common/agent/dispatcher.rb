@@ -128,6 +128,7 @@ module RightScale
 
       operation = lambda do
         begin
+          @last_dispatch_time = Time.now.to_i if request.class == Request
           args = [ request.payload ]
           args.push(request) if actor.method(meth).arity == 2
           actor.__send__(meth, *args)
@@ -156,6 +157,14 @@ module RightScale
       else
         @em.defer(operation, callback)
       end
+    end
+
+    # Determine age of youngest Request dispatch
+    #
+    # === Return
+    # age(Integer|nil):: Age in seconds of youngest dispatch, or nil if none
+    def dispatch_age
+      age = Time.now.to_i - @last_dispatch_time if @last_dispatch_time
     end
 
     private
