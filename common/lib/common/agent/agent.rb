@@ -291,6 +291,7 @@ module RightScale
             begin
               if status == :connected
                 setup_identity_queue(b)
+                setup_shared_queue(b) if @shared_queue
                 advertise_services
                 unless update_configuration(:host => @broker.hosts, :port => @broker.ports)
                   RightLinkLog.warn("Successfully connected to #{b[:identity]} but failed to update config file")
@@ -399,12 +400,12 @@ module RightScale
     # true:: Always return true
     def terminate(&blk)
       if @terminating
-        RightLinkLog.info("Terminating immediately")
+        RightLinkLog.info("[stop] Terminating immediately")
         @termination_timer.cancel if @termination_timer
         if blk then blk.call else EM.stop end
       else
         @terminating = true
-        RightScale::RightLinkLog.info("Agent #{@options[:identity]} terminating")
+        RightScale::RightLinkLog.info("[stop] Agent #{@options[:identity]} terminating")
         un_register
         @broker.unsubscribe(@shared_queue) do
           requests = @mapper_proxy.pending_requests.size
@@ -417,16 +418,16 @@ module RightScale
             reason = "completion of #{requests} unfinished requests started as recently as #{request_age} seconds ago" if request_age
             reason += " and " if request_age && dispatch_age
             reason += "requests dispatched as recently as #{dispatch_age} seconds ago" if dispatch_age
-            RightLinkLog.info("Termination waiting #{wait_time} seconds for #{reason}")
+            RightLinkLog.info("[stop] Termination waiting #{wait_time} seconds for #{reason}")
           end
           @termination_timer = EM::Timer.new(wait_time) do
             request_age = @mapper_proxy.request_age
             if wait_time > 0 && request_age
               requests = @mapper_proxy.pending_requests.size
-              RightLinkLog.info("Continuing with termination with #{requests} unfinished requests " +
+              RightLinkLog.info("[stop] Continuing with termination with #{requests} unfinished requests " +
                                 "started as recently as #{request_age} seconds ago")
             elsif wait_time > 0
-              RightLinkLog.info("Continuing with termination")
+              RightLinkLog.info("[stop] Continuing with termination")
             end
             @broker.close(&blk)
             EM.stop unless blk
@@ -537,8 +538,10 @@ module RightScale
     # true:: Always return true
     def setup_queues
       @broker.prefetch(@options[:prefetch]) if @options[:prefetch]
-      @broker.each_usable { |b| setup_identity_queue(b) }
-      setup_shared_queue if @shared_queue
+      @broker.each_usable do |b|
+        setup_identity_queue(b)
+        setup_shared_queue(b) if @shared_queue
+      end
       true
     end
 
@@ -577,6 +580,7 @@ module RightScale
       RightLinkLog.info("[setup] Subscribing queue #{@identity} on #{broker[:alias]}")
 
       queue = broker[:mq].queue(@identity, :durable => true, :no_declare => @options[:secure])
+      broker[:queues] << queue
 
       if AgentIdentity.parse(@identity).instance_agent?
         queue.subscribe(:ack => true, &handler)
@@ -599,18 +603,26 @@ module RightScale
     # This queue is only allowed to receive requests
     # Not for use by instance agents
     #
+    # === Parameters
+    # broker(Hash):: Individual broker to which agent is connected
+    #
     # === Return
     # true:: Always return true
     #
     # === Raises
     # Exception:: If this is an instance agent
-    def setup_shared_queue
+    def setup_shared_queue(broker)
       raise Exception, "Instance agents cannot use shared queues" if AgentIdentity.parse(@identity).instance_agent?
-      queue = {:name => @shared_queue, :options => {:durable => true}}
-      exchange = {:type => :direct, :name => @shared_queue, :options => {:durable => true}}
-      filter = [:from, :tags, :tries, :persistent]
-      @broker.subscribe(queue, exchange, :ack => true, Request => filter, Push => filter, :category => "request") do |_, request|
+      RightLinkLog.info("[setup] Subscribing queue #{@shared_queue} on #{broker[:alias]}")
+      queue = broker[:mq].queue(@shared_queue, :durable => true)
+      broker[:queues] << queue
+      exchange = broker[:mq].direct(@shared_queue,  :durable => true)
+      queue.bind(exchange).subscribe(:ack => true) do |info, msg|
         begin
+          # Ack now before processing message to avoid risk of duplication after a crash
+          info.ack
+          filter = [:from, :tags, :tries, :persistent]
+          request = @broker.receive(broker, @identity, msg, Request => filter, Push => filter, :category => "request")
           @dispatcher.dispatch(request)
         rescue Exception => e
           RightLinkLog.error("RECV - Shared queue processing error: #{e.message}")

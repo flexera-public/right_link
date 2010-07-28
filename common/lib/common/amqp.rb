@@ -306,9 +306,9 @@ module RightScale
             q = q.bind(x)
           end
           if options[:ack]
-            # Ack now before processing to avoid risk of duplication after a crash
             q.subscribe(:ack => true) do |info, msg|
               begin
+                # Ack now before processing to avoid risk of duplication after a crash
                 info.ack
                 if options[:no_unserialize] || @serializer.nil?
                   blk.call(b[:identity], msg)
@@ -403,10 +403,11 @@ module RightScale
           b[:queues].each do |q|
             if queue_names.include?(q.name)
               begin
+                RightLinkLog.info("[stop] Unsubscribing queue #{q.name} on #{b[:alias]}")
                 q.unsubscribe { handler.completed_one }
               rescue Exception => e
                 handler.completed_one
-                RightLinkLog.error("Failed unsubscribing from queue #{q.name} in broker #{b[:alias]}: #{e.message}")
+                RightLinkLog.error("Failed unsubscribing queue #{q.name} on broker #{b[:alias]}: #{e.message}")
               end
             end
           end
