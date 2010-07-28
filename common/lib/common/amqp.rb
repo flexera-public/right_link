@@ -403,7 +403,7 @@ module RightScale
           b[:queues].each do |q|
             if queue_names.include?(q.name)
               begin
-                RightLinkLog.info("[stop] Unsubscribing queue #{q.name} on #{b[:alias]}")
+                RightLinkLog.info("[stop] Unsubscribing queue #{q.name} on broker #{b[:alias]}")
                 q.unsubscribe { handler.completed_one }
               rescue Exception => e
                 handler.completed_one
@@ -925,6 +925,7 @@ module RightScale
 
       if connection_closable(broker)
         begin
+          RightLinkLog.info("[stop] Closed connection to broker #{broker[:alias]}")
           update_status(broker, :closed) if propagate
           broker[:connection].close do
             broker[:status] = :closed
