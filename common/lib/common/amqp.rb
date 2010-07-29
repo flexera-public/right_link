@@ -152,6 +152,18 @@ begin
     end
   end
 
+  # Add a new callback to amqp gem that triggers once the handshake with the broker completed
+  # The 'connected' status callback happens before the handshake is done and if it results in
+  # a lot of activity it might prevent EM from being able to call the code handling the
+  # incoming handshake packet in a timely fashion causing the broker to close the connection
+  AMQP::BasicClient.module_eval do
+    alias :orig_process_frame :process_frame
+    def process_frame(frame)
+      orig_process_frame(frame)
+      @connection_status.call(:ready) if @connection_status && frame.payload.is_a?(AMQP::Protocol::Connection::Start)
+    end
+  end
+
 rescue LoadError => e
   # Make sure we're dealing with a legitimate missing-file LoadError
   raise e unless e.message =~ /^no such file to load/
@@ -1042,13 +1054,16 @@ module RightScale
     #
     # === Parameters
     # broker(Hash):: Broker reporting status
-    # status(Symbol):: Status of connection (:connected, :disconnected, :failed, :closed)
+    # status(Symbol):: Status of connection (:connected, :ready, :disconnected, :failed, :closed)
     #
     # === Return
     # true:: Always return true
     def update_status(broker, status)
       before = connected
-      broker[:status] = status
+      # Wait until connection is ready (i.e. handshake with broker is completed) before
+      # changing our status to connected
+      return if status == :connected
+      broker[:status] = status == :ready ? :connected : status
       after = connected
       if status == :failed
         RightLinkLog.error("Failed to connect to broker #{broker[:alias]}")
