@@ -70,18 +70,11 @@ module RightScale
     # Generate unique identity
     #
     # === Return
-    # id(String):: Random hexadecimal string
+    # id(String):: Random 128-bit hexadecimal string
     def self.generate
-      values = [
-        rand(0x0010000),
-        rand(0x0010000),
-        rand(0x0010000),
-        rand(0x0010000),
-        rand(0x0010000),
-        rand(0x1000000),
-        rand(0x1000000),
-      ]
-      id = "%04x%04x%04x%04x%04x%06x%06x" % values
+      bytes = RightScale::RightLinkConfig[:platform].rng.pseudorandom_bytes(16)
+      #Transform into hex string
+      id = bytes.unpack('H*')[0]
     end
 
     # Check whether identity corresponds to an instance agent

@@ -207,6 +207,14 @@ module RightScale
       platform_service(:ssh)
     end
 
+    # Platform random number generator (RNG) facilities.
+    #
+    # === Return
+    # platform specific RNG object
+    def rng
+      platform_service(:rng)
+    end
+
     # Linux platform-specific platform object
     #
     # === Return

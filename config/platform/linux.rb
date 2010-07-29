@@ -209,6 +209,16 @@ module RightScale
         end
       end
 
+      class Rng
+        def pseudorandom_bytes(count)
+          f = File.open('/dev/urandom', 'r')
+          bytes = f.read(count)
+          f.close
+
+          bytes
+        end
+      end
+
     end
   end
 end

@@ -484,6 +484,20 @@ module RightScale
         end
       end
 
+      class Rng
+        def pseudorandom_bytes(count)
+          bytes = ''
+
+          srand #to give us a fighting chance at avoiding state-sync issues
+          
+          count.times do
+            bytes << rand(0xff)
+          end
+
+          bytes
+        end
+      end
+
     end
   end
 end
