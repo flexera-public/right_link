@@ -245,7 +245,8 @@ module RightScale
           begin
             @pending_ping = nil
             RightLinkLog.warn("Mapper ping via broker #{id} timed out after #{PING_TIMEOUT} seconds, attempting to reconnect")
-            @agent.connect(@broker.host(id), @broker.port(id), @broker.id_(id), @broker.priority(id), force = true)
+            host, port, alias_id, priority = @broker.identity_parts(id)
+            @agent.connect(host, port, alias_id, priority, force = true)
           rescue Exception => e
             RightLinkLog.error("Failed to reconnect to broker #{id}: #{e.message}")
           end

@@ -272,35 +272,35 @@ module RightScale
     # === Parameters
     # host(String):: Host name of broker
     # port(Integer):: Port number of broker
-    # id(Integer):: Small unique id associated with this broker for use in forming alias
+    # alias_id(Integer):: Small unique id associated with this broker for use in forming alias
     # priority(Integer|nil):: Priority position of this broker in list for use
     #   by this agent with nil meaning add to end of list
     # force(Boolean):: Reconnect even if already connected
     #
     # === Return
     # res(String|nil):: Error message if failed, otherwise nil
-    def connect(host, port, id, priority = nil, force = false)
+    def connect(host, port, alias_id, priority = nil, force = false)
       even_if = " even if already connected" if force
       RightLinkLog.info("Received request to connect to broker at host #{host.inspect} port #{port.inspect} " +
-                        "id #{id.inspect} priority #{priority.inspect}#{even_if}")
+                        "alias_id #{alias_id.inspect} priority #{priority.inspect}#{even_if}")
       RightLinkLog.info("Current broker configuration: #{@broker.status.inspect}")
       res = nil
       begin
-        @broker.connect(host, port, id, priority, force) do |b|
-          @broker.connection_status(:one_off => BROKER_CONNECT_TIMEOUT, :brokers => [b[:identity]]) do |status|
+        @broker.connect(host, port, alias_id, priority, force) do |id|
+          @broker.connection_status(:one_off => BROKER_CONNECT_TIMEOUT, :brokers => [id]) do |status|
             begin
               if status == :connected
-                setup_identity_queue(b)
-                setup_shared_queue(b) if @shared_queue
+                setup_identity_queue([id])
+                setup_shared_queue([id]) if @shared_queue
                 advertise_services
                 unless update_configuration(:host => @broker.hosts, :port => @broker.ports)
-                  RightLinkLog.warn("Successfully connected to #{b[:identity]} but failed to update config file")
+                  RightLinkLog.warn("Successfully connected to #{id} but failed to update config file")
                 end
               else
-                RightLinkLog.error("Failed to connect to #{b[:identity]}, status #{status.inspect}")
+                RightLinkLog.error("Failed to connect to #{id}, status #{status.inspect}")
               end
             rescue Exception => e
-              RightLinkLog.error("Failed to connect to #{b[:identity]}, status #{status.inspect}: #{e.message}")
+              RightLinkLog.error("Failed to connect to #{id}, status #{status.inspect}: #{e.message}")
             end
           end
         end
@@ -376,7 +376,8 @@ module RightScale
         if (connected - ids).empty?
           # No more usable connections so try recreating now
           ids.each do |id|
-            connect(@broker.host(id), @broker.port(id), @broker.id_(id), @broker.priority(id), force = true)
+            host, port, alias_id, priority = @broker.identity_parts(id)
+            connect(host, port, alias_id, priority, force = true)
           end
         else
           # Defer reconnect initiation to the mapper via ping
@@ -538,10 +539,8 @@ module RightScale
     # true:: Always return true
     def setup_queues
       @broker.prefetch(@options[:prefetch]) if @options[:prefetch]
-      @broker.each_usable do |b|
-        setup_identity_queue(b)
-        setup_shared_queue(b) if @shared_queue
-      end
+      setup_identity_queue
+      setup_shared_queue if @shared_queue
       true
     end
 
@@ -549,53 +548,33 @@ module RightScale
     # For non-instance agents also attach queue to advertise exchange
     #
     # === Parameters
-    # broker(Hash):: Individual broker to which agent is connected
+    # ids(Array):: Identity of brokers for which to subscribe, defaults to all usable
     #
     # === Return
     # true:: Always return true
-    def setup_identity_queue(broker)
-      handler = lambda do |info, msg|
+    def setup_identity_queue(ids = nil)
+      queue = {:name => @identity, :options => {:durable => true}}
+      filter = [:from, :tags, :tries, :persistent]
+      options = {:ack => true, Advertise => nil, Request => filter, Push => filter, Result => [], :brokers => ids}
+      exchange = unless AgentIdentity.parse(@identity).instance_agent?
+        # Non-instance agents must bind identity queue to identity exchange and to the advertise
+        # exchange so that a mapper that comes up after this agent can learn of its existence.
+        # Since the identity exchange is durable, the advertise exchange must also be durable.
+        options.merge!(:exchange2 => {:type => :fanout, :name => "advertise", :options => {:durable => true}})
+        {:type => :direct, :name => @identity, :options => {:durable => true, :auto_delete => true}}
+      end
+      @broker.subscribe(queue, exchange, options) do |_, packet|
         begin
-          # Ack now before processing message to avoid risk of duplication after a crash
-          info.ack
-          if msg == "nil"
-            # This happens as part of connecting to a broker
-            RightLinkLog.debug("RECV #{broker[:alias]} nil message ignored")
-          else
-            filter = [:from, :tags, :tries, :persistent]
-            packet = @broker.receive(broker, @identity, msg, Advertise => nil, Request => filter, Push => filter, Result => [])
-            case packet
-            when Advertise then advertise_services unless @terminating
-            when Request then @dispatcher.dispatch(packet) unless @terminating
-            when Push then @dispatcher.dispatch(packet) unless @terminating
-            when Result then @mapper_proxy.handle_result(packet)
-            end
+          case packet
+          when Advertise then advertise_services unless @terminating
+          when Request then @dispatcher.dispatch(packet) unless @terminating
+          when Push then @dispatcher.dispatch(packet) unless @terminating
+          when Result then @mapper_proxy.handle_result(packet)
           end
         rescue Exception => e
           RightLinkLog.error("RECV - Identity queue processing error: #{e.message}")
           @callbacks[:exception].call(e, msg, self) rescue nil if @callbacks && @callbacks[:exception]
         end
-      end
-
-      RightLinkLog.info("[setup] Subscribing queue #{@identity} on #{broker[:alias]}")
-
-      queue = broker[:mq].queue(@identity, :durable => true, :no_declare => @options[:secure])
-      broker[:queues] << queue
-
-      if AgentIdentity.parse(@identity).instance_agent?
-        queue.subscribe(:ack => true, &handler)
-      else
-        # Explicitly create direct exchange and bind queue to it
-        # since binding this queue to multiple exchanges
-        binding = queue.bind(broker[:mq].direct(@identity, :durable => true, :auto_delete => true))
-
-        # Non-instance agents must also bind to the advertise exchange so that
-        # a mapper that comes up after this agent can learn of its existence. The identity
-        # queue binds to both the identity and advertise exchanges, therefore the advertise
-        # exchange must be durable to match the identity exchange.
-        queue.bind(broker[:mq].fanout("advertise", :durable => true))
-
-        binding.subscribe(:ack => true, &handler)
       end
     end
 
@@ -604,25 +583,21 @@ module RightScale
     # Not for use by instance agents
     #
     # === Parameters
-    # broker(Hash):: Individual broker to which agent is connected
+    # ids(Array):: Identity of brokers for which to subscribe, defaults to all usable
     #
     # === Return
     # true:: Always return true
     #
     # === Raises
-    # Exception:: If this is an instance agent
-    def setup_shared_queue(broker)
+    # (Exception):: If this is an instance agent
+    def setup_shared_queue(ids = nil)
       raise Exception, "Instance agents cannot use shared queues" if AgentIdentity.parse(@identity).instance_agent?
-      RightLinkLog.info("[setup] Subscribing queue #{@shared_queue} on #{broker[:alias]}")
-      queue = broker[:mq].queue(@shared_queue, :durable => true)
-      broker[:queues] << queue
-      exchange = broker[:mq].direct(@shared_queue,  :durable => true)
-      queue.bind(exchange).subscribe(:ack => true) do |info, msg|
+      queue = {:name => @shared_queue, :options => {:durable => true}}
+      exchange = {:type => :direct, :name => @shared_queue, :options => {:durable => true}}
+      filter = [:from, :tags, :tries, :persistent]
+      options = {:ack => true, Request => filter, Push => filter, :category => "request", :brokers => ids}
+      @broker.subscribe(queue, exchange, options) do |_, request|
         begin
-          # Ack now before processing message to avoid risk of duplication after a crash
-          info.ack
-          filter = [:from, :tags, :tries, :persistent]
-          request = @broker.receive(broker, @identity, msg, Request => filter, Push => filter, :category => "request")
           @dispatcher.dispatch(request)
         rescue Exception => e
           RightLinkLog.error("RECV - Shared queue processing error: #{e.message}")

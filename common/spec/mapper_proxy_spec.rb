@@ -54,7 +54,7 @@ describe RightScale::MapperProxy do
     before(:each) do
       flexmock(EM).should_receive(:next_tick).and_yield.by_default
       @broker = flexmock("Broker", :subscribe => true, :publish => ["broker"], :connected? => true,
-                         :host => "host", :port => 123, :id_ => 0, :priority => 0).by_default
+                         :identity_parts => ["host", 123, 0, 0]).by_default
       @agent = flexmock("Agent", :identity => "agent", :broker => @broker, :options => {}).by_default
       RightScale::MapperProxy.new(@agent)
       @instance = RightScale::MapperProxy.instance

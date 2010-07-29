@@ -167,12 +167,12 @@ describe RightScale::HA_MQ do
 
     it "should obtain host and port from a broker's identity" do
       ha_mq = RightScale::HA_MQ.new(@serializer)
-      ha_mq.host("rs-broker-localhost-5672").should == "localhost"
-      ha_mq.port("rs-broker-localhost-5672").should == 5672
-      ha_mq.host("rs-broker-10.21.102.23-1234").should == "10.21.102.23"
-      ha_mq.port("rs-broker-10.21.102.23-1234").should == 1234
-      ha_mq.host("rs-broker-9~1~1-5672").should == "9-1-1"
-      ha_mq.port("rs-broker-9~1~1-5672").should == 5672
+      ha_mq.__send__(:host, "rs-broker-localhost-5672").should == "localhost"
+      ha_mq.__send__(:port, "rs-broker-localhost-5672").should == 5672
+      ha_mq.__send__(:host, "rs-broker-10.21.102.23-1234").should == "10.21.102.23"
+      ha_mq.__send__(:port, "rs-broker-10.21.102.23-1234").should == 1234
+      ha_mq.__send__(:host, "rs-broker-9~1~1-5672").should == "9-1-1"
+      ha_mq.__send__(:port, "rs-broker-9~1~1-5672").should == 5672
     end
 
     it "should list broker identities" do
@@ -213,29 +213,57 @@ describe RightScale::HA_MQ do
       ha_mq.alias_("rs-broker-second-5672").should == nil
     end
 
-    it "should convert identity into alias id" do
+    it "should convert identity into parts" do
       ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first:0, third:2", :port => 5672)
-      ha_mq.id_("rs-broker-third-5672").should == 2
+      ha_mq.identity_parts("rs-broker-third-5672").should == ["third", 5672, 2, 1]
     end
 
-    it "should convert identity into nil alias id when unknown" do
+    it "should convert identity with nanite prefix into parts" do
       ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first:0, third:2", :port => 5672)
-      ha_mq.id_("rs-broker-second-5672").should == nil
+      ha_mq.identity_parts("nanite-rs-broker-third-5672").should == ["third", 5672, 2, 1]
     end
 
-    it "should determine priority from identity" do
+    it "should convert an alias into parts" do
       ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first:0, third:2", :port => 5672)
-      ha_mq.priority("rs-broker-third-5672").should == 1
+      ha_mq.identity_parts("b2").should == ["third", 5672, 2, 1]
     end
 
-    it "should determine priority from identity with nanite prefix" do
+    it "should convert an alias id into parts" do
       ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first:0, third:2", :port => 5672)
-      ha_mq.priority("nanite-rs-broker-first-5672").should == 0
+      ha_mq.identity_parts(2).should == ["third", 5672, 2, 1]
     end
 
-    it "should return nil priority when unknown" do
+    it "should convert unknown identity into nil parts" do
       ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first:0, third:2", :port => 5672)
-      ha_mq.priority("rs-broker-second-5672").should == nil
+      ha_mq.identity_parts("rs-broker-second-5672").should == [nil, nil, nil, nil]
+    end
+
+    it "should get identity from identity" do
+      ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first:0, third:2", :port => 5672)
+      ha_mq.get("rs-broker-first-5672").should == "rs-broker-first-5672"
+      ha_mq.get("rs-broker-second-5672").should == nil
+      ha_mq.get("rs-broker-third-5672").should == "rs-broker-third-5672"
+    end
+
+    it "should get identity from identity with nanite prefix" do
+      ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first:0, third:2", :port => 5672)
+      ha_mq.get("nanite-rs-broker-first-5672").should == "rs-broker-first-5672"
+      ha_mq.get("nanite-rs-broker-second-5672").should == nil
+      ha_mq.get("nanite-rs-broker-third-5672").should == "rs-broker-third-5672"
+    end
+
+    it "should get identity from an alias" do
+      ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first:0, third:2", :port => 5672)
+      ha_mq.get("b0").should == "rs-broker-first-5672"
+      ha_mq.get("b1").should == nil
+      ha_mq.get("b2").should == "rs-broker-third-5672"
+    end
+
+    it "should get identity from an alias id" do
+      ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first:0, third:2", :port => 5672)
+      ha_mq.get(0).should == "rs-broker-first-5672"
+      ha_mq.get(1).should == nil
+      ha_mq.get(2).should == "rs-broker-third-5672"
     end
 
     it "should generate host:id list" do
@@ -248,44 +276,6 @@ describe RightScale::HA_MQ do
       ha_mq.ports.should == "5672:1,5672:22"
     end
 
-    it "should get broker using alias id" do
-      ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first:1, second:2", :port => 5672)
-      ha_mq.get(0).should == nil
-      ha_mq.get(1).should == {:alias => "b1", :mq => @mq, :connection => @connection, :backoff => 0,
-                              :identity => "rs-broker-first-5672", :status => :connecting,
-                                :tries => 0, :queues => []}
-      ha_mq.get(2).should == {:alias => "b2", :mq => @mq, :connection => @connection, :backoff => 0,
-                              :identity => "rs-broker-second-5672", :status => :connecting,
-                                :tries => 0, :queues => []}
-      ha_mq.get(3).should == nil
-      ha_mq.get(nil).should == nil
-    end
-
-    it "should get broker using alias" do
-      ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first:1, second:2", :port => 5672)
-      ha_mq.get("b0").should == nil
-      ha_mq.get("b1").should == {:alias => "b1", :mq => @mq, :connection => @connection, :backoff => 0,
-                                 :identity => "rs-broker-first-5672", :status => :connecting,
-                                :tries => 0, :queues => []}
-      ha_mq.get("b2").should == {:alias => "b2", :mq => @mq, :connection => @connection, :backoff => 0,
-                                 :identity => "rs-broker-second-5672", :status => :connecting,
-                                :tries => 0, :queues => []}
-      ha_mq.get("b3").should == nil
-      ha_mq.get(nil).should == nil
-    end
-
-    it "should get broker using identity" do
-      ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first:1, second:2", :port => 5672)
-      ha_mq.get("rs-broker-first-5672").should == {:alias => "b1", :mq => @mq, :connection => @connection, :backoff => 0,
-                                                   :identity => "rs-broker-first-5672", :status => :connecting,
-                                                   :tries => 0, :queues => []}
-      ha_mq.get("rs-broker-second-5672").should == {:alias => "b2", :mq => @mq, :connection => @connection, :backoff => 0,
-                                                    :identity => "rs-broker-second-5672", :status => :connecting,
-                                                    :tries => 0, :queues => []}
-      ha_mq.get("rs-broker-third-5672").should == nil
-      ha_mq.get(nil).should == nil
-    end
-
   end # Identifying
 
   describe "Subscribing" do
@@ -296,20 +286,42 @@ describe RightScale::HA_MQ do
       @packet = flexmock("packet", :class => RightScale::Request, :to_s => true).by_default
       @serializer = flexmock("Serializer", :load => @packet).by_default
       @direct = flexmock("direct")
+      @fanout = flexmock("fanout")
       @bind = flexmock("bind")
       @queue = flexmock("queue", :bind => @bind).by_default
       @connection = flexmock("connection", :connection_status => true).by_default
       flexmock(AMQP).should_receive(:connect).and_return(@connection).by_default
-      @mq = flexmock("mq", :queue => @queue, :direct => @direct, :connection => @connection)
+      @mq = flexmock("mq", :queue => @queue, :direct => @direct, :fanout => @fanout, :connection => @connection)
       flexmock(MQ).should_receive(:new).with(@connection).and_return(@mq).by_default
       flexmock(RightScale::RightLinkLog).should_receive(:info).by_default
     end
 
     it "should subscribe queue to exchange" do
+      @queue.should_receive(:bind).and_return(@bind).once
       @bind.should_receive(:subscribe).and_yield(@message).once
       ha_mq = RightScale::HA_MQ.new(@serializer)
       ha_mq.brokers[0][:status] = :connected
       ha_mq.subscribe({:name => "queue"}, {:type => :direct, :name => "exchange"}) {|b, p| p.should == nil}
+    end
+
+    it "should subscribe queue to exchange for each selected, usable brokers" do
+      @queue.should_receive(:bind).and_return(@bind).once
+      @bind.should_receive(:subscribe).and_yield(@message).once
+      ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first, second, third")
+      ha_mq.brokers[0][:status] = :connected
+      ha_mq.brokers[1][:status] = :connected
+      ha_mq.brokers[2][:status] = :disconnected
+      options = {:brokers => ["rs-broker-third-5672", "rs-broker-second-5672"]}
+      ha_mq.subscribe({:name => "queue"}, {:type => :direct, :name => "exchange"}, options) {|b, p| p.should == nil}
+    end
+
+    it "should subscribe queue to second exchange if specified" do
+      @queue.should_receive(:bind).and_return(@bind).twice
+      @bind.should_receive(:subscribe).and_yield(@message).once
+      ha_mq = RightScale::HA_MQ.new(@serializer)
+      ha_mq.brokers[0][:status] = :connected
+      options = {:exchange2 => {:type => :fanout, :name => "exchange2", :options => {:durable => true}}}
+      ha_mq.subscribe({:name => "queue"}, {:type => :direct, :name => "exchange"}, options) {|b, p| p.should == nil}
     end
 
     it "should subscribe queue to exchange when still connecting" do
@@ -426,26 +438,26 @@ describe RightScale::HA_MQ do
       flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Connecting/).once
       flexmock(RightScale::RightLinkLog).should_receive(:info).with(/^RECV/).once
       ha_mq = RightScale::HA_MQ.new(@serializer)
-      ha_mq.each_usable { |b| ha_mq.receive(b, "queue", @message, RightScale::Request => nil).should == @packet }
+      ha_mq.__send__(:each_usable) { |b| ha_mq.__send__(:receive, b, "queue", @message, RightScale::Request => nil).should == @packet }
     end
 
     it "should log a warning if the message is not of the right type and return nil" do
       flexmock(RightScale::RightLinkLog).should_receive(:warn).with(/^RECV/).once
       ha_mq = RightScale::HA_MQ.new(@serializer)
-      ha_mq.each_usable { |b| ha_mq.receive(b, "queue", @message).should == nil }
+      ha_mq.__send__(:each_usable) { |b| ha_mq.__send__(:receive, b, "queue", @message).should == nil }
     end
 
     it "should show the category in the warning message if specified" do
       flexmock(RightScale::RightLinkLog).should_receive(:warn).with(/^RECV.*xxxx/).once
       ha_mq = RightScale::HA_MQ.new(@serializer)
-      ha_mq.each_usable { |b| ha_mq.receive(b, "queue", @message, RightScale::Result => nil, :category => "xxxx") }
+      ha_mq.__send__(:each_usable) { |b| ha_mq.__send__(:receive, b, "queue", @message, RightScale::Result => nil, :category => "xxxx") }
     end
 
     it "should display broker alias in the log" do
       flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Connecting/).once
       flexmock(RightScale::RightLinkLog).should_receive(:info).with(/^RECV b0 /).once
       ha_mq = RightScale::HA_MQ.new(@serializer)
-      ha_mq.each_usable { |b| ha_mq.receive(b, "queue", @message, RightScale::Request => nil) }
+      ha_mq.__send__(:each_usable) { |b| ha_mq.__send__(:receive, b, "queue", @message, RightScale::Request => nil) }
     end
 
     it "should filter the packet display for :info level" do
@@ -454,7 +466,7 @@ describe RightScale::HA_MQ do
       flexmock(RightScale::RightLinkLog).should_receive(:debug).with(/^RECV.*TO YOU/).never
       @packet.should_receive(:to_s).with([:to]).and_return("TO YOU").once
       ha_mq = RightScale::HA_MQ.new(@serializer)
-      ha_mq.each_usable { |b| ha_mq.receive(b, "queue", @message, RightScale::Request => [:to]) }
+      ha_mq.__send__(:each_usable) { |b| ha_mq.__send__(:receive, b, "queue", @message, RightScale::Request => [:to]) }
     end
 
     it "should not filter the packet display for :debug level" do
@@ -464,21 +476,21 @@ describe RightScale::HA_MQ do
       flexmock(RightScale::RightLinkLog).should_receive(:info).with(/^RECV.*ALL/).once
       @packet.should_receive(:to_s).with(nil).and_return("ALL").once
       ha_mq = RightScale::HA_MQ.new(@serializer)
-      ha_mq.each_usable { |b| ha_mq.receive(b, "queue", @message, RightScale::Request => [:to]) }
+      ha_mq.__send__(:each_usable) { |b| ha_mq.__send__(:receive, b, "queue", @message, RightScale::Request => [:to]) }
     end
 
     it "should display additional data in log" do
       flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Connecting/).once
       flexmock(RightScale::RightLinkLog).should_receive(:info).with(/^RECV.*More data/).once
       ha_mq = RightScale::HA_MQ.new(@serializer)
-      ha_mq.each_usable { |b| ha_mq.receive(b, "queue", @message, RightScale::Request => nil, :log_data => "More data") }
+      ha_mq.__send__(:each_usable) { |b| ha_mq.__send__(:receive, b, "queue", @message, RightScale::Request => nil, :log_data => "More data") }
     end
 
     it "should not log a message if requested not to" do
       flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Connecting/).once
       flexmock(RightScale::RightLinkLog).should_receive(:info).with(/^RECV/).never
       ha_mq = RightScale::HA_MQ.new(@serializer)
-      ha_mq.each_usable { |b| ha_mq.receive(b, "queue", @message, RightScale::Request => nil, :no_log => true) }
+      ha_mq.__send__(:each_usable) { |b| ha_mq.__send__(:receive, b, "queue", @message, RightScale::Request => nil, :no_log => true) }
     end
 
     it "should not log a message if requested not to unless debug level" do
@@ -486,14 +498,14 @@ describe RightScale::HA_MQ do
       flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Connecting/).once
       flexmock(RightScale::RightLinkLog).should_receive(:info).with(/^RECV/).once
       ha_mq = RightScale::HA_MQ.new(@serializer)
-      ha_mq.each_usable { |b| ha_mq.receive(b, "queue", @message, RightScale::Request => nil, :no_log => true) }
+      ha_mq.__send__(:each_usable) { |b| ha_mq.__send__(:receive, b, "queue", @message, RightScale::Request => nil, :no_log => true) }
     end
 
     it "should log an error if exception prevents normal logging and should then return nil" do
       flexmock(RightScale::RightLinkLog).should_receive(:error).with(/^RECV/).once
       @serializer.should_receive(:load).with(@message).and_raise(Exception).once
       ha_mq = RightScale::HA_MQ.new(@serializer)
-      ha_mq.each_usable { |b| ha_mq.receive(b, "queue", @message).should == nil }
+      ha_mq.__send__(:each_usable) { |b| ha_mq.__send__(:receive, b, "queue", @message).should == nil }
     end
 
     it "should display RERECV if the message being received is a retry" do
@@ -501,7 +513,7 @@ describe RightScale::HA_MQ do
       flexmock(RightScale::RightLinkLog).should_receive(:info).with(/^RERECV/).once
       @packet.should_receive(:tries).and_return(["try1"]).once
       ha_mq = RightScale::HA_MQ.new(@serializer)
-      ha_mq.each_usable { |b| ha_mq.receive(b, "queue", @message, RightScale::Request => nil).should == @packet }
+      ha_mq.__send__(:each_usable) { |b| ha_mq.__send__(:receive, b, "queue", @message, RightScale::Request => nil).should == @packet }
     end
 
   end # Receiving
@@ -863,7 +875,8 @@ describe RightScale::HA_MQ do
       ha_mq.brokers.should == [{:alias => "b0", :mq => @mq, :connection => @connection, :backoff => 0,
                                 :identity => "rs-broker-first-5672", :status => :connecting,
                                 :tries => 0, :queues => []}]
-      ha_mq.connect("second", 5673, 1)
+      res = ha_mq.connect("second", 5673, 1)
+      res.should be_true
       ha_mq.brokers.should == [{:alias => "b0", :mq => @mq, :connection => @connection, :backoff => 0,
                                 :identity => "rs-broker-first-5672", :status => :connecting,
                                 :tries => 0, :queues => []},
@@ -883,7 +896,8 @@ describe RightScale::HA_MQ do
                                 :tries => 0, :queues => []}]
       ha_mq.brokers[0][:status] = :failed
       ha_mq.brokers[1][:status] = :connected
-      ha_mq.connect("first", 5672, 0)
+      res = ha_mq.connect("first", 5672, 0)
+      res.should be_true
       ha_mq.brokers.should == [{:alias => "b0", :mq => @mq, :connection => @connection, :backoff => 0,
                                 :identity => "rs-broker-first-5672", :status => :connecting,
                                 :tries => 0, :queues => []},
@@ -897,7 +911,8 @@ describe RightScale::HA_MQ do
       flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Ignored request to reconnect/).once
       ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first, second")
       ha_mq.brokers[1][:status] = :connected
-      ha_mq.connect("second", 5672, 1)
+      res = ha_mq.connect("second", 5672, 1)
+      res.should be_false
       ha_mq.brokers.should == [{:alias => "b0", :mq => @mq, :connection => @connection, :backoff => 0,
                                 :identity => "rs-broker-first-5672", :status => :connecting,
                                 :tries => 0, :queues => []},
@@ -910,7 +925,8 @@ describe RightScale::HA_MQ do
       flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Connecting to/).twice
       flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Ignored request to reconnect/).once
       ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first, second")
-      ha_mq.connect("second", 5672, 1)
+      res = ha_mq.connect("second", 5672, 1)
+      res.should be_false
       ha_mq.brokers.should == [{:alias => "b0", :mq => @mq, :connection => @connection, :backoff => 0,
                                 :identity => "rs-broker-first-5672", :status => :connecting,
                                 :tries => 0, :queues => []},
@@ -925,7 +941,8 @@ describe RightScale::HA_MQ do
       @connection.should_receive(:close).once
       ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first, second")
       ha_mq.brokers[1][:status] = :connected
-      ha_mq.connect("second", 5672, 1, nil, force = true)
+      res = ha_mq.connect("second", 5672, 1, nil, force = true)
+      res.should be_true
       ha_mq.brokers.should == [{:alias => "b0", :mq => @mq, :connection => @connection, :backoff => 0,
                                 :identity => "rs-broker-first-5672", :status => :connecting,
                                 :tries => 0, :queues => []},
@@ -937,7 +954,8 @@ describe RightScale::HA_MQ do
     it "should slot broker into specified priority position when at end of list" do
       flexmock(AMQP).should_receive(:connect).and_return(@connection).times(3)
       ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first, second")
-      ha_mq.connect("third", 5672, 2, 2)
+      res = ha_mq.connect("third", 5672, 2, 2)
+      res.should be_true
       ha_mq.brokers.should == [{:alias => "b0", :mq => @mq, :connection => @connection, :backoff => 0,
                                 :identity => "rs-broker-first-5672", :status => :connecting,
                                 :tries => 0, :queues => []},
@@ -952,7 +970,8 @@ describe RightScale::HA_MQ do
     it "should slot broker into specified priority position when already is a broker in that position" do
       flexmock(AMQP).should_receive(:connect).and_return(@connection).times(3)
       ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first, second")
-      ha_mq.connect("third", 5672, 2, 1)
+      res = ha_mq.connect("third", 5672, 2, 1)
+      res.should be_true
       ha_mq.brokers.should == [{:alias => "b0", :mq => @mq, :connection => @connection, :backoff => 0,
                                 :identity => "rs-broker-first-5672", :status => :connecting,
                                 :tries => 0, :queues => []},
@@ -964,11 +983,12 @@ describe RightScale::HA_MQ do
                                 :tries => 0, :queues => []}]
     end
 
-    it "should yield to the block provided with the newly connected broker" do
+    it "should yield to the block provided with the newly connected broker identity" do
       ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first")
-      broker = nil
-      res = ha_mq.connect("second", 5673, 1) { |b| broker = b }
-      res.should == broker
+      identity = nil
+      res = ha_mq.connect("second", 5673, 1) { |i| identity = i }
+      res.should be_true
+      identity.should == "rs-broker-second-5673"
     end
 
     it "should raise an exception if try to change host and port of an existing broker" do
@@ -1090,7 +1110,7 @@ describe RightScale::HA_MQ do
     it "should give access to each usable broker" do
       ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first, second")
       aliases = []
-      res = ha_mq.each_usable { |b| aliases << b[:alias] }
+      res = ha_mq.__send__(:each_usable) { |b| aliases << b[:alias] }
       aliases.should == ["b0", "b1"]
       res.size.should == 2
       res[0][:alias].should == "b0"
@@ -1098,7 +1118,7 @@ describe RightScale::HA_MQ do
 
       ha_mq.brokers[1][:status] = :connected
       aliases = []
-      res = ha_mq.each_usable { |b| aliases << b[:alias] }
+      res = ha_mq.__send__(:each_usable) { |b| aliases << b[:alias] }
       aliases.should == ["b0", "b1"]
       res.size.should == 2
       res[0][:alias].should == "b0"
@@ -1106,7 +1126,7 @@ describe RightScale::HA_MQ do
 
       ha_mq.brokers[0][:status] = :connected
       aliases = []
-      res = ha_mq.each_usable { |b| aliases << b[:alias] }
+      res = ha_mq.__send__(:each_usable) { |b| aliases << b[:alias] }
       aliases.should == ["b0", "b1"]
       res.size.should == 2
       res[0][:alias].should == "b0"
@@ -1114,43 +1134,56 @@ describe RightScale::HA_MQ do
 
       ha_mq.brokers[0][:status] = :disconnected
       aliases = []
-      res = ha_mq.each_usable { |b| aliases << b[:alias] }
+      res = ha_mq.__send__(:each_usable) { |b| aliases << b[:alias] }
       aliases.should == ["b1"]
       res.size.should == 1
       res[0][:alias].should == "b1"
 
       ha_mq.brokers[0][:status] = :failed
       aliases = []
-      res = ha_mq.each_usable { |b| aliases << b[:alias] }
+      res = ha_mq.__send__(:each_usable) { |b| aliases << b[:alias] }
       aliases.should == ["b1"]
       res.size.should == 1
       res[0][:alias].should == "b1"
 
       ha_mq.brokers[1][:status] = :closed
       aliases = []
-      res = ha_mq.each_usable { |b| aliases << b[:alias] }
+      res = ha_mq.__send__(:each_usable) { |b| aliases << b[:alias] }
       aliases.should == []
       res.size.should == 0
 
       ha_mq.brokers[1][:status] = :connecting
       aliases = []
-      res = ha_mq.each_usable { |b| aliases << b[:alias] }
+      res = ha_mq.__send__(:each_usable) { |b| aliases << b[:alias] }
       aliases.should == ["b1"]
       res.size.should == 1
       res[0][:alias].should == "b1"
+      ha_mq.usable.should == ["rs-broker-second-5672"]
 
       ha_mq.brokers[0][:status] = :connected
       aliases = []
-      res = ha_mq.each_usable { |b| aliases << b[:alias] }
+      res = ha_mq.__send__(:each_usable) { |b| aliases << b[:alias] }
       aliases.should == ["b0", "b1"]
       res.size.should == 2
       res[0][:alias].should == "b0"
       res[1][:alias].should == "b1"
 
-      res = ha_mq.each_usable
+      res = ha_mq.__send__(:each_usable)
       res.size.should == 2
       res[0][:alias].should == "b0"
       res[1][:alias].should == "b1"
+      ha_mq.usable.should == ["rs-broker-first-5672", "rs-broker-second-5672"]
+    end
+
+    it "should give access to each selected usable broker" do
+      ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first, second, third")
+      ha_mq.brokers[1][:status] = :connected
+      ha_mq.brokers[2][:status] = :disconnected
+      aliases = []
+      res = ha_mq.__send__(:each_usable, ["rs-broker-second-5672", "rs-broker-third-5672"]) { |b| aliases << b[:alias] }
+      aliases.should == ["b1"]
+      res.size.should == 1
+      res[0][:alias].should == "b1"
     end
 
     it "should tell whether a broker is connected" do

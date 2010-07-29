@@ -101,7 +101,7 @@ module RightScale
     # false:: Otherwise
     def self.stop
       CommandIO.instance.stop_listening
-      RightLinkLog.info("[setup] Command server stopped listening")
+      RightLinkLog.info("[stop] Command server stopped listening")
     end
 
   end

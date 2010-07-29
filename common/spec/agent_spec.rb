@@ -40,14 +40,8 @@ describe RightScale::Agent do
       @timer = flexmock("timer")
       flexmock(EM::Timer).should_receive(:new).and_return(@timer)
       @timer.should_receive(:cancel)
-      @direct = flexmock("direct", :publish => nil)
-      @fanout = flexmock("fanout", :publish => nil)
-      @bind = flexmock("bind", :subscribe => nil)
-      @queue = flexmock("queue", :subscribe => {}, :bind => @bind)
-      @mq = flexmock("mq", :queue => @queue, :fanout => @fanout, :direct => @direct)
       @broker = flexmock("broker", :subscribe => true, :publish => true, :prefetch => true,
                          :connected => ["b1"], :failed => [], :close_one => true).by_default
-      @broker.should_receive(:each_usable).and_yield({:mq => @mq, :queues => []})
       @broker.should_receive(:connection_status).and_yield(:connected)
       flexmock(RightScale::HA_MQ).should_receive(:new).and_return(@broker)
       flexmock(RightScale::PidFile).should_receive(:new).
@@ -152,14 +146,8 @@ describe RightScale::Agent do
       @timer = flexmock("timer")
       flexmock(EM::Timer).should_receive(:new).and_return(@timer)
       @timer.should_receive(:cancel)
-      @direct = flexmock("direct", :publish => nil)
-      @fanout = flexmock("fanout", :publish => nil)
-      @bind = flexmock("bind", :subscribe => nil)
-      @queue = flexmock("queue", :subscribe => {}, :bind => @bind)
-      @mq = flexmock("mq", :queue => @queue, :fanout => @fanout, :direct => @direct)
       @broker = flexmock("broker", :subscribe => true, :publish => true, :prefetch => true,
                          :connected => ["b1"], :failed => []).by_default
-      @broker.should_receive(:each_usable).and_yield({:mq => @mq, :queues => []})
       @broker.should_receive(:connection_status).and_yield(:connected)
       flexmock(RightScale::HA_MQ).should_receive(:new).and_return(@broker)
       flexmock(RightScale::PidFile).should_receive(:new).
@@ -186,18 +174,12 @@ describe RightScale::Agent do
     end
 
     it "for shared_queue should not be included if false" do
-#      @queue = flexmock("queue").should_receive(:subscribe).and_return({}).times(1)
-#      @mq = flexmock("mq", :queue => @queue, :fanout => @fanout)
-#      flexmock(MQ).should_receive(:new).and_return(@mq)
       agent = RightScale::Agent.start(:identity => @identity)
       agent.options.should include(:shared_queue)
       agent.options[:shared_queue].should be_false
     end
 
     it "for shared_queue should be included if not false" do
-#      @queue = flexmock("queue").should_receive(:subscribe).and_return({}).times(2)
-#      @mq = flexmock("mq", :queue => @queue, :fanout => @fanout)
-#      flexmock(MQ).should_receive(:new).and_return(@mq)
       agent = RightScale::Agent.start(:shared_queue => "my_shared_queue", :identity => @identity)
       agent.options.should include(:shared_queue)
       agent.options[:shared_queue].should == "my_shared_queue"
@@ -318,14 +300,8 @@ describe RightScale::Agent do
       @timer = flexmock("timer")
       flexmock(EM::Timer).should_receive(:new).and_return(@timer).by_default
       @timer.should_receive(:cancel).by_default
-      @direct = flexmock("direct", :publish => nil)
-      @fanout = flexmock("fanout", :publish => nil)
-      @bind = flexmock("bind", :subscribe => nil)
-      @queue = flexmock("queue", :subscribe => {}, :bind => @bind)
-      @mq = flexmock("mq", :queue => @queue, :fanout => @fanout, :direct => @direct)
       @broker = flexmock("broker", :subscribe => true, :publish => true, :prefetch => true,
                          :connected => ["b1"], :failed => []).by_default
-      @broker.should_receive(:each_usable).and_yield({:mq => @mq, :queues => []})
       @broker.should_receive(:connection_status).and_yield(:connected)
       flexmock(RightScale::HA_MQ).should_receive(:new).and_return(@broker)
       flexmock(RightScale::PidFile).should_receive(:new).
