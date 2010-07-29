@@ -28,7 +28,6 @@ require 'yaml'
 require 'openssl'
 
 COMMON_BASE_DIR = File.normalize_path(File.join(File.dirname(__FILE__), 'common'))
-require File.join(COMMON_BASE_DIR, 'eventmachine')
 require File.join(COMMON_BASE_DIR, 'amqp')
 require File.join(COMMON_BASE_DIR, 'util')
 require File.join(COMMON_BASE_DIR, 'config')
