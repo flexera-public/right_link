@@ -562,6 +562,16 @@ describe RightScale::HA_MQ do
       called.should == 1
     end
 
+    it "should only unsubscribe from usable brokers" do
+      @queue.should_receive(:unsubscribe).and_yield.once
+      ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first, second")
+      ha_mq.brokers[0][:status] = :failed
+      ha_mq.subscribe({:name => "queue1"}, {:type => :direct, :name => "exchange"})
+      called = 0
+      ha_mq.unsubscribe("queue1") { called += 1 }
+      called.should == 1
+    end
+
     it "should log an error if unsubscribe raises an exception" do
       flexmock(RightScale::RightLinkLog).should_receive(:error).with(/Failed unsubscribing/).once
       @queue.should_receive(:unsubscribe).and_raise(Exception).once
@@ -1080,32 +1090,67 @@ describe RightScale::HA_MQ do
     it "should give access to each usable broker" do
       ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first, second")
       aliases = []
-      ha_mq.each_usable { |b| aliases << b[:alias] }
+      res = ha_mq.each_usable { |b| aliases << b[:alias] }
       aliases.should == ["b0", "b1"]
+      res.size.should == 2
+      res[0][:alias].should == "b0"
+      res[1][:alias].should == "b1"
+
       ha_mq.brokers[1][:status] = :connected
       aliases = []
-      ha_mq.each_usable { |b| aliases << b[:alias] }
+      res = ha_mq.each_usable { |b| aliases << b[:alias] }
       aliases.should == ["b0", "b1"]
+      res.size.should == 2
+      res[0][:alias].should == "b0"
+      res[1][:alias].should == "b1"
+
       ha_mq.brokers[0][:status] = :connected
       aliases = []
-      ha_mq.each_usable { |b| aliases << b[:alias] }
+      res = ha_mq.each_usable { |b| aliases << b[:alias] }
       aliases.should == ["b0", "b1"]
+      res.size.should == 2
+      res[0][:alias].should == "b0"
+      res[1][:alias].should == "b1"
+
       ha_mq.brokers[0][:status] = :disconnected
       aliases = []
-      ha_mq.each_usable { |b| aliases << b[:alias] }
+      res = ha_mq.each_usable { |b| aliases << b[:alias] }
       aliases.should == ["b1"]
+      res.size.should == 1
+      res[0][:alias].should == "b1"
+
       ha_mq.brokers[0][:status] = :failed
       aliases = []
-      ha_mq.each_usable { |b| aliases << b[:alias] }
+      res = ha_mq.each_usable { |b| aliases << b[:alias] }
       aliases.should == ["b1"]
+      res.size.should == 1
+      res[0][:alias].should == "b1"
+
+      ha_mq.brokers[1][:status] = :closed
+      aliases = []
+      res = ha_mq.each_usable { |b| aliases << b[:alias] }
+      aliases.should == []
+      res.size.should == 0
+
       ha_mq.brokers[1][:status] = :connecting
       aliases = []
-      ha_mq.each_usable { |b| aliases << b[:alias] }
+      res = ha_mq.each_usable { |b| aliases << b[:alias] }
       aliases.should == ["b1"]
+      res.size.should == 1
+      res[0][:alias].should == "b1"
+
       ha_mq.brokers[0][:status] = :connected
       aliases = []
-      ha_mq.each_usable { |b| aliases << b[:alias] }
+      res = ha_mq.each_usable { |b| aliases << b[:alias] }
       aliases.should == ["b0", "b1"]
+      res.size.should == 2
+      res[0][:alias].should == "b0"
+      res[1][:alias].should == "b1"
+
+      res = ha_mq.each_usable
+      res.size.should == 2
+      res[0][:alias].should == "b0"
+      res[1][:alias].should == "b1"
     end
 
     it "should tell whether a broker is connected" do

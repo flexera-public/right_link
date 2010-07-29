@@ -381,7 +381,7 @@ module RightScale
       end
     end
 
-    # Unsubscribe from the specified queues
+    # Unsubscribe from the specified queues on usable brokers
     # Silently ignore unknown queues
     #
     # === Parameters
@@ -393,13 +393,15 @@ module RightScale
     # === Return
     # true:: Always return true
     def unsubscribe(*queue_names, &blk)
-      count = @brokers.inject(0) { |c, b| c + b[:queues].inject(0) { |c, q| c + (queue_names.include?(q.name) ? 1 : 0) } }
+      count = each_usable.inject(0) do |c, b|
+        c + b[:queues].inject(0) { |c, q| c + (queue_names.include?(q.name) ? 1 : 0) }
+      end
       if count == 0
         blk.call if blk
       else
         handler = CountedDeferrable.new(count)
         handler.callback { blk.call if blk }
-        @brokers.each do |b|
+        each_usable do |b|
           b[:queues].each do |q|
             if queue_names.include?(q.name)
               begin
@@ -625,9 +627,17 @@ module RightScale
     # A broker is considered usable if still connecting or confirmed connected
     #
     # === Block
-    # Required block to which each AMQP broker connection is passed
+    # Optional block to which each AMQP broker connection is passed
+    #
+    # === Return
+    # (Array):: Usable brokers
     def each_usable
-      @brokers.each { |b| yield b if [:connected, :connecting].include?(b[:status]) }
+      @brokers.select do |b|
+        if [:connected, :connecting].include?(b[:status])
+          yield b if block_given?
+          true
+        end
+      end
     end
 
     # Check whether broker is connected
