@@ -139,7 +139,7 @@ module RightScale
       RightLinkLog.debug("Existing login users: #{@@login_policy.users.length} recorded") if @@login_policy
 
       begin
-        meta_data_file = ::File.join(RightScale::RightLinkConfig[:cloud_state_dir], 'meta-data.rb')
+        meta_data_file = ::File.join(RightScale::RightLinkConfig[:cloud_state_dir], 'meta-data-cache.rb')
         # metadata does not exist on all clouds, hence the conditional
         load(meta_data_file) if File.file?(meta_data_file)
         @@aws_id = ENV['EC2_INSTANCE_ID']
