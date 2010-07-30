@@ -140,13 +140,15 @@ begin
   # This monkey patch catches exceptions that would otherwise cause EM to stop or be in a bad
   # state if a top level EM error handler was setup. Instead close the connection and leave EM
   # alone.
+  # Don't log an error if the environment variable IGNORE_AMQP_FAILURES is set (used in the 
+  # enroll script)
   AMQP::Client.module_eval do
     alias :orig_receive_data :receive_data
     def receive_data(*args)
       begin
         orig_receive_data(*args)
       rescue Exception => e
-        RightScale::RightLinkLog.error("Exception caught while processing AMQP frame: #{e.message}, closing connection.")
+        RightScale::RightLinkLog.error("Exception caught while processing AMQP frame: #{e.message}, closing connection.") unless ENV['IGNORE_AMQP_FAILURES']
         close_connection
       end
     end
