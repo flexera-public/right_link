@@ -260,18 +260,21 @@ protected
       else
         File.join(gen_agent_dir(agent), "#{agent}-#{options[:identity]}-monit.conf")
       end
-      File.open(cfg_file, 'w') do |f|
-        f.puts <<-EOF
+      File.open(cfg_file, 'w') { |f| f.puts monit_config(agent, pid_file) }
+      # monit requires strict perms on this file
+      File.chmod 0600, cfg_file
+      cfg_file
+    end
+
+    # Monit configuration file content
+    def monit_config(agent, pid_file)
+      config = <<-EOF
 check process #{agent}
   with pidfile \"#{pid_file}\"
   start program \"/usr/bin/rnac --start #{agent}\"
   stop program \"/usr/bin/rnac --stop #{agent}\"
   mode manual
-        EOF
-      end
-      # monit requires strict perms on this file
-      File.chmod 0600, cfg_file
-      cfg_file
+      EOF
     end
 
     def config_file(agent)
