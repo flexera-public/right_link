@@ -1256,10 +1256,10 @@ describe RightScale::HA_MQ do
           disconnected += 1
         end
       end
-      ha_mq.__send__(:update_status, ha_mq.brokers[0], :connected)
+      ha_mq.__send__(:update_status, ha_mq.brokers[0], :ready)
       connected.should == 1
       disconnected.should == 0
-      ha_mq.__send__(:update_status, ha_mq.brokers[1], :connected)
+      ha_mq.__send__(:update_status, ha_mq.brokers[1], :ready)
       connected.should == 1
       disconnected.should == 0
       ha_mq.__send__(:update_status, ha_mq.brokers[0], :disconnected)
@@ -1268,10 +1268,10 @@ describe RightScale::HA_MQ do
       ha_mq.__send__(:update_status, ha_mq.brokers[1], :disconnected)
       connected.should == 1
       disconnected.should == 1
-      ha_mq.__send__(:update_status, ha_mq.brokers[0], :connected)
+      ha_mq.__send__(:update_status, ha_mq.brokers[0], :ready)
       connected.should == 2
       disconnected.should == 1
-      ha_mq.__send__(:update_status, ha_mq.brokers[1], :connected)
+      ha_mq.__send__(:update_status, ha_mq.brokers[1], :ready)
       connected.should == 2
       disconnected.should == 1
     end
@@ -1291,10 +1291,10 @@ describe RightScale::HA_MQ do
           disconnected += 1
         end
       end
-      ha_mq.__send__(:update_status, ha_mq.brokers[0], :connected)
+      ha_mq.__send__(:update_status, ha_mq.brokers[0], :ready)
       connected.should == 0
       disconnected.should == 0
-      ha_mq.__send__(:update_status, ha_mq.brokers[1], :connected)
+      ha_mq.__send__(:update_status, ha_mq.brokers[1], :ready)
       connected.should == 1
       disconnected.should == 0
       ha_mq.__send__(:update_status, ha_mq.brokers[0], :disconnected)
@@ -1303,10 +1303,10 @@ describe RightScale::HA_MQ do
       ha_mq.__send__(:update_status, ha_mq.brokers[1], :disconnected)
       connected.should == 1
       disconnected.should == 1
-      ha_mq.__send__(:update_status, ha_mq.brokers[0], :connected)
+      ha_mq.__send__(:update_status, ha_mq.brokers[0], :ready)
       connected.should == 1
       disconnected.should == 1
-      ha_mq.__send__(:update_status, ha_mq.brokers[1], :connected)
+      ha_mq.__send__(:update_status, ha_mq.brokers[1], :ready)
       connected.should == 2
       disconnected.should == 1
     end
@@ -1326,13 +1326,13 @@ describe RightScale::HA_MQ do
           disconnected += 1
         end
       end
-      ha_mq.__send__(:update_status, ha_mq.brokers[1], :connected)
+      ha_mq.__send__(:update_status, ha_mq.brokers[1], :ready)
       connected.should == 0
       disconnected.should == 0
-      ha_mq.__send__(:update_status, ha_mq.brokers[0], :connected)
+      ha_mq.__send__(:update_status, ha_mq.brokers[0], :ready)
       connected.should == 1
       disconnected.should == 0
-      ha_mq.__send__(:update_status, ha_mq.brokers[2], :connected)
+      ha_mq.__send__(:update_status, ha_mq.brokers[2], :ready)
       connected.should == 1
       disconnected.should == 0
       ha_mq.__send__(:update_status, ha_mq.brokers[0], :disconnected)
@@ -1344,7 +1344,7 @@ describe RightScale::HA_MQ do
       ha_mq.__send__(:update_status, ha_mq.brokers[2], :disconnected)
       connected.should == 1
       disconnected.should == 1
-      ha_mq.__send__(:update_status, ha_mq.brokers[2], :connected)
+      ha_mq.__send__(:update_status, ha_mq.brokers[2], :ready)
       connected.should == 2
       disconnected.should == 1
     end
@@ -1353,12 +1353,12 @@ describe RightScale::HA_MQ do
       ha_mq = RightScale::HA_MQ.new(@serializer)
       called = 0
       ha_mq.connection_status(:one_off => 10) { |_| called += 1 }
-      ha_mq.__send__(:update_status, ha_mq.brokers[0], :connected)
+      ha_mq.__send__(:update_status, ha_mq.brokers[0], :ready)
       ha_mq.__send__(:update_status, ha_mq.brokers[0], :disconnected)
       called.should == 1
       called = 0
       ha_mq.connection_status { |_| called += 1 }
-      ha_mq.__send__(:update_status, ha_mq.brokers[0], :connected)
+      ha_mq.__send__(:update_status, ha_mq.brokers[0], :ready)
       ha_mq.__send__(:update_status, ha_mq.brokers[0], :disconnected)
       called.should == 2
     end
@@ -1369,7 +1369,7 @@ describe RightScale::HA_MQ do
       ha_mq = RightScale::HA_MQ.new(@serializer)
       called = 0
       ha_mq.connection_status(:one_off => 10) { |_| called += 1 }
-      ha_mq.__send__(:update_status, ha_mq.brokers[0], :connected)
+      ha_mq.__send__(:update_status, ha_mq.brokers[0], :ready)
       called.should == 1
     end
 
@@ -1406,7 +1406,7 @@ describe RightScale::HA_MQ do
       called2 = 0
       ha_mq.connection_status(:one_off => 10) { |_| called1 += 1 }
       ha_mq.connection_status(:boundary => :all) { |_| called2 += 1 }
-      ha_mq.__send__(:update_status, ha_mq.brokers[0], :connected)
+      ha_mq.__send__(:update_status, ha_mq.brokers[0], :ready)
       ha_mq.__send__(:update_status, ha_mq.brokers[0], :disconnected)
       called1.should == 1
       called2.should == 2
