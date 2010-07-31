@@ -57,8 +57,8 @@ module RightScale
     # (Proc) Callable object that returns agent load as a string
     attr_accessor :status_proc
 
-    # Seconds to wait after last request received before terminating
-    TERMINATION_WAIT_TIME = 30
+    # Seconds to wait for broker connection
+    BROKER_CONNECT_TIMEOUT = 60
 
     # Default option settings for the agent
     DEFAULT_OPTIONS = COMMON_DEFAULT_OPTIONS.merge({
@@ -67,14 +67,12 @@ module RightScale
       :fresh_timeout => nil,
       :retry_interval => nil,
       :retry_timeout => nil,
+      :grace_timeout => 30,
       :prefetch => 1,
       :persist => 'none',
       :ping_time => 60,
       :default_services => []
     }) unless defined?(DEFAULT_OPTIONS)
-
-    # Seconds to wait for broker connection
-    BROKER_CONNECT_TIMEOUT = 60
 
     # Initializes a new agent and establishes an AMQP connection.
     # This must be used inside EM.run block or if EventMachine reactor
@@ -115,6 +113,8 @@ module RightScale
     # :fresh_timeout(Numeric):: Maximum age in seconds before a request times out and is rejected
     # :retry_interval(Numeric):: Number of seconds between request retries
     # :retry_timeout(Numeric):: Maximum number of seconds to retry request before give up
+    # :grace_timeout(Numeric):: Maximum number of seconds to wait after last request received before
+    #   terminating regardless of whether there are still unfinished requests
     # :prefetch(Integer):: Maximum number of messages the AMQP broker is to prefetch for this agent
     #   before it receives an ack. Value 1 ensures that only last unacknowledged gets redelivered
     #   if the agent crashes. Value 0 means unlimited prefetch.
@@ -381,7 +381,7 @@ module RightScale
           end
         else
           # Defer reconnect initiation to the mapper via ping
-          @broker.not_usable(ids)
+          @broker.declare_unusable(ids)
           advertise_services
         end
       rescue Exception => e
@@ -400,40 +400,50 @@ module RightScale
     # === Return
     # true:: Always return true
     def terminate(&blk)
-      if @terminating
-        RightLinkLog.info("[stop] Terminating immediately")
-        @termination_timer.cancel if @termination_timer
-        if blk then blk.call else EM.stop end
-      else
-        @terminating = true
-        RightScale::RightLinkLog.info("[stop] Agent #{@options[:identity]} terminating")
-        un_register
-        @broker.unsubscribe(@shared_queue) do
-          requests = @mapper_proxy.pending_requests.size
-          request_age = @mapper_proxy.request_age
-          dispatch_age = @dispatcher.dispatch_age
-          wait_time = [TERMINATION_WAIT_TIME - (request_age || TERMINATION_WAIT_TIME),
-                       TERMINATION_WAIT_TIME - (dispatch_age || TERMINATION_WAIT_TIME), 0].max
-          if wait_time > 0
-            reason = ""
-            reason = "completion of #{requests} unfinished requests started as recently as #{request_age} seconds ago" if request_age
-            reason += " and " if request_age && dispatch_age
-            reason += "requests dispatched as recently as #{dispatch_age} seconds ago" if dispatch_age
-            RightLinkLog.info("[stop] Termination waiting #{wait_time} seconds for #{reason}")
-          end
-          @termination_timer = EM::Timer.new(wait_time) do
+      begin
+        if @terminating
+          RightLinkLog.info("[stop] Terminating immediately")
+          @termination_timer.cancel if @termination_timer
+          if blk then blk.call else EM.stop end
+        else
+          @terminating = true
+          timeout = @options[:grace_timeout]
+          RightScale::RightLinkLog.info("[stop] Agent #{@options[:identity]} terminating")
+          un_register
+          @broker.unusable.each { |id| @broker.close_one(id, propagate = false) }
+          @broker.unsubscribe([@shared_queue], timeout / 2) do
+            request_count = @mapper_proxy.pending_requests.size
             request_age = @mapper_proxy.request_age
-            if wait_time > 0 && request_age
-              requests = @mapper_proxy.pending_requests.size
-              RightLinkLog.info("[stop] Continuing with termination with #{requests} unfinished requests " +
-                                "started as recently as #{request_age} seconds ago")
-            elsif wait_time > 0
-              RightLinkLog.info("[stop] Continuing with termination")
+            dispatch_age = @dispatcher.dispatch_age
+            wait_time = [timeout - (request_age || timeout), timeout - (dispatch_age || timeout), 0].max
+            if wait_time > 0
+              reason = ""
+              reason = "completion of #{request_count} requests initiated as recently as #{request_age} seconds ago" if request_age
+              reason += " and " if request_age && dispatch_age
+              reason += "requests received as recently as #{dispatch_age} seconds ago" if dispatch_age
+              RightLinkLog.info("[stop] Termination waiting #{wait_time} seconds for #{reason}")
             end
-            @broker.close(&blk)
-            EM.stop unless blk
+            @termination_timer = EM::Timer.new(wait_time) do
+              begin
+                RightLinkLog.info("[stop] Continuing with termination") if wait_time > 0
+                if request_age = @mapper_proxy.request_age
+                  request_count = @mapper_proxy.pending_requests.size
+                  request_dump = @mapper_proxy.dump_requests.join("\n  ")
+                  RightLinkLog.info("[stop] The following #{request_count} requests initiated as recently as #{request_age} " +
+                                    "seconds ago are being dropped:\n  #{request_dump}")
+                end
+                @broker.close(&blk)
+                EM.stop unless blk
+              rescue Exception => e
+                RightLinkLog.error("Failed while finishing termination: #{e.message}")
+                EM.stop
+              end
+            end
           end
         end
+      rescue Exception => e
+        RightLinkLog.error("Failed to terminate gracefully: #{e.message}")
+        EM.stop
       end
       true
     end

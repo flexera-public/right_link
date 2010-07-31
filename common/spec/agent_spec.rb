@@ -301,7 +301,7 @@ describe RightScale::Agent do
       flexmock(EM::Timer).should_receive(:new).and_return(@timer).by_default
       @timer.should_receive(:cancel).by_default
       @broker = flexmock("broker", :subscribe => true, :publish => true, :prefetch => true,
-                         :connected => ["b1"], :failed => []).by_default
+                         :connected => ["b1"], :failed => [], :unusable => [], :close_one => true).by_default
       @broker.should_receive(:connection_status).and_yield(:connected)
       flexmock(RightScale::HA_MQ).should_receive(:new).and_return(@broker)
       flexmock(RightScale::PidFile).should_receive(:new).
@@ -324,8 +324,20 @@ describe RightScale::Agent do
       end
     end
 
+    it "should close unusable broker connections at start of termination" do
+      @broker.should_receive(:unsubscribe).once
+      @broker.should_receive(:unusable).and_return(["rs-broker-123-1"]).once
+      @broker.should_receive(:close_one).with("rs-broker-123-1", false).once
+      run_in_em do
+        @agent = RightScale::Agent.start(:user => "me", :identity => @identity)
+        flexmock(@agent).should_receive(:un_register).once
+        @agent.run
+        @agent.terminate
+      end
+    end
+
     it "should unsubscribe from shared queue" do
-      @broker.should_receive(:unsubscribe).with("shared", Proc).once
+      @broker.should_receive(:unsubscribe).with(["shared"], 15, Proc).once
       run_in_em do
         @agent = RightScale::Agent.start(:user => "me", :identity => @identity, :shared_queue => "shared")
         flexmock(@agent).should_receive(:un_register).once
@@ -412,8 +424,10 @@ describe RightScale::Agent do
       flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Agent rs-core-123-1 terminating/).once
       flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Termination waiting/).once
       flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Continuing with termination/).once
+      flexmock(RightScale::RightLinkLog).should_receive(:info).with(/The following 1 request/).once
       @mapper_proxy.should_receive(:pending_requests).and_return(["request"]).twice
       @mapper_proxy.should_receive(:request_age).and_return(10).twice
+      @mapper_proxy.should_receive(:dump_requests).and_return(["request"]).once
       @dispatcher.should_receive(:dispatch_age).and_return(10).once
       @broker.should_receive(:unsubscribe).and_yield.once
       @broker.should_receive(:close).once
@@ -429,6 +443,7 @@ describe RightScale::Agent do
     it "should execute block after all brokers have been closed" do
       @mapper_proxy.should_receive(:pending_requests).and_return(["request"]).twice
       @mapper_proxy.should_receive(:request_age).and_return(10).twice
+      @mapper_proxy.should_receive(:dump_requests).and_return(["request"]).once
       @dispatcher.should_receive(:dispatch_age).and_return(10).once
       @broker.should_receive(:unsubscribe).and_yield.once
       @broker.should_receive(:close).and_yield.once
@@ -446,6 +461,7 @@ describe RightScale::Agent do
     it "should stop EM if no block specified" do
       @mapper_proxy.should_receive(:pending_requests).and_return(["request"]).twice
       @mapper_proxy.should_receive(:request_age).and_return(10).twice
+      @mapper_proxy.should_receive(:dump_requests).and_return(["request"]).once
       @dispatcher.should_receive(:dispatch_age).and_return(10).once
       @broker.should_receive(:unsubscribe).and_yield.once
       @broker.should_receive(:close).once

@@ -119,6 +119,14 @@ describe RightScale::MapperProxy do
       @instance.request_age.should == 100
     end
 
+    it "should dump the pending requests" do
+      flexmock(RightScale::AgentIdentity).should_receive(:generate).and_return('abc').once
+      now = flexmock("now", :to_f => 1000000.0000, :localtime => 1000000)
+      time = flexmock(Time).should_receive(:now).and_return(now)
+      @instance.request('/welcome/aboard', 'iZac', {})
+      @instance.dump_requests.should == ['1000000 <abc>']
+    end
+
     describe "with retry" do
       it "should convert value to nil if 0" do
         @instance.__send__(:nil_if_zero, 0).should == nil

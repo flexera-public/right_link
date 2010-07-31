@@ -375,20 +375,21 @@ module RightScale
     #
     # === Parameters
     # queue_names(Array):: Names of queues previously subscribed to
+    # timeout(Integer):: Number of seconds to wait for all confirmations, defaults to no timeout
     #
     # === Block
     # Optional block that is called with no parameters after all queues are unsubscribed
     #
     # === Return
     # true:: Always return true
-    def unsubscribe(*queue_names, &blk)
+    def unsubscribe(queue_names, timeout = nil, &blk)
       count = each_usable.inject(0) do |c, b|
         c + b[:queues].inject(0) { |c, q| c + (queue_names.include?(q.name) ? 1 : 0) }
       end
       if count == 0
         blk.call if blk
       else
-        handler = CountedDeferrable.new(count)
+        handler = CountedDeferrable.new(count, timeout)
         handler.callback { blk.call if blk }
         each_usable do |b|
           b[:queues].each do |q|
@@ -397,8 +398,8 @@ module RightScale
                 RightLinkLog.info("[stop] Unsubscribing queue #{q.name} on broker #{b[:alias]}")
                 q.unsubscribe { handler.completed_one }
               rescue Exception => e
-                handler.completed_one
                 RightLinkLog.error("Failed unsubscribing queue #{q.name} on broker #{b[:alias]}: #{e.message}")
+                handler.completed_one
               end
             end
           end
@@ -609,9 +610,17 @@ module RightScale
     # Get identity of usable brokers
     #
     # === Return
-    # (Array):: Identity of connected brokers
+    # (Array):: Identity of usable brokers
     def usable
       each_usable.map { |b| b[:identity] }
+    end
+
+    # Get identity of unusable brokers
+    #
+    # === Return
+    # (Array):: Identity of unusable brokers
+    def unusable
+      @brokers.map { |b| b[:identity] } - each_usable.map { |b| b[:identity] }
     end
 
     # Get identity of failed brokers, i.e., ones that were never successfully connected,
@@ -767,7 +776,7 @@ module RightScale
     #
     # === Raises
     # Exception:: If identified broker is unknown
-    def not_usable(identities)
+    def declare_unusable(identities)
       identities.each do |id|
         broker = @brokers_hash[id]
         raise Exception, "Cannot mark unknown broker #{id} unusable" unless broker
@@ -911,17 +920,32 @@ module RightScale
     protected
 
     # Helper for deferring block execution until specified number of actions have completed
+    # or timeout occurs
     class CountedDeferrable
 
       include EM::Deferrable
 
-      def initialize(count)
+      # Defer action until completion count reached or timeout occurs
+      #
+      # === Parameter
+      # count(Integer):: Number of completions required for action
+      # timeout(Integer|nil):: Number of seconds to wait for all completions and if
+      #   reached, proceed with action; nil means no timing
+      def initialize(count, timeout = nil)
+        @timer = EM::Timer.new(timeout) { succeed } if timeout
         @count = count
       end
 
+      # Completed one part of task
+      #
+      # === Return
+      # true:: Always return true
       def completed_one
-        @count -= 1
-        succeed if @count == 0
+        if (@count -= 1) == 0
+          @timer.cancel if @timer
+          succeed
+        end
+        true
       end
 
     end

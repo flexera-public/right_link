@@ -106,7 +106,7 @@ module RightScale
           request.from = @identity
           request.token = AgentIdentity.generate
           request.persistent = opts.key?(:persistent) ? opts[:persistent] : ['all', 'request'].include?(@persist)
-          @pending_requests[request.token] = {:result_handler => blk, :receive_time => Time.now.to_i}
+          @pending_requests[request.token] = {:result_handler => blk, :receive_time => Time.now}
           request_with_retry(request, request.token)
         rescue Exception => e
           RightLinkLog.error("Failed to send #{type} request: #{e.message}")
@@ -174,13 +174,25 @@ module RightScale
     # === Return
     # age(Integer|nil):: Age in seconds of youngest request, or nil if no pending requests
     def request_age
-      time = Time.now.to_i
+      time = Time.now
       age = nil
       @pending_requests.each_value do |request|
         seconds = time - request[:receive_time]
-        age = seconds if age.nil? || seconds < age
+        age = seconds.to_i if age.nil? || seconds < age
       end
       age
+    end
+
+    # Create displayable dump of unfinished request information
+    #
+    # === Return
+    # info(Array(String)):: Receive time and token for each request in descending time order
+    def dump_requests
+      info = []
+      @pending_requests.each do |token, request|
+        info << "#{request[:receive_time].localtime} <#{token}>"
+      end
+      info.sort.reverse
     end
 
     protected
@@ -262,7 +274,7 @@ module RightScale
           end
         end
         request = Request.new("/mapper/ping", nil, {:from => @identity, :token => AgentIdentity.generate})
-        @pending_requests[request.token] = {:result_handler => handler, :receive_time => Time.now.to_i}
+        @pending_requests[request.token] = {:result_handler => handler, :receive_time => Time.now}
         publish(request, [id])
       end
       true

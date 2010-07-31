@@ -521,6 +521,8 @@ describe RightScale::HA_MQ do
   describe "Unsubscribing" do
 
     before(:each) do
+      @timer = flexmock("timer", :cancel => true).by_default
+      flexmock(EM::Timer).should_receive(:new).and_return(@timer).by_default
       @info = flexmock("info", :ack => true).by_default
       @serializer = flexmock("Serializer").by_default
       @direct = flexmock("direct")
@@ -537,14 +539,14 @@ describe RightScale::HA_MQ do
       @queue.should_receive(:unsubscribe).once
       ha_mq = RightScale::HA_MQ.new(@serializer)
       ha_mq.subscribe({:name => "queue1"}, {:type => :direct, :name => "exchange"})
-      ha_mq.unsubscribe("queue1")
+      ha_mq.unsubscribe(["queue1"])
     end
 
     it "should ignore unsubscribe if queue unknown" do
       @queue.should_receive(:unsubscribe).never
       ha_mq = RightScale::HA_MQ.new(@serializer)
       ha_mq.subscribe({:name => "queue1"}, {:type => :direct, :name => "exchange"})
-      ha_mq.unsubscribe("queue2")
+      ha_mq.unsubscribe(["queue2"])
     end
 
     it "should yield to supplied block after unsubscribing" do
@@ -552,7 +554,28 @@ describe RightScale::HA_MQ do
       ha_mq = RightScale::HA_MQ.new(@serializer)
       ha_mq.subscribe({:name => "queue1"}, {:type => :direct, :name => "exchange"})
       called = 0
-      ha_mq.unsubscribe("queue1") { called += 1 }
+      ha_mq.unsubscribe(["queue1"]) { called += 1 }
+      called.should == 1
+    end
+
+    it "should yield to supplied block if timeout before finish unsubscribing" do
+      flexmock(EM::Timer).should_receive(:new).with(10, Proc).and_return(@timer).and_yield.once
+      @queue.should_receive(:unsubscribe).once
+      ha_mq = RightScale::HA_MQ.new(@serializer)
+      ha_mq.subscribe({:name => "queue1"}, {:type => :direct, :name => "exchange"})
+      called = 0
+      ha_mq.unsubscribe(["queue1"], 10) { called += 1 }
+      called.should == 1
+    end
+
+    it "should cancel timer if finish unsubscribing before timer fires" do
+      @timer.should_receive(:cancel).once
+      flexmock(EM::Timer).should_receive(:new).with(10, Proc).and_return(@timer).once
+      @queue.should_receive(:unsubscribe).and_yield.once
+      ha_mq = RightScale::HA_MQ.new(@serializer)
+      ha_mq.subscribe({:name => "queue1"}, {:type => :direct, :name => "exchange"})
+      called = 0
+      ha_mq.unsubscribe(["queue1"], 10) { called += 1 }
       called.should == 1
     end
 
@@ -561,7 +584,7 @@ describe RightScale::HA_MQ do
       ha_mq = RightScale::HA_MQ.new(@serializer)
       ha_mq.subscribe({:name => "queue1"}, {:type => :direct, :name => "exchange"})
       called = 0
-      ha_mq.unsubscribe(nil) { called += 1 }
+      ha_mq.unsubscribe([nil]) { called += 1 }
       called.should == 1
     end
 
@@ -570,7 +593,7 @@ describe RightScale::HA_MQ do
       ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first, second")
       ha_mq.subscribe({:name => "queue1"}, {:type => :direct, :name => "exchange"})
       called = 0
-      ha_mq.unsubscribe("queue1") { called += 1 }
+      ha_mq.unsubscribe(["queue1"]) { called += 1 }
       called.should == 1
     end
 
@@ -580,7 +603,7 @@ describe RightScale::HA_MQ do
       ha_mq.brokers[0][:status] = :failed
       ha_mq.subscribe({:name => "queue1"}, {:type => :direct, :name => "exchange"})
       called = 0
-      ha_mq.unsubscribe("queue1") { called += 1 }
+      ha_mq.unsubscribe(["queue1"]) { called += 1 }
       called.should == 1
     end
 
@@ -589,7 +612,7 @@ describe RightScale::HA_MQ do
       @queue.should_receive(:unsubscribe).and_raise(Exception).once
       ha_mq = RightScale::HA_MQ.new(@serializer)
       ha_mq.subscribe({:name => "queue1"}, {:type => :direct, :name => "exchange"})
-      ha_mq.unsubscribe("queue1")
+      ha_mq.unsubscribe(["queue1"])
     end
 
   end # Unsubscribing
@@ -1080,7 +1103,7 @@ describe RightScale::HA_MQ do
       ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first, second")
       ha_mq.brokers[0][:status] = :connected
       ha_mq.brokers[1][:status] = :connected
-      res = ha_mq.not_usable(["rs-broker-first-5672"])
+      res = ha_mq.declare_unusable(["rs-broker-first-5672"])
       ha_mq.brokers[0][:status].should == :failed
     end
 
@@ -1107,7 +1130,7 @@ describe RightScale::HA_MQ do
       flexmock(RightScale::RightLinkLog).should_receive(:info).by_default
     end
 
-    it "should give access to each usable broker" do
+    it "should give access to or list usable brokers" do
       ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first, second")
       aliases = []
       res = ha_mq.__send__(:each_usable) { |b| aliases << b[:alias] }
@@ -1173,6 +1196,21 @@ describe RightScale::HA_MQ do
       res[0][:alias].should == "b0"
       res[1][:alias].should == "b1"
       ha_mq.usable.should == ["rs-broker-first-5672", "rs-broker-second-5672"]
+    end
+
+    it "should give list of unusable brokers" do
+      ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first, second")
+      ha_mq.brokers[1][:status] = :connecting
+      res = ha_mq.unusable
+      res.should == []
+
+      ha_mq.brokers[0][:status] = :failed
+      res = ha_mq.unusable
+      res.should == ["rs-broker-first-5672"]
+
+      ha_mq.brokers[1][:status] = :closed
+      res = ha_mq.unusable
+      res.should == ["rs-broker-first-5672", "rs-broker-second-5672"]
     end
 
     it "should give access to each selected usable broker" do

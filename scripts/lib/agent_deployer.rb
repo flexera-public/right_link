@@ -39,6 +39,7 @@
 #      --fresh-timeout SEC      Set maximum age in seconds before a request times out and is rejected
 #      --retry-timeout SEC      Set maximum number of seconds to retry request before give up
 #      --retry-interval SEC     Set number of seconds before initial request retry, increases exponentially
+#      --grace-timeout SEC      Set number of seconds before graceful termination times out
 #      --[no-]dup-check         Set whether to check for and reject duplicate requests, .e.g., due to retries
 #      --persist SET            Set default handling for persistence of messages being sent via AMQP
 #                               (none, all, push, or request)
@@ -116,6 +117,7 @@ module RightScale
       cfg[:fresh_timeout]   = options[:fresh_timeout] || 15 * 60
       cfg[:retry_timeout]   = options[:retry_timeout] || 10 * 60
       cfg[:retry_interval]  = options[:retry_interval] || 30
+      cfg[:grace_timeout]   = options[:grace_timeout] if options[:grace_timeout]
       cfg[:dup_check]       = options[:dup_check].nil? ? true : options[:dup_check]
       cfg[:auto_shutdown]   = options[:auto_shutdown]
       cfg[:http_proxy]      = options[:http_proxy] if options[:http_proxy]
@@ -192,6 +194,10 @@ module RightScale
 
         opts.on('--retry-interval SEC') do |sec|
           options[:retry_interval] = sec.to_i
+        end
+
+        opts.on('--grace-timeout SEC') do |sec|
+          options[:grace_timeout] = sec.to_i
         end
 
         opts.on('--[no-]dup-check') do |b|
