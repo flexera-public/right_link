@@ -395,6 +395,32 @@ describe RightScale::HA_MQ do
       ids.should == ["rs-broker-first-5672", "rs-broker-second-5672"]
     end
 
+    it "should ignore 'nil' message when using ack" do
+      flexmock(RightScale::RightLinkLog).should_receive(:level).and_return(:debug)
+      flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Connecting/).once
+      flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Subscribing/).once
+      flexmock(RightScale::RightLinkLog).should_receive(:debug).with(/nil message ignored/).once
+      @bind.should_receive(:subscribe).and_yield(@info, "nil").once
+      ha_mq = RightScale::HA_MQ.new(@serializer)
+      ha_mq.brokers[0][:status] = :connected
+      called = 0
+      ha_mq.subscribe({:name => "queue"}, {:type => :direct, :name => "exchange"}, :ack => true) { |b, m| called += 1 }
+      called.should == 0
+    end
+
+    it "should ignore 'nil' message when not using ack" do
+      flexmock(RightScale::RightLinkLog).should_receive(:level).and_return(:debug)
+      flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Connecting/).once
+      flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Subscribing/).once
+      flexmock(RightScale::RightLinkLog).should_receive(:debug).with(/nil message ignored/).once
+      @bind.should_receive(:subscribe).and_yield("nil").once
+      ha_mq = RightScale::HA_MQ.new(@serializer)
+      ha_mq.brokers[0][:status] = :connected
+      called = 0
+      ha_mq.subscribe({:name => "queue"}, {:type => :direct, :name => "exchange"}) { |b, m| called += 1 }
+      called.should == 0
+    end
+
     it "should not unserialize the message if requested" do
       flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Connecting/).once
       flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Subscribing/).once

@@ -338,7 +338,10 @@ module RightScale
                 info.ack
                 if options[:no_unserialize] || @serializer.nil?
                   blk.call(b[:identity], msg)
-                else
+                elsif msg == "nil"
+                  # This happens as part of connecting an instance agent to a broker
+                  RightLinkLog.debug("RECV #{b[:alias]} nil message ignored")
+                elsif
                   packet = receive(b, queue[:name], msg, options)
                   blk.call(b[:identity], packet) if packet
                 end
@@ -352,7 +355,10 @@ module RightScale
               begin
                 if options[:no_unserialize] || @serializer.nil?
                   blk.call(b[:identity], msg)
-                else
+                elsif msg == "nil"
+                  # This happens as part of connecting an instance agent to a broker
+                  RightLinkLog.debug("RECV #{b[:alias]} nil message ignored")
+                elsif
                   packet = receive(b, queue[:name], msg, options)
                   blk.call(b[:identity], packet) if packet
                 end
