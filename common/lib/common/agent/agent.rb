@@ -563,7 +563,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def setup_identity_queue(ids = nil)
-      queue = {:name => @identity, :options => {:durable => true}}
+      queue = {:name => @identity, :options => {:durable => true, :no_declare => @options[:secure]}}
       filter = [:from, :tags, :tries, :persistent]
       options = {:ack => true, Advertise => nil, Request => filter, Push => filter, Result => [], :brokers => ids}
       exchange = unless AgentIdentity.parse(@identity).instance_agent?
