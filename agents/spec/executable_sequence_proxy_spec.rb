@@ -74,9 +74,12 @@ describe RightScale::ExecutableSequenceProxy do
     # note that normalize_path makes it tricky to guess at full command string
     # so it is best to rely on config constants.
     cook_util_path = File.join(RightScale::RightLinkConfig[:right_link_path], 'scripts', 'lib', 'cook.rb')
-    expected = "#{RightScale::RightLinkConfig[:sandbox_ruby_cmd]} \"#{cook_util_path}\""
-
-    matcher = Regexp.compile(".*" + Regexp.escape(" /C type ") + ".*" + Regexp.escape("rs_executable_sequence.txt | ") + Regexp.escape(expected))
+    expected = "#{File.basename(RightScale::RightLinkConfig[:sandbox_ruby_cmd])} \"#{cook_util_path}\""
+    if RightScale::Platform.windows?
+      matcher = Regexp.compile(".*" + Regexp.escape(" /C type ") + ".*" + Regexp.escape("rs_executable_sequence.txt | ") + ".*" + Regexp.escape(expected))
+    else
+      matcher = Regexp.compile(".*" + Regexp.escape(expected))
+    end
     cmd.should match matcher
   end
 
