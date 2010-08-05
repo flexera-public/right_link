@@ -215,7 +215,7 @@ module RightScale
       options ||= {}
       begin
         cmd = { :name => cmd, :content => content, :options => options }
-        @agent_connection.send_command(cmd)
+        EM.next_tick { @agent_connection.send_command(cmd) }
       rescue Exception => e
         $stderr.puts 'Failed to audit'
         $stderr.puts "Failed to audit (#{cmd[:name]}) - #{e.message} from\n#{e.backtrace.join("\n")}"

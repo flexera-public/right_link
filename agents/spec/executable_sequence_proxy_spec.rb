@@ -44,7 +44,14 @@ describe RightScale::ExecutableSequenceProxy do
     status = flexmock('status', :success? => true)
     flexmock(RightScale).should_receive(:popen3).and_return { |o| o[:target].send(o[:exit_handler], status) }
     @proxy.instance_variable_get(:@deferred_status).should == nil
-    @proxy.run 
+    EM.run do
+      EM.defer do
+        @proxy.run
+        EM.next_tick do
+          EM.stop
+        end
+      end
+    end
     @proxy.instance_variable_get(:@deferred_status).should == :succeeded
   end
 
@@ -55,13 +62,22 @@ describe RightScale::ExecutableSequenceProxy do
       cmd = o[:command] 
       o[:target].send(o[:exit_handler], status)
     end
-    @proxy.run
+    EM.run do
+      EM.defer do
+        @proxy.run
+        EM.next_tick do
+          EM.stop
+        end
+      end
+    end
 
     # note that normalize_path makes it tricky to guess at full command string
     # so it is best to rely on config constants.
     cook_util_path = File.join(RightScale::RightLinkConfig[:right_link_path], 'scripts', 'lib', 'cook.rb')
     expected = "#{RightScale::RightLinkConfig[:sandbox_ruby_cmd]} \"#{cook_util_path}\""
-    cmd.should == expected
+
+    matcher = Regexp.compile(".*" + Regexp.escape(" /C type ") + ".*" + Regexp.escape("rs_executable_sequence.txt | ") + Regexp.escape(expected))
+    cmd.should match matcher
   end
 
   it 'should report failures when cook fails' do
@@ -69,7 +85,14 @@ describe RightScale::ExecutableSequenceProxy do
     flexmock(RightScale).should_receive(:popen3).and_return { |o| o[:target].send(o[:exit_handler], status) }
     @auditor.should_receive(:append_error).twice
     @proxy.instance_variable_get(:@deferred_status).should == nil
-    @proxy.run 
+    EM.run do
+      EM.defer do
+        @proxy.run
+        EM.next_tick do
+          EM.stop
+        end
+      end
+    end
     @proxy.instance_variable_get(:@deferred_status).should == :failed
   end
 

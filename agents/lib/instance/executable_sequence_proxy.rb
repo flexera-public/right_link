@@ -51,13 +51,33 @@ module RightScale
     # true:: Always return true
     def run
       @succeeded = true
-      RightScale.popen3(:command        => "#{RightLinkConfig[:sandbox_ruby_cmd]} #{cook_path_and_arguments}",
-                        :input          => "#{JSON.dump(@bundle)}\n",
-                        :target         => self,
-                        :environment    => { OptionsBag::OPTIONS_ENV => ENV[OptionsBag::OPTIONS_ENV] },
-                        :stdout_handler => :on_read_stdout, 
-                        :stderr_handler => :on_read_stderr, 
-                        :exit_handler   => :on_exit)
+      platform = RightScale::RightLinkConfig[:platform]
+      input_text = "#{JSON.dump(@bundle)}\n"
+
+      # FIX: we have an issue with EM not allowing both sockets and named
+      # pipes to share the same file/socket id. sending the input on the
+      # command line is a temporary workaround.
+      if platform.windows?
+        input_path = File.normalize_path(File.join(platform.filesystem.temp_dir, "rs_executable_sequence.txt"))
+        File.open(input_path, "w") { |f| f.write(input_text) }
+        input_text = nil
+        cmd_exe_path = File.normalize_path(ENV['ComSpec']).gsub("/", "\\")
+        ruby_exe_path = File.normalize_path(RightLinkConfig[:sandbox_ruby_cmd]).gsub("/", "\\")
+        input_path = input_path.gsub("/", "\\")
+        cmd = "#{cmd_exe_path} /C type #{input_path} | #{ruby_exe_path} #{cook_path_and_arguments}"
+      else
+        cmd = "#{RightLinkConfig[:sandbox_ruby_cmd]} #{cook_path_and_arguments}"
+      end
+
+      EM.next_tick do
+        RightScale.popen3(:command        => cmd,
+                          :input          => input_text,
+                          :target         => self,
+                          :environment    => { OptionsBag::OPTIONS_ENV => ENV[OptionsBag::OPTIONS_ENV] },
+                          :stdout_handler => :on_read_stdout,
+                          :stderr_handler => :on_read_stderr,
+                          :exit_handler   => :on_exit)
+      end
     end
 
     protected
