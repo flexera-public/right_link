@@ -115,7 +115,7 @@ class InstanceSetup
   # === Return
   # true:: Always return true
   def enable_managed_login
-    if RightScale::Platform.windows?
+    if RightScale::Platform.windows? || RightScale::Platform.darwin? 
       boot
     else
       request('/booter/get_login_policy', {:agent_identity => @agent_identity}) do |r|
@@ -154,7 +154,7 @@ class InstanceSetup
       res = RightScale::OperationResult.from_results(r)
       if res.success?
         @audit_id = res.content.audit_id
-        unless RightScale::Platform.windows?
+        unless RightScale::Platform.windows? || RightScale::Platform.darwin?
           reps = res.content.repositories
           audit = "Using the following software repositories:\n"
           reps.each { |rep| audit += "  - #{rep.to_s}\n" }
