@@ -237,7 +237,7 @@ powershell 'test::execution_policy_recipe' do
   source_text =
 <<EOPS
   $local_machine_policy = get-executionpolicy -Scope LocalMachine
-  if($local_machine_policy -ne "Restricted")
+  if ($local_machine_policy -ne "Restricted" -and $local_machine_policy -ne "Undefined")
   {
     Write-Error "Expected get-executionpolicy -Scope LocalMachine == 'Restricted', but was $local_machine_policy"
     exit 100
@@ -446,7 +446,7 @@ EOF
       runner.call.should == true
 
       # ensure the policy is not changed after the test
-      (`powershell -command get-executionpolicy -Scope LocalMachine` =~ /Restricted/).should_not be_nil
+      (`powershell -command get-executionpolicy -Scope LocalMachine` =~ /Restricted|Undefined/).should_not be_nil
       (`powershell -command get-executionpolicy -Scope Process` =~ /Undefined/).should_not be_nil
     end
 
