@@ -28,12 +28,11 @@ describe RightScale::ExecutableSequenceProxy do
 
   before(:each) do
     setup_state
-    @bundle = flexmock('bundle')
-    @bundle.should_receive(:audit_id).and_return(42)
-    @auditor = flexmock('auditor')
-    @auditor.should_receive(:update_status)
-    flexmock(RightScale::AuditorProxy).should_receive(:instance).and_return(@auditor)
-    @proxy = RightScale::ExecutableSequenceProxy.new(@bundle)
+    @audit = flexmock('audit')
+    @context = flexmock('context', :audit => @audit, :payload => { :p => 'payload' })
+    @audit.should_receive(:update_status)
+    flexmock(RightScale::AuditProxy).should_receive(:new).and_return(@audit)
+    @proxy = RightScale::ExecutableSequenceProxy.new(@context)
   end
 
   after(:each) do
@@ -86,7 +85,7 @@ describe RightScale::ExecutableSequenceProxy do
   it 'should report failures when cook fails' do
     status = flexmock('status', :success? => false, :exitstatus => 1)
     flexmock(RightScale).should_receive(:popen3).and_return { |o| o[:target].send(o[:exit_handler], status) }
-    @auditor.should_receive(:append_error).twice
+    @audit.should_receive(:append_error).twice
     @proxy.instance_variable_get(:@deferred_status).should == nil
     EM.run do
       EM.defer do
@@ -113,7 +112,7 @@ describe RightScale::ExecutableSequenceProxy do
       end
       begin
         output = File.read(mock_output)
-        output.should == "#{JSON.dump(@bundle)}\n"
+        output.should == "#{JSON.dump(@context.payload)}\n"
       ensure
         (File.delete(mock_output) if File.file?(mock_output)) rescue nil
       end

@@ -93,7 +93,7 @@ module RightScale
       @@identity = identity
       @@startup_tags = []
       @@initial_boot = false
-      @@aws_id = nil
+      @@resource_uid = nil
       dir = File.dirname(STATE_FILE)
       FileUtils.mkdir_p(dir) unless File.directory?(dir)
 
@@ -142,7 +142,7 @@ module RightScale
         meta_data_file = ::File.join(RightScale::RightLinkConfig[:cloud_state_dir], 'meta-data-cache.rb')
         # metadata does not exist on all clouds, hence the conditional
         load(meta_data_file) if File.file?(meta_data_file)
-        @@aws_id = ENV['EC2_INSTANCE_ID']
+        @@resource_uid = ENV['EC2_INSTANCE_ID']
       rescue Exception => e
         RightScale::RightLinkLog.warn("Failed to load metadata: #{e.message}, #{e.backtrace[0]}")
       end
@@ -178,9 +178,9 @@ module RightScale
     # Instance AWS id for EC2 instances
     #
     # === Return
-    # aws_id(String):: Instance AWS ID, nil if not an EC2 instance or metadata is missing
-    def self.aws_id
-      aws_id = @@aws_id
+    # resource_uid(String):: Instance AWS ID on EC2, equivalent on other cloud when available 
+    def self.resource_uid
+      resource_uid = @@resource_uid
     end
 
     # Initial boot value

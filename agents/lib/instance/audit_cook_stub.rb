@@ -20,27 +20,38 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'agents', 'lib', 'instance', 'auditor_proxy'))
+require 'singleton'
 
 module RightScale
 
-  class AuditorProxyMock < AuditorProxy
+  # This class acts as a recipient of audit requests sent by the cook
+  # process.
+  # The audit proxy which will forward the audits to the core should be
+  # initialized before each invokation to cook
+  class AuditCookStub
 
     include Singleton
 
-    attr_accessor :audits
-  
-    def initialize
-      @audits = []
-      @buffers = {}
-      @timers = {}
-    end
+    # The audit proxy that should be used to forward all audit commands
+    attr_writer :audit_proxy
 
-    # Override raw audit to accumulate audits
-    def send_request(request, options = {})
-      a = { :audit_id => options[:audit_id], :request => request, :text => options[:text] }
-      @audits << a
+    # Forward audit command received from cook using audit proxy
+    #
+    # === Parameters
+    # kind(Symbol):: Kind of audit, one of :append_info, :append_error, :create_new_section, :update_status and :append_output
+    # text(String):: Audit content
+    # options[:category]:: Optional, associated event category, one of RightScale::EventCategories
+    #
+    # === Raise
+    # RuntimeError:: If audit_proxy is not set prior to calling this
+    def forward_audit(kind, text, options)
+      if kind == :append_output
+        @audit_proxy.append_output(text)
+      else
+        @audit_proxy.__send__(kind, text, options)
+      end
     end
 
   end
+
 end

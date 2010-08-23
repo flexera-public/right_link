@@ -58,7 +58,7 @@ module RightScale
           klass.module_eval <<-EOM
             alias :o_l_d_#{m} :#{m}
             def #{m}(*args, &blk)
-              RightLinkLog.debug("<<< #{klass}##{m}")
+              RightLinkLog.debug("<<< #{klass}##{m}(" + args.map(&:inspect).join(',') + ")")
               res = o_l_d_#{m}(*args, &blk)
               RightLinkLog.debug(">>> #{klass}##{m}")
               res
@@ -74,7 +74,7 @@ module RightScale
             class << self
               alias :o_l_d_#{m} :#{m}
               def #{m}(*args, &blk)
-                RightLinkLog.debug("<<< #{klass}.#{m}")
+                RightLinkLog.debug("<<< #{klass}.#{m}(" + args.map(&:inspect).join(',') + ")")
                 res = o_l_d_#{m}(*args, &blk)
                 RightLinkLog.debug(">>> #{klass}.#{m}")
                 res

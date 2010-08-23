@@ -40,7 +40,7 @@ RightScale::SecureSerializerInitializer.init(@options[:agent] || 'instance', @id
 #Initialize any singletons that have dependencies on non-singletons
 RightScale::AgentTagsManager.instance.agent = self
 
-register setup = InstanceSetup.new(@options)
+register setup = InstanceSetup.new(@identity)
 register scheduler = InstanceScheduler.new(self)
 register AgentManager.new(self)
 register InstanceServices.new(@identity)

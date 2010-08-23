@@ -36,27 +36,33 @@ class InstanceSetup
   # Prime timer for shutdown on unsuccessful boot ('suicide' functionality)
   #
   # === Parameters
-  # options[:agent_identity](String):: Serialized agent identity for current agent
-  # options[:auto_shutdown](TrueClass|FalseClass):: Whether instance should shutdown if it cannot boot
-  #                                                 under SUICIDE_DELAY and this is the initial boot
-  def initialize(options)
-    agent_identity = options[:identity]
-    RightScale::InstanceState.init(agent_identity)
-    should_suicide = options[:auto_shutdown] && RightScale::InstanceState.initial_boot
-    @suicide_timer = EM::Timer.new(SUICIDE_DELAY) do
-      RightScale::RightLinkLog.error "Shutting down after having tried to boot for #{SUICIDE_DELAY / 60} minutes"
-      RightScale::Platform.controller.shutdown 
-    end if should_suicide 
-    @boot_retries = 0
-    @agent_identity = agent_identity
-    RightScale::RightLinkLog.force_debug if RightScale::DevState.enabled?
+  # agent_identity(String):: Serialized agent identity for current agent
+  def initialize(agent_identity)
+    @agent_identity    = agent_identity
+    @got_boot_bundle   = false
     EM.threadpool_size = 1
+    RightScale::InstanceState.init(@agent_identity)
+    RightScale::RightLinkLog.force_debug if RightScale::DevState.enabled?
+    
     # Schedule boot sequence, don't run it now so agent is registered first
     if RightScale::InstanceState.value == 'booting'
       EM.next_tick { RightScale::RequestForwarder.instance.init { init_boot } }
     else
       RightScale::RequestForwarder.instance.init
     end
+
+    # Setup suicide timer which will cause instance to shutdown if the rs_launch:type=auto tag
+    # is set and the instance has not gotten its boot bundle after SUICIDE_DELAY seconds and this is 
+    # the first time this instance boots
+    @suicide_timer = EM::Timer.new(SUICIDE_DELAY) do
+      if RightScale::InstanceState.startup_tags.include?(Biz::TagCatalog::AUTO_LAUNCH) && !@got_boot_bundle
+        msg = "Shutting down after having tried to boot for #{SUICIDE_DELAY / 60} minutes"
+        RightScale::RightLinkLog.error(msg)
+        @audit.append_error(msg, :category => RightScale::EventCategories::CATEGORY_ERROR) if @audit
+        RightScale::Platform.controller.shutdown 
+      end
+    end if RightScale::InstanceState.initial_boot
+
   end
 
   # Retrieve current instance state
@@ -84,14 +90,16 @@ class InstanceSetup
   end
 
   protected
-
+  
   # We start off by setting the instance 'r_s_version' in the core site and
   # then proceed with the actual boot sequence
   #
   # === Return
   # true:: Always return true
   def init_boot
-    options = { :agent_identity => @agent_identity, :r_s_version => RightScale::RightLinkConfig.protocol_version, :aws_id => RightScale::InstanceState.aws_id }
+    options = { :agent_identity => @agent_identity,
+                :r_s_version    => RightScale::RightLinkConfig.protocol_version,
+                :resource_uid   => RightScale::InstanceState.resource_uid }
     RightScale::RequestForwarder.instance.request('/booter/declare', options) do |r|
       res = RightScale::OperationResult.from_results(r)
       if res.success?
@@ -122,17 +130,16 @@ class InstanceSetup
         res = RightScale::OperationResult.from_results(r)
         if res.success?
           policy  = res.content
+          audit = RightScale::AuditProxy.new(policy.audit_id)
           begin
-            audit = RightScale::LoginManager.instance.update_policy(policy)
-            if audit
-              RightScale::AuditorProxy.instance.create_new_section("Managed login enabled", :audit_id => policy.audit_id)
-              RightScale::AuditorProxy.instance.append_info(audit, :audit_id => policy.audit_id)
+            audit_content = RightScale::LoginManager.instance.update_policy(policy)
+            if audit_content
+              audit.create_new_section('Managed login enabled')
+              audit.append_info(audit_content)
             end
           rescue Exception => e
-            RightScale::AuditorProxy.instance.create_new_section('Failed to enable managed login', :audit_id => policy.audit_id)
-            RightScale::AuditorProxy.instance.append_error("Error applying login policy: #{e.message}", 
-                                               :category => RightScale::EventCategories::CATEGORY_ERROR,
-                                               :audit_id => policy.audit_id)
+            audit.create_new_section('Failed to enable managed login')
+            audit.append_error("Error applying login policy: #{e.message}", :category => RightScale::EventCategories::CATEGORY_ERROR)
             RightScale::RightLinkLog.error("#{e.class.name}: #{e.message}\n#{e.backtrace.join("\n")}")
           end
         else
@@ -153,20 +160,20 @@ class InstanceSetup
     request("/booter/get_repositories", @agent_identity) do |r|
       res = RightScale::OperationResult.from_results(r)
       if res.success?
-        @audit_id = res.content.audit_id
+        @audit = RightScale::AuditProxy.new(res.content.audit_id)
         unless RightScale::Platform.windows? || RightScale::Platform.mac?
           reps = res.content.repositories
-          audit = "Using the following software repositories:\n"
-          reps.each { |rep| audit += "  - #{rep.to_s}\n" }
-          RightScale::AuditorProxy.instance.create_new_section("Configuring software repositories", :audit_id => @audit_id)
-          RightScale::AuditorProxy.instance.append_info(audit, :audit_id => @audit_id)
+          audit_content = "Using the following software repositories:\n"
+          reps.each { |rep| audit_content += "  - #{rep.to_s}\n" }
+          @audit.create_new_section('Configuring software repositories')
+          @audit.append_info(audit_content)
           configure_repositories(reps)
-          RightScale::AuditorProxy.instance.update_status("Software repositories configured", :audit_id => @audit_id)
+          @audit.update_status('Software repositories configured')
         end
-        RightScale::AuditorProxy.instance.create_new_section('Preparing boot bundle', :audit_id => @audit_id)
+        @audit.create_new_section('Preparing boot bundle')
         prepare_boot_bundle do |prep_res|
           if prep_res.success?
-            RightScale::AuditorProxy.instance.update_status('Boot bundle ready', :audit_id => @audit_id)
+            @audit.update_status('Boot bundle ready')
             run_boot_bundle(prep_res.content) do |boot_res|
               if boot_res.success?
                 RightScale::InstanceState.value = 'operational'
@@ -196,9 +203,7 @@ class InstanceSetup
   def strand(msg, res=nil)
     RightScale::InstanceState.value = 'stranded'
     msg += ": #{res.content}" if res && res.content
-    RightScale::AuditorProxy.instance.append_error(msg, 
-                                                   :category => RightScale::EventCategories::CATEGORY_ERROR,
-                                                   :audit_id => @audit_id) if @audit_id
+    @audit.append_error(msg, :category => RightScale::EventCategories::CATEGORY_ERROR) if @audit
     true
   end
 
@@ -230,9 +235,9 @@ class InstanceSetup
     end
     if system('which apt-get')
       ENV['DEBIAN_FRONTEND'] = 'noninteractive' # this prevents prompts
-      RightScale::AuditorProxy.instance.append_output(`apt-get update 2>&1`, :audit_id => @audit_id)
+      @audit.append_output(`apt-get update 2>&1`)
     elsif system('which yum') 
-      `yum clean metadata`
+      @audit.append_output(`yum clean metadata`)
     end
     true
   end
@@ -250,16 +255,11 @@ class InstanceSetup
     RightScale::AgentTagsManager.instance.tags do |tags|
       RightScale::InstanceState.startup_tags = tags
       if tags.empty?
-        RightScale::AuditorProxy.instance.append_info("No tags discovered on startup", :audit_id => @audit_id)
+        @audit.append_info('No tags discovered on startup')
       else
-        RightScale::AuditorProxy.instance.append_info("Tags discovered on startup: '#{tags.join("', '")}'", :audit_id => @audit_id)
+        @audit.append_info("Tags discovered on startup: '#{tags.join("', '")}'")
       end
-      if @suicide_timer && !tags.include?('rs_launch:type=auto')
-        # Someone removed the tag explicitely, cancel the timer
-        @suicide_timer.cancel
-        @suicide_timer = nil
-      end
-      options = { :agent_identity => @agent_identity, :audit_id => @audit_id }
+      options = { :agent_identity => @agent_identity, :audit_id => @audit.audit_id }
       request("/booter/get_boot_bundle", options) do |r|
         res = RightScale::OperationResult.from_results(r)
         if res.success?
@@ -296,8 +296,8 @@ class InstanceSetup
     scripts_ids = scripts.select { |s| !s.ready }.map { |s| s.id }
     recipes_ids = recipes.select { |r| !r.ready }.map { |r| r.id }
     RightScale::RequestForwarder.instance.request('/booter/get_missing_attributes', { :agent_identity => @agent_identity,
-                                                                             :scripts_ids    => scripts_ids,
-                                                                             :recipes_ids    => recipes_ids }) do |r|
+                                                                                      :scripts_ids    => scripts_ids,
+                                                                                      :recipes_ids    => recipes_ids }) do |r|
       res = RightScale::OperationResult.from_results(r)
       if res.success?
         res.content.each do |e|
@@ -318,7 +318,7 @@ class InstanceSetup
           yield
         else
           titles = pending_executables.map { |e| RightScale::RightScriptsCookbook.recipe_title(e.nickname) }
-          RightScale::AuditorProxy.instance.append_info("Missing inputs for #{titles.join(", ")}, waiting...", :audit_id => @audit_id)
+          @audit.append_info("Missing inputs for #{titles.join(", ")}, waiting...")
           sleep(20)
           retrieve_missing_inputs(bundle, &cb)
         end
@@ -333,24 +333,24 @@ class InstanceSetup
   # === Return
   # true:: Always return true
   def run_boot_bundle(bundle)
-    # Cancel suicide timer if it has been primed
-    @suicide_timer.cancel unless @suicide_timer.nil?
+    @got_boot_bundle = true
 
     # Force full converge on boot so that Chef state gets persisted
-    sequence = RightScale::ExecutableSequenceProxy.new(bundle)
+    context = RightScale::OperationContext.new(bundle, @audit)
+    sequence = RightScale::ExecutableSequenceProxy.new(context)
     sequence.callback do
       EM.next_tick do
         if patch = sequence.inputs_patch
           RightScale::RequestForwarder.instance.push('/updater/update_inputs', { :agent_identity => @agent_identity,
                                                                                  :patch          => patch })
         end
-        RightScale::AuditorProxy.instance.update_status("boot completed: #{bundle}", :audit_id => @audit_id)
+        @audit.update_status("boot completed: #{bundle}")
         yield RightScale::OperationResult.success
       end
     end
     sequence.errback  do
       EM.next_tick do
-        RightScale::AuditorProxy.instance.update_status("boot failed: #{bundle}", :audit_id => @audit_id)
+        @audit.update_status("boot failed: #{bundle}")
         yield RightScale::OperationResult.error("Failed to run boot bundle")
       end
     end

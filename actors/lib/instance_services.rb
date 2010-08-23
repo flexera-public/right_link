@@ -36,31 +36,15 @@ class InstanceServices
   def update_login_policy(new_policy)
     status = nil
     
-    request("/auditor/create_entry", :agent_identity => @agent_identity,
-                                     :summary        =>'Updating managed login policy',
-                                     :category       => RightScale::EventCategories::NONE) do |r|
-      res = RightScale::OperationResult.from_results(r)
-      if res.success?
-        audit_id = res.content
-      else
-        RightScale::RightLinkLog.error("Could not create audit entry for policy update: #{res.content}")
-        audit_id = nil
-      end
-
+    RightScale::AuditProxy.create(@agent_identity, 'Updating managed login policy') do |audit|
       begin
-        audit = RightScale::LoginManager.instance.update_policy(new_policy)
-        RightScale::AuditorProxy.instance.create_new_section('Managed login policy updated', 
-                                                 :category => RightScale::EventCategories::CATEGORY_SECURITY, 
-                                                 :audit_id => audit_id)
-        RightScale::AuditorProxy.instance.append_info(audit, :audit_id => audit_id)
+        audit_content = RightScale::LoginManager.instance.update_policy(new_policy)
+        audit.create_new_section('Managed login policy updated', :category => RightScale::EventCategories::CATEGORY_SECURITY)
+        audit.append_info(audit_content)
         status = RightScale::OperationResult.success
       rescue Exception => e
-        RightScale::AuditorProxy.instance.create_new_section('Failed to update managed login policy',
-                                                 :category => RightScale::EventCategories::CATEGORY_SECURITY,
-                                                 :audit_id => audit_id)
-        RightScale::AuditorProxy.instance.append_error("Error applying login policy: #{e.message}",
-                                           :category => RightScale::EventCategories::CATEGORY_ERROR,
-                                           :audit_id => audit_id)
+        audit.create_new_section('Failed to update managed login policy', :category => RightScale::EventCategories::CATEGORY_SECURITY)
+        audit.append_error("Error applying login policy: #{e.message}", :category => RightScale::EventCategories::CATEGORY_ERROR) 
         RightScale::RightLinkLog.error("#{e.class.name}: #{e.message}\n#{e.backtrace.join("\n")}")
         status = RightScale::OperationResult.error("#{e.class.name} - #{e.message}")
       end            

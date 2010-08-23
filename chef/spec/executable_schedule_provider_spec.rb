@@ -35,7 +35,8 @@ class Chef
         cmd.sub!(/-u\s[a-zA-Z1-9]*\s?/,"")
         popen4_without_user(cmd, args, &b)
       end
-      alias_method_chain :popen4, :user
+      alias :popen4_without_user :popen4
+      alias :popen4 :popen4_with_user
     end
 
   end

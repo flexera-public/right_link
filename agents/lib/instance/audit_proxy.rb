@@ -20,36 +20,60 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require 'singleton'
-
 module RightScale
 
   # Provides access to core agents audit operation through helper methods
   # that take care of formatting the audits appropriately
-  # Audit requests are buffered as follows:
+  # Audit requests to audit recipes output are buffered as follows:
   #  * Start a timer after each call to audit output
   #  * Reset the timer if a new call to audit output is made
   #  * Actually send the output audit if the total size exceeds
-  #    MIN_AUDIT_SIZE or the timer reaches MAX_AUDIT_DELAY
+  #    MAX_AUDIT_SIZE or the timer reaches MAX_AUDIT_DELAY
   #  * Audit of any other kind triggers a request and flushes the buffer
-  #
-  # Note: All methods implementations have to run in the EventMachine
-  # thread as they interact with EM constructs
-  class AuditorProxy
+  class AuditProxy
 
-    include Singleton
-
-    # Minimum size for accumulated output before sending audit request
+    # Maximum size for accumulated output before sending audit request
     # in characters
-    MIN_AUDIT_SIZE = 5 * 1024 # 5 KB
+    MAX_AUDIT_SIZE = 5 * 1024 # 5 KB
 
     # Maximum amount of time to wait before sending audit request
     # in seconds
     MAX_AUDIT_DELAY = 2
 
-    # Initialize auditor proxy
-    def initialize
-      @buffers = {}
+    # (Fixnum) Underlying audit id
+    attr_reader :audit_id
+
+    # Initialize audit from pre-existing id
+    # 
+    # === Parameters
+    # audit_id(Fixnum):: Associated audit id
+    def initialize(audit_id)
+      @audit_id = audit_id
+      @size = 0
+      @buffer = ''
+    end
+
+    # Create a new audit and calls given block back asynchronously with it
+    #
+    # === Parameters
+    # agent_identity(AgentIdentity):: Agent identity used by core agent to retrieve corresponding account
+    # summary(String):: Summary to be used for newly created audit
+    #
+    # === Return
+    # true:: Always return true
+    def self.create(agent_identity, summary)
+      RequestForwarder.instance.request('/auditor/create_entry', :agent_identity => agent_identity,
+                                                                 :summary        => summary,
+                                                                 :category       => RightScale::EventCategories::NONE) do |r|
+        res = RightScale::OperationResult.from_results(r)
+        if res.success?
+          audit = new(res.content)
+          yield audit
+        else
+          RightLinkLog.warn("Failed to create new audit entry with summary '#{summary}': #{res.content}, aborting...")
+        end
+        true
+      end
     end
 
     # Update audit summary
@@ -57,12 +81,11 @@ module RightScale
     # === Parameters
     # status(String):: New audit entry status
     # options[:category](String):: Optional, must be one of RightScale::EventCategories::CATEGORIES
-    # options[:audit_id](Integer):: Audit id
     #
     # === Return
     # true:: Always return true
     def update_status(status, options={})
-      send_request('update_status', normalize_options(status, options))
+      send_audit(:kind => :status, :text => status, :category => options[:category])
     end
 
     # Start new audit section
@@ -70,37 +93,11 @@ module RightScale
     # === Parameters
     # title(String):: Title of new audit section, will replace audit status as well
     # options[:category](String):: Optional, must be one of RightScale::EventCategories::CATEGORIES
-    # options[:audit_id](Integer):: Audit id
     #
     # === Return
     # true:: Always return true
     def create_new_section(title, options={})
-      send_request('create_new_section', normalize_options(title, options))
-    end
-
-    # Append output to current audit section
-    #
-    # === Parameters
-    # text(String):: Output to append to audit entry
-    # options[:audit_id](Integer):: Audit id
-    #
-    # === Return
-    # true:: Always return true
-    #
-    # === Raise
-    # ApplicationError:: If audit id is missing from passed-in options
-    def append_output(text, options)
-      audit_id = options[:audit_id]
-      raise RightScale::Exceptions::Application.new('Audit id is required to audit output') unless audit_id
-      EM.next_tick do
-        @buffers[audit_id] ||= ''
-        @buffers[audit_id] << text
-        if @buffers[audit_id].size > MIN_AUDIT_SIZE
-          flush_buffer
-        else
-          reset_timer
-        end
-      end
+      send_audit(:kind => :new_section, :text => title, :category => options[:category])
     end
 
     # Append info text to current audit section. A special marker will be prepended to each line of audit to
@@ -113,8 +110,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def append_info(text, options={})
-      options[:category] ||= EventCategories::NONE # Do not event by default
-      send_request('append_info', normalize_options(text, options))
+      send_audit(:kind => :info, :text => text, :category => options[:category])
     end
 
     # Append error message to current audit section. A special marker will be prepended to each line of audit to
@@ -127,60 +123,71 @@ module RightScale
     # === Return
     # true:: Always return true
     def append_error(text, options={})
-      options[:category] ||= EventCategories::NONE # Do not event by default
-      send_request('append_error', normalize_options(text, options))
+      send_audit(:kind => :error, :text => text, :category => options[:category])
     end
 
+    # Append output to current audit section
+    #
+    # === Parameters
+    # text(String):: Output to append to audit entry
+    #
+    # === Return
+    # true:: Always return true
+    #
+    # === Raise
+    # ApplicationError:: If audit id is missing from passed-in options
+    def append_output(text)
+      EM.next_tick do
+        @buffer << text
+        if @buffer.size > MAX_AUDIT_SIZE
+          flush_buffer
+        else
+          reset_timer
+        end
+      end
+    end
+
+ 
     protected
 
     # Flush output buffer then send audits to core agent and log failures
     #
     # === Parameters
-    # request(String):: Request that should be sent to auditor actor
-    # options(Hash):: Text to be audited with optional arguments (event category)
+    # options[:kind](Symbol):: One of :update_status, :new_section, :append_info, :append_error, :output
+    # options[:text](String):: Text to be audited
+    # options[:category](String):: Optional, must be one of RightScale::EventCategories::CATEGORIES
     #
     # === Return
     # true:: Always return true
-    def send_request(request, options)
+    def send_audit(options)
       EM.next_tick do
         flush_buffer
-        internal_send_request(request, options)
+        internal_send_audit(options)
       end
     end
 
     # Actually send audits to core agent and log failures
     #
     # === Parameters
-    # request(String):: Request that should be sent to auditor actor
-    # text(String):: Text to be audited
+    # options[:kind](Symbol):: One of :status, :new_section, :info, :error, :output
+    # options[:text](String):: Text to be audited
+    # options[:category](String):: Optional, must be one of RightScale::EventCategories::CATEGORIES
     #
     # === Return
     # true:: Always return true
-    def internal_send_request(request, options)
-      log_method = request == 'append_error' ? :error : :info
-      log_text = AuditFormatter.send(format_method(request), options[:text])[:detail]
-      log_text.chomp.split("\n").each { |l| RightLinkLog.__send__(log_method, l) }
-      RightScale::RequestForwarder.instance.push("/auditor/#{request}", options)
-      true
-    end
-
-    # Normalize options for creating new audit section of updating audit summary
-    #
-    # === Parameters
-    # text(String):: New section title or new status
-    # options(Hash):: Optional hash specifying category
-    #
-    # === Return
-    # opts(Hash):: Options hash ready for calling corresponding auditor operation
-    def normalize_options(text, options)
-      opts = options || {}
-      opts[:text] = text
+    def internal_send_audit(options)
+      opts = { :audit_id => @audit_id, :category => options[:category], :offset => @size }
       opts[:category] ||= EventCategories::CATEGORY_NOTIFICATION
       unless EventCategories::CATEGORIES.include?(opts[:category])
-        RightLinkLog.warn("Invalid category '#{opts[:category]}' for notification '#{opts[:text]}', using generic category instead")
+        RightLinkLog.warn("Invalid category '#{opts[:category]}' for notification '#{options[:text]}', using generic category instead")
         opts[:category] = EventCategories::CATEGORY_NOTIFICATION
       end
-      opts
+      
+      audit = AuditFormatter.__send__(options[:kind], options[:text])
+      @size += audit[:detail].size
+
+      RequestForwarder.instance.push('/auditor/update_entry', opts.merge(audit))
+      true
     end
 
     # Send any buffered output to auditor
@@ -189,8 +196,10 @@ module RightScale
     # Always return true
     def flush_buffer
       @timer.cancel if @timer
-      @buffers.each { |audit_id, txt| internal_send_request('append_output', :text => txt, :audit_id => audit_id) }
-      @buffers = {}
+      unless @buffer.empty?
+        internal_send_audit(:kind => :output, :text => @buffer, :category => EventCategories::NONE)
+        @buffer = ''
+      end
     end
 
     # Set or reset timer for buffer flush
@@ -205,22 +214,6 @@ module RightScale
       @timer = EventMachine::PeriodicTimer.new(MAX_AUDIT_DELAY) { flush_buffer } unless @timer
     end
 
-    # Audit formatter method to call to format message sent through +request+
-    #
-    # === Parameters
-    # request(String):: Request used to audit text
-    #
-    # === Return
-    # method(Symbol):: Corresponding audit formatter method
-    def format_method(request)
-      method = case request
-        when 'update_status'      then :status
-        when 'create_new_section' then :new_section
-        when 'append_output'      then :output
-        when 'append_info'        then :info
-        when 'append_error'       then :error
-      end
-    end
-
   end
 end
+

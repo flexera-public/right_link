@@ -60,9 +60,14 @@ module RightScale
     # === Return
     # true:: Always return true
     def write
-      FileUtils.mkdir_p(@pid_dir)
-      open(@pid_file,'w') { |f| f.write(Process.pid) }
-      File.chmod(0644, @pid_file)
+      begin
+        FileUtils.mkdir_p(@pid_dir)
+        open(@pid_file,'w') { |f| f.write(Process.pid) }
+        File.chmod(0644, @pid_file)
+      rescue Exception => e
+        RightLinkLog.error "Failed to create PID file: #{e.message}"
+        raise
+      end
       true
     end
     

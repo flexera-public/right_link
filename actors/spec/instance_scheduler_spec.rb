@@ -22,7 +22,7 @@
 
 require File.join(File.dirname(__FILE__), 'spec_helper')
 require File.join(File.dirname(__FILE__), '..', 'lib', 'instance_scheduler')
-require File.join(File.dirname(__FILE__), 'auditor_proxy_mock')
+require File.join(File.dirname(__FILE__), 'audit_proxy_mock')
 require File.join(File.dirname(__FILE__), 'instantiation_mock')
 
 # Since callback and errback take blocks ExecutableSequence cannot be mocked
@@ -55,9 +55,9 @@ describe InstanceScheduler do
     EM.instance_variable_set(:@threadqueue, [])
     EM.instance_variable_set(:@next_tick_queue, nil)
 
-    @auditor = RightScale::AuditorProxyMock.instance
+    @audit = RightScale::AuditProxyMock.new(1)
     @controller = ControllerMock.new
-    flexmock(RightScale::AuditorProxy).should_receive(:instance).and_return(@auditor)
+    flexmock(RightScale::AuditProxy).should_receive(:new).and_return(@audit)
     flexmock(RightScale::Platform).should_receive(:controller).and_return(@controller)
     flexmock(RightScale::RequestForwarder.instance).should_receive(:push).with('/registrar/remove', Hash).and_return(true)
     flexmock(RightScale::RequestForwarder.instance).should_receive(:request).with('/state_recorder/record', { :state => 'operational', :agent_identity => '1' }, Proc).once
@@ -85,7 +85,7 @@ describe InstanceScheduler do
     flexmock(RightScale::ExecutableSequenceProxy).should_receive(:new).and_return(@success_sequence)
     flexmock(RightScale::RequestForwarder.instance).should_receive(:request).with(*@decommissioning_args).once
     flexmock(RightScale::RequestForwarder.instance).should_receive(:request).with(*@decommissioned_args).once.and_return { EM.stop }
-    flexmock(@auditor).should_receive(:append_error).never
+    flexmock(@audit).should_receive(:append_error).never
     EM.run do
       res = @scheduler.schedule_decommission(:bundle => @bundle, :user_id => 42)
       res.success?.should be_true
@@ -97,8 +97,8 @@ describe InstanceScheduler do
     flexmock(RightScale::ExecutableSequenceProxy).should_receive(:new).and_return(@failure_sequence)
     flexmock(RightScale::RequestForwarder.instance).should_receive(:request).with(*@decommissioning_args).once
     flexmock(RightScale::RequestForwarder.instance).should_receive(:request).with(*@decommissioned_args).once.and_return { EM.stop }
-    flexmock(@auditor).should_receive(:update_status).ordered.once.and_return { |s, _| s.should include('Scheduling execution of ') }
-    flexmock(@auditor).should_receive(:update_status).ordered.once.and_return { |s, _| s.should include('failed: ') }
+    flexmock(@audit).should_receive(:update_status).ordered.once.and_return { |s, _| s.should include('Scheduling execution of ') }
+    flexmock(@audit).should_receive(:update_status).ordered.once.and_return { |s, _| s.should include('failed: ') }
     EM.run do
       res = @scheduler.schedule_decommission(:bundle => @bundle, :user_id => 42)
       res.success?.should be_true
@@ -122,7 +122,7 @@ describe InstanceScheduler do
     flexmock(RightScale::RequestForwarder.instance).should_receive(:request).with('/booter/get_decommission_bundle', Hash, Proc).and_yield(@success_result)
     flexmock(RightScale::RequestForwarder.instance).should_receive(:request).with(*@decommissioning_args).once
     flexmock(RightScale::RequestForwarder.instance).should_receive(:request).with(*@decommissioned_args).never
-    flexmock(@auditor).should_receive(:append_error).never
+    flexmock(@audit).should_receive(:append_error).never
     flexmock(@controller).should_receive(:shutdown).never
     EM.run do
       @scheduler.run_decommission { EM.stop }

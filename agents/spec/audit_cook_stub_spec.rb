@@ -19,39 +19,42 @@
 # LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
+#
 require File.join(File.dirname(__FILE__), 'spec_helper')
-require File.join(File.dirname(__FILE__), '..', 'lib', 'instance_services')
 
-describe InstanceServices do
-
-  include RightScale::SpecHelpers
+describe RightScale::AuditCookStub do
 
   before(:each) do
-    @audit_proxy = flexmock('AuditProxy')
-    flexmock(RightScale::AuditProxy).should_receive(:create).and_yield(@audit_proxy)
-    @audit_proxy.should_receive(:create_new_section).by_default
-    @audit_proxy.should_receive(:append_info).by_default
-
-    @mgr = RightScale::LoginManager.instance
-    @policy = RightScale::LoginPolicy.new
-    @services = InstanceServices.new('bogus_agent_id')
-
-    #update_login_policy should audit its execution
-    flexmock(@services).should_receive(:request).
-            with('/auditor/create_entry', Hash, Proc).
-            and_yield(RightScale::ResultsMock.new.success_results('bogus_content'))
+    @audit_proxy = flexmock('audit_proxy')
+    RightScale::AuditCookStub.instance.audit_proxy = @audit_proxy
+    @text = 'some text'
+    @options = { :one => 'two' }
   end
 
-  it 'should update login policy' do
-    flexmock(@mgr).should_receive(:update_policy).with(@policy).and_return(true)
-
-    @services.update_login_policy(@policy)
+  it 'should forward info' do
+    @audit_proxy.should_receive(:append_info).with(@text, @options).once
+    RightScale::AuditCookStub.instance.forward_audit(:append_info, @text, @options)
   end
 
-  it 'should audit failures when they occur' do
-    error = "I'm sorry Dave, I can't do that."
-    @audit_proxy.should_receive(:append_error).with(/#{error}/, Hash)
-    flexmock(@mgr).should_receive(:update_policy).with(@policy).and_raise(Exception.new(error))
+  it 'should forward new section' do
+    @audit_proxy.should_receive(:create_new_section).with(@text, @options).once
+    RightScale::AuditCookStub.instance.forward_audit(:create_new_section, @text, @options)
   end
+
+  it 'should forward error' do
+    @audit_proxy.should_receive(:append_error).with(@text, @options).once
+    RightScale::AuditCookStub.instance.forward_audit(:append_error, @text, @options)
+  end
+
+  it 'should forward status' do
+    @audit_proxy.should_receive(:update_status).with(@text, @options).once
+    RightScale::AuditCookStub.instance.forward_audit(:update_status, @text, @options)
+  end
+
+  it 'should forward output' do
+    @audit_proxy.should_receive(:append_output).with(@text)
+    RightScale::AuditCookStub.instance.forward_audit(:append_output, @text, @options)
+  end
+
 end
+

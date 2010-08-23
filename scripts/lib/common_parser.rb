@@ -21,6 +21,7 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 require 'uri'
+require 'tmpdir'
 
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'common', 'lib', 'common', 'agent', 'agent_identity'))
 
@@ -37,6 +38,9 @@ module RightScale
         options[:vhost] = '/right_net'
         options[:host] = 'localhost'
         options[:test] = true
+        options[:pid_dir] = Dir.tmpdir
+        options[:base_id] = "#{rand(1000000)}"
+        options[:options][:log_dir] = Dir.tmpdir
       end
 
       opts.on("-i", "--identity ID") do |id|

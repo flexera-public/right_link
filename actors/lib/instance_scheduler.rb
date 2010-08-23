@@ -38,9 +38,9 @@ class InstanceScheduler
   # === Parameters
   # agent(RightScale::Agent):: Host agent
   def initialize(agent)
-    @scheduled_bundles = Queue.new
-    @agent_identity    = agent.identity
-    @running           = false
+    @scheduled_executions = Queue.new
+    @agent_identity       = agent.identity
+    @running              = false
     # Wait until instance setup actor has initialized the instance state
     # We need to wait until after the InstanceSetup actor has run its
     # bundle in the Chef thread before we can use it
@@ -63,8 +63,10 @@ class InstanceScheduler
   # res(RightScale::OperationResult):: Always returns success
   def schedule_bundle(bundle)
     unless bundle.executables.empty?
-      RightScale::AuditorProxy.instance.update_status("Scheduling execution of #{bundle.to_s}", :audit_id => bundle.audit_id)
-      @scheduled_bundles.push(bundle)
+      audit = RightScale::AuditProxy.new(bundle.audit_id)
+      audit.update_status("Scheduling execution of #{bundle.to_s}")
+      context = RightScale::OperationContext.new(bundle, audit)
+      @scheduled_executions.push(context)
     end
     res = RightScale::OperationResult.success
   end
@@ -101,6 +103,9 @@ class InstanceScheduler
   def schedule_decommission(options)
     return res = RightScale::OperationResult.error('Instance is already decommissioning') if RightScale::InstanceState.value == 'decommissioning'
     options = RightScale::SerializationHelper.symbolize_keys(options)
+    bundle = options[:bundle]
+    audit = RightScale::AuditProxy.new(bundle.audit_id)
+    context = RightScale::OperationContext.new(bundle, audit)
 
     # This is the tricky bit: only set a post decommission callback if there wasn't one already set
     # by 'run_decommission'. This default callback will shutdown the instance for soft-termination.
@@ -110,7 +115,7 @@ class InstanceScheduler
     unless @post_decommission_callback
       @shutdown_timeout = EM::Timer.new(SHUTDOWN_DELAY) do
         msg = "Failed to decommission in less than #{SHUTDOWN_DELAY / 60} minutes, forcing shutdown"
-        RightScale::AuditorProxy.instance.append_error(msg, :category => RightScale::EventCategories::CATEGORY_ERROR, :audit_id => options[:bundle].audit_id)
+        audit.append_error(msg, :category => RightScale::EventCategories::CATEGORY_ERROR)
         RightScale::InstanceState.shutdown(options[:user_id], options[:skip_db_update], options[:kind]) 
       end
       @post_decommission_callback = lambda do
@@ -119,10 +124,14 @@ class InstanceScheduler
       end
     end
 
-    @scheduled_bundles.clear # Cancel any pending bundle
+    @scheduled_executions.clear # Cancel any pending bundle
+    unless bundle.executables.empty?
+      audit.update_status("Scheduling execution of #{bundle.to_s} for decommission")
+      @scheduled_executions.push(context)
+    end
+    @scheduled_executions.push('end')
+
     RightScale::InstanceState.value = 'decommissioning'
-    schedule_bundle(options[:bundle])
-    @scheduled_bundles.push('end')
     res = RightScale::OperationResult.success
   end
 
@@ -172,21 +181,16 @@ class InstanceScheduler
   # Audit executable sequence status after it ran
   #
   # === Parameters
+  # context(RightScale::OperationContext):: Context used by execution
   # succeeded(TrueClass|FalseClass):: Whether last execution was successful
   #
   # === Return
   # true:: Always return true
-  def audit_status(succeeded)
-    bundle = @sequence.bundle if @sequence
-    if bundle
-      audit_id = bundle.audit_id
-      ran_decom = RightScale::InstanceState.value == 'decommissioning' && @scheduled_bundles.size <= 1
-      title = ran_decom ? 'decommission ' : ''
-      title += succeeded ? 'completed' : 'failed'
-      RightScale::AuditorProxy.instance.update_status("#{title}: #{bundle}", :audit_id => audit_id)
-    else
-      RightLinkLog.warn("Missing bundle when updating execution status")
-    end
+  def audit_status(context, succeeded)
+    ran_decom = RightScale::InstanceState.value == 'decommissioning' && @scheduled_executions.size <= 1
+    title = ran_decom ? 'decommission ' : ''
+    title += succeeded ? 'completed' : 'failed'
+    context.audit.update_status("#{title}: #{context.payload}")
     EM.defer { run_bundles }
   end
 
@@ -198,13 +202,13 @@ class InstanceScheduler
   # true:: Always return true
   def run_bundles
     begin
-      @sequence = nil
-      bundle = @scheduled_bundles.shift
-      if bundle != 'end'
-        @sequence = RightScale::ExecutableSequenceProxy.new(bundle)
-        @sequence.callback { audit_status(succeeded=true) }
-        @sequence.errback { audit_status(succeeded=false) }
-        @sequence.run
+      sequence = nil
+      context = @scheduled_executions.shift
+      if context != 'end'
+        sequence = RightScale::ExecutableSequenceProxy.new(context)
+        sequence.callback { audit_status(context, succeeded=true) }
+        sequence.errback { audit_status(context, succeeded=false) }
+        sequence.run
       else
         RightScale::InstanceState.value = 'decommissioned'
         # Tell the registrar to delete our queue
@@ -223,9 +227,7 @@ class InstanceScheduler
     rescue Exception => e
       msg = "Chef bundle execution failed with exception: #{e.message}"
       RightScale::RightLinkLog.error(msg + "\n" + e.backtrace.join("\n"))
-      if bundle != 'end'
-        RightScale::AuditorProxy.instance.append_error(msg, :category => RightScale::EventCategories::CATEGORY_ERROR, :audit_id => bundle.audit_id)
-      end
+      context.audit.append_error(msg, :category => RightScale::EventCategories::CATEGORY_ERROR) if bundle != 'end'
       fail
     end
     true

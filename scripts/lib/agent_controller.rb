@@ -109,7 +109,6 @@ module RightScale
 
     # Parse arguments and run
     def control(options)
-
       # Validate arguments
       action = options.delete(:action)
       fail("No action specified on the command line.", print_usage=true) if action.nil?

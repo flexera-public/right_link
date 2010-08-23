@@ -22,7 +22,7 @@
 
 require File.join(File.dirname(__FILE__), 'spec_helper')
 require File.join(File.dirname(__FILE__), '..', 'lib', 'instance_setup')
-require File.join(File.dirname(__FILE__), 'auditor_proxy_mock')
+require File.join(File.dirname(__FILE__), 'audit_proxy_mock')
 require File.join(File.dirname(__FILE__), 'instantiation_mock')
 require File.join(File.dirname(__FILE__), '..', '..', 'spec', 'results_mock')
 require 'right_popen'
@@ -70,8 +70,8 @@ describe InstanceSetup do
     tags_manager_mock = flexmock(RightScale::AgentTagsManager)
     tags_manager_mock.should_receive(:tags).and_yield []
     flexmock(RightScale::AgentTagsManager).should_receive(:instance).and_return(tags_manager_mock)
-    @auditor = RightScale::AuditorProxyMock.instance
-    flexmock(RightScale::AuditorProxy).should_receive(:instance).and_return(@auditor)
+    @audit = RightScale::AuditProxyMock.new(1)
+    flexmock(RightScale::AuditProxy).should_receive(:new).and_return(@audit)
     @results_factory = RightScale::ResultsMock.new
     InstanceSetup.results_factory = @results_factory
     @mgr = RightScale::LoginManager.instance
@@ -129,7 +129,7 @@ describe InstanceSetup do
     boot(policy, repos, bundle)
     res = @setup.report_state
     if !res.success? || res.content != 'operational'
-      @auditor.audits.each { |a| puts a[:text] }
+      @audit.audits.each { |a| puts a[:text] }
     end
     res.should be_success
     res.content.should == 'operational'

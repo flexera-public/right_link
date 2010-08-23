@@ -39,9 +39,10 @@ module RightScale
     # Initialize sequence
     #
     # === Parameter
-    # bundle(RightScale::ExecutableBundle):: Bundle to be run
-    def initialize(bundle)
-      @bundle = bundle
+    # context(RightScale::OperationContext):: Bundle to be run and associated audit
+    def initialize(context)
+      @context = context
+      AuditCookStub.instance.audit_proxy = context.audit
     end
 
     # Run given executable bundle
@@ -52,7 +53,7 @@ module RightScale
     def run
       @succeeded = true
       platform = RightScale::RightLinkConfig[:platform]
-      input_text = "#{JSON.dump(@bundle)}\n"
+      input_text = "#{JSON.dump(@context.payload)}\n"
 
       # FIX: we have an issue with EM not allowing both sockets and named
       # pipes to share the same file/socket id. sending the input on the
@@ -117,7 +118,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def on_read_stderr(data)
-      AuditorProxy.instance.append_info(data, :audit_id => @bundle.audit_id)
+      @context.audit.append_info(data)
     end
 
     # Handle runner process exited event
@@ -130,6 +131,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def on_exit(status)
+      AuditCookStub.instance.audit_proxy = nil
       if !status.success?
         report_failure("Chef process failure", "Chef process failed with return code #{status.exitstatus}")
       else
@@ -147,8 +149,8 @@ module RightScale
     # === Return
     # true:: Always return true
     def report_failure(title, msg)
-      AuditorProxy.instance.append_error(title, :category => RightScale::EventCategories::CATEGORY_ERROR, :audit_id => @bundle.audit_id)
-      AuditorProxy.instance.append_error(msg, :audit_id => @bundle.audit_id)
+      @context.audit.append_error(title, :category => RightScale::EventCategories::CATEGORY_ERROR)
+      @context.audit.append_error(msg)
       fail
       true
     end
