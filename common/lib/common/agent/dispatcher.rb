@@ -128,11 +128,16 @@ module RightScale
 
       operation = lambda do
         begin
-          @last_dispatch_time = Time.now.to_i if request.class == Request
+          if request.kind_of?(Request)
+            @pending_dispatches ||= 0
+            @pending_dispatches += 1
+            @last_dispatch_time = Time.now.to_i
+          end
           args = [ request.payload ]
           args.push(request) if actor.method(meth).arity == 2
           actor.__send__(meth, *args)
         rescue Exception => e
+          @pending_dispatches = [@pending_dispatches - 1, 0].max if request.kind_of?(Request)
           handle_exception(actor, meth, request, e)
         end
       end
@@ -140,9 +145,10 @@ module RightScale
       callback = lambda do |r|
         begin
           if request.kind_of?(Request)
+            @pending_dispatches = [@pending_dispatches - 1, 0].max
             completed_at = Time.now.to_i
             @completed[request.token] = completed_at if @dup_check && request.token
-            r = Result.new(request.token, request.reply_to, r, identity, request.tries, request.persistent)
+            r = Result.new(request.token, request.reply_to, r, identity, request.from, request.tries, request.persistent)
             exchange = {:type => :queue, :name => request.reply_to, :options => {:durable => true, :no_declare => @secure}}
             @broker.publish(exchange, r, :persistent => request.persistent, :log_filter => [:tries, :persistent])
           end
@@ -164,7 +170,7 @@ module RightScale
     # === Return
     # age(Integer|nil):: Age in seconds of youngest dispatch, or nil if none
     def dispatch_age
-      age = Time.now.to_i - @last_dispatch_time if @last_dispatch_time
+      age = Time.now.to_i - @last_dispatch_time if @last_dispatch_time && @pending_dispatches > 0
     end
 
     private

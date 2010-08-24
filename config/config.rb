@@ -24,10 +24,18 @@
 # Configuration values are listed with the format:
 # name value
 
-# Current RightLink protocol version
-# 9: Introduced multiple brokers, which extended protocol but did not introduce any
-#    downrev incompatibilities, but wanted clear demarcation if needed to resolve issues
-protocol_version 9
+# Current RightLink protocol version (no support below version 5)
+# 5:  Started storing timestamps in database for each instance state rather than storing
+#     state name; changed format of agent identifiers by replacing '-' with '*' as separator
+# 6:  Attributes in RecipeInstantiation no longer converted to JSON format (image 5.1.0)
+# 7:  ???
+# 8:  Deprecated full vs. partial converge distinction in ExecutableBundle; core agent
+#     booter actor superseded :set_r_s_version action with :declare (image 5.4.0)
+# 9:  Introduced multiple brokers, which extended protocol but did not introduce any
+#     downrev incompatibilities, but wanted clear demarcation if needed to resolve issues (sprint 20, image 5.5.0)
+# 10: Changed multicast requests to no longer be collected in mapper; added request_from field
+#     to Result so that any mapper can forward a result to the original requester (sprint 21, image 5.6.0)
+protocol_version 10
 
 # Path to RightLink root folder
 right_link_path File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'right_link'))

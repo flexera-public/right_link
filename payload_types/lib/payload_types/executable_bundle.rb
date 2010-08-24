@@ -44,7 +44,7 @@ module RightScale
     # (Integer) ID of corresponding audit entry
     attr_accessor :audit_id
 
-    # (Boolean) Whether a full or partical converge should be done
+    # (Boolean) Whether a full or partial converge should be done
     # Note: Obsolete as of r_s_version 8, kept for backwards compatibility
     attr_accessor :full_converge
 

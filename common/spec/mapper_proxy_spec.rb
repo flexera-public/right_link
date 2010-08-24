@@ -336,4 +336,134 @@ describe RightScale::MapperProxy do
       @instance.push('/welcome/aboard', 'iZac', :persistent => true)
     end
   end
+
+  describe "when purging a request" do
+    before(:each) do
+      flexmock(EM).should_receive(:next_tick).and_yield.by_default
+      @broker = flexmock("Broker", :subscribe => true, :publish => ["broker"], :connected? => true,
+                         :identity_parts => ["host", 123, 0, 0]).by_default
+      @agent = flexmock("Agent", :identity => "agent", :broker => @broker, :options => {}).by_default
+      RightScale::MapperProxy.new(@agent)
+      @instance = RightScale::MapperProxy.instance
+      flexmock(RightScale::AgentIdentity, :generate => 'token1')
+    end
+
+    it "should delete the pending request" do
+      @instance.request('/welcome/aboard', 'iZac') {|_|}
+      @instance.pending_requests['token1'].should_not be_nil
+      @instance.purge('token1')
+      @instance.pending_requests['token1'].should be_nil
+    end
+
+    it "should delete any associated retry requests" do
+      @instance.request('/welcome/aboard', 'iZac') {|_|}
+      @instance.pending_requests['token2'] = @instance.pending_requests['token1'].dup
+      @instance.pending_requests['token2'][:retry_parent] = 'token1'
+      @instance.purge('token2')
+      @instance.pending_requests['token1'].should be_nil
+      @instance.pending_requests['token2'].should be_nil
+    end
+
+    it "should ignore if request token unknown" do
+      @instance.request('/welcome/aboard', 'iZac') {|_|}
+      @instance.pending_requests.size.should == 1
+      @instance.purge('token2')
+      @instance.pending_requests.size.should == 1
+    end
+  end
+
+  describe "when handling a result" do
+    before(:each) do
+      flexmock(EM).should_receive(:next_tick).and_yield.by_default
+      flexmock(EM).should_receive(:defer).and_yield.by_default
+      @broker = flexmock("Broker", :subscribe => true, :publish => ["broker"], :connected? => true,
+                         :identity_parts => ["host", 123, 0, 0]).by_default
+      @agent = flexmock("Agent", :identity => "agent", :broker => @broker, :options => {}).by_default
+      RightScale::MapperProxy.new(@agent)
+      @instance = RightScale::MapperProxy.instance
+    end
+
+    it "should store count for multicast result and not delete pending request" do
+      flexmock(RightScale::AgentIdentity, :generate => 'token1')
+      @instance.request('/welcome/aboard', 'iZac') {|_|}
+      @instance.pending_requests['token1'][:multicast].should be_nil
+      result = RightScale::Result.new('token1', 'to', RightScale::OperationResult.multicast(['target1']), 'mapper')
+      @instance.handle_result(result)
+      @instance.pending_requests['token1'][:multicast].should == 1
+    end
+
+    it "should delete all associated pending requests when not multicast" do
+      flexmock(EM).should_receive(:defer).and_yield.once
+      flexmock(RightScale::AgentIdentity, :generate => 'token1')
+      @instance.request('/welcome/aboard', 'iZac') {|_|}
+      @instance.pending_requests['token1'][:multicast].should be_nil
+      result = RightScale::Result.new('token1', 'to', RightScale::OperationResult.success, 'target1')
+      @instance.handle_result(result)
+      @instance.pending_requests['token1'].should be_nil
+    end
+
+    it "should delete all associated pending requests when last multicast result received" do
+      flexmock(RightScale::AgentIdentity, :generate => 'token1')
+      @instance.request('/welcome/aboard', 'iZac') {|_|}
+      @instance.pending_requests['token1'][:multicast].should be_nil
+      result = RightScale::Result.new('token1', 'to', RightScale::OperationResult.multicast(['target1']), 'mapper')
+      @instance.handle_result(result)
+      @instance.pending_requests['token1'][:multicast].should == 1
+      result = RightScale::Result.new('token1', 'to', RightScale::OperationResult.success, 'target1')
+      @instance.handle_result(result)
+      @instance.pending_requests['token1'].should be_nil
+    end
+
+    it "should call the result handler when not multicast" do
+      flexmock(RightScale::AgentIdentity, :generate => 'token1')
+      called = 0
+      @instance.request('/welcome/aboard', 'iZac') {|response| called += 1}
+      result = RightScale::Result.new('token1', 'to', RightScale::OperationResult.success, 'target1')
+      @instance.handle_result(result)
+      called.should == 1
+    end
+
+    it "should call the result handler for each multicast result including initial setup" do
+      flexmock(RightScale::AgentIdentity, :generate => 'token1')
+      called = 0
+      @instance.request('/welcome/aboard', 'iZac') {|response| called += 1}
+      result = RightScale::Result.new('token1', 'to', RightScale::OperationResult.multicast(['target1']), 'mapper')
+      @instance.handle_result(result)
+      called.should == 1
+      result = RightScale::Result.new('token1', 'to', RightScale::OperationResult.success, 'target1')
+      @instance.handle_result(result)
+      called.should == 2
+    end
+
+    it "should defer the result handler call if not single threaded" do
+      @agent.should_receive(:options).and_return({:single_threaded => true})
+      flexmock(EM).should_receive(:next_tick).and_yield.once
+      flexmock(RightScale::AgentIdentity, :generate => 'token1')
+      called = 0
+      @instance.request('/welcome/aboard', 'iZac') {|response| called += 1}
+      result = RightScale::Result.new('token1', 'to', RightScale::OperationResult.success, 'target1')
+      @instance.handle_result(result)
+      called.should == 1
+    end
+
+    it "should log an error if the result handler raises an exception but still delete pending request" do
+      flexmock(RightScale::RightLinkLog).should_receive(:error).with(/RECV - Result processing error/).once
+      flexmock(RightScale::AgentIdentity, :generate => 'token1')
+      @instance.request('/welcome/aboard', 'iZac') {|_| raise Exception}
+      @instance.pending_requests['token1'][:multicast].should be_nil
+      result = RightScale::Result.new('token1', 'to', RightScale::OperationResult.success, 'target1')
+      @instance.handle_result(result)
+      @instance.pending_requests['token1'].should be_nil
+    end
+
+    it "should log a debug message if request no longer pending" do
+      flexmock(RightScale::RightLinkLog).should_receive(:debug).with(/RECV - No pending request/).once
+      flexmock(RightScale::AgentIdentity, :generate => 'token1')
+      @instance.request('/welcome/aboard', 'iZac') {|_|}
+      @instance.pending_requests['token1'][:multicast].should be_nil
+      result = RightScale::Result.new('token2', 'to', RightScale::OperationResult.success, 'target1')
+      @instance.handle_result(result)
+    end
+  end
+
 end

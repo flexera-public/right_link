@@ -77,6 +77,13 @@ class EMMock
   end
 end
 
+# Mock the EventMachine deferrer but do not do callback.
+class EMMockNoCallback
+  def self.defer(op = nil, callback = nil)
+    op.call
+  end
+end
+
 describe "RightScale::Dispatcher" do
 
   include FlexMock::ArgumentTypes
@@ -288,7 +295,8 @@ describe "RightScale::Dispatcher" do
     end
   end
 
-  it "should return dispatch age of youngest request" do
+  it "should return dispatch age of youngest unfinished request" do
+    @dispatcher.em = EMMockNoCallback
     flexmock(Time).should_receive(:now).and_return(1000000).by_default
     @dispatcher.dispatch_age.should be_nil
     @dispatcher.dispatch(RightScale::Push.new('/foo/bar', 'you'))
@@ -296,6 +304,14 @@ describe "RightScale::Dispatcher" do
     @dispatcher.dispatch(RightScale::Request.new('/foo/bar', 'you'))
     flexmock(Time).should_receive(:now).and_return(1000100)
     @dispatcher.dispatch_age.should == 100
+  end
+
+  it "should return dispatch age of nil if all requests finished" do
+    flexmock(Time).should_receive(:now).and_return(1000000).by_default
+    @dispatcher.dispatch_age.should be_nil
+    @dispatcher.dispatch(RightScale::Request.new('/foo/bar', 'you'))
+    flexmock(Time).should_receive(:now).and_return(1000100)
+    @dispatcher.dispatch_age.should == nil
   end
 
 end # RightScale::Dispatcher

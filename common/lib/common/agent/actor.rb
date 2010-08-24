@@ -153,6 +153,18 @@ module RightScale
         MapperProxy.instance.push(*args)
       end
 
+      # Purge request whose results are no longer needed
+      #
+      # === Parameters
+      # token(String):: Request token
+      #
+      # === Return
+      # true:: Always return true
+      def purge(token)
+        MapperProxy.instance.purge(token)
+        true
+      end
+
     end # InstanceMethods
     
   end # Actor

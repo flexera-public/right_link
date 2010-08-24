@@ -133,32 +133,48 @@ module RightScale
       true
     end
 
-    # Handle final result
+    # Delete pending request whose results are no longer needed
+    # Also delete any associated retry requests
+    #
+    # === Parameters
+    # token(String):: Request token
+    #
+    # === Return
+    # true:: Always return true
+    def purge(token)
+      handler = @pending_requests.delete(token)
+      parent = handler[:retry_parent] if handler
+      @pending_requests.reject! { |k, v| k == parent || v[:retry_parent] == parent } if parent
+      true
+    end
+
+    # Handle result which may be final or part of a multicast sequence
     # Use defer thread instead of primary if not single threaded, consistent with dispatcher,
     # so that all shared data is accessed from the same thread
     # Do callback if there is an exception, consistent with agent identity queue handling
     # Only to be called from primary thread
     #
     # === Parameters
-    # result(Packet):: Packet received as result of request
+    # result(Result):: Packet received as result of request
     #
     # === Return
     # true:: Always return true
     def handle_result(result)
-      handlers = @pending_requests.delete(result.token)
-      if handlers && handlers[:result_handler]
-        # Delete any pending retry requests
-        parent = handlers[:retry_parent]
-        @pending_requests.reject! { |k, v| k == parent || v[:retry_parent] == parent } if parent
-
-        if @single_threaded
-          EM.next_tick { handlers[:result_handler].call(result) }
+      if handler = @pending_requests[result.token]
+        multicast = if (r = OperationResult.from_results(result)) && r.multicast?
+          handler[:multicast] = r.content.size
         else
-          EM.defer do
+          handler[:multicast] -= 1 if handler[:multicast]
+        end
+
+        purge(result.token) if multicast.nil? || multicast == 0
+
+        if handler[:result_handler]
+          EM.__send__(@single_threaded ? :next_tick : :defer) do
             begin
-              handlers[:result_handler].call(result)
+              handler[:result_handler].call(result)
             rescue Exception => e
-              RightLinkLog.error("RECV - Result processing error: #{e.message}")
+              RightLinkLog.error("RECV - Result processing error for #{result.to_s([])}: #{e.message}")
               @callbacks[:exception].call(e, msg, self) rescue nil if @callbacks && @callbacks[:exception]
             end
           end
@@ -229,7 +245,7 @@ module RightScale
               else
                 RightLinkLog.warn("RESEND TIMEOUT after #{elapsed} seconds for #{request.to_s([:tags, :target, :tries])}")
                 result = OperationResult.timeout("Timeout after #{elapsed} seconds and #{count} attempts")
-                handle_result(Result.new(request.token, request.reply_to, {@identity => result}, @identity))
+                handle_result(Result.new(request.token, request.reply_to, result, @identity))
               end
               check_connection(ids.first) if count == 1
             end

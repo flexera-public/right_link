@@ -199,7 +199,7 @@ module RightScale
                 at_exit { un_register } unless $TESTING
                 start_console if @options[:console] && !@options[:daemonize]
               rescue Exception => e
-                RightLinkLog.error("Agent failed startup: #{e.message}\n" + e.backtrace.join("\n")) unless e.message == "exit"
+                RightLinkLog.error("Agent failed startup: #{e}\n" + e.backtrace.join("\n")) unless e.message == "exit"
                 EM.stop
               end
             end
@@ -211,7 +211,7 @@ module RightScale
       rescue SystemExit => e
         raise e
       rescue Exception => e
-        RightLinkLog.error("Agent failed startup: #{e.message}\n" + e.backtrace.join("\n")) unless e.message == "exit"
+        RightLinkLog.error("Agent failed startup: #{e}\n" + e.backtrace.join("\n")) unless e.message == "exit"
         raise e
       end
       true
@@ -300,12 +300,12 @@ module RightScale
                 RightLinkLog.error("Failed to connect to #{id}, status #{status.inspect}")
               end
             rescue Exception => e
-              RightLinkLog.error("Failed to connect to #{id}, status #{status.inspect}: #{e.message}")
+              RightLinkLog.error("Failed to connect to #{id}, status #{status.inspect}: #{e}")
             end
           end
         end
       rescue Exception => e
-        res = "Failed to connect to broker #{@broker.identity(host, port)}: #{e.message}"
+        res = "Failed to connect to broker #{@broker.identity(host, port)}: #{e}"
       end
       RightLinkLog.error(res) if res
       res
@@ -349,7 +349,7 @@ module RightScale
             @broker.close_one(identity)
           end
         rescue Exception => e
-          res = "Failed to disconnect from broker #{identity}: #{e.message}"
+          res = "Failed to disconnect from broker #{identity}: #{e}"
         end
       else
         res = "Cannot disconnect from #{identity} because not configured for this agent"
@@ -385,7 +385,7 @@ module RightScale
           advertise_services
         end
       rescue Exception => e
-        res = "Failed to mark brokers #{ids.inspect} as unusable: #{e.message}"
+        res = "Failed to mark brokers #{ids.inspect} as unusable: #{e}"
         RightLinkLog.error(res)
       end
       res
@@ -435,14 +435,14 @@ module RightScale
                 @broker.close(&blk)
                 EM.stop unless blk
               rescue Exception => e
-                RightLinkLog.error("Failed while finishing termination: #{e.message}")
+                RightLinkLog.error("Failed while finishing termination: #{e}")
                 EM.stop
               end
             end
           end
         end
       rescue Exception => e
-        RightLinkLog.error("Failed to terminate gracefully: #{e.message}")
+        RightLinkLog.error("Failed to terminate gracefully: #{e}")
         EM.stop
       end
       true
@@ -565,7 +565,7 @@ module RightScale
     def setup_identity_queue(ids = nil)
       queue = {:name => @identity, :options => {:durable => true, :no_declare => @options[:secure]}}
       filter = [:from, :tags, :tries, :persistent]
-      options = {:ack => true, Advertise => nil, Request => filter, Push => filter, Result => [], :brokers => ids}
+      options = {:ack => true, Advertise => nil, Request => filter, Push => filter, Result => [:from], :brokers => ids}
       exchange = unless AgentIdentity.parse(@identity).instance_agent?
         # Non-instance agents must bind identity queue to identity exchange and to the advertise
         # exchange so that a mapper that comes up after this agent can learn of its existence.
@@ -582,7 +582,7 @@ module RightScale
           when Result then @mapper_proxy.handle_result(packet)
           end
         rescue Exception => e
-          RightLinkLog.error("RECV - Identity queue processing error: #{e.message}")
+          RightLinkLog.error("RECV - Identity queue processing error: #{e}")
           @callbacks[:exception].call(e, msg, self) rescue nil if @callbacks && @callbacks[:exception]
         end
       end
@@ -610,7 +610,7 @@ module RightScale
         begin
           @dispatcher.dispatch(request)
         rescue Exception => e
-          RightLinkLog.error("RECV - Shared queue processing error: #{e.message}")
+          RightLinkLog.error("RECV - Shared queue processing error: #{e}")
           @callbacks[:exception].call(e, request, self) rescue nil if @callbacks && @callbacks[:exception]
         end
       end
@@ -671,7 +671,7 @@ module RightScale
       begin
         @broker.publish(exchange, packet, options)
       rescue Exception => e
-        RightLinkLog.error("Failed to publish #{packet.class} to #{exchange[:name]} exchange: #{e.message}") unless @terminating
+        RightLinkLog.error("Failed to publish #{packet.class} to #{exchange[:name]} exchange: #{e}") unless @terminating
       end
       true
     end

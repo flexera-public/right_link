@@ -180,6 +180,15 @@ module RightScale
       @size       = size
     end
 
+    # Test whether the request potentially is expecting results from multiple agents
+    # The initial result for any such request contains a list of the responders
+    #
+    # === Return
+    # (Boolean):: true if is multicast, otherwise false
+    def multicast?
+      (!@scope.nil?) || (@selector.to_s == 'all') || (!@tags.nil? && !@tags.empty?)
+    end
+
     # Create packet from unmarshalled JSON data
     #
     # === Parameters
@@ -243,7 +252,7 @@ module RightScale
   # Packet for a work request for an actor node that has no result, i.e., one-way request
   class Push < Packet
 
-    attr_accessor :from, :scope, :payload, :type, :token, :selector, :target, :persistent, :created_at, :tags
+    attr_accessor :from, :scope, :payload, :type, :token, :selector, :target, :persistent, :created_at, :tags, :tries
 
     DEFAULT_OPTIONS = {:selector => :least_loaded}
 
@@ -277,7 +286,16 @@ module RightScale
       @persistent = opts[:persistent]
       @created_at = opts[:created_at] || Time.now.to_f
       @tags       = opts[:tags] || []
+      @tries      = []
       @size       = size
+    end
+
+    # Test whether the request potentially is being sent to multiple agents
+    #
+    # === Return
+    # (Boolean):: true if is multicast, otherwise false
+    def multicast?
+      (!@scope.nil?) || (@selector.to_s == 'all') || (!@tags.nil? && !@tags.empty?)
     end
 
     # Create packet from unmarshalled JSON data
@@ -330,7 +348,7 @@ module RightScale
   # Packet for a work result notification sent from actor node
   class Result < Packet
 
-    attr_accessor :token, :results, :to, :from, :tries, :persistent, :created_at
+    attr_accessor :token, :results, :to, :from, :request_from, :tries, :persistent, :created_at
 
     # Create packet
     #
@@ -339,20 +357,22 @@ module RightScale
     # to(String):: Identity of the node to which result should be delivered
     # results(Any):: Arbitrary data that is transferred from actor, a result of actor's work
     # from(String):: Sender identity
+    # request_from(String):: Identity of the node that sent the original request
     # tries(Array):: List of tokens for previous attempts to send associated request
     # persistent(Boolean):: Indicates if this result should be saved to persistent storage
     #   by the AMQP broker
     # created_at(Fixnum):: Time in seconds in Unix-epoch when this result was created
     # size(Integer):: Size of request in bytes used only for marshalling
-    def initialize(token, to, results, from, tries = nil, persistent = nil, created_at = nil, size = nil)
-      @token      = token
-      @to         = to
-      @from       = from
-      @results    = results
-      @tries      = tries || []
-      @persistent = persistent
-      @created_at = created_at || Time.now.to_f
-      @size       = size
+    def initialize(token, to, results, from, request_from = nil, tries = nil, persistent = nil, created_at = nil, size = nil)
+      @token        = token
+      @to           = to
+      @results      = results
+      @from         = from
+      @request_from = request_from
+      @tries        = tries || []
+      @persistent   = persistent
+      @created_at   = created_at || Time.now.to_f
+      @size         = size
     end
 
     # Create packet from unmarshalled JSON data
@@ -364,7 +384,8 @@ module RightScale
     # (Result):: New packet
     def self.json_create(o)
       i = o['data']
-      new(i['token'], i['to'], i['results'], i['from'], i['tries'], i['persistent'], i['created_at'], o['size'])
+      new(i['token'], i['to'], i['results'], i['from'], i['request_from'], i['tries'], i['persistent'], i['created_at'],
+          o['size'])
     end
 
     # Generate log representation
@@ -378,6 +399,7 @@ module RightScale
       log_msg = "#{super} #{trace}"
       log_msg += " from #{id_to_s(@from)}" if filter.nil? || filter.include?(:from)
       log_msg += " to #{id_to_s(@to)}" if filter.nil? || filter.include?(:to)
+      log_msg += " request_from #{id_to_s(@request_from)}" if @request_from && (filter.nil? || filter.include?(:request_from))
       log_msg += " persistent" if @persistent && (filter.nil? || filter.include?(:persistent))
       log_msg += " tries #{tries_to_s}" if @tries && !@tries.empty? && (filter.nil? || filter.include?(:tries))
       if filter.nil? || !filter.include?(:results)

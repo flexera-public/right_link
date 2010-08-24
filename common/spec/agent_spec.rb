@@ -351,7 +351,7 @@ describe RightScale::Agent do
       @mapper_proxy.should_receive(:request_age).and_return(10).once
       @dispatcher.should_receive(:dispatch_age).and_return(nil).once
       @broker.should_receive(:unsubscribe).and_yield.once
-      flexmock(EM::Timer).should_receive(:new).with(20, Proc).once
+      flexmock(EM::Timer).should_receive(:new).with(20, Proc).and_return(@timer).once
       run_in_em do
         @agent = RightScale::Agent.start(:user => "me", :identity => @identity)
         flexmock(@agent).should_receive(:un_register)
@@ -363,7 +363,7 @@ describe RightScale::Agent do
     it "should wait to terminate if there are recent dispatches" do
       @mapper_proxy.should_receive(:pending_requests).and_return([]).once
       @mapper_proxy.should_receive(:request_age).and_return(nil).once
-      @dispatcher.should_receive(:dispatch_age).and_return(20).once
+      @dispatcher.should_receive(:dispatch_age).and_return(20).and_return(@timer).once
       @broker.should_receive(:unsubscribe).and_yield.once
       flexmock(EM::Timer).should_receive(:new).with(10, Proc).once
       run_in_em do
@@ -379,7 +379,7 @@ describe RightScale::Agent do
       @mapper_proxy.should_receive(:request_age).and_return(21).once
       @dispatcher.should_receive(:dispatch_age).and_return(22).once
       @broker.should_receive(:unsubscribe).and_yield.once
-      flexmock(EM::Timer).should_receive(:new).with(9, Proc).once
+      flexmock(EM::Timer).should_receive(:new).with(9, Proc).and_return(@timer).once
       run_in_em do
         @agent = RightScale::Agent.start(:user => "me", :identity => @identity)
         flexmock(@agent).should_receive(:un_register)
@@ -395,7 +395,7 @@ describe RightScale::Agent do
       @mapper_proxy.should_receive(:request_age).and_return(21).once
       @dispatcher.should_receive(:dispatch_age).and_return(22).once
       @broker.should_receive(:unsubscribe).and_yield.once
-      flexmock(EM::Timer).should_receive(:new).with(9, Proc).once
+      flexmock(EM::Timer).should_receive(:new).with(9, Proc).and_return(@timer).once
       run_in_em do
         @agent = RightScale::Agent.start(:user => "me", :identity => @identity)
         flexmock(@agent).should_receive(:un_register)
@@ -411,7 +411,7 @@ describe RightScale::Agent do
       @mapper_proxy.should_receive(:request_age).and_return(nil).once
       @dispatcher.should_receive(:dispatch_age).and_return(nil).once
       @broker.should_receive(:unsubscribe).and_yield.once
-      flexmock(EM::Timer).should_receive(:new).with(0, Proc).once
+      flexmock(EM::Timer).should_receive(:new).with(0, Proc).and_return(@timer).once
       run_in_em do
         @agent = RightScale::Agent.start(:user => "me", :identity => @identity)
         flexmock(@agent).should_receive(:un_register)
@@ -431,7 +431,7 @@ describe RightScale::Agent do
       @dispatcher.should_receive(:dispatch_age).and_return(10).once
       @broker.should_receive(:unsubscribe).and_yield.once
       @broker.should_receive(:close).once
-      flexmock(EM::Timer).should_receive(:new).with(20, Proc).and_yield.once
+      flexmock(EM::Timer).should_receive(:new).with(20, Proc).and_return(@timer).and_yield.once
       run_in_em do
         @agent = RightScale::Agent.start(:user => "me", :identity => @identity)
         flexmock(@agent).should_receive(:un_register)
@@ -447,7 +447,7 @@ describe RightScale::Agent do
       @dispatcher.should_receive(:dispatch_age).and_return(10).once
       @broker.should_receive(:unsubscribe).and_yield.once
       @broker.should_receive(:close).and_yield.once
-      flexmock(EM::Timer).should_receive(:new).with(20, Proc).and_yield.once
+      flexmock(EM::Timer).should_receive(:new).with(20, Proc).and_return(@timer).and_yield.once
       run_in_em do
         @agent = RightScale::Agent.start(:user => "me", :identity => @identity)
         flexmock(@agent).should_receive(:un_register)
@@ -465,7 +465,7 @@ describe RightScale::Agent do
       @dispatcher.should_receive(:dispatch_age).and_return(10).once
       @broker.should_receive(:unsubscribe).and_yield.once
       @broker.should_receive(:close).once
-      flexmock(EM::Timer).should_receive(:new).with(20, Proc).and_yield.once
+      flexmock(EM::Timer).should_receive(:new).with(20, Proc).and_return(@timer).and_yield.once
       run_in_em(stop_event_loop = false) do
         @agent = RightScale::Agent.start(:user => "me", :identity => @identity)
         flexmock(@agent).should_receive(:un_register)
