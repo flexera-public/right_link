@@ -33,7 +33,6 @@
 #      --pid-dir, -z DIR        Set directory containing pid file
 #      --monit, -w              Generate monit configuration file
 #      --options, -o KEY=VAL    Pass-through options
-#      --auto-shutdown          Shutdown server if it fails to get boot bundle in 45 minutes on first boot
 #      --http-proxy, -P PROXY   Use a proxy for all agent-originated HTTP traffic
 #      --no-http-proxy          Comma-separated list of proxy exceptions
 #      --fresh-timeout SEC      Set maximum age in seconds before a request times out and is rejected
@@ -119,7 +118,6 @@ module RightScale
       cfg[:retry_interval]  = options[:retry_interval] || 30
       cfg[:grace_timeout]   = options[:grace_timeout] if options[:grace_timeout]
       cfg[:dup_check]       = options[:dup_check].nil? ? true : options[:dup_check]
-      cfg[:auto_shutdown]   = options[:auto_shutdown]
       cfg[:http_proxy]      = options[:http_proxy] if options[:http_proxy]
       cfg[:no_http_proxy]   = options[:no_http_proxy] if options[:no_http_proxy]
       options[:options].each { |k, v| cfg[k] = v } if options[:options]
@@ -149,7 +147,6 @@ module RightScale
       options[:agent] = ARGV[0]
       options[:options] = { :secure => true }
       options[:quiet] = false
-      options[:auto_shutdown] = false
       fail('No agent specified on the command line.', print_usage=true) if options[:agent].nil?
 
       opts = OptionParser.new do |opts|
@@ -170,10 +167,6 @@ module RightScale
 
         opts.on('-w', '--monit') do
           options[:monit] = true
-        end
-
-        opts.on('--auto-shutdown') do 
-          options[:auto_shutdown] = true
         end
 
         opts.on('-P', '--http-proxy PROXY') do |proxy|
