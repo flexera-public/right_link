@@ -24,6 +24,9 @@ begin
   require 'rubygems'
   require 'win32/dir'
   require 'windows/api'
+  require 'windows/error'
+  require 'windows/handle'
+  require 'windows/security'
   require 'win32ole'
 rescue LoadError => e
   raise e if !!(RUBY_PLATFORM =~ /mswin/)
@@ -474,13 +477,61 @@ module RightScale
       end
 
       class Controller
+        include ::Windows::Process
+        include ::Windows::Error
+        include ::Windows::Handle
+        include ::Windows::Security
+
+        @@initiate_system_shutdown_api = nil
+
         # Shutdown machine now
         def shutdown
-          # Eww, we can't just call the normal shutdown on 64bit because of bitness
-          # Hack that will work on EC2, need to find a better way...
-          cmd = "c:\\WINDOWS\\ServicePackFiles\\amd64\\shutdown.exe"
-          cmd = 'shutdown.exe' unless File.exists?(cmd)
-          `#{cmd} -s -f -t 01`
+
+          @@initiate_system_shutdown_api = Win32::API.new('InitiateSystemShutdown', 'PPLLL', 'B', 'advapi32') unless @@initiate_system_shutdown_api
+
+          # get current process token.
+          token_handle = 0.chr * 4
+          unless OpenProcessToken(process_handle = GetCurrentProcess(),
+                                  desired_access = TOKEN_ADJUST_PRIVILEGES + TOKEN_QUERY,
+                                  token_handle)
+             raise get_last_error
+          end
+          token_handle = token_handle.unpack('V')[0]
+
+          begin
+            # lookup shutdown privilege ID.
+            luid = 0.chr * 8
+            unless LookupPrivilegeValue(system_name = nil,
+                                        priviledge_name = 'SeShutdownPrivilege',
+                                        luid)
+              raise get_last_error
+            end
+            luid = luid.unpack('VV')
+
+            # adjust token priviledge to enable shutdown.
+            tokenPrivileges       = 0.chr * 16                        # TOKEN_PRIVILEGES tokenPrivileges;
+            tokenPrivileges[0,4]  = [1].pack("V")                     # tokenPrivileges.PrivilegeCount = 1;
+            tokenPrivileges[4,8]  = luid.pack("VV")                   # tokenPrivileges.Privileges[0].Luid = luid;
+            tokenPrivileges[12,4] = [SE_PRIVILEGE_ENABLED].pack("V")  # tokenPrivileges.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+            unless AdjustTokenPrivileges(token_handle,
+                                         disable_all_privileges = 0,
+                                         tokenPrivileges,
+                                         new_state = 0,
+                                         previous_state = nil,
+                                         return_length = nil)
+              raise get_last_error
+            end
+            unless @@initiate_system_shutdown_api.call(machine_name = nil,
+                                                       message = nil,
+                                                       timeout_secs = 1,
+                                                       force_apps_closed = 1,
+                                                       reboot_after_shutdown = 0)
+              raise get_last_error
+            end
+          ensure
+            CloseHandle(token_handle)
+          end
+          true
         end
       end
 
