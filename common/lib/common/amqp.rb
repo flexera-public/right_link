@@ -39,6 +39,115 @@ class MQ
       self
     end
   end
+
+  # May raise a MQ::Error exception when the frame payload contains a
+  # Protocol::Channel::Close object.
+  #
+  # This usually occurs when a client attempts to perform an illegal
+  # operation. A short, and incomplete, list of potential illegal operations
+  # follows:
+  # * publish a message to a deleted exchange (NOT_FOUND)
+  # * declare an exchange using the reserved 'amq.' naming structure (ACCESS_REFUSED)
+  #
+  def process_frame frame
+    log :received, frame
+
+    case frame
+    when Frame::Header
+      @header = frame.payload
+      @body = ''
+
+    when Frame::Body
+      @body << frame.payload
+      if @body.length >= @header.size
+        if @method.is_a? Protocol::Basic::Return
+          @on_return_message.call @method, @body if @on_return_message
+        else
+          @header.properties.update(@method.arguments)
+          @consumer.receive @header, @body if @consumer
+        end
+        @body = @header = @consumer = @method = nil
+      end
+
+    when Frame::Method
+      case method = frame.payload
+      when Protocol::Channel::OpenOk
+        send Protocol::Access::Request.new(:realm => '/data',
+                                           :read => true,
+                                           :write => true,
+                                           :active => true,
+                                           :passive => true)
+
+      when Protocol::Access::RequestOk
+        @ticket = method.ticket
+        callback{
+          send Protocol::Channel::Close.new(:reply_code => 200,
+                                            :reply_text => 'bye',
+                                            :method_id => 0,
+                                            :class_id => 0)
+        } if @closing
+        succeed
+
+      when Protocol::Basic::CancelOk
+        if @consumer = consumers[ method.consumer_tag ]
+          @consumer.cancelled
+        else
+          MQ.error "Basic.CancelOk for invalid consumer tag: #{method.consumer_tag}"
+        end
+
+      when Protocol::Queue::DeclareOk
+        queues[ method.queue ].receive_status method
+
+      when Protocol::Basic::Deliver, Protocol::Basic::GetOk
+        @method = method
+        @header = nil
+        @body = ''
+
+        if method.is_a? Protocol::Basic::GetOk
+          @consumer = get_queue{|q| q.shift }
+          MQ.error "No pending Basic.GetOk requests" unless @consumer
+        else
+          @consumer = consumers[ method.consumer_tag ]
+          MQ.error "Basic.Deliver for invalid consumer tag: #{method.consumer_tag}" unless @consumer
+        end
+
+      when Protocol::Basic::GetEmpty
+        if @consumer = get_queue{|q| q.shift }
+          @consumer.receive nil, nil
+        else
+          MQ.error "Basic.GetEmpty for invalid consumer"
+        end
+
+      when Protocol::Basic::Return
+        @method = method
+        @header = nil
+        @body = ''
+
+      when Protocol::Channel::Close
+        raise Error, "#{method.reply_text} in #{Protocol.classes[method.class_id].methods[method.method_id]} on #{@channel}"
+
+      when Protocol::Channel::CloseOk
+        @closing = false
+        conn.callback{ |c|
+          c.channels.delete @channel
+          c.close if c.channels.empty?
+        }
+
+      when Protocol::Basic::ConsumeOk
+        if @consumer = consumers[ method.consumer_tag ]
+          @consumer.confirm_subscribe
+        else
+          MQ.error "Basic.ConsumeOk for invalid consumer tag: #{method.consumer_tag}"
+        end
+      end
+    end
+  end
+
+  # Provide callback to be activated when a message is returned
+  def return_message(&blk)
+    @on_return_message = blk
+  end
+
 end
 
 # monkey patch to the amqp gem that adds :no_declare => true option for new Queue objects.
@@ -791,8 +900,8 @@ module RightScale
       end
     end
  
-    # Store block to be called when there is a change in connection status
-    # Each call to this method stores another block
+    # Provide callback to be activated when there is a change in connection status
+    # Can be called more than once without affecting previous callbacks
     #
     # === Parameters
     # options(Hash):: Connection status monitoring options
@@ -803,7 +912,8 @@ module RightScale
     #   :brokers(Array):: Only report a status change for these identified brokers
     #
     # === Block
-    # Block to be called when connected count crosses a status boundary
+    # Block to be called when connected count crosses a status boundary; it must accept the following parameters:
+    #   status(Symbol):: Status of connection
     #
     # === Return
     # id(String):: Identifier associated with connection status request
@@ -819,6 +929,49 @@ module RightScale
         end
       end
       id
+    end
+
+    # Provide callback to be activated when a broker returns a message that could not be delivered
+    # A message published with :mandatory => true is returned if the exchange does not have any associated queues
+    # A message published with :immediate => true is returned if all of the queues associated with the exchange do
+    # not have any consumers
+    #
+    # === Block
+    # Block to be called when a message is returned; it must accept the following parameters:
+    #   identity(String):: Broker identity
+    #   reason(Symbol):: Reason for return
+    #     :NOT_DELIVERED - a :mandatory => true failure
+    #     :NO_CONSUMERS - an :immediate => true failure
+    #   packet(Packet|String):: Returned message in unserialized packet format if serializer defined and could
+    #     unserialize it, otherwise the serialized message
+    #
+    # === Return
+    # true:: Always return true
+    def return_message(&blk)
+      each_usable do |b|
+        b[:mq].return_message do |info, msg|
+          begin
+            reason = AMQP::RESPONSES[info.reply_code]
+            packet = msg
+            describe = msg.inspect
+            if @serializer
+              begin
+                packet = @serializer.load(msg)
+                describe = "#{packet.to_s([:target])}"
+              rescue Exception => e
+                RightLinkLog.warn("Could not unserialize message from broker #{b[:alias]}: #{e}")
+                packet = msg
+                describe = msg.inspect
+              end
+            end
+            RightLinkLog.info("RETURN [#{b[:alias]}] #{reason.to_s} #{info.exchange} #{describe}")
+            blk.call(b[:identity], reason, packet)
+          rescue Exception => e
+            RightLinkLog.error("Failed return #{info.inspect} of message from broker #{b[:alias]}: #{e}")
+          end
+        end
+      end
+      true
     end
 
     # Provide callback to be activated when the HA_MQ rescues an exception during operation.

@@ -879,6 +879,100 @@ describe RightScale::HA_MQ do
 
   end # Publishing
 
+  describe "Returning" do
+
+    class MQ
+      attr_accessor :connection, :on_return_message
+
+      def initialize(connection)
+        @connection = connection
+      end
+
+      def return_message(&blk)
+        @on_return_message = blk
+      end
+    end
+
+    before(:each) do
+      flexmock(RightScale::RightLinkLog).should_receive(:info).by_default
+      flexmock(RightScale::RightLinkLog).should_receive(:error).never.by_default
+      @message = flexmock("message")
+      @packet = flexmock("packet", :class => RightScale::Request, :to_s => true).by_default
+      @info = flexmock("info", :reply_code => 313, :exchange => "exchange")
+      @serializer = flexmock("Serializer")
+      @serializer.should_receive(:load).with(@message).and_return(@packet).by_default
+      @connection = flexmock("connection", :connection_status => true).by_default
+      flexmock(AMQP).should_receive(:connect).and_return(@connection).by_default
+      @direct = flexmock("direct")
+      @mq = flexmock("mq", :connection => @connection)
+    end
+
+    it "should register return message block with each usable broker" do
+      flexmock(MQ).should_receive(:new).with(@connection).and_return(@mq).by_default
+      @mq.should_receive(:return_message).twice
+      ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first, second")
+      ha_mq.return_message { |_, _, _| }
+    end
+
+    it "should invoke block with unserialized message and log the return" do
+      flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Connecting to broker/).once
+      flexmock(RightScale::RightLinkLog).should_receive(:info).with(/RETURN/).once
+      @serializer.should_receive(:load).with(@message).and_return(@packet).once
+      ha_mq = RightScale::HA_MQ.new(@serializer)
+      called = 0
+      ha_mq.return_message do |id, reason, packet|
+        called += 1
+        id.should == "rs-broker-localhost-5672"
+        reason.should == :NO_CONSUMERS
+        packet.should == @packet
+      end
+      ha_mq.brokers[0][:mq].on_return_message.call(@info, @message)
+      called.should == 1
+    end
+
+    it "should invoke block with serialized message if there is no serializer" do
+      ha_mq = RightScale::HA_MQ.new(nil)
+      called = 0
+      ha_mq.return_message do |id, reason, packet|
+        called += 1
+        id.should == "rs-broker-localhost-5672"
+        reason.should == :NO_CONSUMERS
+        packet.should == @message
+      end
+      ha_mq.brokers[0][:mq].on_return_message.call(@info, @message)
+      called.should == 1
+    end
+
+    it "should log a warning if the message cannot be unserialized but should still invoke block" do
+      flexmock(RightScale::RightLinkLog).should_receive(:warn).with(/Could not unserialize message/).once
+      @serializer.should_receive(:load).with(@message).and_raise(Exception).once
+      ha_mq = RightScale::HA_MQ.new(@serializer)
+      called = 0
+      ha_mq.return_message do |id, reason, packet|
+        called += 1
+        id.should == "rs-broker-localhost-5672"
+        reason.should == :NO_CONSUMERS
+        packet.should == @message
+      end
+      ha_mq.brokers[0][:mq].on_return_message.call(@info, @message)
+      called.should == 1
+    end
+
+    it "should log an error if there is a failure while processing the return" do
+      flexmock(RightScale::RightLinkLog).should_receive(:error).with(/Failed return/).once
+      @serializer.should_receive(:load).with(@message).and_raise(Exception).once
+      ha_mq = RightScale::HA_MQ.new(@serializer)
+      called = 0
+      ha_mq.return_message do |id, reason, packet|
+        called += 1
+        raise Exception
+      end
+      ha_mq.brokers[0][:mq].on_return_message.call(@info, @message)
+      called.should == 1
+    end
+
+  end # Returning
+
   describe "Deleting" do
 
     before(:each) do

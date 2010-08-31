@@ -34,7 +34,8 @@ module RightScale
     RETRY = 3
     TIMEOUT = 4
     MULTICAST = 5
-    
+    UNDELIVERED = 5
+
     # (Integer) Status code
     attr_accessor :status_code
     
@@ -52,12 +53,13 @@ module RightScale
     # s(String):: Name of result code
     def to_s
       s = case @status_code
-        when SUCCESS   then 'success'
-        when ERROR     then 'error'
-        when CONTINUE  then 'continue'
-        when RETRY     then 'retry'
-        when TIMEOUT   then 'timeout'
-        when MULTICAST then 'multicast'
+        when SUCCESS     then 'success'
+        when ERROR       then 'error'
+        when CONTINUE    then 'continue'
+        when RETRY       then 'retry'
+        when TIMEOUT     then 'timeout'
+        when MULTICAST   then 'multicast'
+        when UNDELIVERED then 'undelivered'
       end
     end
 
@@ -153,6 +155,17 @@ module RightScale
       OperationResult.new(MULTICAST, targets)
     end
 
+    # Create new undelivered status
+    #
+    # === Parameters
+    # targets(String):: Identity of target to which request could not be delivered
+    #
+    # === Return
+    # (OperationResult):: Corresponding result
+    def self.undelivered(target)
+      OperationResult.new(MULTICAST, target)
+    end
+
     # Was last operation successful?
     #
     # === Return
@@ -205,6 +218,15 @@ module RightScale
     # false:: Otherwise
     def multicast?
       status_code == MULTICAST
+    end
+
+    # Was last operation status UNDELIVERED?
+    #
+    # === Return
+    # true:: If status is UNDELIVERED
+    # false:: Otherwise
+    def undelivered?
+      status_code == UNDELIVERED
     end
 
     # Array of serialized fields given to constructor

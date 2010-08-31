@@ -139,7 +139,8 @@ module RightScale
   # Packet for a work request for an actor node that has an expected result
   class Request < Packet
 
-    attr_accessor :from, :scope, :payload, :type, :token, :reply_to, :selector, :target, :persistent, :created_at, :tags, :tries
+    attr_accessor :from, :scope, :payload, :type, :token, :reply_to, :selector, :target, :persistent, :created_at,
+                  :tags, :tries, :returns
 
     DEFAULT_OPTIONS = {:selector => :least_loaded}
 
@@ -162,6 +163,7 @@ module RightScale
     #      use in timing out the request; value 0 means never timeout; defaults to current time
     #   :tags(Array(Symbol)):: List of tags to be used for selecting target for this request
     #   :tries(Array):: List of tokens for previous attempts to send this request
+    #   :returns(Array):: Identity of brokers which returned request as undeliverable
     # size(Integer):: Size of request in bytes used only for marshalling
     def initialize(type, payload, opts = {}, size = nil)
       opts = DEFAULT_OPTIONS.merge(opts)
@@ -177,6 +179,8 @@ module RightScale
       @created_at = opts[:created_at] || Time.now.to_f
       @tags       = opts[:tags] || []
       @tries      = opts[:tries] || []
+      @returns    = opts[:returns] || []
+      @broker
       @size       = size
     end
 
@@ -202,7 +206,8 @@ module RightScale
                                      :token      => i['token'],      :reply_to => i['reply_to'],
                                      :selector   => i['selector'],   :target   => i['target'],   
                                      :persistent => i['persistent'], :tags     => i['tags'],
-                                     :created_at => i['created_at'], :tries    => i['tries'] },
+                                     :created_at => i['created_at'], :tries    => i['tries'],
+                                     :returns    => i['returns'] },
           o['size'])
     end
 
@@ -224,6 +229,7 @@ module RightScale
       log_msg += ", tags #{@tags.inspect}" if @tags && !@tags.empty? && (filter.nil? || filter.include?(:tags))
       log_msg += ", persistent" if @persistent && (filter.nil? || filter.include?(:persistent))
       log_msg += ", tries #{tries_to_s}" if @tries && !@tries.empty? && (filter.nil? || filter.include?(:tries))
+      log_msg += ", returns #{@returns.inspect}" if @returns && !@returns.empty? && (filter.nil? || filter.include?(:returns))
       log_msg += ", payload #{@payload.inspect}" if filter.nil? || filter.include?(:payload)
       log_msg
     end
@@ -252,7 +258,8 @@ module RightScale
   # Packet for a work request for an actor node that has no result, i.e., one-way request
   class Push < Packet
 
-    attr_accessor :from, :scope, :payload, :type, :token, :selector, :target, :persistent, :created_at, :tags, :tries
+    attr_accessor :from, :scope, :payload, :type, :token, :selector, :target, :persistent, :created_at, :tags,
+                  :tries, :returns
 
     DEFAULT_OPTIONS = {:selector => :least_loaded}
 
@@ -273,6 +280,9 @@ module RightScale
     #   :created_at(Fixnum):: Time in seconds in Unix-epoch when this request was created for
     #     use in timing out the request; value 0 means never timeout; defaults to current time
     #   :tags(Array(Symbol)):: List of tags to be used for selecting target for this request
+    #   :tries(Array):: List of tokens for previous attempts to send this request (only here
+    #     for consistency with Request)
+    #   :returns(Array):: Identity of brokers which returned request as undeliverable
     # size(Integer):: Size of request in bytes used only for marshalling
     def initialize(type, payload, opts = {}, size = nil)
       opts = DEFAULT_OPTIONS.merge(opts)
@@ -286,7 +296,8 @@ module RightScale
       @persistent = opts[:persistent]
       @created_at = opts[:created_at] || Time.now.to_f
       @tags       = opts[:tags] || []
-      @tries      = []
+      @tries      = opts[:tries] || []
+      @returns    = opts[:returns] || []
       @size       = size
     end
 
@@ -310,7 +321,8 @@ module RightScale
       new(i['type'], i['payload'], { :from   => i['from'],   :scope      => i['scope'],
                                      :token  => i['token'],  :selector   => i['selector'],
                                      :target => i['target'], :persistent => i['persistent'],
-                                     :tags   => i['tags'],   :created_at => i['created_at'] },
+                                     :tags   => i['tags'],   :created_at => i['created_at'],
+                                     :tries  => i['tries'],  :returns    => i['returns'] },
           o['size'])
     end
 
@@ -330,6 +342,8 @@ module RightScale
       log_msg += ", target #{id_to_s(@target)}" if @target && (filter.nil? || filter.include?(:target))
       log_msg += ", tags #{@tags.inspect}" if @tags && !@tags.empty? && (filter.nil? || filter.include?(:tags))
       log_msg += ", persistent" if @persistent && (filter.nil? || filter.include?(:persistent))
+      log_msg += ", tries #{tries_to_s}" if @tries && !@tries.empty? && (filter.nil? || filter.include?(:tries))
+      log_msg += ", returns #{@returns.inspect}" if @returns && !@returns.empty? && (filter.nil? || filter.include?(:returns))
       log_msg += ", payload #{@payload.inspect}" if filter.nil? || filter.include?(:payload)
       log_msg
     end
