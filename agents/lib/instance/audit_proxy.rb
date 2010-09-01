@@ -183,10 +183,14 @@ module RightScale
         opts[:category] = EventCategories::CATEGORY_NOTIFICATION
       end
       
-      audit = AuditFormatter.__send__(options[:kind], options[:text])
-      @size += audit[:detail].size
+      begin
+        audit = AuditFormatter.__send__(options[:kind], options[:text])
+      rescue Exception => e
+        RightLinkLog.warn("Failed to send audit: #{e.message} from\n#{e.backtrace.join("\n")}")
+        @size += audit[:detail].size
+        RequestForwarder.instance.push('/auditor/update_entry', opts.merge(audit))
+      end
 
-      RequestForwarder.instance.push('/auditor/update_entry', opts.merge(audit))
       true
     end
 
