@@ -4,7 +4,6 @@
 # Discover the IP
 
 require 'fileutils'
-require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', '..', '..', 'lib', 'shell_utilities'))
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'config', 'platform'))
 
 SHEBANG_REGEX = /^#!/
