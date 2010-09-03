@@ -44,7 +44,7 @@ module RightScale
     attr_reader :audit_id
 
     # Initialize audit from pre-existing id
-    # 
+    #
     # === Parameters
     # audit_id(Fixnum):: Associated audit id
     def initialize(audit_id)
@@ -147,7 +147,7 @@ module RightScale
       end
     end
 
- 
+
     protected
 
     # Flush output buffer then send audits to core agent and log failures
@@ -182,13 +182,13 @@ module RightScale
         RightLinkLog.warn("Invalid category '#{opts[:category]}' for notification '#{options[:text]}', using generic category instead")
         opts[:category] = EventCategories::CATEGORY_NOTIFICATION
       end
-      
+
       begin
         audit = AuditFormatter.__send__(options[:kind], options[:text])
-      rescue Exception => e
-        RightLinkLog.warn("Failed to send audit: #{e.message} from\n#{e.backtrace.join("\n")}")
         @size += audit[:detail].size
         RequestForwarder.instance.push('/auditor/update_entry', opts.merge(audit))
+      rescue Exception => e
+        RightLinkLog.warn("Failed to send audit: #{e.message} from\n#{e.backtrace.join("\n")}")
       end
 
       true
