@@ -175,6 +175,11 @@ module RightScale
           return @temp_dir
         end
 
+        # Path to place pid files
+        def pid_dir
+          return pretty_path(File.join(Dir::COMMON_APPDATA, 'RightScale', 'run'))
+        end
+
         # System root path
         def system_root
           return pretty_path(ENV['SystemRoot'])
@@ -540,7 +545,7 @@ module RightScale
           bytes = ''
 
           srand #to give us a fighting chance at avoiding state-sync issues
-          
+
           count.times do
             bytes << rand(0xff)
           end

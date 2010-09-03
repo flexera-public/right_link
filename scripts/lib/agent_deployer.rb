@@ -21,7 +21,7 @@
 #      --identity, -i ID        Use base id ID to build agent's identity
 #      --shared-queue, -q QUEUE Use QUEUE as input for agent in addition to identity queue
 #      --token, -t TOKEN        Use token TOKEN to build agent's identity
-#      --secure-identity, -S    Derive actual token from given TOKEN and ID 
+#      --secure-identity, -S    Derive actual token from given TOKEN and ID
 #      --prefix, -r PREFIX      Prefix agent identity with PREFIX
 #      --url                    Set agent AMQP connection URL (host, port, user, pass, vhost)
 #      --user, -u USER          Set agent AMQP username
@@ -101,7 +101,7 @@ module RightScale
       cfg = {}
       cfg[:identity]        = options[:identity] if options[:identity]
       cfg[:shared_queue]    = options[:shared_queue] if options[:shared_queue]
-      cfg[:pid_dir]         = options[:pid_dir] || '/var/run'
+      cfg[:pid_dir]         = options[:pid_dir] || RightScale::RightLinkConfig[:platform].filesystem.pid_dir
       cfg[:user]            = options[:user] if options[:user]
       cfg[:pass]            = options[:pass] if options[:pass]
       cfg[:vhost]           = options[:vhost] if options[:vhost]
@@ -134,7 +134,7 @@ module RightScale
         puts "Generated configuration file for agent #{options[:agent]}:"
         puts "  - config: #{cfg_file}"
       end
-        
+
       if options[:monit]
         cfg_file = setup_monit(options)
         puts "  - monit config: #{cfg_file}" unless options[:quiet]
@@ -246,14 +246,14 @@ protected
     # Print error on console and exit abnormally
     def fail(msg=nil, print_usage=false)
       puts "** #{msg}" if msg
-      RDoc::usage_from_file(__FILE__) if print_usage      
+      RDoc::usage_from_file(__FILE__) if print_usage
       exit(1)
     end
 
     # Create monit configuration file
     def setup_monit(options)
       agent = options[:agent]
-      pid_file = PidFile.new("#{options[:pid_prefix]}-#{options[:identity]}", :pid_dir => options[:pid_dir] || '/var/run')
+      pid_file = PidFile.new("#{options[:pid_prefix]}-#{options[:identity]}", :pid_dir => options[:pid_dir] || RightScale::RightLinkConfig[:platform].filesystem.pid_dir)
       cfg_file = if File.exists?('/opt/rightscale/etc/monit.d')
         File.join('/opt/rightscale/etc/monit.d', "#{agent}-#{options[:identity]}.conf")
       else
@@ -285,7 +285,7 @@ check process #{agent}
       return nil unless File.exists?(cfg_file)
       symbolize(YAML.load(IO.read(cfg_file))) rescue nil
     end
- 
+
     # Version information
     def version
       "rad #{VERSION.join('.')} - RightScale Agent Deployer (c) 2009 RightScale"

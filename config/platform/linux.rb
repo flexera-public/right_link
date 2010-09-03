@@ -124,6 +124,11 @@ module RightScale
           '/tmp'
         end
 
+        # Path to place pid files
+        def pid_dir
+          '/var/run'
+        end
+
         # for windows compatibility; has no significance in linux
         def long_path_to_short_path(long_path)
           return long_path

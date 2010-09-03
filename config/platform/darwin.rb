@@ -65,7 +65,7 @@ module RightScale
 
         def spool_dir
           '/var/spool'
-        end                
+        end
 
         def cache_dir
           '/var/cache/rightscale'
@@ -77,6 +77,11 @@ module RightScale
 
         def temp_dir
           '/tmp'
+        end
+
+        # Path to place pid files
+        def pid_dir
+          '/var/run'
         end
 
         # for windows compatibility; has no significance in darwin
@@ -173,7 +178,7 @@ module RightScale
           bytes
         end
       end
-      
+
     end
   end
 end
