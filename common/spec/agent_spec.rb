@@ -104,11 +104,6 @@ describe RightScale::Agent do
       @agent.options[:vhost].should == "/right_net"
     end
 
-    it "for ping_time is 60" do
-      @agent.options.should include(:ping_time)
-      @agent.options[:ping_time].should == 60
-    end
-
     it "for default_services is []" do
       @agent.options.should include(:default_services)
       @agent.options[:default_services].should == []
@@ -192,7 +187,7 @@ describe RightScale::Agent do
     #   @agent.options[:console].should == true
     # end
 
-    it "for user should override default (nanite)" do
+    it "for user should override default (agent)" do
       @agent = RightScale::Agent.start(:user => "me", :identity => @identity)
       @agent.options.should include(:user)
       @agent.options[:user].should == "me"

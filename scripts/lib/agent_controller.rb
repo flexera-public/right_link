@@ -324,13 +324,13 @@ module RightScale
       true
     end
 
-    # Start nanite agent, return true
+    # Start agent, return true
     def start_agent
       begin
         @options[:root] = gen_agent_dir(@options[:agent])
 
         # Register exception handler
-        @options[:callbacks] = { :exception => lambda { |e, msg, _| AgentManager.process_exception(e, msg) } }
+        @options[:exception_callback] = lambda { |e, msg, _| AgentManager.process_exception(e, msg) }
 
         # Override default status proc for windows instance since "uptime" is not available.
         if RightLinkConfig[:platform].windows?

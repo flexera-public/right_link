@@ -30,11 +30,15 @@
 # 6:  Attributes in RecipeInstantiation no longer converted to JSON format (image 5.1.0)
 # 7:  ???
 # 8:  Deprecated full vs. partial converge distinction in ExecutableBundle; core agent
-#     booter actor superseded :set_r_s_version action with :declare (image 5.4.0)
+#     booter actor superseded :set_r_s_version action with :declare;
+#     added request retry and duplicate request checking (image 5.4.0)
 # 9:  Introduced multiple brokers, which extended protocol but did not introduce any
 #     downrev incompatibilities, but wanted clear demarcation if needed to resolve issues (sprint 20, image 5.5.0)
 # 10: Changed multicast requests to no longer be collected in mapper; added request_from field
-#     to Result so that any mapper can forward a result to the original requester (sprint 21, image 5.6.0)
+#     to Result so that any mapper can forward a result to the original requester;
+#     changed /mapper/list_agents to /mapper/tag_query; eliminated agent periodic pings;
+#     eliminated instance agent registration; added returns field to Request, Push, and
+#     Result for message returns (sprint 21, image 5.6.0)
 protocol_version 10
 
 # Path to RightLink root folder

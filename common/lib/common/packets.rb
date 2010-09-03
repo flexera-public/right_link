@@ -142,7 +142,7 @@ module RightScale
     attr_accessor :from, :scope, :payload, :type, :token, :reply_to, :selector, :target, :persistent, :created_at,
                   :tags, :tries, :returns
 
-    DEFAULT_OPTIONS = {:selector => :least_loaded}
+    DEFAULT_OPTIONS = {:selector => :random}
 
     # Create packet
     #
@@ -154,9 +154,8 @@ module RightScale
     #   :scope(Hash):: Define behavior that should be used to resolve tag based routing
     #   :token(String):: Generated request id that a mapper uses to identify replies
     #   :reply_to(String):: Identity of the node that actor replies to, usually a mapper itself
-    #   :selector(Symbol):: Selector used to route the request: :least_loaded, :all, :random,
-    #     or :rr (round robin)
-    #   :target(String):: Target nanite for the request
+    #   :selector(Symbol):: Selector used to route the request: :all or :random,
+    #   :target(String):: Target recipient
     #   :persistent(Boolean):: Indicates if this request should be saved to persistent storage
     #     by the AMQP broker
     #   :created_at(Fixnum):: Time in seconds in Unix-epoch when this request was created for
@@ -174,6 +173,7 @@ module RightScale
       @token      = opts[:token]
       @reply_to   = opts[:reply_to]
       @selector   = opts[:selector]
+      @selector   = :random if @selector.to_s == "least_loaded"
       @target     = opts[:target]
       @persistent = opts[:persistent]
       @created_at = opts[:created_at] || Time.now.to_f
@@ -261,7 +261,7 @@ module RightScale
     attr_accessor :from, :scope, :payload, :type, :token, :selector, :target, :persistent, :created_at, :tags,
                   :tries, :returns
 
-    DEFAULT_OPTIONS = {:selector => :least_loaded}
+    DEFAULT_OPTIONS = {:selector => :random}
 
     # Create packet
     #
@@ -272,9 +272,8 @@ module RightScale
     #   :from(String):: Sender identity
     #   :scope(Hash):: Define behavior that should be used to resolve tag based routing
     #   :token(String):: Generated request id that a mapper uses to identify replies
-    #   :selector(Symbol):: Selector used to route the request: :least_loaded, :all, :random,
-    #     or :rr (round robin)
-    #   :target(String):: Target nanite for the request
+    #   :selector(Symbol):: Selector used to route the request: :all or :random,
+    #   :target(String):: Target recipient
     #   :persistent(Boolean):: Indicates if this request should be saved to persistent storage
     #     by the AMQP broker
     #   :created_at(Fixnum):: Time in seconds in Unix-epoch when this request was created for
@@ -292,6 +291,7 @@ module RightScale
       @scope      = opts[:scope]
       @token      = opts[:token]
       @selector   = opts[:selector]
+      @selector   = :random if @selector.to_s == "least_loaded"
       @target     = opts[:target]
       @persistent = opts[:persistent]
       @created_at = opts[:created_at] || Time.now.to_f
@@ -362,7 +362,7 @@ module RightScale
   # Packet for a work result notification sent from actor node
   class Result < Packet
 
-    attr_accessor :token, :results, :to, :from, :request_from, :tries, :persistent, :created_at
+    attr_accessor :token, :results, :to, :from, :request_from, :tries, :persistent, :returns, :created_at
 
     # Create packet
     #
@@ -375,15 +375,18 @@ module RightScale
     # tries(Array):: List of tokens for previous attempts to send associated request
     # persistent(Boolean):: Indicates if this result should be saved to persistent storage
     #   by the AMQP broker
+    # returns(Array):: Identity of brokers which returned request as undeliverable
     # created_at(Fixnum):: Time in seconds in Unix-epoch when this result was created
     # size(Integer):: Size of request in bytes used only for marshalling
-    def initialize(token, to, results, from, request_from = nil, tries = nil, persistent = nil, created_at = nil, size = nil)
+    def initialize(token, to, results, from, request_from = nil, tries = nil, persistent = nil,
+                   returns = nil, created_at = nil,  size = nil)
       @token        = token
       @to           = to
       @results      = results
       @from         = from
       @request_from = request_from
       @tries        = tries || []
+      @returns      = returns || []
       @persistent   = persistent
       @created_at   = created_at || Time.now.to_f
       @size         = size
@@ -398,7 +401,7 @@ module RightScale
     # (Result):: New packet
     def self.json_create(o)
       i = o['data']
-      new(i['token'], i['to'], i['results'], i['from'], i['request_from'], i['tries'], i['persistent'], i['created_at'],
+      new(i['token'], i['to'], i['results'], i['from'], i['request_from'], i['tries'], i['persistent'], i['returns'], i['created_at'],
           o['size'])
     end
 
@@ -416,6 +419,7 @@ module RightScale
       log_msg += " request_from #{id_to_s(@request_from)}" if @request_from && (filter.nil? || filter.include?(:request_from))
       log_msg += " persistent" if @persistent && (filter.nil? || filter.include?(:persistent))
       log_msg += " tries #{tries_to_s}" if @tries && !@tries.empty? && (filter.nil? || filter.include?(:tries))
+      log_msg += " returns #{@returns.inspect}" if @returns && !@returns.empty? && (filter.nil? || filter.include?(:returns))
       if filter.nil? || !filter.include?(:results)
         if !@results.nil?
           if @results.is_a?(RightScale::OperationResult)
@@ -507,26 +511,25 @@ module RightScale
   end # Stale
 
 
+  # Deprecated for instance agents
+  #
   # Packet for availability notification from an agent to the mappers
   class Register < Packet
 
-    attr_accessor :identity, :services, :status, :tags, :brokers, :shared_queue, :created_at, :version
+    attr_accessor :identity, :services, :tags, :brokers, :shared_queue, :created_at, :version
 
     # Create packet
     #
     # === Parameters
     # identity(String):: Sender identity
     # services(Array):: List of services provided by the node
-    # status(Any):: Load of the node by default, but may be any criteria
-    #   agent may use to report its availability, load, etc
     # tags(Array(Symbol)):: List of tags associated with this service
     # brokers(Array|nil):: Identity of agent's brokers with nil meaning not supported
     # shared_queue(String):: Name of a queue shared between this agent and another
     # created_at(Fixnum):: Time in seconds in Unix-epoch when this registration was created
     # version(Integer):: Protocol version of agent registering
     # size(Integer):: Size of request in bytes used only for marshalling
-    def initialize(identity, services, status, tags, brokers, shared_queue = nil, created_at = nil, version = VERSION, size = nil)
-      @status       = status
+    def initialize(identity, services, tags, brokers, shared_queue = nil, created_at = nil, version = VERSION, size = nil)
       @tags         = tags
       @brokers      = brokers
       @identity     = identity
@@ -546,7 +549,7 @@ module RightScale
     # (Register):: New packet
     def self.json_create(o)
       i = o['data']
-      new(i['identity'], i['services'], i['status'], i['tags'], i['brokers'], i['shared_queue'], i['created_at'],
+      new(i['identity'], i['services'], i['tags'], i['brokers'], i['shared_queue'], i['created_at'],
           i['version'] || DEFAULT_VERSION, o['size'])
     end
 
@@ -570,6 +573,8 @@ module RightScale
   end # Register
 
 
+  # Deprecated for instance agents
+  #
   # Packet for unregistering an agent from the mappers
   class UnRegister < Packet
 
@@ -611,6 +616,8 @@ module RightScale
   end # UnRegister
 
 
+  # Deprecated
+  #
   # Heartbeat packet
   class Ping < Packet
 
@@ -737,9 +744,9 @@ module RightScale
   end # TagUpdate
 
 
-  # Deprecated: instead use Request of type /mapper/list_agents with :tags and :agent_ids in payload
+  # Deprecated: instead use Request of type /mapper/tag_query with :tags and :agent_ids in payload
   #
-  # Packet for requesting retrieval of agents with specified tags and/or ids
+  # Packet for requesting retrieval of agents with specified tags
   class TagQuery < Packet
 
     attr_accessor :from, :token, :agent_ids, :tags, :persistent

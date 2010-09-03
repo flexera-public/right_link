@@ -286,6 +286,8 @@ module RightScale
   # Manage multiple AMQP broker connections to achieve a high availability service
   class HA_MQ
 
+    class NoConnectedBrokers < Exception; end
+
     # Maximum number of times the failed? function would be called for a failed broker without
     # returning true
     MAX_FAILED_BACKOFF = 20
@@ -331,7 +333,7 @@ module RightScale
     #     defaults to :priority, value can be overridden on publish call
     #
     # === Raise
-    # (RightScale::Exceptions::Argument):: If :host and :port are not matched lists
+    # ArgumentError:: If :host and :port are not matched lists
     def initialize(serializer, options = {})
       @options = options
       @connection_status = {}
@@ -344,52 +346,11 @@ module RightScale
       @brokers.each { |b| @brokers_hash[b[:identity]] = b }
     end
 
-    # Parse host and port information to form list of broker address information
-    #
-    # === Parameters
-    # host{String):: Comma-separated list of broker host names; if only one, it is reapplied
-    #   to successive ports; if none, defaults to localhost; each host may be followed by ':'
-    #   and a short string to be used as an alias id; the alias id defaults to the list index,
-    #   e.g., "host_a:0, host_c:2"
-    # port(String|Integer):: Comma-separated list of broker port numbers corresponding to :host list;
-    #   if only one, it is incremented and applied to successive hosts; if none, defaults to AMQP::PORT
-    #
-    # === Returns
-    # (Array(Hash)):: List of broker addresses with keys :host, :port, :id
-    #
-    # === Raise
-    # (RightScale::Exceptions::Argument):: If host and port are not matched lists
-    def self.addresses(host, port)
-      hosts = if host then host.split(/,\s*/) else [ "localhost" ] end
-      ports = if port then port.to_s.split(/,\s*/) else [ ::AMQP::PORT ] end
-      if hosts.size != ports.size && hosts.size != 1 && ports.size != 1
-        raise RightScale::Exceptions::Argument, "Unmatched AMQP host/port lists -- " +
-                                                "hosts: #{host.inspect} ports: #{port.inspect}"
-      end
-      i = -1
-      if hosts.size > 1
-        hosts.map do |host|
-          i += 1
-          h = host.split(/:\s*/)
-          port = if ports[i] then ports[i].to_i else ports[0].to_i end
-          port = port.to_s.split(/:\s*/)[0]
-          {:host => h[0], :port => port.to_i, :id => (h[1] || i.to_s).to_i}
-        end
-      else
-        ports.map do |port|
-          i += 1
-          p = port.to_s.split(/:\s*/)
-          host = if hosts[i] then hosts[i] else hosts[0] end
-          host = host.split(/:\s*/)[0]
-          {:host => host, :port => p[0].to_i, :id => (p[1] || i.to_s).to_i}
-        end
-      end
-    end
-
     # Subscribe an AMQP queue to an AMQP exchange on all brokers that are connected or still connecting
     # Allow connecting here because subscribing may happen before all have confirmed connected
     # Do not wait for confirmation from broker that subscription is complete
     # When a message is received, acknowledge, unserialize, and log it as specified
+    # If the message is unserialized and it is not of the right type, it is dropped after logging a warning
     #
     # === Parameters
     # queue(Hash):: AMQP queue being subscribed with keys :name and :options
@@ -411,10 +372,9 @@ module RightScale
     #   :brokers(Array):: Identity of brokers for which to subscribe, defaults to all usable if nil or empty
     #
     # === Block
-    # Required block that is called each time exchange matches a message to the queue
-    # Its arguments are the identity of the broker delivering the message and the message,
-    # which is unserialized unless :no_unserialize was specified
-    # If the message is unserialized and it is not of the right type, it is dropped after logging a warning
+    # Block with following parameters to be called each time exchange matches a message to the queue:
+    #   identity(String):: Identity of broker delivering the message
+    #   message(Packet|String):: Message received, which is unserialized unless :no_unserialize was specified
     #
     # === Return
     # identities(Array):: Identity of brokers where successfully subscribed
@@ -493,7 +453,7 @@ module RightScale
     # timeout(Integer):: Number of seconds to wait for all confirmations, defaults to no timeout
     #
     # === Block
-    # Optional block that is called with no parameters after all queues are unsubscribed
+    # Optional block with no parameters to be called after all queues are unsubscribed
     #
     # === Return
     # true:: Always return true
@@ -523,12 +483,33 @@ module RightScale
       true
     end
 
-    # Publish packet to AMQP exchange of first connected broker, or all connected brokers
+    # Declare queue or exchange object but do not subscribe to it
+    #
+    # === Parameters
+    # type(Symbol):: Type of object: :queue or :exchange
+    # name(String):: Name of object
+    # options(Hash):: Declare options
+    #
+    # === Return
+    # identities(Array):: Identity of brokers where successfully declared
+    def declare(type, name, options = {})
+      each_usable(options[:brokers]) do |b|
+        begin
+          RightLinkLog.info("[setup] Declaring #{type.to_s} #{name} on broker #{b[:alias]}")
+          b[:mq].__send__(type, name, options)
+        rescue Exception => e
+          RightLinkLog.error("Failed declaring #{type.to_s} #{name} on broker #{b[:alias]}: #{e.message}")
+        end
+      end
+      true
+    end
+
+    # Publish message to AMQP exchange of first connected broker, or all connected brokers
     # if fanout requested
     #
     # === Parameters
     # exchange(Hash):: AMQP exchange to subscribe to with keys :type, :name, and :options
-    # packet(Packet):: Packet to serialize and publish
+    # packet(Packet):: Message to serialize and publish
     # options(Hash):: Publish options -- standard AMQP ones plus
     #   :fanout(Boolean):: true means publish to all connected brokers
     #   :brokers(Array):: Identity of brokers selected for use, defaults to all if nil or empty
@@ -545,8 +526,7 @@ module RightScale
     # identities(Array):: Identity of brokers where packet was successfully published
     #
     # === Raise
-    # (RightScale::Exceptions::IO):: If cannot find a connected broker
-    # (RightScale::Exceptions::Config):: If a requested broker is unknown
+    # NoConnectedBrokers:: If cannot find a connected broker
     def publish(exchange, packet, options = {})
       identities = []
       msg = if options[:no_serialize] || @serializer.nil? then packet else @serializer.dump(packet) end
@@ -555,7 +535,7 @@ module RightScale
         if b[:status] == :connected
           begin
             unless (options[:no_log] && RightLinkLog.level != :debug) || options[:no_serialize] || @serializer.nil?
-              re = "RE" if packet.respond_to?(:tries) && !packet.tries.empty?
+              re = "RE-" if packet.respond_to?(:tries) && !packet.tries.empty?
               log_filter = options[:log_filter] unless RightLinkLog.level == :debug
               RightLinkLog.info("#{re}SEND #{b[:alias]} #{packet.to_s(log_filter)} #{options[:log_data]}")
             end
@@ -572,7 +552,7 @@ module RightScale
       if identities.empty?
         selected = "selected " if options[:brokers]
         list = aliases(brokers.map { |b| b[:identity] }).join(", ")
-        raise RightScale::Exceptions::IO, "None of #{selected}brokers [#{list}] are usable for publishing"
+        raise NoConnectedBrokers, "None of #{selected}brokers [#{list}] are usable for publishing"
       end
       identities
     end
@@ -598,6 +578,47 @@ module RightScale
       identities
     end
 
+    # Parse host and port information to form list of broker address information
+    #
+    # === Parameters
+    # host{String):: Comma-separated list of broker host names; if only one, it is reapplied
+    #   to successive ports; if none, defaults to localhost; each host may be followed by ':'
+    #   and a short string to be used as an alias id; the alias id defaults to the list index,
+    #   e.g., "host_a:0, host_c:2"
+    # port(String|Integer):: Comma-separated list of broker port numbers corresponding to :host list;
+    #   if only one, it is incremented and applied to successive hosts; if none, defaults to AMQP::PORT
+    #
+    # === Returns
+    # (Array(Hash)):: List of broker addresses with keys :host, :port, :id
+    #
+    # === Raise
+    # ArgumentError:: If host and port are not matched lists
+    def self.addresses(host, port)
+      hosts = if host then host.split(/,\s*/) else [ "localhost" ] end
+      ports = if port then port.to_s.split(/,\s*/) else [ ::AMQP::PORT ] end
+      if hosts.size != ports.size && hosts.size != 1 && ports.size != 1
+        raise ArgumentError.new("Unmatched AMQP host/port lists -- hosts: #{host.inspect} ports: #{port.inspect}")
+      end
+      i = -1
+      if hosts.size > 1
+        hosts.map do |host|
+          i += 1
+          h = host.split(/:\s*/)
+          port = if ports[i] then ports[i].to_i else ports[0].to_i end
+          port = port.to_s.split(/:\s*/)[0]
+          {:host => h[0], :port => port.to_i, :id => (h[1] || i.to_s).to_i}
+        end
+      else
+        ports.map do |port|
+          i += 1
+          p = port.to_s.split(/:\s*/)
+          host = if hosts[i] then hosts[i] else hosts[0] end
+          host = host.split(/:\s*/)[0]
+          {:host => host, :port => p[0].to_i, :id => (p[1] || i.to_s).to_i}
+        end
+      end
+    end
+ 
     # Parse host and port information to form list of broker identities
     #
     # === Parameters
@@ -612,9 +633,9 @@ module RightScale
     # (Array):: Identity of each broker
     #
     # === Raise
-    # (RightScale::Exceptions::Argument):: If host and port are not matched lists
-    def identities(host, port)
-      self.class.addresses(host, port).map { |a| identity(a[:host], a[:port]) }
+    # ArgumentError:: If host and port are not matched lists
+    def self.identities(host, port = nil)
+      addresses(host, port).map { |a| identity(a[:host], a[:port]) }
     end
 
     # Construct a broker identity from its host and port of the form
@@ -626,7 +647,7 @@ module RightScale
     #
     # === Returns
     # (String):: Unique broker identity
-    def identity(host, port)
+    def self.identity(host, port)
       AgentIdentity.new('rs', 'broker', port.to_i, host.gsub('-', '~')).to_s
     end
 
@@ -738,6 +759,14 @@ module RightScale
       @brokers.map { |b| b[:identity] } - each_usable.map { |b| b[:identity] }
     end
 
+    # Get identity of all brokers
+    #
+    # === Return
+    # (Array):: Identity of all brokers
+    def all
+      @brokers.map { |b| b[:identity] }
+    end
+
     # Get identity of failed brokers, i.e., ones that were never successfully connected,
     # not ones that are just disconnected
     #
@@ -796,8 +825,9 @@ module RightScale
     # force(Boolean):: Reconnect even if already connected
     #
     # === Block
-    # Optional block is executed after initiating the connection unless already
-    # connected to this broker, only block argument is the broker identity
+    # Optional block with following parameters to be called after initiating the connection
+    # unless already connected to this broker:
+    #   identity(String):: Broker identity
     #
     # === Return
     # (Boolean):: true if connected, false if no connect attempt made
@@ -806,7 +836,7 @@ module RightScale
     # Exception:: If host and port do not match an existing broker but alias id does
     # Exception:: If requested priority position would leave a gap in the list
     def connect(host, port, alias_id, priority = nil, force = false, &blk)
-      identity = identity(host, port)
+      identity = self.class.identity(host, port)
       existing = @brokers_hash[identity]
       if existing && [:connected, :connecting].include?(existing[:status]) && !force
         RightLinkLog.info("Ignored request to reconnect #{identity} because already #{existing[:status].to_s}")
@@ -857,13 +887,14 @@ module RightScale
     # port(Integer):: TCP port number for individual broker
     #
     # === Block
-    # Optional block is executed after removing the connection
-    # unless broker is not configured, only block argument is the broker identity
+    # Optional block with following parameters to be called after removing the connection
+    # unless broker is not configured:
+    #   identity(String):: Broker identity
     #
     # === Return
     # identity(String|nil):: Identity of broker removed, or nil if unknown
     def remove(host, port, &blk)
-      identity = identity(host, port)
+      identity = self.class.identity(host, port)
       if broker = @brokers_hash[identity]
         RightLinkLog.info("Removing #{identity}, alias #{broker[:alias]} from broker list")
         if connection_closable(broker)
@@ -937,7 +968,7 @@ module RightScale
     # not have any consumers
     #
     # === Block
-    # Block to be called when a message is returned; it must accept the following parameters:
+    # Block with following parameters to be called when a message is returned:
     #   identity(String):: Broker identity
     #   reason(Symbol):: Reason for return
     #     :NOT_DELIVERED - a :mandatory => true failure
@@ -959,7 +990,7 @@ module RightScale
                 packet = @serializer.load(msg)
                 describe = "#{packet.to_s([:target])}"
               rescue Exception => e
-                RightLinkLog.warn("Could not unserialize message from broker #{b[:alias]}: #{e}")
+                RightLinkLog.warn("Failed to unserialize message from broker #{b[:alias]}: #{e}")
                 packet = msg
                 describe = msg.inspect
               end
@@ -977,9 +1008,7 @@ module RightScale
     # Provide callback to be activated when the HA_MQ rescues an exception during operation.
     #
     # === Block
-    # Block to be called when an exception is raised while receiving 
-    #
-    # The block must accept three parameters:
+    # Block with following parameters to be called when an exception is raised while receiving:
     #   msg(String):: the message content that caused an exception
     #   e(Exception):: the exception that was raised
     #   ha_mq(HA_MQ):: the HA_MQ object that raised the exception
@@ -1017,7 +1046,7 @@ module RightScale
     # Close all broker connections
     #
     # === Block
-    # Optional block to be executed after all connections are closed
+    # Optional block with no parameters to be called after all connections are closed
     #
     # === Return
     # true:: Always return true
@@ -1045,7 +1074,7 @@ module RightScale
     # propagate(Boolean):: Whether to propagate connection status updates
     #
     # === Block
-    # Optional block to be executed after connection closed
+    # Optional block with no parameters to be called after connection closed
     #
     # === Return
     # true:: Always return true
@@ -1138,7 +1167,8 @@ module RightScale
     # identities(Array):: Identity of brokers to be considered, nil or empty array means all brokers
     #
     # === Block
-    # Optional block to which each broker connection is passed
+    # Optional block with following parameters to be called for each usable broker:
+    #   broker(Hash):: Broker attributes
     #
     # === Return
     # (Array):: Usable brokers
@@ -1150,7 +1180,7 @@ module RightScale
       end
       choices.select do |b|
         if [:connected, :connecting].include?(b[:status])
-          yield b if block_given?
+          yield(b) if block_given?
           true
         end
       end
@@ -1171,7 +1201,7 @@ module RightScale
       broker = {
         :mq => nil,
         :connection => nil,
-        :identity   => identity(address[:host], address[:port]),
+        :identity   => self.class.identity(address[:host], address[:port]),
         :alias      => "b#{address[:id]}",
         :status     => :connecting,
         :queues     => [],
@@ -1217,7 +1247,7 @@ module RightScale
         packet = @serializer.load(msg)
         if options.key?(packet.class)
           unless options[:no_log] && RightLinkLog.level != :debug
-            re = "RE" if packet.respond_to?(:tries) && !packet.tries.empty?
+            re = "RE-" if packet.respond_to?(:tries) && !packet.tries.empty?
             log_filter = options[packet.class] unless RightLinkLog.level == :debug
             RightLinkLog.info("#{re}RECV #{broker[:alias]} #{packet.to_s(log_filter)} #{options[:log_data]}")
           end

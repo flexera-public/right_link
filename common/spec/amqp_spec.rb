@@ -64,7 +64,7 @@ describe RightScale::HA_MQ do
 
     it "should not allow mismatched number of hosts and ports" do
       runner = lambda { RightScale::HA_MQ.addresses("first, second", "5672, 5673, 5674") }
-      runner.should raise_exception(RightScale::Exceptions::Argument)
+      runner.should raise_exception(ArgumentError)
     end
 
   end # Addressing
@@ -155,14 +155,12 @@ describe RightScale::HA_MQ do
     end
 
     it "should use host and port to uniquely identity broker in AgentIdentity format" do
-      ha_mq = RightScale::HA_MQ.new(@serializer)
-      ha_mq.identity("localhost", 5672).should == "rs-broker-localhost-5672"
-      ha_mq.identity("10.21.102.23", 1234).should == "rs-broker-10.21.102.23-1234"
+      RightScale::HA_MQ.identity("localhost", 5672).should == "rs-broker-localhost-5672"
+      RightScale::HA_MQ.identity("10.21.102.23", 1234).should == "rs-broker-10.21.102.23-1234"
     end
 
     it "should replace '-' with '~' in host names when forming broker identity" do
-      ha_mq = RightScale::HA_MQ.new(@serializer)
-      ha_mq.identity("9-1-1", 5672).should == "rs-broker-9~1~1-5672"
+      RightScale::HA_MQ.identity("9-1-1", 5672).should == "rs-broker-9~1~1-5672"
     end
 
     it "should obtain host and port from a broker's identity" do
@@ -176,8 +174,7 @@ describe RightScale::HA_MQ do
     end
 
     it "should list broker identities" do
-      ha_mq = RightScale::HA_MQ.new(@serializer)
-      ha_mq.identities("first,second", "5672, 5674").should ==
+      RightScale::HA_MQ.identities("first,second", "5672, 5674").should ==
         ["rs-broker-first-5672", "rs-broker-second-5674"]
     end
 
@@ -534,9 +531,9 @@ describe RightScale::HA_MQ do
       ha_mq.__send__(:each_usable) { |b| ha_mq.__send__(:receive, b, "queue", @message).should == nil }
     end
 
-    it "should display RERECV if the message being received is a retry" do
+    it "should display RE-RECV if the message being received is a retry" do
       flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Connecting/).once
-      flexmock(RightScale::RightLinkLog).should_receive(:info).with(/^RERECV/).once
+      flexmock(RightScale::RightLinkLog).should_receive(:info).with(/^RE-RECV/).once
       @packet.should_receive(:tries).and_return(["try1"]).once
       ha_mq = RightScale::HA_MQ.new(@serializer)
       ha_mq.__send__(:each_usable) { |b| ha_mq.__send__(:receive, b, "queue", @message, RightScale::Request => nil).should == @packet }
@@ -642,6 +639,51 @@ describe RightScale::HA_MQ do
     end
 
   end # Unsubscribing
+
+  describe "Declaring" do
+
+    before(:each) do
+      @serializer = flexmock("Serializer")
+      @queue = flexmock("queue")
+      @connection = flexmock("connection", :connection_status => true).by_default
+      flexmock(AMQP).should_receive(:connect).and_return(@connection).by_default
+      @mq = flexmock("mq", :connection => @connection)
+      flexmock(MQ).should_receive(:new).with(@connection).and_return(@mq).by_default
+      flexmock(RightScale::RightLinkLog).should_receive(:info).by_default
+    end
+
+    it "should declare exchange on all usable brokers" do
+      @mq.should_receive(:exchange).twice
+      ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first, second")
+      ha_mq.brokers[0][:status] = :connected
+      ha_mq.declare(:exchange, "x", :durable => true)
+    end
+
+    it "should declare exchange only on specified brokers" do
+      @mq.should_receive(:exchange).once
+      ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first, second")
+      ha_mq.brokers[0][:status] = :connected
+      ha_mq.declare(:exchange, "x", :brokers => ["rs-broker-second-5672"])
+    end
+
+    it "should log declaration" do
+      flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Connecting/).once
+      flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Declaring/).once
+      @mq.should_receive(:queue).once
+      ha_mq = RightScale::HA_MQ.new(@serializer)
+      ha_mq.declare(:queue, "q")
+    end
+
+    it "should log an error if the declare fails" do
+      flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Connecting/).once
+      flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Declaring/).once
+      flexmock(RightScale::RightLinkLog).should_receive(:error).with(/Failed declaring/).once
+      @mq.should_receive(:queue).and_raise(Exception).once
+      ha_mq = RightScale::HA_MQ.new(@serializer)
+      ha_mq.declare(:queue, "q")
+    end
+
+  end # Declaring
 
   describe "Publishing" do
 
@@ -762,7 +804,7 @@ describe RightScale::HA_MQ do
       ha_mq = RightScale::HA_MQ.new(@serializer)
       ha_mq.brokers[0][:status] = :connected
       runner = lambda { ha_mq.publish({:type => :direct, :name => "exchange"}, @packet) }
-      runner.should raise_exception(RightScale::Exceptions::IO)
+      runner.should raise_exception(RightScale::HA_MQ::NoConnectedBrokers)
     end
 
     it "should raise an exception if there are no connected brokers" do
@@ -770,7 +812,7 @@ describe RightScale::HA_MQ do
       ha_mq = RightScale::HA_MQ.new(@serializer)
       ha_mq.brokers[0][:status] = :disconnected
       runner = lambda { ha_mq.publish({:type => :direct, :name => "exchange"}, @packet) }
-      runner.should raise_exception(RightScale::Exceptions::IO)
+      runner.should raise_exception(RightScale::HA_MQ::NoConnectedBrokers)
     end
 
     it "should not serialize the message if it is already serialized" do
@@ -865,9 +907,9 @@ describe RightScale::HA_MQ do
       ha_mq.publish({:type => :direct, :name => "exchange"}, @packet, :log_data => "More data")
     end
 
-    it "should display RESEND if the message being sent is a retry" do
+    it "should display RE-SEND if the message being sent is a retry" do
       flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Connecting/).once
-      flexmock(RightScale::RightLinkLog).should_receive(:info).with(/^RESEND/).once
+      flexmock(RightScale::RightLinkLog).should_receive(:info).with(/^RE-SEND/).once
       @packet = flexmock("packet", :class => RightScale::Request, :to_s => true, :tries => ["try1"])
       @serializer.should_receive(:dump).with(@packet).and_return(@message).once
       @mq.should_receive(:direct).with("exchange", {}).and_return(@direct).once
@@ -944,7 +986,7 @@ describe RightScale::HA_MQ do
     end
 
     it "should log a warning if the message cannot be unserialized but should still invoke block" do
-      flexmock(RightScale::RightLinkLog).should_receive(:warn).with(/Could not unserialize message/).once
+      flexmock(RightScale::RightLinkLog).should_receive(:warn).with(/Failed to unserialize message/).once
       @serializer.should_receive(:load).with(@message).and_raise(Exception).once
       ha_mq = RightScale::HA_MQ.new(@serializer)
       called = 0

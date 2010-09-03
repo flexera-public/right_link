@@ -48,14 +48,11 @@ module RightScale
     # (Array) Tag strings published to mapper by agent
     attr_reader :tags
 
-    # (Hash) Callback procedures; key is callback symbol and value is callback procedure
-    attr_reader :callbacks
+    # (Proc) Callback procedure for exceptions
+    attr_reader :exception_callback
 
     # (String) Name of AMQP input queue shared by this agent with others of same type
     attr_reader :shared_queue
-
-    # (Proc) Callable object that returns agent load as a string
-    attr_accessor :status_proc
 
     # Seconds to wait for broker connection
     BROKER_CONNECT_TIMEOUT = 60
@@ -70,7 +67,6 @@ module RightScale
       :grace_timeout => 30,
       :prefetch => 1,
       :persist => 'none',
-      :ping_time => 60,
       :default_services => []
     }) unless defined?(DEFAULT_OPTIONS)
 
@@ -79,64 +75,55 @@ module RightScale
     # is already started, for instance, by a Thin server that your Merb/Rails
     # application runs on.
     #
-    # === Options
-    #
-    # Agent options:
-    #
-    # :identity(String):: Identity of this agent
-    # :shared_queue(String):: Name of AMPQ queue to be used for input in addition to identity queue.
-    #   This is a queue that is shared by multiple agents and hence, unlike the identity queue,
-    #   is only able to receive requests, not results.
-    # :status_proc(Proc):: Callable object that returns agent load as a string. Defaults to load
-    #   averages string extracted from `uptime`.
-    # :format(Symbol):: Format to use for packets serialization -- :marshal, :json or :yaml or :secure.
-    #   Defaults to Ruby's Marshall format. For interoperability with AMQP clients implemented in other
-    #   languages, use JSON. Note that the nanite code uses JSON gem, and ActiveSupport's JSON encoder
-    #   may cause clashes if ActiveSupport is loaded after JSON gem. Also, using the secure format
-    #   requires prior initialization of the serializer (see RightScale::SecureSerializer.init).
-    # :root(String):: Application root for this agent. Defaults to Dir.pwd.
-    # :log_dir(String):: Log file path. Defaults to the current working directory.
-    # :file_root(String):: Path to directory to files this agent provides. Defaults to app_root/files.
-    # :ping_time(Numeric):: Time interval in seconds between two subsequent heartbeat messages this agent
-    #   broadcasts. Default value is 15.
-    # :console(Boolean):: true indicates to start interactive console
-    # :daemonize(Boolean):: true indicates to daemonize
-    # :pid_dir(String):: Path to the directory where the agent stores its pid file (only if daemonized).
-    #   Defaults to the root or the current working directory.
-    # :persist(String):: Instructions for the AMQP broker for saving messages to persistent storage
-    #   so they aren't lost when the broker is restarted:
-    #     none - do not persist any messages
-    #     all - persist all push and request messages
-    #     push - only persist one-way request messages
-    #     request - only persist two-way request messages and their associated result
-    #   Can be overridden on a per-message basis using the persistence option.
-    # :fresh_timeout(Numeric):: Maximum age in seconds before a request times out and is rejected
-    # :retry_interval(Numeric):: Number of seconds between request retries
-    # :retry_timeout(Numeric):: Maximum number of seconds to retry request before give up
-    # :grace_timeout(Numeric):: Maximum number of seconds to wait after last request received before
-    #   terminating regardless of whether there are still unfinished requests
-    # :prefetch(Integer):: Maximum number of messages the AMQP broker is to prefetch for this agent
-    #   before it receives an ack. Value 1 ensures that only last unacknowledged gets redelivered
-    #   if the agent crashes. Value 0 means unlimited prefetch.
-    # :callbacks(Hash):: Callbacks to be executed on specific events. Key is event (currently
-    #   only :exception is supported) and value is the Proc to be called back. For :exception
-    #   the parameters are exception, message being processed, and reference to agent. It gets called
-    #   whenever a packet generates an exception.
-    # :services(Symbol):: List of services provided by this agent. Defaults to all methods exposed by actors.
-    # :secure(Boolean):: true indicates to use Security features of rabbitmq to restrict nanites to themselves
-    # :single_threaded(Boolean):: true indicates to run all operations in one thread; false indicates
-    #   to do requested work on EM defer thread and all else, such as pings on main thread
-    # :threadpool_size(Integer):: Number of threads in EM thread pool
-    #
-    # Connection options:
-    #
-    # :vhost(String):: AMQP broker vhost that should be used
-    # :user(String):: AMQP broker user
-    # :pass(String):: AMQP broker password
-    # :host(String):: Comma-separated list of AMQP broker hosts; if only one, it is reapplied
-    #   to successive ports; if none, defaults to localhost
-    # :port(Integer):: Comma-separated list of AMQP broker ports corresponding to hosts; if only one,
-    #   it is incremented and applied to successive hosts; if none, defaults to 5672
+    # === Parameters
+    # options(Hash):: Configuration options:
+    #   :identity(String):: Identity of this agent
+    #   :shared_queue(String):: Name of AMPQ queue to be used for input in addition to identity queue.
+    #     This is a queue that is shared by multiple agents and hence, unlike the identity queue,
+    #     is only able to receive requests, not results.
+    #   :format(Symbol):: Format to use for packets serialization -- :marshal, :json or :yaml or :secure.
+    #     Defaults to Ruby's Marshall format. For interoperability with AMQP clients implemented in other
+    #     languages, use JSON. Note that the nanite code uses JSON gem, and ActiveSupport's JSON encoder
+    #     may cause clashes if ActiveSupport is loaded after JSON gem. Also, using the secure format
+    #     requires prior initialization of the serializer (see RightScale::SecureSerializer.init).
+    #   :root(String):: Application root for this agent. Defaults to Dir.pwd.
+    #   :log_dir(String):: Log file path. Defaults to the current working directory.
+    #   :file_root(String):: Path to directory to files this agent provides. Defaults to app_root/files.
+    #   :console(Boolean):: true indicates to start interactive console
+    #   :daemonize(Boolean):: true indicates to daemonize
+    #   :pid_dir(String):: Path to the directory where the agent stores its pid file (only if daemonized).
+    #     Defaults to the root or the current working directory.
+    #   :persist(String):: Instructions for the AMQP broker for saving messages to persistent storage
+    #     so they aren't lost when the broker is restarted:
+    #       none - do not persist any messages
+    #       all - persist all push and request messages
+    #       push - only persist one-way request messages
+    #       request - only persist two-way request messages and their associated result
+    #     Can be overridden on a per-message basis using the persistence option.
+    #   :fresh_timeout(Numeric):: Maximum age in seconds before a request times out and is rejected
+    #   :retry_interval(Numeric):: Number of seconds between request retries
+    #   :retry_timeout(Numeric):: Maximum number of seconds to retry request before give up
+    #   :grace_timeout(Numeric):: Maximum number of seconds to wait after last request received before
+    #     terminating regardless of whether there are still unfinished requests
+    #   :prefetch(Integer):: Maximum number of messages the AMQP broker is to prefetch for this agent
+    #     before it receives an ack. Value 1 ensures that only last unacknowledged gets redelivered
+    #     if the agent crashes. Value 0 means unlimited prefetch.
+    #   :exception_callback(Proc):: Callback with following parameters that is activated on exception events:
+    #     exception(Exception):: Exception
+    #     message(Packet):: Message being processed
+    #     mapper(Agent):: Reference to agent
+    #   :services(Symbol):: List of services provided by this agent. Defaults to all methods exposed by actors.
+    #   :secure(Boolean):: true indicates to use Security features of rabbitmq to restrict nanites to themselves
+    #   :single_threaded(Boolean):: true indicates to run all operations in one thread; false indicates
+    #     to do requested work on EM defer thread and all else, such as pings on main thread
+    #   :threadpool_size(Integer):: Number of threads in EM thread pool
+    #   :vhost(String):: AMQP broker virtual host
+    #   :user(String):: AMQP broker user
+    #   :pass(String):: AMQP broker password
+    #   :host(String):: Comma-separated list of AMQP broker hosts; if only one, it is reapplied
+    #     to successive ports; if none, defaults to localhost
+    #   :port(Integer):: Comma-separated list of AMQP broker ports corresponding to hosts; if only one,
+    #     it is incremented and applied to successive hosts; if none, defaults to 5672
     #
     # On start config.yml is read, so it is common to specify options in the YAML file. However, when both
     # Ruby code options and YAML file specify options, Ruby code options take precedence.
@@ -199,7 +186,6 @@ module RightScale
                 setup_traps
                 setup_queues
                 advertise_services
-                setup_heartbeat
                 at_exit { un_register } unless $TESTING
                 start_console if @options[:console] && !@options[:daemonize]
               rescue Exception => e
@@ -234,6 +220,7 @@ module RightScale
     end
 
     # Advertise the services provided by this agent
+    # Deprecated for instance agents
     #
     # === Parameters
     # connected(Array):: Identity of connected brokers, defaults to all connected brokers
@@ -241,10 +228,12 @@ module RightScale
     # === Return
     # true:: Always return true
     def advertise_services(connected = nil)
-      connected = @broker.connected unless connected
-      exchange = {:type => :fanout, :name => 'registration', :options => {:no_declare => @options[:secure], :durable => true}}
-      packet = Register.new(@identity, @registry.services, status_proc.call, self.tags, connected, @shared_queue)
-      publish(exchange, packet) unless @terminating
+      unless AgentIdentity.parse(@identity).instance_agent?
+        connected = @broker.connected unless connected
+        exchange = {:type => :fanout, :name => 'registration', :options => {:no_declare => @options[:secure], :durable => true}}
+        packet = Register.new(@identity, @registry.services, self.tags, connected, @shared_queue)
+        publish(exchange, packet) unless @terminating
+      end
       true
     end
 
@@ -309,7 +298,7 @@ module RightScale
           end
         end
       rescue Exception => e
-        res = "Failed to connect to broker #{@broker.identity(host, port)}: #{e}"
+        res = "Failed to connect to broker #{HA_MQ.identity(host, port)}: #{e}"
       end
       RightLinkLog.error(res) if res
       res
@@ -331,7 +320,7 @@ module RightScale
       RightLinkLog.info("Received request to disconnect#{and_remove} broker at host #{host.inspect} " +
                         "port #{port.inspect}")
       RightLinkLog.info("Current broker configuration: #{@broker.status.inspect}")
-      identity = @broker.identity(host, port)
+      identity = HA_MQ.identity(host, port)
       connected = @broker.connected
       res = nil
       if connected.include?(identity) && connected.size == 1
@@ -491,8 +480,7 @@ module RightScale
         end
       end
 
-      @callbacks = @options[:callbacks]
-      @status_proc = @options[:status_proc] || lambda { parse_uptime(`uptime 2> /dev/null`) rescue 'no status' }
+      @exception_callback = @options[:exception_callback]
       @shared_queue = @options[:shared_queue]
 
       return @identity
@@ -586,8 +574,8 @@ module RightScale
           when Result then @mapper_proxy.handle_result(packet)
           end
         rescue Exception => e
-          RightLinkLog.error("RECV - Identity queue processing error: #{e}")
-          @callbacks[:exception].call(e, msg, self) rescue nil if @callbacks && @callbacks[:exception]
+          RightLinkLog.error("Identity queue processing error: #{e}")
+          @exception_callback.call(e, msg, self) rescue nil if @exception_callback
         end
       end
     end
@@ -614,22 +602,9 @@ module RightScale
         begin
           @dispatcher.dispatch(request)
         rescue Exception => e
-          RightLinkLog.error("RECV - Shared queue processing error: #{e}")
-          @callbacks[:exception].call(e, request, self) rescue nil if @callbacks && @callbacks[:exception]
+          RightLinkLog.error("Shared queue processing error: #{e}")
+          @exception_callback.call(e, request, self) rescue nil if @exception_callback
         end
-      end
-      true
-    end
-
-    # Setup the periodic sending of a Ping packet to the heartbeat queue
-    #
-    # === Return
-    # true:: Always return true
-    def setup_heartbeat
-      EM.add_periodic_timer(@options[:ping_time]) do
-        exchange = {:type => :fanout, :name => 'heartbeat', :options => {:no_declare => @options[:secure]}}
-        packet = Ping.new(@identity, status_proc.call, @broker.connected, @broker.failed(backoff = true))
-        publish(exchange, packet, :no_log => true) unless @terminating
       end
       true
     end
@@ -681,11 +656,12 @@ module RightScale
     end
 
     # Unregister this agent if not already unregistered
+    # Deprecated for instance agents
     #
     # === Return
     # true:: Always return true
     def un_register
-      unless @unregistered
+      unless @unregistered || !AgentIdentity.parse(@identity).instance_agent?
         @unregistered = true
         exchange = {:type => :fanout, :name => 'registration', :options => {:no_declare => @options[:secure], :durable => true}}
         publish(exchange, UnRegister.new(@identity))

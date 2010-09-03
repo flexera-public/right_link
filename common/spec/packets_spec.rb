@@ -101,6 +101,13 @@ describe "Packet: Request" do
     packet.created_at.should == packet2.created_at
   end
 
+  it "should convert selector from :least_loaded to :random" do
+    packet = RightScale::Request.new('/some/foo', 'payload', :selector => :least_loaded)
+    packet.selector.should == :random
+    packet = RightScale::Request.new('/some/foo', 'payload', :selector => "least_loaded")
+    packet.selector.should == :random
+  end
+
   it "should distinguish multicast request" do
     RightScale::Request.new('/some/foo', 'payload').multicast?.should be_false
     RightScale::Request.new('/some/foo', 'payload', :tags => []).multicast?.should be_false
@@ -139,6 +146,13 @@ describe "Packet: Push" do
     packet.created_at.should == packet2.created_at
   end
 
+  it "should convert selector from :least_loaded to :random" do
+    packet = RightScale::Push.new('/some/foo', 'payload', :selector => :least_loaded)
+    packet.selector.should == :random
+    packet = RightScale::Push.new('/some/foo', 'payload', :selector => "least_loaded")
+    packet.selector.should == :random
+  end
+
   it "should distinguish multicast request" do
     RightScale::Push.new('/some/foo', 'payload').multicast?.should be_false
     RightScale::Push.new('/some/foo', 'payload', :tags => []).multicast?.should be_false
@@ -151,7 +165,7 @@ end
 
 describe "Packet: Result" do
   it "should dump/load as JSON objects" do
-    packet = RightScale::Result.new('0xdeadbeef', 'to', 'results', 'from', 'request_from', ['try'], true)
+    packet = RightScale::Result.new('0xdeadbeef', 'to', 'results', 'from', 'request_from', ['try'], true, ['return'])
     packet2 = JSON.parse(packet.to_json)
     packet.token.should == packet2.token
     packet.to.should == packet2.to
@@ -160,12 +174,13 @@ describe "Packet: Result" do
     packet.request_from.should == packet2.request_from
     packet.tries.should == packet2.tries
     packet.persistent.should == packet2.persistent
+    packet.returns.should == packet2.returns
     # JSON decoding of floating point sometimes loses accuracy
     (packet.created_at - packet2.created_at).abs.should <= 1.0e-05
   end
 
   it "should dump/load as Marshalled ruby objects" do
-    packet = RightScale::Result.new('0xdeadbeef', 'to', 'results', 'from', 'request_from', ['try'], true)
+    packet = RightScale::Result.new('0xdeadbeef', 'to', 'results', 'from', 'request_from', ['try'], true, ['return'])
     packet2 = Marshal.load(Marshal.dump(packet))
     packet.token.should == packet2.token
     packet.to.should == packet2.to
@@ -174,6 +189,7 @@ describe "Packet: Result" do
     packet.request_from.should == packet2.request_from
     packet.tries.should == packet2.tries
     packet.persistent.should == packet2.persistent
+    packet.returns.should == packet2.returns
     packet.created_at.should == packet2.created_at
   end
 end
@@ -207,11 +223,10 @@ end
 
 describe "Packet: Register" do
   it "should dump/load as JSON objects" do
-    packet = RightScale::Register.new('0xdeadbeef', ['/foo/bar', '/nik/qux'], 0.8, ['foo'], ['b1', 'b2'])
+    packet = RightScale::Register.new('0xdeadbeef', ['/foo/bar', '/nik/qux'], ['foo'], ['b1', 'b2'])
     packet2 = JSON.parse(packet.to_json)
     packet.identity.should == packet2.identity
     packet.services.should == packet2.services
-    packet.status.should == packet2.status
     packet.brokers.should == packet2.brokers
     packet.shared_queue.should == packet2.shared_queue
     # JSON decoding of floating point sometimes loses accuracy
@@ -220,11 +235,10 @@ describe "Packet: Register" do
   end
 
   it "should dump/load as Marshalled ruby objects" do
-    packet = RightScale::Register.new('0xdeadbeef', ['/foo/bar', '/nik/qux'], 0.8, ['foo'], nil, 'shared')
+    packet = RightScale::Register.new('0xdeadbeef', ['/foo/bar', '/nik/qux'], ['foo'], nil, 'shared')
     packet2 = Marshal.load(Marshal.dump(packet))
     packet.identity.should == packet2.identity
     packet.services.should == packet2.services
-    packet.status.should == packet2.status
     packet.brokers.should == packet2.brokers
     packet.shared_queue.should == packet2.shared_queue
     packet.created_at.should == packet2.created_at
@@ -232,22 +246,22 @@ describe "Packet: Register" do
   end
 
   it "should set specified shared_queue" do
-    packet = RightScale::Register.new('0xdeadbeef', ['/foo/bar', '/nik/qux'], 0.8, ['foo'], nil, 'shared')
+    packet = RightScale::Register.new('0xdeadbeef', ['/foo/bar', '/nik/qux'], ['foo'], nil, 'shared')
     packet.shared_queue.should == 'shared'
   end
 
   it "should default shared_queue to nil" do
-    packet = RightScale::Register.new('0xdeadbeef', ['/foo/bar', '/nik/qux'], 0.8, ['foo'], nil)
+    packet = RightScale::Register.new('0xdeadbeef', ['/foo/bar', '/nik/qux'], ['foo'], nil)
     packet.shared_queue.should be_nil
    end
 
   it "should use current version by default when constructing" do
-    packet = RightScale::Register.new('0xdeadbeef', ['/foo/bar', '/nik/qux'], 0.8, ['foo'], nil, 'shared', nil)
+    packet = RightScale::Register.new('0xdeadbeef', ['/foo/bar', '/nik/qux'], ['foo'], nil, 'shared', nil)
     packet.version == RightScale::Packet::VERSION
   end
 
   it "should use default version if none supplied when unmarshalling" do
-    packet = RightScale::Register.new('0xdeadbeef', ['/foo/bar', '/nik/qux'], 0.8, ['foo'], nil, 'shared', nil)
+    packet = RightScale::Register.new('0xdeadbeef', ['/foo/bar', '/nik/qux'], ['foo'], nil, 'shared', nil)
     JSON.parse(packet.to_json).version == RightScale::Packet::DEFAULT_VERSION
     Marshal.load(Marshal.dump(packet)).version == RightScale::Packet::DEFAULT_VERSION
   end

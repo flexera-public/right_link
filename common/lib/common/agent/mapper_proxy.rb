@@ -51,10 +51,10 @@ module RightScale
     #
     # === Parameters
     # agent(Agent):: Agent using this mapper proxy; uses its identity, broker, and following options:
-    #   :callbacks(Hash):: Callbacks to be executed on specific events. Key is event (currently
-    #     only :exception is supported) and value is the Proc to be called back. For :exception
-    #     the parameters are exception, message being processed, and reference to agent. It gets called
-    #     whenever a packet generates an exception.
+    #   :exception_callback(Proc):: Callback with following parameters that is activated on exception events:
+    #     exception(Exception):: Exception
+    #     message(Packet):: Message being processed
+    #     mapper(Agent):: Reference to agent
     #   :persist(Symbol):: Instructions for the AMQP broker for saving messages to persistent storage
     #     so they aren't lost when the broker is restarted:
     #       none - do not persist any messages
@@ -77,7 +77,7 @@ module RightScale
       @single_threaded = @options[:single_threaded]
       @retry_timeout = nil_if_zero(@options[:retry_timeout])
       @retry_interval = nil_if_zero(@options[:retry_interval])
-      @callbacks = @options[:callbacks]
+      @exception_callback = @options[:exception_callback]
 
       # Only to be accessed from primary thread
       @pending_requests = {}
@@ -175,7 +175,7 @@ module RightScale
               handler[:result_handler].call(result)
             rescue Exception => e
               RightLinkLog.error("RECV - Result processing error for #{result.to_s([])}: #{e.message}")
-              @callbacks[:exception].call(e, msg, self) rescue nil if @callbacks && @callbacks[:exception]
+              @exception_callback.call(e, msg, self) rescue nil if @exception_callback
             end
           end
         end
@@ -243,7 +243,7 @@ module RightScale
                 @pending_requests[request.token] = @pending_requests[parent]
                 request_with_retry(request, parent, count, multiplier * 2, elapsed)
               else
-                RightLinkLog.warn("RESEND TIMEOUT after #{elapsed} seconds for #{request.to_s([:tags, :target, :tries])}")
+                RightLinkLog.warn("RE-SEND TIMEOUT after #{elapsed} seconds for #{request.to_s([:tags, :target, :tries])}")
                 result = OperationResult.timeout("Timeout after #{elapsed} seconds and #{count} attempts")
                 handle_result(Result.new(request.token, request.reply_to, result, @identity))
               end
