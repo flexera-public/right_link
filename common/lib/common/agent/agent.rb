@@ -173,6 +173,10 @@ module RightScale
     def run
       RightLinkLog.init(@identity, @options[:log_path])
       RightLinkLog.level = @options[:log_level] if @options[:log_level]
+      RightLinkLog.debug("Start options:")
+      log_opts = @options.inject([]){ |t, (k, v)| t << "-  #{k}: #{v}" }
+      log_opts.each { |l| RightLinkLog.debug(l) }
+      
       begin
         # Capture process id in file after optional daemonize
         pid_file = PidFile.new(@identity, @options)
