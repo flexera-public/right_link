@@ -230,7 +230,7 @@ module RightScale
       if self.instance_methods.include?(meth.to_s)
         self.new.send(meth, *args)
       else
-        super(*args)
+        super
       end
     end
 
