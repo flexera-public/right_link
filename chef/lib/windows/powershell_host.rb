@@ -20,6 +20,8 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'mixin', 'command'))
+
 module RightScale
 
   # This class is responsible for managing a Powershell process instance
@@ -232,7 +234,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def on_read_output(data)
-      ::Chef::Log.info(data)
+      ::Chef::Mixin::Command.write_output_to_log(data)
     end
 
     # Process exited event

@@ -98,6 +98,23 @@ class Chef
 
       module_function :execute
 
+      # Handles a tendency of Windows command line tools to append extraneous
+      # newlines by stripping whitespace before logging. this might accidentally
+      # strip whitespace on a buffer boundary, but the buffer will likely be
+      # read more frequently than it is written to and the after-boundary text
+      # would appear on a new logger line anyway.
+      #
+      # === Parameters
+      # data(String):: data to write
+      def write_output_to_log(data)
+          data = data.strip
+          unless data.empty?
+            ::Chef::Log.info(data)
+          end
+      end
+
+      module_function :write_output_to_log
+
       protected
 
       # need an object to hold member variables because this mixin is both
@@ -135,7 +152,7 @@ class Chef
         # === Return
         # true:: Always return true
         def on_read_output(data)
-          ::Chef::Log.info(data)
+          ::Chef::Mixin::Command.write_output_to_log(data)
         end
 
         # Process exited event
