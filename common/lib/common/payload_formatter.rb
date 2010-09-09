@@ -76,7 +76,7 @@ module RightScale
 
     # booter/declare request log message
     # Payload :
-    # { :agent_identity => ..., :r_s_version => ..., :aws_id => ... }
+    # { :agent_identity => ..., :r_s_version => ..., :resource_uid => ... }
     #
     # === Parameters
     # payload(Hash):: Request payload
@@ -84,7 +84,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def booter_declare(payload)
-      msg = get(payload, :aws_id)
+      msg = get(payload, :resource_uid)
     end 
     
     # forwarder/schedule_right_script request log message
