@@ -129,7 +129,9 @@ module RightScale
     # called once all pending commands have completed
     def stop(&callback)
       if @agent_connection
-        @agent_connection.stop(&callback) 
+        # allow any pending audits to be sent prior to stopping agent connection
+        # by placing stop on the end of the next_tick queue.
+        EM.next_tick { @agent_connection.stop(&callback) }
       else
         callback.call
       end

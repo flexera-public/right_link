@@ -77,7 +77,7 @@ module RightScale
           @pipe_eventable.notify_readable = true
         rescue Exception => e
           pipe.close rescue nil
-          Chef::Log.error("Failed to start pipe server: #{e.message} from\n#{e.backtrace.join("\n")}")
+          ::RightScale::RightLinkLog.error("Failed to start pipe server: #{e.message} from\n#{e.backtrace.join("\n")}")
           res = false
         end
         res

@@ -112,14 +112,14 @@ module RightScale
       Ohai::Config.log_level RightLinkLog.level
 
       # Chef logging
-      logger = Multiplexer.new(AuditLogger.new(@audit_id), RightLinkLog.logger)
+      logger = AuditLogger.new(@audit_id)
       Chef::Log.logger = logger
       Chef::Log.logger.level = RightLinkLog.level_from_sym(RightLinkLog.level)
 
       # Chef paths and run mode
       if DevState.use_cookbooks_path?
         Chef::Config[:cookbook_path] = DevState.cookbooks_path.reverse
-        Chef::Log.info("Using development cookbooks repositories path:\n\t- #{Chef::Config[:cookbook_path].join("\n\t- ")}")
+        AuditorStub.instance.append_info("Using development cookbooks repositories path:\n\t- #{Chef::Config[:cookbook_path].join("\n\t- ")}")
       else
         Chef::Config[:cookbook_path] = (@right_scripts_cookbook.empty? ? [] : [ @right_scripts_cookbook.repo_dir ])
       end
@@ -333,7 +333,7 @@ module RightScale
       @ok = false
       @failure_title = title
       @failure_message = msg
-      RightLinkLog.error(msg)
+      AuditorStub.instance.append_error(msg)
       EM.next_tick { fail }
       true
     end

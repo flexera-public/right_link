@@ -76,7 +76,7 @@ module RightScale
           sleep ASYNC_IO_SLEEP_DELAY_MSECS
         end
       rescue Exception => e
-        Chef::Log.error("Failed to send data to Powershell: #{e.message}\n#{e.backtrace.join("\n")}")
+        ::RightScale::RightLinkLog.error("Failed to send data to Powershell: #{e.message}\n#{e.backtrace.join("\n")}")
         (disconnect rescue nil) if @state != CONNECTING_STATE
       end
 

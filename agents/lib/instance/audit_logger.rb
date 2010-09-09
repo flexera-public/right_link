@@ -100,6 +100,7 @@ module RightScale
           progname = @progname
         end
       end
+      return true if is_filtered?(severity, message)
       msg = format_message(format_severity(severity), Time.now, progname, message)
       case severity
       when Logger::DEBUG
@@ -128,6 +129,31 @@ module RightScale
     def create_new_section(title, options={})
       options[:audit_id] = @audit_id
       AuditorStub.instance.create_new_section(title, options)
+    end
+
+    protected
+
+    MESSAGE_FILTERS = {
+      Logger::ERROR => [
+        # Chef logs all recipe exceptions without first giving the caller a
+        # chance to rescue and handle exceptions in a specialized manner. filter
+        # any exception messages having to do with running external scripts.
+        / \(.+ line \d+\) had an error\:\nUnexpected exit code from action\./
+      ]
+    }
+
+    # Filters any message which should not appear in audits.
+    #
+    # === Parameters
+    # severity(Constant):: One of Logger::DEBUG, Logger::INFO, Logger::WARN, Logger::ERROR or Logger::FATAL
+    # message(String):: Message to be audited
+    def is_filtered?(severity, message)
+      if filters = MESSAGE_FILTERS[severity]
+        filters.each do |filter|
+          return true if filter =~ message
+        end
+      end
+      return false
     end
 
   end

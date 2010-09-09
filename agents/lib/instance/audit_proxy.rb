@@ -183,6 +183,9 @@ module RightScale
         opts[:category] = EventCategories::CATEGORY_NOTIFICATION
       end
 
+      log_method = options[:kind] == :error ? :error : :info
+      log_text = AuditFormatter.send(options[:kind], options[:text])[:detail]
+      log_text.chomp.split("\n").each { |l| RightLinkLog.__send__(log_method, l) }
       begin
         audit = AuditFormatter.__send__(options[:kind], options[:text])
         @size += audit[:detail].size
