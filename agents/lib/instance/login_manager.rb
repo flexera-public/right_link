@@ -29,6 +29,7 @@ module RightScale
 
     ROOT_TRUSTED_KEYS_FILE = '/root/.ssh/authorized_keys'
     ACTIVE_TAG             = 'rs_login:state=active'      
+    AUTHORIZED_KEY_REGEXP  = /(.*)?(ssh-rsa|ssh-dsa)\s+(\S+)\s+(.*)$/
 
     # Can the login manager function on this platform?
     #
@@ -121,11 +122,13 @@ module RightScale
       file_lines = read_keys_file
 
       file_triples = file_lines.map do |l|
-        elements = l.split(/\s+/)
-        if elements.length == 3
-          next elements
+        match = AUTHORIZED_KEY_REGEXP.match(l)
+        
+        if match
+          #preserve algorithm, key and comments; discard options (the 1th match element)
+          next [ match[2], match[3], match[4] ]
         else
-          RightScale::RightLinkLog.error("Malformed public key in authorized_keys file: #{l}")
+          RightScale::RightLinkLog.error("Malformed (or not SSH2) entry in authorized_keys file: #{l}")
           next nil
         end
       end
@@ -134,7 +137,7 @@ module RightScale
       #Find all lines in authorized_keys file that do not correspond to an old user.
       #These are the "system keys" that were not added by RightScale.
       old_users_keys = Set.new
-      old_users.each { |u| old_users_keys << u.public_key.split(/\s+/)[1] }
+      old_users.each { |u| old_users_keys << AUTHORIZED_KEY_REGEXP.match(u.public_key)[3] }
 
       system_triples = file_triples.select { |t| !old_users_keys.include?(t[1]) }
       system_lines   = system_triples.map { |t| t.join(' ') } 

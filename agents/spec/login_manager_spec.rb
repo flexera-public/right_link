@@ -101,8 +101,25 @@ describe RightScale::LoginManager do
     end
     
     context "when system keys exist" do
-      it "should cope with malformed system keys" do
+      it "should discard malformed system keys" do
         flexmock(@mgr).should_receive(:read_keys_file).and_return(@system_keys + ['hello world', 'four score and seven years ago'])
+        flexmock(@mgr).should_receive(:write_keys_file).with((@policy_keys+@system_keys).sort)
+        @mgr.update_policy(@policy)
+      end
+
+      it "should preserve system keys with an options field (without preserving options)" do
+        @stripped_keys = @system_keys.dup 
+        @system_keys << 'joebob="xyz wqr",friendly=false ssh-rsa #{rand(3**32).to_s(32)} Hey, This is my Key!'
+        @stripped_keys << 'ssh-rsa #{rand(3**32).to_s(32)} Hey, This is my Key!'
+
+        flexmock(@mgr).should_receive(:read_keys_file).and_return(@system_keys)
+        flexmock(@mgr).should_receive(:write_keys_file).with((@policy_keys+@stripped_keys).sort)
+        @mgr.update_policy(@policy)
+      end
+
+      it "should preserve system keys with spaces in the comment" do
+        @system_keys << 'ssh-rsa #{rand(3**32).to_s(32)} Hey, This is my Key!' 
+        flexmock(@mgr).should_receive(:read_keys_file).and_return(@system_keys)
         flexmock(@mgr).should_receive(:write_keys_file).with((@policy_keys+@system_keys).sort)
         @mgr.update_policy(@policy)
       end
