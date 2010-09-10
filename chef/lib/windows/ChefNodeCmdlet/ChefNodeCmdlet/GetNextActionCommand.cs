@@ -69,7 +69,6 @@ namespace RightScale
 
                         try
                         {
-                            // FIX: query the current value of $LastExitCode from powershell host.
                             GetNextActionRequest request = new GetNextActionRequest(LastActionExitCode, LastActionErrorMessage);
 
                             pipeClient.Connect(Constants.NEXT_ACTION_CONNECT_TIMEOUT_MSECS);
@@ -95,13 +94,18 @@ namespace RightScale
                                 throw new GetNextActionException(responseHash);
                             }
 
-                            // can't write a null object to pipeline, so write nothing in the null case.
+                            // next action cannot be null.
                             string nextAction = responseHash.Contains(Constants.JSON_NEXT_ACTION_KEY) ? responseHash[Constants.JSON_NEXT_ACTION_KEY].ToString() : null;
 
                             if (null == nextAction)
                             {
                                 throw new GetNextActionException("Received null for next action; expecting an exit command when finished.");
                             }
+
+                            // enhance next action with try-catch logic to set the $global:RS_LastErrorRecord variable
+                            // in case of an exception thrown by a script. the try-catch block loses details of script
+                            // execution if caught by an outer block instead of the inner block which threw it.
+                            nextAction = NEXT_ACTION_PREFIX + nextAction + NEXT_ACTION_POSTFIX;
 
                             // automagically convert next action into an invocable script block.
                             //
@@ -111,7 +115,7 @@ namespace RightScale
                             //  {
                             //      $Error.clear()
                             //      $nextAction = $NULL
-                            //      $nextAction = get-NextAction
+                            //      $nextAction = get-NextAction $pipeName
                             //      if ($Error.Count -eq 0)
                             //      {
                             //          write-output $nextAction
@@ -153,6 +157,21 @@ namespace RightScale
                 protected int       lastActionExitCode;        // The exit code of the last action that was run
                 protected string    lastActionErrorMessage;    // The text of the error that occurred running the last action
                 protected string    pipeName;                  // Name of pipe to connect to passed from command line
+
+                private static string NEXT_ACTION_PREFIX =
+@"try
+{
+    ";
+                private static string NEXT_ACTION_POSTFIX =
+@"
+}
+catch
+{
+    if ($NULL -eq $global:RS_lastErrorRecord)
+    {
+        $global:RS_lastErrorRecord = $_
+    }
+}";
             }
         }
     }

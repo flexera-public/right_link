@@ -48,3 +48,6 @@ C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe
 
 Command line arguments:
 -NoExit -Command "&{ import-module 'C:\dev\right_net\instance\right_link\chef\lib\windows\ChefNodeCmdlet\Debug\ChefNodeCmdlet.dll' -verbose }"
+
+More detailed debugging arguments for testing "get-NextAction" with right_net main loop using pipe name 'testing':
+-NoExit -Command "&{ import-module 'C:\dev\right_net\instance\right_link\chef\lib\windows\ChefNodeCmdlet\Debug\ChefNodeCmdlet.dll'; $RS_pipeName = 'next_action_testing'; $VerbosePreference='Continue'; $DebugPreference='Continue'; &'C:\dev\right_net\instance\right_link\chef\lib\windows\scripts\run_loop.ps1' }"

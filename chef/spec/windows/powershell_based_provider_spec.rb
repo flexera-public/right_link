@@ -36,6 +36,10 @@ if RightScale::RightLinkConfig[:platform].windows?
   describe "Powershell::Provider - Given a cookbook containing a powershell provider" do
     include RightScale::Test::MockAuditorProxy
 
+    def is_debug?
+      return !!ENV['DEBUG']
+    end
+
     before(:each) do
       @original_logger = ::Chef::Log.logger
       @log_file_name = File.normalize_path(File.join(Dir.tmpdir, "chef_runner_#{File.basename(__FILE__, '.rb')}_#{Time.now.strftime("%Y-%m-%d-%H%M%S")}.log"))
@@ -43,7 +47,7 @@ if RightScale::RightLinkConfig[:platform].windows?
 
       # redirect the Chef logs to a file before creating the chef client
       ::Chef::Log.logger = Logger.new(@log_file)
-      if ENV['DEBUG']
+      if is_debug?
         RightScale::RightLinkLog.level = :debug
         RightScale::RightLinkLog = ::Chef::Log.logger
         flexmock(Chef::Log).should_receive(:level).and_return(Logger::DEBUG)
@@ -83,18 +87,18 @@ if RightScale::RightLinkConfig[:platform].windows?
       # TODO: verify order of execution
       logs = @logger.info_text.gsub("\n", "")
 
-      logs.scan(/\/simple_encode\/_init.ps1/).length.should == 1
+      logs.scan(/\/simple_encode\/_init.ps1/).length.should == 1 if is_debug?
       logs.scan(/init simple encode/).length.should == 1
 
-      (logs =~ /\/simple_encode\/url_encode.ps1/).should_not be_nil
+      (logs =~ /\/simple_encode\/url_encode.ps1/).should_not be_nil if is_debug?
       (logs =~ /string\+to\+encode/).should_not be_nil
 
-      (logs =~ /\/simple_echo\/_load_current_resource.ps1/).should_not be_nil
+      (logs =~ /\/simple_echo\/_load_current_resource.ps1/).should_not be_nil if is_debug?
       (logs =~ /load current resource for simple echo/).should_not be_nil
-      (logs =~ /\/simple_echo\/echo_text.ps1"/).should_not be_nil
+      (logs =~ /\/simple_echo\/echo_text.ps1"/).should_not be_nil if is_debug?
       (logs =~ /string to echo/).should_not be_nil
 
-      logs.scan(/\/simple_echo\/_term.ps1/).length.should == 1
+      logs.scan(/\/simple_echo\/_term.ps1/).length.should == 1 if is_debug?
       logs.scan(/terminating simple echo/).length.should == 1
     end
 
@@ -107,31 +111,31 @@ if RightScale::RightLinkConfig[:platform].windows?
 
       # TODO: verify order of execution
       logs = @logger.info_text.gsub("\n", "")
-      logs.scan(/\/encode\/_init.ps1/).length.should == 1
+      logs.scan(/\/encode\/_init.ps1/).length.should == 1 if is_debug?
       logs.scan(/init encode/).length.should == 1
-      (logs =~ /\/encode\/url_encode.ps1/).should_not be_nil
+      (logs =~ /\/encode\/url_encode.ps1/).should_not be_nil if is_debug?
       (logs =~ /encode\+this\+is\+a\+string\+with\+spaces/).should_not be_nil
 
-      (logs =~ /\/echo\/_load_current_resource.ps1/).should_not be_nil
+      (logs =~ /\/echo\/_load_current_resource.ps1/).should_not be_nil if is_debug?
       (logs =~ /load current resource for echo/).should_not be_nil
-      (logs =~ /\/echo\/echo_text.ps1/).should_not be_nil
+      (logs =~ /\/echo\/echo_text.ps1/).should_not be_nil if is_debug?
       (logs =~ /echo this is a string with spaces/).should_not be_nil
       (logs =~ /fourty-two/).should_not be_nil
 
-      (logs =~ /\/encode\/_init.ps1/).should_not be_nil
+      (logs =~ /\/encode\/_init.ps1/).should_not be_nil if is_debug?
       (logs =~ /init encode/).should_not be_nil
-      (logs =~ /\/encode\/url_encode.ps1/).should_not be_nil
+      (logs =~ /\/encode\/url_encode.ps1/).should_not be_nil if is_debug?
       (logs =~ /SECOND\+STRING\+TO\+ENCODE/).should_not be_nil
 
-      (logs =~ /\/echo\/_load_current_resource.ps1/).should_not be_nil
+      (logs =~ /\/echo\/_load_current_resource.ps1/).should_not be_nil if is_debug?
       (logs =~ /load current resource for echo/).should_not be_nil
-      (logs =~ /\/echo\/echo_text.ps1/).should_not be_nil
+      (logs =~ /\/echo\/echo_text.ps1/).should_not be_nil if is_debug?
       (logs =~ /SECOND STRING TO ECHO/).should_not be_nil
       (logs =~ /fourty-two/).should_not be_nil
 
-      (logs =~ /\/echo\/_term.ps1/).should_not be_nil
+      (logs =~ /\/echo\/_term.ps1/).should_not be_nil if is_debug?
       (logs =~ /terminating echo/).should_not be_nil
-      (logs =~ /break/).should_not be_nil
+      (logs =~ /break/).should_not be_nil if is_debug?
     end
 
     it "should run a recipe with mixed powershell script and powershell provider" do
@@ -143,21 +147,21 @@ if RightScale::RightLinkConfig[:platform].windows?
 
       # TODO: verify order of execution
       logs = @logger.info_text.gsub("\n", "")
-      logs.scan(/\/encode\/_init.ps1/).length.should == 1
+      logs.scan(/\/encode\/_init.ps1/).length.should == 1 if is_debug?
       logs.scan(/init encode/).length.should == 1
-      (logs =~ /\/encode\/url_encode.ps1/).should_not be_nil
+      (logs =~ /\/encode\/url_encode.ps1/).should_not be_nil if is_debug?
       (logs =~ /encode\+first/).should_not be_nil
 
       (logs =~ /Running "echo_from_powershell_script"/).should_not be_nil
       (logs =~ /message from powershell script/).should_not be_nil
       (logs =~ /Ran powershell\[echo_from_powershell_script\]/).should_not be_nil
 
-      (logs =~ /\/encode\/url_encode.ps1/).should_not be_nil
+      (logs =~ /\/encode\/url_encode.ps1/).should_not be_nil if is_debug?
       (logs =~ /encode\+again/).should_not be_nil
 
-      (logs =~ /\/echo\/_load_current_resource.ps1/).should_not be_nil
+      (logs =~ /\/echo\/_load_current_resource.ps1/).should_not be_nil if is_debug?
       (logs =~ /load current resource for echo/).should_not be_nil
-      (logs =~ /\/echo\/echo_text.ps1/).should_not be_nil
+      (logs =~ /\/echo\/echo_text.ps1/).should_not be_nil if is_debug?
       (logs =~ /then echo/).should_not be_nil
       (logs =~ /fourty-two/).should_not be_nil
 
@@ -169,15 +173,15 @@ if RightScale::RightLinkConfig[:platform].windows?
       (logs =~ /another powershell message/).should_not be_nil
       (logs =~ /Ran powershell\[echo_from_powershell_script_once_more\]/).should_not be_nil
 
-      (logs =~ /\/echo\/_load_current_resource.ps1/).should_not be_nil
+      (logs =~ /\/echo\/_load_current_resource.ps1/).should_not be_nil if is_debug?
       (logs =~ /load current resource for echo/).should_not be_nil
-      (logs =~ /\/echo\/echo_text.ps1/).should_not be_nil
+      (logs =~ /\/echo\/echo_text.ps1/).should_not be_nil if is_debug?
       (logs =~ /echo again/).should_not be_nil
       (logs =~ /fourty-two/).should_not be_nil
 
-      logs.scan(/\/echo\/_term.ps1/).length.should == 1
+      logs.scan(/\/echo\/_term.ps1/).length.should == 1 if is_debug?
       logs.scan(/terminating echo/).length.should == 1
-      (logs =~ /break/).should_not be_nil
+      (logs =~ /break/).should_not be_nil if is_debug?
     end
 
     it "should transfer Chef node changes from powershell provider back to ruby" do
@@ -211,7 +215,7 @@ if RightScale::RightLinkConfig[:platform].windows?
 
     it "should stop the chef run when a powershell action throws, and be able to run another recipe with the same provider" do
       runner = lambda {
-        RightScale::Test::ChefRunner.run_chef(PowershellBasedProviderSpec::TEST_COOKBOOK_PATH, 'test_cookbook::run_powershell_based_recipe_with_failing_action')
+        RightScale::Test::ChefRunner.run_chef(PowershellBasedProviderSpec::TEST_COOKBOOK_PATH, 'test_cookbook::run_powershell_based_recipe_with_stop_error_action')
       }
       runner.should raise_exception(RightScale::Exceptions::Exec)
 
@@ -247,9 +251,9 @@ if RightScale::RightLinkConfig[:platform].windows?
       @logger.error_text.should == ""
     end
 
-    it "should produce a readable powershell error when an exception is thrown from a provider action" do
+    it "should produce a readable powershell error when script is stopped by error action" do
       runner = lambda {
-        RightScale::Test::ChefRunner.run_chef(PowershellBasedProviderSpec::TEST_COOKBOOK_PATH, 'test_cookbook::run_powershell_based_recipe_with_failing_action')
+        RightScale::Test::ChefRunner.run_chef(PowershellBasedProviderSpec::TEST_COOKBOOK_PATH, 'test_cookbook::run_powershell_based_recipe_with_stop_error_action')
       }
       runner.should raise_exception(RightScale::Exceptions::Exec)
 
@@ -260,7 +264,7 @@ if RightScale::RightLinkConfig[:platform].windows?
 
       message_format = <<-EOF
 Get-Item : Cannot find path '.*foo' because it does not exist.
-At .*:2 char:9
+At .*fail_with_stop_error_action.ps1:2 char:9
 + Get-Item <<<<  "foo" -ea Stop
     + CategoryInfo          : ObjectNotFound: (.*foo:String) [Get-Item], ItemNotFoundException
     + FullyQualifiedErrorId : PathNotFound,Microsoft.PowerShell.Commands.GetItemCommand
@@ -269,7 +273,74 @@ At .*:2 char:9
     + 1:    $testvar = 1
     + 2:    Get-Item  <<<< "foo" -ea Stop
     + 3:    exit
-      EOF
+EOF
+      # replace newlines and spaces
+      expected_message = Regexp.escape(message_format.gsub(/\s+/, ""))
+
+      # un-escape the escaped regex strings
+      expected_message.gsub!("\\.\\*", ".*")
+
+      # find the log message
+      errors.should match(expected_message)
+    end
+
+    it "should produce a readable powershell error when script explicitly throws an exception" do
+      runner = lambda {
+        RightScale::Test::ChefRunner.run_chef(PowershellBasedProviderSpec::TEST_COOKBOOK_PATH, 'test_cookbook::run_powershell_based_recipe_with_explicit_throw')
+      }
+      runner.should raise_exception(RightScale::Exceptions::Exec)
+
+      #There 'Should' be string in the error log...
+      @logger.error_text.length.should > 0
+      errors = @logger.error_text.gsub(/\s+/, "")
+      errors.should match("Unexpected exit code from action. Expected 0 but returned 1.  Script".gsub(/\s+/, ""))
+
+      message_format = <<-EOF
+explicitly throwing
+At .*fail_with_explicit_throw.ps1:2 char:6
++ throw <<<<  "explicitly throwing"
+    + CategoryInfo          : OperationStopped: (explicitly throwing:String) [], RuntimeException
+    + FullyQualifiedErrorId : explicitly throwing
+    +
+    + Script error near:
+    + 1:        $testvar = 1
+    + 2:        throw <<<< "explicitly throwing"
+    + 3:        exit
+EOF
+      # replace newlines and spaces
+      expected_message = Regexp.escape(message_format.gsub(/\s+/, ""))
+
+      # un-escape the escaped regex strings
+      expected_message.gsub!("\\.\\*", ".*")
+
+      # find the log message
+      errors.should match(expected_message)
+    end
+
+    it "should produce a readable powershell error when script invokes a bogus cmdlet" do
+      runner = lambda {
+        RightScale::Test::ChefRunner.run_chef(PowershellBasedProviderSpec::TEST_COOKBOOK_PATH, 'test_cookbook::run_powershell_based_recipe_with_bogus_cmdlet')
+      }
+      runner.should raise_exception(RightScale::Exceptions::Exec)
+
+      #There 'Should' be string in the error log...
+      @logger.error_text.length.should > 0
+      errors = @logger.error_text.gsub(/\s+/, "")
+      errors.should match("Unexpected exit code from action. Expected 0 but returned 1.  Script".gsub(/\s+/, ""))
+
+      message_format = <<-EOF
+The term 'bogus_cmdlet_name' is not recognized as the name of a cmdlet, function, script file, or operable program. Che
+ck the spelling of the name, or if a path was included, verify that the path is correct and try again.
+At .*fail_with_bogus_cmdlet.ps1:2 char:18
++ bogus_cmdlet_name <<<<  1 "abc"
+    + CategoryInfo          : ObjectNotFound: (bogus_cmdlet_name:String) [], CommandNotFoundException
+    + FullyQualifiedErrorId : CommandNotFoundException
+    +
+    + Script error near:
+    + 1:        $testvar = 1
+    + 2:        bogus_cmdlet_name <<<< 1 "abc"
+    + 3:        exit
+EOF
       # replace newlines and spaces
       expected_message = Regexp.escape(message_format.gsub(/\s+/, ""))
 

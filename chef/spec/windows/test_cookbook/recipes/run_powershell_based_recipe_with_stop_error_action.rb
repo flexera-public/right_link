@@ -9,7 +9,7 @@ test_cookbook_echo do
 end
 
 test_cookbook_encode do
-  action :fail_with_exception
+  action :fail_with_stop_error_action
   message "encode failed"
 end
 
