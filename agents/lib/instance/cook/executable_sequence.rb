@@ -333,7 +333,9 @@ module RightScale
       @ok = false
       @failure_title = title
       @failure_message = msg
-      AuditorStub.instance.append_error(msg)
+
+      # note that the errback handler is expected to audit the message based on
+      # the preserved title and message and so we don't audit it here.
       EM.next_tick { fail }
       true
     end
