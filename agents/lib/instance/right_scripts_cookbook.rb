@@ -142,10 +142,21 @@ description "Automatically generated repo, do not modify"
 
     # Path to cache directory for given script
     #
+    # === Parameters
+    # script(Object):: script object of some kind (e.g. RightScale::RightScriptInstantiation)
+    #
     # === Return
     # path(String):: Path to directory used for attachments and source
     def cache_dir(script)
-      path = File.join(InstanceConfiguration::CACHE_PATH, 'right_scripts_content', script.object_id.to_s)
+      # prefix object ID with a text constant to make a legal directory name
+      # in case object id is negative (Ubuntu, etc.). this method will be called
+      # more than once and must return the same directory each time for a given
+      # script instantiation.
+      path = File.normalize_path(File.join(InstanceConfiguration::CACHE_PATH, 'right_scripts_content', "rs_attach" + script.object_id.to_s))
+
+      # convert to native format for ease of scripting in Windows, etc. the
+      # normalized path is normal for Ruby but not necessarily for native FS.
+      return RightLinkConfig[:platform].filesystem.pretty_path(path, true)
     end
 
     # Is there no RightScript recipe in repo?
