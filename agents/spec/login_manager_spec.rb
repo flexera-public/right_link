@@ -90,12 +90,14 @@ describe RightScale::LoginManager do
 
     it "should only add non-expired users" do
       @policy.users[0].expires_at = one_day_ago
+      flexmock(@mgr).should_receive(:read_keys_file).and_return([])
       flexmock(@mgr).should_receive(:write_keys_file).with((@policy_keys[1..2]).sort)
       @mgr.update_policy(@policy)
     end
     
     it "should only add users with superuser privilege" do
       @policy.users[0].superuser = false
+      flexmock(@mgr).should_receive(:read_keys_file).and_return([])
       flexmock(@mgr).should_receive(:write_keys_file).with((@policy_keys[1..2]).sort)
       @mgr.update_policy(@policy)
     end
