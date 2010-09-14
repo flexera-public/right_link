@@ -8,10 +8,10 @@ require 'fileutils'
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', '..', '..', 'lib', 'shell_utilities'))
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'config', 'platform'))
 
-SHEBANG_REGEX = /^#!/
-
 module RightScale
   class UserDataWriter
+
+    SHEBANG_REGEX = /^#!/
 
     # Create a new userdata writer.
     #

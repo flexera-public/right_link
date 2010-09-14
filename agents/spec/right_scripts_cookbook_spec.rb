@@ -59,7 +59,7 @@ describe RightScale::RightScriptsCookbook do
     recipe_content = IO.read("#{recipe_path}.rb")
     regexp = "^right_script '#{@script.nickname}' do\n"
     regexp += "^  parameters\\(#{@script.parameters.inspect}\\)\n"
-    regexp += "^  cache_dir +'#{@cookbook.cache_dir(@script)}'\n"
+    regexp += "^  cache_dir +'#{Regexp.escape(@cookbook.cache_dir(@script))}'\n"
     regexp += "^  source_file +'#{recipe_path}'\n"
     regexp += "^end"
     recipe_content.should =~ /#{regexp}/

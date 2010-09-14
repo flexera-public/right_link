@@ -6,8 +6,6 @@
 require 'fileutils'
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'config', 'platform'))
 
-SHEBANG_REGEX = /^#!/
-
 module RightScale
   class CloudInfo
     def self.metadata_server_url
