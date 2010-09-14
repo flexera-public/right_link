@@ -138,7 +138,11 @@ module RightScale
         # Chef logs all recipe exceptions without first giving the caller a
         # chance to rescue and handle exceptions in a specialized manner. filter
         # any exception messages having to do with running external scripts.
-        / \(.+ line \d+\) had an error\:\nUnexpected exit code from action\./
+        #
+        # Unfortunately the three points of execution on Windows (i.e. RightScriptProvider,
+        # PowershellProvider and PowershellProviderBase) all format different
+        # messages so the only consistent portion is from the Chef code.
+        / \(.+ line \d+\) had an error\:\n/
       ]
     }
 
