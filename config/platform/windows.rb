@@ -229,8 +229,14 @@ module RightScale
         # care (most of the time) about whether you use \ or / in paths. as
         # always, there are exceptions to this rule (such as "del c:/xyz" which
         # fails while "del c:\xyz" succeeds)
-        def pretty_path(path)
-          return path.gsub("\\", "/")
+        #
+        # === Parameters
+        # path(String):: path to make pretty
+        # native_fs_flag(Boolean):: true if path is pretty for native file
+        #   system (i.e. file system calls more likely to succeed), false if
+        #   pretty for Ruby interpreter (default).
+        def pretty_path(path, native_fs_flag = false)
+          return native_fs_flag ? path.gsub("/", "\\") : path.gsub("\\", "/")
         end
 
         # Ensures a local drive location for the file or folder given by path
