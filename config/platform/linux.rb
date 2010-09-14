@@ -130,7 +130,7 @@ module RightScale
         end
 
         # for windows compatibility; has no significance in linux
-        def pretty_path(path)
+        def pretty_path(path, native_fs_flag = false)
           return path
         end
 
