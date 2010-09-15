@@ -254,7 +254,7 @@ module RightScale
   # Packet for a work request for an actor node that has no result, i.e., one-way request
   class Push < Packet
 
-    attr_accessor :from, :scope, :payload, :type, :token, :selector, :target, :persistent, :created_at, :tags, :tries
+    attr_accessor :from, :scope, :payload, :type, :token, :selector, :target, :persistent, :created_at, :tags
 
     DEFAULT_OPTIONS = {:selector => :random}
 
@@ -290,7 +290,6 @@ module RightScale
       @persistent = opts[:persistent]
       @created_at = opts[:created_at] || Time.now.to_f
       @tags       = opts[:tags] || []
-      @tries      = opts[:tries] || []
       @size       = size
     end
 
@@ -302,6 +301,13 @@ module RightScale
       (!@scope.nil?) || (@selector.to_s == 'all') || (!@tags.nil? && !@tags.empty?)
     end
 
+    # Keep interface consistent with Request packets
+    # A push never gets retried
+    #
+    # === Return
+    # []:: Always return empty array
+    def tries; []; end
+
     # Create packet from unmarshalled JSON data
     #
     # === Parameters
@@ -311,11 +317,10 @@ module RightScale
     # (Push):: New packet
     def self.json_create(o)
       i = o['data']
-      new(i['type'], i['payload'], { :from   => i['from'],   :scope      => i['scope'],
-                                     :token  => i['token'],  :selector   => i['selector'],
-                                     :target => i['target'], :persistent => i['persistent'],
-                                     :tags   => i['tags'],   :created_at => i['created_at'],
-                                     :tries  => i['tries'] },
+      new(i['type'], i['payload'], { :from    => i['from'],   :scope      => i['scope'],
+                                     :token   => i['token'],  :selector   => i['selector'],
+                                     :target  => i['target'], :persistent => i['persistent'],
+                                     :tags    => i['tags'],   :created_at => i['created_at'] },
           o['size'])
     end
 

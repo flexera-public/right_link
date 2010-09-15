@@ -257,7 +257,7 @@ begin
       begin
         orig_receive_data(*args)
       rescue Exception => e
-        RightScale::RightLinkLog.error("Exception caught while processing AMQP frame: #{e}, closing connection.") unless ENV['IGNORE_AMQP_FAILURES']
+        RightScale::RightLinkLog.error("Exception caught while processing AMQP frame: #{e.message}, closing connection from\n#{e.backtrace.join("\n")}.") unless ENV['IGNORE_AMQP_FAILURES']
         close_connection
       end
     end
@@ -416,7 +416,7 @@ module RightScale
                 end
               rescue Exception => e
                 RightLinkLog.error("Failed executing block for message from queue #{queue.inspect}#{to_exchange} " +
-                                   "on broker #{b[:alias]}: #{e}\n" + e.backtrace.join("\n"))
+                                   "on broker #{b[:alias]}: #{e.message} from\n#{e.backtrace.join("\n")}")
               end
             end
           else
@@ -433,13 +433,13 @@ module RightScale
                 end
               rescue Exception => e
                 RightLinkLog.error("Failed executing block for message from queue #{queue.inspect}#{to_exchange} " +
-                                   "on broker #{b[:alias]}: #{e}\n" + e.backtrace.join("\n"))
+                                   "on broker #{b[:alias]}: #{e.message} from\n#{e.backtrace.join("\n")}")
               end
             end
           end
           identities << b[:identity]
         rescue Exception => e
-          RightLinkLog.error("Failed subscribing queue #{queue.inspect}#{to_exchange} on broker #{b[:alias]}: #{e}")
+          RightLinkLog.error("Failed subscribing queue #{queue.inspect}#{to_exchange} on broker #{b[:alias]}: #{e.message} from\n#{e.backtrace.join("\n")}")
         end
       end
       identities
@@ -473,7 +473,7 @@ module RightScale
                 RightLinkLog.info("[stop] Unsubscribing queue #{q.name} on broker #{b[:alias]}")
                 q.unsubscribe { handler.completed_one }
               rescue Exception => e
-                RightLinkLog.error("Failed unsubscribing queue #{q.name} on broker #{b[:alias]}: #{e}")
+                RightLinkLog.error("Failed unsubscribing queue #{q.name} on broker #{b[:alias]}: #{e.message} from\n#{e.backtrace.join("\n")}")
                 handler.completed_one
               end
             end
@@ -486,7 +486,7 @@ module RightScale
     # Declare queue or exchange object but do not subscribe to it
     #
     # === Parameters
-    # type(Symbol):: Type of object: :queue or :exchange
+    # type(Symbol):: Type of object: :queue, :direct, :fanout or :topic
     # name(String):: Name of object
     # options(Hash):: Declare options
     #
@@ -498,7 +498,7 @@ module RightScale
           RightLinkLog.info("[setup] Declaring #{name} #{type.to_s} on broker #{b[:alias]}")
           b[:mq].__send__(type, name, options)
         rescue Exception => e
-          RightLinkLog.error("Failed declaring #{name} #{type.to_s} on broker #{b[:alias]}: #{e}")
+          RightLinkLog.error("Failed declaring #{type.to_s} #{name} on broker #{b[:alias]}: #{e.message} from\n#{e.backtrace.join("\n")}")
         end
       end
       true
@@ -548,7 +548,7 @@ module RightScale
             identities << b[:identity]
             break unless options[:fanout]
           rescue Exception => e
-            RightLinkLog.error("#{re}SEND #{b[:alias]} - Failed publishing to exchange #{exchange.inspect}: #{e}")
+            RightLinkLog.error("#{re}SEND #{b[:alias]} - Failed publishing to exchange #{exchange.inspect}: #{e.message} from\n#{e.backtrace.join("\n")}")
           end
         end
       end
@@ -575,7 +575,7 @@ module RightScale
           b[:mq].queue(name, options).delete
           identities << b[:identity]
         rescue Exception => e
-          RightLinkLog.error("Failed deleting queue #{name.inspect} on broker #{b[:alias]}: #{e}")
+          RightLinkLog.error("Failed deleting queue #{name.inspect} on broker #{b[:alias]}: #{e.message} from\n#{e.backtrace.join("\n")}")
         end
       end
       identities
@@ -1001,7 +1001,7 @@ module RightScale
             RightLinkLog.info("RETURN #{b[:alias]} because #{info.reply_text} for #{to}")
             blk.call(b[:identity], info.reply_text, msg, to)
           rescue Exception => e
-            RightLinkLog.error("Failed return #{info.inspect} of message from broker #{b[:alias]}: #{e}")
+            RightLinkLog.error("Failed return #{info.inspect} of message from broker #{b[:alias]}: #{e} from\n#{e.backtrace.join("\n")}")
           end
         end
       end
@@ -1063,7 +1063,7 @@ module RightScale
             close_one(b[:identity], propagate = false) { handler.completed_one }
           rescue Exception => e
             handler.completed_one
-            RightLinkLog.error("Failed to close broker #{b[:alias]}: #{e}")
+            RightLinkLog.error("Failed to close broker #{b[:alias]}: #{e.message} from\n#{e.backtrace.join("\n")}")
           end
         end
       end
@@ -1097,7 +1097,7 @@ module RightScale
             yield if block_given?
           end
         rescue Exception => e
-          RightLinkLog.error("Failed to close broker #{broker[:alias]}: #{e}")
+          RightLinkLog.error("Failed to close broker #{broker[:alias]}: #{e.message} from\n#{e.backtrace.join("\n")}")
           broker[:status] = :closed
           yield if block_given?
         end
@@ -1224,7 +1224,7 @@ module RightScale
         broker[:mq].__send__(:connection).connection_status { |status| update_status(broker, status) }
       rescue Exception => e
         broker[:status] = :failed
-        RightLinkLog.error("Failed connecting to #{broker[:alias]}: #{e}")
+        RightLinkLog.error("Failed connecting to #{broker[:alias]}: #{e.message} from\n#{e.backtrace.join("\n")}")
         broker[:connection].close if broker[:connection]
       end
       broker
@@ -1261,7 +1261,7 @@ module RightScale
           nil
         end
       rescue Exception => e
-        RightLinkLog.error("RECV #{broker[:alias]} - Failed receiving from queue #{queue}: #{e}")
+        RightLinkLog.error("RECV #{broker[:alias]} - Failed receiving from queue #{queue}: #{e.message} from\n#{e.backtrace.join("\n")}")
         @exception_on_receive.call(msg, e, self) if @exception_on_receive
         nil
       end
