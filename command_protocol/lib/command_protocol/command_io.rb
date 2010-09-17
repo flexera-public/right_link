@@ -13,41 +13,44 @@ require 'singleton'
 
 module RightScale
 
-  # EventMachine connection
-  # Define event loop callbacks handler
-  module InputHandler
-
-    # Keep block used to handle incoming data
-    #
-    # === Parameters
-    # handler(Proc):: Incoming data handler should take two arguments:
-    #                   * First argument contains command
-    #                   * Second argument contains connection used to reply
-    def initialize(handler)
-      @handler = handler
-      @parser = CommandParser.new { |cmd| handler.call(cmd, self) }
-    end
-
-    # EventMachine loop callback called whenever there is data coming from the socket
-    #
-    # === Parameter
-    # data(String):: Incoming data
-    #
-    # === Return
-    # true:: Always return true
-    def receive_data(data)
-      @parser.parse_chunk(data)
-      true
-    end
-   
-  end
-
   # Class which allows listening for data and sending data on sockets
   # This allows other processes running on the same machine to send commands to
   # the agent without having to go through RabbitMQ.
   class CommandIO
 
     include Singleton
+
+    # ensure uniqueness of handler to avoid confusion.
+    raise "#{ServerInputHandler.name} is already defined" if defined?(ServerInputHandler)
+
+    # EventMachine connection
+    # Define event loop callbacks handler
+    module ServerInputHandler
+
+      # Keep block used to handle incoming data
+      #
+      # === Parameters
+      # handler(Proc):: Incoming data handler should take two arguments:
+      #                   * First argument contains command
+      #                   * Second argument contains connection used to reply
+      def initialize(handler)
+        @handler = handler
+        @parser = CommandParser.new { |cmd| handler.call(cmd, self) }
+      end
+
+      # EventMachine loop callback called whenever there is data coming from the socket
+      #
+      # === Parameter
+      # data(String):: Incoming data
+      #
+      # === Return
+      # true:: Always return true
+      def receive_data(data)
+        @parser.parse_chunk(data)
+        true
+      end
+
+    end
 
     # Is listener currently waiting for input?
     #
@@ -82,7 +85,7 @@ module RightScale
       raise Exceptions::Argument, 'Missing listener block' unless block_given?
       raise Exceptions::Application, 'Already listening' if listening
       begin
-        @conn = EM.start_server('127.0.0.1', socket_port, InputHandler, block)
+        @conn = EM.start_server('127.0.0.1', socket_port, ServerInputHandler, block)
       rescue Exception => e
         raise Exceptions::IO, 'Listen port unavailable' if e.message =~ /no acceptor/
       end

@@ -24,21 +24,29 @@ require File.join(File.dirname(__FILE__), 'spec_helper')
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'command_protocol'))
 require 'ostruct'
 
-describe RightScale::CommandIO do
+module RightScale
+  module CommandIoSpec
 
-  module OutputHandler
-    def initialize(input)
-      @input = input
-     end
-    def post_init
-      send_data(RightScale::CommandSerializer.dump(@input))
-      close_connection_after_writing
+    # ensure uniqueness of handler to avoid confusion.
+    raise "#{ClientOutputHandler.name} is already defined" if defined?(ClientOutputHandler)
+
+    module ClientOutputHandler
+      def initialize(input)
+        @input = input
+       end
+      def post_init
+        send_data(RightScale::CommandSerializer.dump(@input))
+        close_connection_after_writing
+      end
     end
   end
+end
+
+describe RightScale::CommandIO do
 
   # Serialize and send given input to command listener
   def send_input(input)
-    EM.connect('127.0.0.1', @socket_port, OutputHandler, input)
+    EM.connect('127.0.0.1', @socket_port, ::RightScale::CommandIoSpec::ClientOutputHandler, input)
   end
 
   before(:all) do
