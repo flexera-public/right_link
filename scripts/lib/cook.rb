@@ -64,9 +64,9 @@ module RightScale
       end
       EM.run do
         begin
-          AuditorStub.instance.init(options)
+          AuditStub.instance.init(options)
           sequence.callback { success = true; send_inputs_patch(sequence) }
-          sequence.errback { success = false; report_failure(sequence, bundle.audit_id) }
+          sequence.errback { success = false; report_failure(sequence) }
           EM.defer { sequence.run }
         rescue Exception => e
           fail('Execution failed', "Execution failed (#{e.message}) from\n#{e.backtrace.join("\n")}")
@@ -179,10 +179,10 @@ module RightScale
     end
 
     # Report failure to core
-    def report_failure(sequence, audit_id)
+    def report_failure(sequence)
       begin
-        AuditorStub.instance.append_error(sequence.failure_title, :category => RightScale::EventCategories::CATEGORY_ERROR, :audit_id => audit_id) if sequence.failure_title
-        AuditorStub.instance.append_error(sequence.failure_message, :audit_id => audit_id) if sequence.failure_message
+        AuditStub.instance.append_error(sequence.failure_title, :category => RightScale::EventCategories::CATEGORY_ERROR) if sequence.failure_title
+        AuditStub.instance.append_error(sequence.failure_message) if sequence.failure_message
       rescue Exception => e
         fail('Failed to report failure', "Failed to report failure after execution (#{e.message}) from\n#{e.backtrace.join("\n")}")
       ensure
@@ -195,7 +195,7 @@ module RightScale
       $stderr.puts title
       $stderr.puts message || title
       if @client
-        @client.stop { AuditorStub.instance.stop { exit(1) } }
+        @client.stop { AuditStub.instance.stop { exit(1) } }
       else
         exit(1)
       end
@@ -203,7 +203,7 @@ module RightScale
 
     # Stop command client then stop auditor stub then EM
     def stop
-      AuditorStub.instance.stop do
+      AuditStub.instance.stop do
         @client.stop do |timeout|
           if timeout
             RightLinkLog.info('[cook] Failed to stop command client cleanly, forcing shutdown...')

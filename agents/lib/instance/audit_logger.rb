@@ -45,8 +45,7 @@ module RightScale
     #
     # === Parameters
     # audit_id(Integer):: Audit id used to audit logs
-    def initialize(audit_id)
-      @audit_id = audit_id
+    def initialize
       @progname = nil
       @level = INFO
       @default_formatter = AuditLogFormatter.new
@@ -72,7 +71,7 @@ module RightScale
     # === Parameters
     # msg(String):: Raw string to be appended to audit
     def <<(msg)
-      AuditorStub.instance.append_output(msg, :audit_id => @audit_id)
+      AuditStub.instance.append_output(msg)
     end
 
     # Override Logger::add to audit instead of writing to log file
@@ -106,12 +105,11 @@ module RightScale
       when Logger::DEBUG
         RightLinkLog.debug(message)
       when Logger::INFO, Logger::WARN, Logger::UNKNOWN
-        AuditorStub.instance.append_output(msg, :audit_id => @audit_id)
+        AuditStub.instance.append_output(msg)
       when Logger::ERROR
-        AuditorStub.instance.append_error(msg, :audit_id => @audit_id)
+        AuditStub.instance.append_error(msg)
       when Logger::FATAL
-        AuditorStub.instance.append_error(msg, :category => RightScale::EventCategories::CATEGORY_ERROR,
-                                                    :audit_id => @audit_id)
+        AuditStub.instance.append_error(msg, :category => RightScale::EventCategories::CATEGORY_ERROR)
       end
       true
     end
@@ -127,8 +125,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def create_new_section(title, options={})
-      options[:audit_id] = @audit_id
-      AuditorStub.instance.create_new_section(title, options)
+      AuditStub.instance.create_new_section(title, options)
     end
 
     protected

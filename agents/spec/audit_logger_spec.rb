@@ -22,13 +22,13 @@
 #
 require File.join(File.dirname(__FILE__), 'spec_helper')
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'common', 'lib', 'common', 'right_link_log'))
-require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'agents', 'lib', 'instance', 'cook', 'auditor_stub'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'agents', 'lib', 'instance', 'cook', 'audit_stub'))
 
 describe RightScale::AuditLogger do
 
   before(:each) do
-    @auditor = flexmock(RightScale::AuditorStub.instance)
-    @logger = RightScale::AuditLogger.new(1)
+    @auditor = flexmock(RightScale::AuditStub.instance)
+    @logger = RightScale::AuditLogger.new
     @logger.level = Logger::DEBUG
   end
 

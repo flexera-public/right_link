@@ -26,10 +26,9 @@ describe RightScale::BundlesQueue do
 
   before(:each) do
     @term = false
-    @queue = RightScale::BundlesQueue.new { @term = true }
+    @queue = RightScale::BundlesQueue.new { @term = true; EM.stop }
     @context = flexmock('context', :audit => 42)
-    flexmock(RightScale::ExecutableSequenceProxy).new_instances.should_receive(:run).and_return { @status = :run }
-    flexmock(EM).should_receive(:next_tick).and_yield
+    flexmock(RightScale::ExecutableSequenceProxy).new_instances.should_receive(:run).and_return { @status = :run; EM.stop }
   end
  
   it 'should default to non active' do
@@ -39,21 +38,30 @@ describe RightScale::BundlesQueue do
 
   it 'should run bundles once active' do
     @queue.activate
-    @queue.push(@context)
+    EM.run do
+      EM.add_timer(5) { EM.stop }
+      @queue.push(@context)
+    end
     @status.should == :run
   end
 
   it 'should not be active after being closed' do
     @queue.activate
-    @queue.close
-    @queue.push(@context)
+    EM.run do 
+      EM.add_timer(5) { EM.stop }
+      @queue.close
+      @queue.push(@context)
+    end
     @status.should be_nil
   end
 
   it 'should call back continuation on close' do
-    @queue.activate
-    @term.should be_false
-    @queue.close
+    EM.run do
+      EM.add_timer(5) { EM.stop }
+      @queue.activate
+      @term.should be_false
+      @queue.close
+    end
     @term.should be_true
   end
 

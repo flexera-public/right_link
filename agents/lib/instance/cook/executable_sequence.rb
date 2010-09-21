@@ -48,7 +48,6 @@ module RightScale
     # bundle(RightScale::ExecutableBundle):: Bundle to be run
     def initialize(bundle)
       @description            = bundle.to_s
-      @audit_id               = bundle.audit_id
       @right_scripts_cookbook = RightScriptsCookbook.new
       @scripts                = bundle.executables.select { |e| e.is_a?(RightScriptInstantiation) }
       recipes                 = bundle.executables.map    { |e| e.is_a?(RecipeInstantiation) ? e : @right_scripts_cookbook.recipe_from_right_script(e) }
@@ -57,6 +56,7 @@ module RightScale
       @scraper                = Scraper.new(InstanceConfiguration.cookbook_download_path)
       @powershell_providers   = nil
       @ohai_retry_delay       = OHAI_RETRY_MIN_DELAY
+      @audit                  = AuditStub.instance
 
       # Initializes run list for this sequence (partial converge support)
       @run_list = []
@@ -64,7 +64,7 @@ module RightScale
       breakpoint = DevState.breakpoint
       recipes.each do |recipe|
         if recipe.nickname == breakpoint
-          AuditorStub.instance.append_info("Breakpoint set, running recipes up to < #{breakpoint} >", :audit_id => @audit_id)
+          @audit.append_info("Breakpoint set, running recipes up to < #{breakpoint} >")
           break
         end
         @run_list << recipe.nickname
@@ -112,13 +112,13 @@ module RightScale
       Ohai::Config.log_level RightLinkLog.level
 
       # Chef logging
-      Chef::Log.logger = AuditLogger.new(@audit_id)
+      Chef::Log.logger = AuditLogger.new
       Chef::Log.logger.level = RightLinkLog.level_from_sym(RightLinkLog.level)
 
       # Chef paths and run mode
       if DevState.use_cookbooks_path?
         Chef::Config[:cookbook_path] = DevState.cookbooks_path.reverse
-        AuditorStub.instance.append_info("Using development cookbooks repositories path:\n\t- #{Chef::Config[:cookbook_path].join("\n\t- ")}")
+        @audit.append_info("Using development cookbooks repositories path:\n\t- #{Chef::Config[:cookbook_path].join("\n\t- ")}")
       else
         Chef::Config[:cookbook_path] = (@right_scripts_cookbook.empty? ? [] : [ @right_scripts_cookbook.repo_dir ])
       end
@@ -140,15 +140,15 @@ module RightScale
     # true:: Always return true
     def download_attachments
       unless @scripts.all? { |s| s.attachments.empty? }
-        AuditorStub.instance.create_new_section('Downloading attachments', :audit_id => @audit_id)
+        @audit.create_new_section('Downloading attachments')
         audit_time do
           @scripts.each do |script|
             attach_dir = @right_scripts_cookbook.cache_dir(script)
             script.attachments.each do |a|
               script_file_path = File.join(attach_dir, a.file_name)
-              AuditorStub.instance.update_status("Downloading #{a.file_name} into #{script_file_path}", :audit_id => @audit_id)
+              @audit.update_status("Downloading #{a.file_name} into #{script_file_path}")
               if @downloader.download(a.url, script_file_path)
-                AuditorStub.instance.append_info(@downloader.details, :audit_id => @audit_id)
+                @audit.append_info(@downloader.details)
               else
                 report_failure("Failed to download attachment '#{a.file_name}'", @downloader.error)
                 return true
@@ -170,17 +170,17 @@ module RightScale
       @scripts.each { |s| packages.push(s.packages) if s.packages && !s.packages.empty? }
       return true if packages.empty?
       packages = packages.uniq.join(' ')
-      AuditorStub.instance.create_new_section("Installing packages: #{packages}", :audit_id => @audit_id)
+      @audit.create_new_section("Installing packages: #{packages}")
       success = false
       audit_time do
         success = retry_execution('Installation of packages failed, retrying...') do
           if File.executable? '/usr/bin/yum'
-            AuditorStub.instance.append_output(`yum install -y #{packages} 2>&1`, :audit_id => @audit_id)
+            @audit.append_output(`yum install -y #{packages} 2>&1`)
           elsif File.executable? '/usr/bin/apt-get'
             ENV['DEBIAN_FRONTEND']="noninteractive"
-            AuditorStub.instance.append_output(`apt-get install -y #{packages} 2>&1`, :audit_id => @audit_id)
+            @audit.append_output(`apt-get install -y #{packages} 2>&1`)
           elsif File.executable? '/usr/bin/zypper'
-            AuditorStub.instance.append_output(`zypper --no-gpg-checks -n #{packages} 2>&1`, :audit_id => @audit_id)
+            @audit.append_output(`zypper --no-gpg-checks -n #{packages} 2>&1`)
           else
             report_failure('Failed to install packages', 'Cannot find yum nor apt-get nor zypper binary in /usr/bin')
             return true # Not much more we can do here
@@ -202,13 +202,13 @@ module RightScale
       # Skip download if in dev mode and cookbooks repos directories already have files in them
       return true unless DevState.download_cookbooks?
 
-      AuditorStub.instance.create_new_section('Retrieving cookbooks', :audit_id => @audit_id) unless @cookbook_repos.empty?
+      @audit.create_new_section('Retrieving cookbooks') unless @cookbook_repos.empty?
       audit_time do
         @cookbook_repos.reverse.each do |repo|
           next if repo.repo_type == :local
-          AuditorStub.instance.append_info("Downloading #{repo.url}", :audit_id => @audit_id)
+          @audit.append_info("Downloading #{repo.url}")
           output = []
-          @scraper.scrape(repo) { |o, _| AuditorStub.instance.append_output(o + "\n", :audit_id => @audit_id) }
+          @scraper.scrape(repo) { |o, _| @audit.append_output(o + "\n") }
           if @scraper.succeeded?
             cookbooks_path = repo.cookbooks_path || []
             if cookbooks_path.empty?
@@ -216,7 +216,7 @@ module RightScale
             else
               cookbooks_path.each { |p| Chef::Config[:cookbook_path] << File.join(@scraper.last_repo_dir, p) }
             end
-            AuditorStub.instance.append_output(output.join("\n"), :audit_id => @audit_id)
+            @audit.append_output(output.join("\n"))
           else
             report_failure("Failed to download cookbooks #{repo.url}", @scraper.errors.join("\n"))
             return true
@@ -269,8 +269,8 @@ module RightScale
     # === Return
     # true:: Always return true
     def converge(ohai)
-      AuditorStub.instance.create_new_section("Converging", :audit_id => @audit_id)
-      AuditorStub.instance.append_info("Run list: #{@run_list.join(', ')}", :audit_id => @audit_id)
+      @audit.create_new_section('Converging')
+      @audit.append_info("Run list: #{@run_list.join(', ')}")
       attribs = { 'recipes' => @run_list }
       attribs.merge!(@attributes) if @attributes
       c = Chef::Client.new
@@ -420,7 +420,7 @@ module RightScale
       begin
         count += 1
         success = yield
-        AuditorStub.instance.append_info("\n#{retry_message}\n", :audit_id => @audit_id) unless success || count > times
+        @audit.append_info("\n#{retry_message}\n") unless success || count > times
       end while !success && count <= times
       success
     end
@@ -434,9 +434,9 @@ module RightScale
     # res(Object):: Result returned by given block
     def audit_time
       start_time = Time.now
-      AuditorStub.instance.append_info("Starting at #{start_time}", :audit_id => @audit_id)
+      @audit.append_info("Starting at #{start_time}")
       res = yield
-      AuditorStub.instance.append_info("Duration: #{'%.2f' % (Time.now - start_time)} seconds\n\n", :audit_id => @audit_id)
+      @audit.append_info("Duration: #{'%.2f' % (Time.now - start_time)} seconds\n\n")
       res
     end
 

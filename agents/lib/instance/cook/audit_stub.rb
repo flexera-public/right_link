@@ -101,7 +101,7 @@ module RightScale
   end
 
   # Provides access to RightLink agent audit methods
-  class AuditorStub
+  class AuditStub
 
     include Singleton
 
@@ -138,7 +138,6 @@ module RightScale
     # === Parameters
     # status(String):: New audit entry status
     # options[:category](String):: Optional, must be one of RightScale::EventCategories::CATEGORIES
-    # options[:audit_id](Integer):: Audit id
     #
     # === Return
     # true:: Always return true
@@ -151,7 +150,6 @@ module RightScale
     # === Parameters
     # title(String):: Title of new audit section, will replace audit status as well
     # options[:category](String):: Optional, must be one of RightScale::EventCategories::CATEGORIES
-    # options[:audit_id](Integer):: Audit id
     #
     # === Return
     # true:: Always return true
@@ -163,12 +161,11 @@ module RightScale
     #
     # === Parameters
     # text(String):: Output to append to audit entry
-    # options[:audit_id](Integer):: Audit id
     #
     # === Return
     # true:: Always return true
-    def append_output(text, options)
-      send_command(:audit_append_output, text, options)
+    def append_output(text)
+      send_command(:audit_append_output, text)
     end
 
     # Append info text to current audit section. A special marker will be prepended to each line of audit to
@@ -177,7 +174,6 @@ module RightScale
     # === Parameters
     # text(String):: Informational text to append to audit entry
     # options[:category](String):: Optional, must be one of RightScale::EventCategories::CATEGORIES
-    # options[:audit_id](Integer):: Audit id
     #
     # === Return
     # true:: Always return true
@@ -190,7 +186,6 @@ module RightScale
     #
     # === Parameters
     # text(String):: Error text to append to audit entry
-    # options[:audit_id](Integer):: Audit id
     #
     # === Return
     # true:: Always return true
