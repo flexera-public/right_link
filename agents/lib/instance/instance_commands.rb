@@ -48,7 +48,8 @@ module RightScale
       :audit_append_output      => 'Append process output to audit',
       :audit_append_info        => 'Append info message to audit',
       :audit_append_error       => 'Append error message to audit',
-      :set_inputs_patch         => 'Set inputs patch post execution'
+      :set_inputs_patch         => 'Set inputs patch post execution',
+      :close_connection         => 'Close persistent connection (used for auditing)'
     }
 
     # Build hash of commands associating command names with block
@@ -308,6 +309,11 @@ module RightScale
     def set_inputs_patch_command(opts)
       RightScale::RequestForwarder.instance.push('/updater/update_inputs', { :agent_identity => @agent_identity,
                                                                              :patch          => opts[:patch] })
+      CommandIO.instance.reply(opts[:conn], 'OK')
+    end
+
+    # Close connection
+    def close_connection_command(opts)
       CommandIO.instance.reply(opts[:conn], 'OK')
     end
 

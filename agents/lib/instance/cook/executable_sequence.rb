@@ -112,8 +112,7 @@ module RightScale
       Ohai::Config.log_level RightLinkLog.level
 
       # Chef logging
-      logger = AuditLogger.new(@audit_id)
-      Chef::Log.logger = logger
+      Chef::Log.logger = AuditLogger.new(@audit_id)
       Chef::Log.logger.level = RightLinkLog.level_from_sym(RightLinkLog.level)
 
       # Chef paths and run mode

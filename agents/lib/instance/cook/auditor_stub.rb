@@ -77,15 +77,12 @@ module RightScale
     # === Block
     # called once all pending commands have completed
     def stop(&callback)
+      send_command(:name => :close_connection)
       @stopped_callback = callback
-      if @pending > 0
-        RightLinkLog.info("[cook] Disconnecting from agent (#{@pending} responses pending)")
-        @stop_timeout = EM::Timer.new(STOP_TIMEOUT) do
-          RightLinkLog.warn("[cook] Time out waiting for responses from agent, forcing disconnection")
-          @stop_timeout = nil
-          on_stopped
-        end
-      else
+      RightLinkLog.info("[cook] Disconnecting from agent (#{@pending} response#{@pending > 1 ? 's' : ''} pending)")
+      @stop_timeout = EM::Timer.new(STOP_TIMEOUT) do
+        RightLinkLog.warn("[cook] Time out waiting for responses from agent, forcing disconnection")
+        @stop_timeout = nil
         on_stopped
       end
       true

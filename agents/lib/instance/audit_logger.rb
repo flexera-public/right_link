@@ -29,7 +29,7 @@ module RightScale
 
     # Generate log line from given input
     def call(severity, time, progname, msg)
-      sprintf("[%s] %s: %s\n", severity[0..0], time.strftime("%H:%M:%S"), msg2str(msg))
+      sprintf("%s: %s\n", time.strftime("%H:%M:%S"), msg2str(msg))
     end
 
   end

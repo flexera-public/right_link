@@ -97,10 +97,8 @@ class Chef
 
         # 2. Fork and wait
         # Bit of a hack here just so we can create a new audit section each time a RightScript is run
-        if Chef::Log.logger.respond_to?(:targets)
-          auditor = Chef::Log.logger.targets.detect { |t| t.is_a?(RightScale::AuditLogger) }
-          auditor.create_new_section("RightScript: '#{nickname}'") if auditor
-        end
+        Chef::Log.logger.create_new_section("RightScript: '#{nickname}'")
+
         status = run_script_file(@new_resource.source_file)
         duration = Time.now - run_started_at
         # Security paranoia: wipe inputs from env so next script can't see them

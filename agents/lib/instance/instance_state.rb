@@ -251,6 +251,7 @@ module RightScale
       if @current_logger
         previous_level = @current_logger.level
         RightLinkLog.remove_logger(@current_logger)
+        @current_logger = nil
       end
       if file = log_file(@@value)
         dir = File.dirname(file)
