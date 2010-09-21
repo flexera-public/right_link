@@ -56,7 +56,6 @@ class InstanceScheduler
   # core agent to terminate instance
   # Delete agent queue and call post-decommission callback
   def post_decommission
-    File.open('/tmp/toto','a'){|f|f.puts "IN POST DECOMMISSION"}
     RightScale::InstanceState.value = 'decommissioned'
     # Tell the registrar to delete our queue
     EM.next_tick do
@@ -71,7 +70,6 @@ class InstanceScheduler
     else
       EM.next_tick { terminate }
     end
-    File.open('/tmp/toto','a'){|f|f.puts "OUT OF POST DECOMMISSION"}
   end
 
   # Schedule given script bundle so it's run as soon as possible
