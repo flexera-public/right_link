@@ -57,6 +57,7 @@ module RightScale
       RightLinkLog.init(nanite_identity, options[:log_path])
       InstanceState.init(agent_identity)
       sequence = ExecutableSequence.new(bundle)
+      EM.threadpool_size = 1
       EM.error_handler do |e|
         RightLinkLog.error("Chef process failed with #{e.message} from:\n\t#{e.backtrace.join("\n\t")}")
         fail('Exception raised during Chef execution', "The following exception was raised during the execution of the Chef process:\n  #{e.message}")
@@ -202,9 +203,15 @@ module RightScale
 
     # Stop command client then stop auditor stub then EM
     def stop
-      @client.stop do |timeout|
-        RightLinkLog.info('[cook] Failed to stop command client cleanly, forcing shutdown...') if timeout
-        AuditorStub.instance.stop { EM.stop }
+      AuditorStub.instance.stop do
+        @client.stop do |timeout|
+          if timeout
+            RightLinkLog.info('[cook] Failed to stop command client cleanly, forcing shutdown...')
+          else
+            RightLinkLog.info("[cook] Disconnected from agent")
+          end
+          EM.stop
+        end
       end
     end
 

@@ -25,6 +25,7 @@ require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'commo
 require File.normalize_path(File.join(File.dirname(__FILE__), 'instance', 'audit_cook_stub'))
 require File.normalize_path(File.join(File.dirname(__FILE__), 'instance', 'audit_logger'))
 require File.normalize_path(File.join(File.dirname(__FILE__), 'instance', 'audit_proxy'))
+require File.normalize_path(File.join(File.dirname(__FILE__), 'instance', 'bundles_queue'))
 require File.normalize_path(File.join(File.dirname(__FILE__), 'instance', 'cloud_info'))
 require File.normalize_path(File.join(File.dirname(__FILE__), 'instance', 'dev_state'))
 require File.normalize_path(File.join(File.dirname(__FILE__), 'instance', 'downloader'))

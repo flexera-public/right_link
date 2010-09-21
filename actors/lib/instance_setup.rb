@@ -339,35 +339,26 @@ class InstanceSetup
     context = RightScale::OperationContext.new(bundle, @audit)
     sequence = RightScale::ExecutableSequenceProxy.new(context)
     sequence.callback do
-      EM.next_tick do
-        if patch = sequence.inputs_patch
-          RightScale::RequestForwarder.instance.push('/updater/update_inputs', { :agent_identity => @agent_identity,
-                                                                                 :patch          => patch })
-        end
-        @audit.update_status("boot completed: #{bundle}")
-        yield RightScale::OperationResult.success
+      if patch = sequence.inputs_patch && !patch.empty?
+        RightScale::RequestForwarder.instance.push('/updater/update_inputs', { :agent_identity => @agent_identity,
+                                                                               :patch          => patch })
       end
+      @audit.update_status("boot completed: #{bundle}")
+      yield RightScale::OperationResult.success
     end
     sequence.errback  do
-      EM.next_tick do
-        @audit.update_status("boot failed: #{bundle}")
-        yield RightScale::OperationResult.error("Failed to run boot bundle")
-      end
+      @audit.update_status("boot failed: #{bundle}")
+      yield RightScale::OperationResult.error("Failed to run boot bundle")
     end
 
-    # We want to be able to use Chef providers which use EM (e.g. so they can use RightScale::popen3), this means
-    # that we need to synchronize the chef thread with the EM thread since providers run synchronously. So create
-    # a thread here and run the sequence in it. Use EM.next_tick to switch back to EM's thread.
-    EM.defer do
-      begin
-        sequence.run
-      rescue Exception => e
-        msg = "Execution of Chef boot sequence failed with exception: #{e.message}"
-        RightScale::RightLinkLog.error(msg + "\n" + e.backtrace.join("\n"))
-        strand(msg)
-      end
+    begin
+      sequence.run
+    rescue Exception => e
+      msg = "Execution of Chef boot sequence failed with exception: #{e.message}"
+      RightScale::RightLinkLog.error(msg + "\n" + e.backtrace.join("\n"))
+      strand(msg)
     end
-    
+
     true
   end
 

@@ -38,20 +38,40 @@ class InstanceScheduler
   # === Parameters
   # agent(RightScale::Agent):: Host agent
   def initialize(agent)
-    @scheduled_executions = Queue.new
-    @agent_identity       = agent.identity
-    @running              = false
+    @agent_identity = agent.identity
+    @bundles_queue  = RightScale::BundlesQueue.new { post_decommission }
     # Wait until instance setup actor has initialized the instance state
     # We need to wait until after the InstanceSetup actor has run its
     # bundle in the Chef thread before we can use it
     EM.next_tick do
       if RightScale::InstanceState.value != 'booting'
-        @running = true
-        EM.defer { run_bundles }
+        @bundles_queue.activate
       else
-        RightScale::InstanceState.observe { |s| EM.defer { run_bundles } if s != 'booting' && !@running; @running = true }
+        RightScale::InstanceState.observe { |s| @bundles_queue.activate if s != 'booting' }
       end
     end
+  end
+
+  # Transition to 'decommissioned' state which will cause
+  # core agent to terminate instance
+  # Delete agent queue and call post-decommission callback
+  def post_decommission
+    File.open('/tmp/toto','a'){|f|f.puts "IN POST DECOMMISSION"}
+    RightScale::InstanceState.value = 'decommissioned'
+    # Tell the registrar to delete our queue
+    EM.next_tick do
+      RightScale::RequestForwarder.instance.push('/registrar/remove', { :agent_identity => @agent_identity })
+    end
+    # If we got here through rnac --decommission then there is a callback setup and we should
+    # call it. rnac will then tell us to terminate.
+    # If we got here through a request then callback is set to shut us down
+    if cb = @post_decommission_callback
+      @post_decommission_callback = nil
+      EM.next_tick { cb.call }
+    else
+      EM.next_tick { terminate }
+    end
+    File.open('/tmp/toto','a'){|f|f.puts "OUT OF POST DECOMMISSION"}
   end
 
   # Schedule given script bundle so it's run as soon as possible
@@ -66,7 +86,7 @@ class InstanceScheduler
       audit = RightScale::AuditProxy.new(bundle.audit_id)
       audit.update_status("Scheduling execution of #{bundle.to_s}")
       context = RightScale::OperationContext.new(bundle, audit)
-      @scheduled_executions.push(context)
+      @bundles_queue.push(context)
     end
     res = RightScale::OperationResult.success
   end
@@ -85,9 +105,7 @@ class InstanceScheduler
     options[:agent_identity] = RightScale::AgentIdentity.serialized_from_nanite(@agent_identity)
     RightScale::RequestForwarder.instance.request('/forwarder/schedule_recipe', options) do |r|
       res = RightScale::OperationResult.from_results(r)
-      unless res.success?
-        RightScale::RightLinkLog.info("Failed to execute recipe: #{res.content}")
-      end
+      RightScale::RightLinkLog.info("Failed to execute recipe: #{res.content}") unless res.success?
     end
     true
   end
@@ -105,7 +123,7 @@ class InstanceScheduler
     options = RightScale::SerializationHelper.symbolize_keys(options)
     bundle = options[:bundle]
     audit = RightScale::AuditProxy.new(bundle.audit_id)
-    context = RightScale::OperationContext.new(bundle, audit)
+    context = RightScale::OperationContext.new(bundle, audit, decommission=true)
 
     # This is the tricky bit: only set a post decommission callback if there wasn't one already set
     # by 'run_decommission'. This default callback will shutdown the instance for soft-termination.
@@ -124,12 +142,12 @@ class InstanceScheduler
       end
     end
 
-    @scheduled_executions.clear # Cancel any pending bundle
+    @bundles_queue.clear # Cancel any pending bundle
     unless bundle.executables.empty?
       audit.update_status("Scheduling execution of #{bundle.to_s} for decommission")
-      @scheduled_executions.push(context)
+      @bundles_queue.push(context)
     end
-    @scheduled_executions.push('end')
+    @bundles_queue.close
 
     RightScale::InstanceState.value = 'decommissioning'
     res = RightScale::OperationResult.success
@@ -174,63 +192,6 @@ class InstanceScheduler
     RightScale::CommandRunner.stop
     # Delay terminate a bit to give reply a chance to be sent
     EM.next_tick { Process.kill('TERM', Process.pid) }
-  end
-
-  protected
-
-  # Audit executable sequence status after it ran
-  #
-  # === Parameters
-  # context(RightScale::OperationContext):: Context used by execution
-  # succeeded(TrueClass|FalseClass):: Whether last execution was successful
-  #
-  # === Return
-  # true:: Always return true
-  def audit_status(context, succeeded)
-    ran_decom = RightScale::InstanceState.value == 'decommissioning' && @scheduled_executions.size <= 1
-    title = ran_decom ? 'decommission ' : ''
-    title += succeeded ? 'completed' : 'failed'
-    context.audit.update_status("#{title}: #{context.payload}")
-    EM.defer { run_bundles }
-  end
-
-  # Worker thread loop which runs bundles pushed to the scheduled bundles queue
-  # Push the string 'end' to the queue to end the thread
-  # Catch exceptions as EM will not restart a thread from the pool that died
-  #
-  # === Return
-  # true:: Always return true
-  def run_bundles
-    begin
-      sequence = nil
-      context = @scheduled_executions.shift
-      if context != 'end'
-        sequence = RightScale::ExecutableSequenceProxy.new(context)
-        sequence.callback { audit_status(context, succeeded=true) }
-        sequence.errback { audit_status(context, succeeded=false) }
-        sequence.run
-      else
-        RightScale::InstanceState.value = 'decommissioned'
-        # Tell the registrar to delete our queue
-        EM.next_tick do
-          RightScale::RequestForwarder.instance.push('/registrar/remove', { :agent_identity => @agent_identity })
-        end
-        # If we got here through rnac --decommission then there is a callback setup and we should
-        # call it. rnac will then tell us to terminate.
-        # If we got here through a request then callback is set to shut us down
-        if cb = @post_decommission_callback
-          EM.next_tick { @post_decommission_callback = nil; cb.call }
-        else
-          EM.next_tick { terminate }
-        end
-      end
-    rescue Exception => e
-      msg = "Chef bundle execution failed with exception: #{e.message}"
-      RightScale::RightLinkLog.error(msg + "\n" + e.backtrace.join("\n"))
-      context.audit.append_error(msg, :category => RightScale::EventCategories::CATEGORY_ERROR) if bundle != 'end'
-      fail
-    end
-    true
   end
 
 end

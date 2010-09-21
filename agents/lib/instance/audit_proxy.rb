@@ -160,10 +160,8 @@ module RightScale
     # === Return
     # true:: Always return true
     def send_audit(options)
-      EM.next_tick do
-        flush_buffer
-        internal_send_audit(options)
-      end
+      flush_buffer
+      internal_send_audit(options)
     end
 
     # Actually send audits to core agent and log failures

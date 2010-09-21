@@ -30,6 +30,7 @@ describe RightScale::ExecutableSequenceProxy do
     setup_state
     @audit = flexmock('audit')
     @context = flexmock('context', :audit => @audit, :payload => { :p => 'payload' })
+    @context.should_receive(:succeeded=)
     @audit.should_receive(:update_status)
     flexmock(RightScale::AuditProxy).should_receive(:new).and_return(@audit)
     @proxy = RightScale::ExecutableSequenceProxy.new(@context)

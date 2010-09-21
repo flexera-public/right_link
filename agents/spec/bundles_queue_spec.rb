@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2009 RightScale Inc
+# Copyright (c) 2010 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -20,31 +20,41 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-module RightScale
+require File.join(File.dirname(__FILE__), 'spec_helper')
 
-  # Context required to run an operation
-  # Includes operation input and associated audit
-  class OperationContext
+describe RightScale::BundlesQueue do
 
-    # (Object) Payload associated with operation
-    attr_reader :payload
+  before(:each) do
+    @term = false
+    @queue = RightScale::BundlesQueue.new { @term = true }
+    @context = flexmock('context', :audit => 42)
+    flexmock(RightScale::ExecutableSequenceProxy).new_instances.should_receive(:run).and_return { @status = :run }
+    flexmock(EM).should_receive(:next_tick).and_yield
+  end
+ 
+  it 'should default to non active' do
+    @queue.push(@context)
+    @status.should be_nil
+  end
 
-    # (AuditProxy) Associated audit
-    attr_reader :audit
+  it 'should run bundles once active' do
+    @queue.activate
+    @queue.push(@context)
+    @status.should == :run
+  end
 
-    # (TrueClass|FalseClass) Whether bundle succeeded
-    attr_accessor :succeeded
+  it 'should not be active after being closed' do
+    @queue.activate
+    @queue.close
+    @queue.push(@context)
+    @status.should be_nil
+  end
 
-    # (TrueClass|FalseClass) Whether bundle is a decommission bundle
-    attr_reader :decommission
-    
-    # Initialize payload and audit
-    def initialize(payload, audit, decommission=false)
-      @payload = payload
-      @audit = audit
-      @decommission = decommission
-    end
-
+  it 'should call back continuation on close' do
+    @queue.activate
+    @term.should be_false
+    @queue.close
+    @term.should be_true
   end
 
 end

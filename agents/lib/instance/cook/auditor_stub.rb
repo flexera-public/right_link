@@ -95,7 +95,6 @@ module RightScale
     def on_stopped
       close_connection
       @stop_timeout.cancel if @stop_timeout
-      RightLinkLog.info("[cook] Disconnected from agent")
       @stopped_callback.call
     end
 

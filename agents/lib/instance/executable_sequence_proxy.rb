@@ -135,6 +135,7 @@ module RightScale
       if !status.success?
         report_failure("Chef process failure", "Chef process failed with return code #{status.exitstatus}")
       else
+        @context.succeeded = true
         succeed
       end
       true
@@ -151,6 +152,7 @@ module RightScale
     def report_failure(title, msg)
       @context.audit.append_error(title, :category => RightScale::EventCategories::CATEGORY_ERROR)
       @context.audit.append_error(msg)
+      @context.succeeded = false
       fail
       true
     end

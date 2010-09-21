@@ -51,8 +51,7 @@ describe InstanceScheduler do
   end
 
   before(:each) do
-    # Reset previous calls to EM.next_tick and EM.defer
-    EM.instance_variable_set(:@threadqueue, [])
+    # Reset previous calls to EM.next_tick
     EM.instance_variable_set(:@next_tick_queue, nil)
 
     @audit = RightScale::AuditProxyMock.new(1)
