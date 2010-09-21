@@ -33,7 +33,6 @@ describe RightScale::OperationResult do
       @hash = {"from1" => @success1, "from2" => @success2}
       @hash_result = RightScale::Result.new("token", "to", @hash, "from")
       @nil_result = RightScale::Result.new("token", "to", nil, "from")
-      @undelivered_result = RightScale::Result.new("token", "to", RightScale::OperationResult.undelivered("target"), "from")
       @error_result = RightScale::Result.new("token", "to", RightScale::OperationResult.error("Error"), "from")
     end
 
@@ -56,13 +55,6 @@ describe RightScale::OperationResult do
       result.kind_of?(RightScale::OperationResult).should be_true
       result.status_code.should == RightScale::OperationResult::ERROR
       result.content.should == "Error"
-    end
-
-    it "should handle undelivered result and return it as an OperationResult" do
-      result = RightScale::OperationResult.from_results(@undelivered_result)
-      result.kind_of?(RightScale::OperationResult).should be_true
-      result.status_code.should == RightScale::OperationResult::UNDELIVERED
-      result.content.should == "target"
     end
 
     it "should return error OperationResult if results is nil" do
@@ -91,7 +83,6 @@ describe RightScale::OperationResult do
       result.retry?.should be_false
       result.timeout?.should be_false
       result.multicast?.should be_false
-      result.undelivered?.should be_false
       result.content.should == {}
     end
 
@@ -133,13 +124,6 @@ describe RightScale::OperationResult do
       result.kind_of?(RightScale::OperationResult).should be_true
       result.multicast?.should be_true
       result.content.should == ["target"]
-    end
-
-    it "should store undelivered target and respond to undelivered query" do
-      result = RightScale::OperationResult.undelivered("target")
-      result.kind_of?(RightScale::OperationResult).should be_true
-      result.undelivered?.should be_true
-      result.content.should == "target"
     end
   end
 

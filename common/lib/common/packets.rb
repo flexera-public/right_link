@@ -140,7 +140,7 @@ module RightScale
   class Request < Packet
 
     attr_accessor :from, :scope, :payload, :type, :token, :reply_to, :selector, :target, :persistent, :created_at,
-                  :tags, :tries, :returns
+                  :tags, :tries
 
     DEFAULT_OPTIONS = {:selector => :random}
 
@@ -162,7 +162,6 @@ module RightScale
     #      use in timing out the request; value 0 means never timeout; defaults to current time
     #   :tags(Array(Symbol)):: List of tags to be used for selecting target for this request
     #   :tries(Array):: List of tokens for previous attempts to send this request
-    #   :returns(Array):: Identity of brokers which returned request as undeliverable
     # size(Integer):: Size of request in bytes used only for marshalling
     def initialize(type, payload, opts = {}, size = nil)
       opts = DEFAULT_OPTIONS.merge(opts)
@@ -179,7 +178,6 @@ module RightScale
       @created_at = opts[:created_at] || Time.now.to_f
       @tags       = opts[:tags] || []
       @tries      = opts[:tries] || []
-      @returns    = opts[:returns] || []
       @broker
       @size       = size
     end
@@ -206,8 +204,7 @@ module RightScale
                                      :token      => i['token'],      :reply_to => i['reply_to'],
                                      :selector   => i['selector'],   :target   => i['target'],   
                                      :persistent => i['persistent'], :tags     => i['tags'],
-                                     :created_at => i['created_at'], :tries    => i['tries'],
-                                     :returns    => i['returns'] },
+                                     :created_at => i['created_at'], :tries    => i['tries'] },
           o['size'])
     end
 
@@ -223,13 +220,12 @@ module RightScale
       log_msg = "#{super} #{trace} #{@type}"
       log_msg += " #{payload}" if payload
       log_msg += " from #{id_to_s(@from)}" if filter.nil? || filter.include?(:from)
-      log_msg += " with scope #{@scope}" if @scope && (filter.nil? || filter.include?(:scope))
-      log_msg += " target #{id_to_s(@target)}" if @target && (filter.nil? || filter.include?(:target))
+      log_msg += ", target #{id_to_s(@target)}" if @target && (filter.nil? || filter.include?(:target))
+      log_msg += ", scope #{@scope}" if @scope && (filter.nil? || filter.include?(:scope))
       log_msg += ", reply_to #{id_to_s(@reply_to)}" if @reply_to && (filter.nil? || filter.include?(:reply_to))
       log_msg += ", tags #{@tags.inspect}" if @tags && !@tags.empty? && (filter.nil? || filter.include?(:tags))
       log_msg += ", persistent" if @persistent && (filter.nil? || filter.include?(:persistent))
       log_msg += ", tries #{tries_to_s}" if @tries && !@tries.empty? && (filter.nil? || filter.include?(:tries))
-      log_msg += ", returns #{@returns.inspect}" if @returns && !@returns.empty? && (filter.nil? || filter.include?(:returns))
       log_msg += ", payload #{@payload.inspect}" if filter.nil? || filter.include?(:payload)
       log_msg
     end
@@ -258,8 +254,7 @@ module RightScale
   # Packet for a work request for an actor node that has no result, i.e., one-way request
   class Push < Packet
 
-    attr_accessor :from, :scope, :payload, :type, :token, :selector, :target, :persistent, :created_at, :tags,
-                  :tries, :returns
+    attr_accessor :from, :scope, :payload, :type, :token, :selector, :target, :persistent, :created_at, :tags, :tries
 
     DEFAULT_OPTIONS = {:selector => :random}
 
@@ -281,7 +276,6 @@ module RightScale
     #   :tags(Array(Symbol)):: List of tags to be used for selecting target for this request
     #   :tries(Array):: List of tokens for previous attempts to send this request (only here
     #     for consistency with Request)
-    #   :returns(Array):: Identity of brokers which returned request as undeliverable
     # size(Integer):: Size of request in bytes used only for marshalling
     def initialize(type, payload, opts = {}, size = nil)
       opts = DEFAULT_OPTIONS.merge(opts)
@@ -297,7 +291,6 @@ module RightScale
       @created_at = opts[:created_at] || Time.now.to_f
       @tags       = opts[:tags] || []
       @tries      = opts[:tries] || []
-      @returns    = opts[:returns] || []
       @size       = size
     end
 
@@ -322,7 +315,7 @@ module RightScale
                                      :token  => i['token'],  :selector   => i['selector'],
                                      :target => i['target'], :persistent => i['persistent'],
                                      :tags   => i['tags'],   :created_at => i['created_at'],
-                                     :tries  => i['tries'],  :returns    => i['returns'] },
+                                     :tries  => i['tries'] },
           o['size'])
     end
 
@@ -338,12 +331,11 @@ module RightScale
       log_msg = "#{super} #{trace} #{@type}"
       log_msg += " #{payload}" if payload
       log_msg += " from #{id_to_s(@from)}" if filter.nil? || filter.include?(:from)
-      log_msg += " with scope #{@scope}" if @scope && (filter.nil? || filter.include?(:scope))
       log_msg += ", target #{id_to_s(@target)}" if @target && (filter.nil? || filter.include?(:target))
+      log_msg += ", scope #{@scope}" if @scope && (filter.nil? || filter.include?(:scope))
       log_msg += ", tags #{@tags.inspect}" if @tags && !@tags.empty? && (filter.nil? || filter.include?(:tags))
       log_msg += ", persistent" if @persistent && (filter.nil? || filter.include?(:persistent))
       log_msg += ", tries #{tries_to_s}" if @tries && !@tries.empty? && (filter.nil? || filter.include?(:tries))
-      log_msg += ", returns #{@returns.inspect}" if @returns && !@returns.empty? && (filter.nil? || filter.include?(:returns))
       log_msg += ", payload #{@payload.inspect}" if filter.nil? || filter.include?(:payload)
       log_msg
     end
@@ -362,7 +354,7 @@ module RightScale
   # Packet for a work result notification sent from actor node
   class Result < Packet
 
-    attr_accessor :token, :results, :to, :from, :request_from, :tries, :persistent, :returns, :created_at
+    attr_accessor :token, :results, :to, :from, :request_from, :tries, :persistent, :created_at
 
     # Create packet
     #
@@ -375,18 +367,16 @@ module RightScale
     # tries(Array):: List of tokens for previous attempts to send associated request
     # persistent(Boolean):: Indicates if this result should be saved to persistent storage
     #   by the AMQP broker
-    # returns(Array):: Identity of brokers which returned request as undeliverable
     # created_at(Fixnum):: Time in seconds in Unix-epoch when this result was created
     # size(Integer):: Size of request in bytes used only for marshalling
     def initialize(token, to, results, from, request_from = nil, tries = nil, persistent = nil,
-                   returns = nil, created_at = nil,  size = nil)
+                   created_at = nil,  size = nil)
       @token        = token
       @to           = to
       @results      = results
       @from         = from
       @request_from = request_from
       @tries        = tries || []
-      @returns      = returns || []
       @persistent   = persistent
       @created_at   = created_at || Time.now.to_f
       @size         = size
@@ -401,7 +391,7 @@ module RightScale
     # (Result):: New packet
     def self.json_create(o)
       i = o['data']
-      new(i['token'], i['to'], i['results'], i['from'], i['request_from'], i['tries'], i['persistent'], i['returns'], i['created_at'],
+      new(i['token'], i['to'], i['results'], i['from'], i['request_from'], i['tries'], i['persistent'], i['created_at'],
           o['size'])
     end
 
@@ -416,10 +406,9 @@ module RightScale
       log_msg = "#{super} #{trace}"
       log_msg += " from #{id_to_s(@from)}" if filter.nil? || filter.include?(:from)
       log_msg += " to #{id_to_s(@to)}" if filter.nil? || filter.include?(:to)
-      log_msg += " request_from #{id_to_s(@request_from)}" if @request_from && (filter.nil? || filter.include?(:request_from))
-      log_msg += " persistent" if @persistent && (filter.nil? || filter.include?(:persistent))
-      log_msg += " tries #{tries_to_s}" if @tries && !@tries.empty? && (filter.nil? || filter.include?(:tries))
-      log_msg += " returns #{@returns.inspect}" if @returns && !@returns.empty? && (filter.nil? || filter.include?(:returns))
+      log_msg += ", request_from #{id_to_s(@request_from)}" if @request_from && (filter.nil? || filter.include?(:request_from))
+      log_msg += ", persistent" if @persistent && (filter.nil? || filter.include?(:persistent))
+      log_msg += ", tries #{tries_to_s}" if @tries && !@tries.empty? && (filter.nil? || filter.include?(:tries))
       if filter.nil? || !filter.include?(:results)
         if !@results.nil?
           if @results.is_a?(RightScale::OperationResult)
@@ -511,7 +500,7 @@ module RightScale
   end # Stale
 
 
-  # Deprecated for instance agents
+  # Deprecated for instance agents that are version 10 and above
   #
   # Packet for availability notification from an agent to the mappers
   class Register < Packet
@@ -573,7 +562,7 @@ module RightScale
   end # Register
 
 
-  # Deprecated for instance agents
+  # Deprecated for instance agents that are version 10 and above
   #
   # Packet for unregistering an agent from the mappers
   class UnRegister < Packet
@@ -616,7 +605,7 @@ module RightScale
   end # UnRegister
 
 
-  # Deprecated
+  # Deprecated for agents that are version 10 and above
   #
   # Heartbeat packet
   class Ping < Packet
@@ -694,7 +683,8 @@ module RightScale
   end # Advertise
 
 
-  # Deprecated: instead use /mapper/update_tags
+  # Deprecated for agents that are version 8 and above
+  # instead use /mapper/update_tags
   #
   # Packet for an agent to update the mappers with its tags
   class TagUpdate < Packet
@@ -744,7 +734,8 @@ module RightScale
   end # TagUpdate
 
 
-  # Deprecated: instead use Request of type /mapper/tag_query with :tags and :agent_ids in payload
+  # Deprecated for agents that are version 8 and above
+  # instead use Request of type /mapper/tag_query with :tags and :agent_ids in payload
   #
   # Packet for requesting retrieval of agents with specified tags
   class TagQuery < Packet

@@ -257,7 +257,7 @@ begin
       begin
         orig_receive_data(*args)
       rescue Exception => e
-        RightScale::RightLinkLog.error("Exception caught while processing AMQP frame: #{e.message}, closing connection.") unless ENV['IGNORE_AMQP_FAILURES']
+        RightScale::RightLinkLog.error("Exception caught while processing AMQP frame: #{e}, closing connection.") unless ENV['IGNORE_AMQP_FAILURES']
         close_connection
       end
     end
@@ -416,7 +416,7 @@ module RightScale
                 end
               rescue Exception => e
                 RightLinkLog.error("Failed executing block for message from queue #{queue.inspect}#{to_exchange} " +
-                                   "on broker #{b[:alias]}: #{e.message}\n" + e.backtrace.join("\n"))
+                                   "on broker #{b[:alias]}: #{e}\n" + e.backtrace.join("\n"))
               end
             end
           else
@@ -433,13 +433,13 @@ module RightScale
                 end
               rescue Exception => e
                 RightLinkLog.error("Failed executing block for message from queue #{queue.inspect}#{to_exchange} " +
-                                   "on broker #{b[:alias]}: #{e.message}\n" + e.backtrace.join("\n"))
+                                   "on broker #{b[:alias]}: #{e}\n" + e.backtrace.join("\n"))
               end
             end
           end
           identities << b[:identity]
         rescue Exception => e
-          RightLinkLog.error("Failed subscribing queue #{queue.inspect}#{to_exchange} on broker #{b[:alias]}: #{e.message}")
+          RightLinkLog.error("Failed subscribing queue #{queue.inspect}#{to_exchange} on broker #{b[:alias]}: #{e}")
         end
       end
       identities
@@ -473,7 +473,7 @@ module RightScale
                 RightLinkLog.info("[stop] Unsubscribing queue #{q.name} on broker #{b[:alias]}")
                 q.unsubscribe { handler.completed_one }
               rescue Exception => e
-                RightLinkLog.error("Failed unsubscribing queue #{q.name} on broker #{b[:alias]}: #{e.message}")
+                RightLinkLog.error("Failed unsubscribing queue #{q.name} on broker #{b[:alias]}: #{e}")
                 handler.completed_one
               end
             end
@@ -495,10 +495,10 @@ module RightScale
     def declare(type, name, options = {})
       each_usable(options[:brokers]) do |b|
         begin
-          RightLinkLog.info("[setup] Declaring #{type.to_s} #{name} on broker #{b[:alias]}")
+          RightLinkLog.info("[setup] Declaring #{name} #{type.to_s} on broker #{b[:alias]}")
           b[:mq].__send__(type, name, options)
         rescue Exception => e
-          RightLinkLog.error("Failed declaring #{type.to_s} #{name} on broker #{b[:alias]}: #{e.message}")
+          RightLinkLog.error("Failed declaring #{name} #{type.to_s} on broker #{b[:alias]}: #{e}")
         end
       end
       true
@@ -545,7 +545,7 @@ module RightScale
             identities << b[:identity]
             break unless options[:fanout]
           rescue Exception => e
-            RightLinkLog.error("#{re}SEND #{b[:alias]} - Failed publishing to exchange #{exchange.inspect}: #{e.message}")
+            RightLinkLog.error("#{re}SEND #{b[:alias]} - Failed publishing to exchange #{exchange.inspect}: #{e}")
           end
         end
       end
@@ -572,7 +572,7 @@ module RightScale
           b[:mq].queue(name, options).delete
           identities << b[:identity]
         rescue Exception => e
-          RightLinkLog.error("Failed deleting queue #{name.inspect} on broker #{b[:alias]}: #{e.message}")
+          RightLinkLog.error("Failed deleting queue #{name.inspect} on broker #{b[:alias]}: #{e}")
         end
       end
       identities
@@ -964,17 +964,19 @@ module RightScale
 
     # Provide callback to be activated when a broker returns a message that could not be delivered
     # A message published with :mandatory => true is returned if the exchange does not have any associated queues
-    # A message published with :immediate => true is returned if all of the queues associated with the exchange do
-    # not have any consumers
+    # or if all the associated queues do not have any consumers
+    # A message published with :immediate => true is returned for the same reasons as :mandatory plus if all
+    # of the queues associated with the exchange are not immediately ready to consume the message
     #
     # === Block
     # Block with following parameters to be called when a message is returned:
     #   identity(String):: Broker identity
-    #   reason(Symbol):: Reason for return
-    #     :NOT_DELIVERED - a :mandatory => true failure
-    #     :NO_CONSUMERS - an :immediate => true failure
-    #   packet(Packet|String):: Returned message in unserialized packet format if serializer defined and could
-    #     unserialize it, otherwise the serialized message
+    #   reason(String):: Reason for return
+    #     NO_ROUTE - queue does not exist
+    #     NO_CONSUMERS - queue exists but it has no consumers, or if :immediate was specified,
+    #       all consumers are not immediately ready to consume
+    #   msg(String):: Returned serialized message
+    #   to(String):: Queue to which message published
     #
     # === Return
     # true:: Always return true
@@ -982,21 +984,9 @@ module RightScale
       each_usable do |b|
         b[:mq].return_message do |info, msg|
           begin
-            reason = AMQP::RESPONSES[info.reply_code]
-            packet = msg
-            describe = msg.inspect
-            if @serializer
-              begin
-                packet = @serializer.load(msg)
-                describe = "#{packet.to_s([:target])}"
-              rescue Exception => e
-                RightLinkLog.warn("Failed to unserialize message from broker #{b[:alias]}: #{e}")
-                packet = msg
-                describe = msg.inspect
-              end
-            end
-            RightLinkLog.info("RETURN [#{b[:alias]}] #{reason.to_s} #{info.exchange} #{describe}")
-            blk.call(b[:identity], reason, packet)
+            to = if info.exchange && !info.exchange.empty? then info.exchange else info.routing_key end
+            RightLinkLog.info("RETURN #{b[:alias]} #{info.reply_text} #{to}")
+            blk.call(b[:identity], info.reply_text, msg, to)
           rescue Exception => e
             RightLinkLog.error("Failed return #{info.inspect} of message from broker #{b[:alias]}: #{e}")
           end
@@ -1060,7 +1050,7 @@ module RightScale
             close_one(b[:identity], propagate = false) { handler.completed_one }
           rescue Exception => e
             handler.completed_one
-            RightLinkLog.error("Failed to close broker #{b[:alias]}: #{e.message}")
+            RightLinkLog.error("Failed to close broker #{b[:alias]}: #{e}")
           end
         end
       end
@@ -1094,7 +1084,7 @@ module RightScale
             yield if block_given?
           end
         rescue Exception => e
-          RightLinkLog.error("Failed to close broker #{broker[:alias]}: #{e.message}")
+          RightLinkLog.error("Failed to close broker #{broker[:alias]}: #{e}")
           broker[:status] = :closed
           yield if block_given?
         end
@@ -1221,7 +1211,7 @@ module RightScale
         broker[:mq].__send__(:connection).connection_status { |status| update_status(broker, status) }
       rescue Exception => e
         broker[:status] = :failed
-        RightLinkLog.error("Failed connecting to #{broker[:alias]}: #{e.message}")
+        RightLinkLog.error("Failed connecting to #{broker[:alias]}: #{e}")
         broker[:connection].close if broker[:connection]
       end
       broker
@@ -1258,7 +1248,7 @@ module RightScale
           nil
         end
       rescue Exception => e
-        RightLinkLog.error("RECV #{broker[:alias]} - Failed receiving from queue #{queue}: #{e.message}")
+        RightLinkLog.error("RECV #{broker[:alias]} - Failed receiving from queue #{queue}: #{e}")
         @exception_on_receive.call(msg, e, self) if @exception_on_receive
         nil
       end

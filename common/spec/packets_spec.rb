@@ -74,7 +74,7 @@ end
 describe "Packet: Request" do
   it "should dump/load as JSON objects" do
     packet = RightScale::Request.new('/some/foo', 'payload', :from => 'from', :token => '0xdeadbeef', :reply_to => 'reply_to',
-                                     :tries => ['try'], :returns => ["rs-broker-1"])
+                                     :tries => ['try'])
     packet2 = JSON.parse(packet.to_json)
     packet.type.should == packet2.type
     packet.payload.should == packet2.payload
@@ -82,14 +82,13 @@ describe "Packet: Request" do
     packet.token.should == packet2.token
     packet.reply_to.should == packet2.reply_to
     packet.tries.should == packet2.tries
-    packet.returns.should == packet2.returns
     # JSON decoding of floating point sometimes loses accuracy
     (packet.created_at - packet2.created_at).abs.should <= 1.0e-05
   end
 
   it "should dump/load as Marshalled ruby objects" do
     packet = RightScale::Request.new('/some/foo', 'payload', :from => 'from', :token => '0xdeadbeef', :reply_to => 'reply_to',
-                                     :tries => ['try'], :returns => ["rs-broker-1"])
+                                     :tries => ['try'])
     packet2 = Marshal.load(Marshal.dump(packet))
     packet.type.should == packet2.type
     packet.payload.should == packet2.payload
@@ -97,7 +96,6 @@ describe "Packet: Request" do
     packet.token.should == packet2.token
     packet.reply_to.should == packet2.reply_to
     packet.tries.should == packet2.tries
-    packet.returns.should == packet2.returns
     packet.created_at.should == packet2.created_at
   end
 
@@ -120,29 +118,25 @@ end
 
 describe "Packet: Push" do
   it "should dump/load as JSON objects" do
-    packet = RightScale::Push.new('/some/foo', 'payload', :from => 'from', :token => '0xdeadbeef', :tries => ['try'],
-                                  :returns => ["rs-broker-1"])
+    packet = RightScale::Push.new('/some/foo', 'payload', :from => 'from', :token => '0xdeadbeef', :tries => ['try'])
     packet2 = JSON.parse(packet.to_json)
     packet.type.should == packet2.type
     packet.payload.should == packet2.payload
     packet.from.should == packet2.from
     packet.token.should == packet2.token
     packet.tries.should == packet2.tries
-    packet.returns.should == packet2.returns
     # JSON decoding of floating point sometimes loses accuracy
     (packet.created_at - packet2.created_at).abs.should <= 1.0e-05
   end
 
   it "should dump/load as Marshalled ruby objects" do
-    packet = RightScale::Push.new('/some/foo', 'payload', :from => 'from', :token => '0xdeadbeef', :tries => ['try'],
-                                  :returns => ["rs-broker-1"])
+    packet = RightScale::Push.new('/some/foo', 'payload', :from => 'from', :token => '0xdeadbeef', :tries => ['try'])
     packet2 = Marshal.load(Marshal.dump(packet))
     packet.type.should == packet2.type
     packet.payload.should == packet2.payload
     packet.from.should == packet2.from
     packet.token.should == packet2.token
     packet.tries.should == packet2.tries
-    packet.returns.should == packet2.returns
     packet.created_at.should == packet2.created_at
   end
 
@@ -165,7 +159,7 @@ end
 
 describe "Packet: Result" do
   it "should dump/load as JSON objects" do
-    packet = RightScale::Result.new('0xdeadbeef', 'to', 'results', 'from', 'request_from', ['try'], true, ['return'])
+    packet = RightScale::Result.new('0xdeadbeef', 'to', 'results', 'from', 'request_from', ['try'], true)
     packet2 = JSON.parse(packet.to_json)
     packet.token.should == packet2.token
     packet.to.should == packet2.to
@@ -174,13 +168,12 @@ describe "Packet: Result" do
     packet.request_from.should == packet2.request_from
     packet.tries.should == packet2.tries
     packet.persistent.should == packet2.persistent
-    packet.returns.should == packet2.returns
     # JSON decoding of floating point sometimes loses accuracy
     (packet.created_at - packet2.created_at).abs.should <= 1.0e-05
   end
 
   it "should dump/load as Marshalled ruby objects" do
-    packet = RightScale::Result.new('0xdeadbeef', 'to', 'results', 'from', 'request_from', ['try'], true, ['return'])
+    packet = RightScale::Result.new('0xdeadbeef', 'to', 'results', 'from', 'request_from', ['try'], true)
     packet2 = Marshal.load(Marshal.dump(packet))
     packet.token.should == packet2.token
     packet.to.should == packet2.to
@@ -189,7 +182,6 @@ describe "Packet: Result" do
     packet.request_from.should == packet2.request_from
     packet.tries.should == packet2.tries
     packet.persistent.should == packet2.persistent
-    packet.returns.should == packet2.returns
     packet.created_at.should == packet2.created_at
   end
 end

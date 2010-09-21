@@ -220,7 +220,7 @@ module RightScale
     end
 
     # Advertise the services provided by this agent
-    # Deprecated for instance agents
+    # Deprecated for instance agents that are version 10 and up
     #
     # === Parameters
     # connected(Array):: Identity of connected brokers, defaults to all connected brokers
@@ -656,7 +656,7 @@ module RightScale
     end
 
     # Unregister this agent if not already unregistered
-    # Deprecated for instance agents
+    # Deprecated for instance agents that are version 10 and above
     #
     # === Return
     # true:: Always return true
