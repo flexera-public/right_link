@@ -290,7 +290,7 @@ module RightScale
 
     # Maximum number of times the failed? function would be called for a failed broker without
     # returning true
-    MAX_FAILED_BACKOFF = 20
+    MAX_FAILED_BACKOFF = 12
 
     STATUS = [
       :connecting,   # Initiated AMQP connection but not yet confirmed that connected
@@ -531,13 +531,16 @@ module RightScale
       identities = []
       msg = if options[:no_serialize] || @serializer.nil? then packet else @serializer.dump(packet) end
       brokers = use(options)
+      choices = if RightLinkLog.level == :debug
+        " [#{brokers.inject([]) { |c, b| if b[:status] == :connected then c << b[:alias] else c end }.join(", ")}]"
+      end
       brokers.each do |b|
         if b[:status] == :connected
           begin
             unless (options[:no_log] && RightLinkLog.level != :debug) || options[:no_serialize] || @serializer.nil?
               re = "RE-" if packet.respond_to?(:tries) && !packet.tries.empty?
               log_filter = options[:log_filter] unless RightLinkLog.level == :debug
-              RightLinkLog.info("#{re}SEND #{b[:alias]} #{packet.to_s(log_filter)} #{options[:log_data]}")
+              RightLinkLog.info("#{re}SEND #{b[:alias]}#{choices} #{packet.to_s(log_filter)} #{options[:log_data]}")
             end
             RightLinkLog.debug("... publish options #{options.inspect}, exchange #{exchange[:name]}, " +
                                "type #{exchange[:type]}, options #{exchange[:options].inspect}")
@@ -985,7 +988,7 @@ module RightScale
         b[:mq].return_message do |info, msg|
           begin
             to = if info.exchange && !info.exchange.empty? then info.exchange else info.routing_key end
-            RightLinkLog.info("RETURN #{b[:alias]} #{info.reply_text} #{to}")
+            RightLinkLog.info("RETURN #{b[:alias]} because #{info.reply_text} for #{to}")
             blk.call(b[:identity], info.reply_text, msg, to)
           rescue Exception => e
             RightLinkLog.error("Failed return #{info.inspect} of message from broker #{b[:alias]}: #{e}")

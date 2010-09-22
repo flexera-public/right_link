@@ -104,11 +104,6 @@ describe RightScale::Agent do
       @agent.options[:vhost].should == "/right_net"
     end
 
-    it "for default_services is []" do
-      @agent.options.should include(:default_services)
-      @agent.options[:default_services].should == []
-    end
-
     it "for root is #{Dir.pwd}" do
       @agent.options.should include(:root)
       @agent.options[:root].should == Dir.pwd
@@ -142,7 +137,7 @@ describe RightScale::Agent do
       flexmock(EM::Timer).should_receive(:new).and_return(@timer)
       @timer.should_receive(:cancel)
       @broker = flexmock("broker", :subscribe => true, :publish => true, :prefetch => true,
-                         :connected => ["b1"], :failed => []).by_default
+                         :connected => ["b1"], :failed => [], :all => ["b0", "b1"]).by_default
       @broker.should_receive(:connection_status).and_yield(:connected)
       flexmock(RightScale::HA_MQ).should_receive(:new).and_return(@broker)
       flexmock(RightScale::PidFile).should_receive(:new).
@@ -247,12 +242,6 @@ describe RightScale::Agent do
       @agent = RightScale::Agent.start(:ping_time => 5, :identity => @identity)
       @agent.options.should include(:ping_time)
       @agent.options[:ping_time].should == 5
-    end
-
-    it "for default_services should override default ([])" do
-      @agent = RightScale::Agent.start(:default_services => [:test], :identity => @identity)
-      @agent.options.should include(:default_services)
-      @agent.options[:default_services].should == [:test]
     end
 
     it "for root should override default (#{File.normalize_path(File.join(File.dirname(__FILE__), '..'))})" do

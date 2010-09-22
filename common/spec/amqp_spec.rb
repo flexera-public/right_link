@@ -824,14 +824,29 @@ describe RightScale::HA_MQ do
       ha_mq.publish({:type => :direct, :name => "exchange"}, @message, :no_serialize => true)
     end
 
-    it "should log that message is being sent" do
+    it "should log that message is being sent with info about which broker used" do
       flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Connecting/).once
-      flexmock(RightScale::RightLinkLog).should_receive(:info).with(/^SEND/).once
+      flexmock(RightScale::RightLinkLog).should_receive(:info).with(/^SEND b0/).once
       @serializer.should_receive(:dump).with(@packet).and_return(@message).once
       @mq.should_receive(:direct).with("exchange", {}).and_return(@direct).once
       @direct.should_receive(:publish).with(@message, {}).once
       ha_mq = RightScale::HA_MQ.new(@serializer)
       ha_mq.brokers[0][:status] = :connected
+      ha_mq.publish({:type => :direct, :name => "exchange"}, @packet)
+    end
+
+    it "should log broker choices for :debug level" do
+      flexmock(RightScale::RightLinkLog).should_receive(:level).and_return(:debug)
+      flexmock(RightScale::RightLinkLog).should_receive(:debug).with(/... publish options/).once
+      flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Connecting/).times(3)
+      flexmock(RightScale::RightLinkLog).should_receive(:info).with(/^SEND b1 \[b1, b2\]/).once
+      @serializer.should_receive(:dump).with(@packet).and_return(@message).once
+      @mq.should_receive(:direct).with("exchange", {}).and_return(@direct).once
+      @direct.should_receive(:publish).with(@message, {}).once
+      ha_mq = RightScale::HA_MQ.new(@serializer, :host => "second:1,first:0,third:2")
+      ha_mq.brokers[0][:status] = :connected
+      ha_mq.brokers[1][:status] = :disconnected
+      ha_mq.brokers[2][:status] = :connected
       ha_mq.publish({:type => :direct, :name => "exchange"}, @packet)
     end
 
@@ -1391,6 +1406,14 @@ describe RightScale::HA_MQ do
       ha_mq.connected.should == ["rs-broker-first-5672"]
     end
 
+    it "should give list of all brokers" do
+      ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first, second")
+      ha_mq.all.should == ["rs-broker-first-5672", "rs-broker-second-5672"]
+      ha_mq.brokers[0][:status] = :failed
+      ha_mq.brokers[1][:status] = :disconnected
+      ha_mq.all.should == ["rs-broker-first-5672", "rs-broker-second-5672"]
+    end
+
     it "should give list of failed brokers" do
       ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first, second")
       ha_mq.failed.should == []
@@ -1409,9 +1432,9 @@ describe RightScale::HA_MQ do
       ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first, second")
       flexmock(AMQP).should_receive(:connect).and_raise(Exception)
       ha_mq.brokers[1][:status] = :failed
-      72.times do |i|
+      40.times do |i|
         failed = ha_mq.failed(backoff = true)
-        failed.should == if [0,2,6,14,30,50,70].include?(i) then ["rs-broker-second-5672"] else [] end
+        failed.should == if [0,2,6,14,26,38].include?(i) then ["rs-broker-second-5672"] else [] end
         ha_mq.connect("second", 5672, 1) unless failed.empty?
       end
     end

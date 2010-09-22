@@ -54,20 +54,18 @@ module RightScale
     # (String) Name of AMQP input queue shared by this agent with others of same type
     attr_reader :shared_queue
 
-    # Seconds to wait for broker connection
-    BROKER_CONNECT_TIMEOUT = 60
-
     # Default option settings for the agent
     DEFAULT_OPTIONS = COMMON_DEFAULT_OPTIONS.merge({
-      :user => 'agent',
-      :shared_queue => false,
-      :fresh_timeout => nil,
-      :retry_interval => nil,
-      :retry_timeout => nil,
-      :grace_timeout => 30,
-      :prefetch => 1,
-      :persist => 'none',
-      :default_services => []
+      :user            => 'agent',
+      :shared_queue    => false,
+      :fresh_timeout   => nil,
+      :retry_interval  => nil,
+      :retry_timeout   => nil,
+      :connect_timeout => 60,
+      :check_interval  => 5 * 60,
+      :grace_timeout   => 30,
+      :prefetch        => 1,
+      :persist         => 'none'
     }) unless defined?(DEFAULT_OPTIONS)
 
     # Initializes a new agent and establishes an AMQP connection.
@@ -103,6 +101,10 @@ module RightScale
     #   :fresh_timeout(Numeric):: Maximum age in seconds before a request times out and is rejected
     #   :retry_interval(Numeric):: Number of seconds between request retries
     #   :retry_timeout(Numeric):: Maximum number of seconds to retry request before give up
+    #   :connect_timeout:: Number of seconds to wait for a broker connection to be established
+    #   :check_interval:: Number of seconds between checks for broker connections that failed during
+    #     instance agent launch and then attempting to reconnect via the registrar; repeated failures
+    #     will cause this to backoff exponentially up to HA_MQ::MAX_FAILED_BACKOFF times this interval
     #   :grace_timeout(Numeric):: Maximum number of seconds to wait after last request received before
     #     terminating regardless of whether there are still unfinished requests
     #   :prefetch(Integer):: Maximum number of messages the AMQP broker is to prefetch for this agent
@@ -175,7 +177,7 @@ module RightScale
         # Initiate AMQP broker connection, wait for connection before proceeding
         # otherwise messages published on failed connection will be lost
         @broker = HA_MQ.new(Serializer.new(@options[:format]), @options)
-        @broker.connection_status(:one_off => BROKER_CONNECT_TIMEOUT) do |status|
+        @broker.connection_status(:one_off => @options[:connect_timeout]) do |status|
           if status == :connected
             EM.next_tick do
               begin
@@ -188,6 +190,7 @@ module RightScale
                 advertise_services
                 at_exit { un_register } unless $TESTING
                 start_console if @options[:console] && !@options[:daemonize]
+                EM.add_periodic_timer(@options[:check_interval]) { check_broker_status } if @is_instance_agent
               rescue Exception => e
                 RightLinkLog.error("Agent failed startup: #{e}\n" + e.backtrace.join("\n")) unless e.message == "exit"
                 EM.stop
@@ -220,18 +223,14 @@ module RightScale
     end
 
     # Advertise the services provided by this agent
-    # Deprecated for instance agents that are version 10 and up
-    #
-    # === Parameters
-    # connected(Array):: Identity of connected brokers, defaults to all connected brokers
+    # Deprecated for instance agents that are version 10 and above
     #
     # === Return
     # true:: Always return true
-    def advertise_services(connected = nil)
-      unless AgentIdentity.parse(@identity).instance_agent?
-        connected = @broker.connected unless connected
+    def advertise_services
+      unless @is_instance_agent
         exchange = {:type => :fanout, :name => 'registration', :options => {:no_declare => @options[:secure], :durable => true}}
-        packet = Register.new(@identity, @registry.services, self.tags, connected, @shared_queue)
+        packet = Register.new(@identity, @registry.services, self.tags, @broker.all, @shared_queue)
         publish(exchange, packet) unless @terminating
       end
       true
@@ -280,7 +279,7 @@ module RightScale
       res = nil
       begin
         @broker.connect(host, port, alias_id, priority, force) do |id|
-          @broker.connection_status(:one_off => BROKER_CONNECT_TIMEOUT, :brokers => [id]) do |status|
+          @broker.connection_status(:one_off => @options[:connect_timeout], :brokers => [id]) do |status|
             begin
               if status == :connected
                 setup_identity_queue([id])
@@ -330,7 +329,7 @@ module RightScale
           if connected.include?(identity)
             # Need to advertise that no longer connected so that no more messages are routed through it
             connected.delete(identity)
-            advertise_services(connected)
+            advertise_services if remove
           end
           if remove
             @broker.remove(host, port) do |identity|
@@ -353,7 +352,7 @@ module RightScale
 
     # Declare one or more broker connections unusable because connection has failed
     # If these are the last usable connections, attempt to recreate them now; otherwise mark
-    # them is as unusable and defer reconnect attempt to next mapper ping, since this agent
+    # them is as unusable and defer reconnect attempt to next status check, since this agent
     # may still not be registered with those brokers
     #
     # === Parameters
@@ -373,9 +372,8 @@ module RightScale
             connect(host, port, alias_id, priority, force = true)
           end
         else
-          # Defer reconnect initiation to the mapper via ping
+          # Defer reconnect initiation to periodic status check
           @broker.declare_unusable(ids)
-          advertise_services
         end
       rescue Exception => e
         res = "Failed to mark brokers #{ids.inspect} as unusable: #{e}"
@@ -472,6 +470,7 @@ module RightScale
 
       if @options[:identity]
         @identity = "nanite-#{@options[:identity]}"
+        @is_instance_agent = AgentIdentity.parse(@identity).instance_agent? rescue nil
       else
         token = AgentIdentity.generate
         @identity = "nanite-#{token}"
@@ -558,7 +557,7 @@ module RightScale
       queue = {:name => @identity, :options => {:durable => true, :no_declare => @options[:secure]}}
       filter = [:from, :tags, :tries, :persistent]
       options = {:ack => true, Advertise => nil, Request => filter, Push => filter, Result => [:from], :brokers => ids}
-      exchange = unless AgentIdentity.parse(@identity).instance_agent?
+      exchange = unless @is_instance_agent
         # Non-instance agents must bind identity queue to identity exchange and to the advertise
         # exchange so that a mapper that comes up after this agent can learn of its existence.
         # Since the identity exchange is durable, the advertise exchange must also be durable.
@@ -593,7 +592,7 @@ module RightScale
     # === Raises
     # (Exception):: If this is an instance agent
     def setup_shared_queue(ids = nil)
-      raise Exception, "Instance agents cannot use shared queues" if AgentIdentity.parse(@identity).instance_agent?
+      raise Exception, "Instance agents cannot use shared queues" if @is_instance_agent
       queue = {:name => @shared_queue, :options => {:durable => true}}
       exchange = {:type => :direct, :name => @shared_queue, :options => {:durable => true}}
       filter = [:from, :tags, :tries, :persistent]
@@ -623,6 +622,23 @@ module RightScale
         end
       end
       true
+    end
+
+    # Check for broker connections that failed during launch of this agent
+    # If find any, ask registrar to initialize broker service for this agent so it can then connect
+    #
+    # === Return
+    # true:: Always return true
+    def check_broker_status
+      begin
+        @broker.failed(backoff = true).each do |b|
+          p = {:agent_identity => @identity}
+          p[:host], p[:port], p[:id], p[:priority] = @broker.identity_parts(b)
+          @mapper_proxy.push("/registrar/connect", p, :token => AgentIdentity.generate, :from => @identity)
+        end
+      rescue Exception => e
+        RightLinkLog.error("Failed checking broker status: #{e}")
+      end
     end
 
     # Store unique tags
@@ -661,7 +677,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def un_register
-      unless @unregistered || !AgentIdentity.parse(@identity).instance_agent?
+      unless @unregistered || !@is_instance_agent
         @unregistered = true
         exchange = {:type => :fanout, :name => 'registration', :options => {:no_declare => @options[:secure], :durable => true}}
         publish(exchange, UnRegister.new(@identity))
