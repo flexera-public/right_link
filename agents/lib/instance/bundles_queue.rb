@@ -65,6 +65,7 @@ module RightScale
       context = @queue.shift
       if context == FINAL_BUNDLE
         EM.next_tick { @continuation.call if @continuation }
+        @active = false
       else
         sequence = RightScale::ExecutableSequenceProxy.new(context)
         sequence.callback { audit_status(context) }
