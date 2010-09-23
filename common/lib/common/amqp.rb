@@ -694,6 +694,16 @@ module RightScale
       @brokers_hash[identity][:alias] rescue nil
     end
 
+    # Get default host, the one associated with the broker with id 0
+    #
+    # === Return
+    # host(String|nil):: Host name for default broker, nil if none with id 0
+    def default_host
+      host = nil
+      @brokers.each { |b| host = host(b[:identity]) if b[:alias] == "b0" }
+      host
+    end
+
     # Form string of hosts and associated ids
     #
     # === Return

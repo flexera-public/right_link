@@ -273,6 +273,16 @@ describe RightScale::HA_MQ do
       ha_mq.ports.should == "5672:1,5672:22"
     end
 
+    it "should return default host" do
+      ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first:0, second:1")
+      ha_mq.default_host.should == "first"
+    end
+
+    it "should retun nil default host if no broker has id 0" do
+      ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first:1, second:2")
+      ha_mq.default_host.should be_nil
+    end
+
   end # Identifying
 
   describe "Subscribing" do
