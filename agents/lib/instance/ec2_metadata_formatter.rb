@@ -20,19 +20,25 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+require File.expand_path(File.join(File.dirname(__FILE__), 'ec2_metadata_provider'))
+require File.expand_path(File.join(File.dirname(__FILE__), 'metadata_formatter_base'))
+
 module RightScale
 
-  # Interface for fetching metadata from a cloud-specific source and then
-  # converting it to a flat list suitable for use as environment variables.
-  class MetadataFetcher
+  # Implements MetadataFormatter for EC2.
+  class Ec2MetadataFormatter < MetadataFormatterBase
 
-    # Fetches metadata in an implementation-specific manner as a hash of
-    # metadata with any hierarchical details flattened into simple key names.
+    protected
+
+    # Decorates flat metadata names with 'EC2_'.
+    #
+    # === Parameters
+    # metadata_path(Array):: array of metadata path elements
     #
     # === Returns
-    # flat_metadata(Hash):: flattened metadata
-    def fetch_metadata
-      raise "Must be implemented by subclass"
+    # flat_path(String):: flattened path
+    def flatten_metadata_path(metadata_path)
+      'EC2_' + super(metadata_path)
     end
 
   end

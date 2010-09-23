@@ -37,7 +37,7 @@ module RightScale
     def initialize(options)
       @retry_delay_secs = options[:retry_delay_secs] || 1
       @max_curl_retries = options[:max_curl_retries] || 10
-      raise "options[:logger] is required" unless @logger = options[:logger]
+      raise ArgumentError, "options[:logger] is required" unless @logger = options[:logger]
     end
 
     # Fetches EC2 metadata for the current instance.
@@ -137,7 +137,7 @@ module RightScale
           @logger.info("Retrying \"#{url}\"...")
           sleep(@retry_delay_secs)
         else
-          raise "cURL retry limit exceeded, giving up and using cached values."
+          raise IOError, "Could not contact metadata server; retry limit exceeded."
         end
       end
     end

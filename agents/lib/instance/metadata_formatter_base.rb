@@ -20,29 +20,23 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require File.expand_path(File.join(File.dirname(__FILE__), 'metadata_fetcher'))
-require File.expand_path(File.join(File.dirname(__FILE__), 'metadata_provider'))
+require File.expand_path(File.join(File.dirname(__FILE__), 'metadata_formatter'))
 
 module RightScale
 
-  # Partial implementation of MetadataFetcher.
-  class MetadataFetcherBase < MetadataFetcher
+  # Partial implementation of MetadataFormatter.
+  class MetadataFormatterBase < MetadataFormatter
 
-    # === Parameters
+    # Formats metadata in an implementation-specific manner as a hash of
+    # metadata with any hierarchical details flattened into simple key names.
     #
-    # metadata_provider(MetadataProvider):: required provider
-    def initialize(metadata_provider)
-      raise "metadata_provider is required" unless metadata_provider.is_a?(MetadataProvider)
-      @metadata_provider = metadata_provider
-    end
-
-    # Fetches metadata in an implementation-specific manner as a hash of
-    # metadata with any hierarchical details flattened into the key names.
+    # === Parameters
+    # tree_metadata(Hash):: tree of raw metadata
     #
     # === Returns
     # flat_metadata(Hash):: flattened metadata
-    def fetch_metadata
-      return recursive_flatten_metadata(@metadata_provider.metadata)
+    def format_metadata(tree_metadata)
+      return recursive_flatten_metadata(tree_metadata)
     end
 
     protected

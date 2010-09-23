@@ -31,7 +31,7 @@ module RightScale
     # === Returns
     # tree_metadata(Hash):: tree of metadata
     def metadata
-      raise "Must be implemented by subclass"
+      raise NotImplementedError
     end
 
   end

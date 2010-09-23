@@ -20,35 +20,22 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require File.expand_path(File.join(File.dirname(__FILE__), 'ec2_metadata_provider'))
-require File.expand_path(File.join(File.dirname(__FILE__), 'metadata_fetcher_base'))
-
 module RightScale
 
-  # Implements MetadataFetcher for EC2.
-  class Ec2MetadataFetcher < MetadataFetcherBase
+  # Interface for fetching metadata from a cloud-specific source and then
+  # converting it to a flat list suitable for use as environment variables.
+  class MetadataFormatter
 
-    # === Parameters
-    # options[:retry_delay_secs](float):: retry delay in seconds.
-    #
-    # options[:max_curl_retries](int):: max attempts to invoke cURL for a given URL before failure.
-    #
-    # options[:logger](Logger):: logger (required)
-    def initialize(options)
-      super(Ec2MetadataProvider.new(options))
-    end
-
-    protected
-
-    # Decorates flat metadata names with 'EC2_'.
+    # Formats metadata in an implementation-specific manner as a hash of
+    # metadata with any hierarchical details flattened into simple key names.
     #
     # === Parameters
-    # metadata_path(Array):: array of metadata path elements
+    # tree_metadata(Hash):: tree of raw metadata
     #
     # === Returns
-    # flat_path(String):: flattened path
-    def flatten_metadata_path(metadata_path)
-      'EC2_' + super(metadata_path)
+    # flat_metadata(Hash):: flattened metadata
+    def format_metadata(tree_metadata)
+      raise NotImplementedError
     end
 
   end

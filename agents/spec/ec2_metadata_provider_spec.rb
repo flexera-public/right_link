@@ -21,11 +21,12 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 require File.join(File.dirname(__FILE__), 'spec_helper')
-require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'instance', 'ec2_metadata_fetcher'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'instance', 'ec2_metadata_provider'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'instance', 'ec2_metadata_formatter'))
 require File.join(File.dirname(__FILE__), 'fetch_runner')
 
 module RightScale
-  module Ec2MetadataFetcherSpec
+  module Ec2MetadataProviderSpec
 
     NO_MORE_CONNECTIONS_ERROR_RESPONSE = <<EOF
 2010-08-12 16:08:50: (server.c.1357) [note] sockets disabled, connection limit reached
@@ -82,7 +83,7 @@ EOF
   end
 end
 
-describe RightScale::Ec2MetadataFetcher do
+describe RightScale::Ec2MetadataProvider do
 
   def mock_cloud_info
     mock_url = "#{::RightScale::FetchRunner::FETCH_TEST_SOCKET_ADDRESS}:#{::RightScale::FetchRunner::FETCH_TEST_SOCKET_PORT}"
@@ -100,10 +101,11 @@ describe RightScale::Ec2MetadataFetcher do
   end
 
   it 'should raise exception for failing cURL calls' do
-    fetcher = ::RightScale::Ec2MetadataFetcher.new(:logger => @logger, :retry_delay_secs => 0.1, :max_curl_retries => 3)
+    metadata_provider = ::RightScale::Ec2MetadataProvider.new(:logger => @logger, :retry_delay_secs => 0.1, :max_curl_retries => 3)
+    metadata_formatter = ::RightScale::Ec2MetadataFormatter.new
     mock_cloud_info
     lambda do
-      @runner.run_fetcher(fetcher) do |data, connector|
+      @runner.run_fetcher(metadata_provider, metadata_formatter) do |data, connector|
         @logger.debug("data = #{data}")
         connector.close_connection  # rudely close without responding; cURL will consider this an error.
       end
@@ -111,11 +113,12 @@ describe RightScale::Ec2MetadataFetcher do
   end
 
   it 'should recover from successful cURL calls which return error information' do
-    fetcher = ::RightScale::Ec2MetadataFetcher.new(:logger => @logger, :retry_delay_secs => 0.1)
+    metadata_provider = ::RightScale::Ec2MetadataProvider.new(:logger => @logger, :retry_delay_secs => 0.1)
+    metadata_formatter = ::RightScale::Ec2MetadataFormatter.new
     requested_branch = false
     requested_leaf = false
     mock_cloud_info
-    metadata = @runner.run_fetcher(fetcher) do |data, connector|
+    metadata = @runner.run_fetcher(metadata_provider, metadata_formatter) do |data, connector|
       @logger.debug("data = #{data}")
 
       # ensure we send error response for both a branch and a leaf.
@@ -132,9 +135,9 @@ describe RightScale::Ec2MetadataFetcher do
 
       # respond with error or with valid response.
       if send_error
-        response = ::RightScale::Ec2MetadataFetcherSpec::NO_MORE_CONNECTIONS_ERROR_RESPONSE
+        response = ::RightScale::Ec2MetadataProviderSpec::NO_MORE_CONNECTIONS_ERROR_RESPONSE
       else
-        response = @runner.get_metadata_response(data, ::RightScale::Ec2MetadataFetcherSpec::METADATA_TREE)
+        response = @runner.get_metadata_response(data, ::RightScale::Ec2MetadataProviderSpec::METADATA_TREE)
       end
       @logger.debug("response = \"#{response}\"")
       connector.send_data(response)
@@ -147,11 +150,12 @@ describe RightScale::Ec2MetadataFetcher do
   end
 
   it 'should succeed for successful cURL calls' do
-    fetcher = ::RightScale::Ec2MetadataFetcher.new(:logger => @logger, :retry_delay_secs => 0.1)
+    metadata_provider = ::RightScale::Ec2MetadataProvider.new(:logger => @logger, :retry_delay_secs => 0.1)
+    metadata_formatter = ::RightScale::Ec2MetadataFormatter.new
     mock_cloud_info
-    metadata = @runner.run_fetcher(fetcher) do |data, connector|
+    metadata = @runner.run_fetcher(metadata_provider, metadata_formatter) do |data, connector|
       @logger.debug("data = #{data}")
-      response = @runner.get_metadata_response(data, ::RightScale::Ec2MetadataFetcherSpec::METADATA_TREE)
+      response = @runner.get_metadata_response(data, ::RightScale::Ec2MetadataProviderSpec::METADATA_TREE)
       @logger.debug("response = \"#{response}\"")
       connector.send_data(response)
       connector.close_connection_after_writing

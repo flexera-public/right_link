@@ -29,7 +29,7 @@ module RightScale
 
     FETCH_TEST_SOCKET_ADDRESS = '127.0.0.1'
     FETCH_TEST_SOCKET_PORT = 55555
-    FETCH_TEST_TIMEOUT_SECS = 30
+    FETCH_TEST_TIMEOUT_SECS = 30  # test runs a bit slow in Windows
 
     # ensure uniqueness of handler to avoid confusion.
     raise "#{FetchMockServerInputHandler.name} is already defined" if defined?(FetchMockServerInputHandler)
@@ -82,21 +82,23 @@ module RightScale
       end
     end
 
-    # Runs the metadata fetcher after starting a server to respond to fetch
+    # Runs the metadata provider after starting a server to respond to fetch
     # requests.
     #
     # === Parameters
-    # fetcher(MetadataFetcher):: fetcher to test
+    # metadata_provider(MetadataProvider):: metadata_provider to test
+    #
+    # metadata_formatter(MetadataFormatter):: metadata_formatter to test
     #
     # block(callback):: handler for server requests
     #
     # === Returns
     # metadata(Hash):: flat metadata hash
-    def run_fetcher(fetcher, &block)
+    def run_fetcher(metadata_provider, metadata_formatter, &block)
       server = nil
       done = false
       last_exception = nil
-      metadata = nil
+      flat_metadata = nil
       EM.run do
         begin
           server = EM.start_server(FETCH_TEST_SOCKET_ADDRESS,
@@ -105,7 +107,8 @@ module RightScale
                                    block)
           EM.defer do
             begin
-              metadata = fetcher.fetch_metadata
+              tree_metadata = metadata_provider.metadata
+              flat_metadata = metadata_formatter.format_metadata(tree_metadata)
             rescue Exception => e
               last_exception = e
             end
@@ -122,7 +125,7 @@ module RightScale
               end
             end
           end
-          EM.add_timer(FETCH_TEST_TIMEOUT_SECS) { done = true }  # timeout
+          EM.add_timer(FETCH_TEST_TIMEOUT_SECS) { raise "timeout" }
         rescue Exception => e
           last_exception = e
         end
@@ -145,7 +148,7 @@ module RightScale
         end
       end
 
-      return metadata
+      return flat_metadata
     end
 
     EC2_METADATA_REQUEST_REGEXP = /GET \/latest\/meta-data\/(.*) /
