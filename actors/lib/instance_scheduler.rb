@@ -39,7 +39,10 @@ class InstanceScheduler
   # agent(RightScale::Agent):: Host agent
   def initialize(agent)
     @agent_identity = agent.identity
-    @bundles_queue  = RightScale::BundlesQueue.new { post_decommission }
+    @bundles_queue  = RightScale::BundlesQueue.new do
+      RightScale::InstanceState.value = 'decommissioned'
+      @post_decommission_callback.call
+    end
     # Wait until instance setup actor has initialized the instance state
     # We need to wait until after the InstanceSetup actor has run its
     # bundle in the Chef thread before we can use it
@@ -49,26 +52,6 @@ class InstanceScheduler
       else
         RightScale::InstanceState.observe { |s| @bundles_queue.activate if s != 'booting' }
       end
-    end
-  end
-
-  # Transition to 'decommissioned' state which will cause
-  # core agent to terminate instance
-  # Delete agent queue and call post-decommission callback
-  def post_decommission
-    RightScale::InstanceState.value = 'decommissioned'
-    # Tell the registrar to delete our queue
-    EM.next_tick do
-      RightScale::RequestForwarder.instance.push('/registrar/remove', { :agent_identity => @agent_identity })
-    end
-    # If we got here through rnac --decommission then there is a callback setup and we should
-    # call it. rnac will then tell us to terminate.
-    # If we got here through a request then callback is set to shut us down
-    if cb = @post_decommission_callback
-      @post_decommission_callback = nil
-      EM.next_tick { cb.call }
-    else
-      EM.next_tick { terminate }
     end
   end
 

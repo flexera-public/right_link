@@ -677,7 +677,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def un_register
-      unless @unregistered || !@is_instance_agent
+      unless @unregistered || @is_instance_agent
         @unregistered = true
         exchange = {:type => :fanout, :name => 'registration', :options => {:no_declare => @options[:secure], :durable => true}}
         publish(exchange, UnRegister.new(@identity))
