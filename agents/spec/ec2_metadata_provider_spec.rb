@@ -28,28 +28,9 @@ require File.join(File.dirname(__FILE__), 'fetch_runner')
 module RightScale
   module Ec2MetadataProviderSpec
 
-    NO_MORE_CONNECTIONS_ERROR_RESPONSE = <<EOF
-2010-08-12 16:08:50: (server.c.1357) [note] sockets disabled, connection limit reached
-HTTP/1.0 404 Not Found
-Content-Type: text/html
-Content-Length: 345
-Connection: close
-Date: Thu, 12 Aug 2010 16:08:50 GMT
-Server: EC2ws
+    MALFORMED_EC2_HTTP_RESPONSE_PREFIX = "2010-08-12 16:08:50: (server.c.1357) [note] sockets disabled, connection limit reached\n"
 
-<?xml version="1.0" encoding="iso-8859-1"?>
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
-         "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
- <head>
-  <title>404 - Not Found</title>
- </head>
- <body>
-  <h1>404 - Not Found</h1>
- </body>
-</html>
-EOF
-
+    METADATA_ROOT = ['latest', 'meta-data']
     METADATA_TREE = {
       "ami-id" => "ami-f4c495b1",
       "ami-launch-index" => "0",
@@ -101,66 +82,81 @@ describe RightScale::Ec2MetadataProvider do
   end
 
   it 'should raise exception for failing cURL calls' do
-    metadata_provider = ::RightScale::Ec2MetadataProvider.new(:logger => @logger, :retry_delay_secs => 0.1, :max_curl_retries => 3)
+    metadata_provider = ::RightScale::Ec2MetadataProvider.new(:logger => @logger,
+                                                              :curl_retry_max_time => 1,
+                                                              :retry_delay_secs => 0.1,
+                                                              :max_curl_retries => 1)
     metadata_formatter = ::RightScale::Ec2MetadataFormatter.new
     mock_cloud_info
     lambda do
-      @runner.run_fetcher(metadata_provider, metadata_formatter) do |data, connector|
-        @logger.debug("data = #{data}")
-        connector.close_connection  # rudely close without responding; cURL will consider this an error.
+      @runner.run_fetcher(metadata_provider, metadata_formatter) do |server|
+        # intentionally not mounting any paths
       end
-    end.should raise_error
+    end.should raise_error(IOError)
   end
 
-  it 'should recover from successful cURL calls which return error information' do
+  it 'should recover from successful cURL calls which return malformed HTTP response' do
     metadata_provider = ::RightScale::Ec2MetadataProvider.new(:logger => @logger, :retry_delay_secs => 0.1)
     metadata_formatter = ::RightScale::Ec2MetadataFormatter.new
     requested_branch = false
     requested_leaf = false
     mock_cloud_info
-    metadata = @runner.run_fetcher(metadata_provider, metadata_formatter) do |data, connector|
-      @logger.debug("data = #{data}")
+    metadata = @runner.run_fetcher(metadata_provider, metadata_formatter) do |server|
+      server.recursive_mount_metadata(::RightScale::Ec2MetadataProviderSpec::METADATA_TREE, ::RightScale::Ec2MetadataProviderSpec::METADATA_ROOT.clone)
 
-      # ensure we send error response for both a branch and a leaf.
-      request_path = @runner.get_metadata_request_path(data)
-      is_branch = /\/$/.match(request_path)
-      send_error = false
-      if is_branch && !requested_branch
-        send_error = true
-        requested_branch = true
-      elsif !is_branch && !requested_leaf
-        send_error = true
-        requested_leaf = true
+      # fail a branch request.
+      branch_name = 'block-device-mapping'
+      branch_metadata_path = ::RightScale::Ec2MetadataProviderSpec::METADATA_ROOT.clone << branch_name
+      branch_metadata = ::RightScale::Ec2MetadataProviderSpec::METADATA_TREE[branch_name]
+      branch_path = server.get_metadata_request_path(branch_metadata_path)
+      branch_response = server.get_metadata_response(branch_metadata)
+      server.unmount(branch_path)
+      server.mount_proc(branch_path) do |request, response|
+        response.body = branch_response
+        unless requested_branch
+          old_status_line = response.status_line
+          response.instance_variable_set(:@injected_status_line, ::RightScale::Ec2MetadataProviderSpec::MALFORMED_EC2_HTTP_RESPONSE_PREFIX + old_status_line)
+          def response.status_line
+            return @injected_status_line
+          end
+          requested_branch = true
+        end
       end
 
-      # respond with error or with valid response.
-      if send_error
-        response = ::RightScale::Ec2MetadataProviderSpec::NO_MORE_CONNECTIONS_ERROR_RESPONSE
-      else
-        response = @runner.get_metadata_response(data, ::RightScale::Ec2MetadataProviderSpec::METADATA_TREE)
+      # fail a leaf request.
+      leaf_name = 'root'
+      leaf_metadata_path = branch_metadata_path.clone << leaf_name
+      leaf_metadata = branch_metadata[leaf_name]
+      leaf_path = server.get_metadata_request_path(leaf_metadata_path)
+      leaf_response = server.get_metadata_response(leaf_metadata)
+      server.unmount(leaf_path)
+      server.mount_proc(leaf_path) do |request, response|
+        response.body = leaf_response
+        unless requested_leaf
+          old_status_line = response.status_line
+          response.instance_variable_set(:@injected_status_line, ::RightScale::Ec2MetadataProviderSpec::MALFORMED_EC2_HTTP_RESPONSE_PREFIX + old_status_line)
+          def response.status_line
+            return @injected_status_line
+          end
+          requested_leaf = true
+        end
       end
-      @logger.debug("response = \"#{response}\"")
-      connector.send_data(response)
-      connector.close_connection_after_writing
     end
     requested_branch.should == true
     requested_leaf.should == true
-    metadata.size.should == 18
+    metadata.size.should == 19
     metadata["EC2_INSTANCE_TYPE"].should == "m1.small"
+    metadata["EC2_BLOCK_DEVICE_MAPPING_AMI"].should == "/dev/sda1"
   end
 
   it 'should succeed for successful cURL calls' do
     metadata_provider = ::RightScale::Ec2MetadataProvider.new(:logger => @logger, :retry_delay_secs => 0.1)
     metadata_formatter = ::RightScale::Ec2MetadataFormatter.new
     mock_cloud_info
-    metadata = @runner.run_fetcher(metadata_provider, metadata_formatter) do |data, connector|
-      @logger.debug("data = #{data}")
-      response = @runner.get_metadata_response(data, ::RightScale::Ec2MetadataProviderSpec::METADATA_TREE)
-      @logger.debug("response = \"#{response}\"")
-      connector.send_data(response)
-      connector.close_connection_after_writing
+    metadata = @runner.run_fetcher(metadata_provider, metadata_formatter) do |server|
+      server.recursive_mount_metadata(::RightScale::Ec2MetadataProviderSpec::METADATA_TREE, ::RightScale::Ec2MetadataProviderSpec::METADATA_ROOT.clone)
     end
-    metadata.size.should == 18
+    metadata.size.should == 19
     metadata["EC2_RESERVATION_ID"].should == "r-0ddf0f49"
   end
 

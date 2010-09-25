@@ -23,6 +23,7 @@
 require File.join(File.dirname(__FILE__), 'spec_helper')
 require 'fileutils'
 require 'tmpdir'
+require 'webrick'
 
 module RightScale
   class FetchRunner
@@ -31,18 +32,80 @@ module RightScale
     FETCH_TEST_SOCKET_PORT = 55555
     FETCH_TEST_TIMEOUT_SECS = 30  # test runs a bit slow in Windows
 
-    # ensure uniqueness of handler to avoid confusion.
-    raise "#{FetchMockServerInputHandler.name} is already defined" if defined?(FetchMockServerInputHandler)
+    class MockHTTPServer < WEBrick::HTTPServer
+      def initialize(options={}, &block)
+        super(options.merge(:Port => FETCH_TEST_SOCKET_PORT, :AccessLog => []))
 
-    module FetchMockServerInputHandler
-      def initialize(handler)
-        @handler = handler
+        # mount servlets via callback
+        block.call(self)
+
+        #Start listening for HTTP in a separate thread
+        Thread.new do
+          self.start()
+        end
       end
 
-      def receive_data(data)
-        @handler.call(data, self)
-        true
+      # Recursively mounts the servlets for the metadata in the given tree using
+      # the given base path as a starting point.
+      #
+      # === Parameters
+      # metadata(Hash or String):: metadata to mount
+      #
+      # metadata_path(Array):: array of path elements for current metadata path
+      def recursive_mount_metadata(metadata, metadata_path)
+        path = get_metadata_request_path(metadata_path)
+        out = get_metadata_response(metadata)
+        mount_proc(path) { |request, response| response.body = out }
+
+        # recursion, if metadata is a hash.
+        if metadata.respond_to?(:has_key?)
+          metadata.each do |key, value|
+            # equals has a special meaning and is not included in metadata path.
+            if equals_offset = key.index('=')
+              key = key[0, equals_offset]
+            end
+            metadata_path << key
+            recursive_mount_metadata(value, metadata_path)
+            metadata_path.pop
+          end
+        end
       end
+
+      # Gets the root-relative path of the requested metadata from the path
+      # element array.
+      #
+      # === Parameters
+      # metadata_path(Array):: array of path elements for current metadata path
+      #
+      # === Returns
+      # metadata_path(String):: request path or empty for root or nil
+      def get_metadata_request_path(metadata_path)
+         return "/" + metadata_path.join("/")
+      end
+
+      # Generates the correct response from the given metadata.
+      #
+      # === Parameters
+      # metadata(Hash or String):: metadata to mount
+      #
+      # === Returns
+      # out(String):: valid response
+      def get_metadata_response(metadata)
+        if metadata.respond_to?(:has_key?)
+          listing = []
+          metadata.keys.sort.each do |key|
+            value = metadata[key]
+            if value.respond_to?(:has_key?)
+              listing << key + '/'
+            else
+              listing << key
+            end
+          end
+          return listing.join("\n")
+        end
+        return metadata
+      end
+
     end
 
     def initialize
@@ -101,10 +164,7 @@ module RightScale
       flat_metadata = nil
       EM.run do
         begin
-          server = EM.start_server(FETCH_TEST_SOCKET_ADDRESS,
-                                   FETCH_TEST_SOCKET_PORT,
-                                   FetchMockServerInputHandler,
-                                   block)
+          server = MockHTTPServer.new({:Logger => @logger}, &block)
           EM.defer do
             begin
               tree_metadata = metadata_provider.metadata
@@ -119,17 +179,18 @@ module RightScale
               timer.cancel
               timer = nil
               EM.next_tick do
-                EM.stop_server(server)
-                server = nil
                 EM.stop
               end
             end
           end
-          EM.add_timer(FETCH_TEST_TIMEOUT_SECS) { raise "timeout" }
+          EM.add_timer(FETCH_TEST_TIMEOUT_SECS) { @logger.error("timeout"); raise "timeout" }
         rescue Exception => e
           last_exception = e
         end
       end
+
+      # stop server, if any.
+      (server.shutdown rescue nil) if server
 
       # reraise with full backtrace for debugging purposes. this assumes the
       # exception class accepts a single string on construction.
@@ -149,86 +210,6 @@ module RightScale
       end
 
       return flat_metadata
-    end
-
-    EC2_METADATA_REQUEST_REGEXP = /GET \/latest\/meta-data\/(.*) /
-
-    # Extracts the root-relative path of the requested metadata from the GET
-    # parameter.
-    #
-    # === Parameters
-    # data(String):: raw data from REST request
-    #
-    # === Returns
-    # metadata_path(String):: request path or empty for root or nil
-    def get_metadata_request_path(data)
-      match_data = EC2_METADATA_REQUEST_REGEXP.match(data)
-      return match_data ? match_data[1] : nil
-    end
-
-    # Extracts the correct response from the valid metadata tree based on the
-    # GET parameter.
-    #
-    # === Parameters
-    # data(String):: raw data from REST request
-    # metadata(Hash):: metadata for responses
-    #
-    # === Returns
-    # out(String):: response or empty
-    def get_metadata_response(data, metadata)
-      # extract requested metadata path.
-      if (sub_path = get_metadata_request_path(data))
-        # walk tree matching path elements.
-        while not sub_path.empty?
-          offset = sub_path.index('/')
-          if offset
-            child_name = sub_path[0,offset]
-            sub_path = sub_path[(offset + 1)..-1]
-          else
-            child_name = sub_path
-            sub_path = ""
-          end
-          return "" unless metadata.respond_to?(:has_key?)
-
-          unless child_metadata = metadata[child_name]
-            # allow partial match of child name followed by equals.
-            metadata.each do |key, value|
-              if 0 == key.index(child_name + '=')
-                child_metadata = value
-                break
-              end
-            end
-          end
-          return "" unless child_metadata
-          metadata = child_metadata
-        end
-
-        # right-hand metadata is either a string or a subtree
-        if metadata.respond_to?(:has_key?)
-          listing = []
-          metadata.keys.sort.each do |key|
-            if metadata[key].respond_to?(:has_key?)
-              listing << key + '/'
-            else
-              listing << key
-            end
-          end
-          return listing.join("\n")
-        else
-          # FIX: either EM or cURL appears to have a problem with small
-          # responses (less than 6 characters) or else small responses don't get
-          # flushed for some reason. need to understand the reason that the cURL
-          # client considers the response empty and returns exit code 52. this
-          # code is only used for testing so it is not critical.
-          while metadata.length < 6
-            metadata += "\n"  # extra newlines should get stripped
-          end
-          return metadata  # simple string value
-        end
-      end
-
-      # invalid request, empty response.
-      return ""
     end
   end
 end

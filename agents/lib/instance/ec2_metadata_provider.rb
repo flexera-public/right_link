@@ -22,6 +22,7 @@
 
 require File.expand_path(File.join(File.dirname(__FILE__), 'metadata_provider'))
 require File.expand_path(File.join(File.dirname(__FILE__), 'cloud_info'))
+require 'tmpdir'
 
 module RightScale
 
@@ -35,6 +36,9 @@ module RightScale
     #
     # options[:logger](Logger):: logger (required)
     def initialize(options)
+      @curl_max_time = options[:curl_max_time] || 10
+      @curl_retry = options[:curl_retry] || 4294967295  # infinite retries up until retry_max_time is reached
+      @curl_retry_max_time = options[:curl_retry_max_time] || 240
       @retry_delay_secs = options[:retry_delay_secs] || 1
       @max_curl_retries = options[:max_curl_retries] || 10
       raise ArgumentError, "options[:logger] is required" unless @logger = options[:logger]
@@ -51,7 +55,7 @@ module RightScale
 
     private
 
-    CURL_OPTIONS = "-s -S -f -L --retry 4294967295 --retry-max-time 240 --max-time 10"
+    CURL_OPTIONS = "-s -S -f -L --write-out \"%{http_code}\""
 
     # Recursively grabs a tree of metadata and uses it to populate a tree of
     # metadata.
@@ -101,43 +105,52 @@ module RightScale
     # === Returns
     # out(String):: raw output from cURL
     def curl_get(url)
-      retry_count = 0
-      cmd = "curl #{CURL_OPTIONS} #{url} 2>&1"
-      @logger.debug(cmd)
-      while true
-        out = `#{cmd}`
-        if $?.success?
+      # use Dir.mktmpdir to simplify cleanup of temporary output file(s) (on
+      # Windows, etc.).
+      Dir.mktmpdir(File.basename(__FILE__, '.rb')) do |temp_dir_path|
+        retry_count = 0
+        out_file_path = File.normalize_path(File.join(temp_dir_path, "output.txt"))
+        cmd = "curl #{CURL_OPTIONS} --retry #{@curl_retry} --retry-max-time #{@curl_retry_max_time} --max-time #{@curl_max_time} --output \"#{out_file_path}\" #{url} 2>&1"
+        @logger.debug(cmd)
+        while true
+          out = `#{cmd}`
+          if $?.success?
 
-          # EC2 is a REST API which can respond with multi-line XHTML containing
-          # error details if there are currently too many connections to the
-          # server, etc. cURL will return zero in this case which requires our
-          # code to check for failure. the expected format for a branch is a
-          # plain-text, newline-delimited list of valid URL subpaths and so any
-          # space characters in the response indicate a failure requiring retry.
-          # the caveat is that leaf values can contain spaces and newlines but
-          # are not expected to have an HTTP header as is the case with error
-          # pages.
-          #
-          # FIX: does this handle all cases or do we need one or more regular
-          # expressions to match EC2 error replies (assuming we will always know
-          # what they look like)? have yet to find documentation on such errors.
-          out.strip!
-          if out.index(' ') && (/\/$/.match(url) || (out.index("\n") && out.index('HTTP/1.')))
-            @logger.warn("cURL succeeded but response contained error information:\n#{out}")
+            # EC2 is a REST API which can respond with multi-line XHTML containing
+            # error details if there are currently too many connections to the
+            # server, etc. cURL will return zero in this case which requires our
+            # code to check for failure. the expected format for a branch is a
+            # plain-text, newline-delimited list of valid URL subpaths and so any
+            # space characters in the response indicate a failure requiring retry.
+            # the caveat is that leaf values can contain spaces and newlines but
+            # are not expected to have an HTTP header as is the case with error
+            # pages.
+            #
+            # FIX: does this handle all cases or do we need one or more regular
+            # expressions to match EC2 error replies (assuming we will always know
+            # what they look like)? have yet to find documentation on such errors.
+            out = out.split
+            out_text = File.read(out_file_path)
+            http_code = (out[0] || 0).to_i
+            @logger.debug("http_code = #{http_code}")
+            if http_code >= 200 && http_code < 300
+              @logger.debug(out_text)
+              return out_text
+            else
+              @logger.warn("cURL succeeded but response contained error information:\n#{out_text}")
+            end
           else
-            return out
+            @logger.error("cURL exited with status (#{$?.exitstatus}), returned:\n#{out}")
           end
-        else
-          @logger.error("cURL exited with status (#{$?.exitstatus}), returned:\n#{out}")
-        end
 
-        # retry, if allowed.
-        retry_count += 1
-        if retry_count < @max_curl_retries
-          @logger.info("Retrying \"#{url}\"...")
-          sleep(@retry_delay_secs)
-        else
-          raise IOError, "Could not contact metadata server; retry limit exceeded."
+          # retry, if allowed.
+          retry_count += 1
+          if retry_count < @max_curl_retries
+            @logger.info("Retrying \"#{url}\"...")
+            sleep(@retry_delay_secs)
+          else
+            raise IOError, "Could not contact metadata server; retry limit exceeded."
+          end
         end
       end
     end
