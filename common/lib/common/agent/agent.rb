@@ -114,7 +114,7 @@ module RightScale
     #   :services(Symbol):: List of services provided by this agent. Defaults to all methods exposed by actors.
     #   :secure(Boolean):: true indicates to use Security features of RabbitMQ to restrict agents to themselves
     #   :single_threaded(Boolean):: true indicates to run all operations in one thread; false indicates
-    #     to do requested work on EM defer thread and all else, such as pings on main thread
+    #     to do requested work on EM defer thread and all else on main thread
     #   :threadpool_size(Integer):: Number of threads in EM thread pool
     #   :vhost(String):: AMQP broker virtual host
     #   :user(String):: AMQP broker user
