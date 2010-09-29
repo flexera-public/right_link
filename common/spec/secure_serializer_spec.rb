@@ -24,10 +24,10 @@ require File.join(File.dirname(__FILE__), 'spec_helper')
 
 module RightScale
   
-  # Add the ability to compare pings for test purposes
-  class Ping
+  # Add the ability to compare tag updates for test purposes
+  class TagUpdate
     def ==(other)
-      @status == other.status && @identity == other.identity
+      @new_tags == other.new_tags && @obsolete_tags == other.obsolete_tags && @identity == other.identity
     end
   end
   
@@ -41,7 +41,7 @@ describe RightScale::SecureSerializer do
     @certificate, @key = issue_cert
     @store = RightScale::StaticCertificateStore.new(@certificate, @certificate)
     @identity = "id"
-    @data = RightScale::Ping.new("Test", 0.5)
+    @data = RightScale::TagUpdate.new("identity", ["new tag"], ["obsolete tag"])
   end
   
   it 'should raise when not initialized' do

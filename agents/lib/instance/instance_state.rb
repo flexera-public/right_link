@@ -205,7 +205,7 @@ module RightScale
       opts = { :agent_identity => @@identity, :state => 'decommissioned', :user_id => user_id, :skip_db_update => skip_db_update, :kind => kind }
       RightScale::RequestForwarder.instance.request('/state_recorder/record', opts) do |r|
         res = RightScale::OperationResult.from_results(r)
-        RightScale::RequestForwarder.instance.push('/registrar/remove', :agent_identity => RightScale::AgentIdentity.nanite_from_serialized(@@identity))
+        RightScale::RequestForwarder.instance.push('/registrar/remove', :agent_identity => @@identity)
         RightScale::Platform.controller.shutdown unless res.success?
       end
       EM.add_timer(FORCE_SHUTDOWN_DELAY) { RightScale::Platform.controller.shutdown }

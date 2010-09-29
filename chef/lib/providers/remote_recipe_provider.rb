@@ -43,9 +43,8 @@ class Chef
         tags          = @new_resource.recipients_tags
         recipients    = @new_resource.recipients
         agent_options = RightScale::OptionsBag.load
-        identity      = RightScale::AgentIdentity.nanite_from_serialized(agent_options[:identity])
         attributes    = { :remote_recipe => { :tags => tags,
-                                              :from => identity } }
+                                              :from => agent_options[:identity] } }
         attributes.merge!(@new_resource.attributes) if @new_resource.attributes
         options = { :recipe => @new_resource.recipe, :json => attributes.to_json }
         if recipients && !recipients.empty?

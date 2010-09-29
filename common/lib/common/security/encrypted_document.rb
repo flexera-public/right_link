@@ -29,14 +29,13 @@ module RightScale
   # signature and decrypt an encrypted document.
   class EncryptedDocument
   
-    # Encrypt and sign data using certificate and key pair.
+    # Encrypt and sign data using certificate and key pair
     #
-    # Arguments:
-    #  - 'data':   Data to be encrypted
-    #  - 'certs':  Recipient certificates (certificates corresponding to private
-    #              keys that may be used to decrypt data)
-    #  - 'cipher': Cipher used for encryption, AES 256 CBC by default
-    #
+    # === Parameters
+    # data(String):: Data to be encrypted
+    # certs(Array):: Recipient certificates (certificates corresponding to private
+    #   keys that may be used to decrypt data)
+    # cipher(Cipher):: Cipher used for encryption, AES 256 CBC by default
     def initialize(data, certs, cipher = 'AES-256-CBC')
       cipher = OpenSSL::Cipher::Cipher.new(cipher)
       certs = [ certs ] unless certs.respond_to?(:collect)
@@ -44,7 +43,13 @@ module RightScale
       @pkcs7 = OpenSSL::PKCS7.encrypt(raw_certs, data, cipher, OpenSSL::PKCS7::BINARY)
     end
 
-    # Initialize from encrypted data.
+    # Initialize from encrypted data
+    #
+    # === Parameters
+    # encrypted_data(String):: Encrypted data
+    #
+    # === Return
+    # doc(EncryptedDocument):: Encrypted document
     def self.from_data(encrypted_data)
       doc = EncryptedDocument.allocate
       doc.instance_variable_set(:@pkcs7, RightScale::PKCS7.new(encrypted_data))
@@ -52,15 +57,21 @@ module RightScale
     end
     
     # Encrypted data using DER format
+    #
+    # === Return
+    # (String):: Encrypted data
     def encrypted_data
       @pkcs7.to_pem
     end
     
     # Decrypted data
     #
-    # Arguments:
-    #   - 'key':  Key used for decryption
-    #   - 'cert': Certificate to use for decryption
+    # === Parameters
+    # key(RsaKeyPair):: Key pair used for decryption
+    # cert(Certificate):: Certificate to use for decryption
+    #
+    # === Return
+    # (String):: Decrypted data
     def decrypted_data(key, cert)
       @pkcs7.decrypt(key.raw_key, cert.raw_cert)
     end

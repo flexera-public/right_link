@@ -1,7 +1,7 @@
 # === Synopsis:
 #   RightScale Nanite Controller (rnac) - (c) 2009 RightScale
 #
-#   rnac is a command line tool that allows managing Nanite agents.
+#   rnac is a command line tool that allows managing RightScale agents.
 #
 # === Examples:
 #   Start new agent:
@@ -419,10 +419,13 @@ module RightScale
       res
     end
 
-    # List of running agent IDs
+    # Serialized identity for running RightScale agents
+    # based on existence of RabbitMQ queue
     def running_agents
       list = `rabbitmqctl list_queues -p #{@options[:vhost]}`
-      list.scan(/^\s*nanite-([\S]+)/).flatten
+      list.scan(/^\s*rs-instance([\S]+)/).flatten +
+      list.scan(/^\s*rs-proxy([\S]+)/).flatten +
+      list.scan(/^\s*rs-core([\S]+)/).flatten
     end
 
     # Available agents i.e. agents that have a config file in the 'agents' dir

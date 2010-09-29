@@ -303,7 +303,7 @@ module RightScale
     # (Array(Hash)) Priority ordered list of AMQP brokers (exposed only for unit test purposes)
     #   :mq(MQ):: AMQP broker channel
     #   :connection(EM::Connection):: AMQP connection
-    #   :identity(String):: Broker identity
+    #   :identity(String):: Broker serialized identity
     #   :alias(String):: Broker alias used in logs
     #   :status(Symbol):: Status of connection
     #   :tries(Integer):: Number of attempts to reconnect a failed connection
@@ -373,7 +373,7 @@ module RightScale
     #
     # === Block
     # Block with following parameters to be called each time exchange matches a message to the queue:
-    #   identity(String):: Identity of broker delivering the message
+    #   identity(String):: Serialized identity of broker delivering the message
     #   message(Packet|String):: Message received, which is unserialized unless :no_unserialize was specified
     #
     # === Return
@@ -641,7 +641,7 @@ module RightScale
       addresses(host, port).map { |a| identity(a[:host], a[:port]) }
     end
 
-    # Construct a broker identity from its host and port of the form
+    # Construct a broker serialized identity from its host and port of the form
     # rs-broker-host-port, with any '-'s in host replaced by '~'
     #
     # === Parameters
@@ -649,15 +649,15 @@ module RightScale
     # port(Integer):: TCP port number for individual broker
     #
     # === Returns
-    # (String):: Unique broker identity
+    # (String):: Broker serialized identity
     def self.identity(host, port)
       AgentIdentity.new('rs', 'broker', port.to_i, host.gsub('-', '~')).to_s
     end
 
-    # Break broker identity down into individual parts if exists
+    # Break broker serialized identity down into individual parts if exists
     #
     # === Parameters
-    # id(Integer|String):: Broker alias, alias id, or identity with or without nanite prefix
+    # id(Integer|String):: Broker alias, alias id, or serialized identity
     #
     # === Return
     # (Array):: Host, port, id, priority; all nil if broker not found
@@ -674,7 +674,7 @@ module RightScale
     # Convert broker identities to aliases
     #
     # === Parameters
-    # identities(Array):: Broker identities with or without nanite prefix
+    # identities(Array):: Broker identities
     #
     # === Return
     # (Array):: Broker aliases
@@ -682,15 +682,14 @@ module RightScale
       identities.map { |i| alias_(i) }
     end
 
-    # Convert broker identity to its alias
+    # Convert broker serialized identity to its alias
     #
     # === Parameters
-    # identity(String):: Broker identity with or without nanite prefix
+    # identity(String):: Broker serialized identity
     #
     # === Return
     # (String|nil):: Broker alias, or nil if not a known broker
     def alias_(identity)
-      identity = AgentIdentity.parse(identity).to_s rescue nil
       @brokers_hash[identity][:alias] rescue nil
     end
 
@@ -720,17 +719,16 @@ module RightScale
       @brokers.map { |b| "#{port(b[:identity])}:#{b[:alias][1..-1]}" }.join(",")
     end
 
-    # Get broker identity if exists
+    # Get broker serialized identity if exists
     #
     # === Parameters
-    # id(Integer|String):: Broker alias, alias id, or identity with or without nanite prefix
+    # id(Integer|String):: Broker alias, alias id, or serialized identity
     #
     # === Return
-    # (String|nil):: Broker identity if found, otherwise nil
+    # (String|nil):: Broker serialized identity if found, otherwise nil
     def get(id)
       @brokers.each do |b|
-        if b[:identity] == id || b[:alias] == id || b[:alias][1..-1].to_i == id ||
-           b[:identity] == (AgentIdentity.parse(id).to_s rescue nil)
+        if b[:identity] == id || b[:alias] == id || b[:alias][1..-1].to_i == id
           return b[:identity]
         end
       end if id
@@ -740,7 +738,7 @@ module RightScale
     # Check whether broker is connected
     #
     # === Parameters
-    # identity{String):: Broker identity
+    # identity{String):: Broker serialized identity
     #
     # === Return
     # (Boolean):: true if broker status is :connect, otherwise false, or nil if broker unknown
@@ -748,7 +746,7 @@ module RightScale
       @brokers_hash[identity][:status] == :connected rescue nil
     end
 
-    # Get identity of connected brokers
+    # Get serialized identity of connected brokers
     #
     # === Return
     # (Array):: Identity of connected brokers
@@ -756,32 +754,32 @@ module RightScale
       @brokers.inject([]) { |c, b| if b[:status] == :connected then c << b[:identity] else c end }
     end
 
-    # Get identity of usable brokers
+    # Get serialized identity of usable brokers
     #
     # === Return
-    # (Array):: Identity of usable brokers
+    # (Array):: Serialized identity of usable brokers
     def usable
       each_usable.map { |b| b[:identity] }
     end
 
-    # Get identity of unusable brokers
+    # Get serialized identity of unusable brokers
     #
     # === Return
-    # (Array):: Identity of unusable brokers
+    # (Array):: Serialized identity of unusable brokers
     def unusable
       @brokers.map { |b| b[:identity] } - each_usable.map { |b| b[:identity] }
     end
 
-    # Get identity of all brokers
+    # Get serialized identity of all brokers
     #
     # === Return
-    # (Array):: Identity of all brokers
+    # (Array):: Serialized identity of all brokers
     def all
       @brokers.map { |b| b[:identity] }
     end
 
-    # Get identity of failed brokers, i.e., ones that were never successfully connected,
-    # not ones that are just disconnected
+    # Get serialized identity of failed brokers, i.e., ones that were never successfully
+    # connected, not ones that are just disconnected
     #
     # backoff(Boolean):: Whether to adjust response based on the number of attempts
     #   to reconnect, i.e., after the first connect attempt for a failed connection
@@ -790,7 +788,7 @@ module RightScale
     #   be included after 16 additional requests; defaults to false
     #
     # === Return
-    # (Array):: Identity of failed brokers
+    # (Array):: Serialized identity of failed brokers
     def failed(backoff = false)
       @brokers.inject([]) { |c, b| if failed?(b, backoff) then c << b[:identity] else c end }
     end
@@ -840,7 +838,7 @@ module RightScale
     # === Block
     # Optional block with following parameters to be called after initiating the connection
     # unless already connected to this broker:
-    #   identity(String):: Broker identity
+    #   identity(String):: Broker serialized identity
     #
     # === Return
     # (Boolean):: true if connected, false if no connect attempt made
@@ -902,10 +900,10 @@ module RightScale
     # === Block
     # Optional block with following parameters to be called after removing the connection
     # unless broker is not configured:
-    #   identity(String):: Broker identity
+    #   identity(String):: Broker serialized identity
     #
     # === Return
-    # identity(String|nil):: Identity of broker removed, or nil if unknown
+    # identity(String|nil):: Serialized identity of broker removed, or nil if unknown
     def remove(host, port, &blk)
       identity = self.class.identity(host, port)
       if broker = @brokers_hash[identity]
@@ -983,7 +981,7 @@ module RightScale
     #
     # === Block
     # Block with following parameters to be called when a message is returned:
-    #   identity(String):: Broker identity
+    #   identity(String):: Broker serialized identity
     #   reason(String):: Reason for return
     #     NO_ROUTE - queue does not exist
     #     NO_CONSUMERS - queue exists but it has no consumers, or if :immediate was specified,
@@ -1027,7 +1025,7 @@ module RightScale
     #
     # === Return
     # (Array(Hash)):: Status of each configured broker:
-    #   :identity(String):: Broker identity
+    #   :identity(String):: Broker serialized identity
     #   :alias(String):: Broker alias used in logs
     #   :status(Symbol):: Status of connection
     #   :tries(Integer):: Number of attempts to reconnect a failed connection
@@ -1073,7 +1071,7 @@ module RightScale
     # Close an individual broker connection
     #
     # === Parameters
-    # identity(String):: Broker identity
+    # identity(String):: Broker serialized identity
     # propagate(Boolean):: Whether to propagate connection status updates
     #
     # === Block
@@ -1141,10 +1139,10 @@ module RightScale
 
     end
 
-    # Extract host name from broker identity
+    # Extract host name from broker serialized identity
     #
     # === Parameters
-    # identity{String):: Broker identity
+    # identity{String):: Broker serialized identity
     #
     # === Returns
     # (String):: IP host name
@@ -1152,10 +1150,10 @@ module RightScale
       AgentIdentity.parse(identity).token.gsub('~', '-')
     end
 
-    # Extract port number from broker identity
+    # Extract port number from broker serialized identity
     #
     # === Parameters
-    # identity{String):: Broker identity
+    # identity{String):: Broker serialized identity
     #
     # === Returns
     # (Integer):: TCP port number

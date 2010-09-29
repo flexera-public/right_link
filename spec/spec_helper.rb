@@ -22,7 +22,7 @@
 
 require 'rubygems'
 
-# Nanite uses the JSON gem, which -- if used in a project that also uses ActiveRecord -- MUST be loaded after
+# Mappers and agents uses the JSON gem, which -- if used in a project that also uses ActiveRecord -- MUST be loaded after
 # ActiveRecord in order to ensure that a monkey patch is correctly applied. Since Nanite is designed to be compatible
 # with Rails, we tentatively try to load AR here, in case RightLink specs are ever executed in a context where
 # ActiveRecord is also loaded.
@@ -108,7 +108,7 @@ module RightScale
 
     # Path to instance boot logs
     def log_path
-      File.join(RIGHT_LINK_SPEC_HELPER_TEMP_PATH, '__nanite.log')
+      File.join(RIGHT_LINK_SPEC_HELPER_TEMP_PATH, '__agent.log')
     end
 
     # Test and delete if exists
@@ -140,9 +140,9 @@ module RightScale
       test_dn = { 'C'  => 'US',
                   'ST' => 'California',
                   'L'  => 'Santa Barbara',
-                  'O'  => 'Nanite',
+                  'O'  => 'Agent',
                   'OU' => 'Certification Services',
-                  'CN' => 'Nanite test' }
+                  'CN' => 'Agent test' }
       dn = DistinguishedName.new(test_dn)
       key = RsaKeyPair.new
       [ Certificate.new(key, dn, dn), key ]

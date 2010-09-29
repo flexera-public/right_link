@@ -53,7 +53,23 @@ describe RightScale::AgentIdentity do
 
   it 'should validate' do
     id = RightScale::AgentIdentity.new('prefix', 'agent_name', 1, 'token')
-    RightScale::AgentIdentity.valid?(id.to_s).should be_true  
+    RightScale::AgentIdentity.valid?(id.to_s).should be_true
+  end
+
+  it "should treat serialized id with nanite or mapper prefix as valid" do
+    RightScale::AgentIdentity.valid?("nanite-prefix-agent_name-token-1").should be_true
+    RightScale::AgentIdentity.valid?("mapper-prefix-agent_name-token-1").should be_true
+  end
+
+  it "should parse serialized id with nanite or mapper prefix but discard this prefix" do
+    RightScale::AgentIdentity.parse("nanite-prefix-agent_name-token-1").to_s.should == "prefix-agent_name-token-1"
+    RightScale::AgentIdentity.parse("mapper-prefix-agent_name-token-1").to_s.should == "prefix-agent_name-token-1"
+  end
+
+  it 'should prefix with nanite to make backward compatible' do
+    id = RightScale::AgentIdentity.new('prefix', 'agent_name', 1, 'token')
+    RightScale::AgentIdentity.compatible_serialized(id.to_s, 10).should == "prefix-agent_name-token-1"
+    RightScale::AgentIdentity.compatible_serialized(id.to_s, 9).should == "nanite-prefix-agent_name-token-1"
   end
 
 end

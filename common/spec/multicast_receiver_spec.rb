@@ -30,16 +30,16 @@ describe RightScale::MulticastReceiver do
       @timer = flexmock("timer", :cancel => true).by_default
       flexmock(RightScale::RightLinkLog).should_receive(:info).never.by_default
       flexmock(RightScale::RightLinkLog).should_receive(:error).never.by_default
-      @multicast = RightScale::OperationResult.multicast(["nanite-rs-from1", "nanite-rs-from2", "shared"])
+      @multicast = RightScale::OperationResult.multicast(["rs-from1", "rs-from2", "shared"])
       @multicast_empty = RightScale::OperationResult.multicast([])
       @multicast_result = RightScale::Result.new("token", "to", @multicast, "mapper")
       @multicast_empty_result = RightScale::Result.new("token", "to", @multicast_empty, "mapper")
       @success = RightScale::OperationResult.success("success")
-      @success_result1 = RightScale::Result.new("token", "to", @success, "nanite-rs-from1")
-      @success_result2 = RightScale::Result.new("token", "to", @success, "nanite-rs-from2")
+      @success_result1 = RightScale::Result.new("token", "to", @success, "rs-from1")
+      @success_result2 = RightScale::Result.new("token", "to", @success, "rs-from2")
       @success_result3 = RightScale::Result.new("token", "to", @success, "shared")
       @error = RightScale::OperationResult.error("Error")
-      @error_result = RightScale::Result.new("token", "to", @error, "nanite-rs-from1")
+      @error_result = RightScale::Result.new("token", "to", @error, "rs-from1")
       @each_count = 0
       @each_blk = lambda do |token, from, content|
         @each_token = token; @each_from = from; @each_content = content; @each_count += 1

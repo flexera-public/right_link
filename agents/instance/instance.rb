@@ -46,10 +46,9 @@ register AgentManager.new(self)
 register InstanceServices.new(@identity)
 
 # Start command runner to enable running RightScripts and recipes from the command line
-agent_identity = RightScale::AgentIdentity.serialized_from_nanite(@identity)
 cmd_opts = RightScale::CommandRunner.start(RightScale::CommandConstants::BASE_INSTANCE_AGENT_SOCKET_PORT,
                                            @identity,
-                                           InstanceCommands.get(agent_identity, scheduler),
+                                           InstanceCommands.get(@identity, scheduler),
                                            @options)
 
 # Set environment variable containing options so child (cook) process can retrieve them

@@ -75,7 +75,7 @@ describe String do
     end
     
     it "should replace multiple '::' with '/'" do
-      "hello::nanite::world".to_const_path.should == "hello/nanite/world"
+      "hello::rightscale::world".to_const_path.should == "hello/rightscale/world"
     end
 
   end

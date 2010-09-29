@@ -72,20 +72,19 @@ module RightScale
         @token = result.token
         r = RightScale::OperationResult.from_results(result)
         if r.multicast?
-          @to = r.content.map { |id| serialized_from_nanite(id) }
+          @to = r.content
           if @to.size > 0
             @timer = EM::Timer.new(@timeout, lambda { @done.call(@token, @to, @from, true) }) if @timeout
           else
             RightLinkLog.info("No targets found to #{@description}")
           end
         else
-          from = serialized_from_nanite(result.from)
-          @to = [from] if @to.empty?
-          @from << from
+          @to = [result.from] if @to.empty?
+          @from << result.from
           if r.success?
-            @each.call(@token, from, r.content) if @each
+            @each.call(@token, result.from, r.content) if @each
           else
-            msg = "Failed to #{@description} on target #{from}"
+            msg = "Failed to #{@description} on target #{result.from}"
             msg += ": #{r.content}" if r.content
             RightScale::RightLinkLog.error(msg)
           end
@@ -103,19 +102,6 @@ module RightScale
         end
       end
       true
-    end
-
-    protected
-
-    # Remove nanite prefix from target identity
-    #
-    # === Parameters
-    # id(String):: Target identity that may have nanite prefix
-    #
-    # === Return
-    # (String):: Target identity without nanite prefix
-    def serialized_from_nanite(id)
-      AgentIdentity.valid_nanite?(id) ? AgentIdentity.serialized_from_nanite(id) : id
     end
 
   end # MulticastReceiver

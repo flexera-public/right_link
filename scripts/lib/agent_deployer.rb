@@ -93,7 +93,6 @@ module RightScale
       end
       options[:actors] = actors
       options[:initrb] = File.join(options[:agents_dir], "#{agent}.rb")
-      options[:pid_prefix] = 'nanite'
       write_config(options)
     end
 
@@ -259,11 +258,11 @@ protected
     # Create monit configuration file
     def setup_monit(options)
       agent = options[:agent]
-      pid_file = PidFile.new("#{options[:pid_prefix]}-#{options[:identity]}", :pid_dir => options[:pid_dir] || RightScale::RightLinkConfig[:platform].filesystem.pid_dir)
+      pid_file = PidFile.new("#{options[:identity]}", :pid_dir => options[:pid_dir] || RightScale::RightLinkConfig[:platform].filesystem.pid_dir)
       cfg_file = if File.exists?('/opt/rightscale/etc/monit.d')
-        File.join('/opt/rightscale/etc/monit.d', "#{agent}-#{options[:identity]}.conf")
+        File.join('/opt/rightscale/etc/monit.d', "#{options[:identity]}.conf")
       else
-        File.join(gen_agent_dir(agent), "#{agent}-#{options[:identity]}-monit.conf")
+        File.join(gen_agent_dir(agent), "#{options[:identity]}-monit.conf")
       end
       File.open(cfg_file, 'w') { |f| f.puts monit_config(agent, pid_file) }
       # monit requires strict perms on this file

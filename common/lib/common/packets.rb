@@ -90,19 +90,28 @@ module RightScale
       log_msg
     end
 
-    # Generate log friendly name
+    # Generate log friendly serialized identity
+    # Result marked with leading '*' if not same as original identity
     #
     # === Parameters
-    # id(String):: Agent id
+    # id(String):: Serialized identity
     #
     # === Return
-    # (String):: Log friendly name
+    # (String):: Log friendly serialized identity
     def id_to_s(id)
-      case id
-        when /^mapper-/ then 'mapper'
-        when /^nanite-(.*)/ then Regexp.last_match(1)
-        else id
-      end
+      modified_id = AgentIdentity.compatible_serialized(id)
+      if id == modified_id then modified_id else "*#{modified_id}" end
+    end
+
+    # Convert serialized AgentIdentity to compatible format
+    #
+    # === Parameters
+    # id(String):: Serialized identity
+    #
+    # === Return
+    # (String):: Compatible serialized identity
+    def self.compatible(id)
+      AgentIdentity.compatible_serialized(id)
     end
 
     # Get target to be used for encrypting the packet
@@ -154,7 +163,7 @@ module RightScale
     #   :scope(Hash):: Define behavior that should be used to resolve tag based routing
     #   :token(String):: Generated request id that a mapper uses to identify replies
     #   :reply_to(String):: Identity of the node that actor replies to, usually a mapper itself
-    #   :selector(Symbol):: Selector used to route the request: :all or :random,
+    #   :selector(Symbol):: Selector used to route the request: :all or :random
     #   :target(String):: Target recipient
     #   :persistent(Boolean):: Indicates if this request should be saved to persistent storage
     #     by the AMQP broker
@@ -200,11 +209,11 @@ module RightScale
     # (Request):: New packet
     def self.json_create(o)
       i = o['data']
-      new(i['type'], i['payload'], { :from       => i['from'],       :scope    => i['scope'],
-                                     :token      => i['token'],      :reply_to => i['reply_to'],
-                                     :selector   => i['selector'],   :target   => i['target'],   
-                                     :persistent => i['persistent'], :tags     => i['tags'],
-                                     :created_at => i['created_at'], :tries    => i['tries'] },
+      new(i['type'], i['payload'], { :from       => self.compatible(i['from']), :scope    => i['scope'],
+                                     :token      => i['token'],                 :reply_to => self.compatible(i['reply_to']),
+                                     :selector   => i['selector'],              :target   => self.compatible(i['target']),
+                                     :persistent => i['persistent'],            :tags     => i['tags'],
+                                     :created_at => i['created_at'],            :tries    => i['tries'] },
           o['size'])
     end
 
@@ -267,7 +276,7 @@ module RightScale
     #   :from(String):: Sender identity
     #   :scope(Hash):: Define behavior that should be used to resolve tag based routing
     #   :token(String):: Generated request id that a mapper uses to identify replies
-    #   :selector(Symbol):: Selector used to route the request: :all or :random,
+    #   :selector(Symbol):: Selector used to route the request: :all or :random
     #   :target(String):: Target recipient
     #   :persistent(Boolean):: Indicates if this request should be saved to persistent storage
     #     by the AMQP broker
@@ -317,10 +326,10 @@ module RightScale
     # (Push):: New packet
     def self.json_create(o)
       i = o['data']
-      new(i['type'], i['payload'], { :from    => i['from'],   :scope      => i['scope'],
-                                     :token   => i['token'],  :selector   => i['selector'],
-                                     :target  => i['target'], :persistent => i['persistent'],
-                                     :tags    => i['tags'],   :created_at => i['created_at'] },
+      new(i['type'], i['payload'], { :from   => self.compatible(i['from']),   :scope      => i['scope'],
+                                     :token  => i['token'],                   :selector   => i['selector'],
+                                     :target => self.compatible(i['target']), :persistent => i['persistent'],
+                                     :tags   => i['tags'],                    :created_at => i['created_at'] },
           o['size'])
     end
 
@@ -396,8 +405,8 @@ module RightScale
     # (Result):: New packet
     def self.json_create(o)
       i = o['data']
-      new(i['token'], i['to'], i['results'], i['from'], i['request_from'], i['tries'], i['persistent'], i['created_at'],
-          o['size'])
+      new(i['token'], self.compatible(i['to']), i['results'], self.compatible(i['from']),
+          self.compatible(i['request_from']), i['tries'], i['persistent'], i['created_at'], o['size'])
     end
 
     # Generate log representation
@@ -485,7 +494,8 @@ module RightScale
     # (Result):: New packet
     def self.json_create(o)
       i = o['data']
-      new(i['identity'], i['token'], i['from'], i['created_at'], i['received_at'], i['timeout'], o['size'])
+      new(self.compatible(i['identity']), i['token'], self.compatible(i['from']), i['created_at'],
+          i['received_at'], i['timeout'], o['size'])
     end
 
     # Generate log representation
@@ -543,8 +553,8 @@ module RightScale
     # (Register):: New packet
     def self.json_create(o)
       i = o['data']
-      new(i['identity'], i['services'], i['tags'], i['brokers'], i['shared_queue'], i['created_at'],
-          i['version'] || DEFAULT_VERSION, o['size'])
+      new(self.compatible(i['identity']), i['services'], i['tags'], i['brokers'], i['shared_queue'],
+          i['created_at'], i['version'] || DEFAULT_VERSION, o['size'])
     end
 
     # Generate log representation
@@ -593,7 +603,7 @@ module RightScale
     # (UnRegister):: New packet
     def self.json_create(o)
       i = o['data']
-      new(i['identity'], o['size'])
+      new(self.compatible(i['identity']), o['size'])
     end
   
     # Generate log representation
@@ -608,57 +618,6 @@ module RightScale
     end
 
   end # UnRegister
-
-
-  # Deprecated for agents that are version 10 and above
-  #
-  # Heartbeat packet
-  class Ping < Packet
-
-    attr_accessor :identity, :status, :connected, :failed, :created_at
-
-    # Create packet
-    #
-    # === Parameters
-    # identity(String):: Sender identity
-    # status(Any):: Load of the node by default, but may be any criteria
-    #   agent may use to report its availability, load, etc
-    # connected(Array|nil):: Identity of agent's connected brokers, nil means not supported
-    # failed(Array|nil):: Identity of agent's failed brokers, i.e., ones it never was able
-    #   to connect to, nil means not supported
-    # size(Integer):: Size of request in bytes used only for marshalling
-    def initialize(identity, status, connected = nil, failed = nil, size = nil)
-      @status     = status
-      @identity   = identity
-      @connected  = connected
-      @failed     = failed
-      @size       = size
-    end
-
-    # Create packet from unmarshalled JSON data
-    #
-    # === Parameters
-    # o(Hash):: JSON data
-    #
-    # === Return
-    # (Ping):: New packet
-    def self.json_create(o)
-      i = o['data']
-      new(i['identity'], i['status'], i['connected'], i['failed'], o['size'])
-    end
-
-    # Generate log representation
-    #
-    # === Parameters
-    # filter(Array(Symbol)):: Attributes to be included in output
-    #
-    # === Return
-    # (String):: Log representation
-    def to_s(filter = nil)
-      "#{super} #{id_to_s(@identity)} status #{@status}, connected #{@connected.inspect}, failed #{@failed.inspect}"
-    end
-
-  end # Ping
 
 
   # Packet for requesting an agent to advertise its services to the mappers
@@ -719,7 +678,7 @@ module RightScale
     # (TagUpdate):: New packet
     def self.json_create(o)
       i = o['data']
-      new(i['identity'], i['new_tags'], i['obsolete_tags'], o['size'])
+      new(self.compatible(i['identity']), i['new_tags'], i['obsolete_tags'], o['size'])
     end
 
     # Generate log representation
@@ -773,9 +732,9 @@ module RightScale
     # (TagQuery):: New packet
     def self.json_create(o)
       i = o['data']
-      new(i['from'], { :token => i['token'], :agent_ids => i['agent_ids'],
-                       :tags => i['tags'],   :persistent => i['persistent'] },
-          o['size'])
+      agent_ids = i['agent_ids'].map { |id| self.compatible(id) } if i['agent_ids']
+      new(i['from'], { :token => i['token'], :agent_ids => agent_ids,
+                       :tags => i['tags'],   :persistent => i['persistent'] }, o['size'])
     end
 
     # Generate log representation
@@ -794,6 +753,6 @@ module RightScale
     end
 
   end # TagQuery
-
+ 
 end # RightScale
 

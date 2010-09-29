@@ -22,22 +22,38 @@
 
 module RightScale
 
-  # Proxy to actual certificate store which caches results in an LRU
-  # cache.
+  # Proxy to actual certificate store which caches results in an LRU cache
   class CachedCertificateStoreProxy
     
-    # Initialize cache proxy with given certificate store.
+    # Initialize cache proxy with given certificate store
+    #
+    # === Parameters
+    # store(Object):: Certificate store responding to get_recipients and
+    #   get_signer
     def initialize(store)
       @signer_cache = CertificateCache.new
       @store = store
     end
-    
-    # Results from 'get_recipients' are not cached
+
+    # Retrieve recipient certificates
+    # Results are not cached
+    #
+    # === Parameters
+    # packet(RightScale::Packet):: Packet containing recipient identity, ignored
+    #
+    # === Return
+    # (Array):: Recipient certificates
     def get_recipients(obj)
       @store.get_recipients(obj)
     end
 
     # Check cache for signer certificate
+    #
+    # === Parameters
+    # id(String):: Serialized identity of signer
+    #
+    # === Return
+    # (Array):: Signer certificates
     def get_signer(id)
       @signer_cache.get(id) { @store.get_signer(id) }
     end

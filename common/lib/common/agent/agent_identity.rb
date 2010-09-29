@@ -77,32 +77,15 @@ module RightScale
       id = bytes.unpack('H*')[0]
     end
 
-    # Check whether identity corresponds to an instance agent
-    #
-    # === Return
-    # true:: If id corresponds to an instance agent
-    # false:: Otherwise
-    def instance_agent?
-      agent_name == 'instance'
-    end
-    
     # Check validity of given serialized identity
     #
     # === Parameters
-    # serialized(String):: Serialized identity to be tested
+    # serialized_id(String):: Serialized identity to be tested
     #
     # === Return
-    # true:: If serialized identity is a valid identity token
-    # false:: Otherwise
-    def self.valid?(serialized)
-      return false unless serialized && serialized.respond_to?(:split) && serialized.respond_to?(:include?)
-      serialized = serialized_from_nanite(serialized) if valid_nanite?(serialized)
-      p = parts(serialized)
-
-      res = p.size == 5 &&
-            p[1] && p[1].size > 0 &&
-            p[2] && p[2].size > 0 &&
-            p[3] && p[3].to_i.to_s == p[3]
+    # (Boolean):: true if serialized identity is a valid, otherwise false
+    def self.valid?(serialized_id)
+      valid_parts?(self.compatible_serialized(serialized_id)) if serialized_id
     end
     
     # Instantiate by parsing given token
@@ -111,73 +94,63 @@ module RightScale
     # serialized_id(String):: Valid serialized agent identity (use 'valid?' to check first)
     #
     # === Return
-    # id(AgentIdentity):: Corresponding agent identity
+    # (AgentIdentity):: Corresponding agent identity
     #
     # === Raise
     # (RightScale::Exceptions::Argument):: Serialized agent identity is incorrect
     def self.parse(serialized_id)
-      serialized_id = serialized_from_nanite(serialized_id) if valid_nanite?(serialized_id)
+      serialized_id = self.compatible_serialized(serialized_id)
       prefix, agent_name, token, bid, separator = parts(serialized_id)
       raise RightScale::Exceptions::Argument, "Invalid agent identity token" unless prefix && agent_name && token && bid
       base_id = bid.to_i
       raise RightScale::Exceptions::Argument, "Invalid agent identity token (Base ID)" unless base_id.to_s == bid
 
-      id = AgentIdentity.new(prefix, agent_name, base_id, token, separator)
+      AgentIdentity.new(prefix, agent_name, base_id, token, separator)
     end
 
-    # Does given id correspond to an instance agent?
+    # Convert serialized agent identity to format valid for given protocol version
+    # Ignore identity that is not in serialized AgentIdentity format
+    #
+    # === Parameters
+    # serialized_id(String):: Serialized agent identity to be converted
+    # version(Integer):: Target protocol version
+    #
+    # === Return
+    # serialized_id(String):: Compatible serialized agent identity
+    def self.compatible_serialized(serialized_id, version = 10)
+      if version < 10
+        serialized_id = "nanite-#{serialized_id}" if self.valid_parts?(serialized_id)
+      else
+        serialized_id = serialized_id[7..-1] if serialized_id =~ /^nanite-|^mapper-/
+      end
+      serialized_id
+    end
+
+    # Check whether identity corresponds to an instance agent
+    #
+    # === Return
+    # (Boolean):: true if id corresponds to an instance agent, otherwise false
+    def instance_agent?
+      agent_name == 'instance'
+    end
+
+    # Check whether identity corresponds to an instance agent
     #
     # === Parameters
     # serialized_id(String):: Valid serialized agent identity (use 'valid?' to check first)
     #
     # === Return
-    # true:: If given id corresponds to an instance agent
-    # false:: Otherwise
+    # (Boolean):: true if id corresponds to an instance agent, otherwise false
     def self.instance_agent?(serialized_id)
       parts(serialized_id)[1] == 'instance'
-    end
-
-    # Check validity of nanite name. Checks whether this is a well-formed nanite name,
-    # does NOT check validity of the ID itself.
-    #
-    # === Parameters
-    # name(String):: string to test for well-formedness
-    #
-    # === Return
-    # true:: If name is a valid Nanite name (begins with "nanite-")
-    # false:: Otherwise
-    def self.valid_nanite?(name)
-      !!(name =~ /^(nanite|mapper)-/)
-    end
-
-    # Instantiate by parsing given nanite agent identity
-    #
-    # === Parameters
-    # nanite(String):: Nanite agent identity
-    #
-    # === Return
-    # serialized(String):: Serialized agent id from nanite id
-    def self.serialized_from_nanite(nanite)
-      serialized = nanite[7..-1] # 'nanite-'.length == 7
-    end
-
-    # Generate agent identity from serialized representation
-    #
-    # === Parameters
-    # serialized(String):: Serialized agent identity
-    #
-    # === Return
-    # nanite(String):: Corresponding nanite id
-    def self.nanite_from_serialized(serialized)
-      nanite = "nanite-#{serialized}"
     end
 
     # String representation of identity
     #
     # === Return
-    # serialized(String):: Serialized identity
+    # (String):: Serialized identity
     def to_s
-      serialized = "#{@prefix}#{@separator}#{@agent_name}#{@separator}#{@token}#{@separator}#{@base_id}"
+      "#{@prefix}#{@separator}#{@agent_name}#{@separator}#{@token}#{@separator}#{@base_id}"
     end
 
     # Comparison operator
@@ -186,8 +159,7 @@ module RightScale
     # other(AgentIdentity):: Other agent identity
     #
     # === Return
-    # true:: If other is identical to self
-    # false:: Otherwise
+    # (Boolean):: true if other is identical to self, otherwise false
     def ==(other)
       other.kind_of?(::RightScale::AgentIdentity) &&
       prefix     == other.prefix     &&
@@ -215,6 +187,21 @@ module RightScale
         separator = ID_SEPARATOR_OLD
       end
       [ prefix, agent_name, token, bid, separator ]
+    end
+
+    # Check that given serialized identity has valid parts
+    #
+    # === Parameters
+    # serialized_id(String):: Serialized identity to be tested
+    #
+    # === Return
+    # (Boolean):: true if serialized identity is a valid identity token, otherwise false
+    def self.valid_parts?(serialized_id)
+      p = parts(serialized_id)
+      res = p.size == 5 &&
+            p[1] && p[1].size > 0 &&
+            p[2] && p[2].size > 0 &&
+            p[3] && p[3].to_i.to_s == p[3]
     end
 
   end # AgentIdentity
