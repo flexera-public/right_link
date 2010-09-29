@@ -30,11 +30,11 @@ module RightScale
   
     # Generate a signed X.509 certificate
     #
-    # Arguments:
-    #  - key: RsaKeyPair, key pair used to sign certificate
-    #  - issuer: DistinguishedName, certificate issuer
-    #  - subject: DistinguishedName, certificate subject
-    #  - valid_for: Time in seconds before certificate expires (10 years by default)
+    # === Parameters
+    # key(RsaKeyPair):: Key pair used to sign certificate
+    # issuer(DistinguishedName):: Certificate issuer
+    # subject(DistinguishedName):: Certificate subject
+    # valid_for(Integer):: Time in seconds before certificate expires, defaults to 10 years
     def initialize(key, issuer, subject, valid_for = 3600*24*365*10)
       @raw_cert = OpenSSL::X509::Certificate.new
       @raw_cert.version = 2
@@ -48,6 +48,12 @@ module RightScale
     end
     
     # Load certificate from file
+    #
+    # === Parameters
+    # file(String):: File path name
+    #
+    # === Return
+    # res(Certificate):: Certificate
     def self.load(file)
       res = nil
       File.open(file, 'r') { |f| res = from_data(f) }
@@ -55,6 +61,12 @@ module RightScale
     end
     
     # Initialize with raw certificate
+    #
+    # === Parameters
+    # data(String):: Raw certificate data
+    #
+    # === Return
+    # res(Certificate):: Certificate
     def self.from_data(data)
       cert = OpenSSL::X509::Certificate.new(data)
       res = Certificate.allocate
@@ -63,13 +75,23 @@ module RightScale
     end
     
     # Save certificate to file in PEM format
+    #
+    # === Parameters
+    # file(String):: File path name
+    #
+    # === Return
+    # true:: Always return true
     def save(file)
       File.open(file, "w") do |f|
         f.write(@raw_cert.to_pem)
       end
+      true
     end
     
     # Certificate data in PEM format
+    #
+    # === Return
+    # (String):: Certificate data
     def data
       @raw_cert.to_pem
     end

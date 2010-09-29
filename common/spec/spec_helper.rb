@@ -31,9 +31,9 @@ module RightScale
       test_dn = { 'C'  => 'US',
                   'ST' => 'California',
                   'L'  => 'Santa Barbara',
-                  'O'  => 'Nanite',
+                  'O'  => 'Agent',
                   'OU' => 'Certification Services',
-                  'CN' => 'Nanite test' }
+                  'CN' => 'Agent test' }
       dn = RightScale::DistinguishedName.new(test_dn)
       key = RightScale::RsaKeyPair.new
       [ RightScale::Certificate.new(key, dn, dn), key ]

@@ -56,7 +56,7 @@ module RightScale
       ARGV.replace old_args
       # Clean up tty settings in some evil, evil cases
       begin; catch(:IRB_EXIT) { irb_exit }; rescue Exception; end
-      # Make nanite exit when irb does
+      # Make agent exit when irb does
       EM.stop if EM.reactor_running?
     end
 

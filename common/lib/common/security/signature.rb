@@ -35,17 +35,22 @@ module RightScale
 
     # Create signature using certificate and key pair.
     #
-    # Arguments:
-    #  - 'data': Data to be signed
-    #  - 'cert': Certificate used for signature
-    #  - 'key':  RsaKeyPair used for signature
-    #
+    # === Parameters
+    # data(String):: Data to be signed
+    # cert(Certificate):: Certificate used for signature
+    # key(RsaKeyPair):: Key pair used for signature
     def initialize(data, cert, key)
       @p7 = OpenSSL::PKCS7.sign(cert.raw_cert, key.raw_key, data, [], FLAGS)
       @store = OpenSSL::X509::Store.new
     end
     
-    # Load signature previously serialized via 'data'
+    # Load signature from previously serialized data
+    #
+    # === Parameters
+    # data(String):: Serialized data
+    #
+    # === Return
+    # sig(Signature):: Signature for data
     def self.from_data(data)
       sig = Signature.allocate
       sig.instance_variable_set(:@p7, RightScale::PKCS7.new(data))
@@ -53,12 +58,21 @@ module RightScale
       sig
     end
 
-    # 'true' if signature was created using given cert, 'false' otherwise
+    # Check whether signature was created using cert
+    #
+    # === Parameters
+    # cert(Certificate):: Certificate
+    #
+    # === Return
+    # (Boolean):: true if created using given cert, otherwise false
     def match?(cert)
       @p7.verify([cert.raw_cert], @store, nil, OpenSSL::PKCS7::NOVERIFY)
     end
 
     # Signature in PEM format
+    #
+    # === Return
+    # (String):: Signature
     def data
       @p7.to_pem
     end

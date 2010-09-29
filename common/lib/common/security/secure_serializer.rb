@@ -23,19 +23,19 @@
 module RightScale
   
   # Serializer implementation which secures messages by using
-  # X.509 certificate sigining.
+  # X.509 certificate signing
   class SecureSerializer
 
-    # Initialize serializer, must be called prior to using it.
+    # Initialize serializer, must be called prior to using it
     #
-    #  - 'identity':   Identity associated with serialized messages
-    #  - 'cert':       Certificate used to sign and decrypt serialized messages
-    #  - 'key':        Private key corresponding to 'cert'
-    #  - 'store':      Certificate store. Exposes certificates used for
-    #                  encryption and signature validation.
-    #  - 'encrypt':    Whether data should be signed and encrypted ('true')
-    #                  or just signed ('false'), 'true' by default.
-    #
+    # === Parameters
+    #  identity(String):: Serialized identity associated with serialized messages
+    #  cert(String):: Certificate used to sign and decrypt serialized messages
+    #  key(RsaKeyPair):: Private key corresponding to specified cert
+    #  store(Object):: Certificate store exposing certificates used for
+    #    encryption (get_recipients) and signature validation (get_signer)
+    #  encrypt(Boolean):: true if data should be signed and encrypted, otherwise
+    #    just signed, true by default
     def self.init(identity, cert, key, store, encrypt = true)
       @identity = identity
       @cert = cert
@@ -50,7 +50,15 @@ module RightScale
     end
 
     # Serialize message and sign it using X.509 certificate
-    def self.dump(obj, encrypt=nil)
+    #
+    # === Parameters
+    # obj(Object):: Object to serialized and encrypted
+    # encrypt(Boolean|nil):: true if object should be signed and encrypted,
+    #   false if just signed, nil means use global setting
+    #
+    # === Return
+    # (String):: JSON serialized and optionally encrypted object
+    def self.dump(obj, encrypt = nil)
       raise "Missing certificate identity" unless @identity
       raise "Missing certificate" unless @cert
       raise "Missing certificate key" unless @key
@@ -67,10 +75,16 @@ module RightScale
         end
       end
       sig = Signature.new(json, @cert, @key)
-      { 'id' => @identity, 'data' => json, 'signature' => sig.data, 'encrypted' => !certs.nil? }.to_json
+      {'id' => @identity, 'data' => json, 'signature' => sig.data, 'encrypted' => !certs.nil?}.to_json
     end
     
     # Unserialize data using certificate store
+    #
+    # === Parameters
+    # json(String):: JSON serialized and optionally encrypted object
+    #
+    # === Return
+    # (Object):: Unserialized object
     def self.load(json)
       raise "Missing certificate store" unless @store
       raise "Missing certificate" unless @cert || !@encrypt

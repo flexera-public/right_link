@@ -79,11 +79,8 @@ module RightScale
     #   :shared_queue(String):: Name of AMPQ queue to be used for input in addition to identity queue.
     #     This is a queue that is shared by multiple agents and hence, unlike the identity queue,
     #     is only able to receive requests, not results.
-    #   :format(Symbol):: Format to use for packets serialization -- :marshal, :json or :yaml or :secure.
-    #     Defaults to Ruby's Marshall format. For interoperability with AMQP clients implemented in other
-    #     languages, use JSON. Note that the nanite code uses JSON gem, and ActiveSupport's JSON encoder
-    #     may cause clashes if ActiveSupport is loaded after JSON gem. Also, using the secure format
-    #     requires prior initialization of the serializer (see RightScale::SecureSerializer.init).
+    #   :format(Symbol):: Format to use for packets serialization -- :marshal, :json or :yaml or :secure
+    #     Use of the secure format requires prior initialization of the serializer (see SecureSerializer.init)
     #   :root(String):: Application root for this agent. Defaults to Dir.pwd.
     #   :log_dir(String):: Log file path. Defaults to the current working directory.
     #   :file_root(String):: Path to directory to files this agent provides. Defaults to app_root/files.
@@ -115,7 +112,7 @@ module RightScale
     #     message(Packet):: Message being processed
     #     mapper(Agent):: Reference to agent
     #   :services(Symbol):: List of services provided by this agent. Defaults to all methods exposed by actors.
-    #   :secure(Boolean):: true indicates to use Security features of rabbitmq to restrict nanites to themselves
+    #   :secure(Boolean):: true indicates to use Security features of RabbitMQ to restrict agents to themselves
     #   :single_threaded(Boolean):: true indicates to run all operations in one thread; false indicates
     #     to do requested work on EM defer thread and all else, such as pings on main thread
     #   :threadpool_size(Integer):: Number of threads in EM thread pool
@@ -399,7 +396,7 @@ module RightScale
         else
           @terminating = true
           timeout = @options[:grace_timeout]
-          RightScale::RightLinkLog.info("[stop] Agent #{@options[:identity]} terminating")
+          RightScale::RightLinkLog.info("[stop] Agent #{@identity} terminating")
           un_register
           @broker.unusable.each { |id| @broker.close_one(id, propagate = false) }
           @broker.unsubscribe([@shared_queue], timeout / 2) do
@@ -469,11 +466,11 @@ module RightScale
       end
 
       if @options[:identity]
-        @identity = "nanite-#{@options[:identity]}"
+        @identity = @options[:identity]
         @is_instance_agent = AgentIdentity.parse(@identity).instance_agent? rescue nil
       else
         token = AgentIdentity.generate
-        @identity = "nanite-#{token}"
+        @identity = "agent-#{token}"
         File.open(File.normalize_path(File.join(@options[:root], 'config.yml')), 'w') do |fd|
           fd.write(YAML.dump(custom_config.merge(:identity => token)))
         end

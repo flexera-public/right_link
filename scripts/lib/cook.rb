@@ -50,12 +50,11 @@ module RightScale
       # 3. Run bundle
       @@instance = self
       success = nil
-      agent_identity  = options[:identity]
-      nanite_identity = AgentIdentity.nanite_from_serialized(options[:identity])
+      agent_id  = options[:identity]
       RightLinkLog.program_name = 'RightLink'
       RightLinkLog.log_to_file_only(options[:log_to_file_only])
-      RightLinkLog.init(nanite_identity, options[:log_path])
-      InstanceState.init(agent_identity)
+      RightLinkLog.init(agent_id, options[:log_path])
+      InstanceState.init(agent_id)
       sequence = ExecutableSequence.new(bundle)
       EM.threadpool_size = 1
       EM.error_handler do |e|

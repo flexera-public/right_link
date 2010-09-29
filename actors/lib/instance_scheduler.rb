@@ -83,7 +83,7 @@ class InstanceScheduler
   # === Return
   # true:: Always return true
   def execute(options)
-    options[:agent_identity] = RightScale::AgentIdentity.serialized_from_nanite(@agent_identity)
+    options[:agent_identity] = @agent_identity
     RightScale::RequestForwarder.instance.request('/forwarder/schedule_recipe', options) do |r|
       res = RightScale::OperationResult.from_results(r)
       RightScale::RightLinkLog.info("Failed to execute recipe: #{res.content}") unless res.success?
@@ -163,7 +163,7 @@ class InstanceScheduler
     true
   end
 
-  # Suicide, use TERM so nanite's handler gets triggered and agent unregisters
+  # Suicide, use TERM so agent's handler gets triggered and agent unregisters
   # Note: Will *not* run the decommission scripts, call run_decommission first if you need to
   #
   # === Return

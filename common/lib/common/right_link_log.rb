@@ -200,12 +200,12 @@ module RightScale
       @logger.remove(logger)
     end
 
-    # Set whether syslog should be used or to log to a nanite-specific file.
-    # This should be called before anything else.
+    # Set whether syslog should be used or to log to an agent-specific file
+    # This should be called before anything else
     #
     # === Parameters
     # val(Boolean):: Whether syslog should be used (false) or
-    #                a nanite-specific log file (true)
+    #                a agent-specific log file (true)
     #
     # === Raise
     # RuntimeError:: If logger is already initialized
@@ -228,9 +228,8 @@ module RightScale
     # initialized.
     #
     # === Parameters
-    # prog_name(String):: An arbitrary string, or "nil"
-    #                     to use the default name which
-    #                     is based on the nanite identity
+    # prog_name(String):: An arbitrary string, or "nil" to use
+    #   the default name that is based on the agent's identity
     #
     # === Return
     # program_name(String):: The input string
@@ -307,7 +306,7 @@ module RightScale
 
         if @log_to_file_only || RightLinkConfig[:platform].windows?
           if path
-            file = File.join(path, "nanite.#{identity}.log")
+            file = File.join(path, "#{identity}.log")
           else
             file = STDOUT
           end

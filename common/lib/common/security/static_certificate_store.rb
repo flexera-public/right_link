@@ -22,20 +22,19 @@
 
 module RightScale
 
-  # Simple certificate store, serves a static set of certificates.
+  # Simple certificate store, serves a static set of certificates
   class StaticCertificateStore
     
-    # Initialize store:
+    # Initialize store
     #
-    #  - Signer certificates are used when loading data to check the digital
-    #    signature. The signature associated with the serialized data needs
-    #    to match with one of the signer certificates for loading to succeed.
-    #
-    #  - Recipient certificates are used when serializing data for encryption.
-    #    Loading the data can only be done through serializers that have been
-    #    initialized with a certificate that's in the recipient certificates if
-    #    encryption is enabled.
-    #
+    # === Parameters
+    # signer_certs(Array|Certificate):: Signer certificate(s) used when loading data to
+    #   check the digital signature. The signature associated with the serialized data
+    #   needs to match with one of the signer certificates for loading to succeed.
+    # recipients_certs(Array|Certificate):: Recipient certificate(s) used when serializing
+    #   data for encryption. Loading the data can only be done through serializers that
+    #   have been initialized with a certificate that's in the recipient certificates
+    #   if encryption is enabled.
     def initialize(signer_certs, recipients_certs)
       signer_certs = [ signer_certs ] unless signer_certs.respond_to?(:each)
       @signer_certs = signer_certs 
@@ -43,13 +42,25 @@ module RightScale
       @recipients_certs = recipients_certs
     end
     
-    # Retrieve signer certificate for given id
-    def get_signer(identity)
+    # Retrieve signer certificates
+    #
+    # === Parameters
+    # id(String):: Serialized identity of signer, ignored
+    #
+    # === Return
+    # (Array):: Signer certificates
+    def get_signer(id)
       @signer_certs
     end
 
-    # Recipient certificate(s) that will be able to decrypt the serialized data
-    def get_recipients(obj)
+    # Retrieve recipient certificates that will be able to decrypt the serialized data
+    #
+    # === Parameters
+    # packet(RightScale::Packet):: Packet containing recipient identity, ignored
+    #
+    # === Return
+    # (Array):: Recipient certificates
+    def get_recipients(packet)
       @recipients_certs
     end
     

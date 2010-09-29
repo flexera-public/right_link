@@ -23,8 +23,7 @@
 module RightScale
 
   # Build X.509 compliant distinguished names
-  # Distinghuished names are used to desccribe both a certificate issuer and
-  # subject.
+  # Distinguished names are used to describe both a certificate issuer and subject
   class DistinguishedName
     
     # Initialize distinguished name from hash

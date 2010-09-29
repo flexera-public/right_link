@@ -28,8 +28,8 @@ module RightScale
       File.umask 0022
       exit if fork
       STDIN.reopen "/dev/null"
-      STDOUT.reopen "#{options[:log_path]}/nanite.#{identity}.out", "a"
-      STDERR.reopen "#{options[:log_path]}/nanite.#{identity}.err", "a"
+      STDOUT.reopen "#{options[:log_path]}/#{identity}.out", "a"
+      STDERR.reopen "#{options[:log_path]}/#{identity}.err", "a"
     end
   end
 end

@@ -182,12 +182,6 @@ describe RightScale::HA_MQ do
       ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first:0, third:2", :port => 5672)
       ha_mq.aliases(["rs-broker-third-5672"]).should == ["b2"]
       ha_mq.aliases(["rs-broker-third-5672", "rs-broker-first-5672"]).should == ["b2", "b0"]
-      ha_mq.aliases(["nanite-rs-broker-third-5672", "rs-broker-first-5672"]).should == ["b2", "b0"]
-    end
-
-    it "should convert identities into aliases when prefixed with nanite" do
-      ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first:0, third:2", :port => 5672)
-      ha_mq.aliases(["nanite-rs-broker-first-5672", "rs-broker-third-5672"]).should == ["b0", "b2"]
     end
 
     it "should convert identities into nil alias when unknown" do
@@ -200,11 +194,6 @@ describe RightScale::HA_MQ do
       ha_mq.alias_("rs-broker-third-5672").should == "b2"
     end
 
-    it "should convert nanite prefixed identity into alias" do
-      ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first:0, third:2", :port => 5672)
-      ha_mq.alias_("nanite-rs-broker-third-5672").should == "b2"
-    end
-
     it "should convert identity into nil alias when unknown" do
       ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first:0, third:2", :port => 5672)
       ha_mq.alias_("rs-broker-second-5672").should == nil
@@ -213,11 +202,6 @@ describe RightScale::HA_MQ do
     it "should convert identity into parts" do
       ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first:0, third:2", :port => 5672)
       ha_mq.identity_parts("rs-broker-third-5672").should == ["third", 5672, 2, 1]
-    end
-
-    it "should convert identity with nanite prefix into parts" do
-      ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first:0, third:2", :port => 5672)
-      ha_mq.identity_parts("nanite-rs-broker-third-5672").should == ["third", 5672, 2, 1]
     end
 
     it "should convert an alias into parts" do
@@ -240,13 +224,6 @@ describe RightScale::HA_MQ do
       ha_mq.get("rs-broker-first-5672").should == "rs-broker-first-5672"
       ha_mq.get("rs-broker-second-5672").should == nil
       ha_mq.get("rs-broker-third-5672").should == "rs-broker-third-5672"
-    end
-
-    it "should get identity from identity with nanite prefix" do
-      ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first:0, third:2", :port => 5672)
-      ha_mq.get("nanite-rs-broker-first-5672").should == "rs-broker-first-5672"
-      ha_mq.get("nanite-rs-broker-second-5672").should == nil
-      ha_mq.get("nanite-rs-broker-third-5672").should == "rs-broker-third-5672"
     end
 
     it "should get identity from an alias" do

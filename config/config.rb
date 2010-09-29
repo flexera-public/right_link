@@ -25,20 +25,27 @@
 # name value
 
 # Current RightLink protocol version (no support below version 5)
-# 5:  Started storing timestamps in database for each instance state rather than storing
-#     state name; changed format of agent identifiers by replacing '-' with '*' as separator
-# 6:  Attributes in RecipeInstantiation no longer converted to JSON format (image 5.1.0)
+# 5:  Started storing timestamps in database for each instance state rather than storing state name
+#     Changed format of agent identifiers by replacing '-' with '*' as separator
+# 6:  Attributes in RecipeInstantiation no longer converted to JSON format
+#     (image 5.1.0)
 # 7:  ???
-# 8:  Deprecated full vs. partial converge distinction in ExecutableBundle; core agent
-#     booter actor superseded :set_r_s_version action with :declare;
-#     added request retry and duplicate request checking (image 5.4.0)
+# 8:  Deprecated full vs. partial converge distinction in ExecutableBundle
+#     Core agent booter actor superseded :set_r_s_version action with :declare
+#     Added request retry and duplicate request checking
+#     (image 5.4.0)
 # 9:  Introduced multiple brokers, which extended protocol but did not introduce any
-#     downrev incompatibilities, but wanted clear demarcation if needed to resolve issues (sprint 20, image 5.5.0)
-# 10: Changed multicast requests to no longer be collected in mapper; added request_from field
-#     to Result so that any mapper can forward a result to the original requester;
-#     changed /mapper/list_agents to /mapper/tag_query; eliminated agent periodic pings;
-#     eliminated instance agent registration; added returns field to Request, Push, and
-#     Result for message returns (sprint 21, image 5.6.0)
+#     downrev incompatibilities, but wanted clear demarcation if needed to resolve issues
+#     (sprint 20, image 5.5.0)
+# 10: Changed multicast requests to no longer be collected in mapper
+#     Added request_from field to Result so that any mapper can forward a result to the original requester
+#     Changed /mapper/list_agents to /mapper/tag_query
+#     Eliminated agent periodic pings
+#     Eliminated instance agent registration
+#     Eliminated least_loaded and rr request selectors
+#     Eliminated nanite and mapper prefix for queue names and pid files
+#     Added returns field to Request, Push, and Result for message returns
+#     (sprint 21, image 5.6.0)
 protocol_version 10
 
 # Path to RightLink root folder

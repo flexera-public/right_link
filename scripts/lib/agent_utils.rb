@@ -93,7 +93,7 @@ module RightScale
     # agent(String):: Name of agent
     #
     # === Return
-    # options[:agent_identity](String):: Agent identity
+    # options[:agent_identity](String):: Serialized agent identity
     # options[:log_path](String):: Log path
     # options[:pid](Integer):: Agent process pid if available
     # options[:listen_port](Integer):: Agent command listen port if available
@@ -106,7 +106,7 @@ module RightScale
         cfg = File.join(root_dir, 'config.yml')
         if File.exists?(cfg)
           options = symbolize(YAML.load(IO.read(cfg))) rescue {} || {}
-          options[:agent_identity] = AgentIdentity.nanite_from_serialized(options[:identity])
+          options[:agent_identity] = options[:identity]
           options[:log_path] = options[:log_dir] || Platform.filesystem.log_dir
           pid_file = PidFile.new(options[:agent_identity], options)
           options.merge!(pid_file.read_pid) if pid_file.exists?
