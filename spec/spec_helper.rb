@@ -181,3 +181,23 @@ module RightScale
     end
   end
 end
+
+# monkey patch to reduce how often ohai is invoked during spec test. we don't
+# need realtime info, so static info should be good enough for testing. this
+# is important on Windows for speed but also on Ubuntu to work around an ohai
+# issue where multiple invocations of the ohai/plugins/passwd.rb plugin
+# invokes Etc which appears to leak a system resource and cause a segmentation
+# fault.
+require 'chef/client'
+
+class Chef
+ class Client
+   def run_ohai
+     unless defined?(@@ohai)
+      @@ohai = Ohai::System.new
+      @@ohai.all_plugins
+     end
+     @ohai = @@ohai
+   end
+  end
+end
