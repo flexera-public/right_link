@@ -699,7 +699,7 @@ module RightScale
 
 
   # Deprecated for agents that are version 8 and above
-  # instead use Request of type /mapper/tag_query with :tags and :agent_ids in payload
+  # instead use Request of type /mapper/query_tags with :tags and :agent_ids in payload
   #
   # Packet for requesting retrieval of agents with specified tags
   class TagQuery < Packet
