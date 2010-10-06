@@ -39,7 +39,7 @@
 #     (sprint 20, image 5.5.0)
 # 10: Changed multicast requests to no longer be collected in mapper
 #     Added request_from field to Result so that any mapper can forward a result to the original requester
-#     Changed /mapper/list_agents to /mapper/tag_query
+#     Changed /mapper/list_agents to /mapper/query_tags
 #     Eliminated agent periodic pings
 #     Eliminated instance agent registration
 #     Eliminated least_loaded and rr request selectors
