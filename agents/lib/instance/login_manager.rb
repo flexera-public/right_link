@@ -137,11 +137,13 @@ module RightScale
       #Find all lines in authorized_keys file that do not correspond to an old user.
       #These are the "system keys" that were not added by RightScale.
       old_users_keys = Set.new
-      old_users.each { |u| old_users_keys << AUTHORIZED_KEY_REGEXP.match(u.public_key)[3] }
+      old_users.each do |u|
+        u.public_keys.each { |public_key| old_users_keys << AUTHORIZED_KEY_REGEXP.match(public_key)[3] }
+      end
 
       system_triples = file_triples.select { |t| !old_users_keys.include?(t[1]) }
       system_lines   = system_triples.map { |t| t.join(' ') } 
-      new_lines      = new_users.map { |u| u.public_key }
+      new_lines      = (new_users.map { |u| u.public_keys }).flatten
 
       if exclusive
         return [new_lines.sort, []]

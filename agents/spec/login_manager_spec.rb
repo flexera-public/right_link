@@ -83,22 +83,29 @@ describe RightScale::LoginManager do
       (0...3).each do |i|
         num = rand(2**32).to_s(32)
         pub = rand(2**32).to_s(32)
-        @policy.users << RightScale::LoginUser.new("v0-#{num}", "rs-#{num}", "ssh-rsa #{pub} #{num}@rightscale.com", "#{num}@rightscale.com", true, nil)
-        @policy_keys  << "ssh-rsa #{pub} #{num}@rightscale.com" 
+        public_keys = ["ssh-rsa #{pub} #{num}@rightscale.com"]
+
+        # add a second public key for user #1
+        if 1 == i
+          pub = rand(2**32).to_s(32)
+          public_keys << "ssh-rsa #{pub} #{num}@rightscale.com"
+        end
+        @policy.users << RightScale::LoginUser.new("v0-#{num}", "rs-#{num}", nil, "#{num}@rightscale.com", true, nil, public_keys)
+        public_keys.each { |public_key| @policy_keys << public_key }
       end
     end
 
     it "should only add non-expired users" do
       @policy.users[0].expires_at = one_day_ago
       flexmock(@mgr).should_receive(:read_keys_file).and_return([])
-      flexmock(@mgr).should_receive(:write_keys_file).with((@policy_keys[1..2]).sort)
+      flexmock(@mgr).should_receive(:write_keys_file).with((@policy_keys[1..3]).sort)
       @mgr.update_policy(@policy)
     end
     
     it "should only add users with superuser privilege" do
       @policy.users[0].superuser = false
       flexmock(@mgr).should_receive(:read_keys_file).and_return([])
-      flexmock(@mgr).should_receive(:write_keys_file).with((@policy_keys[1..2]).sort)
+      flexmock(@mgr).should_receive(:write_keys_file).with((@policy_keys[1..3]).sort)
       @mgr.update_policy(@policy)
     end
     
@@ -175,7 +182,7 @@ describe RightScale::LoginManager do
     context 'when no users are set to expire' do
       before(:each) do
         u1 = RightScale::LoginUser.new("v0-1234", "rs1234", "ssh-rsa aaa 1234@rightscale.com", "1234@rightscale.com", true, nil)
-        u2 = RightScale::LoginUser.new("v0-2345", "rs2345", "ssh-rsa bbb 2345@rightscale.com", "2345@rightscale.com", true, nil) 
+        u2 = RightScale::LoginUser.new("v0-2345", "rs2345", nil, "2345@rightscale.com", true, nil, ["ssh-rsa bbb 2345@rightscale.com"])
         @policy.users << u1
         @policy.users << u2
       end

@@ -27,7 +27,7 @@ module RightScale
   class LoginUser
     include Serializable
 
-    attr_accessor :uuid, :username, :public_key, :common_name, :superuser, :expires_at
+    attr_accessor :uuid, :username, :public_key, :public_keys, :common_name, :superuser, :expires_at
 
     # Initialize fields from given arguments
     def initialize(*args)
@@ -37,11 +37,24 @@ module RightScale
       @common_name = args[3] || ''
       @superuser   = args[4] || false
       @expires_at  = Time.at(args[5]) if args[5] && (args[5] != 0) # in JSON, nil -> 0 for some reason...
+      @public_keys = args[6]
+
+      # we now expect an array of public_keys to be passed while supporting the
+      # singlular public_key as a legacy member. when serialized back from a
+      # legacy LoginUser record, the singular value may be set while the plural
+      # is nil.
+      if @public_keys
+        raise ArgumentError, "Expected public_keys (seventh argument) to be an array" unless @public_keys.is_a?(Array)
+        @public_key = @public_keys.first
+      else
+        raise ArgumentError, "Expected public_key (third argument) to be a string" unless @public_key.is_a?(String)
+        @public_keys = [@public_key]
+      end
     end
 
     # Array of serialized fields given to constructor
     def serialized_members
-      [ @uuid, @username, @public_key, @common_name, @superuser, @expires_at.to_i ]
+      [ @uuid, @username, @public_key, @common_name, @superuser, @expires_at.to_i, @public_keys ]
     end
 
   end
