@@ -308,7 +308,7 @@ module RightScale
       begin
         exchange = {:type => :fanout, :name => "request", :options => {:durable => true, :no_declare => @secure}}
         ids = @broker.publish(exchange, request, :persistent => request.persistent,
-                              :log_filter => [:tags, :target, :tries, :persistent], :brokers => ids)
+                              :log_filter => [:tags, :target, :multicast, :tries, :persistent], :brokers => ids)
       rescue Exception => e
         RightLinkLog.error("Failed to publish #{request.to_s([:tags, :target, :tries])}: #{e.message}")
         ids = []

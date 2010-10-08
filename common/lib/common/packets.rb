@@ -231,6 +231,7 @@ module RightScale
       log_msg += " from #{id_to_s(@from)}" if filter.nil? || filter.include?(:from)
       log_msg += ", target #{id_to_s(@target)}" if @target && (filter.nil? || filter.include?(:target))
       log_msg += ", scope #{@scope}" if @scope && (filter.nil? || filter.include?(:scope))
+      log_msg += ", multicast" if (filter.nil? || filter.include?(:multicast)) && multicast?
       log_msg += ", reply_to #{id_to_s(@reply_to)}" if @reply_to && (filter.nil? || filter.include?(:reply_to))
       log_msg += ", tags #{@tags.inspect}" if @tags && !@tags.empty? && (filter.nil? || filter.include?(:tags))
       log_msg += ", persistent" if @persistent && (filter.nil? || filter.include?(:persistent))
@@ -347,6 +348,7 @@ module RightScale
       log_msg += " from #{id_to_s(@from)}" if filter.nil? || filter.include?(:from)
       log_msg += ", target #{id_to_s(@target)}" if @target && (filter.nil? || filter.include?(:target))
       log_msg += ", scope #{@scope}" if @scope && (filter.nil? || filter.include?(:scope))
+      log_msg += ", multicast" if (filter.nil? || filter.include?(:multicast)) && multicast?
       log_msg += ", tags #{@tags.inspect}" if @tags && !@tags.empty? && (filter.nil? || filter.include?(:tags))
       log_msg += ", persistent" if @persistent && (filter.nil? || filter.include?(:persistent))
       log_msg += ", tries #{tries_to_s}" if @tries && !@tries.empty? && (filter.nil? || filter.include?(:tries))
