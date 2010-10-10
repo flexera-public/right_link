@@ -21,16 +21,37 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-require File.join(File.dirname(__FILE__), 'payload_types', 'serializable')
-require File.join(File.dirname(__FILE__), 'payload_types', 'cookbook')
-require File.join(File.dirname(__FILE__), 'payload_types', 'cookbook_repository')
-require File.join(File.dirname(__FILE__), 'payload_types', 'executable_bundle')
-require File.join(File.dirname(__FILE__), 'payload_types', 'event_categories')
-require File.join(File.dirname(__FILE__), 'payload_types', 'operation_result')
-require File.join(File.dirname(__FILE__), 'payload_types', 'recipe_instantiation')
-require File.join(File.dirname(__FILE__), 'payload_types', 'repositories_bundle')
-require File.join(File.dirname(__FILE__), 'payload_types', 'software_repository_instantiation')
-require File.join(File.dirname(__FILE__), 'payload_types', 'right_script_attachment')
-require File.join(File.dirname(__FILE__), 'payload_types', 'right_script_instantiation')
-require File.join(File.dirname(__FILE__), 'payload_types', 'login_policy')
-require File.join(File.dirname(__FILE__), 'payload_types', 'login_user')
+module RightScale
+
+  # Individual cookbook
+  class Cookbook
+
+    include Serializable
+
+    # (String) Cookbook SHA hash.
+    attr_accessor :hash
+
+    # (String) Authentication token
+    attr_accessor :token
+
+    # Initialize fields from given arguments
+    def initialize(*args)
+      @hash  = args[0] if args.size > 0
+      @token = args[1] if args.size > 1
+    end
+
+    # Array of serialized fields given to constructor
+    def serialized_members
+      [ @hash, @token ]
+    end
+
+    # Human friendly name used for audits
+    #
+    # === Return
+    # name(String):: Cookbook repository display name
+    def display_name
+      name = @url + (@tag && !@tag.empty? ? ":#{@tag}" : '')
+    end
+    alias :to_s :display_name
+  end
+end

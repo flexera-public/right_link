@@ -48,16 +48,20 @@ module RightScale
     # Note: Obsolete as of r_s_version 8, kept for backwards compatibility
     attr_accessor :full_converge
 
+    # (Array) Chef cookbooks
+    attr_accessor :cookbooks
+
     def initialize(*args)
       @executables           = args[0]
       @cookbook_repositories = args[1] if args.size > 1
       @audit_id              = args[2] if args.size > 2
       @full_converge         = args[3] if args.size > 3
+      @cookbooks             = args[4] if args.size > 4
     end
 
     # Array of serialized fields given to constructor
     def serialized_members
-      [ @executables, @cookbook_repositories, @audit_id, @full_converge ]
+      [ @executables, @cookbook_repositories, @audit_id, @full_converge, @cookbooks ]
     end
 
     # Human readable representation
@@ -68,6 +72,6 @@ module RightScale
       desc = @executables.collect { |e| e.nickname }.join(', ') if @executables
       desc ||= 'empty bundle'
     end
-  
+
   end
 end
