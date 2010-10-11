@@ -416,7 +416,7 @@ module RightScale
                 end
               rescue Exception => e
                 RightLinkLog.error("Failed executing block for message from queue #{queue.inspect}#{to_exchange} " +
-                                   "on broker #{b[:alias]}: #{e.message} from\n#{e.backtrace.join("\n")}")
+                                   "on broker #{b[:alias]}: #{e}\n" + e.backtrace.join("\n"))
               end
             end
           else
@@ -433,7 +433,7 @@ module RightScale
                 end
               rescue Exception => e
                 RightLinkLog.error("Failed executing block for message from queue #{queue.inspect}#{to_exchange} " +
-                                   "on broker #{b[:alias]}: #{e.message} from\n#{e.backtrace.join("\n")}")
+                                   "on broker #{b[:alias]}: #{e}\n" + e.backtrace.join("\n"))
               end
             end
           end
@@ -473,7 +473,8 @@ module RightScale
                 RightLinkLog.info("[stop] Unsubscribing queue #{q.name} on broker #{b[:alias]}")
                 q.unsubscribe { handler.completed_one }
               rescue Exception => e
-                RightLinkLog.error("Failed unsubscribing queue #{q.name} on broker #{b[:alias]}: #{e.message} from\n#{e.backtrace.join("\n")}")
+                RightLinkLog.error("Failed unsubscribing queue #{q.name} on broker #{b[:alias]}: #{e}\n" +
+                                   e.backtrace.join("\n"))
                 handler.completed_one
               end
             end
