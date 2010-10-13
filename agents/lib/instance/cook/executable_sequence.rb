@@ -44,6 +44,9 @@ module RightScale
     include EM::Deferrable
     include RightScale::ProcessWatcher
 
+    class ReposeConnectionException < Exception
+    end
+
     # Patch to be applied to inputs stored in core
     attr_accessor :inputs_patch
 
@@ -215,43 +218,57 @@ module RightScale
       @audit.create_new_section('Retrieving cookbooks') unless @cookbook_repos.empty?
       audit_time do
         # XXX logger?
-        connection = RightHttpConnection.new(:user_agent => 'Repose client')
+        connection = RightHttpConnection.new(:user_agent => 'Repose client',
+                                             :exception => ReposeConnectionException)
         server = find_repose_server(connection)
         @cookbooks.each do |cookbook|
           @audit.append_info("Downloading #{cookbook.hash}")
 
           request = Net::HTTP::Get.new('/#{cookbook.hash}')
           request['Cookie'] = "repose_ticket=#{cookbook.token}"
-          connection.request(:server => server, :port => '80', :protocol => 'https',
-                             :request => request) do |result|
-            if result.kind_of?(HTTPSuccess)
-              tarball = Tempfile.new("tarball")
-              @audit.append_info("Success, now unarchiving")
-              result.read_body do |chunk|
-                tarball << chunk
-              end
-              tarball.close
+          again? = true
+          while again?
+            begin
+              connection.request(:server => server, :port => '80', :protocol => 'https',
+                                 :request => request) do |result|
+                if result.kind_of?(Net::HTTPSuccess)
+                  again? = false
+                  tarball = Tempfile.new("tarball")
+                  @audit.append_info("Success, now unarchiving")
+                  result.read_body do |chunk|
+                    tarball << chunk
+                  end
+                  tarball.close
 
-              root_dir = File.join(@download_path, cookbook.hash)
-              FileUtils.mkdir_p(root_dir)
-              Dir.chdir(root_dir) do
-                watcher = RightScale::Processes::Watcher.new(-1, -1)
-                result = watcher.launch_and_watch('tar', ['xf', tarball.path], root_dir)
-                case
-                when result.status == :timeout
-                  report_failure("Timeout while unarchiving cookbook #{cookbook.hash}", result.output)
-                when result.status == :size_exceeded
-                  report_failure("Too much space while unarchiving cookbook #{cookbook.hash}",
-                                 result.output)
-                when result.exit_code != 0
-                  report_failure("Unknown error: #{result.exit_code}", result.output)
+                  root_dir = File.join(@download_path, cookbook.hash)
+                  FileUtils.mkdir_p(root_dir)
+                  Dir.chdir(root_dir) do
+                    watcher = RightScale::Processes::Watcher.new(-1, -1)
+                    result = watcher.launch_and_watch('tar', ['xf', tarball.path], root_dir)
+                    case
+                    when result.status == :timeout
+                      report_failure("Timeout while unarchiving cookbook #{cookbook.hash}", result.output)
+                    when result.status == :size_exceeded
+                      report_failure("Too much space while unarchiving cookbook #{cookbook.hash}",
+                                     result.output)
+                    when result.exit_code != 0
+                      report_failure("Unknown error: #{result.exit_code}", result.output)
+                    else
+                      @audit.append_info(result.output)
+                    end
+                  end
+                  tarball.close(true)
+                elsif result.kind_of?(HTTPServiceUnavailable)
+                  @audit.append_info("Repose server unavailable; retrying", result.body)
+                  server = find_repose_server(connection)
                 else
-                  @audit.append_info(result.output)
+                  again? = false
+                  report_failure("Unable to download cookbook #{cookbook.hash}", result.to_s)
                 end
               end
-              tarball.close(true)
-            else
-              report_failure("Unable to download cookbook #{cookbook.hash}", result.to_s)
+            rescue ReposeConnectionException => e
+              @audit.append_info("Connection interrupted: #{e}; retrying")
+              server = find_repose_server(connection)
             end
           end
         end
