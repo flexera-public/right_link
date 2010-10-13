@@ -69,6 +69,7 @@ module RightScale
       @powershell_providers   = nil
       @ohai_retry_delay       = OHAI_RETRY_MIN_DELAY
       @audit                  = AuditStub.instance
+      @logger                 = RightLinkLog
 
       # Initializes run list for this sequence (partial converge support)
       @run_list = []
@@ -217,8 +218,8 @@ module RightScale
 
       @audit.create_new_section('Retrieving cookbooks') unless @cookbook_repos.empty?
       audit_time do
-        # XXX logger?
         connection = RightHttpConnection.new(:user_agent => 'Repose client',
+                                             :logger => @logger,
                                              :exception => ReposeConnectionException)
         server = find_repose_server(connection)
         @cookbooks.each do |cookbook|
