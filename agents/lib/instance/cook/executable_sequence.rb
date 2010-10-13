@@ -20,6 +20,11 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+require 'right_http_connection'
+require 'process_watcher'
+require 'socket'
+require 'tempfile'
+
 # The daemonize method of AR clashes with the daemonize Chef attribute, we don't need that method so undef it
 undef :daemonize if methods.include?('daemonize')
 
@@ -37,6 +42,7 @@ module RightScale
   class ExecutableSequence
 
     include EM::Deferrable
+    include RightScale::ProcessWatcher
 
     # Patch to be applied to inputs stored in core
     attr_accessor :inputs_patch
@@ -53,9 +59,10 @@ module RightScale
       @right_scripts_cookbook = RightScriptsCookbook.new
       @scripts                = bundle.executables.select { |e| e.is_a?(RightScriptInstantiation) }
       recipes                 = bundle.executables.map    { |e| e.is_a?(RecipeInstantiation) ? e : @right_scripts_cookbook.recipe_from_right_script(e) }
-      @cookbook_repos         = bundle.cookbook_repositories || []
+      @cookbooks              = bundle.cookbooks
+      @repose_server          = bundle.repose_server
       @downloader             = Downloader.new
-      @scraper                = Scraper.new(InstanceConfiguration.cookbook_download_path)
+      @download_path          = InstanceConfiguration.cookbook_download_path
       @powershell_providers   = nil
       @ohai_retry_delay       = OHAI_RETRY_MIN_DELAY
       @audit                  = AuditStub.instance
@@ -207,26 +214,73 @@ module RightScale
 
       @audit.create_new_section('Retrieving cookbooks') unless @cookbook_repos.empty?
       audit_time do
-        @cookbook_repos.reverse.each do |repo|
-          next if repo.repo_type == :local
-          @audit.append_info("Downloading #{repo.url}")
-          output = []
-          @scraper.scrape(repo) { |o, _| @audit.append_output(o + "\n") }
-          if @scraper.succeeded?
-            cookbooks_path = repo.cookbooks_path || []
-            if cookbooks_path.empty?
-              Chef::Config[:cookbook_path] << @scraper.last_repo_dir
+        # XXX logger?
+        connection = RightHttpConnection.new(:user_agent => 'Repose client')
+        server = find_repose_server(connection)
+        @cookbooks.each do |cookbook|
+          @audit.append_info("Downloading #{cookbook.hash}")
+
+          request = Net::HTTP::Get.new('/#{cookbook.hash}')
+          request['Cookie'] = "repose_ticket=#{cookbook.token}"
+          connection.request(:server => server, :port => '80', :protocol => 'https',
+                             :request => request) do |result|
+            if result.kind_of?(HTTPSuccess)
+              tarball = Tempfile.new("tarball")
+              @audit.append_info("Success, now unarchiving")
+              result.read_body do |chunk|
+                tarball << chunk
+              end
+              tarball.close
+
+              root_dir = File.join(@download_path, cookbook.hash)
+              FileUtils.mkdir_p(root_dir)
+              Dir.chdir(root_dir) do
+                watcher = RightScale::Processes::Watcher.new(-1, -1)
+                result = watcher.launch_and_watch('tar', ['xf', tarball.path], root_dir)
+                case
+                when result.status == :timeout
+                  report_failure("Timeout while unarchiving cookbook #{cookbook.hash}", result.output)
+                when result.status == :size_exceeded
+                  report_failure("Too much space while unarchiving cookbook #{cookbook.hash}",
+                                 result.output)
+                when result.exit_code != 0
+                  report_failure("Unknown error: #{result.exit_code}", result.output)
+                else
+                  @audit.append_info(result.output)
+                end
+              end
+              tarball.close(true)
             else
-              cookbooks_path.each { |p| Chef::Config[:cookbook_path] << File.join(@scraper.last_repo_dir, p) }
+              report_failure("Unable to download cookbook #{cookbook.hash}", result.to_s)
             end
-            @audit.append_output(output.join("\n"))
-          else
-            report_failure("Failed to download cookbooks #{repo.url}", @scraper.errors.join("\n"))
-            return true
           end
         end
       end
       true
+    end
+
+    def find_repose_server(connection)
+      loop do
+        possibles = Socket.getaddrinfo(@repose_server, 80, Socket::AF_INET, Socket::SOCK_STREAM,
+                                       Socket::IPPROTO_TCP)
+        if possibles.empty?
+          report_failure("Unable to find any repose servers; trying to get #{@repose_server}; retrying")
+          sleep 10
+          next
+        end
+
+        # Try to get to the server health page
+        possibles.each do |possible|
+          family, port, hostname, address, protocol_family, socket_type, protocol = possible
+          request = Net::HTTP::Get.new('/')
+          result = connection.request(:server => address, :port => '80', :protocol => 'https',
+                                      :request => request)
+          return address if result.kind_of?(HTTPSuccess)
+        end
+
+        report_failure("All available repose servers at #{@repose_server} are down; retrying")
+        sleep 10
+      end
     end
 
     # Create Powershell providers from cookbook repos
