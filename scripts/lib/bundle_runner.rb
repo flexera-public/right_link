@@ -21,20 +21,25 @@
 #
 # === Usage:
 #    rs_run_recipe --identity, -i ID [--json, -j JSON_FILE] [--verbose, -v]
-#    rs_run_recipe --name, -n NAME [--json, -j JSON_FILE] [--verbose, -v]
+#    rs_run_recipe --name, -n NAME [--json, -j JSON_FILE] [--recipient_tags, -t TAG_LIST]
+#                  [--scope, -s SCOPE] [--verbose, -v]
 #    rs_run_right_script --identity, -i ID [--parameter, -p NAME=type:VALUE]* [--verbose, -v]
-#    rs_run_right_script --name, -n NAME [--parameter, -p NAME=type:VALUE]* [--verbose, -v]
+#    rs_run_right_script --name, -n NAME [--parameter, -p NAME=type:VALUE]* [--recipient_tags, -t TAG_LIST]
+#                        [--scope, -s SCOPE] [--verbose, -v]
 #
 #      * Can appear multiple times
 #
 #    Options:
-#      --identity, -id ID   RightScript or ServerTemplateChefRecipe id
-#      --name, -n NAME      RightScript or Chef recipe name (overriden by id)
+#      --identity, -i ID    RightScript or ServerTemplateChefRecipe id
+#      --name, -n NAME      RightScript or Chef recipe name (overridden by id)
 #      --json, -j JSON_FILE JSON file name for JSON to be merged into
 #                           attributes before running recipe
 #      --parameter,
 #        -p NAME=type:VALUE Define or override RightScript input
-#                             Note: Only applies to run_right_script
+#                           Note: Only applies to run_right_script
+#      --recipient_tags,    Tags for selecting which instances are to receive request
+#        -t TAG_LIST        with the TAG_LIST being quoted if it contains spaces
+#      --scope, -s SCOPE    Scope for selecting tagged recipients: 'single' or 'all' with 'all' default
 #      --verbose, -v        Display progress information
 #      --help:              Display help
 #      --version:           Display version information
@@ -80,10 +85,12 @@ module RightScale
       client = CommandClient.new(listen_port, config_options[:cookie])
       callback ||= lambda do |r|
         response = OperationResult.from_results(JSON.load(r)) rescue nil
-        if response.respond_to?(:success?) && response.success?
-          puts "Request processed successfully."
+        if r == 'OK'
+          puts "Request sent successfully"
+        elsif response.respond_to?(:success?) && response.success?
+          puts "Request processed successfully"
         else
-          puts "Failed to process request: #{response.respond_to(:content) && response.content || '<unknown error>'}"
+          puts "Failed to process request: #{(response.respond_to?(:content) && response.content) || '<unknown error>'}"
         end
       end
       begin
@@ -99,17 +106,17 @@ module RightScale
     # === Return
     # options(Hash):: Hash of options as defined by the command line
     def parse_args
-      options = { :attributes => {}, :parameters => {}, :verbose => false }
+      options = { :attributes => {}, :parameters => {}, :selector => :all, :verbose => false }
 
       opts = OptionParser.new do |opts|
 
-       opts.on('-i', '--identity ID') do |id|
-         options[:id] = id
-       end
+        opts.on('-i', '--identity ID') do |id|
+          options[:id] = id
+        end
 
-       opts.on('-n', '--name NAME') do |n|
-         options[:name] = n unless options[:id]
-       end
+        opts.on('-n', '--name NAME') do |n|
+          options[:name] = n unless options[:id]
+        end
 
         opts.on('-p', '--parameter PARAM_DEF') do |p|
           name, value = p.split('=')
@@ -125,18 +132,33 @@ module RightScale
           begin
             options[:json] = IO.read(f)
           rescue Exception => e
-            fail("Invalid JSON content: #{e.message}")
+            fail("Invalid JSON content: #{e}")
           end
         end
 
-       opts.on('-v', '--verbose') do
-         options[:verbose] = true
-       end
-
-       opts.on_tail('--help') do
-          RDoc::usage_from_file(__FILE__)
-          exit
+        opts.on('-t', '--recipient_tags TAG_LIST') do |t|
+          options[:tags] = t.split
         end
+
+        opts.on('-s', '--scope SCOPE') do |s|
+          if s == 'single'
+            options[:selector] = :random
+          elsif s == 'all'
+            options[:selector] = :all
+          else
+            fail("Invalid scope definition '#{s}', should be either 'single' or 'all'")
+          end
+        end
+
+        opts.on('-v', '--verbose') do
+          options[:verbose] = true
+        end
+
+        opts.on_tail('--help') do
+           RDoc::usage_from_file(__FILE__)
+           exit
+        end
+
       end
 
       opts.on_tail('--version') do
@@ -176,6 +198,8 @@ protected
     # opts(Hash):: Forwarder actor compatible options hash
     def to_forwarder_options(options)
       opts = {}
+      opts[:tags] = options[:tags] if options[:tags]
+      opts[:selector] = options[:selector] if options[:selector]
       if options[:bundle_type] == :right_script
         opts[:right_script_id] = options[:id] if options[:id]
         opts[:right_script]    = options[:name] if options[:name] && !options[:id]

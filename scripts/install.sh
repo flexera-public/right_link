@@ -74,7 +74,7 @@ do
   echo Installing $script
   cat > /usr/bin/$script <<EOF
 #!/bin/bash
-exec $RUBY_BIN $RIGHT_LINK_SCRIPTS/${script}.rb \$*
+exec $RUBY_BIN $RIGHT_LINK_SCRIPTS/${script}.rb "\$@"
 EOF
   chmod a+x /usr/bin/$script
 done

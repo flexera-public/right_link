@@ -55,17 +55,16 @@ class Chef
                    end
           Chef::Log.info("Scheduling execution of #{@new_resource.recipe.inspect} on #{target}")
           recipients.each do |recipient|
-            RightScale::Cook.instance.push('/instance_scheduler/execute',
-                                              options,
-                                              :target => recipient)
+            RightScale::Cook.instance.push('/instance_scheduler/execute', options,
+                                           :target => recipient)
           end
         end
         if tags && !tags.empty?
-          selector = (@new_resource.scope == :single ? :least_loaded : :all)
+          selector = (@new_resource.scope == :single ? :random : :all)
           target_tag = if tags.size == 1
                          "tag #{tags.first.inspect}"
                        else
-                         "tags #{tags.map { |t| t.inspect }.join(', ')}"
+                         "tags #{tags.map { |t| t.inspect }.join(', ') }"
                        end
           target = if selector == :all
                      "all instances with #{target_tag}"
@@ -74,7 +73,7 @@ class Chef
                    end
           Chef::Log.info("Scheduling execution of #{@new_resource.recipe.inspect} on #{target}")
           RightScale::Cook.instance.push('/instance_scheduler/execute', options,
-                                   :tags => tags, :selector => selector)
+                                         :tags => tags, :selector => selector)
         end
         true
       end

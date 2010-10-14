@@ -2,7 +2,8 @@
 #   RightScale Tagger (rs_tag)
 #   (c) 2010 RightScale
 #
-#   Tagger allows querying, adding and removing tags on the current instance
+#   Tagger allows listing, adding and removing tags on the current instance and
+#   querying for all instances with a given set of tags
 #
 # === Examples:
 #   Retrieve all tags:
@@ -17,27 +18,35 @@
 #     rs_tag --remove a_tag
 #     rs_tag -r a_tag
 #
+#   Retrieve all instances with all of the tags in a set:
+#     rs_tag --query "a_tag b_tag"
+#     rs_tag -q "a_tag b_tag"
+#
 # === Usage
-#    rs_tag (--list, -l | --add, -a name | --remove, -r name)
+#    rs_tag (--list, -l | --add, -a TAG | --remove, -r TAG | --query, -q TAG_LIST)
 #
 #    Options:
-#      --list, -l        List current server tags
-#      --add, -a NAME    Add tag NAME
-#      --remove, -r NAME Remove tag NAME
-#      --verbose, -v     Display debug information
-#      --help:           Display help
-#      --version:        Display version information
+#      --list, -l           List current server tags
+#      --add, -a TAG        Add tag named TAG
+#      --remove, -r TAG     Remove tag named TAG
+#      --query, -q TAG_LIST Query for all instances that have any of the tags in TAG_LIST
+#                           with the TAG_LIST being quoted if it contains spaces
+#      --verbose, -v        Display debug information
+#      --help:              Display help
+#      --version:           Display version information
 #
 $:.push(File.dirname(__FILE__))
 
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'config', 'right_link_config'))
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'command_protocol', 'lib', 'command_protocol'))
+require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'payload_types', 'lib', 'payload_types'))
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'actors', 'lib', 'agent_manager'))
 require 'optparse'
 require 'rdoc/ri/ri_paths' # For backwards compat with ruby 1.8.5
 require 'rdoc/usage'
 require 'rdoc_patch'
 require 'agent_utils'
+require 'json'
 
 module RightScale
 
@@ -61,6 +70,8 @@ module RightScale
       end
       cmd = { :name => options[:action] }
       cmd[:tag] = options[:tag] if options[:tag]
+      cmd[:tags] = options[:tags] if options[:tags]
+      cmd[:query] = options[:query] if options[:query]
       config_options = agent_options('instance')
       listen_port = config_options[:listen_port]
       fail('Could not retrieve agent listen port') unless listen_port
@@ -72,6 +83,17 @@ module RightScale
               puts "No server tag found"
             else
               puts "Server tags (#{res.size}):\n#{res.map { |tag| "  - #{tag}" }.join("\n")}\n"
+            end
+          elsif options[:action] == :query_tags
+            r = OperationResult.from_results(JSON.load(res))
+            r = if r.success?
+              if r.content.empty?
+                puts "No servers with tags '#{options[:tags].inspect}'"
+              else
+                puts JSON.pretty_generate(r.content)
+              end
+            else
+              puts "Tag query failed: #{r.content}"
             end
           else
             puts res
@@ -96,14 +118,19 @@ module RightScale
           options[:action] = :get_tags
         end
 
-        opts.on('-a', '--add NAME') do |n|
+        opts.on('-a', '--add TAG') do |t|
           options[:action] = :add_tag
-          options[:tag] = n
+          options[:tag] = t
         end
 
-        opts.on('-r', '--remove NAME') do |n|
+        opts.on('-r', '--remove TAG') do |t|
           options[:action] = :remove_tag
-          options[:tag] = n
+          options[:tag] = t
+        end
+
+        opts.on('-q', '--query TAG_LIST') do |t|
+          options[:action] = :query_tags
+          options[:tags] = t.split
         end
 
         opts.on('-v', '--verbose') do

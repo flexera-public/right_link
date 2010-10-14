@@ -43,6 +43,7 @@ module RightScale
       :get_tags                 => 'Retrieve instance tags',
       :add_tag                  => 'Add given tag',
       :remove_tag               => 'Remove given tag',
+      :query_tags               => 'Query for instances with specified tags',
       :audit_update_status      => 'Update last audit title',
       :audit_create_new_section => 'Create new audit section',
       :audit_append_output      => 'Append process output to audit',
@@ -98,24 +99,40 @@ module RightScale
     #
     # === Parameters
     # opts[:conn](EM::Connection):: Connection used to send reply
-    # opts[:options](Hash):: Pass-through options sent to forwarder
+    # opts[:options](Hash):: Pass-through options sent to forwarder or instance_scheduler
+    #   with a :tags value indicating tag-based routing instead of local execution
     #
     # === Return
     # true:: Always return true
     def run_recipe_command(opts)
-      send_request('/forwarder/schedule_recipe', opts[:conn], opts[:options])
+      payload = opts[:options] || {}
+      if payload[:tags]
+        options = {:tags => payload[:tags]}
+        options[:selector] = payload[:selector] if payload[:selector]
+        send_push('/instance_scheduler/execute', opts[:conn], payload, options)
+      else
+        send_request('/forwarder/schedule_recipe', opts[:conn], payload)
+      end
     end
 
     # Run RightScript command implementation
     #
     # === Parameters
     # opts[:conn](EM::Connection):: Connection used to send reply
-    # opts[:options](Hash):: Pass-through options sent to forwarder
+    # opts[:options](Hash):: Pass-through options sent to forwarder or instance_scheduler
+    #   with a :tags value indicating tag-based routing instead of local execution
     #
     # === Return
     # true:: Always return true
     def run_right_script_command(opts)
-      send_request('/forwarder/schedule_right_script', opts[:conn], opts[:options])
+      payload = opts[:options] || {}
+      if payload[:tags]
+        options = {:tags => payload[:tags]}
+        options[:selector] = payload[:selector] if payload[:selector]
+        send_push('/instance_scheduler/execute', opts[:conn], payload, options)
+      else
+        send_request('/forwarder/schedule_right_script', opts[:conn], payload)
+      end
     end
 
     # Send request to remote agent
@@ -143,10 +160,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def send_push_command(opts)
-      opts[:agent_identity] = @agent_identity
-      RequestForwarder.instance.push(opts[:type], opts[:payload], opts[:options])
-      CommandIO.instance.reply(opts[:conn], 'OK')
-      true
+      send_push(opts[:type], opts[:conn], opts[:payload], opts[:options])
     end
     
     # Set log level command
@@ -231,6 +245,22 @@ module RightScale
     def remove_tag_command(opts)
       AgentTagsManager.instance.remove_tags(opts[:tag])
       CommandIO.instance.reply(opts[:conn], "Request to remove tag '#{opts[:tag]}' sent successfully.")
+    end
+
+    # Query for instances with given tags
+    #
+    # === Parameters
+    # opts[:conn](EM::Connection):: Connection used to send reply
+    # opts[:tags](String):: Tags to be used in query
+    #
+    # === Return
+    # true
+    def query_tags_command(opts)
+      send_request('/mapper/query_tags', opts[:conn], :tags => opts[:tags]) do |r|
+        reply = JSON.dump(r) rescue '\"Failed to serialize response\"'
+        CommandIO.instance.reply(conn, reply)
+      end
+      true
     end
 
     # Update audit summary
@@ -321,17 +351,35 @@ module RightScale
     #
     # === Parameters
     # request(String):: Request that should be sent
+    # payload(Hash):: Request data
     # conn(EM::Connection):: Connection used to send reply
     # options(Hash):: Request options
     #
     # === Return
     # true:: Always return true
-    def send_request(request, conn, payload, options={})
+    def send_request(request, conn, payload, options = {})
       payload[:agent_identity] = @agent_identity
       RequestForwarder.instance.request(request, payload, options) do |r|
         reply = JSON.dump(r) rescue '\"Failed to serialize response\"'
         CommandIO.instance.reply(conn, reply)
       end
+      true
+    end
+
+    # Helper method that sends given one-way request
+    #
+    # === Parameters
+    # request(String):: Request that should be sent
+    # conn(EM::Connection):: Connection used to send reply
+    # payload(Hash):: Request data
+    # options(Hash):: Request options
+    #
+    # === Return
+    # true:: Always return true
+    def send_push(request, conn, payload, options = {})
+      payload[:agent_identity] = @agent_identity
+      RequestForwarder.instance.push(request, payload, options)
+      CommandIO.instance.reply(conn, 'OK')
       true
     end
 

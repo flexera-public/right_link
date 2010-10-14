@@ -72,21 +72,38 @@ class InstanceScheduler
     res = RightScale::OperationResult.success
   end
 
-  # Ask agent to execute given recipe
+  # Ask agent to execute given recipe or RightScript
   # Agent must forward request to core agent which will in turn run
   # schedule_bundle on this agent
   #
   # === Parameters
   # options[:recipe](String):: Recipe name
+  # options[:recipe_id](Integer):: Recipe id
+  # options[:right_script](String):: RightScript name
+  # options[:right_script_id](Integer):: RightScript id
   # options[:json](Hash):: Serialized hash of attributes to be used when running recipe
+  # options[:arguments](Hash):: RightScript inputs hash
   #
   # === Return
   # true:: Always return true
   def execute(options)
+    options = RightScale::SerializationHelper.symbolize_keys(options)
     options[:agent_identity] = @agent_identity
-    RightScale::RequestForwarder.instance.request('/forwarder/schedule_recipe', options) do |r|
-      res = RightScale::OperationResult.from_results(r)
-      RightScale::RightLinkLog.info("Failed to execute recipe: #{res.content}") unless res.success?
+
+    forwarder = lambda do |type|
+      RightScale::RequestForwarder.instance.request("/forwarder/schedule_#{type}", options) do |r|
+        r = RightScale::OperationResult.from_results(r)
+        RightScale::RightLinkLog.info("Failed executing #{type} for #{options.inspect}: #{r.content}") unless r.success?
+      end
+    end
+
+    if options[:recipe] || options[:recipe_id]
+      forwarder.call("recipe")
+    elsif options[:right_script] || options[:right_script_id]
+      forwarder.call("right_script")
+    else
+      RightScale::RightLinkLog.error("Unrecognized execute request: #{options.inspect}")
+      return true
     end
     true
   end
