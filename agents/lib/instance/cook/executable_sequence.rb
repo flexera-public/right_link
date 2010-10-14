@@ -42,7 +42,7 @@ module RightScale
   class ExecutableSequence
 
     include EM::Deferrable
-    include RightScale::ProcessWatcher
+    include ProcessWatcher
 
     class ReposeConnectionException < Exception
     end
@@ -244,18 +244,11 @@ module RightScale
                   root_dir = File.join(@download_path, cookbook.hash)
                   FileUtils.mkdir_p(root_dir)
                   Dir.chdir(root_dir) do
-                    watcher = RightScale::Processes::Watcher.new(-1, -1)
-                    result = watcher.launch_and_watch('tar', ['xf', tarball.path], root_dir)
-                    case
-                    when result.status == :timeout
-                      report_failure("Timeout while unarchiving cookbook #{cookbook.hash}", result.output)
-                    when result.status == :size_exceeded
-                      report_failure("Too much space while unarchiving cookbook #{cookbook.hash}",
-                                     result.output)
-                    when result.exit_code != 0
-                      report_failure("Unknown error: #{result.exit_code}", result.output)
+                    output, status = run('tar', 'xf', tarball.path)
+		    if status.exitstatus != 0
+                      report_failure("Unknown error: #{status.exitstatus}", output)
                     else
-                      @audit.append_info(result.output)
+                      @audit.append_info(output)
                     end
                   end
                   tarball.close(true)
