@@ -206,7 +206,7 @@ describe RightScale::MapperProxy do
         EM.run do
           result = RightScale::OperationResult.success
           flexmock(RightScale::RightLinkLog).should_receive(:warn).once
-          @agent.should_receive(:options).and_return({:retry_timeout => 0.4, :retry_interval => 0.1})
+          @agent.should_receive(:options).and_return({:retry_timeout => 0.6, :retry_interval => 0.1})
           RightScale::MapperProxy.new(@agent)
           @instance = RightScale::MapperProxy.instance
           flexmock(@instance).should_receive(:check_connection).once
@@ -215,10 +215,10 @@ describe RightScale::MapperProxy do
             result = RightScale::OperationResult.from_results(response)
           end
           @instance.pending_requests.empty?.should be_false
-          EM.add_timer(1.2) do
+          EM.add_timer(2.5) do
             EM.stop
             result.timeout?.should be_true
-            result.content.should == "Timeout after 0.7 seconds and 3 attempts"
+            result.content.should == "Timeout after 2.1 seconds and 3 attempts"
             @instance.pending_requests.empty?.should be_true
           end
         end
