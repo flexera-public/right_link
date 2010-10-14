@@ -223,7 +223,7 @@ module RightScale
                                              :exception => ReposeConnectionException)
         server = find_repose_server(connection)
         @cookbooks.each do |cookbook|
-          @audit.append_info("Downloading #{cookbook.hash}")
+          @audit.update_status("Downloading #{cookbook}")
 
           request = Net::HTTP::Get.new('/#{cookbook.hash}')
           request['Cookie'] = "repose_ticket=#{cookbook.token}"
@@ -245,7 +245,7 @@ module RightScale
                   FileUtils.mkdir_p(root_dir)
                   Dir.chdir(root_dir) do
                     output, status = run('tar', 'xf', tarball.path)
-		    if status.exitstatus != 0
+                    if status.exitstatus != 0
                       report_failure("Unknown error: #{status.exitstatus}", output)
                     else
                       @audit.append_info(output)
@@ -257,7 +257,7 @@ module RightScale
                   server = find_repose_server(connection)
                 else
                   again? = false
-                  report_failure("Unable to download cookbook #{cookbook.hash}", result.to_s)
+                  report_failure("Unable to download cookbook #{cookbook}", result.to_s)
                 end
               end
             rescue ReposeConnectionException => e
@@ -270,12 +270,20 @@ module RightScale
       true
     end
 
+    # Find a working repose server using the given connection.  Will
+    # block until one is found.
+    #
+    # === Parameters
+    # connection(RightHttpConnection):: connection to use
+    #
+    # === Return
+    # address(String):: IP address of working repose server
     def find_repose_server(connection)
       loop do
         possibles = Socket.getaddrinfo(@repose_server, 80, Socket::AF_INET, Socket::SOCK_STREAM,
                                        Socket::IPPROTO_TCP)
         if possibles.empty?
-          report_failure("Unable to find any repose servers; trying to get #{@repose_server}; retrying")
+          RightLinkLog.warn("Unable to find any repose servers for #{@repose_server}; retrying")
           sleep 10
           next
         end
@@ -289,7 +297,7 @@ module RightScale
           return address if result.kind_of?(HTTPSuccess)
         end
 
-        report_failure("All available repose servers at #{@repose_server} are down; retrying")
+        RightLinkLog.warn("All available repose servers for #{@repose_server} are down; retrying")
         sleep 10
       end
     end

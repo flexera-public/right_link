@@ -34,15 +34,19 @@ module RightScale
     # (String) Authentication token
     attr_accessor :token
 
+    # (String) User readable cookbook name
+    attr_accessor :name
+
     # Initialize fields from given arguments
     def initialize(*args)
       @hash  = args[0] if args.size > 0
       @token = args[1] if args.size > 1
+      @token = args[2] if args.size > 2
     end
 
     # Array of serialized fields given to constructor
     def serialized_members
-      [ @hash, @token ]
+      [ @hash, @token, @name ]
     end
 
     # Human friendly name used for audits
@@ -50,7 +54,7 @@ module RightScale
     # === Return
     # name(String):: Cookbook repository display name
     def display_name
-      name = @url + (@tag && !@tag.empty? ? ":#{@tag}" : '')
+      name = "Cookbook #{@name}:#{@hash}"
     end
     alias :to_s :display_name
   end
