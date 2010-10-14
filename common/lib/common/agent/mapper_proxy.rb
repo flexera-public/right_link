@@ -241,7 +241,7 @@ module RightScale
                 request.token = AgentIdentity.generate
                 @pending_requests[parent][:retry_parent] = parent if count == 1
                 @pending_requests[request.token] = @pending_requests[parent]
-                request_with_retry(request, parent, count, multiplier * 2, elapsed)
+                request_with_retry(request, parent, count, multiplier * 4, elapsed)
               else
                 RightLinkLog.warn("RE-SEND TIMEOUT after #{elapsed} seconds for #{request.to_s([:tags, :target, :tries])}")
                 result = OperationResult.timeout("Timeout after #{elapsed} seconds and #{count} attempts")
