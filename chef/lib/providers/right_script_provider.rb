@@ -78,7 +78,8 @@ class Chef
         end
         @new_resource.parameters.each { |key, val| ENV[key] = val }
         ENV['ATTACH_DIR'] = ENV['RS_ATTACH_DIR'] = @new_resource.cache_dir
-        ENV['RS_REBOOT']  = RightScale::InstanceState.past_scripts.include?(nickname) ? 'true' : nil
+        ENV['RS_ALREADY_RUN']  = RightScale::InstanceState.past_scripts.include?(nickname) ? 'true' : nil
+        ENV['RS_REBOOT']  = RightScale::InstanceState.reboot? ? 'true' : nil
         # RightScripts expect to find RS_DISTRO, RS_DIST and RS_ARCH in the environment.
         # Massage the distro name into the format they expect (all lower case, one word, no release info).
         if platform.linux?

@@ -93,6 +93,7 @@ module RightScale
       @@identity = identity
       @@startup_tags = []
       @@initial_boot = false
+      @@reboot = false
       @@resource_uid = nil
       dir = File.dirname(STATE_FILE)
       FileUtils.mkdir_p(dir) unless File.directory?(dir)
@@ -107,10 +108,15 @@ module RightScale
         #  2) reboot/restart -- Agent already ran; agent ID not changed; reboot detected: transition back to booting
         #  3) bundled boot   -- Agent already ran; agent ID changed: transition back to booting
         #  4) decomm/crash   -- Agent exited anyway; ID not changed; no reboot; keep old state entirely
-        if (state['identity'] != identity) || !state['booted_at'] || (booted_at != state['booted_at'])
-          # CASE 2/3 -- identity or boot time has changed; may be reboot or bundled boot
-          RightLinkLog.debug("Reboot/bundle/start detected; transitioning state to booting")
+        if (state['identity'] != identity) || !state['booted_at'] 
+          # CASE 3 -- identity has changed; bundled boot
+          RightLinkLog.debug("Bundle detected; transitioning state to booting")
           self.value = 'booting'
+        elsif booted_at != state['booted_at']
+          # CASE 2 -- Boot time has changed; reboot
+          RightLinkLog.debug("Reboot detected; transitioning state to booting")
+          self.value = 'booting'
+          @@reboot = true
         else
           # CASE 4 -- Restart without reboot; don't do anything special.
           @@value = state['value']
@@ -189,6 +195,14 @@ module RightScale
     # res(TrueClass|FalseClass):: Whether this is the instance first boot
     def self.initial_boot
       res = @@initial_boot
+    end
+
+    # Are we rebooting? (needed for RightScripts)
+    #
+    # === Return
+    # res(TrueClass|FalseClass):: Whether this instance was rebooted
+    def self.reboot?
+      res = @@reboot
     end
 
     # Ask core agent to shut ourselves down for soft termination

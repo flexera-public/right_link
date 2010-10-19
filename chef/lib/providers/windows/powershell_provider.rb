@@ -71,7 +71,8 @@ class Chef
         begin
           # 2. Setup environment.
           environment = {} if environment.nil?
-          environment['RS_REBOOT'] = current_state.past_scripts.include?(nickname) ? '1' : nil
+          environment['RS_ALREADY_RUN'] = current_state.past_scripts.include?(nickname) ? '1' : nil
+          environment['RS_REBOOT'] = current_state.reboot?
           @new_resource.environment(environment)
 
           # 3. execute and wait
