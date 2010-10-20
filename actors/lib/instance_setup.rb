@@ -32,6 +32,9 @@ class InstanceSetup
   # Amount of seconds to wait before shutting down if boot hasn't completed
   SUICIDE_DELAY = 45 * 60
 
+  # Tag set on instances that are part of an array
+  AUTO_LAUNCH_TAG ='rs_launch:type=auto' 
+
   # Boot if and only if instance state is 'booting'
   # Prime timer for shutdown on unsuccessful boot ('suicide' functionality)
   #
@@ -55,7 +58,7 @@ class InstanceSetup
     # is set and the instance has not gotten its boot bundle after SUICIDE_DELAY seconds and this is 
     # the first time this instance boots
     @suicide_timer = EM::Timer.new(SUICIDE_DELAY) do
-      if RightScale::InstanceState.startup_tags.include?(Biz::TagCatalog::AUTO_LAUNCH) && !@got_boot_bundle
+      if RightScale::InstanceState.startup_tags.include?(AUTO_LAUNCH_TAG) && !@got_boot_bundle
         msg = "Shutting down after having tried to boot for #{SUICIDE_DELAY / 60} minutes"
         RightScale::RightLinkLog.error(msg)
         @audit.append_error(msg, :category => RightScale::EventCategories::CATEGORY_ERROR) if @audit
