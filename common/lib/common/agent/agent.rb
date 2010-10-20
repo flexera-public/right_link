@@ -347,10 +347,9 @@ module RightScale
       res
     end
 
-    # Declare one or more broker connections unusable because connection has failed
-    # If these are the last usable connections, attempt to recreate them now; otherwise mark
-    # them is as unusable and defer reconnect attempt to next status check, since this agent
-    # may still not be registered with those brokers
+    # There were problems while setting up service for this agent on the given brokers,
+    # so mark these brokers as failed if not currently connected and later, during the
+    # periodic status check, attempt to reconnect
     #
     # === Parameters
     # ids(Array):: Identity of brokers
@@ -360,20 +359,23 @@ module RightScale
     def connect_failed(ids)
       res = nil
       begin
-        RightLinkLog.info("Connection to brokers #{ids.inspect} has failed")
+        RightLinkLog.info("Received indication that service initialization for this agent for brokers #{ids.inspect} has failed")
         connected = @broker.connected
-        if (connected - ids).empty?
-          # No more usable connections so try recreating now
-          ids.each do |id|
+        ignored = connected & ids
+        RightLinkLog.info("Not marking brokers #{ignored.inspect} as unusable because currently connected") if ignored
+        RightLinkLog.info("Current broker configuration: #{@broker.status.inspect}")
+
+        (ids - ignored).each { |id| @broker.declare_unusable(ids) }
+
+        if @broker.connected.empty?
+          # Evidently no more usable connections, so try recreating all of them now
+          @broker.all.each do |id|
             host, port, alias_id, priority = @broker.identity_parts(id)
             connect(host, port, alias_id, priority, force = true)
           end
-        else
-          # Defer reconnect initiation to periodic status check
-          @broker.declare_unusable(ids)
         end
       rescue Exception => e
-        res = "Failed to mark brokers #{ids.inspect} as unusable: #{e}"
+        res = "Failed handling broker connection failure indication for #{ids.inspect}: #{e}"
         RightLinkLog.error(res)
       end
       res

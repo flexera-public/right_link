@@ -174,13 +174,13 @@ module RightScale
             begin
               handler[:result_handler].call(result)
             rescue Exception => e
-              RightLinkLog.error("RECV - Result processing error for #{result.to_s([])}: #{e.message}")
+              RightLinkLog.error("Failed processing result #{result.to_s([])}: #{e.message}")
               @exception_callback.call(e, msg, self) rescue nil if @exception_callback
             end
           end
         end
       else
-        RightLinkLog.debug("RECV - No pending request for #{result.to_s([])}")
+        RightLinkLog.debug("No pending request for result #{result.to_s([])}")
       end
       true
     end

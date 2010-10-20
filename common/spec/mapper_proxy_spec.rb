@@ -447,7 +447,7 @@ describe RightScale::MapperProxy do
     end
 
     it "should log an error if the result handler raises an exception but still delete pending request" do
-      flexmock(RightScale::RightLinkLog).should_receive(:error).with(/RECV - Result processing error/).once
+      flexmock(RightScale::RightLinkLog).should_receive(:error).with(/Failed processing result/).once
       flexmock(RightScale::AgentIdentity, :generate => 'token1')
       @instance.request('/welcome/aboard', 'iZac') {|_| raise Exception}
       @instance.pending_requests['token1'][:multicast].should be_nil
@@ -457,7 +457,7 @@ describe RightScale::MapperProxy do
     end
 
     it "should log a debug message if request no longer pending" do
-      flexmock(RightScale::RightLinkLog).should_receive(:debug).with(/RECV - No pending request/).once
+      flexmock(RightScale::RightLinkLog).should_receive(:debug).with(/No pending request for result/).once
       flexmock(RightScale::AgentIdentity, :generate => 'token1')
       @instance.request('/welcome/aboard', 'iZac') {|_|}
       @instance.pending_requests['token1'][:multicast].should be_nil
