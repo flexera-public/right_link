@@ -188,16 +188,20 @@ end
 # issue where multiple invocations of the ohai/plugins/passwd.rb plugin
 # invokes Etc which appears to leak a system resource and cause a segmentation
 # fault.
-require 'chef/client'
+begin
+  require 'chef/client'
 
-class Chef
- class Client
-   def run_ohai
-     unless defined?(@@ohai)
-      @@ohai = Ohai::System.new
-      @@ohai.all_plugins
+  class Chef
+   class Client
+     def run_ohai
+       unless defined?(@@ohai)
+        @@ohai = Ohai::System.new
+        @@ohai.all_plugins
+       end
+       @ohai = @@ohai
      end
-     @ohai = @@ohai
-   end
+    end
   end
+rescue LoadError
+  #do nothing; if Chef isn't loaded, then no need to monkey patch
 end
