@@ -24,10 +24,22 @@ require 'rubygems'
 
 # Mappers and agents uses the JSON gem, which -- if used in a project that also uses ActiveRecord -- MUST be loaded after
 # ActiveRecord in order to ensure that a monkey patch is correctly applied. Since Nanite is designed to be compatible
-# with Rails, we tentatively try to load AR here, in case RightLink specs are ever executed in a context where
+# with Rails, we tentatively try to load AR here in case RightLink specs are ever executed in a context where
 # ActiveRecord is also loaded.
 begin
-  require 'active_record'
+  require 'active_support'
+
+  # Monkey-patch the JSON gem's load/dump interface to avoid
+  # the clash between ActiveRecord's Hash#to_json and
+  # the gem's Hash#to_json.
+  module JSON
+    class <<self
+      def dump(obj)
+        obj.to_json
+      end
+    end
+  end
+
 rescue LoadError => e
   # Make sure we're dealing with a legitimate missing-file LoadError
   raise e unless e.message =~ /^no such file to load/
