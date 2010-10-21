@@ -20,10 +20,6 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-# To install the chef gem:
-# sudo gem sources -a http://gems.opscode.com
-# sudo gem install chef ohai
-
 require 'fileutils'
 require 'right_popen'
 require 'chef/mixin/command'
@@ -77,9 +73,12 @@ class Chef
           RightScale::RightLinkLog.error("#{e.class.name}: #{e.message}, #{e.backtrace[0]}")
         end
         @new_resource.parameters.each { |key, val| ENV[key] = val }
+
+        # Provide the customary RightScript environment metadata
         ENV['ATTACH_DIR'] = ENV['RS_ATTACH_DIR'] = @new_resource.cache_dir
         ENV['RS_ALREADY_RUN']  = RightScale::InstanceState.past_scripts.include?(nickname) ? 'true' : nil
         ENV['RS_REBOOT']  = RightScale::InstanceState.reboot? ? 'true' : nil
+
         # RightScripts expect to find RS_DISTRO, RS_DIST and RS_ARCH in the environment.
         # Massage the distro name into the format they expect (all lower case, one word, no release info).
         if platform.linux?
@@ -94,6 +93,16 @@ class Chef
           else
               ENV['RS_ARCH'] = "unknown"
           end
+        end
+
+        # Add Cloud-Independent Attributes
+        begin
+          ENV['RS_CLOUD_PROVIDER'] = @node[:cloud][:provider]
+          ENV['RS_PUBLIC_IP']      = @node[:cloud][:public_ips].first
+          ENV['RS_PRIVATE_IP']     = @node[:cloud][:private_ips].first
+        rescue Exception => e
+          ::Chef::Log.info("Could not query Chef node for cloud-independent attributes (#{e.class.name})!")
+          RightScale::RightLinkLog.error("#{e.class.name}: #{e.message}, #{e.backtrace[0]}")
         end
 
         # 2. Fork and wait
