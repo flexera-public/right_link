@@ -264,7 +264,10 @@ module RightScale
         if new_level != @level
           @logger.info("[setup] Setting log level to #{level_to_sym(new_level).to_s.upcase}")
           @logger.level = @level = new_level
-          InstanceState.log_level = new_level
+          # Persist log level if changed after initialization
+          # (InstanceState may not have been already loaded if this code gets run as part
+          # of the 'init' method execution)
+          InstanceState.log_level = new_level if defined?(InstanceState)
         end
       end
       level = level_to_sym(@level)
