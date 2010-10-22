@@ -92,6 +92,7 @@ module RightScale
     def self.init(identity)
       @@identity = identity
       @@startup_tags = []
+      @@log_level = Logger::INFO
       @@initial_boot = false
       @@reboot = false
       @@resource_uid = nil
@@ -121,6 +122,7 @@ module RightScale
           # CASE 4 -- Restart without reboot; don't do anything special.
           @@value = state['value']
           @@startup_tags = state['startup_tags']
+          @@log_level = state['log_level']
           update_logger
         end
       else
@@ -176,7 +178,8 @@ module RightScale
       record_state(val) if RECORDED_STATES.include?(val)
       write_json(STATE_FILE, { 'value' => val, 'identity' => @@identity,
                                'uptime' => uptime, 'booted_at' => booted_at, 
-                               'startup_tags' => @@startup_tags })
+                               'startup_tags' => @@startup_tags,
+                               'log_level' => @@log_level })
       @observers.each { |o| o.call(val) } if @observers
       val
     end
@@ -242,6 +245,25 @@ module RightScale
     # tags(Array):: List of tags retrieved on startup
     def self.startup_tags
       @@startup_tags
+    end
+
+    # Set log level
+    #
+    # === Parameters
+    # val(Const):: One of Logger::DEBUG...Logger::FATAL
+    # 
+    # === Return
+    # val(Const):: One of Logger::DEBUG...Logger::FATAL
+    def self.log_level=(val)
+      @@log_level = val
+    end
+
+    # Log level
+    #
+    # === Return
+    # log_level(Const):: One of Logger::DEBUG...Logger::FATAL
+    def self.log_level
+      @@log_level
     end
 
     # Callback given observer on all state transitions

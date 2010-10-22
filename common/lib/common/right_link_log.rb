@@ -264,6 +264,7 @@ module RightScale
         if new_level != @level
           @logger.info("[setup] Setting log level to #{level_to_sym(new_level).to_s.upcase}")
           @logger.level = @level = new_level
+          InstanceState.log_level = new_level
         end
       end
       level = level_to_sym(@level)
