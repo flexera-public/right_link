@@ -222,8 +222,8 @@ EOF
           # will actually be run at some point.
           plugin_rb_path = File.join(RightScale::OhaiSetup::CUSTOM_PLUGINS_DIR_PATH, "rightscale_test_plugin.rb")
           File.open(plugin_rb_path, "w") { |f| f.write(TEST_PLUGIN_TEXT) }
-          RightScale::OhaiSetup.configure_ohai
           begin
+            RightScale::OhaiSetup.configure_ohai
             @@ohai = Ohai::System.new
             @@ohai.all_plugins
           ensure
