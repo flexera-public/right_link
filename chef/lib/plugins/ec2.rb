@@ -27,8 +27,8 @@ require_plugin "kernel"
 require_plugin "network"
 
 EC2_METADATA_ADDR = "169.254.169.254" unless defined?(EC2_METADATA_ADDR)
-EC2_METADATA_URL = "http://#{EC2_METADATA_ADDR}/2008-02-01/meta-data" unless defined?(EC2_METADATA_URL)
-EC2_USERDATA_URL = "http://#{EC2_METADATA_ADDR}/2008-02-01/user-data" unless defined?(EC2_USERDATA_URL)
+EC2_METADATA_URL = "http://#{EC2_METADATA_ADDR}/latest/meta-data" unless defined?(EC2_METADATA_URL)
+EC2_USERDATA_URL = "http://#{EC2_METADATA_ADDR}/latest/user-data" unless defined?(EC2_USERDATA_URL)
 
 def can_metadata_connect?(addr, port, timeout=10)
   t = Socket.new(Socket::Constants::AF_INET, Socket::Constants::SOCK_STREAM, 0)
