@@ -30,9 +30,9 @@ def derive_bcast(ipaddr, ipmask, zero_bcast = false)
     if zero_bcast
       bcast_int = ipaddr_int & ipmask_int
     else
-      bcast_int = ipaddr_int | 2 ** 32 - ipmask_int - 1  
-    end  
-    bcast = [bcast_int].pack("N").unpack("C4").join(".")                                     
+      bcast_int = ipaddr_int | 2 ** 32 - ipmask_int - 1
+    end
+    bcast = [bcast_int].pack("N").unpack("C4").join(".")
     return bcast
   rescue
     return nil
@@ -102,8 +102,8 @@ from("arp /a").split("\n").each do |line|
   if line == ""
     cint = nil
   end
-  if line =~ /^Interface:\s+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s+[-]+\s+(0x\d+)/
-    cint = $2
+  if line =~ /^Interface:\s+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s+[-]+\s+0x([a-fA-F0-9]+)/
+    cint = sprintf("0x%X", $2.hex)
   end
   next unless iface[cint]
   if line =~ /^\s+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s+([a-fA-F0-9\:-]+)/
