@@ -21,10 +21,10 @@
 #
 # === Usage:
 #    rs_run_recipe --identity, -i ID [--json, -j JSON_FILE] [--verbose, -v]
-#    rs_run_recipe --name, -n NAME [--json, -j JSON_FILE] [--recipient_tags, -t TAG_LIST]
+#    rs_run_recipe --name, -n NAME [--json, -j JSON_FILE] [--recipient_tags, -r TAG_LIST]
 #                  [--scope, -s SCOPE] [--verbose, -v]
 #    rs_run_right_script --identity, -i ID [--parameter, -p NAME=type:VALUE]* [--verbose, -v]
-#    rs_run_right_script --name, -n NAME [--parameter, -p NAME=type:VALUE]* [--recipient_tags, -t TAG_LIST]
+#    rs_run_right_script --name, -n NAME [--parameter, -p NAME=type:VALUE]* [--recipient_tags, -r TAG_LIST]
 #                        [--scope, -s SCOPE] [--verbose, -v]
 #
 #      * Can appear multiple times
@@ -38,11 +38,13 @@
 #        -p NAME=type:VALUE Define or override RightScript input
 #                           Note: Only applies to run_right_script
 #      --recipient_tags,    Tags for selecting which instances are to receive request
-#        -t TAG_LIST        with the TAG_LIST being quoted if it contains spaces
+#        -r TAG_LIST        with the TAG_LIST being quoted if it contains spaces
 #      --scope, -s SCOPE    Scope for selecting tagged recipients: 'single' or 'all' with 'all' default
 #      --verbose, -v        Display progress information
 #      --help:              Display help
 #      --version:           Display version information
+#
+#    Note: Partially specified option names are accepted if not ambiguous.
 
 $:.push(File.dirname(__FILE__))
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'config', 'right_link_config'))
@@ -77,6 +79,7 @@ module RightScale
     # true:: Always return true
     def run(options, &callback)
       fail('Missing identity or name argument', true) unless options[:id] || options[:name]
+      echo(options)
       cmd = { :options => to_forwarder_options(options) }
       cmd[:name] = options[:bundle_type] == :right_script ? 'run_right_script' : 'run_recipe'
       config_options = agent_options('instance')
@@ -98,6 +101,27 @@ module RightScale
       rescue Exception => e
         fail(e.message)
       end
+      true
+    end
+
+    # Echo what is being requested
+    #
+    # === Parameters
+    # options(Hash):: Options specified
+    #
+    # === Return
+    # true:: Always return true
+    def echo(options)
+      type = options[:bundle_type] == :right_script ? "RightScript" : "recipe"
+      which = options[:id] ? "with ID #{options[:id].inspect}" : "named #{options[:name].inspect}"
+      select = options[:selector] == :all ? "'all' servers" : "a 'single' server"
+      where = options[:tags] ? "on #{select} with tags #{options[:tags].inspect}" : "locally on this server"
+      using = options[:parameters].empty? ? "" : "using parameters #{options[:parameters].inspect}"
+      if options[:json]
+        using += !using.empty? && options[:json_file] ? " and " : "using "
+        using += "options from JSON file #{options[:json_file].inspect}"
+      end
+      puts "Requesting to execute the #{type} #{which} #{where} #{using}"
       true
     end
 
@@ -129,6 +153,7 @@ module RightScale
 
         opts.on('-j', '--json JSON_FILE') do |f|
           fail("Invalid JSON filename '#{f}'") unless File.file?(f)
+          options[:json_file] = f
           begin
             options[:json] = IO.read(f)
           rescue Exception => e
@@ -136,7 +161,7 @@ module RightScale
           end
         end
 
-        opts.on('-t', '--recipient_tags TAG_LIST') do |t|
+        opts.on('-r', '--recipient_tags TAG_LIST') do |t|
           options[:tags] = t.split
         end
 
