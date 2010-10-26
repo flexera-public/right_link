@@ -30,27 +30,25 @@ EC2_METADATA_ADDR = "169.254.169.254" unless defined?(EC2_METADATA_ADDR)
 EC2_METADATA_URL = "http://#{EC2_METADATA_ADDR}/2008-02-01/meta-data" unless defined?(EC2_METADATA_URL)
 EC2_USERDATA_URL = "http://#{EC2_METADATA_ADDR}/2008-02-01/user-data" unless defined?(EC2_USERDATA_URL)
 
-def can_metadata_connect?(addr, port, timeout=2)
+def can_metadata_connect?(addr, port, timeout=10)
   t = Socket.new(Socket::Constants::AF_INET, Socket::Constants::SOCK_STREAM, 0)
   saddr = Socket.pack_sockaddr_in(port, addr)
   connected = false
 
-  begin
-    t.connect_nonblock(saddr)    
-  rescue Errno::EINPROGRESS
-    r,w,e = IO::select(nil,[t],nil,timeout)
-    if !w.nil?
-      connected = true
-    else
-      begin
-        t.connect_nonblock(saddr)
-      rescue Errno::EISCONN
-        t.close
+  # need retry logic because hvm server can reject under heavy load.
+  start_time = Time.now
+  end_time = start_time + timeout
+  while (false == connected && Time.now < end_time)
+    begin
+      t.connect_nonblock(saddr)
+    rescue Errno::EINPROGRESS => e
+      r,w,e = IO::select(nil,[t],nil,timeout)
+      if !w.nil?
         connected = true
-      rescue SystemCallError
+        t.close
       end
+    rescue SystemCallError => e
     end
-  rescue SystemCallError
   end
 
   connected
@@ -65,12 +63,58 @@ def has_ec2_mac?
   false
 end
 
+# performs an HTTP GET with retry logic.
+#
+# === Parameters
+# uri(String):: URI to query.
+#
+# === Returns
+# out(String):: body of GET response
+#
+# === Raises
+# OpenURI::HTTPError on failure to get valid response
+# IOError on timeout
+def query_uri(uri)
+  retry_max_time = 30 * 60
+  retry_delay = 1
+  retry_max_delay = 64
+  start_time = Time.now
+  end_time = start_time + retry_max_time
+  while true
+    begin
+      Ohai::Log.debug("Querying \"#{uri}\"...")
+      return OpenURI.open_uri(uri).read
+    rescue OpenURI::HTTPError => e
+      # 404 Not Found is not retryable (server resonded but metadata path was
+      # invalid).
+      if e.message[0,4] == "404 "
+        raise
+      end
+      Ohai::Log.warn("#{e.class}: #{e.message}")
+    rescue Net::HTTPBadResponse => e
+      # EC2 metadata server returns bad responses periodically.
+      Ohai::Log.warn("#{e.class}: #{e.message}")
+    rescue Net::HTTPHeaderSyntaxError => e
+      # just to be as robust as possible.
+      Ohai::Log.warn("#{e.class}: #{e.message}")
+    end
+    now_time = Time.now
+    if now_time < end_time
+      sleep_delay = [end_time - now_time + 0.1, retry_delay].min
+      retry_delay = [retry_max_delay, retry_delay * 2].min
+      sleep sleep_delay
+    else
+      raise IOError, "Could not contact metadata server; retry limit exceeded."
+    end
+  end
+end
+
 def metadata(id='')
-  OpenURI.open_uri("#{EC2_METADATA_URL}/#{id}").read.split("\n").each do |o|
+  query_uri("#{EC2_METADATA_URL}/#{id}").split("\n").each do |o|
     key = "#{id}#{o.gsub(/\=.*$/, '/')}"
     if key[-1..-1] != '/'
       ec2[key.gsub(/\-|\//, '_').to_sym] =
-        OpenURI.open_uri("#{EC2_METADATA_URL}/#{key}").read
+        query_uri("#{EC2_METADATA_URL}/#{key}")
     else
       metadata(key)
     end
@@ -81,13 +125,13 @@ def userdata()
   ec2[:userdata] = nil
   # assumes the only expected error is the 404 if there's no user-data
   begin
-    ec2[:userdata] = OpenURI.open_uri("#{EC2_USERDATA_URL}/").read
+    ec2[:userdata] = query_uri("#{EC2_USERDATA_URL}/")
   rescue OpenURI::HTTPError
   end
 end
 
 def looks_like_ec2?
-  # Try non-blocking connect so we don't "block" if 
+  # Try non-blocking connect so we don't "block" if
   # the Xen environment is *not* EC2
   has_ec2_mac? && can_metadata_connect?(EC2_METADATA_ADDR,80)
 end
