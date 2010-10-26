@@ -202,16 +202,36 @@ end
 # fault.
 begin
   require 'chef/client'
+  require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'chef', 'lib', 'ohai_setup'))
+
+  # text for a temporary plugin used to verify custom plugins are being loaded.
+  TEST_PLUGIN_TEXT = <<EOF
+provides "rightscale_test_plugin"
+rightscale_test_plugin Mash.new
+rightscale_test_plugin[:test_value] = 'abc'
+EOF
 
   class Chef
-   class Client
-     def run_ohai
-       unless defined?(@@ohai)
-        @@ohai = Ohai::System.new
-        @@ohai.all_plugins
-       end
-       @ohai = @@ohai
-     end
+    class Client
+
+      def run_ohai
+        unless defined?(@@ohai)
+          # create temporary plugin file for testing; doing this here because
+          # loading ohai takes a long time and we only want to do it once during
+          # testing. there is no guarantee that the test verifying this plugin
+          # will actually be run at some point.
+          plugin_rb_path = File.join(RightScale::OhaiSetup::CUSTOM_PLUGINS_DIR_PATH, "rightscale_test_plugin.rb")
+          File.open(plugin_rb_path, "w") { |f| f.write(TEST_PLUGIN_TEXT) }
+          RightScale::OhaiSetup.configure_ohai
+          begin
+            @@ohai = Ohai::System.new
+            @@ohai.all_plugins
+          ensure
+            File.delete(plugin_rb_path) rescue nil
+          end
+        end
+        @ohai = @@ohai
+      end
     end
   end
 rescue LoadError

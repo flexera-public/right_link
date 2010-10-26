@@ -23,6 +23,8 @@
 # The daemonize method of AR clashes with the daemonize Chef attribute, we don't need that method so undef it
 undef :daemonize if methods.include?('daemonize')
 
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', '..', '..', 'chef', 'lib', 'ohai_setup'))
+
 module RightScale
 
   OHAI_RETRY_MIN_DELAY = 20      # Min number of seconds to wait before retrying Ohai to get the hostname
@@ -106,10 +108,11 @@ module RightScale
     # === Return
     # true:: Always return true
     def configure_chef
-      # Ohai plugins path and logging
-      ohai_plugins = File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'chef', 'lib', 'plugins'))
-      Ohai::Config[:plugin_path].unshift(ohai_plugins)
-      Ohai::Config.log_level RightLinkLog.level
+      # Ohai plugins path and logging.
+      #
+      # note that this was moved to a separate .rb file to ensure that plugins
+      # path is not relative to this potentially relocatable source file.
+      RightScale::OhaiSetup.configure_ohai
 
       # Chef logging
       Chef::Log.logger = AuditLogger.new
