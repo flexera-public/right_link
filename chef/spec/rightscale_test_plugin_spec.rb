@@ -67,7 +67,7 @@ describe Ohai::System, " rightscale_test_plugin" do
   end
 
   after(:all) do
-    #RightScaleTestPluginSpec.cleanup
+    RightScaleTestPluginSpec.cleanup
   end
 
   it "should load custom ohai plugins" do
