@@ -297,20 +297,20 @@ describe "RightScale::Dispatcher" do
 
   it "should return dispatch age of youngest unfinished request" do
     @dispatcher.em = EMMockNoCallback
-    flexmock(Time).should_receive(:now).and_return(1000000).by_default
+    flexmock(Time).should_receive(:now).and_return(Time.at(1000000)).by_default
     @dispatcher.dispatch_age.should be_nil
     @dispatcher.dispatch(RightScale::Push.new('/foo/bar', 'you'))
     @dispatcher.dispatch_age.should be_nil
     @dispatcher.dispatch(RightScale::Request.new('/foo/bar', 'you'))
-    flexmock(Time).should_receive(:now).and_return(1000100)
+    flexmock(Time).should_receive(:now).and_return(Time.at(1000100))
     @dispatcher.dispatch_age.should == 100
   end
 
   it "should return dispatch age of nil if all requests finished" do
-    flexmock(Time).should_receive(:now).and_return(1000000).by_default
+    flexmock(Time).should_receive(:now).and_return(Time.at(1000000)).by_default
     @dispatcher.dispatch_age.should be_nil
     @dispatcher.dispatch(RightScale::Request.new('/foo/bar', 'you'))
-    flexmock(Time).should_receive(:now).and_return(1000100)
+    flexmock(Time).should_receive(:now).and_return(Time.at(1000100))
     @dispatcher.dispatch_age.should == nil
   end
 

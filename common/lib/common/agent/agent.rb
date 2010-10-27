@@ -20,6 +20,8 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+require 'socket'
+
 module RightScale
 
   # Agent for receiving messages from the mapper and acting upon them
@@ -29,6 +31,7 @@ module RightScale
 
     include ConsoleHelper
     include DaemonizeHelper
+    include StatsHelper
 
     # (String) Identity of this agent
     attr_reader :identity
@@ -149,6 +152,8 @@ module RightScale
       @tags.flatten!
       @options.freeze
       @terminating = false
+      @last_stat_reset_time = Time.now
+      reset_agent_stats
       true
     end
 
@@ -269,6 +274,7 @@ module RightScale
     # === Return
     # res(String|nil):: Error message if failed, otherwise nil
     def connect(host, port, alias_id, priority = nil, force = false)
+      @connects += 1
       even_if = " even if already connected" if force
       RightLinkLog.info("Received request to connect to broker at host #{host.inspect} port #{port.inspect} " +
                         "alias_id #{alias_id.inspect} priority #{priority.inspect}#{even_if}")
@@ -290,11 +296,13 @@ module RightScale
               end
             rescue Exception => e
               RightLinkLog.error("Failed to connect to #{id}, status #{status.inspect}: #{e}")
+              @exceptions.track("connect", e)
             end
           end
         end
       rescue Exception => e
         res = "Failed to connect to broker #{HA_MQ.identity(host, port)}: #{e}"
+        @exceptions.track("connect", e)
       end
       RightLinkLog.error(res) if res
       res
@@ -312,6 +320,7 @@ module RightScale
     # === Return
     # res(String|nil):: Error message if failed, otherwise nil
     def disconnect(host, port, remove = false)
+      @disconnects += 1
       and_remove = " and remove" if remove
       RightLinkLog.info("Received request to disconnect#{and_remove} broker at host #{host.inspect} " +
                         "port #{port.inspect}")
@@ -339,6 +348,7 @@ module RightScale
           end
         rescue Exception => e
           res = "Failed to disconnect from broker #{identity}: #{e}"
+          @exceptions.track("disconnect", e)
         end
       else
         res = "Cannot disconnect from #{identity} because not configured for this agent"
@@ -377,6 +387,7 @@ module RightScale
       rescue Exception => e
         res = "Failed handling broker connection failure indication for #{ids.inspect}: #{e}"
         RightLinkLog.error(res)
+        @exceptions.track("connect failed", e)
       end
       res
     end
@@ -438,7 +449,58 @@ module RightScale
       true
     end
 
+    # Retrieve statistics about agent operation
+    #
+    # === Parameters:
+    # options(Hash):: Request options:
+    #   :reset(Boolean):: Whether to reset the statistics after getting the current ones
+    #
+    # === Return
+    # result(OperationResult):: Always returns success
+    def stats(options)
+      reset = options[:reset]
+      result = OperationResult.success("identity" => @identity,
+                                       "hostname" => Socket.gethostname,
+                                       "version" => RightLinkConfig.protocol_version,
+                                       "brokers" => @broker.status,
+                                       "agent stats" => agent_stats(reset),
+                                       "receive stats" => @dispatcher.stats(reset),
+                                       "send stats" => @mapper_proxy.stats(reset),
+                                       "last reset time" => @last_stat_reset_time.to_i,
+                                       "stats time" => Time.now.to_i)
+      @last_stat_reset_time = Time.now if reset
+      result
+    end
+
     protected
+
+    # Get request statistics
+    #
+    # === Parameters
+    # reset(Boolean):: Whether to reset the statistics after getting the current ones
+    #
+    # === Return
+    # stats(Hash):: Current statistics:
+    #   "connects"(Integer):: Number of broker connect requests
+    #   "disconnects"(Integer):: Number of broker disconnect requests
+    #   "exceptions"(Hash):: Exceptions raised per category
+    #     "total"(Integer):: Total exceptions for this category
+    #     "recent"(Array):: Most recent as a hash of "count", "type", "message", "when", and "where"
+    def agent_stats(reset = false)
+      stats = {"connects" => @connects, "disconnects" => @disconnects, "exceptions" => @exceptions.stats}
+      reset_agent_stats if reset
+      stats
+    end
+
+    # Reset cache statistics
+    #
+    # === Return
+    # true:: Always return true
+    def reset_agent_stats
+      @connects = @disconnects = 0
+      @exceptions = ExceptionStats.new(self, @options[:exception_callback])
+      true
+    end
 
     # Set the agent's configuration using the supplied options
     #
@@ -478,7 +540,6 @@ module RightScale
         end
       end
 
-      @exception_callback = @options[:exception_callback]
       @shared_queue = @options[:shared_queue]
 
       return @identity
@@ -573,7 +634,7 @@ module RightScale
           end
         rescue Exception => e
           RightLinkLog.error("Identity queue processing error: #{e}")
-          @exception_callback.call(e, msg, self) rescue nil if @exception_callback
+          @exceptions.track("identity queue", e, msg)
         end
       end
     end
@@ -601,7 +662,7 @@ module RightScale
           @dispatcher.dispatch(request)
         rescue Exception => e
           RightLinkLog.error("Shared queue processing error: #{e}")
-          @exception_callback.call(e, request, self) rescue nil if @exception_callback
+          @exceptions.track("shared queue", e, request)
         end
       end
       true
@@ -637,6 +698,7 @@ module RightScale
         end
       rescue Exception => e
         RightLinkLog.error("Failed checking broker status: #{e}")
+        @exceptions.track("check broker status", e)
       end
     end
 
@@ -666,6 +728,7 @@ module RightScale
         @broker.publish(exchange, packet, options)
       rescue Exception => e
         RightLinkLog.error("Failed to publish #{packet.class} to #{exchange[:name]} exchange: #{e}") unless @terminating
+        @exceptions.track("publish", e, packet)
       end
       true
     end

@@ -116,7 +116,10 @@ module RightScale
       which = options[:id] ? "with ID #{options[:id].inspect}" : "named #{options[:name].inspect}"
       select = options[:selector] == :all ? "'all' servers" : "a 'single' server"
       where = options[:tags] ? "on #{select} with tags #{options[:tags].inspect}" : "locally on this server"
-      using = options[:parameters].empty? ? "" : "using parameters #{options[:parameters].inspect}"
+      using = ""
+      if options[:parameters] && !options[:parameters].empty?
+        using = "using parameters #{options[:parameters].inspect}"
+      end
       if options[:json]
         using += !using.empty? && options[:json_file] ? " and " : "using "
         using += "options from JSON file #{options[:json_file].inspect}"

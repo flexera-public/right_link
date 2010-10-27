@@ -111,20 +111,19 @@ describe RightScale::MapperProxy do
 
     it "should store the request receive time" do
       flexmock(RightScale::AgentIdentity).should_receive(:generate).and_return('abc').once
-      flexmock(Time).should_receive(:now).and_return(1000000).by_default
+      flexmock(Time).should_receive(:now).and_return(Time.at(1000000)).by_default
       @instance.request_age.should be_nil
       @instance.request('/welcome/aboard', 'iZac', {})
-      @instance.pending_requests['abc'][:receive_time].should == 1000000
-      flexmock(Time).should_receive(:now).and_return(1000100)
+      @instance.pending_requests['abc'][:receive_time].should == Time.at(1000000)
+      flexmock(Time).should_receive(:now).and_return(Time.at(1000100))
       @instance.request_age.should == 100
     end
 
     it "should dump the pending requests" do
       flexmock(RightScale::AgentIdentity).should_receive(:generate).and_return('abc').once
-      now = flexmock("now", :to_f => 1000000.0000, :localtime => 1000000)
-      time = flexmock(Time).should_receive(:now).and_return(now)
+      flexmock(Time).should_receive(:now).and_return(Time.at(1000000))
       @instance.request('/welcome/aboard', 'iZac', {})
-      @instance.dump_requests.should == ['1000000 <abc>']
+      @instance.dump_requests.should == ["#{Time.at(1000000).localtime} <abc>"]
     end
 
     describe "with retry" do

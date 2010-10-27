@@ -25,6 +25,8 @@ module RightScale
   # Dispatching of payload to specified actor
   class Dispatcher
 
+    include StatsHelper
+
     # (Integer) Seconds between registrations because of stale requests
     ADVERTISE_INTERVAL = 5 * 60
 
@@ -70,10 +72,12 @@ module RightScale
       @completed_timeout = options[:completed_timeout] || @fresh_timeout ? @fresh_timeout : (10 * 60)
       @completed_interval = options[:completed_interval] || 60
       @completed = {} # Only access from primary thread
+      @pending_dispatches = 0
       @last_advertise_time = 0
       @em = EM
       @em.threadpool_size = (options[:threadpool_size] || 20).to_i
       setup_completion_aging if @dup_check
+      reset_stats
     end
 
     # Dispatch request to appropriate actor method for servicing
@@ -89,17 +93,19 @@ module RightScale
     # === Return
     # r(Result):: Result from dispatched request, nil if not dispatched because dup or stale
     def dispatch(request)
-      if @fresh_timeout && (created_at = request.created_at.to_i) > 0
-        time = Time.now.to_i
-        age = time - created_at
+      received_at = @requests.update(request.type)
+
+      if @fresh_timeout && (created_at = request.created_at) > 0
+        age = received_at.to_i - created_at.to_i
         if age > @fresh_timeout
+          @rejects.update("stale")
           RightLinkLog.info("REJECT STALE <#{request.token}> age #{age} exceeds #{@fresh_timeout} second limit")
-          if (time - @last_advertise_time) > ADVERTISE_INTERVAL
-            @last_advertise_time = time
+          if (received_at - @last_advertise_time).to_i > ADVERTISE_INTERVAL
+            @last_advertise_time = received_at
             @agent.advertise_services
           end
           if request.respond_to?(:reply_to)
-            packet = Stale.new(@identity, request.token, request.from, request.created_at, time, @fresh_timeout)
+            packet = Stale.new(@identity, request.token, request.from, created_at, received_at.to_f, @fresh_timeout)
             exchange = {:type => :queue, :name => request.reply_to, :options => {:durable => true, :no_declare => @secure}}
             @broker.publish(exchange, packet, :persistent => request.persistent)
           end
@@ -109,12 +115,14 @@ module RightScale
 
       if @dup_check && request.kind_of?(Request)
         if @completed[request.token]
+          @rejects.update("duplicate")
           RightLinkLog.info("REJECT DUP <#{request.token}> of self")
           return nil
         end
         if request.respond_to?(:tries) && !request.tries.empty?
           request.tries.each do |token|
             if @completed[token]
+              @rejects.update("retry duplicate")
               RightLinkLog.info("REJECT RETRY DUP <#{request.token}> of <#{token}>")
               return nil
             end
@@ -129,9 +137,8 @@ module RightScale
       operation = lambda do
         begin
           if request.kind_of?(Request)
-            @pending_dispatches ||= 0
             @pending_dispatches += 1
-            @last_dispatch_time = Time.now.to_i
+            @last_request_dispatch_time = received_at.to_i
           end
           args = [ request.payload ]
           args.push(request) if actor.method(meth).arity == 2
@@ -146,14 +153,15 @@ module RightScale
         begin
           if request.kind_of?(Request)
             @pending_dispatches = [@pending_dispatches - 1, 0].max
-            completed_at = Time.now.to_i
+            completed_at = @requests.finish(received_at)
             @completed[request.token] = completed_at if @dup_check && request.token
             r = Result.new(request.token, request.reply_to, r, identity, request.from, request.tries, request.persistent)
             exchange = {:type => :queue, :name => request.reply_to, :options => {:durable => true, :no_declare => @secure}}
             @broker.publish(exchange, r, :persistent => request.persistent, :log_filter => [:tries, :persistent])
           end
         rescue Exception => e
-          RightLinkLog.error("Failed to publish result of dispatched request: #{e.message}")
+          RightLinkLog.error("Failed to publish result of dispatched request: #{e}")
+          @exceptions.track("publish response", e)
         end
         r # For unit tests
       end
@@ -170,10 +178,51 @@ module RightScale
     # === Return
     # age(Integer|nil):: Age in seconds of youngest dispatch, or nil if none
     def dispatch_age
-      age = Time.now.to_i - @last_dispatch_time if @last_dispatch_time && @pending_dispatches > 0
+      age = Time.now.to_i - @last_request_dispatch_time if @last_request_dispatch_time && @pending_dispatches > 0
+    end
+
+    # Get dispatcher statistics
+    #
+    # === Parameters
+    # reset(Boolean):: Whether to reset the statistics after getting the current ones
+    #
+    # === Return
+    # stats(Hash):: Current statistics:
+    #   "dup_check_cache"(Integer):: Size of cache of completed requests used for detecting duplicates
+    #   "exceptions"(Hash):: Exceptions raised per category
+    #     "total"(Integer):: Total for category
+    #     "recent"(Array):: Most recent as a hash of "count", "type", "message", "when", and "where"
+    #   "reject last"(Integer):: Time in seconds since last reject
+    #   "reject rate"(Float):: Average number of rejects per second recently
+    #   "rejects"(Hash):: Total number of rejects and percentage breakdown per reason ("duplicate",
+    #     "retry_duplicate", or "stale") as hash with keys "total" and "percent"
+    #   "request last"(Integer):: Time in seconds since last request was received
+    #   "request rate"(Float):: Average number of requests per second recently
+    #   "requests(Hash):: Total requests and percentage breakdown per type as hash with keys "total" and "percent"
+    #   "requests pending"(Integer):: Number of requests waiting for response
+    #   "response time"(Float):: Average number of seconds to respond to a request recently
+    def stats(reset = false)
+      stats = {"dup check cache" => @completed.size, "exceptions" => @exceptions.stats,
+               "reject last" => @rejects.last, "reject rate" => @rejects.avg_rate,
+               "rejects" => @rejects.percent, "request last" => @requests.last,
+               "request rate" => @requests.avg_rate, "requests" => @requests.percent,
+               "requests pending" => @pending_dispatches, "response time" => @requests.avg_duration}
+      reset_stats if reset
+      stats
     end
 
     private
+
+    # Reset dispatch statistics
+    #
+    # === Return
+    # true:: Always return true
+    def reset_stats
+      @rejects = ActivityStats.new
+      @requests = ActivityStats.new
+      @exceptions = ExceptionStats.new(@agent)
+      true
+    end
 
     # Setup request completion aging
     # All operations on @completed hash are done on primary thread
@@ -182,7 +231,7 @@ module RightScale
     # true:: Always return true
     def setup_completion_aging
       @em.add_periodic_timer(@completed_interval) do
-        age_limit = Time.now.to_i - @completed_timeout
+        age_limit = Time.now - @completed_timeout
         @completed.reject! { |_, v| v < age_limit }
       end
       true
@@ -199,7 +248,8 @@ module RightScale
       description = "#{e.class.name}: #{e.message}\n #{e.backtrace.join("\n  ")}"
     end
 
-    # Handle exception by logging it and calling the actors exception callback method
+    # Handle exception by logging it, calling the actors exception callback method,
+    # and gathering exception statistics
     #
     # === Parameters
     # actor(Actor):: Actor that failed to process request
@@ -225,6 +275,7 @@ module RightScale
         error = describe_error(e1)
         RightLinkLog.error(error)
       end
+      @exceptions.track("/#{actor.class.name}/#{meth}", e)
       error
     end
 
