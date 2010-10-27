@@ -153,6 +153,7 @@ module RightScale
         opts.parse!(ARGV)
       rescue Exception => e
         puts e.message + "\nUse rs_tag --help for additional information"
+        exit
       end
       options
     end

@@ -102,6 +102,7 @@ module RightScale
         opts.parse!(ARGV)
       rescue Exception => e
         puts e.message + "\nUse --help for additional information"
+        exit
       end
       options
     end
