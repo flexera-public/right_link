@@ -260,7 +260,8 @@ describe RightScale::StatsHelper do
     end
 
     it "should convert exception stats to multi-line string" do
-      @exceptions.track("testing", Exception.new("Test error"))
+      @exceptions.track("testing", Exception.new("This is a very long exception message that should be truncated " +
+                                                 "to a reasonable length"))
       flexmock(Time).should_receive(:now).and_return(1000010)
       category = "another"
       backtrace = ["It happened here", "Over there"]
@@ -284,7 +285,7 @@ describe RightScale::StatsHelper do
                    "----testing total: 2, most recent:\n" +
                    "----(1) Mon Jan 12 05:46:50 -0800 1970 ArgumentError: badarg\n" +
                    "----    Over there\n" +
-                   "----(1) Mon Jan 12 05:46:40 -0800 1970 Exception: Test error\n" +
+                   "----(1) Mon Jan 12 05:46:40 -0800 1970 Exception: This is a very long exception message that should be truncate...\n" +
                    "----    "
     end
 

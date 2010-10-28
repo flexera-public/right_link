@@ -20,6 +20,8 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+require 'socket'
+
 class AgentManager
 
   include RightScale::Actor
@@ -44,9 +46,22 @@ class AgentManager
   # res(RightScale::OperationResult):: Always returns success
   def ping(_)
     res = RightScale::OperationResult.success(:identity => @agent.options[:identity],
+                                              :hostname => Socket.gethostname,
                                               :version => RightScale::RightLinkConfig.protocol_version,
                                               :brokers => @agent.broker.status,
                                               :time => Time.now.to_i)
+  end
+
+  # Retrieve statistics about agent operation
+  #
+  # === Parameters:
+  # options(Hash):: Request options:
+  #   :reset(Boolean):: Whether to reset the statistics after getting the current ones
+  #
+  # === Return
+  # res(RightScale::OperationResult):: Always returns success
+  def stats(options)
+    res = @agent.stats(RightScale::SerializationHelper.symbolize_keys(options))
   end
 
   # Change log level of agent

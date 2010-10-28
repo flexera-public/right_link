@@ -33,6 +33,9 @@ module RightScale
     # (Integer) Maximum characters in sub-stat value line
     MAX_SUB_STAT_VALUE_WIDTH = 80
 
+    # (Integer) Maximum characters displayed for exception message
+    MAX_EXCEPTION_MESSAGE_WIDTH = 60
+
     # (String) Separator between stat name and stat value
     SEPARATOR = " : "
 
@@ -280,8 +283,11 @@ module RightScale
       indent2 = indent + (" " * 4)
       exceptions.to_a.sort.map do |k, v|
         sprintf("%s total: %d, most recent:\n", k, v["total"]) + v["recent"].reverse.map do |e|
-          indent + "(#{e["count"]}) #{Time.at(e["when"])} #{e["type"]}: #{e["message"]}\n" +
-          indent2 + "#{e["where"]}"
+          message = e["message"]
+          if message && message.size > MAX_EXCEPTION_MESSAGE_WIDTH
+            message = e["message"][0..MAX_EXCEPTION_MESSAGE_WIDTH] + "..."
+          end
+          indent + "(#{e["count"]}) #{Time.at(e["when"])} #{e["type"]}: #{message}\n" + indent2 + "#{e["where"]}"
         end.join("\n")
       end.join("\n" + indent)
     end
