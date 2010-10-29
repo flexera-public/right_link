@@ -47,7 +47,7 @@ module RightScale
       else
         print 'Stopping RightLink daemon...' if options[:verbose]
         pid_file = agent_pid_file('instance')
-        pid = pid_file.read_pid[:pid] if pid_file
+        pid = pid_file ? pid_file.read_pid[:pid] : nil
         system('/opt/rightscale/sandbox/bin/monit -c /opt/rightscale/etc/monitrc stop instance')
         # Wait for agent process to terminate
         retries = 0
@@ -65,6 +65,12 @@ module RightScale
         end
         # Now stop monit so it doesn't get in the way
         system('/opt/rightscale/sandbox/bin/monit -c /opt/rightscale/etc/monitrc quit')
+        pid_file = '/opt/rightscale/var/run/monit.pid'
+        pid = File.exist?(pid_file) ? IO.read(pid_file).to_i : nil
+        while pid && process_running?(pid) do
+          puts 'Waiting for monit to exit...' if options[:verbose]
+          sleep(1)
+        end
         cleanup_certificates(options)
 
         # Resume option bypasses cloud state initialization so that we can
