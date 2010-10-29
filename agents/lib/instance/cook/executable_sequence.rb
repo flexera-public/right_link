@@ -216,24 +216,24 @@ module RightScale
       # Skip download if in dev mode and cookbooks repos directories already have files in them
       return true unless DevState.download_cookbooks?
 
-      @audit.create_new_section('Retrieving cookbooks') unless @cookbook_repos.empty?
+      @audit.create_new_section('Retrieving cookbooks') unless @cookbooks.empty?
       audit_time do
-        connection = RightHttpConnection.new(:user_agent => 'Repose client',
-                                             :logger => @logger,
-                                             :exception => ReposeConnectionException)
+        connection = Rightscale::HttpConnection.new(:user_agent => 'Repose client',
+                                                    :logger => @logger,
+                                                    :exception => ReposeConnectionException)
         server = find_repose_server(connection)
         @cookbooks.each do |cookbook|
           @audit.update_status("Downloading #{cookbook}")
 
           request = Net::HTTP::Get.new('/#{cookbook.hash}')
           request['Cookie'] = "repose_ticket=#{cookbook.token}"
-          again? = true
-          while again?
+          again = true
+          while again
             begin
               connection.request(:server => server, :port => '80', :protocol => 'https',
                                  :request => request) do |result|
                 if result.kind_of?(Net::HTTPSuccess)
-                  again? = false
+                  again = false
                   tarball = Tempfile.new("tarball")
                   @audit.append_info("Success, now unarchiving")
                   result.read_body do |chunk|
@@ -256,7 +256,7 @@ module RightScale
                   @audit.append_info("Repose server unavailable; retrying", result.body)
                   server = find_repose_server(connection)
                 else
-                  again? = false
+                  again = false
                   report_failure("Unable to download cookbook #{cookbook}", result.to_s)
                 end
               end
