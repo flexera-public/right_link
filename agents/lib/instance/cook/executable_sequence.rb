@@ -63,7 +63,7 @@ module RightScale
       @scripts                = bundle.executables.select { |e| e.is_a?(RightScriptInstantiation) }
       recipes                 = bundle.executables.map    { |e| e.is_a?(RecipeInstantiation) ? e : @right_scripts_cookbook.recipe_from_right_script(e) }
       @cookbooks              = bundle.cookbooks
-      @repose_server          = bundle.repose_server
+      @repose_servers         = bundle.repose_servers
       @downloader             = Downloader.new
       @download_path          = InstanceConfiguration.cookbook_download_path
       @powershell_providers   = nil
@@ -280,10 +280,10 @@ module RightScale
     # address(String):: IP address of working repose server
     def find_repose_server(connection)
       loop do
-        possibles = Socket.getaddrinfo(@repose_server, 80, Socket::AF_INET, Socket::SOCK_STREAM,
+        possibles = Socket.getaddrinfo(@repose_servers.first, 80, Socket::AF_INET, Socket::SOCK_STREAM,
                                        Socket::IPPROTO_TCP)
         if possibles.empty?
-          RightLinkLog.warn("Unable to find any repose servers for #{@repose_server}; retrying")
+          RightLinkLog.warn("Unable to find any repose servers for #{@repose_servers.first}; retrying")
           sleep 10
           next
         end
@@ -297,7 +297,7 @@ module RightScale
           return address if result.kind_of?(HTTPSuccess)
         end
 
-        RightLinkLog.warn("All available repose servers for #{@repose_server} are down; retrying")
+        RightLinkLog.warn("All available repose servers for #{@repose_servers.inspect} are down; retrying")
         sleep 10
       end
     end
