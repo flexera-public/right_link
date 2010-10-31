@@ -113,7 +113,7 @@ module RightScale
     #   :exception_callback(Proc):: Callback with following parameters that is activated on exception events:
     #     exception(Exception):: Exception
     #     message(Packet):: Message being processed
-    #     mapper(Agent):: Reference to agent
+    #     agent(Agent):: Reference to agent
     #   :services(Symbol):: List of services provided by this agent. Defaults to all methods exposed by actors.
     #   :secure(Boolean):: true indicates to use Security features of RabbitMQ to restrict agents to themselves
     #   :single_threaded(Boolean):: true indicates to run all operations in one thread; false indicates
@@ -152,7 +152,7 @@ module RightScale
       @tags.flatten!
       @options.freeze
       @terminating = false
-      @last_stat_reset_time = Time.now
+      @last_stat_reset_time = @service_start_time = Time.now
       reset_agent_stats
       true
     end
@@ -274,7 +274,7 @@ module RightScale
     # === Return
     # res(String|nil):: Error message if failed, otherwise nil
     def connect(host, port, alias_id, priority = nil, force = false)
-      @connects += 1
+      @connect_requests.update("connect (b#{alias_id})")
       even_if = " even if already connected" if force
       RightLinkLog.info("Received request to connect to broker at host #{host.inspect} port #{port.inspect} " +
                         "alias_id #{alias_id.inspect} priority #{priority.inspect}#{even_if}")
@@ -320,12 +320,12 @@ module RightScale
     # === Return
     # res(String|nil):: Error message if failed, otherwise nil
     def disconnect(host, port, remove = false)
-      @disconnects += 1
       and_remove = " and remove" if remove
       RightLinkLog.info("Received request to disconnect#{and_remove} broker at host #{host.inspect} " +
                         "port #{port.inspect}")
       RightLinkLog.info("Current broker configuration: #{@broker.status.inspect}")
       identity = HA_MQ.identity(host, port)
+      @connect_requests.update("disconnect (#{@broker.alias_(identity)})")
       connected = @broker.connected
       res = nil
       if connected.include?(identity) && connected.size == 1
@@ -367,6 +367,8 @@ module RightScale
     # === Return
     # res(String|nil):: Error message if failed, otherwise nil
     def connect_failed(ids)
+      aliases = @broker.aliases(ids).join(", ")
+      @connect_requests.update("enroll failed (#{aliases})")
       res = nil
       begin
         RightLinkLog.info("Received indication that service initialization for this agent for brokers #{ids.inspect} has failed")
@@ -458,17 +460,20 @@ module RightScale
     # === Return
     # result(OperationResult):: Always returns success
     def stats(options)
+      now = Time.now
       reset = options[:reset]
       result = OperationResult.success("identity" => @identity,
                                        "hostname" => Socket.gethostname,
                                        "version" => RightLinkConfig.protocol_version,
-                                       "brokers" => @broker.status,
+                                       "brokers" => @broker.stats(reset),
                                        "agent stats" => agent_stats(reset),
                                        "receive stats" => @dispatcher.stats(reset),
                                        "send stats" => @mapper_proxy.stats(reset),
                                        "last reset time" => @last_stat_reset_time.to_i,
-                                       "stats time" => Time.now.to_i)
-      @last_stat_reset_time = Time.now if reset
+                                       "stats time" => now.to_i,
+                                       "service uptime" => (now - @service_start_time).to_i,
+                                       "machine uptime" => RightScale::RightLinkConfig[:platform].shell.uptime)
+      @last_stat_reset_time = now if reset
       result
     end
 
@@ -481,13 +486,15 @@ module RightScale
     #
     # === Return
     # stats(Hash):: Current statistics:
-    #   "connects"(Integer):: Number of broker connect requests
-    #   "disconnects"(Integer):: Number of broker disconnect requests
+    #   "connect requests"(Hash):: Total number of requests to update connections and percentage breakdown by
+    #     "connects: <alias>", "disconnects: <alias>", "enroll setup failed: <aliases>"
+    #   "connect req last"(Hash):: Last update connection request with keys "type" and "elapsed"
     #   "exceptions"(Hash):: Exceptions raised per category
     #     "total"(Integer):: Total exceptions for this category
     #     "recent"(Array):: Most recent as a hash of "count", "type", "message", "when", and "where"
     def agent_stats(reset = false)
-      stats = {"connects" => @connects, "disconnects" => @disconnects, "exceptions" => @exceptions.stats}
+      stats = {"connect requests" => @connect_requests.percentage, "connect req last" => @connect_requests.last,
+               "exceptions" => @exceptions.stats}
       reset_agent_stats if reset
       stats
     end
@@ -497,7 +504,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def reset_agent_stats
-      @connects = @disconnects = 0
+      @connect_requests = ActivityStats.new(measure_rate = false)
       @exceptions = ExceptionStats.new(self, @options[:exception_callback])
       true
     end

@@ -93,12 +93,14 @@ module RightScale
     # === Return
     # r(Result):: Result from dispatched request, nil if not dispatched because dup or stale
     def dispatch(request)
-      received_at = @requests.update(request.type)
+      prefix, method = request.type.split('/')[1..-1]
+      method ||= :index
+      received_at = @requests.update(method, (request.token if request.kind_of?(Request)))
 
       if @fresh_timeout && (created_at = request.created_at) > 0
         age = received_at.to_i - created_at.to_i
         if age > @fresh_timeout
-          @rejects.update("stale")
+          @rejects.update("stale (#{method})")
           RightLinkLog.info("REJECT STALE <#{request.token}> age #{age} exceeds #{@fresh_timeout} second limit")
           if (received_at - @last_advertise_time).to_i > ADVERTISE_INTERVAL
             @last_advertise_time = received_at
@@ -115,14 +117,14 @@ module RightScale
 
       if @dup_check && request.kind_of?(Request)
         if @completed[request.token]
-          @rejects.update("duplicate")
+          @rejects.update("duplicate (#{method})")
           RightLinkLog.info("REJECT DUP <#{request.token}> of self")
           return nil
         end
         if request.respond_to?(:tries) && !request.tries.empty?
           request.tries.each do |token|
             if @completed[token]
-              @rejects.update("retry duplicate")
+              @rejects.update("retry duplicate (#{method})")
               RightLinkLog.info("REJECT RETRY DUP <#{request.token}> of <#{token}>")
               return nil
             end
@@ -130,8 +132,6 @@ module RightScale
         end
       end
 
-      prefix, meth = request.type.split('/')[1..-1]
-      meth ||= :index
       actor = registry.actor_for(prefix)
 
       operation = lambda do
@@ -141,11 +141,11 @@ module RightScale
             @last_request_dispatch_time = received_at.to_i
           end
           args = [ request.payload ]
-          args.push(request) if actor.method(meth).arity == 2
-          actor.__send__(meth, *args)
+          args.push(request) if actor.method(method).arity == 2
+          actor.__send__(method, *args)
         rescue Exception => e
           @pending_dispatches = [@pending_dispatches - 1, 0].max if request.kind_of?(Request)
-          handle_exception(actor, meth, request, e)
+          handle_exception(actor, method, request, e)
         end
       end
       
@@ -153,7 +153,7 @@ module RightScale
         begin
           if request.kind_of?(Request)
             @pending_dispatches = [@pending_dispatches - 1, 0].max
-            completed_at = @requests.finish(received_at)
+            completed_at = @requests.finish(received_at, request.token)
             @completed[request.token] = completed_at if @dup_check && request.token
             r = Result.new(request.token, request.reply_to, r, identity, request.from, request.tries, request.persistent)
             exchange = {:type => :queue, :name => request.reply_to, :options => {:durable => true, :no_declare => @secure}}
@@ -188,25 +188,24 @@ module RightScale
     #
     # === Return
     # stats(Hash):: Current statistics:
-    #   "dup_check_cache"(Integer):: Size of cache of completed requests used for detecting duplicates
+    #   "dup cache size"(Integer):: Size of cache of completed requests used for detecting duplicates
     #   "exceptions"(Hash):: Exceptions raised per category
     #     "total"(Integer):: Total for category
     #     "recent"(Array):: Most recent as a hash of "count", "type", "message", "when", and "where"
-    #   "reject last"(Integer):: Time in seconds since last reject
+    #   "reject last"(Hash):: Last reject information with keys "type", "elapsed", and "active"
     #   "reject rate"(Float):: Average number of rejects per second recently
-    #   "rejects"(Hash):: Total number of rejects and percentage breakdown per reason ("duplicate",
-    #     "retry_duplicate", or "stale") as hash with keys "total" and "percent"
-    #   "request last"(Integer):: Time in seconds since last request was received
+    #   "rejects"(Hash):: Total number of rejects and percentage breakdown per reason ("duplicate (<method>)",
+    #     "retry duplicate (<method>)", or "stale (<method>)") as hash with keys "total" and "percent"
+    #   "request last"(Hash):: Last request information with keys "type", "elapsed", and "active"
     #   "request rate"(Float):: Average number of requests per second recently
     #   "requests(Hash):: Total requests and percentage breakdown per type as hash with keys "total" and "percent"
-    #   "requests pending"(Integer):: Number of requests waiting for response
     #   "response time"(Float):: Average number of seconds to respond to a request recently
     def stats(reset = false)
-      stats = {"dup check cache" => @completed.size, "exceptions" => @exceptions.stats,
+      stats = {"dup cache size" => @completed.size, "exceptions" => @exceptions.stats,
                "reject last" => @rejects.last, "reject rate" => @rejects.avg_rate,
-               "rejects" => @rejects.percent, "request last" => @requests.last,
-               "request rate" => @requests.avg_rate, "requests" => @requests.percent,
-               "requests pending" => @pending_dispatches, "response time" => @requests.avg_duration}
+               "rejects" => @rejects.percentage, "request last" => @requests.last,
+               "request rate" => @requests.avg_rate, "requests" => @requests.percentage,
+               "response time" => @requests.avg_duration}
       reset_stats if reset
       stats
     end
@@ -253,29 +252,29 @@ module RightScale
     #
     # === Parameters
     # actor(Actor):: Actor that failed to process request
-    # meth(String):: Name of actor method being dispatched to
+    # method(String):: Name of actor method being dispatched to
     # request(Packet):: Packet that dispatcher is acting upon
     # e(Exception):: Exception that was raised
     #
     # === Return
     # error(String):: Error description for this exception
-    def handle_exception(actor, meth, request, e)
+    def handle_exception(actor, method, request, e)
       error = describe_error(e)
       RightLinkLog.error(error)
       begin
         if actor.class.exception_callback
           case actor.class.exception_callback
           when Symbol, String
-            actor.send(actor.class.exception_callback, meth.to_sym, request, e)
+            actor.send(actor.class.exception_callback, method.to_sym, request, e)
           when Proc
-            actor.instance_exec(meth.to_sym, request, e, &actor.class.exception_callback)
+            actor.instance_exec(method.to_sym, request, e, &actor.class.exception_callback)
           end
         end
       rescue Exception => e1
         error = describe_error(e1)
         RightLinkLog.error(error)
       end
-      @exceptions.track("/#{actor.class.name}/#{meth}", e)
+      @exceptions.track("/#{actor.class.name}/#{method}", e)
       error
     end
 

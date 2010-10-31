@@ -24,20 +24,25 @@ module RightScale
   # Mixin for collecting and displaying operational statistics for servers
   module StatsHelper
 
-    # (Integer) Maximum characters in stat name
+    # Maximum characters in stat name
     MAX_STAT_NAME_WIDTH = 11
 
-    # (Integer) Maximum characters in sub-stat name
+    # Maximum characters in sub-stat name
     MAX_SUB_STAT_NAME_WIDTH = 17
 
-    # (Integer) Maximum characters in sub-stat value line
+    # Maximum characters in sub-stat value line
     MAX_SUB_STAT_VALUE_WIDTH = 80
 
-    # (Integer) Maximum characters displayed for exception message
+    # Maximum characters displayed for exception message
     MAX_EXCEPTION_MESSAGE_WIDTH = 60
 
-    # (String) Separator between stat name and stat value
+    # Separator between stat name and stat value
     SEPARATOR = " : "
+
+    # Time constants
+    MINUTE = 60
+    HOUR = 60 * MINUTE
+    DAY = 24 * HOUR
 
     # Track activity statistics
     class ActivityStats
@@ -65,22 +70,30 @@ module RightScale
         @avg_duration = 0.0
         @total = 0
         @count_per_type = {}
+        @last_type = nil
+        @last_id = nil
       end
 
       # Mark the start of an action and update counts and average rate
       # with weighting toward recent activity
+      # Ignore the update if its type contains "stats"
       #
       # === Parameters
       # type(String|Symbol):: Type of action, defaults to nil
+      # id(String):: Unique identifier associated with this action
       #
       # === Return
       # now(Time):: Update time
-      def update(type = nil)
+      def update(type = nil, id = nil)
         now = Time.now
-        @interval = ((@interval * (RECENT_SIZE - 1)) + (now - @last_start_time)) / RECENT_SIZE if @measure_rate
-        @last_start_time = now
-        @total += 1
-        @count_per_type[type] = (@count_per_type[type] || 0) + 1 if type
+        if type.nil? || !(type =~ /stats/)
+          @interval = ((@interval * (RECENT_SIZE - 1)) + (now - @last_start_time)) / RECENT_SIZE if @measure_rate
+          @last_start_time = now
+          @total += 1
+          @count_per_type[type] = (@count_per_type[type] || 0) + 1 if type
+          @last_type = type
+          @last_id = id
+        end
         now
       end
 
@@ -88,13 +101,15 @@ module RightScale
       #
       # === Parameters
       # start_time(Time):: Time when action started, defaults to last time start was called
+      # id(String):: Unique identifier associated with this action
       #
       # === Return
       # now(Time):: Finish time
-      def finish(start_time = nil)
+      def finish(start_time = nil, id = nil)
         now = Time.now
         start_time ||= @last_start_time
         @avg_duration = ((@avg_duration * (RECENT_SIZE - 1)) + (now - start_time)) / RECENT_SIZE
+        @last_id = 0 if id && id == @last_id
         now
       end
 
@@ -106,21 +121,29 @@ module RightScale
         if @interval == 0.0 then 0.0 else 1.0 / @interval end
       end
 
-      # Get number of seconds since last action
+      # Get stats about last action
       #
       # === Return
-      # (Integer|nil):: Seconds, or nil if the total is 0
+      # (Hash|nil):: Information about last action, or nil if the total is 0
+      #   "elapsed"(Integer):: Seconds since last action started
+      #   "type"(String):: Type of action if specified, otherwise omitted
+      #   "active"(Boolean):: Whether action still active
       def last
-        (Time.now - @last_start_time).to_i if @total > 0
+        if @total > 0
+          result = {"elapsed" => (Time.now - @last_start_time).to_i}
+          result["type"] = @last_type if @last_type
+          result["active"] = @last_id != 0 if !@last_id.nil?
+          result
+        end
       end
 
       # Convert count per type into percentage by type
       #
       # === Return
       # (Hash):: Converted data with keys "total" and "percent" with latter being a hash of percentage per type
-      def percent
+      def percentage
         percent = {}
-        @count_per_type.each { |k, v| percent[k] = (v * 100.0) / @total } if @total > 0
+        @count_per_type.each { |k, v| percent[k] = (v / @total.to_f) * 100.0 } if @total > 0
         {"percent" => percent, "total" => @total}
       end
 
@@ -192,29 +215,77 @@ module RightScale
     #
     # === Return
     # (Hash):: Converted data with keys "total" and "percent" with latter being a hash of percentage per type
-    def percent(count_per_type)
+    def percentage(count_per_type)
       total = 0
       count_per_type.each_value { |v| total += v }
       percent = {}
-      count_per_type.each { |k, v| percent[k] = (v * 100.0) / total } if total > 0
+      count_per_type.each { |k, v| percent[k] = (v / total.to_f) * 100.0 } if total > 0
       {"percent" => percent, "total" => total}
+    end
+
+    # Convert to rounded percentage string
+    #
+    # === Parameters
+    # count(Numeric):: Value whose percentage is being calculated
+    # total(Numeric):: Total for percentage calculation
+    #
+    # === Return
+    # (String):: Rounded percentage ending with '%'
+    def rounded_percent_str(count, total)
+      percent = (count / total.to_f) * 100.0
+      accuracy = (percent < 1.0 && percent != 0.0) ? (percent < 0.1 ? 2 : 1) : 0
+      if accuracy > 0
+        sprintf("%.#{accuracy}f\%", percent)
+      else
+        "#{percent.round}%"
+      end
+    end
+
+    # Convert elapsed time in seconds to displayable format
+    #
+    # === Parameters
+    # time(Integer):: Elapsed time
+    #
+    # === Return
+    # (String):: Display string
+    def elapsed(time)
+      time = time.to_i
+      if time <= MINUTE
+        "#{time} sec"
+      elsif time <= HOUR
+        minutes = time / MINUTE
+        seconds = time - (minutes * MINUTE)
+        "#{minutes} min, #{seconds} sec"
+      elsif time <= DAY
+        hours = time / HOUR
+        minutes = (time - (hours * HOUR)) / MINUTE
+        "#{hours} hr, #{minutes} min"
+      else
+        days = time / DAY
+        hours = (time - (days * DAY)) / HOUR
+        minutes = (time - (days * DAY) - (hours * HOUR)) / MINUTE
+        "#{days} day#{'s' if days != 1}, #{hours} hr, #{minutes} min"
+      end
     end
 
     # Converts server statistics to a displayable format
     #
     # === Parameters
-    # stats(Hash):: Statistics with generic keys "stats time", "last reset time", "identity",
-    #   "hostname", "version", and "broker"; other keys ending with "stats" have an associated
-    #   hash value that is displayed in sorted key order
+    # stats(Hash):: Statistics with generic keys "identity", "hostname", "service uptime",
+    #   "machine uptime", "stats time", "last reset time", "version", and "broker" with the
+    #   latter two and "machine uptime" being optional; any other keys ending with "stats"
+    #   have an associated hash value that is displayed in sorted key order
     #
     # === Return
     # (String):: Display string
     def stats_str(stats)
       name_width = MAX_STAT_NAME_WIDTH
-      str = sprintf("%-#{name_width}s#{SEPARATOR}%s\n", "stats time", Time.at(stats["stats time"])) +
-            sprintf("%-#{name_width}s#{SEPARATOR}%s\n", "last reset", Time.at(stats["last reset time"])) +
+      str = sprintf("%-#{name_width}s#{SEPARATOR}%s\n", "identity", stats["identity"]) +
             sprintf("%-#{name_width}s#{SEPARATOR}%s\n", "hostname", stats["hostname"]) +
-            sprintf("%-#{name_width}s#{SEPARATOR}%s\n", "identity", stats["identity"])
+            sprintf("%-#{name_width}s#{SEPARATOR}%s\n", "stats time", Time.at(stats["stats time"])) +
+            sprintf("%-#{name_width}s#{SEPARATOR}%s\n", "last reset", Time.at(stats["last reset time"])) +
+            sprintf("%-#{name_width}s#{SEPARATOR}%s\n", "service up", elapsed(stats["service uptime"]))
+      str += sprintf("%-#{name_width}s#{SEPARATOR}%s\n", "machine up", elapsed(stats["machine uptime"])) if stats.has_key?("machine uptime")
       str += brokers_str(stats["brokers"], name_width) if stats.has_key?("brokers")
       str += sprintf("%-#{name_width}s#{SEPARATOR}%s\n", "version", stats["version"].to_i) if stats.has_key?("version")
       stats.to_a.sort.each { |k, v| str += sub_stats_str(k[0..-7], v, name_width) if k.to_s =~ /stats$/ }
@@ -224,20 +295,42 @@ module RightScale
     # Convert broker information to displayable format
     #
     # === Parameter
-    # brokers(Array):: Hash of information for each broker
+    # brokers(Hash):: Broker stats with keys
+    #   "brokers"(Array):: Stats for each broker in priority order as hash with keys
+    #     "alias"(String):: Broker alias
+    #     "identity"(String):: Broker identity
+    #     "status"(Symbol):: Status of connection
+    #     "disconnects"(Integer):: Number of times lost connection
+    #     "tries"(Integer):: Number of attempts to reconnect a failed connection
+    #   "exceptions"(Hash):: Exceptions raised per category with keys
+    #     "total"(Integer):: Total exceptions for this category
+    #     "recent"(Array):: Most recent as a hash of "count", "type", "message", "when", and "where"
     # name_width(Integer):: Fixed width for left-justified name display
     #
     # === Return
-    # (String):: Broker display with one line per broker
+    # str(String):: Broker display with one line per broker plus exceptions
     def brokers_str(brokers, name_width)
       value_indent = " " * (name_width + SEPARATOR.size)
-      sprintf("%-#{name_width}s#{SEPARATOR}", "brokers") + brokers.map do |b|
-        sprintf("alias: %s, identity: %s, status: %s, tries: %d\n",
-                b["alias"], b["identity"], b["status"], b["tries"])
-      end.join(value_indent)
+      sub_name_width = MAX_SUB_STAT_NAME_WIDTH
+      sub_value_indent = " " * (name_width + sub_name_width + (SEPARATOR.size * 2))
+      str = sprintf("%-#{name_width}s#{SEPARATOR}", "brokers")
+      brokers["brokers"].each do |b|
+        str += sprintf("%s: %s, status: %s, disconnects: %d, tries: %d\n",
+                     b["alias"], b["identity"], b["status"], b["disconnects"], b["tries"])
+        str += value_indent
+      end
+      str += sprintf("%-#{sub_name_width}s#{SEPARATOR}", "exceptions")
+      str += if brokers["exceptions"].empty?
+        "none\n"
+      else
+        exceptions_str(brokers["exceptions"], sub_value_indent) + "\n"
+      end
     end
 
     # Convert grouped set of statistics to displayable format
+    # Provide special formatting for stats named "exceptions"
+    # Break out percentages and total count for stats containing "percent" hash value
+    # Convert to elapsed time for stats with names ending in "last"
     # Display any empty values as "none"
     #
     # === Parameters
@@ -258,6 +351,22 @@ module RightScale
         elsif v.is_a?(Hash)
           if v.empty? || v["total"] == 0
             "none"
+          elsif v["percent"]
+            accuracy = 0
+            v["percent"].each_value { |v2| accuracy = [accuracy, v2 < 1.0 ? (v2 < 0.1 ? 2 : 1) : 0].max }
+            str = if accuracy > 0
+              v["percent"].to_a.sort.map { |k2, v2| sprintf("%s: %.#{accuracy}f\%", k2, v2) }.join(", ")
+            else
+              v["percent"].to_a.sort.map { |k2, v2| sprintf("%s: %d\%", k2, v2.round) }.join(", ")
+            end
+            str += ", total: #{v["total"]}"
+            wrap(str, MAX_SUB_STAT_VALUE_WIDTH, sub_value_indent, ", ")
+          elsif k =~ /last$/
+            str = ""
+            str = "#{v["type"]}: " if v["type"]
+            str += "#{elapsed(v["elapsed"])} ago"
+            str += " and still active" if v["active"]
+            str
           elsif k == "exceptions"
             exceptions_str(v, sub_value_indent)
           else

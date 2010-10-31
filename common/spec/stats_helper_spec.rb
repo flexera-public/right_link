@@ -65,6 +65,16 @@ describe RightScale::StatsHelper do
       @stats.instance_variable_get(:@count_per_type).should == {"test" => 1}
     end
 
+    it "should not update counts when type contains 'stats'" do
+      flexmock(Time).should_receive(:now).and_return(1000010)
+      @stats.update("my stats")
+      @stats.instance_variable_get(:@interval).should == 0.0
+      @stats.instance_variable_get(:@last_start_time).should == @now
+      @stats.instance_variable_get(:@avg_duration).should == 0.0
+      @stats.instance_variable_get(:@total).should == 0
+      @stats.instance_variable_get(:@count_per_type).should == {}
+    end
+
     it "should not measure rate if disabled" do
       @stats = RightScale::StatsHelper::ActivityStats.new(false)
       flexmock(Time).should_receive(:now).and_return(1000010)
@@ -107,7 +117,22 @@ describe RightScale::StatsHelper do
       flexmock(Time).should_receive(:now).and_return(1000010)
       @stats.last.should be_nil
       @stats.update
-      @stats.last.should == 0
+      @stats.last.should == {"elapsed" => 0}
+    end
+
+    it "should report number of seconds since last update and last type" do
+      @stats.update("test")
+      flexmock(Time).should_receive(:now).and_return(1000010)
+      @stats.last.should == {"elapsed" => 10, "type" => "test"}
+    end
+
+    it "should report whether last action is still active" do
+      @stats.update("test", "token")
+      flexmock(Time).should_receive(:now).and_return(1000010)
+      @stats.last.should == {"elapsed" => 10, "type" => "test", "active" => true}
+      @stats.finish(@now - 10, "token")
+      @stats.last.should == {"elapsed" => 10, "type" => "test", "active" => false}
+      @stats.instance_variable_get(:@avg_duration).should == 2.0
     end
 
     it "should convert count per type to percentages" do
@@ -115,16 +140,16 @@ describe RightScale::StatsHelper do
       @stats.update("foo")
       @stats.instance_variable_get(:@total).should == 1
       @stats.instance_variable_get(:@count_per_type).should == {"foo" => 1}
-      @stats.percent.should == {"total" => 1, "percent" => {"foo" => 100.0}}
+      @stats.percentage.should == {"total" => 1, "percent" => {"foo" => 100.0}}
       @stats.update("bar")
       @stats.instance_variable_get(:@total).should == 2
       @stats.instance_variable_get(:@count_per_type).should == {"foo" => 1, "bar" => 1}
-      @stats.percent.should == {"total" => 2, "percent" => {"foo" => 50.0, "bar" => 50.0}}
+      @stats.percentage.should == {"total" => 2, "percent" => {"foo" => 50.0, "bar" => 50.0}}
       @stats.update("foo")
       @stats.update("foo")
       @stats.instance_variable_get(:@total).should == 4
       @stats.instance_variable_get(:@count_per_type).should == {"foo" => 3, "bar" => 1}
-      @stats.percent.should == {"total" => 4, "percent" => {"foo" => 75.0, "bar" => 25.0}}
+      @stats.percentage.should == {"total" => 4, "percent" => {"foo" => 75.0, "bar" => 25.0}}
     end
 
   end # ActivityStats
@@ -229,14 +254,37 @@ describe RightScale::StatsHelper do
       @now = 1000000
       flexmock(Time).should_receive(:now).and_return(@now).by_default
       @exceptions = RightScale::StatsHelper::ExceptionStats.new
-      @brokers = [{"identity"=>"rs-broker-localhost-5672", "tries"=>0, "alias"=>"b0", "status"=>"connected"},
-                  {"identity"=>"rs-broker-localhost-5673", "tries"=>0, "alias"=>"b1", "status"=>"disconnected"}]
+      @brokers = {"brokers"=> [{"identity"=>"rs-broker-localhost-5672", "disconnects" => 0, "tries"=>0, "alias"=>"b0", "status"=>"connected"},
+                               {"identity"=>"rs-broker-localhost-5673", "disconnects" => 1, "tries"=>0, "alias"=>"b1", "status"=>"disconnected"}],
+                  "exceptions" => {}}
     end
 
     it "should convert count per type to percentages" do
       stats = {"first" => 1, "second" => 4, "third" => 3}
-      result = percent(stats)
+      result = percentage(stats)
       result.should == {"total" => 8, "percent" => {"first" => 12.5, "second" => 50.0, "third" => 37.5}}
+    end
+
+    it "should convert elapsed time to displayable format" do
+      elapsed(0).should == "0 sec"
+      elapsed(1).should == "1 sec"
+      elapsed(60).should == "60 sec"
+      elapsed(61).should == "1 min, 1 sec"
+      elapsed(62).should == "1 min, 2 sec"
+      elapsed(120).should == "2 min, 0 sec"
+      elapsed(3600).should == "60 min, 0 sec"
+      elapsed(3601).should == "1 hr, 0 min"
+      elapsed(3659).should == "1 hr, 0 min"
+      elapsed(3660).should == "1 hr, 1 min"
+      elapsed(3720).should == "1 hr, 2 min"
+      elapsed(7200).should == "2 hr, 0 min"
+      elapsed(7260).should == "2 hr, 1 min"
+      elapsed(86400).should == "24 hr, 0 min"
+      elapsed(86401).should == "1 day, 0 hr, 0 min"
+      elapsed(86459).should == "1 day, 0 hr, 0 min"
+      elapsed(86460).should == "1 day, 0 hr, 1 min"
+      elapsed(90000).should == "1 day, 1 hr, 0 min"
+      elapsed(183546).should == "2 days, 2 hr, 59 min"
     end
 
     it "should wrap string by breaking it into lines at the specified separator" do
@@ -255,8 +303,20 @@ describe RightScale::StatsHelper do
 
     it "should convert broker status to multi-line display string" do
       result = brokers_str(@brokers, 10)
-      result.should == "brokers    : alias: b0, identity: rs-broker-localhost-5672, status: connected, tries: 0\n" +
-                       "             alias: b1, identity: rs-broker-localhost-5673, status: disconnected, tries: 0\n"
+      result.should == "brokers    : b0: rs-broker-localhost-5672, status: connected, disconnects: 0, tries: 0\n" +
+                       "             b1: rs-broker-localhost-5673, status: disconnected, disconnects: 1, tries: 0\n" +
+                       "             exceptions        : none\n"
+    end
+
+    it "should display broker exceptions" do
+      @exceptions.track("testing", Exception.new("Test error"))
+      @brokers["exceptions"] = @exceptions.stats
+      result = brokers_str(@brokers, 10)
+      result.should == "brokers    : b0: rs-broker-localhost-5672, status: connected, disconnects: 0, tries: 0\n" +
+                       "             b1: rs-broker-localhost-5673, status: disconnected, disconnects: 1, tries: 0\n" +
+                       "             exceptions        : testing total: 1, most recent:\n" +
+                       "                                 (1) Mon Jan 12 05:46:40 -0800 1970 Exception: Test error\n" +
+                       "                                     \n"
     end
 
     it "should convert exception stats to multi-line string" do
@@ -313,19 +373,34 @@ describe RightScale::StatsHelper do
 
     it "should convert sub-stats to a display string" do
       @exceptions.track("testing", Exception.new("Test error"))
-      activity = RightScale::StatsHelper::ActivityStats.new
+      activity1 = RightScale::StatsHelper::ActivityStats.new
+      activity2 = RightScale::StatsHelper::ActivityStats.new
+      activity3 = RightScale::StatsHelper::ActivityStats.new
+      activity2.update("stats")
+      activity2.update("testing")
+      activity2.update("more testing")
+      activity2.update("more testing")
+      activity2.update("more testing")
+      activity3.update("testing forever", "id")
+      flexmock(Time).should_receive(:now).and_return(1002800)
 
       stats = {"exceptions" => @exceptions.stats,
                "empty_hash" => {},
                "float_value" => 3.1415,
-               "activity percent" => activity.percent,
-               "activity last" => activity.last,
+               "activity1 percent" => activity1.percentage,
+               "activity1 last" => activity1.last,
+               "activity2 percent" => activity2.percentage,
+               "activity2 last" => activity2.last,
+               "activity3 last" => activity3.last,
                "some hash" => {"dogs" => 2, "cats" => 3, "hippopotami" => 99, "bears" => 1,
                                "ants" => 100000000, "dragons" => nil, "leopards" => 25}}
 
       result = sub_stats_str("my sub-stats", stats, 13)
-      result.should == "my sub-stats  : activity last     : none\n" +
-                       "                activity percent  : none\n" +
+      result.should == "my sub-stats  : activity1 last    : none\n" +
+                       "                activity1 percent : none\n" +
+                       "                activity2 last    : more testing: 46 min, 40 sec ago\n" +
+                       "                activity2 percent : more testing: 75%, testing: 25%, total: 4\n" +
+                       "                activity3 last    : testing forever: 46 min, 40 sec ago and still active\n" +
                        "                empty_hash        : none\n" +
                        "                exceptions        : testing total: 1, most recent:\n" +
                        "                                    (1) Mon Jan 12 05:46:40 -0800 1970 Exception: Test error\n" +
@@ -343,12 +418,14 @@ describe RightScale::StatsHelper do
       sub_stats = {"exceptions" => @exceptions.stats,
                    "empty_hash" => {},
                    "float_value" => 3.1415,
-                   "activity percent" => activity.percent,
+                   "activity percent" => activity.percentage,
                    "activity last" => activity.last,
                    "some hash" => {"dogs" => 2, "cats" => 3, "hippopotami" => 99, "bears" => 1,
                                    "ants" => 100000000, "dragons" => nil, "leopards" => 25}}
       stats = {"stats time" => @now,
                "last reset time" => @now,
+               "service uptime" => 3720,
+               "machine uptime" => 183546,
                "version" => 10,
                "brokers" => @brokers,
                "hostname" => "localhost",
@@ -356,15 +433,18 @@ describe RightScale::StatsHelper do
                "stuff stats" => sub_stats}
 
       result = stats_str(stats)
-      result.should == "stats time  : Mon Jan 12 05:46:40 -0800 1970\n" +
-                       "last reset  : Mon Jan 12 05:46:40 -0800 1970\n" +
+      result.should == "identity    : unit tester\n" +
                        "hostname    : localhost\n" +
-                       "identity    : unit tester\n" +
-                       "brokers     : alias: b0, identity: rs-broker-localhost-5672, status: connected, tries: 0\n" +
-                       "              alias: b1, identity: rs-broker-localhost-5673, status: disconnected, tries: 0\n" +
+                       "stats time  : Mon Jan 12 05:46:40 -0800 1970\n" +
+                       "last reset  : Mon Jan 12 05:46:40 -0800 1970\n" +
+                       "service up  : 1 hr, 2 min\n" +
+                       "machine up  : 2 days, 2 hr, 59 min\n" +
+                       "brokers     : b0: rs-broker-localhost-5672, status: connected, disconnects: 0, tries: 0\n" +
+                       "              b1: rs-broker-localhost-5673, status: disconnected, disconnects: 1, tries: 0\n" +
+                       "              exceptions        : none\n" +
                        "version     : 10\n" +
-                       "stuff       : activity last     : 10\n" +
-                       "              activity percent  : percent: [ testing: 100.0 ], total: 1\n" +
+                       "stuff       : activity last     : testing: 10 sec ago\n" +
+                       "              activity percent  : testing: 100%, total: 1\n" +
                        "              empty_hash        : none\n" +
                        "              exceptions        : testing total: 1, most recent:\n" +
                        "                                  (1) Mon Jan 12 05:46:40 -0800 1970 Exception: Test error\n" +
@@ -374,22 +454,24 @@ describe RightScale::StatsHelper do
                        "                                  leopards: 25\n"
     end
 
-    it "should treat broker status and version as optional" do
+    it "should treat broker status, version, and machine uptime as optional" do
       sub_stats = {"exceptions" => @exceptions.stats,
                    "empty_hash" => {},
                    "float_value" => 3.1415}
 
       stats = {"stats time" => @now,
                "last reset time" => @now,
+               "service uptime" => 1000,
                "hostname" => "localhost",
                "identity" => "unit tester",
                "stuff stats" => sub_stats}
 
       result = stats_str(stats)
-      result.should == "stats time  : Mon Jan 12 05:46:40 -0800 1970\n" +
-                       "last reset  : Mon Jan 12 05:46:40 -0800 1970\n" +
+      result.should == "identity    : unit tester\n" +
                        "hostname    : localhost\n" +
-                       "identity    : unit tester\n" +
+                       "stats time  : Mon Jan 12 05:46:40 -0800 1970\n" +
+                       "last reset  : Mon Jan 12 05:46:40 -0800 1970\n" +
+                       "service up  : 16 min, 40 sec\n" +
                        "stuff       : empty_hash        : none\n" +
                        "              exceptions        : none\n" +
                        "              float_value       : 3.142\n"

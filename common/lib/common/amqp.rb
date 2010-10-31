@@ -21,6 +21,7 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 require 'rubygems'
+require File.join(File.dirname(__FILE__), 'stats_helper')
 
 class MQ
   class Queue
@@ -287,6 +288,8 @@ module RightScale
   # Manage multiple AMQP broker connections to achieve a high availability service
   class HA_MQ
 
+    include StatsHelper
+
     class NoConnectedBrokers < Exception; end
 
     # Maximum number of times the failed? function would be called for a failed broker without
@@ -332,6 +335,10 @@ module RightScale
     #     if only one, it is incremented and applied to successive hosts; if none, defaults to AMQP::PORT
     #   :order(Symbol):: Broker selection order when publishing a message: :random or :priority,
     #     defaults to :priority, value can be overridden on publish call
+    #   :exception_callback(Proc):: Callback with following parameters that is activated on exception events:
+    #     exception(Exception):: Exception
+    #     message(Packet):: Message being processed
+    #     agent(Agent):: Reference to agent
     #
     # === Raise
     # ArgumentError:: If :host and :port are not matched lists
@@ -339,6 +346,7 @@ module RightScale
       @options = options
       @connection_status = {}
       @serializer = serializer
+      reset_stats
       index = -1
       @select = options[:order] || :priority
       @brokers = self.class.addresses(options[:host], options[:port]).map { |a| internal_connect(a, options) }
@@ -418,6 +426,7 @@ module RightScale
               rescue Exception => e
                 RightLinkLog.error("Failed executing block for message from queue #{queue.inspect}#{to_exchange} " +
                                    "on broker #{b[:alias]}: #{e}\n" + e.backtrace.join("\n"))
+                @exceptions.track("receive", e)
               end
             end
           else
@@ -435,6 +444,7 @@ module RightScale
               rescue Exception => e
                 RightLinkLog.error("Failed executing block for message from queue #{queue.inspect}#{to_exchange} " +
                                    "on broker #{b[:alias]}: #{e}\n" + e.backtrace.join("\n"))
+                @exceptions.track("receive", e)
               end
             end
           end
@@ -442,6 +452,7 @@ module RightScale
         rescue Exception => e
           RightLinkLog.error("Failed subscribing queue #{queue.inspect}#{to_exchange} on broker #{b[:alias]}: #{e}\n" +
                              e.backtrace.join("\n"))
+          @exceptions.track("subscribe", e)
         end
       end
       identities
@@ -477,6 +488,7 @@ module RightScale
               rescue Exception => e
                 RightLinkLog.error("Failed unsubscribing queue #{q.name} on broker #{b[:alias]}: #{e}\n" +
                                    e.backtrace.join("\n"))
+                @exceptions.track("unsubscribe", e)
                 handler.completed_one
               end
             end
@@ -503,6 +515,7 @@ module RightScale
         rescue Exception => e
           RightLinkLog.error("Failed declaring #{type.to_s} #{name} on broker #{b[:alias]}: #{e}\n" +
                              e.backtrace.join("\n"))
+          @exceptions.track("declare", e)
         end
       end
       true
@@ -554,6 +567,7 @@ module RightScale
           rescue Exception => e
             RightLinkLog.error("#{re}SEND #{b[:alias]} - Failed publishing to exchange #{exchange.inspect}: #{e}\n" +
                                e.backtrace.join("\n"))
+            @exceptions.track("publish", e)
           end
         end
       end
@@ -582,6 +596,7 @@ module RightScale
         rescue Exception => e
           RightLinkLog.error("Failed deleting queue #{name.inspect} on broker #{b[:alias]}: #{e}\n" +
                              e.backtrace.join("\n"))
+          @exceptions.track("delete", e)
         end
       end
       identities
@@ -1007,6 +1022,7 @@ module RightScale
           rescue Exception => e
             RightLinkLog.error("Failed return #{info.inspect} of message from broker #{b[:alias]}: #{e}\n" +
                                e.backtrace.join("\n"))
+            @exceptions.track("return", e)
           end
         end
       end
@@ -1036,8 +1052,43 @@ module RightScale
     #   :alias(String):: Broker alias used in logs
     #   :status(Symbol):: Status of connection
     #   :tries(Integer):: Number of attempts to reconnect a failed connection
+    #   :disconnects(Integer):: Number of times lost connection
     def status
-      @brokers.map { |b| b.reject { |k, _| ![:identity, :alias, :status, :tries].include?(k) } }
+      @brokers.map { |b| b.reject { |k, _| ![:identity, :alias, :status, :disconnects, :tries].include?(k) } }
+    end
+
+    # Get broker statistics
+    #
+    # === Parameters:
+    # reset(Boolean):: Whether to reset the statistics after getting the current ones
+    #
+    # === Return
+    # stats(Hash):: Broker stats with keys
+    #   "brokers"(Array):: Stats for each broker in priority order as hash with keys
+    #     "alias"(String):: Broker alias
+    #     "identity"(String):: Broker identity
+    #     "status"(Status):: Status of connection
+    #     "disconnects"(Integer):: Number of times lost connection
+    #     "tries"(Integer):: Number of attempts to reconnect a failed connection
+    #   "exceptions"(Hash):: Exceptions raised per category with keys
+    #     "total"(Integer):: Total exceptions for this category
+    #     "recent"(Array):: Most recent as a hash of "count", "type", "message", "when", and "where"
+    # stats(Hash):: Always returns success
+    def stats(reset = false)
+      stats = status.map { |b| s = {}; b.each { |k, v| s[k.to_s] = v.is_a?(Symbol) ? v.to_s : v }; s }
+      stats = {"brokers" => stats, "exceptions" => @exceptions.stats}
+      reset_stats if reset
+      stats
+    end
+
+    # Reset broker statistics
+    #
+    # === Return
+    # true:: Always return true
+    def reset_stats
+      @brokers.each { |b| b[:disconnects] = 0 } if @brokers
+      @exceptions = ExceptionStats.new(self, @options[:exception_callback])
+      true
     end
 
     # Determine whether broker is in a state to have a connection to be closed
@@ -1069,6 +1120,7 @@ module RightScale
           rescue Exception => e
             handler.completed_one
             RightLinkLog.error("Failed to close broker #{b[:alias]}: #{e}\n" + e.backtrace.join("\n"))
+            @exceptions.track("close", e)
           end
         end
       end
@@ -1103,6 +1155,7 @@ module RightScale
           end
         rescue Exception => e
           RightLinkLog.error("Failed to close broker #{broker[:alias]}: #{e}\n" + e.backtrace.join("\n"))
+          @exceptions.track("close", e)
           broker[:status] = :closed
           yield if block_given?
         end
@@ -1207,14 +1260,15 @@ module RightScale
     # broker(Hash):: AMQP broker
     def internal_connect(address, options)
       broker = {
-        :mq => nil,
-        :connection => nil,
-        :identity   => self.class.identity(address[:host], address[:port]),
-        :alias      => "b#{address[:id]}",
-        :status     => :connecting,
-        :queues     => [],
-        :tries      => 0,
-        :backoff    => 0
+        :mq          => nil,
+        :connection  => nil,
+        :identity    => self.class.identity(address[:host], address[:port]),
+        :alias       => "b#{address[:id]}",
+        :status      => :connecting,
+        :queues      => [],
+        :tries       => 0,
+        :backoff     => 0,
+        :disconnects => 0
       }
       begin
         RightLinkLog.info("[setup] Connecting to broker #{broker[:identity]}, alias #{broker[:alias]}")
@@ -1230,6 +1284,7 @@ module RightScale
       rescue Exception => e
         broker[:status] = :failed
         RightLinkLog.error("Failed connecting to #{broker[:alias]}: #{e}\n" + e.backtrace.join("\n"))
+        @exceptions.track("connect", e)
         broker[:connection].close if broker[:connection]
       end
       broker
@@ -1268,6 +1323,7 @@ module RightScale
       rescue Exception => e
         RightLinkLog.error("RECV #{broker[:alias]} - Failed receiving from queue #{queue}: #{e}\n" +
                            e.backtrace.join("\n"))
+        @exceptions.track("receive", e)
         @exception_on_receive.call(msg, e, self) if @exception_on_receive
         nil
       end
@@ -1292,6 +1348,7 @@ module RightScale
       if status == :failed
         RightLinkLog.error("Failed to connect to broker #{broker[:alias]}")
       end
+      broker[:disconnects] += 1 if status == :disconnected
       unless before == after
         RightLinkLog.info("[status] Broker #{broker[:alias]} is now #{status}, connected brokers: [#{aliases(after).join(", ")}]")
       end

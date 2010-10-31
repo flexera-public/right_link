@@ -101,16 +101,18 @@ module RightScale
     # true:: Always return true
     def request(type, payload = '', opts = {}, &blk)
       raise "Mapper proxy not initialized" unless identity
-      received_at = @requests.update(type)
+      token = AgentIdentity.generate
+      method = type.split('/').last
+      received_at = @requests.update(method, token)
       # Using next_tick to ensure on primary thread since using @pending_requests
       EM.next_tick do
         begin
           request = Request.new(type, payload, opts)
           request.from = @identity
-          request.token = AgentIdentity.generate
+          request.token = token
           request.persistent = opts.key?(:persistent) ? opts[:persistent] : ['all', 'request'].include?(@persist)
-          @pending_requests[request.token] = {:result_handler => blk, :receive_time => received_at}
-          request_with_retry(request, request.token)
+          @pending_requests[token] = {:result_handler => blk, :receive_time => received_at}
+          request_with_retry(request, token)
         rescue Exception => e
           RightLinkLog.error("Failed to send #{type} request: #{e.message}")
           @exceptions.track("request", e, request)
@@ -129,7 +131,8 @@ module RightScale
     # true:: Always return true
     def push(type, payload = '', opts = {})
       raise "Mapper proxy not initialized" unless identity
-      @requests.update(type)
+      method = type.split('/').last
+      @requests.update(method)
       push = Push.new(type, payload, opts)
       push.from = @identity
       push.token = AgentIdentity.generate
@@ -148,7 +151,10 @@ module RightScale
     # true:: Always return true
     def purge(token)
       handler = @pending_requests.delete(token)
-      parent = handler[:retry_parent] if handler
+      if handler
+        @requests.finish(handler[:receive_time], token)
+        parent = handler[:retry_parent]
+      end
       @pending_requests.reject! { |k, v| k == parent || v[:retry_parent] == parent } if parent
       true
     end
@@ -166,7 +172,6 @@ module RightScale
     # true:: Always return true
     def handle_result(result)
       if handler = @pending_requests[result.token]
-        @requests.finish(handler[:receive_time])
         multicast = if (r = OperationResult.from_results(result)) && r.multicast?
           handler[:multicast] = r.content.size
         else
@@ -228,21 +233,21 @@ module RightScale
     #     "total"(Integer):: Total exceptions for this category
     #     "recent"(Array):: Most recent as a hash of "count", "type", "message", "when", and "where"
     #   "ping timeouts"(Integer):: Number of mapper pings that timed out causing a broker reconnect attempt
-    #   "pings"(Integer):: Number of mapper pings when in retry mode
-    #   "request last"(Integer):: Time in seconds since last request was sent
+    #   "pings"(Integer):: Total number of pings and percentage breakdown for "success" vs. "timeout"
+    #   "request last"(Hash):: Last request information with keys "type", "elapsed", and "active"
     #   "request rate"(Float):: Average number of requests per second recently
     #   "requests(Hash):: Total requests and percentage breakdown per type as hash with keys "total" and "percent"
     #   "requests pending"(Integer):: Number of requests waiting for response
     #   "response time"(Float):: Average number of seconds to respond to a request recently
-    #   "retries"(Hash):: Number of request retries
-    #   "retry last"(Integer):: Time in seconds since last request was retried
+    #   "retries"(Hash):: Total retries and percentage breakdown per type as hash with keys "total" and "percent"
+    #   "retry last"(Hash):: Last retry information with keys "type", "elapsed", and "active"
     #   "retry rate"(Float):: Average number of retries per second recently
     #   "retry timeouts"(Integer):: Number of requests that failed after maximum number of retries
     def stats(reset = false)
-      stats = {"exceptions" => @exceptions.stats, "ping timeouts" => @ping_timeouts, "pings" => @pings,
+      stats = {"exceptions" => @exceptions.stats, "pings" => @pings.percentage,
                "request last" => @requests.last, "request rate" => @requests.avg_rate,
-               "requests" => @requests.percent, "requests pending" => @pending_requests.size,
-               "response time" => @requests.avg_duration, "retries" => @retries.total,
+               "requests" => @requests.percentage, "requests pending" => @pending_requests.size,
+               "response time" => @requests.avg_duration, "retries" => @retries.percentage,
                "retry last" => @retries.last, "retry rate" => @retries.avg_rate,
                "retry timeouts" => @retry_timeouts}
       reset_stats if reset
@@ -256,10 +261,11 @@ module RightScale
     # === Return
     # true:: Always return true
     def reset_stats
+      @pings = ActivityStats.new(measure_rate = false)
       @retries = ActivityStats.new
       @requests = ActivityStats.new
       @exceptions = ExceptionStats.new(@agent, @options[:exception_callback])
-      @retry_timeouts = @ping_timeouts = @pings = 0
+      @retry_timeouts = 0
       true
     end
 
@@ -292,7 +298,7 @@ module RightScale
                 @pending_requests[parent][:retry_parent] = parent if count == 1
                 @pending_requests[request.token] = @pending_requests[parent]
                 request_with_retry(request, parent, count, multiplier * 4, elapsed)
-                @retries.update
+                @retries.update(request.type.split('/').last)
               else
                 RightLinkLog.warn("RE-SEND TIMEOUT after #{elapsed} seconds for #{request.to_s([:tags, :target, :tries])}")
                 result = OperationResult.timeout("Timeout after #{elapsed} seconds and #{count} attempts")
@@ -324,7 +330,7 @@ module RightScale
       unless @pending_ping || !@broker.connected?(id)
         @pending_ping = EM::Timer.new(PING_TIMEOUT) do
           begin
-            @ping_timeouts += 1
+            @pings.update("timeout")
             @pending_ping = nil
             RightLinkLog.warn("Mapper ping via broker #{id} timed out after #{PING_TIMEOUT} seconds, attempting to reconnect")
             host, port, alias_id, priority = @broker.identity_parts(id)
@@ -337,6 +343,7 @@ module RightScale
         handler = lambda do |_|
           begin
             if @pending_ping
+              @pings.update("success")
               @pending_ping.cancel
               @pending_ping = nil
             end
@@ -348,7 +355,6 @@ module RightScale
         request = Request.new("/mapper/ping", nil, {:from => @identity, :token => AgentIdentity.generate})
         @pending_requests[request.token] = {:result_handler => handler, :receive_time => Time.now}
         publish(request, [id])
-        @pings += 1
       end
       true
     end
