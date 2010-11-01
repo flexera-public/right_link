@@ -71,6 +71,7 @@ module RightScale
       :grace_timeout => 30,
       :prefetch => 1,
       :persist => 'none',
+      :ping_time => 60,
       :default_services => []
     }) unless defined?(DEFAULT_OPTIONS)
 
@@ -97,6 +98,8 @@ module RightScale
     # :root(String):: Application root for this agent. Defaults to Dir.pwd.
     # :log_dir(String):: Log file path. Defaults to the current working directory.
     # :file_root(String):: Path to directory to files this agent provides. Defaults to app_root/files.
+    # :ping_time(Numeric):: Time interval in seconds between two subsequent heartbeat messages this agent
+    #   broadcasts. Default value is 15.
     # :console(Boolean):: true indicates to start interactive console
     # :daemonize(Boolean):: true indicates to daemonize
     # :pid_dir(String):: Path to the directory where the agent stores its pid file (only if daemonized).
@@ -123,7 +126,7 @@ module RightScale
     # :services(Symbol):: List of services provided by this agent. Defaults to all methods exposed by actors.
     # :secure(Boolean):: true indicates to use Security features of rabbitmq to restrict nanites to themselves
     # :single_threaded(Boolean):: true indicates to run all operations in one thread; false indicates
-    #   to do requested work on EM defer thread and all else on main thread
+    #   to do requested work on EM defer thread and all else, such as pings on main thread
     # :threadpool_size(Integer):: Number of threads in EM thread pool
     #
     # Connection options:
@@ -197,6 +200,7 @@ module RightScale
                 setup_traps
                 setup_queues
                 advertise_services
+                setup_heartbeat
                 at_exit { un_register } unless $TESTING
                 start_console if @options[:console] && !@options[:daemonize]
                 EM.add_periodic_timer(@options[:check_interval]) { check_broker_status } if @is_instance_agent
@@ -614,6 +618,19 @@ module RightScale
           RightLinkLog.error("RECV - Shared queue processing error: #{e.message}")
           @callbacks[:exception].call(e, request, self) rescue nil if @callbacks && @callbacks[:exception]
         end
+      end
+      true
+    end
+
+    # Setup the periodic sending of a Ping packet to the heartbeat queue
+    #
+    # === Return
+    # true:: Always return true
+    def setup_heartbeat
+      EM.add_periodic_timer(@options[:ping_time]) do
+        exchange = {:type => :fanout, :name => 'heartbeat', :options => {:no_declare => @options[:secure]}}
+        packet = Ping.new(@identity, status_proc.call, @broker.connected, @broker.failed(backoff = true))
+        publish(exchange, packet, :no_log => true) unless @terminating
       end
       true
     end
