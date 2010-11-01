@@ -67,10 +67,10 @@ module RightScale
       :fresh_timeout => nil,
       :retry_interval => nil,
       :retry_timeout => nil,
+      :check_interval  => 5 * 60,
       :grace_timeout => 30,
       :prefetch => 1,
       :persist => 'none',
-      :ping_time => 60,
       :default_services => []
     }) unless defined?(DEFAULT_OPTIONS)
 
@@ -97,8 +97,6 @@ module RightScale
     # :root(String):: Application root for this agent. Defaults to Dir.pwd.
     # :log_dir(String):: Log file path. Defaults to the current working directory.
     # :file_root(String):: Path to directory to files this agent provides. Defaults to app_root/files.
-    # :ping_time(Numeric):: Time interval in seconds between two subsequent heartbeat messages this agent
-    #   broadcasts. Default value is 15.
     # :console(Boolean):: true indicates to start interactive console
     # :daemonize(Boolean):: true indicates to daemonize
     # :pid_dir(String):: Path to the directory where the agent stores its pid file (only if daemonized).
@@ -125,7 +123,7 @@ module RightScale
     # :services(Symbol):: List of services provided by this agent. Defaults to all methods exposed by actors.
     # :secure(Boolean):: true indicates to use Security features of rabbitmq to restrict nanites to themselves
     # :single_threaded(Boolean):: true indicates to run all operations in one thread; false indicates
-    #   to do requested work on EM defer thread and all else, such as pings on main thread
+    #   to do requested work on EM defer thread and all else on main thread
     # :threadpool_size(Integer):: Number of threads in EM thread pool
     #
     # Connection options:
@@ -173,6 +171,10 @@ module RightScale
     def run
       RightLinkLog.init(@identity, @options[:log_path])
       RightLinkLog.level = @options[:log_level] if @options[:log_level]
+      RightLinkLog.debug("Start options:")
+      log_opts = @options.inject([]){ |t, (k, v)| t << "-  #{k}: #{v}" }
+      log_opts.each { |l| RightLinkLog.debug(l) }
+
       begin
         # Capture process id in file after optional daemonize
         pid_file = PidFile.new(@identity, @options)
@@ -195,9 +197,9 @@ module RightScale
                 setup_traps
                 setup_queues
                 advertise_services
-                setup_heartbeat
                 at_exit { un_register } unless $TESTING
                 start_console if @options[:console] && !@options[:daemonize]
+                EM.add_periodic_timer(@options[:check_interval]) { check_broker_status } if @is_instance_agent
               rescue Exception => e
                 RightLinkLog.error("Agent failed startup: #{e.message}\n" + e.backtrace.join("\n")) unless e.message == "exit"
                 EM.stop
@@ -231,16 +233,14 @@ module RightScale
 
     # Advertise the services provided by this agent
     #
-    # === Parameters
-    # connected(Array):: Identity of connected brokers, defaults to all connected brokers
-    #
     # === Return
     # true:: Always return true
-    def advertise_services(connected = nil)
-      connected = @broker.connected unless connected
-      exchange = {:type => :fanout, :name => 'registration', :options => {:no_declare => @options[:secure], :durable => true}}
-      packet = Register.new(@identity, @registry.services, status_proc.call, self.tags, connected, @shared_queue)
-      publish(exchange, packet) unless @terminating
+    def advertise_services
+      unless @is_instance_agent
+        exchange = {:type => :fanout, :name => 'registration', :options => {:no_declare => @options[:secure], :durable => true}}
+        packet = Register.new(@identity, @registry.services, status_proc.call, self.tags, @broker.all, @shared_queue)
+        publish(exchange, packet) unless @terminating
+      end
       true
     end
 
@@ -337,7 +337,7 @@ module RightScale
           if connected.include?(identity)
             # Need to advertise that no longer connected so that no more messages are routed through it
             connected.delete(identity)
-            advertise_services(connected)
+            advertise_services if remove
           end
           if remove
             @broker.remove(host, port) do |identity|
@@ -360,7 +360,7 @@ module RightScale
 
     # Declare one or more broker connections unusable because connection has failed
     # If these are the last usable connections, attempt to recreate them now; otherwise mark
-    # them is as unusable and defer reconnect attempt to next mapper ping, since this agent
+    # them is as unusable and defer reconnect attempt to next status check, since this agent
     # may still not be registered with those brokers
     #
     # === Parameters
@@ -380,7 +380,7 @@ module RightScale
             connect(host, port, alias_id, priority, force = true)
           end
         else
-          # Defer reconnect initiation to the mapper via ping
+          # Defer reconnect initiation to the periodic status check
           @broker.declare_unusable(ids)
           advertise_services
         end
@@ -479,6 +479,7 @@ module RightScale
 
       if @options[:identity]
         @identity = "nanite-#{@options[:identity]}"
+        @is_instance_agent = AgentIdentity.parse(@identity).instance_agent? rescue nil
       else
         token = AgentIdentity.generate
         @identity = "nanite-#{token}"
@@ -566,7 +567,7 @@ module RightScale
       queue = {:name => @identity, :options => {:durable => true, :no_declare => @options[:secure]}}
       filter = [:from, :tags, :tries, :persistent]
       options = {:ack => true, Advertise => nil, Request => filter, Push => filter, Result => [], :brokers => ids}
-      exchange = unless AgentIdentity.parse(@identity).instance_agent?
+      exchange = unless @is_instance_agent
         # Non-instance agents must bind identity queue to identity exchange and to the advertise
         # exchange so that a mapper that comes up after this agent can learn of its existence.
         # Since the identity exchange is durable, the advertise exchange must also be durable.
@@ -601,7 +602,7 @@ module RightScale
     # === Raises
     # (Exception):: If this is an instance agent
     def setup_shared_queue(ids = nil)
-      raise Exception, "Instance agents cannot use shared queues" if AgentIdentity.parse(@identity).instance_agent?
+      raise Exception, "Instance agents cannot use shared queues" if @is_instance_agent
       queue = {:name => @shared_queue, :options => {:durable => true}}
       exchange = {:type => :direct, :name => @shared_queue, :options => {:durable => true}}
       filter = [:from, :tags, :tries, :persistent]
@@ -613,19 +614,6 @@ module RightScale
           RightLinkLog.error("RECV - Shared queue processing error: #{e.message}")
           @callbacks[:exception].call(e, request, self) rescue nil if @callbacks && @callbacks[:exception]
         end
-      end
-      true
-    end
-
-    # Setup the periodic sending of a Ping packet to the heartbeat queue
-    #
-    # === Return
-    # true:: Always return true
-    def setup_heartbeat
-      EM.add_periodic_timer(@options[:ping_time]) do
-        exchange = {:type => :fanout, :name => 'heartbeat', :options => {:no_declare => @options[:secure]}}
-        packet = Ping.new(@identity, status_proc.call, @broker.connected, @broker.failed(backoff = true))
-        publish(exchange, packet, :no_log => true) unless @terminating
       end
       true
     end
@@ -644,6 +632,23 @@ module RightScale
         end
       end
       true
+    end
+
+    # Check for broker connections that failed during launch of this agent
+    # If find any, ask registrar to initialize broker service for this agent so it can then connect
+    #
+    # === Return
+    # true:: Always return true
+    def check_broker_status
+      begin
+        @broker.failed(backoff = true).each do |b|
+          p = {:agent_identity => @identity}
+          p[:host], p[:port], p[:id], p[:priority] = @broker.identity_parts(b)
+          @mapper_proxy.push("/registrar/connect", p, :token => AgentIdentity.generate, :from => @identity)
+        end
+      rescue Exception => e
+        RightLinkLog.error("Failed checking broker status: #{e}")
+      end
     end
 
     # Store unique tags
@@ -681,7 +686,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def un_register
-      unless @unregistered
+      unless @unregistered || @is_instance_agent
         @unregistered = true
         exchange = {:type => :fanout, :name => 'registration', :options => {:no_declare => @options[:secure], :durable => true}}
         publish(exchange, UnRegister.new(@identity))

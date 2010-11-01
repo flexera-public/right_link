@@ -179,7 +179,7 @@ module RightScale
 
     # Maximum number of times the failed? function would be called for a failed broker without
     # returning true
-    MAX_FAILED_BACKOFF = 20
+    MAX_FAILED_BACKOFF = 12
 
     STATUS = [
       :connecting,   # Initiated AMQP connection but not yet confirmed that connected
@@ -627,6 +627,14 @@ module RightScale
     # (Array):: Identity of unusable brokers
     def unusable
       @brokers.map { |b| b[:identity] } - each_usable.map { |b| b[:identity] }
+    end
+
+    # Get identity of all brokers
+    #
+    # === Return
+    # (Array):: Identity of all brokers
+    def all
+      @brokers.map { |b| b[:identity] }
     end
 
     # Get identity of failed brokers, i.e., ones that were never successfully connected,
