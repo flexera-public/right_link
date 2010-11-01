@@ -188,7 +188,7 @@ module RightScale
     #
     # === Return
     # stats(Hash):: Current statistics:
-    #   "dup cache size"(Integer):: Size of cache of completed requests used for detecting duplicates
+    #   "duplicate cache"(Integer|nil):: Size of cache of completed requests used for detecting duplicates, or nil if empty
     #   "exceptions"(Hash):: Exceptions raised per category
     #     "total"(Integer):: Total for category
     #     "recent"(Array):: Most recent as a hash of "count", "type", "message", "when", and "where"
@@ -201,7 +201,8 @@ module RightScale
     #   "requests(Hash):: Total requests and percentage breakdown per type as hash with keys "total" and "percent"
     #   "response time"(Float):: Average number of seconds to respond to a request recently
     def stats(reset = false)
-      stats = {"dup cache size" => @completed.size, "exceptions" => @exceptions.stats,
+      size = @completed.size
+      stats = {"duplicate cache" => size > 0 ? size : nil, "exceptions" => @exceptions.stats,
                "reject last" => @rejects.last, "reject rate" => @rejects.avg_rate,
                "rejects" => @rejects.percentage, "request last" => @requests.last,
                "request rate" => @requests.avg_rate, "requests" => @requests.percentage,

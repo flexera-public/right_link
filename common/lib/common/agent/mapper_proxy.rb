@@ -237,19 +237,20 @@ module RightScale
     #   "request last"(Hash):: Last request information with keys "type", "elapsed", and "active"
     #   "request rate"(Float):: Average number of requests per second recently
     #   "requests(Hash):: Total requests and percentage breakdown per type as hash with keys "total" and "percent"
-    #   "requests pending"(Integer):: Number of requests waiting for response
+    #   "requests pending"(Integer|nil):: Number of requests waiting for response, or nil if none
     #   "response time"(Float):: Average number of seconds to respond to a request recently
     #   "retries"(Hash):: Total retries and percentage breakdown per type as hash with keys "total" and "percent"
     #   "retry last"(Hash):: Last retry information with keys "type", "elapsed", and "active"
     #   "retry rate"(Float):: Average number of retries per second recently
-    #   "retry timeouts"(Integer):: Number of requests that failed after maximum number of retries
+    #   "retry timeouts"(Integer|nil):: Number of requests that failed after maximum number of retries, or nil if none
     def stats(reset = false)
+      pending = @pending_requests.size
       stats = {"exceptions" => @exceptions.stats, "pings" => @pings.percentage,
                "request last" => @requests.last, "request rate" => @requests.avg_rate,
-               "requests" => @requests.percentage, "requests pending" => @pending_requests.size,
+               "requests" => @requests.percentage, "requests pending" => pending > 0 ? pending : nil,
                "response time" => @requests.avg_duration, "retries" => @retries.percentage,
                "retry last" => @retries.last, "retry rate" => @retries.avg_rate,
-               "retry timeouts" => @retry_timeouts}
+               "retry timeouts" => @retry_timeouts > 0 ? @retry_timeouts : nil}
       reset_stats if reset
       stats
     end

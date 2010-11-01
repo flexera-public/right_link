@@ -98,6 +98,7 @@ describe RightScale::StatsHelper do
 
     it "should update duration when finish using specified start time" do
       flexmock(Time).should_receive(:now).and_return(1000030)
+      @stats.avg_duration.should be_nil
       @stats.finish(1000010)
       @stats.instance_variable_get(:@interval).should == 0.0
       @stats.instance_variable_get(:@last_start_time).should == @now
@@ -108,6 +109,7 @@ describe RightScale::StatsHelper do
 
     it "should convert interval to rate" do
       flexmock(Time).should_receive(:now).and_return(1000020)
+      @stats.avg_rate.should be_nil
       @stats.update
       @stats.instance_variable_get(:@interval).should == 2.0
       @stats.avg_rate.should == 0.5

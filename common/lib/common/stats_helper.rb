@@ -56,9 +56,6 @@ module RightScale
       # (Hash) Number of actions per type
       attr_reader :count_per_type
 
-      # (Float) Average duration in seconds of action weighted toward recent activity
-      attr_reader :avg_duration
-
       # Initialize activity data
       #
       # === Parameters
@@ -116,9 +113,19 @@ module RightScale
       # Convert average interval to average rate
       #
       # === Return
-      # (Float):: Recent average rate
+      # (Float|nil):: Recent average rate, or nil if total is 0
       def avg_rate
-        if @interval == 0.0 then 0.0 else 1.0 / @interval end
+        if total > 0
+          if @interval == 0.0 then 0.0 else 1.0 / @interval end
+        end
+      end
+
+      # Get average duration of actions
+      #
+      # === Return
+      # (Float|nil) Average duration in seconds of action weighted toward recent activity, or nil if total is 0
+      def avg_duration
+        @avg_duration if total > 0
       end
 
       # Get stats about last action
