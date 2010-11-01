@@ -441,10 +441,10 @@ describe RightScale::StatsHelper do
                        "last reset  : Mon Jan 12 05:46:40 -0800 1970\n" +
                        "service up  : 1 hr, 2 min\n" +
                        "machine up  : 2 days, 2 hr, 59 min\n" +
+                       "version     : 10\n" +
                        "brokers     : b0: rs-broker-localhost-5672, status: connected, disconnects: 0, tries: 0\n" +
                        "              b1: rs-broker-localhost-5673, status: disconnected, disconnects: 1, tries: 0\n" +
                        "              exceptions        : none\n" +
-                       "version     : 10\n" +
                        "stuff       : activity last     : testing: 10 sec ago\n" +
                        "              activity percent  : testing: 100%, total: 1\n" +
                        "              empty_hash        : none\n" +

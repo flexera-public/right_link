@@ -120,6 +120,7 @@ module RightScale
         end
       end
 
+
       # Get average duration of actions
       #
       # === Return
@@ -293,8 +294,8 @@ module RightScale
             sprintf("%-#{name_width}s#{SEPARATOR}%s\n", "last reset", Time.at(stats["last reset time"])) +
             sprintf("%-#{name_width}s#{SEPARATOR}%s\n", "service up", elapsed(stats["service uptime"]))
       str += sprintf("%-#{name_width}s#{SEPARATOR}%s\n", "machine up", elapsed(stats["machine uptime"])) if stats.has_key?("machine uptime")
-      str += brokers_str(stats["brokers"], name_width) if stats.has_key?("brokers")
       str += sprintf("%-#{name_width}s#{SEPARATOR}%s\n", "version", stats["version"].to_i) if stats.has_key?("version")
+      str += brokers_str(stats["brokers"], name_width) if stats.has_key?("brokers")
       stats.to_a.sort.each { |k, v| str += sub_stats_str(k[0..-7], v, name_width) if k.to_s =~ /stats$/ }
       str
     end
@@ -354,7 +355,10 @@ module RightScale
       sprintf("%-#{name_width}s#{SEPARATOR}", name) + value.to_a.sort.map do |attr|
         k, v = attr
         sprintf("%-#{sub_name_width}s#{SEPARATOR}", k) + if v.is_a?(Float)
-          sprintf("%.3f", v)
+          str = sprintf("%.3f", v)
+          str += "/sec" if k =~ /rate$/
+          str += " sec" if k =~ /time$/
+          str
         elsif v.is_a?(Hash)
           if v.empty? || v["total"] == 0
             "none"
