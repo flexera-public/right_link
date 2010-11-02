@@ -46,7 +46,9 @@
 #     Eliminated nanite and mapper prefix for queue names and pid files
 #     Added returns field to Request, Push, and Result for message returns
 #     (sprint 21, image 5.6.0)
-protocol_version 10
+# 11: Added stats packet, stats exchange & corresponding agent_manager request
+#     Changed InstanceSetup to use the Repose mirror to download cookbook repositories
+protocol_version 11
 
 # Path to RightLink root folder
 right_link_path File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'right_link'))
