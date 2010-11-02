@@ -705,8 +705,9 @@ module RightScale
     def check_status
       begin
         if @stats_routing_key && @check_status_count.modulo(3) == 0
+          token = AgentIdentity.generate
           exchange = {:type => :topic, :name => "stats", :options => {:no_declare => true}}
-          @broker.publish(exchange, Stats.new(stats.content, @identity), :routing_key => @stats_routing_key,
+          @broker.publish(exchange, Stats.new(stats.content, token, @identity), :routing_key => @stats_routing_key,
                           :brokers => @check_status_brokers.reverse!, :no_log => true)
         end
 

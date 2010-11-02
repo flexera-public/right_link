@@ -216,64 +216,19 @@ module RightScale
 
     end # ExceptionStats
 
-    # Convert count per type hash into percentages
+    # Convert values hash into percentages
     #
     # === Parameters
-    # count_per_type(Hash):: Number per type
+    # values(Hash):: Values to be converted whose sum is the total for calculating percentages
     #
     # === Return
-    # (Hash):: Converted data with keys "total" and "percent" with latter being a hash of percentage per type
-    def percentage(count_per_type)
+    # (Hash):: Converted values with keys "total" and "percent" with latter being a hash with values as percentages
+    def percentage(values)
       total = 0
-      count_per_type.each_value { |v| total += v }
+      values.each_value { |v| total += v }
       percent = {}
-      count_per_type.each { |k, v| percent[k] = (v / total.to_f) * 100.0 } if total > 0
+      values.each { |k, v| percent[k] = (v / total.to_f) * 100.0 } if total > 0
       {"percent" => percent, "total" => total}
-    end
-
-    # Convert to rounded percentage string
-    #
-    # === Parameters
-    # count(Numeric):: Value whose percentage is being calculated
-    # total(Numeric):: Total for percentage calculation
-    #
-    # === Return
-    # (String):: Rounded percentage ending with '%'
-    def rounded_percent_str(count, total)
-      percent = (count / total.to_f) * 100.0
-      accuracy = (percent < 1.0 && percent != 0.0) ? (percent < 0.1 ? 2 : 1) : 0
-      if accuracy > 0
-        sprintf("%.#{accuracy}f\%", percent)
-      else
-        "#{percent.round}%"
-      end
-    end
-
-    # Convert elapsed time in seconds to displayable format
-    #
-    # === Parameters
-    # time(Integer):: Elapsed time
-    #
-    # === Return
-    # (String):: Display string
-    def elapsed(time)
-      time = time.to_i
-      if time <= MINUTE
-        "#{time} sec"
-      elsif time <= HOUR
-        minutes = time / MINUTE
-        seconds = time - (minutes * MINUTE)
-        "#{minutes} min, #{seconds} sec"
-      elsif time <= DAY
-        hours = time / HOUR
-        minutes = (time - (hours * HOUR)) / MINUTE
-        "#{hours} hr, #{minutes} min"
-      else
-        days = time / DAY
-        hours = (time - (days * DAY)) / HOUR
-        minutes = (time - (days * DAY) - (hours * HOUR)) / MINUTE
-        "#{days} day#{'s' if days != 1}, #{hours} hr, #{minutes} min"
-      end
     end
 
     # Converts server statistics to a displayable format
@@ -338,8 +293,13 @@ module RightScale
     # Convert grouped set of statistics to displayable format
     # Provide special formatting for stats named "exceptions"
     # Break out percentages and total count for stats containing "percent" hash value
-    # Convert to elapsed time for stats with names ending in "last"
-    # Display any empty values as "none"
+    # Convert to elapsed time for stats with name ending in "last"
+    # Add "/sec" to values with name ending in "rate"
+    # Add " sec" to values with name ending in "time"
+    # Add "%" to values with name ending in "percent" and drop "percent" from name
+    # Use elapsed time formatting for values with name ending in "age"
+    # Display any nil value, empty hash, or hash with a "total" value of 0 as "none"
+    # Display any floating point value or hash of values with at least two significant digits of precision
     #
     # === Parameters
     # name(String):: Display name for the stat
@@ -354,22 +314,18 @@ module RightScale
       sub_value_indent = " " * (name_width + sub_name_width + (SEPARATOR.size * 2))
       sprintf("%-#{name_width}s#{SEPARATOR}", name) + value.to_a.sort.map do |attr|
         k, v = attr
-        sprintf("%-#{sub_name_width}s#{SEPARATOR}", k) + if v.is_a?(Float)
-          str = sprintf("%.3f", v)
+        name = k =~ /percent$/ ? k[0..-9] : k
+        sprintf("%-#{sub_name_width}s#{SEPARATOR}", name) + if v.is_a?(Float) || v.is_a?(Integer)
+          str = k =~ /age$/ ? elapsed(v) : enough_precision(v)
           str += "/sec" if k =~ /rate$/
           str += " sec" if k =~ /time$/
+          str += "%" if k =~ /percent$/
           str
         elsif v.is_a?(Hash)
           if v.empty? || v["total"] == 0
             "none"
           elsif v["percent"]
-            accuracy = 0
-            v["percent"].each_value { |v2| accuracy = [accuracy, v2 < 1.0 ? (v2 < 0.1 ? 2 : 1) : 0].max }
-            str = if accuracy > 0
-              v["percent"].to_a.sort.map { |k2, v2| sprintf("%s: %.#{accuracy}f\%", k2, v2) }.join(", ")
-            else
-              v["percent"].to_a.sort.map { |k2, v2| sprintf("%s: %d\%", k2, v2.round) }.join(", ")
-            end
+            str = enough_precision(v["percent"]).to_a.sort.map { |k2, v2| "#{k2}: #{v2}%" }.join(", ")
             str += ", total: #{v["total"]}"
             wrap(str, MAX_SUB_STAT_VALUE_WIDTH, sub_value_indent, ", ")
           elsif k =~ /last$/
@@ -414,7 +370,7 @@ module RightScale
 
     # Convert arbitrary nested hash to displayable format
     # Sort hash entries, numerically if possible, otherwise alphabetically
-    # Display any floating point values with one decimal place accuracy
+    # Display any floating point values with one decimal place precision
     # Display any empty values as "none"
     #
     # === Parameters
@@ -426,7 +382,7 @@ module RightScale
       str = ""
       hash.to_a.map { |k, v| [k =~ /^\d+$/ ? k.to_i : k, v] }.sort.map do |k, v|
         "#{k}: " + if v.is_a?(Float)
-          sprintf("%.1f", v)
+          enough_precision(v)
         elsif v.is_a?(Hash)
           "[ " + hash_str(v) + " ]"
         else
@@ -456,6 +412,61 @@ module RightScale
         line += line == "" ? l : separator + l
       end
       all.push(line).join(separator + "\n" + indent)
+    end
+
+    # Convert elapsed time in seconds to displayable format
+    #
+    # === Parameters
+    # time(Integer|Float):: Elapsed time
+    #
+    # === Return
+    # (String):: Display string
+    def elapsed(time)
+      time = time.to_i
+      if time <= MINUTE
+        "#{time} sec"
+      elsif time <= HOUR
+        minutes = time / MINUTE
+        seconds = time - (minutes * MINUTE)
+        "#{minutes} min, #{seconds} sec"
+      elsif time <= DAY
+        hours = time / HOUR
+        minutes = (time - (hours * HOUR)) / MINUTE
+        "#{hours} hr, #{minutes} min"
+      else
+        days = time / DAY
+        hours = (time - (days * DAY)) / HOUR
+        minutes = (time - (days * DAY) - (hours * HOUR)) / MINUTE
+        "#{days} day#{'s' if days != 1}, #{hours} hr, #{minutes} min"
+      end
+    end
+
+    # Determine what is enough precision for floating point value(s) so that all have
+    # at least two significant digits and then convert each value to a decimal digit
+    # string of that precision after applying rounding
+    #
+    # === Parameters
+    # value(Float|Hash):: Value(s) to be converted
+    #
+    # === Return
+    # (String|Hash):: Value(s) converted to decimal digit string
+    def enough_precision(value)
+      scale = [1.0, 10.0, 100.0, 1000.0, 10000.0]
+      enough = lambda { |v| (v >= 10.0 ? 0 :
+                            (v >= 1.0  ? 1 :
+                            (v >= 0.1  ? 2 :
+                            (v >= 0.01 ? 3 :
+                            (v >  0.0  ? 4 : 0))))) }
+      enough_str = lambda { |a, v| sprintf("%.#{a}f", (v * scale[a]).round / scale[a])}
+
+      if value.is_a?(Float)
+        enough_str.call(enough.call(value), value)
+      elsif value.is_a?(Hash)
+        precision = value.each_value.inject(0) { |a, v| [a, enough.call(v)].max }
+        value.to_a.inject({}) { |s, v| s[v[0]] = enough_str.call(precision, v[1]); s }
+      else
+        value.to_s
+      end
     end
 
   end # StatsHelper

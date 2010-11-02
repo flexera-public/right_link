@@ -261,10 +261,24 @@ describe RightScale::StatsHelper do
                   "exceptions" => {}}
     end
 
-    it "should convert count per type to percentages" do
+    it "should convert values to percentages" do
       stats = {"first" => 1, "second" => 4, "third" => 3}
       result = percentage(stats)
       result.should == {"total" => 8, "percent" => {"first" => 12.5, "second" => 50.0, "third" => 37.5}}
+    end
+
+    it "should wrap string by breaking it into lines at the specified separator" do
+      string = "Now is the time for all good men to come to the aid of their people."
+      result = wrap(string, 20, "    ", " ")
+      result.should == "Now is the time for \n" +
+                       "    all good men to come \n" +
+                       "    to the aid of their \n" +
+                       "    people."
+      string = "dogs: 2, cats: 10, hippopotami: 99, bears: 1, ants: 100000"
+      result = wrap(string, 22, "--", ", ")
+      result.should == "dogs: 2, cats: 10, \n" +
+                       "--hippopotami: 99, \n" +
+                       "--bears: 1, ants: 100000"
     end
 
     it "should convert elapsed time to displayable format" do
@@ -287,20 +301,31 @@ describe RightScale::StatsHelper do
       elapsed(86460).should == "1 day, 0 hr, 1 min"
       elapsed(90000).should == "1 day, 1 hr, 0 min"
       elapsed(183546).should == "2 days, 2 hr, 59 min"
+      elapsed(125.5).should == "2 min, 5 sec"
     end
 
-    it "should wrap string by breaking it into lines at the specified separator" do
-      string = "Now is the time for all good men to come to the aid of their people."
-      result = wrap(string, 20, "    ", " ")
-      result.should == "Now is the time for \n" +
-                       "    all good men to come \n" +
-                       "    to the aid of their \n" +
-                       "    people."
-      string = "dogs: 2, cats: 10, hippopotami: 99, bears: 1, ants: 100000"
-      result = wrap(string, 22, "--", ", ")
-      result.should == "dogs: 2, cats: 10, \n" +
-                       "--hippopotami: 99, \n" +
-                       "--bears: 1, ants: 100000"
+    it "should convert floating point values to decimal digit string with at least two digit precision" do
+      enough_precision(100.5).should == "101"
+      enough_precision(100.4).should == "100"
+      enough_precision(99.0).should == "99"
+      enough_precision(10.5).should == "11"
+      enough_precision(10.4).should == "10"
+      enough_precision(9.15).should == "9.2"
+      enough_precision(9.1).should == "9.1"
+      enough_precision(1.05).should == "1.1"
+      enough_precision(1.01).should == "1.0"
+      enough_precision(1.0).should == "1.0"
+      enough_precision(0.995).should == "1.00"
+      enough_precision(0.991).should == "0.99"
+      enough_precision(0.0995).should == "0.100"
+      enough_precision(0.0991).should == "0.099"
+      enough_precision(0.00995).should == "0.0100"
+      enough_precision(0.00991).should == "0.0099"
+      enough_precision(0.00005).should == "0.0001"
+      enough_precision(0.00001).should == "0.0000"
+      enough_precision(0.0).should == "0"
+      enough_precision(55).should == "55"
+      enough_precision({"a" => 10.45, "b" => 1.0, "c" => 0.011}).should == {"a" => "10.450", "b" => "1.000", "c" => "0.011"}
     end
 
     it "should convert broker status to multi-line display string" do
@@ -353,11 +378,11 @@ describe RightScale::StatsHelper do
 
     it "should convert nested hash into string with keys sorted numerically if possible, else alphabetically" do
       hash = {"dogs" => 2, "cats" => 3, "hippopotami" => 99, "bears" => 1, "ants" => 100000000, "dragons" => nil,
-              "food" => {"apples" => "bushels", "berries" => "lots", "meat" => {"fish" => 10.45, "beef" => nil}},
+              "food" => {"apples" => "bushels", "berries" => "lots", "meat" => {"fish" => 10.54, "beef" => nil}},
               "versions" => { "1" => 10, "5" => 50, "10" => 100} }
       result = hash_str(hash)
       result.should == "ants: 100000000, bears: 1, cats: 3, dogs: 2, dragons: none, " +
-                       "food: [ apples: bushels, berries: lots, meat: [ beef: none, fish: 10.4 ] ], " +
+                       "food: [ apples: bushels, berries: lots, meat: [ beef: none, fish: 11 ] ], " +
                        "hippopotami: 99, versions: [ 1: 10, 5: 50, 10: 100 ]"
       result = wrap(result, 20, "----", ", ")
       result.should == "ants: 100000000, \n" +
@@ -367,7 +392,7 @@ describe RightScale::StatsHelper do
                    "----food: [ apples: bushels, \n" +
                    "----berries: lots, \n" +
                    "----meat: [ beef: none, \n" +
-                   "----fish: 10.4 ] ], \n" +
+                   "----fish: 11 ] ], \n" +
                    "----hippopotami: 99, \n" +
                    "----versions: [ 1: 10, \n" +
                    "----5: 50, 10: 100 ]"
@@ -388,28 +413,36 @@ describe RightScale::StatsHelper do
 
       stats = {"exceptions" => @exceptions.stats,
                "empty_hash" => {},
-               "float_value" => 3.1415,
-               "activity1 percent" => activity1.percentage,
+               "float_value" => 3.15,
+               "some % percent" => 3.54,
+               "some time" => 0.675,
+               "some rate" => 4.72,
+               "some age" => 125,
+               "activity1 %" => activity1.percentage,
                "activity1 last" => activity1.last,
-               "activity2 percent" => activity2.percentage,
+               "activity2 %" => activity2.percentage,
                "activity2 last" => activity2.last,
                "activity3 last" => activity3.last,
                "some hash" => {"dogs" => 2, "cats" => 3, "hippopotami" => 99, "bears" => 1,
                                "ants" => 100000000, "dragons" => nil, "leopards" => 25}}
 
       result = sub_stats_str("my sub-stats", stats, 13)
-      result.should == "my sub-stats  : activity1 last    : none\n" +
-                       "                activity1 percent : none\n" +
+      result.should == "my sub-stats  : activity1 %       : none\n" +
+                       "                activity1 last    : none\n" +
+                       "                activity2 %       : more testing: 75%, testing: 25%, total: 4\n" +
                        "                activity2 last    : more testing: 46 min, 40 sec ago\n" +
-                       "                activity2 percent : more testing: 75%, testing: 25%, total: 4\n" +
                        "                activity3 last    : testing forever: 46 min, 40 sec ago and still active\n" +
                        "                empty_hash        : none\n" +
                        "                exceptions        : testing total: 1, most recent:\n" +
                        "                                    (1) Mon Jan 12 05:46:40 -0800 1970 Exception: Test error\n" +
                        "                                        \n" +
-                       "                float_value       : 3.142\n" +
+                       "                float_value       : 3.2\n" +
+                       "                some %            : 3.5%\n" +
+                       "                some age          : 2 min, 5 sec\n" +
                        "                some hash         : ants: 100000000, bears: 1, cats: 3, dogs: 2, dragons: none, hippopotami: 99, \n" +
-                       "                                    leopards: 25\n"
+                       "                                    leopards: 25\n" +
+                       "                some rate         : 4.7/sec\n" +
+                       "                some time         : 0.68 sec\n"
     end
 
     it "should convert stats to a display string with special formatting for generic keys" do
@@ -419,8 +452,8 @@ describe RightScale::StatsHelper do
       flexmock(Time).should_receive(:now).and_return(1000010)
       sub_stats = {"exceptions" => @exceptions.stats,
                    "empty_hash" => {},
-                   "float_value" => 3.1415,
-                   "activity percent" => activity.percentage,
+                   "float_value" => 3.15,
+                   "activity %" => activity.percentage,
                    "activity last" => activity.last,
                    "some hash" => {"dogs" => 2, "cats" => 3, "hippopotami" => 99, "bears" => 1,
                                    "ants" => 100000000, "dragons" => nil, "leopards" => 25}}
@@ -445,13 +478,13 @@ describe RightScale::StatsHelper do
                        "brokers     : b0: rs-broker-localhost-5672, status: connected, disconnects: 0, tries: 0\n" +
                        "              b1: rs-broker-localhost-5673, status: disconnected, disconnects: 1, tries: 0\n" +
                        "              exceptions        : none\n" +
-                       "stuff       : activity last     : testing: 10 sec ago\n" +
-                       "              activity percent  : testing: 100%, total: 1\n" +
+                       "stuff       : activity %        : testing: 100%, total: 1\n" +
+                       "              activity last     : testing: 10 sec ago\n" +
                        "              empty_hash        : none\n" +
                        "              exceptions        : testing total: 1, most recent:\n" +
                        "                                  (1) Mon Jan 12 05:46:40 -0800 1970 Exception: Test error\n" +
                        "                                      \n" +
-                       "              float_value       : 3.142\n" +
+                       "              float_value       : 3.2\n" +
                        "              some hash         : ants: 100000000, bears: 1, cats: 3, dogs: 2, dragons: none, hippopotami: 99, \n" +
                        "                                  leopards: 25\n"
     end
@@ -459,7 +492,7 @@ describe RightScale::StatsHelper do
     it "should treat broker status, version, and machine uptime as optional" do
       sub_stats = {"exceptions" => @exceptions.stats,
                    "empty_hash" => {},
-                   "float_value" => 3.1415}
+                   "float_value" => 3.15}
 
       stats = {"stats time" => @now,
                "last reset time" => @now,
@@ -476,7 +509,7 @@ describe RightScale::StatsHelper do
                        "service up  : 16 min, 40 sec\n" +
                        "stuff       : empty_hash        : none\n" +
                        "              exceptions        : none\n" +
-                       "              float_value       : 3.142\n"
+                       "              float_value       : 3.2\n"
     end
 
   end # Formatting
