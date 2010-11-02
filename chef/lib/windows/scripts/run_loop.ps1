@@ -65,8 +65,16 @@ while ($TRUE)
                 $lineNumber = $i + 1
                 if ($lineNumber -eq $invocationInfo.ScriptLineNumber)
                 {
-                    $firstPart   = $invocationInfo.Line.Substring(0, $invocationInfo.OffsetInLine - 1)
-                    $secondPart  = $invocationInfo.Line.Substring($invocationInfo.OffsetInLine, $invocationInfo.Line.length - $invocationInfo.OffsetInLine)
+                    # the reported character offset in the offending line can be past the end for
+                    # some exceptions. an example is missing inputs on a piped command line.
+                    $lineOffset = $invocationInfo.OffsetInLine
+                    $lineLength = $invocationInfo.Line.Length
+                    if ($lineOffset -gt $lineLength)
+                    {
+                        $lineOffset = $lineLength
+                    }
+                    $firstPart   = $invocationInfo.Line.Substring(0, $lineOffset)
+                    $secondPart  = $invocationInfo.Line.Substring($lineOffset, $lineLength - $lineOffset)
                     $scriptSnip += "`n    + $lineNumber" + ":`t$FirstPart <<<< $SecondPart"
                 }
                 else

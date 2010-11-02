@@ -351,5 +351,37 @@ EOF
       errors.should match(expected_message)
     end
 
+    it "should produce a readable powershell error when a cmdlet is piped with inputs missing" do
+      runner = lambda {
+        RightScale::Test::ChefRunner.run_chef(PowershellBasedProviderSpec::TEST_COOKBOOK_PATH, 'test_cookbook::run_powershell_based_recipe_with_missing_piped_input')
+      }
+      runner.should raise_exception(RightScale::Exceptions::Exec)
+
+      @logger.error_text.length.should > 0
+      errors = @logger.error_text.gsub(/\s+/, "")
+      errors.should match("Unexpected exit code from action. Expected 0 but returned 1.  Script".gsub(/\s+/, ""))
+
+      message_format = <<-EOF
+ConvertTo-SecureString : Input string was not in a correct format.
+At .*fail_with_missing_piped_input.ps1:3 char:75
++ $securePassword = write-output $plainTextPassword | ConvertTo-SecureString <<<<
+    + CategoryInfo          : NotSpecified: (:) [ConvertTo-SecureString], FormatException
+    + FullyQualifiedErrorId : System.FormatException,Microsoft.PowerShell.Commands.ConvertToSecureStringCommand
+    +
+    + Script error near:
+    + 1:        # note that there are intentionally not enough arguments for ConvertTo-SecureString
+    + 2:        $plainTextPassword = 'Secret123!'
+    + 3:        $securePassword = write-output $plainTextPassword | ConvertTo-SecureString <<<<
+EOF
+      # replace newlines and spaces
+      expected_message = Regexp.escape(message_format.gsub(/\s+/, ""))
+
+      # un-escape the escaped regex strings
+      expected_message.gsub!("\\.\\*", ".*")
+
+      # find the log message
+      errors.should match(expected_message)
+    end
+
   end
 end

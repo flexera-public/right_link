@@ -8,3 +8,4 @@ recipe     "test_cookbook::run_powershell_based_recipe_with_nonzero_exit", "Run 
 recipe     "test_cookbook::run_powershell_based_recipe_with_stop_error_action", "Run a powershell based that fails by stopping on error action"
 recipe     "test_cookbook::run_powershell_based_recipe_with_explicit_throw", "Run a powershell based that fails by explicitly throwing an exception"
 recipe     "test_cookbook::run_powershell_based_recipe_with_bogus_cmdlet", "Run a powershell based that fails by invoking a bogus cmdlet"
+recipe     "test_cookbook::run_powershell_based_recipe_with_missing_piped_input", "Run a powershell based that fails by invoking a cmdlet with missing piped input"

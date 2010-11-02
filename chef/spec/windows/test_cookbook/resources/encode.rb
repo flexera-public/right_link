@@ -21,6 +21,7 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 actions :url_encode, :update_chef_node, :fail_with_nonzero_exit,
-        :fail_with_stop_error_action, :fail_with_explicit_throw, :fail_with_bogus_cmdlet
+        :fail_with_stop_error_action, :fail_with_explicit_throw,
+        :fail_with_bogus_cmdlet, :fail_with_missing_piped_input
 
 attribute :message, :kind_of => String
