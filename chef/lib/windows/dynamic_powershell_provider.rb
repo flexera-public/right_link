@@ -140,17 +140,17 @@ module RightScale
     # === Return
     # true:: Always return true
     def generate_single_provider(name, path)
-      RightLinkLog.debug("[chef] Creating Powershell provider #{name}")
+      RightLinkLog.info("[chef] Creating Powershell provider #{name}")
       all_scripts = Dir[File.join(path, "*#{Platform::Windows::Shell::POWERSHELL_V1x0_SCRIPT_EXTENSION}")]
       action_scripts = all_scripts.select { |s| is_action_script?(s) }
       new_provider = create_provider_class(name) do |provider|
         action_scripts.each do |script|
           action_name = 'action_' + File.basename(script, '.*').snake_case
-          RightLinkLog.debug("[chef] Defining #{name}##{action_name} to run '#{script}'")
+          RightLinkLog.info("[chef] Defining #{name}##{action_name} to run '#{script}'")
           provider.class_eval("def #{action_name}; #{name}.run_script('#{script}'); end")
         end
         if load_script = all_scripts.detect { |s| File.basename(s, '.*').downcase == LOAD_SCRIPT }
-          RightLinkLog.debug("[chef] Defining #{name}#load_current_resource to run '#{load_script}'")
+          RightLinkLog.info("[chef] Defining #{name}#load_current_resource to run '#{load_script}'")
           provider.class_eval(<<-EOF
           def load_current_resource;
             @current_resoure = #{resource_class_name(name)}.new(@new_resource.name)
@@ -161,14 +161,14 @@ module RightScale
         )
         end
         if init_script = all_scripts.detect { |s| File.basename(s, '.*').downcase == INIT_SCRIPT }
-          RightLinkLog.debug("[chef] Defining #{name}.init to run '#{init_script}'")
+          RightLinkLog.info("[chef] Defining #{name}.init to run '#{init_script}'")
           provider.instance_eval("def init(node); run_script('#{init_script}') if super(node); end")
         end
         if term_script = all_scripts.detect { |s| File.basename(s, '.*').downcase == TERM_SCRIPT }
-          RightLinkLog.debug("[chef] Defining #{name}.terminate to run '#{term_script}'")
+          RightLinkLog.info("[chef] Defining #{name}.terminate to run '#{term_script}'")
           provider.instance_eval("def terminate; begin; run_script('#{term_script}'); ensure; super; end; end")
         end
-        RightLinkLog.debug("[chef] Done creating #{name}")
+        RightLinkLog.info("[chef] Done creating #{name}")
       end
 
       # register the provider with the default windows platform
