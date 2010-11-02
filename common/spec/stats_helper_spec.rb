@@ -321,11 +321,17 @@ describe RightScale::StatsHelper do
       enough_precision(0.0991).should == "0.099"
       enough_precision(0.00995).should == "0.0100"
       enough_precision(0.00991).should == "0.0099"
-      enough_precision(0.00005).should == "0.0001"
-      enough_precision(0.00001).should == "0.0000"
+      enough_precision(0.000995).should == "0.00100"
+      enough_precision(0.000991).should == "0.00099"
+      enough_precision(0.000005).should == "0.00001"
+      enough_precision(0.000001).should == "0.00000"
       enough_precision(0.0).should == "0"
       enough_precision(55).should == "55"
-      enough_precision({"a" => 10.45, "b" => 1.0, "c" => 0.011}).should == {"a" => "10.450", "b" => "1.000", "c" => "0.011"}
+      enough_precision({"a" => 65.0, "b" => 23.0, "c" => 12.0}).should == {"a" => "65", "b" => "23", "c" => "12"}
+      enough_precision({"a" => 65.0, "b" => 33.0, "c" => 2.0}).should == {"a" => "65.0", "b" => "33.0", "c" => "2.0"}
+      enough_precision({"a" => 10.45, "b" => 1.0, "c" => 0.011}).should == {"a" => "10.5", "b" => "1.0", "c" => "0.011"}
+      enough_precision({"a" => 1000.0, "b" => 0.1, "c" => 0.0, "d" => 0.0001, "e" => 0.00001, "f" => 0.000001}).should ==
+                       {"a" => "1000.0", "b" => "0.10", "c" => "0.0", "d" => "0.00010", "e" => "0.00001", "f" => "0.00000"}
     end
 
     it "should convert broker status to multi-line display string" do

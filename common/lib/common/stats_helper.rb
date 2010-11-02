@@ -441,9 +441,10 @@ module RightScale
       end
     end
 
-    # Determine what is enough precision for floating point value(s) so that all have
+    # Determine enough precision for floating point value(s) so that all have
     # at least two significant digits and then convert each value to a decimal digit
     # string of that precision after applying rounding
+    # When precision is wide ranging, limit precision of the larger numbers
     #
     # === Parameters
     # value(Float|Hash):: Value(s) to be converted
@@ -451,19 +452,21 @@ module RightScale
     # === Return
     # (String|Hash):: Value(s) converted to decimal digit string
     def enough_precision(value)
-      scale = [1.0, 10.0, 100.0, 1000.0, 10000.0]
-      enough = lambda { |v| (v >= 10.0 ? 0 :
-                            (v >= 1.0  ? 1 :
-                            (v >= 0.1  ? 2 :
-                            (v >= 0.01 ? 3 :
-                            (v >  0.0  ? 4 : 0))))) }
-      enough_str = lambda { |a, v| sprintf("%.#{a}f", (v * scale[a]).round / scale[a])}
+      scale = [1.0, 10.0, 100.0, 1000.0, 10000.0, 100000.0]
+      enough = lambda { |v| (v >= 10.0   ? 0 :
+                            (v >= 1.0    ? 1 :
+                            (v >= 0.1    ? 2 :
+                            (v >= 0.01   ? 3 :
+                            (v >  0.001  ? 4 :
+                            (v >  0.0    ? 5 : 0)))))) }
+      enough_str = lambda { |p, v| sprintf("%.#{p}f", (v * scale[p]).round / scale[p])}
 
       if value.is_a?(Float)
         enough_str.call(enough.call(value), value)
       elsif value.is_a?(Hash)
-        precision = value.each_value.inject(0) { |a, v| [a, enough.call(v)].max }
-        value.to_a.inject({}) { |s, v| s[v[0]] = enough_str.call(precision, v[1]); s }
+        min, max = value.each_value.inject([5, 0]) { |p, v| e = enough.call(v); [[p[0], e].min, [p[1], e].max] }
+        precision = (max - min) > 1 ? min + 1 : max
+        value.to_a.inject({}) { |s, v| s[v[0]] = enough_str.call([precision, enough.call(v[1])].max, v[1]); s }
       else
         value.to_s
       end
