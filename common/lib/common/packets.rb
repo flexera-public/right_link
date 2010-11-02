@@ -623,7 +623,7 @@ module RightScale
 
 
   # Packet for requesting an agent to advertise its services to the mappers
-  # when it initially comes online or when its heartbeat times out
+  # when it initially comes online
   class Advertise < Packet
 
     # Create packet
@@ -647,6 +647,49 @@ module RightScale
     end
 
   end # Advertise
+
+
+  # Packet for carrying server operation statistics
+  class Stats < Packet
+
+    attr_accessor :stats, :from
+
+    # Create packet
+    #
+    # === Parameters
+    # stats(Hash):: Server statistics
+    # from(String):: Identity of server
+    # size(Integer):: Size of request in bytes used only for marshalling
+    def initialize(stats, from, size = nil)
+      @stats = stats
+      @from  = from
+      @size  = size
+    end
+
+    # Create packet from unmarshalled JSON data
+    #
+    # === Parameters
+    # o(Hash):: JSON data
+    #
+    # === Return
+    # (Result):: New packet
+    def self.json_create(o)
+      i = o['data']
+      new(i['stats'], self.compatible(i['from']), o['size'])
+    end
+
+    # Generate log representation
+    #
+    # === Parameters
+    # filter(Array(Symbol)):: Attributes to be included in output
+    #
+    # === Return
+    # log_msg(String):: Log representation
+    def to_s(filter = nil)
+      log_msg = "#{super} #{id_to_s(@from)}"
+    end
+
+  end # Stats
 
 
   # Deprecated for agents that are version 8 and above
@@ -755,6 +798,6 @@ module RightScale
     end
 
   end # TagQuery
- 
+
 end # RightScale
 

@@ -26,7 +26,7 @@ class InstanceSetup
 
   expose :report_state
 
-  # Amount of seconds to wait between set_r_s_version calls attemps
+  # Amount of seconds to wait between set_r_s_version calls attempts
   RECONNECT_DELAY = 5
 
   # Amount of seconds to wait before shutting down if boot hasn't completed

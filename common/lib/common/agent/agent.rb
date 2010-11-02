@@ -192,7 +192,9 @@ module RightScale
                 advertise_services
                 at_exit { un_register } unless $TESTING
                 start_console if @options[:console] && !@options[:daemonize]
-                EM.add_periodic_timer(@options[:check_interval]) { check_broker_status } if @is_instance_agent
+                @check_status_count = 0
+                @check_status_brokers = @broker.all
+                EM.add_periodic_timer(@options[:check_interval]) { check_status }
               rescue Exception => e
                 RightLinkLog.error("Agent failed startup: #{e}\n" + e.backtrace.join("\n")) unless e.message == "exit"
                 EM.stop
@@ -459,7 +461,7 @@ module RightScale
     #
     # === Return
     # result(OperationResult):: Always returns success
-    def stats(options)
+    def stats(options = {})
       now = Time.now
       reset = options[:reset]
       result = OperationResult.success("identity" => @identity,
@@ -538,7 +540,9 @@ module RightScale
 
       if @options[:identity]
         @identity = @options[:identity]
-        @is_instance_agent = AgentIdentity.parse(@identity).instance_agent? rescue nil
+        agent_identity = AgentIdentity.parse(@identity) rescue nil
+        @is_instance_agent = agent_identity.instance_agent? rescue nil
+        @stats_routing_key = "stats.#{agent_identity.agent_name}.#{agent_identity.base_id}" rescue nil
       else
         token = AgentIdentity.generate
         @identity = "agent-#{token}"
@@ -691,21 +695,33 @@ module RightScale
       true
     end
 
-    # Check for broker connections that failed during launch of this agent
-    # If find any, ask registrar to initialize broker service for this agent so it can then connect
+    # Check status of agent by gathering current operation statistics and publishing them and then,
+    # if this is an instance agent, checking for broker connections that failed during launch
+    # If find any failed connections, ask registrar to initialize broker service for this instance
+    # so it can then connect
     #
     # === Return
     # true:: Always return true
-    def check_broker_status
+    def check_status
       begin
-        @broker.failed(backoff = true).each do |b|
-          p = {:agent_identity => @identity}
-          p[:host], p[:port], p[:id], p[:priority] = @broker.identity_parts(b)
-          @mapper_proxy.push("/registrar/connect", p, :token => AgentIdentity.generate, :from => @identity)
+        if @stats_routing_key && @check_status_count.modulo(3) == 0
+          exchange = {:type => :topic, :name => "stats", :options => {:no_declare => true}}
+          @broker.publish(exchange, Stats.new(stats.content, @identity), :routing_key => @stats_routing_key,
+                          :brokers => @check_status_brokers.reverse!, :no_log => true)
         end
+
+        if @is_instance_agent
+          @broker.failed(backoff = true).each do |b|
+            p = {:agent_identity => @identity}
+            p[:host], p[:port], p[:id], p[:priority] = @broker.identity_parts(b)
+            @mapper_proxy.push("/registrar/connect", p, :token => AgentIdentity.generate, :from => @identity)
+          end
+        end
+
+        @check_status_count += 1
       rescue Exception => e
-        RightLinkLog.error("Failed checking broker status: #{e}")
-        @exceptions.track("check broker status", e)
+        RightLinkLog.error("Failed checking status: #{e}")
+        @exceptions.track("check status", e)
       end
     end
 

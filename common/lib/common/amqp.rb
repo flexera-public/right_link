@@ -403,7 +403,7 @@ module RightScale
           b[:queues] << q
           if exchange
             x = b[:mq].__send__(exchange[:type], exchange[:name], exchange[:options] || {})
-            binding = q.bind(x)
+            binding = q.bind(x, options[:key] ? {:key => options[:key]} : {})
             if exchange2 = options[:exchange2]
               q.bind(b[:mq].__send__(exchange2[:type], exchange2[:name], exchange2[:options] || {}))
             end

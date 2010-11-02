@@ -288,6 +288,19 @@ describe "Packet: Advertise" do
 end
 
 
+describe "Packet: Stats" do
+  it "should dump/load as JSON objects" do
+    packet = RightScale::Stats.new('stats', 'from')
+    packet2 = JSON.parse(packet.to_json)
+  end
+
+  it "should dump/load as Marshalled ruby objects" do
+    packet = RightScale::Stats.new('stats', 'from')
+    packet2 = Marshal.load(Marshal.dump(packet))
+  end
+end
+
+
 describe "Packet: TagUpdate" do
   it "should dump/load as JSON objects" do
     packet = RightScale::TagUpdate.new('from', [ 'one', 'two'] , [ 'zero'])
