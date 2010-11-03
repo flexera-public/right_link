@@ -267,6 +267,12 @@ describe RightScale::StatsHelper do
       result.should == {"total" => 8, "percent" => {"first" => 12.5, "second" => 50.0, "third" => 37.5}}
     end
 
+    it "should sort hash into array with integer conversion of keys if possible" do
+      sort({"c" => 3, "a" => 1, "b" => 2}).should == [["a", 1], ["b", 2], ["c", 3]]
+      sort({3 => "c", 1 => "a", 2 => "b"}).should == [[1, "a"], [2, "b"], [3, "c"]]
+      sort({11 => "c", 9 => "a", 10 => "b"}).should == [[9, "a"], [10, "b"], [11, "c"]]
+    end
+
     it "should wrap string by breaking it into lines at the specified separator" do
       string = "Now is the time for all good men to come to the aid of their people."
       result = wrap(string, 20, "    ", " ")

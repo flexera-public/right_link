@@ -325,7 +325,7 @@ module RightScale
           if v.empty? || v["total"] == 0
             "none"
           elsif v["percent"]
-            str = enough_precision(v["percent"]).to_a.sort.map { |k2, v2| "#{k2}: #{v2}%" }.join(", ")
+            str = sort(enough_precision(v["percent"])).map { |k2, v2| "#{k2}: #{v2}%" }.join(", ")
             str += ", total: #{v["total"]}"
             wrap(str, MAX_SUB_STAT_VALUE_WIDTH, sub_value_indent, ", ")
           elsif k =~ /last$/
@@ -380,7 +380,7 @@ module RightScale
     # (String):: Single line hash display
     def hash_str(hash)
       str = ""
-      hash.to_a.map { |k, v| [k =~ /^\d+$/ ? k.to_i : k, v] }.sort.map do |k, v|
+      sort(hash).map do |k, v|
         "#{k}: " + if v.is_a?(Float)
           enough_precision(v)
         elsif v.is_a?(Hash)
@@ -389,6 +389,18 @@ module RightScale
           "#{v || "none"}"
         end
       end.join(", ")
+    end
+
+    # Sort hash elements into array of key/value pairs
+    # Sort keys numerically if possible, otherwise alphabetically
+    #
+    # === Parameters
+    # hash(Hash):: Data to be sorted
+    #
+    # === Return
+    # (Array):: Key/value pairs from hash in key sorted order
+    def sort(hash)
+      hash.to_a.map { |k, v| [k =~ /^\d+$/ ? k.to_i : k, v] }.sort
     end
 
     # Wrap string by breaking it into lines at the specified separator
@@ -459,14 +471,14 @@ module RightScale
                             (v >= 0.01   ? 3 :
                             (v >  0.001  ? 4 :
                             (v >  0.0    ? 5 : 0)))))) }
-      enough_str = lambda { |p, v| sprintf("%.#{p}f", (v * scale[p]).round / scale[p])}
+      digit_str = lambda { |p, v| sprintf("%.#{p}f", (v * scale[p]).round / scale[p])}
 
       if value.is_a?(Float)
-        enough_str.call(enough.call(value), value)
+        digit_str.call(enough.call(value), value)
       elsif value.is_a?(Hash)
-        min, max = value.each_value.inject([5, 0]) { |p, v| e = enough.call(v); [[p[0], e].min, [p[1], e].max] }
+        min, max = value.to_a.map { |_, v| enough.call(v) }.minmax
         precision = (max - min) > 1 ? min + 1 : max
-        value.to_a.inject({}) { |s, v| s[v[0]] = enough_str.call([precision, enough.call(v[1])].max, v[1]); s }
+        value.to_a.inject({}) { |s, v| s[v[0]] = digit_str.call([precision, enough.call(v[1])].max, v[1]); s }
       else
         value.to_s
       end
