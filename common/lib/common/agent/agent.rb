@@ -22,6 +22,12 @@
 
 require 'socket'
 
+class Array
+  def rotate!
+    push shift
+  end
+end
+
 module RightScale
 
   # Agent for receiving messages from the mapper and acting upon them
@@ -186,6 +192,7 @@ module RightScale
                 @registry = ActorRegistry.new
                 @dispatcher = Dispatcher.new(self)
                 @mapper_proxy = MapperProxy.new(self)
+                @remaining_setup = {}
                 load_actors
                 setup_traps
                 setup_queues
@@ -614,8 +621,9 @@ module RightScale
     # true:: Always return true
     def setup_queues
       @broker.prefetch(@options[:prefetch]) if @options[:prefetch]
-      setup_identity_queue
-      setup_shared_queue if @shared_queue
+      all = @broker.connected
+      @remaining_setup[:setup_identity_queue] = all - setup_identity_queue
+      @remaining_setup[:setup_shared_queue] = all - setup_shared_queue if @shared_queue
       true
     end
 
@@ -626,7 +634,7 @@ module RightScale
     # ids(Array):: Identity of brokers for which to subscribe, defaults to all usable
     #
     # === Return
-    # true:: Always return true
+    # ids(Array):: Identity of brokers for which subscribe completed (although may still fail)
     def setup_identity_queue(ids = nil)
       queue = {:name => @identity, :options => {:durable => true, :no_declare => @options[:secure]}}
       filter = [:from, :tags, :tries, :persistent]
@@ -638,7 +646,7 @@ module RightScale
         options.merge!(:exchange2 => {:type => :fanout, :name => "advertise", :options => {:durable => true}})
         {:type => :direct, :name => @identity, :options => {:durable => true, :auto_delete => true}}
       end
-      @broker.subscribe(queue, exchange, options) do |_, packet|
+      ids = @broker.subscribe(queue, exchange, options) do |_, packet|
         begin
           case packet
           when Advertise then advertise_services unless @terminating
@@ -651,6 +659,7 @@ module RightScale
           @exceptions.track("identity queue", e, msg)
         end
       end
+      ids
     end
 
     # Setup shared queue for this agent
@@ -661,7 +670,7 @@ module RightScale
     # ids(Array):: Identity of brokers for which to subscribe, defaults to all usable
     #
     # === Return
-    # true:: Always return true
+    # ids(Array):: Identity of brokers for which subscribe completed (although may still fail)
     #
     # === Raises
     # (Exception):: If this is an instance agent
@@ -671,7 +680,7 @@ module RightScale
       exchange = {:type => :direct, :name => @shared_queue, :options => {:durable => true}}
       filter = [:from, :tags, :tries, :persistent]
       options = {:ack => true, Request => filter, Push => filter, :category => "request", :brokers => ids}
-      @broker.subscribe(queue, exchange, options) do |_, request|
+      ids = @broker.subscribe(queue, exchange, options) do |_, request|
         begin
           @dispatcher.dispatch(request)
         rescue Exception => e
@@ -679,7 +688,7 @@ module RightScale
           @exceptions.track("shared queue", e, request)
         end
       end
-      true
+      ids
     end
 
     # Setup signal traps
@@ -698,10 +707,9 @@ module RightScale
       true
     end
 
-    # Check status of agent by gathering current operation statistics and publishing them and then,
-    # if this is an instance agent, checking for broker connections that failed during launch
-    # If find any failed connections, ask registrar to initialize broker service for this instance
-    # so it can then connect
+    # Check status of agent by gathering current operation statistics and publishing them and
+    # by completing any queue setup that can be completed now based on broker status
+    # Need registrar involvement for initializing broker service for an instance agent
     #
     # === Return
     # true:: Always return true
@@ -711,7 +719,7 @@ module RightScale
           token = AgentIdentity.generate
           exchange = {:type => :topic, :name => "stats", :options => {:no_declare => true}}
           @broker.publish(exchange, Stats.new(stats.content, token, @identity), :routing_key => @stats_routing_key,
-                          :brokers => @check_status_brokers.reverse!, :no_log => true)
+                          :brokers => @check_status_brokers.rotate!, :no_log => true)
         end
 
         if @is_instance_agent
@@ -720,6 +728,12 @@ module RightScale
             p[:host], p[:port], p[:id], p[:priority] = @broker.identity_parts(b)
             @mapper_proxy.push("/registrar/connect", p, :token => AgentIdentity.generate, :from => @identity)
           end
+        else
+          @remaining_setup.reject! do |method, ids|
+            ready = ids & @broker.connected
+            ids -= self.__send__(method, ready) unless ready.empty?
+            ids.empty?
+          end
         end
 
         @check_status_count += 1
@@ -727,6 +741,7 @@ module RightScale
         RightLinkLog.error("Failed checking status: #{e}")
         @exceptions.track("check status", e)
       end
+      true
     end
 
     # Store unique tags

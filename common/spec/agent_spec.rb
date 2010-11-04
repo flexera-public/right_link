@@ -35,12 +35,14 @@ describe RightScale::Agent do
   describe "Default Option" do
 
     before(:all) do
+#      flexmock(RightScale::RightLinkLog).should_receive(:error).never.by_default
+#      flexmock(RightScale::RightLinkLog).should_receive(:warn).never.by_default
       flexmock(EM).should_receive(:add_periodic_timer)
       flexmock(EM).should_receive(:next_tick).and_yield
       @timer = flexmock("timer")
       flexmock(EM::Timer).should_receive(:new).and_return(@timer)
       @timer.should_receive(:cancel)
-      @broker = flexmock("broker", :subscribe => true, :publish => true, :prefetch => true,
+      @broker = flexmock("broker", :subscribe => ["b1"], :publish => ["b1"], :prefetch => true,
                          :all => ["b1"], :connected => ["b1"], :failed => [], :close_one => true).by_default
       @broker.should_receive(:connection_status).and_yield(:connected)
       flexmock(RightScale::HA_MQ).should_receive(:new).and_return(@broker)
@@ -136,7 +138,7 @@ describe RightScale::Agent do
       @timer = flexmock("timer")
       flexmock(EM::Timer).should_receive(:new).and_return(@timer)
       @timer.should_receive(:cancel)
-      @broker = flexmock("broker", :subscribe => true, :publish => true, :prefetch => true,
+      @broker = flexmock("broker", :subscribe => ["b1"], :publish => ["b1"], :prefetch => true,
                          :connected => ["b1"], :failed => [], :all => ["b0", "b1"]).by_default
       @broker.should_receive(:connection_status).and_yield(:connected)
       flexmock(RightScale::HA_MQ).should_receive(:new).and_return(@broker)
