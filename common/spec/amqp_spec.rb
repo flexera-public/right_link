@@ -82,39 +82,32 @@ describe RightScale::HA_MQ do
 
     it "should create a broker with AMQP connection for default host and port" do
       ha_mq = RightScale::HA_MQ.new(@serializer)
-      ha_mq.brokers.should == [{:alias => "b0", :mq => @mq, :connection => @connection, :backoff => 0,
-                                :identity => "rs-broker-localhost-5672", :status => :connecting,
-                                :disconnects => 0, :tries => 0, :queues => []}]
+      ha_mq.status.should == [{:alias => "b0", :identity => "rs-broker-localhost-5672", :status => :connecting,
+                               :disconnects => 0, :failures => 0, :retries => 0}]
     end
 
     it "should create AMQP connections for specified hosts and ports and assign alias id in order of creation" do
       ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first, second", :port => 5672)
-      ha_mq.brokers.should == [{:alias => "b0", :mq => @mq, :connection => @connection, :backoff => 0,
-                                :identity => "rs-broker-first-5672", :status => :connecting,
-                                :disconnects => 0, :tries => 0, :queues => []},
-                               {:alias => "b1", :mq => @mq, :connection => @connection, :backoff => 0,
-                                :identity => "rs-broker-second-5672", :status => :connecting,
-                                :disconnects => 0, :tries => 0, :queues => []}]
+      ha_mq.status.should == [{:alias => "b0", :identity => "rs-broker-first-5672", :status => :connecting,
+                               :disconnects => 0, :failures => 0, :retries => 0},
+                              {:alias => "b1", :identity => "rs-broker-second-5672", :status => :connecting,
+                               :disconnects => 0, :failures => 0, :retries => 0}]
     end
 
     it "should create AMQP connections for specified hosts and ports and assign alias id as assigned per host" do
       ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first:0, third:2", :port => 5672)
-      ha_mq.brokers.should == [{:alias => "b0", :mq => @mq, :connection => @connection, :backoff => 0,
-                                :identity => "rs-broker-first-5672", :status => :connecting,
-                                :disconnects => 0, :tries => 0, :queues => []},
-                               {:alias => "b2", :mq => @mq, :connection => @connection, :backoff => 0,
-                                :identity => "rs-broker-third-5672", :status => :connecting,
-                                :disconnects => 0, :tries => 0, :queues => []}]
+      ha_mq.status.should == [{:alias => "b0", :identity => "rs-broker-first-5672", :status => :connecting,
+                               :disconnects => 0, :failures => 0, :retries => 0},
+                              {:alias => "b2", :identity => "rs-broker-third-5672", :status => :connecting,
+                               :disconnects => 0, :failures => 0, :retries => 0}]
     end
 
     it "should create AMQP connections for specified hosts and ports and assign alias id as assigned per port" do
       ha_mq = RightScale::HA_MQ.new(@serializer, :host => "host", :port => "5672:0,5673:2")
-      ha_mq.brokers.should == [{:alias => "b0", :mq => @mq, :connection => @connection, :backoff => 0,
-                                :identity => "rs-broker-host-5672", :status => :connecting,
-                                :disconnects => 0, :tries => 0, :queues => []},
-                               {:alias => "b2", :mq => @mq, :connection => @connection, :backoff => 0,
-                                :identity => "rs-broker-host-5673", :status => :connecting,
-                                :disconnects => 0, :tries => 0, :queues => []}]
+      ha_mq.status.should == [{:alias => "b0", :identity => "rs-broker-host-5672", :status => :connecting,
+                               :disconnects => 0, :failures => 0, :retries => 0},
+                              {:alias => "b2", :identity => "rs-broker-host-5673", :status => :connecting,
+                               :disconnects => 0, :failures => 0, :retries => 0}]
     end
 
     it "should log an info message when it creates an AMQP connection" do
@@ -1045,38 +1038,31 @@ describe RightScale::HA_MQ do
 
     it "should connect and add a new broker to the end of the list" do
       ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first")
-      ha_mq.brokers.should == [{:alias => "b0", :mq => @mq, :connection => @connection, :backoff => 0,
-                                :identity => "rs-broker-first-5672", :status => :connecting,
-                                :disconnects => 0, :tries => 0, :queues => []}]
+      ha_mq.status.should == [{:alias => "b0", :identity => "rs-broker-first-5672", :status => :connecting,
+                               :disconnects => 0, :failures => 0, :retries => 0}]
       res = ha_mq.connect("second", 5673, 1)
       res.should be_true
-      ha_mq.brokers.should == [{:alias => "b0", :mq => @mq, :connection => @connection, :backoff => 0,
-                                :identity => "rs-broker-first-5672", :status => :connecting,
-                                :disconnects => 0, :tries => 0, :queues => []},
-                               {:alias => "b1", :mq => @mq, :connection => @connection, :backoff => 0,
-                                :identity => "rs-broker-second-5673", :status => :connecting,
-                                :disconnects => 0, :tries => 0, :queues => []}]
+      ha_mq.status.should == [{:alias => "b0", :identity => "rs-broker-first-5672", :status => :connecting,
+                               :disconnects => 0, :failures => 0, :retries => 0},
+                              {:alias => "b1", :identity => "rs-broker-second-5673", :status => :connecting,
+                               :disconnects => 0, :failures => 0, :retries => 0}]
     end
 
     it "should reconnect an existing broker if it is not connected" do
       flexmock(AMQP).should_receive(:connect).and_return(@connection).times(3)
       ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first, second")
-      ha_mq.brokers.should == [{:alias => "b0", :mq => @mq, :connection => @connection, :backoff => 0,
-                                :identity => "rs-broker-first-5672", :status => :connecting,
-                                :disconnects => 0, :tries => 0, :queues => []},
-                               {:alias => "b1", :mq => @mq, :connection => @connection, :backoff => 0,
-                                :identity => "rs-broker-second-5672", :status => :connecting,
-                                :disconnects => 0, :tries => 0, :queues => []}]
+      ha_mq.status.should == [{:alias => "b0", :identity => "rs-broker-first-5672", :status => :connecting,
+                               :disconnects => 0, :failures => 0, :retries => 0},
+                              {:alias => "b1", :identity => "rs-broker-second-5672", :status => :connecting,
+                               :disconnects => 0, :failures => 0, :retries => 0}]
       ha_mq.brokers[0][:status] = :failed
       ha_mq.brokers[1][:status] = :connected
       res = ha_mq.connect("first", 5672, 0)
       res.should be_true
-      ha_mq.brokers.should == [{:alias => "b0", :mq => @mq, :connection => @connection, :backoff => 0,
-                                :identity => "rs-broker-first-5672", :status => :connecting,
-                                :disconnects => 0, :tries => 0, :queues => []},
-                               {:alias => "b1", :mq => @mq, :connection => @connection, :backoff => 0,
-                                :identity => "rs-broker-second-5672", :status => :connected,
-                                :disconnects => 0, :tries => 0, :queues => []}]
+      ha_mq.status.should == [{:alias => "b0", :identity => "rs-broker-first-5672", :status => :connecting,
+                               :disconnects => 0, :failures => 0, :retries => 0},
+                              {:alias => "b1", :identity => "rs-broker-second-5672", :status => :connected,
+                               :disconnects => 0, :failures => 0, :retries => 0}]
     end
 
     it "should not do anything except log a message if asked to reconnect an already connected broker" do
@@ -1086,12 +1072,10 @@ describe RightScale::HA_MQ do
       ha_mq.brokers[1][:status] = :connected
       res = ha_mq.connect("second", 5672, 1)
       res.should be_false
-      ha_mq.brokers.should == [{:alias => "b0", :mq => @mq, :connection => @connection, :backoff => 0,
-                                :identity => "rs-broker-first-5672", :status => :connecting,
-                                :disconnects => 0, :tries => 0, :queues => []},
-                               {:alias => "b1", :mq => @mq, :connection => @connection, :backoff => 0,
-                                :identity => "rs-broker-second-5672", :status => :connected,
-                                :disconnects => 0, :tries => 0, :queues => []}]
+      ha_mq.status.should == [{:alias => "b0", :identity => "rs-broker-first-5672", :status => :connecting,
+                               :disconnects => 0, :failures => 0, :retries => 0},
+                              {:alias => "b1", :identity => "rs-broker-second-5672", :status => :connected,
+                               :disconnects => 0, :failures => 0, :retries => 0}]
     end
 
     it "should not do anything except log a message if asked to reconnect a broker that is currently being connected" do
@@ -1100,12 +1084,10 @@ describe RightScale::HA_MQ do
       ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first, second")
       res = ha_mq.connect("second", 5672, 1)
       res.should be_false
-      ha_mq.brokers.should == [{:alias => "b0", :mq => @mq, :connection => @connection, :backoff => 0,
-                                :identity => "rs-broker-first-5672", :status => :connecting,
-                                :disconnects => 0, :tries => 0, :queues => []},
-                               {:alias => "b1", :mq => @mq, :connection => @connection, :backoff => 0,
-                                :identity => "rs-broker-second-5672", :status => :connecting,
-                                :disconnects => 0, :tries => 0, :queues => []}]
+      ha_mq.status.should == [{:alias => "b0", :identity => "rs-broker-first-5672", :status => :connecting,
+                               :disconnects => 0, :failures => 0, :retries => 0},
+                              {:alias => "b1", :identity => "rs-broker-second-5672", :status => :connecting,
+                               :disconnects => 0, :failures => 0, :retries => 0}]
     end
 
     it "should reconnect already connected broker if force specified" do
@@ -1116,12 +1098,10 @@ describe RightScale::HA_MQ do
       ha_mq.brokers[1][:status] = :connected
       res = ha_mq.connect("second", 5672, 1, nil, force = true)
       res.should be_true
-      ha_mq.brokers.should == [{:alias => "b0", :mq => @mq, :connection => @connection, :backoff => 0,
-                                :identity => "rs-broker-first-5672", :status => :connecting,
-                                :disconnects => 0, :tries => 0, :queues => []},
-                               {:alias => "b1", :mq => @mq, :connection => @connection, :backoff => 0,
-                                :identity => "rs-broker-second-5672", :status => :connecting,
-                                :disconnects => 0, :tries => 0, :queues => []}]
+      ha_mq.status.should == [{:alias => "b0", :identity => "rs-broker-first-5672", :status => :connecting,
+                               :disconnects => 0, :failures => 0, :retries => 0},
+                              {:alias => "b1", :identity => "rs-broker-second-5672", :status => :connecting,
+                               :disconnects => 0, :failures => 0, :retries => 0}]
     end
 
     it "should slot broker into specified priority position when at end of list" do
@@ -1129,15 +1109,12 @@ describe RightScale::HA_MQ do
       ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first, second")
       res = ha_mq.connect("third", 5672, 2, 2)
       res.should be_true
-      ha_mq.brokers.should == [{:alias => "b0", :mq => @mq, :connection => @connection, :backoff => 0,
-                                :identity => "rs-broker-first-5672", :status => :connecting,
-                                :disconnects => 0, :tries => 0, :queues => []},
-                               {:alias => "b1", :mq => @mq, :connection => @connection, :backoff => 0,
-                                :identity => "rs-broker-second-5672", :status => :connecting,
-                                :disconnects => 0, :tries => 0, :queues => []},
-                               {:alias => "b2", :mq => @mq, :connection => @connection, :backoff => 0,
-                                :identity => "rs-broker-third-5672", :status => :connecting,
-                                :disconnects => 0, :tries => 0, :queues => []}]
+      ha_mq.status.should == [{:alias => "b0", :identity => "rs-broker-first-5672", :status => :connecting,
+                               :disconnects => 0, :failures => 0, :retries => 0},
+                              {:alias => "b1", :identity => "rs-broker-second-5672", :status => :connecting,
+                               :disconnects => 0, :failures => 0, :retries => 0},
+                              {:alias => "b2", :identity => "rs-broker-third-5672", :status => :connecting,
+                               :disconnects => 0, :failures => 0, :retries => 0}]
     end
 
     it "should slot broker into specified priority position when already is a broker in that position" do
@@ -1145,15 +1122,12 @@ describe RightScale::HA_MQ do
       ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first, second")
       res = ha_mq.connect("third", 5672, 2, 1)
       res.should be_true
-      ha_mq.brokers.should == [{:alias => "b0", :mq => @mq, :connection => @connection, :backoff => 0,
-                                :identity => "rs-broker-first-5672", :status => :connecting,
-                                :disconnects => 0, :tries => 0, :queues => []},
-                               {:alias => "b2", :mq => @mq, :connection => @connection, :backoff => 0,
-                                :disconnects => 0, :identity => "rs-broker-third-5672", :status => :connecting,
-                                :tries => 0, :queues => []},
-                               {:alias => "b1", :mq => @mq, :connection => @connection, :backoff => 0,
-                                :identity => "rs-broker-second-5672", :status => :connecting,
-                                :disconnects => 0, :tries => 0, :queues => []}]
+      ha_mq.status.should == [{:alias => "b0", :identity => "rs-broker-first-5672", :status => :connecting,
+                               :disconnects => 0, :failures => 0, :retries => 0},
+                              {:alias => "b2", :identity => "rs-broker-third-5672", :status => :connecting,
+                               :disconnects => 0, :failures => 0, :retries => 0},
+                              {:alias => "b1", :identity => "rs-broker-second-5672", :status => :connecting,
+                               :disconnects => 0, :failures => 0, :retries => 0}]
     end
 
     it "should yield to the block provided with the newly connected broker identity" do
@@ -1260,6 +1234,8 @@ describe RightScale::HA_MQ do
   end
 
   describe "Monitoring" do
+
+    include RightScale::StatsHelper
 
     before(:each) do
       @timer = flexmock("timer")
@@ -1428,24 +1404,45 @@ describe RightScale::HA_MQ do
 
     it "should give broker status list" do
       ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first, second")
-      ha_mq.status.should == [{:alias => "b0", :identity => "rs-broker-first-5672", :status => :connecting, :disconnects => 0, :tries => 0},
-                              {:alias => "b1", :identity => "rs-broker-second-5672", :status => :connecting, :disconnects => 0, :tries => 0}]
-      ha_mq.brokers[0][:status] = :failed
-      ha_mq.brokers[0][:tries] = 2
+      ha_mq.status.should == [{:alias => "b0", :identity => "rs-broker-first-5672", :status => :connecting,
+                               :disconnects => 0, :failures => 0, :retries => 0},
+                              {:alias => "b1", :identity => "rs-broker-second-5672", :status => :connecting,
+                               :disconnects => 0, :failures => 0, :retries => 0}]
+      ha_mq.__send__(:update_status, ha_mq.brokers[0], :failed)
+      ha_mq.__send__(:update_status, ha_mq.brokers[1], :ready)
       ha_mq.brokers[1][:status] = :connected
-      ha_mq.status.should == [{:alias => "b0", :identity => "rs-broker-first-5672", :status => :failed, :disconnects => 0, :tries => 2},
-                              {:alias => "b1", :identity => "rs-broker-second-5672", :status => :connected, :disconnects => 0, :tries => 0}]
+      ha_mq.status.should == [{:alias => "b0", :identity => "rs-broker-first-5672", :status => :failed,
+                               :disconnects => 0, :failures => 1, :retries => 0},
+                              {:alias => "b1", :identity => "rs-broker-second-5672", :status => :connected,
+                               :disconnects => 0, :failures => 0, :retries => 0}]
     end
 
     it "should give broker statistics" do
-      ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first, second")
-      ha_mq.stats.should == {"brokers" => [{"alias" => "b0", "identity" => "rs-broker-first-5672", "status" => "connecting", "disconnects" => 0, "tries" => 0},
-                                           {"alias" => "b1", "identity" => "rs-broker-second-5672", "status" => "connecting", "disconnects" => 0, "tries" => 0}],
+      flexmock(Time).should_receive(:now).and_return(1000000).by_default
+      ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first, second, third")
+      ha_mq.stats.should == {"brokers" => [{"alias" => "b0", "identity" => "rs-broker-first-5672",
+                                            "status" => "connecting", "disconnects" => nil, "disconnect last" => nil,
+                                            "failures" => nil, "failure last" => nil, "retries" => nil},
+                                           {"alias" => "b1", "identity" => "rs-broker-second-5672",
+                                            "status" => "connecting", "disconnects" => nil, "disconnect last" => nil,
+                                            "failures" => nil, "failure last" => nil, "retries" => nil},
+                                           {"alias" => "b2", "identity" => "rs-broker-third-5672",
+                                            "status" => "connecting", "disconnects" => nil, "disconnect last" => nil,
+                                            "failures" => nil, "failure last" => nil, "retries" => nil}],
                              "exceptions" => {}}
       ha_mq.__send__(:update_status, ha_mq.brokers[0], :ready)
       ha_mq.__send__(:update_status, ha_mq.brokers[1], :disconnected)
-      ha_mq.stats.should == {"brokers" => [{"alias" => "b0", "identity" => "rs-broker-first-5672", "status" => "connected", "disconnects" => 0, "tries" => 0},
-                                           {"alias" => "b1", "identity" => "rs-broker-second-5672", "status" => "disconnected", "disconnects" => 1, "tries" => 0}],
+      ha_mq.__send__(:update_status, ha_mq.brokers[2], :failed)
+      flexmock(Time).should_receive(:now).and_return(1000100)
+      ha_mq.stats.should == {"brokers" => [{"alias" => "b0", "identity" => "rs-broker-first-5672",
+                                            "status" => "connected", "disconnects" => nil, "disconnect last" => nil,
+                                            "failures" => nil, "failure last" => nil, "retries" => nil},
+                                           {"alias" => "b1", "identity" => "rs-broker-second-5672",
+                                            "status" => "disconnected", "disconnects" => 1, "disconnect last" => {"elapsed" => 100},
+                                            "failures" => nil, "failure last" => nil, "retries" => nil},
+                                           {"alias" => "b2", "identity" => "rs-broker-third-5672",
+                                            "status" => "failed", "disconnects" => nil, "disconnect last" => nil,
+                                            "failures" => 1, "failure last" => {"elapsed" => 100}, "retries" => nil}],
                              "exceptions" => {}}
     end
 

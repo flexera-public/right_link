@@ -256,8 +256,15 @@ describe RightScale::StatsHelper do
       @now = 1000000
       flexmock(Time).should_receive(:now).and_return(@now).by_default
       @exceptions = RightScale::StatsHelper::ExceptionStats.new
-      @brokers = {"brokers"=> [{"identity"=>"rs-broker-localhost-5672", "disconnects" => 0, "tries"=>0, "alias"=>"b0", "status"=>"connected"},
-                               {"identity"=>"rs-broker-localhost-5673", "disconnects" => 1, "tries"=>0, "alias"=>"b1", "status"=>"disconnected"}],
+      @brokers = {"brokers"=> [{"alias" => "b0", "identity" => "rs-broker-localhost-5672", "status" => "connected",
+                                "disconnect last" => nil,"disconnects" => nil, "failure last" => nil, "failures" => nil,
+                                "retries" => nil},
+                               {"alias" => "b1", "identity" => "rs-broker-localhost-5673", "status" => "disconnected",
+                                "disconnect last" => {"elapsed" => 1000}, "disconnects" => 2,
+                                "failure last" => nil, "failures" => nil, "retries" => nil},
+                               {"alias" => "b2", "identity" => "rs-broker-localhost-5674", "status" => "failed",
+                                "disconnect last" => nil, "disconnects" => nil,
+                                "failure last" => {"elapsed" => 1000}, "failures" => 3, "retries" => 2}],
                   "exceptions" => {}}
     end
 
@@ -265,6 +272,13 @@ describe RightScale::StatsHelper do
       stats = {"first" => 1, "second" => 4, "third" => 3}
       result = percentage(stats)
       result.should == {"total" => 8, "percent" => {"first" => 12.5, "second" => 50.0, "third" => 37.5}}
+    end
+
+    it "should convert 0 to nil" do
+      nil_if_zero(0).should be_nil
+      nil_if_zero(0.0).should be_nil
+      nil_if_zero(1).should == 1
+      nil_if_zero(1.0).should == 1.0
     end
 
     it "should sort hash into array with integer conversion of keys if possible" do
@@ -342,8 +356,9 @@ describe RightScale::StatsHelper do
 
     it "should convert broker status to multi-line display string" do
       result = brokers_str(@brokers, 10)
-      result.should == "brokers    : b0: rs-broker-localhost-5672, status: connected, disconnects: 0, tries: 0\n" +
-                       "             b1: rs-broker-localhost-5673, status: disconnected, disconnects: 1, tries: 0\n" +
+      result.should == "brokers    : b0: rs-broker-localhost-5672 connected, disconnects: none, failures: none\n" +
+                       "             b1: rs-broker-localhost-5673 disconnected, disconnects: 2 (16 min, 40 sec ago), failures: none\n" +
+                       "             b2: rs-broker-localhost-5674 failed, disconnects: none, failures: 3 (16 min, 40 sec ago w/ 2 retries)\n" +
                        "             exceptions        : none\n"
     end
 
@@ -351,8 +366,9 @@ describe RightScale::StatsHelper do
       @exceptions.track("testing", Exception.new("Test error"))
       @brokers["exceptions"] = @exceptions.stats
       result = brokers_str(@brokers, 10)
-      result.should == "brokers    : b0: rs-broker-localhost-5672, status: connected, disconnects: 0, tries: 0\n" +
-                       "             b1: rs-broker-localhost-5673, status: disconnected, disconnects: 1, tries: 0\n" +
+      result.should == "brokers    : b0: rs-broker-localhost-5672 connected, disconnects: none, failures: none\n" +
+                       "             b1: rs-broker-localhost-5673 disconnected, disconnects: 2 (16 min, 40 sec ago), failures: none\n" +
+                       "             b2: rs-broker-localhost-5674 failed, disconnects: none, failures: 3 (16 min, 40 sec ago w/ 2 retries)\n" +
                        "             exceptions        : testing total: 1, most recent:\n" +
                        "                                 (1) Mon Jan 12 05:46:40 -0800 1970 Exception: Test error\n" +
                        "                                     \n"
@@ -469,7 +485,7 @@ describe RightScale::StatsHelper do
                    "activity last" => activity.last,
                    "some hash" => {"dogs" => 2, "cats" => 3, "hippopotami" => 99, "bears" => 1,
                                    "ants" => 100000000, "dragons" => nil, "leopards" => 25}}
-      stats = {"stats time" => @now,
+      stats = {"stat time" => @now,
                "last reset time" => @now,
                "service uptime" => 3720,
                "machine uptime" => 183546,
@@ -482,13 +498,14 @@ describe RightScale::StatsHelper do
       result = stats_str(stats)
       result.should == "identity    : unit tester\n" +
                        "hostname    : localhost\n" +
-                       "stats time  : Mon Jan 12 05:46:40 -0800 1970\n" +
+                       "stat time   : Mon Jan 12 05:46:40 -0800 1970\n" +
                        "last reset  : Mon Jan 12 05:46:40 -0800 1970\n" +
                        "service up  : 1 hr, 2 min\n" +
                        "machine up  : 2 days, 2 hr, 59 min\n" +
                        "version     : 10\n" +
-                       "brokers     : b0: rs-broker-localhost-5672, status: connected, disconnects: 0, tries: 0\n" +
-                       "              b1: rs-broker-localhost-5673, status: disconnected, disconnects: 1, tries: 0\n" +
+                       "brokers     : b0: rs-broker-localhost-5672 connected, disconnects: none, failures: none\n" +
+                       "              b1: rs-broker-localhost-5673 disconnected, disconnects: 2 (16 min, 40 sec ago), failures: none\n" +
+                       "              b2: rs-broker-localhost-5674 failed, disconnects: none, failures: 3 (16 min, 40 sec ago w/ 2 retries)\n" +
                        "              exceptions        : none\n" +
                        "stuff       : activity %        : testing: 100%, total: 1\n" +
                        "              activity last     : testing: 10 sec ago\n" +
@@ -506,7 +523,7 @@ describe RightScale::StatsHelper do
                    "empty_hash" => {},
                    "float_value" => 3.15}
 
-      stats = {"stats time" => @now,
+      stats = {"stat time" => @now,
                "last reset time" => @now,
                "service uptime" => 1000,
                "hostname" => "localhost",
@@ -516,7 +533,7 @@ describe RightScale::StatsHelper do
       result = stats_str(stats)
       result.should == "identity    : unit tester\n" +
                        "hostname    : localhost\n" +
-                       "stats time  : Mon Jan 12 05:46:40 -0800 1970\n" +
+                       "stat time   : Mon Jan 12 05:46:40 -0800 1970\n" +
                        "last reset  : Mon Jan 12 05:46:40 -0800 1970\n" +
                        "service up  : 16 min, 40 sec\n" +
                        "stuff       : empty_hash        : none\n" +

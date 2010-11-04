@@ -464,17 +464,17 @@ module RightScale
     def stats(options = {})
       now = Time.now
       reset = options[:reset]
-      result = OperationResult.success("identity" => @identity,
-                                       "hostname" => Socket.gethostname,
-                                       "version" => RightLinkConfig.protocol_version,
-                                       "brokers" => @broker.stats(reset),
-                                       "agent stats" => agent_stats(reset),
-                                       "receive stats" => @dispatcher.stats(reset),
-                                       "send stats" => @mapper_proxy.stats(reset),
+      result = OperationResult.success("identity"        => @identity,
+                                       "hostname"        => Socket.gethostname,
+                                       "version"         => RightLinkConfig.protocol_version,
+                                       "brokers"         => @broker.stats(reset),
+                                       "agent stats"     => agent_stats(reset),
+                                       "receive stats"   => @dispatcher.stats(reset),
+                                       "send stats"      => @mapper_proxy.stats(reset),
                                        "last reset time" => @last_stat_reset_time.to_i,
-                                       "stats time" => now.to_i,
-                                       "service uptime" => (now - @service_start_time).to_i,
-                                       "machine uptime" => RightScale::RightLinkConfig[:platform].shell.uptime)
+                                       "stat time"       => now.to_i,
+                                       "service uptime"  => (now - @service_start_time).to_i,
+                                       "machine uptime"  => RightScale::RightLinkConfig[:platform].shell.uptime)
       @last_stat_reset_time = now if reset
       result
     end
@@ -495,8 +495,11 @@ module RightScale
     #     "total"(Integer):: Total exceptions for this category
     #     "recent"(Array):: Most recent as a hash of "count", "type", "message", "when", and "where"
     def agent_stats(reset = false)
-      stats = {"connect requests" => @connect_requests.percentage, "connect req last" => @connect_requests.last,
-               "exceptions" => @exceptions.stats}
+      stats = {
+        "connect requests" => @connect_requests.percentage,
+        "connect req last" => @connect_requests.last,
+        "exceptions"       => @exceptions.stats
+      }
       reset_agent_stats if reset
       stats
     end

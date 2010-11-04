@@ -232,7 +232,6 @@ module RightScale
     #   "exceptions"(Hash):: Exceptions raised per category
     #     "total"(Integer):: Total exceptions for this category
     #     "recent"(Array):: Most recent as a hash of "count", "type", "message", "when", and "where"
-    #   "ping timeouts"(Integer):: Number of mapper pings that timed out causing a broker reconnect attempt
     #   "pings"(Integer):: Total number of pings and percentage breakdown for "success" vs. "timeout"
     #   "request last"(Hash):: Last request information with keys "type", "elapsed", and "active"
     #   "request rate"(Float):: Average number of requests per second recently
@@ -244,13 +243,19 @@ module RightScale
     #   "retry rate"(Float):: Average number of retries per second recently
     #   "retry timeouts"(Integer|nil):: Number of requests that failed after maximum number of retries, or nil if none
     def stats(reset = false)
-      pending = @pending_requests.size
-      stats = {"exceptions" => @exceptions.stats, "pings" => @pings.percentage,
-               "request last" => @requests.last, "request rate" => @requests.avg_rate,
-               "requests" => @requests.percentage, "requests pending" => pending > 0 ? pending : nil,
-               "response time" => @requests.avg_duration, "retries" => @retries.percentage,
-               "retry last" => @retries.last, "retry rate" => @retries.avg_rate,
-               "retry timeouts" => @retry_timeouts > 0 ? @retry_timeouts : nil}
+      stats = {
+        "exceptions"       => @exceptions.stats,
+        "pings"            => @pings.percentage,
+        "request last"     => @requests.last,
+        "request rate"     => @requests.avg_rate,
+        "requests"         => @requests.percentage,
+        "requests pending" => nil_if_zero(@pending_requests.size),
+        "response time"    => @requests.avg_duration,
+        "retries"          => @retries.percentage,
+        "retry last"       => @retries.last,
+        "retry rate"       => @retries.avg_rate,
+        "retry timeouts"   => nil_if_zero(@retry_timeouts)
+      }
       reset_stats if reset
       stats
     end

@@ -216,6 +216,18 @@ module RightScale
 
     end # ExceptionStats
 
+    # Convert 0 value to nil
+    # This is in support of displaying "none" rather than 0
+    #
+    # === Parameters
+    # value(Integer|Float):: Value to be converted
+    #
+    # === Returns
+    # (Integer|Float|nil):: nil if value is 0, otherwise the original value
+    def nil_if_zero(value)
+      value == 0 ? nil : value
+    end
+
     # Convert values hash into percentages
     #
     # === Parameters
@@ -235,7 +247,7 @@ module RightScale
     #
     # === Parameters
     # stats(Hash):: Statistics with generic keys "identity", "hostname", "service uptime",
-    #   "machine uptime", "stats time", "last reset time", "version", and "broker" with the
+    #   "machine uptime", "stat time", "last reset time", "version", and "broker" with the
     #   latter two and "machine uptime" being optional; any other keys ending with "stats"
     #   have an associated hash value that is displayed in sorted key order
     #
@@ -245,7 +257,7 @@ module RightScale
       name_width = MAX_STAT_NAME_WIDTH
       str = sprintf("%-#{name_width}s#{SEPARATOR}%s\n", "identity", stats["identity"]) +
             sprintf("%-#{name_width}s#{SEPARATOR}%s\n", "hostname", stats["hostname"]) +
-            sprintf("%-#{name_width}s#{SEPARATOR}%s\n", "stats time", Time.at(stats["stats time"])) +
+            sprintf("%-#{name_width}s#{SEPARATOR}%s\n", "stat time", Time.at(stats["stat time"])) +
             sprintf("%-#{name_width}s#{SEPARATOR}%s\n", "last reset", Time.at(stats["last reset time"])) +
             sprintf("%-#{name_width}s#{SEPARATOR}%s\n", "service up", elapsed(stats["service uptime"]))
       str += sprintf("%-#{name_width}s#{SEPARATOR}%s\n", "machine up", elapsed(stats["machine uptime"])) if stats.has_key?("machine uptime")
@@ -263,8 +275,11 @@ module RightScale
     #     "alias"(String):: Broker alias
     #     "identity"(String):: Broker identity
     #     "status"(Symbol):: Status of connection
-    #     "disconnects"(Integer):: Number of times lost connection
-    #     "tries"(Integer):: Number of attempts to reconnect a failed connection
+    #     "disconnect last"(Hash|nil):: Last disconnect information with key "elapsed", or nil if none
+    #     "disconnects"(Integer|nil):: Number of times lost connection, or nil if none
+    #     "failure last"(Hash|nil):: Last connect failure information with key "elapsed", or nil if none
+    #     "failures"(Integer|nil):: Number of failed attempts to connect to broker, or nil if none
+    #     "retries"(Integer|nil):: Number of attempts to connect after failure, or nil if none
     #   "exceptions"(Hash):: Exceptions raised per category with keys
     #     "total"(Integer):: Total exceptions for this category
     #     "recent"(Array):: Most recent as a hash of "count", "type", "message", "when", and "where"
@@ -278,8 +293,17 @@ module RightScale
       sub_value_indent = " " * (name_width + sub_name_width + (SEPARATOR.size * 2))
       str = sprintf("%-#{name_width}s#{SEPARATOR}", "brokers")
       brokers["brokers"].each do |b|
-        str += sprintf("%s: %s, status: %s, disconnects: %d, tries: %d\n",
-                     b["alias"], b["identity"], b["status"], b["disconnects"], b["tries"])
+        disconnects = if b["disconnects"]
+          "#{b["disconnects"]} (#{elapsed(b["disconnect last"]["elapsed"])} ago)"
+        else
+          "none"
+        end
+        failures = if b["failures"]
+          "#{b["failures"]} (#{elapsed(b["failure last"]["elapsed"])} ago" + (b["retries"] ? " w/ #{b["retries"]} retries)" : ")")
+        else
+          "none"
+        end
+        str += "#{b["alias"]}: #{b["identity"]} #{b["status"]}, disconnects: #{disconnects}, failures: #{failures}\n"
         str += value_indent
       end
       str += sprintf("%-#{sub_name_width}s#{SEPARATOR}", "exceptions")

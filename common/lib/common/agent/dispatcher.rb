@@ -198,15 +198,20 @@ module RightScale
     #     "retry duplicate (<method>)", or "stale (<method>)") as hash with keys "total" and "percent"
     #   "request last"(Hash):: Last request information with keys "type", "elapsed", and "active"
     #   "request rate"(Float):: Average number of requests per second recently
-    #   "requests(Hash):: Total requests and percentage breakdown per type as hash with keys "total" and "percent"
+    #   "requests"(Hash):: Total requests and percentage breakdown per type as hash with keys "total" and "percent"
     #   "response time"(Float):: Average number of seconds to respond to a request recently
     def stats(reset = false)
-      size = @completed.size
-      stats = {"duplicate cache" => size > 0 ? size : nil, "exceptions" => @exceptions.stats,
-               "reject last" => @rejects.last, "reject rate" => @rejects.avg_rate,
-               "rejects" => @rejects.percentage, "request last" => @requests.last,
-               "request rate" => @requests.avg_rate, "requests" => @requests.percentage,
-               "response time" => @requests.avg_duration}
+      stats = {
+        "duplicate cache" => nil_if_zero(@completed.size),
+        "exceptions"      => @exceptions.stats,
+        "reject last"     => @rejects.last,
+        "reject rate"     => @rejects.avg_rate,
+        "rejects"         => @rejects.percentage,
+        "request last"    => @requests.last,
+        "request rate"    => @requests.avg_rate,
+        "requests"        => @requests.percentage,
+        "response time"   => @requests.avg_duration
+      }
       reset_stats if reset
       stats
     end
