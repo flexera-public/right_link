@@ -118,6 +118,7 @@ module RightScale
       cfg[:retry_interval]  = options[:retry_interval] || 30
       cfg[:check_interval]  = options[:check_interval] if options[:check_interval]
       cfg[:grace_timeout]   = options[:grace_timeout] if options[:grace_timeout]
+      cfg[:min_agents]      = options[:min_agents].nil? ? 1 : options[:min_agents]
       cfg[:dup_check]       = options[:dup_check].nil? ? true : options[:dup_check]
       cfg[:http_proxy]      = options[:http_proxy] if options[:http_proxy]
       cfg[:no_http_proxy]   = options[:no_http_proxy] if options[:no_http_proxy]
@@ -216,6 +217,10 @@ module RightScale
 
         opts.on('--agents-dir DIR') do |d|
           options[:agents_dir] = d
+        end
+
+        opts.on('--min-agents COUNT') do |count|
+          options[:min_agents] = count.to_i
         end
 
         opts.on('-o', '--options OPT') do |e|
