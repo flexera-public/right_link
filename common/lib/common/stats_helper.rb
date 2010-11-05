@@ -350,7 +350,7 @@ module RightScale
           if v.empty? || v["total"] == 0
             "none"
           elsif v["percent"]
-            str = sort_value(enough_precision(v["percent"])).reverse.map { |k2, v2| "#{k2}: #{v2}%" }.join(", ")
+            str = enough_precision(sort_value(v["percent"]).reverse).map { |k2, v2| "#{k2}: #{v2}%" }.join(", ")
             str += ", total: #{v["total"]}"
             wrap(str, MAX_SUB_STAT_VALUE_WIDTH, sub_value_indent, ", ")
           elsif k =~ /last$/
@@ -495,10 +495,10 @@ module RightScale
     # When precision is wide ranging, limit precision of the larger numbers
     #
     # === Parameters
-    # value(Float|Hash):: Value(s) to be converted
+    # value(Float|Array|Hash):: Value(s) to be converted
     #
     # === Return
-    # (String|Hash):: Value(s) converted to decimal digit string
+    # (String|Array|Hash):: Value(s) converted to decimal digit string
     def enough_precision(value)
       scale = [1.0, 10.0, 100.0, 1000.0, 10000.0, 100000.0]
       enough = lambda { |v| (v >= 10.0   ? 0 :
@@ -511,6 +511,10 @@ module RightScale
 
       if value.is_a?(Float)
         digit_str.call(enough.call(value), value)
+      elsif value.is_a?(Array)
+        min, max = value.map { |_, v| enough.call(v) }.minmax
+        precision = (max - min) > 1 ? min + 1 : max
+        value.map { |k, v| [k, digit_str.call([precision, enough.call(v)].max, v)] }
       elsif value.is_a?(Hash)
         min, max = value.to_a.map { |_, v| enough.call(v) }.minmax
         precision = (max - min) > 1 ? min + 1 : max
