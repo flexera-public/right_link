@@ -317,6 +317,7 @@ module RightScale
     # Convert grouped set of statistics to displayable format
     # Provide special formatting for stats named "exceptions"
     # Break out percentages and total count for stats containing "percent" hash value
+    # sorted in descending percent order and followed by total count
     # Convert to elapsed time for stats with name ending in "last"
     # Add "/sec" to values with name ending in "rate"
     # Add " sec" to values with name ending in "time"
@@ -349,7 +350,7 @@ module RightScale
           if v.empty? || v["total"] == 0
             "none"
           elsif v["percent"]
-            str = sort(enough_precision(v["percent"])).map { |k2, v2| "#{k2}: #{v2}%" }.join(", ")
+            str = sort_value(enough_precision(v["percent"])).reverse.map { |k2, v2| "#{k2}: #{v2}%" }.join(", ")
             str += ", total: #{v["total"]}"
             wrap(str, MAX_SUB_STAT_VALUE_WIDTH, sub_value_indent, ", ")
           elsif k =~ /last$/
@@ -393,7 +394,7 @@ module RightScale
     end
 
     # Convert arbitrary nested hash to displayable format
-    # Sort hash entries, numerically if possible, otherwise alphabetically
+    # Sort hash by key, numerically if possible, otherwise as is
     # Display any floating point values with one decimal place precision
     # Display any empty values as "none"
     #
@@ -404,7 +405,7 @@ module RightScale
     # (String):: Single line hash display
     def hash_str(hash)
       str = ""
-      sort(hash).map do |k, v|
+      sort_key(hash).map do |k, v|
         "#{k}: " + if v.is_a?(Float)
           enough_precision(v)
         elsif v.is_a?(Hash)
@@ -415,16 +416,27 @@ module RightScale
       end.join(", ")
     end
 
-    # Sort hash elements into array of key/value pairs
-    # Sort keys numerically if possible, otherwise alphabetically
+    # Sort hash elements by key in ascending order into array of key/value pairs
+    # Sort keys numerically if possible, otherwise as is
     #
     # === Parameters
     # hash(Hash):: Data to be sorted
     #
     # === Return
     # (Array):: Key/value pairs from hash in key sorted order
-    def sort(hash)
+    def sort_key(hash)
       hash.to_a.map { |k, v| [k =~ /^\d+$/ ? k.to_i : k, v] }.sort
+    end
+
+    # Sort hash elements by value in ascending order into array of key/value pairs
+    #
+    # === Parameters
+    # hash(Hash):: Data to be sorted
+    #
+    # === Return
+    # (Array):: Key/value pairs from hash in value sorted order
+    def sort_value(hash)
+      hash.to_a.sort { |a, b| a[1] <=> b[1] }
     end
 
     # Wrap string by breaking it into lines at the specified separator
