@@ -622,8 +622,12 @@ module RightScale
     def setup_queues
       @broker.prefetch(@options[:prefetch]) if @options[:prefetch]
       all = @broker.connected
-      @remaining_setup[:setup_identity_queue] = all - setup_identity_queue
-      @remaining_setup[:setup_shared_queue] = all - setup_shared_queue if @shared_queue
+      remaining = all - setup_identity_queue
+      @remaining_setup[:setup_identity_queue] = remaining unless remaining.empty?
+      if @shared_queue
+        remaining = all - setup_shared_queue
+        @remaining_setup[:setup_shared_queue] = remaining unless remaining.empty?
+      end
       true
     end
 
@@ -710,6 +714,7 @@ module RightScale
     # Check status of agent by gathering current operation statistics and publishing them and
     # by completing any queue setup that can be completed now based on broker status
     # Need registrar involvement for initializing broker service for an instance agent
+    # Only publish statistics every third time called
     #
     # === Return
     # true:: Always return true
@@ -728,12 +733,13 @@ module RightScale
             p[:host], p[:port], p[:id], p[:priority] = @broker.identity_parts(b)
             @mapper_proxy.push("/registrar/connect", p, :token => AgentIdentity.generate, :from => @identity)
           end
-        else
+        elsif !@remaining_setup.empty?
           @remaining_setup.reject! do |method, ids|
             ready = ids & @broker.connected
             ids -= self.__send__(method, ready) unless ready.empty?
-            ids.empty?
+            (@remaining_setup[method] = ids).empty?
           end
+          RightLinkLog.info("[setup] Finished subscribing to queues") if @remaining_setup.empty?
         end
 
         @check_status_count += 1
