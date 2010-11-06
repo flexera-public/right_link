@@ -364,9 +364,17 @@ module RightScale
     # If the message is unserialized and it is not of the right type, it is dropped after logging a warning
     #
     # === Parameters
-    # queue(Hash):: AMQP queue being subscribed with keys :name and :options
+    # queue(Hash):: AMQP queue being subscribed with keys :name and :options,
+    #   which are the standard AMQP ones plus
+    #     :no_declare(Boolean):: Whether to skip declaring this queue on the broker
+    #       to cause its creation; for use when client does not have permission to create or
+    #       knows the queue already exists and wants to avoid declare overhead
     # exchange(Hash|nil):: AMQP exchange to subscribe to with keys :type, :name, and :options,
-    #   nil means use empty exchange by directly subscribing to queue
+    #   nil means use empty exchange by directly subscribing to queue; the :options are the
+    #   standard AMQP ones plus
+    #     :no_declare(Boolean):: Whether to skip declaring this exchange on the broker
+    #       to cause its creation; for use when client does not have create permission or
+    #       knows the exchange already exists and wants to avoid declare overhead
     # options(Hash):: Subscribe options:
     #   :ack(Boolean):: Explicitly acknowledge received messages to AMQP
     #   :no_unserialize(Boolean):: Do not unserialize message, this is an escape for special
@@ -397,14 +405,18 @@ module RightScale
           " to exchange #{exchange[:name]}"
         end
       end
+
       identities = []
+      queue_options = queue[:options] || {}
+      exchange_options = (exchange && exchange[:options]) || {}
+
       each_usable(options[:brokers]) do |b|
         begin
           RightLinkLog.info("[setup] Subscribing queue #{queue[:name]}#{to_exchange} on broker #{b[:alias]}")
-          q = b[:mq].queue(queue[:name], queue[:options] || {})
+          q = b[:mq].queue(queue[:name], queue_options)
           b[:queues] << q
           if exchange
-            x = b[:mq].__send__(exchange[:type], exchange[:name], exchange[:options] || {})
+            x = b[:mq].__send__(exchange[:type], exchange[:name], exchange_options)
             binding = q.bind(x, options[:key] ? {:key => options[:key]} : {})
             if exchange2 = options[:exchange2]
               q.bind(b[:mq].__send__(exchange2[:type], exchange2[:name], exchange2[:options] || {}))
@@ -530,7 +542,13 @@ module RightScale
     # if fanout requested
     #
     # === Parameters
-    # exchange(Hash):: AMQP exchange to subscribe to with keys :type, :name, and :options
+    # exchange(Hash):: AMQP exchange to subscribe to with keys :type, :name, and :options,
+    #   which are the standard AMQP ones plus
+    #     :no_declare(Boolean):: Whether to skip declaring this exchange or queue on the broker
+    #       to cause its creation; for use when client does not have create permission or
+    #       knows the object already exists and wants to avoid declare overhead
+    #     :declare(Boolean):: Whether to delete this exchange or queue from the AMQP cache
+    #       to force it to be declared on the broker and thus be created if it does not exist
     # packet(Packet):: Message to serialize and publish
     # options(Hash):: Publish options -- standard AMQP ones plus
     #   :fanout(Boolean):: true means publish to all connected brokers
@@ -551,6 +569,7 @@ module RightScale
     # NoConnectedBrokers:: If cannot find a connected broker
     def publish(exchange, packet, options = {})
       identities = []
+      exchange_options = exchange[:options] || {}
       msg = if options[:no_serialize] || @serializer.nil? then packet else @serializer.dump(packet) end
       brokers = use(options)
       choices = if RightLinkLog.level == :debug
@@ -566,7 +585,8 @@ module RightScale
             end
             RightLinkLog.debug("... publish options #{options.inspect}, exchange #{exchange[:name]}, " +
                                "type #{exchange[:type]}, options #{exchange[:options].inspect}")
-            b[:mq].__send__(exchange[:type], exchange[:name], exchange[:options] || {}).publish(msg, options)
+            delete_from_cache(b[:mq], exchange[:type], exchange[:name]) if exchange_options[:declare]
+            b[:mq].__send__(exchange[:type], exchange[:name], exchange_options).publish(msg, options)
             identities << b[:identity]
             break unless options[:fanout]
           rescue Exception => e
@@ -582,6 +602,20 @@ module RightScale
         raise NoConnectedBrokers, "None of #{selected}brokers [#{list}] are usable for publishing"
       end
       identities
+    end
+
+    # Delete object from local AMQP cache in case it is no longer consistent with broker
+    #
+    # === Parameters
+    # mq(MQ):: AMQP broker channel
+    # type(Symbol):: Type of AMQP object
+    # name(String):: Name of object
+    #
+    # === Return
+    # true:: Always return true
+    def delete_from_cache(mq, type, name)
+      mq.__send__(type == :queue ? :queues : :exchanges).delete(name)
+      true
     end
 
     # Delete queue in all usable brokers

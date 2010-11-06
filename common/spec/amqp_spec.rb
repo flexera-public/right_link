@@ -735,6 +735,18 @@ describe RightScale::HA_MQ do
         should == ["rs-broker-third-5672"]
     end
 
+    it "should delete the exchange or queue from the AMQP cache if :declare specified" do
+      @serializer.should_receive(:dump).with(@packet).and_return(@message)
+      @mq.should_receive(:direct).with("exchange", {:declare => true}).and_return(@direct)
+      @direct.should_receive(:publish).with(@message, {})
+      ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first, second")
+      ha_mq.brokers[0][:status] = :connected
+      ha_mq.brokers[1][:status] = :connected
+      exchange = {:type => :direct, :name => "exchange", :options => {:declare => true}}
+      flexmock(ha_mq).should_receive(:delete_from_cache).with(any, :direct, "exchange").once
+      ha_mq.publish(exchange, @packet)
+    end
+
     it "should log an error if a selected broker is unknown but still publish with any remaining brokers" do
       flexmock(RightScale::RightLinkLog).should_receive(:error).with(/Invalid broker id "rs-broker-third-5672"/).once
       @serializer.should_receive(:dump).with(@packet).and_return(@message).once
