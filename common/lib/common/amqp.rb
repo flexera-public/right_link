@@ -310,11 +310,12 @@ module RightScale
     #   :identity(String):: Broker serialized identity
     #   :alias(String):: Broker alias used in logs
     #   :status(Symbol):: Status of connection
+    #   :last_failed(Boolean):: Whether last connect attempt failed
     #   :disconnects(ActivityStats):: Disconnect tracking statistics
     #   :failures(ActivityStats):: Connect failure tracking statistics
     #   :retries(Integer):: Number of attempts to connect after failure
-    #   :retry_backoff(Integer):: Number of times should ignore failed query for given broker in order
-    #     to achieve exponential backoff on connect attempts when failed
+    #   :retry_backoff(Integer):: Number of times should ignore failed query for given broker
+    #     in order to achieve exponential backoff on connect attempts when failed
     attr_accessor :brokers
 
     # Create connections to all configured AMQP brokers
@@ -920,16 +921,9 @@ module RightScale
         if existing
           broker[:disconnects] = existing[:disconnects]
           broker[:failures] = existing[:failures]
-          if broker[:status] == :failed
-            broker[:failures].update
-            broker[:retries] = existing[:retries] + 1
-            backoff = 1
-            broker[:retries].times do |i|
-              backoff = [backoff * 2, MAX_RETRY_BACKOFF].min
-              break if backoff == MAX_RETRY_BACKOFF
-            end
-            broker[:retry_backoff] = backoff
-          end
+          broker[:last_failed] = existing[:last_failed]
+          broker[:retries] = existing[:retries]
+          update_failure(broker) if broker[:status] == :failed
         end
         i = 0; @brokers.each { |b| break if b[:identity] == identity; i += 1 }
         if priority && priority < i
@@ -1329,6 +1323,7 @@ module RightScale
         :identity      => self.class.identity(address[:host], address[:port]),
         :alias         => "b#{address[:id]}",
         :status        => :connecting,
+        :last_failed   => false,
         :queues        => [],
         :disconnects   => ActivityStats.new(measure_rate = false),
         :failures      => ActivityStats.new(measure_rate = false),
@@ -1349,7 +1344,7 @@ module RightScale
       rescue Exception => e
         broker[:status] = :failed
         broker[:failures].update
-        RightLinkLog.error("Failed connecting to #{broker[:alias]}: #{e}\n" + e.backtrace.join("\n"))
+        RightLinkLog.error("Failed connecting to broker #{broker[:alias]}: #{e}\n" + e.backtrace.join("\n"))
         @exceptions.track("connect", e)
         broker[:connection].close if broker[:connection]
       end
@@ -1411,10 +1406,11 @@ module RightScale
       return if status == :connected
 
       status_before = broker[:status]
-      broker[:status] = status == :ready ? :connected : status
-      if status == :failed && status_before != :failed
-        broker[:failures].update
-        RightLinkLog.error("Failed to connect to broker #{broker[:alias]}")
+      broker[:status] = (status == :ready) ? :connected : status
+      if status == :connected
+        update_success(broker)
+      elsif status == :failed
+        update_failure(broker)
       elsif status == :disconnected && status_before != :disconnected
         broker[:disconnects].update
       end
@@ -1454,6 +1450,45 @@ module RightScale
         end
         reject
       end
+      true
+    end
+
+    # Make status updates for connect success
+    #
+    # === Parameters
+    # broker(Hash):: Broker that just connected
+    #
+    # === Return
+    # true:: Always return true
+    def update_success(broker)
+      broker[:last_failed] = false
+      broker[:retries] = 0
+      broker[:retry_backoff] = 0
+      true
+    end
+
+    # Make status updates for connect failure
+    #
+    # === Parameters
+    # broker(Hash):: Broker that just failed to connect
+    #
+    # === Return
+    # true:: Always return true
+    def update_failure(broker)
+      RightLinkLog.error("Failed to connect to broker #{broker[:alias]}")
+      if broker[:last_failed]
+        broker[:retries] += 1
+      else
+        broker[:last_failed] = true
+        broker[:retries] = 0
+        broker[:failures].update
+      end
+      backoff = 1
+      broker[:retries].times do |i|
+        backoff = [backoff * 2, MAX_RETRY_BACKOFF].min
+        break if backoff == MAX_RETRY_BACKOFF
+      end
+      broker[:retry_backoff] = backoff
       true
     end
 

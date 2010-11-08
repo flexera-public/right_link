@@ -1409,8 +1409,23 @@ describe RightScale::HA_MQ do
       ha_mq.brokers[1][:status] = :failed
       40.times do |i|
         failed = ha_mq.failed(backoff = true)
-        failed.should == if [0,2,6,14,26,38].include?(i) then ["rs-broker-second-5672"] else [] end
+        failed.should == if [0,1,3,7,15,27,39].include?(i) then ["rs-broker-second-5672"] else [] end
         ha_mq.connect("second", 5672, 1) unless failed.empty?
+      end
+    end
+
+    it "should give list of failed brokers with exponential backoff if have repeated failures reported via callback" do
+      @connection.should_receive(:close)
+      ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first, second")
+      flexmock(AMQP).should_receive(:connect).and_return(@connection)
+      ha_mq.brokers[1][:status] = :failed
+      40.times do |i|
+        failed = ha_mq.failed(backoff = true)
+        failed.should == if [0,1,3,7,15,27,39].include?(i) then ["rs-broker-second-5672"] else [] end
+        unless failed.empty?
+          ha_mq.connect("second", 5672, 1)
+          ha_mq.__send__(:update_status, ha_mq.brokers[1], :failed)
+        end
       end
     end
 
