@@ -649,7 +649,7 @@ module RightScale
   end # Advertise
 
 
-  # Packet for carrying arbitrary data such as server statistics
+  # Packet for carrying statistics
   class Stats < Packet
 
     attr_accessor :data, :token, :from
@@ -657,13 +657,11 @@ module RightScale
     # Create packet
     #
     # === Parameters
-    # data(Object):: Any data
-    # token(String):: Generated id
+    # data(Object):: Data
     # from(String):: Identity of sender
     # size(Integer):: Size of request in bytes used only for marshalling
-    def initialize(data, token, from, size = nil)
+    def initialize(data, from, size = nil)
       @data = data
-      @token = token
       @from = from
       @size = size
     end
@@ -677,7 +675,7 @@ module RightScale
     # (Result):: New packet
     def self.json_create(o)
       i = o['data']
-      new(i['data'], i['token'], self.compatible(i['from']), o['size'])
+      new(i['data'], self.compatible(i['from']), o['size'])
     end
 
     # Generate log representation
@@ -688,7 +686,7 @@ module RightScale
     # === Return
     # log_msg(String):: Log representation
     def to_s(filter = nil)
-      log_msg = "#{super} #{trace} #{id_to_s(@from)}"
+      log_msg = "#{super} #{id_to_s(@from)}"
     end
 
   end # Stats

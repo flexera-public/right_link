@@ -290,18 +290,16 @@ end
 
 describe "Packet: Stats" do
   it "should dump/load as JSON objects" do
-    packet = RightScale::Stats.new(['data'], 'token', 'from')
+    packet = RightScale::Stats.new(['data'], 'from')
     packet2 = JSON.parse(packet.to_json)
     packet.data.should == packet2.data
-    packet.token.should == packet2.token
     packet.from.should == packet2.from
   end
 
   it "should dump/load as Marshalled ruby objects" do
-    packet = RightScale::Stats.new(['data'], 'token', 'from')
+    packet = RightScale::Stats.new(['data'], 'from')
     packet2 = Marshal.load(Marshal.dump(packet))
     packet.data.should == packet2.data
-    packet.token.should == packet2.token
     packet.from.should == packet2.from
   end
 end

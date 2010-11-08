@@ -917,16 +917,19 @@ module RightScale
                          "alias b#{alias_id}, to #{host} and #{port.inspect}"
       else
         broker = internal_connect({:host => host, :port => port, :id => alias_id}, @options)
-        if existing && broker[:status] == :failed
+        if existing
+          broker[:disconnects] = existing[:disconnects]
           broker[:failures] = existing[:failures]
-          broker[:failures].update
-          broker[:retries] = existing[:retries] + 1
-          backoff = 1
-          broker[:retries].times do |i|
-            backoff = [backoff * 2, MAX_RETRY_BACKOFF].min
-            break if backoff == MAX_RETRY_BACKOFF
+          if broker[:status] == :failed
+            broker[:failures].update
+            broker[:retries] = existing[:retries] + 1
+            backoff = 1
+            broker[:retries].times do |i|
+              backoff = [backoff * 2, MAX_RETRY_BACKOFF].min
+              break if backoff == MAX_RETRY_BACKOFF
+            end
+            broker[:retry_backoff] = backoff
           end
-          broker[:retry_backoff] = backoff
         end
         i = 0; @brokers.each { |b| break if b[:identity] == identity; i += 1 }
         if priority && priority < i

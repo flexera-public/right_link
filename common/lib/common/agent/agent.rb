@@ -193,6 +193,8 @@ module RightScale
                 @dispatcher = Dispatcher.new(self)
                 @mapper_proxy = MapperProxy.new(self)
                 @remaining_setup = {}
+                @all_setup = [:setup_identity_queue] + (@shared_queue ? [:setup_shared_queue] : [])
+                @all_setup.each { |s| @remaining_setup[s] = @broker.all }
                 load_actors
                 setup_traps
                 setup_queues
@@ -208,7 +210,7 @@ module RightScale
               end
             end
           else
-            RightLinkLog.error("Failed to connect to any AMQP brokers")
+            RightLinkLog.error("Agent failed to connect to any brokers")
             EM.stop
           end
         end
@@ -284,9 +286,11 @@ module RightScale
     # res(String|nil):: Error message if failed, otherwise nil
     def connect(host, port, alias_id, priority = nil, force = false)
       @connect_requests.update("connect (b#{alias_id})")
-      even_if = " even if already connected" if force
-      RightLinkLog.info("Received request to connect to broker at host #{host.inspect} port #{port.inspect} " +
-                        "alias_id #{alias_id.inspect} priority #{priority.inspect}#{even_if}")
+      if @is_instance_agent
+        even_if = " even if already connected" if force
+        RightLinkLog.info("Received request to connect to broker at host #{host.inspect} port #{port.inspect} " +
+                          "alias_id #{alias_id.inspect} priority #{priority.inspect}#{even_if}")
+      end
       RightLinkLog.info("Current broker configuration: #{@broker.status.inspect}")
       res = nil
       begin
@@ -294,17 +298,19 @@ module RightScale
           @broker.connection_status(:one_off => @options[:connect_timeout], :brokers => [id]) do |status|
             begin
               if status == :connected
-                setup_identity_queue([id])
-                setup_shared_queue([id]) if @shared_queue
+                setup_queues([id])
                 advertise_services
+                remaining = 0
+                @remaining_setup.each_value { |ids| remaining += ids.size }
+                RightLinkLog.info("[setup] Finished subscribing to queues after reconnecting to broker #{id}") if remaining == 0
                 unless update_configuration(:host => @broker.hosts, :port => @broker.ports)
-                  RightLinkLog.warn("Successfully connected to #{id} but failed to update config file")
+                  RightLinkLog.warn("Successfully connected to broker #{id} but failed to update config file")
                 end
               else
-                RightLinkLog.error("Failed to connect to #{id}, status #{status.inspect}")
+                RightLinkLog.error("Failed to connect to broker #{id}, status #{status.inspect}")
               end
             rescue Exception => e
-              RightLinkLog.error("Failed to connect to #{id}, status #{status.inspect}: #{e}")
+              RightLinkLog.error("Failed to connect to broker #{id}, status #{status.inspect}: #{e}")
               @exceptions.track("connect", e)
             end
           end
@@ -349,7 +355,7 @@ module RightScale
           if remove
             @broker.remove(host, port) do |identity|
               unless update_configuration(:host => @broker.hosts, :port => @broker.ports)
-                res = "Successfully disconnected from #{identity} but failed to update config file"
+                res = "Successfully disconnected from broker #{identity} but failed to update config file"
               end
             end
           else
@@ -360,7 +366,7 @@ module RightScale
           @exceptions.track("disconnect", e)
         end
       else
-        res = "Cannot disconnect from #{identity} because not configured for this agent"
+        res = "Cannot disconnect from broker #{identity} because not configured for this agent"
       end
       RightLinkLog.error(res) if res
       res
@@ -615,19 +621,16 @@ module RightScale
       true
     end
 
-    # Setup the queues for this agent
+    # Setup the queues on the specified brokers for this agent
+    #
+    # === Parameters
+    # ids(Array):: Identity of brokers for which to subscribe, defaults to all usable
     #
     # === Return
     # true:: Always return true
-    def setup_queues
+    def setup_queues(ids = nil)
       @broker.prefetch(@options[:prefetch]) if @options[:prefetch]
-      all = @broker.connected
-      remaining = all - setup_identity_queue
-      @remaining_setup[:setup_identity_queue] = remaining unless remaining.empty?
-      if @shared_queue
-        remaining = all - setup_shared_queue
-        @remaining_setup[:setup_shared_queue] = remaining unless remaining.empty?
-      end
+      @all_setup.each { |setup| @remaining_setup[setup] -= self.__send__(setup, ids) }
       true
     end
 
@@ -713,7 +716,7 @@ module RightScale
 
     # Check status of agent by gathering current operation statistics and publishing them and
     # by completing any queue setup that can be completed now based on broker status
-    # Need registrar involvement for initializing broker service for an instance agent
+    # Use registrar for initializing broker service for an instance agent
     # Only publish statistics every third time called
     #
     # === Return
@@ -721,25 +724,34 @@ module RightScale
     def check_status
       begin
         if @stats_routing_key && @check_status_count.modulo(3) == 0
-          token = AgentIdentity.generate
           exchange = {:type => :topic, :name => "stats", :options => {:no_declare => true}}
-          @broker.publish(exchange, Stats.new(stats.content, token, @identity), :routing_key => @stats_routing_key,
-                          :brokers => @check_status_brokers.rotate!, :no_log => true)
+          @broker.publish(exchange, Stats.new(stats.content, @identity), :no_log => true,
+                          :routing_key => @stats_routing_key, :brokers => @check_status_brokers.rotate!)
         end
 
         if @is_instance_agent
-          @broker.failed(backoff = true).each do |b|
+          @broker.failed(backoff = true).each do |id|
             p = {:agent_identity => @identity}
-            p[:host], p[:port], p[:id], p[:priority] = @broker.identity_parts(b)
+            p[:host], p[:port], p[:id], p[:priority] = @broker.identity_parts(id)
             @mapper_proxy.push("/registrar/connect", p, :token => AgentIdentity.generate, :from => @identity)
           end
-        elsif !@remaining_setup.empty?
-          @remaining_setup.reject! do |method, ids|
-            ready = ids & @broker.connected
-            ids -= self.__send__(method, ready) unless ready.empty?
-            (@remaining_setup[method] = ids).empty?
+        else
+          before = after = 0
+          @remaining_setup.each do |setup, ids|
+            unless ids.empty?
+              before += ids.size
+              after += (@remaining_setup[setup] -= self.__send__(setup, ids)).size
+            end
           end
-          RightLinkLog.info("[setup] Finished subscribing to queues") if @remaining_setup.empty?
+          RightLinkLog.info("[setup] Finished subscribing to queues") if before > 0 && after == 0
+
+          unless (failed = @broker.failed).empty?
+            failed.each do |id|
+              @all_setup.each { |s| @remaining_setup[s] -= [id] if @remaining_setup[s] }
+              host, port, alias_id, priority = @broker.identity_parts(id)
+              connect(host, port, alias_id, priority)
+            end
+          end
         end
 
         @check_status_count += 1
