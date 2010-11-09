@@ -296,6 +296,7 @@ module RightScale
     # returning true
     MAX_RETRY_BACKOFF = 12
 
+    # Set of possible connection status values
     STATUS = [
       :connecting,   # Initiated AMQP connection but not yet confirmed that connected
       :connected,    # Confirmed AMQP connection
@@ -303,6 +304,9 @@ module RightScale
       :closed,       # AMQP connection closed explicitly or because of too many failed connect attempts
       :failed        # Failed to connect due to internal failure or AMQP failure to connect
     ]
+
+    # Translation of message return reasons into human readable form
+    MESSAGE_RETURN_REASONS = { "NO_ROUTE" => "no queue", "NO_CONSUMERS" => "no queue consumers"}
 
     # (Array(Hash)) Priority ordered list of AMQP brokers (exposed only for unit test purposes)
     #   :mq(MQ):: AMQP broker channel
@@ -1042,8 +1046,8 @@ module RightScale
     # Block with following parameters to be called when a message is returned:
     #   identity(String):: Broker serialized identity
     #   reason(String):: Reason for return
-    #     NO_ROUTE - queue does not exist
-    #     NO_CONSUMERS - queue exists but it has no consumers, or if :immediate was specified,
+    #     no queue - queue does not exist
+    #     no queue consumers - queue exists but it has no consumers, or if :immediate was specified,
     #       all consumers are not immediately ready to consume
     #   msg(String):: Returned serialized message
     #   to(String):: Queue to which message published
@@ -1055,8 +1059,9 @@ module RightScale
         b[:mq].return_message do |info, msg|
           begin
             to = if info.exchange && !info.exchange.empty? then info.exchange else info.routing_key end
-            RightLinkLog.info("RETURN #{b[:alias]} because #{info.reply_text} for #{to}")
-            blk.call(b[:identity], info.reply_text, msg, to)
+            reason = MESSAGE_RETURN_REASONS[info.reply_text] || info.reply_text
+            RightLinkLog.info("RETURN #{b[:alias]} because #{reason} for #{to}")
+            blk.call(b[:identity], reason, msg, to)
           rescue Exception => e
             RightLinkLog.error("Failed return #{info.inspect} of message from broker #{b[:alias]}: #{e}\n" +
                                e.backtrace.join("\n"))

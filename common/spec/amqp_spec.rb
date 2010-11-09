@@ -971,7 +971,7 @@ describe RightScale::HA_MQ do
       ha_mq.return_message do |id, reason, msg, to|
         called += 1
         id.should == "rs-broker-localhost-5672"
-        reason.should == "NO_CONSUMERS"
+        reason.should == "no queue consumers"
         msg.should == @message
         to.should == "exchange"
       end
@@ -985,7 +985,7 @@ describe RightScale::HA_MQ do
       ha_mq.return_message do |id, reason, msg, to|
         called += 1
         id.should == "rs-broker-localhost-5672"
-        reason.should == "NO_CONSUMERS"
+        reason.should == "no queue consumers"
         msg.should == @message
         to.should == "routing_key"
       end
