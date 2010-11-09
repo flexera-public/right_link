@@ -37,12 +37,9 @@ module RightScale
     # true:: Always return true
     def run(options)
       if Platform.windows?
-        print 'Stopping RightLink service...' if options[:verbose]
-        res = system('net stop RightLink')
-        puts to_ok(res) if options[:verbose]
         cleanup_certificates(options)
-        print 'Restarting RightLink service...' if options[:verbose]
-        res = system('net start RightLink')
+        print 'Restarting RightScale service...' if options[:verbose]
+        res = system('net start RightScale')
         puts to_ok(res) if options[:verbose]
       else
         print 'Stopping RightLink daemon...' if options[:verbose]
