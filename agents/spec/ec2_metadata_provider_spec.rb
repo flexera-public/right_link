@@ -82,6 +82,7 @@ describe RightScale::Ec2MetadataProvider do
   end
 
   it 'should raise exception for failing cURL calls' do
+    pending "disabled pending fix for periodically hanging Windows CI" if RightScale::Platform.windows?
     metadata_provider = ::RightScale::Ec2MetadataProvider.new(:logger => @logger,
                                                               :curl_retry_max_time => 1,
                                                               :retry_delay_secs => 0.1,
@@ -96,6 +97,7 @@ describe RightScale::Ec2MetadataProvider do
   end
 
   it 'should recover from successful cURL calls which return malformed HTTP response' do
+    pending "disabled pending fix for periodically hanging Windows CI" if RightScale::Platform.windows?
     metadata_provider = ::RightScale::Ec2MetadataProvider.new(:logger => @logger, :retry_delay_secs => 0.1)
     metadata_formatter = ::RightScale::Ec2MetadataFormatter.new
     requested_branch = false
@@ -150,6 +152,7 @@ describe RightScale::Ec2MetadataProvider do
   end
 
   it 'should succeed for successful cURL calls' do
+    pending "disabled pending fix for periodically hanging Windows CI" if RightScale::Platform.windows?
     metadata_provider = ::RightScale::Ec2MetadataProvider.new(:logger => @logger, :retry_delay_secs => 0.1)
     metadata_formatter = ::RightScale::Ec2MetadataFormatter.new
     mock_cloud_info
