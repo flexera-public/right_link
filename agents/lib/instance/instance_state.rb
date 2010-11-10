@@ -113,7 +113,7 @@ module RightScale
           # CASE 3 -- identity has changed; bundled boot
           RightLinkLog.debug("Bundle detected; transitioning state to booting")
           self.value = 'booting'
-        elsif booted_at != state['booted_at']
+        elsif state['reboot'] || booted_at != state['booted_at']
           # CASE 2 -- Boot time has changed; reboot
           RightLinkLog.debug("Reboot detected; transitioning state to booting")
           self.value = 'booting'
@@ -171,15 +171,19 @@ module RightScale
     def self.value=(val)
       raise RightScale::Exceptions::Argument, "Invalid instance state '#{val}'" unless STATES.include?(val)
       RightLinkLog.info("Transitioning state from #{@@value rescue 'pending'} to #{val}")
+      @@reboot = false if val != :booting
       @@value = val
       update_logger
       update_motd
 
       record_state(val) if RECORDED_STATES.include?(val)
-      write_json(STATE_FILE, { 'value' => val, 'identity' => @@identity,
-                               'uptime' => uptime, 'booted_at' => booted_at, 
+      write_json(STATE_FILE, { 'value'        => val,
+                               'identity'     => @@identity,
+                               'uptime'       => uptime,
+                               'booted_at'    => booted_at,
+                               'reboot'       => @@reboot,
                                'startup_tags' => @@startup_tags,
-                               'log_level' => @@log_level })
+                               'log_level'    => @@log_level })
       @observers.each { |o| o.call(val) } if @observers
       val
     end
