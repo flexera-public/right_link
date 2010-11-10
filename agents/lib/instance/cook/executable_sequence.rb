@@ -225,7 +225,7 @@ module RightScale
         @cookbooks.each do |cookbook|
           @audit.update_status("Downloading #{cookbook}")
 
-          request = Net::HTTP::Get.new('/#{cookbook.hash}')
+          request = Net::HTTP::Get.new('/cookbook/#{cookbook.hash}')
           request['Cookie'] = "repose_ticket=#{cookbook.token}"
           again = true
           while again
