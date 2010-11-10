@@ -45,11 +45,12 @@ module RightScale
       # === Parameters
       # base_path(String):: path to base cookbooks directory.
       # recipes(Hash):: hash of recipe names to text.
-      # cookbook_name(String):: name of cookbook (defaults to 'test')
+      # cookbook_name(String):: name of cookbook (defaults to 'test').
+      # data_files(Hash):: hash of data file names to file text or empty or nil.
       #
       # === Returns
       # cookbooks_path(String):: path to created cookbooks directory
-      def create_cookbook(base_path, recipes, cookbook_name = 'test')
+      def create_cookbook(base_path, recipes, cookbook_name = 'test', data_files = nil)
         cookbooks_path = get_cookbooks_path(base_path)
         cookbook_path = File.join(cookbooks_path, cookbook_name)
         recipes_path = File.join(cookbook_path, 'recipes')
@@ -59,14 +60,25 @@ module RightScale
 maintainer "RightScale, Inc."
 version    "0.1"
 EOF
-        recipes.keys.each do |key|
+        recipes.each do |key, value|
           recipe_name = key.to_s
-          recipe_text = recipes[key]
+          recipe_text = value
           recipe_path = File.join(recipes_path, recipe_name + ".rb")
           File.open(recipe_path, "w") { |f| f.write(recipe_text) }
           metadata_text += "recipe     \"#{cookbook_name}\"::#{recipe_name}, \"Description of #{recipe_name}\"\n"
         end
-        
+
+        if data_files
+          data_files_path = File.join(cookbook_path, 'data')
+          FileUtils.mkdir_p(data_files_path)
+          data_files.each do |key, value|
+            data_file_name = key.to_s
+            data_file_text = value
+            data_file_path = File.join(data_files_path, data_file_name)
+            File.open(data_file_path, "w") { |f| f.write(data_file_text) }
+          end
+        end
+
         # metadata
         metadata_path = recipes_path = File.join(cookbook_path, 'metadata.rb')
         File.open(metadata_path, "w") { |f| f.write(metadata_text) }

@@ -177,7 +177,17 @@ module RightScale
         lines_before_script << "$DebugPreference = 'Continue'"
       end
 
-      command = shell.format_powershell_command4(RightScale::Platform::Windows::Shell::POWERSHELL_V1x0_EXECUTABLE_PATH, lines_before_script, nil, RUN_LOOP_SCRIPT_PATH)
+      # specifically disable additional error checking intended for RightScript
+      # and Powershell provider in Chef. doing this to ensure that existing
+      # dynamic provider scripts do not break if they have not cleared their
+      # $Error list before finishing.
+      lines_after_script = []
+
+      command = shell.format_powershell_command4(
+        RightScale::Platform::Windows::Shell::POWERSHELL_V1x0_EXECUTABLE_PATH,
+        lines_before_script,
+        lines_after_script,
+        RUN_LOOP_SCRIPT_PATH)
 
       RightLinkLog.debug(format_log_message("Starting powershell process for host #{command}"))
 

@@ -28,6 +28,7 @@ module RightScale
         flexmock(Chef::Log).should_receive(:fatal).and_return { |m| logger.fatal_text << m }
         flexmock(Chef::Log).should_receive(:info).and_return { |m| logger.info_text << m }
         flexmock(Chef::Log).should_receive(:warn).and_return { |m| logger.warn_text << m }
+        flexmock(Chef::Log.logger).should_receive(:create_new_section).and_return { |m| }
       end
 
       module_function :mock_chef_log

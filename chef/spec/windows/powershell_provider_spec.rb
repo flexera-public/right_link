@@ -34,10 +34,9 @@ if RightScale::RightLinkConfig[:platform].windows?
 
     def create_cookbook
       RightScale::Test::ChefRunner.create_cookbook(
-              TEST_TEMP_PATH,
-              {
-                      :succeed_powershell_recipe => (
-                      <<EOF
+        TEST_TEMP_PATH,
+        {
+          :succeed_powershell_recipe => (<<EOF
 powershell 'test::succeed_powershell_recipe' do
   source_text =
 <<EOPS
@@ -46,27 +45,23 @@ EOPS
   source source_text
 end
 EOF
-                      ), :fail_powershell_recipe => (
-              <<EOF
+          ), :fail_powershell_recipe => (<<EOF
 powershell 'test::fail_powershell_recipe' do
   source \"exit 99\\n\"
 end
 EOF
-              ), :expected_exit_code_recipe => (
-              <<EOF
+          ), :expected_exit_code_recipe => (<<EOF
 powershell 'test::expected_exit_code_recipe' do
   source \"exit 77\\n\"
   returns 77
 end
 EOF
-              ), :print_pshome_recipe => (
-              <<EOF
+          ), :print_pshome_recipe => (<<EOF
 powershell 'test::print_pshome_recipe' do
   source \"$PSHOME\\n\"
 end
 EOF
-              ), :set_env_var_recipe => (
-              <<EOF
+          ), :set_env_var_recipe => (<<EOF
 powershell 'test::set_env_var_recipe' do
   source_text =
 <<EOPS
@@ -76,8 +71,7 @@ EOPS
   source source_text
 end
 EOF
-              ), :check_env_var_recipe => (
-              <<EOF
+          ), :check_env_var_recipe => (<<EOF
 powershell 'test::check_env_var_recipe' do
   source_text =
 <<EOPS
@@ -98,21 +92,18 @@ EOPS
   source source_text
 end
 EOF
-              ), :get_chef_node_recipe => (
-              <<EOF
+          ), :get_chef_node_recipe => (<<EOF
 powershell 'test::get_chef_node_recipe' do
   @node[:powershell_provider_spec] = {:get_chef_node_recipe => 'get_chef_node_recipe_test_value'}
   source \"get-chefnode powershell_provider_spec,get_chef_node_recipe\"
 end
 EOF
-              ), :set_chef_node_recipe => (
-              <<EOF
+          ), :set_chef_node_recipe => (<<EOF
 powershell 'test::set_chef_node_recipe' do
   source \"set-chefnode powershell_provider_spec,set_chef_node_recipe 123\"
 end
 EOF
-              ), :get_current_resource_recipe => (
-              <<EOF
+          ), :get_current_resource_recipe => (<<EOF
 powershell 'test::get_current_resource_recipe' do
   source_text =
 <<EOPS
@@ -126,8 +117,7 @@ EOPS
   source source_text
 end
 EOF
-              ), :set_current_resource_recipe => (
-              <<EOF
+          ), :set_current_resource_recipe => (<<EOF
 powershell 'test::set_current_resource_recipe' do
   source_text =
 <<EOPS
@@ -139,12 +129,12 @@ powershell 'test::set_current_resource_recipe' do
     Write-Error "Expected setting current resource to fail for powershell provider"
     exit 100
   }
+  $Error.clear()
 EOPS
   source source_text
 end
 EOF
-              ), :get_new_resource_recipe => (
-              <<EOF
+          ), :get_new_resource_recipe => (<<EOF
 powershell 'test::get_new_resource_recipe' do
   returns 10
   source_text =
@@ -180,8 +170,7 @@ EOPS
   source source_text
 end
 EOF
-              ), :set_new_resource_recipe => (
-              <<EOF
+          ), :set_new_resource_recipe => (<<EOF
 powershell 'test::set_new_resource_recipe' do
   parameters "a"=>"A", "b"=>"B"
   source_text =
@@ -219,8 +208,7 @@ EOPS
   source source_text
 end
 EOF
-              ), :debug_output_recipe => (
-              <<EOF
+          ), :debug_output_recipe => (<<EOF
 powershell 'test::debug_output_recipe' do
   Chef::Log.logger.level = Logger::DEBUG
   source_text =
@@ -231,8 +219,7 @@ EOPS
   source source_text
 end
 EOF
-              ), :execution_policy_recipe => (
-              <<EOF
+          ), :execution_policy_recipe => (<<EOF
 powershell 'test::execution_policy_recipe' do
   source_text =
 <<EOPS
@@ -253,21 +240,31 @@ EOPS
   source source_text
 end
 EOF
-              ), :exception_out_of_recipe => (
-              <<EOF
+          ), :exception_out_of_recipe => (<<EOF
 powershell 'test::exception_out_of_recipe' do
   source_text =
 <<EOPS
-  write-output "Line 1"
+  write-output \\\"Line 1\\\"
   $testvar = 2
   Throw [System.IndexOutOfRangeException]
-  write-output "Should never get here"
+  write-output \\\"Should never get here\\\"
 EOPS
   source source_text
 end
 EOF
-              )
-              }
+          ), :uncaught_errors_recipe => (<<EOF
+powershell 'test::uncaught_errors_recipe' do
+  source_text =
+<<EOPS
+  write-output \\\"Line 1\\\"
+  cd c:\\\\a_folder_which_does_not_exist
+  write-output \\\"Line 3\\\"
+EOPS
+  source source_text
+end
+EOF
+          )
+        }
       )
     end
 
@@ -303,8 +300,8 @@ EOF
     it "should run powershell recipes on windows" do
       runner = lambda {
         RightScale::Test::ChefRunner.run_chef(
-                PowershellProviderSpec::TEST_COOKBOOKS_PATH,
-                'test::succeed_powershell_recipe') }
+          PowershellProviderSpec::TEST_COOKBOOKS_PATH,
+          'test::succeed_powershell_recipe') }
       runner.call.should == true
 
       # note the powershell write-error method prints the cause of the error
@@ -323,16 +320,16 @@ EOF
     it "should raise exceptions for failing powershell recipes on windows" do
       runner = lambda {
         RightScale::Test::ChefRunner.run_chef(
-                PowershellProviderSpec::TEST_COOKBOOKS_PATH,
-                'test::fail_powershell_recipe') }
+          PowershellProviderSpec::TEST_COOKBOOKS_PATH,
+          'test::fail_powershell_recipe') }
       runner.should raise_exception(RightScale::Exceptions::Exec)
     end
 
     it "should not raise exceptions for expected exit codes on windows" do
       runner = lambda {
         RightScale::Test::ChefRunner.run_chef(
-                PowershellProviderSpec::TEST_COOKBOOKS_PATH,
-                'test::expected_exit_code_recipe') }
+          PowershellProviderSpec::TEST_COOKBOOKS_PATH,
+          'test::expected_exit_code_recipe') }
       runner.call.should == true
     end
 
@@ -350,8 +347,8 @@ EOF
 
       runner = lambda {
         RightScale::Test::ChefRunner.run_chef(
-                PowershellProviderSpec::TEST_COOKBOOKS_PATH,
-                'test::print_pshome_recipe') }
+          PowershellProviderSpec::TEST_COOKBOOKS_PATH,
+          'test::print_pshome_recipe') }
       runner.call.should == true
       @logger.error_text.chomp.should == ""
       @logger.info_text.chomp.gsub("\\", "/").downcase.should include(expected_pshome.downcase)
@@ -360,16 +357,16 @@ EOF
     it "should preserve scripted environment variable changes between powershell scripts" do
       runner = lambda {
         RightScale::Test::ChefRunner.run_chef(
-                PowershellProviderSpec::TEST_COOKBOOKS_PATH,
-                ['test::set_env_var_recipe', 'test::check_env_var_recipe']) }
+          PowershellProviderSpec::TEST_COOKBOOKS_PATH,
+          ['test::set_env_var_recipe', 'test::check_env_var_recipe']) }
       runner.call.should == true
     end
 
     it "should get chef nodes by powershell cmdlet" do
       runner = lambda {
         RightScale::Test::ChefRunner.run_chef(
-                PowershellProviderSpec::TEST_COOKBOOKS_PATH,
-                'test::get_chef_node_recipe') }
+          PowershellProviderSpec::TEST_COOKBOOKS_PATH,
+          'test::get_chef_node_recipe') }
       runner.call.should == true
       @logger.info_text.should include("get_chef_node_recipe_test_value")
     end
@@ -378,10 +375,10 @@ EOF
       test_node = nil
       runner = lambda {
         RightScale::Test::ChefRunner.run_chef(
-                PowershellProviderSpec::TEST_COOKBOOKS_PATH,
-                'test::set_chef_node_recipe') do |chef_client|
-          test_node = chef_client.node
-        end }
+          PowershellProviderSpec::TEST_COOKBOOKS_PATH,
+          'test::set_chef_node_recipe') do |chef_client|
+            test_node = chef_client.node
+          end }
       runner.call.should == true
       test_node[:powershell_provider_spec][:set_chef_node_recipe].should == 123
     end
@@ -389,32 +386,32 @@ EOF
     it "should fail to get current resource by powershell cmdlet for powershell provider" do
       runner = lambda {
         RightScale::Test::ChefRunner.run_chef(
-                PowershellProviderSpec::TEST_COOKBOOKS_PATH,
-                'test::get_current_resource_recipe') }
+          PowershellProviderSpec::TEST_COOKBOOKS_PATH,
+          'test::get_current_resource_recipe') }
       runner.call.should == true
     end
 
     it "should fail to set current resource by powershell cmdlet for powershell provider" do
       runner = lambda {
         RightScale::Test::ChefRunner.run_chef(
-                PowershellProviderSpec::TEST_COOKBOOKS_PATH,
-                'test::set_current_resource_recipe') }
+          PowershellProviderSpec::TEST_COOKBOOKS_PATH,
+          'test::set_current_resource_recipe') }
       runner.call.should == true
     end
 
     it "should get new resource by powershell cmdlet" do
       runner = lambda {
         RightScale::Test::ChefRunner.run_chef(
-                PowershellProviderSpec::TEST_COOKBOOKS_PATH,
-                'test::get_new_resource_recipe') }
+          PowershellProviderSpec::TEST_COOKBOOKS_PATH,
+          'test::get_new_resource_recipe') }
       runner.call.should == true
     end
 
     it "should set new resource by powershell cmdlet" do
       runner = lambda {
         RightScale::Test::ChefRunner.run_chef(
-                PowershellProviderSpec::TEST_COOKBOOKS_PATH,
-                'test::set_new_resource_recipe') }
+          PowershellProviderSpec::TEST_COOKBOOKS_PATH,
+          'test::set_new_resource_recipe') }
       runner.call.should == true
     end
 
@@ -428,21 +425,20 @@ EOF
 
       runner = lambda {
         RightScale::Test::ChefRunner.run_chef(
-                PowershellProviderSpec::TEST_COOKBOOKS_PATH,
-                'test::debug_output_recipe') }
+          PowershellProviderSpec::TEST_COOKBOOKS_PATH,
+          'test::debug_output_recipe') }
       runner.call.should == true
 
       debug_output = @logger.info_text
       debug_output.should include("debug message")
       debug_output.should include("verbose message")
-
     end
 
     it "should change the execution policy of the current process, but not the local machine" do
       runner = lambda {
         RightScale::Test::ChefRunner.run_chef(
-                PowershellProviderSpec::TEST_COOKBOOKS_PATH,
-                'test::execution_policy_recipe') }
+          PowershellProviderSpec::TEST_COOKBOOKS_PATH,
+          'test::execution_policy_recipe') }
       runner.call.should == true
 
       # ensure the policy is not changed after the test
@@ -453,16 +449,16 @@ EOF
     it "should produce a readable powershell error when an exception is thrown from a script" do
       runner = lambda {
         RightScale::Test::ChefRunner.run_chef(
-                PowershellProviderSpec::TEST_COOKBOOKS_PATH,
-                'test::exception_out_of_recipe') }
+          PowershellProviderSpec::TEST_COOKBOOKS_PATH,
+          'test::exception_out_of_recipe') }
       runner.should raise_exception(RightScale::Exceptions::Exec)
       message_format = <<-EOF
 System.IndexOutOfRangeException
 At .*:3 char:8
-+   Throw <<<<  [System.IndexOutOfRangeException]
-    + CategoryInfo          : OperationStopped: (System.IndexOutOfRangeException:RuntimeType) [], RuntimeException
-    + FullyQualifiedErrorId : System.IndexOutOfRangeException
-      EOF
+  + Throw <<<<  [System.IndexOutOfRangeException]
+  + CategoryInfo          : OperationStopped: (System.IndexOutOfRangeException:RuntimeType) [], RuntimeException
+  + FullyQualifiedErrorId : System.IndexOutOfRangeException
+EOF
       # remove newlines and spaces
       expected_message = Regexp.escape(message_format.gsub(/\s+/, ""))
 
@@ -471,11 +467,38 @@ At .*:3 char:8
 
       logs = @logger.info_text.gsub(/\s+/, "")
 
-      # should containing the expected exception
+      # should contain the expected exception
       logs.should match(expected_message)
 
       # should not contain output after the exception was thrown
       (logs =~ /Should never get here/).should be_nil
+    end
+
+    it "should fail when a powershell script succeeds with a non-empty error list" do
+      runner = lambda {
+        RightScale::Test::ChefRunner.run_chef(
+          PowershellProviderSpec::TEST_COOKBOOKS_PATH,
+          'test::uncaught_errors_recipe') }
+      runner.should raise_exception(RightScale::Exceptions::Exec)
+      message_format = <<-EOF
+Line 1
+Set-Location : Cannot find path 'C:\\a_folder_which_does_not_exist' because it does not exist.
+At .*:2 char:5
+  + cd <<<<  c:\\a_folder_which_does_not_exist
+  + CategoryInfo          : ObjectNotFound: (C:\\a_folder_which_does_not_exist:String) [Set-Location], ItemNotFoundException
+  + FullyQualifiedErrorId : PathNotFound,Microsoft.PowerShell.Commands.SetLocationCommand
+Line 3
+WARNING: Script exited successfully but $Error contained 1 error(s).
+EOF
+      # remove newlines and spaces
+      expected_message = Regexp.escape(message_format.gsub(/\s+/, ""))
+
+      # un-escape the escaped regex strings
+      expected_message.gsub!("\\.\\*", ".*")
+      logs = @logger.info_text.gsub(/\s+/, "")
+
+      # should contain the expected exception
+      logs.should match(expected_message)
     end
   end
 

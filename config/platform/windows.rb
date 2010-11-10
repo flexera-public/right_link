@@ -381,10 +381,11 @@ module RightScale
           end
 
           # resolve lines before & after script.
+          defaulted_lines_after_script = lines_after_script.nil?
           lines_before_script ||= []
           lines_after_script ||= []
 
-          # execute powershell with Unrestricted execution policy. the issue
+          # execute powershell with RemoteSigned execution policy. the issue
           # is that powershell by default will only run digitally-signed
           # scripts.
           # FIX: search for any attempt to alter execution policy in lines
@@ -392,7 +393,24 @@ module RightScale
           # FIX: support digitally signed scripts and/or signing on the fly by
           # checking for a signature file side-by-side with script.
           lines_before_script.insert(0, "set-executionpolicy -executionPolicy RemoteSigned -Scope Process")
-          lines_after_script << "exit $LastExitCode"
+
+          # insert error checking only in case of defaulted "lines after script"
+          # to be backward compatible with existing scripts.
+          if defaulted_lines_after_script
+            # ensure for a generic powershell script that any errors left in the
+            # global $Error list are noted and result in script failure. the
+            # best practice is for the script to handle errors itself (and clear
+            # the $Error list if necessary), so this is a catch-all for any
+            # script which does not handle errors "properly".
+            lines_after_script << "if ($NULL -eq $LastExitCode) { $LastExitCode = 0 }"
+            lines_after_script << "if ((0 -eq $LastExitCode) -and ($Error.Count -gt 0)) { $RS_message = 'Script exited successfully but $Error contained '+($Error.Count)+' error(s).'; Write-warning $RS_message; $LastExitCode = 1 }"
+          end
+
+          # ensure last exit code gets marshalled.
+          marshall_last_exit_code_cmd = "exit $LastExitCode"
+          if defaulted_lines_after_script || (lines_after_script.last != marshall_last_exit_code_cmd)
+            lines_after_script << marshall_last_exit_code_cmd
+          end
 
           # format powershell command string.
           powershell_command = "&{#{lines_before_script.join("; ")}; &#{escaped.join(" ")}; #{lines_after_script.join("; ")}}"

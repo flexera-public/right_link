@@ -54,6 +54,7 @@ class Chef
         nickname        = @new_resource.name
         run_started_at  = Time.now
         platform        = RightScale::RightLinkConfig[:platform]
+        current_state   = instance_state
 
         # 1. Setup audit and environment
         begin
@@ -76,8 +77,8 @@ class Chef
 
         # Provide the customary RightScript environment metadata
         ENV['ATTACH_DIR'] = ENV['RS_ATTACH_DIR'] = @new_resource.cache_dir
-        ENV['RS_ALREADY_RUN']  = RightScale::InstanceState.past_scripts.include?(nickname) ? 'true' : nil
-        ENV['RS_REBOOT']  = RightScale::InstanceState.reboot? ? 'true' : nil
+        ENV['RS_ALREADY_RUN'] = current_state.past_scripts.include?(nickname) ? 'true' : nil
+        ENV['RS_REBOOT']      = current_state.reboot? ? 'true' : nil
 
         # RightScripts expect to find RS_DISTRO, RS_DIST and RS_ARCH in the environment.
         # Massage the distro name into the format they expect (all lower case, one word, no release info).
@@ -123,7 +124,7 @@ class Chef
         ::Chef::Log.info("Script duration: #{duration}")
 
         if !status || status.success?
-          RightScale::InstanceState.record_script_execution(nickname)
+          current_state.record_script_execution(nickname)
           @new_resource.updated = true
         else
           raise RightScale::Exceptions::Exec, "RightScript < #{nickname} > returned #{status.exitstatus}"
@@ -133,6 +134,10 @@ class Chef
       end
 
       protected
+
+      def instance_state
+        RightScale::InstanceState
+      end
 
       # Runs the given RightScript.
       #
