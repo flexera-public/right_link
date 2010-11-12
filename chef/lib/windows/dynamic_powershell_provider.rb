@@ -284,9 +284,9 @@ module RightScale
         missing_action_definitions = []
         defined_actions.each { |action_name| missing_action_definitions << action_name unless action_script_names.include?(action_name) }
         if missing_action_definitions.size == 1
-          RightLinkLog.info("[chef] Warning! no powershell script exists for the action \"#{missing_action_definitions.first}\"")
+          RightLinkLog.info("[chef] Warning! no powershell script exists for the action: #{missing_action_definitions.first}")
         elsif missing_action_definitions.size > 1
-          RightLinkLog.info("[chef] Warning! no powershell scripts exist for the following actions #{missing_action_definitions.inspect}")
+          RightLinkLog.info("[chef] Warning! no powershell scripts exist for the following actions: #{missing_action_definitions.join(", ")}")
         end
       end
 

@@ -40,8 +40,6 @@ if RightScale::RightLinkConfig[:platform].windows?
       return !!ENV['DEBUG']
     end
 
-
-
     before(:each) do
       @original_logger = ::Chef::Log.logger
       @log_file_name = File.normalize_path(File.join(Dir.tmpdir, "chef_runner_#{File.basename(__FILE__, '.rb')}_#{Time.now.strftime("%Y-%m-%d-%H%M%S")}.log"))
@@ -253,18 +251,19 @@ if RightScale::RightLinkConfig[:platform].windows?
       @logger.error_text.should == ""
     end
 
-    it "should produce a readable powershell error when script is stopped by error action" do
-      runner = lambda {
-        RightScale::Test::ChefRunner.run_chef(PowershellBasedProviderSpec::TEST_COOKBOOK_PATH, 'test_cookbook::run_powershell_based_recipe_with_stop_error_action')
-      }
-      runner.should raise_exception(RightScale::Exceptions::Exec)
+    context 'powershell script errors' do
+      it "should produce a readable powershell error when script is stopped by error action" do
+        runner = lambda {
+          RightScale::Test::ChefRunner.run_chef(PowershellBasedProviderSpec::TEST_COOKBOOK_PATH, 'test_cookbook::run_powershell_based_recipe_with_stop_error_action')
+        }
+        runner.should raise_exception(RightScale::Exceptions::Exec)
 
-      #There 'Should' be string in the error log...
-      @logger.error_text.length.should > 0
-      errors = @logger.error_text.gsub(/\s+/, "")
-      errors.should match("Unexpected exit code from action. Expected 0 but returned 1.  Script".gsub(/\s+/, ""))
+        #There 'Should' be string in the error log...
+        @logger.error_text.length.should > 0
+        errors = @logger.error_text.gsub(/\s+/, "")
+        errors.should match("Unexpected exit code from action. Expected 0 but returned 1.  Script".gsub(/\s+/, ""))
 
-      message_format = <<-EOF
+        message_format = <<-EOF
 Get-Item : Cannot find path '.*foo' because it does not exist.
 At .*fail_with_stop_error_action.ps1:2 char:9
 + Get-Item <<<<  "foo" -ea Stop
@@ -276,28 +275,28 @@ At .*fail_with_stop_error_action.ps1:2 char:9
     + 2:    Get-Item  <<<< "foo" -ea Stop
     + 3:    exit
 EOF
-      # replace newlines and spaces
-      expected_message = Regexp.escape(message_format.gsub(/\s+/, ""))
+        # replace newlines and spaces
+        expected_message = Regexp.escape(message_format.gsub(/\s+/, ""))
 
-      # un-escape the escaped regex strings
-      expected_message.gsub!("\\.\\*", ".*")
+        # un-escape the escaped regex strings
+        expected_message.gsub!("\\.\\*", ".*")
 
-      # find the log message
-      errors.should match(expected_message)
-    end
+        # find the log message
+        errors.should match(expected_message)
+      end
 
-    it "should produce a readable powershell error when script explicitly throws an exception" do
-      runner = lambda {
-        RightScale::Test::ChefRunner.run_chef(PowershellBasedProviderSpec::TEST_COOKBOOK_PATH, 'test_cookbook::run_powershell_based_recipe_with_explicit_throw')
-      }
-      runner.should raise_exception(RightScale::Exceptions::Exec)
+      it "should produce a readable powershell error when script explicitly throws an exception" do
+        runner = lambda {
+          RightScale::Test::ChefRunner.run_chef(PowershellBasedProviderSpec::TEST_COOKBOOK_PATH, 'test_cookbook::run_powershell_based_recipe_with_explicit_throw')
+        }
+        runner.should raise_exception(RightScale::Exceptions::Exec)
 
-      #There 'Should' be string in the error log...
-      @logger.error_text.length.should > 0
-      errors = @logger.error_text.gsub(/\s+/, "")
-      errors.should match("Unexpected exit code from action. Expected 0 but returned 1.  Script".gsub(/\s+/, ""))
+        #There 'Should' be string in the error log...
+        @logger.error_text.length.should > 0
+        errors = @logger.error_text.gsub(/\s+/, "")
+        errors.should match("Unexpected exit code from action. Expected 0 but returned 1.  Script".gsub(/\s+/, ""))
 
-      message_format = <<-EOF
+        message_format = <<-EOF
 explicitly throwing
 At .*fail_with_explicit_throw.ps1:2 char:6
 + throw <<<<  "explicitly throwing"
@@ -309,28 +308,28 @@ At .*fail_with_explicit_throw.ps1:2 char:6
     + 2:        throw <<<< "explicitly throwing"
     + 3:        exit
 EOF
-      # replace newlines and spaces
-      expected_message = Regexp.escape(message_format.gsub(/\s+/, ""))
+        # replace newlines and spaces
+        expected_message = Regexp.escape(message_format.gsub(/\s+/, ""))
 
-      # un-escape the escaped regex strings
-      expected_message.gsub!("\\.\\*", ".*")
+        # un-escape the escaped regex strings
+        expected_message.gsub!("\\.\\*", ".*")
 
-      # find the log message
-      errors.should match(expected_message)
-    end
+        # find the log message
+        errors.should match(expected_message)
+      end
 
-    it "should produce a readable powershell error when script invokes a bogus cmdlet" do
-      runner = lambda {
-        RightScale::Test::ChefRunner.run_chef(PowershellBasedProviderSpec::TEST_COOKBOOK_PATH, 'test_cookbook::run_powershell_based_recipe_with_bogus_cmdlet')
-      }
-      runner.should raise_exception(RightScale::Exceptions::Exec)
+      it "should produce a readable powershell error when script invokes a bogus cmdlet" do
+        runner = lambda {
+          RightScale::Test::ChefRunner.run_chef(PowershellBasedProviderSpec::TEST_COOKBOOK_PATH, 'test_cookbook::run_powershell_based_recipe_with_bogus_cmdlet')
+        }
+        runner.should raise_exception(RightScale::Exceptions::Exec)
 
-      #There 'Should' be string in the error log...
-      @logger.error_text.length.should > 0
-      errors = @logger.error_text.gsub(/\s+/, "")
-      errors.should match("Unexpected exit code from action. Expected 0 but returned 1.  Script".gsub(/\s+/, ""))
+        #There 'Should' be string in the error log...
+        @logger.error_text.length.should > 0
+        errors = @logger.error_text.gsub(/\s+/, "")
+        errors.should match("Unexpected exit code from action. Expected 0 but returned 1.  Script".gsub(/\s+/, ""))
 
-      message_format = <<-EOF
+        message_format = <<-EOF
 The term 'bogus_cmdlet_name' is not recognized as the name of a cmdlet, function, script file, or operable program. Che
 ck the spelling of the name, or if a path was included, verify that the path is correct and try again.
 At .*fail_with_bogus_cmdlet.ps1:2 char:18
@@ -343,27 +342,27 @@ At .*fail_with_bogus_cmdlet.ps1:2 char:18
     + 2:        bogus_cmdlet_name <<<< 1 "abc"
     + 3:        exit
 EOF
-      # replace newlines and spaces
-      expected_message = Regexp.escape(message_format.gsub(/\s+/, ""))
+        # replace newlines and spaces
+        expected_message = Regexp.escape(message_format.gsub(/\s+/, ""))
 
-      # un-escape the escaped regex strings
-      expected_message.gsub!("\\.\\*", ".*")
+        # un-escape the escaped regex strings
+        expected_message.gsub!("\\.\\*", ".*")
 
-      # find the log message
-      errors.should match(expected_message)
-    end
+        # find the log message
+        errors.should match(expected_message)
+      end
 
-    it "should produce a readable powershell error when a cmdlet is piped with inputs missing" do
-      runner = lambda {
-        RightScale::Test::ChefRunner.run_chef(PowershellBasedProviderSpec::TEST_COOKBOOK_PATH, 'test_cookbook::run_powershell_based_recipe_with_missing_piped_input')
-      }
-      runner.should raise_exception(RightScale::Exceptions::Exec)
+      it "should produce a readable powershell error when a cmdlet is piped with inputs missing" do
+        runner = lambda {
+          RightScale::Test::ChefRunner.run_chef(PowershellBasedProviderSpec::TEST_COOKBOOK_PATH, 'test_cookbook::run_powershell_based_recipe_with_missing_piped_input')
+        }
+        runner.should raise_exception(RightScale::Exceptions::Exec)
 
-      @logger.error_text.length.should > 0
-      errors = @logger.error_text.gsub(/\s+/, "")
-      errors.should match("Unexpected exit code from action. Expected 0 but returned 1.  Script".gsub(/\s+/, ""))
+        @logger.error_text.length.should > 0
+        errors = @logger.error_text.gsub(/\s+/, "")
+        errors.should match("Unexpected exit code from action. Expected 0 but returned 1.  Script".gsub(/\s+/, ""))
 
-      message_format = <<-EOF
+        message_format = <<-EOF
 ConvertTo-SecureString : Input string was not in a correct format.
 At .*fail_with_missing_piped_input.ps1:3 char:75
 + $securePassword = write-output $plainTextPassword | ConvertTo-SecureString <<<<
@@ -375,31 +374,36 @@ At .*fail_with_missing_piped_input.ps1:3 char:75
     + 2:        $plainTextPassword = 'Secret123!'
     + 3:        $securePassword = write-output $plainTextPassword | ConvertTo-SecureString <<<<
 EOF
-      # replace newlines and spaces
-      expected_message = Regexp.escape(message_format.gsub(/\s+/, ""))
+        # replace newlines and spaces
+        expected_message = Regexp.escape(message_format.gsub(/\s+/, ""))
 
-      # un-escape the escaped regex strings
-      expected_message.gsub!("\\.\\*", ".*")
+        # un-escape the escaped regex strings
+        expected_message.gsub!("\\.\\*", ".*")
 
-      # find the log message
-      errors.should match(expected_message)
+        # find the log message
+        errors.should match(expected_message)
+      end
+  end
+
+    context 'missing resource errors' do
+      it "should produce a readable error when powershell action script is not defined" do
+        run_failing_recipe('test_cookbook::missing_action_script', raise_exception(NameError, /Cannot find Action\S* for action_\S*\s*Original exception: NameError: uninitialized constant Chef::Resource::Action\S*/))
+        @logger.info_text.gsub("\n", "").should match /\[chef\] Warning! no powershell script exists for the action: does_not_exist/
+      end
+
+      it "should produce a readable error when multiple powershell action scripts are not defined" do
+        run_failing_recipe('test_cookbook::missing_many_action_scripts', raise_exception(NameError, /Cannot find Action\S* for action_\S*\s*Original exception: NameError: uninitialized constant Chef::Resource::Action\S*/))
+        @logger.info_text.gsub("\n", "").should match /\[chef\] Warning! no powershell scripts exist for the following actions: does_not_exist1, does_not_exist2, does_not_exist3/
+      end
+
+      it "should produce a readable error when lwr action implementation is not defined " do
+        run_failing_recipe('test_cookbook::missing_lwr_resource', raise_exception(NameError, /Cannot find Action\S* for action_\S*\s*Original exception: NameError: uninitialized constant Chef::Resource::Action\S*/))
+      end
+
+      it "should produce a readable error when an undefined action is used in a recipe" do
+        run_failing_recipe('test_cookbook::undefined_action', raise_exception(RuntimeError, /Chef::Exceptions::ValidationFailed: Option action must be equal to one of: .*You passed :\S*./))
+      end
     end
-
-    it "should produce a readable error when powershell action script is not defined" do
-      #, /.*Cannot find ActionDoesNotExist for action_does_not_exist.*Original exception: NameError: uninitialized constant Chef::Resource::ActionDoesNotExist/
-      run_failing_recipe('test_cookbook::missing_action_script', raise_exception(NameError, /Cannot find Action\S* for action_\S*\s*Original exception: NameError: uninitialized constant Chef::Resource::Action\S*/))
-      @logger.info_text.gsub("\n", "").should match /\[chef\] Warning! no powershell script exists for the action "does_not_exist"/
-    end
-
-    it "should produce a readable error when lwr action implementation is not defined " do
-      #, /.*Cannot find ActionCreate for action_create.*Original exception: NameError: uninitialized constant Chef::Resource::ActionCreate/
-      run_failing_recipe('test_cookbook::missing_lwr_resource', raise_exception(NameError))
-    end
-
-    it "should produce a readable error when an undefined action is used in a recipe" do
-      run_failing_recipe('test_cookbook::undefined_action', raise_exception(RuntimeError, /Chef::Exceptions::ValidationFailed: Option action must be equal to one of: .*You passed :\S*./))
-    end
-
     def run_failing_recipe(recipe_name, matcher=raise_exception)
       runner = lambda {
         RightScale::Test::ChefRunner.run_chef(PowershellBasedProviderSpec::TEST_COOKBOOK_PATH, recipe_name)
