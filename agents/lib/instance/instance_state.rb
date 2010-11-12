@@ -28,7 +28,7 @@ module RightScale
   # Manages instance state 
   class InstanceState
 
-    # States that will be audited when transitioned to
+    # States that are recorded in a standard fashion and audited when transitioned to
     RECORDED_STATES   = %w{ booting operational stranded decommissioning }
 
     # States that cause the system MOTD/banner to indicate that everything is OK
@@ -37,8 +37,14 @@ module RightScale
     # States that cause the system MOTD/banner to indicate that something is wrong
     FAILED_STATES     = %w{ stranded }
 
-    # Recorded states and additional states local to instance agent
-    STATES            = RECORDED_STATES + %w{ decommissioned }
+    # Initial state prior to booting
+    INITIAL_STATE     = 'pending'
+
+    # Final state when shutting down that is recorded in a non-standard fashion
+    FINAL_STATE       = 'decommissioned'
+
+    # Valid internal states
+    STATES            = RECORDED_STATES + FINAL_STATE.to_a
 
     STATE_DIR         = RightScale::RightLinkConfig[:agent_state_dir]
 
@@ -60,9 +66,20 @@ module RightScale
     # Number of seconds to wait for cloud to shutdown instance
     FORCE_SHUTDOWN_DELAY = 180
 
+    # Maximum number of retries to record state with RightNet
+    MAX_RECORD_STATE_RETRIES = 5
+
+    # Number of seconds between attempts to record state
+    RETRY_RECORD_STATE_DELAY = 5
+
     # (String) One of STATES
     def self.value
       @@value
+    end
+
+    # (String) One of STATES
+    def self.last_recorded_value
+      @@last_recorded_value
     end
 
     # (String) Instance agent identity
@@ -96,6 +113,8 @@ module RightScale
       @@initial_boot = false
       @@reboot = false
       @@resource_uid = nil
+      @@last_recorded_value = nil
+      @@retry_record_count = 0
       dir = File.dirname(STATE_FILE)
       FileUtils.mkdir_p(dir) unless File.directory?(dir)
 
@@ -105,29 +124,40 @@ module RightScale
 
         # Initial state reconciliation: use recorded state and boot timestamp to determine how we last stopped.
         # There are four basic scenarios to worry about:
-        #  1) first run      -- Agent is starting up for the first time after a fresh install
-        #  2) reboot/restart -- Agent already ran; agent ID not changed; reboot detected: transition back to booting
-        #  3) bundled boot   -- Agent already ran; agent ID changed: transition back to booting
-        #  4) decomm/crash   -- Agent exited anyway; ID not changed; no reboot; keep old state entirely
-        if (state['identity'] != identity) || !state['booted_at'] 
+        #  1) first run          -- Agent is starting up for the first time after a fresh install
+        #  2) reboot/restart     -- Agent already ran; agent ID not changed; reboot detected: transition back to booting
+        #  3) bundled boot       -- Agent already ran; agent ID changed: transition back to booting
+        #  4) decommission/crash -- Agent exited anyway; ID not changed; no reboot; keep old state entirely
+        if (state['identity'] != identity) || !state['booted_at']
           # CASE 3 -- identity has changed; bundled boot
           RightLinkLog.debug("Bundle detected; transitioning state to booting")
+          @@last_recorded_value = state['last_recorded_value']
           self.value = 'booting'
         elsif state['reboot'] || booted_at != state['booted_at']
           # CASE 2 -- Boot time has changed; reboot
           RightLinkLog.debug("Reboot detected; transitioning state to booting")
+          @@last_recorded_value = state['last_recorded_value']
           self.value = 'booting'
           @@reboot = true
         else
-          # CASE 4 -- Restart without reboot; don't do anything special.
+          # CASE 4 -- Restart without reboot; continue with record retries if inconsistent
           @@value = state['value']
           @@startup_tags = state['startup_tags']
           @@log_level = state['log_level']
+          @@last_recorded_value = state['last_recorded_value']
+          @@retry_record_count = state['retry_record_count']
+          if @@value != @@last_recorded_value && RECORDED_STATES.include?(@@value) &&
+             @@retry_record_count < MAX_RECORD_STATE_RETRIES
+            record_state
+          else
+            @@retry_record_count = 0
+          end
           update_logger
         end
       else
         # CASE 1 -- state file does not exist; initial boot, create state file
         RightLinkLog.debug("Initializing instance #{identity} with booting")
+        @@last_recorded_value = INITIAL_STATE
         self.value = 'booting'
         @@initial_boot = true
       end
@@ -169,21 +199,14 @@ module RightScale
     # === Raise
     # RightScale::Exceptions::Argument:: Invalid new value
     def self.value=(val)
-      raise RightScale::Exceptions::Argument, "Invalid instance state '#{val}'" unless STATES.include?(val)
-      RightLinkLog.info("Transitioning state from #{@@value rescue 'pending'} to #{val}")
+      raise RightScale::Exceptions::Argument, "Invalid instance state #{val.inspect}" unless STATES.include?(val)
+      RightLinkLog.info("Transitioning state from #{@@value rescue INITIAL_STATE} to #{val}")
       @@reboot = false if val != :booting
       @@value = val
       update_logger
       update_motd
-
-      record_state(val) if RECORDED_STATES.include?(val)
-      write_json(STATE_FILE, { 'value'        => val,
-                               'identity'     => @@identity,
-                               'uptime'       => uptime,
-                               'booted_at'    => booted_at,
-                               'reboot'       => @@reboot,
-                               'startup_tags' => @@startup_tags,
-                               'log_level'    => @@log_level })
+      record_state if RECORDED_STATES.include?(val)
+      store_state
       @observers.each { |o| o.call(val) } if @observers
       val
     end
@@ -223,7 +246,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def self.shutdown(user_id, skip_db_update, kind)
-      opts = { :agent_identity => @@identity, :state => 'decommissioned', :user_id => user_id, :skip_db_update => skip_db_update, :kind => kind }
+      opts = { :agent_identity => @@identity, :state => FINAL_STATE, :user_id => user_id, :skip_db_update => skip_db_update, :kind => kind }
       RightScale::RequestForwarder.instance.request('/state_recorder/record', opts) do |r|
         res = RightScale::OperationResult.from_results(r)
         RightScale::RequestForwarder.instance.push('/registrar/remove', :agent_identity => @@identity)
@@ -437,18 +460,65 @@ module RightScale
       true
     end
 
-    # Record state transition with core agent
-    #
-    # === Parameters
-    # new_state(String):: One of RECORDED_STATES
+    # Persist state to local disk storage
     #
     # === Return
     # true:: Always return true
-    def self.record_state(new_state)
-      options = { :agent_identity => @@identity, :state => new_state }
+    def self.store_state
+      write_json(STATE_FILE, {'value'               => @@value,
+                              'identity'            => @@identity,
+                              'uptime'              => uptime,
+                              'booted_at'           => booted_at,
+                              'reboot'              => @@reboot,
+                              'startup_tags'        => @@startup_tags,
+                              'log_level'           => @@log_level,
+                              'last_recorded_value' => @@last_recorded_value,
+                              'retry_record_count'  => @@retry_record_count})
+      true
+    end
+
+    # Record state transition
+    # Retry up to MAX_RECORD_STATE_RETRIES times if an error is returned
+    # If state has changed during a failed attempt, reset retry counter
+    #
+    # === Return
+    # true:: Always return true
+    def self.record_state
+      new_value = @@value
+      options = {:agent_identity => @@identity, :state => new_value, :from_state => @@last_recorded_value}
       RightScale::RequestForwarder.instance.request('/state_recorder/record', options) do |r|
         res = RightScale::OperationResult.from_results(r)
-        RightLinkLog.warn("Failed to record state: #{res.content}") unless res.success?
+        if res.success?
+          @@last_recorded_value = new_value
+          @@retry_record_count = 0
+        else
+          error = if res.content.is_a?(Hash) && res.content['recorded_state']
+            # State transitioning from does not match recorded state, so update last recorded value
+            @@last_recorded_value = res.content['recorded_state']
+            res.content['message']
+          else
+            res.content
+          end
+          if @@value != @@last_recorded_value
+            attempts = " after #{@@retry_record_count + 1} attempts" if @@retry_record_count >= MAX_RECORD_STATE_RETRIES
+            RightLinkLog.error("Failed to record state '#{new_value}'#{attempts}: #{error}")
+            @@retry_record_count = 0 if @@value != new_value
+            if RECORDED_STATES.include?(@@value) && @@retry_record_count < MAX_RECORD_STATE_RETRIES
+              RightLinkLog.info("Will retry recording state in #{RETRY_RECORD_STATE_DELAY} seconds")
+              EM.add_timer(RETRY_RECORD_STATE_DELAY) do
+                if @@value != @@last_recorded_value
+                  @@retry_record_count += 1
+                  record_state
+                end
+              end
+            else
+              # Giving up since out of retries or state has changed to a non-recorded value
+              @@retry_record_count = 0
+            end
+          end
+        end
+        # Store any change in local state, recorded state, or retry count
+        store_state
       end
       true
     end
