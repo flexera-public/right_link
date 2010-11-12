@@ -279,13 +279,15 @@ module RightScale
     # === Return
     # true:: always
     def validate_resource_actions(resource_file_path, action_script_names)
-      defined_actions = load_resource_actions(resource_file_path)
-      missing_action_definitions = []
-      defined_actions.each { |action_name| missing_action_definitions << action_name unless action_script_names.include?(action_name) }
-      if missing_action_definitions.size == 1
-        RightLinkLog.info("[chef] Warning! no powershell script exists for the action \"#{missing_action_definitions.first}\"")
-      elsif missing_action_definitions.size > 1
-        RightLinkLog.info("[chef] Warning! no powershell scripts exist for the following actions #{missing_action_definitions.inspect}")
+      defined_actions = load_resource_actions(resource_file_path) if File.exists?(resource_file_path)
+      unless defined_actions.nil? || defined_actions.empty?
+        missing_action_definitions = []
+        defined_actions.each { |action_name| missing_action_definitions << action_name unless action_script_names.include?(action_name) }
+        if missing_action_definitions.size == 1
+          RightLinkLog.info("[chef] Warning! no powershell script exists for the action \"#{missing_action_definitions.first}\"")
+        elsif missing_action_definitions.size > 1
+          RightLinkLog.info("[chef] Warning! no powershell scripts exist for the following actions #{missing_action_definitions.inspect}")
+        end
       end
 
       true
