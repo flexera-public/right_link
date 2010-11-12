@@ -361,7 +361,7 @@ module RightScale
         RightLinkLog.debug("Chef failed with '#{e.message}' at\n" + e.backtrace.join("\n"))
       ensure
         # terminate the powershell providers
-        # terminiate the providers before the node server as the provider term scripts may still use the node server
+        # terminate the providers before the node server as the provider term scripts may still use the node server
         if @powershell_providers
           @powershell_providers.each do |p|
             begin
@@ -428,6 +428,10 @@ module RightScale
         msg = "An external command returned an error during the execution of Chef:\n\n"
         msg += e.message
         msg += "\n\nThe command was run from \"#{e.path}\"" if e.path
+      elsif e.is_a?(::Chef::Exceptions::ValidationFailed) && (e.message =~ /Option action must be equal to one of:/)
+        msg = "[chef] recipe references an action that does not exist.  #{e.message}"
+      elsif e.is_a?(::NameError) && (missing_action_match = /Cannot find Action\S* for action_(\S*)\s*Original exception: NameError: uninitialized constant Chef::Resource::Action\S*/.match(e.message)) && missing_action_match[1]
+        msg = "[chef] recipe references the action <#{missing_action_match[1]}> which is missing an implementation"
       else
         msg = "An error occurred during the execution of Chef. The error message was:\n\n"
         msg += e.message

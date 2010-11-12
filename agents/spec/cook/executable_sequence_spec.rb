@@ -191,4 +191,25 @@ describe RightScale::ExecutableSequence do
 
   end
 
+  context 'Specific Chef error formatting' do
+    before(:each) do
+      bundle = flexmock('Bundle')
+      bundle.should_ignore_missing
+      @sequence = RightScale::ExecutableSequence.new(bundle)
+    end
+
+    it 'should produce a readable message when cookbook does not contain a referenced resource' do
+      exception_string = 'Option action must be equal to one of: nothing, url_encode!  You passed :does_not_exist.'
+      exception = Chef::Exceptions::ValidationFailed.new(exception_string)
+      msg = @sequence.__send__(:chef_error, exception)
+      msg.should == "[chef] recipe references an action that does not exist.  Option action must be equal to one of: nothing, url_encode!  You passed :does_not_exist."
+    end
+
+    it 'should produce a readable message when the implementation of a referenced resource action does not exist' do
+      exception_string = ['Cannot find ActionDoesNotExist for action_does_not_exist', 'Original exception: NameError: uninitialized constant Chef::Resource::ActionDoesNotExist'].join("\n")
+      exception = NameError.new(exception_string)
+      msg = @sequence.__send__(:chef_error, exception)
+      msg.should == "[chef] recipe references the action <does_not_exist> which is missing an implementation"
+    end
+  end
 end

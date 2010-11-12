@@ -40,6 +40,8 @@ if RightScale::RightLinkConfig[:platform].windows?
       return !!ENV['DEBUG']
     end
 
+
+
     before(:each) do
       @original_logger = ::Chef::Log.logger
       @log_file_name = File.normalize_path(File.join(Dir.tmpdir, "chef_runner_#{File.basename(__FILE__, '.rb')}_#{Time.now.strftime("%Y-%m-%d-%H%M%S")}.log"))
@@ -90,7 +92,7 @@ if RightScale::RightLinkConfig[:platform].windows?
       logs.scan(/\/simple_encode\/_init.ps1/).length.should == 1 if is_debug?
       logs.scan(/init simple encode/).length.should == 1
 
-      (logs =~ /\/simple_encode\/url_encode.ps1/).should_not be_nil if is_debug?
+      (logs =~ /\/simple_encode\/referenced.ps1/).should_not be_nil if is_debug?
       (logs =~ /string\+to\+encode/).should_not be_nil
 
       (logs =~ /\/simple_echo\/_load_current_resource.ps1/).should_not be_nil if is_debug?
@@ -113,7 +115,7 @@ if RightScale::RightLinkConfig[:platform].windows?
       logs = @logger.info_text.gsub("\n", "")
       logs.scan(/\/encode\/_init.ps1/).length.should == 1 if is_debug?
       logs.scan(/init encode/).length.should == 1
-      (logs =~ /\/encode\/url_encode.ps1/).should_not be_nil if is_debug?
+      (logs =~ /\/encode\/referenced.ps1/).should_not be_nil if is_debug?
       (logs =~ /encode\+this\+is\+a\+string\+with\+spaces/).should_not be_nil
 
       (logs =~ /\/echo\/_load_current_resource.ps1/).should_not be_nil if is_debug?
@@ -124,7 +126,7 @@ if RightScale::RightLinkConfig[:platform].windows?
 
       (logs =~ /\/encode\/_init.ps1/).should_not be_nil if is_debug?
       (logs =~ /init encode/).should_not be_nil
-      (logs =~ /\/encode\/url_encode.ps1/).should_not be_nil if is_debug?
+      (logs =~ /\/encode\/referenced.ps1/).should_not be_nil if is_debug?
       (logs =~ /SECOND\+STRING\+TO\+ENCODE/).should_not be_nil
 
       (logs =~ /\/echo\/_load_current_resource.ps1/).should_not be_nil if is_debug?
@@ -149,14 +151,14 @@ if RightScale::RightLinkConfig[:platform].windows?
       logs = @logger.info_text.gsub("\n", "")
       logs.scan(/\/encode\/_init.ps1/).length.should == 1 if is_debug?
       logs.scan(/init encode/).length.should == 1
-      (logs =~ /\/encode\/url_encode.ps1/).should_not be_nil if is_debug?
+      (logs =~ /\/encode\/referenced.ps1/).should_not be_nil if is_debug?
       (logs =~ /encode\+first/).should_not be_nil
 
       (logs =~ /Running "echo_from_powershell_script"/).should_not be_nil
       (logs =~ /message from powershell script/).should_not be_nil
       (logs =~ /Ran powershell\[echo_from_powershell_script\]/).should_not be_nil
 
-      (logs =~ /\/encode\/url_encode.ps1/).should_not be_nil if is_debug?
+      (logs =~ /\/encode\/referenced.ps1/).should_not be_nil if is_debug?
       (logs =~ /encode\+again/).should_not be_nil
 
       (logs =~ /\/echo\/_load_current_resource.ps1/).should_not be_nil if is_debug?
@@ -381,6 +383,28 @@ EOF
 
       # find the log message
       errors.should match(expected_message)
+    end
+
+    it "should produce a readable error when powershell action script is not defined" do
+      #, /.*Cannot find ActionDoesNotExist for action_does_not_exist.*Original exception: NameError: uninitialized constant Chef::Resource::ActionDoesNotExist/
+      run_failing_recipe('test_cookbook::missing_action_script', raise_exception(NameError, /Cannot find Action\S* for action_\S*\s*Original exception: NameError: uninitialized constant Chef::Resource::Action\S*/))
+      @logger.info_text.gsub("\n", "").should match /\[chef\] Warning! no powershell script exists for the action "does_not_exist"/
+    end
+
+    it "should produce a readable error when lwr action implementation is not defined " do
+      #, /.*Cannot find ActionCreate for action_create.*Original exception: NameError: uninitialized constant Chef::Resource::ActionCreate/
+      run_failing_recipe('test_cookbook::missing_lwr_resource', raise_exception(NameError))
+    end
+
+    it "should produce a readable error when an undefined action is used in a recipe" do
+      run_failing_recipe('test_cookbook::undefined_action', raise_exception(RuntimeError, /Chef::Exceptions::ValidationFailed: Option action must be equal to one of: .*You passed :\S*./))
+    end
+
+    def run_failing_recipe(recipe_name, matcher=raise_exception)
+      runner = lambda {
+        RightScale::Test::ChefRunner.run_chef(PowershellBasedProviderSpec::TEST_COOKBOOK_PATH, recipe_name)
+      }
+      runner.should matcher
     end
 
   end

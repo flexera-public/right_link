@@ -81,7 +81,7 @@ module RightScale
     INIT_SCRIPT = '_init'
     TERM_SCRIPT = '_term'
     LOAD_SCRIPT = '_load_current_resource'
-    BUILT_IN_SCRIPTS = [ INIT_SCRIPT, TERM_SCRIPT, LOAD_SCRIPT ]
+    BUILT_IN_SCRIPTS = [INIT_SCRIPT, TERM_SCRIPT, LOAD_SCRIPT]
 
     # Hash of Powershell Chef providers validation errors keyed by provider path and
     # initialized by 'generate_providers'
@@ -112,7 +112,7 @@ module RightScale
     # providers(Array):: List of generated providers names
     def generate_providers(cookbooks_paths)
       providers = []
-      cookbooks_paths = [ cookbooks_paths ] unless cookbooks_paths.is_a?(Array)
+      cookbooks_paths = [cookbooks_paths] unless cookbooks_paths.is_a?(Array)
       cookbooks_paths.each do |cookbooks_path|
         return [] unless File.directory?(cookbooks_path)
         Dir[File.normalize_path(File.join(cookbooks_path, '*/'))].each do |cookbook_path|
@@ -143,12 +143,19 @@ module RightScale
       RightLinkLog.info("[chef] Creating Powershell provider #{name}")
       all_scripts = Dir[File.join(path, "*#{Platform::Windows::Shell::POWERSHELL_V1x0_SCRIPT_EXTENSION}")]
       action_scripts = all_scripts.select { |s| is_action_script?(s) }
+
       new_provider = create_provider_class(name) do |provider|
+        action_script_names = []
         action_scripts.each do |script|
-          action_name = 'action_' + File.basename(script, '.*').snake_case
+          action_script_name = File.basename(script, '.*').snake_case
+          action_script_names << action_script_name
+          action_name = "action_#{action_script_name}"
           RightLinkLog.info("[chef] Defining #{name}##{action_name} to run '#{script}'")
           provider.class_eval("def #{action_name}; #{name}.run_script('#{script}'); end")
         end
+
+        validate_resource_actions(File.join(path, "..", "..", "resources", "#{File.basename(path)}.rb"), action_script_names)
+
         if load_script = all_scripts.detect { |s| File.basename(s, '.*').downcase == LOAD_SCRIPT }
           RightLinkLog.info("[chef] Defining #{name}#load_current_resource to run '#{load_script}'")
           provider.class_eval(<<-EOF
@@ -247,5 +254,41 @@ module RightScale
       valid_identifier && !BUILT_IN_SCRIPTS.include?(basename)
     end
 
+    # extract the list of actions from the given chef lightweight resource file
+    #
+    # === Parameters
+    # path(String):: Path to the resource file to be parsed
+    #
+    # === Return
+    # actions(String|Array):: actions defined for the given resource
+    def load_resource_actions(path)
+      # HACK: the resource file is the only known location of the actions defined for a
+      # given light weight resource.  Do a quick and dirty parse of the resource file
+      #looking for the list of actions.
+      resource_content = File.read(path)
+      actions = /^\s*actions\s*(.*)$/.match(resource_content.gsub(/\s*,\s*\n/, ", "))[1].split(',').map { |action| action.strip.gsub(":", "") }
+      actions
+    end
+
+    # warn if resource action is defined, but corresponding powershell script does not exist
+    #
+    # === Parameters
+    # resource_file_path(String):: Path to the resource file to be parsed
+    # action_script_names(String|Array):: names of discovered powershell action scripts for this provider
+    #
+    # === Return
+    # true:: always
+    def validate_resource_actions(resource_file_path, action_script_names)
+      defined_actions = load_resource_actions(resource_file_path)
+      missing_action_definitions = []
+      defined_actions.each { |action_name| missing_action_definitions << action_name unless action_script_names.include?(action_name) }
+      if missing_action_definitions.size == 1
+        RightLinkLog.info("[chef] Warning! no powershell script exists for the action \"#{missing_action_definitions.first}\"")
+      elsif missing_action_definitions.size > 1
+        RightLinkLog.info("[chef] Warning! no powershell scripts exist for the following actions #{missing_action_definitions.inspect}")
+      end
+
+      true
+    end
   end
 end
