@@ -3,7 +3,7 @@
 #   (c) 2009 RightScale
 #
 #   rs_run_right_script and rs_run_recipe are command line tools that allow
-#   running RightScripts and recipes respectively from within an instance.
+#   running RightScripts and recipes respectively from within an instance
 #
 # === Examples:
 #   Run recipe with id 12:
@@ -39,7 +39,8 @@
 #                           Note: Only applies to run_right_script
 #      --recipient_tags,    Tags for selecting which instances are to receive request
 #        -r TAG_LIST        with the TAG_LIST being quoted if it contains spaces
-#      --scope, -s SCOPE    Scope for selecting tagged recipients: 'single' or 'all' with 'all' default
+#      --scope, -s SCOPE    Scope for selecting tagged recipients: 'single' or 'all',
+#                           with 'all' default
 #      --verbose, -v        Display progress information
 #      --help:              Display help
 #      --version:           Display version information
@@ -68,13 +69,16 @@ module RightScale
 
     VERSION = [0, 1]
 
+    # Default number of seconds to wait for command response
+    DEFAULT_TIMEOUT = 20
+
     # Run recipe or RightScript (that is, schedule it)
     #
     # === Parameters
     # options(Hash):: Hash of options as defined in +parse_args+
     #
     # === Block
-    # If a block is given it should take one argument corresponding to the 
+    # If a block is given, it should take one argument corresponding to the
     # reply sent back by the agent
     #
     # === Return
@@ -89,6 +93,7 @@ module RightScale
       fail('Could not retrieve listen port', false) unless listen_port
       command_serializer = Serializer.new
       client = CommandClient.new(listen_port, config_options[:cookie])
+
       callback ||= lambda do |r|
         response = OperationResult.from_results(command_serializer.load(r)) rescue nil
         if r == 'OK'
@@ -99,8 +104,10 @@ module RightScale
           puts "Failed to process request: #{(response.respond_to?(:content) && response.content) || '<unknown error>'}"
         end
       end
+
       begin
-        client.send_command(cmd, options[:verbose], options[:timeout] || 20) { |r| callback.call(r) }
+        timeout = options[:timeout] || DEFAULT_TIMEOUT
+        client.send_command(cmd, options[:verbose], timeout) { |r| callback.call(r) }
       rescue Exception => e
         fail(e.message)
       end
@@ -117,17 +124,17 @@ module RightScale
     def echo(options)
       type = options[:bundle_type] == :right_script ? "RightScript" : "recipe"
       which = options[:id] ? "with ID #{options[:id].inspect}" : "named #{options[:name].inspect}"
-      select = options[:selector] == :all ? "'all' servers" : "a 'single' server"
-      where = options[:tags] ? "on #{select} with tags #{options[:tags].inspect}" : "locally on this server"
+      scope = options[:scope] == :all ? "'all' servers" : "a 'single' server"
+      where = options[:tags] ? "on #{scope} with tags #{options[:tags].inspect}" : "locally on this server"
       using = ""
       if options[:parameters] && !options[:parameters].empty?
-        using = "using parameters #{options[:parameters].inspect}"
+        using = " using parameters #{options[:parameters].inspect}"
       end
       if options[:json]
-        using += !using.empty? && options[:json_file] ? " and " : "using "
+        using += !using.empty? && options[:json_file] ? " and " : " using "
         using += "options from JSON file #{options[:json_file].inspect}"
       end
-      puts "Requesting to execute the #{type} #{which} #{where} #{using}"
+      puts "Requesting to execute the #{type} #{which} #{where}#{using}"
       true
     end
 
@@ -136,7 +143,7 @@ module RightScale
     # === Return
     # options(Hash):: Hash of options as defined by the command line
     def parse_args
-      options = { :attributes => {}, :parameters => {}, :selector => :all, :verbose => false }
+      options = { :attributes => {}, :parameters => {}, :scope => :all, :verbose => false }
 
       opts = OptionParser.new do |opts|
 
@@ -173,9 +180,9 @@ module RightScale
 
         opts.on('-s', '--scope SCOPE') do |s|
           if s == 'single'
-            options[:selector] = :random
+            options[:scope] = :any
           elsif s == 'all'
-            options[:selector] = :all
+            options[:scope] = :all
           else
             fail("Invalid scope definition '#{s}', should be either 'single' or 'all'")
           end
@@ -230,8 +237,10 @@ protected
     # opts(Hash):: Forwarder actor compatible options hash
     def to_forwarder_options(options)
       opts = {}
-      opts[:tags] = options[:tags] if options[:tags]
-      opts[:selector] = options[:selector] if options[:selector]
+      if options[:tags]
+        opts[:tags] = options[:tags]
+        opts[:selector] = options[:scope]
+      end
       if options[:bundle_type] == :right_script
         opts[:right_script_id] = options[:id] if options[:id]
         opts[:right_script]    = options[:name] if options[:name] && !options[:id]

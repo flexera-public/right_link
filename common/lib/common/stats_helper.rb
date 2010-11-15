@@ -47,8 +47,17 @@ module RightScale
     # Track activity statistics
     class ActivityStats
 
-      # Number of samples included in calculating average recent activity
-      RECENT_SIZE = 10
+      # Number of samples included when calculating average recent activity
+      # with the smoothing formula A = ((A * (RECENT_SIZE - 1)) + V) / RECENT_SIZE,
+      # where A is the current recent average and V is the new activity value
+      # As a rough guide, it takes approximately 2 * RECENT_SIZE activity values
+      # at value V for average A to reach 90% of the original difference between A and V
+      # For example, for A = 0, V = 1, RECENT_SIZE = 3 the progression for A is
+      # 0, 0.3, 0.5, 0.7, 0.8, 0.86, 0.91, 0.94, 0.96, 0.97, 0.98, 0.99, ...
+      RECENT_SIZE = 3
+
+      # Maximum string length for activity type
+      MAX_TYPE_SIZE = 60
 
       # (Integer) Total activity count
       attr_reader :total
@@ -76,7 +85,9 @@ module RightScale
       # Ignore the update if its type contains "stats"
       #
       # === Parameters
-      # type(String|Symbol):: Type of activity, defaults to nil
+      # type(String|Symbol):: Type of activity, with anything that is not a symbol, true, or false
+      #   automatically converted to a String and truncated to MAX_TYPE_SIZE characters,
+      #   defaults to nil
       # id(String):: Unique identifier associated with this activity
       #
       # === Return
@@ -84,10 +95,16 @@ module RightScale
       def update(type = nil, id = nil)
         now = Time.now
         if type.nil? || !(type =~ /stats/)
-          @interval = ((@interval * (RECENT_SIZE - 1)) + (now - @last_start_time)) / RECENT_SIZE if @measure_rate
+          @interval = average(@interval, now - @last_start_time) if @measure_rate
           @last_start_time = now
           @total += 1
-          @count_per_type[type] = (@count_per_type[type] || 0) + 1 if type
+          unless type.nil?
+            unless [Symbol, TrueClass, FalseClass].include?(type.class)
+              type = type.inspect unless type.is_a?(String)
+              type = type[0, MAX_TYPE_SIZE - 3] + "..." if type.size > (MAX_TYPE_SIZE - 3)
+            end
+            @count_per_type[type] = (@count_per_type[type] || 0) + 1
+          end
           @last_type = type
           @last_id = id
         end
@@ -105,7 +122,7 @@ module RightScale
       def finish(start_time = nil, id = nil)
         now = Time.now
         start_time ||= @last_start_time
-        @avg_duration = (((@avg_duration || 0.0) * (RECENT_SIZE - 1)) + (now - start_time)) / RECENT_SIZE
+        @avg_duration = average(@avg_duration || 0.0, now - start_time)
         @last_id = 0 if id && id == @last_id
         now
       end
@@ -181,6 +198,20 @@ module RightScale
           result.merge!("rate" => avg_rate) if @measure_rate
           result
         end
+      end
+
+      protected
+
+      # Calculate smoothed average with weighting toward recent activity
+      #
+      # === Parameters
+      # current(Float|Integer):: Current average value
+      # value(Float|Integer):: New value
+      #
+      # === Return
+      # (Float):: New average
+      def average(current, value)
+        ((current * (RECENT_SIZE - 1)) + value) / RECENT_SIZE.to_f
       end
 
     end # ActivityStats
@@ -309,9 +340,11 @@ module RightScale
     #     "failure last"(Hash|nil):: Last connect failure information with key "elapsed", or nil if none
     #     "failures"(Integer|nil):: Number of failed attempts to connect to broker, or nil if none
     #     "retries"(Integer|nil):: Number of attempts to connect after failure, or nil if none
-    #   "exceptions"(Hash):: Exceptions raised per category with keys
+    #   "exceptions"(Hash|nil):: Exceptions raised per category, or nil if none
     #     "total"(Integer):: Total exceptions for this category
     #     "recent"(Array):: Most recent as a hash of "count", "type", "message", "when", and "where"
+    #   "returns"(Hash|nil):: Message return activity stats with keys "total", "percent", "last", and "rate"
+    #     with percentage breakdown per request type, or nil if none
     # name_width(Integer):: Fixed width for left-justified name display
     #
     # === Return
@@ -342,6 +375,13 @@ module RightScale
         "none\n"
       else
         exceptions_str(brokers["exceptions"], sub_value_indent) + "\n"
+      end
+      str += value_indent
+      str += sprintf("%-#{sub_name_width}s#{SEPARATOR}", "returns")
+      str += if brokers["returns"].nil? || brokers["returns"].empty?
+        "none\n"
+      else
+        wrap(activity_str(brokers["returns"]), MAX_SUB_STAT_VALUE_WIDTH, sub_value_indent, ", ") + "\n"
       end
     end
 
@@ -397,7 +437,8 @@ module RightScale
 
     # Convert activity information to displayable format
     #
-    # (Hash|nil):: Information about activity, or nil if the total is 0
+    # === Parameters
+    # value(Hash|nil):: Information about activity, or nil if the total is 0
     #   "total"(Integer):: Total activity count
     #   "percent"(Hash):: Percentage for each type of activity if tracking type, otherwise omitted
     #   "last"(Hash):: Information about last activity
@@ -460,8 +501,8 @@ module RightScale
       exceptions.to_a.sort.map do |k, v|
         sprintf("%s total: %d, most recent:\n", k, v["total"]) + v["recent"].reverse.map do |e|
           message = e["message"]
-          if message && message.size > MAX_EXCEPTION_MESSAGE_WIDTH
-            message = e["message"][0..MAX_EXCEPTION_MESSAGE_WIDTH] + "..."
+          if message && message.size > (MAX_EXCEPTION_MESSAGE_WIDTH - 3)
+            message = e["message"][0, MAX_EXCEPTION_MESSAGE_WIDTH - 3] + "..."
           end
           indent + "(#{e["count"]}) #{time_at(e["when"])} #{e["type"]}: #{message}\n" + indent2 + "#{e["where"]}"
         end.join("\n")

@@ -99,11 +99,13 @@ module RightScale
     #
     # === Parameters
     # identity(String):: Instance identity
+    # read_only(Boolean):: Whether only allowed to read the instance state, defaults to false
     #
     # === Return
     # true:: Always return true
-    def self.init(identity)
+    def self.init(identity, read_only = false)
       @@identity = identity
+      @@read_only = read_only
       @@startup_tags = []
       @@log_level = Logger::INFO
       @@initial_boot = false
@@ -144,7 +146,7 @@ module RightScale
           @@last_recorded_value = state['last_recorded_value']
           @@record_retries = state['record_retries']
           if @@value != @@last_recorded_value && RECORDED_STATES.include?(@@value) &&
-             @@record_retries < MAX_RECORD_STATE_RETRIES
+             @@record_retries < MAX_RECORD_STATE_RETRIES && !@@read_only
             record_state
           else
             @@record_retries = 0
@@ -172,7 +174,7 @@ module RightScale
         load(meta_data_file) if File.file?(meta_data_file)
         @@resource_uid = ENV['EC2_INSTANCE_ID']
       rescue Exception => e
-        RightScale::RightLinkLog.warn("Failed to load metadata: #{e.message}, #{e.backtrace[0]}")
+        RightLinkLog.warn("Failed to load metadata: #{e.message}, #{e.backtrace[0]}")
       end
 
       true
@@ -187,8 +189,10 @@ module RightScale
     # val(String) new state
     #
     # === Raise
+    # RightScale::Exceptions::Application:: Cannot update in read-only mode
     # RightScale::Exceptions::Argument:: Invalid new value
     def self.value=(val)
+      raise RightScale::Exceptions::Application, "Not allowed to modify instance state in read-only mode" if @@read_only
       raise RightScale::Exceptions::Argument, "Invalid instance state #{val.inspect}" unless STATES.include?(val)
       RightLinkLog.info("Transitioning state from #{@@value rescue INITIAL_STATE} to #{val}")
       @@reboot = false if val != :booting
@@ -230,7 +234,11 @@ module RightScale
     #
     # === Return
     # true:: Always return true
+    #
+    # === Raise
+    # RightScale::Exceptions::Application:: Cannot update in read-only mode
     def self.message_received
+      raise RightScale::Exceptions::Application, "Not allowed to modify instance state in read-only mode" if @@read_only
       now = Time.now.to_i
       if (now - @@last_communication) > LAST_COMMUNICATION_STORAGE_INTERVAL
         @@last_communication = now
@@ -251,14 +259,14 @@ module RightScale
     # === Return
     # true:: Always return true
     def self.shutdown(user_id, skip_db_update, kind)
-      payload = {:agent_identity => @@identity, :state => FINAL_STATE, :user_id => user_id,
-                 :skip_db_update => skip_db_update, :kind => kind}
-      RightScale::RequestForwarder.instance.send_request('/state_recorder/record', payload) do |r|
-        res = RightScale::OperationResult.from_results(r)
-        RightScale::RequestForwarder.instance.send_push('/registrar/remove', :agent_identity => @@identity)
-        RightScale::Platform.controller.shutdown unless res.success?
+      payload = {:agent_identity => @@identity, :state => FINAL_STATE, :user_id => user_id, :skip_db_update => skip_db_update, :kind => kind}
+      MapperProxy.instance.timeout_retry_request("/state_recorder/record", payload, nil, :offline_queueing => true) do |r|
+        res = OperationResult.from_results(r)
+        MapperProxy.instance.push("/registrar/remove", {:agent_identity => @@identity, :created_at => Time.now.to_i},
+                                  nil, :offline_queueing => true)
+        Platform.controller.shutdown unless res.success?
       end
-      EM.add_timer(FORCE_SHUTDOWN_DELAY) { RightScale::Platform.controller.shutdown }
+      EM.add_timer(FORCE_SHUTDOWN_DELAY) { Platform.controller.shutdown }
     end
 
     # Set startup tags
@@ -268,7 +276,11 @@ module RightScale
     #
     # === Return
     # val(Array):: List of tags
+    #
+    # === Raise
+    # RightScale::Exceptions::Application:: Cannot update in read-only mode
     def self.startup_tags=(val)
+      raise RightScale::Exceptions::Application, "Not allowed to modify instance state in read-only mode" if @@read_only
       if @@startup_tags.nil? || @@startup_tags != val
         @@startup_tags = val
         # FIX: storing state on change to ensure the most current set of tags is available to
@@ -378,7 +390,7 @@ module RightScale
     # === Return
     # uptime(Float):: Uptime of this system in seconds, or 0.0 if undetermined
     def self.uptime()
-      return RightScale::RightLinkConfig[:platform].shell.uptime
+      return RightLinkConfig[:platform].shell.uptime
     end
 
     # Purely for informational purposes, attempt to update the Unix MOTD file
@@ -389,7 +401,7 @@ module RightScale
     # === Return
     # nil:: always return nil
     def self.update_motd()
-      return unless RightScale::RightLinkConfig.platform.linux?
+      return unless RightLinkConfig.platform.linux?
 
       if File.directory?('/etc/update-motd.d')
         #Ubuntu 10.04 and above use a dynamic MOTD update system. In this case we assume
@@ -402,7 +414,7 @@ module RightScale
 
       FileUtils.rm(motd) rescue nil
 
-      etc = File.join(RightScale::RightLinkConfig[:rs_root_path], 'etc')
+      etc = File.join(RightLinkConfig[:rs_root_path], 'etc')
       if SUCCESSFUL_STATES.include?(@@value)
         FileUtils.cp(File.join(etc, 'motd-complete'), motd) rescue nil
         system('echo "RightScale installation complete. Details can be found in /var/log/messages" | wall') rescue nil
@@ -443,9 +455,9 @@ module RightScale
     # true:: Always return true
     def self.record_state
       new_value = @@value
-      options = {:agent_identity => @@identity, :state => new_value, :from_state => @@last_recorded_value}
-      RightScale::RequestForwarder.instance.send_request('/state_recorder/record', options) do |r|
-        res = RightScale::OperationResult.from_results(r)
+      payload = {:agent_identity => @@identity, :state => new_value, :from_state => @@last_recorded_value}
+      MapperProxy.instance.timeout_retry_request("/state_recorder/record", payload, nil, :offline_queueing => true) do |r|
+        res = OperationResult.from_results(r)
         if res.success?
           @@last_recorded_value = new_value
           @@record_retries = 0

@@ -30,6 +30,12 @@ describe RightScale::InstanceCommands do
     @agent_identity = RightScale::AgentIdentity.new('rs', 'test', 1).to_s
     @scheduler = flexmock('Scheduler')
     @scheduler.should_ignore_missing
+    @agent_manager = flexmock('AgentManager')
+  end
+
+  before(:each) do
+    @mapper_proxy = flexmock('MapperProxy')
+    flexmock(RightScale::MapperProxy).should_receive(:instance).and_return(@mapper_proxy).by_default
   end
 
   it 'should list commands' do
@@ -39,11 +45,11 @@ describe RightScale::InstanceCommands do
       # plus one header line
       r.count("\n").should == (@commands.reject {|k,_| k.to_s =~ /test/}.size - 1) * 2 + 1
     end
-    RightScale::InstanceCommands.new(@agent_identity, @scheduler).send(:list_command, {:conn => 42}).should be_true
+    RightScale::InstanceCommands.new(@agent_identity, @scheduler, @agent_manager).send(:list_command, {:conn => 42}).should be_true
   end
 
   it 'should get commands' do
-    cmds = RightScale::InstanceCommands.get(@agent_identity, @scheduler)
+    cmds = RightScale::InstanceCommands.get(@agent_identity, @scheduler, @agent_manager)
     cmds.size.should == @commands.size
     cmds.keys.map { |k| k.to_s }.sort.should == @commands.keys.map { |k| k.to_s }.sort
     cmds.values.all? { |v| v.is_a? Proc }.should be_true
@@ -52,23 +58,24 @@ describe RightScale::InstanceCommands do
   describe "run_recipe command" do
 
     before(:each) do
-      @forwarder = flexmock("forwarder")
-      flexmock(RightScale::RequestForwarder).should_receive(:instance).and_return(@forwarder)
-      @commands = RightScale::InstanceCommands.new(@agent_identity, @scheduler)
+      @commands = RightScale::InstanceCommands.new(@agent_identity, @scheduler, @agent_manager)
     end
 
     it 'should execute locally via forwarder' do
       options = {:recipe => "recipe"}
       payload = options.merge(:agent_identity => @agent_identity)
-      @forwarder.should_receive(:send_push).with("/forwarder/schedule_recipe", payload, {}).once
-      flexmock(RightScale::CommandIO.instance).should_receive(:reply).once
+      @mapper_proxy.should_receive(:persistent_non_duplicate_request).
+              with("/forwarder/schedule_recipe", payload, nil, {:offline_queueing => true}, Proc).once
       @commands.send(:run_recipe_command, {:conn => 42, :options => options}).should be_true
     end
 
     it 'should execute remotely if target tags specified' do
-      options = {:recipe => "recipe", :tags => "tags", :selector => :all}
+      targets = {:tags => ["tag"], :selector => :all}
+      options = {:recipe => "recipe"}
       payload = options.merge(:agent_identity => @agent_identity)
-      @forwarder.should_receive(:send_push).with("/instance_scheduler/execute", payload, :tags => "tags", :selector => :all).once
+      options.merge!(targets)
+      @mapper_proxy.should_receive(:persistent_push).
+              with("/instance_scheduler/execute", payload, targets, {:offline_queueing => true}).once
       flexmock(RightScale::CommandIO.instance).should_receive(:reply).once
       @commands.send(:run_recipe_command, {:conn => 42, :options => options}).should be_true
     end
@@ -78,23 +85,24 @@ describe RightScale::InstanceCommands do
   describe "run_right_script command" do
 
     before(:each) do
-      @forwarder = flexmock("forwarder")
-      flexmock(RightScale::RequestForwarder).should_receive(:instance).and_return(@forwarder)
-      @commands = RightScale::InstanceCommands.new(@agent_identity, @scheduler)
+      @commands = RightScale::InstanceCommands.new(@agent_identity, @scheduler, @agent_manager)
     end
 
     it 'should execute locally via forwarder' do
       options = {:right_script => "right script"}
       payload = options.merge(:agent_identity => @agent_identity)
-      @forwarder.should_receive(:send_push).with("/forwarder/schedule_right_script", payload, {}).once
-      flexmock(RightScale::CommandIO.instance).should_receive(:reply).once
+      @mapper_proxy.should_receive(:persistent_non_duplicate_request).
+              with("/forwarder/schedule_right_script", payload, nil, {:offline_queueing => true}, Proc).once
       @commands.send(:run_right_script_command, {:conn => 42, :options => options}).should be_true
     end
 
     it 'should execute remotely if target tags specified' do
-      options = {:right_script => "right script", :tags => "tags", :selector => :all}
+      targets = {:tags => ["tag"], :selector => :all}
+      options = {:right_script => "right script"}
       payload = options.merge(:agent_identity => @agent_identity)
-      @forwarder.should_receive(:send_push).with("/instance_scheduler/execute", payload, :tags => "tags", :selector => :all).once
+      options.merge!(targets)
+      @mapper_proxy.should_receive(:persistent_push).
+              with("/instance_scheduler/execute", payload, targets, {:offline_queueing => true}).once
       flexmock(RightScale::CommandIO.instance).should_receive(:reply).once
       @commands.send(:run_right_script_command, {:conn => 42, :options => options}).should be_true
     end

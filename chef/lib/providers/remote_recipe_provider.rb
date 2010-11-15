@@ -46,7 +46,7 @@ class Chef
         attributes    = { :remote_recipe => { :tags => tags,
                                               :from => agent_options[:identity] } }
         attributes.merge!(@new_resource.attributes) if @new_resource.attributes
-        options = { :recipe => @new_resource.recipe, :json => attributes.to_json }
+        payload = { :recipe => @new_resource.recipe, :json => attributes.to_json }
         if recipients && !recipients.empty?
           target = if (s = recipients.size) == 1
                      'one remote instance'
@@ -55,12 +55,11 @@ class Chef
                    end
           Chef::Log.info("Scheduling execution of #{@new_resource.recipe.inspect} on #{target}")
           recipients.each do |recipient|
-            RightScale::Cook.instance.send_push('/instance_scheduler/execute', options,
-                                                :target => recipient)
+            RightScale::Cook.instance.push('/instance_scheduler/execute', payload, recipient)
           end
         end
         if tags && !tags.empty?
-          selector = (@new_resource.scope == :single ? :random : :all)
+          selector = (@new_resource.scope == :single ? :any : :all)
           target_tag = if tags.size == 1
                          "tag #{tags.first.inspect}"
                        else
@@ -72,8 +71,7 @@ class Chef
                      "one instance with #{target_tag}"
                    end
           Chef::Log.info("Scheduling execution of #{@new_resource.recipe.inspect} on #{target}")
-          RightScale::Cook.instance.send_push('/instance_scheduler/execute', options,
-                                              :tags => tags, :selector => selector)
+          RightScale::Cook.instance.push('/instance_scheduler/execute', payload, {:tags => tags, :selector => selector})
         end
         true
       end

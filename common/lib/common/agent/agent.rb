@@ -67,7 +67,7 @@ module RightScale
     DEFAULT_OPTIONS = COMMON_DEFAULT_OPTIONS.merge({
       :user            => 'agent',
       :shared_queue    => false,
-      :fresh_timeout   => nil,
+      :time_to_live    => 0,
       :retry_interval  => nil,
       :retry_timeout   => nil,
       :connect_timeout => 60,
@@ -75,7 +75,6 @@ module RightScale
       :check_interval  => 5 * 60,
       :grace_timeout   => 30,
       :prefetch        => 1,
-      :persist         => 'none'
     }) unless defined?(DEFAULT_OPTIONS)
 
     # Initializes a new agent and establishes an AMQP connection.
@@ -96,16 +95,10 @@ module RightScale
     #   :daemonize(Boolean):: true indicates to daemonize
     #   :pid_dir(String):: Path to the directory where the agent stores its pid file (only if daemonized).
     #     Defaults to the root or the current working directory.
-    #   :persist(String):: Instructions for the AMQP broker for saving messages to persistent storage
-    #     so they aren't lost when the broker is restarted:
-    #       none - do not persist any messages
-    #       all - persist all push and request messages
-    #       push - only persist one-way request messages
-    #       request - only persist two-way request messages and their associated result
-    #     Can be overridden on a per-message basis using the persistence option.
-    #   :fresh_timeout(Numeric):: Maximum age in seconds before a request times out and is rejected
     #   :retry_interval(Numeric):: Number of seconds between request retries
     #   :retry_timeout(Numeric):: Maximum number of seconds to retry request before give up
+    #   :time_to_live(Integer):: Number of seconds before a request expires and is to be ignored
+    #     by the receiver, 0 means never expire, defaults to 0
     #   :connect_timeout:: Number of seconds to wait for a broker connection to be established
     #   :ping_interval(Integer):: Minimum number of seconds since last message receipt to ping the mapper
     #     to check connectivity, defaults to 0 meaning do not ping
@@ -114,6 +107,8 @@ module RightScale
     #     will cause this to backoff exponentially up to HA_MQ::MAX_FAILED_BACKOFF times this interval
     #   :grace_timeout(Numeric):: Maximum number of seconds to wait after last request received before
     #     terminating regardless of whether there are still unfinished requests
+    #   :dup_check(Boolean):: Whether to check for and reject duplicate requests, e.g., due to retries,
+    #     but only for requests that are dispatched from non-shared queues
     #   :prefetch(Integer):: Maximum number of messages the AMQP broker is to prefetch for this agent
     #     before it receives an ack. Value 1 ensures that only last unacknowledged gets redelivered
     #     if the agent crashes. Value 0 means unlimited prefetch.
@@ -263,10 +258,7 @@ module RightScale
       @tags += (new_tags || [])
       @tags -= (obsolete_tags || [])
       @tags.uniq!
-      exchange = {:type => :fanout, :name => "request", :options => {:no_declare => @options[:secure], :durable => true}}
-      packet = Push.new("/mapper/update_tags", {:new_tags => new_tags, :obsolete_tags => obsolete_tags},
-                        :from => @identity, :persistent => true)
-      publish(exchange, packet, :persistent => true) unless @terminating
+      @mapper_proxy.persistent_push("/mapper/update_tags", :new_tags => new_tags, :obsolete_tags => obsolete_tags)
       true
     end
 
@@ -286,7 +278,7 @@ module RightScale
     # === Return
     # res(String|nil):: Error message if failed, otherwise nil
     def connect(host, port, alias_id, priority = nil, force = false)
-      @connect_requests.update("connect (b#{alias_id})")
+      @connect_requests.update("connect b#{alias_id}")
       if @is_instance_agent
         even_if = " even if already connected" if force
         RightLinkLog.info("Received request to connect to broker at host #{host.inspect} port #{port.inspect} " +
@@ -340,34 +332,34 @@ module RightScale
       RightLinkLog.info("Received request to disconnect#{and_remove} broker at host #{host.inspect} " +
                         "port #{port.inspect}")
       RightLinkLog.info("Current broker configuration: #{@broker.status.inspect}")
-      identity = HA_MQ.identity(host, port)
-      @connect_requests.update("disconnect (#{@broker.alias_(identity)})")
+      id = HA_MQ.identity(host, port)
+      @connect_requests.update("disconnect #{@broker.alias_(id)}")
       connected = @broker.connected
       res = nil
-      if connected.include?(identity) && connected.size == 1
-        res = "Cannot disconnect from #{identity} because it is the last connected broker for this agent"
-      elsif @broker.get(identity)
+      if connected.include?(id) && connected.size == 1
+        res = "Cannot disconnect from #{id} because it is the last connected broker for this agent"
+      elsif @broker.get(id)
         begin
-          if connected.include?(identity)
+          if connected.include?(id)
             # Need to advertise that no longer connected so that no more messages are routed through it
-            connected.delete(identity)
+            connected.delete(id)
             advertise_services if remove
           end
           if remove
-            @broker.remove(host, port) do |identity|
+            @broker.remove(host, port) do |id|
               unless update_configuration(:host => @broker.hosts, :port => @broker.ports)
-                res = "Successfully disconnected from broker #{identity} but failed to update config file"
+                res = "Successfully disconnected from broker #{id} but failed to update config file"
               end
             end
           else
-            @broker.close_one(identity)
+            @broker.close_one(id)
           end
         rescue Exception => e
-          res = "Failed to disconnect from broker #{identity}: #{e}"
+          res = "Failed to disconnect from broker #{id}: #{e}"
           @exceptions.track("disconnect", e)
         end
       else
-        res = "Cannot disconnect from broker #{identity} because not configured for this agent"
+        res = "Cannot disconnect from broker #{id} because not configured for this agent"
       end
       RightLinkLog.error(res) if res
       res
@@ -384,7 +376,7 @@ module RightScale
     # res(String|nil):: Error message if failed, otherwise nil
     def connect_failed(ids)
       aliases = @broker.aliases(ids).join(", ")
-      @connect_requests.update("enroll failed (#{aliases})")
+      @connect_requests.update("enroll failed #{aliases}")
       res = nil
       begin
         RightLinkLog.info("Received indication that service initialization for this agent for brokers #{ids.inspect} has failed")
@@ -392,9 +384,7 @@ module RightScale
         ignored = connected & ids
         RightLinkLog.info("Not marking brokers #{ignored.inspect} as unusable because currently connected") if ignored
         RightLinkLog.info("Current broker configuration: #{@broker.status.inspect}")
-
-        (ids - ignored).each { |id| @broker.declare_unusable(ids) }
-
+        @broker.declare_unusable(ids - ignored)
         if @broker.connected.empty?
           # Evidently no more usable connections, so try recreating all of them now
           @broker.all.each do |id|
@@ -508,10 +498,13 @@ module RightScale
     #   "exceptions"(Hash|nil):: Exceptions raised per category, or nil if none
     #     "total"(Integer):: Total exceptions for this category
     #     "recent"(Array):: Most recent as a hash of "count", "type", "message", "when", and "where"
+    #   "non-deliveries"(Hash):: Message non-delivery activity stats with keys "total", "percent", "last", and "rate"
+    #     with percentage breakdown by request type, or nil if none
     def agent_stats(reset = false)
       stats = {
         "connect requests" => @connect_requests.all,
-        "exceptions"       => @exceptions.stats
+        "exceptions"       => @exceptions.stats,
+        "non-deliveries"   => @non_deliveries.all
       }
       reset_agent_stats if reset
       stats
@@ -523,6 +516,7 @@ module RightScale
     # true:: Always return true
     def reset_agent_stats
       @connect_requests = ActivityStats.new(measure_rate = false)
+      @non_deliveries = ActivityStats.new
       @exceptions = ExceptionStats.new(self, @options[:exception_callback])
       true
     end
@@ -622,6 +616,7 @@ module RightScale
     end
 
     # Setup the queues on the specified brokers for this agent
+    # Also configure message prefetch and message non-delivery handling
     #
     # === Parameters
     # ids(Array):: Identity of brokers for which to subscribe, defaults to all usable
@@ -630,6 +625,21 @@ module RightScale
     # true:: Always return true
     def setup_queues(ids = nil)
       @broker.prefetch(@options[:prefetch]) if @options[:prefetch]
+      @broker.non_delivery do |reason, type, token, from, to|
+        begin
+          @non_deliveries.update(type)
+          reason = case reason
+          when "NO_ROUTE" then OperationResult:NO_ROUTE_TO_TARGET
+          when "NO_CONSUMERS" then OperationResult::TARGET_NOT_CONNECTED
+          else reason.to_s
+          end
+          result = Result.new(token, details[:from], OperationResult.non_delivery(reason), to)
+          @mapper_proxy.handle_response(result)
+        rescue Exception => e
+          RightLinkLog.error("Failed handling non-delivery for <#{token}>", e, :trace)
+          @exceptions.track("message return", e)
+        end
+      end
       @all_setup.each { |setup| @remaining_setup[setup] -= self.__send__(setup, ids) }
       true
     end
@@ -653,23 +663,18 @@ module RightScale
         options.merge!(:exchange2 => {:type => :fanout, :name => "advertise", :options => {:durable => true}})
         {:type => :direct, :name => @identity, :options => {:durable => true, :auto_delete => true}}
       end
-      ids = @broker.subscribe(queue, exchange, options) { |_, packet| receive(packet) }
-    end
-
-    # Handle packet received on identity queue
-    #
-    # === Parameters
-    # packet(RightScale::Packet):: Advertise, Request, Push or Result
-    #
-    # === Return
-    # true:: Always return true
-    def receive(packet)
-      begin
-        case packet
-        when Advertise then advertise_services unless @terminating
-        when Request then @dispatcher.dispatch(packet) unless @terminating
-        when Push then @dispatcher.dispatch(packet) unless @terminating
-        when Result then @mapper_proxy.handle_result(packet)
+      ids = @broker.subscribe(queue, exchange, options) do |_, packet|
+        begin
+          case packet
+          when Advertise     then advertise_services unless @terminating
+          when Push, Request then @dispatcher.dispatch(packet) unless @terminating
+          when Result        then @mapper_proxy.handle_response(packet)
+          end
+          @mapper_proxy.message_received
+          InstanceState.message_received if @is_instance_agent
+        rescue Exception => e
+          RightLinkLog.error("Identity queue processing error: #{e}")
+          @exceptions.track("identity queue", e, packet)
         end
         @mapper_proxy.message_received
         InstanceState.message_received if @is_instance_agent
@@ -700,7 +705,7 @@ module RightScale
       options = {:ack => true, Request => filter, Push => filter, :category => "request", :brokers => ids}
       ids = @broker.subscribe(queue, exchange, options) do |_, request|
         begin
-          @dispatcher.dispatch(request)
+          @dispatcher.dispatch(request, shared = true)
           @mapper_proxy.message_received
         rescue Exception => e
           RightLinkLog.error("Shared queue processing error: #{e}")
@@ -744,7 +749,7 @@ module RightScale
           @broker.failed(backoff = true).each do |id|
             p = {:agent_identity => @identity}
             p[:host], p[:port], p[:id], p[:priority] = @broker.identity_parts(id)
-            @mapper_proxy.send_push("/registrar/connect", p, :token => AgentIdentity.generate, :from => @identity)
+            @mapper_proxy.push("/registrar/connect", p)
           end
         else
           before = after = 0
@@ -796,7 +801,7 @@ module RightScale
     # true:: Always return true
     def publish(exchange, packet, options = {})
       begin
-        @broker.publish(exchange, packet, options)
+        @broker.publish(exchange, packet, options.merge(:mandatory => true))
       rescue Exception => e
         RightLinkLog.error("Failed to publish #{packet.class} to #{exchange[:name]} exchange: #{e}") unless @terminating
         @exceptions.track("publish", e, packet)

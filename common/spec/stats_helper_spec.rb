@@ -24,6 +24,15 @@ require File.join(File.dirname(__FILE__), 'spec_helper')
 
 describe RightScale::StatsHelper do
 
+  before(:all) do
+    @original_recent_size = RightScale::StatsHelper::ActivityStats::RECENT_SIZE
+    RightScale::StatsHelper::ActivityStats.const_set(:RECENT_SIZE, 10)
+  end
+
+  after(:all) do
+    RightScale::StatsHelper::ActivityStats.const_set(:RECENT_SIZE, @original_recent_size)
+  end
+
   include FlexMock::ArgumentTypes
 
   describe "ActivityStats" do
@@ -75,6 +84,32 @@ describe RightScale::StatsHelper do
       @stats.instance_variable_get(:@count_per_type).should == {}
     end
 
+    it "should limit length of type string when submitting update" do
+      flexmock(Time).should_receive(:now).and_return(1000010)
+      @stats.update("test 12345678901234567890123456789012345678901234567890123456789")
+      @stats.instance_variable_get(:@total).should == 1
+      @stats.instance_variable_get(:@count_per_type).should ==
+              {"test 1234567890123456789012345678901234567890123456789012..." => 1}
+    end
+
+    it "should not convert symbol or boolean to string when submitting update" do
+      flexmock(Time).should_receive(:now).and_return(1000010)
+      @stats.update(:test)
+      @stats.update(true)
+      @stats.update(false)
+      @stats.instance_variable_get(:@total).should == 3
+      @stats.instance_variable_get(:@count_per_type).should == {:test => 1, true => 1, false => 1}
+    end
+
+    it "should convert arbitrary type value to limited-length string when submitting update" do
+      flexmock(Time).should_receive(:now).and_return(1000010)
+      @stats.update({1 => 11, 2 => 22})
+      @stats.update({1 => 11, 2 => 22, 3 => 12345678901234567890123456789012345678901234567890123456789})
+      @stats.instance_variable_get(:@total).should == 2
+      @stats.instance_variable_get(:@count_per_type).should == {"{1=>11, 2=>22}" => 1,
+                                                                "{1=>11, 2=>22, 3=>123456789012345678901234567890123456789..." => 1}
+    end
+
     it "should not measure rate if disabled" do
       @stats = RightScale::StatsHelper::ActivityStats.new(false)
       flexmock(Time).should_receive(:now).and_return(1000010)
@@ -84,6 +119,7 @@ describe RightScale::StatsHelper do
       @stats.instance_variable_get(:@avg_duration).should be_nil
       @stats.instance_variable_get(:@total).should == 1
       @stats.instance_variable_get(:@count_per_type).should == {}
+      @stats.all.should == {"last" => {"elapsed"=>0}, "total" => 1}
     end
 
     it "should update duration when finish using internal start time by default" do
@@ -400,19 +436,29 @@ describe RightScale::StatsHelper do
       result.should == "brokers    : b0: rs-broker-localhost-5672 connected, disconnects: none, failures: none\n" +
                        "             b1: rs-broker-localhost-5673 disconnected, disconnects: 2 (16 min 40 sec ago), failures: none\n" +
                        "             b2: rs-broker-localhost-5674 failed, disconnects: none, failures: 3 (16 min 40 sec ago w/ 2 retries)\n" +
-                       "             exceptions        : none\n"
+                       "             exceptions        : none\n" +
+                       "             returns           : none\n"
     end
 
-    it "should display broker exceptions" do
+    it "should display broker exceptions and returns" do
       @exceptions.track("testing", Exception.new("Test error"))
       @brokers["exceptions"] = @exceptions.stats
+      activity = RightScale::StatsHelper::ActivityStats.new
+      activity.update("no queue")
+      activity.finish(@now - 10)
+      activity.update("no queue consumers")
+      activity.update("no queue consumers")
+      flexmock(Time).should_receive(:now).and_return(1000010)
+      @brokers["returns"] = activity.all
       result = brokers_str(@brokers, 10)
       result.should == "brokers    : b0: rs-broker-localhost-5672 connected, disconnects: none, failures: none\n" +
                        "             b1: rs-broker-localhost-5673 disconnected, disconnects: 2 (16 min 40 sec ago), failures: none\n" +
                        "             b2: rs-broker-localhost-5674 failed, disconnects: none, failures: 3 (16 min 40 sec ago w/ 2 retries)\n" +
                        "             exceptions        : testing total: 1, most recent:\n" +
                        "                                 (1) Mon Jan 12 05:46:40 Exception: Test error\n" +
-                       "                                     \n"
+                       "                                     \n" +
+                       "             returns           : no queue consumers: 67%, no queue: 33%, total: 3, \n" +
+                       "                                 last: no queue consumers (10 sec ago), rate: 0/sec\n"
     end
 
     it 'should convert activity stats to string' do
@@ -463,7 +509,7 @@ describe RightScale::StatsHelper do
                    "----testing total: 2, most recent:\n" +
                    "----(1) Mon Jan 12 05:46:50 ArgumentError: badarg\n" +
                    "----    Over there\n" +
-                   "----(1) Mon Jan 12 05:46:40 Exception: This is a very long exception message that should be truncate...\n" +
+                   "----(1) Mon Jan 12 05:46:40 Exception: This is a very long exception message that should be trun...\n" +
                    "----    "
     end
 
@@ -570,6 +616,7 @@ describe RightScale::StatsHelper do
                        "              b1: rs-broker-localhost-5673 disconnected, disconnects: 2 (16 min 40 sec ago), failures: none\n" +
                        "              b2: rs-broker-localhost-5674 failed, disconnects: none, failures: 3 (16 min 40 sec ago w/ 2 retries)\n" +
                        "              exceptions        : none\n" +
+                       "              returns           : none\n" +
                        "stuff       : activity %        : testing: 100%, total: 1\n" +
                        "              activity last     : testing: 10 sec ago\n" +
                        "              empty_hash        : none\n" +

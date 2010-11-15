@@ -37,7 +37,7 @@
 #      --options, -o KEY=VAL    Pass-through options
 #      --http-proxy, -P PROXY   Use a proxy for all agent-originated HTTP traffic
 #      --no-http-proxy          Comma-separated list of proxy exceptions
-#      --fresh-timeout SEC      Set maximum age in seconds before a request times out and is rejected
+#      --time-to-live SEC       Set maximum age in seconds before a request expires and is ignored
 #      --retry-timeout SEC      Set maximum number of seconds to retry request before give up
 #      --retry-interval SEC     Set number of seconds before initial request retry, increases exponentially
 #      --check-interval SEC     Set number of seconds between failed connection checks, increases exponentially
@@ -116,10 +116,9 @@ module RightScale
       cfg[:actors]          = options[:actors] if options[:actors]
       cfg[:actors_dir]      = options[:actors_dir] if options[:actors_dir]
       cfg[:prefetch]        = options[:prefetch] || 1
-      cfg[:persist]         = options[:persist] || 'all'
-      cfg[:fresh_timeout]   = options[:fresh_timeout] || 15 * 60
-      cfg[:retry_timeout]   = options[:retry_timeout] || 10 * 60
-      cfg[:retry_interval]  = options[:retry_interval] || 30
+      cfg[:time_to_live]    = options[:time_to_live] || 60
+      cfg[:retry_timeout]   = options[:retry_timeout] || 2 * 60
+      cfg[:retry_interval]  = options[:retry_interval] || 15
       cfg[:ping_interval]   = options[:ping_interval] if options[:ping_interval]
       cfg[:check_interval]  = options[:check_interval] if options[:check_interval]
       cfg[:grace_timeout]   = options[:grace_timeout] if options[:grace_timeout]
@@ -192,8 +191,8 @@ module RightScale
           options[:no_http_proxy] = no_proxy
         end
 
-        opts.on('--fresh-timeout SEC') do |sec|
-          options[:fresh_timeout] = sec.to_i
+        opts.on('--time-to-live SEC') do |sec|
+          options[:time_to_live] = sec.to_i
         end
 
         opts.on('--retry-timeout SEC') do |sec|
@@ -218,10 +217,6 @@ module RightScale
 
         opts.on('--[no-]dup-check') do |b|
           options[:dup_check] = b
-        end
-
-        opts.on('--persist SET') do |set|
-          options[:persist] = set
         end
 
         opts.on('--prefetch COUNT') do |count|

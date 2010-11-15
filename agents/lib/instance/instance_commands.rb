@@ -34,8 +34,11 @@ module RightScale
       :list                     => 'List all available commands with their description',
       :run_recipe               => 'Run recipe with id given in options[:id] and optionally JSON given in options[:json]',
       :run_right_script         => 'Run RightScript with id given in options[:id] and arguments given in hash options[:arguments] (e.g. { \'application\' => \'text:Mephisto\' })',
-      :send_request             => 'Send request to remote agent',
-      :send_push                => 'Send push to remote agent',
+      :send_push                => 'Send request to one or more remote agents with no response expected',
+      :send_persistent_push     => 'Send request to one or more remote agents with no response expected with persistence en route',
+      :send_timeout_retry_request => 'Send request to a remote agent with a response expected and retry if response times out',
+      :send_persistent_non_duplicate_request => 'Send request to a remote agent with a response expected with persistence ' +
+                                   'en route and no retries that would result in it being duplicated',
       :set_log_level            => 'Set log level to options[:level]',
       :get_log_level            => 'Get log level',
       :decommission             => 'Run instance decommission bundle synchronously',
@@ -51,7 +54,8 @@ module RightScale
       :audit_append_error       => 'Append error message to audit',
       :set_inputs_patch         => 'Set inputs patch post execution',
       :check_connectivity       => 'Check whether the instance is able to communicate',
-      :close_connection         => 'Close persistent connection (used for auditing)'
+      :close_connection         => 'Close persistent connection (used for auditing)',
+      :stats                    => 'Get statistics about instance agent operation'
     }
 
     # Build hash of commands associating command names with block
@@ -59,12 +63,13 @@ module RightScale
     # === Parameters
     # agent_identity(String):: Serialized instance agent identity
     # scheduler(InstanceScheduler):: Scheduler used by decommission command
+    # agent_manager(AgentManager):: Agent manager used by stats command
     #
     # === Return
     # cmds(Hash):: Hash of command blocks keyed by command names
-    def self.get(agent_identity, scheduler)
+    def self.get(agent_identity, scheduler, agent_manager)
       cmds = {}
-      target = new(agent_identity, scheduler)
+      target = new(agent_identity, scheduler, agent_manager)
       COMMANDS.each { |k, _| cmds[k] = lambda { |opts, conn| opts[:conn] = conn; target.send("#{k.to_s}_command", opts) } }
       cmds
     end
@@ -74,10 +79,12 @@ module RightScale
     # === Parameter
     # agent_identity(String):: Serialized instance agent identity
     # scheduler(InstanceScheduler):: Scheduler used by decommission command
-    def initialize(agent_identity, scheduler)
+    # agent_manager(AgentManager):: Agent manager used by stats command
+    def initialize(agent_identity, scheduler, agent_manager)
       @agent_identity = agent_identity
       @scheduler = scheduler
       @serializer = Serializer.new
+      @agent_manager = agent_manager
     end
 
     protected
@@ -108,12 +115,14 @@ module RightScale
     # true:: Always return true
     def run_recipe_command(opts)
       payload = opts[:options] || {}
-      if payload[:tags]
-        options = {:tags => payload[:tags]}
-        options[:selector] = payload[:selector] if payload[:selector]
-        send_push('/instance_scheduler/execute', opts[:conn], payload, options)
+      target = {}
+      target[:tags] = payload.delete(:tags) if payload[:tags]
+      target[:scope] = payload.delete(:scope) if payload[:scope]
+      target[:selector] = payload.delete(:selector) if payload[:selector]
+      if (target[:tags] && !target[:tags].empty?) || target[:scope] || (target[:selector] && target(:selector) == :all)
+        send_persistent_push("/instance_scheduler/execute", opts[:conn], payload, target)
       else
-        send_push('/forwarder/schedule_recipe', opts[:conn], payload)
+        send_persistent_non_duplicate_request("/forwarder/schedule_recipe", opts[:conn], payload)
       end
     end
 
@@ -128,43 +137,85 @@ module RightScale
     # true:: Always return true
     def run_right_script_command(opts)
       payload = opts[:options] || {}
-      if payload[:tags]
-        options = {:tags => payload[:tags]}
-        options[:selector] = payload[:selector] if payload[:selector]
-        send_push('/instance_scheduler/execute', opts[:conn], payload, options)
+      target = {}
+      target[:tags] = payload.delete(:tags) if payload[:tags]
+      target[:scope] = payload.delete(:scope) if payload[:scope]
+      target[:selector] = payload.delete(:selector) if payload[:selector]
+      if (target[:tags] && !target[:tags].empty?) || target[:scope] || (target[:selector] && target(:selector) == :all)
+        send_persistent_push("/instance_scheduler/execute", opts[:conn], payload, target)
       else
-        send_push('/forwarder/schedule_right_script', opts[:conn], payload)
+        send_persistent_non_duplicate_request("/forwarder/schedule_right_script", opts[:conn], payload)
       end
     end
 
-    # Send request to remote agent
+    # Send a request to one or more targets with no response expected
     #
     # === Parameters
     # opts[:conn](EM::Connection):: Connection used to send reply
     # opts[:type](String):: Request type
-    # opts[:payload](String):: Request payload
-    # opts[:options](Hash):: Request options
-    #
-    # === Return
-    # true:: Always return true
-    def send_request_command(opts)
-      send_request(opts[:type], opts[:conn], opts[:payload], opts[:options])
-    end
-
-    # Send push to remote agent
-    #
-    # === Parameters
-    # opts[:conn](EM::Connection):: Connection used to send reply
-    # opts[:type](String):: Request type
-    # opts[:payload](String):: Request payload
+    # opts[:payload](String):: Request data, optional
+    # opts[:target](String|Hash):: Request target or target selectors, optional
     # opts[:options](Hash):: Request options
     #
     # === Return
     # true:: Always return true
     def send_push_command(opts)
-      send_push(opts[:type], opts[:conn], opts[:payload], opts[:options])
+      send_push(opts[:type], opts[:conn], opts[:payload], opts[:target], opts[:options])
     end
-    
+
+    # Send a request to one or more targets with no response expected
+    # Persist the request en route to reduce the chance of it being lost at the expense of some
+    # additional network overhead
+    #
+    # === Parameters
+    # opts[:conn](EM::Connection):: Connection used to send reply
+    # opts[:type](String):: Request type
+    # opts[:payload](String):: Request data, optional
+    # opts[:target](String|Hash):: Request target or target selectors, optional
+    # opts[:options](Hash):: Request options
+    #
+    # === Return
+    # true:: Always return true
+    def send_persistent_push_command(opts)
+      send_persistent_push(opts[:type], opts[:conn], opts[:payload], opts[:target], opts[:options])
+    end
+
+    # Send a request to a single target with a response expected
+    # Automatically retry the request if the response is not received in a reasonable amount of time
+    # Timeout the request if a response is not received in time, typically configured to 2 minutes
+    # Allow the request to expire per the agent's configured time-to-live, typically 1 minute
+    #
+    # === Parameters
+    # opts[:conn](EM::Connection):: Connection used to send reply
+    # opts[:type](String):: Request type
+    # opts[:payload](String):: Request data, optional
+    # opts[:target](String|Hash):: Request target or target selectors (random pick if multiple), optional
+    # opts[:options](Hash):: Request options
+    #
+    # === Return
+    # true:: Always return true
+    def send_timeout_retry_request_command(opts)
+      send_timeout_retry_request(opts[:type], opts[:conn], opts[:payload], opts[:target], opts[:options])
+    end
+
+    # Send a request to a single target with a response expected
+    # Persist the request en route to reduce the chance of it being lost at the expense of some
+    # additional network overhead
+    # Never retry the request if there is the possibility of it being duplicated
+    #
+    # === Parameters
+    # opts[:conn](EM::Connection):: Connection used to send reply
+    # opts[:type](String):: Request type
+    # opts[:payload](String):: Request data, optional
+    # opts[:target](String|Hash):: Request target or target selectors (random pick if multiple), optional
+    # opts[:options](Hash):: Request options
+    #
+    # === Return
+    # true:: Always return true
+    def send_persistent_non_duplicate_request_command(opts)
+      send_persistent_non_duplicate_request(opts[:type], opts[:conn], opts[:payload], opts[:target], opts[:options])
+    end
+
     # Set log level command
     #
     # === Parameters
@@ -258,7 +309,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def query_tags_command(opts)
-      send_request('/mapper/query_tags', opts[:conn], :tags => opts[:tags])
+      send_persistent_non_duplicate_request('/mapper/query_tags', opts[:conn], :tags => opts[:tags])
     end
 
     # Update audit summary
@@ -335,8 +386,8 @@ module RightScale
     # === Return
     # true:: Always return true
     def set_inputs_patch_command(opts)
-      RightScale::RequestForwarder.instance.send_push('/updater/update_inputs', { :agent_identity => @agent_identity,
-                                                                                  :patch          => opts[:patch] })
+      payload = {:agent_identity => @agent_identity, :patch => opts[:patch]}
+      send_persistent_push("/updater/update_inputs", opts[:conn], payload, nil, opts)
       CommandIO.instance.reply(opts[:conn], 'OK')
     end
 
@@ -345,7 +396,8 @@ module RightScale
     # === Return
     # true:: Always return true
     def check_connectivity_command(opts)
-      send_request("/mapper/ping", opts[:conn], {})
+      send_persistent_non_duplicate_request("/mapper/ping", opts[:conn], nil, nil, opts)
+      true
     end
 
     # Close connection
@@ -354,42 +406,66 @@ module RightScale
       CommandIO.instance.reply(opts[:conn], 'OK')
     end
 
-    # Helper method that sends given request and report status through command IO
-    #
-    # === Parameters
-    # request(String):: Request that should be sent
-    # payload(Hash):: Request data
-    # conn(EM::Connection):: Connection used to send reply
-    # options(Hash):: Request options
-    #
-    # === Return
-    # true:: Always return true
-    def send_request(request, conn, payload, options = {})
+    # Helper method to send a request to one or more targets with no response expected
+    # See MapperProxy for details
+    def send_push(type, conn, payload = {}, target = nil, opts = {})
       payload[:agent_identity] = @agent_identity
-      RequestForwarder.instance.send_request(request, payload, options) do |r|
+      MapperProxy.instance.push(type, payload, target, opts.merge(:offline_queueing => true))
+      CommandIO.instance.reply(conn, 'OK')
+      true
+    end
+
+    # Helper method to send a request to one or more targets with no response expected
+    # The request is persisted en route to reduce the chance of it being lost at the expense of some
+    # additional network overhead
+    # See MapperProxy for details
+    def send_persistent_push(type, conn, payload = {}, target = nil, opts = {})
+      payload[:agent_identity] = @agent_identity
+      MapperProxy.instance.persistent_push(type, payload, target, opts.merge(:offline_queueing => true))
+      CommandIO.instance.reply(conn, 'OK')
+      true
+    end
+
+    # Helper method to send a request to a single target with a response expected
+    # The request is retried if the response is not received in a reasonable amount of time
+    # The request is timed out if not received in time, typically configured to 2 minutes
+    # The request is allowed to expire per the agent's configured time-to-live, typically 1 minute
+    # See MapperProxy for details
+    def send_timeout_retry_request(type, conn, payload = {}, target = nil, opts = {})
+      payload[:agent_identity] = @agent_identity
+      MapperProxy.instance.timeout_retry_request(type, payload, target, opts.merge(:offline_queueing => true)) do |r|
         reply = @serializer.dump(r) rescue '\"Failed to serialize response\"'
         CommandIO.instance.reply(conn, reply)
       end
       true
     end
 
-    # Helper method that sends given one-way request
-    #
-    # === Parameters
-    # request(String):: Request that should be sent
-    # conn(EM::Connection):: Connection used to send reply
-    # payload(Hash):: Request data
-    # options(Hash):: Request options
-    #
-    # === Return
-    # true:: Always return true
-    def send_push(request, conn, payload, options = {})
+    # Helper method to send a request to a single target with a response expected
+    # The request is persisted en route to reduce the chance of it being lost at the expense of some
+    # additional network overhead
+    # The request is never retried if there is the possibility of it being duplicated
+    # See MapperProxy for details
+    def send_persistent_non_duplicate_request(type, conn, payload = {}, target = nil, opts = {})
       payload[:agent_identity] = @agent_identity
-      RequestForwarder.instance.send_push(request, payload, options)
-      CommandIO.instance.reply(conn, 'OK')
+      MapperProxy.instance.persistent_non_duplicate_request(type, payload, target, opts.merge(:offline_queueing => true)) do |r|
+        reply = JSON.dump(r) rescue '\"Failed to serialize response\"'
+        CommandIO.instance.reply(conn, reply)
+      end
       true
     end
 
-  end
+    # Stats command
+    #
+    # === Parameters
+    # opts[:conn](EM::Connection):: Connection used to send reply
+    # opts[:reset](Boolean):: Whether to reset stats
+    #
+    # === Return
+    # true:: Always return true
+    def stats_command(opts)
+      CommandIO.instance.reply(opts[:conn], JSON.dump(@agent_manager.stats({:reset => opts[:reset]})))
+    end
 
-end
+  end # InstanceCommands
+
+end # RightScale

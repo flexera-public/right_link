@@ -162,6 +162,14 @@ module RightScale
       nil
     end
 
+    # Whether the packet is one that does not have an associated response
+    #
+    # === Return
+    # (Boolean):: Defaults to true
+    def one_way
+      true
+    end
+
     # Generate token used to trace execution of operation across multiple packets
     #
     # === Return
@@ -209,27 +217,27 @@ module RightScale
   # Packet for a work request for an actor node that has an expected result
   class Request < Packet
 
-    attr_accessor :from, :scope, :payload, :type, :token, :reply_to, :selector, :target, :persistent, :created_at,
+    attr_accessor :from, :scope, :payload, :type, :token, :reply_to, :selector, :target, :persistent, :expires_at,
                   :tags, :tries
 
-    DEFAULT_OPTIONS = {:selector => :random}
+    DEFAULT_OPTIONS = {:selector => :any}
 
     # Create packet
     #
     # === Parameters
-    # type(String):: Service name
+    # type(String):: Dispatch route for the request
     # payload(Any):: Arbitrary data that is transferred to actor
     # opts(Hash):: Optional settings:
     #   :from(String):: Sender identity
     #   :scope(Hash):: Define behavior that should be used to resolve tag based routing
     #   :token(String):: Generated request id that a mapper uses to identify replies
     #   :reply_to(String):: Identity of the node that actor replies to, usually a mapper itself
-    #   :selector(Symbol):: Selector used to route the request: :all or :random
+    #   :selector(Symbol):: Selector used to route the request: :any or :all
     #   :target(String):: Target recipient
     #   :persistent(Boolean):: Indicates if this request should be saved to persistent storage
     #     by the AMQP broker
-    #   :created_at(Fixnum):: Time in seconds in Unix-epoch when this request was created for
-    #      use in timing out the request; value 0 means never timeout; defaults to current time
+    #   :expires_at(Integer|nil):: Time in seconds in Unix-epoch when this request expires and
+    #      is to be ignored by the receiver; value 0 means never expire; defaults to 0
     #   :tags(Array(Symbol)):: List of tags to be used for selecting target for this request
     #   :tries(Array):: List of tokens for previous attempts to send this request
     # version(Array):: Protocol version of the original creator of the packet followed by the
@@ -244,23 +252,23 @@ module RightScale
       @token      = opts[:token]
       @reply_to   = opts[:reply_to]
       @selector   = opts[:selector]
-      @selector   = :random if @selector.to_s == "least_loaded"
+      @selector   = :any if ["least_loaded", "random"].include?(@selector.to_s)
       @target     = opts[:target]
       @persistent = opts[:persistent]
-      @created_at = opts[:created_at] || Time.now.to_f
+      @expires_at = opts[:expires_at] || 0
       @tags       = opts[:tags] || []
       @tries      = opts[:tries] || []
       @version    = version
       @size       = size
     end
 
-    # Test whether the request potentially is expecting results from multiple agents
-    # The initial result for any such request contains a list of the responders
+    # Test whether the request is being fanned out to multiple targets
+    # Two-way request fanout is deprecated for version 13 and above
     #
     # === Return
     # (Boolean):: true if is multicast, otherwise false
-    def multicast?
-      (!@scope.nil?) || (@selector.to_s == 'all') || (!@tags.nil? && !@tags.empty?)
+    def fanout?
+      (@selector.nil? || @selector.to_s == 'all') && ((!@scope.nil?) || (!@tags.nil? && !@tags.empty?))
     end
 
     # Create packet from unmarshalled data
@@ -272,11 +280,17 @@ module RightScale
     # (Request):: New packet
     def self.create(o)
       i = o['data']
-      new(i['type'], i['payload'], { :from       => self.compatible(i['from']), :scope    => i['scope'],
-                                     :token      => i['token'],                 :reply_to => self.compatible(i['reply_to']),
-                                     :selector   => i['selector'],              :target   => self.compatible(i['target']),
-                                     :persistent => i['persistent'],            :tags     => i['tags'],
-                                     :created_at => i['created_at'],            :tries    => i['tries'] },
+      expires_at = if i.has_key?('created_at')
+        created_at = i['created_at'].to_i
+        created_at > 0 ? created_at + (15 * 60) : 0
+      else
+        i['expires_at']
+      end
+      new(i['type'], i['payload'], { :from       => self.compatible(i['from']), :scope      => i['scope'],
+                                     :token      => i['token'],                 :reply_to   => self.compatible(i['reply_to']),
+                                     :selector   => i['selector'],              :target     => self.compatible(i['target']),
+                                     :persistent => i['persistent'],            :tags       => i['tags'],
+                                     :expires_at => expires_at,                 :tries      => i['tries'] },
           i['version'] || [DEFAULT_VERSION, DEFAULT_VERSION], o['size'])
     end
 
@@ -295,7 +309,7 @@ module RightScale
       log_msg += " from #{id_to_s(@from)}" if filter.nil? || filter.include?(:from)
       log_msg += ", target #{id_to_s(@target)}" if @target && (filter.nil? || filter.include?(:target))
       log_msg += ", scope #{@scope}" if @scope && (filter.nil? || filter.include?(:scope))
-      log_msg += ", multicast" if (filter.nil? || filter.include?(:multicast)) && multicast?
+      log_msg += ", fanout" if (filter.nil? || filter.include?(:fanout)) && fanout?
       log_msg += ", reply_to #{id_to_s(@reply_to)}" if @reply_to && (filter.nil? || filter.include?(:reply_to))
       log_msg += ", tags #{@tags.inspect}" if @tags && !@tags.empty? && (filter.nil? || filter.include?(:tags))
       log_msg += ", persistent" if @persistent && (filter.nil? || filter.include?(:persistent))
@@ -309,9 +323,7 @@ module RightScale
     # === Return
     # log_msg(String):: Tries list
     def tries_to_s
-      log_msg = ""
-      @tries.each { |r| log_msg += "<#{r}>, " }
-      log_msg = log_msg[0..-3] if log_msg.size > 1
+      @tries.map { |t| "<#{t}>" }.join(", ")
     end
 
     # Get target to be used for encrypting the packet
@@ -322,31 +334,39 @@ module RightScale
       @target
     end
 
+    # Whether the packet is one that does not have an associated response
+    #
+    # === Return
+    # false:: Always return false
+    def one_way
+      false
+    end
+
   end # Request
 
 
   # Packet for a work request for an actor node that has no result, i.e., one-way request
   class Push < Packet
 
-    attr_accessor :from, :scope, :payload, :type, :token, :selector, :target, :persistent, :created_at, :tags
+    attr_accessor :from, :scope, :payload, :type, :token, :selector, :target, :persistent, :expires_at, :tags
 
-    DEFAULT_OPTIONS = {:selector => :random}
+    DEFAULT_OPTIONS = {:selector => :any}
 
     # Create packet
     #
     # === Parameters
-    # type(String):: Service name
+    # type(String):: Dispatch route for the request
     # payload(Any):: Arbitrary data that is transferred to actor
     # opts(Hash):: Optional settings:
     #   :from(String):: Sender identity
     #   :scope(Hash):: Define behavior that should be used to resolve tag based routing
     #   :token(String):: Generated request id that a mapper uses to identify replies
-    #   :selector(Symbol):: Selector used to route the request: :all or :random
+    #   :selector(Symbol):: Selector used to route the request: :any or :all
     #   :target(String):: Target recipient
     #   :persistent(Boolean):: Indicates if this request should be saved to persistent storage
     #     by the AMQP broker
-    #   :created_at(Fixnum):: Time in seconds in Unix-epoch when this request was created for
-    #     use in timing out the request; value 0 means never timeout; defaults to current time
+    #   :expires_at(Integer|nil):: Time in seconds in Unix-epoch when this request expires and
+    #      is to be ignored by the receiver; value 0 means never expire; defaults to 0
     #   :tags(Array(Symbol)):: List of tags to be used for selecting target for this request
     #   :tries(Array):: List of tokens for previous attempts to send this request (only here
     #     for consistency with Request)
@@ -361,21 +381,21 @@ module RightScale
       @scope      = opts[:scope]
       @token      = opts[:token]
       @selector   = opts[:selector]
-      @selector   = :random if @selector.to_s == "least_loaded"
+      @selector   = :any if ["least_loaded", "random"].include?(@selector.to_s)
       @target     = opts[:target]
       @persistent = opts[:persistent]
-      @created_at = opts[:created_at] || Time.now.to_f
+      @expires_at = opts[:expires_at] || 0
       @tags       = opts[:tags] || []
       @version    = version
       @size       = size
     end
 
-    # Test whether the request potentially is being sent to multiple agents
+    # Test whether the request is being fanned out to multiple targets
     #
     # === Return
     # (Boolean):: true if is multicast, otherwise false
-    def multicast?
-      (!@scope.nil?) || (@selector.to_s == 'all') || (!@tags.nil? && !@tags.empty?)
+    def fanout?
+      (@selector.nil? || @selector.to_s == 'all') && ((!@scope.nil?) || (!@tags.nil? && !@tags.empty?))
     end
 
     # Keep interface consistent with Request packets
@@ -383,7 +403,9 @@ module RightScale
     #
     # === Return
     # []:: Always return empty array
-    def tries; []; end
+    def tries
+      []
+    end
 
     # Create packet from unmarshalled data
     #
@@ -394,10 +416,16 @@ module RightScale
     # (Push):: New packet
     def self.create(o)
       i = o['data']
+      expires_at = if i.has_key?('created_at')
+        created_at = i['created_at'].to_i
+        created_at > 0 ? created_at + (15 * 60) : 0
+      else
+        i['expires_at']
+      end
       new(i['type'], i['payload'], { :from   => self.compatible(i['from']),   :scope      => i['scope'],
                                      :token  => i['token'],                   :selector   => i['selector'],
                                      :target => self.compatible(i['target']), :persistent => i['persistent'],
-                                     :tags   => i['tags'],                    :created_at => i['created_at'] },
+                                     :tags   => i['tags'],                    :expires_at => expires_at },
           i['version'] || [DEFAULT_VERSION, DEFAULT_VERSION], o['size'])
     end
 
@@ -416,10 +444,9 @@ module RightScale
       log_msg += " from #{id_to_s(@from)}" if filter.nil? || filter.include?(:from)
       log_msg += ", target #{id_to_s(@target)}" if @target && (filter.nil? || filter.include?(:target))
       log_msg += ", scope #{@scope}" if @scope && (filter.nil? || filter.include?(:scope))
-      log_msg += ", multicast" if (filter.nil? || filter.include?(:multicast)) && multicast?
+      log_msg += ", fanout" if (filter.nil? || filter.include?(:fanout)) && fanout?
       log_msg += ", tags #{@tags.inspect}" if @tags && !@tags.empty? && (filter.nil? || filter.include?(:tags))
       log_msg += ", persistent" if @persistent && (filter.nil? || filter.include?(:persistent))
-      log_msg += ", tries #{tries_to_s}" if @tries && !@tries.empty? && (filter.nil? || filter.include?(:tries))
       log_msg += ", payload #{@payload.inspect}" if filter.nil? || filter.include?(:payload)
       log_msg
     end
@@ -438,7 +465,7 @@ module RightScale
   # Packet for a work result notification sent from actor node
   class Result < Packet
 
-    attr_accessor :token, :results, :to, :from, :request_from, :tries, :persistent, :created_at
+    attr_accessor :token, :results, :to, :from, :request_from, :tries, :persistent
 
     # Create packet
     #
@@ -447,16 +474,15 @@ module RightScale
     # to(String):: Identity of the node to which result should be delivered
     # results(Any):: Arbitrary data that is transferred from actor, a result of actor's work
     # from(String):: Sender identity
-    # request_from(String):: Identity of the node that sent the original request
+    # request_from(String):: Identity of the agent that sent the original request
     # tries(Array):: List of tokens for previous attempts to send associated request
     # persistent(Boolean):: Indicates if this result should be saved to persistent storage
     #   by the AMQP broker
-    # created_at(Fixnum):: Time in seconds in Unix-epoch when this result was created
     # version(Array):: Protocol version of the original creator of the packet followed by the
     #   protocol version of the packet contents to be used when sending
     # size(Integer):: Size of request in bytes used only for marshalling
     def initialize(token, to, results, from, request_from = nil, tries = nil, persistent = nil,
-                   created_at = nil, version = [VERSION, VERSION], size = nil)
+                   version = [VERSION, VERSION], size = nil)
       @token        = token
       @to           = to
       @results      = results
@@ -464,7 +490,6 @@ module RightScale
       @request_from = request_from
       @tries        = tries || []
       @persistent   = persistent
-      @created_at   = created_at || Time.now.to_f
       @version      = version
       @size         = size
     end
@@ -479,7 +504,7 @@ module RightScale
     def self.create(o)
       i = o['data']
       new(i['token'], self.compatible(i['to']), i['results'], self.compatible(i['from']),
-          self.compatible(i['request_from']), i['tries'], i['persistent'], i['created_at'],
+          self.compatible(i['request_from']), i['tries'], i['persistent'],
           i['version'] || [DEFAULT_VERSION, DEFAULT_VERSION], o['size'])
     end
 
@@ -500,9 +525,9 @@ module RightScale
       log_msg += ", tries #{tries_to_s}" if @tries && !@tries.empty? && (filter.nil? || filter.include?(:tries))
       if filter.nil? || !filter.include?(:results)
         if !@results.nil?
-          if @results.is_a?(RightScale::OperationResult)
-            res = @results # Will be true when logging a 'SEND'
-          elsif @results.is_a?(Hash) && @results.size == 1 # Will be true when logging a 'RECV'
+          if @results.is_a?(RightScale::OperationResult)   # Will be true when logging a 'SEND'
+            res = @results
+          elsif @results.is_a?(Hash) && @results.size == 1 # Will be true when logging a 'RECV' for version 9 or below
             res = @results.values.first
           end
           log_msg += " #{res.to_s}" if res
@@ -534,210 +559,26 @@ module RightScale
   end # Result
 
 
+  # Deprecated for agents that are version 13 and above
+  #
   # Packet for reporting a stale request packet
   class Stale < Packet
 
-    attr_accessor :identity, :token, :from, :created_at, :received_at, :timeout
-
-    # Create packet
+    # Create non-delivery Result packet from unmarshalled data for Stale packet
     #
     # === Parameters
-    # identity(String):: Identity of agent reporting the stale request
-    # token(String):: Generated id for stale request
-    # from(String):: Identity of originator of stale request
-    # created_at(Fixnum):: Time in seconds in Unix-epoch when originator created message
-    #   plus any mapper adjustment for clock skew
-    # received_at(Fixnum):: Time in seconds in Unix-epoch when agent detected stale message
-    # timeout(Integer):: Maximum message age before considered stale
-    # version(Array):: Protocol version of the original creator of the packet followed by the
-    #   protocol version of the packet contents to be used when sending
-    # size(Integer):: Size of request in bytes used only for marshalling
-    def initialize(identity, token, from, created_at, received_at, timeout, version = [VERSION, VERSION], size = nil)
-      @identity    = identity
-      @token       = token
-      @from        = from
-      @created_at  = created_at
-      @received_at = received_at
-      @timeout     = timeout
-      @version     = version
-      @size        = size
-    end
-
-    # Create packet from unmarshalled data
-    #
-    # === Parameters
-    # o(Hash):: Unmarshalled data
+    # o(Hash):: Unmarshalled data for Stale packet
     #
     # === Return
     # (Result):: New packet
     def self.create(o)
       i = o['data']
-      new(self.compatible(i['identity']), i['token'], self.compatible(i['from']), i['created_at'],
-          i['received_at'], i['timeout'], i['version'] || [DEFAULT_VERSION, DEFAULT_VERSION], o['size'])
-    end
-
-    # Generate log representation
-    #
-    # === Parameters
-    # filter(Array(Symbol)):: Attributes to be included in output
-    # version(Symbol|nil):: Version to display: :recv_version, :send_version, or nil meaning none
-    #
-    # === Return
-    # log_msg(String):: Log representation
-    def to_s(filter = nil, version = nil)
-      log_msg = "#{super(filter, version)} #{trace} #{id_to_s(@identity)}"
-      log_msg += " from #{id_to_s(@from)} created_at #{@created_at.to_i}"
-      log_msg += " received_at #{@received_at.to_i} timeout #{@timeout}"
-      log_msg
+      from = self.compatible(i['from'])
+      Result.new(i['token'], from, OperationResult.non_delivery(OperationResult::TTL_EXPIRATION), i['identity'],
+                 from, tries = nil, persistent = true, version = i['version'] || [DEFAULT_VERSION, DEFAULT_VERSION])
     end
 
   end # Stale
-
-
-  # Deprecated for instance agents that are version 10 and above
-  #
-  # Packet for availability notification from an agent to the mappers
-  class Register < Packet
-
-    attr_accessor :identity, :services, :tags, :brokers, :shared_queue, :created_at
-
-    # Create packet
-    #
-    # === Parameters
-    # identity(String):: Sender identity
-    # services(Array):: List of services provided by the node
-    # tags(Array(Symbol)):: List of tags associated with this service
-    # brokers(Array|nil):: Identity of agent's brokers with nil meaning not supported
-    # shared_queue(String):: Name of a queue shared between this agent and another
-    # created_at(Fixnum):: Time in seconds in Unix-epoch when this registration was created
-    # version(Array):: Protocol version of the original creator of the packet followed by the
-    #   protocol version of the packet contents to be used when sending
-    # size(Integer):: Size of request in bytes used only for marshalling
-    def initialize(identity, services, tags, brokers, shared_queue = nil, created_at = nil,
-                   version = [VERSION, VERSION], size = nil)
-      @tags         = tags
-      @brokers      = brokers
-      @identity     = identity
-      @services     = services
-      @shared_queue = shared_queue
-      @created_at   = created_at || Time.now.to_f
-      @version      = version
-      @size         = size
-    end
-
-    # Create packet from unmarshalled data
-    #
-    # === Parameters
-    # o(Hash):: Unmarshalled data
-    #
-    # === Return
-    # (Register):: New packet
-    def self.create(o)
-      i = o['data']
-      if version = i['version']
-        version = [version, version] unless version.is_a?(Array)
-      else
-        version = [DEFAULT_VERSION, DEFAULT_VERSION]
-      end
-      new(self.compatible(i['identity']), i['services'], i['tags'], i['brokers'], i['shared_queue'],
-          i['created_at'], version, o['size'])
-    end
-
-    # Generate log representation
-    #
-    # === Parameters
-    # filter(Array(Symbol)):: Attributes to be included in output
-    # version(Symbol|nil):: Version to display: :recv_version, :send_version, or nil meaning none
-    #
-    # === Return
-    # log_msg(String):: Log representation
-    def to_s(filter = nil, version = nil)
-      log_msg = "#{super(filter, version)} #{id_to_s(@identity)}"
-      log_msg += ", shared_queue #{@shared_queue}" if @shared_queue
-      log_msg += ", services #{@services.inspect}" if @services && !@services.empty?
-      log_msg += ", brokers #{@brokers.inspect}" if @brokers && !@brokers.empty?
-      log_msg += ", tags #{@tags.inspect}" if @tags && !@tags.empty?
-      log_msg
-    end
-
-  end # Register
-
-
-  # Deprecated for instance agents that are version 10 and above
-  #
-  # Packet for unregistering an agent from the mappers
-  class UnRegister < Packet
-
-    attr_accessor :identity
-
-    # Create packet
-    #
-    # === Parameters
-    # identity(String):: Sender identity
-    # version(Array):: Protocol version of the original creator of the packet followed by the
-    #   protocol version of the packet contents to be used when sending
-    # size(Integer):: Size of request in bytes used only for marshalling
-    def initialize(identity, version = [VERSION, VERSION], size = nil)
-      @identity = identity
-      @version  = version
-      @size     = size
-    end
-
-    # Create packet from unmarshalled data
-    #
-    # === Parameters
-    # o(Hash):: Unmarshalled data
-    #
-    # === Return
-    # (UnRegister):: New packet
-    def self.create(o)
-      i = o['data']
-      new(self.compatible(i['identity']), i['version'] || [DEFAULT_VERSION, DEFAULT_VERSION], o['size'])
-    end
-  
-    # Generate log representation
-    #
-    # === Parameters
-    # filter(Array(Symbol)):: Attributes to be included in output
-    # version(Symbol|nil):: Version to display: :recv_version, :send_version, or nil meaning none
-    #
-    # === Return
-    # log_msg(String):: Log representation
-    def to_s(filter = nil, version = nil)
-      "#{super(filter, version)} #{id_to_s(@identity)}"
-    end
-
-  end # UnRegister
-
-
-  # Packet for requesting an agent to advertise its services to the mappers
-  # when it initially comes online
-  class Advertise < Packet
-
-    # Create packet
-    #
-    # === Parameters
-    # version(Array):: Protocol version of the original creator of the packet followed by the
-    #   protocol version of the packet contents to be used when sending
-    # size(Integer):: Size of request in bytes used only for marshalling
-    def initialize(version = [VERSION, VERSION], size = nil)
-      @version = version
-      @size    = size
-    end
-
-    # Create packet from unmarshalled data
-    #
-    # === Parameters
-    # o(Hash):: Unmarshalled data
-    #
-    # === Return
-    # (Advertise):: New packet
-    def self.create(o)
-      i = o['data']
-      new(i['version'] || [DEFAULT_VERSION, DEFAULT_VERSION], o['size'])
-    end
-
-  end # Advertise
 
 
   # Packet for carrying statistics
@@ -900,6 +741,14 @@ module RightScale
       log_msg += " agent_ids #{@agent_ids.inspect}"
       log_msg += " tags #{@tags.inspect}"
       log_msg
+    end
+
+    # Whether the packet is one that does not have an associated response
+    #
+    # === Return
+    # false:: Always return false
+    def one_way
+      false
     end
 
   end # TagQuery

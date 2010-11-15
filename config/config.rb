@@ -50,7 +50,17 @@
 #     Changed InstanceSetup to use the Repose mirror to download cookbook repositories
 # 12: Support both JSON and MessagePack serialization of packets with MessagePack as the new default
 #     and use DER (binary) encoding instead of PEM (base64) for the secure serialization
-protocol_version 12
+# 13: Refactored messaging to expose push, persistent_push, timeout_retry_request, and persistent_non_duplicate_request
+#     Removed support for fanout of two-way requests, which was only used for rabbit requests
+#     Disabled duplicate request checking for shared queues
+#     Refactored mandatory handling to track tries and to be able to send non-delivery result
+#     Applied mandatory flag when publishing in agent
+#     Added NON_DELIVERY to OperationResult and applied it in mapper for various non-delivery cases
+#     Replaced created_at in Push and Request with expires_at and changed option :fresh_timeout to :time_to_live
+#     Removed created_at from Registration and Result
+#     Changed request target selector name from :random to :any
+#     Deprecated Stale packet with conversion to Result packet with NON_DELIVERY OperationResult
+protocol_version 13
 
 # Path to RightLink root folder
 right_link_path File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'right_link'))

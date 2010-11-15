@@ -54,7 +54,7 @@ module RightScale
       RightLinkLog.program_name = 'RightLink'
       RightLinkLog.log_to_file_only(options[:log_to_file_only])
       RightLinkLog.init(agent_id, options[:log_path])
-      InstanceState.init(agent_id)
+      InstanceState.init(agent_id, read_only = true)
       sequence = ExecutableSequence.new(bundle)
       EM.threadpool_size = 1
       EM.error_handler do |e|
@@ -74,38 +74,42 @@ module RightScale
       exit(1) unless success
     end
 
-    # Send request using command server
-    #
-    # === Parameters
-    # type(String):: Request service (e.g. '/booter/declare')
-    # payload(String):: Associated payload, optional
-    # opts(Hash):: Options as allowed by Request packet, optional
-    #
-    # === Block
-    # Handler block gets called back with request results
-    #
-    # === Return
-    # true:: Always return true
-    def send_request(type, payload = '', opts = {}, &blk)
-      cmd = { :name => :send_request, :type => type, :payload => payload, :options => opts }
+    # Helper method to send a request to one or more targets with no response expected
+    # See InstanceCommands for details
+    def push(type, payload = '', target = nil, opts = {})
+      cmd = {:name => :send_push, :type => type, :payload => payload, :target => target, :options => opts}
+      @client.send_command(cmd)
+    end
+
+    # Helper method to send a request to one or more targets with no response expected
+    # The request is persisted en route to reduce the chance of it being lost
+    # See InstanceCommands for details
+    def persistent_push(type, payload = '', target = nil, opts = {})
+      cmd = {:name => :send_persistent_push, :type => type, :payload => payload, :target => target, :options => opts}
+      @client.send_command(cmd)
+    end
+
+    # Helper method to send a request to a single target with a response expected
+    # The request is retried if the response is not received in a reasonable amount of time
+    # See InstanceCommands for details
+    def timeout_retry_request(type, payload = '', target = nil, opts = {}, &blk)
+      cmd = {:name => :send_request, :type => type, :payload => payload, :target => target, :options => opts}
       @client.send_command(cmd) do |r|
         response = load(r, "Request response #{r.inspect}")
         blk.call(response)
       end
     end
 
-    # Send push using command server
-    #
-    # === Parameters
-    # type(String):: Request service (e.g. '/booter/declare')
-    # payload(String):: Associated payload, optional
-    # opts(Hash):: Options as allowed by Request packet, optional
-    #
-    # === Return
-    # true:: Always return true
-    def send_push(type, payload = '', opts = {})
-      cmd = { :name => :send_push, :type => type, :payload => payload, :options => opts }
-      @client.send_command(cmd)
+    # Helper method to send a request to a single target with a response expected
+    # The request is persisted en route to reduce the chance of it being lost
+    # The request is never retried if there is the possibility of it being duplicated
+    # See InstanceCommands for details
+    def persistent_non_duplicate_request(type, payload = '', target = nil, opts = {}, &blk)
+      cmd = {:name => :send_request, :type => type, :payload => payload, :target => target, :options => opts}
+      @client.send_command(cmd) do |r|
+        response = load_json(r, "Request response #{r.inspect}")
+        blk.call(response)
+      end
     end
 
     # Add given tag to tags exposed by corresponding server

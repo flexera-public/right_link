@@ -21,7 +21,6 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 require File.join(File.dirname(__FILE__), 'spec_helper')
-require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'agents', 'lib', 'instance', 'request_forwarder'))
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'agents', 'lib', 'instance', 'dev_state'))
 require 'thread'
 
@@ -55,7 +54,9 @@ describe Chef::Provider::ServerCollection do
     old_timeout = Chef::Provider::ServerCollection::QUERY_TIMEOUT
     begin
       Chef::Provider::ServerCollection.const_set(:QUERY_TIMEOUT, 0.5)
-      flexmock(RightScale::RequestForwarder.instance).should_receive(:request).and_yield(nil)
+      mapper_proxy = flexmock('MapperProxy')
+      flexmock(RightScale::MapperProxy).should_receive(:instance).and_return(mapper_proxy).by_default
+      mapper_proxy.should_receive(:timeout_retry_request).and_yield(nil)
       perform_load
       @provider.instance_variable_get(:@node)[:server_collection]['resource_name'].should == {}
     ensure

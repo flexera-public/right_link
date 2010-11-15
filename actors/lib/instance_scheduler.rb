@@ -23,6 +23,8 @@
 class InstanceScheduler
 
   include RightScale::Actor
+  include RightScale::RightLinkLogHelpers
+  include RightScale::OperationResultHelpers
 
   expose :schedule_bundle, :execute, :schedule_decommission
 
@@ -70,12 +72,11 @@ class InstanceScheduler
       context = RightScale::OperationContext.new(bundle, audit)
       @bundles_queue.push(context)
     end
-    res = RightScale::OperationResult.success
+    res = success_result
   end
 
   # Ask agent to execute given recipe or RightScript
-  # Agent must forward request to core agent which will in turn run
-  # schedule_bundle on this agent
+  # Agent must forward request to core agent which will in turn run schedule_bundle on this agent
   #
   # === Parameters
   # options[:recipe](String):: Recipe name
@@ -88,13 +89,13 @@ class InstanceScheduler
   # === Return
   # true:: Always return true
   def execute(options)
-    options = RightScale::SerializationHelper.symbolize_keys(options)
-    options[:agent_identity] = @agent_identity
+    payload = options = RightScale::SerializationHelper.symbolize_keys(options)
+    payload[:agent_identity] = @agent_identity
 
     forwarder = lambda do |type|
-      RightScale::RequestForwarder.instance.send_request("/forwarder/schedule_#{type}", options) do |r|
-        r = RightScale::OperationResult.from_results(r)
-        RightScale::RightLinkLog.info("Failed executing #{type} for #{options.inspect}: #{r.content}") unless r.success?
+      timeout_retry_request("/forwarder/schedule_#{type}", payload, nil, :offline_queueing => true) do |r|
+        r = result_from(r)
+        log_info("Failed executing #{type} for #{payload.inspect}", r.content) unless r.success?
       end
     end
 
@@ -103,7 +104,7 @@ class InstanceScheduler
     elsif options[:right_script] || options[:right_script_id]
       forwarder.call("right_script")
     else
-      RightScale::RightLinkLog.error("Unrecognized execute request: #{options.inspect}")
+      log_error("Unrecognized execute request: #{options.inspect}")
       return true
     end
     true
@@ -116,9 +117,9 @@ class InstanceScheduler
   # options[:user_id](Integer):: User id which requested decommission
   #
   # === Return
-  # res(RightScale::OperationResult):: Status value, either success or error with message
+  # (RightScale::OperationResult):: Status value, either success or error with message
   def schedule_decommission(options)
-    return res = RightScale::OperationResult.error('Instance is already decommissioning') if RightScale::InstanceState.value == 'decommissioning'
+    return error_result('Instance is already decommissioning') if RightScale::InstanceState.value == 'decommissioning'
     options = RightScale::SerializationHelper.symbolize_keys(options)
     bundle = options[:bundle]
     audit = RightScale::AuditProxy.new(bundle.audit_id)
@@ -149,7 +150,7 @@ class InstanceScheduler
     @bundles_queue.close
 
     RightScale::InstanceState.value = 'decommissioning'
-    res = RightScale::OperationResult.success
+    success_result
   end
 
   # Schedule decommission and call given block back once decommission bundle has run
@@ -169,12 +170,13 @@ class InstanceScheduler
       callback.call if callback
     elsif RightScale::InstanceState.value != 'decommissioning'
       # Trigger decommission
-      RightScale::RequestForwarder.instance.send_request('/booter/get_decommission_bundle', :agent_identity => @agent_identity) do |r|
-        res = RightScale::OperationResult.from_results(r)
+      timeout_retry_request('/booter/get_decommission_bundle', {:agent_identity => @agent_identity},
+                            nil, :offline_queueing => true) do |r|
+        res = result_from(r)
         if res.success?
           schedule_decommission(:bundle => res.content)
         else
-          RightScale::RightLinkLog.debug("Failed to retrieve decommission bundle: #{res.content}")
+          log_debug("Failed to retrieve decommission bundle", res.content)
         end
       end
     end
@@ -187,7 +189,7 @@ class InstanceScheduler
   # === Return
   # Well... does not return...
   def terminate
-    RightScale::RightLinkLog.info("Instance agent #{@agent_identity} terminating")
+    log_info("Instance agent #{@agent_identity} terminating")
     RightScale::CommandRunner.stop
     # Delay terminate a bit to give reply a chance to be sent
     EM.next_tick do

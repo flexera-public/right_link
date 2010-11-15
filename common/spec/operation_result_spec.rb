@@ -81,14 +81,12 @@ describe RightScale::OperationResult do
       result.error?.should be_false
       result.continue?.should be_false
       result.retry?.should be_false
-      result.timeout?.should be_false
-      result.multicast?.should be_false
+      result.non_delivery?.should be_false
       result.content.should == {}
     end
 
-    it "should treat continue and multicast as success" do
-      RightScale::OperationResult.continue(0).success?.should be_true
-      RightScale::OperationResult.multicast(0).success?.should be_true
+    it "should treat non-delivery as error" do
+      RightScale::OperationResult.non_delivery(0).error?.should be_true
     end
 
     it "should store error content value and respond to error query" do
@@ -130,19 +128,39 @@ describe RightScale::OperationResult do
       result.content.should == "Retry"
     end
 
-    it "should store timeout content value and respond to timeout query" do
-      result = RightScale::OperationResult.timeout
-      result.kind_of?(RightScale::OperationResult).should be_true
-      result.timeout?.should be_true
-      result.content.should == nil
-    end
-
-    it "should store multicast targets and respond to multicast query" do
+    it "should store multicast targets" do
       result = RightScale::OperationResult.multicast(["target"])
       result.kind_of?(RightScale::OperationResult).should be_true
-      result.multicast?.should be_true
       result.content.should == ["target"]
     end
+
+    it "should store non-delivery content value and respond to non-delivery query" do
+      result = RightScale::OperationResult.non_delivery("Non-delivery")
+      result.kind_of?(RightScale::OperationResult).should be_true
+      result.non_delivery?.should be_true
+      result.content.should == "Non-delivery"
+    end
+  end
+
+  describe "when converting result to string" do
+
+    it "should display error message" do
+      result = RightScale::OperationResult.error("some problem")
+      result.to_s.should == "error (some problem)"
+    end
+
+    it "should truncate error message if too long" do
+      result = RightScale::OperationResult.error("123456789012345678901234567890123456789012345678901234567890")
+      result.to_s.should == "error (123456789012345678901234567890123456789012345678901234567...)"
+      result.status.should == "error"
+    end
+
+    it "should display non-delivery reason" do
+      result = RightScale::OperationResult.non_delivery(RightScale::OperationResult::TTL_EXPIRATION)
+      result.to_s.should == "non-delivery (TTL expiration)"
+      result.status.should == "non-delivery"
+    end
+
   end
 
 end

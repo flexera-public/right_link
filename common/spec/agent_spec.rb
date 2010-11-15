@@ -35,15 +35,15 @@ describe RightScale::Agent do
   describe "Default Option" do
 
     before(:all) do
-#      flexmock(RightScale::RightLinkLog).should_receive(:error).never.by_default
-#      flexmock(RightScale::RightLinkLog).should_receive(:warn).never.by_default
+      flexmock(RightScale::RightLinkLog).should_receive(:error).never.by_default
       flexmock(EM).should_receive(:add_periodic_timer)
       flexmock(EM).should_receive(:next_tick).and_yield
       @timer = flexmock("timer")
       flexmock(EM::Timer).should_receive(:new).and_return(@timer)
       @timer.should_receive(:cancel)
       @broker = flexmock("broker", :subscribe => ["b1"], :publish => ["b1"], :prefetch => true,
-                         :all => ["b1"], :connected => ["b1"], :failed => [], :close_one => true).by_default
+                         :all => ["b1"], :connected => ["b1"], :failed => [], :close_one => true,
+                         :non_delivery => true).by_default
       @broker.should_receive(:connection_status).and_yield(:connected)
       flexmock(RightScale::HA_MQ).should_receive(:new).and_return(@broker)
       flexmock(RightScale::PidFile).should_receive(:new).
@@ -134,7 +134,8 @@ describe RightScale::Agent do
       flexmock(EM::Timer).should_receive(:new).and_return(@timer)
       @timer.should_receive(:cancel)
       @broker = flexmock("broker", :subscribe => ["b1"], :publish => ["b1"], :prefetch => true,
-                         :connected => ["b1"], :failed => [], :all => ["b0", "b1"]).by_default
+                         :connected => ["b1"], :failed => [], :all => ["b0", "b1"],
+                         :non_delivery => true).by_default
       @broker.should_receive(:connection_status).and_yield(:connected)
       flexmock(RightScale::HA_MQ).should_receive(:new).and_return(@broker)
       flexmock(RightScale::PidFile).should_receive(:new).
@@ -276,7 +277,8 @@ describe RightScale::Agent do
       flexmock(EM::Timer).should_receive(:new).and_return(@timer).by_default
       @timer.should_receive(:cancel).by_default
       @broker = flexmock("broker", :subscribe => true, :publish => true, :prefetch => true,
-                         :connected => ["b1"], :failed => [], :unusable => [], :close_one => true).by_default
+                         :connected => ["b1"], :failed => [], :unusable => [], :close_one => true,
+                         :non_delivery => true).by_default
       @broker.should_receive(:connection_status).and_yield(:connected)
       flexmock(RightScale::HA_MQ).should_receive(:new).and_return(@broker)
       flexmock(RightScale::PidFile).should_receive(:new).

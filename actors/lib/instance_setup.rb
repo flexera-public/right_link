@@ -23,6 +23,8 @@
 class InstanceSetup
 
   include RightScale::Actor
+  include RightScale::RightLinkLogHelpers
+  include RightScale::OperationResultHelpers
 
   expose :report_state
 
@@ -49,9 +51,9 @@ class InstanceSetup
     
     # Schedule boot sequence, don't run it now so agent is registered first
     if RightScale::InstanceState.value == 'booting'
-      EM.next_tick { RightScale::RequestForwarder.instance.init { init_boot } }
+      EM.next_tick { RightScale::MapperProxy.instance.initialize_offline_queue { init_boot } }
     else
-      RightScale::RequestForwarder.instance.init
+      RightScale::MapperProxy.instance.initialize_offline_queue
     end
 
     # Setup suicide timer which will cause instance to shutdown if the rs_launch:type=auto tag
@@ -60,7 +62,7 @@ class InstanceSetup
     @suicide_timer = EM::Timer.new(SUICIDE_DELAY) do
       if RightScale::InstanceState.startup_tags.include?(AUTO_LAUNCH_TAG) && !@got_boot_bundle
         msg = "Shutting down after having tried to boot for #{SUICIDE_DELAY / 60} minutes"
-        RightScale::RightLinkLog.error(msg)
+        log_error(msg)
         @audit.append_error(msg, :category => RightScale::EventCategories::CATEGORY_ERROR) if @audit
         RightScale::Platform.controller.shutdown 
       end
@@ -71,9 +73,9 @@ class InstanceSetup
   # Retrieve current instance state
   #
   # === Return
-  # state(RightScale::OperationResult):: Success operation result containing instance state
+  # (RightScale::OperationResult):: Success operation result containing instance state
   def report_state
-    state = RightScale::OperationResult.success(RightScale::InstanceState.value)
+    success_result(RightScale::InstanceState.value)
   end
 
   # Handle disconnected notification from broker, enter offline mode
@@ -85,9 +87,9 @@ class InstanceSetup
   # true:: Always return true
   def connection_status(status)
     if status == :disconnected
-      RightScale::RequestForwarder.instance.enable_offline_mode
+      RightScale::MapperProxy.instance.enable_offline_mode
     else
-      RightScale::RequestForwarder.instance.disable_offline_mode
+      RightScale::MapperProxy.instance.disable_offline_mode
     end
     true
   end
@@ -100,18 +102,19 @@ class InstanceSetup
   # === Return
   # true:: Always return true
   def init_boot
-    options = { :agent_identity => @agent_identity,
-                :r_s_version    => RightScale::RightLinkConfig.protocol_version,
-                :resource_uid   => RightScale::InstanceState.resource_uid }
-    RightScale::RequestForwarder.instance.send_request('/booter/declare', options) do |r|
-      res = RightScale::OperationResult.from_results(r)
+    payload = {:agent_identity => @agent_identity,
+               :r_s_version    => RightScale::RightLinkConfig.protocol_version,
+               :resource_uid   => RightScale::InstanceState.resource_uid}
+    # Do not allow this request to be retried because it is not idempotent
+    persistent_non_duplicate_request("/booter/declare", payload, nil, :offline_queueing => true) do |r|
+      res = result_from(r)
       if res.success?
         enable_managed_login
       else
         if res.retry?
-          RightScale::RightLinkLog.info("RightScale not ready, retrying in #{RECONNECT_DELAY} seconds...")
+          log_info("RightScale not ready, retrying in #{RECONNECT_DELAY} seconds...")
         else
-          RightScale::RightLinkLog.warn("Failed to contact RightScale: #{res.content}, retrying in #{RECONNECT_DELAY} seconds...")
+          log_warning("Failed to contact RightScale: #{res.content}, retrying in #{RECONNECT_DELAY} seconds...")
         end
         # Retry in RECONNECT_DELAY seconds, retry forever, nothing else we can do
         EM.add_timer(RECONNECT_DELAY) { init_boot }
@@ -129,8 +132,8 @@ class InstanceSetup
     if RightScale::Platform.windows? || RightScale::Platform.mac? 
       boot
     else
-      send_request('/booter/get_login_policy', {:agent_identity => @agent_identity}) do |r|
-        res = RightScale::OperationResult.from_results(r)
+      timeout_retry_request("/booter/get_login_policy", {:agent_identity => @agent_identity}) do |r|
+        res = result_from(r)
         if res.success?
           policy  = res.content
           audit = RightScale::AuditProxy.new(policy.audit_id)
@@ -142,11 +145,11 @@ class InstanceSetup
             end
           rescue Exception => e
             audit.create_new_section('Failed to enable managed login')
-            audit.append_error("Error applying login policy: #{e.message}", :category => RightScale::EventCategories::CATEGORY_ERROR)
-            RightScale::RightLinkLog.error("#{e.class.name}: #{e.message}\n#{e.backtrace.join("\n")}")
+            audit.append_error("Error applying login policy: #{e}", :category => RightScale::EventCategories::CATEGORY_ERROR)
+            log_error("Failed to enable managed login", e, :trace)
           end
         else
-          RightScale::RightLinkLog.error("Could not get login policy: #{res.content}")
+          log_error("Could not get login policy", res.content)
         end
 
         boot
@@ -160,8 +163,8 @@ class InstanceSetup
   # === Return
   # true:: Always return true
   def boot
-    send_request("/booter/get_repositories", @agent_identity) do |r|
-      res = RightScale::OperationResult.from_results(r)
+    timeout_retry_request("/booter/get_repositories", @agent_identity) do |r|
+      res = result_from(r)
       if res.success?
         @audit = RightScale::AuditProxy.new(res.content.audit_id)
         unless RightScale::Platform.windows? || RightScale::Platform.mac?
@@ -233,7 +236,7 @@ class InstanceSetup
           klass.generate("none", repo.base_urls, fz)
         end
       rescue Exception => e
-        RightScale::RightLinkLog.error(e.message)
+        log_error("Failed to configure repositories", e, :trace)
       end
     end
     if system('which apt-get')
@@ -262,20 +265,18 @@ class InstanceSetup
       else
         @audit.append_info("Tags discovered on startup: '#{tags.join("', '")}'")
       end
-      options = { :agent_identity => @agent_identity, :audit_id => @audit.audit_id }
-      send_request("/booter/get_boot_bundle", options) do |r|
-        res = RightScale::OperationResult.from_results(r)
+      payload = {:agent_identity => @agent_identity, :audit_id => @audit.audit_id}
+      timeout_retry_request("/booter/get_boot_bundle", payload) do |r|
+        res = result_from(r)
         if res.success?
           bundle = res.content
           if bundle.executables.any? { |e| !e.ready }
-            retrieve_missing_inputs(bundle) { cb.call(RightScale::OperationResult.success(bundle)) }
+            retrieve_missing_inputs(bundle) { cb.call(success_result(bundle)) }
           else
-            yield RightScale::OperationResult.success(bundle)
+            yield success_result(bundle)
           end
         else
-          msg = "Failed to retrieve boot scripts"
-          msg += ": #{res.content}" if res.content
-          yield RightScale::OperationResult.error(msg)
+          yield error_result(format_error("Failed to retrieve boot scripts", res.content))
         end
       end
     end
@@ -298,10 +299,11 @@ class InstanceSetup
     recipes = bundle.executables.select { |e| e.is_a?(RightScale::RecipeInstantiation) }
     scripts_ids = scripts.select { |s| !s.ready }.map { |s| s.id }
     recipes_ids = recipes.select { |r| !r.ready }.map { |r| r.id }
-    RightScale::RequestForwarder.instance.send_request('/booter/get_missing_attributes', { :agent_identity => @agent_identity,
-                                                                                           :scripts_ids    => scripts_ids,
-                                                                                           :recipes_ids    => recipes_ids }) do |r|
-      res = RightScale::OperationResult.from_results(r)
+    payload = {:agent_identity => @agent_identity,
+               :scripts_ids    => scripts_ids,
+               :recipes_ids    => recipes_ids}
+    timeout_retry_request("/booter/get_missing_attributes", payload, nil, :offline_queueing => true) do |r|
+      res = result_from(r)
       if res.success?
         res.content.each do |e|
           if e.is_a?(RightScale::RightScriptInstantiation)
@@ -343,23 +345,23 @@ class InstanceSetup
     sequence = RightScale::ExecutableSequenceProxy.new(context)
     sequence.callback do
       if patch = sequence.inputs_patch && !patch.empty?
-        RightScale::RequestForwarder.instance.send_push('/updater/update_inputs', { :agent_identity => @agent_identity,
-                                                                                    :patch          => patch })
+        payload = {:agent_identity => @agent_identity, :patch => patch}
+        push("/updater/update_inputs", payload, nil, :offline_queueing => true)
       end
       @audit.update_status("boot completed: #{bundle}")
-      yield RightScale::OperationResult.success
+      yield success_result
     end
     sequence.errback  do
       @audit.update_status("boot failed: #{bundle}")
-      yield RightScale::OperationResult.error("Failed to run boot bundle")
+      yield error_result("Failed to run boot bundle")
     end
 
     begin
       sequence.run
     rescue Exception => e
-      msg = "Execution of Chef boot sequence failed with exception: #{e.message}"
-      RightScale::RightLinkLog.error(msg + "\n" + e.backtrace.join("\n"))
-      strand(msg)
+      msg = "Execution of Chef boot sequence failed"
+      log_error(msg, e, :trace)
+      strand(format_error(msg, e))
     end
 
     true

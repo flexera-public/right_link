@@ -292,6 +292,92 @@ module RightScale
 
     class NoConnectedBrokers < Exception; end
 
+    # Cache for information about recently published messages for use with message returns
+    # Applies LRU for managing cache size but only deletes entries if old enough
+    class Published
+
+      # Number of seconds since a cache entry was last used before it is deleted
+      MAX_AGE = 30
+
+      # Initialize cache
+      def initialize
+        @cache = {}
+        @lru = []
+      end
+
+      # Store message info in cache
+      #
+      # === Parameters
+      # message(String):: JSON encoded secure message that was published
+      # packet(Packet):: Packet contained in published message
+      # brokers(Array):: Identity of candidate brokers when message was published
+      # options(Hash):: Options used to publish message
+      #
+      # === Return
+      # true:: Always return true
+      def store(message, packet, brokers, options)
+        key = identify(message)
+        unless key.nil?
+          now = Time.now.to_i
+          if entry = @cache[key]
+            entry[0] = now
+            @lru.push(@lru.delete(key))
+          else
+            @cache[key] = [now, {
+              :type    => (packet.type if packet.respond_to?(:type) && packet.type != packet.class),
+              :from    => (packet.from if packet.respond_to?(:from)),
+              :token   => (packet.token if packet.respond_to?(:token)),
+              :one_way => (packet.respond_to?(:one_way) ? packet.one_way : true),
+              :options => options,
+              :brokers => brokers,
+              :failed  => []
+            }]
+            @lru.push(key)
+            @cache.delete(@lru.shift) while (now - @cache[@lru.first][0]) > MAX_AGE
+          end
+        end
+        true
+      end
+
+      # Fetch info about previously published message if available
+      #
+      # === Parameters
+      # message(String):: JSON encoded secure message that was published
+      #
+      # === Return
+      # data(Hash):: Information about message, or empty if not found in cache
+      #   :type(String):: Request type if applicable
+      #   :from(String):: Original sender of message if applicable
+      #   :token(String):: Generated message identifier if applicable
+      #   :one_way(Boolean):: Whether the packet is one that does not have an associated response
+      #   :options(Hash):: Options used to publish message
+      #   :brokers(Array):: Identity of candidate brokers when message was published
+      #   :failed(Array):: Identity of brokers that have failed to deliver message with last one at end
+      def fetch(message)
+        key = identify(message)
+        if data = @cache[key]
+          data[0] = Time.now.to_i
+          data = data[1]
+          @lru.push(@lru.delete(key))
+        end
+        data || {}
+      end
+
+      # Obtain a unique identifier for this message
+      #
+      # === Parameters
+      # message(String):: JSON encoded secure message that was published
+      #
+      # === Returns
+      # (String):: Unique id for message
+      def identify(message)
+        # TODO Need to find more efficient way than fully unmarshalling what was just marshalled
+        # TODO and may want to use something smaller than full signature, e.g., generate new id
+        JSON.load(message)["signature"] rescue nil
+      end
+
+    end # Published
+
     # Maximum number of times the failed? function would be called for a failed broker without
     # returning true
     MAX_RETRY_BACKOFF = 12
@@ -304,9 +390,6 @@ module RightScale
       :closed,       # AMQP connection closed explicitly or because of too many failed connect attempts
       :failed        # Failed to connect due to internal failure or AMQP failure to connect
     ]
-
-    # Translation of message return reasons into human readable form
-    MESSAGE_RETURN_REASONS = { "NO_ROUTE" => "no queue", "NO_CONSUMERS" => "no queue consumers"}
 
     # (Array(Hash)) Priority ordered list of AMQP brokers (exposed only for unit test purposes)
     #   :mq(MQ):: AMQP broker channel
@@ -353,6 +436,7 @@ module RightScale
       @options = options
       @connection_status = {}
       @serializer = serializer
+      @published = Published.new
       reset_stats
       index = -1
       @select = options[:order] || :priority
@@ -360,6 +444,7 @@ module RightScale
       @closed = false
       @brokers_hash = {}
       @brokers.each { |b| @brokers_hash[b[:identity]] = b }
+      return_message { |identity, reason, msg, to, details| handle_return(identity, reason, msg, to, details) }
     end
 
     # Subscribe an AMQP queue to an AMQP exchange on all brokers that are connected or still connecting
@@ -575,7 +660,8 @@ module RightScale
     def publish(exchange, packet, options = {})
       identities = []
       exchange_options = exchange[:options] || {}
-      msg = if options[:no_serialize] || @serializer.nil? then packet else @serializer.dump(packet) end
+      no_serialize = options[:no_serialize] || @serializer.nil?
+      msg = if no_serialize then packet else @serializer.dump(packet) end
       brokers = use(options)
       choices = if RightLinkLog.level == :debug
         " [#{brokers.inject([]) { |c, b| if b[:status] == :connected then c << b[:alias] else c end }.join(", ")}]"
@@ -583,7 +669,7 @@ module RightScale
       brokers.each do |b|
         if b[:status] == :connected
           begin
-            unless (options[:no_log] && RightLinkLog.level != :debug) || options[:no_serialize] || @serializer.nil?
+            unless (options[:no_log] && RightLinkLog.level != :debug) || no_serialize
               re = "RE-" if packet.respond_to?(:tries) && !packet.tries.empty?
               log_filter = options[:log_filter] unless RightLinkLog.level == :debug
               RightLinkLog.info("#{re}SEND #{b[:alias]}#{choices} #{packet.to_s(log_filter, :send_version)} " +
@@ -594,6 +680,7 @@ module RightScale
             delete_from_cache(b[:mq], exchange[:type], exchange[:name]) if exchange_options[:declare]
             b[:mq].__send__(exchange[:type], exchange[:name], exchange_options).publish(msg, options)
             identities << b[:identity]
+            @published.store(msg, packet, brokers.map { |b| b[:identity] }, options) if options[:mandatory] && !no_serialize
             break unless options[:fanout]
           rescue Exception => e
             RightLinkLog.error("#{re}SEND #{b[:alias]} - Failed publishing to exchange #{exchange.inspect}: #{e}\n" +
@@ -1047,11 +1134,19 @@ module RightScale
     # Block with following parameters to be called when a message is returned:
     #   identity(String):: Broker serialized identity
     #   reason(String):: Reason for return
-    #     no queue - queue does not exist
-    #     no queue consumers - queue exists but it has no consumers, or if :immediate was specified,
+    #     "NO_ROUTE" - queue does not exist
+    #     "NO_CONSUMERS" - queue exists but it has no consumers, or if :immediate was specified,
     #       all consumers are not immediately ready to consume
     #   msg(String):: Returned serialized message
-    #   to(String):: Queue to which message published
+    #   to(String):: Queue to which message was published
+    #   details(Hash):: Additional details about message
+    #     :type(String):: Request type if applicable
+    #     :from(String):: Original sender of message if applicable
+    #     :token(String):: Generated message identifier if applicable
+    #     :one_way(Boolean):: Whether the packet is one that does not have an associated response
+    #     :options(Hash):: Options used to publish message
+    #     :brokers(Array):: Identity of candidate brokers when message was published
+    #     :failed(Array):: Identity of brokers that have failed to deliver message with last one at end
     #
     # === Return
     # true:: Always return true
@@ -1060,16 +1155,99 @@ module RightScale
         b[:mq].return_message do |info, msg|
           begin
             to = if info.exchange && !info.exchange.empty? then info.exchange else info.routing_key end
-            reason = MESSAGE_RETURN_REASONS[info.reply_text] || info.reply_text
+            reason = info.reply_text
+            details = @published.fetch(msg)
+            unless details.empty?
+              # Update cache entry to record this failed delivery
+              details[:failed] << b[:identity]
+            end
             RightLinkLog.info("RETURN #{b[:alias]} because #{reason} for #{to}")
-            blk.call(b[:identity], reason, msg, to)
+            blk.call(b[:identity], reason, msg, to, details)
           rescue Exception => e
-            RightLinkLog.error("Failed return #{info.inspect} of message from broker #{b[:alias]}: #{e}\n" +
-                               e.backtrace.join("\n"))
+            RightLinkLog.error("Failed return #{info.inspect} of message from broker #{b[:alias]}", e, :trace)
             @exceptions.track("return", e)
           end
         end
       end
+      true
+    end
+
+    # Handle message returned by broker because it could not deliver it
+    # If agent still active, resend using another broker
+    # If this is last usable broker and persistent is enabled, allow message to be queued
+    # on next send even if the queue has no consumers so there is a chance of message
+    # eventually being delivered
+    # If persistent or one-way request and all usable brokers have failed, try one more time
+    # without mandatory flag to give message opportunity to be queued
+    # If there are no more usable brokers, send non-delivery message to original sender
+    #
+    # === Parameters
+    # identity(String):: Identity of broker that could not deliver message
+    # reason(String):: Reason for return
+    #   "NO_ROUTE" - queue does not exist
+    #   "NO_CONSUMERS" - queue exists but it has no consumers, or if :immediate was specified,
+    #     all consumers are not immediately ready to consume
+    # message(String):: Returned message in serialized packet format
+    # to(String):: Queue to which message was published
+    # details(Hash):: Additional details about message
+    #   :type(String):: Request type if applicable
+    #   :from(String):: Original sender of message if applicable
+    #   :token(String):: Generated message identifier if applicable
+    #   :one_way(Boolean):: Whether the packet is one that does not have an associated response
+    #   :options(Hash):: Options used to publish message
+    #   :brokers(Array):: Identity of candidate brokers when message was published
+    #   :failed(Array):: Identity of brokers that have failed to deliver message with last one at end
+    #
+    # === Return
+    # true:: Always return true
+    def handle_return(identity, reason, message, to, details)
+      @returns.update("#{alias_(identity)} (#{reason})")
+
+      options = details[:options] || {}
+      token = details[:token]
+      one_way = details[:one_way]
+      persistent = options[:persistent]
+      mandatory = true
+      remaining = (details[:brokers] - details[:failed]) & connected
+      if remaining.empty?
+        if (persistent || one_way) && reason == "NO_CONSUMERS" && !(remaining = details[:brokers] & connected).empty?
+          # Retry because persistent, and this time w/o mandatory so that gets queued even though no consumers
+          mandatory = false
+        else
+          RightLinkLog.info("NO ROUTE to #{to}")
+          @non_delivery.call(reason, details[:type], token, details[:from], to) if @non_delivery
+        end
+      end
+
+      unless remaining.empty?
+        t = token ? " <#{token}>" : ""
+        p = persistent ? ", persistent" : ""
+        m = mandatory ? ", mandatory" : ""
+        RightLinkLog.info("RE-ROUTE #{aliases(remaining).join(", ")}#{t} to #{to}#{p}#{m}")
+        exchange = {:type => :queue, :name => to, :options => {:no_declare => true}}
+        publish(exchange, message, options.merge(:no_serialize => true, :brokers => remaining,
+                                                 :persistent => persistent, :mandatory => mandatory))
+      end
+      true
+    end
+
+    # Provide callback to be activated when a message cannot be delivered
+    #
+    # === Block
+    # Required block with parameters
+    #   reason(String):: Non-delivery reason
+    #     "NO_ROUTE" - queue does not exist
+    #     "NO_CONSUMERS" - queue exists but it has no consumers, or if :immediate was specified,
+    #       all consumers are not immediately ready to consume
+    #   type(String|nil):: Request type, or nil if not applicable
+    #   token(String|nil):: Generated message identifier, or nil if not applicable
+    #   from(String|nil):: Identity of original sender of message, or nil if not applicable
+    #   to(String):: Queue to which message was published
+    #
+    # === Return
+    # true:: Always return true
+    def non_delivery(&blk)
+      @non_delivery = blk
       true
     end
 
@@ -1125,7 +1303,8 @@ module RightScale
     #   "exceptions"(Hash):: Exceptions raised per category with keys
     #     "total"(Integer):: Total exceptions for this category
     #     "recent"(Array):: Most recent as a hash of "count", "type", "message", "when", and "where"
-    # stats(Hash):: Always returns success
+    #   "returns"(Hash|nil):: Message return activity stats with keys "total", "percent", "last", and "rate"
+    #     with percentage breakdown per request type, or nil if none
     def stats(reset = false)
       brokers = @brokers.map do |b|
         {
@@ -1139,7 +1318,11 @@ module RightScale
           "retries"         => nil_if_zero(b[:retries])
         }
       end
-      stats = {"brokers" => brokers, "exceptions" => @exceptions.stats}
+      stats = {
+        "brokers"    => brokers,
+        "exceptions" => @exceptions.stats,
+        "returns"    => @returns.all
+      }
       reset_stats if reset
       stats
     end
@@ -1151,6 +1334,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def reset_stats
+      @returns = ActivityStats.new
       @exceptions = ExceptionStats.new(self, @options[:exception_callback])
       true
     end

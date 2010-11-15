@@ -28,17 +28,31 @@ module RightScale
 
     include Serializable
     
-    SUCCESS = 0
-    ERROR = 1
-    CONTINUE = 2
-    RETRY = 3
-    TIMEOUT = 4
-    MULTICAST = 5
+    # Result status code
+    SUCCESS      = 0
+    ERROR        = 1
+    CONTINUE     = 2
+    RETRY        = 3
+    NON_DELIVERY = 4
+    MULTICAST    = 5 # Deprecated for agents at version 13 or above
+
+    # Non-delivery reasons
+    NON_DELIVERY_REASONS = [
+      NO_TARGET            = "no target",
+      UNKNOWN_TARGET       = "unknown target",
+      NO_ROUTE_TO_TARGET   = "no route to target",
+      TARGET_NOT_CONNECTED = "target not connected",
+      TTL_EXPIRATION       = "TTL expiration",
+      RETRY_TIMEOUT        = "retry timeout"
+    ]
+
+    # Maximum characters included in display of error
+    MAX_ERROR_SIZE = 60
 
     # (Integer) Status code
     attr_accessor :status_code
     
-    # (String) Message if any
+    # (Object) Result data, if any
     attr_accessor :content
     
     def initialize(*args)
@@ -46,19 +60,41 @@ module RightScale
       @content     = args[1] if args.size > 1
     end
 
-    # User friendly error code, does not include content
+    # User friendly result
+    # Does not include content except in the case of error or non-delivery
     #
     # === Return
-    # s(String):: Name of result code
+    # (String):: Name of result code
     def to_s
-      s = case @status_code
-        when SUCCESS     then 'success'
-        when ERROR       then 'error'
-        when CONTINUE    then 'continue'
-        when RETRY       then 'retry'
-        when TIMEOUT     then 'timeout'
-        when MULTICAST   then 'multicast'
+      status(reason = true)
+    end
+
+    # User friendly result status
+    #
+    # === Parameters
+    # reason(Boolean):: Whether to include failure reason information, default to false
+    #
+    # === Return
+    # (String):: Name of result code
+    def status(reason = false)
+      case @status_code
+      when SUCCESS      then 'success'
+      when ERROR        then 'error' + (reason ? " (#{truncated_error})" : "")
+      when CONTINUE     then 'continue'
+      when RETRY        then 'retry'
+      when NON_DELIVERY then 'non-delivery' + (reason ? " (#{@content})" : "")
+      when MULTICAST    then 'multicast'
       end
+    end
+
+    # Limited length error string
+    #
+    # === Return
+    # e(String):: String of no more than MAX_ERROR_SIZE characters
+    def truncated_error
+      e = @content
+      e = e[0, MAX_ERROR_SIZE - 3] + "..." if e.size > (MAX_ERROR_SIZE - 3)
+      e
     end
 
     # Instantiate from request results
@@ -109,7 +145,7 @@ module RightScale
     def self.error(message, exception = nil)
       OperationResult.new(ERROR, RightLinkLog.format(message, exception))
     end
-    
+
     # Create new continue status
     #
     # === Parameters
@@ -132,18 +168,19 @@ module RightScale
       OperationResult.new(RETRY, content)
     end
 
-    # Create new timeout status
+    # Create new non-delivery status
     #
     # === Parameters
-    # content(Object):: Any data associated with timeout - defaults to nil
+    # reason(String):: Non-delivery reason from NON_DELIVERY_REASONS
     #
     # === Return
     # (OperationResult):: Corresponding result
-    def self.timeout(content = nil)
-      OperationResult.new(TIMEOUT, content)
+    def self.non_delivery(reason)
+      OperationResult.new(NON_DELIVERY, reason)
     end
 
     # Create new multicast status
+    # Deprecated for agents at version 13 or above
     #
     # === Parameters
     # targets(Array):: Identity of targets to which request was published
@@ -160,16 +197,16 @@ module RightScale
     # true:: If status is SUCCESS or CONTINUE
     # false:: Otherwise
     def success?
-      status_code == SUCCESS || status_code == CONTINUE || status_code == MULTICAST
+      status_code == SUCCESS || status_code == CONTINUE
     end
 
-    # Was last operation status ERROR?
+    # Was last operation unsuccessful?
     #
     # === Return
-    # true:: If status is ERROR
+    # true:: If status is ERROR or NON_DELIVERY
     # false:: Otherwise
     def error?
-      status_code == ERROR
+      status_code == ERROR || status_code == NON_DELIVERY
     end
 
     # Was last operation status CONTINUE?
@@ -190,16 +227,17 @@ module RightScale
       status_code == RETRY
     end
 
-    # Was last operation status TIMEOUT?
+    # Was last operation status NON_DELIVERY?
     #
     # === Return
-    # true:: If status is TIMEOUT
+    # true:: If status is NON_DELIVERY
     # false:: Otherwise
-    def timeout?
-      status_code == TIMEOUT
+    def non_delivery?
+      status_code == NON_DELIVERY
     end
 
     # Was last operation status MULTICAST?
+    # Deprecated for agents at version 13 or above
     #
     # === Return
     # true:: If status is MULTICAST
@@ -220,8 +258,8 @@ module RightScale
 
     def success_result(*args) OperationResult.success(*args) end
     def error_result(*args) OperationResult.error(*args) end
+    def continue_result(*args) OperationResult.continue(*args) end
     def retry_result(*args) OperationResult.retry(*args) end
-    def timeout_result(*args) OperationResult.timeout(*args) end
     def result_from(*args) OperationResult.from_results(*args) end
 
   end # OperationResultHelpers

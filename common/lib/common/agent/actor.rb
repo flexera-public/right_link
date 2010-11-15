@@ -125,41 +125,36 @@ module RightScale
     
     module InstanceMethods
 
-      # Send request to another agent (through the mapper)
-      #
-      # === Parameters
-      # args(Array):: Parameters for request
-      #
-      # === Block
-      # Optional block to be executed
-      #
-      # === Return
-      # (MQ::Exchange):: AMQP exchange to which request is published
-      def send_request(*args, &blk)
-        MapperProxy.instance.send_request(*args, &blk)
-      end
-      
-      # Send push to another agent (through the mapper)
-      #
-      # === Parameters
-      # args(Array):: Parameters for push
-      #
-      # === Return
-      # (MQ::Exchange):: AMQP exchange to which push is published
-      def send_push(*args)
-        MapperProxy.instance.send_push(*args)
+      # Helper method to send a request to one or more targets with no response expected
+      # See MapperProxy for details
+      def push(*args)
+        MapperProxy.instance.push(*args)
       end
 
-      # Purge request whose results are no longer needed
-      #
-      # === Parameters
-      # token(String):: Request token
-      #
-      # === Return
-      # true:: Always return true
-      def purge(token)
-        MapperProxy.instance.purge(token)
-        true
+      # Helper method to send a request to one or more targets with no response expected
+      # The request is persisted en route to reduce the chance of it being lost at the expense of some
+      # additional network overhead
+      # See MapperProxy for details
+      def persistent_push(*args)
+        MapperProxy.instance.persistent_push(*args)
+      end
+
+      # Helper method to send a request to a single target with a response expected
+      # The request is retried if the response is not received in a reasonable amount of time
+      # The request is timed out if not received in time, typically configured to 2 minutes
+      # The request is allowed to expire per the agent's configured time-to-live, typically 1 minute
+      # See MapperProxy for details
+      def timeout_retry_request(*args, &blk)
+        MapperProxy.instance.timeout_retry_request(*args, &blk)
+      end
+
+      # Helper method to send a request to a single target with a response expected
+      # The request is persisted en route to reduce the chance of it being lost at the expense of some
+      # additional network overhead
+      # The request is never retried if there is the possibility of it being duplicated
+      # See MapperProxy for details
+      def persistent_non_duplicate_request(*args, &blk)
+        MapperProxy.instance.persistent_non_duplicate_request(*args, &blk)
       end
 
     end # InstanceMethods

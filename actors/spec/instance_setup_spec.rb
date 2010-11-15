@@ -47,14 +47,20 @@ class InstanceSetup
   def self.agents=(agents)
     @@agents = agents
   end
-  def send_request(operation, *args)
+  def timeout_retry_request(operation, *args)
     case operation
-      when "/booter/set_r_s_version" then yield @@factory.success_results
-      when "/booter/get_repositories" then yield @@repos
-      when "/booter/get_boot_bundle" then yield @@bundle
-      when "/booter/get_login_policy" then yield @@login_policy
-      when "/mapper/list_agents" then yield @@agents
-      else raise ArgumentError.new("Don't know how to mock #{operation}")
+    when "/booter/set_r_s_version" then yield @@factory.success_results
+    when "/booter/get_repositories" then yield @@repos
+    when "/booter/get_boot_bundle" then yield @@bundle
+    when "/booter/get_login_policy" then yield @@login_policy
+    when "/mapper/list_agents" then yield @@agents
+    else raise ArgumentError.new("Don't know how to mock #{operation}")
+    end
+  end
+  def persistent_non_duplicate_request(operation, *args)
+    case operation
+    when "/booter/declare" then yield @@factory.success_results
+    else raise ArgumentError.new("Don't know how to mock #{operation}")
     end
   end
 end
@@ -80,6 +86,7 @@ describe InstanceSetup do
     status = flexmock('status', :success? => true)
     flexmock(RightScale).should_receive(:popen3).and_return { |o| o[:target].send(o[:exit_handler], status) }
     setup_state
+    @mapper_proxy.should_receive(:initialize_offline_queue).and_yield
 
     # prevent Chef logging reaching the console during spec test.
     logger = flexmock(::RightScale::RightLinkLog.logger)
@@ -108,17 +115,17 @@ describe InstanceSetup do
     end
 
     InstanceSetup.login_policy = login_policy
-    InstanceSetup.repos        = repos
-    InstanceSetup.bundle       = bundle
+    InstanceSetup.repos = repos
+    InstanceSetup.bundle = bundle
 
     result = RightScale::OperationResult.success({ 'agent_id1' => { 'tags' => ['tag1'] } })
     agents = flexmock('result', :results => { 'mapper_id1' => result })
-    InstanceSetup.agents       = agents
+    InstanceSetup.agents = agents
 
     EM.run do
       @setup.__send__(:initialize, @agent_identity.to_s)
       EM.add_periodic_timer(0.1) { check_state }
-      EM.add_timer(100) { EM.stop }
+      EM.add_timer(10) { EM.stop }
     end
   end
 
