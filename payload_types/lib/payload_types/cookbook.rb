@@ -41,7 +41,7 @@ module RightScale
     def initialize(*args)
       @hash  = args[0] if args.size > 0
       @token = args[1] if args.size > 1
-      @token = args[2] if args.size > 2
+      @name  = args[2] if args.size > 2
     end
 
     # Array of serialized fields given to constructor

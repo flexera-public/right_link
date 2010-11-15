@@ -62,7 +62,6 @@ module RightScale
     REPOSE_RETRY_BACKOFF_MAX = 6
 
     include EM::Deferrable
-    include ProcessWatcher
 
     class ReposeConnectionException < Exception
     end
@@ -228,7 +227,7 @@ module RightScale
       true
     end
 
-    # Download cookbooks repositories, update @ok
+    # Download required cookbooks from Repose mirror; update @ok.
     # Note: Starting with Chef 0.8, the cookbooks repositories list must be traversed in reverse
     # order to preserve the semantic of the dashboard (first repo has priority)
     #
@@ -240,38 +239,65 @@ module RightScale
 
       @audit.create_new_section('Retrieving cookbooks') unless @cookbooks.empty?
       audit_time do
-        @cookbooks.each do |cookbook|
-          @audit.append_info("Requesting #{cookbook.name}")
-          result = request_cookbook(cookbook)
-          unless result
-            report_failure("Failed to download cookbook", "Please check logs for more information.")
-            return
+        counter = 0
+        
+        @cookbooks.each do |related_cookbooks_hash|
+          local_basedir = File.join(@download_path, counter.to_s)
+          related_cookbooks_hash.each_pair do |relative_path, cookbook|
+            prepare_cookbook(local_basedir, relative_path, cookbook)
           end
-
-          tarball = Tempfile.new("tarball")
-          @audit.append_info("Success; unarchiving cookbook")
-          result.read_body do |chunk|
-            tarball << chunk
-          end
-          tarball.close
-
-          root_dir = File.join(@download_path, cookbook.hash)
-          FileUtils.mkdir_p(root_dir)
-          Dir.chdir(root_dir) do
-            output, status = run('tar', 'xf', tarball.path)
-            if status.exitstatus != 0
-              report_failure("Unknown error: #{status.exitstatus}", output)
-              return
-            else
-              @audit.append_info(output)
-            end
-          end
-          tarball.close(true)
+          counter += 1
         end
       end
       true
     ensure
       OpenSSL::SSL::SSLSocket.hostname_override = nil
+    end
+
+    #
+    # TODO TonyS docs
+    #
+    def prepare_cookbook(local_basedir, relative_path, cookbook)
+      @audit.append_info("Requesting #{cookbook.name}")
+      result = request_cookbook(cookbook)
+      unless result
+        report_failure("Failed to download cookbook", "Please check logs for more information.")
+        return
+      end
+
+      tarball = Tempfile.new("tarball")
+      @audit.append_info("Success; unarchiving cookbook")
+      result.read_body do |chunk|
+        tarball << chunk
+      end
+      tarball.close
+
+      # The local basedir is the faux "repository root" into which we extract all related
+      # cookbooks in that set, "related" meaning a set of cookbooks that originally came
+      # from the same Chef cookbooks repository as observed by the scaper.
+      #
+      # Even though we are pulling individually-packaged cookbooks and not the whole repository,
+      # we preserve the position of cookbooks in the directory hierarchy such that a given cookbook
+      # has the same path relative to the local basedir as the original cookbook had relative to the
+      # base directory of its repository.
+      #
+      # This ensures we will be able to deal with future changes to the Chef merge algorithm,
+      # as well as accommodate "naughty" cookbooks that side-load data from the filesystem
+      # using relative paths to other cookbooks.
+      root_dir = [local_basedir] + relative_path.split('/')
+      root_dir = File.join(*root_dir)
+      FileUtils.mkdir_p(root_dir)
+
+      Dir.chdir(root_dir) do
+        output, status = ProcessWatcher.run('tar', 'xf', tarball.path)
+        if status.exitstatus != 0
+          report_failure("Unknown error: #{status.exitstatus}", output)
+          return
+        else
+          @audit.append_info(output)
+        end
+      end
+      tarball.close(true)
     end
 
     # Given a sequence of preferred hostnames, lookup all IP addresses and store
