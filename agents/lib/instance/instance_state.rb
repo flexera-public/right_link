@@ -99,7 +99,9 @@ module RightScale
 
     # Set instance id with given id
     # Load persisted state if any, compare instance ids and force boot if instance ID
-    # is different OR if system booted_at is different from persisted booted_at.
+    # is different or if reboot flagged
+    # Relying here on rightboot script to create state file initially and flag reboot
+    # if file already exists
     #
     # === Parameters
     # identity(String):: Instance identity
@@ -128,19 +130,27 @@ module RightScale
         #  2) reboot/restart     -- Agent already ran; agent ID not changed; reboot detected: transition back to booting
         #  3) bundled boot       -- Agent already ran; agent ID changed: transition back to booting
         #  4) decommission/crash -- Agent exited anyway; ID not changed; no reboot; keep old state entirely
-        if (state['identity'] != identity) || !state['booted_at']
+        if state['identity'] && state['identity'] != identity
           # CASE 3 -- identity has changed; bundled boot
           RightLinkLog.debug("Bundle detected; transitioning state to booting")
           @@last_recorded_value = state['last_recorded_value']
           self.value = 'booting'
-        elsif state['reboot'] || booted_at != state['booted_at']
-          # CASE 2 -- Boot time has changed; reboot
-          RightLinkLog.debug("Reboot detected; transitioning state to booting")
-          @@last_recorded_value = state['last_recorded_value']
-          self.value = 'booting'
-          @@reboot = true
+        elsif state['value'] == INITIAL_STATE
+          if state['reboot']
+            # CASE 2 -- rebooting flagged by rightboot script when updating state in existing state file
+            RightLinkLog.debug("Reboot detected; transitioning state to booting")
+            @@last_recorded_value = state['last_recorded_value']
+            self.value = 'booting'
+            @@reboot = true
+          else
+            # CASE 1 -- initial boot; rightboot script created the state file and initialized state
+            RightLinkLog.debug("Initializing instance #{identity} with booting")
+            @@last_recorded_value = INITIAL_STATE
+            self.value = 'booting'
+            @@initial_boot = true
+          end
         else
-          # CASE 4 -- Restart without reboot; continue with record retries if inconsistent
+          # CASE 4 -- restart without reboot; continue with retries if recorded state does not match
           @@value = state['value']
           @@startup_tags = state['startup_tags']
           @@log_level = state['log_level']
@@ -155,7 +165,7 @@ module RightScale
           update_logger
         end
       else
-        # CASE 1 -- state file does not exist; initial boot, create state file
+        # CASE 1 -- initial boot fallback, in case rightboot script failed to create state file
         RightLinkLog.debug("Initializing instance #{identity} with booting")
         @@last_recorded_value = INITIAL_STATE
         self.value = 'booting'
@@ -222,7 +232,7 @@ module RightScale
     # Initial boot value
     # 
     # === Return
-    # res(TrueClass|FalseClass):: Whether this is the instance first boot
+    # res(Boolean):: Whether this is the instance first boot
     def self.initial_boot
       res = @@initial_boot
     end
@@ -230,24 +240,27 @@ module RightScale
     # Are we rebooting? (needed for RightScripts)
     #
     # === Return
-    # res(TrueClass|FalseClass):: Whether this instance was rebooted
+    # res(Boolean):: Whether this instance was rebooted
     def self.reboot?
       res = @@reboot
     end
 
     # Ask core agent to shut ourselves down for soft termination
-    # Add a timer to force shutdown if we haven't heard back from the cloud or the request hangs
+    # Do not specify the last recorded state since does not matter at this point
+    # and no need to risk request failure
+    # Add a timer to force shutdown if do not hear back from the cloud or the request hangs
     #
     # === Parameters
     # user_id(Integer):: ID of user that triggered soft-termination
-    # skip_db_update(TrueClass|FalseClass):: Whether to requery instance state after call to Ec2 to terminate was made
+    # skip_db_update(Boolean):: Whether to re-query instance state after call to Ec2 to terminate was made
     # kind(String):: 'terminate' or 'stop'
     #
     # === Return
     # true:: Always return true
     def self.shutdown(user_id, skip_db_update, kind)
-      opts = { :agent_identity => @@identity, :state => FINAL_STATE, :user_id => user_id, :skip_db_update => skip_db_update, :kind => kind }
-      RightScale::RequestForwarder.instance.request('/state_recorder/record', opts) do |r|
+      payload = {:agent_identity => @@identity, :state => FINAL_STATE, :user_id => user_id,
+                 :skip_db_update => skip_db_update, :kind => kind}
+      RightScale::RequestForwarder.instance.request('/state_recorder/record', payload) do |r|
         res = RightScale::OperationResult.from_results(r)
         RightScale::RequestForwarder.instance.push('/registrar/remove', :agent_identity => @@identity)
         RightScale::Platform.controller.shutdown unless res.success?
@@ -385,14 +398,6 @@ module RightScale
       return RightScale::RightLinkConfig[:platform].shell.uptime
     end
 
-    # Determine the wall-clock time at which this system was last booted.
-    #
-    # === Return
-    # booted_at(Integer):: UTC timestamp of system's last boot
-    def self.booted_at()
-      return RightScale::RightLinkConfig[:platform].shell.booted_at
-    end
-
     # Purely for informational purposes, attempt to update the Unix MOTD file
     # with a pretty banner indicating success or failure. This operation is
     # not critical and does not influence the functionality of the instance,
@@ -468,7 +473,6 @@ module RightScale
       write_json(STATE_FILE, {'value'               => @@value,
                               'identity'            => @@identity,
                               'uptime'              => uptime,
-                              'booted_at'           => booted_at,
                               'reboot'              => @@reboot,
                               'startup_tags'        => @@startup_tags,
                               'log_level'           => @@log_level,
