@@ -717,13 +717,12 @@ module RightScale
     # Check status of agent by gathering current operation statistics and publishing them and
     # by completing any queue setup that can be completed now based on broker status
     # Use registrar for initializing broker service for an instance agent
-    # Only publish statistics every third time called
     #
     # === Return
     # true:: Always return true
     def check_status
       begin
-        if @stats_routing_key && @check_status_count.modulo(3) == 0
+        if @stats_routing_key
           exchange = {:type => :topic, :name => "stats", :options => {:no_declare => true}}
           @broker.publish(exchange, Stats.new(stats.content, @identity), :no_log => true,
                           :routing_key => @stats_routing_key, :brokers => @check_status_brokers.rotate!)
