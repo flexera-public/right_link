@@ -300,6 +300,14 @@ module RightScale
         end
       end
       tarball.close(true)
+
+      #TODO TS/GCH - after changing ExecutableBundle format so it includes the ordering of the
+      #cookbook paths for a related-cookbooks set, pull this logic out of the for-each-cookbook
+      #loop and simply add the cookbooks paths for each related-cookbooks set to the cookbooks
+      #path. (Will need to infer or record the 0,1,2... basedir name for each related-cookbooks
+      #set.
+      path_elem = File.expand_path('..', root_dir)
+      Chef::Config[:cookbook_path] << path_elem unless Chef::Config[:cookbook_path].include?(path_elem)
     end
 
     # Given a sequence of preferred hostnames, lookup all IP addresses and store
