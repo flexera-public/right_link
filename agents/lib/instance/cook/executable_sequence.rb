@@ -89,7 +89,7 @@ module RightScale
       @audit                  = AuditStub.instance
       @logger                 = RightLinkLog
 
-      #Lookup 
+      #Lookup
       discover_repose_servers(bundle.repose_servers)
 
       # Initializes run list for this sequence (partial converge support)
@@ -240,7 +240,7 @@ module RightScale
       @audit.create_new_section('Retrieving cookbooks') unless @cookbooks.empty?
       audit_time do
         counter = 0
-        
+
         @cookbooks.each do |related_cookbooks_hash|
           local_basedir = File.join(@download_path, counter.to_s)
           related_cookbooks_hash.each_pair do |relative_path, cookbook|
@@ -322,12 +322,12 @@ module RightScale
 
         #Randomly permute the addrinfos of each hostname to help spread load.
         infos.shuffle.each do |info|
-          ip = info[3] 
+          ip = info[3]
           @repose_ips << ip
           @repose_hostnames[ip] = hostname
         end
       end
-      
+
       true
     end
 
@@ -374,6 +374,7 @@ module RightScale
         RightLinkLog.info("Requesting #{cookbook}")
         request = Net::HTTP::Get.new("/cookbooks/#{cookbook.hash}")
         request['Cookie'] = "repose_ticket=#{cookbook.token}"
+        request['Host'] = @repose_connection.first
 
         @repose_connection.last.request(
             :protocol => 'https', :server => @repose_connection.first, :port => '443',
