@@ -36,13 +36,17 @@ module OpenSSL
     class SSLSocket
       alias post_connection_check_without_hack post_connection_check
 
+      # Note that we must use a class variable here. THOU SHALT NEVER CAUSE 'openssl/ssl'
+      # TO BE RELOADED, nor shalt thou ever use this monkey patch in conjunction with
+      # Rails auto-loading or class-reloading mechanisms! You have been warned...
+      @@hostname_override = nil
+
       def self.hostname_override=(hostname_override)
-        @hostname_override = hostname_override
+        @@hostname_override = hostname_override
       end
 
       def post_connection_check(hostname)
-        return true if @hostname_override && hostname == @hostname_override
-        return post_connection_check_without_hack(hostname)
+        return post_connection_check_without_hack(@@hostname_override || hostname)
       end
     end
   end
@@ -348,9 +352,16 @@ module RightScale
         RightLinkLog.info("Connecting to cookbook server #{ip} (#{hostname})")
         begin
           OpenSSL::SSL::SSLSocket.hostname_override = hostname
+
+          #The CA bundle is a basically static collection of trusted certs of top-level
+          #CAs. It should be provided by the OS, but because of our cross-platform nature
+          #and the lib we're using, we need to supply our own. We stole curl's.
+          ca_file = File.normalize_path(File.join(File.dirname(__FILE__), 'ca-bundle.crt'))
+
           connection = Rightscale::HttpConnection.new(:user_agent => "RightLink v#{RightLinkConfig.protocol_version}",
                                                       :logger => @logger,
-                                                      :exception => ReposeConnectionException)
+                                                      :exception => ReposeConnectionException,
+                                                      :ca_file => ca_file)
           health_check = Net::HTTP::Get.new('/')
           result = connection.request(:server => ip, :port => '443', :protocol => 'https',
                                       :request => health_check)
