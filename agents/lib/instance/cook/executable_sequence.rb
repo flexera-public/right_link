@@ -259,18 +259,20 @@ module RightScale
     #
     def prepare_cookbook(local_basedir, relative_path, cookbook)
       @audit.append_info("Requesting #{cookbook.name}")
-      result = request_cookbook(cookbook)
+      tarball = Tempfile.new("tarball")
+      result = request_cookbook(cookbook) do |response|
+        response.read_body do |chunk|
+          tarball << chunk
+        end
+      end
       unless result
-        report_failure("Failed to download cookbook", "Please check logs for more information.")
+        report_failure("Failed to download cookbook",
+                       "Please check logs for more information.")
         return
       end
-
-      tarball = Tempfile.new("tarball")
-      @audit.append_info("Success; unarchiving cookbook")
-      result.read_body do |chunk|
-        tarball << chunk
-      end
       tarball.close
+
+      @audit.append_info("Success; unarchiving cookbook")
 
       # The local basedir is the faux "repository root" into which we extract all related
       # cookbooks in that set, "related" meaning a set of cookbooks that originally came
@@ -366,7 +368,9 @@ module RightScale
     # response(Net::HTTPSuccess):: response object, or nil on permanent failure
     def request_cookbook(cookbook)
       @repose_connection ||= next_repose_server
-      loop do
+      cookie = Object.new
+      result = cookie
+      while result == cookie
         RightLinkLog.info("Requesting #{cookbook}")
         request = Net::HTTP::Get.new("/cookbooks/#{cookbook.hash}")
         request['Cookie'] = "repose_ticket=#{cookbook.token}"
@@ -376,7 +380,8 @@ module RightScale
             :request => request) do |response|
           if response.kind_of?(Net::HTTPSuccess)
             @repose_failures = 0
-            return response
+            yield response
+            result = true
           elsif response.kind_of?(Net::HTTPServiceUnavailable) || response.kind_of?(Net::HTTPNotFound)
             RightLinkLog.info("Request failed - #{response.class.name} - retry")
             @repose_failures = (@repose_failures + 1) % REPOSE_RETRY_BACKOFF_MAX
@@ -384,10 +389,11 @@ module RightScale
             @repose_connection = next_repose_server
           else
             RightLinkLog.info("Request failed - #{response.class.name} - give up")
-            return nil
+            result = false
           end
         end
       end
+      result
     end
 
     # Create Powershell providers from cookbook repos
