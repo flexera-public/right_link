@@ -26,7 +26,10 @@ module RightScale
   class CookbookSequence
     include Serializable
 
+    # (String) relative position in the filesystem that the cookbook
+    # should be expanded at.
     attr_accessor :position
+    # (Cookbook) cookbook to expand.
     attr_accessor :cookbook
 
     # Initialize fields from given arguments

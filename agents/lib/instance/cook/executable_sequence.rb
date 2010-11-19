@@ -256,7 +256,7 @@ module RightScale
 
       @cookbooks.each_with_index do |cookbook_sequence, i|
         local_basedir = File.join(@download_path, i.to_s)
-        cookbook_sequence.path.each {|path|
+        cookbook_sequence.paths.each {|path|
           dir = File.expand_path(File.join(local_basedir, path))
           Chef::Config[:cookbook_path] << dir unless Chef::Config[:cookbook_path].include?(path_elem)
         }

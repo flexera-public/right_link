@@ -26,7 +26,9 @@ module RightScale
   class CookbookSequence
     include Serializable
 
-    attr_accessor :path
+    # (Array) relative cookbook paths to use from the repository root.
+    attr_accessor :paths
+    # (Array) CookbookPosition objects for each cookbook.
     attr_accessor :positions
 
     # Initialize fields from given arguments
