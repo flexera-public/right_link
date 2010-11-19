@@ -34,7 +34,7 @@ module RightScale
 
     # Initialize fields from given arguments
     def initialize(*args)
-      @position = args[0].to_sym
+      @position = args[0]
       @cookbook = args[1] if args.size > 1
     end
 
