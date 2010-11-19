@@ -30,6 +30,28 @@ undef :daemonize if methods.include?('daemonize')
 
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', '..', '..', 'chef', 'lib', 'ohai_setup'))
 
+#TODO TS factor this into its own source file; make it slightly less monkey-patchy (e.g. mixin)
+module OpenSSL
+  module SSL
+    class SSLSocket
+      alias post_connection_check_without_hack post_connection_check
+
+      # Class variable. Danger! THOU SHALT NOT CAUSE 'openssl/ssl' TO RELOAD
+      # nor shalt thou use this monkey patch in conjunction with Rails
+      # auto-loading or class-reloading mechanisms! You have been warned...
+      @@hostname_override = nil
+
+      def self.hostname_override=(hostname_override)
+        @@hostname_override = hostname_override
+      end
+
+      def post_connection_check(hostname)
+        return post_connection_check_without_hack(@@hostname_override || hostname)
+      end
+    end
+  end
+end
+
 module RightScale
 
   OHAI_RETRY_MIN_DELAY = 20      # Min number of seconds to wait before retrying Ohai to get the hostname
@@ -40,9 +62,10 @@ module RightScale
   # Also downloads cookbooks and run recipes in given bundle.
   # Runs in separate (runner) process.
   class ExecutableSequence
+    #max wait 64 (2**6) sec between retries
+    REPOSE_RETRY_BACKOFF_MAX = 6
 
     include EM::Deferrable
-    include ProcessWatcher
 
     class ReposeConnectionException < Exception
     end
@@ -63,13 +86,15 @@ module RightScale
       @scripts                = bundle.executables.select { |e| e.is_a?(RightScriptInstantiation) }
       recipes                 = bundle.executables.map    { |e| e.is_a?(RecipeInstantiation) ? e : @right_scripts_cookbook.recipe_from_right_script(e) }
       @cookbooks              = bundle.cookbooks
-      @repose_servers         = bundle.repose_servers
       @downloader             = Downloader.new
       @download_path          = InstanceConfiguration.cookbook_download_path
       @powershell_providers   = nil
       @ohai_retry_delay       = OHAI_RETRY_MIN_DELAY
       @audit                  = AuditStub.instance
       @logger                 = RightLinkLog
+
+      #Lookup
+      discover_repose_servers(bundle.repose_servers)
 
       # Initializes run list for this sequence (partial converge support)
       @run_list = []
@@ -206,7 +231,7 @@ module RightScale
       true
     end
 
-    # Download cookbooks repositories, update @ok
+    # Download required cookbooks from Repose mirror; update @ok.
     # Note: Starting with Chef 0.8, the cookbooks repositories list must be traversed in reverse
     # order to preserve the semantic of the dashboard (first repo has priority)
     #
@@ -218,88 +243,192 @@ module RightScale
 
       @audit.create_new_section('Retrieving cookbooks') unless @cookbooks.empty?
       audit_time do
-        connection = Rightscale::HttpConnection.new(:user_agent => 'Repose client',
-                                                    :logger => @logger,
-                                                    :exception => ReposeConnectionException)
-        server = find_repose_server(connection)
-        @cookbooks.each do |cookbook|
-          @audit.update_status("Downloading #{cookbook}")
+        counter = 0
 
-          request = Net::HTTP::Get.new('/#{cookbook.hash}')
-          request['Cookie'] = "repose_ticket=#{cookbook.token}"
-          again = true
-          while again
-            begin
-              connection.request(:server => server, :port => '80', :protocol => 'https',
-                                 :request => request) do |result|
-                if result.kind_of?(Net::HTTPSuccess)
-                  again = false
-                  tarball = Tempfile.new("tarball")
-                  @audit.append_info("Success, now unarchiving")
-                  result.read_body do |chunk|
-                    tarball << chunk
-                  end
-                  tarball.close
-
-                  root_dir = File.join(@download_path, cookbook.hash)
-                  FileUtils.mkdir_p(root_dir)
-                  Dir.chdir(root_dir) do
-                    output, status = run('tar', 'xf', tarball.path)
-                    if status.exitstatus != 0
-                      report_failure("Unknown error: #{status.exitstatus}", output)
-                    else
-                      @audit.append_info(output)
-                    end
-                  end
-                  tarball.close(true)
-                elsif result.kind_of?(HTTPServiceUnavailable)
-                  @audit.append_info("Repose server unavailable; retrying", result.body)
-                  server = find_repose_server(connection)
-                else
-                  again = false
-                  report_failure("Unable to download cookbook #{cookbook}", result.to_s)
-                end
-              end
-            rescue ReposeConnectionException => e
-              @audit.append_info("Connection interrupted: #{e}; retrying")
-              server = find_repose_server(connection)
-            end
+        @cookbooks.each_with_index do |cookbook_sequence, i|
+          local_basedir = File.join(@download_path, i.to_s)
+          cookbook_sequence.positions.each do |position|
+            prepare_cookbook(local_basedir, position.position,
+                             position.cookbook)
           end
         end
       end
+
+      # NB: Chef 0.8.16 requires us to contort the path ordering to preserve the semantics of
+      # RS dashboard repo paths. Revisit when upgrading to >= 0.9
+      @cookbooks.reverse.each_with_index do |cookbook_sequence, i|
+        i = @cookbooks.size - i - 1 #adjust for reversification
+        local_basedir = File.join(@download_path, i.to_s)
+        cookbook_sequence.paths.reverse.each {|path|
+          dir = File.expand_path(File.join(local_basedir, path))
+          Chef::Config[:cookbook_path] << dir unless Chef::Config[:cookbook_path].include?(dir)
+        }
+      end
+      true
+    ensure
+      OpenSSL::SSL::SSLSocket.hostname_override = nil
+    end
+
+    #
+    # Download a cookbook from the mirror and extract it to the filesystem.
+    #
+    # === Parameters
+    # local_basedir(String):: dir where all the cookbooks are going
+    # relative_path(String):: subdir of basedir into which this cookbook goes
+    # cookbook(Cookbook):: cookbook
+    #
+    # === Return
+    # true:: always returns true
+    def prepare_cookbook(local_basedir, relative_path, cookbook)
+      @audit.append_info("Requesting #{cookbook.name}")
+      tarball = Tempfile.new("tarball")
+      result = request_cookbook(cookbook) do |response|
+        response.read_body do |chunk|
+          tarball << chunk
+        end
+      end
+      unless result
+        report_failure("Failed to download cookbook",
+                       "Please check logs for more information.")
+        return true
+      end
+      tarball.close
+
+      @audit.append_info("Success; unarchiving cookbook")
+
+      # The local basedir is the faux "repository root" into which we extract all related
+      # cookbooks in that set, "related" meaning a set of cookbooks that originally came
+      # from the same Chef cookbooks repository as observed by the scraper.
+      #
+      # Even though we are pulling individually-packaged cookbooks and not the whole repository,
+      # we preserve the position of cookbooks in the directory hierarchy such that a given cookbook
+      # has the same path relative to the local basedir as the original cookbook had relative to the
+      # base directory of its repository.
+      #
+      # This ensures we will be able to deal with future changes to the Chef merge algorithm,
+      # as well as accommodate "naughty" cookbooks that side-load data from the filesystem
+      # using relative paths to other cookbooks.
+      root_dir = [local_basedir] + relative_path.split('/')
+      root_dir = File.join(*root_dir)
+      FileUtils.mkdir_p(root_dir)
+
+      Dir.chdir(root_dir) do
+        output, status = ProcessWatcher.run('tar', 'xf', tarball.path)
+        if status.exitstatus != 0
+          report_failure("Unknown error: #{status.exitstatus}", output)
+          return
+        else
+          @audit.append_info(output)
+        end
+      end
+      tarball.close(true)
+      return true
+    end
+
+    # Given a sequence of preferred hostnames, lookup all IP addresses and store
+    # an ordered sequence of IP addresses from which to attempt cookbook download.
+    # Also build a lookup hash that maps IP addresses back to their original hostname
+    # so we can perform TLS hostname verification.
+    #
+    # === Parameters
+    # hostnames(Array):: hostnames
+    #
+    # === Return
+    # true:: always returns true
+    def discover_repose_servers(hostnames)
+      @repose_idx       = 0
+      @repose_ips       = []
+      @repose_hostnames = {}
+      @repose_failures  = 0
+      hostnames.each do |hostname|
+        infos = Socket.getaddrinfo(hostname, 443, Socket::AF_INET, Socket::SOCK_STREAM, Socket::IPPROTO_TCP)
+
+        #Randomly permute the addrinfos of each hostname to help spread load.
+        infos.shuffle.each do |info|
+          ip = info[3]
+          @repose_ips << ip
+          @repose_hostnames[ip] = hostname
+        end
+      end
+
       true
     end
 
-    # Find a working repose server using the given connection.  Will
-    # block until one is found.
-    #
-    # === Parameters
-    # connection(RightHttpConnection):: connection to use
+    # Find the next Repose server in the list. Perform special TLS certificate voodoo to comply
+    # safely with global URL scheme.
     #
     # === Return
-    # address(String):: IP address of working repose server
-    def find_repose_server(connection)
+    # server(Array):: [ ip address of server, HttpConnection to server ]
+    def next_repose_server
       loop do
-        possibles = Socket.getaddrinfo(@repose_servers.first, 80, Socket::AF_INET, Socket::SOCK_STREAM,
-                                       Socket::IPPROTO_TCP)
-        if possibles.empty?
-          RightLinkLog.warn("Unable to find any repose servers for #{@repose_servers.first}; retrying")
-          sleep 10
-          next
-        end
+        ip         = @repose_ips[ @repose_idx % @repose_ips.size ]
+        hostname   = @repose_hostnames[ip]
+        #TODO monkey-patch OpenSSL hostname verification
+        RightLinkLog.info("Connecting to cookbook server #{ip} (#{hostname})")
+        begin
+          OpenSSL::SSL::SSLSocket.hostname_override = hostname
 
-        # Try to get to the server health page
-        possibles.each do |possible|
-          family, port, hostname, address, protocol_family, socket_type, protocol = possible
-          request = Net::HTTP::Get.new('/')
-          result = connection.request(:server => address, :port => '80', :protocol => 'https',
-                                      :request => request)
-          return address if result.kind_of?(HTTPSuccess)
-        end
+          #The CA bundle is a basically static collection of trusted certs of top-level
+          #CAs. It should be provided by the OS, but because of our cross-platform nature
+          #and the lib we're using, we need to supply our own. We stole curl's.
+          ca_file = File.normalize_path(File.join(File.dirname(__FILE__), 'ca-bundle.crt'))
 
-        RightLinkLog.warn("All available repose servers for #{@repose_servers.inspect} are down; retrying")
-        sleep 10
+          connection = Rightscale::HttpConnection.new(:user_agent => "RightLink v#{RightLinkConfig.protocol_version}",
+                                                      :logger => @logger,
+                                                      :exception => ReposeConnectionException,
+                                                      :ca_file => ca_file)
+          health_check = Net::HTTP::Get.new('/')
+          result = connection.request(:server => ip, :port => '443', :protocol => 'https',
+                                      :request => health_check)
+          @repose_failures = 0
+          return [ip, connection] if result.kind_of?(Net::HTTPSuccess)
+        rescue ReposeConnectionException => e
+          RightLinkLog.error "Connection failed: #{e.message}"
+          @repose_failures = (@repose_failures + 1) % REPOSE_RETRY_BACKOFF_MAX
+          sleep (2**@repose_failures)
+        end
+        @repose_idx += 1
       end
+    end
+
+    # Request a cookbook from the Repose mirror, performing retry as necessary. Block
+    # until the cookbook has been downloaded, or until permanent failure has been
+    # determined.
+    #
+    # === Parameters
+    # cookbook(RightScale::Cookbook):: the cookbook to download
+    #
+    # === Return
+    # response(Net::HTTPSuccess):: response object, or nil on permanent failure
+    def request_cookbook(cookbook)
+      @repose_connection ||= next_repose_server
+      cookie = Object.new
+      result = cookie
+      while result == cookie
+        RightLinkLog.info("Requesting #{cookbook}")
+        request = Net::HTTP::Get.new("/cookbooks/#{cookbook.hash}")
+        request['Cookie'] = "repose_ticket=#{cookbook.token}"
+        request['Host'] = @repose_connection.first
+
+        @repose_connection.last.request(
+            :protocol => 'https', :server => @repose_connection.first, :port => '443',
+            :request => request) do |response|
+          if response.kind_of?(Net::HTTPSuccess)
+            @repose_failures = 0
+            yield response
+            result = true
+          elsif response.kind_of?(Net::HTTPServiceUnavailable) || response.kind_of?(Net::HTTPNotFound)
+            RightLinkLog.info("Request failed - #{response.class.name} - retry")
+            @repose_failures = (@repose_failures + 1) % REPOSE_RETRY_BACKOFF_MAX
+            sleep (2**@repose_failures)
+            @repose_connection = next_repose_server
+          else
+            RightLinkLog.info("Request failed - #{response.class.name} - give up")
+            result = false
+          end
+        end
+      end
+      result
     end
 
     # Create Powershell providers from cookbook repos
