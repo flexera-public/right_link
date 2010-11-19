@@ -245,11 +245,11 @@ module RightScale
       audit_time do
         counter = 0
 
-        @cookbooks.each_with_index do |related_cookbooks_list, i|
+        @cookbooks.each_with_index do |cookbook_sequence, i|
           local_basedir = File.join(@download_path, i.to_s)
-          related_cookbooks_list.each do |pair|
-            relative_path, cookbook = pair
-            prepare_cookbook(local_basedir, relative_path, cookbook)
+          cookbook_sequence.positions.each do |position|
+            prepare_cookbook(local_basedir, position.position,
+                             position.cookbook)
           end
         end
       end
