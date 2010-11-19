@@ -46,9 +46,8 @@ module RightScale
     # Valid internal states
     STATES            = RECORDED_STATES + FINAL_STATE.to_a
 
-    STATE_DIR         = RightScale::RightLinkConfig[:agent_state_dir]
-
     # Path to JSON file where current instance state is serialized
+    STATE_DIR         = RightScale::RightLinkConfig[:agent_state_dir]
     STATE_FILE        = File.join(STATE_DIR, 'state.js')
 
     # Path to JSON file where past scripts are serialized
@@ -71,6 +70,9 @@ module RightScale
 
     # Number of seconds between attempts to record state
     RETRY_RECORD_STATE_DELAY = 5
+
+    # Minimum interval in seconds for persistent storage of last communication
+    LAST_COMMUNICATION_STORAGE_INTERVAL = 60
 
     # (String) One of STATES
     def self.value
@@ -116,7 +118,8 @@ module RightScale
       @@reboot = false
       @@resource_uid = nil
       @@last_recorded_value = nil
-      @@retry_record_count = 0
+      @@record_retries = 0
+      @@last_communication = 0
       dir = File.dirname(STATE_FILE)
       FileUtils.mkdir_p(dir) unless File.directory?(dir)
 
@@ -155,12 +158,12 @@ module RightScale
           @@startup_tags = state['startup_tags']
           @@log_level = state['log_level']
           @@last_recorded_value = state['last_recorded_value']
-          @@retry_record_count = state['retry_record_count']
+          @@record_retries = state['record_retries']
           if @@value != @@last_recorded_value && RECORDED_STATES.include?(@@value) &&
-             @@retry_record_count < MAX_RECORD_STATE_RETRIES
+             @@record_retries < MAX_RECORD_STATE_RETRIES
             record_state
           else
-            @@retry_record_count = 0
+            @@record_retries = 0
           end
           update_logger
         end
@@ -229,11 +232,11 @@ module RightScale
       resource_uid = @@resource_uid
     end
 
-    # Initial boot value
+    # Is this the initial boot?
     # 
     # === Return
     # res(Boolean):: Whether this is the instance first boot
-    def self.initial_boot
+    def self.initial_boot?
       res = @@initial_boot
     end
 
@@ -243,6 +246,17 @@ module RightScale
     # res(Boolean):: Whether this instance was rebooted
     def self.reboot?
       res = @@reboot
+    end
+
+    # Update the time this instance last received a message
+    # thus demonstrating that it is still connected
+    #
+    # === Return
+    # true:: Always return true
+    def self.message_received
+      last = @@last_communication
+      @@last_communication = Time.now.to_i
+      store_state if (@@last_communication - last) > LAST_COMMUNICATION_STORAGE_INTERVAL
     end
 
     # Ask core agent to shut ourselves down for soft termination
@@ -476,8 +490,9 @@ module RightScale
                               'reboot'              => @@reboot,
                               'startup_tags'        => @@startup_tags,
                               'log_level'           => @@log_level,
+                              'record_retries'      => @@record_retries,
                               'last_recorded_value' => @@last_recorded_value,
-                              'retry_record_count'  => @@retry_record_count})
+                              'last_communication'  => @@last_communication})
       true
     end
 
@@ -494,7 +509,7 @@ module RightScale
         res = RightScale::OperationResult.from_results(r)
         if res.success?
           @@last_recorded_value = new_value
-          @@retry_record_count = 0
+          @@record_retries = 0
         else
           error = if res.content.is_a?(Hash) && res.content['recorded_state']
             # State transitioning from does not match recorded state, so update last recorded value
@@ -504,20 +519,20 @@ module RightScale
             res.content
           end
           if @@value != @@last_recorded_value
-            attempts = " after #{@@retry_record_count + 1} attempts" if @@retry_record_count >= MAX_RECORD_STATE_RETRIES
+            attempts = " after #{@@record_retries + 1} attempts" if @@record_retries >= MAX_RECORD_STATE_RETRIES
             RightLinkLog.error("Failed to record state '#{new_value}'#{attempts}: #{error}")
-            @@retry_record_count = 0 if @@value != new_value
-            if RECORDED_STATES.include?(@@value) && @@retry_record_count < MAX_RECORD_STATE_RETRIES
+            @@record_retries = 0 if @@value != new_value
+            if RECORDED_STATES.include?(@@value) && @@record_retries < MAX_RECORD_STATE_RETRIES
               RightLinkLog.info("Will retry recording state in #{RETRY_RECORD_STATE_DELAY} seconds")
               EM.add_timer(RETRY_RECORD_STATE_DELAY) do
                 if @@value != @@last_recorded_value
-                  @@retry_record_count += 1
+                  @@record_retries += 1
                   record_state
                 end
               end
             else
               # Giving up since out of retries or state has changed to a non-recorded value
-              @@retry_record_count = 0
+              @@record_retries = 0
             end
           end
         end

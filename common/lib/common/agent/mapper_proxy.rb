@@ -29,17 +29,23 @@ module RightScale
 
     include StatsHelper
 
-    # (Integer) Seconds to wait for ping response from a mapper when checking broker connectivity
+    # Number of seconds without receiving a message before check connectivity
+    INACTIVITY_TIMEOUT = 4 * 60 * 60
+
+    # Minimum number of seconds between restarts of the inactivity timer
+    MIN_RESTART_INACTIVITY_TIMER_INTERVAL = 5 * 60
+
+    # Number of seconds to wait for ping response from a mapper when checking connectivity
     PING_TIMEOUT = 15
 
     # (EM::Timer) Timer while waiting for mapper ping response
     attr_accessor :pending_ping
-  
+
     # (Hash) Pending requests; key is request token and value is hash with :result_handler value being a block
     attr_accessor :pending_requests
 
     # (String) Identity of the agent using the mapper proxy
-    attr_accessor :identity
+    attr_reader :identity
 
     # Accessor for use by actor
     #
@@ -79,6 +85,7 @@ module RightScale
       @single_threaded = @options[:single_threaded]
       @retry_timeout = nil_if_zero(@options[:retry_timeout])
       @retry_interval = nil_if_zero(@options[:retry_interval])
+      restart_inactivity_timer
       reset_stats
 
       # Only to be accessed from primary thread
@@ -86,6 +93,17 @@ module RightScale
       @pending_ping = nil
 
       @@instance = self
+    end
+
+    # Update the time this agent last received a request or response message
+    # and restart the inactivity timer thus deferring the next connectivity check
+    #
+    # === Return
+    # true:: Always return true
+    def message_received
+      last = @last_received || 0
+      @last_received = Time.now.to_i
+      restart_inactivity_timer if (@last_received - last) > MIN_RESTART_INACTIVITY_TIMER_INTERVAL
     end
 
     # Send request to given agent through the mapper
@@ -322,18 +340,19 @@ module RightScale
       true
     end
 
-    # Check whether broker connection is usable by pinging a mapper via that broker
+    # Check whether broker connection is usable by pinging a mapper
     # The connection is declared unusable if ping does not respond in PING_TIMEOUT seconds
     # The request is ignored if already checking a connection
     # Only to be called from primary thread
     #
     # === Parameters
-    # id(String):: Broker identity
+    # id(String):: Identity of specific broker to use to send ping, defaults to any
+    #   currently connected broker
     #
     # === Return
     # true:: Always return true
-    def check_connection(id)
-      unless @pending_ping || !@broker.connected?(id)
+    def check_connection(id = nil)
+      unless @pending_ping || (id && !@broker.connected?(id))
         @pending_ping = EM::Timer.new(PING_TIMEOUT) do
           begin
             @pings.update("timeout")
@@ -360,7 +379,7 @@ module RightScale
         end
         request = Request.new("/mapper/ping", nil, {:from => @identity, :token => AgentIdentity.generate})
         @pending_requests[request.token] = {:result_handler => handler, :receive_time => Time.now}
-        publish(request, [id])
+        id = publish(request, [id]).first
       end
       true
     end
@@ -384,6 +403,22 @@ module RightScale
         ids = []
       end
       ids
+    end
+
+    # Start timer that waits for inactive messaging period to end and then checks connectivity
+    #
+    # === Return
+    # true:: Always return true
+    def restart_inactivity_timer
+      @timer.cancel if @timer
+      @timer = EM::Timer.new(INACTIVITY_TIMEOUT) do
+        begin
+          check_connection
+        rescue Exception => e
+          RightLinkLog.error("Failed connectivity check: #{e}\n" + e.backtrace.join("\n"))
+        end
+      end
+      true
     end
 
     # Convert value to nil if equals 0

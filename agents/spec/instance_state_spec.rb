@@ -94,7 +94,8 @@ describe RightScale::InstanceState do
         init_state(:initial_boot)
         @state = {'value' => 'operational', 'identity' => '1', 'uptime' => 120.0,
                   'reboot' => false, 'startup_tags' => [], 'log_level' => 1,
-                  'last_recorded_value' => 'operational', 'retry_record_count' => 0}
+                  'last_recorded_value' => 'operational', 'record_retries' => 0,
+                  'last_communication' => 0}
         flexmock(RightScale::InstanceState).should_receive(:read_json).with(@state_file).and_return(@state).by_default
       end
 
@@ -114,7 +115,7 @@ describe RightScale::InstanceState do
 
       it 'should detect restart after crash and record state if needed' do
         # Simulate a prior crash when recorded state did not match local state
-        @state.merge!('value' => 'operational', 'last_recorded_value' => 'booting', 'retry_record_count' => 1)
+        @state.merge!('value' => 'operational', 'last_recorded_value' => 'booting', 'record_retries' => 1)
         flexmock(RightScale::InstanceState).should_receive(:read_json).with(@state_file).and_return(@state).once
         flexmock(RightScale::InstanceState).should_receive(:uptime).and_return(300.0)
         flexmock(RightScale::InstanceState).should_receive(:write_json).with(@state_file, Hash).never
@@ -290,6 +291,13 @@ describe RightScale::InstanceState do
       RightScale::InstanceState.shutdown(123, false, 'terminate')
     end
 
+  end
+
+  it 'should update last communication and store it but only if sufficient time has elapsed' do
+    init_state(:initial_boot)
+    flexmock(RightScale::InstanceState).should_receive(:store_state).once
+    RightScale::InstanceState.message_received
+    RightScale::InstanceState.message_received
   end
 
   it 'should record script execution' do

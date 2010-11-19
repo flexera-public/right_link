@@ -661,9 +661,11 @@ module RightScale
           when Push then @dispatcher.dispatch(packet) unless @terminating
           when Result then @mapper_proxy.handle_result(packet)
           end
+          @mapper_proxy.message_received
+          InstanceState.message_received if @is_instance_agent
         rescue Exception => e
           RightLinkLog.error("Identity queue processing error: #{e}")
-          @exceptions.track("identity queue", e, msg)
+          @exceptions.track("identity queue", e, packet)
         end
       end
       ids

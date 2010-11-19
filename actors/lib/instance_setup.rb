@@ -64,7 +64,7 @@ class InstanceSetup
         @audit.append_error(msg, :category => RightScale::EventCategories::CATEGORY_ERROR) if @audit
         RightScale::Platform.controller.shutdown 
       end
-    end if RightScale::InstanceState.initial_boot
+    end if RightScale::InstanceState.initial_boot?
 
   end
 

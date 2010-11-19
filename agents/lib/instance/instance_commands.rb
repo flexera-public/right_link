@@ -50,6 +50,7 @@ module RightScale
       :audit_append_info        => 'Append info message to audit',
       :audit_append_error       => 'Append error message to audit',
       :set_inputs_patch         => 'Set inputs patch post execution',
+      :check_connectivity       => 'Check whether the instance is able to communicate',
       :close_connection         => 'Close persistent connection (used for auditing)'
     }
 
@@ -340,6 +341,15 @@ module RightScale
       RightScale::RequestForwarder.instance.push('/updater/update_inputs', { :agent_identity => @agent_identity,
                                                                              :patch          => opts[:patch] })
       CommandIO.instance.reply(opts[:conn], 'OK')
+    end
+
+    # Check whether this instance agent is connected by pinging a mapper
+    #
+    # === Return
+    # true:: Always return true
+    def check_connectivity_command(opts)
+      send_request("/mapper/ping", opts[:conn], {})
+      true
     end
 
     # Close connection

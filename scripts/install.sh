@@ -69,7 +69,7 @@ fi
 
 echo Installing scripts from $RIGHT_LINK_SCRIPTS ...
 
-for script in rnac rad rs_run_right_script rs_run_recipe rs_log_level rs_reenroll rs_tag
+for script in rnac rad rs_run_right_script rs_run_recipe rs_log_level rs_reenroll rs_tag rs_comm_chk
 do
   echo Installing $script
   cat > /usr/bin/$script <<EOF
