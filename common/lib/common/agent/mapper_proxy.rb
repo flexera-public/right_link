@@ -229,31 +229,27 @@ module RightScale
     #
     # === Return
     # stats(Hash):: Current statistics:
-    #   "exceptions"(Hash):: Exceptions raised per category
+    #   "exceptions"(Hash|nil):: Exceptions raised per category, or nil if none
     #     "total"(Integer):: Total exceptions for this category
     #     "recent"(Array):: Most recent as a hash of "count", "type", "message", "when", and "where"
-    #   "pings"(Integer):: Total number of pings and percentage breakdown for "success" vs. "timeout"
-    #   "request last"(Hash):: Last request information with keys "type", "elapsed", and "active"
-    #   "request rate"(Float):: Average number of requests per second recently
-    #   "requests(Hash):: Total requests and percentage breakdown per type as hash with keys "total" and "percent"
+    #   "pings"(Hash|nil):: Request activity stats with keys "total", "percent", "last", and "rate"
+    #     with percentage breakdown for "success" vs. "timeout", or nil if none
+    #   "requests"(Hash|nil):: Request activity stats with keys "total", "percent", "last", and "rate"
+    #     with percentage breakdown per request type, or nil if none
     #   "requests pending"(Integer|nil):: Number of requests waiting for response, or nil if none
     #   "response time"(Float):: Average number of seconds to respond to a request recently
-    #   "retries"(Hash):: Total retries and percentage breakdown per type as hash with keys "total" and "percent"
-    #   "retry last"(Hash):: Last retry information with keys "type", "elapsed", and "active"
-    #   "retry rate"(Float):: Average number of retries per second recently
-    #   "retry timeouts"(Integer|nil):: Number of requests that failed after maximum number of retries, or nil if none
+    #   "retries"(Hash|nil):: Request activity stats with keys "total", "percent", "last", and "rate"
+    #     with percentage breakdown per request type, or nil if none
+    #   "retry timeouts"(Integer|nil):: Number of requests that failed after maximum number of retries,
+    #     or nil if none
     def stats(reset = false)
       stats = {
         "exceptions"       => @exceptions.stats,
-        "pings"            => @pings.percentage,
-        "request last"     => @requests.last,
-        "request rate"     => @requests.avg_rate,
-        "requests"         => @requests.percentage,
+        "pings"            => @pings.all,
+        "requests"         => @requests.all,
         "requests pending" => nil_if_zero(@pending_requests.size),
         "response time"    => @requests.avg_duration,
-        "retries"          => @retries.percentage,
-        "retry last"       => @retries.last,
-        "retry rate"       => @retries.avg_rate,
+        "retries"          => @retries.all,
         "retry timeouts"   => nil_if_zero(@retry_timeouts)
       }
       reset_stats if reset
@@ -267,7 +263,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def reset_stats
-      @pings = ActivityStats.new(measure_rate = false)
+      @pings = ActivityStats.new
       @retries = ActivityStats.new
       @requests = ActivityStats.new
       @exceptions = ExceptionStats.new(@agent, @options[:exception_callback])

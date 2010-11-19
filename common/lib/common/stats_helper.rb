@@ -50,10 +50,10 @@ module RightScale
       # Number of samples included in calculating average recent activity
       RECENT_SIZE = 10
 
-      # (Integer) Total number of actions
+      # (Integer) Total activity count
       attr_reader :total
 
-      # (Hash) Number of actions per type
+      # (Hash) Count of activity per type
       attr_reader :count_per_type
 
       # Initialize activity data
@@ -64,20 +64,20 @@ module RightScale
         @measure_rate = measure_rate
         @interval = 0.0
         @last_start_time = Time.now
-        @avg_duration = 0.0
+        @avg_duration = nil
         @total = 0
         @count_per_type = {}
         @last_type = nil
         @last_id = nil
       end
 
-      # Mark the start of an action and update counts and average rate
+      # Mark the start of an activity and update counts and average rate
       # with weighting toward recent activity
       # Ignore the update if its type contains "stats"
       #
       # === Parameters
-      # type(String|Symbol):: Type of action, defaults to nil
-      # id(String):: Unique identifier associated with this action
+      # type(String|Symbol):: Type of activity, defaults to nil
+      # id(String):: Unique identifier associated with this activity
       #
       # === Return
       # now(Time):: Update time
@@ -94,18 +94,18 @@ module RightScale
         now
       end
 
-      # Mark the finish of an action and update the average duration
+      # Mark the finish of an activity and update the average duration
       #
       # === Parameters
-      # start_time(Time):: Time when action started, defaults to last time start was called
-      # id(String):: Unique identifier associated with this action
+      # start_time(Time):: Time when activity started, defaults to last time update was called
+      # id(String):: Unique identifier associated with this activity
       #
       # === Return
       # now(Time):: Finish time
       def finish(start_time = nil, id = nil)
         now = Time.now
         start_time ||= @last_start_time
-        @avg_duration = ((@avg_duration * (RECENT_SIZE - 1)) + (now - start_time)) / RECENT_SIZE
+        @avg_duration = (((@avg_duration || 0.0) * (RECENT_SIZE - 1)) + (now - start_time)) / RECENT_SIZE
         @last_id = 0 if id && id == @last_id
         now
       end
@@ -115,27 +115,27 @@ module RightScale
       # === Return
       # (Float|nil):: Recent average rate, or nil if total is 0
       def avg_rate
-        if total > 0
+        if @total > 0
           if @interval == 0.0 then 0.0 else 1.0 / @interval end
         end
       end
 
 
-      # Get average duration of actions
+      # Get average duration of activity
       #
       # === Return
-      # (Float|nil) Average duration in seconds of action weighted toward recent activity, or nil if total is 0
+      # (Float|nil) Average duration in seconds of activity weighted toward recent activity, or nil if total is 0
       def avg_duration
-        @avg_duration if total > 0
+        @avg_duration if @total > 0
       end
 
-      # Get stats about last action
+      # Get stats about last activity
       #
       # === Return
-      # (Hash|nil):: Information about last action, or nil if the total is 0
-      #   "elapsed"(Integer):: Seconds since last action started
-      #   "type"(String):: Type of action if specified, otherwise omitted
-      #   "active"(Boolean):: Whether action still active
+      # (Hash|nil):: Information about last activity, or nil if the total is 0
+      #   "elapsed"(Integer):: Seconds since last activity started
+      #   "type"(String):: Type of activity if specified, otherwise omitted
+      #   "active"(Boolean):: Whether activity still active
       def last
         if @total > 0
           result = {"elapsed" => (Time.now - @last_start_time).to_i}
@@ -148,11 +148,38 @@ module RightScale
       # Convert count per type into percentage by type
       #
       # === Return
-      # (Hash):: Converted data with keys "total" and "percent" with latter being a hash of percentage per type
+      # (Hash|nil):: Converted counts, or nil if total is 0
+      #   "total"(Integer):: Total activity count
+      #   "percent"(Hash):: Percentage for each type of activity if tracking type, otherwise omitted
       def percentage
-        percent = {}
-        @count_per_type.each { |k, v| percent[k] = (v / @total.to_f) * 100.0 } if @total > 0
-        {"percent" => percent, "total" => @total}
+        if @total > 0
+          percent = {}
+          @count_per_type.each { |k, v| percent[k] = (v / @total.to_f) * 100.0 }
+          {"percent" => percent, "total" => @total}
+        end
+      end
+
+      # Get stat summary including all aspects of activity that were measured except duration
+      #
+      # === Return
+      # (Hash|nil):: Information about activity, or nil if the total is 0
+      #   "total"(Integer):: Total activity count
+      #   "percent"(Hash):: Percentage for each type of activity if tracking type, otherwise omitted
+      #   "last"(Hash):: Information about last activity
+      #     "elapsed"(Integer):: Seconds since last activity started
+      #     "type"(String):: Type of activity if tracking type, otherwise omitted
+      #     "active"(Boolean):: Whether activity still active if tracking whether active, otherwise omitted
+      #   "rate"(Float):: Recent average rate if measuring rate, otherwise omitted
+      def all
+        if @total > 0
+          result = if @count_per_type.empty?
+            {"total" => @total}
+          else
+            percentage
+          end
+          result.merge!("last" => last)
+          result.merge!("rate" => avg_rate) if @measure_rate
+        end
       end
 
     end # ActivityStats
@@ -179,7 +206,7 @@ module RightScale
       def initialize(server = nil, callback = nil)
         @server = server
         @callback = callback
-        @stats = {}
+        @stats = nil
       end
 
       # Track exception statistics and optionally make callback to report exception
@@ -195,6 +222,7 @@ module RightScale
       def track(category, exception, message = nil)
         begin
           @callback.call(exception, message, @server) if @server && @callback && message
+          @stats ||= {}
           exceptions = (@stats[category] ||= {"total" => 0, "recent" => []})
           exceptions["total"] += 1
           recent = exceptions["recent"]
@@ -257,8 +285,8 @@ module RightScale
       name_width = MAX_STAT_NAME_WIDTH
       str = sprintf("%-#{name_width}s#{SEPARATOR}%s\n", "identity", stats["identity"]) +
             sprintf("%-#{name_width}s#{SEPARATOR}%s\n", "hostname", stats["hostname"]) +
-            sprintf("%-#{name_width}s#{SEPARATOR}%s\n", "stat time", Time.at(stats["stat time"])) +
-            sprintf("%-#{name_width}s#{SEPARATOR}%s\n", "last reset", Time.at(stats["last reset time"])) +
+            sprintf("%-#{name_width}s#{SEPARATOR}%s\n", "stat time", time_at(stats["stat time"])) +
+            sprintf("%-#{name_width}s#{SEPARATOR}%s\n", "last reset", time_at(stats["last reset time"])) +
             sprintf("%-#{name_width}s#{SEPARATOR}%s\n", "service up", elapsed(stats["service uptime"]))
       str += sprintf("%-#{name_width}s#{SEPARATOR}%s\n", "machine up", elapsed(stats["machine uptime"])) if stats.has_key?("machine uptime")
       str += sprintf("%-#{name_width}s#{SEPARATOR}%s\n", "version", stats["version"].to_i) if stats.has_key?("version")
@@ -299,7 +327,9 @@ module RightScale
           "none"
         end
         failures = if b["failures"]
-          "#{b["failures"]} (#{elapsed(b["failure last"]["elapsed"])} ago" + (b["retries"] ? " w/ #{b["retries"]} retries)" : ")")
+          retries = b["retries"]
+          retries = " w/ #{retries} #{retries != 1 ? 'retries' : 'retry'}" if retries
+          "#{b["failures"]} (#{elapsed(b["failure last"]["elapsed"])} ago#{retries})"
         else
           "none"
         end
@@ -307,7 +337,7 @@ module RightScale
         str += value_indent
       end
       str += sprintf("%-#{sub_name_width}s#{SEPARATOR}", "exceptions")
-      str += if brokers["exceptions"].empty?
+      str += if brokers["exceptions"].nil? || brokers["exceptions"].empty?
         "none\n"
       else
         exceptions_str(brokers["exceptions"], sub_value_indent) + "\n"
@@ -349,16 +379,10 @@ module RightScale
         elsif v.is_a?(Hash)
           if v.empty? || v["total"] == 0
             "none"
-          elsif v["percent"]
-            str = enough_precision(sort_value(v["percent"]).reverse).map { |k2, v2| "#{k2}: #{v2}%" }.join(", ")
-            str += ", total: #{v["total"]}"
-            wrap(str, MAX_SUB_STAT_VALUE_WIDTH, sub_value_indent, ", ")
+          elsif v["total"]
+            wrap(activity_str(v), MAX_SUB_STAT_VALUE_WIDTH, sub_value_indent, ", ")
           elsif k =~ /last$/
-            str = ""
-            str = "#{v["type"]}: " if v["type"]
-            str += "#{elapsed(v["elapsed"])} ago"
-            str += " and still active" if v["active"]
-            str
+            last_activity_str(v)
           elsif k == "exceptions"
             exceptions_str(v, sub_value_indent)
           else
@@ -370,6 +394,56 @@ module RightScale
       end.join(value_indent)
     end
 
+    # Convert activity information to displayable format
+    #
+    # (Hash|nil):: Information about activity, or nil if the total is 0
+    #   "total"(Integer):: Total activity count
+    #   "percent"(Hash):: Percentage for each type of activity if tracking type, otherwise omitted
+    #   "last"(Hash):: Information about last activity
+    #     "elapsed"(Integer):: Seconds since last activity started
+    #     "type"(String):: Type of activity if tracking type, otherwise omitted
+    #     "active"(Boolean):: Whether activity still active if tracking whether active, otherwise omitted
+    #   "rate"(Float):: Recent average rate if measuring rate, otherwise omitted
+    #   "duration"(Float):: Average duration of activity if tracking duration, otherwise omitted
+    #
+    # === Return
+    # str(String):: Activity stats in displayable format without any line separators
+    def activity_str(value)
+      str = ""
+      str += enough_precision(sort_value(value["percent"]).reverse).map { |k, v| "#{k}: #{v}%" }.join(", ") +
+             ", total: " if value["percent"]
+      str += "#{value['total']}"
+      str += ", last: #{last_activity_str(value['last'], single_item = true)}" if value["last"]
+      str += ", rate: #{enough_precision(value['rate'])}/sec" if value["rate"]
+      str += ", duration: #{enough_precision(value['duration'])} sec" if value["duration"]
+      str
+    end
+
+    # Convert last activity information to displayable format
+    #
+    # === Parameters
+    # last(Hash):: Information about last activity
+    #   "elapsed"(Integer):: Seconds since last activity started
+    #   "type"(String):: Type of activity if tracking type, otherwise omitted
+    #   "active"(Boolean):: Whether activity still active if tracking whether active, otherwise omitted
+    # single_item:: Whether this is to appear as a single item in a comma-separated list
+    #   in which case there should be no ':' in the formatted string
+    #
+    # === Return
+    # str(String):: Last activity in displayable format without any line separators
+    def last_activity_str(last, single_item = false)
+      str = "#{elapsed(last['elapsed'])} ago"
+      str += " and still active" if last["active"]
+      if last["type"]
+        if single_item
+          str = "#{last['type']} (#{str})"
+        else
+          str = "#{last['type']}: #{str}"
+        end
+      end
+      str
+    end
+
     # Convert exception information to displayable format
     #
     # === Parameters
@@ -379,7 +453,7 @@ module RightScale
     # indent(String):: Indentation for each line
     #
     # === Return
-    # (String):: Exception display with one line per exception
+    # (String):: Exceptions in displayable format with line separators
     def exceptions_str(exceptions, indent)
       indent2 = indent + (" " * 4)
       exceptions.to_a.sort.map do |k, v|
@@ -388,7 +462,7 @@ module RightScale
           if message && message.size > MAX_EXCEPTION_MESSAGE_WIDTH
             message = e["message"][0..MAX_EXCEPTION_MESSAGE_WIDTH] + "..."
           end
-          indent + "(#{e["count"]}) #{Time.at(e["when"])} #{e["type"]}: #{message}\n" + indent2 + "#{e["where"]}"
+          indent + "(#{e["count"]}) #{time_at(e["when"])} #{e["type"]}: #{message}\n" + indent2 + "#{e["where"]}"
         end.join("\n")
       end.join("\n" + indent)
     end
@@ -462,6 +536,16 @@ module RightScale
       all.push(line).join(separator + "\n" + indent)
     end
 
+    # Format UTC time value
+    #
+    # === Parameters
+    # time(Integer):: Time in seconds in Unix-epoch to be formatted
+    #
+    # (String):: Formatted time string
+    def time_at(time)
+      Time.at(time).strftime("%a %b %d %H:%M:%S")
+    end
+
     # Convert elapsed time in seconds to displayable format
     #
     # === Parameters
@@ -476,16 +560,16 @@ module RightScale
       elsif time <= HOUR
         minutes = time / MINUTE
         seconds = time - (minutes * MINUTE)
-        "#{minutes} min, #{seconds} sec"
+        "#{minutes} min #{seconds} sec"
       elsif time <= DAY
         hours = time / HOUR
         minutes = (time - (hours * HOUR)) / MINUTE
-        "#{hours} hr, #{minutes} min"
+        "#{hours} hr #{minutes} min"
       else
         days = time / DAY
         hours = (time - (days * DAY)) / HOUR
         minutes = (time - (days * DAY) - (hours * HOUR)) / MINUTE
-        "#{days} day#{'s' if days != 1}, #{hours} hr, #{minutes} min"
+        "#{days} day#{days == 1 ? '' : 's'} #{hours} hr #{minutes} min"
       end
     end
 
