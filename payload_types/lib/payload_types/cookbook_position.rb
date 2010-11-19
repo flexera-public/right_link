@@ -23,7 +23,7 @@
 
 module RightScale
   # Cookbook / position pairs.
-  class CookbookSequence
+  class CookbookPosition
     include Serializable
 
     # (String) relative position in the filesystem that the cookbook
