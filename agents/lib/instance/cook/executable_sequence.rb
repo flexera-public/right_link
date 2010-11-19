@@ -36,9 +36,9 @@ module OpenSSL
     class SSLSocket
       alias post_connection_check_without_hack post_connection_check
 
-      # Note that we must use a class variable here. THOU SHALT NEVER CAUSE 'openssl/ssl'
-      # TO BE RELOADED, nor shalt thou ever use this monkey patch in conjunction with
-      # Rails auto-loading or class-reloading mechanisms! You have been warned...
+      # Class variable. Danger! THOU SHALT NOT CAUSE 'openssl/ssl' TO RELOAD
+      # nor shalt thou use this monkey patch in conjunction with Rails
+      # auto-loading or class-reloading mechanisms! You have been warned...
       @@hostname_override = nil
 
       def self.hostname_override=(hostname_override)
@@ -254,11 +254,14 @@ module RightScale
         end
       end
 
-      @cookbooks.each_with_index do |cookbook_sequence, i|
+      # NB: Chef 0.8.16 requires us to contort the path ordering to preserve the semantics of
+      # RS dashboard repo paths. Revisit when upgrading to >= 0.9
+      @cookbooks.reverse.each_with_index do |cookbook_sequence, i|
+        i = @cookbooks.size - i - 1 #adjust for reversification
         local_basedir = File.join(@download_path, i.to_s)
-        cookbook_sequence.paths.each {|path|
+        cookbook_sequence.paths.reverse.each {|path|
           dir = File.expand_path(File.join(local_basedir, path))
-          Chef::Config[:cookbook_path] << dir unless Chef::Config[:cookbook_path].include?(path_elem)
+          Chef::Config[:cookbook_path] << dir unless Chef::Config[:cookbook_path].include?(dir)
         }
       end
       true
@@ -267,8 +270,15 @@ module RightScale
     end
 
     #
-    # TODO TonyS docs
+    # Download a cookbook from the mirror and extract it to the filesystem.
     #
+    # === Parameters
+    # local_basedir(String):: dir where all the cookbooks are going
+    # relative_path(String):: subdir of basedir into which this cookbook goes
+    # cookbook(Cookbook):: cookbook
+    #
+    # === Return
+    # true:: always returns true
     def prepare_cookbook(local_basedir, relative_path, cookbook)
       @audit.append_info("Requesting #{cookbook.name}")
       tarball = Tempfile.new("tarball")
@@ -280,7 +290,7 @@ module RightScale
       unless result
         report_failure("Failed to download cookbook",
                        "Please check logs for more information.")
-        return
+        return true
       end
       tarball.close
 
@@ -288,7 +298,7 @@ module RightScale
 
       # The local basedir is the faux "repository root" into which we extract all related
       # cookbooks in that set, "related" meaning a set of cookbooks that originally came
-      # from the same Chef cookbooks repository as observed by the scaper.
+      # from the same Chef cookbooks repository as observed by the scraper.
       #
       # Even though we are pulling individually-packaged cookbooks and not the whole repository,
       # we preserve the position of cookbooks in the directory hierarchy such that a given cookbook
@@ -312,6 +322,7 @@ module RightScale
         end
       end
       tarball.close(true)
+      return true
     end
 
     # Given a sequence of preferred hostnames, lookup all IP addresses and store
@@ -343,7 +354,11 @@ module RightScale
       true
     end
 
-    # TODO TS docs
+    # Find the next Repose server in the list. Perform special TLS certificate voodoo to comply
+    # safely with global URL scheme.
+    #
+    # === Return
+    # server(Array):: [ ip address of server, HttpConnection to server ]
     def next_repose_server
       loop do
         ip         = @repose_ips[ @repose_idx % @repose_ips.size ]
