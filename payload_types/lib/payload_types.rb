@@ -24,6 +24,7 @@
 require File.join(File.dirname(__FILE__), 'payload_types', 'serializable')
 require File.join(File.dirname(__FILE__), 'payload_types', 'cookbook')
 require File.join(File.dirname(__FILE__), 'payload_types', 'cookbook_repository')
+require File.join(File.dirname(__FILE__), 'payload_types', 'cookbook_sequence')
 require File.join(File.dirname(__FILE__), 'payload_types', 'executable_bundle')
 require File.join(File.dirname(__FILE__), 'payload_types', 'event_categories')
 require File.join(File.dirname(__FILE__), 'payload_types', 'operation_result')
