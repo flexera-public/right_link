@@ -12,6 +12,7 @@
 #      --attempts, -a N      Override default number of communication check attempts
 #      --interval, -i SEC    Override default interval for retrying communication check
 #      --time-limit, -t SEC  Override default time limit since last communication
+#      --run, -r SEC         Minimum run time in seconds for this process
 #      --verbose, -v         Display debug information
 #      --version             Display version information
 #      --help                Display help
@@ -40,13 +41,6 @@ module RightScale
 
     VERSION = [0, 1]
 
-    # Path to JSON file where current instance state is serialized
-    STATE_DIR = RightScale::RightLinkConfig[:agent_state_dir]
-    STATE_FILE = File.join(STATE_DIR, 'state.js')
-
-    # Path to log directory
-    LOG_DIR = RightLinkConfig[:platform].filesystem.log_dir
-
     # Minimum seconds since last communication for instance to be considered connected
     LAST_COMMUNICATION_TIME_LIMIT = 12 * 60 * 60
 
@@ -65,6 +59,8 @@ module RightScale
     DAY = 24 * HOUR
 
     # Run communication check
+    # Act like daemon by writing out pid in same location as instance agent
+    # but with '-chk' suffix of file name
     #
     # === Parameters
     # options(Hash):: Run options
@@ -74,32 +70,55 @@ module RightScale
     #     defaults to LAST_COMMUNICATION_TIME_LIMIT
     #   :check_interval(Integer):: Number of seconds to wait before retrying communication check,
     #     defaults to CHECK_INTERVAL
+    #   :min_run_time(Integer):: Minimum run time in seconds (to avoid premature monit restart)
+    #   :stop(Boolean):: Whether to stop another currently running communication checker
     #   :verbose(Boolean):: Whether to display debug information
     #
     # === Return
     # true:: Always return true
     def run(options)
+      @exit_no_sooner_than = Time.now + options[:min_run_time]
+
       begin
+        # Retrieve instance agent configuration options
         @options = options
         @agent = agent_options('instance')
         fail("No instance agent configured") if @agent.empty?
 
+        # Create pid file if running check or terminate existing checker if requested to stop
+        pid_file = PidFile.new("#{@agent[:identity]}-chk", @agent[:pid_dir])
+        if @options[:stop]
+          pid = pid_file.read_pid[:pid]
+          if pid
+            Process.kill('TERM', pid)
+            pid_file.remove
+          end
+          exit # ok to exit early
+        end
+        pid_file.write
+
+        # Attach to log used by instance agent
         RightLinkLog.program_name = 'RightLink'
         RightLinkLog.log_to_file_only(@agent[:log_to_file_only])
-        RightLinkLog.init(@agent[:identity], LOG_DIR)
+        RightLinkLog.init(@agent[:identity], RightLinkConfig[:platform].filesystem.log_dir)
 
+        # Catch any egregious eventmachine failures, especially failure to connect to agent with CommandIO
         EM.error_handler do |e|
-          RightLinkLog.error("[check] Failed RightLink communication check internally: #{e}\n" + e.backtrace.join("\n"))
           if e.class == RuntimeError && e.message =~ /no connection/
+            RightLinkLog.error("[check] Failed connecting to agent for RightLink communication check")
             reenroll
-            exit
           else
+            RightLinkLog.error("[check] Failed RightLink communication check internally, aborting: #{e}\n" +
+                               e.backtrace.join("\n"))
             fail("Failed internally: #{e}\n" + e.backtrace.join("\n"))
           end
+          delayed_exit
         end
 
+        # Run communication checks repeatedly until succeed or exceed retry limit
         EM.run { check_communication(0) }
 
+        delayed_exit
       rescue SystemExit => e
         raise e
       rescue Exception => e
@@ -117,6 +136,8 @@ module RightScale
         :max_attempts   => MAX_ATTEMPTS,
         :check_interval => CHECK_INTERVAL,
         :time_limit     => LAST_COMMUNICATION_TIME_LIMIT,
+        :min_run_time   => 0,
+        :stop           => false,
         :verbose        => false
       }
 
@@ -134,20 +155,33 @@ module RightScale
           options[:time_limit] = sec.to_i
         end
 
+        opts.on('-r', '--run SEC') do |sec|
+          options[:min_run_time] = sec.to_i
+        end
+
+        opts.on('-s', '--stop') do
+          options[:stop] = true
+        end
+
         opts.on('-v', '--verbose') do
           options[:verbose] = true
+        end
+
+        # This option is for test purposes
+        opts.on('--state-path PATH') do |path|
+          options[:state_path] = path
         end
 
       end
 
       opts.on_tail('--version') do
         puts version
-        exit
+        exit # ok to exit early
       end
 
       opts.on_tail('--help') do
          RDoc::usage_from_file(__FILE__)
-         exit
+         exit # ok to exit early
       end
 
       begin
@@ -205,7 +239,8 @@ protected
     # === Return
     # (Integer):: Elapsed time
     def time_since_last_communication
-      state = JSON.load(File.read(STATE_FILE)) if File.file?(STATE_FILE)
+      state_file = @options[:state_path] || File.join(RightScale::RightLinkConfig[:agent_state_dir], 'state.js')
+      state = JSON.load(File.read(state_file)) if File.file?(state_file)
       state.nil? ? (@options[:time_limit] + 1) : (Time.now.to_i - state["last_communication"])
     end
 
@@ -291,12 +326,28 @@ protected
     # print_usage(Boolean):: Whether script usage should be printed, default to false
     #
     # === Return
-    # R.I.P. does not return
+    # Does not return
     def fail(msg = nil, print_usage = false)
       EM.stop rescue nil
       puts "** #{msg}" if msg
       RDoc::usage_from_file(__FILE__) if print_usage
-      exit(1)
+      delayed_exit(1)
+    end
+
+    # Exit but not until have reached minimum run time
+    #
+    # === Parameters
+    # code(Integer):: Exit code
+    #
+    # === Return
+    # Does not return
+    def delayed_exit(code = 0)
+      EM.stop rescue nil
+      if (delay = @exit_no_sooner_than.to_i - Time.now.to_i) > 0
+        puts "Delaying exit for #{delay} seconds ..."
+        sleep(delay)
+      end
+      exit(code)
     end
 
     # Version information
@@ -311,7 +362,6 @@ protected
 
 end
 
-#
 # Copyright (c) 2009 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining

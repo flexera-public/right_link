@@ -71,6 +71,7 @@ module RightScale
       :retry_interval  => nil,
       :retry_timeout   => nil,
       :connect_timeout => 60,
+      :ping_interval   => 0,
       :check_interval  => 5 * 60,
       :grace_timeout   => 30,
       :prefetch        => 1,
@@ -108,6 +109,8 @@ module RightScale
     #   :retry_interval(Numeric):: Number of seconds between request retries
     #   :retry_timeout(Numeric):: Maximum number of seconds to retry request before give up
     #   :connect_timeout:: Number of seconds to wait for a broker connection to be established
+    #   :ping_interval(Integer):: Minimum number of seconds since last message receipt to ping the mapper
+    #     to check connectivity, defaults to 0 meaning do not ping
     #   :check_interval:: Number of seconds between checks for broker connections that failed during
     #     instance agent launch and then attempting to reconnect via the registrar; repeated failures
     #     will cause this to backoff exponentially up to HA_MQ::MAX_FAILED_BACKOFF times this interval

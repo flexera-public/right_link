@@ -62,15 +62,20 @@ describe RightScale::MapperProxy do
       flexmock(EM).should_receive(:next_tick).and_yield.by_default
       @broker = flexmock("Broker", :subscribe => true, :publish => ["broker"], :connected? => true,
                          :identity_parts => ["host", 123, 0, 0]).by_default
-      @agent = flexmock("Agent", :identity => "agent", :broker => @broker, :options => {}).by_default
+      @agent = flexmock("Agent", :identity => "agent", :broker => @broker, :options => {:ping_interval => 1000}).by_default
       RightScale::MapperProxy.new(@agent)
       @instance = RightScale::MapperProxy.instance
     end
 
     it "should start inactivity timer at initialization time" do
-      flexmock(EM::Timer).should_receive(:new).with(4 * 60 * 60, Proc).and_return(@timer).once
+      flexmock(EM::Timer).should_receive(:new).with(1000, Proc).and_return(@timer).once
       RightScale::MapperProxy.new(@agent)
-      @instance = RightScale::MapperProxy.instance
+    end
+
+    it "should not start inactivity timer at initialization time if ping disabled" do
+      @agent.should_receive(:options).and_return(:ping_interval => 0)
+      flexmock(EM::Timer).should_receive(:new).never
+      RightScale::MapperProxy.new(@agent)
     end
 
     it "should restart inactivity timer only if sufficient time has elapsed since last restart" do
@@ -82,6 +87,14 @@ describe RightScale::MapperProxy do
     it "should check connectivity if the inactivity timer times out" do
       flexmock(EM::Timer).should_receive(:new).and_return(@timer).and_yield.once
       flexmock(@instance).should_receive(:check_connection).once
+      @instance.message_received
+    end
+
+    it "should ignore messages received if ping disabled" do
+      @agent.should_receive(:options).and_return(:ping_interval => 0)
+      flexmock(EM::Timer).should_receive(:new).never
+      RightScale::MapperProxy.new(@agent)
+      @instance = RightScale::MapperProxy.instance
       @instance.message_received
     end
 

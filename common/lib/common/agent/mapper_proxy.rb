@@ -29,11 +29,8 @@ module RightScale
 
     include StatsHelper
 
-    # Number of seconds without receiving a message before check connectivity
-    INACTIVITY_TIMEOUT = 4 * 60 * 60
-
     # Minimum number of seconds between restarts of the inactivity timer
-    MIN_RESTART_INACTIVITY_TIMER_INTERVAL = 5 * 60
+    MIN_RESTART_INACTIVITY_TIMER_INTERVAL = 2 * 60
 
     # Number of seconds to wait for ping response from a mapper when checking connectivity
     PING_TIMEOUT = 15
@@ -70,6 +67,8 @@ module RightScale
     #       push - only persist one-way request messages
     #       request - only persist two-way request messages and their associated result
     #     Can be overridden on a per-message basis using the persistence option.
+    #   :ping_interval(Integer):: Minimum number of seconds since last message receipt to ping the mapper
+    #     to check connectivity, defaults to 0 meaning do not ping
     #   :retry_timeout(Numeric):: Maximum number of seconds to retry request before give up
     #   :retry_interval(Numeric):: Number of seconds before initial request retry, increases exponentially
     #   :secure(Boolean):: true indicates to use Security features of rabbitmq to restrict agents to themselves
@@ -85,7 +84,8 @@ module RightScale
       @single_threaded = @options[:single_threaded]
       @retry_timeout = nil_if_zero(@options[:retry_timeout])
       @retry_interval = nil_if_zero(@options[:retry_interval])
-      restart_inactivity_timer
+      @ping_interval = @options[:ping_interval] || 0
+      restart_inactivity_timer if @ping_interval > 0
       reset_stats
 
       # Only to be accessed from primary thread
@@ -101,9 +101,11 @@ module RightScale
     # === Return
     # true:: Always return true
     def message_received
-      last = @last_received || 0
-      @last_received = Time.now.to_i
-      restart_inactivity_timer if (@last_received - last) > MIN_RESTART_INACTIVITY_TIMER_INTERVAL
+      if @ping_interval > 0
+        last = @last_received || 0
+        @last_received = Time.now.to_i
+        restart_inactivity_timer if (@last_received - last) > MIN_RESTART_INACTIVITY_TIMER_INTERVAL
+      end
     end
 
     # Send request to given agent through the mapper
@@ -401,13 +403,13 @@ module RightScale
       ids
     end
 
-    # Start timer that waits for inactive messaging period to end and then checks connectivity
+    # Start timer that waits for inactive messaging period to end before checking connectivity
     #
     # === Return
     # true:: Always return true
     def restart_inactivity_timer
       @timer.cancel if @timer
-      @timer = EM::Timer.new(INACTIVITY_TIMEOUT) do
+      @timer = EM::Timer.new(@ping_interval) do
         begin
           check_connection
         rescue Exception => e
