@@ -692,6 +692,7 @@ module RightScale
       ids = @broker.subscribe(queue, exchange, options) do |_, request|
         begin
           @dispatcher.dispatch(request)
+          @mapper_proxy.message_received
         rescue Exception => e
           RightLinkLog.error("Shared queue processing error: #{e}")
           @exceptions.track("shared queue", e, request)
