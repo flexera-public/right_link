@@ -189,27 +189,21 @@ module RightScale
     # === Return
     # stats(Hash):: Current statistics:
     #   "duplicate cache"(Integer|nil):: Size of cache of completed requests used for detecting duplicates, or nil if empty
-    #   "exceptions"(Hash):: Exceptions raised per category
+    #   "exceptions"(Hash|nil):: Exceptions raised per category, or nil if none
     #     "total"(Integer):: Total for category
     #     "recent"(Array):: Most recent as a hash of "count", "type", "message", "when", and "where"
-    #   "reject last"(Hash):: Last reject information with keys "type", "elapsed", and "active"
-    #   "reject rate"(Float):: Average number of rejects per second recently
-    #   "rejects"(Hash):: Total number of rejects and percentage breakdown per reason ("duplicate (<method>)",
-    #     "retry duplicate (<method>)", or "stale (<method>)") as hash with keys "total" and "percent"
-    #   "request last"(Hash):: Last request information with keys "type", "elapsed", and "active"
-    #   "request rate"(Float):: Average number of requests per second recently
-    #   "requests"(Hash):: Total requests and percentage breakdown per type as hash with keys "total" and "percent"
+    #   "rejects"(Hash|nil):: Request reject activity stats with keys "total", "percent", "last", and "rate"
+    #     with percentage breakdown per reason ("duplicate (<method>)", "retry duplicate (<method>)", or
+    #     "stale (<method>)"), or nil if none
+    #   "requests"(Hash|nil):: Request activity stats with keys "total", "percent", "last", and "rate"
+    #     with percentage breakdown per request type, or nil if none
     #   "response time"(Float):: Average number of seconds to respond to a request recently
     def stats(reset = false)
       stats = {
         "duplicate cache" => nil_if_zero(@completed.size),
         "exceptions"      => @exceptions.stats,
-        "reject last"     => @rejects.last,
-        "reject rate"     => @rejects.avg_rate,
-        "rejects"         => @rejects.percentage,
-        "request last"    => @requests.last,
-        "request rate"    => @requests.avg_rate,
-        "requests"        => @requests.percentage,
+        "rejects"         => @rejects.all,
+        "requests"        => @requests.all,
         "response time"   => @requests.avg_duration
       }
       reset_stats if reset

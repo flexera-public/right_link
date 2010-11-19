@@ -1456,7 +1456,7 @@ describe RightScale::HA_MQ do
                                            {"alias" => "b2", "identity" => "rs-broker-third-5672",
                                             "status" => "connecting", "disconnects" => nil, "disconnect last" => nil,
                                             "failures" => nil, "failure last" => nil, "retries" => nil}],
-                             "exceptions" => {}}
+                             "exceptions" => nil}
       ha_mq.__send__(:update_status, ha_mq.brokers[0], :ready)
       ha_mq.__send__(:update_status, ha_mq.brokers[1], :disconnected)
       ha_mq.__send__(:update_status, ha_mq.brokers[2], :failed)
@@ -1470,7 +1470,7 @@ describe RightScale::HA_MQ do
                                            {"alias" => "b2", "identity" => "rs-broker-third-5672",
                                             "status" => "failed", "disconnects" => nil, "disconnect last" => nil,
                                             "failures" => 1, "failure last" => {"elapsed" => 100}, "retries" => nil}],
-                             "exceptions" => {}}
+                             "exceptions" => nil}
     end
 
     it "should provide connection status callback when cross 0/1 connection boundary" do

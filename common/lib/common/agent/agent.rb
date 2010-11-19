@@ -501,16 +501,15 @@ module RightScale
     #
     # === Return
     # stats(Hash):: Current statistics:
-    #   "connect requests"(Hash):: Total number of requests to update connections and percentage breakdown by
-    #     "connects: <alias>", "disconnects: <alias>", "enroll setup failed: <aliases>"
-    #   "connect req last"(Hash):: Last update connection request with keys "type" and "elapsed"
-    #   "exceptions"(Hash):: Exceptions raised per category
+    #   "connect requests"(Hash|nil):: Stats about requests to update connections with keys "total", "percent",
+    #     and "last" with percentage breakdown by "connects: <alias>", "disconnects: <alias>", "enroll setup failed:
+    #     <aliases>", or nil if none
+    #   "exceptions"(Hash|nil):: Exceptions raised per category, or nil if none
     #     "total"(Integer):: Total exceptions for this category
     #     "recent"(Array):: Most recent as a hash of "count", "type", "message", "when", and "where"
     def agent_stats(reset = false)
       stats = {
-        "connect requests" => @connect_requests.percentage,
-        "connect req last" => @connect_requests.last,
+        "connect requests" => @connect_requests.all,
         "exceptions"       => @exceptions.stats
       }
       reset_agent_stats if reset

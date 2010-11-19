@@ -37,7 +37,7 @@ describe RightScale::StatsHelper do
     it "should initialize stats data" do
       @stats.instance_variable_get(:@interval).should == 0.0
       @stats.instance_variable_get(:@last_start_time).should == @now
-      @stats.instance_variable_get(:@avg_duration).should == 0.0
+      @stats.instance_variable_get(:@avg_duration).should be_nil
       @stats.instance_variable_get(:@total).should == 0
       @stats.instance_variable_get(:@count_per_type).should == {}
     end
@@ -47,7 +47,7 @@ describe RightScale::StatsHelper do
       @stats.update
       @stats.instance_variable_get(:@interval).should == 1.0
       @stats.instance_variable_get(:@last_start_time).should == @now + 10
-      @stats.instance_variable_get(:@avg_duration).should == 0.0
+      @stats.instance_variable_get(:@avg_duration).should be_nil
       @stats.instance_variable_get(:@total).should == 1
       @stats.instance_variable_get(:@count_per_type).should == {}
     end
@@ -60,7 +60,7 @@ describe RightScale::StatsHelper do
       @stats.update("test")
       @stats.instance_variable_get(:@interval).should == 1.0
       @stats.instance_variable_get(:@last_start_time).should == @now + 10
-      @stats.instance_variable_get(:@avg_duration).should == 0.0
+      @stats.instance_variable_get(:@avg_duration).should be_nil
       @stats.instance_variable_get(:@total).should == 1
       @stats.instance_variable_get(:@count_per_type).should == {"test" => 1}
     end
@@ -70,7 +70,7 @@ describe RightScale::StatsHelper do
       @stats.update("my stats")
       @stats.instance_variable_get(:@interval).should == 0.0
       @stats.instance_variable_get(:@last_start_time).should == @now
-      @stats.instance_variable_get(:@avg_duration).should == 0.0
+      @stats.instance_variable_get(:@avg_duration).should be_nil
       @stats.instance_variable_get(:@total).should == 0
       @stats.instance_variable_get(:@count_per_type).should == {}
     end
@@ -81,7 +81,7 @@ describe RightScale::StatsHelper do
       @stats.update
       @stats.instance_variable_get(:@interval).should == 0.0
       @stats.instance_variable_get(:@last_start_time).should == @now + 10
-      @stats.instance_variable_get(:@avg_duration).should == 0.0
+      @stats.instance_variable_get(:@avg_duration).should be_nil
       @stats.instance_variable_get(:@total).should == 1
       @stats.instance_variable_get(:@count_per_type).should == {}
     end
@@ -128,7 +128,7 @@ describe RightScale::StatsHelper do
       @stats.last.should == {"elapsed" => 10, "type" => "test"}
     end
 
-    it "should report whether last action is still active" do
+    it "should report whether last activity is still active" do
       @stats.update("test", "token")
       flexmock(Time).should_receive(:now).and_return(1000010)
       @stats.last.should == {"elapsed" => 10, "type" => "test", "active" => true}
@@ -166,7 +166,7 @@ describe RightScale::StatsHelper do
     end
 
     it "should initialize stats data" do
-      @stats.stats.should == {}
+      @stats.stats.should be_nil
       @stats.instance_variable_get(:@callback).should be_nil
     end
 
@@ -341,23 +341,23 @@ describe RightScale::StatsHelper do
       elapsed(0).should == "0 sec"
       elapsed(1).should == "1 sec"
       elapsed(60).should == "60 sec"
-      elapsed(61).should == "1 min, 1 sec"
-      elapsed(62).should == "1 min, 2 sec"
-      elapsed(120).should == "2 min, 0 sec"
-      elapsed(3600).should == "60 min, 0 sec"
-      elapsed(3601).should == "1 hr, 0 min"
-      elapsed(3659).should == "1 hr, 0 min"
-      elapsed(3660).should == "1 hr, 1 min"
-      elapsed(3720).should == "1 hr, 2 min"
-      elapsed(7200).should == "2 hr, 0 min"
-      elapsed(7260).should == "2 hr, 1 min"
-      elapsed(86400).should == "24 hr, 0 min"
-      elapsed(86401).should == "1 day, 0 hr, 0 min"
-      elapsed(86459).should == "1 day, 0 hr, 0 min"
-      elapsed(86460).should == "1 day, 0 hr, 1 min"
-      elapsed(90000).should == "1 day, 1 hr, 0 min"
-      elapsed(183546).should == "2 days, 2 hr, 59 min"
-      elapsed(125.5).should == "2 min, 5 sec"
+      elapsed(61).should == "1 min 1 sec"
+      elapsed(62).should == "1 min 2 sec"
+      elapsed(120).should == "2 min 0 sec"
+      elapsed(3600).should == "60 min 0 sec"
+      elapsed(3601).should == "1 hr 0 min"
+      elapsed(3659).should == "1 hr 0 min"
+      elapsed(3660).should == "1 hr 1 min"
+      elapsed(3720).should == "1 hr 2 min"
+      elapsed(7200).should == "2 hr 0 min"
+      elapsed(7260).should == "2 hr 1 min"
+      elapsed(86400).should == "24 hr 0 min"
+      elapsed(86401).should == "1 day 0 hr 0 min"
+      elapsed(86459).should == "1 day 0 hr 0 min"
+      elapsed(86460).should == "1 day 0 hr 1 min"
+      elapsed(90000).should == "1 day 1 hr 0 min"
+      elapsed(183546).should == "2 days 2 hr 59 min"
+      elapsed(125.5).should == "2 min 5 sec"
     end
 
     it "should convert floating point values to decimal digit string with at least two digit precision" do
@@ -398,8 +398,8 @@ describe RightScale::StatsHelper do
     it "should convert broker status to multi-line display string" do
       result = brokers_str(@brokers, 10)
       result.should == "brokers    : b0: rs-broker-localhost-5672 connected, disconnects: none, failures: none\n" +
-                       "             b1: rs-broker-localhost-5673 disconnected, disconnects: 2 (16 min, 40 sec ago), failures: none\n" +
-                       "             b2: rs-broker-localhost-5674 failed, disconnects: none, failures: 3 (16 min, 40 sec ago w/ 2 retries)\n" +
+                       "             b1: rs-broker-localhost-5673 disconnected, disconnects: 2 (16 min 40 sec ago), failures: none\n" +
+                       "             b2: rs-broker-localhost-5674 failed, disconnects: none, failures: 3 (16 min 40 sec ago w/ 2 retries)\n" +
                        "             exceptions        : none\n"
     end
 
@@ -408,11 +408,33 @@ describe RightScale::StatsHelper do
       @brokers["exceptions"] = @exceptions.stats
       result = brokers_str(@brokers, 10)
       result.should == "brokers    : b0: rs-broker-localhost-5672 connected, disconnects: none, failures: none\n" +
-                       "             b1: rs-broker-localhost-5673 disconnected, disconnects: 2 (16 min, 40 sec ago), failures: none\n" +
-                       "             b2: rs-broker-localhost-5674 failed, disconnects: none, failures: 3 (16 min, 40 sec ago w/ 2 retries)\n" +
+                       "             b1: rs-broker-localhost-5673 disconnected, disconnects: 2 (16 min 40 sec ago), failures: none\n" +
+                       "             b2: rs-broker-localhost-5674 failed, disconnects: none, failures: 3 (16 min 40 sec ago w/ 2 retries)\n" +
                        "             exceptions        : testing total: 1, most recent:\n" +
-                       "                                 (1) Mon Jan 12 05:46:40 -0800 1970 Exception: Test error\n" +
+                       "                                 (1) Mon Jan 12 05:46:40 Exception: Test error\n" +
                        "                                     \n"
+    end
+
+    it 'should convert activity stats to string' do
+      activity = RightScale::StatsHelper::ActivityStats.new
+      activity.update("testing")
+      activity.finish(@now - 10)
+      activity.update("more testing")
+      activity.update("more testing")
+      activity.update("more testing")
+      flexmock(Time).should_receive(:now).and_return(1000010)
+      activity_str(activity.all).should == "more testing: 75%, testing: 25%, total: 4, last: more testing (10 sec ago), " +
+                                           "rate: 0/sec"
+    end
+
+    it 'should convert last activity stats to string' do
+      activity = RightScale::StatsHelper::ActivityStats.new
+      activity.update("testing")
+      activity.finish(@now - 10)
+      activity.update("more testing")
+      flexmock(Time).should_receive(:now).and_return(1000010)
+      last_activity_str(activity.last).should == "more testing: 10 sec ago"
+      last_activity_str(activity.last, single_item = true).should == "more testing (10 sec ago)"
     end
 
     it "should convert exception stats to multi-line string" do
@@ -434,14 +456,14 @@ describe RightScale::StatsHelper do
 
       result = exceptions_str(@exceptions.stats, "----")
       result.should == "another total: 3, most recent:\n" +
-                   "----(1) Mon Jan 12 05:46:50 -0800 1970 ArgumentError: badarg\n" +
+                   "----(1) Mon Jan 12 05:46:50 ArgumentError: badarg\n" +
                    "----    Over there\n" +
-                   "----(2) Mon Jan 12 05:46:50 -0800 1970 ArgumentError: badarg\n" +
+                   "----(2) Mon Jan 12 05:46:50 ArgumentError: badarg\n" +
                    "----    It happened here\n" +
                    "----testing total: 2, most recent:\n" +
-                   "----(1) Mon Jan 12 05:46:50 -0800 1970 ArgumentError: badarg\n" +
+                   "----(1) Mon Jan 12 05:46:50 ArgumentError: badarg\n" +
                    "----    Over there\n" +
-                   "----(1) Mon Jan 12 05:46:40 -0800 1970 Exception: This is a very long exception message that should be truncate...\n" +
+                   "----(1) Mon Jan 12 05:46:40 Exception: This is a very long exception message that should be truncate...\n" +
                    "----    "
     end
 
@@ -499,15 +521,15 @@ describe RightScale::StatsHelper do
       result.should == "my sub-stats  : activity1 %       : none\n" +
                        "                activity1 last    : none\n" +
                        "                activity2 %       : more testing: 75%, testing: 25%, total: 4\n" +
-                       "                activity2 last    : more testing: 46 min, 40 sec ago\n" +
-                       "                activity3 last    : testing forever: 46 min, 40 sec ago and still active\n" +
+                       "                activity2 last    : more testing: 46 min 40 sec ago\n" +
+                       "                activity3 last    : testing forever: 46 min 40 sec ago and still active\n" +
                        "                empty_hash        : none\n" +
                        "                exceptions        : testing total: 1, most recent:\n" +
-                       "                                    (1) Mon Jan 12 05:46:40 -0800 1970 Exception: Test error\n" +
+                       "                                    (1) Mon Jan 12 05:46:40 Exception: Test error\n" +
                        "                                        \n" +
                        "                float_value       : 3.2\n" +
                        "                some %            : 3.5%\n" +
-                       "                some age          : 2 min, 5 sec\n" +
+                       "                some age          : 2 min 5 sec\n" +
                        "                some hash         : ants: 100000000, bears: 1, cats: 3, dogs: 2, dragons: none, hippopotami: 99, \n" +
                        "                                    leopards: 25\n" +
                        "                some rate         : 4.7/sec\n" +
@@ -539,20 +561,20 @@ describe RightScale::StatsHelper do
       result = stats_str(stats)
       result.should == "identity    : unit tester\n" +
                        "hostname    : localhost\n" +
-                       "stat time   : Mon Jan 12 05:46:40 -0800 1970\n" +
-                       "last reset  : Mon Jan 12 05:46:40 -0800 1970\n" +
-                       "service up  : 1 hr, 2 min\n" +
-                       "machine up  : 2 days, 2 hr, 59 min\n" +
+                       "stat time   : Mon Jan 12 05:46:40\n" +
+                       "last reset  : Mon Jan 12 05:46:40\n" +
+                       "service up  : 1 hr 2 min\n" +
+                       "machine up  : 2 days 2 hr 59 min\n" +
                        "version     : 10\n" +
                        "brokers     : b0: rs-broker-localhost-5672 connected, disconnects: none, failures: none\n" +
-                       "              b1: rs-broker-localhost-5673 disconnected, disconnects: 2 (16 min, 40 sec ago), failures: none\n" +
-                       "              b2: rs-broker-localhost-5674 failed, disconnects: none, failures: 3 (16 min, 40 sec ago w/ 2 retries)\n" +
+                       "              b1: rs-broker-localhost-5673 disconnected, disconnects: 2 (16 min 40 sec ago), failures: none\n" +
+                       "              b2: rs-broker-localhost-5674 failed, disconnects: none, failures: 3 (16 min 40 sec ago w/ 2 retries)\n" +
                        "              exceptions        : none\n" +
                        "stuff       : activity %        : testing: 100%, total: 1\n" +
                        "              activity last     : testing: 10 sec ago\n" +
                        "              empty_hash        : none\n" +
                        "              exceptions        : testing total: 1, most recent:\n" +
-                       "                                  (1) Mon Jan 12 05:46:40 -0800 1970 Exception: Test error\n" +
+                       "                                  (1) Mon Jan 12 05:46:40 Exception: Test error\n" +
                        "                                      \n" +
                        "              float_value       : 3.2\n" +
                        "              some hash         : ants: 100000000, bears: 1, cats: 3, dogs: 2, dragons: none, hippopotami: 99, \n" +
@@ -574,9 +596,9 @@ describe RightScale::StatsHelper do
       result = stats_str(stats)
       result.should == "identity    : unit tester\n" +
                        "hostname    : localhost\n" +
-                       "stat time   : Mon Jan 12 05:46:40 -0800 1970\n" +
-                       "last reset  : Mon Jan 12 05:46:40 -0800 1970\n" +
-                       "service up  : 16 min, 40 sec\n" +
+                       "stat time   : Mon Jan 12 05:46:40\n" +
+                       "last reset  : Mon Jan 12 05:46:40\n" +
+                       "service up  : 16 min 40 sec\n" +
                        "stuff       : empty_hash        : none\n" +
                        "              exceptions        : none\n" +
                        "              float_value       : 3.2\n"
