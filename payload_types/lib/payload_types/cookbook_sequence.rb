@@ -33,13 +33,13 @@ module RightScale
 
     # Initialize fields from given arguments
     def initialize(*args)
-      @path      = args[0].to_sym
+      @paths     = args[0]
       @positions = args[1] if args.size > 1
     end
 
     # Array of serialized fields given to constructor
     def serialized_members
-      [ @path, @positions ]
+      [ @paths, @positions ]
     end
 
     # Reorder @positions so it respects @path.  The comparison rule is
@@ -51,7 +51,7 @@ module RightScale
     #  - otherwise lexically sort on a_pos and b_pos.
     def sort_by_path!
       indices = @positions.map {|a|
-        @path.index(@path.find {|p| a.position.start_with? p})
+        @paths.index(@paths.find {|p| a.position.start_with? p})
       }
       @positions = indices.zip(@positions).sort {|a, b|
         aindex, acb = a
