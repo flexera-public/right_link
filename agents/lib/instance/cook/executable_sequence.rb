@@ -245,12 +245,12 @@ module RightScale
       audit_time do
         counter = 0
 
-        @cookbooks.each do |related_cookbooks_hash|
-          local_basedir = File.join(@download_path, counter.to_s)
-          related_cookbooks_hash.each_pair do |relative_path, cookbook|
+        @cookbooks.each_with_index do |related_cookbooks_list, i|
+          local_basedir = File.join(@download_path, i.to_s)
+          related_cookbooks_list.each do |pair|
+            relative_path, cookbook = pair
             prepare_cookbook(local_basedir, relative_path, cookbook)
           end
-          counter += 1
         end
       end
       true
