@@ -71,23 +71,7 @@ describe RightScale::InstanceState do
 
     end
 
-    context('when saved state from initial boot exists') do
-
-      it 'should detect initial boot' do
-        flexmock(File).should_receive(:file?).with(@state_file).and_return(false)
-        flexmock(File).should_receive(:file?).with(@scripts_file).and_return(false)
-        flexmock(File).should_receive(:file?).with(@login_policy_file).and_return(false)
-
-        init_state(:initial_boot)
-
-        RightScale::InstanceState.identity.should == '1'
-        RightScale::InstanceState.value.should == 'booting'
-        RightScale::InstanceState.reboot?.should be_false
-      end
-
-    end
-
-    context('when complete saved state exists') do
+    context('when saved state exists') do
 
       before(:each) do
         # Simulate a successful first boot

@@ -102,8 +102,8 @@ module RightScale
     # Set instance id with given id
     # Load persisted state if any, compare instance ids and force boot if instance ID
     # is different or if reboot flagged
-    # Relying here on rightboot script to create state file initially and flag reboot
-    # if file already exists
+    # For reboot detection relying on rightboot script in linux and shutdown notification in windows
+    # to update the reboot flag in the state file
     #
     # === Parameters
     # identity(String):: Instance identity
@@ -138,20 +138,12 @@ module RightScale
           RightLinkLog.debug("Bundle detected; transitioning state to booting")
           @@last_recorded_value = state['last_recorded_value']
           self.value = 'booting'
-        elsif state['value'] == INITIAL_STATE
-          if state['reboot']
-            # CASE 2 -- rebooting flagged by rightboot script when updating state in existing state file
-            RightLinkLog.debug("Reboot detected; transitioning state to booting")
-            @@last_recorded_value = state['last_recorded_value']
-            self.value = 'booting'
-            @@reboot = true
-          else
-            # CASE 1 -- initial boot; rightboot script created the state file and initialized state
-            RightLinkLog.debug("Initializing instance #{identity} with booting")
-            @@last_recorded_value = INITIAL_STATE
-            self.value = 'booting'
-            @@initial_boot = true
-          end
+        elsif state['reboot']
+          # CASE 2 -- rebooting flagged by rightboot script in linux or by shutdown notification in windows
+          RightLinkLog.debug("Reboot detected; transitioning state to booting")
+          @@last_recorded_value = state['last_recorded_value']
+          self.value = 'booting'
+          @@reboot = true
         else
           # CASE 4 -- restart without reboot; continue with retries if recorded state does not match
           @@value = state['value']
@@ -168,7 +160,7 @@ module RightScale
           update_logger
         end
       else
-        # CASE 1 -- initial boot fallback, in case rightboot script failed to create state file
+        # CASE 1 -- state file does not exist; initial boot, create state file
         RightLinkLog.debug("Initializing instance #{identity} with booting")
         @@last_recorded_value = INITIAL_STATE
         self.value = 'booting'
