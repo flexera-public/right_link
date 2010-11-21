@@ -27,8 +27,9 @@ THIS_FILE = File.symlink?(__FILE__) ? File.readlink(__FILE__) : __FILE__
 $:.push(File.join(File.dirname(THIS_FILE), 'lib'))
 
 require 'rubygems'
-require 'communication_checker'
+require 'agent_checker'
 
-m = RightScale::CommunicationChecker.new
+m = RightScale::AgentChecker.new
 opts = m.parse_args
-m.run(opts)
+success = m.run(opts)
+exit(success ? 0 : 1)

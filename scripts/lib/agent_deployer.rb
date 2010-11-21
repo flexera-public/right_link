@@ -41,7 +41,7 @@
 #      --check-interval SEC     Set number of seconds between failed connection checks, increases exponentially
 #      --ping-interval SEC      Set minimum number of seconds since last message receipt for the agent
 #                               to ping the mapper to check connectivity, 0 means disable ping
-#                               (the independent rs_comm_chk is set to run at 3 times this interval)
+#                               (the independent rchk is set to run at 3 times this interval)
 #      --grace-timeout SEC      Set number of seconds before graceful termination times out
 #      --[no-]dup-check         Set whether to check for and reject duplicate requests, .e.g., due to retries
 #      --persist SET            Set default handling for persistence of messages being sent via AMQP
@@ -287,21 +287,18 @@ check process #{agent}
       setup_monit(identity, config, options)
     end
 
-    # Create monit file for running rs_comm_chk periodically to check whether
-    # the agent is connected and able to communicate or otherwise trigger re-enroll
+    # Create monit file for running rchk daemon to monitor monit and periodically check
+    # whether the agent is communicating okay and if not, to trigger a re-enroll
     def setup_agent_checker_monit(options)
-      min_run_time = 60
-      check_interval = options[:ping_interval] * 3
-      identity = "#{options[:identity]}-chk"
+      time_limit = options[:ping_interval] * 3
+      identity = "#{options[:identity]}-rchk"
       pid_file = PidFile.new(identity, :pid_dir => options[:pid_dir] ||
                              RightScale::RightLinkConfig[:platform].filesystem.pid_dir)
       config = <<-EOF
-set daemon #{check_interval}\"
-check process comm_chk
+check process rchk
   with pidfile \"#{pid_file}\"
-  start program \"/usr/bin/rs_comm_chk --run #{min_run_time}\"
-  stop program \"/usr/bin/rs_comm_chk --stop\"
-  mode manual
+  start program \"/usr/bin/rchk --start --time-limit #{time_limit} --monit\"
+  stop program \"/usr/bin/rchk --stop\"
       EOF
       setup_monit(identity, config, options)
     end

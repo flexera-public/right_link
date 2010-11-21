@@ -31,4 +31,5 @@ require 'reenroller'
 
 m = RightScale::Reenroller.new
 opts = m.parse_args
-m.run(opts)
+success = m.run(opts)
+exit(success ? 0 : 1)
