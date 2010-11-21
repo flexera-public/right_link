@@ -56,11 +56,14 @@ module RightScale
     # Default maximum number of seconds between checks for recent communication if first check fails
     DEFAULT_RETRY_INTERVAL = 5 * 60
 
-    # Default maximum number of attempts to check communication before decide to re-enroll
+    # Default maximum number of attempts to check communication before trigger re-enroll
     DEFAULT_MAX_ATTEMPTS = 3
 
+    # Maximum number of repeated failures to access agent using CommandIO before trigger re-enroll
+    MAX_COMMAND_IO_FAILURES = 2
+
     # Maximum number of seconds to wait for a CommandIO response from the instance agent
-    COMMAND_TIMEOUT = 2 * 60
+    COMMAND_IO_TIMEOUT = 2 * 60
 
     # Monit files
     MONIT = "/opt/rightscale/sandbox/bin/monit"
@@ -123,13 +126,16 @@ module RightScale
         EM.error_handler do |e|
           if e.class == RuntimeError && e.message =~ /no connection/
             error("Failed to connect to agent for communication check", nil, abort = false)
-            reenroll
+            @command_io_failures = (@command_io_failures || 0) + 1
+            reenroll! if @command_io_failures > MAX_COMMAND_IO_FAILURES
           else
             error("Internal checker failure", e, abort = true)
           end
         end
 
         EM.run { check }
+
+        info("Checker exiting") if @options[:daemon]
 
       rescue SystemExit => e
         raise e
@@ -244,10 +250,11 @@ protected
           end
 
           info("Starting checker daemon with #{elapsed(check_interval)} polling " +
-               "and #{elapsed(@options[:time_limit])} communication time limit")
+               "and #{elapsed(@options[:time_limit])} last communication limit")
 
           iteration = 0
           EM.add_periodic_timer(check_interval) do
+            debug("Checker iteration #{iteration}")
             check_monit if @options[:monit]
             check_communication(0) if iteration.modulo(check_modulo) == 0
             iteration += 1
@@ -274,6 +281,7 @@ protected
         pid = File.read(MONIT_PID_FILE).to_i if File.file?(MONIT_PID_FILE)
         debug("Checking monit with pid #{pid.inspect}")
         if pid && !process_running?(pid)
+          error("Monit not running, restarting it now")
           if system("#{MONIT} -c #{MONIT_CONFIG}")
             info("Successfully restarted monit")
           end
@@ -298,7 +306,6 @@ protected
     # true:: Always return true
     def check_communication(attempt)
       attempt += 1
-      debug("Checking communication, attempt #{attempt}")
       begin
         if (time = time_since_last_communication) <= @options[:time_limit]
           @retry_timer.cancel if @retry_timer
@@ -306,14 +313,15 @@ protected
           info("Passed communication check with activity as recently as #{elapsed} ago", to_console = !@options[:daemon])
           EM.stop unless @options[:daemon]
         elsif attempt <= @options[:max_attempts]
+          debug("Checking communication" + (attempt > 1 ? ", attempt #{attempt}" : ""))
           try_communicating(attempt)
           @retry_timer = EM::Timer.new(@options[:retry_interval]) do
             error("Communication attempt #{attempt} timed out after #{elapsed(@options[:retry_interval])}")
+            @agent = agent_options('instance') # Reload in case not using right cookie
             check_communication(attempt)
           end
         else
-          reenroll
-          EM.stop unless @options[:daemon]
+          reenroll!
         end
       rescue SystemExit => e
         raise e
@@ -346,10 +354,11 @@ protected
       begin
         listen_port = @agent[:listen_port]
         client = CommandClient.new(listen_port, @agent[:cookie])
-        client.send_command({:name => "check_connectivity"}, @options[:verbose], COMMAND_TIMEOUT) do |r|
+        client.send_command({:name => "check_connectivity"}, @options[:verbose], COMMAND_IO_TIMEOUT) do |r|
+          @command_io_failures = 0
           res = OperationResult.from_results(JSON.load(r)) rescue nil
           if res && res.success?
-            info("Successful agent communication on attempt #{attempt}")
+            info("Successful agent communication" + (attempt > 1 ? " on attempt #{attempt}" : ""))
             @retry_timer.cancel if @retry_timer
             check_communication(attempt)
           else
@@ -364,19 +373,21 @@ protected
       true
     end
 
-    # Trigger re-enroll, exit if fails
+    # Trigger re-enroll
+    # This will normally cause the checker to exit
     #
     # === Return
     # true:: Always return true
-    def reenroll
+    def reenroll!
       unless @reenrolling
         @reenrolling = true
         begin
           info("Triggering re-enroll after unsuccessful communication check", to_console = true)
           cmd = "rs_reenroll"
           cmd += " -v" if @options[:verbose]
-          success = system(cmd)
-          error("Failed re-enroll after unsuccessful communication check") unless success
+          cmd += '&' unless Platform.windows?
+          EM.stop
+          system(cmd)
         rescue Exception => e
           error("Failed re-enroll after unsuccessful communication check", e, abort = true)
         end

@@ -31,5 +31,4 @@ require 'agent_checker'
 
 m = RightScale::AgentChecker.new
 opts = m.parse_args
-success = m.run(opts)
-exit(success ? 0 : 1)
+m.run(opts)

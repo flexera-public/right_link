@@ -33,7 +33,7 @@ module RightScale
     MIN_RESTART_INACTIVITY_TIMER_INTERVAL = 2 * 60
 
     # Number of seconds to wait for ping response from a mapper when checking connectivity
-    PING_TIMEOUT = 15
+    PING_TIMEOUT = 30
 
     # (EM::Timer) Timer while waiting for mapper ping response
     attr_accessor :pending_ping

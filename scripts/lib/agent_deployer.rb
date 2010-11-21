@@ -41,7 +41,7 @@
 #      --check-interval SEC     Set number of seconds between failed connection checks, increases exponentially
 #      --ping-interval SEC      Set minimum number of seconds since last message receipt for the agent
 #                               to ping the mapper to check connectivity, 0 means disable ping
-#                               (the independent rchk is set to run at 3 times this interval)
+#                               (the independent checker daemon is set to poll at 3 times this interval)
 #      --grace-timeout SEC      Set number of seconds before graceful termination times out
 #      --[no-]dup-check         Set whether to check for and reject duplicate requests, .e.g., due to retries
 #      --persist SET            Set default handling for persistence of messages being sent via AMQP
@@ -86,6 +86,7 @@ module RightScale
       agent = options[:alias] || options[:agent]
       options[:agents_dir] ||= agent_dir(agent)
       options[:actors_dir] ||= actors_dir
+      options[:ping_interval] ||= 4 * 60 * 60
       cfg = agent_config(options[:agents_dir], agent)
       fail("Cannot read configuration for agent #{options[:agent]}") unless cfg
       actors = cfg.delete(:actors)
@@ -119,7 +120,7 @@ module RightScale
       cfg[:fresh_timeout]   = options[:fresh_timeout] || 15 * 60
       cfg[:retry_timeout]   = options[:retry_timeout] || 10 * 60
       cfg[:retry_interval]  = options[:retry_interval] || 30
-      cfg[:ping_interval]   = options[:ping_interval] || 4 * 60 * 60
+      cfg[:ping_interval]   = options[:ping_interval] if options[:ping_interval]
       cfg[:check_interval]  = options[:check_interval] if options[:check_interval]
       cfg[:grace_timeout]   = options[:grace_timeout] if options[:grace_timeout]
       cfg[:min_agents]      = options[:min_agents].nil? ? 1 : options[:min_agents]
@@ -274,6 +275,7 @@ protected
 
     # Create agent monit configuration file
     def setup_agent_monit(options)
+      agent = options[:agent]
       identity = options[:identity]
       pid_file = PidFile.new(identity, :pid_dir => options[:pid_dir] ||
                              RightScale::RightLinkConfig[:platform].filesystem.pid_dir)
@@ -287,7 +289,7 @@ check process #{agent}
       setup_monit(identity, config, options)
     end
 
-    # Create monit file for running rchk daemon to monitor monit and periodically check
+    # Create monit file for running checker daemon to monitor monit and periodically check
     # whether the agent is communicating okay and if not, to trigger a re-enroll
     def setup_agent_checker_monit(options)
       time_limit = options[:ping_interval] * 3
@@ -295,10 +297,11 @@ check process #{agent}
       pid_file = PidFile.new(identity, :pid_dir => options[:pid_dir] ||
                              RightScale::RightLinkConfig[:platform].filesystem.pid_dir)
       config = <<-EOF
-check process rchk
+check process checker
   with pidfile \"#{pid_file}\"
   start program \"/usr/bin/rchk --start --time-limit #{time_limit} --monit\"
   stop program \"/usr/bin/rchk --stop\"
+  mode manual
       EOF
       setup_monit(identity, config, options)
     end

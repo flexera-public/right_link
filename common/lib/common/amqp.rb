@@ -1175,6 +1175,7 @@ module RightScale
     def close(&blk)
       unless @closed
         @closed = true
+        @connection_status = {}
         handler = CountedDeferrable.new(@brokers.size)
         handler.callback { blk.call if blk }
         @brokers.each do |b|
