@@ -13,16 +13,18 @@
 #
 #    Options:
 #      --time-limit, -t SEC      Override the default time limit since last communication for
-#                                check to pass (also the interval for daemon to run these checks)
+#                                check to pass (also the interval for daemon to run these checks),
+#                                ignored if less than 1
 #      --attempts, -a N          Override the default number of communication check attempts
-#                                before trigger re-enroll
-#      --retry-interval, -r SEC  Override the default interval for retrying communication check
+#                                before trigger re-enroll, ignored if less than 1
+#      --retry-interval, -r SEC  Override the default interval for retrying communication check,
+#                                reset to time-limit if less than it, ignored if less than 1
 #      --start                   Run as a daemon process that checks agent communication after the
 #                                configured time limit and repeatedly thereafter on that interval
 #                                (does an immediate one-time check if --start is not specified)
 #      --stop                    Stop the currently running daemon and then exit
-#      --monit [SEC]             If running as a daemon, also monitor monit if it is configured
-#                                on a SEC second polling interval
+#      --monit [SEC]             If running as a daemon, also monitor monit on a SEC second polling
+#                                interval if monit is configured, SEC ignored if less than 1
 #      --verbose, -v             Display debug information
 #      --version                 Display version information
 #      --help                    Display help
@@ -60,7 +62,7 @@ module RightScale
     DEFAULT_MAX_ATTEMPTS = 3
 
     # Maximum number of repeated failures to access agent using CommandIO before trigger re-enroll
-    MAX_COMMAND_IO_FAILURES = 2
+    MAX_COMMAND_IO_FAILURES = 3
 
     # Maximum number of seconds to wait for a CommandIO response from the instance agent
     COMMAND_IO_TIMEOUT = 2 * 60
@@ -160,15 +162,15 @@ module RightScale
       opts = OptionParser.new do |opts|
 
         opts.on('-t', '--time-limit SEC') do |sec|
-          options[:time_limit] = sec.to_i
+          options[:time_limit] = sec.to_i if sec.to_i > 0
         end
 
         opts.on('-a', '--attempts N') do |n|
-          options[:max_attempts] = n.to_i
+          options[:max_attempts] = n.to_i if n.to_i > 0
         end
 
         opts.on('-r', '--retry-interval SEC') do |sec|
-          options[:retry_interval] = sec.to_i if sec.to_i != 0
+          options[:retry_interval] = sec.to_i if sec.to_i > 0
         end
 
         opts.on('--start') do
@@ -180,8 +182,7 @@ module RightScale
         end
 
         opts.on('--monit [SEC]') do |sec|
-          options[:monit] = sec ? sec.to_i : DEFAULT_MONIT_CHECK_INTERVAL
-          options[:monit] = DEFAULT_MONIT_CHECK_INTERVAL if options[:monit] == 0
+          options[:monit] = (sec && sec.to_i > 0) ? sec.to_i : DEFAULT_MONIT_CHECK_INTERVAL
         end
 
         opts.on('-v', '--verbose') do
