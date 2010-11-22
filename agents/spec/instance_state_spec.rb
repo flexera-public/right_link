@@ -37,7 +37,6 @@ describe RightScale::InstanceState do
     @forwarder = flexmock(RightScale::RequestForwarder.instance)
     setup_state('1', false)
     @state_file = RightScale::InstanceState::STATE_FILE
-    @scripts_file = RightScale::InstanceState::SCRIPTS_FILE
     @login_policy_file = RightScale::InstanceState::LOGIN_POLICY_FILE
   end
 
@@ -58,7 +57,6 @@ describe RightScale::InstanceState do
 
       it 'should detect initial boot' do
         flexmock(File).should_receive(:file?).with(@state_file).and_return(false)
-        flexmock(File).should_receive(:file?).with(@scripts_file).and_return(false)
         flexmock(File).should_receive(:file?).with(@login_policy_file).and_return(false)
 
         delete_if_exists(state_file_path)
@@ -80,16 +78,15 @@ describe RightScale::InstanceState do
                   'reboot' => false, 'startup_tags' => [], 'log_level' => 1,
                   'last_recorded_value' => 'operational', 'record_retries' => 0,
                   'last_communication' => 0}
-        flexmock(RightScale::InstanceState).should_receive(:read_json).with(@state_file).and_return(@state).by_default
+        flexmock(RightScale::JsonUtilities).should_receive(:read_json).with(@state_file).and_return(@state).by_default
       end
 
       it 'should detect restart after decommission' do
         # Simulate a prior decommission
         @state.merge!('value' => 'decommissioned', 'last_recorded_value' => 'decommissioned')
-        flexmock(RightScale::InstanceState).should_receive(:read_json).with(@state_file).and_return(@state).once
+        flexmock(RightScale::JsonUtilities).should_receive(:read_json).with(@state_file).and_return(@state).once
         flexmock(RightScale::InstanceState).should_receive(:uptime).and_return(300.0)
-        flexmock(RightScale::InstanceState).should_receive(:write_json).with(@state_file, Hash).never
-        flexmock(RightScale::InstanceState).should_receive(:write_json).with(@scripts_file, Array).never
+        flexmock(RightScale::JsonUtilities).should_receive(:write_json).with(@state_file, Hash).never
         flexmock(RightScale::InstanceState).should_receive(:record_state).never
 
         init_state
@@ -100,10 +97,9 @@ describe RightScale::InstanceState do
       it 'should detect restart after crash and record state if needed' do
         # Simulate a prior crash when recorded state did not match local state
         @state.merge!('value' => 'operational', 'last_recorded_value' => 'booting', 'record_retries' => 1)
-        flexmock(RightScale::InstanceState).should_receive(:read_json).with(@state_file).and_return(@state).once
+        flexmock(RightScale::JsonUtilities).should_receive(:read_json).with(@state_file).and_return(@state).once
         flexmock(RightScale::InstanceState).should_receive(:uptime).and_return(300.0)
-        flexmock(RightScale::InstanceState).should_receive(:write_json).with(@state_file, Hash).never
-        flexmock(RightScale::InstanceState).should_receive(:write_json).with(@scripts_file, Array).never
+        flexmock(RightScale::JsonUtilities).should_receive(:write_json).with(@state_file, Hash).never
         flexmock(RightScale::InstanceState).should_receive(:record_state).once
 
         init_state
@@ -115,8 +111,7 @@ describe RightScale::InstanceState do
         # Simulate reboot
         @state.merge!('value' => 'pending', 'reboot' => true)
         flexmock(RightScale::InstanceState).should_receive(:uptime).and_return(1.0)
-        flexmock(RightScale::InstanceState).should_receive(:write_json).with(@state_file, Hash).once
-        flexmock(RightScale::InstanceState).should_receive(:write_json).with(@scripts_file, Array).never
+        flexmock(RightScale::JsonUtilities).should_receive(:write_json).with(@state_file, Hash).once
         flexmock(RightScale::InstanceState).should_receive(:record_state).once
 
         init_state
@@ -127,8 +122,7 @@ describe RightScale::InstanceState do
       end
 
       it 'should detect bundled boot' do
-        flexmock(RightScale::InstanceState).should_receive(:write_json).with(@state_file, Hash)
-        flexmock(RightScale::InstanceState).should_receive(:write_json).with(@scripts_file, [])
+        flexmock(RightScale::JsonUtilities).should_receive(:write_json).with(@state_file, Hash)
         flexmock(RightScale::InstanceState).should_receive(:record_state).once
 
         init_state(:no_boot, '2')
@@ -284,27 +278,10 @@ describe RightScale::InstanceState do
     RightScale::InstanceState.message_received
   end
 
-  it 'should record script execution' do
-    init_state(:initial_boot)
-    RightScale::InstanceState.past_scripts.should be_empty
-    RightScale::InstanceState.record_script_execution('test')
-    RightScale::InstanceState.past_scripts.should == [ 'test' ]
-  end
-
-  it 'should record startup tags when transitioning from booting' do
-    @forwarder.should_receive(:request).
-            with('/state_recorder/record', {:state => "booting", :agent_identity => "1", :from_state => "pending"}, Proc).
-            and_yield(@results_factory.success_results)
-    init_state(:initial_boot)
-    @forwarder.should_receive(:request).
-            with('/state_recorder/record', {:state => "operational", :agent_identity => "1", :from_state => "booting"}, Proc).
-            and_yield(@results_factory.success_results)
+  it 'should always record startup tags' do
     RightScale::InstanceState.startup_tags = [ 'a_tag', 'another_tag' ]
-    RightScale::InstanceState.value = 'operational'
-    RightScale::InstanceState.startup_tags = nil
     RightScale::InstanceState.init(@identity)
     RightScale::InstanceState.startup_tags.should == [ 'a_tag', 'another_tag' ]
-    RightScale::InstanceState.reboot?.should be_false
   end
 
 end

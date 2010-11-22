@@ -31,6 +31,9 @@ module RightScale
     # Path to JSON file where current chef state is serialized
     STATE_FILE = File.join(InstanceState::STATE_DIR, 'chef.js')
 
+    # Path to JSON file where past scripts are serialized
+    SCRIPTS_FILE = File.join(InstanceState::STATE_DIR, 'past_scripts.js')
+
     # Load chef state from file
     #
     # === Parameters
@@ -72,6 +75,24 @@ module RightScale
     def self.attributes
       init
       @@attributes
+    end
+
+    # Current list of scripts that have already executed
+    #
+    # === Return
+    # (Array[(String)]) Scripts that have already executed
+    def self.past_scripts
+      # only load once
+      unless !!defined?(@@past_scripts)
+        # load the list of previously run scripts
+        if File.file?(SCRIPTS_FILE)
+          @@past_scripts = RightScale::JsonUtilities::read_json(SCRIPTS_FILE)
+        else
+          @@past_scripts = []
+        end
+        RightLinkLog.debug("Past scripts: #{@@past_scripts.inspect}")
+      end
+      @@past_scripts
     end
 
     # Set node attributes
@@ -194,6 +215,23 @@ module RightScale
         RightLinkLog.warn("Failed to save Chef state: #{e.message}")
       end
       true
+    end
+
+    # Record script execution in scripts file
+    #
+    # === Parameters
+    # nickname(String):: Nickname of RightScript which successfully executed
+    #
+    # === Return
+    # true:: If script was added to past scripts collection
+    # false:: If script was already in past scripts collection
+    def self.record_script_execution(nickname)
+      new_script = !@@past_scripts.include?(nickname)
+      if new_script
+        @@past_scripts << nickname
+        RightScale::JsonUtilities::write_json(SCRIPTS_FILE, @@past_scripts)
+      end
+      new_script
     end
 
     protected

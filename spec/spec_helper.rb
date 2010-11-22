@@ -80,11 +80,11 @@ module RightScale
     def setup_state(identity = '1', init = true)
       cleanup_state
       InstanceState.const_set(:STATE_FILE, state_file_path)
-      InstanceState.const_set(:SCRIPTS_FILE, past_scripts_path)
       InstanceState.const_set(:BOOT_LOG_FILE, log_path)
       InstanceState.const_set(:OPERATION_LOG_FILE, log_path)
       InstanceState.const_set(:DECOMMISSION_LOG_FILE, log_path)
-      ChefState.const_set(:STATE_FILE, chef_file_path)
+      RightScale::ChefState.const_set(:STATE_FILE, chef_file_path) if RightScale.const_defined?(:ChefState)
+      RightScale::ChefState.const_set(:SCRIPTS_FILE, past_scripts_path) if RightScale.const_defined?(:ChefState)
       @identity = identity
       @results_factory = ResultsMock.new
       mapper_proxy = flexmock('MapperProxy')

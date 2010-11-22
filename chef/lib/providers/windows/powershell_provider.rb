@@ -57,7 +57,7 @@ class Chef
         source           = @new_resource.source
         script_file_path = @new_resource.source_path
         environment      = @new_resource.environment
-        current_state    = instance_state
+        current_state    = all_state
 
         # 1. Write script source into file, if necessary.
         if script_file_path
@@ -71,8 +71,8 @@ class Chef
         begin
           # 2. Setup environment.
           environment = {} if environment.nil?
-          environment['RS_ALREADY_RUN'] = current_state.past_scripts.include?(nickname) ? '1' : nil
-          environment['RS_REBOOT'] = current_state.reboot?
+          environment['RS_ALREADY_RUN'] = current_state[:chef_state].past_scripts.include?(nickname) ? '1' : nil
+          environment['RS_REBOOT'] = current_state[:instance_state].reboot?
           @new_resource.environment(environment)
 
           # 3. execute and wait
@@ -89,7 +89,7 @@ class Chef
 
           # super provider raises an exception on failure, so record success at
           # this point.
-          current_state.record_script_execution(nickname)
+          current_state[:chef_state].record_script_execution(nickname)
           @new_resource.updated = true
         ensure
           (FileUtils.rm_rf(SCRIPT_TEMP_DIR_PATH) rescue nil) if ::File.directory?(SCRIPT_TEMP_DIR_PATH)
@@ -105,9 +105,16 @@ class Chef
       LOCAL_WINDOWS_BIN_PATH = RightScale::RightLinkConfig[:platform].filesystem.ensure_local_drive_path(::File.join(SOURCE_WINDOWS_PATH, 'bin'), TEMP_DIR_NAME)
       CHEF_NODE_CMDLET_DLL_PATH = ::File.normalize_path(::File.join(LOCAL_WINDOWS_BIN_PATH, 'ChefNodeCmdlet.dll')).gsub("/", "\\")
 
-      def instance_state
-        RightScale::InstanceState
+      # Provides a view of the current state objects (instance, chef, ...)
+      #
+      # == Returns
+      # result(Hash):: States:
+      #    :instance_state(RightScale::InstanceState):: current instance state
+      #    :chef_state(RightScale::ChefState):: current chef state
+      def all_state
+        result = {:instance_state => RightScale::InstanceState, :chef_state => RightScale::ChefState}
       end
+
 
       # Formats a command to run the given powershell script.
       #

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2009 RightScale Inc
+# Copyright (c) 2010 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -20,12 +20,38 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-# Load files required by then runner process
-# This process is responsible for running Chef
-# It's a short lived process that runs one Chef converge then dies
-# It talks back to the RightLink agent using the command protocol
+module RightScale
 
-require File.normalize_path(File.join(File.dirname(__FILE__), 'cook', 'audit_stub.rb'))
-require File.normalize_path(File.join(File.dirname(__FILE__), 'cook', 'cook_state.rb'))
-require File.normalize_path(File.join(File.dirname(__FILE__), 'cook', 'chef_state'))
-require File.normalize_path(File.join(File.dirname(__FILE__), 'cook', 'executable_sequence.rb'))
+  # collection of Json utilities
+  module JsonUtilities
+    # Load JSON from given file
+    #
+    # === Parameters
+    # path(String):: Path to JSON file
+    #
+    # === Return
+    # json(String):: Resulting JSON string
+    #
+    # === Raise
+    # Errno::ENOENT:: Invalid path
+    # JSON Exception:: Invalid JSON content
+    def self.read_json(path)
+      JSON.load(File.read(path))
+    end
+
+    # Serialize object to JSON and write result to file, override existing file if any.
+    # Note: Do not serialize object if it's a string, allows passing raw JSON.
+    #
+    # === Parameters
+    # path(String):: Path to file being written
+    # contents(Object|String):: Object to be serialized into JSON or JSON string
+    #
+    # === Return
+    # true:: Always return true
+    def self.write_json(path, contents)
+      contents = contents.to_json unless contents.is_a?(String)
+      File.open(path, 'w') { |f| f.write(contents) }
+      true
+    end
+  end
+end

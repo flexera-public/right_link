@@ -54,7 +54,7 @@ class Chef
         nickname        = @new_resource.name
         run_started_at  = Time.now
         platform        = RightScale::RightLinkConfig[:platform]
-        current_state   = instance_state
+        current_state   = all_state
 
         # 1. Setup audit and environment
         begin
@@ -77,13 +77,13 @@ class Chef
 
         # Provide the customary RightScript environment metadata
         ENV['ATTACH_DIR'] = ENV['RS_ATTACH_DIR'] = @new_resource.cache_dir
-        ENV['RS_ALREADY_RUN'] = current_state.past_scripts.include?(nickname) ? 'true' : nil
-        ENV['RS_REBOOT']      = current_state.reboot? ? 'true' : nil
+        ENV['RS_ALREADY_RUN'] = current_state[:chef_state].past_scripts.include?(nickname) ? 'true' : nil
+        ENV['RS_REBOOT']      = current_state[:instance_state].reboot? ? 'true' : nil
 
         # RightScripts expect to find RS_DISTRO, RS_DIST and RS_ARCH in the environment.
         # Massage the distro name into the format they expect (all lower case, one word, no release info).
         if platform.linux?
-          distro = platform.linux.distro.downcase 
+          distro = platform.linux.distro.downcase
           ENV['RS_DISTRO'] = distro
           ENV['RS_DIST']   = distro
           arch_info=`uname -i`.downcase + `uname -m`.downcase
@@ -124,19 +124,25 @@ class Chef
         ::Chef::Log.info("Script duration: #{duration}")
 
         if !status || status.success?
-          current_state.record_script_execution(nickname)
+          current_state[:chef_state].record_script_execution(nickname)
           @new_resource.updated = true
         else
           raise RightScale::Exceptions::Exec, "RightScript < #{nickname} > returned #{status.exitstatus}"
         end
-    
+
         true
       end
 
       protected
 
-      def instance_state
-        RightScale::InstanceState
+      # Provides a view of the current state objects (instance, chef, ...)
+      #
+      # == Returns
+      # result(Hash):: States:
+      #    :instance_state(RightScale::InstanceState):: current instance state
+      #    :chef_state(RightScale::ChefState):: current chef state
+      def all_state
+        result = {:instance_state => RightScale::InstanceState, :chef_state => RightScale::ChefState}
       end
 
       # Runs the given RightScript.

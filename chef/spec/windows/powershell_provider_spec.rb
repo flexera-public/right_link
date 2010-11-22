@@ -289,8 +289,9 @@ EOF
       mock_chef_log(@logger)
 
       # mock out Powershell script internals so we can run tests using the Powershell script provider
-      mock_instance_state = flexmock('MockInstanceState', :past_scripts => [], :record_script_execution => true, :reboot? => false)
-      flexmock(Chef::Provider::Powershell).new_instances.should_receive(:instance_state).and_return(mock_instance_state)
+      mock_instance_state = flexmock('MockInstanceState', :reboot? => false)
+      mock_chef_state = flexmock('MockChefState', :record_script_execution => true, :past_scripts => [])
+      flexmock(Chef::Provider::RightScript).new_instances.should_receive(:all_state).and_return({:instance_state => mock_instance_state, :chef_state => mock_chef_state})
     end
 
     after(:all) do

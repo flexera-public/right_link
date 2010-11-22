@@ -34,7 +34,6 @@ require File.normalize_path(File.join(File.dirname(__FILE__), 'instance', 'execu
 require File.normalize_path(File.join(File.dirname(__FILE__), 'instance', 'instance_commands'))
 require File.normalize_path(File.join(File.dirname(__FILE__), 'instance', 'instance_configuration'))
 require File.normalize_path(File.join(File.dirname(__FILE__), 'instance', 'instance_state'))
-require File.normalize_path(File.join(File.dirname(__FILE__), 'instance', 'chef_state'))
 require File.normalize_path(File.join(File.dirname(__FILE__), 'instance', 'login_manager'))
 require File.normalize_path(File.join(File.dirname(__FILE__), 'instance', 'operation_context'))
 require File.normalize_path(File.join(File.dirname(__FILE__), 'instance', 'options_bag'))

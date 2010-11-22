@@ -22,10 +22,11 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 require 'fileutils'
+require File.normalize_path(File.join(File.dirname(__FILE__), 'json_utilities'))
 
 module RightScale
 
-  # Manages instance state 
+  # Manages instance state
   class InstanceState
 
     # States that are recorded in a standard fashion and audited when transitioned to
@@ -49,9 +50,6 @@ module RightScale
     # Path to JSON file where current instance state is serialized
     STATE_DIR         = RightScale::RightLinkConfig[:agent_state_dir]
     STATE_FILE        = File.join(STATE_DIR, 'state.js')
-
-    # Path to JSON file where past scripts are serialized
-    SCRIPTS_FILE      = File.join(STATE_DIR, 'past_scripts.js')
 
     # Path to JSON file where authorized login users are defined
     LOGIN_POLICY_FILE = File.join(STATE_DIR, 'login_policy.js')
@@ -89,11 +87,6 @@ module RightScale
       @@identity
     end
 
-    # (Array[(String)]) Scripts that have already executed
-    def self.past_scripts
-      @@past_scripts
-    end
-
     # (LoginPolicy) The most recently enacted login policy
     def self.login_policy
       @@login_policy
@@ -124,7 +117,7 @@ module RightScale
       FileUtils.mkdir_p(dir) unless File.directory?(dir)
 
       if File.file?(STATE_FILE)
-        state = read_json(STATE_FILE)
+        state = RightScale::JsonUtilities::read_json(STATE_FILE)
         RightLinkLog.debug("Initializing instance #{identity} with #{state.inspect}")
 
         # Initial state reconciliation: use recorded state and boot timestamp to determine how we last stopped.
@@ -167,15 +160,8 @@ module RightScale
         @@initial_boot = true
       end
 
-      if File.file?(SCRIPTS_FILE)
-        @@past_scripts = read_json(SCRIPTS_FILE)
-      else
-        @@past_scripts = []
-      end
-      RightLinkLog.debug("Past scripts: #{@@past_scripts.inspect}")
-
       if File.file?(LOGIN_POLICY_FILE)
-        @@login_policy = read_json(LOGIN_POLICY_FILE) rescue nil #corrupt file here is not important enough to fail
+        @@login_policy = RightScale::JsonUtilities::read_json(LOGIN_POLICY_FILE) rescue nil #corrupt file here is not important enough to fail
       else
         @@login_policy = nil
       end
@@ -219,13 +205,13 @@ module RightScale
     # Instance AWS id for EC2 instances
     #
     # === Return
-    # resource_uid(String):: Instance AWS ID on EC2, equivalent on other cloud when available 
+    # resource_uid(String):: Instance AWS ID on EC2, equivalent on other cloud when available
     def self.resource_uid
       resource_uid = @@resource_uid
     end
 
     # Is this the initial boot?
-    # 
+    #
     # === Return
     # res(Boolean):: Whether this is the instance first boot
     def self.initial_boot?
@@ -282,7 +268,14 @@ module RightScale
     # === Return
     # val(Array):: List of tags
     def self.startup_tags=(val)
-      @@startup_tags = val
+      if @@startup_tags.nil? || @@startup_tags != val
+        @@startup_tags = val
+        # FIX: storing state on change to ensure the most current set of tags is available to
+        #      cook (or other processes that load instance state) when it is launched.  Would
+        #      be better to communicate state via other means.
+        store_state
+      end
+      val
     end
 
     # Tags retrieved on startup
@@ -297,7 +290,7 @@ module RightScale
     #
     # === Parameters
     # val(Const):: One of Logger::DEBUG...Logger::FATAL
-    # 
+    #
     # === Return
     # val(Const):: One of Logger::DEBUG...Logger::FATAL
     def self.log_level=(val)
@@ -346,23 +339,6 @@ module RightScale
       true
     end
 
-    # Record script execution in scripts file
-    #
-    # === Parameters
-    # nickname(String):: Nickname of RightScript which successfully executed
-    #
-    # === Return
-    # true:: If script was added to past scripts collection
-    # false:: If script was already in past scripts collection
-    def self.record_script_execution(nickname)
-      new_script = !@@past_scripts.include?(nickname)
-      if new_script
-        @@past_scripts << nickname
-        write_json(SCRIPTS_FILE, @@past_scripts)
-      end
-      new_script
-    end
-
     # Record set of authorized login users
     #
     # === Parameters
@@ -399,7 +375,7 @@ module RightScale
     # Determine uptime of this system.
     #
     # === Return
-    # uptime(Float):: Uptime of this system in seconds, or 0.0 if undetermined 
+    # uptime(Float):: Uptime of this system in seconds, or 0.0 if undetermined
     def self.uptime()
       return RightScale::RightLinkConfig[:platform].shell.uptime
     end
@@ -441,50 +417,20 @@ module RightScale
 
     private
 
-    # Load JSON from given file
-    #
-    # === Parameters
-    # path(String):: Path to JSON file
-    #
-    # === Return
-    # json(String):: Resulting JSON string
-    #
-    # === Raise
-    # Errno::ENOENT:: Invalid path
-    # JSON Exception:: Invalid JSON content
-    def self.read_json(path)
-      JSON.load(File.read(path))
-    end
-    
-    # Serialize object to JSON and write result to file, override existing file if any.
-    # Note: Do not serialize object if it's a string, allows passing raw JSON.
-    #
-    # === Parameters
-    # path(String):: Path to file being written
-    # contents(Object|String):: Object to be serialized into JSON or JSON string
-    #
-    # === Return
-    # true:: Always return true
-    def self.write_json(path, contents)
-      contents = contents.to_json unless contents.is_a?(String)
-      File.open(path, 'w') { |f| f.write(contents) }
-      true
-    end
-
     # Persist state to local disk storage
     #
     # === Return
     # true:: Always return true
     def self.store_state
-      write_json(STATE_FILE, {'value'               => @@value,
-                              'identity'            => @@identity,
-                              'uptime'              => uptime,
-                              'reboot'              => @@reboot,
-                              'startup_tags'        => @@startup_tags,
-                              'log_level'           => @@log_level,
-                              'record_retries'      => @@record_retries,
-                              'last_recorded_value' => @@last_recorded_value,
-                              'last_communication'  => @@last_communication})
+      RightScale::JsonUtilities::write_json(STATE_FILE, {'value'               => @@value,
+                                                         'identity'            => @@identity,
+                                                         'uptime'              => uptime,
+                                                         'reboot'              => @@reboot,
+                                                         'startup_tags'        => @@startup_tags,
+                                                         'log_level'           => @@log_level,
+                                                         'record_retries'      => @@record_retries,
+                                                         'last_recorded_value' => @@last_recorded_value,
+                                                         'last_communication'  => @@last_communication})
       true
     end
 
