@@ -159,8 +159,11 @@ module RightScale
             exchange = {:type => :queue, :name => request.reply_to, :options => {:durable => true, :no_declare => @secure}}
             @broker.publish(exchange, r, :persistent => request.persistent, :log_filter => [:tries, :persistent])
           end
+        rescue NoConnectedBrokers => e
+          RightLinkLog.error("Failed to publish result of dispatched request #{request.trace}: #{e}")
         rescue Exception => e
-          RightLinkLog.error("Failed to publish result of dispatched request: #{e}")
+          RightLinkLog.error("Failed to publish result of dispatched request #{request.trace}: #{e}\n" +
+                             e.backtrace.join("\n"))
           @exceptions.track("publish response", e)
         end
         r # For unit tests

@@ -194,7 +194,7 @@ module RightScale
     # opts[:conn](EM::Connection):: Connection used to send reply
     #
     # === Return
-    # true
+    # true:: Always return true
     def decommission_command(opts)
       @scheduler.run_decommission { CommandIO.instance.reply(opts[:conn], 'Decommissioned') }
     end
@@ -205,7 +205,7 @@ module RightScale
     # opts[:conn](EM::Connection):: Connection used to send reply
     #
     # === Return
-    # true
+    # true:: Always return true
     def terminate_command(opts)
       CommandIO.instance.reply(opts[:conn], 'Terminating')
       @scheduler.terminate
@@ -217,7 +217,7 @@ module RightScale
     # opts[:conn](EM::Connection):: Connection used to send reply
     #
     # === Return
-    # true
+    # true:: Always return true
     def get_tags_command(opts)
       AgentTagsManager.instance.tags { |t| CommandIO.instance.reply(opts[:conn], t) }
     end
@@ -229,7 +229,7 @@ module RightScale
     # opts[:tag](String):: Tag to be added
     #
     # === Return
-    # true
+    # true:: Always return true
     def add_tag_command(opts)
       AgentTagsManager.instance.add_tags(opts[:tag])
       CommandIO.instance.reply(opts[:conn], "Request to add tag '#{opts[:tag]}' sent successfully.")
@@ -242,7 +242,7 @@ module RightScale
     # opts[:tag](String):: Tag to be removed
     #
     # === Return
-    # true
+    # true:: Always return true
     def remove_tag_command(opts)
       AgentTagsManager.instance.remove_tags(opts[:tag])
       CommandIO.instance.reply(opts[:conn], "Request to remove tag '#{opts[:tag]}' sent successfully.")
@@ -255,13 +255,9 @@ module RightScale
     # opts[:tags](String):: Tags to be used in query
     #
     # === Return
-    # true
+    # true:: Always return true
     def query_tags_command(opts)
-      send_request('/mapper/query_tags', opts[:conn], :tags => opts[:tags]) do |r|
-        reply = JSON.dump(r) rescue '\"Failed to serialize response\"'
-        CommandIO.instance.reply(conn, reply)
-      end
-      true
+      send_request('/mapper/query_tags', opts[:conn], :tags => opts[:tags])
     end
 
     # Update audit summary
@@ -349,7 +345,6 @@ module RightScale
     # true:: Always return true
     def check_connectivity_command(opts)
       send_request("/mapper/ping", opts[:conn], {})
-      true
     end
 
     # Close connection

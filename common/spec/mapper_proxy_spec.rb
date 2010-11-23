@@ -31,7 +31,6 @@ describe RightScale::MapperProxy do
     flexmock(RightScale::RightLinkLog).should_receive(:error).never.by_default
     flexmock(RightScale::RightLinkLog).should_receive(:warn).never.by_default
     @timer = flexmock("timer", :cancel => true).by_default
-    flexmock(EM::Timer).should_receive(:new).and_return(@timer).by_default
   end
 
   describe "when fetching the instance" do
@@ -62,56 +61,85 @@ describe RightScale::MapperProxy do
       flexmock(EM).should_receive(:next_tick).and_yield.by_default
       @broker = flexmock("Broker", :subscribe => true, :publish => ["broker"], :connected? => true,
                          :identity_parts => ["host", 123, 0, 0]).by_default
-      @agent = flexmock("Agent", :identity => "agent", :broker => @broker, :options => {:ping_interval => 1000}).by_default
-      RightScale::MapperProxy.new(@agent)
-      @instance = RightScale::MapperProxy.instance
+      @agent = flexmock("Agent", :identity => "agent", :broker => @broker, :options => {:ping_interval => 0}).by_default
     end
 
     it "should start inactivity timer at initialization time" do
+      @agent.should_receive(:options).and_return(:ping_interval => 1000)
       flexmock(EM::Timer).should_receive(:new).with(1000, Proc).and_return(@timer).once
       RightScale::MapperProxy.new(@agent)
     end
 
     it "should not start inactivity timer at initialization time if ping disabled" do
-      @agent.should_receive(:options).and_return(:ping_interval => 0)
       flexmock(EM::Timer).should_receive(:new).never
       RightScale::MapperProxy.new(@agent)
     end
 
     it "should restart inactivity timer only if sufficient time has elapsed since last restart" do
-      flexmock(@instance).should_receive(:restart_inactivity_timer).once
-      @instance.message_received
-      @instance.message_received
+      @agent.should_receive(:options).and_return(:ping_interval => 1000)
+      flexmock(EM::Timer).should_receive(:new).with(1000, Proc).and_return(@timer).once
+      instance = RightScale::MapperProxy.new(@agent)
+      flexmock(instance).should_receive(:restart_inactivity_timer).once
+      instance.message_received
+      instance.message_received
     end
 
     it "should check connectivity if the inactivity timer times out" do
+      @agent.should_receive(:options).and_return(:ping_interval => 1000)
+      flexmock(EM::Timer).should_receive(:new).and_return(@timer).once.by_default
+      RightScale::MapperProxy.new(@agent)
+      instance = RightScale::MapperProxy.instance
       flexmock(EM::Timer).should_receive(:new).and_return(@timer).and_yield.once
-      flexmock(@instance).should_receive(:check_connection).once
-      @instance.message_received
+      flexmock(instance).should_receive(:check_connection).once
+      instance.message_received
     end
 
     it "should ignore messages received if ping disabled" do
       @agent.should_receive(:options).and_return(:ping_interval => 0)
       flexmock(EM::Timer).should_receive(:new).never
       RightScale::MapperProxy.new(@agent)
-      @instance = RightScale::MapperProxy.instance
-      @instance.message_received
+      RightScale::MapperProxy.instance.message_received
     end
 
     it "should log an exception if the connectivity check fails" do
       flexmock(RightScale::RightLinkLog).should_receive(:error).with(/Failed connectivity check/).once
+      @agent.should_receive(:options).and_return(:ping_interval => 1000)
+      flexmock(EM::Timer).should_receive(:new).and_return(@timer).once.by_default
+      RightScale::MapperProxy.new(@agent)
+      instance = RightScale::MapperProxy.instance
       flexmock(EM::Timer).should_receive(:new).and_return(@timer).and_yield.once
-      flexmock(@instance).should_receive(:check_connection).and_raise(Exception)
-      @instance.message_received
+      flexmock(instance).should_receive(:check_connection).and_raise(Exception)
+      instance.message_received
+    end
+
+    it "should attempt to reconnect if mapper ping times out" do
+      flexmock(RightScale::RightLinkLog).should_receive(:warn).with(/Mapper ping via broker/).once
+      @agent.should_receive(:options).and_return(:ping_interval => 1000)
+      broker_id = "rs-broker-localhost-5672"
+      @broker.should_receive(:identity_parts).with(broker_id).and_return(["localhost", 5672, 0, 0]).once
+      @agent.should_receive(:connect).with("localhost", 5672, 0, 0, true).once
+      old_ping_timeout = RightScale::MapperProxy::PING_TIMEOUT
+      begin
+        RightScale::MapperProxy.const_set(:PING_TIMEOUT, 0.5)
+        EM.run do
+          EM.add_timer(1) { EM.stop }
+          RightScale::MapperProxy.new(@agent)
+          instance = RightScale::MapperProxy.instance
+          flexmock(instance).should_receive(:publish).with(RightScale::Request, nil).and_return([broker_id])
+          instance.__send__(:check_connection)
+        end
+      ensure
+        RightScale::MapperProxy.const_set(:PING_TIMEOUT, old_ping_timeout)
+      end
     end
   end
-  
+
   describe "when requesting a message" do
     before(:each) do
       flexmock(EM).should_receive(:next_tick).and_yield.by_default
       @broker = flexmock("Broker", :subscribe => true, :publish => ["broker"], :connected? => true,
                          :identity_parts => ["host", 123, 0, 0]).by_default
-      @agent = flexmock("Agent", :identity => "agent", :broker => @broker, :options => {}).by_default
+      @agent = flexmock("Agent", :identity => "agent", :broker => @broker, :options => {:ping_interval => 0}).by_default
       RightScale::MapperProxy.new(@agent)
       @instance = RightScale::MapperProxy.instance
     end
@@ -350,7 +378,7 @@ describe RightScale::MapperProxy do
   describe "when pushing a message" do
     before(:each) do
       @broker = flexmock("Broker", :subscribe => true, :publish => true).by_default
-      @agent = flexmock("Agent", :identity => "agent", :broker => @broker, :options => {}).by_default
+      @agent = flexmock("Agent", :identity => "agent", :broker => @broker, :options => {:ping_interval => 0}).by_default
       RightScale::MapperProxy.new(@agent)
       @instance = RightScale::MapperProxy.instance
     end
@@ -398,7 +426,7 @@ describe RightScale::MapperProxy do
       flexmock(EM).should_receive(:next_tick).and_yield.by_default
       @broker = flexmock("Broker", :subscribe => true, :publish => ["broker"], :connected? => true,
                          :identity_parts => ["host", 123, 0, 0]).by_default
-      @agent = flexmock("Agent", :identity => "agent", :broker => @broker, :options => {}).by_default
+      @agent = flexmock("Agent", :identity => "agent", :broker => @broker, :options => {:ping_interval => 0}).by_default
       RightScale::MapperProxy.new(@agent)
       @instance = RightScale::MapperProxy.instance
       flexmock(RightScale::AgentIdentity, :generate => 'token1')
@@ -434,7 +462,7 @@ describe RightScale::MapperProxy do
       flexmock(EM).should_receive(:defer).and_yield.by_default
       @broker = flexmock("Broker", :subscribe => true, :publish => ["broker"], :connected? => true,
                          :identity_parts => ["host", 123, 0, 0]).by_default
-      @agent = flexmock("Agent", :identity => "agent", :broker => @broker, :options => {}).by_default
+      @agent = flexmock("Agent", :identity => "agent", :broker => @broker, :options => {:ping_interval => 0}).by_default
       RightScale::MapperProxy.new(@agent)
       @instance = RightScale::MapperProxy.instance
     end

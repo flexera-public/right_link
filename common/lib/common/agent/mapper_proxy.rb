@@ -85,13 +85,13 @@ module RightScale
       @retry_timeout = nil_if_zero(@options[:retry_timeout])
       @retry_interval = nil_if_zero(@options[:retry_interval])
       @ping_interval = @options[:ping_interval] || 0
-      restart_inactivity_timer if @ping_interval > 0
-      reset_stats
 
       # Only to be accessed from primary thread
       @pending_requests = {}
       @pending_ping = nil
 
+      reset_stats
+      restart_inactivity_timer if @ping_interval > 0
       @@instance = self
     end
 
@@ -134,7 +134,7 @@ module RightScale
           @pending_requests[token] = {:result_handler => blk, :receive_time => received_at}
           request_with_retry(request, token)
         rescue Exception => e
-          RightLinkLog.error("Failed to send #{type} request: #{e.message}")
+          RightLinkLog.error("Failed to send #{type} request: #{e}\n" + e.backtrace.join("\n"))
           @exceptions.track("request", e, request)
         end
       end
@@ -330,7 +330,7 @@ module RightScale
               check_connection(ids.first) if count == 1
             end
           rescue Exception => e
-            RightLinkLog.error("Failed retry for #{request.token}: #{e.message}")
+            RightLinkLog.error("Failed retry for #{request.token}: #{e}\n" + e.backtrace.join("\n"))
             @exceptions.track("retry", e, request)
           end
         end
@@ -359,10 +359,11 @@ module RightScale
             host, port, alias_id, priority = @broker.identity_parts(id)
             @agent.connect(host, port, alias_id, priority, force = true)
           rescue Exception => e
-            RightLinkLog.error("Failed to reconnect to broker #{id}: #{e.message}")
+            RightLinkLog.error("Failed to reconnect to broker #{id}: #{e}\n" + e.backtrace.join("\n"))
             @exceptions.track("ping timeout", e)
           end
         end
+
         handler = lambda do |_|
           begin
             if @pending_ping
@@ -371,13 +372,15 @@ module RightScale
               @pending_ping = nil
             end
           rescue Exception => e
-            RightLinkLog.error("Failed to cancel mapper ping: #{e.message}")
+            RightLinkLog.error("Failed to cancel mapper ping: #{e}\n" + e.backtrace.join("\n"))
             @exceptions.track("cancel ping", e)
           end
         end
+
         request = Request.new("/mapper/ping", nil, {:from => @identity, :token => AgentIdentity.generate})
         @pending_requests[request.token] = {:result_handler => handler, :receive_time => Time.now}
-        id = publish(request, [id]).first
+        ids = [id] if id
+        id = publish(request, ids).first
       end
       true
     end
@@ -395,8 +398,10 @@ module RightScale
         exchange = {:type => :fanout, :name => "request", :options => {:durable => true, :no_declare => @secure}}
         ids = @broker.publish(exchange, request, :persistent => request.persistent,
                               :log_filter => [:tags, :target, :multicast, :tries, :persistent], :brokers => ids)
+      rescue NoConnectedBrokers => e
+        RightLinkLog.error("Failed to publish request #{request.trace}: #{e}")
       rescue Exception => e
-        RightLinkLog.error("Failed to publish #{request.to_s([:tags, :target, :tries])}: #{e.message}")
+        RightLinkLog.error("Failed to publish request #{request.trace}: #{e}\n" + e.backtrace.join("\n"))
         @exceptions.track("publish", e, request)
         ids = []
       end

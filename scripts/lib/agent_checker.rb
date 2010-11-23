@@ -3,10 +3,12 @@
 #   (c) 2010 RightScale
 #
 #   Checks the agent to see if it is actively communicating with RightNet and if not
-#   triggers it to re-enroll
+#   triggers it to re-enroll and exits.
 #
 #   Alternatively runs as a daemon and performs this communication check periodically,
-#   as well as optionally monitoring monit
+#   as well as optionally monitoring monit. Normally it is run as a daemon under monit
+#   control, since it relies on monit to restart it if it triggers an agent re-enroll
+#   or encounters fatal internal checker errors.
 #
 # === Usage
 #    rchk
@@ -21,8 +23,10 @@
 #                                reset to time-limit if less than it, ignored if less than 1
 #      --start                   Run as a daemon process that checks agent communication after the
 #                                configured time limit and repeatedly thereafter on that interval
-#                                (does an immediate one-time check if --start is not specified)
-#      --stop                    Stop the currently running daemon and then exit
+#                                (the checker does an immediate one-time check if --start is not specified)
+#      --stop                    Stop the currently running daemon started with --start and then exit
+#                                (normally this is only used via monit, e.g., 'monit stop checker',
+#                                otherwise the --stop request may be undone by monit restarting the checker)
 #      --monit [SEC]             If running as a daemon, also monitor monit on a SEC second polling
 #                                interval if monit is configured, SEC ignored if less than 1
 #      --verbose, -v             Display debug information
@@ -255,10 +259,10 @@ protected
 
           iteration = 0
           EM.add_periodic_timer(check_interval) do
+            iteration += 1
             debug("Checker iteration #{iteration}")
             check_monit if @options[:monit]
             check_communication(0) if iteration.modulo(check_modulo) == 0
-            iteration += 1
           end
         else
           check_communication(0)
