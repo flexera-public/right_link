@@ -26,16 +26,24 @@ describe RightScale::InstanceState do
 
   include RightScale::SpecHelpers
 
-  # Helper method to initialze state with choices :initial_boot and :no_boot
-  def init_state(choice = :no_boot, identity = nil)
-    rightboot(force_initial_boot = true) if choice == :initial_boot
-    RightScale::InstanceState.init(identity || @identity)
-  end
-
   before(:each) do
     flexmock(RightScale::RightLinkLog).should_receive(:debug)
-    @forwarder = flexmock(RightScale::RequestForwarder.instance)
-    setup_state('1', false)
+    setup_state do
+      @user_id = 123
+      @booting_args = ['/state_recorder/record',
+                       {:state => "booting", :agent_identity => "1", :from_state => "pending"}, Proc]
+      @operational_args = ['/state_recorder/record',
+                           {:state => "operational", :agent_identity => "1", :from_state => "booting"}, Proc]
+      @decommissioning_args = ['/state_recorder/record',
+                               {:state => "decommissioning", :agent_identity => "1", :from_state => "operational"}, Proc]
+      @decommissioned_args = ['/state_recorder/record',
+                              {:state => 'decommissioned', :agent_identity => '1', :user_id => @user_id,
+                               :skip_db_update => false, :kind => "terminate"}, Proc]
+      @record_success = @results_factory.success_results
+      @forwarder = flexmock(RightScale::RequestForwarder.instance)
+      @forwarder.should_receive(:request).with(*@booting_args).and_yield(@record_success).once.by_default
+      @forwarder.should_receive(:request).and_yield(@record_success).by_default
+    end
     @state_file = RightScale::InstanceState::STATE_FILE
     @login_policy_file = RightScale::InstanceState::LOGIN_POLICY_FILE
   end
@@ -45,7 +53,6 @@ describe RightScale::InstanceState do
   end
 
   it 'should initialize' do
-    init_state(:initial_boot)
     RightScale::InstanceState.init(@identity)
     RightScale::InstanceState.value.should == 'booting'
     RightScale::InstanceState.identity.should == @identity
@@ -60,7 +67,7 @@ describe RightScale::InstanceState do
         flexmock(File).should_receive(:file?).with(@login_policy_file).and_return(false)
 
         delete_if_exists(state_file_path)
-        init_state
+        RightScale::InstanceState.init(@identity)
 
         RightScale::InstanceState.identity.should == '1'
         RightScale::InstanceState.value.should == 'booting'
@@ -73,7 +80,7 @@ describe RightScale::InstanceState do
 
       before(:each) do
         # Simulate a successful first boot
-        init_state(:initial_boot)
+        RightScale::InstanceState.init(@identity)
         @state = {'value' => 'operational', 'identity' => '1', 'uptime' => 120.0,
                   'reboot' => false, 'startup_tags' => [], 'log_level' => 1,
                   'last_recorded_value' => 'operational', 'record_retries' => 0,
@@ -89,7 +96,7 @@ describe RightScale::InstanceState do
         flexmock(RightScale::JsonUtilities).should_receive(:write_json).with(@state_file, Hash).never
         flexmock(RightScale::InstanceState).should_receive(:record_state).never
 
-        init_state
+        RightScale::InstanceState.init(@identity)
 
         RightScale::InstanceState.value.should == 'decommissioned'
       end
@@ -102,19 +109,19 @@ describe RightScale::InstanceState do
         flexmock(RightScale::JsonUtilities).should_receive(:write_json).with(@state_file, Hash).never
         flexmock(RightScale::InstanceState).should_receive(:record_state).once
 
-        init_state
+        RightScale::InstanceState.init(@identity)
 
         RightScale::InstanceState.value.should == 'operational'
       end
 
       it 'should detect reboot based on stored reboot state' do
         # Simulate reboot
-        @state.merge!('value' => 'pending', 'reboot' => true)
+        @state.merge!('value' => 'booting', 'reboot' => true)
         flexmock(RightScale::InstanceState).should_receive(:uptime).and_return(1.0)
         flexmock(RightScale::JsonUtilities).should_receive(:write_json).with(@state_file, Hash).once
         flexmock(RightScale::InstanceState).should_receive(:record_state).once
 
-        init_state
+        RightScale::InstanceState.init(@identity)
 
         RightScale::InstanceState.identity.should == '1'
         RightScale::InstanceState.value.should == 'booting'
@@ -125,7 +132,7 @@ describe RightScale::InstanceState do
         flexmock(RightScale::JsonUtilities).should_receive(:write_json).with(@state_file, Hash)
         flexmock(RightScale::InstanceState).should_receive(:record_state).once
 
-        init_state(:no_boot, '2')
+        RightScale::InstanceState.init('2')
 
         RightScale::InstanceState.identity.should == '2'
         RightScale::InstanceState.value.should == 'booting'
@@ -137,35 +144,24 @@ describe RightScale::InstanceState do
 
   context :value= do
 
-    before(:each) do
-      @booting_args = ['/state_recorder/record',
-                       {:state => "booting", :agent_identity => "1", :from_state => "pending"}, Proc ]
-      @operational_args = ['/state_recorder/record',
-                           {:state => "operational", :agent_identity => "1", :from_state => "booting"}, Proc ]
-      @decommissioning_args = ['/state_recorder/record',
-                               {:state => "decommissioning", :agent_identity => "1", :from_state => "operational"}, Proc ]
-      @forwarder.should_receive(:request).with(*@booting_args).and_yield(@results_factory.success_results).once
-      init_state(:initial_boot)
-    end
-
     it 'should store state' do
       RightScale::InstanceState.value.should == "booting"
-      @forwarder.should_receive(:request).with(*@operational_args).and_yield(@results_factory.success_results).once
+      @forwarder.should_receive(:request).with(*@operational_args).and_yield(@record_success).once
       RightScale::InstanceState.value = "operational"
-      init_state
+      RightScale::InstanceState.init(@identity)
       RightScale::InstanceState.value.should == "operational"
-      @forwarder.should_receive(:request).with(*@decommissioning_args).and_yield(@results_factory.success_results).once
+      @forwarder.should_receive(:request).with(*@decommissioning_args).and_yield(@record_success).once
       RightScale::InstanceState.value = "decommissioning"
-      init_state
+      RightScale::InstanceState.init(@identity)
       RightScale::InstanceState.value.should == "decommissioning"
     end
 
     it 'should record state' do
       RightScale::InstanceState.value.should == "booting"
-      @forwarder.should_receive(:request).with(*@operational_args).and_yield(@results_factory.success_results).once
+      @forwarder.should_receive(:request).with(*@operational_args).and_yield(@record_success).once
       RightScale::InstanceState.value = "operational"
       RightScale::InstanceState.value.should == "operational"
-      @forwarder.should_receive(:request).with(*@decommissioning_args).and_yield(@results_factory.success_results).once
+      @forwarder.should_receive(:request).with(*@decommissioning_args).and_yield(@record_success).once
       RightScale::InstanceState.value = "decommissioning"
     end
 
@@ -178,7 +174,7 @@ describe RightScale::InstanceState do
     it 'should store last recorded value after recording state' do
       RightScale::InstanceState.value.should == "booting"
       RightScale::InstanceState.last_recorded_value.should == "booting"
-      @forwarder.should_receive(:request).with(*@operational_args).and_yield(@results_factory.success_results).once
+      @forwarder.should_receive(:request).with(*@operational_args).and_yield(@record_success).once
       RightScale::InstanceState.value = "operational"
       RightScale::InstanceState.value.should == "operational"
       RightScale::InstanceState.last_recorded_value.should == "operational"
@@ -187,7 +183,8 @@ describe RightScale::InstanceState do
     it 'should retry record if there is an error after a delay' do
       flexmock(EM).should_receive("add_timer").with(5, Proc).once
       flexmock(RightScale::RightLinkLog).should_receive(:error).with(/Failed to record state/)
-      @forwarder.should_receive(:request).with(*@operational_args).and_yield(@results_factory.error_results("error")).once
+      error = @results_factory.error_results("error")
+      @forwarder.should_receive(:request).with(*@operational_args).and_yield(error).once
       RightScale::InstanceState.value = "operational"
       RightScale::InstanceState.value.should == "operational"
       RightScale::InstanceState.last_recorded_value.should == "booting"
@@ -195,8 +192,8 @@ describe RightScale::InstanceState do
 
     it 'should store the last recorded value if returned with an error' do
       flexmock(EM).should_receive("add_timer").with(5, Proc).once
-      @forwarder.should_receive(:request).with(*@operational_args).
-              and_yield(@results_factory.error_results({'recorded_state' => "pending", 'message' => "Inconsistent"})).once
+      error = @results_factory.error_results({'recorded_state' => "pending", 'message' => "Inconsistent"})
+      @forwarder.should_receive(:request).with(*@operational_args).and_yield(error).once
       RightScale::InstanceState.last_recorded_value.should == "booting"
       RightScale::InstanceState.value = "operational"
       RightScale::InstanceState.value.should == "operational"
@@ -206,11 +203,10 @@ describe RightScale::InstanceState do
     it 'should limit record retries' do
       RightScale::InstanceState.const_set(:MAX_RECORD_STATE_RETRIES, 1)
       flexmock(EM).should_receive("add_timer").with(5, Proc).and_yield.once
-      @forwarder.should_receive(:request).with(*@operational_args).
-              and_yield(@results_factory.error_results({'recorded_state' => "pending", 'message' => "Inconsistent"})).once
-      @forwarder.should_receive(:request).
-              with('/state_recorder/record', {:state => "operational", :agent_identity => "1", :from_state => "pending"}, Proc).
-              and_yield(@results_factory.error_results({'recorded_state' => "pending", 'message' => "Inconsistent"})).once
+      error = @results_factory.error_results({'recorded_state' => "pending", 'message' => "Inconsistent"})
+      @forwarder.should_receive(:request).with(*@operational_args).and_yield(error).once
+      @forwarder.should_receive(:request).with('/state_recorder/record', {:state => "operational", :agent_identity => "1",
+              :from_state => "pending"}, Proc).and_yield(error).once
       RightScale::InstanceState.last_recorded_value.should == "booting"
       RightScale::InstanceState.value = "operational"
       RightScale::InstanceState.value.should == "operational"
@@ -219,8 +215,8 @@ describe RightScale::InstanceState do
 
     it 'should not retry record if recorded state is no longer inconsistent' do
       flexmock(EM).should_receive("add_timer").never
-      @forwarder.should_receive(:request).with(*@operational_args).
-              and_yield(@results_factory.error_results({'recorded_state' => "operational", 'message' => "Inconsistent"})).once
+      error = @results_factory.error_results({'recorded_state' => "operational", 'message' => "Inconsistent"})
+      @forwarder.should_receive(:request).with(*@operational_args). and_yield(error).once
       RightScale::InstanceState.last_recorded_value.should == "booting"
       RightScale::InstanceState.value = "operational"
       RightScale::InstanceState.value.should == "operational"
@@ -247,32 +243,26 @@ describe RightScale::InstanceState do
 
     it 'should record decommissioned state without specifying last recorded state' do
       flexmock(EM).should_receive(:add_timer).once
-      init_state(:initial_boot)
+      RightScale::InstanceState.init(@identity)
       RightScale::InstanceState.value.should == "booting"
       RightScale::InstanceState.value = "decommissioning"
-      payload = {:agent_identity => '1', :state => 'decommissioned', :user_id => 123,
-                 :skip_db_update => false, :kind => 'terminate'}
-      @forwarder.should_receive(:request).with('/state_recorder/record', payload, Proc).once
-      RightScale::InstanceState.shutdown(123, false, 'terminate')
+      @forwarder.should_receive(:request).with(*@decommissioned_args).and_yield(@record_success).once
+      RightScale::InstanceState.shutdown(@user_id, false, 'terminate')
     end
 
     it 'should request removal of queue' do
       flexmock(EM).should_receive(:add_timer).once
-      init_state(:initial_boot)
+      RightScale::InstanceState.init(@identity)
       RightScale::InstanceState.value.should == "booting"
       RightScale::InstanceState.value = "decommissioning"
-      payload = {:agent_identity => '1', :state => 'decommissioned', :user_id => 123,
-                 :skip_db_update => false, :kind => 'terminate'}
-      response = RightScale::Result.new('token', 'to', RightScale::OperationResult.success, 'from')
-      @forwarder.should_receive(:request).with('/state_recorder/record', payload, Proc).and_yield(response).once
       @forwarder.should_receive(:push).with('/registrar/remove', {:agent_identity => '1'}).once
-      RightScale::InstanceState.shutdown(123, false, 'terminate')
+      RightScale::InstanceState.shutdown(@user_id, false, 'terminate')
     end
 
   end
 
   it 'should update last communication and store it but only if sufficient time has elapsed' do
-    init_state(:initial_boot)
+    RightScale::InstanceState.init(@identity)
     flexmock(RightScale::InstanceState).should_receive(:store_state).once
     RightScale::InstanceState.message_received
     RightScale::InstanceState.message_received
