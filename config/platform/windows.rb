@@ -41,9 +41,9 @@ WIN32OLE.codepage = WIN32OLE::CP_UTF8
 
 # win32/process monkey-patches the Process class but drops support for any kill
 # signals which are not directly portable. some signals are acceptable, if not
-# strictly portable, and are handled by the ruby c implementation (such as
-# 'TERM') but raise an exception in win32/process. we will monkey-patch the
-# monkey-patch to get the best possible implementation of signals.
+# strictly portable. the 'TERM' signal used to be supported in Ruby v1.8.6 but
+# raises an exception in Ruby v1.8.7. we will monkey-patch the monkey-patch to
+# get the best possible implementation of signals.
 module Process
   unless defined?(@@ruby_c_kill)
     @@ruby_c_kill = method(:kill)
@@ -54,6 +54,7 @@ module Process
 
     def self.kill(sig, *pids)
       begin
+        sig = 'KILL' if 'TERM' == sig  # can't soft-terminate in Windows, but death comes to all
         @@win32_kill.call(sig, *pids)
       rescue Process::Error => e
         begin
