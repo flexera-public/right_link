@@ -662,7 +662,7 @@ module RightScale
           end
         rescue Exception => e
           RightLinkLog.error("Identity queue processing error: #{e}")
-          @exceptions.track("identity queue", e, msg)
+          @exceptions.track("identity queue", e, packet)
         end
       end
       ids
