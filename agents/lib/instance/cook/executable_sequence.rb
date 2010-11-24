@@ -265,6 +265,9 @@ module RightScale
         }
       end
       true
+    rescue Exception => e
+      report_failure("Failed to download cookbook", "Please check logs for more information.")
+      RightLinkLog.debug("Failed to download cookbook '#{e.message}' at\n" + e.backtrace.join("\n"))
     ensure
       OpenSSL::SSL::SSLSocket.hostname_override = nil
     end
