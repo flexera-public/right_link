@@ -58,7 +58,7 @@ module RightScale
         # Kill it if it's still alive after ~ 10 sec
         if process_running?(pid)
           print 'Forcing RightLink daemon to exit...' if options[:verbose]
-          res = Process.kill(KILL, pid) rescue nil
+          res = Process.kill('KILL', pid) rescue nil
           puts to_ok(res) if options[:verbose]
         end
         # Now stop monit so it doesn't get in the way

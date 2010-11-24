@@ -65,9 +65,6 @@ module RightScale
     # Default maximum number of attempts to check communication before trigger re-enroll
     DEFAULT_MAX_ATTEMPTS = 3
 
-    # Maximum number of repeated failures to access agent using CommandIO before trigger re-enroll
-    MAX_COMMAND_IO_FAILURES = 3
-
     # Maximum number of seconds to wait for a CommandIO response from the instance agent
     COMMAND_IO_TIMEOUT = 2 * 60
 
@@ -133,7 +130,7 @@ module RightScale
           if e.class == RuntimeError && e.message =~ /no connection/
             error("Failed to connect to agent for communication check", nil, abort = false)
             @command_io_failures = (@command_io_failures || 0) + 1
-            reenroll! if @command_io_failures > MAX_COMMAND_IO_FAILURES
+            reenroll! if @command_io_failures > @options[:max_attempts]
           else
             error("Internal checker failure", e, abort = true)
           end
@@ -312,7 +309,7 @@ protected
     def check_communication(attempt)
       attempt += 1
       begin
-        if (time = time_since_last_communication) <= @options[:time_limit]
+        if (time = time_since_last_communication) < @options[:time_limit]
           @retry_timer.cancel if @retry_timer
           elapsed = elapsed(time)
           info("Passed communication check with activity as recently as #{elapsed} ago", to_console = !@options[:daemon])
@@ -393,6 +390,9 @@ protected
           cmd += '&' unless Platform.windows?
           EM.stop
           system(cmd)
+          # Wait around until rs_reenroll has a chance to stop the checker via monit
+          # otherwise monit may restart it
+          sleep(5)
         rescue Exception => e
           error("Failed re-enroll after unsuccessful communication check", e, abort = true)
         end

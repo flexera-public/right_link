@@ -147,7 +147,7 @@ module RightScale
         puts "  - agent monit config: #{cfg_file}" unless options[:quiet]
         if options[:ping_interval] && options[:ping_interval] > 0
           cfg_file = setup_agent_checker_monit(options)
-          puts "  - agent communication checker monit config: #{cfg_file}" unless options[:quiet]
+          puts "  - agent checker monit config: #{cfg_file}" unless options[:quiet]
         end
       end
     end
