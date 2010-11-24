@@ -57,7 +57,11 @@ module RightScale
     VERSION = [0, 1]
 
     # Default minimum seconds since last communication for instance to be considered connected
+    # Only used if --time-limit not specified and :ping_interval option not specified for agent
     DEFAULT_TIME_LIMIT = 12 * 60 * 60
+
+    # Multiplier of agent's mapper ping interval to get daemon's last communication time limit
+    PING_INTERVAL_MULTIPLIER = 3
 
     # Default maximum number of seconds between checks for recent communication if first check fails
     DEFAULT_RETRY_INTERVAL = 5 * 60
@@ -93,7 +97,7 @@ module RightScale
     # === Parameters
     # options(Hash):: Run options
     #   :time_limit(Integer):: Time limit for last communication and interval for daemon checks,
-    #     defaults to DEFAULT_TIME_LIMIT
+    #     defaults to PING_INTERVAL_MULTIPLIER times agent's ping interval or to DEFAULT_TIME_LIMIT
     #   :max_attempts(Integer):: Maximum number of communication check attempts,
     #     defaults to DEFAULT_MAX_ATTEMPTS
     #   :retry_interval(Integer):: Number of seconds to wait before retrying communication check,
@@ -106,16 +110,24 @@ module RightScale
     # === Return
     # true:: Always return true
     def run(options)
-      @options = options
-      @options[:retry_interval] = [@options[:retry_interval], @options[:time_limit]].min
-      @options[:max_attempts] = [@options[:max_attempts], @options[:time_limit] / @options[:retry_interval]].min
-
       begin
         setup_traps
 
         # Retrieve instance agent configuration options
         @agent = agent_options('instance')
         error("No instance agent configured", nil, abort = true) if @agent.empty?
+
+        # Apply agent's ping interval if needed and adjust options to make them consistent
+        @options = options
+        unless @options[:time_limit]
+          if @agent[:ping_interval]
+            @options[:time_limit] = @agent[:ping_interval] * PING_INTERVAL_MULTIPLIER
+          else
+            @options[:time_limit] = DEFAULT_TIME_LIMIT
+          end
+        end
+        @options[:retry_interval] = [@options[:retry_interval], @options[:time_limit]].min
+        @options[:max_attempts] = [@options[:max_attempts], @options[:time_limit] / @options[:retry_interval]].min
 
         # Attach to log used by instance agent
         RightLinkLog.program_name = 'RightLink'
@@ -156,7 +168,6 @@ module RightScale
       options = {
         :max_attempts   => DEFAULT_MAX_ATTEMPTS,
         :retry_interval => DEFAULT_RETRY_INTERVAL,
-        :time_limit     => DEFAULT_TIME_LIMIT,
         :verbose        => false
       }
 

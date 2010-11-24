@@ -41,7 +41,6 @@
 #      --check-interval SEC     Set number of seconds between failed connection checks, increases exponentially
 #      --ping-interval SEC      Set minimum number of seconds since last message receipt for the agent
 #                               to ping the mapper to check connectivity, 0 means disable ping
-#                               (the independent checker daemon is set to poll at 3 times this interval)
 #      --grace-timeout SEC      Set number of seconds before graceful termination times out
 #      --[no-]dup-check         Set whether to check for and reject duplicate requests, .e.g., due to retries
 #      --persist SET            Set default handling for persistence of messages being sent via AMQP
@@ -292,14 +291,13 @@ check process #{agent}
     # Create monit file for running checker daemon to monitor monit and periodically check
     # whether the agent is communicating okay and if not, to trigger a re-enroll
     def setup_agent_checker_monit(options)
-      time_limit = options[:ping_interval] * 3
       identity = "#{options[:identity]}-rchk"
       pid_file = PidFile.new(identity, :pid_dir => options[:pid_dir] ||
                              RightScale::RightLinkConfig[:platform].filesystem.pid_dir)
       config = <<-EOF
 check process checker
   with pidfile \"#{pid_file}\"
-  start program \"/usr/bin/rchk --start --time-limit #{time_limit} --monit\"
+  start program \"/usr/bin/rchk --start --monit\"
   stop program \"/usr/bin/rchk --stop\"
   mode manual
       EOF
