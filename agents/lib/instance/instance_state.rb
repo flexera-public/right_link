@@ -70,7 +70,7 @@ module RightScale
     RETRY_RECORD_STATE_DELAY = 5
 
     # Minimum interval in seconds for persistent storage of last communication
-    LAST_COMMUNICATION_STORAGE_INTERVAL = 60
+    LAST_COMMUNICATION_STORAGE_INTERVAL = 2
 
     # (String) One of STATES
     def self.value
@@ -232,9 +232,11 @@ module RightScale
     # === Return
     # true:: Always return true
     def self.message_received
-      last = @@last_communication
-      @@last_communication = Time.now.to_i
-      store_state if (@@last_communication - last) > LAST_COMMUNICATION_STORAGE_INTERVAL
+      now = Time.now.to_i
+      if (now - @@last_communication) > LAST_COMMUNICATION_STORAGE_INTERVAL
+        @@last_communication = now
+        store_state
+      end
     end
 
     # Ask core agent to shut ourselves down for soft termination

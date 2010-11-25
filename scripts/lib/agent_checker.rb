@@ -29,6 +29,8 @@
 #                                otherwise the --stop request may be undone by monit restarting the checker)
 #      --monit [SEC]             If running as a daemon, also monitor monit on a SEC second polling
 #                                interval if monit is configured, SEC ignored if less than 1
+#      --ping, -p                Try communicating now regardless of whether have communicated within
+#                                the configured time limit, does not apply if running as a daemon
 #      --verbose, -v             Display debug information
 #      --version                 Display version information
 #      --help                    Display help
@@ -105,6 +107,8 @@ module RightScale
     #   :daemon(Boolean):: Whether to run as a daemon rather than do a one-time communication check
     #   :stop(Boolean):: Whether to stop the currently running daemon and then exit
     #   :monit(String|nil):: Directory containing monit configuration, which is to be monitored
+    #   :ping(Boolean):: Try communicating now regardless of whether have communicated within
+    #     the configured time limit, ignored if :daemon true
     #   :verbose(Boolean):: Whether to display debug information
     #
     # === Return
@@ -197,6 +201,10 @@ module RightScale
           options[:monit] = (sec && sec.to_i > 0) ? sec.to_i : DEFAULT_MONIT_CHECK_INTERVAL
         end
 
+        opts.on('-p', '--ping') do
+          options[:ping] = true
+        end
+
         opts.on('-v', '--verbose') do
           options[:verbose] = true
         end
@@ -273,7 +281,7 @@ protected
             check_communication(0) if iteration.modulo(check_modulo) == 0
           end
         else
-          check_communication(0)
+          check_communication(0, @options[:ping])
         end
       rescue SystemExit => e
         raise e
@@ -314,19 +322,20 @@ protected
     #
     # === Parameters
     # attempt(Integer):: Number of attempts thus far
+    # must_try(Boolean):: Try communicating regardless of whether required based on time limit
     #
     # === Return
     # true:: Always return true
-    def check_communication(attempt)
+    def check_communication(attempt, must_try = false)
       attempt += 1
       begin
-        if (time = time_since_last_communication) < @options[:time_limit]
+        if !must_try && (time = time_since_last_communication) < @options[:time_limit]
           @retry_timer.cancel if @retry_timer
           elapsed = elapsed(time)
           info("Passed communication check with activity as recently as #{elapsed} ago", to_console = !@options[:daemon])
           EM.stop unless @options[:daemon]
         elsif attempt <= @options[:max_attempts]
-          debug("Checking communication" + (attempt > 1 ? ", attempt #{attempt}" : ""))
+          debug("Trying communication" + (attempt > 1 ? ", attempt #{attempt}" : ""))
           try_communicating(attempt)
           @retry_timer = EM::Timer.new(@options[:retry_interval]) do
             error("Communication attempt #{attempt} timed out after #{elapsed(@options[:retry_interval])}")

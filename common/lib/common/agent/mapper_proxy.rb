@@ -30,7 +30,7 @@ module RightScale
     include StatsHelper
 
     # Minimum number of seconds between restarts of the inactivity timer
-    MIN_RESTART_INACTIVITY_TIMER_INTERVAL = 2 * 60
+    MIN_RESTART_INACTIVITY_TIMER_INTERVAL = 60
 
     # Number of seconds to wait for ping response from a mapper when checking connectivity
     PING_TIMEOUT = 30
@@ -91,6 +91,7 @@ module RightScale
       @pending_ping = nil
 
       reset_stats
+      @last_received = 0
       restart_inactivity_timer if @ping_interval > 0
       @@instance = self
     end
@@ -102,9 +103,11 @@ module RightScale
     # true:: Always return true
     def message_received
       if @ping_interval > 0
-        last = @last_received || 0
-        @last_received = Time.now.to_i
-        restart_inactivity_timer if (@last_received - last) > MIN_RESTART_INACTIVITY_TIMER_INTERVAL
+        now = Time.now.to_i
+        if (now - @last_received) > MIN_RESTART_INACTIVITY_TIMER_INTERVAL
+          @last_received = now
+          restart_inactivity_timer
+        end
       end
     end
 
