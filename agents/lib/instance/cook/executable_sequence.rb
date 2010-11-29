@@ -282,6 +282,7 @@ module RightScale
     def prepare_cookbook(local_basedir, relative_path, cookbook)
       @audit.append_info("Requesting #{cookbook.name}")
       tarball = Tempfile.new("tarball")
+      tarball.binmode
       result = request_cookbook(cookbook) do |response|
         response.read_body do |chunk|
           tarball << chunk
