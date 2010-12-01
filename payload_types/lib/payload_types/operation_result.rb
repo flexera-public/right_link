@@ -101,12 +101,13 @@ module RightScale
     # Create new error status
     #
     # === Parameters
-    # message(String):: Error message
+    # message(String):: Error description
+    # exception(Exception|String):: Associated exception or other parenthetical error information
     #
     # === Return
     # (OperationResult):: Corresponding result
-    def self.error(message)
-      OperationResult.new(ERROR, message)
+    def self.error(message, exception = nil)
+      OperationResult.new(ERROR, RightLinkLog.format(message, exception))
     end
     
     # Create new continue status
@@ -212,6 +213,17 @@ module RightScale
       [@status_code, @content]
     end
 
-  end
-    
-end
+  end # OperationResult
+
+  # Helper module to simplify result construction
+  module OperationResultHelpers
+
+    def success_result(*args) OperationResult.success(*args) end
+    def error_result(*args) OperationResult.error(*args) end
+    def retry_result(*args) OperationResult.retry(*args) end
+    def timeout_result(*args) OperationResult.timeout(*args) end
+    def result_from(*args) OperationResult.from_results(*args) end
+
+  end # OperationResultHelpers
+
+end # RightScale

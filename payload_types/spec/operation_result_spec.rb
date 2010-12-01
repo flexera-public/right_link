@@ -98,6 +98,24 @@ describe RightScale::OperationResult do
       result.content.should == "Error"
     end
 
+    it 'should store additional error string when given' do
+      result = RightScale::OperationResult.error("Error", "details")
+      result.kind_of?(RightScale::OperationResult).should be_true
+      result.error?.should be_true
+      result.content.should == "Error (details)"
+    end
+
+    it "should store exception info in error content value when given" do
+      begin
+        nil + "string"
+      rescue Exception => e
+        result = RightScale::OperationResult.error("Error", e)
+      end
+      result.kind_of?(RightScale::OperationResult).should be_true
+      result.error?.should be_true
+      (result.content =~ /Error \(NoMethodError: undefined method \`\+' for nil:NilClass in .*operation_result_spec.*\)$/).should be_true
+    end
+
     it "should store continue content value and respond to continue query" do
       result = RightScale::OperationResult.continue("Continue")
       result.kind_of?(RightScale::OperationResult).should be_true

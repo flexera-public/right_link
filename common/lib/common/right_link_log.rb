@@ -38,7 +38,7 @@ module RightScale
     class Formatter < Logger::Formatter
       @@show_time = true
 
-      # Set whether to show time in logged messages.
+      # Set whether to show time in logged messages
       #
       # === Parameters
       # show(Boolean):: Whether time should be shown
@@ -47,7 +47,7 @@ module RightScale
       end
 
       # Prints a log message as 'datetime progname[pid]: message' if @@show_time == true;
-      # otherwise, doesn't print the datetime.
+      # otherwise, doesn't print the datetime
       #
       # === Parameters
       # severity(String):: Severity of event
@@ -65,9 +65,10 @@ module RightScale
         end
       end
 
-      # Converts some argument to a Logger.severity() call to a string.  Regular strings
-      # pass through like normal, Exceptions get formatted as "message (class)\nbacktrace",
-      # and other random stuff gets put through "object.inspect".
+      # Converts some argument to a Logger.severity() call to a string
+      # Regular strings pass through like normal, Exceptions get formatted
+      # as "message (class)\nbacktrace", and other random stuff gets put
+      # through "object.inspect"
       #
       # === Parameters
       # msg(Object):: Message object to be converted to string
@@ -104,35 +105,92 @@ module RightScale
       @initialized = false
     end
 
-    # Forward all method calls to underlying Logger object created with init.
+    # Forward all method calls to underlying Logger object created with init
     # Return the result of only the first registered logger to keep the interface
-    # consistent with that of a Logger.
+    # consistent with that of a Logger
     #
     # === Parameters
     # m(Symbol):: Forwarded method name
     # args(Array):: Forwarded method arguments
     #
     # === Return
-    # res(Object):: Result from first registered logger
+    # (Object):: Result from first registered logger
     def method_missing(m, *args)
       init unless @initialized
       @logger.level = level_from_sym(level) if @level_frozen
-      res = @logger.__send__(m, *args)
+      @logger.__send__(m, *args)
     end
 
     # Forward all class method calls to the singleton instance to keep the interface as it was
-    # prior to introducing the singleton.
+    # prior to introducing the singleton
     #
     # === Parameters
     # m(Symbol):: Forwarded method name
     # args(Array):: Forwarded method arguments
     #
     # === Return
-    # res(Object):: Result from first the singleton
+    # (Object):: Result from singleton
     class << self
       def method_missing(m, *args)
-        RightLinkLog.instance.send(m, *args)
+        RightLinkLog.instance.__send__(m, *args)
       end
+    end
+
+    # Log warning and optionally append exception information
+    #
+    # === Parameters
+    # description(String):: Error description
+    # exception(Exception|String):: Associated exception or other parenthetical error information
+    # backtrace(Symbol):: Exception backtrace extent: :no_trace, :caller, or :trace,
+    #   defaults to :caller
+    #
+    # === Return
+    # (Object):: Result from first registered logger
+    def warning(description, exception = nil, backtrace = :caller)
+      @logger.warn(format(description, exception, backtrace))
+    end
+
+    alias :warn :warning
+
+    # Log error and optionally append exception information
+    #
+    # === Parameters
+    # description(String):: Error description
+    # exception(Exception|String):: Associated exception or other parenthetical error information
+    # backtrace(Symbol):: Exception backtrace extent: :no_trace, :caller, or :trace,
+    #   defaults to :caller
+    #
+    # === Return
+    # (Object):: Result from first registered logger
+    def error(description, exception = nil, backtrace = :caller)
+      @logger.error(format(description, exception, backtrace))
+    end
+
+    # Format error information
+    #
+    # === Parameters
+    # description(String):: Error description
+    # exception(Exception|String):: Associated exception or other parenthetical error information
+    # backtrace(Symbol):: Exception backtrace extent: :no_trace, :caller, or :trace,
+    #   defaults to :caller
+    #
+    # === Return
+    # (Object):: Result from first registered logger
+    def format(description, exception = nil, backtrace = :caller)
+      if exception
+        if exception.respond_to?(:message)
+          description += " (#{exception.class}: #{exception.message}"
+        else
+          description += " (#{exception}"
+          backtrace = :no_trace
+        end
+        case backtrace
+        when :no_trace then description += ")"
+        when :caller   then description += " in " + exception.backtrace[0] + ")"
+        when :trace    then description += " in\n  " + exception.backtrace.join("\n  ") + ")"
+        end
+      end
+      description
     end
 
     # Map symbol log level to Logger constant
@@ -223,9 +281,9 @@ module RightScale
       @initialized
     end
 
-    # Sets the syslog program name that will be reported.
+    # Sets the syslog program name that will be reported
     # Can only be successfully called before logging is
-    # initialized.
+    # initialized
     #
     # === Parameters
     # prog_name(String):: An arbitrary string, or "nil" to use
@@ -254,12 +312,12 @@ module RightScale
       init unless @initialized
       unless @level_frozen
         new_level = case level
-          when Symbol then
-            level_from_sym(level)
-          when String then
-            level_from_sym(level.to_sym)
-          else
-            level
+        when Symbol then
+          level_from_sym(level)
+        when String then
+          level_from_sym(level.to_sym)
+        else
+          level
         end
         if new_level != @level
           @logger.info("[setup] Setting log level to #{level_to_sym(new_level).to_s.upcase}")
@@ -329,5 +387,16 @@ module RightScale
     end
 
   end # RightLinkLog
+
+  # Helper module to simplify logging calls
+  module RightLinkLogHelpers
+
+    def log_debug(*args) RightLinkLog.debug(*args) end
+    def log_info(*args) RightLinkLog.info(*args) end
+    def log_warning(*args) RightLinkLog.warning(*args) end
+    def log_error(*args) RightLinkLog.error(*args) end
+    def format_error(*args) RightLinkLog.format(*args) end
+
+  end # RightLinkLogHelper
 
 end # RightScale
