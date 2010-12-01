@@ -341,6 +341,7 @@ module RightScale
       @repose_ips       = []
       @repose_hostnames = {}
       @repose_failures  = 0
+      hostnames = [hostnames] unless hostnames.respond_to?(:each)
       hostnames.each do |hostname|
         infos = Socket.getaddrinfo(hostname, 443, Socket::AF_INET, Socket::SOCK_STREAM, Socket::IPPROTO_TCP)
 
