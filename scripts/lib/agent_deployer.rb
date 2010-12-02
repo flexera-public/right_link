@@ -32,6 +32,8 @@
 #      --alias ALIAS            Use alias name for identity and base config
 #      --pid-dir, -z DIR        Set directory containing pid file
 #      --monit, -w              Generate monit configuration file
+#      --agent-checker          Enable agent checker to periodically check instance agent connectivity
+#                               (only applies if --monit specified)
 #      --options, -o KEY=VAL    Pass-through options
 #      --http-proxy, -P PROXY   Use a proxy for all agent-originated HTTP traffic
 #      --no-http-proxy          Comma-separated list of proxy exceptions
@@ -144,7 +146,7 @@ module RightScale
       if options[:monit]
         cfg_file = setup_agent_monit(options)
         puts "  - agent monit config: #{cfg_file}" unless options[:quiet]
-        if options[:ping_interval] && options[:ping_interval] > 0
+        if options[:agent_checker] && options[:ping_interval] && options[:ping_interval] > 0
           cfg_file = setup_agent_checker_monit(options)
           puts "  - agent checker monit config: #{cfg_file}" unless options[:quiet]
         end
@@ -177,6 +179,10 @@ module RightScale
 
         opts.on('-w', '--monit') do
           options[:monit] = true
+        end
+
+        opts.on('--agent-checker') do
+          options[:agent_checker] = true
         end
 
         opts.on('-P', '--http-proxy PROXY') do |proxy|
