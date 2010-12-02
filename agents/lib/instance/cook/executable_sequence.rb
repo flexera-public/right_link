@@ -365,6 +365,7 @@ module RightScale
       loop do
         ip         = @repose_ips[ @repose_idx % @repose_ips.size ]
         hostname   = @repose_hostnames[ip]
+        @repose_idx += 1
         #TODO monkey-patch OpenSSL hostname verification
         RightLinkLog.info("Connecting to cookbook server #{ip} (#{hostname})")
         begin
@@ -389,7 +390,6 @@ module RightScale
           @repose_failures = (@repose_failures + 1) % REPOSE_RETRY_BACKOFF_MAX
           sleep (2**@repose_failures)
         end
-        @repose_idx += 1
       end
     end
 
