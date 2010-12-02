@@ -383,6 +383,7 @@ module RightScale
                                                       :exception => ReposeConnectionException,
                                                       :ca_file => ca_file)
           health_check = Net::HTTP::Get.new('/')
+          health_check['Host'] = hostname
           result = connection.request(:server => ip, :port => '443', :protocol => 'https',
                                       :request => health_check)
           @repose_failures = 0
