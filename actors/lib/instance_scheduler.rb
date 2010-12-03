@@ -38,6 +38,7 @@ class InstanceScheduler
   # === Parameters
   # agent(RightScale::Agent):: Host agent
   def initialize(agent)
+    @agent = agent
     @agent_identity = agent.identity
     @bundles_queue  = RightScale::BundlesQueue.new do
       RightScale::InstanceState.value = 'decommissioned'
@@ -190,7 +191,7 @@ class InstanceScheduler
     RightScale::CommandRunner.stop
     # Delay terminate a bit to give reply a chance to be sent
     EM.next_tick do
-      # FIXME: Do not TERM in Windows because it will not trigger the agent handler.  Instead, directly 
+      # FIXME: Do not TERM in Windows because it will not trigger the agent handler.  Instead, directly
       # terminate the agent.  Leaving the current implementation for Linux until the Windows solution
       # also works for Linux.
       if RightScale::Platform.windows?
