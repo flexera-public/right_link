@@ -111,7 +111,7 @@ else
   candidate_path = platform.filesystem.sandbox_dir
   if File.directory?(candidate_path)
     sandbox_path candidate_path
-    sandbox_ruby_cmd File.join(sandbox_path, 'bin', 'ruby')
+    sandbox_ruby_cmd platform.shell.sandbox_ruby
     sandbox_gem_cmd  File.join(sandbox_path, 'bin', 'gem')
     sandbox_git_cmd  File.join(sandbox_path, 'bin', 'git')
   else
