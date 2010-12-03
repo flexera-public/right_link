@@ -467,7 +467,7 @@ module RightScale
         end
 
         def sandbox_ruby
-          File.join(RightScale::Platform.filesystem.sandbox_dir, 'Ruby', 'bin', 'ruby.exe')
+          return File.join(RightScale::Platform.filesystem.sandbox_dir, 'Ruby', 'bin', 'ruby.exe')
         end
 
         # Gets the current system uptime.
