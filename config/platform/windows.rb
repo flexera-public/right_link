@@ -181,6 +181,10 @@ module RightScale
           return pretty_path(File.join(Dir::COMMON_APPDATA, 'RightScale', 'run'))
         end
 
+        def sandbox_dir
+          File.join(company_program_files_dir, 'SandBox')
+        end
+
         # System root path
         def system_root
           return pretty_path(ENV['SystemRoot'])
@@ -468,6 +472,10 @@ module RightScale
         # target(String):: target file (optional, defaults to nul redirection)
         def format_redirect_both(cmd, target = NULL_OUTPUT_NAME)
           return cmd + " 1>#{target} 2>&1"
+        end
+
+        def sandbox_ruby
+          File.join(RightScale::Platform.filesystem.sandbox_dir, 'Ruby', 'bin', 'ruby.exe')
         end
 
         # Gets the current system uptime.

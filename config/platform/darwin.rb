@@ -84,6 +84,10 @@ module RightScale
           '/var/run'
         end
 
+        def sandbox_dir
+          '/opt/rightscale/sandbox'
+        end
+
         # for windows compatibility; has no significance in darwin
         def long_path_to_short_path(long_path)
           return long_path
@@ -137,6 +141,10 @@ module RightScale
 
         def format_redirect_both(cmd, target = NULL_OUTPUT_NAME)
           return cmd + " 1>#{target} 2>&1"
+        end
+
+        def sandbox_ruby
+          "#{RightScale::Platform.filesystem.sandbox_dir}/bin/ruby"
         end
 
         # Gets the current system uptime.
