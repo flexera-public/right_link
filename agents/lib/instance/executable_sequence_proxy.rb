@@ -63,7 +63,7 @@ module RightScale
         File.open(input_path, "w") { |f| f.write(input_text) }
         input_text = nil
         cmd_exe_path = File.normalize_path(ENV['ComSpec']).gsub("/", "\\")
-        ruby_exe_path = "ruby" # Note: use the ruby on the path.  The Platform sandbox ruby dir is not correct when testing
+        ruby_exe_path = File.normalize_path(RightLinkConfig[:sandbox_ruby_cmd]).gsub("/", "\\")
         input_path = input_path.gsub("/", "\\")
         cmd = "#{cmd_exe_path} /C type #{input_path} | #{ruby_exe_path} #{cook_path_and_arguments}"
       else
