@@ -25,10 +25,10 @@ class InstanceScheduler
   include RightScale::Actor
 
   expose :schedule_bundle, :execute, :schedule_decommission
-  
-  # (RightScale::ExecutableSequenceProxy) Executable sequence proxy accessed 
+
+  # (RightScale::ExecutableSequenceProxy) Executable sequence proxy accessed
   # via command protocol from Cook process
-  attr_reader :sequence 
+  attr_reader :sequence
 
   SHUTDOWN_DELAY = 180 # Number of seconds to wait for decommission scripts to finish before forcing shutdown
 
@@ -132,11 +132,11 @@ class InstanceScheduler
       @shutdown_timeout = EM::Timer.new(SHUTDOWN_DELAY) do
         msg = "Failed to decommission in less than #{SHUTDOWN_DELAY / 60} minutes, forcing shutdown"
         audit.append_error(msg, :category => RightScale::EventCategories::CATEGORY_ERROR)
-        RightScale::InstanceState.shutdown(options[:user_id], options[:skip_db_update], options[:kind]) 
+        RightScale::InstanceState.shutdown(options[:user_id], options[:skip_db_update], options[:kind])
       end
       @post_decommission_callback = lambda do
         @shutdown_timeout.cancel
-        RightScale::InstanceState.shutdown(options[:user_id], options[:skip_db_update], options[:kind]) 
+        RightScale::InstanceState.shutdown(options[:user_id], options[:skip_db_update], options[:kind])
       end
     end
 
@@ -189,7 +189,16 @@ class InstanceScheduler
     RightScale::RightLinkLog.info("Instance agent #{@agent_identity} terminating")
     RightScale::CommandRunner.stop
     # Delay terminate a bit to give reply a chance to be sent
-    EM.next_tick { Process.kill('TERM', Process.pid) }
+    EM.next_tick do
+      # FIXME: Do not TERM in Windows because it will not trigger the agent handler.  Instead, directly 
+      # terminate the agent.  Leaving the current implementation for Linux until the Windows solution
+      # also works for Linux.
+      if RightScale::Platform.windows?
+        @agent.terminate
+      else
+        Process.kill('TERM', Process.pid)
+      end
+    end
   end
 
 end

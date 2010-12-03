@@ -53,16 +53,8 @@ module Process
     @@win32_kill = method(:kill)
 
     def self.kill(sig, *pids)
-      begin
-        sig = 'KILL' if 'TERM' == sig  # can't soft-terminate in Windows, but death comes to all
-        @@win32_kill.call(sig, *pids)
-      rescue Process::Error => e
-        begin
-          @@ruby_c_kill.call(sig, *pids)
-        rescue
-          raise e
-        end
-      end
+      sig = 1 if 'TERM' == sig  # Signals 1 and 4-8 kill the process in a nice manner.
+      @@win32_kill.call(sig, *pids)
     end
 
     # implements getpgid() for Windws
