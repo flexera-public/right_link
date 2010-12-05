@@ -47,14 +47,56 @@ BASE_DIR = File.join(File.dirname(__FILE__), '..', '..')
 require File.expand_path(File.join(BASE_DIR, 'config', 'right_link_config'))
 require File.normalize_path(File.join(BASE_DIR, 'command_protocol', 'lib', 'command_protocol'))
 require File.normalize_path(File.join(BASE_DIR, 'payload_types', 'lib', 'payload_types'))
+require File.normalize_path(File.join(BASE_DIR, 'common', 'lib', 'common', 'daemonize'))
 require File.normalize_path(File.join(BASE_DIR, 'scripts', 'lib', 'agent_utils'))
 require File.normalize_path(File.join(BASE_DIR, 'scripts', 'lib', 'rdoc_patch'))
 
 module RightScale
 
+  # Commands exposed by instance agent checker
+  class AgentCheckerCommands
+
+    # Build hash of commands associating command names with block
+    #
+    # === Parameters
+    # checker(AgentChecker):: Agent checker executing commands
+    #
+    # === Return
+    # (Hash):: Command blocks keyed by command names
+    def self.get(checker)
+      target = new(checker)
+      {:terminate => lambda { |opts, conn| opts[:conn] = conn; target.send("terminate_command", opts) }}
+    end
+
+    # Set agent checker for executing commands
+    #
+    # === Parameter
+    # checker(AgentChecker):: Agent checker
+    def initialize(checker)
+      @checker = checker
+    end
+
+    protected
+
+    # Terminate command
+    #
+    # === Parameters
+    # opts[:conn](EM::Connection):: Connection used to send reply
+    #
+    # === Return
+    # true:: Always return true
+    def terminate_command(opts)
+      CommandIO.instance.reply(opts[:conn], "Checker terminating")
+      # Delay terminate a bit to give reply a chance to be sent
+      EM.next_tick { @checker.terminate }
+    end
+
+  end # AgentCheckerCommands
+
   class AgentChecker
 
     include Utils
+    include DaemonizeHelper
 
     VERSION = [0, 1]
 
@@ -105,6 +147,7 @@ module RightScale
     #   :retry_interval(Integer):: Number of seconds to wait before retrying communication check,
     #     defaults to DEFAULT_RETRY_INTERVAL, reset to :time_limit if exceeds it
     #   :daemon(Boolean):: Whether to run as a daemon rather than do a one-time communication check
+    #   :log_path(String):: Log file directory, defaults to one used by agent
     #   :stop(Boolean):: Whether to stop the currently running daemon and then exit
     #   :monit(String|nil):: Directory containing monit configuration, which is to be monitored
     #   :ping(Boolean):: Try communicating now regardless of whether have communicated within
@@ -132,11 +175,12 @@ module RightScale
         end
         @options[:retry_interval] = [@options[:retry_interval], @options[:time_limit]].min
         @options[:max_attempts] = [@options[:max_attempts], @options[:time_limit] / @options[:retry_interval]].min
+        @options[:log_path] ||= RightLinkConfig[:platform].filesystem.log_dir
 
         # Attach to log used by instance agent
         RightLinkLog.program_name = 'RightLink'
         RightLinkLog.log_to_file_only(@agent[:log_to_file_only])
-        RightLinkLog.init(@agent[:identity], RightLinkConfig[:platform].filesystem.log_dir)
+        RightLinkLog.init(@agent[:identity], @options[:log_path])
         RightLinkLog.level = :debug if @options[:verbose]
         @logging_enabled = true
 
@@ -161,6 +205,16 @@ module RightScale
       rescue Exception => e
         error("Failed to run", e, abort = true)
       end
+      true
+    end
+
+    # Terminate the checker
+    #
+    # === Return
+    # true:: Always return true
+    def terminate
+      RightScale::CommandRunner.stop rescue nil if @command_runner
+      EM.stop rescue nil
       true
     end
 
@@ -244,25 +298,47 @@ protected
     # true:: Always return true
     def check
       begin
-        pid_file = PidFile.new("#{@agent[:identity]}-rchk", @agent)
-        pid = pid_file.read_pid[:pid]
-        if @options[:stop]
-          if pid
-            info("Stopping checker daemon")
-            Process.kill('TERM', pid)
-            pid_file.remove
-          end
-          EM.stop
-          exit
-        end
+        checker_identity = "#{@agent[:identity]}-rchk"
+        pid_file = PidFile.new(checker_identity, @agent)
 
-        if @options[:daemon]
+        if @options[:stop]
+          # Stop checker
+          pid_data = pid_file.read_pid
+          if pid_data[:pid]
+            info("Stopping checker daemon")
+            if RightLinkConfig[:platform].windows?
+              begin
+                client = CommandClient.new(pid_data[:listen_port], pid_data[:cookie])
+                client.send_command({:name => :terminate}, verbose = @options[:verbose], timeout = 30) do |r|
+                  info(r)
+                  terminate
+                  exit
+                end
+              rescue Exception => e
+                error("Failed stopping checker daemon, confirm it is still running", e, abort = true)
+              end
+            else
+              Process.kill('TERM', pid_data[:pid])
+              terminate
+              exit
+            end
+          else
+            terminate
+            exit
+          end
+        elsif @options[:daemon]
+          # Run checker as daemon
+          pid_file.check rescue error("Cannot start checker daemon because already running", nil, abort = true)
+          daemonize(checker_identity, @options) unless RightLinkConfig[:platform].windows?
+          pid_file.write
+          at_exit { pid_file.remove }
+
+          listen_port = CommandConstants::BASE_INSTANCE_AGENT_CHECKER_SOCKET_PORT
+          @command_runner = CommandRunner.start(listen_port, checker_identity, AgentCheckerCommands.get(self), @agent)
+
           info("Checker daemon options:")
           log_options = @options.inject([]) { |t, (k, v)| t << "-  #{k}: #{v}" }
           log_options.each { |l| info(l, to_console = false, no_check = true) }
-
-          error("Cannot start checker daemon because already running", nil, abort = true) if process_running?(pid)
-          pid_file.write
 
           check_interval, check_modulo = if @options[:monit]
             [[@options[:monit], @options[:time_limit]].min, [@options[:time_limit] / @options[:monit], 1].max]
@@ -281,6 +357,7 @@ protected
             check_communication(0) if iteration.modulo(check_modulo) == 0
           end
         else
+          # Perform one check
           check_communication(0, @options[:ping])
         end
       rescue SystemExit => e
@@ -333,7 +410,7 @@ protected
           @retry_timer.cancel if @retry_timer
           elapsed = elapsed(time)
           info("Passed communication check with activity as recently as #{elapsed} ago", to_console = !@options[:daemon])
-          EM.stop unless @options[:daemon]
+          terminate unless @options[:daemon]
         elsif attempt <= @options[:max_attempts]
           debug("Trying communication" + (attempt > 1 ? ", attempt #{attempt}" : ""))
           try_communicating(attempt)
@@ -408,7 +485,7 @@ protected
           cmd = "rs_reenroll"
           cmd += " -v" if @options[:verbose]
           cmd += '&' unless Platform.windows?
-          EM.stop
+          terminate
           system(cmd)
           # Wait around until rs_reenroll has a chance to stop the checker via monit
           # otherwise monit may restart it
@@ -442,7 +519,7 @@ protected
     def setup_traps
       ['INT', 'TERM'].each do |sig|
         old = trap(sig) do
-          EM.stop rescue nil
+          terminate
           old.call if old.is_a? Proc
         end
       end
@@ -502,7 +579,7 @@ protected
       puts "** #{msg}"
 
       if abort
-        EM.stop rescue nil
+        terminate
         exit(1)
       end
       true
