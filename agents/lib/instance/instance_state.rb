@@ -1,4 +1,3 @@
-
 #
 # Copyright (c) 2009 RightScale Inc
 #
@@ -460,7 +459,7 @@ module RightScale
           end
           if @@value != @@last_recorded_value
             attempts = " after #{@@record_retries + 1} attempts" if @@record_retries >= MAX_RECORD_STATE_RETRIES
-            RightLinkLog.error("Failed to record state '#{new_value}'#{attempts}: #{error}")
+            RightLinkLog.error("Failed to record state '#{new_value}'#{attempts}: #{error}") unless @@value == FINAL_STATE
             @@record_retries = 0 if @@value != new_value
             if RECORDED_STATES.include?(@@value) && @@record_retries < MAX_RECORD_STATE_RETRIES
               RightLinkLog.info("Will retry recording state in #{RETRY_RECORD_STATE_DELAY} seconds")
