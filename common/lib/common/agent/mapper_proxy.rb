@@ -314,7 +314,7 @@ module RightScale
         interval = @retry_interval * multiplier
         EM.add_timer(interval) do
           begin
-            if @pending_requests[parent]
+            if (handler = @pending_requests[parent]) && handler[:multicast].nil?
               count += 1
               elapsed += interval
               if elapsed <= @retry_timeout
