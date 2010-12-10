@@ -234,6 +234,7 @@ module RightScale
     end
 
     # Create displayable dump of unfinished request information
+    # Truncate list if there are more than 50 requests
     #
     # === Return
     # info(Array(String)):: Receive time and token for each request in descending time order
@@ -243,6 +244,8 @@ module RightScale
         info << "#{request[:receive_time].localtime} <#{token}>"
       end
       info.sort.reverse
+      info = info[0..49] + ["..."] if info.size > 50
+      info
     end
 
     # Get mapper proxy statistics
