@@ -154,7 +154,8 @@ describe RightScale::ExecutableSequence do
   context 'Chef error formatting' do
 
     before(:each) do
-      bundle = flexmock('Bundle')
+      bundle = flexmock('ExecutableBundle')
+      bundle.should_receive(:repose_servers).and_return([]).by_default
       bundle.should_ignore_missing
       @sequence = RightScale::ExecutableSequence.new(bundle)
       begin
@@ -193,7 +194,8 @@ describe RightScale::ExecutableSequence do
 
   context 'Specific Chef error formatting' do
     before(:each) do
-      bundle = flexmock('Bundle')
+      bundle = flexmock('ExecutableBundle')
+      bundle.should_receive(:repose_servers).and_return([]).by_default
       bundle.should_ignore_missing
       @sequence = RightScale::ExecutableSequence.new(bundle)
     end

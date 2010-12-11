@@ -74,11 +74,8 @@ describe RightScale::ExecutableSequence do
     auditor.should_receive(:append_info).with(/Starting at/).once
     auditor.should_receive(:append_info).with("Requesting nonexistent cookbook").once
     auditor.should_receive(:append_info).with(/Duration: \d+\.\d+ seconds/).once
-    # auditor.should_receive(:append_info)
-    # auditor.should_receive(:append_output)
-    # auditor.should_receive(:update_status)
     # prevent Chef logging reaching the console during spec test.
-    logger = flexmock(::RightScale::RightLinkLog.logger)
+    logger = flexmock(::RightScale::RightLinkLog)
     logger.should_receive(:info).with(/Connecting to cookbook server/)
     logger.should_receive(:info).with(/Opening new HTTPS connection to/)
     logger.should_receive(:info).with("Requesting Cookbook nonexistent cookbook:4cdae6d5f1bc33d8713b341578b942d42ed5817f").once
