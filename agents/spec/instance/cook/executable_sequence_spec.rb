@@ -73,7 +73,8 @@ describe RightScale::ExecutableSequence do
     auditor.should_receive(:create_new_section).with("Retrieving cookbooks").once
     auditor.should_receive(:append_info).with(/Starting at/).once
     auditor.should_receive(:append_info).with("Requesting nonexistent cookbook").once
-    auditor.should_receive(:append_info).with(/Duration: \d+\.\d+ seconds/).once
+    auditor.should_receive(:append_info).with(/Duration: \d+\.\d+ seconds/).never
+
     # prevent Chef logging reaching the console during spec test.
     logger = flexmock(::RightScale::RightLinkLog)
     logger.should_receive(:info).with(/Connecting to cookbook server/)

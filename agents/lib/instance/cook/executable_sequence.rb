@@ -67,7 +67,14 @@ module RightScale
 
     include EM::Deferrable
 
-    class ReposeConnectionException < Exception
+    class ReposeConnectionFailure < Exception
+    end
+
+    class CookbookDownloadFailure < Exception
+      def initialize(cookbook, reason)
+       reason = reason.class.name unless reason.is_a?(String)
+       super("#{reason} while downloading #{cookbook}")
+      end
     end
 
     # Patch to be applied to inputs stored in core
@@ -266,8 +273,8 @@ module RightScale
       end
       true
     rescue Exception => e
-      report_failure("Failed to download cookbook", "Please check logs for more information.")
-      RightLinkLog.debug("Failed to download cookbook '#{e.message}' at\n" + e.backtrace.join("\n"))
+      report_failure("Failed to download cookbook", "Cannot continue due to #{e.class.name}: #{e.message}.")
+      RightLinkLog.debug("Failed to download cookbook due to #{e.class.name}: '#{e.message}' at\n" + e.backtrace.join("\n"))
     ensure
       OpenSSL::SSL::SSLSocket.hostname_override = nil
     end
@@ -280,6 +287,9 @@ module RightScale
     # relative_path(String):: subdir of basedir into which this cookbook goes
     # cookbook(Cookbook):: cookbook
     #
+    # === Raise
+    # Propagates exceptions raised by callees, namely CookbookDownloadFailure
+    #
     # === Return
     # true:: always returns true
     def prepare_cookbook(local_basedir, relative_path, cookbook)
@@ -290,11 +300,6 @@ module RightScale
         response.read_body do |chunk|
           tarball << chunk
         end
-      end
-      unless result
-        report_failure("Failed to download cookbook",
-                       "Please check logs for more information.")
-        return true
       end
       tarball.close
 
@@ -381,7 +386,7 @@ module RightScale
 
           connection = Rightscale::HttpConnection.new(:user_agent => "RightLink v#{RightLinkConfig.protocol_version}",
                                                       :logger => @logger,
-                                                      :exception => ReposeConnectionException,
+                                                      :exception => ReposeConnectionFailure,
                                                       :ca_file => ca_file)
           health_check = Net::HTTP::Get.new('/')
           health_check['Host'] = hostname
@@ -389,7 +394,7 @@ module RightScale
                                       :request => health_check)
           @repose_failures = 0
           return [ip, connection] if result.kind_of?(Net::HTTPSuccess)
-        rescue ReposeConnectionException => e
+        rescue ReposeConnectionFailure => e
           RightLinkLog.error "Connection failed: #{e.message}"
           @repose_failures = (@repose_failures + 1) % REPOSE_RETRY_BACKOFF_MAX
           sleep (2**@repose_failures)
@@ -404,12 +409,20 @@ module RightScale
     # === Parameters
     # cookbook(RightScale::Cookbook):: the cookbook to download
     #
+    # === Block
+    # If the request succeeds this method will yield, passing
+    # the HTTP response object as its sole argument.
+    #
+    # === Raise
+    # CookbookDownloadFailure:: if a permanent failure happened 
+    #
     # === Return
-    # response(Net::HTTPSuccess):: response object, or nil on permanent failure
+    # true:: always returns true
     def request_cookbook(cookbook)
       @repose_connection ||= next_repose_server
       cookie = Object.new
       result = cookie
+
       while result == cookie
         RightLinkLog.info("Requesting #{cookbook}")
         request = Net::HTTP::Get.new("/cookbooks/#{cookbook.hash}")
@@ -430,11 +443,13 @@ module RightScale
             @repose_connection = next_repose_server
           else
             RightLinkLog.info("Request failed - #{response.class.name} - give up")
-            result = false
+            result = CookbookDownloadFailure.new(cookbook, response)
           end
         end
       end
-      result
+
+      raise result if result.kind_of?(Exception)
+      return true
     end
 
     # Create Powershell providers from cookbook repos
