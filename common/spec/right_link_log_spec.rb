@@ -33,7 +33,9 @@ describe RightScale::RightLinkLog do
   # === Return
   # (Integer):: Number of lines where text found
   def log_count(text)
-    `egrep "#{text}" #{@log_file} | wc -l`.to_i
+    # no such animal as egrep in windows, so hacked up an equivalent here.
+    pattern = Regexp.compile(text)
+    File.read(@log_file).each.select { |x| x =~ pattern }.count
   end
 
   before(:all) do
@@ -51,7 +53,7 @@ describe RightScale::RightLinkLog do
 
   it 'should set default level to info' do
     RightScale::RightLinkLog.level.should == :info
-    end
+  end
 
   it 'should change level to debug when force_debug' do
     RightScale::RightLinkLog.level.should == :info
@@ -62,15 +64,27 @@ describe RightScale::RightLinkLog do
   context "logging" do
 
     before(:each) do
-      @log_name = "test"
-      @log_file = File.join(RightScale::RightLinkConfig[:platform].filesystem.log_dir, "#{@log_name}.log")
+      # note that log directory doesn't necessarily exist in Windows dev/test
+      # environment.
+      log_dir = RightScale::RightLinkConfig[:platform].filesystem.log_dir
+      FileUtils.mkdir_p(log_dir) unless File.directory?(log_dir)
+
+      # use a unique name for the test because the file cannot be deleted after
+      # the test in the Windows case (until the process exits) and we need to
+      # avoid any potential conflicts with other tests, etc.
+      @log_name = "right_link_log_test-9D9A9CB7-24A1-4093-9F75-D462D373A0D8"
+      @log_file = File.join(log_dir, "#{@log_name}.log")
       RightScale::RightLinkLog.program_name = "tester"
       RightScale::RightLinkLog.log_to_file_only(true)
-      RightScale::RightLinkLog.init(@log_name, RightScale::RightLinkConfig[:platform].filesystem.log_dir)
+      RightScale::RightLinkLog.init(@log_name, log_dir)
     end
 
     after(:each) do
-      File.delete(@log_file) if File.file?(@log_file)
+      # note that the log is held open in the Windows case by RightLinkLog so we
+      # cannot delete it after each test. on the other hand, we can truncate the
+      # log to zero size and continue to the next test (ultimately leaving an
+      # empty file after the test, which is acceptable).
+      File.delete(@log_file) if File.file?(@log_file) rescue File.truncate(@log_file, 0)
     end
 
     it 'should log info but not debug by default' do
