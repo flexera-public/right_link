@@ -179,6 +179,7 @@ module RightScale
           end
           result.merge!("last" => last)
           result.merge!("rate" => avg_rate) if @measure_rate
+          result
         end
       end
 
