@@ -141,7 +141,7 @@ module RightScale
             @last_request_dispatch_time = received_at.to_i
           end
           args = [ request.payload ]
-          args.push(request) if actor.method(method).arity == 2
+          args.push(request) if actor.method(method).arity == 2 || method == "remove"
           actor.__send__(method, *args)
         rescue Exception => e
           @pending_dispatches = [@pending_dispatches - 1, 0].max if request.kind_of?(Request)
