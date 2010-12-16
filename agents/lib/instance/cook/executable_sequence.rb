@@ -397,7 +397,7 @@ module RightScale
           return [ip, connection] if result.kind_of?(Net::HTTPSuccess)
         rescue ReposeConnectionFailure => e
           RightLinkLog.error "Connection failed: #{e.message}"
-          @repose_failures = (@repose_failures + 1) % REPOSE_RETRY_BACKOFF_MAX
+          @repose_failures = [@repose_failures + 1, REPOSE_RETRY_BACKOFF_MAX].min
           sleep (2**@repose_failures)
         end
       end
@@ -446,7 +446,7 @@ module RightScale
             result = true
           elsif response.kind_of?(Net::HTTPServerError) || response.kind_of?(Net::HTTPNotFound)
             RightLinkLog.info("Request failed - #{response.class.name} - retry")
-            @repose_failures = (@repose_failures + 1) % REPOSE_RETRY_BACKOFF_MAX
+            @repose_failures = [@repose_failures + 1, REPOSE_RETRY_BACKOFF_MAX].min
             sleep (2**@repose_failures)
             @repose_connection = next_repose_server
           else
