@@ -290,6 +290,7 @@ module RightScale
     #
     # === Raise
     # Propagates exceptions raised by callees, namely CookbookDownloadFailure
+    # and ReposeConnectionFailure
     #
     # === Return
     # true:: always returns true
@@ -368,9 +369,13 @@ module RightScale
     # Find the next Repose server in the list. Perform special TLS certificate voodoo to comply
     # safely with global URL scheme.
     #
+    # === Raise
+    # ReposeConnectionFailure:: if a permanent failure happened
+    #
     # === Return
     # server(Array):: [ ip address of server, HttpConnection to server ]
     def next_repose_server
+      attempts = 0
       loop do
         ip         = @repose_ips[ @repose_idx % @repose_ips.size ]
         hostname   = @repose_hostnames[ip]
@@ -397,9 +402,14 @@ module RightScale
           return [ip, connection] if result.kind_of?(Net::HTTPSuccess)
         rescue ReposeConnectionFailure => e
           RightLinkLog.error "Connection failed: #{e.message}"
+          if attempts > REPOSE_RETRY_MAX_ATTEMPTS
+            RightLinkLog.error("Can't find any repose servers, giving up")
+            raise ReposeConnectionFailure.new(cookbook, "too many attempts")
+          end
           @repose_failures = [@repose_failures + 1, REPOSE_RETRY_BACKOFF_MAX].min
           sleep (2**@repose_failures)
         end
+        attempts += 1
       end
     end
 
@@ -415,7 +425,7 @@ module RightScale
     # the HTTP response object as its sole argument.
     #
     # === Raise
-    # CookbookDownloadFailure:: if a permanent failure happened 
+    # CookbookDownloadFailure:: if a permanent failure happened
     #
     # === Return
     # true:: always returns true
