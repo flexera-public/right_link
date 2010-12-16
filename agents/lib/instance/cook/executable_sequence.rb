@@ -64,6 +64,7 @@ module RightScale
   class ExecutableSequence
     #max wait 64 (2**6) sec between retries
     REPOSE_RETRY_BACKOFF_MAX = 6
+    REPOSE_RETRY_MAX_ATTEMPTS = 10
 
     include EM::Deferrable
 
@@ -422,8 +423,15 @@ module RightScale
       @repose_connection ||= next_repose_server
       cookie = Object.new
       result = cookie
+      attempts = 0
 
       while result == cookie
+        if attempts > REPOSE_RETRY_MAX_ATTEMPTS
+          RightLinkLog.info("Request failed - too many attempts, giving up")
+          result = CookbookDownloadFailure.new(cookbook, response)
+          next
+        end
+
         RightLinkLog.info("Requesting #{cookbook}")
         request = Net::HTTP::Get.new("/cookbooks/#{cookbook.hash}")
         request['Cookie'] = "repose_ticket=#{cookbook.token}"
@@ -446,6 +454,7 @@ module RightScale
             result = CookbookDownloadFailure.new(cookbook, response)
           end
         end
+        attempts += 1
       end
 
       raise result if result.kind_of?(Exception)
