@@ -398,18 +398,34 @@ module RightScale
           health_check['Host'] = hostname
           result = connection.request(:server => ip, :port => '443', :protocol => 'https',
                                       :request => health_check)
-          @repose_failures = 0
-          return [ip, connection] if result.kind_of?(Net::HTTPSuccess)
+          if result.kind_of?(Net::HTTPSuccess)
+            @repose_failures = 0
+            return [ip, connection]
+          else
+            RightLinkLog.error "Health check unsuccessful: #{result.class.name}"
+            unless snooze(attempts)
+              RightLinkLog.error("Can't find any repose servers, giving up")
+              raise ReposeConnectionFailure.new(cookbook, "too many attempts")
+            end
+          end
         rescue ReposeConnectionFailure => e
           RightLinkLog.error "Connection failed: #{e.message}"
-          if attempts > REPOSE_RETRY_MAX_ATTEMPTS
+          unless snooze(attempts)
             RightLinkLog.error("Can't find any repose servers, giving up")
             raise ReposeConnectionFailure.new(cookbook, "too many attempts")
           end
-          @repose_failures = [@repose_failures + 1, REPOSE_RETRY_BACKOFF_MAX].min
-          sleep (2**@repose_failures)
         end
         attempts += 1
+      end
+    end
+
+    def snooze(attempts)
+      if attempts > REPOSE_RETRY_MAX_ATTEMPTS
+        false
+      else
+        @repose_failures = [@repose_failures + 1, REPOSE_RETRY_BACKOFF_MAX].min
+        sleep (2**@repose_failures)
+        true
       end
     end
 
@@ -426,6 +442,7 @@ module RightScale
     #
     # === Raise
     # CookbookDownloadFailure:: if a permanent failure happened
+    # ReposeConnectionFailure:: if no Repose server could be contacted
     #
     # === Return
     # true:: always returns true
@@ -436,12 +453,6 @@ module RightScale
       attempts = 0
 
       while result == cookie
-        if attempts > REPOSE_RETRY_MAX_ATTEMPTS
-          RightLinkLog.error("Request failed - too many attempts, giving up")
-          result = CookbookDownloadFailure.new(cookbook, "too many attempts")
-          next
-        end
-
         RightLinkLog.info("Requesting #{cookbook}")
         request = Net::HTTP::Get.new("/cookbooks/#{cookbook.hash}")
         request['Cookie'] = "repose_ticket=#{cookbook.token}"
@@ -456,9 +467,13 @@ module RightScale
             result = true
           elsif response.kind_of?(Net::HTTPServerError) || response.kind_of?(Net::HTTPNotFound)
             RightLinkLog.info("Request failed - #{response.class.name} - retry")
-            @repose_failures = [@repose_failures + 1, REPOSE_RETRY_BACKOFF_MAX].min
-            sleep (2**@repose_failures)
-            @repose_connection = next_repose_server
+            if snooze(attempts)
+              @repose_connection = next_repose_server
+            else
+              RightLinkLog.error("Request failed - too many attempts, giving up")
+              result = CookbookDownloadFailure.new(cookbook, "too many attempts")
+              next
+            end
           else
             RightLinkLog.info("Request failed - #{response.class.name} - give up")
             result = CookbookDownloadFailure.new(cookbook, response)
