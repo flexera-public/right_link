@@ -437,8 +437,8 @@ module RightScale
 
       while result == cookie
         if attempts > REPOSE_RETRY_MAX_ATTEMPTS
-          RightLinkLog.info("Request failed - too many attempts, giving up")
-          result = CookbookDownloadFailure.new(cookbook, response)
+          RightLinkLog.error("Request failed - too many attempts, giving up")
+          result = CookbookDownloadFailure.new(cookbook, "too many attempts")
           next
         end
 
