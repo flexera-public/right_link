@@ -404,7 +404,7 @@ module RightScale
         exchange = {:type => :fanout, :name => "request", :options => {:durable => true, :no_declare => @secure}}
         ids = @broker.publish(exchange, request, :persistent => request.persistent,
                               :log_filter => [:tags, :target, :multicast, :tries, :persistent], :brokers => ids)
-      rescue NoConnectedBrokers => e
+      rescue HA_MQ::NoConnectedBrokers => e
         RightLinkLog.error("Failed to publish request #{request.trace}: #{e}")
       rescue Exception => e
         RightLinkLog.error("Failed to publish request #{request.trace}: #{e}\n" + e.backtrace.join("\n"))
