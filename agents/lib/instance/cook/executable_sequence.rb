@@ -444,7 +444,7 @@ module RightScale
             @repose_failures = 0
             yield response
             result = true
-          elsif response.kind_of?(Net::HTTPServiceUnavailable) || response.kind_of?(Net::HTTPNotFound)
+          elsif response.kind_of?(Net::HTTPServerError) || response.kind_of?(Net::HTTPNotFound)
             RightLinkLog.info("Request failed - #{response.class.name} - retry")
             @repose_failures = (@repose_failures + 1) % REPOSE_RETRY_BACKOFF_MAX
             sleep (2**@repose_failures)
