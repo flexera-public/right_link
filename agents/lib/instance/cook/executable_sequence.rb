@@ -71,6 +71,9 @@ module RightScale
     class ReposeConnectionFailure < Exception
     end
 
+    class ReposeServerFailure < Exception
+    end
+
     class CookbookDownloadFailure < Exception
       def initialize(cookbook, reason)
        reason = reason.class.name unless reason.is_a?(String)
@@ -290,7 +293,7 @@ module RightScale
     #
     # === Raise
     # Propagates exceptions raised by callees, namely CookbookDownloadFailure
-    # and ReposeConnectionFailure
+    # and ReposeServerFailure
     #
     # === Return
     # true:: always returns true
@@ -370,7 +373,7 @@ module RightScale
     # safely with global URL scheme.
     #
     # === Raise
-    # ReposeConnectionFailure:: if a permanent failure happened
+    # ReposeServerFailure:: if a permanent failure happened
     #
     # === Return
     # server(Array):: [ ip address of server, HttpConnection to server ]
@@ -405,14 +408,14 @@ module RightScale
             RightLinkLog.error "Health check unsuccessful: #{result.class.name}"
             unless snooze(attempts)
               RightLinkLog.error("Can't find any repose servers, giving up")
-              raise ReposeConnectionFailure.new("too many attempts")
+              raise ReposeServerFailure.new("too many attempts")
             end
           end
         rescue ReposeConnectionFailure => e
           RightLinkLog.error "Connection failed: #{e.message}"
           unless snooze(attempts)
             RightLinkLog.error("Can't find any repose servers, giving up")
-            raise ReposeConnectionFailure.new("too many attempts")
+            raise ReposeServerFailure.new("too many attempts")
           end
         end
         attempts += 1
@@ -442,7 +445,7 @@ module RightScale
     #
     # === Raise
     # CookbookDownloadFailure:: if a permanent failure happened
-    # ReposeConnectionFailure:: if no Repose server could be contacted
+    # ReposeServerFailure:: if no Repose server could be contacted
     #
     # === Return
     # true:: always returns true
