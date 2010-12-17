@@ -405,14 +405,14 @@ module RightScale
             RightLinkLog.error "Health check unsuccessful: #{result.class.name}"
             unless snooze(attempts)
               RightLinkLog.error("Can't find any repose servers, giving up")
-              raise ReposeConnectionFailure.new(cookbook, "too many attempts")
+              raise ReposeConnectionFailure.new("too many attempts")
             end
           end
         rescue ReposeConnectionFailure => e
           RightLinkLog.error "Connection failed: #{e.message}"
           unless snooze(attempts)
             RightLinkLog.error("Can't find any repose servers, giving up")
-            raise ReposeConnectionFailure.new(cookbook, "too many attempts")
+            raise ReposeConnectionFailure.new("too many attempts")
           end
         end
         attempts += 1
