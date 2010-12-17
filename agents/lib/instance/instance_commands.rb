@@ -112,7 +112,7 @@ module RightScale
         options[:selector] = payload[:selector] if payload[:selector]
         send_push('/instance_scheduler/execute', opts[:conn], payload, options)
       else
-        send_request('/forwarder/schedule_recipe', opts[:conn], payload)
+        send_push('/forwarder/schedule_recipe', opts[:conn], payload)
       end
     end
 
@@ -132,7 +132,7 @@ module RightScale
         options[:selector] = payload[:selector] if payload[:selector]
         send_push('/instance_scheduler/execute', opts[:conn], payload, options)
       else
-        send_request('/forwarder/schedule_right_script', opts[:conn], payload)
+        send_push('/forwarder/schedule_right_script', opts[:conn], payload)
       end
     end
 
