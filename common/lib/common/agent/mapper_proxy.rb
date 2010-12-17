@@ -406,6 +406,7 @@ module RightScale
                               :log_filter => [:tags, :target, :multicast, :tries, :persistent], :brokers => ids)
       rescue HA_MQ::NoConnectedBrokers => e
         RightLinkLog.error("Failed to publish request #{request.trace}: #{e}")
+        ids = []
       rescue Exception => e
         RightLinkLog.error("Failed to publish request #{request.trace}: #{e}\n" + e.backtrace.join("\n"))
         @exceptions.track("publish", e, request)
