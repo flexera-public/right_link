@@ -466,7 +466,7 @@ module RightScale
             yield response
             result = true
           elsif response.kind_of?(Net::HTTPServerError) || response.kind_of?(Net::HTTPNotFound)
-            RightLinkLog.info("Request failed - #{response.class.name} - retry")
+            RightLinkLog.warn("Request failed - #{response.class.name} - retry")
             if snooze(attempts)
               @repose_connection = next_repose_server
             else
@@ -475,7 +475,7 @@ module RightScale
               next
             end
           else
-            RightLinkLog.info("Request failed - #{response.class.name} - give up")
+            RightLinkLog.error("Request failed - #{response.class.name} - give up")
             result = CookbookDownloadFailure.new(cookbook, response)
           end
         end

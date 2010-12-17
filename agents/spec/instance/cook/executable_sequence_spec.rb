@@ -33,7 +33,7 @@ require 'tmpdir'
 describe RightScale::ExecutableSequence do
   include RightScale::SpecHelpers
 
-  SERVER = "repose9.rightscale.com"
+  SERVER = "repose1.rightscale.com"
   before(:all) do
     setup_state
   end
@@ -80,7 +80,7 @@ describe RightScale::ExecutableSequence do
     logger.should_receive(:info).with(/Connecting to cookbook server/)
     logger.should_receive(:info).with(/Opening new HTTPS connection to/)
     logger.should_receive(:info).with("Requesting Cookbook nonexistent cookbook:4cdae6d5f1bc33d8713b341578b942d42ed5817f").once
-    logger.should_receive(:info).with("Request failed - Net::HTTPForbidden - give up").once
+    logger.should_receive(:error).with("Request failed - Net::HTTPForbidden - give up").once
 
     cookbook = RightScale::Cookbook.new("4cdae6d5f1bc33d8713b341578b942d42ed5817f", "not-a-token",
                                         "nonexistent cookbook")
