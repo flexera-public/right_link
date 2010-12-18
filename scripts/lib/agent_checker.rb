@@ -394,7 +394,7 @@ protected
         end
       end
     end
- 
+
     # Check communication, repeatedly if necessary
     #
     # === Parameters
@@ -485,7 +485,10 @@ protected
           cmd = "rs_reenroll"
           cmd += " -v" if @options[:verbose]
           cmd += '&' unless Platform.windows?
-          terminate
+          # Windows relies on the command protocol to terminate properly.
+          # If rchk terminates itself, then rchk --stop will hang trying
+          # to connect to this rchk.
+          terminate unless Platform.windows?
           system(cmd)
           # Wait around until rs_reenroll has a chance to stop the checker via monit
           # otherwise monit may restart it
