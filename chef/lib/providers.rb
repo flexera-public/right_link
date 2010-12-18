@@ -28,6 +28,10 @@ undef :daemonize if methods.include?('daemonize')
 # how right_popen divides stdout from stderr in logging.
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'mixin', 'command'))
 
+# must monkey patch Chef::CookbookLoader#load_cascading_files before
+# chef loads at all in order to un-break it.
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'mixin', 'cookbook_loader'))
+
 require 'chef'
 require 'chef/client'
 
@@ -68,7 +72,7 @@ if RightScale::RightLinkConfig[:platform].windows?
   Dir[windows_chef].each do |rb_file|
     require File.normalize_path(rb_file)
   end
-  
+
   # load (and self-register) all Windows providers
   windows_providers = File.join(File.dirname(__FILE__), 'providers', 'windows', '*.rb').gsub("\\", "/")
   Dir[windows_providers].each do |rb_file|
