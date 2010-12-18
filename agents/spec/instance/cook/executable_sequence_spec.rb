@@ -33,7 +33,7 @@ require 'tmpdir'
 describe RightScale::ExecutableSequence do
   include RightScale::SpecHelpers
 
-  SERVER = "repose1.rightscale.com"
+  SERVER = "repose9.rightscale.com"
   before(:all) do
     setup_state
   end
