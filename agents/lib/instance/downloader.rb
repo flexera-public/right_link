@@ -122,7 +122,7 @@ module RightScale
       platform = RightScale::RightLinkConfig[:platform]
       user_opt = username && password ? "--user \"#{username}:#{password}\"" : ""
       dest = platform.filesystem.long_path_to_short_path(dest)
-      cmd = "curl --fail --silent --show-error --insecure --location --write-out \"%{http_code} %{size_download} %{speed_download}\" #{user_opt} --output \"#{dest}\" \"#{url}\""
+      cmd = "curl --fail --silent --show-error --insecure --location --connect-timeout 300 --max-time 3600 --write-out \"%{http_code} %{size_download} %{speed_download}\" #{user_opt} --output \"#{dest}\" \"#{url}\""
       cmd = platform.shell.format_redirect_stderr(cmd)
       begin
         out = `#{cmd}`
