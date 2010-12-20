@@ -40,7 +40,7 @@ class Chef
       # To handle dotfiles like .ssh
       Dir.glob(File.join(base_path, "**/#{file_glob}"), File::FNM_DOTMATCH).each do |file|
         raise "Eh?  Filename #{file} doesn't start with #{base_path}?!" unless
-          base_path.starts_with?(file)
+          file.starts_with?(base_path)
         result_hash[file[start+1..-1]] = file
       end
     end
