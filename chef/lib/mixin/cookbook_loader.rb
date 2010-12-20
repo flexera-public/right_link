@@ -23,6 +23,15 @@
 
 require 'chef/cookbook_loader'
 
+class String
+  unless method_defined?(:starts_with?)
+    def starts_with?(prefix)
+      prefix = prefix.to_s
+      self[0, prefix.length] == prefix
+    end
+  end
+end
+
 class Chef
   # monkey patch unbelievably broken cookbook loader
   class CookbookLoader
@@ -31,7 +40,7 @@ class Chef
       # To handle dotfiles like .ssh
       Dir.glob(File.join(base_path, "**/#{file_glob}"), File::FNM_DOTMATCH).each do |file|
         raise "Eh?  Filename #{file} doesn't start with #{base_path}?!" unless
-          file[0..start] == base_path
+          base_path.starts_with?(file)
         result_hash[file[start+1..-1]] = file
       end
     end
