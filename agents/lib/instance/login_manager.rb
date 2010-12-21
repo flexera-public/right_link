@@ -206,11 +206,13 @@ module RightScale
       #Clip timer to one day (86,400 sec) to work around EM timer bug involving
       #32-bit integer. This works because update_policy is idempotent and can
       #be safely called at any time.
+      clipped = (delay > 86_400)
       delay = [delay, 86_400].min
 
       return false unless delay > 0
       @expiry_timer = EventMachine::Timer.new(delay) do
-        update_policy(policy)
+        update_policy(policy) unless clipped
+        schedule_expiry(policy) if clipped
       end
 
       return true
