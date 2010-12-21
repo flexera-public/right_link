@@ -46,9 +46,18 @@ describe RightScale::LoginManager do
     return 60 * 60
   end
 
+  # equivalent of 3.months for dev setup without activesupport
+  def three_months
+    return 60 * 60 * 24 * 90
+  end
+
   # equivalent of 1.hours.from_now for dev setup without activesupport
   def one_hour_from_now
     return Time.now + one_hour
+  end
+
+  def three_months_from_now
+    return Time.now + three_months
   end
 
   # equivalent of 1.hours.ago for dev setup without activesupport
@@ -166,6 +175,24 @@ describe RightScale::LoginManager do
         policy = @policy
         @mgr.instance_eval {
           schedule_expiry(policy).should == false
+        }
+      end
+    end
+
+    context 'when a user will expire in 90 days' do
+      before(:each) do
+        u1 = RightScale::LoginUser.new("v0-1234", "rs1234", "ssh-rsa aaa 1234@rightscale.com", "1234@rightscale.com", true, three_months_from_now)
+        u2 = RightScale::LoginUser.new("v0-2345", "rs2345", "ssh-rsa bbb 2345@rightscale.com", "2345@rightscale.com", true, nil)
+        @policy.users << u1
+        @policy.users << u2
+      end
+
+
+      it 'should create a timer for 1 day' do
+        flexmock(EventMachine::Timer).should_receive(:new).with(approximately(86_400), Proc)
+        policy = @policy
+        @mgr.instance_eval {
+          schedule_expiry(policy).should == true
         }
       end
     end
