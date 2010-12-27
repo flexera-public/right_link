@@ -92,6 +92,19 @@ module RightScale
       FileUtils.chmod(0700, dir)
 
       File.open(ROOT_TRUSTED_KEYS_FILE, 'w') do |f|
+        f.puts "#" * 78
+        f.puts "# USE CAUTION WHEN EDITING THIS FILE BY HAND"
+        f.puts "# This file is generated based on the RightScale dashboard permission"
+        f.puts "# 'server_login'. You can add trusted public keys to the file, but"
+        f.puts "# it is regenerated every 24 hours and keys may be added or removed"
+        f.puts "# without notice if they correspond to a dashbaord user."
+        f.puts "#"
+        f.puts "# Instead of editing this file, you probably want to do one of the"
+        f.puts "# followng:"
+        f.puts "# - Edit dashboard permissions (Settings > Account > Users)"
+        f.puts "# - Change your personal public key (Settings > User > SSH)"
+        f.puts "#"
+
         keys.each { |k| f.puts k }
       end
 
@@ -205,7 +218,8 @@ module RightScale
 
       #Clip timer to one day (86,400 sec) to work around EM timer bug involving
       #32-bit integer. This works because update_policy is idempotent and can
-      #be safely called at any time.
+      #be safely called at any time. It will "reconverge" if it is called when
+      #no permissions have changed.
       delay = [delay, 86_400].min
 
       return false unless delay > 0
