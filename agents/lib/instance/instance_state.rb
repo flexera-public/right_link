@@ -113,10 +113,12 @@ module RightScale
       @@resource_uid = nil
       @@last_recorded_value = nil
       @@record_retries = 0
+
       @@last_communication = 0
+      MapperProxy.instance.message_received { message_received } unless @@read_only
+
       dir = File.dirname(STATE_FILE)
       FileUtils.mkdir_p(dir) unless File.directory?(dir)
-
       if File.file?(STATE_FILE)
         state = RightScale::JsonUtilities::read_json(STATE_FILE)
         RightLinkLog.debug("Initializing instance #{identity} with #{state.inspect}")
@@ -234,11 +236,7 @@ module RightScale
     #
     # === Return
     # true:: Always return true
-    #
-    # === Raise
-    # RightScale::Exceptions::Application:: Cannot update in read-only mode
     def self.message_received
-      raise RightScale::Exceptions::Application, "Not allowed to modify instance state in read-only mode" if @@read_only
       now = Time.now.to_i
       if (now - @@last_communication) > LAST_COMMUNICATION_STORAGE_INTERVAL
         @@last_communication = now

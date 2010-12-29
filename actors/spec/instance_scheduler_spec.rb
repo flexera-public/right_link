@@ -62,7 +62,7 @@ describe InstanceScheduler do
                               {:state => 'decommissioned', :agent_identity => '1', :user_id => @user_id,
                                :skip_db_update => nil, :kind => nil},
                                nil, {:offline_queueing => true}, Proc]
-      @mapper_proxy = flexmock(RightScale::MapperProxy.instance)
+      @mapper_proxy = flexmock(RightScale::MapperProxy.instance, :message_received => true)
       @record_success = @results_factory.success_results
       @mapper_proxy.should_receive(:timeout_retry_request).with(*@booting_args).and_yield(@record_success).once.by_default
       @mapper_proxy.should_receive(:timeout_retry_request).and_yield(@record_success).by_default

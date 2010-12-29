@@ -1,10 +1,10 @@
 # === Synopsis:
-#   RightScale Agent Deployer (rad) - (c) 2009 RightScale
+#   RightScale RightLink Agent Deployer (rad) - (c) 2009 RightScale
 #
-#   rad is a command line tool that allows building the configuration file for
-#   a given agent.
-#   The configuration files will be generated in:
-#     right_net/generated/<name of agent>/config.yml
+#   rad is a command line tool used to build the configuration file for a RightLink agent
+#
+#   The configuration file is generated in:
+#     right_link/generated/<name of agent>/config.yml
 #
 # === Examples:
 #   Build configuration for AGENT with default options:
@@ -19,7 +19,6 @@
 #
 #    options:
 #      --identity, -i ID        Use base id ID to build agent's identity
-#      --shared-queue, -q QUEUE Use QUEUE as input for agent in addition to identity queue
 #      --token, -t TOKEN        Use token TOKEN to build agent's identity
 #      --secure-identity, -S    Derive actual token from given TOKEN and ID
 #      --prefix, -r PREFIX      Prefix agent identity with PREFIX
@@ -32,7 +31,7 @@
 #      --alias ALIAS            Use alias name for identity and base config
 #      --pid-dir, -z DIR        Set directory containing pid file
 #      --monit, -w              Generate monit configuration file
-#      --agent-checker          Enable agent checker to periodically check instance agent connectivity
+#      --agent-checker          Enable agent checker to periodically check agent connectivity
 #                               (only applies if --monit specified)
 #      --options, -o KEY=VAL    Pass-through options
 #      --http-proxy, -P PROXY   Use a proxy for all agent-originated HTTP traffic
@@ -45,8 +44,6 @@
 #                               to ping the mapper to check connectivity, 0 means disable ping
 #      --grace-timeout SEC      Set number of seconds before graceful termination times out
 #      --[no-]dup-check         Set whether to check for and reject duplicate requests, .e.g., due to retries
-#      --persist SET            Set default handling for persistence of messages being sent via AMQP
-#                               (none, all, push, or request)
 #      --prefetch COUNT         Set maximum requests AMQP broker is to prefetch before current is ack'd
 #      --actors-dir DIR         Set directory containing actor classes
 #      --agents-dir DIR         Set directory containing agent configuration
@@ -83,7 +80,7 @@ module RightScale
     end
 
     # Do deployment with given options
-    def generate_config(options)
+    def generate_config(options, cfg = {})
       agent = options[:alias] || options[:agent]
       options[:agents_dir] ||= agent_dir(agent)
       options[:actors_dir] ||= actors_dir
@@ -98,14 +95,12 @@ module RightScale
       end
       options[:actors] = actors
       options[:initrb] = File.join(options[:agents_dir], "#{agent}.rb")
-      write_config(options)
+      write_config(options, cfg)
     end
 
     # Generate configuration files
-    def write_config(options)
-      cfg = {}
+    def write_config(options, cfg = {})
       cfg[:identity]        = options[:identity] if options[:identity]
-      cfg[:shared_queue]    = options[:shared_queue] if options[:shared_queue]
       cfg[:pid_dir]         = options[:pid_dir] || RightScale::RightLinkConfig[:platform].filesystem.pid_dir
       cfg[:user]            = options[:user] if options[:user]
       cfg[:pass]            = options[:pass] if options[:pass]
@@ -122,7 +117,6 @@ module RightScale
       cfg[:ping_interval]   = options[:ping_interval] if options[:ping_interval]
       cfg[:check_interval]  = options[:check_interval] if options[:check_interval]
       cfg[:grace_timeout]   = options[:grace_timeout] if options[:grace_timeout]
-      cfg[:min_agents]      = options[:min_agents].nil? ? 1 : options[:min_agents]
       cfg[:dup_check]       = options[:dup_check].nil? ? true : options[:dup_check]
       cfg[:http_proxy]      = options[:http_proxy] if options[:http_proxy]
       cfg[:no_http_proxy]   = options[:no_http_proxy] if options[:no_http_proxy]
@@ -165,10 +159,6 @@ module RightScale
 
         opts.on('-S', '--secure-identity') do
           options[:secure_identity] = true
-        end
-
-        opts.on('-q', '--shared-queue QUEUE') do |q|
-          options[:shared_queue] = q
         end
 
         opts.on('-z', '--pid-dir DIR') do |d|
@@ -231,10 +221,6 @@ module RightScale
           options[:agents_dir] = d
         end
 
-        opts.on('--min-agents COUNT') do |count|
-          options[:min_agents] = count.to_i
-        end
-
         opts.on('-o', '--options OPT') do |e|
           fail("Invalid option definition '#{e}' (use '=' to separate name and value)") unless e.include?('=')
           key, val = e.split(/=/)
@@ -266,7 +252,7 @@ module RightScale
     # Setup monit configuration
     def setup_monit(identity, config, options)
       agent = options[:agent]
-      cfg_file = if File.exists?('/opt/rightscale/etc/monit.d') && agent == 'instance'
+      cfg_file = if File.exists?('/opt/rightscale/etc/monit.d')
         File.join('/opt/rightscale/etc/monit.d', "#{identity}.conf")
       else
         File.join(gen_agent_dir(agent), "#{identity}-monit.conf")

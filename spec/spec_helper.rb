@@ -22,10 +22,10 @@
 
 require 'rubygems'
 
-# Mappers and agents uses the JSON gem, which -- if used in a project that also uses ActiveRecord -- MUST be loaded after
-# ActiveRecord in order to ensure that a monkey patch is correctly applied. Since Nanite is designed to be compatible
-# with Rails, we tentatively try to load AR here in case RightLink specs are ever executed in a context where
-# ActiveRecord is also loaded.
+# Mappers and agents use the JSON gem, which -- if used in a project that also uses ActiveRecord --
+# MUST be loaded after ActiveRecord in order to ensure that a monkey patch is correctly applied
+# We tentatively try to load AR here in case RightLink specs are ever executed in a context where
+# ActiveRecord is also loaded
 begin
   require 'active_support'
 
@@ -91,6 +91,7 @@ module RightScale
       @mapper_proxy = flexmock('MapperProxy')
       flexmock(MapperProxy).should_receive(:instance).and_return(@mapper_proxy).by_default
       @mapper_proxy.should_receive(:timeout_retry_request).and_yield(@results_factory.success_results).by_default
+      @mapper_proxy.should_receive(:message_received).by_default
       yield if block_given?
       InstanceState.init(@identity)
     end

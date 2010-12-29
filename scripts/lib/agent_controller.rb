@@ -1,7 +1,7 @@
 # === Synopsis:
-#   RightScale Nanite Controller (rnac) - (c) 2009 RightScale
+#   RightScale RightLink Agent Controller (rnac) - (c) 2009 RightScale
 #
-#   rnac is a command line tool that allows managing RightScale agents.
+#   rnac is a command line tool that allows managing RightLink agents
 #
 # === Examples:
 #   Start new agent:
@@ -12,13 +12,8 @@
 #     rnac --stop AGENT
 #     rnac -p AGENT
 #
-#   Create agent configuration file and start it:
-#     rnac --start AGENT --create_conf
-#     rnac -s AGENT -c
-#
-#   Terminate agent with given ID token:
-#     rnac --term-agent ID
-#     rnac -T ID
+#   Stop agent with given serialized ID:
+#     rnac --stop-agent ID
 #
 #   Terminate all agents:
 #     rnac --killall
@@ -36,32 +31,32 @@
 #    rnac [options]
 #
 #    options:
-#      --start, -s AGENT:   Start agent AGENT
-#      --stop, -p AGENT:    Stop agent AGENT
-#      --term-agent, -T ID: Stop agent with given serialized identity
-#      --kill, -k PIDFILE:  Kill process with given pid file
-#      --killall, -K:       Stop all running agents
-#      --status, -U:        List running agents on local machine
-#      --decommission, -d:  Send decommission signal to instance agent
-#      --shutdown, -S:      Sends a terminate request to instance agent
+#      --start, -s AGENT    Start agent AGENT
+#      --stop, -p AGENT     Stop agent AGENT
+#      --stop-agent ID      Stop agent with serialized identity ID
+#      --kill, -k PIDFILE   Kill process with given pid file
+#      --killall, -K        Stop all running agents
+#      --decommission, -d   Send decommission signal to agent
+#      --shutdown, -S       Sends a terminate request to agent
+#      --status, -U         List running agents on local machine
 #      --identity, -i ID    Use base id ID to build agent's identity
 #      --token, -t TOKEN    Use token TOKEN to build agent's identity
 #      --prefix, -r PREFIX  Prefix agent's identity with PREFIX
-#      --list, -l:          List all registered agents
-#      --user, -u USER:     Set AMQP user
-#      --pass, -p PASS:     Set AMQP password
-#      --vhost, -v VHOST:   Set AMQP vhost
-#      --host, -h HOST:     Set AMQP server hostname
-#      --port, -P PORT:     Set AMQP server port
-#      --log-level LVL:     Log level (debug, info, warning, error or fatal)
-#      --log-dir DIR:       Log directory
-#      --pid-dir DIR:       Pid files directory (/tmp by default)
-#      --alias ALIAS:       Run as alias of given agent (i.e. use different config but same name as alias)
-#      --foreground, -f:    Run agent in foreground
-#      --interactive, -I:   Spawn an irb console after starting agent
-#      --test:              Use test settings
-#      --version, -v:       Display version information
-#      --help:              Display help
+#      --list, -l           List all registered agents
+#      --user, -u USER      Set AMQP user
+#      --pass, -p PASS      Set AMQP password
+#      --vhost, -v VHOST    Set AMQP vhost
+#      --host, -h HOST      Set AMQP server hostname
+#      --port, -P PORT      Set AMQP server port
+#      --log-level LVL      Log level (debug, info, warning, error or fatal)
+#      --log-dir DIR        Log directory
+#      --pid-dir DIR        Pid files directory (/tmp by default)
+#      --alias ALIAS        Run as alias of given agent (i.e. use different config but same name as alias)
+#      --foreground, -f     Run agent in foreground
+#      --interactive, -I    Spawn an irb console after starting agent
+#      --test               Use test settings
+#      --version, -v        Display version information
+#      --help               Display help
 
 require 'optparse'
 require 'rdoc/ri/ri_paths' # For backwards compat with ruby 1.8.5
@@ -171,7 +166,7 @@ module RightScale
           options[:agent] = a
         end
 
-        opts.on("-T", "--term-agent ID") do |id|
+        opts.on("--stop-agent ID") do |id|
           options[:action] = 'stop'
           options[:identity] = id
         end
@@ -326,7 +321,7 @@ module RightScale
     end
 
     # Start agent, return true
-    def start_agent
+    def start_agent(agent = Agent)
       begin
         @options[:root] = gen_agent_dir(@options[:agent])
 
@@ -348,7 +343,7 @@ module RightScale
         end
 
         EM.run do
-          @@agent = Agent.start(@options)
+          @@agent = agent.start(@options)
         end
 
       rescue SystemExit
@@ -454,7 +449,7 @@ module RightScale
 
     # Version information
     def version
-      "rnac #{VERSION.join('.')} - RightScale Nanite Controller (c) 2009 RightScale"
+      "rnac #{VERSION.join('.')} - RightScale RightLink Agent Controller (c) 2009 RightScale"
     end
 
   end

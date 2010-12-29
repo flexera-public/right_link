@@ -107,23 +107,34 @@ module RightScale
 
       reset_stats
       @last_received = 0
+      @message_received_callbacks = []
       restart_inactivity_timer if @ping_interval > 0
       @@instance = self
     end
 
     # Update the time this agent last received a request or response message
     # and restart the inactivity timer thus deferring the next connectivity check
+    # Also forward this message receipt notification to any callbacks that have registered
+    #
+    # === Block
+    # Optional block without parameters that is activated when a message is received
     #
     # === Return
     # true:: Always return true
-    def message_received
-      if @ping_interval > 0
-        now = Time.now.to_i
-        if (now - @last_received) > MIN_RESTART_INACTIVITY_TIMER_INTERVAL
-          @last_received = now
-          restart_inactivity_timer
+    def message_received(&callback)
+      if block_given?
+        @message_received_callbacks << callback
+      else
+        @message_received_callbacks.each { |c| c.call }
+        if @ping_interval > 0
+          now = Time.now.to_i
+          if (now - @last_received) > MIN_RESTART_INACTIVITY_TIMER_INTERVAL
+            @last_received = now
+            restart_inactivity_timer
+          end
         end
       end
+      true
     end
 
     # Initialize the offline queue (should be called once)
@@ -145,6 +156,7 @@ module RightScale
         flush_queue unless @queueing_mode == :offline
         @queueing_mode = :online if @queueing_mode == :initializing
       end
+      true
     end
 
     # Send a request to a single target or multiple targets with no response expected

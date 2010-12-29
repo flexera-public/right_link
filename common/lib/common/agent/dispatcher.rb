@@ -143,6 +143,10 @@ module RightScale
       actor = registry.actor_for(prefix)
       token = request.token
       received_at = @requests.update(method, (token if request.kind_of?(Request)))
+      if actor.nil?
+        RightLinkLog.error("No actor for dispatching request <#{request.token}> of type #{request.type}")
+        return nil
+      end
 
       # Reject this request if its TTL has expired
       if (expires_at = request.expires_at) && expires_at > 0 && received_at.to_i >= expires_at
@@ -280,7 +284,7 @@ module RightScale
       error = RightLinkLog.format("Failed processing #{request.type}", e, :trace)
       RightLinkLog.error(error)
       begin
-        if actor.class.exception_callback
+        if actor && actor.class.exception_callback
           case actor.class.exception_callback
           when Symbol, String
             actor.send(actor.class.exception_callback, method.to_sym, request, e)

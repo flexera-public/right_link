@@ -404,7 +404,7 @@ describe "Packet: Stats" do
     RightScale::Advertise.new.one_way.should be_true
   end
 end
-
+ 
 
 describe "Packet: TagUpdate" do
   it "should dump/load as MessagePack objects" do
