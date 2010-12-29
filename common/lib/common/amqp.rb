@@ -1406,13 +1406,18 @@ module RightScale
     # === Return
     # true:: Always return true
     def update_status(broker, status)
-      before = connected
+      # Do not let closed connection regress to failed
+      return true if status == :failed && broker[:status] == :closed
+
       # Wait until connection is ready (i.e. handshake with broker is completed) before
       # changing our status to connected
-      return if status == :connected
+      return true if status == :connected
+      status = :connected if status == :ready
 
+      before = connected
       status_before = broker[:status]
-      broker[:status] = (status == :ready) ? :connected : status
+      broker[:status] = status
+
       if status == :connected
         update_success(broker)
       elsif status == :failed
