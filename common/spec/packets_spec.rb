@@ -401,7 +401,7 @@ describe "Packet: Stats" do
   end
 
   it "should be one-way" do
-    RightScale::Advertise.new.one_way.should be_true
+    RightScale::Stats.new(['data'], 'from').one_way.should be_true
   end
 end
  

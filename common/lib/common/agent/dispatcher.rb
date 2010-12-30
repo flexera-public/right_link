@@ -27,7 +27,9 @@ module RightScale
 
     include StatsHelper
 
-    # Cache for requests that have recently completed
+    # Persistent cache for requests that have completed recently
+    # This cache is intended for use in checking for duplicate requests
+    # Given process is assumed to have sole ownership of the local file used for persistence
     class Completed
 
       # Maximum number of seconds to retain a completed request in cache
@@ -35,29 +37,51 @@ module RightScale
       # duplicate execution of a request
       MAX_AGE = 12 * 60 * 60
 
+      # Minimum number of persisted cache entries before consider flushing old data
+      MIN_FLUSH_SIZE = 1000
+
+      # Path to JSON file where this cache is persisted
+      # Second file is for temporary use while flushing old data
+      COMPLETED_DIR = RightScale::RightLinkConfig[:agent_state_dir]
+      COMPLETED_FILE = File.join(COMPLETED_DIR, "completed_requests.js")
+      COMPLETED_FILE2 = File.join(COMPLETED_DIR, "completed_requests2.js")
+
       # Initialize cache
-      def initialize
+      #
+      # === Parameters
+      # exceptions(ExceptionStats):: Exception activity stats
+      def initialize(exceptions)
+        @exceptions = exceptions
+        @last_flush = Time.now.to_i
+        @persisted = 0
         @cache = {}
         @lru = []
+        load
+        @file = File.open(COMPLETED_FILE, 'a')
       end
 
       # Store completed request token in cache
+      # Persist it only if specified time is nil
       #
       # === Parameters
       # token(String):: Generated message identifier
+      # time(Integer):: Time when request completed for use when loading from disk,
+      #   defaults to current time
       #
       # === Return
       # true:: Always return true
-      def store(token)
-        now = Time.now.to_i
+      def store(token, time = nil)
+        persist = !time
+        time ||= Time.now.to_i
         if @cache.has_key?(token)
-          @cache[token] = now
+          @cache[token] = time
           @lru.push(@lru.delete(token))
         else
-          @cache[token] = now
+          @cache[token] = time
           @lru.push(token)
-          @cache.delete(@lru.shift) while (now - @cache[@lru.first]) > MAX_AGE
+          @cache.delete(@lru.shift) while (time - @cache[@lru.first]) > MAX_AGE
         end
+        persist(token, time) if persist
         true
       end
 
@@ -83,6 +107,97 @@ module RightScale
         @cache.size
       end
 
+      protected
+
+      # Load cache from disk
+      #
+      # === Return
+      # true:: Always return true
+      def load
+        begin
+          if File.exist?(COMPLETED_FILE2)
+            begin
+              if File.exist?(COMPLETED_FILE)
+                File.delete(COMPLETED_FILE2)
+              else
+                File.rename(COMPLETED_FILE2, COMPLETED_FILE)
+              end
+            rescue Exception => e
+              RightLinkLog.error("Failed recovering completed cache file from #{COMPLETED_FILE2}", e, :trace)
+              @exceptions.track("completed cache", e)
+            end
+          end
+
+          now = Time.now.to_i
+          File.open(COMPLETED_FILE, 'r') do |file|
+            file.readlines.each do |line|
+              data = JSON.load(line)
+              time = data["time"].to_i
+              store(data["token"], time) if (now - time) <= MAX_AGE
+            end
+            RightLinkLog.info("Loaded completed cache of size #{size} from file #{COMPLETED_FILE}")
+          end if File.exist?(COMPLETED_FILE)
+        rescue Exception => e
+          RightLinkLog.error("Failed loading completed cache from file #{COMPLETED_FILE}", e, :trace)
+          @exceptions.track("completed cache", e)
+        end
+        true
+      end
+
+      # Persist cache entry to disk in JSON format
+      #
+      # === Parameters
+      #
+      # token(String):: Generated message identifier
+      # time(Integer):: Time when request completed
+      #
+      # === Return
+      # true:: Always return true
+      def persist(token, time)
+        begin
+          @file.puts(JSON.dump("token" => token, "time" => time))
+          @file.flush
+          if (@persisted += 1) > MIN_FLUSH_SIZE && (time - @last_flush) > MAX_AGE
+            # Reset tracking before flush so that if flush fails, do not immediately retry
+            @persisted = 0
+            @last_flush = time
+            flush
+          end
+        rescue Exception => e
+          RightLinkLog.error("Failed persisting completed request to file #{COMPLETED_FILE}", e, :trace)
+          @exceptions.track("completed cache", e)
+        end
+        true
+      end
+
+      # Flush old data from persisted cache
+      #
+      # === Return
+      # true:: Always return true
+      def flush
+        begin
+          @file.close
+          File.delete(COMPLETED_FILE2) rescue nil
+          File.rename(COMPLETED_FILE, COMPLETED_FILE2)
+          @file = File.open(COMPLETED_FILE, 'a')
+          @cache.each { |token, time| @file.puts(JSON.dump("token" => token, "time" => time)) }
+          @file.flush
+          @persisted = size
+          @last_flush = Time.now.to_i
+          File.delete(COMPLETED_FILE2)
+          RightLinkLog.info("Flushed old persisted data from completed cache file #{COMPLETED_FILE}")
+        rescue Exception => e
+          RightLinkLog.error("Failed flushing old persisted data from completed cache file #{COMPLETED_FILE}", e, :trace)
+          @exceptions.track("completed cache", e)
+          # Reset tracking do not immediately re-fail
+          @persisted = 0
+          @last_flush = Time.now.to_i
+          @file.close rescue nil
+          @file = File.open(COMPLETED_FILE, 'a')
+        end
+        true
+      end
+
     end # Completed
 
     # (ActorRegistry) Registry for actors
@@ -103,7 +218,7 @@ module RightScale
     # agent(Agent):: Agent using this mapper proxy; uses its identity, broker, registry, and following options:
     #   :dup_check(Boolean):: Whether to check for and reject duplicate requests, e.g., due to retries,
     #     but only for requests that are dispatched from non-shared queues
-    #   :secure(Boolean):: true indicates to use Security features of rabbitmq to restrict agents to themselves
+    #   :secure(Boolean):: true indicates to use Security features of RabbitMQ to restrict agents to themselves
     #   :single_threaded(Boolean):: true indicates to run all operations in one thread; false indicates
     #     to do requested work on event machine defer thread and all else, such as pings on main thread
     #   :threadpool_size(Integer):: Number of threads in event machine thread pool
@@ -116,11 +231,13 @@ module RightScale
       @secure = options[:secure]
       @single_threaded = options[:single_threaded]
       @dup_check = options[:dup_check]
-      @completed = Completed.new() # Only access from primary thread
       @pending_dispatches = 0
       @em = EM
       @em.threadpool_size = (options[:threadpool_size] || 20).to_i
       reset_stats
+
+      # Only access following from primary thread
+      @completed = Completed.new(@exceptions) if @dup_check
     end
 
     # Dispatch request to appropriate actor for servicing
@@ -246,7 +363,7 @@ module RightScale
     #   "response time"(Float):: Average number of seconds to respond to a request recently
     def stats(reset = false)
       stats = {
-        "completed cache" => nil_if_zero(@completed.size),
+        "completed cache" => nil_if_zero((@completed.size rescue nil)),
         "exceptions"      => @exceptions.stats,
         "rejects"         => @rejects.all,
         "requests"        => @requests.all,

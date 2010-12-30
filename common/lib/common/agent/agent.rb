@@ -585,11 +585,11 @@ module RightScale
         begin
           @non_deliveries.update(type)
           reason = case reason
-          when "NO_ROUTE" then OperationResult:NO_ROUTE_TO_TARGET
+          when "NO_ROUTE" then OperationResult::NO_ROUTE_TO_TARGET
           when "NO_CONSUMERS" then OperationResult::TARGET_NOT_CONNECTED
           else reason.to_s
           end
-          result = Result.new(token, details[:from], OperationResult.non_delivery(reason), to)
+          result = Result.new(token, from, OperationResult.non_delivery(reason), to)
           @mapper_proxy.handle_response(result)
         rescue Exception => e
           RightLinkLog.error("Failed handling non-delivery for <#{token}>", e, :trace)
