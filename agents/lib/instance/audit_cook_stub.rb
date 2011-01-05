@@ -45,11 +45,37 @@ module RightScale
     # === Raise
     # RuntimeError:: If audit_proxy is not set prior to calling this
     def forward_audit(kind, text, options)
+      return unless @audit_proxy
       if kind == :append_output
         @audit_proxy.append_output(text)
       else
         @audit_proxy.__send__(kind, text, options)
       end
+    end
+
+    # Register listener for when audit proxy is closed/reset
+    # Listener is executable sequence proxy to synchronize betweek
+    # cook process going away and all audits having been processed
+    #
+    # === Block
+    # Given block should not take any argument and gets called back when proxy is reset
+    #
+    # === Return
+    # true:: Always return true
+    def on_close(&blk)
+      @on_close = blk
+      true
+    end
+
+    # Reset proxy object and notify close event listener
+    #
+    # === Return
+    # true:: Always return true
+    def close
+      @on_close.call if @on_close
+      @audit_proxy = nil
+      @on_close = nil
+      true
     end
 
   end

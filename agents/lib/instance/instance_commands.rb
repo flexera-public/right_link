@@ -349,6 +349,7 @@ module RightScale
 
     # Close connection
     def close_connection_command(opts)
+      AuditCookStub.instance.close
       CommandIO.instance.reply(opts[:conn], 'OK')
     end
 

@@ -42,7 +42,10 @@ describe RightScale::ExecutableSequenceProxy do
 
   it 'should run a valid command' do
     status = flexmock('status', :success? => true)
-    flexmock(RightScale).should_receive(:popen3).and_return { |o| o[:target].send(o[:exit_handler], status) }
+    flexmock(RightScale).should_receive(:popen3).and_return do |o|
+      o[:target].instance_variable_set(:@audit_closed, true)
+      o[:target].send(o[:exit_handler], status)
+    end
     @proxy.instance_variable_get(:@deferred_status).should == nil
     EM.run do
       EM.defer do
@@ -60,6 +63,7 @@ describe RightScale::ExecutableSequenceProxy do
     cmd = nil
     flexmock(RightScale).should_receive(:popen3).and_return do |o|
       cmd = o[:command] 
+      o[:target].instance_variable_set(:@audit_closed, true)
       o[:target].send(o[:exit_handler], status)
     end
     EM.run do
@@ -85,7 +89,10 @@ describe RightScale::ExecutableSequenceProxy do
 
   it 'should report failures when cook fails' do
     status = flexmock('status', :success? => false, :exitstatus => 1)
-    flexmock(RightScale).should_receive(:popen3).and_return { |o| o[:target].send(o[:exit_handler], status) }
+    flexmock(RightScale).should_receive(:popen3).and_return do |o| 
+      o[:target].instance_variable_set(:@audit_closed, true)
+      o[:target].send(o[:exit_handler], status)
+    end
     @audit.should_receive(:append_error).twice
     @proxy.instance_variable_get(:@deferred_status).should == nil
     EM.run do
@@ -104,6 +111,7 @@ describe RightScale::ExecutableSequenceProxy do
     it 'should call the cook utility' do
       mock_output = File.join(File.dirname(__FILE__), 'cook_mock_output')
       File.delete(mock_output) if File.exists?(mock_output)
+      flexmock(@proxy).instance_variable_set(:@audit_closed, true)
       flexmock(@proxy).should_receive(:cook_path).and_return(File.join(File.dirname(__FILE__), 'cook_mock.rb'))
       flexmock(@proxy).should_receive(:succeed).and_return { |*args| EM.stop }
       flexmock(@proxy).should_receive(:report_failure).and_return { |*args| puts args.inspect; EM.stop }

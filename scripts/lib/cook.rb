@@ -204,11 +204,7 @@ module RightScale
     def stop
       AuditStub.instance.stop do
         @client.stop do |timeout|
-          if timeout
-            RightLinkLog.info('[cook] Failed to stop command client cleanly, forcing shutdown...')
-          else
-            RightLinkLog.info("[cook] Disconnected from agent")
-          end
+          RightLinkLog.info('[cook] Failed to stop command client cleanly, forcing shutdown...') if timeout
           EM.stop
         end
       end

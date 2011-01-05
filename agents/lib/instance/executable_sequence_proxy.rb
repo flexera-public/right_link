@@ -30,6 +30,9 @@ module RightScale
 
     include EM::Deferrable
 
+    # Wait up to 20 seconds to process pending audits after child process exited
+    AUDIT_CLOSE_TIMEOUT = 20
+
     # (Hash) Inputs patch to be forwarded to core after each converge
     attr_accessor :inputs_patch
 
@@ -43,6 +46,7 @@ module RightScale
     def initialize(context)
       @context = context
       AuditCookStub.instance.audit_proxy = context.audit
+      AuditCookStub.instance.on_close { @audit_closed = true; check_done }
     end
 
     # Run given executable bundle
@@ -122,8 +126,6 @@ module RightScale
     end
 
     # Handle runner process exited event
-    # Note: success and failure reports are handled by the cook process for normal
-    # scenarios. We only handle cook process execution failures here.
     #
     # === Parameters
     # status(Process::Status):: Exit status
@@ -131,12 +133,32 @@ module RightScale
     # === Return
     # true:: Always return true
     def on_exit(status)
-      AuditCookStub.instance.audit_proxy = nil
-      if !status.success?
-        report_failure("Chef process failure", "Chef process failed with return code #{status.exitstatus}")
-      else
-        @context.succeeded = true
-        succeed
+      @exit_status = status
+      check_done
+    end
+
+    # Check whether child process exited *and* all audits were processed
+    # Do not proceed until both these conditions are true
+    # If the child process exited start a timer so that if there was a failure
+    # and the child process was not able to properly close the auditing we will
+    # still proceed and be able to handle other scripts/recipes
+    #
+    # Note: success and failure reports are handled by the cook process for normal
+    # scenarios. We only handle cook process execution failures here.
+    #
+    # === Return
+    # true:: Always return true
+    def check_done
+      if @exit_status && @audit_closed
+        @audit_close_timeout.cancel if @audit_close_timeout
+        if !@exit_status.success?
+          report_failure("Chef process failure", "Chef process failed with return code #{@exit_status.exitstatus}")
+        else
+          @context.succeeded = true
+          succeed
+        end
+      elsif @exit_status
+        @audit_close_timeout = EM::Timer.new(AUDIT_CLOSE_TIMEOUT) { AuditCookStub.instance.close }
       end
       true
     end
