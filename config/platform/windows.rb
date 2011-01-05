@@ -285,6 +285,7 @@ module RightScale
         NULL_OUTPUT_NAME = "nul"
 
         @@executable_extensions = nil
+        @@right_run_path = nil
 
         # Formats a script file name to ensure it is executable on the current
         # platform.
@@ -412,8 +413,27 @@ module RightScale
           # format powershell command string.
           powershell_command = "&{#{lines_before_script.join("; ")}; &#{escaped.join(" ")}; #{lines_after_script.join("; ")}}"
 
+          # in order to run 64-bit powershell from this 32-bit ruby process, we need to launch it using
+          # our special RightRun utility from program files, if it is installed (it is not installed for
+          # 32-bit instances and perhaps not for test/dev environments).
+          executable_path = powershell_exe_path
+          executable_arguments = ["-command", powershell_command]
+          if @@right_run_path.nil?
+            @@right_run_path = ""
+            if ENV['ProgramW6432']
+              temp_path = File.join(ENV['ProgramW6432'], 'RightScale', 'Shared', 'RightRun.exe')
+              if File.file?(temp_path)
+                @@right_run_path = File.normalize_path(temp_path).gsub("/", "\\")
+              end
+            end
+          end
+          unless @@right_run_path.empty?
+            executable_arguments.unshift(executable_path)
+            executable_path = @@right_run_path
+          end
+
           # combine command string with powershell executable and arguments.
-          return format_executable_command(powershell_exe_path, "-command", powershell_command)
+          return format_executable_command(executable_path, executable_arguments)
         end
 
         # Formats a shell command using the given script path and arguments.

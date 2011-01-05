@@ -334,17 +334,12 @@ EOF
       runner.call.should == true
     end
 
-    it "should run 32-bit powershell on all platforms" do
+    it "should run native bitness powershell on all platforms" do
       platform = RightScale::RightLinkConfig[:platform]
       filesystem = platform.filesystem
-      wow_path = File.join(filesystem.system_root, 'sysWOW64', 'WindowsPowerShell', 'v1.0', 'powershell.exe')
-      if File.file?(wow_path)
-        # expect to run from the WOW64 directory on 64-bit Windows platforms.
-        expected_pshome = File.dirname(wow_path)
-      else
-        # expect to run from the System32 directory on 32-bit Windows platforms.
-        expected_pshome = File.join(filesystem.system_root, 'System32', 'WindowsPowerShell', 'v1.0')
-      end
+
+      # expect to run from the System32 directory on all Windows platforms.
+      expected_pshome = File.join(filesystem.system_root, 'System32', 'WindowsPowerShell', 'v1.0')
 
       runner = lambda {
         RightScale::Test::ChefRunner.run_chef(
