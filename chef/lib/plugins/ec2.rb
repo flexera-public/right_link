@@ -20,6 +20,7 @@
 provides "ec2"
 
 require 'open-uri'
+require 'uri'
 require 'socket'
 
 require_plugin "hostname"
@@ -110,11 +111,11 @@ def query_uri(uri)
 end
 
 def metadata(id='')
-  query_uri("#{EC2_METADATA_URL}/#{id}").split("\n").each do |o|
+  query_uri(EC2_METADATA_URL + "/" + URI.escape(id)).split("\n").each do |o|
     key = "#{id}#{o.gsub(/\=.*$/, '/')}"
     if key[-1..-1] != '/'
       ec2[key.gsub(/\-|\//, '_').to_sym] =
-        query_uri("#{EC2_METADATA_URL}/#{key}")
+        query_uri(EC2_METADATA_URL + "/" + URI.escape(key))
     else
       metadata(key)
     end
@@ -125,7 +126,7 @@ def userdata()
   ec2[:userdata] = nil
   # assumes the only expected error is the 404 if there's no user-data
   begin
-    ec2[:userdata] = query_uri("#{EC2_USERDATA_URL}/")
+    ec2[:userdata] = query_uri(EC2_USERDATA_URL + "/")
   rescue OpenURI::HTTPError
   end
 end
