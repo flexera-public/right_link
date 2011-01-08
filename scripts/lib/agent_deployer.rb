@@ -287,8 +287,8 @@ protected
       config = <<-EOF
 check process #{agent}
   with pidfile \"#{pid_file}\"
-  start program \"/usr/bin/rnac --start #{agent}\"
-  stop program \"/usr/bin/rnac --stop #{agent}\"
+  start program \"/opt/rightscale/bin/rnac --start #{agent}\"
+  stop program \"/opt/rightscale/bin/rnac --stop #{agent}\"
   mode manual
       EOF
       setup_monit(identity, config, options)
@@ -303,8 +303,8 @@ check process #{agent}
       config = <<-EOF
 check process checker
   with pidfile \"#{pid_file}\"
-  start program \"/usr/bin/rchk --start --monit\"
-  stop program \"/usr/bin/rchk --stop\"
+  start program \"/opt/rightscale/bin/rchk --start --monit\"
+  stop program \"/opt/rightscale/bin/rchk --stop\"
   mode manual
       EOF
       setup_monit(identity, config, options)
