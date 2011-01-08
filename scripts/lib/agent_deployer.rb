@@ -313,7 +313,7 @@ check process checker
     # Setup monit configuration
     def setup_monit(identity, config, options)
       agent = options[:agent]
-      cfg_file = if File.exists?('/opt/rightscale/etc/monit.d')
+      cfg_file = if File.exists?('/opt/rightscale/etc/monit.d') && agent == 'instance'
         File.join('/opt/rightscale/etc/monit.d', "#{identity}.conf")
       else
         File.join(gen_agent_dir(agent), "#{identity}-monit.conf")
