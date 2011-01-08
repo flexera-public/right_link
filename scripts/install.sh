@@ -67,9 +67,19 @@ fi
 # Finally, create stub scripts for all of the RightLink binaries
 #
 
-echo Installing scripts from $RIGHT_LINK_SCRIPTS ...
+echo Installing private scripts from $RIGHT_LINK_SCRIPTS ...
+for script in rad rchk rnac
+do
+  echo Installing $script
+  cat > /opt/rightscale/bin/$script <<EOF
+#!/bin/bash
+exec $RUBY_BIN $RIGHT_LINK_SCRIPTS/${script}.rb "\$@"
+EOF
+  chmod a+x /opt/rightscale/bin/$script
+done
 
-for script in rnac rad rchk rs_run_right_script rs_run_recipe rs_log_level rs_reenroll rs_tag
+echo Installing command line tools from $RIGHT_LINK_SCRIPTS ...
+for script in rs_run_right_script rs_run_recipe rs_log_level rs_reenroll rs_tag
 do
   echo Installing $script
   cat > /usr/bin/$script <<EOF
