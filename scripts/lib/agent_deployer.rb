@@ -269,6 +269,20 @@ module RightScale
     def parse_other_args(opts, options)
     end
 
+    # Setup monit configuration
+    def setup_monit(identity, config, options)
+      agent = options[:agent]
+      cfg_file = if File.exists?('/opt/rightscale/etc/monit.d') && agent == 'instance'
+        File.join('/opt/rightscale/etc/monit.d', "#{identity}.conf")
+      else
+        File.join(gen_agent_dir(agent), "#{identity}-monit.conf")
+      end
+      File.open(cfg_file, 'w') { |f| f.puts(config) }
+      # monit requires strict perms on this file
+      File.chmod 0600, cfg_file
+      cfg_file
+    end
+
 protected
 
     # Print error on console and exit abnormally
@@ -308,20 +322,6 @@ check process checker
   mode manual
       EOF
       setup_monit(identity, config, options)
-    end
-
-    # Setup monit configuration
-    def setup_monit(identity, config, options)
-      agent = options[:agent]
-      cfg_file = if File.exists?('/opt/rightscale/etc/monit.d') && agent == 'instance'
-        File.join('/opt/rightscale/etc/monit.d', "#{identity}.conf")
-      else
-        File.join(gen_agent_dir(agent), "#{identity}-monit.conf")
-      end
-      File.open(cfg_file, 'w') { |f| f.puts(config) }
-      # monit requires strict perms on this file
-      File.chmod 0600, cfg_file
-      cfg_file
     end
 
     def config_file(agent)
