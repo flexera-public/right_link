@@ -187,6 +187,7 @@ module RightScale
 
         opts.on("-d", "--decommission") do
           options[:action] = 'decommission'
+          options[:agent] = 'instance'
         end
 
         opts.on("-U", "--status") do
