@@ -22,6 +22,7 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 require 'fileutils'
+require File.normalize_path(File.join(File.dirname(__FILE__), 'json_utilities'))
 
 module RightScale
 
@@ -40,6 +41,30 @@ module RightScale
 
     # Download once dev tag namespace and prefix
     DOWNLOAD_ONCE_TAG = "#{DEV_TAG_NAMESPACE}download_cookbooks_once"
+
+    # Path to JSON file where dev state is serialized
+    STATE_DIR         = RightScale::RightLinkConfig[:agent_state_dir]
+    STATE_FILE        = File.join(STATE_DIR, 'dev_state.js')
+
+    # Reset class state and load persisted state if any
+    #
+    # === Return
+    # true:: Always return true
+    def self.init
+      @@downloaded = false
+      @@initialized = false
+
+      if File.file?(STATE_FILE)
+        state = RightScale::JsonUtilities::read_json(STATE_FILE)
+        RightLinkLog.debug("Initializing DevState from  #{STATE_FILE} with #{state.inspect}")
+
+        @@downloaded = state['has_downloaded_cookbooks']
+      end
+
+      @@initialized = true
+
+      true
+    end
 
     # Is the instance running in dev mode?
     # dev mode tweaks the behavior of the RightLink agent to help
@@ -99,14 +124,58 @@ module RightScale
     # true:: If cookbooks should be downloaded
     # false:: Otherwise
     def self.download_cookbooks?
-      res = !use_cookbooks_path? && !@download_once_and_downloaded
-      return false unless res
-      @download_once_and_downloaded = tag_value(DOWNLOAD_ONCE_TAG) == 'true' && @checked
-      @checked ||= true
-      res
+      # always download unless machine is tagged with a valid cookbooks path or
+      # machine is tagged with download once and cookbooks have already been downloaded.
+      res = !(use_cookbooks_path? || (has_downloaded_cookbooks? && tag_value(DOWNLOAD_ONCE_TAG) == 'true'))
+    end
+
+    # Whether cookbooks have been downloaded
+    # False if we have never recorded the fact that cookbooks have been downloaded
+    #
+    # === Return
+    # true:: If cookbooks have be downloaded
+    # false:: Otherwise
+    def self.has_downloaded_cookbooks?
+      init unless initialized?
+      !!@@downloaded
+    end
+
+    # Set whether cookbooks have been downloaded
+    #
+    # === Parameters
+    # val(Boolean):: Whether cookbooks have been downloaded
+    #
+    # === Return
+    # true:: If cookbooks have be downloaded
+    # false:: Otherwise
+    def self.has_downloaded_cookbooks=(val)
+      init unless initialized?
+      if @@downloaded.nil? || @@downloaded != val
+        @@downloaded = val
+        save_state
+      end
+      val
     end
 
     protected
+
+    # Was dev state initialized?
+    #
+    # === Return
+    # true:: if logger has been initialized
+    # false:: Otherwise
+    def self.initialized?
+      defined?(@@initialized) && @@initialized
+    end
+
+    # Save dev state to file
+    #
+    # === Return
+    # true:: Always return true
+    def self.save_state
+      RightScale::JsonUtilities::write_json(RightScale::DevState::STATE_FILE, {"has_downloaded_cookbooks" => has_downloaded_cookbooks?})
+      true
+    end
 
     # Extract tag value for tag with given namespace and prefix
     #

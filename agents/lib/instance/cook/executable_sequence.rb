@@ -283,6 +283,10 @@ module RightScale
           Chef::Config[:cookbook_path] << dir unless Chef::Config[:cookbook_path].include?(dir)
         }
       end
+
+      # record that cookbooks have been downloaded so we do not download them again in Dev mode
+      DevState.has_downloaded_cookbooks = true
+
       true
     rescue Exception => e
       report_failure("Failed to download cookbook", "Cannot continue due to #{e.class.name}: #{e.message}.")
