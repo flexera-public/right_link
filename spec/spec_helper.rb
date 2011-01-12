@@ -83,6 +83,7 @@ module RightScale
       InstanceState.const_set(:BOOT_LOG_FILE, log_path)
       InstanceState.const_set(:OPERATION_LOG_FILE, log_path)
       InstanceState.const_set(:DECOMMISSION_LOG_FILE, log_path)
+      DevState.const_set(:STATE_FILE, dev_state_file_path)
       RightScale::ChefState.const_set(:STATE_FILE, chef_file_path) if RightScale.const_defined?(:ChefState)
       RightScale::ChefState.const_set(:SCRIPTS_FILE, past_scripts_path) if RightScale.const_defined?(:ChefState)
       @identity = identity
@@ -122,6 +123,11 @@ module RightScale
     # Path to instance boot logs
     def log_path
       File.join(RIGHT_LINK_SPEC_HELPER_TEMP_PATH, '__agent.log')
+    end
+
+    # Path to dev state file
+    def dev_state_file_path
+      File.join(RIGHT_LINK_SPEC_HELPER_TEMP_PATH, '__dev_state.log')
     end
 
     # Test and delete if exists
