@@ -54,7 +54,7 @@ protocol_version 11
 right_link_path File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'right_link'))
 
 # Root path to RightScale files
-# 
+#
 # note that use of parent of right_link_path makes rs_root_path normalized while
 # the leaf of right_link_path remains "right_link" (i.e. long name instead of
 # short name) under Windows.
@@ -79,34 +79,32 @@ cloud_state_dir File.join(platform.filesystem.spool_dir, 'cloud')
 # this file due to chicken-and-egg problems with mixlib-config. If you change it
 # here, please change it there and vice-versa.
 if platform.windows?
-  # note that we cannot use the provided windows gem.bat because it pulls any
-  # ruby.exe on the PATH instead of using the companion ruby.exe from the same
-  # bin directory.
-  candidate_path = platform.filesystem.sandbox_dir
-  if File.directory?(candidate_path)
-    sandbox_path candidate_path
-    
+    # note that we cannot use the provided windows gem.bat because it pulls any
+    # ruby.exe on the PATH instead of using the companion ruby.exe from the same
+    # bin directory.
+    candidate_path = platform.filesystem.sandbox_dir
+    sandbox_path (File.directory?(candidate_path) ? candidate_path : nil)
+
     # allow the automated test environment to specify a non-program files
     # location for tools.
     if ENV['RS_RUBY_EXE'] && ENV['RS_GEM']
       sandbox_ruby_cmd ENV['RS_RUBY_EXE']
       sandbox_gem_cmd ENV['RS_GEM']
-    else
+    elsif File.directory?(candidate_path)
       sandbox_ruby_cmd platform.shell.sandbox_ruby
       sandbox_gem_cmd  "\"#{sandbox_ruby_cmd}\" \"#{File.join(sandbox_path, 'Ruby', 'bin', 'gem.exe')}\""
+    else
+      sandbox_ruby_cmd 'ruby'
+      sandbox_gem_cmd  'gem'
     end
+
     if ENV['RS_GIT_EXE']
       sandbox_git_cmd ENV['RS_GIT_EXE']
-    else
+    elsif File.directory?(candidate_path)
       sandbox_git_cmd File.join(sandbox_path, 'bin', 'windows', 'git.cmd')
+    else
+      sandbox_git_cmd  'git'
     end
-  else
-    # Development setup
-    sandbox_path nil
-    sandbox_ruby_cmd 'ruby'
-    sandbox_gem_cmd  'gem'
-    sandbox_git_cmd  'git'
-  end
 else
   candidate_path = platform.filesystem.sandbox_dir
   if File.directory?(candidate_path)
