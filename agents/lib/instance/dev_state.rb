@@ -173,7 +173,10 @@ module RightScale
     # === Return
     # true:: Always return true
     def self.save_state
-      RightScale::JsonUtilities::write_json(RightScale::DevState::STATE_FILE, {"has_downloaded_cookbooks" => has_downloaded_cookbooks?})
+      if enabled?
+        RightScale::JsonUtilities::write_json(RightScale::DevState::STATE_FILE, {"has_downloaded_cookbooks" => has_downloaded_cookbooks?})
+      end
+
       true
     end
 
