@@ -66,11 +66,6 @@ describe RightScale::Agent do
       @agent.options[:shared_queue].should == false
     end
 
-    it "for format is marshal" do
-      @agent.options.should include(:format)
-      @agent.options[:format].should == :marshal
-    end
-
     it "for console is false" do
       @agent.options.should include(:console)
       @agent.options[:console].should == false
@@ -158,12 +153,6 @@ describe RightScale::Agent do
     #   agent.options.should include(:daemonize)
     #   agent.options[:daemonize].should == true
     # end
-
-    it "for format should override default (marshal)" do
-      @agent = RightScale::Agent.start(:identity => @identity, :format => :json)
-      @agent.options.should include(:format)
-      @agent.options[:format].should == :json
-    end
 
     it "for shared_queue should not be included if false" do
       agent = RightScale::Agent.start(:identity => @identity)

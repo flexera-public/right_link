@@ -21,61 +21,127 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 require File.join(File.dirname(__FILE__), 'spec_helper')
+require File.join(File.dirname(__FILE__), '..', 'lib', 'common', 'serializer')
 
 class TestPacket < RightScale::Packet
   @@cls_attr = "ignore"
   def initialize(attr1)
     @attr1 = attr1
+    @version = [RightScale::Packet::VERSION, RightScale::Packet::VERSION]
   end
 end
 
 describe "Packet: Base class" do
 
-  before(:all) do
-  end
-
   it "should be an abstract class" do
     lambda { RightScale::Packet.new }.should raise_error(NotImplementedError, "RightScale::Packet is an abstract class.")
   end
 
-  it "should know how to dump itself to JSON" do
+  it "should retrieve version" do
     packet = TestPacket.new(1)
-    packet.should respond_to(:to_json)
+    packet.recv_version.should == RightScale::Packet::VERSION
+    packet.send_version.should == RightScale::Packet::VERSION
   end
 
-  it "should dump the class name in 'json_class' JSON key" do
-    packet = TestPacket.new(42)
-    packet.to_json().should =~ /\"json_class\":\"TestPacket\"/
+  it "should store version" do
+    packet = TestPacket.new(1)
+    packet.send_version.should == RightScale::Packet::VERSION
+    packet.send_version = 5
+    packet.send_version.should == 5
+    lambda { packet.recv_version = 5 }.should raise_error
   end
 
-  it "should dump instance variables in 'data' JSON key" do
-    packet = TestPacket.new(188)
-    packet.to_json().should =~ /\"data\":\{\"attr1\":188\}/
+  it "should convert to string with packet name in lower case" do
+    packet = TestPacket.new(1)
+    packet.to_s.should == "[test_packet]"
   end
 
-  it "should not dump class variables" do
-    packet = TestPacket.new(382)
-    packet.to_json().should_not =~ /cls_attr/
+  it "should convert to string including version if requested" do
+    packet = TestPacket.new(1)
+    packet.send_version = 5
+    packet.to_s(filter = nil, version = :recv_version).should == "[test_packet v#{RightScale::Packet::VERSION}]"
+    packet.to_s(filter = nil, version = :send_version).should == "[test_packet v5]"
   end
 
-  it "should store instance variables in 'data' JSON key as JSON object" do
-    packet = TestPacket.new(382)
-    packet.to_json().should =~ /\"data\":\{[\w:"]+\}/
+  describe "using MessagePack" do
+    it "should know how to dump itself to MessagePack" do
+      packet = TestPacket.new(1)
+      packet.should respond_to(:to_msgpack)
+    end
+
+    it "should dump the class name in 'msgpack_class' key" do
+      packet = TestPacket.new(42)
+      packet.to_msgpack.should =~ /msgpack_class.*TestPacket/
+    end
+
+    it "should dump instance variables in 'data' key" do
+      packet = TestPacket.new(188)
+      packet.to_msgpack.should =~ /data.*attr1/
+    end
+
+    it "should not dump class variables" do
+      packet = TestPacket.new(382)
+      packet.to_msgpack.should_not =~ /cls_attr/
+    end
+
+    it "should remove '@' from instance variables" do
+      packet = TestPacket.new(2)
+      packet.to_msgpack.should_not =~ /@attr1/
+      packet.to_msgpack.should =~ /attr1/
+    end
   end
 
-  it "should remove '@' from instance variables" do
-    packet = TestPacket.new(2)
-    packet.to_json().should_not =~ /@attr1/
-    packet.to_json().should =~ /attr1/
+  describe "using JSON" do
+    it "should know how to dump itself to JSON" do
+      packet = TestPacket.new(1)
+      packet.should respond_to(:to_json)
+    end
+
+    it "should dump the class name in 'json_class' key" do
+      packet = TestPacket.new(42)
+      packet.to_json.should =~ /\"json_class\":\"TestPacket\"/
+    end
+
+    it "should dump instance variables in 'data' key" do
+      packet = TestPacket.new(188)
+      packet.to_json.should =~ /\"data\":\{\"attr1\":188,\"version\":\[12,12\]\}/
+    end
+
+    it "should not dump class variables" do
+      packet = TestPacket.new(382)
+      packet.to_json.should_not =~ /cls_attr/
+    end
+
+    it "should remove '@' from instance variables" do
+      packet = TestPacket.new(2)
+      packet.to_json.should_not =~ /@attr1/
+      packet.to_json.should =~ /attr1/
+    end
   end
+
 end
 
 
 describe "Packet: Request" do
+  it "should dump/load as MessagePack objects" do
+    packet = RightScale::Request.new('/some/foo', 'payload', :from => 'from', :token => '0xdeadbeef',
+                                     :reply_to => 'reply_to', :tries => ['try'])
+    packet2 = MessagePack.load(packet.to_msgpack)
+    packet.type.should == packet2.type
+    packet.payload.should == packet2.payload
+    packet.from.should == packet2.from
+    packet.token.should == packet2.token
+    packet.reply_to.should == packet2.reply_to
+    packet.tries.should == packet2.tries
+    packet.created_at.should == packet2.created_at
+    packet.recv_version.should == packet2.recv_version
+    packet.send_version.should == packet2.send_version
+  end
+
   it "should dump/load as JSON objects" do
-    packet = RightScale::Request.new('/some/foo', 'payload', :from => 'from', :token => '0xdeadbeef', :reply_to => 'reply_to',
-                                     :tries => ['try'])
-    packet2 = JSON.parse(packet.to_json)
+    packet = RightScale::Request.new('/some/foo', 'payload', :from => 'from', :token => '0xdeadbeef',
+                                     :reply_to => 'reply_to', :tries => ['try'])
+    packet2 = JSON.load(packet.to_json)
     packet.type.should == packet2.type
     packet.payload.should == packet2.payload
     packet.from.should == packet2.from
@@ -84,19 +150,8 @@ describe "Packet: Request" do
     packet.tries.should == packet2.tries
     # JSON decoding of floating point sometimes loses accuracy
     (packet.created_at - packet2.created_at).abs.should <= 1.0e-05
-  end
-
-  it "should dump/load as Marshalled ruby objects" do
-    packet = RightScale::Request.new('/some/foo', 'payload', :from => 'from', :token => '0xdeadbeef', :reply_to => 'reply_to',
-                                     :tries => ['try'])
-    packet2 = Marshal.load(Marshal.dump(packet))
-    packet.type.should == packet2.type
-    packet.payload.should == packet2.payload
-    packet.from.should == packet2.from
-    packet.token.should == packet2.token
-    packet.reply_to.should == packet2.reply_to
-    packet.tries.should == packet2.tries
-    packet.created_at.should == packet2.created_at
+    packet.recv_version.should == packet2.recv_version
+    packet.send_version.should == packet2.send_version
   end
 
   it "should convert selector from :least_loaded to :random" do
@@ -113,13 +168,41 @@ describe "Packet: Request" do
     RightScale::Request.new('/some/foo', 'payload', :scope => 'scope').multicast?.should be_true
     RightScale::Request.new('/some/foo', 'payload', :selector => 'all').multicast?.should be_true
   end
+
+  it "should use current version by default when constructing" do
+    packet = RightScale::Request.new('/some/foo', 'payload', :from => 'from', :token => '0xdeadbeef',
+                                     :reply_to => 'reply_to', :tries => ['try'])
+    packet.recv_version.should == RightScale::Packet::VERSION
+    packet.send_version.should == RightScale::Packet::VERSION
+  end
+
+  it "should use default version if none supplied when unmarshalling" do
+    packet = RightScale::Request.new('/some/foo', 'payload', :from => 'from', :token => '0xdeadbeef',
+                                     :reply_to => 'reply_to', :tries => ['try'])
+    packet.instance_variable_set(:@version, nil)
+    MessagePack.load(packet.to_msgpack).send_version.should == RightScale::Packet::DEFAULT_VERSION
+    JSON.load(packet.to_json).send_version.should == RightScale::Packet::DEFAULT_VERSION
+  end
 end
 
 
 describe "Packet: Push" do
+  it "should dump/load as MessagePack objects" do
+    packet = RightScale::Push.new('/some/foo', 'payload', :from => 'from', :token => '0xdeadbeef', :tries => ['try'])
+    packet2 = MessagePack.load(packet.to_msgpack)
+    packet.type.should == packet2.type
+    packet.payload.should == packet2.payload
+    packet.from.should == packet2.from
+    packet.token.should == packet2.token
+    packet.tries.should == packet2.tries
+    packet.created_at.should == packet2.created_at
+    packet.recv_version.should == packet2.recv_version
+    packet.send_version.should == packet2.send_version
+  end
+
   it "should dump/load as JSON objects" do
     packet = RightScale::Push.new('/some/foo', 'payload', :from => 'from', :token => '0xdeadbeef', :tries => ['try'])
-    packet2 = JSON.parse(packet.to_json)
+    packet2 = JSON.load(packet.to_json)
     packet.type.should == packet2.type
     packet.payload.should == packet2.payload
     packet.from.should == packet2.from
@@ -127,17 +210,8 @@ describe "Packet: Push" do
     packet.tries.should == packet2.tries
     # JSON decoding of floating point sometimes loses accuracy
     (packet.created_at - packet2.created_at).abs.should <= 1.0e-05
-  end
-
-  it "should dump/load as Marshalled ruby objects" do
-    packet = RightScale::Push.new('/some/foo', 'payload', :from => 'from', :token => '0xdeadbeef', :tries => ['try'])
-    packet2 = Marshal.load(Marshal.dump(packet))
-    packet.type.should == packet2.type
-    packet.payload.should == packet2.payload
-    packet.from.should == packet2.from
-    packet.token.should == packet2.token
-    packet.tries.should == packet2.tries
-    packet.created_at.should == packet2.created_at
+    packet.recv_version.should == packet2.recv_version
+    packet.send_version.should == packet2.send_version
   end
 
   it "should convert selector from :least_loaded to :random" do
@@ -154,13 +228,41 @@ describe "Packet: Push" do
     RightScale::Push.new('/some/foo', 'payload', :scope => 'scope').multicast?.should be_true
     RightScale::Push.new('/some/foo', 'payload', :selector => 'all').multicast?.should be_true
   end
+
+  it "should use current version by default when constructing" do
+    packet = RightScale::Push.new('/some/foo', 'payload', :from => 'from', :token => '0xdeadbeef', :tries => ['try'])
+    packet.recv_version.should == RightScale::Packet::VERSION
+    packet.send_version.should == RightScale::Packet::VERSION
+  end
+
+  it "should use default version if none supplied when unmarshalling" do
+    packet = RightScale::Push.new('/some/foo', 'payload', :from => 'from', :token => '0xdeadbeef', :tries => ['try'])
+    packet.instance_variable_set(:@version, nil)
+    MessagePack.load(packet.to_msgpack).send_version.should == RightScale::Packet::DEFAULT_VERSION
+    JSON.load(packet.to_json).send_version.should == RightScale::Packet::DEFAULT_VERSION
+  end
 end
 
 
 describe "Packet: Result" do
+  it "should dump/load as MessagePack objects" do
+    packet = RightScale::Result.new('0xdeadbeef', 'to', 'results', 'from', 'request_from', ['try'], true)
+    packet2 = MessagePack.load(packet.to_msgpack)
+    packet.token.should == packet2.token
+    packet.to.should == packet2.to
+    packet.results.should == packet2.results
+    packet.from.should == packet2.from
+    packet.request_from.should == packet2.request_from
+    packet.tries.should == packet2.tries
+    packet.persistent.should == packet2.persistent
+    packet.created_at.should == packet2.created_at
+    packet.recv_version.should == packet2.recv_version
+    packet.send_version.should == packet2.send_version
+  end
+
   it "should dump/load as JSON objects" do
     packet = RightScale::Result.new('0xdeadbeef', 'to', 'results', 'from', 'request_from', ['try'], true)
-    packet2 = JSON.parse(packet.to_json)
+    packet2 = JSON.load(packet.to_json)
     packet.token.should == packet2.token
     packet.to.should == packet2.to
     packet.results.should == packet2.results
@@ -170,27 +272,42 @@ describe "Packet: Result" do
     packet.persistent.should == packet2.persistent
     # JSON decoding of floating point sometimes loses accuracy
     (packet.created_at - packet2.created_at).abs.should <= 1.0e-05
+    packet.recv_version.should == packet2.recv_version
+    packet.send_version.should == packet2.send_version
   end
 
-  it "should dump/load as Marshalled ruby objects" do
+  it "should use current version by default when constructing" do
     packet = RightScale::Result.new('0xdeadbeef', 'to', 'results', 'from', 'request_from', ['try'], true)
-    packet2 = Marshal.load(Marshal.dump(packet))
-    packet.token.should == packet2.token
-    packet.to.should == packet2.to
-    packet.results.should == packet2.results
-    packet.from.should == packet2.from
-    packet.request_from.should == packet2.request_from
-    packet.tries.should == packet2.tries
-    packet.persistent.should == packet2.persistent
-    packet.created_at.should == packet2.created_at
+    packet.recv_version.should == RightScale::Packet::VERSION
+    packet.send_version.should == RightScale::Packet::VERSION
+  end
+
+  it "should use default version if none supplied when unmarshalling" do
+    packet = RightScale::Result.new('0xdeadbeef', 'to', 'results', 'from', 'request_from', ['try'], true)
+    packet.instance_variable_set(:@version, nil)
+    MessagePack.load(packet.to_msgpack).send_version.should == RightScale::Packet::DEFAULT_VERSION
+    JSON.load(packet.to_json).send_version.should == RightScale::Packet::DEFAULT_VERSION
   end
 end
 
 
 describe "Packet: Stale" do
+  it "should dump/load as MessagePack objects" do
+    packet = RightScale::Stale.new('0xdeadbeef', 'token', 'from', 12345678, 87654321, 900)
+    packet2 = MessagePack.load(packet.to_msgpack)
+    packet.identity.should == packet2.identity
+    packet.token.should == packet2.token
+    packet.from.should == packet2.from
+    packet.timeout.should == packet2.timeout
+    packet.created_at.should == packet2.created_at
+    packet.received_at.should == packet2.received_at
+    packet.recv_version.should == packet2.recv_version
+    packet.send_version.should == packet2.send_version
+  end
+
   it "should dump/load as JSON objects" do
     packet = RightScale::Stale.new('0xdeadbeef', 'token', 'from', 12345678, 87654321, 900)
-    packet2 = JSON.parse(packet.to_json)
+    packet2 = JSON.load(packet.to_json)
     packet.identity.should == packet2.identity
     packet.token.should == packet2.token
     packet.from.should == packet2.from
@@ -198,43 +315,49 @@ describe "Packet: Stale" do
     # JSON decoding of floating point sometimes loses accuracy
     (packet.created_at - packet2.created_at).abs.should <= 1.0e-05
     (packet.received_at - packet2.received_at).abs.should <= 1.0e-05
+    packet.recv_version.should == packet2.recv_version
+    packet.send_version.should == packet2.send_version
   end
 
-  it "should dump/load as Marshalled ruby objects" do
+  it "should use current version by default when constructing" do
     packet = RightScale::Stale.new('0xdeadbeef', 'token', 'from', 12345678, 87654321, 900)
-    packet2 = Marshal.load(Marshal.dump(packet))
-    packet.identity.should == packet2.identity
-    packet.token.should == packet2.token
-    packet.from.should == packet2.from
-    packet.timeout.should == packet2.timeout
-    packet.created_at.should == packet2.created_at
-    packet.received_at.should == packet2.received_at
+    packet.recv_version.should == RightScale::Packet::VERSION
+    packet.send_version.should == RightScale::Packet::VERSION
+  end
+
+  it "should use default version if none supplied when unmarshalling" do
+    packet = RightScale::Stale.new('0xdeadbeef', 'token', 'from', 12345678, 87654321, 900)
+    packet.instance_variable_set(:@version, nil)
+    MessagePack.load(packet.to_msgpack).send_version.should == RightScale::Packet::DEFAULT_VERSION
+    JSON.load(packet.to_json).send_version.should == RightScale::Packet::DEFAULT_VERSION
   end
 end
 
 
 describe "Packet: Register" do
+  it "should dump/load as MessagePack objects" do
+    packet = RightScale::Register.new('0xdeadbeef', ['/foo/bar', '/nik/qux'], ['foo'], ['b1', 'b2'])
+    packet2 = MessagePack.load(packet.to_msgpack)
+    packet.identity.should == packet2.identity
+    packet.services.should == packet2.services
+    packet.brokers.should == packet2.brokers
+    packet.shared_queue.should == packet2.shared_queue
+    packet.created_at.should == packet2.created_at
+    packet.recv_version.should == packet2.recv_version
+    packet.send_version.should == packet2.send_version
+  end
+
   it "should dump/load as JSON objects" do
     packet = RightScale::Register.new('0xdeadbeef', ['/foo/bar', '/nik/qux'], ['foo'], ['b1', 'b2'])
-    packet2 = JSON.parse(packet.to_json)
+    packet2 = JSON.load(packet.to_json)
     packet.identity.should == packet2.identity
     packet.services.should == packet2.services
     packet.brokers.should == packet2.brokers
     packet.shared_queue.should == packet2.shared_queue
     # JSON decoding of floating point sometimes loses accuracy
     (packet.created_at - packet2.created_at).abs.should <= 1.0e-05
-    packet.version.should == packet2.version
-  end
-
-  it "should dump/load as Marshalled ruby objects" do
-    packet = RightScale::Register.new('0xdeadbeef', ['/foo/bar', '/nik/qux'], ['foo'], nil, 'shared')
-    packet2 = Marshal.load(Marshal.dump(packet))
-    packet.identity.should == packet2.identity
-    packet.services.should == packet2.services
-    packet.brokers.should == packet2.brokers
-    packet.shared_queue.should == packet2.shared_queue
-    packet.created_at.should == packet2.created_at
-    packet.version.should == packet2.version
+    packet.recv_version.should == packet2.recv_version
+    packet.send_version.should == packet2.send_version
   end
 
   it "should set specified shared_queue" do
@@ -249,99 +372,186 @@ describe "Packet: Register" do
 
   it "should use current version by default when constructing" do
     packet = RightScale::Register.new('0xdeadbeef', ['/foo/bar', '/nik/qux'], ['foo'], nil, 'shared', nil)
-    packet.version == RightScale::Packet::VERSION
+    packet.recv_version.should == RightScale::Packet::VERSION
+    packet.send_version.should == RightScale::Packet::VERSION
   end
 
   it "should use default version if none supplied when unmarshalling" do
     packet = RightScale::Register.new('0xdeadbeef', ['/foo/bar', '/nik/qux'], ['foo'], nil, 'shared', nil)
-    JSON.parse(packet.to_json).version == RightScale::Packet::DEFAULT_VERSION
-    Marshal.load(Marshal.dump(packet)).version == RightScale::Packet::DEFAULT_VERSION
+    packet.instance_variable_set(:@version, nil)
+    MessagePack.load(packet.to_msgpack).send_version.should == RightScale::Packet::DEFAULT_VERSION
+    JSON.load(packet.to_json).send_version.should == RightScale::Packet::DEFAULT_VERSION
   end
 end
 
 
 describe "Packet: UnRegister" do
-  it "should dump/load as JSON objects" do
+  it "should dump/load as MessagePack objects" do
     packet = RightScale::UnRegister.new('0xdeadbeef')
-    packet2 = JSON.parse(packet.to_json)
+    packet2 = MessagePack.load(packet.to_msgpack)
     packet.identity.should == packet2.identity
+    packet.recv_version.should == packet2.recv_version
+    packet.send_version.should == packet2.send_version
   end
 
-  it "should dump/load as Marshalled ruby objects" do
+  it "should dump/load as JSON objects" do
     packet = RightScale::UnRegister.new('0xdeadbeef')
-    packet2 = Marshal.load(Marshal.dump(packet))
+    packet2 = JSON.load(packet.to_json)
     packet.identity.should == packet2.identity
+    packet.recv_version.should == packet2.recv_version
+    packet.send_version.should == packet2.send_version
+  end
+
+  it "should use current version by default when constructing" do
+    packet = RightScale::UnRegister.new('0xdeadbeef')
+    packet.recv_version.should == RightScale::Packet::VERSION
+    packet.send_version.should == RightScale::Packet::VERSION
+  end
+
+  it "should use default version if none supplied when unmarshalling" do
+    packet = RightScale::UnRegister.new('0xdeadbeef')
+    packet.instance_variable_set(:@version, nil)
+    MessagePack.load(packet.to_msgpack).send_version.should == RightScale::Packet::DEFAULT_VERSION
+    JSON.load(packet.to_json).send_version.should == RightScale::Packet::DEFAULT_VERSION
   end
 end
 
 
 describe "Packet: Advertise" do
-  it "should dump/load as JSON objects" do
+  it "should dump/load as MessagePack objects" do
     packet = RightScale::Advertise.new
-    packet2 = JSON.parse(packet.to_json)
+    packet2 = MessagePack.load(packet.to_msgpack)
+    packet.recv_version.should == packet2.recv_version
+    packet.send_version.should == packet2.send_version
   end
 
-  it "should dump/load as Marshalled ruby objects" do
+  it "should dump/load as JSON objects" do
     packet = RightScale::Advertise.new
-    packet2 = Marshal.load(Marshal.dump(packet))
+    packet2 = JSON.load(packet.to_json)
+    packet.recv_version.should == packet2.recv_version
+    packet.send_version.should == packet2.send_version
+  end
+
+  it "should use current version by default when constructing" do
+    packet = RightScale::Advertise.new
+    packet.recv_version.should == RightScale::Packet::VERSION
+    packet.send_version.should == RightScale::Packet::VERSION
+  end
+
+  it "should use default version if none supplied when unmarshalling" do
+    packet = RightScale::Advertise.new
+    packet.instance_variable_set(:@version, nil)
+    MessagePack.load(packet.to_msgpack).send_version.should == RightScale::Packet::DEFAULT_VERSION
+    JSON.load(packet.to_json).send_version.should == RightScale::Packet::DEFAULT_VERSION
   end
 end
 
 
 describe "Packet: Stats" do
-  it "should dump/load as JSON objects" do
+  it "should dump/load as MessagePack objects" do
     packet = RightScale::Stats.new(['data'], 'from')
-    packet2 = JSON.parse(packet.to_json)
+    packet2 = MessagePack.load(packet.to_msgpack)
     packet.data.should == packet2.data
     packet.from.should == packet2.from
+    packet.recv_version.should == packet2.recv_version
+    packet.send_version.should == packet2.send_version
   end
 
-  it "should dump/load as Marshalled ruby objects" do
+  it "should dump/load as JSON objects" do
     packet = RightScale::Stats.new(['data'], 'from')
-    packet2 = Marshal.load(Marshal.dump(packet))
+    packet2 = JSON.load(packet.to_json)
     packet.data.should == packet2.data
     packet.from.should == packet2.from
+    packet.recv_version.should == packet2.recv_version
+    packet.send_version.should == packet2.send_version
+  end
+
+  it "should use current version by default when constructing" do
+    packet = RightScale::Stats.new(['data'], 'from')
+    packet.recv_version.should == RightScale::Packet::VERSION
+    packet.send_version.should == RightScale::Packet::VERSION
+  end
+
+  it "should use default version if none supplied when unmarshalling" do
+    packet = RightScale::Stats.new(['data'], 'from')
+    packet.instance_variable_set(:@version, nil)
+    MessagePack.load(packet.to_msgpack).send_version.should == RightScale::Packet::DEFAULT_VERSION
+    JSON.load(packet.to_json).send_version.should == RightScale::Packet::DEFAULT_VERSION
   end
 end
 
 
 describe "Packet: TagUpdate" do
-  it "should dump/load as JSON objects" do
+  it "should dump/load as MessagePack objects" do
     packet = RightScale::TagUpdate.new('from', [ 'one', 'two'] , [ 'zero'])
-    packet2 = JSON.parse(packet.to_json)
+    packet2 = MessagePack.load(packet.to_msgpack)
     packet.identity.should == packet2.identity
     packet.new_tags.should == packet2.new_tags
     packet.obsolete_tags.should == packet2.obsolete_tags
+    packet.recv_version.should == packet2.recv_version
+    packet.send_version.should == packet2.send_version
   end
 
-  it "should dump/load as Marshalled ruby objects" do
+  it "should dump/load as JSON objects" do
     packet = RightScale::TagUpdate.new('from', [ 'one', 'two'] , [ 'zero'])
-    packet2 = Marshal.load(Marshal.dump(packet))
+    packet2 = JSON.load(packet.to_json)
     packet.identity.should == packet2.identity
     packet.new_tags.should == packet2.new_tags
     packet.obsolete_tags.should == packet2.obsolete_tags
+    packet.recv_version.should == packet2.recv_version
+    packet.send_version.should == packet2.send_version
+  end
+
+  it "should use current version by default when constructing" do
+    packet = RightScale::TagUpdate.new('from', [ 'one', 'two'] , [ 'zero'])
+    packet.recv_version.should == RightScale::Packet::VERSION
+    packet.send_version.should == RightScale::Packet::VERSION
+  end
+
+  it "should use default version if none supplied when unmarshalling" do
+    packet = RightScale::TagUpdate.new('from', [ 'one', 'two'] , [ 'zero'])
+    packet.instance_variable_set(:@version, nil)
+    MessagePack.load(packet.to_msgpack).send_version.should == RightScale::Packet::DEFAULT_VERSION
+    JSON.load(packet.to_json).send_version.should == RightScale::Packet::DEFAULT_VERSION
   end
 end
 
 
 describe "Packet: TagQuery" do
-  it "should dump/load as JSON objects" do
+  it "should dump/load as MessagePack objects" do
     packet = RightScale::TagQuery.new('from', :token => '0xdeadbeef', :tags => [ 'one', 'two'] , :agent_ids => [ 'some_agent', 'some_other_agent'])
-    packet2 = JSON.parse(packet.to_json)
+    packet2 = MessagePack.load(packet.to_msgpack)
     packet.from.should == packet2.from
     packet.token.should == packet2.token
     packet.tags.should == packet2.tags
     packet.agent_ids.should == packet2.agent_ids
     packet.persistent.should == packet2.persistent
+    packet.recv_version.should == packet2.recv_version
+    packet.send_version.should == packet2.send_version
   end
 
-  it "should dump/load as Marshalled ruby objects" do
+  it "should dump/load as JSON objects" do
     packet = RightScale::TagQuery.new('from', :token => '0xdeadbeef', :tags => [ 'one', 'two'] , :agent_ids => [ 'some_agent', 'some_other_agent'])
-    packet2 = Marshal.load(Marshal.dump(packet))
+    packet2 = JSON.load(packet.to_json)
     packet.from.should == packet2.from
     packet.token.should == packet2.token
     packet.tags.should == packet2.tags
     packet.agent_ids.should == packet2.agent_ids
     packet.persistent.should == packet2.persistent
+    packet.recv_version.should == packet2.recv_version
+    packet.send_version.should == packet2.send_version
+  end
+
+  it "should use current version by default when constructing" do
+    packet = RightScale::TagQuery.new('from', :token => '0xdeadbeef', :tags => [ 'one', 'two'] , :agent_ids => [ 'some_agent', 'some_other_agent'])
+    packet.recv_version.should == RightScale::Packet::VERSION
+    packet.send_version.should == RightScale::Packet::VERSION
+  end
+
+  it "should use default version if none supplied when unmarshalling" do
+    packet = RightScale::TagQuery.new('from', :token => '0xdeadbeef', :tags => [ 'one', 'two'] , :agent_ids => [ 'some_agent', 'some_other_agent'])
+    packet.instance_variable_set(:@version, nil)
+    MessagePack.load(packet.to_msgpack).send_version.should == RightScale::Packet::DEFAULT_VERSION
+    JSON.load(packet.to_json).send_version.should == RightScale::Packet::DEFAULT_VERSION
   end
 end

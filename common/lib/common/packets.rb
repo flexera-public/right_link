@@ -37,7 +37,7 @@ end
 module RightScale
 
   # Base class for all packets flowing through the mappers
-  # Knows how to dump itself to JSON
+  # Knows how to dump itself to MessagePack or JSON
   class Packet
 
     # Current version of protocol
@@ -50,6 +50,44 @@ module RightScale
 
     def initialize
       raise NotImplementedError.new("#{self.class.name} is an abstract class.")
+    end
+
+    # Create packet from unmarshalled MessagePack data
+    #
+    # === Parameters
+    # o(Hash):: MessagePack data
+    #
+    # === Return
+    # (Packet):: New packet
+    def self.msgpack_create(o)
+      create(o)
+    end
+
+    # Create packet from unmarshalled JSON data
+    #
+    # === Parameters
+    # o(Hash):: MessagePack data
+    #
+    # === Return
+    # (Packet):: New packet
+    def self.json_create(o)
+      create(o)
+    end
+
+    # Marshal packet into MessagePack format
+    #
+    # === Parameters
+    # a(Array):: Arguments
+    #
+    # === Return
+    # msg(String):: Marshalled packet
+    def to_msgpack(*a)
+      msg = {
+        'msgpack_class' => self.class.name,
+        'data'          => instance_variables.inject({}) { |m, ivar| m[ivar.to_s.sub(/@/,'')] = instance_variable_get(ivar); m },
+        'size'          => nil
+      }.to_msgpack(*a)
+      msg = msg.sub(/size\300/, "size#{msg.size.to_msgpack}")
     end
 
     # Marshal packet into JSON format
@@ -67,25 +105,27 @@ module RightScale
       end
 
       js = {
-        'json_class'   => class_name,
-        'data'         => instance_variables.inject({}) {|m,ivar| m[ivar.to_s.sub(/@/,'')] = instance_variable_get(ivar); m }
+        'json_class' => class_name,
+        'data'       => instance_variables.inject({}) { |m, ivar| m[ivar.to_s.sub(/@/,'')] = instance_variable_get(ivar); m }
       }.to_json(*a)
       js = js.chop + ",\"size\":#{js.size}}"
-      js
     end
 
     # Generate log representation
     #
     # === Parameters
     # filter(Array(Symbol)):: Attributes to be included in output
+    # version(Symbol|nil):: Version to display: :recv_version, :send_version, or nil meaning none
     #
     # === Return
     # log_msg(String):: Log representation
-    def to_s(filter = nil)
+    def to_s(filter = nil, version = nil)
+      v = __send__(version) if version
+      v = (v && v != DEFAULT_VERSION) ? " v#{v}" : ""
       log_msg = "[#{ self.class.to_s.split('::').last.
         gsub(/([A-Z]+)([A-Z][a-z])/,'\1_\2').
         gsub(/([a-z\d])([A-Z])/,'\1_\2').
-        downcase }]"
+        downcase }#{v}]"
       log_msg += " (#{@size.to_s.gsub(/(\d)(?=(\d\d\d)+(?!\d))/, "\\1,")} bytes)" if @size && !@size.to_s.empty?
       log_msg
     end
@@ -142,6 +182,27 @@ module RightScale
       tr  
     end
 
+    # Retrieve protocol version of original creator of packet
+    #
+    # === Return
+    # (Integer) Received protocol version
+    def recv_version
+      @version[0]
+    end
+
+    # Retrieve protocol version of packet for use when sending packet
+    #
+    # === Return
+    # (Integer) Send protocol version
+    def send_version
+      @version[1]
+    end
+
+    # Set protocol version of packet for use when sending packet
+    def send_version=(value)
+      @version[1] = value
+    end
+
   end # Packet
 
 
@@ -171,8 +232,10 @@ module RightScale
     #      use in timing out the request; value 0 means never timeout; defaults to current time
     #   :tags(Array(Symbol)):: List of tags to be used for selecting target for this request
     #   :tries(Array):: List of tokens for previous attempts to send this request
+    # version(Array):: Protocol version of the original creator of the packet followed by the
+    #   protocol version of the packet contents to be used when sending
     # size(Integer):: Size of request in bytes used only for marshalling
-    def initialize(type, payload, opts = {}, size = nil)
+    def initialize(type, payload, opts = {}, version = [VERSION, VERSION], size = nil)
       opts = DEFAULT_OPTIONS.merge(opts)
       @type       = type
       @payload    = payload
@@ -187,7 +250,7 @@ module RightScale
       @created_at = opts[:created_at] || Time.now.to_f
       @tags       = opts[:tags] || []
       @tries      = opts[:tries] || []
-      @broker
+      @version    = version
       @size       = size
     end
 
@@ -200,33 +263,34 @@ module RightScale
       (!@scope.nil?) || (@selector.to_s == 'all') || (!@tags.nil? && !@tags.empty?)
     end
 
-    # Create packet from unmarshalled JSON data
+    # Create packet from unmarshalled data
     #
     # === Parameters
-    # o(Hash):: JSON data
+    # o(Hash):: Unmarshalled data
     #
     # === Return
     # (Request):: New packet
-    def self.json_create(o)
+    def self.create(o)
       i = o['data']
       new(i['type'], i['payload'], { :from       => self.compatible(i['from']), :scope    => i['scope'],
                                      :token      => i['token'],                 :reply_to => self.compatible(i['reply_to']),
                                      :selector   => i['selector'],              :target   => self.compatible(i['target']),
                                      :persistent => i['persistent'],            :tags     => i['tags'],
                                      :created_at => i['created_at'],            :tries    => i['tries'] },
-          o['size'])
+          i['version'] || [DEFAULT_VERSION, DEFAULT_VERSION], o['size'])
     end
 
     # Generate log representation
     #
     # === Parameters
     # filter(Array(Symbol)):: Attributes to be included in output
+    # version(Symbol|nil):: Version to display: :recv_version, :send_version, or nil meaning none
     #
     # === Return
     # log_msg(String):: Log representation
-    def to_s(filter = nil)
+    def to_s(filter = nil, version = nil)
       payload = PayloadFormatter.log(@type, @payload)
-      log_msg = "#{super} #{trace} #{@type}"
+      log_msg = "#{super(filter, version)} #{trace} #{@type}"
       log_msg += " #{payload}" if payload
       log_msg += " from #{id_to_s(@from)}" if filter.nil? || filter.include?(:from)
       log_msg += ", target #{id_to_s(@target)}" if @target && (filter.nil? || filter.include?(:target))
@@ -286,8 +350,10 @@ module RightScale
     #   :tags(Array(Symbol)):: List of tags to be used for selecting target for this request
     #   :tries(Array):: List of tokens for previous attempts to send this request (only here
     #     for consistency with Request)
+    # version(Array):: Protocol version of the original creator of the packet followed by the
+    #   protocol version of the packet contents to be used when sending
     # size(Integer):: Size of request in bytes used only for marshalling
-    def initialize(type, payload, opts = {}, size = nil)
+    def initialize(type, payload, opts = {}, version = [VERSION, VERSION], size = nil)
       opts = DEFAULT_OPTIONS.merge(opts)
       @type       = type
       @payload    = payload
@@ -300,6 +366,7 @@ module RightScale
       @persistent = opts[:persistent]
       @created_at = opts[:created_at] || Time.now.to_f
       @tags       = opts[:tags] || []
+      @version    = version
       @size       = size
     end
 
@@ -318,32 +385,33 @@ module RightScale
     # []:: Always return empty array
     def tries; []; end
 
-    # Create packet from unmarshalled JSON data
+    # Create packet from unmarshalled data
     #
     # === Parameters
-    # o(Hash):: JSON data
+    # o(Hash):: Unmarshalled data
     #
     # === Return
     # (Push):: New packet
-    def self.json_create(o)
+    def self.create(o)
       i = o['data']
       new(i['type'], i['payload'], { :from   => self.compatible(i['from']),   :scope      => i['scope'],
                                      :token  => i['token'],                   :selector   => i['selector'],
                                      :target => self.compatible(i['target']), :persistent => i['persistent'],
                                      :tags   => i['tags'],                    :created_at => i['created_at'] },
-          o['size'])
+          i['version'] || [DEFAULT_VERSION, DEFAULT_VERSION], o['size'])
     end
 
     # Generate log representation
     #
     # === Parameters
     # filter(Array(Symbol)):: Attributes to be included in output
+    # version(Symbol|nil):: Version to display: :recv_version, :send_version, or nil meaning none
     #
     # === Return
     # log_msg(String):: Log representation
-    def to_s(filter = nil)
+    def to_s(filter = nil, version = nil)
       payload = PayloadFormatter.log(@type, @payload)
-      log_msg = "#{super} #{trace} #{@type}"
+      log_msg = "#{super(filter, version)} #{trace} #{@type}"
       log_msg += " #{payload}" if payload
       log_msg += " from #{id_to_s(@from)}" if filter.nil? || filter.include?(:from)
       log_msg += ", target #{id_to_s(@target)}" if @target && (filter.nil? || filter.include?(:target))
@@ -384,9 +452,11 @@ module RightScale
     # persistent(Boolean):: Indicates if this result should be saved to persistent storage
     #   by the AMQP broker
     # created_at(Fixnum):: Time in seconds in Unix-epoch when this result was created
+    # version(Array):: Protocol version of the original creator of the packet followed by the
+    #   protocol version of the packet contents to be used when sending
     # size(Integer):: Size of request in bytes used only for marshalling
     def initialize(token, to, results, from, request_from = nil, tries = nil, persistent = nil,
-                   created_at = nil,  size = nil)
+                   created_at = nil, version = [VERSION, VERSION], size = nil)
       @token        = token
       @to           = to
       @results      = results
@@ -395,31 +465,34 @@ module RightScale
       @tries        = tries || []
       @persistent   = persistent
       @created_at   = created_at || Time.now.to_f
+      @version      = version
       @size         = size
     end
 
-    # Create packet from unmarshalled JSON data
+    # Create packet from unmarshalled data
     #
     # === Parameters
-    # o(Hash):: JSON data
+    # o(Hash):: Unmarshalled data
     #
     # === Return
     # (Result):: New packet
-    def self.json_create(o)
+    def self.create(o)
       i = o['data']
       new(i['token'], self.compatible(i['to']), i['results'], self.compatible(i['from']),
-          self.compatible(i['request_from']), i['tries'], i['persistent'], i['created_at'], o['size'])
+          self.compatible(i['request_from']), i['tries'], i['persistent'], i['created_at'],
+          i['version'] || [DEFAULT_VERSION, DEFAULT_VERSION], o['size'])
     end
 
     # Generate log representation
     #
     # === Parameters
     # filter(Array(Symbol)):: Attributes to be included in output
+    # version(Symbol|nil):: Version to display: :recv_version, :send_version, or nil meaning none
     #
     # === Return
     # log_msg(String):: Log representation
-    def to_s(filter = nil)
-      log_msg = "#{super} #{trace}"
+    def to_s(filter = nil, version = nil)
+      log_msg = "#{super(filter, version)} #{trace}"
       log_msg += " from #{id_to_s(@from)}" if filter.nil? || filter.include?(:from)
       log_msg += " to #{id_to_s(@to)}" if filter.nil? || filter.include?(:to)
       log_msg += ", request_from #{id_to_s(@request_from)}" if @request_from && (filter.nil? || filter.include?(:request_from))
@@ -476,39 +549,43 @@ module RightScale
     #   plus any mapper adjustment for clock skew
     # received_at(Fixnum):: Time in seconds in Unix-epoch when agent detected stale message
     # timeout(Integer):: Maximum message age before considered stale
+    # version(Array):: Protocol version of the original creator of the packet followed by the
+    #   protocol version of the packet contents to be used when sending
     # size(Integer):: Size of request in bytes used only for marshalling
-    def initialize(identity, token, from, created_at, received_at, timeout, size = nil)
+    def initialize(identity, token, from, created_at, received_at, timeout, version = [VERSION, VERSION], size = nil)
       @identity    = identity
       @token       = token
       @from        = from
       @created_at  = created_at
       @received_at = received_at
       @timeout     = timeout
+      @version     = version
       @size        = size
     end
 
-    # Create packet from unmarshalled JSON data
+    # Create packet from unmarshalled data
     #
     # === Parameters
-    # o(Hash):: JSON data
+    # o(Hash):: Unmarshalled data
     #
     # === Return
     # (Result):: New packet
-    def self.json_create(o)
+    def self.create(o)
       i = o['data']
       new(self.compatible(i['identity']), i['token'], self.compatible(i['from']), i['created_at'],
-          i['received_at'], i['timeout'], o['size'])
+          i['received_at'], i['timeout'], i['version'] || [DEFAULT_VERSION, DEFAULT_VERSION], o['size'])
     end
 
     # Generate log representation
     #
     # === Parameters
     # filter(Array(Symbol)):: Attributes to be included in output
+    # version(Symbol|nil):: Version to display: :recv_version, :send_version, or nil meaning none
     #
     # === Return
     # log_msg(String):: Log representation
-    def to_s(filter = nil)
-      log_msg = "#{super} #{trace} #{id_to_s(@identity)}"
+    def to_s(filter = nil, version = nil)
+      log_msg = "#{super(filter, version)} #{trace} #{id_to_s(@identity)}"
       log_msg += " from #{id_to_s(@from)} created_at #{@created_at.to_i}"
       log_msg += " received_at #{@received_at.to_i} timeout #{@timeout}"
       log_msg
@@ -522,7 +599,7 @@ module RightScale
   # Packet for availability notification from an agent to the mappers
   class Register < Packet
 
-    attr_accessor :identity, :services, :tags, :brokers, :shared_queue, :created_at, :version
+    attr_accessor :identity, :services, :tags, :brokers, :shared_queue, :created_at
 
     # Create packet
     #
@@ -533,9 +610,11 @@ module RightScale
     # brokers(Array|nil):: Identity of agent's brokers with nil meaning not supported
     # shared_queue(String):: Name of a queue shared between this agent and another
     # created_at(Fixnum):: Time in seconds in Unix-epoch when this registration was created
-    # version(Integer):: Protocol version of agent registering
+    # version(Array):: Protocol version of the original creator of the packet followed by the
+    #   protocol version of the packet contents to be used when sending
     # size(Integer):: Size of request in bytes used only for marshalling
-    def initialize(identity, services, tags, brokers, shared_queue = nil, created_at = nil, version = VERSION, size = nil)
+    def initialize(identity, services, tags, brokers, shared_queue = nil, created_at = nil,
+                   version = [VERSION, VERSION], size = nil)
       @tags         = tags
       @brokers      = brokers
       @identity     = identity
@@ -546,29 +625,34 @@ module RightScale
       @size         = size
     end
 
-    # Create packet from unmarshalled JSON data
+    # Create packet from unmarshalled data
     #
     # === Parameters
-    # o(Hash):: JSON data
+    # o(Hash):: Unmarshalled data
     #
     # === Return
     # (Register):: New packet
-    def self.json_create(o)
+    def self.create(o)
       i = o['data']
+      if version = i['version']
+        version = [version, version] unless version.is_a?(Array)
+      else
+        version = [DEFAULT_VERSION, DEFAULT_VERSION]
+      end
       new(self.compatible(i['identity']), i['services'], i['tags'], i['brokers'], i['shared_queue'],
-          i['created_at'], i['version'] || DEFAULT_VERSION, o['size'])
+          i['created_at'], version, o['size'])
     end
 
     # Generate log representation
     #
     # === Parameters
     # filter(Array(Symbol)):: Attributes to be included in output
+    # version(Symbol|nil):: Version to display: :recv_version, :send_version, or nil meaning none
     #
     # === Return
     # log_msg(String):: Log representation
-    def to_s(filter = nil)
-      log_msg = "#{super} #{id_to_s(@identity)}"
-      log_msg += ", version #{@version}"
+    def to_s(filter = nil, version = nil)
+      log_msg = "#{super(filter, version)} #{id_to_s(@identity)}"
       log_msg += ", shared_queue #{@shared_queue}" if @shared_queue
       log_msg += ", services #{@services.inspect}" if @services && !@services.empty?
       log_msg += ", brokers #{@brokers.inspect}" if @brokers && !@brokers.empty?
@@ -590,33 +674,37 @@ module RightScale
     #
     # === Parameters
     # identity(String):: Sender identity
+    # version(Array):: Protocol version of the original creator of the packet followed by the
+    #   protocol version of the packet contents to be used when sending
     # size(Integer):: Size of request in bytes used only for marshalling
-    def initialize(identity, size = nil)
+    def initialize(identity, version = [VERSION, VERSION], size = nil)
       @identity = identity
+      @version  = version
       @size     = size
     end
 
-    # Create packet from unmarshalled JSON data
+    # Create packet from unmarshalled data
     #
     # === Parameters
-    # o(Hash):: JSON data
+    # o(Hash):: Unmarshalled data
     #
     # === Return
     # (UnRegister):: New packet
-    def self.json_create(o)
+    def self.create(o)
       i = o['data']
-      new(self.compatible(i['identity']), o['size'])
+      new(self.compatible(i['identity']), i['version'] || [DEFAULT_VERSION, DEFAULT_VERSION], o['size'])
     end
   
     # Generate log representation
     #
     # === Parameters
     # filter(Array(Symbol)):: Attributes to be included in output
+    # version(Symbol|nil):: Version to display: :recv_version, :send_version, or nil meaning none
     #
     # === Return
-    # (String):: Log representation
-    def to_s(filter = nil)
-      "#{super} #{id_to_s(@identity)}"
+    # log_msg(String):: Log representation
+    def to_s(filter = nil, version = nil)
+      "#{super(filter, version)} #{id_to_s(@identity)}"
     end
 
   end # UnRegister
@@ -629,21 +717,24 @@ module RightScale
     # Create packet
     #
     # === Parameters
+    # version(Array):: Protocol version of the original creator of the packet followed by the
+    #   protocol version of the packet contents to be used when sending
     # size(Integer):: Size of request in bytes used only for marshalling
-    def initialize(size = nil)
-      @size = size
+    def initialize(version = [VERSION, VERSION], size = nil)
+      @version = version
+      @size    = size
     end
 
-    # Create packet from unmarshalled JSON data
+    # Create packet from unmarshalled data
     #
     # === Parameters
-    # o(Hash):: JSON data
+    # o(Hash):: Unmarshalled data
     #
     # === Return
     # (Advertise):: New packet
-    def self.json_create(o)
+    def self.create(o)
       i = o['data']
-      new(o['size'])
+      new(i['version'] || [DEFAULT_VERSION, DEFAULT_VERSION], o['size'])
     end
 
   end # Advertise
@@ -659,34 +750,38 @@ module RightScale
     # === Parameters
     # data(Object):: Data
     # from(String):: Identity of sender
+    # version(Array):: Protocol version of the original creator of the packet followed by the
+    #   protocol version of the packet contents to be used when sending
     # size(Integer):: Size of request in bytes used only for marshalling
-    def initialize(data, from, size = nil)
-      @data = data
-      @from = from
-      @size = size
+    def initialize(data, from, version = [VERSION, VERSION], size = nil)
+      @data    = data
+      @from    = from
+      @version = version
+      @size    = size
     end
 
-    # Create packet from unmarshalled JSON data
+    # Create packet from unmarshalled data
     #
     # === Parameters
-    # o(Hash):: JSON data
+    # o(Hash):: Unmarshalled data
     #
     # === Return
     # (Result):: New packet
-    def self.json_create(o)
+    def self.create(o)
       i = o['data']
-      new(i['data'], self.compatible(i['from']), o['size'])
+      new(i['data'], self.compatible(i['from']), i['version'] || [DEFAULT_VERSION, DEFAULT_VERSION], o['size'])
     end
 
     # Generate log representation
     #
     # === Parameters
     # filter(Array(Symbol)):: Attributes to be included in output
+    # version(Symbol|nil):: Version to display: :recv_version, :send_version, or nil meaning none
     #
     # === Return
     # log_msg(String):: Log representation
-    def to_s(filter = nil)
-      log_msg = "#{super} #{id_to_s(@from)}"
+    def to_s(filter = nil, version = nil)
+      log_msg = "#{super(filter, version)} #{id_to_s(@from)}"
     end
 
   end # Stats
@@ -706,35 +801,40 @@ module RightScale
     # identity(String):: Sender identity
     # new_tags(Array):: List of new tags
     # obsolete_tags(Array):: List of tags to be deleted
+    # version(Array):: Protocol version of the original creator of the packet followed by the
+    #   protocol version of the packet contents to be used when sending
     # size(Integer):: Size of request in bytes used only for marshalling
-    def initialize(identity, new_tags, obsolete_tags, size = nil)
+    def initialize(identity, new_tags, obsolete_tags, version = [VERSION, VERSION], size = nil)
       @identity      = identity
       @new_tags      = new_tags
       @obsolete_tags = obsolete_tags
+      @version       = version
       @size          = size
     end
 
-    # Create packet from unmarshalled JSON data
+    # Create packet from unmarshalled data
     #
     # === Parameters
-    # o(Hash):: JSON data
+    # o(Hash):: Unmarshalled data
     #
     # === Return
     # (TagUpdate):: New packet
-    def self.json_create(o)
+    def self.create(o)
       i = o['data']
-      new(self.compatible(i['identity']), i['new_tags'], i['obsolete_tags'], o['size'])
+      new(self.compatible(i['identity']), i['new_tags'], i['obsolete_tags'],
+          i['version'] || [DEFAULT_VERSION, DEFAULT_VERSION], o['size'])
     end
 
     # Generate log representation
     #
     # === Parameters
     # filter(Array(Symbol)):: Attributes to be included in output
+    # version(Symbol|nil):: Version to display: :recv_version, :send_version, or nil meaning none
     #
     # === Return
-    # (String):: Log representation
-    def to_s(filter = nil)
-      log_msg = "#{super} #{id_to_s(@identity)}"
+    # log_msg(String):: Log representation
+    def to_s(filter = nil, version = nil)
+      log_msg = "#{super(filter, version)} #{id_to_s(@identity)}"
       log_msg += ", new tags #{@new_tags.inspect}" if @new_tags && !@new_tags.empty?
       log_msg += ", obsolete tags #{@obsolete_tags.inspect}" if @obsolete_tags && !@obsolete_tags.empty?
       log_msg
@@ -758,39 +858,44 @@ module RightScale
     # opts(Hash):: Options, at least one must be set:
     #   :tags(Array):: Tags defining a query that returned agents tags must match
     #   :agent_ids(Array):: ids of agents that should be returned
+    # version(Array):: Protocol version of the original creator of the packet followed by the
+    #   protocol version of the packet contents to be used when sending
     # size(Integer):: Size of request in bytes used only for marshalling
-    def initialize(from, opts, size = nil)
+    def initialize(from, opts, version = [VERSION, VERSION], size = nil)
       @from       = from
       @token      = opts[:token]
       @agent_ids  = opts[:agent_ids]
       @tags       = opts[:tags]
       @persistent = opts[:persistent]
+      @version    = version
       @size       = size
     end
 
-    # Create packet from unmarshalled JSON data
+    # Create packet from unmarshalled data
     #
     # === Parameters
-    # o(Hash):: JSON data
+    # o(Hash):: Unmarshalled data
     #
     # === Return
     # (TagQuery):: New packet
-    def self.json_create(o)
+    def self.create(o)
       i = o['data']
       agent_ids = i['agent_ids'].map { |id| self.compatible(id) } if i['agent_ids']
       new(i['from'], { :token => i['token'], :agent_ids => agent_ids,
-                       :tags => i['tags'],   :persistent => i['persistent'] }, o['size'])
+                       :tags => i['tags'],   :persistent => i['persistent'] },
+          i['version'] || [DEFAULT_VERSION, DEFAULT_VERSION], o['size'])
     end
 
     # Generate log representation
     #
     # === Parameters
     # filter(Array(Symbol)):: Attributes to be included in output
+    # version(Symbol|nil):: Version to display: :recv_version, :send_version, or nil meaning none
     #
     # === Return
     # log_msg(String):: Log representation
-    def to_s(filter = nil)
-      log_msg = "#{super} #{trace}"
+    def to_s(filter = nil, version = nil)
+      log_msg = "#{super(filter, version)} #{trace}"
       log_msg += " from #{id_to_s(@from)}" if filter.nil? || filter.include?(:from)
       log_msg += " agent_ids #{@agent_ids.inspect}"
       log_msg += " tags #{@tags.inspect}"

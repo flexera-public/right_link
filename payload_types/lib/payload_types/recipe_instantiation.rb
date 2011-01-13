@@ -31,7 +31,7 @@ module RightScale
     # (String) Recipe nickname
     attr_accessor :nickname
 
-    # (Hash) Recipe override attributes (JSON string for RightLink v5)
+    # (Hash) Recipe override attributes (JSON string for RightLink v5.0)
     attr_accessor :attributes
 
     # (Integer) Recipe id

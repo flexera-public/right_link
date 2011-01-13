@@ -36,10 +36,10 @@ module RightScale
     def run
 
       # 1. Retrieve bundle
-      json = gets.chomp
+      input = gets.chomp
       bundle = nil
-      fail('Missing bundle', 'No bundle to run') if json.blank?
-      bundle = load_json(json, 'Invalid bundle')
+      fail('Missing bundle', 'No bundle to run') if input.blank?
+      bundle = load(input, 'Invalid bundle', :json)
 
       # 2. Load configuration settings
       options = OptionsBag.load
@@ -89,7 +89,7 @@ module RightScale
     def request(type, payload = '', opts = {}, &blk)
       cmd = { :name => :send_request, :type => type, :payload => payload, :options => opts }
       @client.send_command(cmd) do |r|
-        response = load_json(r, "Request response #{r.inspect}")
+        response = load(r, "Request response #{r.inspect}")
         blk.call(response)
       end
     end
@@ -145,21 +145,23 @@ module RightScale
       @client = nil
     end
 
-    # Load JSON content
-    # fail if JSON is invalid
+    # Load serialized content
+    # fail if serialized data is invalid
     #
     # === Parameters
-    # json(String):: Serialized JSON
+    # data(String):: Serialized content
     # error_message(String):: Error to be logged/audited in case of failure
+    # format(Symbol):: Serialization format
     #
     # === Return
-    # content(String):: Deserialized content
-    def load_json(json, error_message)
+    # content(String):: Unserialized content
+    def load(data, error_message, format = nil)
+      serializer = Serializer.new(format)
       content = nil
       begin
-        content = JSON.load(json)
+        content = serializer.load(data)
       rescue Exception => e
-        fail(error_message, "Failed to load JSON (#{e.message}):\n#{json.inspect}")
+        fail(error_message, "Failed to load #{serializer.format.to_s} data (#{e}):\n#{data.inspect}")
       end
       content
     end

@@ -89,7 +89,6 @@ module RightScale
     YAML_EXT = %w{ yml yaml }
     FORCED_OPTIONS =
     {
-      :format => :secure,
       :threadpool_size => 1
     }
     DEFAULT_OPTIONS =

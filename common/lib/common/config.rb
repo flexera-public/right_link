@@ -28,7 +28,6 @@ module RightScale
     :secure => false,
     :host => 'localhost',
     :log_level => :info,
-    :format => :marshal,
     :daemonize => false,
     :console => false,
     :root => Dir.pwd

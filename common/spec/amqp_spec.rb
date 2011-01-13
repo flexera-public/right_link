@@ -260,7 +260,7 @@ describe RightScale::HA_MQ do
     before(:each) do
       @info = flexmock("info", :ack => true).by_default
       @message = flexmock("message")
-      @packet = flexmock("packet", :class => RightScale::Request, :to_s => true).by_default
+      @packet = flexmock("packet", :class => RightScale::Request, :to_s => true, :version => [12, 12]).by_default
       @serializer = flexmock("Serializer", :load => @packet).by_default
       @direct = flexmock("direct")
       @fanout = flexmock("fanout")
@@ -427,7 +427,7 @@ describe RightScale::HA_MQ do
 
     before(:each) do
       @message = flexmock("message")
-      @packet = flexmock("packet", :class => RightScale::Request, :to_s => true).by_default
+      @packet = flexmock("packet", :class => RightScale::Request, :to_s => true, :version => [12, 12]).by_default
       @serializer = flexmock("Serializer")
       @serializer.should_receive(:load).with(@message).and_return(@packet).once.by_default
       @connection = flexmock("connection", :connection_status => true).by_default
@@ -467,7 +467,7 @@ describe RightScale::HA_MQ do
       flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Connecting/).once
       flexmock(RightScale::RightLinkLog).should_receive(:info).with(/^RECV.*TO YOU/).once
       flexmock(RightScale::RightLinkLog).should_receive(:debug).with(/^RECV.*TO YOU/).never
-      @packet.should_receive(:to_s).with([:to]).and_return("TO YOU").once
+      @packet.should_receive(:to_s).with([:to], :recv_version).and_return("TO YOU").once
       ha_mq = RightScale::HA_MQ.new(@serializer)
       ha_mq.__send__(:each_usable) { |b| ha_mq.__send__(:receive, b, "queue", @message, RightScale::Request => [:to]) }
     end
@@ -477,7 +477,7 @@ describe RightScale::HA_MQ do
       flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Connecting/).once
       flexmock(RightScale::RightLinkLog).should_receive(:info).with(/^RECV.*ALL/).never
       flexmock(RightScale::RightLinkLog).should_receive(:info).with(/^RECV.*ALL/).once
-      @packet.should_receive(:to_s).with(nil).and_return("ALL").once
+      @packet.should_receive(:to_s).with(nil, :recv_version).and_return("ALL").once
       ha_mq = RightScale::HA_MQ.new(@serializer)
       ha_mq.__send__(:each_usable) { |b| ha_mq.__send__(:receive, b, "queue", @message, RightScale::Request => [:to]) }
     end
@@ -669,7 +669,7 @@ describe RightScale::HA_MQ do
 
     before(:each) do
       @message = flexmock("message")
-      @packet = flexmock("packet", :class => RightScale::Request, :to_s => true).by_default
+      @packet = flexmock("packet", :class => RightScale::Request, :to_s => true, :version => [12, 12]).by_default
       @serializer = flexmock("Serializer")
       @connection = flexmock("connection", :connection_status => true).by_default
       flexmock(AMQP).should_receive(:connect).and_return(@connection).by_default
@@ -880,7 +880,7 @@ describe RightScale::HA_MQ do
       flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Connecting/).once
       flexmock(RightScale::RightLinkLog).should_receive(:info).with(/^SEND.*TO YOU/).once
       flexmock(RightScale::RightLinkLog).should_receive(:info).with(/^SEND.*TO YOU/).never
-      @packet.should_receive(:to_s).with([:to]).and_return("TO YOU").once
+      @packet.should_receive(:to_s).with([:to], :send_version).and_return("TO YOU").once
       @serializer.should_receive(:dump).with(@packet).and_return(@message).once
       @mq.should_receive(:direct).with("exchange", {}).and_return(@direct).once
       @direct.should_receive(:publish).with(@message, :log_filter => [:to]).once
@@ -894,7 +894,7 @@ describe RightScale::HA_MQ do
       flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Connecting/).once
       flexmock(RightScale::RightLinkLog).should_receive(:info).with(/^SEND.*ALL/).never
       flexmock(RightScale::RightLinkLog).should_receive(:info).with(/^SEND.*ALL/).once
-      @packet.should_receive(:to_s).with(nil).and_return("ALL").once
+      @packet.should_receive(:to_s).with(nil, :send_version).and_return("ALL").once
       @serializer.should_receive(:dump).with(@packet).and_return(@message).once
       @mq.should_receive(:direct).with("exchange", {}).and_return(@direct).once
       @direct.should_receive(:publish).with(@message, :log_filter => [:to]).once
@@ -917,7 +917,7 @@ describe RightScale::HA_MQ do
     it "should display RE-SEND if the message being sent is a retry" do
       flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Connecting/).once
       flexmock(RightScale::RightLinkLog).should_receive(:info).with(/^RE-SEND/).once
-      @packet = flexmock("packet", :class => RightScale::Request, :to_s => true, :tries => ["try1"])
+      @packet = flexmock("packet", :class => RightScale::Request, :to_s => true, :tries => ["try1"], :version => [12, 12])
       @serializer.should_receive(:dump).with(@packet).and_return(@message).once
       @mq.should_receive(:direct).with("exchange", {}).and_return(@direct).once
       @direct.should_receive(:publish).with(@message, {}).once
@@ -946,7 +946,7 @@ describe RightScale::HA_MQ do
       flexmock(RightScale::RightLinkLog).should_receive(:info).by_default
       flexmock(RightScale::RightLinkLog).should_receive(:error).never.by_default
       @message = flexmock("message")
-      @packet = flexmock("packet", :class => RightScale::Request, :to_s => true).by_default
+      @packet = flexmock("packet", :class => RightScale::Request, :to_s => true, :version => [12, 12]).by_default
       @info = flexmock("info", :reply_text => "NO_CONSUMERS", :exchange => "exchange", :routing_key => "routing_key").by_default
       @serializer = flexmock("Serializer")
       @serializer.should_receive(:load).with(@message).and_return(@packet).by_default
@@ -1255,7 +1255,7 @@ describe RightScale::HA_MQ do
       @timer.should_receive(:cancel).by_default
       @info = flexmock("info", :ack => true).by_default
       @message = flexmock("message")
-      @packet = flexmock("packet", :class => RightScale::Request, :to_s => true).by_default
+      @packet = flexmock("packet", :class => RightScale::Request, :to_s => true, :version => [12, 12]).by_default
       @serializer = flexmock("Serializer", :load => @packet).by_default
       @direct = flexmock("direct")
       @bind = flexmock("bind")

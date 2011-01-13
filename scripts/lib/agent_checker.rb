@@ -159,6 +159,8 @@ module RightScale
     def run(options)
       begin
         setup_traps
+        @command_serializer = Serializer.new
+        @state_serializer = Serializer.new(:json)
 
         # Retrieve instance agent configuration options
         @agent = agent_options('instance')
@@ -438,7 +440,7 @@ protected
     # (Integer):: Elapsed time
     def time_since_last_communication
       state_file = @options[:state_path] || File.join(RightScale::RightLinkConfig[:agent_state_dir], 'state.js')
-      state = JSON.load(File.read(state_file)) if File.file?(state_file)
+      state = @state_serializer.load(File.read(state_file)) if File.file?(state_file)
       state.nil? ? (@options[:time_limit] + 1) : (Time.now.to_i - state["last_communication"])
     end
 
@@ -455,7 +457,7 @@ protected
         client = CommandClient.new(listen_port, @agent[:cookie])
         client.send_command({:name => "check_connectivity"}, @options[:verbose], COMMAND_IO_TIMEOUT) do |r|
           @command_io_failures = 0
-          res = OperationResult.from_results(JSON.load(r)) rescue nil
+          res = OperationResult.from_results(@command_serializer.load(r)) rescue nil
           if res && res.success?
             info("Successful agent communication" + (attempt > 1 ? " on attempt #{attempt}" : ""))
             @retry_timer.cancel if @retry_timer

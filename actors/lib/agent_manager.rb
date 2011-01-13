@@ -179,8 +179,7 @@ class AgentManager
   end
 
   # Process exception raised by handling of packet
-  # Check if it's a serialization error and if the packet has a valid signature, if so
-  # vote for re-enroll
+  # If it's a serialization error and the packet has a valid signature, vote for re-enroll
   #
   # === Parameters
   # e(Exception):: Exception to be analyzed
@@ -191,11 +190,13 @@ class AgentManager
   def self.process_exception(e, msg)
     if e.is_a?(RightScale::Serializer::SerializationError)
       begin
-        data = JSON.load(msg)
+        serializer = Serializer.new
+        data = serializer.load(msg)
         sig = RightScale::Signature.from_data(data['signature'])
         @cert ||= RightScale::Certificate.load(File.join(RightScale::RightLinkConfig[:certs_dir], 'mapper.cert'))
         ReenrollManager.vote if sig.match?(@cert)
-      rescue Exception => _
+      rescue
+        RightLinkLog.error("Failed processing serialization error", e)
       end
     end
   end

@@ -23,14 +23,14 @@
 require File.join(File.dirname(__FILE__), 'spec_helper')
 
 module RightScale
-  
-  # Add the ability to compare tag updates for test purposes
-  class TagUpdate
+
+  # Add the ability to compare results for test purposes
+  class Result
     def ==(other)
-      @new_tags == other.new_tags && @obsolete_tags == other.obsolete_tags && @identity == other.identity
+      @token == other.token && @to == other.to && @from == other.from && @results == other.results
     end
   end
-  
+
 end
 
 describe RightScale::SecureSerializer do
@@ -41,23 +41,62 @@ describe RightScale::SecureSerializer do
     @certificate, @key = issue_cert
     @store = RightScale::StaticCertificateStore.new(@certificate, @certificate)
     @identity = "id"
-    @data = RightScale::TagUpdate.new("identity", ["new tag"], ["obsolete tag"])
-  end
-  
-  it 'should raise when not initialized' do
-    lambda { RightScale::SecureSerializer.dump(@data) }.should raise_error
   end
 
-  it 'should deserialize signed data' do
-    RightScale::SecureSerializer.init(@identity, @certificate, @key, @store, false)
-    data = RightScale::SecureSerializer.dump(@data)
-    RightScale::SecureSerializer.load(data).should == @data
+  it 'should raise when not initialized' do
+    data = RightScale::Result.new("token", "to", "from", ["results"])
+    lambda { RightScale::SecureSerializer.dump(data) }.should raise_error
   end
-  
-  it 'should deserialize encrypted data' do
-    RightScale::SecureSerializer.init(@identity, @certificate, @key, @store, true)
-    data = RightScale::SecureSerializer.dump(@data)
-    RightScale::SecureSerializer.load(data).should == @data
+
+  it 'should raise when data not serialized with MessagePack or JSON' do
+    data = RightScale::Result.new("token", "to", "from", ["results"])
+    RightScale::SecureSerializer.init(@identity, @certificate, @key, @store, false)
+    lambda { RightScale::SecureSerializer.load(Marshal.dump(data)) }.should raise_error(ArgumentError)
+    lambda { RightScale::SecureSerializer.load(YAML.dump(data)) }.should raise_error(ArgumentError)
+  end
+
+  describe "using MessagePack" do
+
+    before(:each) do
+      flexmock(JSON).should_receive(:dump).never
+      flexmock(JSON).should_receive(:load).never
+      @data = RightScale::Result.new("token", "to", "from", ["results"], nil, nil, nil, nil, [12, 12])
+    end
+
+    it 'should unserialize signed data' do
+      RightScale::SecureSerializer.init(@identity, @certificate, @key, @store, false)
+      data = RightScale::SecureSerializer.dump(@data)
+      RightScale::SecureSerializer.load(data).should == @data
+    end
+
+    it 'should unserialize encrypted data' do
+      RightScale::SecureSerializer.init(@identity, @certificate, @key, @store, true)
+      data = RightScale::SecureSerializer.dump(@data)
+      RightScale::SecureSerializer.load(data).should == @data
+    end
+
+  end
+
+  describe "using JSON" do
+
+    before(:each) do
+      flexmock(MessagePack).should_receive(:dump).never
+      flexmock(MessagePack).should_receive(:load).never
+      @data = RightScale::Result.new("token", "to", "from", ["results"], nil, nil, nil, nil, [11, 11])
+    end
+
+    it 'should unserialize signed data' do
+      RightScale::SecureSerializer.init(@identity, @certificate, @key, @store, false)
+      data = RightScale::SecureSerializer.dump(@data)
+      RightScale::SecureSerializer.load(data).should == @data
+    end
+
+    it 'should unserialize encrypted data' do
+      RightScale::SecureSerializer.init(@identity, @certificate, @key, @store, true)
+      data = RightScale::SecureSerializer.dump(@data)
+      RightScale::SecureSerializer.load(data).should == @data
+    end
+
   end
 
 end

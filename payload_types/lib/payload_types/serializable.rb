@@ -21,8 +21,9 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-# JSON Serializable types that are sent to and from agents
 module RightScale
+
+  # MessagePack and JSON serializable types that are sent to and from agents
   module Serializable
 
     def self.included(base)
@@ -32,7 +33,24 @@ module RightScale
 
     module ClassMethods
 
-      # Called by JSON serializer to deserialise JSON
+      # Called when deserializing MessagePack to create object
+      #
+      # === Parameters
+      # o(Hash):: Unserialized object data
+      #
+      # === Return
+      # (Object):: Unserialized object
+      def msgpack_create(o)
+        new(*o['data'])
+      end
+
+      # Called by JSON serializer to create object
+      #
+      # === Parameters
+      # o(Hash):: Unserialized object data
+      #
+      # === Return
+      # (Object):: Unserialized object
       def json_create(o)
         new(*o['data'])
       end
@@ -41,15 +59,29 @@ module RightScale
 
     module InstanceMethods
 
-      # Called by JSON serializer to serialise to JSON
+      # Called by MessagePack serializer to serialise object's members
+      #
+      # === Parameters
+      # *a(Array):: Pass-through to Hash's 'to_msgpack' method
+      #
+      # === Return
+      # (String):: MessagePack representation
+      def to_msgpack(*a)
+        {
+          'msgpack_class' => self.class.name,
+          'data'          => serialized_members
+        }.to_msgpack(*a)
+      end
+
+      # Called by JSON serializer to serialise object's members
       #
       # === Parameters
       # *a(Array):: Pass-through to Hash's 'to_json' method
       #
       # === Return
-      # json(String):: JSON representation
+      # (String):: JSON representation
       def to_json(*a)
-        json = {
+        {
           'json_class' => self.class.name,
           'data'       => serialized_members
         }.to_json(*a)
@@ -84,13 +116,13 @@ module RightScale
   class SerializationHelper
     
     # Symbolize keys of hash, use when retrieving hashes that use symbols
-    # for keys as JSON serialization will produce strings instead
+    # for keys as JSON and MessagePack serialization will produce strings instead
     #
     # === Parameters
-    # hash(Hash):: Hash whose keys whould be symbolized
+    # hash(Hash):: Hash whose keys are to be symbolized
     #
     # === Return
-    # h(Hash):: Hash with same values but symbol keys
+    # (Hash):: Hash with same values but symbol keys
     def self.symbolize_keys(hash)
       hash.inject({}) do |h, (key, value)|
         h[(key.to_sym rescue key) || key] = value
@@ -98,6 +130,6 @@ module RightScale
       end
     end
 
-  end
+  end # Serializable
  
-end
+end # RightScale

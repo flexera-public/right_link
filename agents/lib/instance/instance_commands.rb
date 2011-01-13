@@ -77,6 +77,7 @@ module RightScale
     def initialize(agent_identity, scheduler)
       @agent_identity = agent_identity
       @scheduler = scheduler
+      @serializer = Serializer.new
     end
 
     protected
@@ -366,7 +367,7 @@ module RightScale
     def send_request(request, conn, payload, options = {})
       payload[:agent_identity] = @agent_identity
       RequestForwarder.instance.request(request, payload, options) do |r|
-        reply = JSON.dump(r) rescue '\"Failed to serialize response\"'
+        reply = @serializer.dump(r) rescue '\"Failed to serialize response\"'
         CommandIO.instance.reply(conn, reply)
       end
       true

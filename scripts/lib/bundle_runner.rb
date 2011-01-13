@@ -48,6 +48,7 @@
 
 $:.push(File.dirname(__FILE__))
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'config', 'right_link_config'))
+require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'common', 'lib', 'common', 'serializer'))
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'command_protocol', 'lib', 'command_protocol'))
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'payload_types', 'lib', 'payload_types'))
 require 'optparse'
@@ -85,9 +86,10 @@ module RightScale
       config_options = agent_options('instance')
       listen_port = config_options[:listen_port]
       fail('Could not retrieve listen port', false) unless listen_port
+      command_serializer = Serializer.new
       client = CommandClient.new(listen_port, config_options[:cookie])
       callback ||= lambda do |r|
-        response = OperationResult.from_results(JSON.load(r)) rescue nil
+        response = OperationResult.from_results(command_serializer.load(r)) rescue nil
         if r == 'OK'
           puts "Request sent successfully"
         elsif response.respond_to?(:success?) && response.success?

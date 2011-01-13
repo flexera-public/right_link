@@ -49,59 +49,85 @@ module RightScale
       @identity && @cert && @key && @store
     end
 
-    # Serialize message and sign it using X.509 certificate
+    # Serialize, sign, and encrypt message
+    # Sign and encrypt using X.509 certificate
     #
     # === Parameters
-    # obj(Object):: Object to serialized and encrypted
+    # obj(Object):: Object to be serialized and encrypted; use MessagePack
+    #   if object contains a send_version value >= 12, otherwise use JSON
     # encrypt(Boolean|nil):: true if object should be signed and encrypted,
-    #   false if just signed, nil means use global setting
+    #   false if just signed, nil means use class setting
     #
     # === Return
-    # (String):: JSON serialized and optionally encrypted object
+    # (String):: MessagePack serialized and optionally encrypted object
     def self.dump(obj, encrypt = nil)
       raise "Missing certificate identity" unless @identity
       raise "Missing certificate" unless @cert
       raise "Missing certificate key" unless @key
       raise "Missing certificate store" unless @store || !@encrypt
       must_encrypt = encrypt.nil? ? @encrypt : encrypt
-      json = obj.to_json
+      serializer = obj.respond_to?(:send_version) && obj.send_version >= 12 ? :to_msgpack : :to_json
+      msg = obj.__send__(serializer)
       if must_encrypt
         certs = @store.get_recipients(obj)
         if certs
-          json = EncryptedDocument.new(json, certs).encrypted_data
+          msg = EncryptedDocument.new(msg, certs).encrypted_data
         else
           target = obj.target_for_encryption if obj.respond_to?(:target_for_encryption)
           RightLinkLog.warn("No certs available for object #{obj.class} being sent to #{target.inspect}\n") if target
         end
       end
-      sig = Signature.new(json, @cert, @key)
-      {'id' => @identity, 'data' => json, 'signature' => sig.data, 'encrypted' => !certs.nil?}.to_json
+      sig = Signature.new(msg, @cert, @key)
+      {'id' => @identity, 'data' => msg, 'signature' => sig.data, 'encrypted' => !certs.nil?}.__send__(serializer)
     end
     
-    # Unserialize data using certificate store
+    # Decrypt, authorize signature, and unserialize message
+    # Use x.509 certificate store for decrypting and validating signature
     #
     # === Parameters
-    # json(String):: JSON serialized and optionally encrypted object
+    # msg(String):: Serialized and optionally encrypted object using MessagePack or JSON
     #
     # === Return
     # (Object):: Unserialized object
-    def self.load(json)
+    def self.load(msg)
       raise "Missing certificate store" unless @store
       raise "Missing certificate" unless @cert || !@encrypt
       raise "Missing certificate key" unless @key || !@encrypt
-      data = JSON.load(json)
-      sig = Signature.from_data(data['signature'])
-      certs = @store.get_signer(data['id'])
-      raise "Could not find a cert for signer #{data['id']}" unless certs
+
+      msg = unserialize(msg)
+      sig = Signature.from_data(msg['signature'])
+      certs = @store.get_signer(msg['id'])
+      raise "Could not find a cert for signer #{msg['id']}" unless certs
+
       certs = [ certs ] unless certs.respond_to?(:any?)
-      raise "Failed to check signature for signer #{data['id']}" unless certs.any? { |c| sig.match?(c) }
-      jsn = data['data']
-      if jsn && @encrypt && data['encrypted']
-        jsn = EncryptedDocument.from_data(jsn).decrypted_data(@key, @cert)
+      raise "Failed to check signature for signer #{msg['id']}" unless certs.any? { |c| sig.match?(c) }
+
+      data = msg['data']
+      if data && @encrypt && msg['encrypted']
+        data = EncryptedDocument.from_data(data).decrypted_data(@key, @cert)
       end
-      JSON.load(jsn) if jsn
+      unserialize(data) if data
     end
-       
+
+    protected
+
+    # Unserialize MessagePack or JSON data
+    #
+    # === Parameters
+    # data(String):: Data to be unserialized
+    #
+    # === Return
+    # obj(Object):: Unserialized object
+    #
+    # === Raises
+    # ArgumentError:: If data is not JSON or MessagePack serialized
+    def self.unserialize(data)
+      serializers = [MessagePack, JSON]
+      serializers.reverse! if Serializer.json?(data)
+      serializers.each { |s| return s.load(data) rescue next }
+      raise ArgumentError, "Data to be unserialized is not MessagePack or JSON"
+    end
+
   end # SecureSerializer
 
 end # RightScale

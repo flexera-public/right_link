@@ -586,7 +586,8 @@ module RightScale
             unless (options[:no_log] && RightLinkLog.level != :debug) || options[:no_serialize] || @serializer.nil?
               re = "RE-" if packet.respond_to?(:tries) && !packet.tries.empty?
               log_filter = options[:log_filter] unless RightLinkLog.level == :debug
-              RightLinkLog.info("#{re}SEND #{b[:alias]}#{choices} #{packet.to_s(log_filter)} #{options[:log_data]}")
+              RightLinkLog.info("#{re}SEND #{b[:alias]}#{choices} #{packet.to_s(log_filter, :send_version)} " +
+                                "#{options[:log_data]}")
             end
             RightLinkLog.debug("... publish options #{options.inspect}, exchange #{exchange[:name]}, " +
                                "type #{exchange[:type]}, options #{exchange[:options].inspect}")
@@ -1379,7 +1380,8 @@ module RightScale
           unless options[:no_log] && RightLinkLog.level != :debug
             re = "RE-" if packet.respond_to?(:tries) && !packet.tries.empty?
             log_filter = options[packet.class] unless RightLinkLog.level == :debug
-            RightLinkLog.info("#{re}RECV #{broker[:alias]} #{packet.to_s(log_filter)} #{options[:log_data]}")
+            RightLinkLog.info("#{re}RECV #{broker[:alias]} #{packet.to_s(log_filter, :recv_version)} " +
+                              "#{options[:log_data]}")
           end
           packet
         else

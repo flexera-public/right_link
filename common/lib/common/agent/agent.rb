@@ -89,8 +89,6 @@ module RightScale
     #   :shared_queue(String):: Name of AMPQ queue to be used for input in addition to identity queue.
     #     This is a queue that is shared by multiple agents and hence, unlike the identity queue,
     #     is only able to receive requests, not results.
-    #   :format(Symbol):: Format to use for packets serialization -- :marshal, :json or :yaml or :secure
-    #     Use of the secure format requires prior initialization of the serializer (see SecureSerializer.init)
     #   :root(String):: Application root for this agent. Defaults to Dir.pwd.
     #   :log_dir(String):: Log file path. Defaults to the current working directory.
     #   :file_root(String):: Path to directory to files this agent provides. Defaults to app_root/files.
@@ -187,7 +185,7 @@ module RightScale
 
         # Initiate AMQP broker connection, wait for connection before proceeding
         # otherwise messages published on failed connection will be lost
-        @broker = HA_MQ.new(Serializer.new(@options[:format]), @options)
+        @broker = HA_MQ.new(Serializer.new("secure"), @options)
         @broker.connection_status(:one_off => @options[:connect_timeout]) do |status|
           if status == :connected
             EM.next_tick do

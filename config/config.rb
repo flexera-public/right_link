@@ -24,7 +24,7 @@
 # Configuration values are listed with the format:
 # name value
 
-# Current RightLink protocol version (no support below version 5)
+# Current RightLink protocol version (aka r_s_version, no support below version 5)
 # 5:  Started storing timestamps in database for each instance state rather than storing state name
 #     Changed format of agent identifiers by replacing '-' with '*' as separator
 # 6:  Attributes in RecipeInstantiation no longer converted to JSON format
@@ -48,7 +48,8 @@
 #     (sprint 21, image 5.6.0)
 # 11: Added stats packet, stats exchange & corresponding agent_manager request
 #     Changed InstanceSetup to use the Repose mirror to download cookbook repositories
-protocol_version 11
+# 12: Support both JSON and MessagePack serialization of packets with MessagePack as the new default
+protocol_version 12
 
 # Path to RightLink root folder
 right_link_path File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'right_link'))

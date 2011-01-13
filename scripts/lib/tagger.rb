@@ -38,6 +38,7 @@
 $:.push(File.dirname(__FILE__))
 
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'config', 'right_link_config'))
+require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'common', 'lib', 'common', 'serializer'))
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'command_protocol', 'lib', 'command_protocol'))
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'payload_types', 'lib', 'payload_types'))
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'actors', 'lib', 'agent_manager'))
@@ -75,6 +76,7 @@ module RightScale
       config_options = agent_options('instance')
       listen_port = config_options[:listen_port]
       fail('Could not retrieve agent listen port') unless listen_port
+      command_serializer = Serializer.new
       client = CommandClient.new(listen_port, config_options[:cookie])
       begin
         client.send_command(cmd, options[:verbose]) do |res|
@@ -85,7 +87,7 @@ module RightScale
               puts "Server tags (#{res.size}):\n#{res.map { |tag| "  - #{tag}" }.join("\n")}\n"
             end
           elsif options[:action] == :query_tags
-            r = OperationResult.from_results(JSON.load(res))
+            r = OperationResult.from_results(command_serializer.load(res))
             r = if r.success?
               if r.content.empty?
                 puts "No servers with tags '#{options[:tags].inspect}'"
