@@ -127,6 +127,27 @@ describe RightScale::DevState do
 
       it_should_behave_like "dev state is disabled"
       it_should_behave_like "nothing is set"
+
+      context "after cookbooks are downloaded" do
+        before :each do
+          flexmock(RightScale::JsonUtilities).should_receive(:write_json).never
+          RightScale::DevState.has_downloaded_cookbooks = true
+        end
+
+        it 'downloaded cookbooks flag should be set' do
+          RightScale::DevState.has_downloaded_cookbooks?.should be_true
+        end
+
+        it 'should always download cookbooks' do
+          RightScale::DevState.download_cookbooks?.should be_true
+        end
+
+        it 'should not persist the download state' do
+          # reinitialize should load from the state file
+          RightScale::DevState.reset
+          RightScale::DevState.has_downloaded_cookbooks?.should == @expected_initial_has_downloaded_value
+        end
+      end
     end
 
     context "machine has at least one rs_agent_dev prefixed tag" do
