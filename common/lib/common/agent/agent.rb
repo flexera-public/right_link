@@ -653,22 +653,31 @@ module RightScale
         options.merge!(:exchange2 => {:type => :fanout, :name => "advertise", :options => {:durable => true}})
         {:type => :direct, :name => @identity, :options => {:durable => true, :auto_delete => true}}
       end
-      ids = @broker.subscribe(queue, exchange, options) do |_, packet|
-        begin
-          case packet
-          when Advertise then advertise_services unless @terminating
-          when Request then @dispatcher.dispatch(packet) unless @terminating
-          when Push then @dispatcher.dispatch(packet) unless @terminating
-          when Result then @mapper_proxy.handle_result(packet)
-          end
-          @mapper_proxy.message_received
-          InstanceState.message_received if @is_instance_agent
-        rescue Exception => e
-          RightLinkLog.error("Identity queue processing error: #{e}")
-          @exceptions.track("identity queue", e, packet)
+      ids = @broker.subscribe(queue, exchange, options) { |_, packet| receive(packet) }
+    end
+
+    # Handle packet received on identity queue
+    #
+    # === Parameters
+    # packet(RightScale::Packet):: Advertise, Request, Push or Result
+    #
+    # === Return
+    # true:: Always return true
+    def receive(packet)
+      begin
+        case packet
+        when Advertise then advertise_services unless @terminating
+        when Request then @dispatcher.dispatch(packet) unless @terminating
+        when Push then @dispatcher.dispatch(packet) unless @terminating
+        when Result then @mapper_proxy.handle_result(packet)
         end
+        @mapper_proxy.message_received
+        InstanceState.message_received if @is_instance_agent
+      rescue Exception => e
+        RightLinkLog.error("Identity queue processing error: #{e}")
+        @exceptions.track("identity queue", e, packet)
       end
-      ids
+      true
     end
 
     # Setup shared queue for this agent

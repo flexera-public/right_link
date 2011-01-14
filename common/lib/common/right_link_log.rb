@@ -357,11 +357,13 @@ module RightScale
     # === Parameters
     # identity(String):: Log identity
     # path(String):: Log directory path
+    # force(TrueClass|FalseClass):: Whether to re-initialize if logger is
+    #                               already initialized
     #
     # === Return
     # logger(RightScale::Multiplexer):: logger instance
-    def init(identity = nil, path = nil)
-      unless @initialized
+    def init(identity = nil, path = nil, force = false)
+      if force || !@initialized 
         @initialized = true
         @level_frozen = false
         logger = nil
