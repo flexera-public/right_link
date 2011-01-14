@@ -25,6 +25,20 @@ require 'json'
 
 require File.normalize_path(File.join(File.dirname(__FILE__), 'message_pack'))
 
+# Monkey patch common classes to support MessagePack serialization
+# As with JSON, unserializing them is manual using existing methods such as parse
+class Date
+  def to_msgpack(*a); to_s.to_msgpack(*a) end
+end
+
+class Time
+  def to_msgpack(*a); to_s.to_msgpack(*a) end
+end
+
+class DateTime
+  def to_msgpack(*a); to_s.to_msgpack(*a) end
+end
+
 module RightScale
   
   # Cascade serializer supporting MessagePack and JSON serialization formats
@@ -38,13 +52,13 @@ module RightScale
         msg = ":\n#{msg}" if msg && !msg.empty?
         super("Could not #{action} packet using #{serializers.inspect}: #{msg}")
       end
-    end # SerializationError
+    end
 
-    # (Symbol) Serialization format: :msgpack, :json, or :secure
+    # (Symbol) Preferred serialization format
     attr_reader :format
 
     # Initialize the serializer
-    # Do not cascade serializers if secure is specified
+    # Do not cascade serializers if :secure is specified
     #
     # === Parameters
     # preferred_format(Symbol|String):: Preferred serialization format: :msgpack, :json, or :secure
@@ -52,29 +66,25 @@ module RightScale
     # === Raises
     # ArgumentError:: If preferred format is not supported
     def initialize(preferred_format = nil)
-      @format = (preferred_format ||= :msgpack).to_sym
-      if @format == :secure
-        @serializers = [ SecureSerializer ]
-      else
-        preferred_serializer = SERIALIZERS[@format.to_sym]
-        raise ArgumentError, "Serializer format #{@format.inspect} not one of #{SERIALIZERS.keys}" unless preferred_serializer
-        @serializers = SERIALIZERS.values.clone
-        @serializers.unshift(@serializers.delete(preferred_serializer)) if preferred_serializer
-      end
+      @format = (preferred_format ||= DEFAULT_FORMAT).to_sym
+      raise ArgumentError, "Serializer format #{@format.inspect} not one of #{FORMATS}" unless FORMATS.include?(@format)
+      @secure = (@format == :secure)
     end
 
-    # Serialize object
+    # Serialize object using preferred serializer
+    # Do not cascade
     #
     # === Parameters
     # packet(Object):: Object to be serialized
+    # format(Symbol):: Override preferred format
     #
     # === Return
     # (String):: Serialized object
-    def dump(packet)
-      cascade_serializers(:dump, packet)
+    def dump(packet, format = nil)
+      cascade_serializers(:dump, packet, [@secure ? SecureSerializer : SERIALIZERS[format || @format]])
     end
 
-    # Unserialize object
+    # Unserialize object using cascaded serializers with order chosen by peaking at first byte
     #
     # === Parameters
     # packet(String):: Data representing serialized object
@@ -82,39 +92,33 @@ module RightScale
     # === Return
     # (Object):: Unserialized object
     def load(packet)
-      cascade_serializers(:load, packet)
-    end
-
-    # Determine whether data is serialized in JSON format as opposed to MessagePack
-    #
-    # === Parameters
-    # packet(String):: Data representing serialized object
-    #
-    # === Return
-    # (Boolean):: true if packet is in JSON format, otherwise false
-    def self.json?(packet)
-      packet[0, 1] == "{"
+      cascade_serializers(:load, packet, @secure ? [SecureSerializer] : order_serializers(packet))
     end
 
     private
 
     # Supported serialization formats
     SERIALIZERS = {:msgpack => MessagePack, :json => JSON}.freeze
+    MSGPACK_FIRST_SERIALIZERS = [MessagePack, JSON].freeze
+    JSON_FIRST_SERIALIZERS = MSGPACK_FIRST_SERIALIZERS.clone.reverse.freeze
+    FORMATS = (SERIALIZERS.keys + [:secure]).freeze
+    DEFAULT_FORMAT = :msgpack
 
     # Apply serializers in order until one succeeds
     #
     # === Parameters
     # action(Symbol):: Serialization action: :dump or :load
     # packet(Object|String):: Object or serialized data on which action is to be performed
+    # serializers(Array):: Serializers to apply in order
     #
     # === Return
     # (String|Object):: Result of serialization action
     #
     # === Raises
     # SerializationError:: If none of the serializers can perform the requested action
-    def cascade_serializers(action, packet)
+    def cascade_serializers(action, packet, serializers)
       errors = []
-      @serializers.map do |serializer|
+      serializers.map do |serializer|
         begin
           obj = serializer.__send__(action, packet)
         rescue Exception => e
@@ -123,7 +127,18 @@ module RightScale
         end
         return obj if obj
       end
-      raise SerializationError.new(action, packet, @serializers, errors.join("\n"))
+      raise SerializationError.new(action, packet, serializers, errors.join("\n"))
+    end
+
+    # Determine likely serialization format and order serializers accordingly
+    #
+    # === Parameters
+    # packet(String):: Data representing serialized object
+    #
+    # === Return
+    # (Array):: Ordered serializers
+    def order_serializers(packet)
+      packet[0] > 127 ? MSGPACK_FIRST_SERIALIZERS : JSON_FIRST_SERIALIZERS
     end
 
   end # Serializer

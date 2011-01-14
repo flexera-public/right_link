@@ -185,7 +185,7 @@ module RightScale
 
         # Initiate AMQP broker connection, wait for connection before proceeding
         # otherwise messages published on failed connection will be lost
-        @broker = HA_MQ.new(Serializer.new("secure"), @options)
+        @broker = HA_MQ.new(Serializer.new(:secure), @options)
         @broker.connection_status(:one_off => @options[:connect_timeout]) do |status|
           if status == :connected
             EM.next_tick do

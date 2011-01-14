@@ -29,19 +29,21 @@ module RightScale
     # Initialize serializer, must be called prior to using it
     #
     # === Parameters
-    #  identity(String):: Serialized identity associated with serialized messages
-    #  cert(String):: Certificate used to sign and decrypt serialized messages
-    #  key(RsaKeyPair):: Private key corresponding to specified cert
-    #  store(Object):: Certificate store exposing certificates used for
-    #    encryption (get_recipients) and signature validation (get_signer)
-    #  encrypt(Boolean):: true if data should be signed and encrypted, otherwise
-    #    just signed, true by default
-    def self.init(identity, cert, key, store, encrypt = true)
+    # serializer(Serializer):: Object serializer
+    # identity(String):: Serialized identity associated with serialized messages
+    # cert(String):: Certificate used to sign and decrypt serialized messages
+    # key(RsaKeyPair):: Private key corresponding to specified cert
+    # store(Object):: Certificate store exposing certificates used for
+    #   encryption (get_recipients) and signature validation (get_signer)
+    # encrypt(Boolean):: true if data should be signed and encrypted, otherwise
+    #   just signed, true by default
+    def self.init(serializer, identity, cert, key, store, encrypt = true)
       @identity = identity
       @cert = cert
       @key = key
       @store = store
       @encrypt = encrypt
+      @serializer = serializer
     end
     
     # Was serializer initialized?
@@ -66,8 +68,8 @@ module RightScale
       raise "Missing certificate key" unless @key
       raise "Missing certificate store" unless @store || !@encrypt
       must_encrypt = encrypt.nil? ? @encrypt : encrypt
-      serializer = obj.respond_to?(:send_version) && obj.send_version >= 12 ? :to_msgpack : :to_json
-      msg = obj.__send__(serializer)
+      format = :json unless obj.respond_to?(:send_version) && obj.send_version >= 12
+      msg = @serializer.dump(obj, format)
       if must_encrypt
         certs = @store.get_recipients(obj)
         if certs
@@ -78,7 +80,7 @@ module RightScale
         end
       end
       sig = Signature.new(msg, @cert, @key)
-      {'id' => @identity, 'data' => msg, 'signature' => sig.data, 'encrypted' => !certs.nil?}.__send__(serializer)
+      @serializer.dump({'id' => @identity, 'data' => msg, 'signature' => sig.data, 'encrypted' => !certs.nil?}, format)
     end
     
     # Decrypt, authorize signature, and unserialize message
@@ -94,7 +96,7 @@ module RightScale
       raise "Missing certificate" unless @cert || !@encrypt
       raise "Missing certificate key" unless @key || !@encrypt
 
-      msg = unserialize(msg)
+      msg = @serializer.load(msg)
       sig = Signature.from_data(msg['signature'])
       certs = @store.get_signer(msg['id'])
       raise "Could not find a cert for signer #{msg['id']}" unless certs
@@ -106,26 +108,7 @@ module RightScale
       if data && @encrypt && msg['encrypted']
         data = EncryptedDocument.from_data(data).decrypted_data(@key, @cert)
       end
-      unserialize(data) if data
-    end
-
-    protected
-
-    # Unserialize MessagePack or JSON data
-    #
-    # === Parameters
-    # data(String):: Data to be unserialized
-    #
-    # === Return
-    # obj(Object):: Unserialized object
-    #
-    # === Raises
-    # ArgumentError:: If data is not JSON or MessagePack serialized
-    def self.unserialize(data)
-      serializers = [MessagePack, JSON]
-      serializers.reverse! if Serializer.json?(data)
-      serializers.each { |s| return s.load(data) rescue next }
-      raise ArgumentError, "Data to be unserialized is not MessagePack or JSON"
+      @serializer.load(data) if data
     end
 
   end # SecureSerializer

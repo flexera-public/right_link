@@ -50,9 +50,9 @@ describe RightScale::SecureSerializer do
 
   it 'should raise when data not serialized with MessagePack or JSON' do
     data = RightScale::Result.new("token", "to", "from", ["results"])
-    RightScale::SecureSerializer.init(@identity, @certificate, @key, @store, false)
-    lambda { RightScale::SecureSerializer.load(Marshal.dump(data)) }.should raise_error(ArgumentError)
-    lambda { RightScale::SecureSerializer.load(YAML.dump(data)) }.should raise_error(ArgumentError)
+    RightScale::SecureSerializer.init(RightScale::Serializer.new, @identity, @certificate, @key, @store, false)
+    lambda { RightScale::SecureSerializer.load(Marshal.dump(data)) }.should raise_error(RightScale::Serializer::SerializationError)
+    lambda { RightScale::SecureSerializer.load(YAML.dump(data)) }.should raise_error(RightScale::Serializer::SerializationError)
   end
 
   describe "using MessagePack" do
@@ -64,13 +64,13 @@ describe RightScale::SecureSerializer do
     end
 
     it 'should unserialize signed data' do
-      RightScale::SecureSerializer.init(@identity, @certificate, @key, @store, false)
+      RightScale::SecureSerializer.init(RightScale::Serializer.new, @identity, @certificate, @key, @store, false)
       data = RightScale::SecureSerializer.dump(@data)
       RightScale::SecureSerializer.load(data).should == @data
     end
 
     it 'should unserialize encrypted data' do
-      RightScale::SecureSerializer.init(@identity, @certificate, @key, @store, true)
+      RightScale::SecureSerializer.init(RightScale::Serializer.new, @identity, @certificate, @key, @store, true)
       data = RightScale::SecureSerializer.dump(@data)
       RightScale::SecureSerializer.load(data).should == @data
     end
@@ -86,13 +86,13 @@ describe RightScale::SecureSerializer do
     end
 
     it 'should unserialize signed data' do
-      RightScale::SecureSerializer.init(@identity, @certificate, @key, @store, false)
+      RightScale::SecureSerializer.init(RightScale::Serializer.new, @identity, @certificate, @key, @store, false)
       data = RightScale::SecureSerializer.dump(@data)
       RightScale::SecureSerializer.load(data).should == @data
     end
 
     it 'should unserialize encrypted data' do
-      RightScale::SecureSerializer.init(@identity, @certificate, @key, @store, true)
+      RightScale::SecureSerializer.init(RightScale::Serializer.new, @identity, @certificate, @key, @store, true)
       data = RightScale::SecureSerializer.dump(@data)
       RightScale::SecureSerializer.load(data).should == @data
     end

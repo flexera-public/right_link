@@ -39,7 +39,7 @@ module RightScale
       key = RsaKeyPair.load(File.join(certs_dir, "#{agent_name}.key"))
       mapper_cert = Certificate.load(File.join(certs_dir, "mapper.cert"))
       store = StaticCertificateStore.new(mapper_cert, mapper_cert)
-      SecureSerializer.init(agent_id, cert, key, store)
+      SecureSerializer.init(Serializer.new, agent_id, cert, key, store)
       true
     end
 
