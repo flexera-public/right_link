@@ -22,7 +22,7 @@
 
 require File.join(File.dirname(__FILE__), 'spec_helper')
 require File.join(File.dirname(__FILE__), '..', 'lib', 'common', 'message_pack')
-require File.join(File.dirname(__FILE__), '..', '..', 'payload_types', 'lib', 'payload_types', 'serializable')
+require File.join(File.dirname(__FILE__), '..', 'lib', 'common', 'serializable')
 
 module RightScale
   class TestClass

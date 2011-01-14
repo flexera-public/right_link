@@ -21,7 +21,6 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-require File.join(File.dirname(__FILE__), 'payload_types', 'serializable')
 require File.join(File.dirname(__FILE__), 'payload_types', 'cookbook')
 require File.join(File.dirname(__FILE__), 'payload_types', 'cookbook_repository')
 require File.join(File.dirname(__FILE__), 'payload_types', 'cookbook_sequence')

@@ -55,8 +55,7 @@ module RightScale
     # Sign and encrypt using X.509 certificate
     #
     # === Parameters
-    # obj(Object):: Object to be serialized and encrypted; use MessagePack
-    #   if object contains a send_version value >= 12, otherwise use JSON
+    # obj(Object):: Object to be serialized and encrypted
     # encrypt(Boolean|nil):: true if object should be signed and encrypted,
     #   false if just signed, nil means use class setting
     #
