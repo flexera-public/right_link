@@ -401,7 +401,7 @@ describe RightScale::MapperProxy do
             result = RightScale::OperationResult.from_results(response)
           end
           @instance.pending_requests.empty?.should be_false
-          EM.add_timer(2.5) do
+          EM.add_timer(1) do
             EM.stop
             result.non_delivery?.should be_true
             result.content.should == RightScale::OperationResult::RETRY_TIMEOUT
@@ -521,41 +521,6 @@ describe RightScale::MapperProxy do
     end
   end
 
-  describe "when purging a request" do
-    before(:each) do
-      flexmock(EM).should_receive(:next_tick).and_yield.by_default
-      @broker = flexmock("Broker", :subscribe => true, :publish => ["broker"], :connected? => true,
-                         :identity_parts => ["host", 123, 0, 0]).by_default
-      @agent = flexmock("Agent", :identity => "agent", :broker => @broker, :options => {:ping_interval => 0}).by_default
-      RightScale::MapperProxy.new(@agent)
-      @instance = RightScale::MapperProxy.instance
-      flexmock(RightScale::AgentIdentity, :generate => 'token1')
-    end
-
-    it "should delete the pending request" do
-      @instance.timeout_retry_request('/welcome/aboard', 'iZac') {|_|}
-      @instance.pending_requests['token1'].should_not be_nil
-      @instance.__send__(:purge, 'token1')
-      @instance.pending_requests['token1'].should be_nil
-    end
-
-    it "should delete any associated retry requests" do
-      @instance.timeout_retry_request('/welcome/aboard', 'iZac') {|_|}
-      @instance.pending_requests['token2'] = @instance.pending_requests['token1'].dup
-      @instance.pending_requests['token2'][:retry_parent] = 'token1'
-      @instance.__send__(:purge, 'token2')
-      @instance.pending_requests['token1'].should be_nil
-      @instance.pending_requests['token2'].should be_nil
-    end
-
-    it "should ignore if request token unknown" do
-      @instance.timeout_retry_request('/welcome/aboard', 'iZac') {|_|}
-      @instance.pending_requests.size.should == 1
-      @instance.__send__(:purge, 'token2')
-      @instance.pending_requests.size.should == 1
-    end
-  end
-
   describe "when handling a response" do
     before(:each) do
       flexmock(EM).should_receive(:next_tick).and_yield.by_default
@@ -565,43 +530,28 @@ describe RightScale::MapperProxy do
       @agent = flexmock("Agent", :identity => "agent", :broker => @broker, :options => {:ping_interval => 0}).by_default
       RightScale::MapperProxy.new(@agent)
       @instance = RightScale::MapperProxy.instance
+      flexmock(RightScale::AgentIdentity, :generate => 'token1')
     end
 
-    it "should delete all associated pending requests" do
-      flexmock(EM).should_receive(:defer).and_yield.once
-      flexmock(RightScale::AgentIdentity, :generate => 'token1')
+    it "should deliver the response" do
       @instance.timeout_retry_request('/welcome/aboard', 'iZac') {|_|}
-      @instance.pending_requests['token1'][:fanout].should be_nil
       response = RightScale::Result.new('token1', 'to', RightScale::OperationResult.success, 'target1')
+      flexmock(@instance).should_receive(:deliver).with(response, Hash).once
       @instance.handle_response(response)
-      @instance.pending_requests['token1'].should be_nil
-    end
-
-    it "should call the response handler" do
-      flexmock(RightScale::AgentIdentity, :generate => 'token1')
-      called = 0
-      @instance.timeout_retry_request('/welcome/aboard', 'iZac') {|response| called += 1}
-      response = RightScale::Result.new('token1', 'to', RightScale::OperationResult.success, 'target1')
-      @instance.handle_response(response)
-      called.should == 1
     end
 
     it "should not deliver TARGET_NOT_CONNECTED and TTL_EXPIRATION responses for timeout_retry_request" do
-      flexmock(RightScale::AgentIdentity, :generate => 'token1')
-      called = 0
-      @instance.timeout_retry_request('/welcome/aboard', 'iZac') {|response| called += 1}
-      flexmock(@instance).should_receive(:purge).never
+      @instance.timeout_retry_request('/welcome/aboard', 'iZac') {|_|}
+      flexmock(@instance).should_receive(:deliver).never
       non_delivery = RightScale::OperationResult.non_delivery(RightScale::OperationResult::TARGET_NOT_CONNECTED)
       response = RightScale::Result.new('token1', 'to', non_delivery, 'target1')
       @instance.handle_response(response)
       non_delivery = RightScale::OperationResult.non_delivery(RightScale::OperationResult::TTL_EXPIRATION)
       response = RightScale::Result.new('token1', 'to', non_delivery, 'target1')
       @instance.handle_response(response)
-      called.should == 0
     end
 
     it "should record non-delivery regardless of whether there is a response handler" do
-      flexmock(RightScale::AgentIdentity, :generate => 'token1')
       @instance.timeout_retry_request('/welcome/aboard', 'iZac') {|_|}
       non_delivery = RightScale::OperationResult.non_delivery(RightScale::OperationResult::NO_ROUTE_TO_TARGET)
       response = RightScale::Result.new('token1', 'to', non_delivery, 'target1')
@@ -611,17 +561,54 @@ describe RightScale::MapperProxy do
 
     it "should log non-delivery if there is no response handler" do
       flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Non-delivery of/).once
-      flexmock(RightScale::AgentIdentity, :generate => 'token1')
       @instance.push('/welcome/aboard', 'iZac') {|_|}
       non_delivery = RightScale::OperationResult.non_delivery(RightScale::OperationResult::NO_ROUTE_TO_TARGET)
       response = RightScale::Result.new('token1', 'to', non_delivery, 'target1')
       @instance.handle_response(response)
     end
 
-    it "should defer the response handler call if not single threaded" do
-      @agent.should_receive(:options).and_return({:single_threaded => true})
-      flexmock(EM).should_receive(:next_tick).and_yield.once
+    it "should log a debug message if request no longer pending" do
+      flexmock(RightScale::RightLinkLog).should_receive(:debug).with(/No pending request for response/).once
+      @instance.timeout_retry_request('/welcome/aboard', 'iZac') {|_|}
+      @instance.pending_requests['token1'].should_not be_nil
+      @instance.pending_requests['token2'].should be_nil
+      response = RightScale::Result.new('token2', 'to', RightScale::OperationResult.success, 'target1')
+      @instance.handle_response(response)
+    end
+  end
+
+  describe "when delivering a response" do
+    before(:each) do
+      flexmock(EM).should_receive(:next_tick).and_yield.by_default
+      flexmock(EM).should_receive(:defer).and_yield.by_default
+      @broker = flexmock("Broker", :subscribe => true, :publish => ["broker"], :connected? => true,
+                         :identity_parts => ["host", 123, 0, 0]).by_default
+      @agent = flexmock("Agent", :identity => "agent", :broker => @broker, :options => {:ping_interval => 0}).by_default
+      RightScale::MapperProxy.new(@agent)
+      @instance = RightScale::MapperProxy.instance
       flexmock(RightScale::AgentIdentity, :generate => 'token1')
+    end
+
+    it "should delete all associated pending requests" do
+      @instance.timeout_retry_request('/welcome/aboard', 'iZac') {|_|}
+      @instance.pending_requests['token1'].should_not be_nil
+      response = RightScale::Result.new('token1', 'to', RightScale::OperationResult.success, 'target1')
+      @instance.handle_response(response)
+      @instance.pending_requests['token1'].should be_nil
+    end
+
+    it "should delete any associated retry requests" do
+      @instance.timeout_retry_request('/welcome/aboard', 'iZac') {|_|}
+      @instance.pending_requests['token1'].should_not be_nil
+      @instance.pending_requests['token2'] = @instance.pending_requests['token1'].dup
+      @instance.pending_requests['token2'][:retry_parent] = 'token1'
+      response = RightScale::Result.new('token2', 'to', RightScale::OperationResult.success, 'target1')
+      @instance.handle_response(response)
+      @instance.pending_requests['token1'].should be_nil
+      @instance.pending_requests['token2'].should be_nil
+    end
+
+    it "should call the response handler" do
       called = 0
       @instance.timeout_retry_request('/welcome/aboard', 'iZac') {|response| called += 1}
       response = RightScale::Result.new('token1', 'to', RightScale::OperationResult.success, 'target1')
@@ -629,23 +616,40 @@ describe RightScale::MapperProxy do
       called.should == 1
     end
 
+    it "should defer the response handler call if not single threaded" do
+      @agent.should_receive(:options).and_return({:single_threaded => false})
+      RightScale::MapperProxy.new(@agent)
+      @instance = RightScale::MapperProxy.instance
+      called = 0
+      @instance.timeout_retry_request('/welcome/aboard', 'iZac') {|response| called += 1}
+      response = RightScale::Result.new('token1', 'to', RightScale::OperationResult.success, 'target1')
+      flexmock(EM).should_receive(:defer).and_yield.once
+      flexmock(EM).should_receive(:next_tick).never
+      @instance.handle_response(response)
+      called.should == 1
+    end
+
+    it "should not defer the response handler call if single threaded" do
+      @agent.should_receive(:options).and_return({:single_threaded => true})
+      RightScale::MapperProxy.new(@agent)
+      @instance = RightScale::MapperProxy.instance
+      called = 0
+      @instance.timeout_retry_request('/welcome/aboard', 'iZac') {|response| called += 1}
+      response = RightScale::Result.new('token1', 'to', RightScale::OperationResult.success, 'target1')
+      flexmock(EM).should_receive(:next_tick).and_yield.once
+      flexmock(EM).should_receive(:defer).never
+      @instance.handle_response(response)
+      called.should == 1
+    end
+
     it "should log an error if the response handler raises an exception but still delete pending request" do
+      @agent.should_receive(:options).and_return({:single_threaded => true})
       flexmock(RightScale::RightLinkLog).should_receive(:error).with(/Failed processing response/, Exception, :trace).once
-      flexmock(RightScale::AgentIdentity, :generate => 'token1')
       @instance.timeout_retry_request('/welcome/aboard', 'iZac') {|_| raise Exception}
-      @instance.pending_requests['token1'][:fanout].should be_nil
+      @instance.pending_requests['token1'].should_not be_nil
       response = RightScale::Result.new('token1', 'to', RightScale::OperationResult.success, 'target1')
       @instance.handle_response(response)
       @instance.pending_requests['token1'].should be_nil
-    end
-
-    it "should log a debug message if request no longer pending" do
-      flexmock(RightScale::RightLinkLog).should_receive(:debug).with(/No pending request for response/).once
-      flexmock(RightScale::AgentIdentity, :generate => 'token1')
-      @instance.timeout_retry_request('/welcome/aboard', 'iZac') {|_|}
-      @instance.pending_requests['token1'][:fanout].should be_nil
-      response = RightScale::Result.new('token2', 'to', RightScale::OperationResult.success, 'target1')
-      @instance.handle_response(response)
     end
   end
 

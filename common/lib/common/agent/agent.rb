@@ -189,7 +189,7 @@ module RightScale
                 @check_status_brokers = @broker.all
                 EM.add_periodic_timer(@options[:check_interval]) { check_status }
               rescue Exception => e
-                RightLinkLog.error("Agent failed startup: #{e}\n" + e.backtrace.join("\n")) unless e.message == "exit"
+                RightLinkLog.error("Agent failed startup", e, :trace) unless e.message == "exit"
                 EM.stop
               end
             end
@@ -201,7 +201,7 @@ module RightScale
       rescue SystemExit => e
         raise e
       rescue Exception => e
-        RightLinkLog.error("Agent failed startup: #{e}\n" + e.backtrace.join("\n")) unless e.message == "exit"
+        RightLinkLog.error("Agent failed startup", e, :trace) unless e.message == "exit"
         raise e
       end
       true
@@ -274,13 +274,13 @@ module RightScale
                 RightLinkLog.error("Failed to connect to broker #{id}, status #{status.inspect}")
               end
             rescue Exception => e
-              RightLinkLog.error("Failed to connect to broker #{id}, status #{status.inspect}: #{e}")
+              RightLinkLog.error("Failed to connect to broker #{id}, status #{status.inspect}", e)
               @exceptions.track("connect", e)
             end
           end
         end
       rescue Exception => e
-        res = "Failed to connect to broker #{HA_MQ.identity(host, port)}: #{e}"
+        res = RightLinkLog.format("Failed to connect to broker #{HA_MQ.identity(host, port)}", e)
         @exceptions.track("connect", e)
       end
       RightLinkLog.error(res) if res
@@ -321,7 +321,7 @@ module RightScale
             @broker.close_one(id)
           end
         rescue Exception => e
-          res = "Failed to disconnect from broker #{id}: #{e}"
+          res = RightLinkLog.format("Failed to disconnect from broker #{id}", e)
           @exceptions.track("disconnect", e)
         end
       else
@@ -352,7 +352,7 @@ module RightScale
         RightLinkLog.info("Current broker configuration: #{@broker.status.inspect}")
         @broker.declare_unusable(ids - ignored)
       rescue Exception => e
-        res = "Failed handling broker connection failure indication for #{ids.inspect}: #{e}"
+        res = RightLinkLog.format("Failed handling broker connection failure indication for #{ids.inspect}", e)
         RightLinkLog.error(res)
         @exceptions.track("connect failed", e)
       end
@@ -401,14 +401,14 @@ module RightScale
                 @broker.close(&blk)
                 EM.stop unless blk
               rescue Exception => e
-                RightLinkLog.error("Failed while finishing termination: #{e}")
+                RightLinkLog.error("Failed while finishing termination", e, :trace)
                 EM.stop
               end
             end
           end
         end
       rescue Exception => e
-        RightLinkLog.error("Failed to terminate gracefully: #{e}")
+        RightLinkLog.error("Failed to terminate gracefully", e, :trace)
         EM.stop
       end
       true
@@ -619,17 +619,14 @@ module RightScale
           when Result        then @mapper_proxy.handle_response(packet)
           end
           @mapper_proxy.message_received
+        rescue HA_MQ::NoConnectedBrokers => e
+          RightLinkLog.error("Identity queue processing error", e)
         rescue Exception => e
-          RightLinkLog.error("Identity queue processing error: #{e}")
+          RightLinkLog.error("Identity queue processing error", e, :trace)
           @exceptions.track("identity queue", e, packet)
         end
-        @mapper_proxy.message_received
-        InstanceState.message_received if @is_instance_agent
-      rescue Exception => e
-        RightLinkLog.error("Identity queue processing error: #{e}")
-        @exceptions.track("identity queue", e, packet)
       end
-      true
+      ids
     end
 
     # Setup signal traps
@@ -677,7 +674,7 @@ module RightScale
         finish_setup
         @check_status_count += 1
       rescue Exception => e
-        RightLinkLog.error("Failed checking status: #{e}")
+        RightLinkLog.error("Failed checking status", e)
         @exceptions.track("check status", e)
       end
       true
@@ -708,7 +705,7 @@ module RightScale
       begin
         @broker.publish(exchange, packet, options.merge(:mandatory => true))
       rescue Exception => e
-        RightLinkLog.error("Failed to publish #{packet.class} to #{exchange[:name]} exchange: #{e}") unless @terminating
+        RightLinkLog.error("Failed to publish #{packet.class} to #{exchange[:name]} exchange", e) unless @terminating
         @exceptions.track("publish", e, packet)
       end
       true

@@ -32,75 +32,77 @@ describe RightScale::HA_MQ do
     before(:each) do
       flexmock(Time).should_receive(:now).and_return(Time.at(1000000)).by_default
       @published = RightScale::HA_MQ::Published.new
-      @message1 = JSON.dump(:signature => "signature1")
+      @message1 = MessagePack.dump(:signature => "signature1")
+      @key1 = @message1[@message1 =~ /signature/, 1000]
       @message2 = JSON.dump(:signature => "signature2")
-      @message3 = JSON.dump(:signature => "signature3")
-      @packet1 = flexmock("packet1", :class => RightScale::Request, :type => "type1", :from => "from1", :token => "token1", :one_way => false)
-      @packet2 = flexmock("packet2", :class => RightScale::Request, :type => "type2", :from => "from2", :token => "token2", :one_way => false)
-      @packet3 = flexmock("packet3", :class => RightScale::Push, :type => "type3", :from => "from3", :token => "token3", :one_way => true)
+      @key2 = @message2[@message2 =~ /signature/, 1000]
+      @message3 = MessagePack.dump(:data => "just data")
+      @key3 = @message3
+      @packet1 = flexmock("packet1", :class => RightScale::Request, :name => "request", :type => "type1",
+                          :from => "from1", :token => "token1", :one_way => false)
+      @packet2 = flexmock("packet2", :class => RightScale::Request, :name => "request", :type => "type2",
+                          :from => "from2", :token => "token2", :one_way => false)
+      @packet3 = flexmock("packet3", :class => RightScale::Push, :name => "push", :type => "type3",
+                          :from => "from3", :token => "token3", :one_way => true)
       @brokers = ["broker"]
       @options = {:option => "option"}
-      @details1 = {:type => "type1", :from => "from1", :token => "token1", :one_way => false,
+      @details1 = {:name => "request", :type => "type1", :from => "from1", :token => "token1", :one_way => false,
                    :options => @options, :brokers => @brokers, :failed => []}
-      @details2 = {:type => "type2", :from => "from2", :token => "token2", :one_way => false,
+      @details2 = {:name => "request", :type => "type2", :from => "from2", :token => "token2", :one_way => false,
                    :options => @options, :brokers => @brokers, :failed => []}
-      @details3 = {:type => "type3", :from => "from3", :token => "token3", :one_way => true,
+      @details3 = {:name => "push", :type => "type3", :from => "from3", :token => "token3", :one_way => true,
                    :options => @options, :brokers => @brokers, :failed => []}
     end
 
-    it "should use message signature as cache hash key" do
-      @published.identify(@message1).should == "signature1"
+    it "should use message signature as cache hash key if it has one" do
+      @published.identify(@message1).should == @key1
+      @published.identify(@message2).should == @key2
+      @published.identify(@message3).should == @key3
     end
 
     it "should store message info" do
       @published.store(@message1, @packet1, @brokers, @options)
-      @published.instance_variable_get(:@cache)["signature1"].should == [1000000, @details1]
-      @published.instance_variable_get(:@lru).should == ["signature1"]
+      @published.instance_variable_get(:@cache)[@key1].should == [1000000, @details1]
+      @published.instance_variable_get(:@lru).should == [@key1]
     end
 
     it "should treat type, from, token, and one_way as optional members of packet but default one_way to true" do
       @published.store(@message1, nil, nil, nil)
-      @published.instance_variable_get(:@cache)["signature1"].should ==
-              [1000000, {:type => nil, :from => nil, :token => nil, :one_way => true,
+      @published.instance_variable_get(:@cache)[@key1].should ==
+              [1000000, {:name => "nil_class", :type => nil, :from => nil, :token => nil, :one_way => true,
                          :options => nil, :brokers => nil, :failed => []}]
-      @published.instance_variable_get(:@lru).should == ["signature1"]
+      @published.instance_variable_get(:@lru).should == [@key1]
     end
 
     it "should update timestamp and lru list when store to existing entry" do
       @published.store(@message1, @packet1, @brokers, @options)
-      @published.instance_variable_get(:@cache)["signature1"].should == [1000000, @details1]
-      @published.instance_variable_get(:@lru).should == ["signature1"]
+      @published.instance_variable_get(:@cache)[@key1].should == [1000000, @details1]
+      @published.instance_variable_get(:@lru).should == [@key1]
       @published.store(@message2, @packet2, @brokers, @options)
-      @published.instance_variable_get(:@lru).should == ["signature1", "signature2"]
+      @published.instance_variable_get(:@lru).should == [@key1, @key2]
       flexmock(Time).should_receive(:now).and_return(Time.at(1000010))
       @published.store(@message1, @packet1, @brokers, @options)
-      @published.instance_variable_get(:@cache)["signature1"].should == [1000010, @details1]
-      @published.instance_variable_get(:@lru).should == ["signature2", "signature1"]
+      @published.instance_variable_get(:@cache)[@key1].should == [1000010, @details1]
+      @published.instance_variable_get(:@lru).should == [@key2, @key1]
     end
 
     it "should remove old cache entries when store new one" do
       @published.store(@message1, @packet1, @brokers, @options)
       @published.store(@message2, @packet2, @brokers, @options)
-      @published.instance_variable_get(:@cache).keys.should == ["signature1", "signature2"]
-      @published.instance_variable_get(:@lru).should == ["signature1", "signature2"]
+      @published.instance_variable_get(:@cache).keys.should == [@key1, @key2]
+      @published.instance_variable_get(:@lru).should == [@key1, @key2]
       flexmock(Time).should_receive(:now).and_return(Time.at(1000031))
       @published.store(@message3, @packet3, @brokers, @options)
-      @published.instance_variable_get(:@cache).keys.should == ["signature3"]
-      @published.instance_variable_get(:@lru).should == ["signature3"]
-    end
-
-    it "should ignore requests to store if a signature key cannot be constructed" do
-      message = JSON.dump(:signature => nil)
-      @published.store(message, nil, @brokers, @options)
-      @published.instance_variable_get(:@cache).size.should == 0
+      @published.instance_variable_get(:@cache).keys.should == [@key3]
+      @published.instance_variable_get(:@lru).should == [@key3]
     end
 
     it "should fetch message info and make it the most recently used" do
       @published.store(@message1, @packet1, @brokers, @options)
       @published.store(@message2, @packet2, @brokers, @options)
-      @published.instance_variable_get(:@lru).should == ["signature1", "signature2"]
+      @published.instance_variable_get(:@lru).should == [@key1, @key2]
       @published.fetch(@message1).should == @details1
-      @published.instance_variable_get(:@lru).should == ["signature2", "signature1"]
+      @published.instance_variable_get(:@lru).should == [@key2, @key1]
     end
 
     it "should fetch empty hash if entry not found" do
@@ -1185,7 +1187,7 @@ describe RightScale::HA_MQ do
 
       it "should log info and make non-delivery call even if persistent when returned because of no queue" do
         flexmock(RightScale::RightLinkLog).should_receive(:info).with(/setup/).twice
-        flexmock(RightScale::RightLinkLog).should_receive(:info).with(/NO ROUTE to/).once
+        flexmock(RightScale::RightLinkLog).should_receive(:info).with(/NO ROUTE/).once
         ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first,second")
         ha_mq.brokers[0][:status] = :connected
         ha_mq.brokers[1][:status] = :disconnected
@@ -1202,7 +1204,7 @@ describe RightScale::HA_MQ do
 
       it "should log info and make non-delivery call if no route can be found" do
         flexmock(RightScale::RightLinkLog).should_receive(:info).with(/setup/).twice
-        flexmock(RightScale::RightLinkLog).should_receive(:info).with(/NO ROUTE to/).once
+        flexmock(RightScale::RightLinkLog).should_receive(:info).with(/NO ROUTE/).once
         ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first,second")
         ha_mq.brokers[0][:status] = :connected
         ha_mq.brokers[1][:status] = :disconnected

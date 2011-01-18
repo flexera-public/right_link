@@ -293,7 +293,7 @@ module RightScale
     class NoConnectedBrokers < Exception; end
 
     # Cache for information about recently published messages for use with message returns
-    # Applies LRU for managing cache size but only deletes entries if old enough
+    # Applies LRU for managing cache size but only deletes entries when old enough
     class Published
 
       # Number of seconds since a cache entry was last used before it is deleted
@@ -308,7 +308,7 @@ module RightScale
       # Store message info in cache
       #
       # === Parameters
-      # message(String):: JSON encoded secure message that was published
+      # message(String):: Serialized message that was published
       # packet(Packet):: Packet contained in published message
       # brokers(Array):: Identity of candidate brokers when message was published
       # options(Hash):: Options used to publish message
@@ -317,24 +317,23 @@ module RightScale
       # true:: Always return true
       def store(message, packet, brokers, options)
         key = identify(message)
-        unless key.nil?
-          now = Time.now.to_i
-          if entry = @cache[key]
-            entry[0] = now
-            @lru.push(@lru.delete(key))
-          else
-            @cache[key] = [now, {
-              :type    => (packet.type if packet.respond_to?(:type) && packet.type != packet.class),
-              :from    => (packet.from if packet.respond_to?(:from)),
-              :token   => (packet.token if packet.respond_to?(:token)),
-              :one_way => (packet.respond_to?(:one_way) ? packet.one_way : true),
-              :options => options,
-              :brokers => brokers,
-              :failed  => []
-            }]
-            @lru.push(key)
-            @cache.delete(@lru.shift) while (now - @cache[@lru.first][0]) > MAX_AGE
-          end
+        now = Time.now.to_i
+        if entry = @cache[key]
+          entry[0] = now
+          @lru.push(@lru.delete(key))
+        else
+          @cache[key] = [now, {
+            :name    => (packet.respond_to?(:name) ? packet.name : packet.class.name.snake_case),
+            :type    => (packet.type if packet.respond_to?(:type) && packet.type != packet.class),
+            :from    => (packet.from if packet.respond_to?(:from)),
+            :token   => (packet.token if packet.respond_to?(:token)),
+            :one_way => (packet.respond_to?(:one_way) ? packet.one_way : true),
+            :options => options,
+            :brokers => brokers,
+            :failed  => []
+          }]
+          @lru.push(key)
+          @cache.delete(@lru.shift) while (now - @cache[@lru.first][0]) > MAX_AGE
         end
         true
       end
@@ -342,10 +341,11 @@ module RightScale
       # Fetch info about previously published message if available
       #
       # === Parameters
-      # message(String):: JSON encoded secure message that was published
+      # message(String):: Serialized message that was published
       #
       # === Return
       # data(Hash):: Information about message, or empty if not found in cache
+      #   :name(String):: Message class name in lower snake case
       #   :type(String):: Request type if applicable
       #   :from(String):: Original sender of message if applicable
       #   :token(String):: Generated message identifier if applicable
@@ -366,14 +366,18 @@ module RightScale
       # Obtain a unique identifier for this message
       #
       # === Parameters
-      # message(String):: JSON encoded secure message that was published
+      # message(String):: Serialized message that was published
       #
       # === Returns
       # (String):: Unique id for message
       def identify(message)
-        # TODO Need to find more efficient way than fully unmarshalling what was just marshalled
-        # TODO and may want to use something smaller than full signature, e.g., generate new id
-        JSON.load(message)["signature"] rescue nil
+        # If possible use significant part of serialized signature without decoding the message,
+        # otherwise use entire serialized message
+        if s = (message =~ /signature/)
+          message[s, 1000]
+        else
+          message
+        end
       end
 
     end # Published
@@ -1140,6 +1144,7 @@ module RightScale
     #   msg(String):: Returned serialized message
     #   to(String):: Queue to which message was published
     #   details(Hash):: Additional details about message
+    #     :name(String):: Message class name in lower snake case
     #     :type(String):: Request type if applicable
     #     :from(String):: Original sender of message if applicable
     #     :token(String):: Generated message identifier if applicable
@@ -1190,6 +1195,7 @@ module RightScale
     # message(String):: Returned message in serialized packet format
     # to(String):: Queue to which message was published
     # details(Hash):: Additional details about message
+    #   :name(String):: Message class name in lower snake case
     #   :type(String):: Request type if applicable
     #   :from(String):: Original sender of message if applicable
     #   :token(String):: Generated message identifier if applicable
@@ -1203,6 +1209,7 @@ module RightScale
     def handle_return(identity, reason, message, to, details)
       @returns.update("#{alias_(identity)} (#{reason})")
 
+      name = details[:name]
       options = details[:options] || {}
       token = details[:token]
       one_way = details[:one_way]
@@ -1214,7 +1221,8 @@ module RightScale
           # Retry because persistent, and this time w/o mandatory so that gets queued even though no consumers
           mandatory = false
         else
-          RightLinkLog.info("NO ROUTE to #{to}")
+          t = token ? " <#{token}>" : ""
+          RightLinkLog.info("NO ROUTE #{aliases(details[:brokers]).join(", ")} [#{name}]#{t} to #{to}")
           @non_delivery.call(reason, details[:type], token, details[:from], to) if @non_delivery
         end
       end
@@ -1223,7 +1231,7 @@ module RightScale
         t = token ? " <#{token}>" : ""
         p = persistent ? ", persistent" : ""
         m = mandatory ? ", mandatory" : ""
-        RightLinkLog.info("RE-ROUTE #{aliases(remaining).join(", ")}#{t} to #{to}#{p}#{m}")
+        RightLinkLog.info("RE-ROUTE #{aliases(remaining).join(", ")} [#{details[:name]}]#{t} to #{to}#{p}#{m}")
         exchange = {:type => :queue, :name => to, :options => {:no_declare => true}}
         publish(exchange, message, options.merge(:no_serialize => true, :brokers => remaining,
                                                  :persistent => persistent, :mandatory => mandatory))

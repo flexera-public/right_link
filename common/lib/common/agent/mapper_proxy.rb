@@ -169,7 +169,7 @@ module RightScale
     # === Parameters
     # type(String):: Dispatch route for the request; typically identifies actor and action
     # payload(Object):: Data to be sent with marshalling en route
-    # targets(String|Hash):: Identity of specific target, hash for selecting potentially multiple
+    # target(String|Hash):: Identity of specific target, hash for selecting potentially multiple
     #   targets, or nil if routing solely using type
     #   :tags(Array):: Tags that must all be associated with a target for it to be selected
     #   :scope(Hash):: Behavior to be used to resolve tag based routing with the following keys:
@@ -182,7 +182,7 @@ module RightScale
     #
     # === Return
     # true:: Always return true
-    def push(type, payload = '', target = nil, opts = {})
+    def push(type, payload = nil, target = nil, opts = {})
       send_push(:push, type, payload, target, opts)
     end
 
@@ -210,7 +210,7 @@ module RightScale
     #
     # === Return
     # true:: Always return true
-    def persistent_push(type, payload = '', target = nil, opts = {})
+    def persistent_push(type, payload = nil, target = nil, opts = {})
       send_push(:persistent_push, type, payload, target, opts)
     end
 
@@ -245,7 +245,7 @@ module RightScale
     #
     # === Return
     # true:: Always return true
-    def timeout_retry_request(type, payload = '', target = nil, opts = {}, &callback)
+    def timeout_retry_request(type, payload = nil, target = nil, opts = {}, &callback)
       send_request(:timeout_retry_request, type, payload, target, opts, &callback)
     end
 
@@ -278,14 +278,11 @@ module RightScale
     #
     # === Return
     # true:: Always return true
-    def persistent_non_duplicate_request(type, payload = '', target = nil, opts = {}, &callback)
+    def persistent_non_duplicate_request(type, payload = nil, target = nil, opts = {}, &callback)
       send_request(:persistent_non_duplicate_request, type, payload, target, opts, &callback)
     end
 
     # Handle response to a request
-    # Use defer thread instead of primary if not single threaded, consistent with dispatcher,
-    # so that all shared data is accessed from the same thread
-    # Do callback if there is an exception, consistent with agent identity queue handling
     # Only to be called from primary thread
     #
     # === Parameters
@@ -298,9 +295,9 @@ module RightScale
       if response.is_a?(Result)
         if result = OperationResult.from_results(response)
           if result.non_delivery?
-            @non_deliveries.update(result.content.nil? ? "nil" : result.content)
+            @non_deliveries.update(result.content.nil? ? "nil" : result.content.inspect)
           elsif result.error?
-            @result_errors.update(result.content.nil? ? "nil" : result.content)
+            @result_errors.update(result.content.nil? ? "nil" : result.content.inspect)
           end
           @results.update(result.status)
         else
@@ -308,23 +305,13 @@ module RightScale
         end
 
         if handler = @pending_requests[token]
-          if result && result.non_delivery? && handler[:request_kind] == :timeout_retry_request
+          if result && result.non_delivery? && handler[:request_kind] == :timeout_retry_request &&
              [OperationResult::TARGET_NOT_CONNECTED, OperationResult::TTL_EXPIRATION].include?(result.content)
             # Log and ignore so that timeout retry mechanism continues
+            # Leave purging of associated request until final response, i.e., success response or retry timeout
             RightLinkLog.info("Non-delivery of <#{token}> because #{result.content}")
           else
-            # This request is finished, just need to deliver the response
-            purge(response.token)
-            if handler[:response_handler]
-              EM.__send__(@single_threaded ? :next_tick : :defer) do
-                begin
-                  handler[:response_handler].call(response)
-                rescue Exception => e
-                  RightLinkLog.error("Failed processing response #{response.to_s([])}", e, :trace)
-                  @exceptions.track("response", e, response)
-                end
-              end
-            end
+            deliver(response, handler)
           end
         elsif result && result.non_delivery?
           RightLinkLog.info("Non-delivery of <#{token}> because #{result.content}")
@@ -427,7 +414,7 @@ module RightScale
     #     with percentage breakdown per kind, or nil if none
     #   "requests"(Hash|nil):: Request activity stats with keys "total", "percent", "last", and "rate"
     #     with percentage breakdown per request type, or nil if none
-    #   "requests pending"(Integer|nil):: Number of requests waiting for response, or nil if none
+    #   "requests pending"(Hash|nil):: Number of requests waiting for response and age of oldest, or nil if none
     #   "response time"(Float):: Average number of seconds to respond to a request recently
     #   "result errors"(Hash|nil):: Error result activity stats with keys "total", "percent", "last",
     #     and 'rate' with percentage breakdown per error, or nil if none
@@ -498,7 +485,7 @@ module RightScale
     #
     # === Return
     # true:: Always return true
-    def send_push(kind, type, payload = '', target = nil, opts = {})
+    def send_push(kind, type, payload = nil, target = nil, opts = {})
       if should_queue?(opts)
         queue_request(:kind => kind, :type => type, :payload => payload, :target => target, :options => opts)
       else
@@ -515,7 +502,7 @@ module RightScale
           push.target = target
         end
         push.persistent = kind == :persistent_push
-        @request_kinds.update(push.selector == :all ? kind.to_s + " fanout" : kind.to_s)
+        @request_kinds.update(push.selector == :all ? kind.to_s.sub(/push/, "fanout") : kind.to_s)
         publish(push)
       end
       true
@@ -661,21 +648,36 @@ module RightScale
       ids
     end
 
-    # Delete pending request whose results are no longer needed
-    # Also delete any associated retry requests
+    # Deliver the response and remove associated request(s) from pending
+    # Use defer thread instead of primary if not single threaded, consistent with dispatcher,
+    # so that all shared data is accessed from the same thread
+    # Do callback if there is an exception, consistent with agent identity queue handling
+    # Only to be called from primary thread
     #
     # === Parameters
-    # token(String):: Request token
+    # response(Result):: Packet received as result of request
+    # handler(Hash):: Associated request handler
     #
     # === Return
     # true:: Always return true
-    def purge(token)
-      handler = @pending_requests.delete(token)
-      if handler
-        @requests.finish(handler[:receive_time], token)
-        parent = handler[:retry_parent]
+    def deliver(response, handler)
+      @requests.finish(handler[:receive_time], response.token)
+
+      @pending_requests.delete(response.token)
+      if parent = handler[:retry_parent]
+        @pending_requests.reject! { |k, v| k == parent || v[:retry_parent] == parent }
       end
-      @pending_requests.reject! { |k, v| k == parent || v[:retry_parent] == parent } if parent
+
+      if handler[:response_handler]
+        EM.__send__(@single_threaded ? :next_tick : :defer) do
+          begin
+            handler[:response_handler].call(response)
+          rescue Exception => e
+            RightLinkLog.error("Failed processing response {response.to_s([])}", e, :trace)
+            @exceptions.track("response", e, response)
+          end
+        end
+      end
       true
     end
 

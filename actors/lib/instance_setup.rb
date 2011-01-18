@@ -236,7 +236,7 @@ class InstanceSetup
           klass.generate("none", repo.base_urls, fz)
         end
       rescue Exception => e
-        log_error("Failed to configure repositories", e, :trace)
+        log_error("Failed to configure repositories", e)
       end
     end
     if system('which apt-get')

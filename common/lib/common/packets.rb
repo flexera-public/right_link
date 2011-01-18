@@ -111,6 +111,14 @@ module RightScale
       js = js.chop + ",\"size\":#{js.size}}"
     end
 
+    # Name of packet in lower snake case
+    #
+    # === Return
+    # (String):: Packet name
+    def name
+       self.class.to_s.split('::').last.gsub(/([A-Z]+)([A-Z][a-z])/,'\1_\2').gsub(/([a-z\d])([A-Z])/,'\1_\2').downcase
+    end
+
     # Generate log representation
     #
     # === Parameters
@@ -122,10 +130,7 @@ module RightScale
     def to_s(filter = nil, version = nil)
       v = __send__(version) if version
       v = (v && v != DEFAULT_VERSION) ? " v#{v}" : ""
-      log_msg = "[#{ self.class.to_s.split('::').last.
-        gsub(/([A-Z]+)([A-Z][a-z])/,'\1_\2').
-        gsub(/([a-z\d])([A-Z])/,'\1_\2').
-        downcase }#{v}]"
+      log_msg = "[#{name}#{v}]"
       log_msg += " (#{@size.to_s.gsub(/(\d)(?=(\d\d\d)+(?!\d))/, "\\1,")} bytes)" if @size && !@size.to_s.empty?
       log_msg
     end
@@ -232,7 +237,8 @@ module RightScale
     #   :scope(Hash):: Define behavior that should be used to resolve tag based routing
     #   :token(String):: Generated request id that a mapper uses to identify replies
     #   :reply_to(String):: Identity of the node that actor replies to, usually a mapper itself
-    #   :selector(Symbol):: Selector used to route the request: :any or :all
+    #   :selector(Symbol):: Selector used to route the request: :any or :all, defaults to :any,
+    #     :all deprecated for version 13 and above
     #   :target(String):: Target recipient
     #   :persistent(Boolean):: Indicates if this request should be saved to persistent storage
     #     by the AMQP broker
@@ -263,12 +269,11 @@ module RightScale
     end
 
     # Test whether the request is being fanned out to multiple targets
-    # Two-way request fanout is deprecated for version 13 and above
     #
     # === Return
     # (Boolean):: true if is multicast, otherwise false
     def fanout?
-      (@selector.nil? || @selector.to_s == 'all') && ((!@scope.nil?) || (!@tags.nil? && !@tags.empty?))
+      @selector.to_s == 'all'
     end
 
     # Create packet from unmarshalled data
@@ -361,7 +366,7 @@ module RightScale
     #   :from(String):: Sender identity
     #   :scope(Hash):: Define behavior that should be used to resolve tag based routing
     #   :token(String):: Generated request id that a mapper uses to identify replies
-    #   :selector(Symbol):: Selector used to route the request: :any or :all
+    #   :selector(Symbol):: Selector used to route the request: :any or :all, defaults to :any
     #   :target(String):: Target recipient
     #   :persistent(Boolean):: Indicates if this request should be saved to persistent storage
     #     by the AMQP broker
@@ -393,9 +398,9 @@ module RightScale
     # Test whether the request is being fanned out to multiple targets
     #
     # === Return
-    # (Boolean):: true if is multicast, otherwise false
+    # (Boolean):: true if is fanout, otherwise false
     def fanout?
-      (@selector.nil? || @selector.to_s == 'all') && ((!@scope.nil?) || (!@tags.nil? && !@tags.empty?))
+      @selector.to_s == 'all'
     end
 
     # Keep interface consistent with Request packets
@@ -559,28 +564,6 @@ module RightScale
   end # Result
 
 
-  # Deprecated for agents that are version 13 and above
-  #
-  # Packet for reporting a stale request packet
-  class Stale < Packet
-
-    # Create non-delivery Result packet from unmarshalled data for Stale packet
-    #
-    # === Parameters
-    # o(Hash):: Unmarshalled data for Stale packet
-    #
-    # === Return
-    # (Result):: New packet
-    def self.create(o)
-      i = o['data']
-      from = self.compatible(i['from'])
-      Result.new(i['token'], from, OperationResult.non_delivery(OperationResult::TTL_EXPIRATION), i['identity'],
-                 from, tries = nil, persistent = true, version = i['version'] || [DEFAULT_VERSION, DEFAULT_VERSION])
-    end
-
-  end # Stale
-
-
   # Packet for carrying statistics
   class Stats < Packet
 
@@ -626,132 +609,6 @@ module RightScale
     end
 
   end # Stats
-
-
-  # Deprecated for agents that are version 8 and above
-  # instead use /mapper/update_tags
-  #
-  # Packet for an agent to update the mappers with its tags
-  class TagUpdate < Packet
-
-    attr_accessor :identity, :new_tags, :obsolete_tags
-
-    # Create packet
-    #
-    # === Parameters
-    # identity(String):: Sender identity
-    # new_tags(Array):: List of new tags
-    # obsolete_tags(Array):: List of tags to be deleted
-    # version(Array):: Protocol version of the original creator of the packet followed by the
-    #   protocol version of the packet contents to be used when sending
-    # size(Integer):: Size of request in bytes used only for marshalling
-    def initialize(identity, new_tags, obsolete_tags, version = [VERSION, VERSION], size = nil)
-      @identity      = identity
-      @new_tags      = new_tags
-      @obsolete_tags = obsolete_tags
-      @version       = version
-      @size          = size
-    end
-
-    # Create packet from unmarshalled data
-    #
-    # === Parameters
-    # o(Hash):: Unmarshalled data
-    #
-    # === Return
-    # (TagUpdate):: New packet
-    def self.create(o)
-      i = o['data']
-      new(self.compatible(i['identity']), i['new_tags'], i['obsolete_tags'],
-          i['version'] || [DEFAULT_VERSION, DEFAULT_VERSION], o['size'])
-    end
-
-    # Generate log representation
-    #
-    # === Parameters
-    # filter(Array(Symbol)):: Attributes to be included in output
-    # version(Symbol|nil):: Version to display: :recv_version, :send_version, or nil meaning none
-    #
-    # === Return
-    # log_msg(String):: Log representation
-    def to_s(filter = nil, version = nil)
-      log_msg = "#{super(filter, version)} #{id_to_s(@identity)}"
-      log_msg += ", new tags #{@new_tags.inspect}" if @new_tags && !@new_tags.empty?
-      log_msg += ", obsolete tags #{@obsolete_tags.inspect}" if @obsolete_tags && !@obsolete_tags.empty?
-      log_msg
-    end
-
-  end # TagUpdate
-
-
-  # Deprecated for agents that are version 8 and above
-  # instead use Request of type /mapper/query_tags with :tags and :agent_ids in payload
-  #
-  # Packet for requesting retrieval of agents with specified tags
-  class TagQuery < Packet
-
-    attr_accessor :from, :token, :agent_ids, :tags, :persistent
-
-    # Create packet
-    #
-    # === Parameters
-    # from(String):: Sender identity
-    # opts(Hash):: Options, at least one must be set:
-    #   :tags(Array):: Tags defining a query that returned agents tags must match
-    #   :agent_ids(Array):: ids of agents that should be returned
-    # version(Array):: Protocol version of the original creator of the packet followed by the
-    #   protocol version of the packet contents to be used when sending
-    # size(Integer):: Size of request in bytes used only for marshalling
-    def initialize(from, opts, version = [VERSION, VERSION], size = nil)
-      @from       = from
-      @token      = opts[:token]
-      @agent_ids  = opts[:agent_ids]
-      @tags       = opts[:tags]
-      @persistent = opts[:persistent]
-      @version    = version
-      @size       = size
-    end
-
-    # Create packet from unmarshalled data
-    #
-    # === Parameters
-    # o(Hash):: Unmarshalled data
-    #
-    # === Return
-    # (TagQuery):: New packet
-    def self.create(o)
-      i = o['data']
-      agent_ids = i['agent_ids'].map { |id| self.compatible(id) } if i['agent_ids']
-      new(i['from'], { :token => i['token'], :agent_ids => agent_ids,
-                       :tags => i['tags'],   :persistent => i['persistent'] },
-          i['version'] || [DEFAULT_VERSION, DEFAULT_VERSION], o['size'])
-    end
-
-    # Generate log representation
-    #
-    # === Parameters
-    # filter(Array(Symbol)):: Attributes to be included in output
-    # version(Symbol|nil):: Version to display: :recv_version, :send_version, or nil meaning none
-    #
-    # === Return
-    # log_msg(String):: Log representation
-    def to_s(filter = nil, version = nil)
-      log_msg = "#{super(filter, version)} #{trace}"
-      log_msg += " from #{id_to_s(@from)}" if filter.nil? || filter.include?(:from)
-      log_msg += " agent_ids #{@agent_ids.inspect}"
-      log_msg += " tags #{@tags.inspect}"
-      log_msg
-    end
-
-    # Whether the packet is one that does not have an associated response
-    #
-    # === Return
-    # false:: Always return false
-    def one_way
-      false
-    end
-
-  end # TagQuery
 
 end # RightScale
 

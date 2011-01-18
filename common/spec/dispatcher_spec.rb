@@ -84,15 +84,6 @@ describe "RightScale::Dispatcher" do
 
   include FlexMock::ArgumentTypes
 
-  before(:all) do
-    @original_completed_file = RightScale::Dispatcher::Completed::COMPLETED_FILE
-    file_path = File.join(RightScale::SpecHelpers::RIGHT_LINK_SPEC_HELPER_TEMP_PATH, "__completed_requests.js")
-    RightScale::Dispatcher::Completed.const_set(:COMPLETED_FILE, file_path)
-    @original_completed_file2 = RightScale::Dispatcher::Completed::COMPLETED_FILE2
-    file_path = File.join(RightScale::SpecHelpers::RIGHT_LINK_SPEC_HELPER_TEMP_PATH, "__completed_requests2.js")
-    RightScale::Dispatcher::Completed.const_set(:COMPLETED_FILE2, file_path)
-  end
-
   before(:each) do
     flexmock(RightScale::RightLinkLog).should_receive(:error).never.by_default
     flexmock(RightScale::RightLinkLog).should_receive(:info).by_default
@@ -107,22 +98,10 @@ describe "RightScale::Dispatcher" do
     @dispatcher.em = EMMock
   end
 
-  after(:each) do
-    File.delete(RightScale::Dispatcher::Completed::COMPLETED_FILE,
-                RightScale::Dispatcher::Completed::COMPLETED_FILE2) rescue nil
-  end
-
-  after(:all) do
-    RightScale::Dispatcher::Completed.const_set(:COMPLETED_FILE, @original_completed_file)
-    RightScale::Dispatcher::Completed.const_set(:COMPLETED_FILE2, @original_completed_file2)
-  end
-
-  describe "Completed cache" do
+  describe "Dispatched cache" do
 
     before(:each) do
-      @exceptions = flexmock("exceptions", :track => true)
-      flexmock(RightScale::StatsHelper::ExceptionStats).should_receive(:new).and_return(@exceptions)
-      @completed = RightScale::Dispatcher::Completed.new(@exceptions)
+      @dispatched = RightScale::Dispatcher::Dispatched.new
       @token1 = "token1"
       @token2 = "token2"
       @token3 = "token3"
@@ -131,33 +110,33 @@ describe "RightScale::Dispatcher" do
     context "when storing" do
 
       it "should store request token" do
-        @completed.store(@token1)
-        @completed.instance_variable_get(:@cache)[@token1].should == @now.to_i
-        @completed.instance_variable_get(:@lru).should == [@token1]
+        @dispatched.store(@token1)
+        @dispatched.instance_variable_get(:@cache)[@token1].should == @now.to_i
+        @dispatched.instance_variable_get(:@lru).should == [@token1]
       end
 
       it "should update lru list when store to existing entry" do
-        @completed.store(@token1)
-        @completed.instance_variable_get(:@cache)[@token1].should == @now.to_i
-        @completed.instance_variable_get(:@lru).should == [@token1]
-        @completed.store(@token2)
-        @completed.instance_variable_get(:@cache)[@token2].should == @now.to_i
-        @completed.instance_variable_get(:@lru).should == [@token1, @token2]
+        @dispatched.store(@token1)
+        @dispatched.instance_variable_get(:@cache)[@token1].should == @now.to_i
+        @dispatched.instance_variable_get(:@lru).should == [@token1]
+        @dispatched.store(@token2)
+        @dispatched.instance_variable_get(:@cache)[@token2].should == @now.to_i
+        @dispatched.instance_variable_get(:@lru).should == [@token1, @token2]
         flexmock(Time).should_receive(:now).and_return(@now += 10)
-        @completed.store(@token1)
-        @completed.instance_variable_get(:@cache)[@token1].should == @now.to_i
-        @completed.instance_variable_get(:@lru).should == [@token2, @token1]
+        @dispatched.store(@token1)
+        @dispatched.instance_variable_get(:@cache)[@token1].should == @now.to_i
+        @dispatched.instance_variable_get(:@lru).should == [@token2, @token1]
       end
 
       it "should remove old cache entries when store new one" do
-        @completed.store(@token1)
-        @completed.store(@token2)
-        @completed.instance_variable_get(:@cache).keys.should == [@token1, @token2]
-        @completed.instance_variable_get(:@lru).should == [@token1, @token2]
-        flexmock(Time).should_receive(:now).and_return(@now += RightScale::Dispatcher::Completed::MAX_AGE + 1)
-        @completed.store(@token3)
-        @completed.instance_variable_get(:@cache).keys.should == [@token3]
-        @completed.instance_variable_get(:@lru).should == [@token3]
+        @dispatched.store(@token1)
+        @dispatched.store(@token2)
+        @dispatched.instance_variable_get(:@cache).keys.should == [@token1, @token2]
+        @dispatched.instance_variable_get(:@lru).should == [@token1, @token2]
+        flexmock(Time).should_receive(:now).and_return(@now += RightScale::Dispatcher::Dispatched::MAX_AGE + 1)
+        @dispatched.store(@token3)
+        @dispatched.instance_variable_get(:@cache).keys.should == [@token3]
+        @dispatched.instance_variable_get(:@lru).should == [@token3]
       end
 
     end
@@ -165,151 +144,44 @@ describe "RightScale::Dispatcher" do
     context "when fetching" do
 
       it "should fetch request and make it the most recently used" do
-        @completed.store(@token1)
-        @completed.store(@token2)
-        @completed.instance_variable_get(:@lru).should == [@token1, @token2]
-        @completed.fetch(@token1).should be_true
-        @completed.instance_variable_get(:@lru).should == [@token2, @token1]
+        @dispatched.store(@token1)
+        @dispatched.store(@token2)
+        @dispatched.instance_variable_get(:@lru).should == [@token1, @token2]
+        @dispatched.fetch(@token1).should be_true
+        @dispatched.instance_variable_get(:@lru).should == [@token2, @token1]
       end
 
       it "should return false if fetch non-existent request" do
-        @completed.fetch(@token1).should be_false
-        @completed.store(@token1)
-        @completed.fetch(@token1).should be_true
-        @completed.fetch(@token2).should be_false
+        @dispatched.fetch(@token1).should be_false
+        @dispatched.store(@token1)
+        @dispatched.fetch(@token1).should be_true
+        @dispatched.fetch(@token2).should be_false
       end
 
     end
 
-    context "when loading" do
+    context "when retrieving stats" do
 
-      it "should load nothing if file does not exist" do
-        @completed = RightScale::Dispatcher::Completed.new(@exceptions)
-        @completed.size.should == 0
+      it "should return nil if cache empty" do
+        @dispatched.stats.should be_nil
       end
 
-      it "should load cache from disk but only store entries not exceeding max age" do
-        @completed.store(@token1)
-        @completed.store(@token2)
-        flexmock(Time).should_receive(:now).and_return(@now += RightScale::Dispatcher::Completed::MAX_AGE + 1)
-        @completed.store(@token3)
-        @completed = RightScale::Dispatcher::Completed.new(@exceptions)
-        @completed.size.should == 1
-        @completed.instance_variable_get(:@cache)[@token3].should == @now.to_i
-        @completed.instance_variable_get(:@lru).should == [@token3]
-      end
-
-      it "should recover cache from alternate file if exists" do
-        @completed.store(@token1)
-        @completed.store(@token2)
-        flexmock(Time).should_receive(:now).and_return(@now += RightScale::Dispatcher::Completed::MAX_AGE + 1)
-        @completed.store(@token3)
-        File.rename(RightScale::Dispatcher::Completed::COMPLETED_FILE, RightScale::Dispatcher::Completed::COMPLETED_FILE2)
-        @completed = RightScale::Dispatcher::Completed.new(@exceptions)
-        @completed.size.should == 1
-        @completed.instance_variable_get(:@cache)[@token3].should == @now.to_i
-        @completed.instance_variable_get(:@lru).should == [@token3]
-      end
-
-      it "should delete alternate file if both files exist" do
-        @completed.store(@token1)
-        @completed.store(@token2)
-        flexmock(Time).should_receive(:now).and_return(@now += RightScale::Dispatcher::Completed::MAX_AGE + 1)
-        @completed.store(@token3)
-        File.link(RightScale::Dispatcher::Completed::COMPLETED_FILE, RightScale::Dispatcher::Completed::COMPLETED_FILE2)
-        @completed = RightScale::Dispatcher::Completed.new(@exceptions)
-        @completed.size.should == 1
-        @completed.instance_variable_get(:@cache)[@token3].should == @now.to_i
-        @completed.instance_variable_get(:@lru).should == [@token3]
-        File.exist?(RightScale::Dispatcher::Completed::COMPLETED_FILE2).should be_false
-      end
-
-      it "should log error if fail to load cache but should still finish initialization" do
-        flexmock(RightScale::RightLinkLog).should_receive(:error).with(/Failed loading completed cache/, Exception, :trace).once
-        flexmock(File).should_receive(:exist?).and_raise(Exception)
-        @completed = RightScale::Dispatcher::Completed.new(@exceptions)
-        @completed.size.should == 0
+      it "should return total, youngest age, and oldest age" do
+        @dispatched.store(@token1)
+        flexmock(Time).should_receive(:now).and_return(@now += 10)
+        @dispatched.store(@token2)
+        stats = @dispatched.stats
+        stats["total"].should == 2
+        stats["youngest age"].should == 0
+        stats["oldest age"].should == 10
+        @dispatched.fetch(@token1)
+        stats = @dispatched.stats
+        stats["oldest age"].should == 0
       end
 
     end
 
-    context "when persisting" do
-
-      it "should persist request token" do
-        data = JSON.dump("token" => @token1, "time" => @now.to_i)
-        flexmock(@completed.instance_variable_get(:@file)).should_receive(:puts).with(data).once
-        @completed.store(@token1)
-      end
-
-      it "should flush old data if exceed max age and minimum number of cache entries" do
-        begin
-          flexmock(Time).should_receive(:now).and_return(@now += RightScale::Dispatcher::Completed::MAX_AGE + 1)
-          original_min_flush_size = RightScale::Dispatcher::Completed::MIN_FLUSH_SIZE
-          RightScale::Dispatcher::Completed.const_set(:MIN_FLUSH_SIZE, 0)
-          flexmock(@completed.instance_variable_get(:@file)).should_receive(:puts).once
-          flexmock(@completed).should_receive(:flush).once
-          @completed.store(@token1)
-          @completed.instance_variable_get(:@persisted).should == 0
-          @completed.instance_variable_get(:@last_flush).should == @now.to_i
-        ensure
-          RightScale::Dispatcher::Completed.const_set(:MIN_FLUSH_SIZE, original_min_flush_size)
-        end
-      end
-
-      it "should log error if cannot persist but should still store" do
-        flexmock(RightScale::RightLinkLog).should_receive(:error).with(/Failed persisting completed request/, Exception, :trace).once
-        flexmock(@completed.instance_variable_get(:@file)).should_receive(:puts).and_raise(Exception)
-        @completed.store(@token1)
-        @completed.instance_variable_get(:@cache)[@token1].should == @now.to_i
-        @completed.instance_variable_get(:@lru).should == [@token1]
-      end
-
-    end
-
-    context "when flushing" do
-
-      it "should replace persisted data with current cache data" do
-        @completed.store(@token1)
-        @completed.store(@token2)
-        flexmock(Time).should_receive(:now).and_return(@now += RightScale::Dispatcher::Completed::MAX_AGE + 1)
-        @completed.store(@token3)
-        File.open(RightScale::Dispatcher::Completed::COMPLETED_FILE, 'r') { |f| f.readlines.size.should == 3 }
-        @completed.size.should == 1
-        @completed.__send__(:flush)
-        @completed.size.should == 1
-        @completed.instance_variable_get(:@cache)[@token3].should == @now.to_i
-        @completed.instance_variable_get(:@lru).should == [@token3]
-        @completed.instance_variable_get(:@persisted).should == 1
-        @completed.instance_variable_get(:@last_flush).should == @now.to_i
-        File.exist?(RightScale::Dispatcher::Completed::COMPLETED_FILE2).should be_false
-        File.open(RightScale::Dispatcher::Completed::COMPLETED_FILE, 'r') { |f| f.readlines.size.should == 1 }
-      end
-
-      it "should log error and reopen existing file if flush fails" do
-        @completed.store(@token1)
-        @completed.store(@token2)
-        flexmock(Time).should_receive(:now).and_return(@now += RightScale::Dispatcher::Completed::MAX_AGE + 1)
-        @completed.store(@token3)
-        File.open(RightScale::Dispatcher::Completed::COMPLETED_FILE, 'r') { |f| f.readlines.size.should == 3 }
-        @completed.size.should == 1
-        flexmock(RightScale::RightLinkLog).should_receive(:error).with(/Failed flushing old persisted data/, Exception, :trace).once
-        flexmock(File).should_receive(:rename).and_raise(Exception)
-        @completed.__send__(:flush)
-        @completed.size.should == 1
-        @completed.instance_variable_get(:@cache)[@token3].should == @now.to_i
-        @completed.instance_variable_get(:@lru).should == [@token3]
-        @completed.instance_variable_get(:@persisted).should == 0
-        @completed.instance_variable_get(:@last_flush).should == @now.to_i
-        File.exist?(RightScale::Dispatcher::Completed::COMPLETED_FILE2).should be_false
-        File.open(RightScale::Dispatcher::Completed::COMPLETED_FILE, 'r') { |f| f.readlines.size.should == 3 }
-        @completed.store(@token1)
-        @completed.size.should == 2
-        File.open(RightScale::Dispatcher::Completed::COMPLETED_FILE, 'r') { |f| f.readlines.size.should == 4 }
-      end
-
-    end
-
-  end # Completed
+  end # Dispatched
 
   it "should dispatch a request" do
     req = RightScale::Request.new('/foo/bar', 'you', :token => 'token')
@@ -396,8 +268,18 @@ describe "RightScale::Dispatcher" do
     @dispatcher.dispatch(req).should be_nil
   end
 
-  it "should send error result instead of non-delivery if agent is below version 13" do
-    # TODO Once have version info in packet
+  it "should send error result instead of non-delivery if agent does not know about non-delivery" do
+    flexmock(Time).should_receive(:now).and_return(Time.at(1000000)).by_default
+    flexmock(RightScale::RightLinkLog).should_receive(:info).once.with(on {|arg| arg =~ /REJECT EXPIRED/})
+    @broker.should_receive(:publish).with(Hash, on {|arg| arg.class == RightScale::Result &&
+                                                          arg.results.error? &&
+                                                          arg.results.content =~ /Could not deliver/},
+                                          hsh(:persistent => true, :mandatory => true)).once
+    @dispatcher = RightScale::Dispatcher.new(@agent)
+    @dispatcher.em = EMMock
+    req = RightScale::Request.new('/foo/bar', 'you', {:expires_at => @now.to_i + 8}, [12, 13])
+    flexmock(Time).should_receive(:now).and_return(@now += 10)
+    @dispatcher.dispatch(req).should be_nil
   end
 
   it "should not reject requests whose time-to-live has not expired" do
@@ -428,7 +310,7 @@ describe "RightScale::Dispatcher" do
       @agent.should_receive(:options).and_return(:dup_check => true)
       @dispatcher = RightScale::Dispatcher.new(@agent)
       req = RightScale::Request.new('/foo/bar', 'you', :token => "try")
-      @dispatcher.instance_variable_get(:@completed).store(req.token)
+      @dispatcher.instance_variable_get(:@dispatched).store(req.token)
       @dispatcher.dispatch(req).should be_nil
       EM.stop
     end
@@ -441,7 +323,7 @@ describe "RightScale::Dispatcher" do
       @dispatcher = RightScale::Dispatcher.new(@agent)
       req = RightScale::Request.new('/foo/bar', 'you', :token => "try")
       req.tries.concat(["try1", "try2"])
-      @dispatcher.instance_variable_get(:@completed).store("try2")
+      @dispatcher.instance_variable_get(:@dispatched).store("try2")
       @dispatcher.dispatch(req).should be_nil
       EM.stop
     end
@@ -453,7 +335,7 @@ describe "RightScale::Dispatcher" do
       @dispatcher = RightScale::Dispatcher.new(@agent)
       req = RightScale::Request.new('/foo/bar', 'you', :token => "try")
       req.tries.concat(["try1", "try2"])
-      @dispatcher.instance_variable_get(:@completed).store("try3")
+      @dispatcher.instance_variable_get(:@dispatched).store("try3")
       @dispatcher.dispatch(req).should_not be_nil
       EM.stop
     end
@@ -464,7 +346,7 @@ describe "RightScale::Dispatcher" do
       @dispatcher = RightScale::Dispatcher.new(@agent)
       req = RightScale::Request.new('/foo/bar', 'you', :token => "try")
       req.tries.concat(["try1", "try2"])
-      @dispatcher.instance_variable_get(:@completed).should be_nil
+      @dispatcher.instance_variable_get(:@dispatched).should be_nil
       @dispatcher.dispatch(req).should_not be_nil
       EM.stop
     end

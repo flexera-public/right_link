@@ -102,6 +102,7 @@ module RightScale
       delete_if_exists(chef_file_path)
       delete_if_exists(past_scripts_path)
       delete_if_exists(log_path)
+      delete_if_exists(dev_state_file_path)
     end
 
     # Path to serialized instance state
@@ -119,14 +120,14 @@ module RightScale
       File.join(RIGHT_LINK_SPEC_HELPER_TEMP_PATH, '__past_scripts.js')
     end
 
+    # Path to dev state file
+    def dev_state_file_path
+      File.join(RIGHT_LINK_SPEC_HELPER_TEMP_PATH, '__dev_state.js')
+    end
+
     # Path to instance boot logs
     def log_path
       File.join(RIGHT_LINK_SPEC_HELPER_TEMP_PATH, '__agent.log')
-    end
-
-    # Path to dev state file
-    def dev_state_file_path
-      File.join(RIGHT_LINK_SPEC_HELPER_TEMP_PATH, '__dev_state.log')
     end
 
     # Test and delete if exists

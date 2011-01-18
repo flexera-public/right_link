@@ -125,7 +125,7 @@ describe InstanceSetup do
     EM.run do
       @setup.__send__(:initialize, @agent_identity.to_s)
       EM.add_periodic_timer(0.1) { check_state }
-      EM.add_timer(10) { EM.stop }
+      EM.add_timer(25) { EM.stop }
     end
   end
 

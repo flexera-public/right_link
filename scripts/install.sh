@@ -68,7 +68,7 @@ fi
 #
 
 echo Installing private scripts from $RIGHT_LINK_SCRIPTS ...
-for script in rad rchk rnac
+for script in rad rchk rnac rstat
 do
   echo Installing $script
   cat > /opt/rightscale/bin/$script <<EOF
@@ -79,7 +79,7 @@ EOF
 done
 
 echo Installing command line tools from $RIGHT_LINK_SCRIPTS ...
-for script in rs_run_right_script rs_run_recipe rs_log_level rs_reenroll rs_tag rstat
+for script in rs_run_right_script rs_run_recipe rs_log_level rs_reenroll rs_tag
 do
   echo Installing $script
   cat > /usr/bin/$script <<EOF

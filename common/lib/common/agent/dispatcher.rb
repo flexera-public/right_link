@@ -27,61 +27,38 @@ module RightScale
 
     include StatsHelper
 
-    # Persistent cache for requests that have completed recently
+    # Cache for requests that have been dispatched recently
     # This cache is intended for use in checking for duplicate requests
-    # Given process is assumed to have sole ownership of the local file used for persistence
-    class Completed
+    class Dispatched
 
-      # Maximum number of seconds to retain a completed request in cache
+      # Maximum number of seconds to retain a dispatched request in cache
       # This must be greater than the maximum possible retry timeout to avoid
       # duplicate execution of a request
       MAX_AGE = 12 * 60 * 60
 
-      # Minimum number of persisted cache entries before consider flushing old data
-      MIN_FLUSH_SIZE = 1000
-
-      # Path to JSON file where this cache is persisted
-      # Second file is for temporary use while flushing old data
-      COMPLETED_DIR = RightScale::RightLinkConfig[:agent_state_dir]
-      COMPLETED_FILE = File.join(COMPLETED_DIR, "completed_requests.js")
-      COMPLETED_FILE2 = File.join(COMPLETED_DIR, "completed_requests2.js")
-
       # Initialize cache
-      #
-      # === Parameters
-      # exceptions(ExceptionStats):: Exception activity stats
-      def initialize(exceptions)
-        @exceptions = exceptions
-        @last_flush = Time.now.to_i
-        @persisted = 0
+      def initialize
         @cache = {}
         @lru = []
-        load
-        @file = File.open(COMPLETED_FILE, 'a')
       end
 
-      # Store completed request token in cache
-      # Persist it only if specified time is nil
+      # Store dispatched request token in cache
       #
       # === Parameters
       # token(String):: Generated message identifier
-      # time(Integer):: Time when request completed for use when loading from disk,
-      #   defaults to current time
       #
       # === Return
       # true:: Always return true
-      def store(token, time = nil)
-        persist = !time
-        time ||= Time.now.to_i
+      def store(token)
+        now ||= Time.now.to_i
         if @cache.has_key?(token)
-          @cache[token] = time
+          @cache[token] = now
           @lru.push(@lru.delete(token))
         else
-          @cache[token] = time
+          @cache[token] = now
           @lru.push(token)
-          @cache.delete(@lru.shift) while (time - @cache[@lru.first]) > MAX_AGE
+          @cache.delete(@lru.shift) while (now - @cache[@lru.first]) > MAX_AGE
         end
-        persist(token, time) if persist
         true
       end
 
@@ -91,7 +68,7 @@ module RightScale
       # token(String):: Generated message identifier
       #
       # === Return
-      # (Boolean):: true if request has completed, otherwise false
+      # (Boolean):: true if request has been dispatched, otherwise false
       def fetch(token)
         if @cache[token]
           @cache[token] = Time.now.to_i
@@ -107,98 +84,24 @@ module RightScale
         @cache.size
       end
 
-      protected
-
-      # Load cache from disk
+      # Get cache statistics
       #
       # === Return
-      # true:: Always return true
-      def load
-        begin
-          if File.exist?(COMPLETED_FILE2)
-            begin
-              if File.exist?(COMPLETED_FILE)
-                File.delete(COMPLETED_FILE2)
-              else
-                File.rename(COMPLETED_FILE2, COMPLETED_FILE)
-              end
-            rescue Exception => e
-              RightLinkLog.error("Failed recovering completed cache file from #{COMPLETED_FILE2}", e, :trace)
-              @exceptions.track("completed cache", e)
-            end
-          end
-
-          now = Time.now.to_i
-          File.open(COMPLETED_FILE, 'r') do |file|
-            file.readlines.each do |line|
-              data = JSON.load(line)
-              time = data["time"].to_i
-              store(data["token"], time) if (now - time) <= MAX_AGE
-            end
-            RightLinkLog.info("Loaded completed cache of size #{size} from file #{COMPLETED_FILE}")
-          end if File.exist?(COMPLETED_FILE)
-        rescue Exception => e
-          RightLinkLog.error("Failed loading completed cache from file #{COMPLETED_FILE}", e, :trace)
-          @exceptions.track("completed cache", e)
+      # stats(Hash|nil):: Current statistics, or nil if cache empty
+      #   "total"(Integer):: Total number in cache, or nil if none
+      #   "oldest"(Integer):: Number of seconds since oldest cache entry created or updated
+      #   "youngest"(Integer):: Number of seconds since youngest cache entry created or updated
+      def stats
+        if size > 0
+          {
+            "total" => size,
+            "oldest age" => size > 0 ? Time.now.to_i - @cache[@lru.first] : 0,
+            "youngest age" => size > 0 ? Time.now.to_i - @cache[@lru.last] : 0
+          }
         end
-        true
       end
 
-      # Persist cache entry to disk in JSON format
-      #
-      # === Parameters
-      #
-      # token(String):: Generated message identifier
-      # time(Integer):: Time when request completed
-      #
-      # === Return
-      # true:: Always return true
-      def persist(token, time)
-        begin
-          @file.puts(JSON.dump("token" => token, "time" => time))
-          @file.flush
-          if (@persisted += 1) > MIN_FLUSH_SIZE && (time - @last_flush) > MAX_AGE
-            # Reset tracking before flush so that if flush fails, do not immediately retry
-            @persisted = 0
-            @last_flush = time
-            flush
-          end
-        rescue Exception => e
-          RightLinkLog.error("Failed persisting completed request to file #{COMPLETED_FILE}", e, :trace)
-          @exceptions.track("completed cache", e)
-        end
-        true
-      end
-
-      # Flush old data from persisted cache
-      #
-      # === Return
-      # true:: Always return true
-      def flush
-        begin
-          @file.close
-          File.delete(COMPLETED_FILE2) rescue nil
-          File.rename(COMPLETED_FILE, COMPLETED_FILE2)
-          @file = File.open(COMPLETED_FILE, 'a')
-          @cache.each { |token, time| @file.puts(JSON.dump("token" => token, "time" => time)) }
-          @file.flush
-          @persisted = size
-          @last_flush = Time.now.to_i
-          File.delete(COMPLETED_FILE2)
-          RightLinkLog.info("Flushed old persisted data from completed cache file #{COMPLETED_FILE}")
-        rescue Exception => e
-          RightLinkLog.error("Failed flushing old persisted data from completed cache file #{COMPLETED_FILE}", e, :trace)
-          @exceptions.track("completed cache", e)
-          # Reset tracking do not immediately re-fail
-          @persisted = 0
-          @last_flush = Time.now.to_i
-          @file.close rescue nil
-          @file = File.open(COMPLETED_FILE, 'a')
-        end
-        true
-      end
-
-    end # Completed
+    end # Dispatched
 
     # (ActorRegistry) Registry for actors
     attr_reader :registry
@@ -237,12 +140,12 @@ module RightScale
       reset_stats
 
       # Only access following from primary thread
-      @completed = Completed.new(@exceptions) if @dup_check
+      @dispatched = Dispatched.new if @dup_check
     end
 
     # Dispatch request to appropriate actor for servicing
     # Handle returning of result to requester including logging any exceptions
-    # Reject requests whose TTL has expired or that are duplicates of work already completed
+    # Reject requests whose TTL has expired or that are duplicates of work already dispatched
     # but do not do duplicate checking if being dispatched from a shared queue
     # Work is done in background defer thread if single threaded option is false
     #
@@ -270,9 +173,13 @@ module RightScale
         @rejects.update("expired (#{method})")
         RightLinkLog.info("REJECT EXPIRED <#{token}> from #{request.from} TTL #{elapsed(received_at.to_i - expires_at)} ago")
         if request.is_a?(Request)
-          # TODO As soon as know request sender's version change this to send as an error for older agents
-          result = Result.new(token, request.reply_to, OperationResult.non_delivery(OperationResult::TTL_EXPIRATION),
-                              @identity, request.from, request.tries, persistent = true)
+          # For agents that do not know about non-delivery, use error result
+          non_delivery = if request.recv_version < 13
+            OperationResult.error("Could not deliver request (#{OperationResult::TTL_EXPIRATION})")
+          else
+            OperationResult.non_delivery(OperationResult::TTL_EXPIRATION)
+          end
+          result = Result.new(token, request.reply_to, non_delivery, @identity, request.from, request.tries, request.persistent)
           exchange = {:type => :queue, :name => request.reply_to, :options => {:durable => true, :no_declare => @secure}}
           @broker.publish(exchange, result, :persistent => true, :mandatory => true)
         end
@@ -281,13 +188,13 @@ module RightScale
 
       # Reject this request if it is a duplicate
       if @dup_check && !shared && request.kind_of?(Request)
-        if @completed.fetch(token)
+        if @dispatched.fetch(token)
           @rejects.update("duplicate (#{method})")
           RightLinkLog.info("REJECT DUP <#{token}> of self")
           return nil
         end
         request.tries.each do |t|
-          if @completed.fetch(t)
+          if @dispatched.fetch(t)
             @rejects.update("retry duplicate (#{method})")
             RightLinkLog.info("REJECT RETRY DUP <#{token}> of <#{t}>")
             return nil
@@ -300,6 +207,7 @@ module RightScale
         begin
           @pending_dispatches += 1
           @last_request_dispatch_time = received_at.to_i
+          @dispatched.store(token) if @dup_check && !shared && request.kind_of?(Request) && token
           actor.__send__(method, request.payload)
         rescue Exception => e
           @pending_dispatches = [@pending_dispatches - 1, 0].max
@@ -313,7 +221,6 @@ module RightScale
           @pending_dispatches = [@pending_dispatches - 1, 0].max
           if request.kind_of?(Request)
             @requests.finish(received_at, token)
-            @completed.store(token) if @dup_check && !shared && token
             r = Result.new(token, request.reply_to, r, @identity, request.from, request.tries, request.persistent)
             exchange = {:type => :queue, :name => request.reply_to, :options => {:durable => true, :no_declare => @secure}}
             @broker.publish(exchange, r, :persistent => true, :mandatory => true, :log_filter => [:tries, :persistent])
@@ -338,7 +245,7 @@ module RightScale
     # Determine age of youngest request dispatch
     #
     # === Return
-    # age(Integer|nil):: Age in seconds of youngest dispatch, or nil if none
+    # (Integer|nil):: Age in seconds of youngest dispatch, or nil if none
     def dispatch_age
       age = Time.now.to_i - @last_request_dispatch_time if @last_request_dispatch_time && @pending_dispatches > 0
     end
@@ -350,24 +257,32 @@ module RightScale
     #
     # === Return
     # stats(Hash):: Current statistics:
-    #   "completed cache"(Integer|nil):: Size of cache of completed requests used for detecting duplicates,
+    #   "cached"(Hash|nil):: Number of dispatched requests cached and age of youngest and oldest,
     #     or nil if empty
     #   "exceptions"(Hash|nil):: Exceptions raised per category, or nil if none
     #     "total"(Integer):: Total for category
     #     "recent"(Array):: Most recent as a hash of "count", "type", "message", "when", and "where"
     #   "rejects"(Hash|nil):: Request reject activity stats with keys "total", "percent", "last", and "rate"
+    #   "pending"(Hash|nil):: Pending request "total" and "youngest age", or nil if none
     #     with percentage breakdown per reason ("duplicate (<method>)", "retry duplicate (<method>)", or
     #     "stale (<method>)"), or nil if none
     #   "requests"(Hash|nil):: Request activity stats with keys "total", "percent", "last", and "rate"
     #     with percentage breakdown per request type, or nil if none
     #   "response time"(Float):: Average number of seconds to respond to a request recently
     def stats(reset = false)
+      pending = if @pending_dispatches > 0
+        {
+          "total" => @pending_dispatches,
+          "youngest age" => dispatch_age
+        }
+      end
       stats = {
-        "completed cache" => nil_if_zero((@completed.size rescue nil)),
-        "exceptions"      => @exceptions.stats,
-        "rejects"         => @rejects.all,
-        "requests"        => @requests.all,
-        "response time"   => @requests.avg_duration
+        "cached"        => (@dispatched.stats if @dup_check),
+        "exceptions"    => @exceptions.stats,
+        "pending"       => pending,
+        "rejects"       => @rejects.all,
+        "requests"      => @requests.all,
+        "response time" => @requests.avg_duration
       }
       reset_stats if reset
       stats

@@ -408,7 +408,8 @@ module RightScale
 
     # Helper method to send a request to one or more targets with no response expected
     # See MapperProxy for details
-    def send_push(type, conn, payload = {}, target = nil, opts = {})
+    def send_push(type, conn, payload = nil, target = nil, opts = {})
+      payload ||= {}
       payload[:agent_identity] = @agent_identity
       MapperProxy.instance.push(type, payload, target, opts.merge(:offline_queueing => true))
       CommandIO.instance.reply(conn, 'OK')
@@ -419,7 +420,8 @@ module RightScale
     # The request is persisted en route to reduce the chance of it being lost at the expense of some
     # additional network overhead
     # See MapperProxy for details
-    def send_persistent_push(type, conn, payload = {}, target = nil, opts = {})
+    def send_persistent_push(type, conn, payload = nil, target = nil, opts = {})
+      payload ||= {}
       payload[:agent_identity] = @agent_identity
       MapperProxy.instance.persistent_push(type, payload, target, opts.merge(:offline_queueing => true))
       CommandIO.instance.reply(conn, 'OK')
@@ -431,7 +433,8 @@ module RightScale
     # The request is timed out if not received in time, typically configured to 2 minutes
     # The request is allowed to expire per the agent's configured time-to-live, typically 1 minute
     # See MapperProxy for details
-    def send_timeout_retry_request(type, conn, payload = {}, target = nil, opts = {})
+    def send_timeout_retry_request(type, conn, payload = nil, target = nil, opts = {})
+      payload ||= {}
       payload[:agent_identity] = @agent_identity
       MapperProxy.instance.timeout_retry_request(type, payload, target, opts.merge(:offline_queueing => true)) do |r|
         reply = @serializer.dump(r) rescue '\"Failed to serialize response\"'
@@ -445,7 +448,8 @@ module RightScale
     # additional network overhead
     # The request is never retried if there is the possibility of it being duplicated
     # See MapperProxy for details
-    def send_persistent_non_duplicate_request(type, conn, payload = {}, target = nil, opts = {})
+    def send_persistent_non_duplicate_request(type, conn, payload = nil, target = nil, opts = {})
+      payload ||= {}
       payload[:agent_identity] = @agent_identity
       MapperProxy.instance.persistent_non_duplicate_request(type, payload, target, opts.merge(:offline_queueing => true)) do |r|
         reply = JSON.dump(r) rescue '\"Failed to serialize response\"'

@@ -37,7 +37,7 @@ describe RightScale::DevState do
 
   before :each do
     #re-initialize instance state
-    RightScale::InstanceState.init(@identity)
+    setup_state(@identity)
 
     #re-initialize dev state
     FileUtils.rm_f(RightScale::DevState::STATE_FILE)

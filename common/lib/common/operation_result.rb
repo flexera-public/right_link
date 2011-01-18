@@ -79,10 +79,10 @@ module RightScale
     def status(reason = false)
       case @status_code
       when SUCCESS      then 'success'
-      when ERROR        then 'error' + (reason ? " (#{truncated_error})" : "")
+      when ERROR        then 'error' + (reason.is_a?(String) ? " (#{truncated_error})" : "")
       when CONTINUE     then 'continue'
       when RETRY        then 'retry'
-      when NON_DELIVERY then 'non-delivery' + (reason ? " (#{@content})" : "")
+      when NON_DELIVERY then 'non-delivery' + (reason.is_a?(String) ? " (#{@content})" : "")
       when MULTICAST    then 'multicast'
       end
     end

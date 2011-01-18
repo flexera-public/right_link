@@ -111,7 +111,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def on_read_stdout(data)
-      RightLinkLog.error("Unexpected output from execution: #{data}")
+      RightLinkLog.error("Unexpected output from execution: #{data.inspect}")
     end
 
     # Handle cook error output
