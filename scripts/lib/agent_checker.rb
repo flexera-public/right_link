@@ -46,7 +46,6 @@ BASE_DIR = File.join(File.dirname(__FILE__), '..', '..')
 
 require File.expand_path(File.join(BASE_DIR, 'config', 'right_link_config'))
 require File.normalize_path(File.join(BASE_DIR, 'command_protocol', 'lib', 'command_protocol'))
-require File.normalize_path(File.join(BASE_DIR, 'payload_types', 'lib', 'payload_types'))
 require File.normalize_path(File.join(BASE_DIR, 'common', 'lib', 'common', 'daemonize'))
 require File.normalize_path(File.join(BASE_DIR, 'scripts', 'lib', 'agent_utils'))
 require File.normalize_path(File.join(BASE_DIR, 'scripts', 'lib', 'rdoc_patch'))

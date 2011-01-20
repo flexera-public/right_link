@@ -49,8 +49,8 @@ module RightScale
       attr_accessor :action, :packet
       def initialize(action, packet, serializers, msg = nil)
         @action, @packet = action, packet
-        msg = ":\n#{msg}" if msg && !msg.empty?
-        super("Could not #{action} packet using #{serializers.inspect}: #{msg}")
+        msg = " (#{msg})" if msg && !msg.empty?
+        super("Could not #{action} packet using #{serializers.inspect}#{msg}")
       end
     end
 

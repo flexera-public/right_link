@@ -22,7 +22,6 @@
 
 require File.join(File.dirname(__FILE__), 'spec_helper')
 require 'json/ext'
-require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'payload_types', 'login_user'))
 
 # copy of the old model for RightScale::LoginUser before the public_keys member
 # was added.

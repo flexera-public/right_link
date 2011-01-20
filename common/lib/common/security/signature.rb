@@ -69,12 +69,15 @@ module RightScale
       @p7.verify([cert.raw_cert], @store, nil, OpenSSL::PKCS7::NOVERIFY)
     end
 
-    # Signature in PEM format
+    # Signature data in PEM or DER format
+    #
+    # === Parameters
+    # format(Symbol):: Encode format: :pem or :der, defaults to :pem
     #
     # === Return
     # (String):: Signature
-    def data
-      @p7.to_pem
+    def data(format = :pem)
+      format == :pem ? @p7.to_pem : @p7.to_der
     end
     alias :to_s :data
 

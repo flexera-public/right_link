@@ -49,6 +49,7 @@
 # 11: Added stats packet, stats exchange & corresponding agent_manager request
 #     Changed InstanceSetup to use the Repose mirror to download cookbook repositories
 # 12: Support both JSON and MessagePack serialization of packets with MessagePack as the new default
+#     and use DER (binary) encoding instead of PEM (base64) for the secure serialization
 protocol_version 12
 
 # Path to RightLink root folder

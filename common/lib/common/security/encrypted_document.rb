@@ -56,12 +56,15 @@ module RightScale
       doc
     end
     
-    # Encrypted data using DER format
+    # Encrypted data in PEM (base64) or DER (binary) format
+    #
+    # === Parameters
+    # format(Symbol):: Encode format: :pem or :der, defaults to :pem
     #
     # === Return
     # (String):: Encrypted data
-    def encrypted_data
-      @pkcs7.to_pem
+    def encrypted_data(format = :pem)
+      format == :pem ? @pkcs7.to_pem : @pkcs7.to_der
     end
     
     # Decrypted data

@@ -36,7 +36,19 @@ describe RightScale::EncryptedDocument do
     @doc.encrypted_data.should_not be_nil
   end
 
+  it 'should create encrypted data using either PEM or DER format' do
+    @doc.encrypted_data(:pem).should_not be_nil
+    @doc.encrypted_data(:der).should_not be_nil
+  end
+
   it 'should decrypt correctly' do
+    @doc.decrypted_data(@key, @cert).should == @test_data
+  end
+
+  it 'should load correctly with data in either PEM or DER format' do
+    @doc = RightScale::EncryptedDocument.from_data(@doc.encrypted_data(:pem))
+    @doc.decrypted_data(@key, @cert).should == @test_data
+    @doc = RightScale::EncryptedDocument.from_data(@doc.encrypted_data(:der))
     @doc.decrypted_data(@key, @cert).should == @test_data
   end
 

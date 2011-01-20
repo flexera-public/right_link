@@ -67,19 +67,24 @@ module RightScale
       raise "Missing certificate key" unless @key
       raise "Missing certificate store" unless @store || !@encrypt
       must_encrypt = encrypt.nil? ? @encrypt : encrypt
-      format = :json unless obj.respond_to?(:send_version) && obj.send_version >= 12
-      msg = @serializer.dump(obj, format)
+      serialize_format = if obj.respond_to?(:send_version) && obj.send_version >= 12
+        @serializer.format
+      else
+        :json
+      end
+      encode_format = serialize_format == :json ? :pem : :der
+      msg = @serializer.dump(obj, serialize_format)
       if must_encrypt
         certs = @store.get_recipients(obj)
         if certs
-          msg = EncryptedDocument.new(msg, certs).encrypted_data
+          msg = EncryptedDocument.new(msg, certs).encrypted_data(encode_format)
         else
           target = obj.target_for_encryption if obj.respond_to?(:target_for_encryption)
           RightLinkLog.warn("No certs available for object #{obj.class} being sent to #{target.inspect}\n") if target
         end
       end
-      sig = Signature.new(msg, @cert, @key)
-      @serializer.dump({'id' => @identity, 'data' => msg, 'signature' => sig.data, 'encrypted' => !certs.nil?}, format)
+      sig = Signature.new(msg, @cert, @key).data(encode_format)
+      @serializer.dump({'id' => @identity, 'data' => msg, 'signature' => sig, 'encrypted' => !certs.nil?}, serialize_format)
     end
     
     # Decrypt, authorize signature, and unserialize message

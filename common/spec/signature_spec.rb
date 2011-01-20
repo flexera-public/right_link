@@ -36,6 +36,11 @@ describe RightScale::Signature do
     @sig.to_s.should_not be_empty
   end
 
+  it 'should create signed data using either PEM or DER format' do
+    @sig.data(:pem).should_not be_empty
+    @sig.data(:der).should_not be_empty
+  end
+
   it 'should verify the signature' do
     cert2, key2 = issue_cert
   
@@ -45,6 +50,15 @@ describe RightScale::Signature do
 
   it 'should load from serialized signature' do
     sig2 = RightScale::Signature.from_data(@sig.data)
+    sig2.should_not be_nil
+    sig2.should be_a_match(@cert)
+  end
+
+  it 'should load from serialized signature using either PEM or DER format' do
+    sig2 = RightScale::Signature.from_data(@sig.data(:pem))
+    sig2.should_not be_nil
+    sig2.should be_a_match(@cert)
+    sig2 = RightScale::Signature.from_data(@sig.data(:der))
     sig2.should_not be_nil
     sig2.should be_a_match(@cert)
   end
