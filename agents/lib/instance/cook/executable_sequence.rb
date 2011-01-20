@@ -24,6 +24,7 @@ require 'right_http_connection'
 require 'process_watcher'
 require 'socket'
 require 'tempfile'
+require 'fileutils'
 
 # The daemonize method of AR clashes with the daemonize Chef attribute, we don't need that method so undef it
 undef :daemonize if methods.include?('daemonize')
@@ -254,6 +255,11 @@ module RightScale
 
       @audit.create_new_section('Retrieving cookbooks') unless @cookbooks.empty?
       audit_time do
+        # first, wipe out preexisting cookbooks.
+        Dir.foreach(@download_path) do |entry|
+          FileUtils.remove_entry_secure(File.join(@download_path, entry)) if entry =~ /\A\d+\Z/
+        end
+
         counter = 0
 
         @cookbooks.each_with_index do |cookbook_sequence, i|
