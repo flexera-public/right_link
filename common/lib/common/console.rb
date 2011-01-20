@@ -39,7 +39,7 @@ module RightScale
   module Console
     class << self; attr_accessor :instance; end
 
-    def self.start(binding)
+    def self.start(binding, quit_on_exit=true)
       require 'irb'
       old_args = ARGV.dup
       ARGV.replace ["--simple-prompt"]
@@ -57,7 +57,7 @@ module RightScale
       # Clean up tty settings in some evil, evil cases
       begin; catch(:IRB_EXIT) { irb_exit }; rescue Exception; end
       # Make agent exit when irb does
-      EM.stop if EM.reactor_running?
+      EM.stop if EM.reactor_running? && quit_on_exit
     end
 
   end # Console
