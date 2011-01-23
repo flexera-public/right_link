@@ -195,7 +195,7 @@ class AgentManager
         sig = RightScale::Signature.from_data(data['signature'])
         @cert ||= RightScale::Certificate.load(File.join(RightScale::RightLinkConfig[:certs_dir], 'mapper.cert'))
         ReenrollManager.vote if sig.match?(@cert)
-      rescue
+      rescue Exception => _
         RightScale::RightLinkLog.error("Failed processing serialization error", e)
       end
     end

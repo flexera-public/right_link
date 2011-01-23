@@ -67,7 +67,7 @@ module RightScale
     # ArgumentError:: If preferred format is not supported
     def initialize(preferred_format = nil)
       @format = (preferred_format ||= DEFAULT_FORMAT).to_sym
-      raise ArgumentError, "Serializer format #{@format.inspect} not one of #{FORMATS}" unless FORMATS.include?(@format)
+      raise ArgumentError, "Serializer format #{@format.inspect} not one of #{FORMATS.inspect}" unless FORMATS.include?(@format)
       @secure = (@format == :secure)
     end
 
