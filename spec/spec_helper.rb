@@ -90,8 +90,8 @@ module RightScale
       @results_factory = ResultsMock.new
       mapper_proxy = flexmock('MapperProxy')
       flexmock(MapperProxy).should_receive(:instance).and_return(mapper_proxy).by_default
-      mapper_proxy.should_receive(:request).and_yield(@results_factory.success_results).by_default
-      mapper_proxy.should_receive(:push).by_default
+      mapper_proxy.should_receive(:send_request).and_yield(@results_factory.success_results).by_default
+      mapper_proxy.should_receive(:send_push).by_default
       yield if block_given?
       InstanceState.init(@identity)
       RequestForwarder.instance.instance_variable_set(:@running, false)

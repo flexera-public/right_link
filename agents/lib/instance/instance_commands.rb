@@ -335,8 +335,8 @@ module RightScale
     # === Return
     # true:: Always return true
     def set_inputs_patch_command(opts)
-      RightScale::RequestForwarder.instance.push('/updater/update_inputs', { :agent_identity => @agent_identity,
-                                                                             :patch          => opts[:patch] })
+      RightScale::RequestForwarder.instance.send_push('/updater/update_inputs', { :agent_identity => @agent_identity,
+                                                                                  :patch          => opts[:patch] })
       CommandIO.instance.reply(opts[:conn], 'OK')
     end
 
@@ -366,7 +366,7 @@ module RightScale
     # true:: Always return true
     def send_request(request, conn, payload, options = {})
       payload[:agent_identity] = @agent_identity
-      RequestForwarder.instance.request(request, payload, options) do |r|
+      RequestForwarder.instance.send_request(request, payload, options) do |r|
         reply = @serializer.dump(r) rescue '\"Failed to serialize response\"'
         CommandIO.instance.reply(conn, reply)
       end
@@ -385,7 +385,7 @@ module RightScale
     # true:: Always return true
     def send_push(request, conn, payload, options = {})
       payload[:agent_identity] = @agent_identity
-      RequestForwarder.instance.push(request, payload, options)
+      RequestForwarder.instance.send_push(request, payload, options)
       CommandIO.instance.reply(conn, 'OK')
       true
     end

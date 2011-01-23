@@ -103,7 +103,7 @@ class InstanceSetup
     options = { :agent_identity => @agent_identity,
                 :r_s_version    => RightScale::RightLinkConfig.protocol_version,
                 :resource_uid   => RightScale::InstanceState.resource_uid }
-    RightScale::RequestForwarder.instance.request('/booter/declare', options) do |r|
+    RightScale::RequestForwarder.instance.send_request('/booter/declare', options) do |r|
       res = RightScale::OperationResult.from_results(r)
       if res.success?
         enable_managed_login
@@ -129,7 +129,7 @@ class InstanceSetup
     if RightScale::Platform.windows? || RightScale::Platform.mac? 
       boot
     else
-      request('/booter/get_login_policy', {:agent_identity => @agent_identity}) do |r|
+      send_request('/booter/get_login_policy', {:agent_identity => @agent_identity}) do |r|
         res = RightScale::OperationResult.from_results(r)
         if res.success?
           policy  = res.content
@@ -160,7 +160,7 @@ class InstanceSetup
   # === Return
   # true:: Always return true
   def boot
-    request("/booter/get_repositories", @agent_identity) do |r|
+    send_request("/booter/get_repositories", @agent_identity) do |r|
       res = RightScale::OperationResult.from_results(r)
       if res.success?
         @audit = RightScale::AuditProxy.new(res.content.audit_id)
@@ -263,7 +263,7 @@ class InstanceSetup
         @audit.append_info("Tags discovered on startup: '#{tags.join("', '")}'")
       end
       options = { :agent_identity => @agent_identity, :audit_id => @audit.audit_id }
-      request("/booter/get_boot_bundle", options) do |r|
+      send_request("/booter/get_boot_bundle", options) do |r|
         res = RightScale::OperationResult.from_results(r)
         if res.success?
           bundle = res.content
@@ -298,9 +298,9 @@ class InstanceSetup
     recipes = bundle.executables.select { |e| e.is_a?(RightScale::RecipeInstantiation) }
     scripts_ids = scripts.select { |s| !s.ready }.map { |s| s.id }
     recipes_ids = recipes.select { |r| !r.ready }.map { |r| r.id }
-    RightScale::RequestForwarder.instance.request('/booter/get_missing_attributes', { :agent_identity => @agent_identity,
-                                                                                      :scripts_ids    => scripts_ids,
-                                                                                      :recipes_ids    => recipes_ids }) do |r|
+    RightScale::RequestForwarder.instance.send_request('/booter/get_missing_attributes', { :agent_identity => @agent_identity,
+                                                                                           :scripts_ids    => scripts_ids,
+                                                                                           :recipes_ids    => recipes_ids }) do |r|
       res = RightScale::OperationResult.from_results(r)
       if res.success?
         res.content.each do |e|
@@ -343,8 +343,8 @@ class InstanceSetup
     sequence = RightScale::ExecutableSequenceProxy.new(context)
     sequence.callback do
       if patch = sequence.inputs_patch && !patch.empty?
-        RightScale::RequestForwarder.instance.push('/updater/update_inputs', { :agent_identity => @agent_identity,
-                                                                               :patch          => patch })
+        RightScale::RequestForwarder.instance.send_push('/updater/update_inputs', { :agent_identity => @agent_identity,
+                                                                                    :patch          => patch })
       end
       @audit.update_status("boot completed: #{bundle}")
       yield RightScale::OperationResult.success

@@ -122,7 +122,7 @@ module RightScale
     #
     # === Return
     # true:: Always return true
-    def request(type, payload = '', opts = {}, &blk)
+    def send_request(type, payload = '', opts = {}, &blk)
       raise "Mapper proxy not initialized" unless identity
       token = AgentIdentity.generate
       method = type.split('/').last
@@ -152,7 +152,7 @@ module RightScale
     #
     # === Return
     # true:: Always return true
-    def push(type, payload = '', opts = {})
+    def send_push(type, payload = '', opts = {})
       raise "Mapper proxy not initialized" unless identity
       method = type.split('/').last
       @requests.update(method)

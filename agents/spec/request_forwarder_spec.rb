@@ -39,23 +39,23 @@ describe RightScale::RequestForwarder do
   end
 
   it 'should forward requests' do
-    @mapper_proxy.should_receive(:request).with('/dummy', 'payload', {:one => 1}).once
+    @mapper_proxy.should_receive(:send_request).with('/dummy', 'payload', {:one => 1}).once
     RightScale::RequestForwarder.instance.init
-    RightScale::RequestForwarder.instance.request('/dummy', 'payload', {:one => 1})
+    RightScale::RequestForwarder.instance.send_request('/dummy', 'payload', {:one => 1})
   end
 
   it 'should forward pushes' do
-    @mapper_proxy.should_receive(:push).with('/dummy', 'payload', {:one => 1}).once
+    @mapper_proxy.should_receive(:send_push).with('/dummy', 'payload', {:one => 1}).once
     RightScale::RequestForwarder.instance.init
-    RightScale::RequestForwarder.instance.push('/dummy', 'payload', {:one => 1})
+    RightScale::RequestForwarder.instance.send_push('/dummy', 'payload', {:one => 1})
   end
 
   it 'should forward requests done during initialization first' do
-    @mapper_proxy.should_receive(:request).with('/first', 'first_payload', {:one => 1}).once.ordered
-    @mapper_proxy.should_receive(:request).with('/second', 'second_payload', {:two => 2}).once.ordered
-    RightScale::RequestForwarder.instance.request('/second', 'second_payload', {:two => 2})
+    @mapper_proxy.should_receive(:send_request).with('/first', 'first_payload', {:one => 1}).once.ordered
+    @mapper_proxy.should_receive(:send_request).with('/second', 'second_payload', {:two => 2}).once.ordered
+    RightScale::RequestForwarder.instance.send_request('/second', 'second_payload', {:two => 2})
     RightScale::RequestForwarder.instance.init do
-      RightScale::RequestForwarder.instance.request('/first', 'first_payload', {:one => 1})
+      RightScale::RequestForwarder.instance.send_request('/first', 'first_payload', {:one => 1})
     end
   end
 
@@ -63,7 +63,7 @@ describe RightScale::RequestForwarder do
     EM.run do
       RightScale::RequestForwarder.instance.init
       RightScale::RequestForwarder.instance.enable_offline_mode
-      RightScale::RequestForwarder.instance.request('/dummy', 'payload', {:one => 1})
+      RightScale::RequestForwarder.instance.send_request('/dummy', 'payload', {:one => 1})
       EM.next_tick { EM.stop }
     end
     RightScale::RequestForwarder.instance.instance_variable_get(:@requests).size.should == 1
@@ -73,7 +73,7 @@ describe RightScale::RequestForwarder do
     EM.run do
       RightScale::RequestForwarder.instance.init
       RightScale::RequestForwarder.instance.enable_offline_mode
-      RightScale::RequestForwarder.instance.push('/dummy', 'payload', {:one => 1})
+      RightScale::RequestForwarder.instance.send_push('/dummy', 'payload', {:one => 1})
       EM.next_tick { EM.stop }
     end
     RightScale::RequestForwarder.instance.instance_variable_get(:@requests).size.should == 1
@@ -85,7 +85,7 @@ describe RightScale::RequestForwarder do
       RightScale::RequestForwarder.instance.init
       RightScale::RequestForwarder.instance.enable_offline_mode
       RightScale::RequestForwarder.instance.instance_variable_set(:@requests, ('*' * (RightScale::RequestForwarder::MAX_QUEUED_MESSAGES - 1)).split(//))
-      RightScale::RequestForwarder.instance.push('/dummy', 'payload', {:one => 1})
+      RightScale::RequestForwarder.instance.send_push('/dummy', 'payload', {:one => 1})
       EM.next_tick { EM.stop }
     end
     RightScale::RequestForwarder.instance.instance_variable_get(:@requests).size.should == RightScale::RequestForwarder::MAX_QUEUED_MESSAGES
@@ -100,7 +100,7 @@ describe RightScale::RequestForwarder do
       EM.run do
         RightScale::RequestForwarder.instance.init
         RightScale::RequestForwarder.instance.enable_offline_mode
-        RightScale::RequestForwarder.instance.push('/dummy', 'payload', {:one => 1})
+        RightScale::RequestForwarder.instance.send_push('/dummy', 'payload', {:one => 1})
         EM.add_timer(0.5) { EM.stop }
       end
       RightScale::RequestForwarder.instance.instance_variable_get(:@vote_count).should == 1
@@ -116,7 +116,7 @@ describe RightScale::RequestForwarder do
       EM.run do
         RightScale::RequestForwarder.instance.init
         RightScale::RequestForwarder.instance.enable_offline_mode
-        RightScale::RequestForwarder.instance.push('/dummy', 'payload', {:one => 1})
+        RightScale::RequestForwarder.instance.send_push('/dummy', 'payload', {:one => 1})
         EM.add_timer(0.5) { EM.stop }
       end
     ensure
@@ -126,13 +126,13 @@ describe RightScale::RequestForwarder do
 
   it 'should flush queued in-memory messages once back online' do
     old_flush_delay = RightScale::RequestForwarder::MAX_FLUSH_DELAY
-    @mapper_proxy.should_receive(:push).with('/dummy', 'payload', {:one => 1}).once.and_return { EM.stop }
+    @mapper_proxy.should_receive(:send_push).with('/dummy', 'payload', {:one => 1}).once.and_return { EM.stop }
     begin
       RightScale::RequestForwarder.const_set(:MAX_FLUSH_DELAY, 0.1)
       EM.run do
         RightScale::RequestForwarder.instance.init
         RightScale::RequestForwarder.instance.enable_offline_mode
-        RightScale::RequestForwarder.instance.push('/dummy', 'payload', {:one => 1})
+        RightScale::RequestForwarder.instance.send_push('/dummy', 'payload', {:one => 1})
         RightScale::RequestForwarder.instance.disable_offline_mode
         EM.add_timer(1) { EM.stop }
       end
@@ -148,7 +148,7 @@ describe RightScale::RequestForwarder do
       EM.run do
         RightScale::RequestForwarder.instance.init
         RightScale::RequestForwarder.instance.enable_offline_mode
-        RightScale::RequestForwarder.instance.push('/dummy', 'payload', {:one => 1})
+        RightScale::RequestForwarder.instance.send_push('/dummy', 'payload', {:one => 1})
         RightScale::RequestForwarder.instance.disable_offline_mode
         RightScale::RequestForwarder.instance.instance_variable_get(:@flushing).should be_true
         RightScale::RequestForwarder.instance.instance_variable_get(:@stop_flush).should be_false

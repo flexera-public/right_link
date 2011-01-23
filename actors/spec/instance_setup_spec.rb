@@ -47,7 +47,7 @@ class InstanceSetup
   def self.agents=(agents)
     @@agents = agents
   end
-  def request(operation, *args)
+  def send_request(operation, *args)
     case operation
       when "/booter/set_r_s_version" then yield @@factory.success_results
       when "/booter/get_repositories" then yield @@repos

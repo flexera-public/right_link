@@ -62,9 +62,9 @@ module RightScale
     # === Return
     # true:: Always return true
     def self.create(agent_identity, summary)
-      RequestForwarder.instance.request('/auditor/create_entry', :agent_identity => agent_identity,
-                                                                 :summary        => summary,
-                                                                 :category       => RightScale::EventCategories::NONE) do |r|
+      RequestForwarder.instance.send_request('/auditor/create_entry', :agent_identity => agent_identity,
+                                                                      :summary        => summary,
+                                                                      :category       => RightScale::EventCategories::NONE) do |r|
         res = RightScale::OperationResult.from_results(r)
         if res.success?
           audit = new(res.content)
@@ -187,7 +187,7 @@ module RightScale
       begin
         audit = AuditFormatter.__send__(options[:kind], options[:text])
         @size += audit[:detail].size
-        RequestForwarder.instance.push('/auditor/update_entry', opts.merge(audit))
+        RequestForwarder.instance.send_push('/auditor/update_entry', opts.merge(audit))
       rescue Exception => e
         RightLinkLog.warn("Failed to send audit: #{e.message} from\n#{e.backtrace.join("\n")}")
       end

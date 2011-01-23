@@ -60,7 +60,7 @@ describe RightScale::InstanceCommands do
     it 'should execute locally via forwarder' do
       options = {:recipe => "recipe"}
       payload = options.merge(:agent_identity => @agent_identity)
-      @forwarder.should_receive(:push).with("/forwarder/schedule_recipe", payload, {}).once
+      @forwarder.should_receive(:send_push).with("/forwarder/schedule_recipe", payload, {}).once
       flexmock(RightScale::CommandIO.instance).should_receive(:reply).once
       @commands.send(:run_recipe_command, {:conn => 42, :options => options}).should be_true
     end
@@ -68,7 +68,7 @@ describe RightScale::InstanceCommands do
     it 'should execute remotely if target tags specified' do
       options = {:recipe => "recipe", :tags => "tags", :selector => :all}
       payload = options.merge(:agent_identity => @agent_identity)
-      @forwarder.should_receive(:push).with("/instance_scheduler/execute", payload, :tags => "tags", :selector => :all).once
+      @forwarder.should_receive(:send_push).with("/instance_scheduler/execute", payload, :tags => "tags", :selector => :all).once
       flexmock(RightScale::CommandIO.instance).should_receive(:reply).once
       @commands.send(:run_recipe_command, {:conn => 42, :options => options}).should be_true
     end
@@ -86,7 +86,7 @@ describe RightScale::InstanceCommands do
     it 'should execute locally via forwarder' do
       options = {:right_script => "right script"}
       payload = options.merge(:agent_identity => @agent_identity)
-      @forwarder.should_receive(:push).with("/forwarder/schedule_right_script", payload, {}).once
+      @forwarder.should_receive(:send_push).with("/forwarder/schedule_right_script", payload, {}).once
       flexmock(RightScale::CommandIO.instance).should_receive(:reply).once
       @commands.send(:run_right_script_command, {:conn => 42, :options => options}).should be_true
     end
@@ -94,7 +94,7 @@ describe RightScale::InstanceCommands do
     it 'should execute remotely if target tags specified' do
       options = {:right_script => "right script", :tags => "tags", :selector => :all}
       payload = options.merge(:agent_identity => @agent_identity)
-      @forwarder.should_receive(:push).with("/instance_scheduler/execute", payload, :tags => "tags", :selector => :all).once
+      @forwarder.should_receive(:send_push).with("/instance_scheduler/execute", payload, :tags => "tags", :selector => :all).once
       flexmock(RightScale::CommandIO.instance).should_receive(:reply).once
       @commands.send(:run_right_script_command, {:conn => 42, :options => options}).should be_true
     end

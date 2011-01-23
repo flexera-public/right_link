@@ -55,8 +55,8 @@ class Chef
                    end
           Chef::Log.info("Scheduling execution of #{@new_resource.recipe.inspect} on #{target}")
           recipients.each do |recipient|
-            RightScale::Cook.instance.push('/instance_scheduler/execute', options,
-                                           :target => recipient)
+            RightScale::Cook.instance.send_push('/instance_scheduler/execute', options,
+                                                :target => recipient)
           end
         end
         if tags && !tags.empty?
@@ -72,8 +72,8 @@ class Chef
                      "one instance with #{target_tag}"
                    end
           Chef::Log.info("Scheduling execution of #{@new_resource.recipe.inspect} on #{target}")
-          RightScale::Cook.instance.push('/instance_scheduler/execute', options,
-                                         :tags => tags, :selector => selector)
+          RightScale::Cook.instance.send_push('/instance_scheduler/execute', options,
+                                              :tags => tags, :selector => selector)
         end
         true
       end

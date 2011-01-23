@@ -87,11 +87,11 @@ module RightScale
     #
     # === Return
     # true:: Always return true
-    def request(type, payload = '', opts = {}, &blk)
+    def send_request(type, payload = '', opts = {}, &blk)
       if offline?
         queue_request(:kind => :request, :type => type, :payload => payload, :options => opts, :callback => blk)
       else
-        MapperProxy.instance.request(type, payload, opts, &blk)
+        MapperProxy.instance.send_request(type, payload, opts, &blk)
       end
       true
     end
@@ -105,11 +105,11 @@ module RightScale
     #
     # === Return
     # true:: Always return true
-    def push(type, payload = '', opts = {})
+    def send_push(type, payload = '', opts = {})
       if offline?
         queue_request(:kind => :push, :type => type, :payload => payload, :options => opts)
       else
-        MapperProxy.instance.push(type, payload, opts)
+        MapperProxy.instance.send_push(type, payload, opts)
       end
       true
     end
@@ -204,12 +204,12 @@ module RightScale
           request = @requests.shift
           case request[:kind]
           when :push
-            MapperProxy.instance.push(request[:type], request[:payload], request[:options])
+            MapperProxy.instance.send_push(request[:type], request[:payload], request[:options])
           when :request
             if request[:callback]
-              MapperProxy.instance.request(request[:type], request[:payload], request[:options]) { |r| request[:callback].call(r) }
+              MapperProxy.instance.send_request(request[:type], request[:payload], request[:options]) { |r| request[:callback].call(r) }
             else
-              MapperProxy.instance.request(request[:type], request[:payload], request[:options])
+              MapperProxy.instance.send_request(request[:type], request[:payload], request[:options])
             end
           end
         end

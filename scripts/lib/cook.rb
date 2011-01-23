@@ -86,7 +86,7 @@ module RightScale
     #
     # === Return
     # true:: Always return true
-    def request(type, payload = '', opts = {}, &blk)
+    def send_request(type, payload = '', opts = {}, &blk)
       cmd = { :name => :send_request, :type => type, :payload => payload, :options => opts }
       @client.send_command(cmd) do |r|
         response = load(r, "Request response #{r.inspect}")
@@ -103,7 +103,7 @@ module RightScale
     #
     # === Return
     # true:: Always return true
-    def push(type, payload = '', opts = {})
+    def send_push(type, payload = '', opts = {})
       cmd = { :name => :send_push, :type => type, :payload => payload, :options => opts }
       @client.send_command(cmd)
     end

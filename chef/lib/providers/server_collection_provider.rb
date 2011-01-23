@@ -66,7 +66,7 @@ class Chef
               end
             end
           end
-          RightScale::Cook.instance.request("/mapper/query_tags", :agent_ids => @new_resource.agent_ids, :tags => @new_resource.tags) do |r|
+          RightScale::Cook.instance.send_request("/mapper/query_tags", :agent_ids => @new_resource.agent_ids, :tags => @new_resource.tags) do |r|
             res = RightScale::OperationResult.from_results(r)
             if res.success?
               @mutex.synchronize do

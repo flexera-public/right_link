@@ -45,12 +45,9 @@ module RightScale
     # === Return
     # true:: Always return true
     def self.included(base)
-      base.class_eval do
-        include RightScale::Actor::InstanceMethods
-        extend  RightScale::Actor::ClassMethods
-      end # base.class_eval
-      true
-    end # self.included
+      base.send :include, InstanceMethods
+      base.extend(ClassMethods)
+    end
     
     module ClassMethods
 
@@ -138,8 +135,8 @@ module RightScale
       #
       # === Return
       # (MQ::Exchange):: AMQP exchange to which request is published
-      def request(*args, &blk)
-        MapperProxy.instance.request(*args, &blk)
+      def send_request(*args, &blk)
+        MapperProxy.instance.send_request(*args, &blk)
       end
       
       # Send push to another agent (through the mapper)
@@ -149,8 +146,8 @@ module RightScale
       #
       # === Return
       # (MQ::Exchange):: AMQP exchange to which push is published
-      def push(*args)
-        MapperProxy.instance.push(*args)
+      def send_push(*args)
+        MapperProxy.instance.send_push(*args)
       end
 
       # Purge request whose results are no longer needed

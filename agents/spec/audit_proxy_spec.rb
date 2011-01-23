@@ -36,28 +36,28 @@ describe RightScale::AuditProxy do
   it 'should send info audits' do
     opts = { :category => RightScale::EventCategories::CATEGORY_NOTIFICATION, :audit_id => @audit_id, :offset => 0 }
     opts.merge!(RightScale::AuditFormatter.info('INFO'))
-    @forwarder.should_receive(:push).once.with('/auditor/update_entry', opts)
+    @forwarder.should_receive(:send_push).once.with('/auditor/update_entry', opts)
     @proxy.append_info('INFO')
   end
 
   it 'should send error audits' do
     opts = { :category => RightScale::EventCategories::CATEGORY_NOTIFICATION, :audit_id => @audit_id, :offset => 0 }
     opts.merge!(RightScale::AuditFormatter.error('ERROR'))
-    @forwarder.should_receive(:push).once.with('/auditor/update_entry', opts)
+    @forwarder.should_receive(:send_push).once.with('/auditor/update_entry', opts)
     @proxy.append_error('ERROR')
   end
 
   it 'should send status audits' do
     opts = { :category => RightScale::EventCategories::CATEGORY_NOTIFICATION, :audit_id => @audit_id, :offset => 0 }
     opts.merge!(RightScale::AuditFormatter.status('STATUS'))
-    @forwarder.should_receive(:push).once.with('/auditor/update_entry', opts)
+    @forwarder.should_receive(:send_push).once.with('/auditor/update_entry', opts)
     @proxy.update_status('STATUS')
   end
 
   it 'should send new section audits' do
     opts = { :category => RightScale::EventCategories::CATEGORY_NOTIFICATION, :audit_id => @audit_id, :offset => 0 }
     opts.merge!(RightScale::AuditFormatter.new_section('NEW SECTION'))
-    @forwarder.should_receive(:push).once.with('/auditor/update_entry', opts)
+    @forwarder.should_receive(:send_push).once.with('/auditor/update_entry', opts)
     @proxy.create_new_section('NEW SECTION')
   end
 
@@ -65,21 +65,21 @@ describe RightScale::AuditProxy do
     flexmock(EventMachine::PeriodicTimer).should_receive(:new).and_yield.once
     opts = { :category => RightScale::EventCategories::NONE, :audit_id => @audit_id, :offset => 0 }
     opts.merge!(RightScale::AuditFormatter.output('OUTPUT'))
-    @forwarder.should_receive(:push).once.with('/auditor/update_entry', opts)
+    @forwarder.should_receive(:send_push).once.with('/auditor/update_entry', opts)
     @proxy.append_output('OUTPUT')
   end
 
   it 'should revert to default event category when an invalid category is given' do
     opts = { :category => RightScale::EventCategories::CATEGORY_NOTIFICATION, :audit_id => @audit_id, :offset => 0 }
     opts.merge!(RightScale::AuditFormatter.info('INFO'))
-    @forwarder.should_receive(:push).once.with('/auditor/update_entry', opts)
+    @forwarder.should_receive(:send_push).once.with('/auditor/update_entry', opts)
     @proxy.append_info('INFO', :category => '__INVALID__')
   end
 
   it 'should honor the event category' do
     opts = { :category => RightScale::EventCategories::CATEGORY_SECURITY, :audit_id => @audit_id, :offset => 0 }
     opts.merge!(RightScale::AuditFormatter.info('INFO'))
-    @forwarder.should_receive(:push).once.with('/auditor/update_entry', opts)
+    @forwarder.should_receive(:send_push).once.with('/auditor/update_entry', opts)
     @proxy.append_info('INFO', :category => RightScale::EventCategories::CATEGORY_SECURITY)
   end
 
@@ -90,7 +90,7 @@ describe RightScale::AuditProxy do
       RightScale::AuditProxy.const_set(:MAX_AUDIT_SIZE, 0)
       opts = { :category => RightScale::EventCategories::NONE, :audit_id => @audit_id, :offset => 0 }
       opts.merge!(RightScale::AuditFormatter.output('OUTPUT'))
-      @forwarder.should_receive(:push).once.with('/auditor/update_entry', opts)
+      @forwarder.should_receive(:send_push).once.with('/auditor/update_entry', opts)
       @proxy.append_output('OUTPUT')
     ensure
       RightScale::AuditProxy.const_set(:MAX_AUDIT_SIZE, old_size)

@@ -744,7 +744,7 @@ module RightScale
           @broker.failed(backoff = true).each do |id|
             p = {:agent_identity => @identity}
             p[:host], p[:port], p[:id], p[:priority] = @broker.identity_parts(id)
-            @mapper_proxy.push("/registrar/connect", p, :token => AgentIdentity.generate, :from => @identity)
+            @mapper_proxy.send_push("/registrar/connect", p, :token => AgentIdentity.generate, :from => @identity)
           end
         else
           before = after = 0

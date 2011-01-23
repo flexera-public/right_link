@@ -253,9 +253,9 @@ module RightScale
     def self.shutdown(user_id, skip_db_update, kind)
       payload = {:agent_identity => @@identity, :state => FINAL_STATE, :user_id => user_id,
                  :skip_db_update => skip_db_update, :kind => kind}
-      RightScale::RequestForwarder.instance.request('/state_recorder/record', payload) do |r|
+      RightScale::RequestForwarder.instance.send_request('/state_recorder/record', payload) do |r|
         res = RightScale::OperationResult.from_results(r)
-        RightScale::RequestForwarder.instance.push('/registrar/remove', :agent_identity => @@identity)
+        RightScale::RequestForwarder.instance.send_push('/registrar/remove', :agent_identity => @@identity)
         RightScale::Platform.controller.shutdown unless res.success?
       end
       EM.add_timer(FORCE_SHUTDOWN_DELAY) { RightScale::Platform.controller.shutdown }
@@ -444,7 +444,7 @@ module RightScale
     def self.record_state
       new_value = @@value
       options = {:agent_identity => @@identity, :state => new_value, :from_state => @@last_recorded_value}
-      RightScale::RequestForwarder.instance.request('/state_recorder/record', options) do |r|
+      RightScale::RequestForwarder.instance.send_request('/state_recorder/record', options) do |r|
         res = RightScale::OperationResult.from_results(r)
         if res.success?
           @@last_recorded_value = new_value

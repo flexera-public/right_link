@@ -92,7 +92,7 @@ class InstanceScheduler
     options[:agent_identity] = @agent_identity
 
     forwarder = lambda do |type|
-      RightScale::RequestForwarder.instance.request("/forwarder/schedule_#{type}", options) do |r|
+      RightScale::RequestForwarder.instance.send_request("/forwarder/schedule_#{type}", options) do |r|
         r = RightScale::OperationResult.from_results(r)
         RightScale::RightLinkLog.info("Failed executing #{type} for #{options.inspect}: #{r.content}") unless r.success?
       end
@@ -169,7 +169,7 @@ class InstanceScheduler
       callback.call if callback
     elsif RightScale::InstanceState.value != 'decommissioning'
       # Trigger decommission
-      RightScale::RequestForwarder.instance.request('/booter/get_decommission_bundle', :agent_identity => @agent_identity) do |r|
+      RightScale::RequestForwarder.instance.send_request('/booter/get_decommission_bundle', :agent_identity => @agent_identity) do |r|
         res = RightScale::OperationResult.from_results(r)
         if res.success?
           schedule_decommission(:bundle => res.content)
