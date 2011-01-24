@@ -350,6 +350,18 @@ module RightScale
       @level_frozen = true
     end
 
+    # Force use of given logger and override all defaults
+    #
+    # === Parameters
+    # logger(Logger):: Logger compatible object
+    #
+    # === Return
+    # true:: Always return true
+    def force_logger(logger)
+      @initialized = true
+      @logger = logger
+    end
+
     protected
 
     # Initialize logger
