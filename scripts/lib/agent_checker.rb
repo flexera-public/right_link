@@ -181,7 +181,7 @@ module RightScale
         # Attach to log used by instance agent
         RightLinkLog.program_name = 'RightLink'
         RightLinkLog.log_to_file_only(@agent[:log_to_file_only])
-        RightLinkLog.init(@agent[:identity], @options[:log_path])
+        RightLinkLog.init(@agent[:identity], @options[:log_path], :print => true)
         RightLinkLog.level = :debug if @options[:verbose]
         @logging_enabled = true
 

@@ -357,13 +357,14 @@ module RightScale
     # === Parameters
     # identity(String):: Log identity
     # path(String):: Log directory path
-    # force(TrueClass|FalseClass):: Whether to re-initialize if logger is
-    #                               already initialized
+    # opts[:force](TrueClass|FalseClass):: Whether to re-initialize if logger
+    #                                      is already initialized
+    # opts[:print](TrueClass|FalseClass):: Whether to print to STDOUT log destination
     #
     # === Return
     # logger(RightScale::Multiplexer):: logger instance
-    def init(identity = nil, path = nil, force = false)
-      if force || !@initialized 
+    def init(identity=nil, path=nil, opts={})
+      if opts[:force] || !@initialized 
         @initialized = true
         @level_frozen = false
         logger = nil
@@ -374,7 +375,7 @@ module RightScale
           else
             file = STDOUT
           end
-          puts "Logging to #{file}"
+          puts "Logging to #{file}" if opts[:print]
           logger = Logger.new(file)
           logger.formatter = Formatter.new
           logger.progname = @program_name || identity || 'RightLink'

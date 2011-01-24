@@ -169,7 +169,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def run
-      RightLinkLog.init(@identity, @options[:log_path])
+      RightLinkLog.init(@identity, @options[:log_path], :print => true)
       RightLinkLog.level = @options[:log_level] if @options[:log_level]
       RightLinkLog.debug("Start options:")
       log_opts = @options.inject([]){ |t, (k, v)| t << "-  #{k}: #{v}" }
