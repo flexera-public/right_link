@@ -1179,7 +1179,7 @@ module RightScale
               # Update cache entry to record this failed delivery
               details[:failed] << b[:identity]
             end
-            RightLinkLog.info("RETURN #{b[:alias]} because #{reason} for #{to}")
+            RightLinkLog.debug("RETURN #{b[:alias]} because #{reason} for #{to}")
             blk.call(b[:identity], reason, msg, to, details)
           rescue Exception => e
             RightLinkLog.error("Failed return #{info.inspect} of message from broker #{b[:alias]}", e, :trace)
@@ -1220,7 +1220,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def handle_return(identity, reason, message, to, details)
-      @returns.update("#{alias_(identity)} (#{reason})")
+      @returns.update("#{alias_(identity)} (#{reason.to_s.downcase})")
 
       name = details[:name]
       options = details[:options] || {}

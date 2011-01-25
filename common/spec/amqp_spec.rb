@@ -1082,7 +1082,7 @@ describe RightScale::HA_MQ do
 
     it "should invoke block and log the return" do
       flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Connecting to broker/).once
-      flexmock(RightScale::RightLinkLog).should_receive(:info).with(/RETURN/).once
+      flexmock(RightScale::RightLinkLog).should_receive(:debug).with(/RETURN/).once
       ha_mq = RightScale::HA_MQ.new(@serializer)
       called = 0
       ha_mq.return_message do |id, reason, msg, to|
