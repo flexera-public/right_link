@@ -25,33 +25,12 @@ require 'process_watcher'
 require 'socket'
 require 'tempfile'
 require 'fileutils'
+require File.expand_path(File.join(File.dirname(__FILE__), 'repose'))
 
 # The daemonize method of AR clashes with the daemonize Chef attribute, we don't need that method so undef it
 undef :daemonize if methods.include?('daemonize')
 
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', '..', '..', 'chef', 'lib', 'ohai_setup'))
-
-#TODO TS factor this into its own source file; make it slightly less monkey-patchy (e.g. mixin)
-module OpenSSL
-  module SSL
-    class SSLSocket
-      alias post_connection_check_without_hack post_connection_check
-
-      # Class variable. Danger! THOU SHALT NOT CAUSE 'openssl/ssl' TO RELOAD
-      # nor shalt thou use this monkey patch in conjunction with Rails
-      # auto-loading or class-reloading mechanisms! You have been warned...
-      @@hostname_override = nil
-
-      def self.hostname_override=(hostname_override)
-        @@hostname_override = hostname_override
-      end
-
-      def post_connection_check(hostname)
-        return post_connection_check_without_hack(@@hostname_override || hostname)
-      end
-    end
-  end
-end
 
 module RightScale
 
@@ -63,17 +42,7 @@ module RightScale
   # Also downloads cookbooks and run recipes in given bundle.
   # Runs in separate (runner) process.
   class ExecutableSequence
-    #max wait 64 (2**6) sec between retries
-    REPOSE_RETRY_BACKOFF_MAX = 6
-    REPOSE_RETRY_MAX_ATTEMPTS = 10
-
     include EM::Deferrable
-
-    class ReposeConnectionFailure < Exception
-    end
-
-    class ReposeServerFailure < Exception
-    end
 
     class CookbookDownloadFailure < Exception
       def initialize(cookbook, reason)
@@ -106,7 +75,7 @@ module RightScale
       @logger                 = RightLinkLog
 
       #Lookup
-      discover_repose_servers(bundle.repose_servers)
+      Repose.discover_repose_servers(bundle.repose_servers)
 
       # Initializes run list for this sequence (partial converge support)
       @run_list = []
@@ -261,7 +230,7 @@ module RightScale
             FileUtils.remove_entry_secure(File.join(@download_path, entry)) if entry =~ /\A\d+\Z/
           end
         end
-        
+
         counter = 0
 
         @cookbooks.each_with_index do |cookbook_sequence, i|
@@ -351,99 +320,6 @@ module RightScale
       return true
     end
 
-    # Given a sequence of preferred hostnames, lookup all IP addresses and store
-    # an ordered sequence of IP addresses from which to attempt cookbook download.
-    # Also build a lookup hash that maps IP addresses back to their original hostname
-    # so we can perform TLS hostname verification.
-    #
-    # === Parameters
-    # hostnames(Array):: hostnames
-    #
-    # === Return
-    # true:: always returns true
-    def discover_repose_servers(hostnames)
-      @repose_idx       = 0
-      @repose_ips       = []
-      @repose_hostnames = {}
-      @repose_failures  = 0
-      hostnames = [hostnames] unless hostnames.respond_to?(:each)
-      hostnames.each do |hostname|
-        infos = Socket.getaddrinfo(hostname, 443, Socket::AF_INET, Socket::SOCK_STREAM, Socket::IPPROTO_TCP)
-
-        #Randomly permute the addrinfos of each hostname to help spread load.
-        infos.shuffle.each do |info|
-          ip = info[3]
-          @repose_ips << ip
-          @repose_hostnames[ip] = hostname
-        end
-      end
-
-      true
-    end
-
-    # Find the next Repose server in the list. Perform special TLS certificate voodoo to comply
-    # safely with global URL scheme.
-    #
-    # === Raise
-    # ReposeServerFailure:: if a permanent failure happened
-    #
-    # === Return
-    # server(Array):: [ ip address of server, HttpConnection to server ]
-    def next_repose_server
-      attempts = 0
-      loop do
-        ip         = @repose_ips[ @repose_idx % @repose_ips.size ]
-        hostname   = @repose_hostnames[ip]
-        @repose_idx += 1
-        #TODO monkey-patch OpenSSL hostname verification
-        RightLinkLog.info("Connecting to cookbook server #{ip} (#{hostname})")
-        begin
-          OpenSSL::SSL::SSLSocket.hostname_override = hostname
-
-          #The CA bundle is a basically static collection of trusted certs of top-level
-          #CAs. It should be provided by the OS, but because of our cross-platform nature
-          #and the lib we're using, we need to supply our own. We stole curl's.
-          ca_file = File.normalize_path(File.join(File.dirname(__FILE__), 'ca-bundle.crt'))
-
-          connection = Rightscale::HttpConnection.new(:user_agent => "RightLink v#{RightLinkConfig.protocol_version}",
-                                                      :logger => @logger,
-                                                      :exception => ReposeConnectionFailure,
-                                                      :ca_file => ca_file)
-          health_check = Net::HTTP::Get.new('/')
-          health_check['Host'] = hostname
-          result = connection.request(:server => ip, :port => '443', :protocol => 'https',
-                                      :request => health_check)
-          if result.kind_of?(Net::HTTPSuccess)
-            @repose_failures = 0
-            return [ip, connection]
-          else
-            RightLinkLog.error "Health check unsuccessful: #{result.class.name}"
-            unless snooze(attempts)
-              RightLinkLog.error("Can't find any repose servers, giving up")
-              raise ReposeServerFailure.new("too many attempts")
-            end
-          end
-        rescue ReposeConnectionFailure => e
-          RightLinkLog.error "Connection failed: #{e.message}"
-          unless snooze(attempts)
-            RightLinkLog.error("Can't find any repose servers, giving up")
-            raise ReposeServerFailure.new("too many attempts")
-          end
-        end
-        attempts += 1
-      end
-    end
-
-    def snooze(attempts)
-      if attempts > REPOSE_RETRY_MAX_ATTEMPTS
-        false
-      else
-        @repose_failures = [@repose_failures + 1, REPOSE_RETRY_BACKOFF_MAX].min
-        sleep (2**@repose_failures)
-        true
-      end
-    end
-
     # Request a cookbook from the Repose mirror, performing retry as necessary. Block
     # until the cookbook has been downloaded, or until permanent failure has been
     # determined.
@@ -461,44 +337,9 @@ module RightScale
     #
     # === Return
     # true:: always returns true
-    def request_cookbook(cookbook)
-      @repose_connection ||= next_repose_server
-      cookie = Object.new
-      result = cookie
-      attempts = 0
-
-      while result == cookie
-        RightLinkLog.info("Requesting #{cookbook}")
-        request = Net::HTTP::Get.new("/cookbooks/#{cookbook.hash}")
-        request['Cookie'] = "repose_ticket=#{cookbook.token}"
-        request['Host'] = @repose_connection.first
-
-        @repose_connection.last.request(
-            :protocol => 'https', :server => @repose_connection.first, :port => '443',
-            :request => request) do |response|
-          if response.kind_of?(Net::HTTPSuccess)
-            @repose_failures = 0
-            yield response
-            result = true
-          elsif response.kind_of?(Net::HTTPServerError) || response.kind_of?(Net::HTTPNotFound)
-            RightLinkLog.warn("Request failed - #{response.class.name} - retry")
-            if snooze(attempts)
-              @repose_connection = next_repose_server
-            else
-              RightLinkLog.error("Request failed - too many attempts, giving up")
-              result = CookbookDownloadFailure.new(cookbook, "too many attempts")
-              next
-            end
-          else
-            RightLinkLog.error("Request failed - #{response.class.name} - give up")
-            result = CookbookDownloadFailure.new(cookbook, response)
-          end
-        end
-        attempts += 1
-      end
-
-      raise result if result.kind_of?(Exception)
-      return true
+    def request_cookbook(cookbook, &block)
+      ReposeDownloader.new('cookbooks', cookbook.hash, cookbook.token,
+                           cookbook.name, CookbookDownloadFailure).request(&block)
     end
 
     # Create Powershell providers from cookbook repos
@@ -718,7 +559,5 @@ module RightScale
       @audit.append_info("Duration: #{'%.2f' % (Time.now - start_time)} seconds\n\n")
       res
     end
-
   end
-
 end
