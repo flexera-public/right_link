@@ -60,6 +60,7 @@
 #     Removed created_at from Registration and Result
 #     Changed request target selector name from :random to :any
 #     Deprecated Stale packet with conversion to Result packet with NON_DELIVERY OperationResult
+#     Changed InstanceSetup to use the Repose mirror to download RightScript attachments
 protocol_version 13
 
 # Path to RightLink root folder

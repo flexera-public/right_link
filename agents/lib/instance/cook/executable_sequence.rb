@@ -45,9 +45,18 @@ module RightScale
     include EM::Deferrable
 
     class CookbookDownloadFailure < Exception
-      def initialize(cookbook, reason)
-       reason = reason.class.name unless reason.is_a?(String)
-       super("#{reason} while downloading #{cookbook}")
+      def initialize(tuple)
+        scope, resource, name, reason = tuple
+        reason = reason.class.name unless reason.is_a?(String)
+        super("#{reason} while downloading #{resource}")
+      end
+    end
+
+    class AttachmentDownloadFailure < Exception
+      def initialize(tuple)
+        scope, resource, name, reason = tuple
+        reason = reason.class.name unless reason.is_a?(String)
+        super("#{reason} while downloading #{resource}")
       end
     end
 
@@ -75,7 +84,7 @@ module RightScale
       @logger                 = RightLinkLog
 
       #Lookup
-      Repose.discover_repose_servers(bundle.repose_servers)
+      ReposeDownloader.discover_repose_servers(bundle.repose_servers)
 
       # Initializes run list for this sequence (partial converge support)
       @run_list = []
@@ -166,7 +175,19 @@ module RightScale
             attach_dir = @right_scripts_cookbook.cache_dir(script)
             script.attachments.each do |a|
               script_file_path = File.join(attach_dir, a.file_name)
-              @audit.update_status("Downloading #{a.file_name} into #{script_file_path}")
+              unless a.token.nil?
+                @audit.update_status("Downloading #{a.file_name} into #{script_file_path}")
+
+                begin
+                  download_using_repose(a, script_file_path)
+                  next
+                rescue AttachmentDownloadFailure => e
+                  @audit.append_info("Repose download failed: #{e.message}; " +
+                                     "falling back to direct download")
+                end
+              end
+
+              @audit.update_status("Downloading #{a.file_name} into #{script_file_path} directly")
               if @downloader.download(a.url, script_file_path)
                 @audit.append_info(@downloader.details)
               else
@@ -178,6 +199,42 @@ module RightScale
         end
       end
       true
+    end
+
+    # Download the given attachment using Repose.  Will throw
+    # exceptions in case of failure.
+    #
+    # === Parameters
+    # attachment(RightScale::Attachment):: attachment to download
+    # script_file_path(String):: destination pathname
+    #
+    # === Raise
+    # AttachmentDownloadFailure:: if some permanent failure occurred downloading the attachment
+    # ReposeDownloader::ReposeServerFailure:: if no Repose server could be contacted
+    # SystemCallError:: if the file cannot be created
+    #
+    # === Return
+    # always true
+    def download_using_repose(attachment, script_file_path)
+      begin
+        attachment_dir = File.dirname(script_file_path)
+        FileUtils.mkdir_p(attachment_dir)
+        dl = ReposeDownloader.new('attachments', attachment.to_hash, attachment.token,
+                                  attachment.file_name, AttachmentDownloadFailure)
+        tempfile = Tempfile.open('attachment', attachment_dir)
+        dl.request do |response|
+          response.read_body do |chunk|
+            tempfile << chunk
+          end
+        end
+        File.unlink(script_file_path) if File.exists?(script_file_path)
+        File.link(tempfile.path, script_file_path)
+        tempfile.close!
+        return true
+      rescue Exception => e
+        tempfile.close! unless tempfile.nil?
+        raise e
+      end
     end
 
     # Install required software packages, update @ok

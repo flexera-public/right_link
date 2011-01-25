@@ -64,7 +64,9 @@ module RightScale
     # resource(String):: the name of the resource
     # ticket(String):: the authorization token for the resource
     # name(String):: human readable name (for error messages and the like)
-    # exception(Exception):: the exception to throw if we are unable to download the resource
+    # exception(Exception):: the exception to throw if we are unable to download the resource.
+    #                        Takes one argument which is an array of four elements
+    #                        [+scope+, +resource+, +name+, +reason+]
     def initialize(scope, resource, ticket, name, exception)
       @scope = scope
       @resource = resource
@@ -106,9 +108,8 @@ module RightScale
         request['Cookie'] = "repose_ticket=#{@ticket}"
         request['Host'] = @repose_connection.first
 
-        @repose_connection.last.request(
-            :protocol => 'https', :server => @repose_connection.first, :port => '443',
-            :request => request) do |response|
+        @repose_connection.last.request(:protocol => 'https', :server => @repose_connection.first,
+                                        :port => '443', :request => request) do |response|
           if response.kind_of?(Net::HTTPSuccess)
             @failures = 0
             yield response
@@ -119,18 +120,16 @@ module RightScale
               @repose_connection = next_repose_server
             else
               RightLinkLog.error("Request failed - too many attempts, giving up")
-              result = @exception.new(@scope, @resource, @name, "too many attempts")
-              next
+              raise @exception, [@scope, @resource, @name, "too many attempts"]
             end
           else
             RightLinkLog.error("Request failed - #{response.class.name} - give up")
-            result = @exception.new(@scope, @resource, @name, response)
+            raise @exception, [@scope, @resource, @name, response]
           end
         end
         attempts += 1
       end
 
-      raise result if result.kind_of?(Exception)
       return true
     end
 
