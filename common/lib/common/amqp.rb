@@ -523,13 +523,13 @@ module RightScale
                 # Ack now before processing to avoid risk of duplication after a crash
                 info.ack
                 if options[:no_unserialize] || @serializer.nil?
-                  blk.call(b[:identity], msg)
+                  execute_callback(blk, b[:identity], msg)
                 elsif msg == "nil"
                   # This happens as part of connecting an instance agent to a broker
                   RightLinkLog.debug("RECV #{b[:alias]} nil message ignored")
                 elsif
                   packet = receive(b, queue[:name], msg, options)
-                  blk.call(b[:identity], packet) if packet
+                  execute_callback(blk, b[:identity], packet) if packet
                 end
               rescue Exception => e
                 RightLinkLog.error("Failed executing block for message from queue #{queue.inspect}#{to_exchange} " +
@@ -541,13 +541,13 @@ module RightScale
             q.subscribe do |msg|
               begin
                 if options[:no_unserialize] || @serializer.nil?
-                  blk.call(b[:identity], msg)
+                  execute_callback(blk, b[:identity], msg)
                 elsif msg == "nil"
                   # This happens as part of connecting an instance agent to a broker
                   RightLinkLog.debug("RECV #{b[:alias]} nil message ignored")
                 elsif
                   packet = receive(b, queue[:name], msg, options)
-                  blk.call(b[:identity], packet) if packet
+                  execute_callback(blk, b[:identity], packet) if packet
                 end
               rescue Exception => e
                 RightLinkLog.error("Failed executing block for message from queue #{queue.inspect}#{to_exchange} " +
@@ -564,6 +564,19 @@ module RightScale
         end
       end
       identities
+    end
+
+    # Execute packet receive callback, make it a separate method to ease
+    # instrumentation
+    #
+    # === Parameters
+    # callback(Proc):: Proc to run
+    # args(Array):: Array of pass-through arguments
+    #
+    # === Return
+    # res(Object):: Callback return value
+    def execute_callback(callback, *args)
+      callback.call(*args) if callback
     end
 
     # Unsubscribe from the specified queues on usable brokers
