@@ -79,10 +79,10 @@ module RightScale
     def status(reason = false)
       case @status_code
       when SUCCESS      then 'success'
-      when ERROR        then 'error' + (reason.is_a?(String) ? " (#{truncated_error})" : "")
+      when ERROR        then 'error' + (reason ? " (#{truncated_error})" : "")
       when CONTINUE     then 'continue'
       when RETRY        then 'retry'
-      when NON_DELIVERY then 'non-delivery' + (reason.is_a?(String) ? " (#{@content})" : "")
+      when NON_DELIVERY then 'non-delivery' + (reason ? " (#{@content})" : "")
       when MULTICAST    then 'multicast'
       end
     end
@@ -92,7 +92,7 @@ module RightScale
     # === Return
     # e(String):: String of no more than MAX_ERROR_SIZE characters
     def truncated_error
-      e = @content
+      e = @content.is_a?(String) ? @content : @content.inspect
       e = e[0, MAX_ERROR_SIZE - 3] + "..." if e.size > (MAX_ERROR_SIZE - 3)
       e
     end

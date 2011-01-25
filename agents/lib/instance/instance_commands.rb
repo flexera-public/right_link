@@ -36,8 +36,8 @@ module RightScale
       :run_right_script         => 'Run RightScript with id given in options[:id] and arguments given in hash options[:arguments] (e.g. { \'application\' => \'text:Mephisto\' })',
       :send_push                => 'Send request to one or more remote agents with no response expected',
       :send_persistent_push     => 'Send request to one or more remote agents with no response expected with persistence en route',
-      :send_timeout_retry_request => 'Send request to a remote agent with a response expected and retry if response times out',
-      :send_persistent_non_duplicate_request => 'Send request to a remote agent with a response expected with persistence ' +
+      :send_request             => 'Send request to a remote agent with a response expected and retry if response times out',
+      :send_persistent_request  => 'Send request to a remote agent with a response expected with persistence ' +
                                    'en route and no retries that would result in it being duplicated',
       :set_log_level            => 'Set log level to options[:level]',
       :get_log_level            => 'Get log level',
@@ -122,7 +122,7 @@ module RightScale
       if (target[:tags] && !target[:tags].empty?) || target[:scope] || (target[:selector] && target(:selector) == :all)
         send_persistent_push("/instance_scheduler/execute", opts[:conn], payload, target)
       else
-        send_persistent_non_duplicate_request("/forwarder/schedule_recipe", opts[:conn], payload)
+        send_persistent_request("/forwarder/schedule_recipe", opts[:conn], payload)
       end
     end
 
@@ -144,7 +144,7 @@ module RightScale
       if (target[:tags] && !target[:tags].empty?) || target[:scope] || (target[:selector] && target(:selector) == :all)
         send_persistent_push("/instance_scheduler/execute", opts[:conn], payload, target)
       else
-        send_persistent_non_duplicate_request("/forwarder/schedule_right_script", opts[:conn], payload)
+        send_persistent_request("/forwarder/schedule_right_script", opts[:conn], payload)
       end
     end
 
@@ -194,8 +194,8 @@ module RightScale
     #
     # === Return
     # true:: Always return true
-    def send_timeout_retry_request_command(opts)
-      send_timeout_retry_request(opts[:type], opts[:conn], opts[:payload], opts[:target], opts[:options])
+    def send_request_command(opts)
+      send_request(opts[:type], opts[:conn], opts[:payload], opts[:target], opts[:options])
     end
 
     # Send a request to a single target with a response expected
@@ -212,8 +212,8 @@ module RightScale
     #
     # === Return
     # true:: Always return true
-    def send_persistent_non_duplicate_request_command(opts)
-      send_persistent_non_duplicate_request(opts[:type], opts[:conn], opts[:payload], opts[:target], opts[:options])
+    def send_persistent_request_command(opts)
+      send_persistent_request(opts[:type], opts[:conn], opts[:payload], opts[:target], opts[:options])
     end
 
     # Set log level command
@@ -309,7 +309,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def query_tags_command(opts)
-      send_persistent_non_duplicate_request('/mapper/query_tags', opts[:conn], :tags => opts[:tags])
+      send_persistent_request('/mapper/query_tags', opts[:conn], :tags => opts[:tags])
     end
 
     # Update audit summary
@@ -396,7 +396,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def check_connectivity_command(opts)
-      send_persistent_non_duplicate_request("/mapper/ping", opts[:conn], nil, nil, opts)
+      send_persistent_request("/mapper/ping", opts[:conn], nil, nil, opts)
       true
     end
 
@@ -411,7 +411,7 @@ module RightScale
     def send_push(type, conn, payload = nil, target = nil, opts = {})
       payload ||= {}
       payload[:agent_identity] = @agent_identity
-      MapperProxy.instance.push(type, payload, target, opts.merge(:offline_queueing => true))
+      MapperProxy.instance.send_push(type, payload, target, opts.merge(:offline_queueing => true))
       CommandIO.instance.reply(conn, 'OK')
       true
     end
@@ -423,7 +423,7 @@ module RightScale
     def send_persistent_push(type, conn, payload = nil, target = nil, opts = {})
       payload ||= {}
       payload[:agent_identity] = @agent_identity
-      MapperProxy.instance.persistent_push(type, payload, target, opts.merge(:offline_queueing => true))
+      MapperProxy.instance.send_persistent_push(type, payload, target, opts.merge(:offline_queueing => true))
       CommandIO.instance.reply(conn, 'OK')
       true
     end
@@ -433,10 +433,10 @@ module RightScale
     # The request is timed out if not received in time, typically configured to 2 minutes
     # The request is allowed to expire per the agent's configured time-to-live, typically 1 minute
     # See MapperProxy for details
-    def send_timeout_retry_request(type, conn, payload = nil, target = nil, opts = {})
+    def send_request(type, conn, payload = nil, target = nil, opts = {})
       payload ||= {}
       payload[:agent_identity] = @agent_identity
-      MapperProxy.instance.timeout_retry_request(type, payload, target, opts.merge(:offline_queueing => true)) do |r|
+      MapperProxy.instance.send_request(type, payload, target, opts.merge(:offline_queueing => true)) do |r|
         reply = @serializer.dump(r) rescue '\"Failed to serialize response\"'
         CommandIO.instance.reply(conn, reply)
       end
@@ -448,10 +448,10 @@ module RightScale
     # additional network overhead
     # The request is never retried if there is the possibility of it being duplicated
     # See MapperProxy for details
-    def send_persistent_non_duplicate_request(type, conn, payload = nil, target = nil, opts = {})
+    def send_persistent_request(type, conn, payload = nil, target = nil, opts = {})
       payload ||= {}
       payload[:agent_identity] = @agent_identity
-      MapperProxy.instance.persistent_non_duplicate_request(type, payload, target, opts.merge(:offline_queueing => true)) do |r|
+      MapperProxy.instance.send_persistent_request(type, payload, target, opts.merge(:offline_queueing => true)) do |r|
         reply = JSON.dump(r) rescue '\"Failed to serialize response\"'
         CommandIO.instance.reply(conn, reply)
       end

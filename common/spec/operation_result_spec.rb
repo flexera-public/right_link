@@ -149,6 +149,11 @@ describe RightScale::OperationResult do
       result.to_s.should == "error (some problem)"
     end
 
+    it "should convert error content to string if necessary" do
+      result = RightScale::OperationResult.error({"data" => "some data", "message" => "some problem"})
+      result.to_s.should == "error ({\"data\"=>\"some data\", \"message\"=>\"some problem\"})"
+    end
+
     it "should truncate error message if too long" do
       result = RightScale::OperationResult.error("123456789012345678901234567890123456789012345678901234567890")
       result.to_s.should == "error (123456789012345678901234567890123456789012345678901234567...)"

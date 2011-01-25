@@ -93,7 +93,7 @@ class InstanceScheduler
     payload[:agent_identity] = @agent_identity
 
     forwarder = lambda do |type|
-      timeout_retry_request("/forwarder/schedule_#{type}", payload, nil, :offline_queueing => true) do |r|
+      send_request("/forwarder/schedule_#{type}", payload, nil, :offline_queueing => true) do |r|
         r = result_from(r)
         log_info("Failed executing #{type} for #{payload.inspect}", r.content) unless r.success?
       end
@@ -170,8 +170,8 @@ class InstanceScheduler
       callback.call if callback
     elsif RightScale::InstanceState.value != 'decommissioning'
       # Trigger decommission
-      timeout_retry_request('/booter/get_decommission_bundle', {:agent_identity => @agent_identity},
-                            nil, :offline_queueing => true) do |r|
+      send_request('/booter/get_decommission_bundle', {:agent_identity => @agent_identity},
+                   nil, :offline_queueing => true) do |r|
         res = result_from(r)
         if res.success?
           schedule_decommission(:bundle => res.content)

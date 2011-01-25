@@ -50,7 +50,7 @@
 #     Changed InstanceSetup to use the Repose mirror to download cookbook repositories
 # 12: Support both JSON and MessagePack serialization of packets with MessagePack as the new default
 #     and use DER (binary) encoding instead of PEM (base64) for the secure serialization
-# 13: Refactored messaging to expose push, persistent_push, timeout_retry_request, and persistent_non_duplicate_request
+# 13: Refactored messaging to expose send_push, send_persistent_push, send_request, and send_persistent_request
 #     Removed support for fanout of two-way requests, which was only used for rabbit requests
 #     Disabled duplicate request checking for shared queues
 #     Refactored mandatory handling to track tries and to be able to send non-delivery result

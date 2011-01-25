@@ -64,8 +64,8 @@ describe InstanceScheduler do
                                nil, {:offline_queueing => true}, Proc]
       @mapper_proxy = flexmock(RightScale::MapperProxy.instance, :message_received => true)
       @record_success = @results_factory.success_results
-      @mapper_proxy.should_receive(:timeout_retry_request).with(*@booting_args).and_yield(@record_success).once.by_default
-      @mapper_proxy.should_receive(:timeout_retry_request).and_yield(@record_success).by_default
+      @mapper_proxy.should_receive(:send_request).with(*@booting_args).and_yield(@record_success).once.by_default
+      @mapper_proxy.should_receive(:send_request).and_yield(@record_success).by_default
     end
 
     # Reset previous calls to EM.next_tick
@@ -77,9 +77,9 @@ describe InstanceScheduler do
     flexmock(RightScale::Platform).should_receive(:controller).and_return(@controller)
     now = Time.at(100000)
     flexmock(Time).should_receive(:now).and_return(now)
-    @mapper_proxy.should_receive(:push).with('/registrar/remove', {:agent_identity => '1', :created_at => now.to_i}, nil,
-                                             {:offline_queueing => true}).and_return(true)
-    @mapper_proxy.should_receive(:timeout_retry_request).with(*@operational_args).and_yield(@record_success).once
+    @mapper_proxy.should_receive(:send_push).with('/registrar/remove', {:agent_identity => '1', :created_at => now.to_i}, nil,
+                                                  {:offline_queueing => true}).and_return(true)
+    @mapper_proxy.should_receive(:send_request).with(*@operational_args).and_yield(@record_success).once
     RightScale::InstanceState.value = 'operational'
     @bundle = RightScale::InstantiationMock.script_bundle
     @agent = RightScale::Agent.new({})
@@ -100,8 +100,8 @@ describe InstanceScheduler do
 
   it 'should decommission' do
     flexmock(RightScale::ExecutableSequenceProxy).should_receive(:new).and_return(@sequence_success)
-    @mapper_proxy.should_receive(:timeout_retry_request).with(*@decommissioning_args).and_yield(@record_success).once
-    @mapper_proxy.should_receive(:timeout_retry_request).with(*@decommissioned_args).and_yield(@record_success).once.and_return { EM.stop }
+    @mapper_proxy.should_receive(:send_request).with(*@decommissioning_args).and_yield(@record_success).once
+    @mapper_proxy.should_receive(:send_request).with(*@decommissioned_args).and_yield(@record_success).once.and_return { EM.stop }
     flexmock(@audit).should_receive(:append_error).never
     EM.run do
       res = @scheduler.schedule_decommission(:bundle => @bundle, :user_id => @user_id)
@@ -112,8 +112,8 @@ describe InstanceScheduler do
 
   it 'should trigger shutdown even if decommission fails but not update inputs' do
     flexmock(RightScale::ExecutableSequenceProxy).should_receive(:new).and_return(@sequence_failure)
-    @mapper_proxy.should_receive(:timeout_retry_request).with(*@decommissioning_args).and_yield(@record_success).once
-    @mapper_proxy.should_receive(:timeout_retry_request).with(*@decommissioned_args).and_yield(@record_success).once.and_return { EM.stop }
+    @mapper_proxy.should_receive(:send_request).with(*@decommissioning_args).and_yield(@record_success).once
+    @mapper_proxy.should_receive(:send_request).with(*@decommissioned_args).and_yield(@record_success).once.and_return { EM.stop }
     flexmock(@audit).should_receive(:update_status).ordered.once.and_return { |s, _| s.should include('Scheduling execution of ') }
     flexmock(@audit).should_receive(:update_status).ordered.once.and_return { |s, _| s.should include('failed: ') }
     EM.run do
@@ -124,7 +124,7 @@ describe InstanceScheduler do
   end
 
   it 'should not decommission twice' do
-    @mapper_proxy.should_receive(:timeout_retry_request).with(*@decommissioning_args).and_yield(@record_success).once
+    @mapper_proxy.should_receive(:send_request).with(*@decommissioning_args).and_yield(@record_success).once
     EM.run do
       res = @scheduler.schedule_decommission(:bundle => @bundle, :user_id => @user_id)
       res.success?.should be_true
@@ -136,12 +136,12 @@ describe InstanceScheduler do
 
   it 'should *not* transition to decommissioned state nor shutdown after decommissioning from rnac' do
     flexmock(RightScale::ExecutableSequenceProxy).should_receive(:new).and_return(@sequence_success)
-    @mapper_proxy.should_receive(:timeout_retry_request).
+    @mapper_proxy.should_receive(:send_request).
             with('/booter/get_decommission_bundle', {:agent_identity => @agent.identity},
                  nil, {:offline_queueing => true}, Proc).
             and_yield({ '1' => RightScale::OperationResult.success(@bundle) })
-    @mapper_proxy.should_receive(:timeout_retry_request).with(*@decommissioning_args).and_yield(@record_success).once
-    @mapper_proxy.should_receive(:timeout_retry_request).with(*@decommissioned_args).never
+    @mapper_proxy.should_receive(:send_request).with(*@decommissioning_args).and_yield(@record_success).once
+    @mapper_proxy.should_receive(:send_request).with(*@decommissioned_args).never
     flexmock(@audit).should_receive(:append_error).never
     flexmock(@controller).should_receive(:shutdown).never
     EM.run do
@@ -152,8 +152,8 @@ describe InstanceScheduler do
 
   it 'should force transition to decommissioned state after SHUTDOWN_DELAY when decommission hangs' do
     flexmock(RightScale::ExecutableSequenceProxy).should_receive(:new).and_return(@sequence_success)
-    @mapper_proxy.should_receive(:timeout_retry_request).with(*@decommissioning_args).and_yield(@record_success).once
-    @mapper_proxy.should_receive(:timeout_retry_request).with(*@decommissioned_args).and_yield(@record_success).once.and_return { EM.stop }
+    @mapper_proxy.should_receive(:send_request).with(*@decommissioning_args).and_yield(@record_success).once
+    @mapper_proxy.should_receive(:send_request).with(*@decommissioned_args).and_yield(@record_success).once.and_return { EM.stop }
     begin
       orig_shutdown_delay = InstanceScheduler::SHUTDOWN_DELAY
       InstanceScheduler.const_set(:SHUTDOWN_DELAY, 1)
@@ -169,10 +169,10 @@ describe InstanceScheduler do
 
   it 'should force shutdown when request to transition to decommissioned state fails' do
     flexmock(RightScale::ExecutableSequenceProxy).should_receive(:new).and_return(@sequence_success)
-    @mapper_proxy.should_receive(:timeout_retry_request).with(*@decommissioning_args).and_yield(@record_success).once
-    @mapper_proxy.should_receive(:timeout_retry_request).with(*@decommissioned_args).
+    @mapper_proxy.should_receive(:send_request).with(*@decommissioning_args).and_yield(@record_success).once
+    @mapper_proxy.should_receive(:send_request).with(*@decommissioned_args).
             and_yield({'1' => RightScale::OperationResult.error('test')}).once
-    @mapper_proxy.should_receive(:push).with('/registrar/remove', {:agent_identity => '1'}, nil,
+    @mapper_proxy.should_receive(:send_push).with('/registrar/remove', {:agent_identity => '1'}, nil,
             {:offline_queueing => true})
     flexmock(@controller).should_receive(:shutdown).once.and_return { EM.stop }
     EM.run do

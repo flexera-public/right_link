@@ -302,8 +302,8 @@ describe RightScale::Agent do
                                              and_return(@broker_ids.first(1)).once
           @agent = RightScale::Agent.start(:user => "tester", :identity => @identity)
           @agent.instance_variable_get(:@remaining_setup).should == {:setup_identity_queue => @broker_ids.last(1)}
-          @mapper_proxy.should_receive(:push).with("/registrar/connect", {:agent_identity => @identity, :host => "123",
-                                                                          :port => 2, :id => 1, :priority => 1}).once
+          @mapper_proxy.should_receive(:send_push).with("/registrar/connect", {:agent_identity => @identity, :host => "123",
+                                                                               :port => 2, :id => 1, :priority => 1}).once
           @agent.__send__(:check_status)
         end
       end

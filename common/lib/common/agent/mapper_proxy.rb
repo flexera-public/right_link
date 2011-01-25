@@ -182,8 +182,8 @@ module RightScale
     #
     # === Return
     # true:: Always return true
-    def push(type, payload = nil, target = nil, opts = {})
-      send_push(:push, type, payload, target, opts)
+    def send_push(type, payload = nil, target = nil, opts = {})
+      build_push(:send_push, type, payload, target, opts)
     end
 
     # Send a request to a single target or multiple targets with no response expected
@@ -210,8 +210,8 @@ module RightScale
     #
     # === Return
     # true:: Always return true
-    def persistent_push(type, payload = nil, target = nil, opts = {})
-      send_push(:persistent_push, type, payload, target, opts)
+    def send_persistent_push(type, payload = nil, target = nil, opts = {})
+      build_push(:send_persistent_push, type, payload, target, opts)
     end
 
     # Send a request to a single target with a response expected
@@ -245,8 +245,8 @@ module RightScale
     #
     # === Return
     # true:: Always return true
-    def timeout_retry_request(type, payload = nil, target = nil, opts = {}, &callback)
-      send_request(:timeout_retry_request, type, payload, target, opts, &callback)
+    def send_request(type, payload = nil, target = nil, opts = {}, &callback)
+      build_request(:send_request, type, payload, target, opts, &callback)
     end
 
     # Send a request to a single target with a response expected
@@ -278,8 +278,8 @@ module RightScale
     #
     # === Return
     # true:: Always return true
-    def persistent_non_duplicate_request(type, payload = nil, target = nil, opts = {}, &callback)
-      send_request(:persistent_non_duplicate_request, type, payload, target, opts, &callback)
+    def send_persistent_request(type, payload = nil, target = nil, opts = {}, &callback)
+      build_request(:send_persistent_request, type, payload, target, opts, &callback)
     end
 
     # Handle response to a request
@@ -305,7 +305,7 @@ module RightScale
         end
 
         if handler = @pending_requests[token]
-          if result && result.non_delivery? && handler[:request_kind] == :timeout_retry_request &&
+          if result && result.non_delivery? && handler[:request_kind] == :send_request &&
              [OperationResult::TARGET_NOT_CONNECTED, OperationResult::TTL_EXPIRATION].include?(result.content)
             # Log and ignore so that timeout retry mechanism continues
             # Leave purging of associated request until final response, i.e., success response or retry timeout
@@ -466,10 +466,10 @@ module RightScale
       true
     end
 
-    # Send Push request
+    # Build and send Push packet
     #
     # === Parameters
-    # kind(Symbol):: Kind of push: :push or :persistent_push
+    # kind(Symbol):: Kind of push: :send_push or :send_persistent_push
     # type(String):: Dispatch route for the request; typically identifies actor and action
     # payload(Object):: Data to be sent with marshalling en route
     # target(String|Hash):: Identity of specific target, or hash for selecting potentially multiple
@@ -485,7 +485,7 @@ module RightScale
     #
     # === Return
     # true:: Always return true
-    def send_push(kind, type, payload = nil, target = nil, opts = {})
+    def build_push(kind, type, payload = nil, target = nil, opts = {})
       if should_queue?(opts)
         queue_request(:kind => kind, :type => type, :payload => payload, :target => target, :options => opts)
       else
@@ -501,17 +501,17 @@ module RightScale
         else
           push.target = target
         end
-        push.persistent = kind == :persistent_push
-        @request_kinds.update(push.selector == :all ? kind.to_s.sub(/push/, "fanout") : kind.to_s)
+        push.persistent = kind == :send_persistent_push
+        @request_kinds.update((push.selector == :all ? kind.to_s.sub(/push/, "fanout") : kind.to_s)[5..-1])
         publish(push)
       end
       true
     end
 
-    # Send Request request
+    # Build and send Request packet
     #
     # === Parameters
-    # kind(Symbol):: Kind of request: :timeout_retry_request or :persistent_non_duplicate_request
+    # kind(Symbol):: Kind of request: :send_request or :send_persistent_request
     # type(String):: Dispatch route for the request; typically identifies actor and action
     # payload(Object):: Data to be sent with marshalling en route
     # target(String|Hash):: Identity of specific target, or hash for selecting targets of which one is picked
@@ -525,21 +525,21 @@ module RightScale
     #
     # === Block
     # Required block used to process response asynchronously with the following parameter:
-    #   result(Result):: Response with an OperationResult of SUCCESS, RETRY, NON_DELIVERY, TIMEOUT, or ERROR,
+    #   result(Result):: Response with an OperationResult of SUCCESS, RETRY, NON_DELIVERY, or ERROR,
     #     use RightScale::OperationResult.from_results to decode
     #
     # === Return
     # true:: Always return true
-    def send_request(kind, type, payload, target, opts, &callback)
+    def build_request(kind, type, payload, target, opts, &callback)
       if should_queue?(opts)
         queue_request(:kind => kind, :type => type, :payload => payload,
                       :target => target, :options => opts, :callback => callback)
       else
         method = type.split('/').last
         token = AgentIdentity.generate
-        non_duplicate = kind == :persistent_non_duplicate_request
+        non_duplicate = kind == :send_persistent_request
         received_at = @requests.update(method, token)
-        @request_kinds.update(kind.to_s)
+        @request_kinds.update(kind.to_s[5..-1])
 
         # Using next_tick to ensure on primary thread since using @pending_requests
         EM.next_tick do

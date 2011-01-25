@@ -232,7 +232,7 @@ module RightScale
       @tags += (new_tags || [])
       @tags -= (obsolete_tags || [])
       @tags.uniq!
-      @mapper_proxy.persistent_push("/mapper/update_tags", :new_tags => new_tags, :obsolete_tags => obsolete_tags)
+      @mapper_proxy.send_persistent_push("/mapper/update_tags", :new_tags => new_tags, :obsolete_tags => obsolete_tags)
       true
     end
 
@@ -653,7 +653,7 @@ module RightScale
       @broker.failed(backoff = true).each do |id|
         p = {:agent_identity => @identity}
         p[:host], p[:port], p[:id], p[:priority] = @broker.identity_parts(id)
-        @mapper_proxy.push("/registrar/connect", p)
+        @mapper_proxy.send_push("/registrar/connect", p)
       end
       true
     end

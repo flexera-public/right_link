@@ -45,8 +45,8 @@ describe RightScale::InstanceState do
                               nil, {:offline_queueing => true}, Proc]
       @record_success = @results_factory.success_results
       @mapper_proxy = flexmock(RightScale::MapperProxy.instance)
-      @mapper_proxy.should_receive(:timeout_retry_request).with(*@booting_args).and_yield(@record_success).once.by_default
-      @mapper_proxy.should_receive(:timeout_retry_request).and_yield(@record_success).by_default
+      @mapper_proxy.should_receive(:send_request).with(*@booting_args).and_yield(@record_success).once.by_default
+      @mapper_proxy.should_receive(:send_request).and_yield(@record_success).by_default
     end
     @state_file = RightScale::InstanceState::STATE_FILE
     @login_policy_file = RightScale::InstanceState::LOGIN_POLICY_FILE
@@ -163,11 +163,11 @@ describe RightScale::InstanceState do
 
     it 'should store state' do
       RightScale::InstanceState.value.should == "booting"
-      @mapper_proxy.should_receive(:timeout_retry_request).with(*@operational_args).and_yield(@record_success).once
+      @mapper_proxy.should_receive(:send_request).with(*@operational_args).and_yield(@record_success).once
       RightScale::InstanceState.value = "operational"
       RightScale::InstanceState.init(@identity)
       RightScale::InstanceState.value.should == "operational"
-      @mapper_proxy.should_receive(:timeout_retry_request).with(*@decommissioning_args).and_yield(@record_success).once
+      @mapper_proxy.should_receive(:send_request).with(*@decommissioning_args).and_yield(@record_success).once
       RightScale::InstanceState.value = "decommissioning"
       RightScale::InstanceState.init(@identity)
       RightScale::InstanceState.value.should == "decommissioning"
@@ -175,16 +175,16 @@ describe RightScale::InstanceState do
 
     it 'should record state' do
       RightScale::InstanceState.value.should == "booting"
-      @mapper_proxy.should_receive(:timeout_retry_request).with(*@operational_args).and_yield(@record_success).once
+      @mapper_proxy.should_receive(:send_request).with(*@operational_args).and_yield(@record_success).once
       RightScale::InstanceState.value = "operational"
       RightScale::InstanceState.value.should == "operational"
-      @mapper_proxy.should_receive(:timeout_retry_request).with(*@decommissioning_args).and_yield(@record_success).once
+      @mapper_proxy.should_receive(:send_request).with(*@decommissioning_args).and_yield(@record_success).once
       RightScale::InstanceState.value = "decommissioning"
       RightScale::InstanceState.value.should == "decommissioning"
     end
 
     it 'should not record state for unrecorded values' do
-      @mapper_proxy.should_receive(:timeout_retry_request).never
+      @mapper_proxy.should_receive(:send_request).never
       RightScale::InstanceState.value = "decommissioned"
       RightScale::InstanceState.value.should == "decommissioned"
     end
@@ -192,7 +192,7 @@ describe RightScale::InstanceState do
     it 'should store last recorded value after recording state' do
       RightScale::InstanceState.value.should == "booting"
       RightScale::InstanceState.last_recorded_value.should == "booting"
-      @mapper_proxy.should_receive(:timeout_retry_request).with(*@operational_args).and_yield(@record_success).once
+      @mapper_proxy.should_receive(:send_request).with(*@operational_args).and_yield(@record_success).once
       RightScale::InstanceState.value = "operational"
       RightScale::InstanceState.value.should == "operational"
       RightScale::InstanceState.last_recorded_value.should == "operational"
@@ -203,7 +203,7 @@ describe RightScale::InstanceState do
       flexmock(EM).should_receive("add_timer").with(5, Proc).once
       flexmock(RightScale::RightLinkLog).should_receive(:error).with(/Failed to record state/)
       error = @results_factory.error_results("error")
-      @mapper_proxy.should_receive(:timeout_retry_request).with(*@operational_args).and_yield(error).once
+      @mapper_proxy.should_receive(:send_request).with(*@operational_args).and_yield(error).once
       RightScale::InstanceState.value = "operational"
       RightScale::InstanceState.value.should == "operational"
       RightScale::InstanceState.last_recorded_value.should == "booting"
@@ -212,7 +212,7 @@ describe RightScale::InstanceState do
     it 'should store the last recorded value if returned with the error' do
       flexmock(EM).should_receive("add_timer").with(5, Proc).once
       error = @results_factory.error_results({'recorded_state' => "pending", 'message' => "Inconsistent"})
-      @mapper_proxy.should_receive(:timeout_retry_request).with(*@operational_args).and_yield(error).once
+      @mapper_proxy.should_receive(:send_request).with(*@operational_args).and_yield(error).once
       RightScale::InstanceState.last_recorded_value.should == "booting"
       RightScale::InstanceState.value = "operational"
       RightScale::InstanceState.value.should == "operational"
@@ -224,8 +224,8 @@ describe RightScale::InstanceState do
       RightScale::InstanceState.const_set(:MAX_RECORD_STATE_RETRIES, 1)
       flexmock(EM).should_receive("add_timer").with(5, Proc).and_yield.once
       error = @results_factory.error_results({'recorded_state' => "pending", 'message' => "Inconsistent"})
-      @mapper_proxy.should_receive(:timeout_retry_request).with(*@operational_args).and_yield(error).once
-      @mapper_proxy.should_receive(:timeout_retry_request).with('/state_recorder/record', {:state => "operational", :agent_identity => "1",
+      @mapper_proxy.should_receive(:send_request).with(*@operational_args).and_yield(error).once
+      @mapper_proxy.should_receive(:send_request).with('/state_recorder/record', {:state => "operational", :agent_identity => "1",
               :from_state => "pending"}, nil, {:offline_queueing => true}, Proc).and_yield(error).once
       RightScale::InstanceState.last_recorded_value.should == "booting"
       RightScale::InstanceState.value = "operational"
@@ -237,7 +237,7 @@ describe RightScale::InstanceState do
       RightScale::InstanceState.init(@identity)
       flexmock(EM).should_receive("add_timer").never
       error = @results_factory.error_results({'recorded_state' => "operational", 'message' => "Inconsistent"})
-      @mapper_proxy.should_receive(:timeout_retry_request).with(*@operational_args). and_yield(error).once
+      @mapper_proxy.should_receive(:send_request).with(*@operational_args). and_yield(error).once
       RightScale::InstanceState.last_recorded_value.should == "booting"
       RightScale::InstanceState.value = "operational"
       RightScale::InstanceState.value.should == "operational"
@@ -275,7 +275,7 @@ describe RightScale::InstanceState do
       RightScale::InstanceState.init(@identity)
       RightScale::InstanceState.value.should == "booting"
       RightScale::InstanceState.value = "decommissioning"
-      @mapper_proxy.should_receive(:timeout_retry_request).with(*@decommissioned_args).once
+      @mapper_proxy.should_receive(:send_request).with(*@decommissioned_args).once
       RightScale::InstanceState.shutdown(@user_id, false, 'terminate')
     end
 
@@ -286,7 +286,7 @@ describe RightScale::InstanceState do
       RightScale::InstanceState.init(@identity)
       RightScale::InstanceState.value.should == "booting"
       RightScale::InstanceState.value = "decommissioning"
-      @mapper_proxy.should_receive(:push).with('/registrar/remove', {:agent_identity => '1', :created_at => now.to_i}, nil,
+      @mapper_proxy.should_receive(:send_push).with('/registrar/remove', {:agent_identity => '1', :created_at => now.to_i}, nil,
                                                {:offline_queueing => true}).once
       RightScale::InstanceState.shutdown(@user_id, false, 'terminate')
     end

@@ -65,7 +65,7 @@ module RightScale
       payload = {:agent_identity => agent_identity,
                  :summary        => summary,
                  :category       => RightScale::EventCategories::NONE}
-      MapperProxy.instance.persistent_non_duplicate_request("/auditor/create_entry", payload, nil, :offline_queueing => true) do |r|
+      MapperProxy.instance.send_persistent_request("/auditor/create_entry", payload, nil, :offline_queueing => true) do |r|
         res = RightScale::OperationResult.from_results(r)
         if res.success?
           audit = new(res.content)
@@ -188,7 +188,7 @@ module RightScale
       begin
         audit = AuditFormatter.__send__(options[:kind], options[:text])
         @size += audit[:detail].size
-        MapperProxy.instance.persistent_push("/auditor/update_entry", opts.merge(audit), nil, :offline_queueing => true)
+        MapperProxy.instance.send_persistent_push("/auditor/update_entry", opts.merge(audit), nil, :offline_queueing => true)
       rescue Exception => e
         RightLinkLog.warn("Failed to send audit: #{e.message} from\n#{e.backtrace.join("\n")}")
       end

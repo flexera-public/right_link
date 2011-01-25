@@ -76,7 +76,7 @@ module RightScale
 
     # Helper method to send a request to one or more targets with no response expected
     # See InstanceCommands for details
-    def push(type, payload = nil, target = nil, opts = {})
+    def send_push(type, payload = nil, target = nil, opts = {})
       cmd = {:name => :send_push, :type => type, :payload => payload, :target => target, :options => opts}
       @client.send_command(cmd)
     end
@@ -84,7 +84,7 @@ module RightScale
     # Helper method to send a request to one or more targets with no response expected
     # The request is persisted en route to reduce the chance of it being lost
     # See InstanceCommands for details
-    def persistent_push(type, payload = nil, target = nil, opts = {})
+    def send_persistent_push(type, payload = nil, target = nil, opts = {})
       cmd = {:name => :send_persistent_push, :type => type, :payload => payload, :target => target, :options => opts}
       @client.send_command(cmd)
     end
@@ -92,7 +92,7 @@ module RightScale
     # Helper method to send a request to a single target with a response expected
     # The request is retried if the response is not received in a reasonable amount of time
     # See InstanceCommands for details
-    def timeout_retry_request(type, payload = nil, target = nil, opts = {}, &blk)
+    def send_request(type, payload = nil, target = nil, opts = {}, &blk)
       cmd = {:name => :send_request, :type => type, :payload => payload, :target => target, :options => opts}
       @client.send_command(cmd) do |r|
         response = load(r, "Request response #{r.inspect}")
@@ -104,7 +104,7 @@ module RightScale
     # The request is persisted en route to reduce the chance of it being lost
     # The request is never retried if there is the possibility of it being duplicated
     # See InstanceCommands for details
-    def persistent_non_duplicate_request(type, payload = nil, target = nil, opts = {}, &blk)
+    def send_persistent_request(type, payload = nil, target = nil, opts = {}, &blk)
       cmd = {:name => :send_request, :type => type, :payload => payload, :target => target, :options => opts}
       @client.send_command(cmd) do |r|
         response = load_json(r, "Request response #{r.inspect}")

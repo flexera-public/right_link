@@ -56,7 +56,7 @@ describe Chef::Provider::ServerCollection do
       Chef::Provider::ServerCollection.const_set(:QUERY_TIMEOUT, 0.5)
       mapper_proxy = flexmock('MapperProxy')
       flexmock(RightScale::MapperProxy).should_receive(:instance).and_return(mapper_proxy).by_default
-      mapper_proxy.should_receive(:timeout_retry_request).and_yield(nil)
+      mapper_proxy.should_receive(:send_request).and_yield(nil)
       perform_load
       @provider.instance_variable_get(:@node)[:server_collection]['resource_name'].should == {}
     ensure

@@ -47,7 +47,7 @@ class InstanceSetup
   def self.agents=(agents)
     @@agents = agents
   end
-  def timeout_retry_request(operation, *args)
+  def send_request(operation, *args)
     case operation
     when "/booter/set_r_s_version" then yield @@factory.success_results
     when "/booter/get_repositories" then yield @@repos
@@ -57,7 +57,7 @@ class InstanceSetup
     else raise ArgumentError.new("Don't know how to mock #{operation}")
     end
   end
-  def persistent_non_duplicate_request(operation, *args)
+  def send_persistent_request(operation, *args)
     case operation
     when "/booter/declare" then yield @@factory.success_results
     else raise ArgumentError.new("Don't know how to mock #{operation}")

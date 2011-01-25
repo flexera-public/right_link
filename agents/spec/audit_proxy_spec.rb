@@ -37,28 +37,28 @@ describe RightScale::AuditProxy do
   it 'should send info audits' do
     payload = { :category => RightScale::EventCategories::CATEGORY_NOTIFICATION, :audit_id => @audit_id, :offset => 0 }
     payload.merge!(RightScale::AuditFormatter.info('INFO'))
-    @mapper_proxy.should_receive(:persistent_push).once.with('/auditor/update_entry', payload, nil, :offline_queueing => true)
+    @mapper_proxy.should_receive(:send_persistent_push).once.with('/auditor/update_entry', payload, nil, :offline_queueing => true)
     @audit_proxy.append_info('INFO')
   end
 
   it 'should send error audits' do
     payload = { :category => RightScale::EventCategories::CATEGORY_NOTIFICATION, :audit_id => @audit_id, :offset => 0 }
     payload.merge!(RightScale::AuditFormatter.error('ERROR'))
-    @mapper_proxy.should_receive(:persistent_push).once.with('/auditor/update_entry', payload, nil, :offline_queueing => true)
+    @mapper_proxy.should_receive(:send_persistent_push).once.with('/auditor/update_entry', payload, nil, :offline_queueing => true)
     @audit_proxy.append_error('ERROR')
   end
 
   it 'should send status audits' do
     payload = { :category => RightScale::EventCategories::CATEGORY_NOTIFICATION, :audit_id => @audit_id, :offset => 0 }
     payload.merge!(RightScale::AuditFormatter.status('STATUS'))
-    @mapper_proxy.should_receive(:persistent_push).once.with('/auditor/update_entry', payload, nil, :offline_queueing => true)
+    @mapper_proxy.should_receive(:send_persistent_push).once.with('/auditor/update_entry', payload, nil, :offline_queueing => true)
     @audit_proxy.update_status('STATUS')
   end
 
   it 'should send new section audits' do
     payload = { :category => RightScale::EventCategories::CATEGORY_NOTIFICATION, :audit_id => @audit_id, :offset => 0 }
     payload.merge!(RightScale::AuditFormatter.new_section('NEW SECTION'))
-    @mapper_proxy.should_receive(:persistent_push).once.with('/auditor/update_entry', payload, nil, :offline_queueing => true)
+    @mapper_proxy.should_receive(:send_persistent_push).once.with('/auditor/update_entry', payload, nil, :offline_queueing => true)
     @audit_proxy.create_new_section('NEW SECTION')
   end
 
@@ -66,21 +66,21 @@ describe RightScale::AuditProxy do
     flexmock(EventMachine::PeriodicTimer).should_receive(:new).and_yield.once
     payload = { :category => RightScale::EventCategories::NONE, :audit_id => @audit_id, :offset => 0 }
     payload.merge!(RightScale::AuditFormatter.output('OUTPUT'))
-    @mapper_proxy.should_receive(:persistent_push).once.with('/auditor/update_entry', payload, nil, :offline_queueing => true)
+    @mapper_proxy.should_receive(:send_persistent_push).once.with('/auditor/update_entry', payload, nil, :offline_queueing => true)
     @audit_proxy.append_output('OUTPUT')
   end
 
   it 'should revert to default event category when an invalid category is given' do
     payload = { :category => RightScale::EventCategories::CATEGORY_NOTIFICATION, :audit_id => @audit_id, :offset => 0 }
     payload.merge!(RightScale::AuditFormatter.info('INFO'))
-    @mapper_proxy.should_receive(:persistent_push).once.with('/auditor/update_entry', payload, nil, :offline_queueing => true)
+    @mapper_proxy.should_receive(:send_persistent_push).once.with('/auditor/update_entry', payload, nil, :offline_queueing => true)
     @audit_proxy.append_info('INFO', :category => '__INVALID__')
   end
 
   it 'should honor the event category' do
     payload = { :category => RightScale::EventCategories::CATEGORY_SECURITY, :audit_id => @audit_id, :offset => 0 }
     payload.merge!(RightScale::AuditFormatter.info('INFO'))
-    @mapper_proxy.should_receive(:persistent_push).once.with('/auditor/update_entry', payload, nil, :offline_queueing => true)
+    @mapper_proxy.should_receive(:send_persistent_push).once.with('/auditor/update_entry', payload, nil, :offline_queueing => true)
     @audit_proxy.append_info('INFO', :category => RightScale::EventCategories::CATEGORY_SECURITY)
   end
 
@@ -91,7 +91,7 @@ describe RightScale::AuditProxy do
       RightScale::AuditProxy.const_set(:MAX_AUDIT_SIZE, 0)
       payload = { :category => RightScale::EventCategories::NONE, :audit_id => @audit_id, :offset => 0 }
       payload.merge!(RightScale::AuditFormatter.output('OUTPUT'))
-      @mapper_proxy.should_receive(:persistent_push).once.with('/auditor/update_entry', payload, nil, :offline_queueing => true)
+      @mapper_proxy.should_receive(:send_persistent_push).once.with('/auditor/update_entry', payload, nil, :offline_queueing => true)
       @audit_proxy.append_output('OUTPUT')
     ensure
       RightScale::AuditProxy.const_set(:MAX_AUDIT_SIZE, old_size)
