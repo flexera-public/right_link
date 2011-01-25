@@ -123,7 +123,7 @@ module RightScale
           obj = serializer.__send__(action, packet)
         rescue Exception => e
           obj = nil
-          errors << RightLinkLog.format("Failed to #{action} with #{serializer.class.name}: ", e, :trace)
+          errors << RightLinkLog.format("Failed to #{action} with #{serializer.name}", e, :trace)
         end
         return obj if obj
       end
