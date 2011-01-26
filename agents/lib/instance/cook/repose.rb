@@ -54,9 +54,6 @@ module RightScale
     class ReposeConnectionFailure < Exception
     end
 
-    class ReposeServerFailure < Exception
-    end
-
     # Prepare to request a resource from the Repose mirror.
     #
     # === Parameters
@@ -80,19 +77,12 @@ module RightScale
     # necessary. Block until the resource has been downloaded, or
     # until permanent failure has been determined.
     #
-    # === Parameters
-    # scope(String):: the scope of the resource to request
-    # resource(String):: the name of the resource
-    # ticket(String):: the authorization token for the resource
-    # exception(Exception):: the exception to throw if we are unable to download the resource
-    #
     # === Block
     # If the request succeeds this method will yield, passing
     # the HTTP response object as its sole argument.
     #
     # === Raise
-    # exception:: if a permanent failure happened
-    # ReposeServerFailure:: if no Repose server could be contacted
+    # @exception:: if a permanent failure happened
     #
     # === Return
     # true:: always returns true
@@ -137,7 +127,7 @@ module RightScale
     # safely with global URL scheme.
     #
     # === Raise
-    # ReposeServerFailure:: if a permanent failure happened
+    # @exception:: if a permanent failure happened
     #
     # === Return
     # server(Array):: [ ip address of server, HttpConnection to server ]
@@ -172,14 +162,14 @@ module RightScale
             RightLinkLog.error "Health check unsuccessful: #{result.class.name}"
             unless snooze(attempts)
               RightLinkLog.error("Can't find any repose servers, giving up")
-              raise ReposeServerFailure.new("too many attempts")
+              raise @exception, [@scope, @resource, @name, "too many attempts"]
             end
           end
         rescue ReposeConnectionFailure => e
           RightLinkLog.error "Connection failed: #{e.message}"
           unless snooze(attempts)
             RightLinkLog.error("Can't find any repose servers, giving up")
-            raise ReposeServerFailure.new("too many attempts")
+            raise @exception, [@scope, @resource, @name, "too many attempts"]
           end
         end
         attempts += 1
