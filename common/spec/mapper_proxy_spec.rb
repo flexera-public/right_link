@@ -270,6 +270,15 @@ describe RightScale::MapperProxy do
       @instance.send_request('/welcome/aboard', 'iZac', 'my-target') {|response|}
     end
 
+    it "should set the correct target selectors if specified" do
+      @broker.should_receive(:publish).with(hsh(:name => "request"), on do |request|
+        request.tags.should == ['tag']
+        request.selector.should == :any
+        request.scope.should == {:account => 123}
+      end, hsh(:persistent => false, :mandatory => true)).once
+      @instance.send_request('/welcome/aboard', 'iZac', :tags => ['tag'], :scope => {:account => 123})
+    end
+
     it "should set up for retrying the request if necessary by default" do
       flexmock(@instance).should_receive(:publish_with_timeout_retry).once
       @instance.send_request('/welcome/aboard', 'iZac', 'my-target') {|response|}
@@ -513,6 +522,22 @@ describe RightScale::MapperProxy do
         request.expires_at.should == 0
       end, hsh(:persistent => true, :mandatory => true)).once
       @instance.send_persistent_request('/welcome/aboard', 'iZac') {|response|}
+    end
+
+    it "should set the correct target if specified" do
+      @broker.should_receive(:publish).with(hsh(:name => "request"), on do |request|
+        request.target.should == 'my-target'
+      end, hsh(:persistent => true, :mandatory => true)).once
+      @instance.send_persistent_request('/welcome/aboard', 'iZac', 'my-target') {|response|}
+    end
+
+    it "should set the correct target selectors if specified" do
+      @broker.should_receive(:publish).with(hsh(:name => "request"), on do |request|
+        request.tags.should == ['tag']
+        request.selector.should == :any
+        request.scope.should == {:account => 123}
+      end, hsh(:persistent => true, :mandatory => true)).once
+      @instance.send_persistent_request('/welcome/aboard', 'iZac', :tags => ['tag'], :scope => {:account => 123})
     end
 
     it "should not set up for retrying the request" do

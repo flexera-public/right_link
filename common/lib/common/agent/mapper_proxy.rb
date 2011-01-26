@@ -548,8 +548,8 @@ module RightScale
             request.from = @identity
             request.token = token
             if target.is_a?(Hash)
-              request.tags = targets[:tags] || []
-              request.scope = targets[:scope]
+              request.tags = target[:tags] || []
+              request.scope = target[:scope]
               request.selector = :any
             else
               request.target = target
