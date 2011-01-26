@@ -105,6 +105,7 @@ describe RightScale::ExecutableSequence do
         flexmock(@sequence).should_receive(:install_packages).and_return(true)
         attachment = flexmock('A1')
         attachment.should_receive(:file_name).at_least.once.and_return('test_download')
+        attachment.should_receive(:token).at_least.once.and_return(nil)
         attachment.should_receive(:url).at_least.once.and_return("file://#{@attachment_file}")
         @script.should_receive(:attachments).at_least.once.and_return([ attachment ])
         @auditor.should_receive(:append_error).never
@@ -121,6 +122,7 @@ describe RightScale::ExecutableSequence do
       flexmock(@sequence).should_receive(:install_packages).and_return(true)
       attachment = flexmock('A2')
       attachment.should_receive(:file_name).at_least.once.and_return('test_download')
+      attachment.should_receive(:token).at_least.once.and_return(nil)
       attachment.should_receive(:url).at_least.once.and_return("file://#{@attachment_file}")
       @auditor.should_receive(:append_error)
       @script.should_receive(:attachments).at_least.once.and_return([ attachment ])
@@ -136,6 +138,7 @@ describe RightScale::ExecutableSequence do
       @script.should_receive(:source).and_return(format_script_text(0))
       @sequence = RightScale::ExecutableSequence.new(@bundle)
       attachment = flexmock('A3')
+      attachment.should_receive(:token).at_least.once.and_return(nil)
       attachment.should_receive(:url).and_return("http://thisurldoesnotexist.wrong")
       attachment.should_receive(:file_name).and_return("<FILENAME>") # to display any error message
       downloader = RightScale::Downloader.new(retry_period=0.1, use_backoff=false)
