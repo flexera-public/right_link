@@ -29,7 +29,7 @@ module RightScale
 
     ROOT_TRUSTED_KEYS_FILE = '/root/.ssh/authorized_keys'
     ACTIVE_TAG             = 'rs_login:state=active'      
-    AUTHORIZED_KEY_REGEXP  = /(.*)?(ssh-rsa|ssh-dsa)\s+(\S+)\s+(.*)$/
+    PUBLIC_KEY_REGEXP      = /(.*)?(ssh-rsa|ssh-dsa)\s+(\S+)\s*(.*)?$/
 
     # Can the login manager function on this platform?
     #
@@ -68,12 +68,37 @@ module RightScale
       return describe_policy(new_lines.size, system_lines.size, new_policy)
     end
 
+    # Parse an SSH2-format public key and return a 4-tuple consisting
+    # of its constituent parts:
+    #  * leading comment (optional)
+    #  * algorithm (ssh-rsa or ssh-dsa)
+    #  * public key material, as a base64 string
+    #  * trailing comment or email (optional)
+    #
+    # === Parameters
+    # str(String):: the unparsed public key
+    #
+    # === Return
+    # components (Array|nil):: a 4-tuple of key components, or nil if the key was not a valid public key
+    #
+    def self.parse_public_key(str)
+      match = PUBLIC_KEY_REGEXP.match(str)
+
+      if match
+        #Return a nice array of strings with no leading/trailing whitespace, and empty
+        #strings transformed into nil
+        return match[1..4].map { |x| x.strip! ; x.empty? ? nil : x }
+      else
+        return nil
+      end
+    end
+
     protected
 
     # Read ~root/.ssh/authorized_keys if it exists
     #
     # === Return
-    # authorized_keys(Array[(String)]) list of lines of authorized_keys file
+    # authorized_keys(Array[String]):: list of lines of authorized_keys file
     def read_keys_file
       return [] unless File.exists?(ROOT_TRUSTED_KEYS_FILE)
       File.readlines(ROOT_TRUSTED_KEYS_FILE).map! { |l| l.chomp.strip }
@@ -82,7 +107,7 @@ module RightScale
     # Replace the contents of ~root/.ssh/authorized_keys
     #
     # === Parameters
-    # keys(Array[(String)]) list of lines that authorized_keys file should contain
+    # keys(Array[(String)]):: list of lines that authorized_keys file should contain
     #
     # === Return
     # true:: always returns true
@@ -135,11 +160,11 @@ module RightScale
       file_lines = read_keys_file
 
       file_triples = file_lines.map do |l|
-        match = AUTHORIZED_KEY_REGEXP.match(l)
+        components = self.class.parse_public_key(l)
         
-        if match
-          #preserve algorithm, key and comments; discard options (the 1th match element)
-          next [ match[2], match[3], match[4] ]
+        if components
+          #preserve algorithm, key and comments; discard options (the 0th element)
+          next [ components[1], components[2], components[3] ]
         else
           RightScale::RightLinkLog.error("Malformed (or not SSH2) entry in authorized_keys file: #{l}")
           next nil
@@ -151,7 +176,15 @@ module RightScale
       #These are the "system keys" that were not added by RightScale.
       old_users_keys = Set.new
       old_users.each do |u|
-        u.public_keys.each { |public_key| old_users_keys << AUTHORIZED_KEY_REGEXP.match(public_key)[3] }
+        u.public_keys.each do |public_key|
+          comp2 = self.class.parse_public_key(public_key)
+
+          if comp2
+            old_users_keys << comp2[2]
+          else
+            RightScale::RightLinkLog.error("Malformed (or not SSH2) entry in authorized_keys file: #{public_key}")            
+          end
+        end
       end
 
       system_triples = file_triples.select { |t| !old_users_keys.include?(t[1]) }

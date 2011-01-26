@@ -108,9 +108,13 @@ module RightScale
       hash.each_pair do |name, value|
         env_name = name.gsub(/\W/, '_').upcase
         env_name = 'EC2_' + env_name if @ec2_name_hack && (env_name !~ /^(RS_|EC2_)/)
-        bash.puts "export #{env_name}=\"#{ShellUtilities::escape_shell_source_string(value)}\""
-        ruby.puts "ENV['#{env_name}']='#{ShellUtilities::escape_ruby_source_string(value)}'"
-        dict.puts  "#{env_name}=#{value}"
+
+        if value
+          #Sometimes we'll have a UD element that doesn't parse as having a value
+          bash.puts "export #{env_name}=\"#{ShellUtilities::escape_shell_source_string(value)}\""
+          ruby.puts "ENV['#{env_name}']='#{ShellUtilities::escape_ruby_source_string(value)}'"
+          dict.puts  "#{env_name}=#{value}"
+        end
       end
 
       bash.close

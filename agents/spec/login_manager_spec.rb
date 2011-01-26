@@ -70,7 +70,7 @@ describe RightScale::LoginManager do
     return Time.now - 24 * one_hour
   end
 
-  before(:all) do
+  before(:each) do
     flexmock(RightScale::RightLinkLog).should_receive(:debug).by_default
     @mgr = RightScale::LoginManager.instance
     flexmock(@mgr).should_receive(:supported_by_platform?).and_return(true).by_default
@@ -107,44 +107,46 @@ describe RightScale::LoginManager do
     it "should only add non-expired users" do
       @policy.users[0].expires_at = one_day_ago
       flexmock(@mgr).should_receive(:read_keys_file).and_return([])
-      flexmock(@mgr).should_receive(:write_keys_file).with((@policy_keys[1..3]).sort)
+      flexmock(@mgr).should_receive(:write_keys_file).with((@policy_keys[1..3]).sort).and_return(true)
       @mgr.update_policy(@policy)
     end
     
     it "should only add users with superuser privilege" do
       @policy.users[0].superuser = false
       flexmock(@mgr).should_receive(:read_keys_file).and_return([])
-      flexmock(@mgr).should_receive(:write_keys_file).with((@policy_keys[1..3]).sort)
+      flexmock(@mgr).should_receive(:write_keys_file).with((@policy_keys[1..3]).sort).and_return(true)
       @mgr.update_policy(@policy)
     end
     
     context "when system keys exist" do
       it "should discard malformed system keys" do
         flexmock(@mgr).should_receive(:read_keys_file).and_return(@system_keys + ['hello world', 'four score and seven years ago'])
-        flexmock(@mgr).should_receive(:write_keys_file).with((@policy_keys+@system_keys).sort)
+        flexmock(@mgr).should_receive(:write_keys_file).with((@policy_keys+@system_keys).sort).and_return(true)
         @mgr.update_policy(@policy)
       end
 
       it "should preserve system keys with an options field (without preserving options)" do
-        @stripped_keys = @system_keys.dup 
-        @system_keys << 'joebob="xyz wqr",friendly=false ssh-rsa #{rand(3**32).to_s(32)} Hey, This is my Key!'
-        @stripped_keys << 'ssh-rsa #{rand(3**32).to_s(32)} Hey, This is my Key!'
+        @stripped_keys = @system_keys.dup
+        fake_pub_material = rand(3**32).to_s(32) 
+        @system_keys << "joebob=\"xyz wqr\",friendly=false ssh-rsa #{fake_pub_material} Hey, This is my Key!"
+        @stripped_keys << "ssh-rsa #{fake_pub_material} Hey, This is my Key!"
 
         flexmock(@mgr).should_receive(:read_keys_file).and_return(@system_keys)
-        flexmock(@mgr).should_receive(:write_keys_file).with((@policy_keys+@stripped_keys).sort)
+        flexmock(@mgr).should_receive(:write_keys_file).with((@policy_keys+@stripped_keys).sort).and_return(true)
+        puts (@policy_keys+@stripped_keys).sort.inspect 
         @mgr.update_policy(@policy)
       end
 
       it "should preserve system keys with spaces in the comment" do
-        @system_keys << 'ssh-rsa #{rand(3**32).to_s(32)} Hey, This is my Key!' 
+        @system_keys << "ssh-rsa #{rand(3**32).to_s(32)} Hey, This is my Key!"
         flexmock(@mgr).should_receive(:read_keys_file).and_return(@system_keys)
-        flexmock(@mgr).should_receive(:write_keys_file).with((@policy_keys+@system_keys).sort)
+        flexmock(@mgr).should_receive(:write_keys_file).with((@policy_keys+@system_keys).sort).and_return(true)
         @mgr.update_policy(@policy)
       end
 
       it "should preserve the system keys and add the policy keys" do
         flexmock(@mgr).should_receive(:read_keys_file).and_return(@system_keys)
-        flexmock(@mgr).should_receive(:write_keys_file).with((@policy_keys+@system_keys).sort)
+        flexmock(@mgr).should_receive(:write_keys_file).with((@policy_keys+@system_keys).sort).and_return(true)
         @mgr.update_policy(@policy)
       end
 
@@ -165,7 +167,7 @@ describe RightScale::LoginManager do
 
         it "should preserve the system keys but remove the old policy keys" do
           flexmock(@mgr).should_receive(:read_keys_file).and_return(@system_keys + @old_policy_keys)
-          flexmock(@mgr).should_receive(:write_keys_file).with((@policy_keys+@system_keys).sort)
+          flexmock(@mgr).should_receive(:write_keys_file).with((@policy_keys+@system_keys).sort).and_return(true)
           @mgr.update_policy(@policy)
         end
       end
@@ -175,7 +177,7 @@ describe RightScale::LoginManager do
         
         it "should remove the system keys and add the policy keys" do
           flexmock(@mgr).should_receive(:read_keys_file).and_return(@system_keys)
-          flexmock(@mgr).should_receive(:write_keys_file).with(@policy_keys.sort)
+          flexmock(@mgr).should_receive(:write_keys_file).with(@policy_keys.sort).and_return(true)
           @mgr.update_policy(@policy)
         end
       end
