@@ -53,7 +53,9 @@ module RightScale
   
     # (Hash) Pending requests; key is request token and value is a hash
     #   :response_handler(Proc):: Block to be activated when response is received
-    #   :receive_time(Integer):: Time when message was received
+    #   :receive_time(Time):: Time when message was received
+    #   :request_kind(String):: Kind of MapperProxy request, optional
+    #   :retry_parent(String):: Token for parent request in a retry situation, optional
     attr_accessor :pending_requests
 
     # (HA_MQ) High availability AMQP broker
@@ -427,7 +429,7 @@ module RightScale
       offlines.merge!(@offlines.avg_duration) if offlines
       requests_pending = if @pending_requests.size > 0
         now = Time.now.to_i
-        oldest = @pending_requests.values.inject(0) { |m, r| [m, now - r[:receive_time]].max }
+        oldest = @pending_requests.values.inject(0) { |m, r| [m, now - r[:receive_time].to_i].max }
         {"total" => @pending_requests.size, "oldest age" => oldest}
       end
       stats = {

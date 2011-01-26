@@ -206,7 +206,7 @@ describe RightScale::HA_MQ do
     it "should log an error if it fails to create an AMQP connection" do
       @connection.should_receive(:close).once
       flexmock(RightScale::RightLinkLog).should_receive(:info).once
-      flexmock(RightScale::RightLinkLog).should_receive(:error).with(/Failed connecting/).once
+      flexmock(RightScale::RightLinkLog).should_receive(:error).with(/Failed connecting/, Exception, :trace).once
       flexmock(MQ).should_receive(:new).with(@connection).and_raise(Exception)
       RightScale::HA_MQ.new(@serializer)
     end
@@ -448,7 +448,7 @@ describe RightScale::HA_MQ do
     it "should receive message and log exception if subscribe block fails" do
       flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Connecting/).once
       flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Subscribing/).once
-      flexmock(RightScale::RightLinkLog).should_receive(:error).with(/Failed executing block/).once
+      flexmock(RightScale::RightLinkLog).should_receive(:error).with(/Failed executing block/, Exception, :trace).once
       @serializer.should_receive(:load).with(@message).and_return(@packet).once
       @bind.should_receive(:subscribe).and_yield(@message).once
       ha_mq = RightScale::HA_MQ.new(@serializer)
@@ -508,7 +508,7 @@ describe RightScale::HA_MQ do
     it "should log an error if a subscribe fails" do
       flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Connecting/).once
       flexmock(RightScale::RightLinkLog).should_receive(:info).with(/RECV/).never
-      flexmock(RightScale::RightLinkLog).should_receive(:error).with(/Failed subscribing/).once
+      flexmock(RightScale::RightLinkLog).should_receive(:error).with(/Failed subscribing/, Exception, :trace).once
       @bind.should_receive(:subscribe).and_raise(Exception)
       ha_mq = RightScale::HA_MQ.new(@serializer)
       ha_mq.brokers[0][:status] = :connected
@@ -539,13 +539,13 @@ describe RightScale::HA_MQ do
     end
 
     it "should log a warning if the message is not of the right type and return nil" do
-      flexmock(RightScale::RightLinkLog).should_receive(:warn).with(/^RECV/).once
+      flexmock(RightScale::RightLinkLog).should_receive(:warn).with(/Received invalid.*packet type/).once
       ha_mq = RightScale::HA_MQ.new(@serializer)
       ha_mq.__send__(:each_usable) { |b| ha_mq.__send__(:receive, b, "queue", @message).should == nil }
     end
 
     it "should show the category in the warning message if specified" do
-      flexmock(RightScale::RightLinkLog).should_receive(:warn).with(/^RECV.*xxxx/).once
+      flexmock(RightScale::RightLinkLog).should_receive(:warn).with(/Received invalid xxxx packet type/).once
       ha_mq = RightScale::HA_MQ.new(@serializer)
       ha_mq.__send__(:each_usable) { |b| ha_mq.__send__(:receive, b, "queue", @message, RightScale::Result => nil, :category => "xxxx") }
     end
@@ -599,7 +599,7 @@ describe RightScale::HA_MQ do
     end
 
     it "should log an error if exception prevents normal logging and should then return nil" do
-      flexmock(RightScale::RightLinkLog).should_receive(:error).with(/^RECV/).once
+      flexmock(RightScale::RightLinkLog).should_receive(:error).with(/Failed receiving from queue/, Exception, :trace).once
       @serializer.should_receive(:load).with(@message).and_raise(Exception).once
       ha_mq = RightScale::HA_MQ.new(@serializer)
       ha_mq.__send__(:each_usable) { |b| ha_mq.__send__(:receive, b, "queue", @message).should == nil }
@@ -705,7 +705,7 @@ describe RightScale::HA_MQ do
     end
 
     it "should log an error if unsubscribe raises an exception" do
-      flexmock(RightScale::RightLinkLog).should_receive(:error).with(/Failed unsubscribing/).once
+      flexmock(RightScale::RightLinkLog).should_receive(:error).with(/Failed unsubscribing/, Exception, :trace).once
       @queue.should_receive(:unsubscribe).and_raise(Exception).once
       ha_mq = RightScale::HA_MQ.new(@serializer)
       ha_mq.subscribe({:name => "queue1"}, {:type => :direct, :name => "exchange"})
@@ -751,7 +751,7 @@ describe RightScale::HA_MQ do
     it "should log an error if the declare fails" do
       flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Connecting/).once
       flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Declaring/).once
-      flexmock(RightScale::RightLinkLog).should_receive(:error).with(/Failed declaring/).once
+      flexmock(RightScale::RightLinkLog).should_receive(:error).with(/Failed declaring/, Exception, :trace).once
       @mq.should_receive(:queue).and_raise(Exception).once
       ha_mq = RightScale::HA_MQ.new(@serializer)
       ha_mq.declare(:queue, "q")
@@ -883,7 +883,7 @@ describe RightScale::HA_MQ do
     end
 
     it "should log an error if the publish fails" do
-      flexmock(RightScale::RightLinkLog).should_receive(:error).with(/Failed publishing/).once
+      flexmock(RightScale::RightLinkLog).should_receive(:error).with(/Failed publishing/, Exception, :trace).once
       @serializer.should_receive(:dump).with(@packet).and_return(@message).once
       @mq.should_receive(:direct).and_raise(Exception)
       @direct.should_receive(:publish).with(@message, {}).never
@@ -1244,7 +1244,7 @@ describe RightScale::HA_MQ do
     end
 
     it "should log an error if a delete fails for a broker" do
-      flexmock(RightScale::RightLinkLog).should_receive(:error).with(/Failed deleting/).once
+      flexmock(RightScale::RightLinkLog).should_receive(:error).with(/Failed deleting/, Exception, :trace).once
       @mq.should_receive(:queue).and_raise(Exception)
       ha_mq = RightScale::HA_MQ.new(@serializer)
       ha_mq.delete("queue").should == []
