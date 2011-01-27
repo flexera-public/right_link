@@ -32,6 +32,16 @@ undef :daemonize if methods.include?('daemonize')
 
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', '..', '..', 'chef', 'lib', 'ohai_setup'))
 
+class File
+  class << self
+    unless method_defined?(:world_writable?)
+      def world_writable?(filename)
+        (File.stat(filename).mode & 0002) != 0
+      end
+    end
+  end
+end
+
 module RightScale
 
   OHAI_RETRY_MIN_DELAY = 20      # Min number of seconds to wait before retrying Ohai to get the hostname
@@ -282,7 +292,7 @@ module RightScale
       @audit.create_new_section('Retrieving cookbooks') unless @cookbooks.empty?
       audit_time do
         # first, if @download_path is world writable, stop that nonsense right this second.
-        if File.world_writable?(@download_path)
+        if File.exists?(@download_path) && File.world_writable?(@download_path)
           RightLinkLog.warn("Cookbooks download path world writable; fixing.")
           File.chmod(0755, @download_path)
         end
