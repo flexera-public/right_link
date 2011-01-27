@@ -27,4 +27,5 @@ if %ERRORLEVEL% neq 0 (
   exit /B %ERRORLEVEL%
 )
 
+set TZ=UTC
 %RS_RUBY_EXE% %RS_SANDBOX_HOME%\right_link\scripts\rs_run_recipe.rb %*
