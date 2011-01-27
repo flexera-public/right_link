@@ -21,6 +21,7 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'common', 'lib', 'common', 'right_link_log'))
+require File.normalize_path(File.join(File.dirname(__FILE__), 'cloud_utilities.rb'))
 
 module RightScale
 

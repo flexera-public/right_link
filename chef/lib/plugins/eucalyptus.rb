@@ -20,14 +20,17 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-provides "ec2"
+provides "eucalyptus"
 
-require_plugin "network"
+if RightScale::CloudUtilities.is_cloud?(:eucalyptus)
+  meta_data_server = nil
+  meta_data_server = "euca.metadata" if RightScale::CloudUtilities.can_contact_metadata_server?("euca.metadata", 80)
+  meta_data_server = "169.254.169.254" if meta_data_server.nil? && RightScale::CloudUtilities.can_contact_metadata_server?("169.254.169.254", 80)
 
-if RightScale::CloudUtilities.is_cloud?(:ec2){ RightScale::CloudUtilities.has_mac?(self, "fe:ff:ff:ff:ff:ff") }
-  if RightScale::CloudUtilities.can_contact_metadata_server?("169.254.169.254", 80)
-    ec2 Mash.new
-    ec2.update(RightScale::CloudUtilities.metadata("http://169.254.169.254/2008-02-01/meta-data"))
-    ec2[:userdata] = RightScale::CloudUtilities.userdata("http://169.254.169.254/2008-02-01/user-data")
+  unless meta_data_server.nil?
+    eucalyptus Mash.new
+    eucalyptus.update(RightScale::CloudUtilities.metadata("http://#{meta_data_server}/2008-02-01/meta-data"))
+    eucalyptus[:userdata] = RightScale::CloudUtilities.userdata("http://#{meta_data_server}/2008-02-01/user-data")
   end
+
 end

@@ -20,14 +20,12 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-provides "ec2"
+provides "rackspace"
 
 require_plugin "network"
 
-if RightScale::CloudUtilities.is_cloud?(:ec2){ RightScale::CloudUtilities.has_mac?(self, "fe:ff:ff:ff:ff:ff") }
-  if RightScale::CloudUtilities.can_contact_metadata_server?("169.254.169.254", 80)
-    ec2 Mash.new
-    ec2.update(RightScale::CloudUtilities.metadata("http://169.254.169.254/2008-02-01/meta-data"))
-    ec2[:userdata] = RightScale::CloudUtilities.userdata("http://169.254.169.254/2008-02-01/user-data")
-  end
+if RightScale::CloudUtilities.is_cloud?(:rackspace){ RightScale::CloudUtilities.has_mac?(self, "00:00:0c:07:ac:01") || kernel[:release].split('-').last.eql?("rscloud") } 
+  rackspace Mash.new
+  rackspace[:public_ip] = RightScale::CloudUtilities.ip_for_interface(self, :eth0)
+  rackspace[:private_ip] = RightScale::CloudUtilities.ip_for_interface(self, :eth1)
 end

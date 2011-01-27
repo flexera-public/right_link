@@ -20,14 +20,30 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-provides "ec2"
+provides "cloud"
 
-require_plugin "network"
+%w{ec2 rackspace cloudstack eucalyptus}.each { |cloud| require_plugin(cloud) }
 
-if RightScale::CloudUtilities.is_cloud?(:ec2){ RightScale::CloudUtilities.has_mac?(self, "fe:ff:ff:ff:ff:ff") }
-  if RightScale::CloudUtilities.can_contact_metadata_server?("169.254.169.254", 80)
-    ec2 Mash.new
-    ec2.update(RightScale::CloudUtilities.metadata("http://169.254.169.254/2008-02-01/meta-data"))
-    ec2[:userdata] = RightScale::CloudUtilities.userdata("http://169.254.169.254/2008-02-01/user-data")
-  end
+if ec2 != nil
+  cloud Mash.new
+  cloud[:provider] = "ec2"
+  cloud[:public_ips] = [ ec2['public_ipv4'] ]
+  cloud[:private_ips] = [ ec2['local_ipv4'] ]
+elsif rackspace != nil
+  cloud Mash.new
+  cloud[:provider] = "rackspace"
+  cloud[:public_ips] = [ rackspace['public_ip'] ]
+  cloud[:private_ips] = [ rackspace['private_ip'] ]
+elsif eucalyptus != nil
+  cloud Mash.new
+  cloud[:provider] = "eucalyptus"
+  cloud[:public_ips] = [ eucalyptus['public_ipv4'] ]
+  cloud[:private_ips] = [ eucalyptus['local_ipv4'] ]
+elsif cloudstack != nil
+  cloud Mash.new
+  cloud[:provider] = "cloudstack"
+  cloud[:public_ips] = [ cloudstack['public_ipv4'] ]
+  cloud[:private_ips] = [ cloudstack['local_ipv4'] ]
+else
+  cloud nil
 end

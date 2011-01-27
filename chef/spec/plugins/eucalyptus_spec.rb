@@ -20,14 +20,28 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-provides "ec2"
+require File.expand_path(File.join(File.dirname(__FILE__), '..', 'spec_helper.rb'))
 
-require_plugin "network"
+describe Ohai::System, " plugin eucalyptus" do
+  before(:each) do
+    # configure ohai for RightScale
+    RightScale::OhaiSetup.configure_ohai
 
-if RightScale::CloudUtilities.is_cloud?(:ec2){ RightScale::CloudUtilities.has_mac?(self, "fe:ff:ff:ff:ff:ff") }
-  if RightScale::CloudUtilities.can_contact_metadata_server?("169.254.169.254", 80)
-    ec2 Mash.new
-    ec2.update(RightScale::CloudUtilities.metadata("http://169.254.169.254/2008-02-01/meta-data"))
-    ec2[:userdata] = RightScale::CloudUtilities.userdata("http://169.254.169.254/2008-02-01/user-data")
+    # ohai to be tested
+    @ohai = Ohai::System.new
+    flexmock(@ohai).should_receive(:require_plugin).and_return(true)
+  end
+
+  context 'when not in the eucalyptus cloud' do
+    shared_examples_for 'not in eucalyptus' do
+      it 'does not populate the eucalyptus mash' do
+        @ohai._require_plugin("eucalyptus")
+        @ohai[:eucalyptus].should be_nil
+      end
+    end
+  end
+
+  context 'when in the eucalyptus cloud' do
+
   end
 end

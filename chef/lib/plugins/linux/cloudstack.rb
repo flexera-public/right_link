@@ -20,14 +20,13 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-provides "ec2"
+leases_file = %w{/var/lib/dhcp3/dhclient.eth0.leases /var/lib/dhclient/dhclient-eth0.leases /var/lib/dhclient-eth0.leases}.find{|dhcpconfig| File.exist?(dhcpconfig)}
+unless leases_file.nil?
+  lease_file_content = File.read(leases_file)
+  provider_line = lease_file_content.match(/dhcp-server-identifier (\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/)
 
-require_plugin "network"
-
-if RightScale::CloudUtilities.is_cloud?(:ec2){ RightScale::CloudUtilities.has_mac?(self, "fe:ff:ff:ff:ff:ff") }
-  if RightScale::CloudUtilities.can_contact_metadata_server?("169.254.169.254", 80)
-    ec2 Mash.new
-    ec2.update(RightScale::CloudUtilities.metadata("http://169.254.169.254/2008-02-01/meta-data"))
-    ec2[:userdata] = RightScale::CloudUtilities.userdata("http://169.254.169.254/2008-02-01/user-data")
+  unless provider_line.nil? || provider_line[1].nil?
+    cloudstack Mash.new
+    cloudstack[:dhcp_lease_provider_ip] = provider_line[1]
   end
 end

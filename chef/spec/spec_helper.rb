@@ -23,3 +23,4 @@
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'spec', 'spec_helper'))
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'agents', 'lib', 'instance'))
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'providers'))
+require File.expand_path(File.join(File.dirname(__FILE__), '..', 'lib', 'cloud_utilities.rb'))

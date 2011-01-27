@@ -20,14 +20,15 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-provides "ec2"
+provides "cloudstack"
 
-require_plugin "network"
+if RightScale::CloudUtilities.is_cloud?(:cloudstack)
+  require_plugin "#{os}::cloudstack"
 
-if RightScale::CloudUtilities.is_cloud?(:ec2){ RightScale::CloudUtilities.has_mac?(self, "fe:ff:ff:ff:ff:ff") }
-  if RightScale::CloudUtilities.can_contact_metadata_server?("169.254.169.254", 80)
-    ec2 Mash.new
-    ec2.update(RightScale::CloudUtilities.metadata("http://169.254.169.254/2008-02-01/meta-data"))
-    ec2[:userdata] = RightScale::CloudUtilities.userdata("http://169.254.169.254/2008-02-01/user-data")
+  if cloudstack != nil && RightScale::CloudUtilities.can_contact_metadata_server?(cloudstack[:dhcp_lease_provider_ip], 80)
+    cloudstack.update(RightScale::CloudUtilities.metadata("http://#{cloudstack[:dhcp_lease_provider_ip]}/latest", %w{service-offering availability-zone local-ipv4 local-hostname public-ipv4 public-hostname instance-id}))
+    cloudstack[:userdata] = RightScale::CloudUtilities.userdata("http://#{cloudstack[:dhcp_lease_provider_ip]}/latest/user-data")
+  else
+    cloudstack nil
   end
 end
