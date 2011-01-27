@@ -281,7 +281,13 @@ module RightScale
 
       @audit.create_new_section('Retrieving cookbooks') unless @cookbooks.empty?
       audit_time do
-        # first, wipe out any preexisting cookbooks in the download path
+        # first, if @download_path is world writable, stop that nonsense right this second.
+        if File.world_writable?(@download_path)
+          RightLinkLog.warn("Cookbooks download path world writable; fixing.")
+          File.chmod(0755, @download_path)
+        end
+
+        # second, wipe out any preexisting cookbooks in the download path
         if File.directory?(@download_path)
           Dir.foreach(@download_path) do |entry|
             FileUtils.remove_entry_secure(File.join(@download_path, entry)) if entry =~ /\A\d+\Z/
