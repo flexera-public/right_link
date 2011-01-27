@@ -424,7 +424,7 @@ describe RightScale::MapperProxy do
           token = 'abc'
           expires_at = nil
           flexmock(RightScale::AgentIdentity).should_receive(:generate).and_return(token).twice
-          @agent.should_receive(:options).and_return({:retry_timeout => 0.2, :retry_interval => 0.1})
+          @agent.should_receive(:options).and_return({:retry_timeout => 0.5, :retry_interval => 0.1})
           RightScale::MapperProxy.new(@agent)
           @instance = RightScale::MapperProxy.instance
           flexmock(@instance).should_receive(:check_connection).once
