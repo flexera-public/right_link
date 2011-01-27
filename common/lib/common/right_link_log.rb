@@ -393,7 +393,7 @@ module RightScale
           logger.progname = @program_name || identity || 'RightLink'
           logger.formatter.datetime_format = "%b %d %H:%M:%S"
         else
-          puts "Logging to syslog"
+          puts "Logging to syslog" if opts[:print]
           logger = SyslogLogger.new(@program_name || identity || 'RightLink')
         end
 
