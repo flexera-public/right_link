@@ -155,12 +155,13 @@ module RightScale
       end
 
       it 'should successfully request a cookbook we can access' do
+        tarball = File.open(File.join(File.dirname(__FILE__), "demo_tarball.tar")).read
         dl = flexmock(ReposeDownloader).should_receive(:new).
           with('cookbooks', "4cdae6d5f1bc33d8713b341578b942d42ed5817f", "not-a-token",
                "nonexistent cookbook", ExecutableSequence::CookbookDownloadFailure).once.
           and_return(flexmock(ReposeDownloader))
         response = flexmock(Net::HTTPSuccess.new("1.1", "200", "everything good"))
-        response.should_receive(:read_body, Proc).and_yield("\000" * 200).once
+        response.should_receive(:read_body, Proc).and_yield(tarball).once
         @auditor.should_receive(:append_info).with("Success; unarchiving cookbook").once
         @auditor.should_receive(:append_info).with(/Duration: \d+\.\d+ seconds/).once
         @auditor.should_receive(:append_info).with("").once
