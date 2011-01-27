@@ -280,6 +280,17 @@ EOF
   describe Chef::Provider::Powershell do
     include RightScale::Test::MockAuditorProxy
 
+    def log_contains(str_to_match)
+      # remove newlines and spaces
+      expected_message = Regexp.escape(str_to_match.gsub(/\s+/, ""))
+
+      # un-escape the escaped regex strings
+      expected_message.gsub!("\\.\\*", ".*")
+
+      # should contain the expected exception
+      @logger.info_text.gsub(/\s+/, "").should match(expected_message)
+    end
+
     before(:all) do
       PowershellProviderSpec.create_cookbook
     end
@@ -455,19 +466,11 @@ At .*:3 char:8
   + CategoryInfo          : OperationStopped: (System.IndexOutOfRangeException:RuntimeType) [], RuntimeException
   + FullyQualifiedErrorId : System.IndexOutOfRangeException
 EOF
-      # remove newlines and spaces
-      expected_message = Regexp.escape(message_format.gsub(/\s+/, ""))
-
-      # un-escape the escaped regex strings
-      expected_message.gsub!("\\.\\*", ".*")
-
-      logs = @logger.info_text.gsub(/\s+/, "")
-
-      # should contain the expected exception
-      logs.should match(expected_message)
+      # the log should contain the error
+      log_contains(message_format)
 
       # should not contain output after the exception was thrown
-      (logs =~ /Should never get here/).should be_nil
+      (@logger.info_text.gsub(/\s+/, "") =~ /Should never get here/).should be_nil
     end
 
     it "should fail when a powershell script succeeds with a non-empty error list" do
@@ -476,25 +479,19 @@ EOF
           PowershellProviderSpec::TEST_COOKBOOKS_PATH,
           'test::uncaught_errors_recipe') }
       runner.should raise_exception(RightScale::Exceptions::Exec)
-      message_format = <<-EOF
-Line 1
+
+      stdout_match = "Line 1.*Line 3"
+      stderr_match = <<-EOF
 Set-Location : Cannot find path 'C:\\a_folder_which_does_not_exist' because it does not exist.
 At .*:2 char:5
   + cd <<<<  c:\\a_folder_which_does_not_exist
   + CategoryInfo          : ObjectNotFound: (C:\\a_folder_which_does_not_exist:String) [Set-Location], ItemNotFoundException
   + FullyQualifiedErrorId : PathNotFound,Microsoft.PowerShell.Commands.SetLocationCommand
-Line 3
+.*
 WARNING: Script exited successfully but $Error contained 1 error(s).
 EOF
-      # remove newlines and spaces
-      expected_message = Regexp.escape(message_format.gsub(/\s+/, ""))
-
-      # un-escape the escaped regex strings
-      expected_message.gsub!("\\.\\*", ".*")
-      logs = @logger.info_text.gsub(/\s+/, "")
-
-      # should contain the expected exception
-      logs.should match(expected_message)
+      log_contains(stdout_match)
+      log_contains(stderr_match)
     end
   end
 
