@@ -67,6 +67,42 @@ module RightScale
       @sequence = ExecutableSequence.new(@bundle)
     end
 
+    Spec::Matchers.define :be_okay do
+      match do |sequence|
+        sequence.instance_variable_get(:@ok) != false
+      end
+      failure_message_for_should do |sequence|
+        "should have been okay, but saw this error:\n#{sequence.failure_title}\n#{sequence.failure_message}"
+      end
+      failure_message_for_should_not do |sequence|
+        "should not have been okay, but was"
+      end
+      description do
+        "should be in an okay state"
+      end
+    end
+
+    Spec::Matchers.define :have_failed do |title, message|
+      match do |sequence|
+        sequence.instance_variable_get(:@ok) == false &&
+          sequence.failure_title == title &&
+          sequence.failure_message == message
+      end
+      failure_message_for_should do |sequence|
+        if sequence.instance_variable_get(:@ok) != false
+          "should have failed, but succeeded"
+        else
+          "should have failed with this error:\n#{title}\n#{message}\nbut saw this error:\n#{sequence.failure_title}\n#{sequence.failure_message}"
+        end
+      end
+      failure_message_for_should_not do |sequence|
+        "should have not failed with this error:\n#{title}\n#{message}\nbut saw this error:\n#{sequence.failure_title}\n#{sequence.failure_message}"
+      end
+      description do
+        "should be not be an okay state"
+      end
+    end
+
     context 'with a cookbook specified' do
       before(:each) do
         flexmock(ReposeDownloader).should_receive(:discover_repose_servers).with([SERVER]).once
@@ -99,21 +135,22 @@ module RightScale
         dl.should_receive(:request, Proc).and_yield(response).once
         @sequence = ExecutableSequence.new(@bundle)
         @sequence.send(:download_repos)
-        @sequence.instance_variable_get(:@ok).should be_nil
+        @sequence.should be_okay
       end
 
       it 'should fail to request a cookbook we can\'t access' do
         @auditor.should_receive(:append_info).with(/Duration: \d+\.\d+ seconds/).never
         dl = flexmock(ReposeDownloader).should_receive(:new).
           with('cookbooks', "4cdae6d5f1bc33d8713b341578b942d42ed5817f", "not-a-token",
-               "nonexistent cookbook", ExecutableSequence::CookbookDownloadFailure).once.mock
+               "nonexistent cookbook", ExecutableSequence::CookbookDownloadFailure).once.
+          and_return(flexmock(ReposeDownloader))
         dl.should_receive(:request, Proc).and_raise(ExecutableSequence::CookbookDownloadFailure,
                                                     ["cookbooks", "a-sha", "nonexistent cookbook",
                                                      "not found"])
         @sequence = ExecutableSequence.new(@bundle)
         @sequence.send(:download_repos)
-        @sequence.instance_variable_get(:@ok).should be_false
-        @sequence.failure_title.should == "Failed to download cookbook"
+        @sequence.should have_failed("Failed to download cookbook",
+                                     "Cannot continue due to RightScale::ExecutableSequence::CookbookDownloadFailure: not found while downloading a-sha.")
       end
 
       it 'should successfully request a cookbook we can access' do
@@ -129,7 +166,7 @@ module RightScale
         dl.should_receive(:request, Proc).and_yield(response).once
         @sequence = ExecutableSequence.new(@bundle)
         @sequence.send(:download_repos)
-        @sequence.instance_variable_get(:@ok).should be_nil
+        @sequence.should be_okay
       end
     end
 
@@ -160,7 +197,7 @@ module RightScale
         @auditor.should_receive(:append_info).with(/Duration: \d+\.\d+ seconds/).once
         @sequence = ExecutableSequence.new(@bundle)
         @sequence.send(:download_attachments)
-        @sequence.instance_variable_get(:@ok).should be_nil
+        @sequence.should be_okay
       end
 
       it 'should fall back to manual download if Repose fails' do
@@ -183,7 +220,7 @@ module RightScale
         @auditor.should_receive(:append_info).with(/Duration: \d+\.\d+ seconds/).once
         @sequence = ExecutableSequence.new(@bundle)
         @sequence.send(:download_attachments)
-        @sequence.instance_variable_get(:@ok).should be_nil
+        @sequence.should be_okay
       end
 
       it 'should fall back to manual download if no token' do
@@ -202,7 +239,7 @@ module RightScale
         @auditor.should_receive(:update_status).and_return {|string| p string}
         @sequence = ExecutableSequence.new(@bundle)
         @sequence.send(:download_attachments)
-        @sequence.instance_variable_get(:@ok).should be_nil
+        @sequence.should be_okay
       end
 
       it 'should fail completely if manual download fails' do
@@ -218,9 +255,7 @@ module RightScale
         @auditor.should_receive(:update_status).with(/Downloading baz\.tar into [^ ]* directly/).once
         @sequence = ExecutableSequence.new(@bundle)
         @sequence.send(:download_attachments)
-        @sequence.instance_variable_get(:@ok).should be_false
-        @sequence.failure_title.should == "Failed to download attachment 'baz.tar'"
-        @sequence.failure_message.should == "spite"
+        @sequence.should have_failed("Failed to download attachment 'baz.tar'", "spite")
       end
     end
   end
