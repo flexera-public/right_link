@@ -36,7 +36,7 @@ module RightScale
       :run_right_script         => 'Run RightScript with id given in options[:id] and arguments given in hash options[:arguments] (e.g. { \'application\' => \'text:Mephisto\' })',
       :send_push                => 'Send request to one or more remote agents with no response expected',
       :send_persistent_push     => 'Send request to one or more remote agents with no response expected with persistence en route',
-      :send_request             => 'Send request to a remote agent with a response expected and retry if response times out',
+      :send_retryable_request   => 'Send request to a remote agent with a response expected and retry if response times out',
       :send_persistent_request  => 'Send request to a remote agent with a response expected with persistence ' +
                                    'en route and no retries that would result in it being duplicated',
       :set_log_level            => 'Set log level to options[:level]',
@@ -194,8 +194,8 @@ module RightScale
     #
     # === Return
     # true:: Always return true
-    def send_request_command(opts)
-      send_request(opts[:type], opts[:conn], opts[:payload], opts[:target], opts[:options])
+    def send_retryable_request_command(opts)
+      send_retryable_request(opts[:type], opts[:conn], opts[:payload], opts[:target], opts[:options])
     end
 
     # Send a request to a single target with a response expected
@@ -433,10 +433,10 @@ module RightScale
     # The request is timed out if not received in time, typically configured to 2 minutes
     # The request is allowed to expire per the agent's configured time-to-live, typically 1 minute
     # See MapperProxy for details
-    def send_request(type, conn, payload = nil, target = nil, opts = {})
+    def send_retryable_request(type, conn, payload = nil, target = nil, opts = {})
       payload ||= {}
       payload[:agent_identity] = @agent_identity
-      MapperProxy.instance.send_request(type, payload, target, opts.merge(:offline_queueing => true)) do |r|
+      MapperProxy.instance.send_retryable_request(type, payload, target, opts.merge(:offline_queueing => true)) do |r|
         reply = @serializer.dump(r) rescue '\"Failed to serialize response\"'
         CommandIO.instance.reply(conn, reply)
       end

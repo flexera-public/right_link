@@ -41,8 +41,8 @@ module RightScale
     # true:: Always return true
     def tags
       raise TypeError, "Must set agent= before using tag manager" unless @agent
-      MapperProxy.instance.send_request("/mapper/query_tags", {:agent_ids => [@agent.identity]}, nil,
-                                        :offline_queueing => true) do |r|
+      MapperProxy.instance.send_retryable_request("/mapper/query_tags", {:agent_ids => [@agent.identity]}, nil,
+                                                  :offline_queueing => true) do |r|
         res = RightScale::OperationResult.from_results(r)
         if res.success?
           result = res.content

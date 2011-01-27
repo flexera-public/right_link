@@ -247,8 +247,8 @@ module RightScale
     #
     # === Return
     # true:: Always return true
-    def send_request(type, payload = nil, target = nil, opts = {}, &callback)
-      build_request(:send_request, type, payload, target, opts, &callback)
+    def send_retryable_request(type, payload = nil, target = nil, opts = {}, &callback)
+      build_request(:send_retryable_request, type, payload, target, opts, &callback)
     end
 
     # Send a request to a single target with a response expected
@@ -307,7 +307,7 @@ module RightScale
         end
 
         if handler = @pending_requests[token]
-          if result && result.non_delivery? && handler[:request_kind] == :send_request &&
+          if result && result.non_delivery? && handler[:request_kind] == :send_retryable_request &&
              [OperationResult::TARGET_NOT_CONNECTED, OperationResult::TTL_EXPIRATION].include?(result.content)
             # Log and ignore so that timeout retry mechanism continues
             # Leave purging of associated request until final response, i.e., success response or retry timeout
@@ -513,7 +513,7 @@ module RightScale
     # Build and send Request packet
     #
     # === Parameters
-    # kind(Symbol):: Kind of request: :send_request or :send_persistent_request
+    # kind(Symbol):: Kind of request: :send_retryable_request or :send_persistent_request
     # type(String):: Dispatch route for the request; typically identifies actor and action
     # payload(Object):: Data to be sent with marshalling en route
     # target(String|Hash):: Identity of specific target, or hash for selecting targets of which one is picked

@@ -258,7 +258,7 @@ module RightScale
     # true:: Always return true
     def self.shutdown(user_id, skip_db_update, kind)
       payload = {:agent_identity => @@identity, :state => FINAL_STATE, :user_id => user_id, :skip_db_update => skip_db_update, :kind => kind}
-      MapperProxy.instance.send_request("/state_recorder/record", payload, nil, :offline_queueing => true) do |r|
+      MapperProxy.instance.send_retryable_request("/state_recorder/record", payload, nil, :offline_queueing => true) do |r|
         res = OperationResult.from_results(r)
         MapperProxy.instance.send_push("/registrar/remove", {:agent_identity => @@identity, :created_at => Time.now.to_i},
                                        nil, :offline_queueing => true)
@@ -454,7 +454,7 @@ module RightScale
     def self.record_state
       new_value = @@value
       payload = {:agent_identity => @@identity, :state => new_value, :from_state => @@last_recorded_value}
-      MapperProxy.instance.send_request("/state_recorder/record", payload, nil, :offline_queueing => true) do |r|
+      MapperProxy.instance.send_retryable_request("/state_recorder/record", payload, nil, :offline_queueing => true) do |r|
         res = OperationResult.from_results(r)
         if res.success?
           @@last_recorded_value = new_value

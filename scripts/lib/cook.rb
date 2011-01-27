@@ -92,8 +92,8 @@ module RightScale
     # Helper method to send a request to a single target with a response expected
     # The request is retried if the response is not received in a reasonable amount of time
     # See InstanceCommands for details
-    def send_request(type, payload = nil, target = nil, opts = {}, &blk)
-      cmd = {:name => :send_request, :type => type, :payload => payload, :target => target, :options => opts}
+    def send_retryable_request(type, payload = nil, target = nil, opts = {}, &blk)
+      cmd = {:name => :send_retryable_request, :type => type, :payload => payload, :target => target, :options => opts}
       @client.send_command(cmd) do |r|
         response = load(r, "Request response #{r.inspect}")
         blk.call(response)
@@ -105,7 +105,7 @@ module RightScale
     # The request is never retried if there is the possibility of it being duplicated
     # See InstanceCommands for details
     def send_persistent_request(type, payload = nil, target = nil, opts = {}, &blk)
-      cmd = {:name => :send_request, :type => type, :payload => payload, :target => target, :options => opts}
+      cmd = {:name => :send_retryable_request, :type => type, :payload => payload, :target => target, :options => opts}
       @client.send_command(cmd) do |r|
         response = load_json(r, "Request response #{r.inspect}")
         blk.call(response)

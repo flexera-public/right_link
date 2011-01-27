@@ -144,8 +144,8 @@ module RightScale
       # The request is timed out if not received in time, typically configured to 2 minutes
       # The request is allowed to expire per the agent's configured time-to-live, typically 1 minute
       # See MapperProxy for details
-      def send_request(*args, &blk)
-        MapperProxy.instance.send_request(*args, &blk)
+      def send_retryable_request(*args, &blk)
+        MapperProxy.instance.send_retryable_request(*args, &blk)
       end
 
       # Helper method to send a request to a single target with a response expected

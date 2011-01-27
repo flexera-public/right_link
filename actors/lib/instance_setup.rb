@@ -132,7 +132,7 @@ class InstanceSetup
     if RightScale::Platform.windows? || RightScale::Platform.mac? 
       boot
     else
-      send_request("/booter/get_login_policy", {:agent_identity => @agent_identity}) do |r|
+      send_retryable_request("/booter/get_login_policy", {:agent_identity => @agent_identity}) do |r|
         res = result_from(r)
         if res.success?
           policy  = res.content
@@ -163,7 +163,7 @@ class InstanceSetup
   # === Return
   # true:: Always return true
   def boot
-    send_request("/booter/get_repositories", @agent_identity) do |r|
+    send_retryable_request("/booter/get_repositories", @agent_identity) do |r|
       res = result_from(r)
       if res.success?
         @audit = RightScale::AuditProxy.new(res.content.audit_id)
@@ -266,7 +266,7 @@ class InstanceSetup
         @audit.append_info("Tags discovered on startup: '#{tags.join("', '")}'")
       end
       payload = {:agent_identity => @agent_identity, :audit_id => @audit.audit_id}
-      send_request("/booter/get_boot_bundle", payload) do |r|
+      send_retryable_request("/booter/get_boot_bundle", payload) do |r|
         res = result_from(r)
         if res.success?
           bundle = res.content
@@ -302,7 +302,7 @@ class InstanceSetup
     payload = {:agent_identity => @agent_identity,
                :scripts_ids    => scripts_ids,
                :recipes_ids    => recipes_ids}
-    send_request("/booter/get_missing_attributes", payload, nil, :offline_queueing => true) do |r|
+    send_retryable_request("/booter/get_missing_attributes", payload, nil, :offline_queueing => true) do |r|
       res = result_from(r)
       if res.success?
         res.content.each do |e|
