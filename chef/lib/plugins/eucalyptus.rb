@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2010 RightScale Inc
+# Copyright (c) 2011 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -20,26 +20,17 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'common', 'lib', 'common', 'right_link_log'))
-require File.normalize_path(File.join(File.dirname(__FILE__), 'cloud_utilities.rb'))
+provides "eucalyptus"
 
-module RightScale
+if RightScale::CloudUtilities.is_cloud?(:eucalyptus)
+  meta_data_server = nil
+  meta_data_server = "euca.metadata" if RightScale::CloudUtilities.can_contact_metadata_server?("euca.metadata", 80)
+  meta_data_server = "169.254.169.254" if meta_data_server.nil? && RightScale::CloudUtilities.can_contact_metadata_server?("169.254.169.254", 80)
 
-  # provides details of configuring ohai for use in right_link environment.
-  module OhaiSetup
-    class SetupError < StandardError; end
-
-    CUSTOM_PLUGINS_DIR_PATH = File.normalize_path(File.join(File.dirname(__FILE__), 'plugins'))
-
-    def configure_ohai
-      unless Ohai::Config[:plugin_path].include?(CUSTOM_PLUGINS_DIR_PATH)
-        raise SetupError, "Missing custom Ohai plugins directory: \"#{CUSTOM_PLUGINS_DIR_PATH}\"" unless File.directory?(CUSTOM_PLUGINS_DIR_PATH)
-        Ohai::Config[:plugin_path].unshift(CUSTOM_PLUGINS_DIR_PATH)
-        Ohai::Config.log_level RightLinkLog.level
-      end
-    end
-
-    module_function :configure_ohai
+  unless meta_data_server.nil?
+    eucalyptus Mash.new
+    eucalyptus.update(RightScale::CloudUtilities.metadata("http://#{meta_data_server}/2008-02-01/meta-data"))
+    eucalyptus[:userdata] = RightScale::CloudUtilities.userdata("http://#{meta_data_server}/2008-02-01/user-data")
   end
 
 end

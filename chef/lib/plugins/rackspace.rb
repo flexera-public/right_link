@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2010 RightScale Inc
+# Copyright (c) 2011 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -20,26 +20,12 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'common', 'lib', 'common', 'right_link_log'))
-require File.normalize_path(File.join(File.dirname(__FILE__), 'cloud_utilities.rb'))
+provides "rackspace"
 
-module RightScale
+require_plugin "network"
 
-  # provides details of configuring ohai for use in right_link environment.
-  module OhaiSetup
-    class SetupError < StandardError; end
-
-    CUSTOM_PLUGINS_DIR_PATH = File.normalize_path(File.join(File.dirname(__FILE__), 'plugins'))
-
-    def configure_ohai
-      unless Ohai::Config[:plugin_path].include?(CUSTOM_PLUGINS_DIR_PATH)
-        raise SetupError, "Missing custom Ohai plugins directory: \"#{CUSTOM_PLUGINS_DIR_PATH}\"" unless File.directory?(CUSTOM_PLUGINS_DIR_PATH)
-        Ohai::Config[:plugin_path].unshift(CUSTOM_PLUGINS_DIR_PATH)
-        Ohai::Config.log_level RightLinkLog.level
-      end
-    end
-
-    module_function :configure_ohai
-  end
-
+if RightScale::CloudUtilities.is_cloud?(:rackspace){ RightScale::CloudUtilities.has_mac?(self, "00:00:0c:07:ac:01") || kernel[:release].split('-').last.eql?("rscloud") } 
+  rackspace Mash.new
+  rackspace[:public_ip] = RightScale::CloudUtilities.ip_for_interface(self, :eth0)
+  rackspace[:private_ip] = RightScale::CloudUtilities.ip_for_interface(self, :eth1)
 end
