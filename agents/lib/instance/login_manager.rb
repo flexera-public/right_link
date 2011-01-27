@@ -29,7 +29,6 @@ module RightScale
 
     ROOT_TRUSTED_KEYS_FILE = '/root/.ssh/authorized_keys'
     ACTIVE_TAG             = 'rs_login:state=active'      
-    PUBLIC_KEY_REGEXP      = /(.*)?(ssh-rsa|ssh-dsa)\s+(\S+)\s*(.*)?$/
 
     # Can the login manager function on this platform?
     #
@@ -160,7 +159,7 @@ module RightScale
       file_lines = read_keys_file
 
       file_triples = file_lines.map do |l|
-        components = self.class.parse_public_key(l)
+        components = LoginPolicy.parse_public_key(l)
         
         if components
           #preserve algorithm, key and comments; discard options (the 0th element)
@@ -177,7 +176,7 @@ module RightScale
       old_users_keys = Set.new
       old_users.each do |u|
         u.public_keys.each do |public_key|
-          comp2 = self.class.parse_public_key(public_key)
+          comp2 = LoginPolicy.parse_public_key(public_key)
 
           if comp2
             old_users_keys << comp2[2]
