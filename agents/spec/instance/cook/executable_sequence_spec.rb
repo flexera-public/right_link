@@ -123,7 +123,7 @@ module RightScale
       end
 
       it 'should successfully request a cookbook we can access' do
-        tarball = File.open(File.join(File.dirname(__FILE__), "demo_tarball.tar")).read
+        tarball = File.open(File.join(File.dirname(__FILE__), "demo_tarball.tar")).binmode.read
         dl = flexmock(ReposeDownloader).should_receive(:new).
           with('cookbooks', "4cdae6d5f1bc33d8713b341578b942d42ed5817f", "not-a-token",
                "nonexistent cookbook", ExecutableSequence::CookbookDownloadFailure).once.
@@ -155,7 +155,7 @@ module RightScale
       end
 
       it 'should successfully request a cookbook we can access' do
-        tarball = File.open(File.join(File.dirname(__FILE__), "demo_tarball.tar")).read
+        tarball = File.open(File.join(File.dirname(__FILE__), "demo_tarball.tar")).binmode.read
         dl = flexmock(ReposeDownloader).should_receive(:new).
           with('cookbooks', "4cdae6d5f1bc33d8713b341578b942d42ed5817f", "not-a-token",
                "nonexistent cookbook", ExecutableSequence::CookbookDownloadFailure).once.

@@ -292,9 +292,11 @@ module RightScale
       @audit.create_new_section('Retrieving cookbooks') unless @cookbooks.empty?
       audit_time do
         # first, if @download_path is world writable, stop that nonsense right this second.
-        if File.exists?(@download_path) && File.world_writable?(@download_path)
-          RightLinkLog.warn("Cookbooks download path world writable; fixing.")
-          File.chmod(0755, @download_path)
+        unless RightScale::RightLinkConfig.platform.windows?
+          if File.exists?(@download_path) && File.world_writable?(@download_path)
+            RightLinkLog.warn("Cookbooks download path world writable; fixing.")
+            File.chmod(0755, @download_path)
+          end
         end
 
         # second, wipe out any preexisting cookbooks in the download path
