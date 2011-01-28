@@ -446,6 +446,8 @@ module RightScale
     def configure_proxy(proxy_setting, exceptions)
       ENV['HTTP_PROXY'] = proxy_setting
       ENV['http_proxy'] = proxy_setting
+      ENV['HTTPS_PROXY'] = proxy_setting
+      ENV['https_proxy'] = proxy_setting
       ENV['NO_PROXY']   = exceptions
       ENV['no_proxy']   = exceptions
     end
