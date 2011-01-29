@@ -180,7 +180,7 @@ module RightScale
           options[:http_proxy] = proxy
         end
 
-        opts.on('--no-http-proxy NOPROXY') do |no_proxy|
+        opts.on('--http-proxy-bypass NOPROXY') do |no_proxy|
           options[:no_http_proxy] = no_proxy
         end
 
