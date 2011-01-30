@@ -35,8 +35,8 @@
 #                               (only applies if --monit specified)
 #      --options, -o KEY=VAL    Pass-through options
 #      --http-proxy, -P PROXY   Use a proxy for all agent-originated HTTP traffic
-#      --no-http-proxy          Comma-separated list of proxy exceptions
-#      --time-to-live SEC       Set maximum age in seconds before a request expires and is ignored
+#      --http-no-proxy          Comma-separated list of proxy exceptions (e.g. metadata server)
+#      --time-to-live SEC       Set maximum age in seconds before a request times out and is rejected
 #      --retry-timeout SEC      Set maximum number of seconds to retry request before give up
 #      --retry-interval SEC     Set number of seconds before initial request retry, increases exponentially
 #      --check-interval SEC     Set number of seconds between failed connection checks, increases exponentially
@@ -119,7 +119,7 @@ module RightScale
       cfg[:grace_timeout]   = options[:grace_timeout] if options[:grace_timeout]
       cfg[:dup_check]       = options[:dup_check].nil? ? true : options[:dup_check]
       cfg[:http_proxy]      = options[:http_proxy] if options[:http_proxy]
-      cfg[:no_http_proxy]   = options[:no_http_proxy] if options[:no_http_proxy]
+      cfg[:http_no_proxy]   = options[:http_no_proxy] if options[:http_no_proxy]
       options[:options].each { |k, v| cfg[k] = v } if options[:options]
 
       gen_dir = gen_agent_dir(options[:agent])
@@ -177,8 +177,8 @@ module RightScale
           options[:http_proxy] = proxy
         end
 
-        opts.on('--no-http-proxy NOPROXY') do |no_proxy|
-          options[:no_http_proxy] = no_proxy
+        opts.on('--http-no-proxy NOPROXY') do |no_proxy|
+          options[:http_no_proxy] = no_proxy
         end
 
         opts.on('--time-to-live SEC') do |sec|
