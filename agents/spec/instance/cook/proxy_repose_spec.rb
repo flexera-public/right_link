@@ -71,6 +71,32 @@ module RightScale
       cleanup_state
     end
 
+    context 'syntax' do
+      it 'understands the full syntax with protocol' do
+        ENV['HTTP_PROXY'] = "http://b/"
+
+        ReposeProxyDownloader.new("scope", "resource", "ticket", "name",
+                                  nil).instance_variable_get(:@proxy).should ==
+          URI.parse("http://b/")
+      end
+
+      it 'understands the abbreviated syntax without protocol' do
+        ENV['HTTP_PROXY'] = "b:8080"
+
+        ReposeProxyDownloader.new("scope", "resource", "ticket", "name",
+                                  nil).instance_variable_get(:@proxy).should ==
+          URI.parse("http://b:8080/")
+      end
+
+      it 'understands the abbreviated syntax without protocol or port' do
+        ENV['HTTP_PROXY'] = "b"
+
+        ReposeProxyDownloader.new("scope", "resource", "ticket", "name",
+                                  nil).instance_variable_get(:@proxy).should ==
+          URI.parse("http://b/")
+      end
+    end
+
     context 'environment variables' do
       it 'should read from HTTPS_PROXY first' do
         ENV['HTTPS_PROXY'] = "http://a/"

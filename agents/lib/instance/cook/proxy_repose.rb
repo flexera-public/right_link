@@ -23,6 +23,15 @@
 
 require 'uri'
 
+class String
+  unless method_defined?(:starts_with?)
+    def starts_with?(prefix)
+      prefix = prefix.to_s
+      self[0, prefix.length] == prefix
+    end
+  end
+end
+
 module RightScale
   # Specialization of ReposeDownloader for downloading via an HTTP
   # proxy.
@@ -35,7 +44,11 @@ module RightScale
     def initialize(*args)
       super
       useful_variable = PROXY_ENVIRONMENT_VARIABLES.detect {|v| ENV.has_key?(v)}
-      @proxy = URI.parse(ENV[useful_variable])
+      if ENV[useful_variable].match(/^[[:alpha:]]+:\/\//)
+        @proxy = URI.parse(ENV[useful_variable])
+      else
+        @proxy = URI.parse("http://" + ENV[useful_variable])
+      end
     end
 
     # Given a sequence of preferred hostnames, store an ordered
