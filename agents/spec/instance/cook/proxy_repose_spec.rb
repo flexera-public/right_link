@@ -84,27 +84,18 @@ module RightScale
       end
       it 'should read from HTTP_PROXY if HTTPS_PROXY is not set' do
         ENV['HTTP_PROXY'] = "http://b/"
-        ENV['http_proxy'] = "http://c/"
-        ENV['ALL_PROXY'] = "http://d/"
+        ENV['ALL_PROXY'] = "http://c/"
 
         ReposeProxyDownloader.new("scope", "resource", "ticket", "name",
                                   nil).instance_variable_get(:@proxy).should ==
           URI.parse("http://b/")
       end
-      it 'should read from http_proxy if HTTPS_PROXY and HTTP_PROXY is not set' do
-        ENV['http_proxy'] = "http://c/"
-        ENV['ALL_PROXY'] = "http://d/"
+      it 'should read from ALL_PROXY if nothing else is set' do
+        ENV['ALL_PROXY'] = "http://c/"
 
         ReposeProxyDownloader.new("scope", "resource", "ticket", "name",
                                   nil).instance_variable_get(:@proxy).should ==
           URI.parse("http://c/")
-      end
-      it 'should read from ALL_PROXY if nothing else is set' do
-        ENV['ALL_PROXY'] = "http://d/"
-
-        ReposeProxyDownloader.new("scope", "resource", "ticket", "name",
-                                  nil).instance_variable_get(:@proxy).should ==
-          URI.parse("http://d/")
       end
     end
 
