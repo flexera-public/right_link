@@ -29,3 +29,5 @@ require File.normalize_path(File.join(File.dirname(__FILE__), 'cook', 'audit_stu
 require File.normalize_path(File.join(File.dirname(__FILE__), 'cook', 'cook_state.rb'))
 require File.normalize_path(File.join(File.dirname(__FILE__), 'cook', 'chef_state'))
 require File.normalize_path(File.join(File.dirname(__FILE__), 'cook', 'executable_sequence.rb'))
+require File.normalize_path(File.join(File.dirname(__FILE__), 'cook', 'repose.rb'))
+require File.normalize_path(File.join(File.dirname(__FILE__), 'cook', 'proxy_repose.rb'))

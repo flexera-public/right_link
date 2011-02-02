@@ -46,11 +46,26 @@ module OpenSSL
 end
 
 module RightScale
+  # Class centralizing logic for downloading objects from Repose.
   class ReposeDownloader
-    #max wait 64 (2**6) sec between retries
+    # Select appropriate Repose class to use.  Currently, checks the
+    # HTTPS_PROXY, HTTP_PROXY, http_proxy and ALL_PROXY environment
+    # variables.
+    def self.select_repose_class
+      proxy_vars = ReposeProxyDownloader::PROXY_ENVIRONMENT_VARIABLES
+      if proxy_vars.any? {|var| ENV.has_key?(var)}
+        ReposeProxyDownloader
+      else
+        ReposeDownloader
+      end
+    end
+
+    # max wait 64 (2**6) sec between retries
     REPOSE_RETRY_BACKOFF_MAX = 6
+    # retry 10 times maximum
     REPOSE_RETRY_MAX_ATTEMPTS = 10
 
+    # Exception class representing failure to connect to Repose.
     class ReposeConnectionFailure < Exception
     end
 
@@ -142,15 +157,7 @@ module RightScale
         begin
           OpenSSL::SSL::SSLSocket.hostname_override = hostname
 
-          #The CA bundle is a basically static collection of trusted certs of top-level
-          #CAs. It should be provided by the OS, but because of our cross-platform nature
-          #and the lib we're using, we need to supply our own. We stole curl's.
-          ca_file = File.normalize_path(File.join(File.dirname(__FILE__), 'ca-bundle.crt'))
-
-          connection = Rightscale::HttpConnection.new(:user_agent => "RightLink v#{RightLinkConfig.protocol_version}",
-                                                      :logger => @logger,
-                                                      :exception => ReposeConnectionFailure,
-                                                      :ca_file => ca_file)
+          connection = make_connection
           health_check = Net::HTTP::Get.new('/')
           health_check['Host'] = hostname
           result = connection.request(:server => ip, :port => '443', :protocol => 'https',
@@ -222,6 +229,24 @@ module RightScale
       end
 
       true
+    end
+
+    protected
+    # Return a path to a CA file.  The CA bundle is a basically static
+    # collection of trusted certs of top-level CAs. It should be
+    # provided by the OS, but because of our cross-platform nature and
+    # the lib we're using, we need to supply our own. We stole curl's.
+    def get_ca_file
+      ca_file = File.normalize_path(File.join(File.dirname(__FILE__), 'ca-bundle.crt'))
+    end
+
+    # Make a Rightscale::HttpConnection for later use.
+    def make_connection
+      Rightscale::HttpConnection.new(:user_agent => "RightLink v#{RightLinkConfig.protocol_version}",
+                                     :logger => @logger,
+                                     :exception => ReposeConnectionFailure,
+                                     :fail_if_ca_mismatch => true,
+                                     :ca_file => get_ca_file)
     end
   end
 end

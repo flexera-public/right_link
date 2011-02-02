@@ -25,7 +25,6 @@ require 'process_watcher'
 require 'socket'
 require 'tempfile'
 require 'fileutils'
-require File.expand_path(File.join(File.dirname(__FILE__), 'repose'))
 
 # The daemonize method of AR clashes with the daemonize Chef attribute, we don't need that method so undef it
 undef :daemonize if methods.include?('daemonize')
@@ -92,9 +91,10 @@ module RightScale
       @ohai_retry_delay       = OHAI_RETRY_MIN_DELAY
       @audit                  = AuditStub.instance
       @logger                 = RightLinkLog
+      @repose_class           = ReposeDownloader.select_repose_class
 
       #Lookup
-      ReposeDownloader.discover_repose_servers(bundle.repose_servers)
+      @repose_class.discover_repose_servers(bundle.repose_servers)
 
       # Initializes run list for this sequence (partial converge support)
       @run_list = []
@@ -229,8 +229,8 @@ module RightScale
       begin
         attachment_dir = File.dirname(script_file_path)
         FileUtils.mkdir_p(attachment_dir)
-        dl = ReposeDownloader.new('attachments', attachment.to_hash, attachment.token,
-                                  attachment.file_name, AttachmentDownloadFailure)
+        dl = @repose_class.new('attachments', attachment.to_hash, attachment.token,
+                               attachment.file_name, AttachmentDownloadFailure)
         tempfile = Tempfile.open('attachment', attachment_dir)
         dl.request do |response|
           response.read_body do |chunk|
@@ -413,8 +413,8 @@ module RightScale
     # === Return
     # true:: always returns true
     def request_cookbook(cookbook, &block)
-      ReposeDownloader.new('cookbooks', cookbook.hash, cookbook.token,
-                           cookbook.name, CookbookDownloadFailure).request(&block)
+      @repose_class.new('cookbooks', cookbook.hash, cookbook.token,
+                        cookbook.name, CookbookDownloadFailure).request(&block)
     end
 
     # Create Powershell providers from cookbook repos
