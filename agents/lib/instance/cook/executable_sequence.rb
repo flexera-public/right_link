@@ -230,7 +230,7 @@ module RightScale
         attachment_dir = File.dirname(script_file_path)
         FileUtils.mkdir_p(attachment_dir)
         dl = @repose_class.new('attachments', attachment.to_hash, attachment.token,
-                               attachment.file_name, AttachmentDownloadFailure)
+                               attachment.file_name, AttachmentDownloadFailure, @logger)
         tempfile = Tempfile.open('attachment', attachment_dir)
         dl.request do |response|
           response.read_body do |chunk|
@@ -414,7 +414,7 @@ module RightScale
     # true:: always returns true
     def request_cookbook(cookbook, &block)
       @repose_class.new('cookbooks', cookbook.hash, cookbook.token,
-                        cookbook.name, CookbookDownloadFailure).request(&block)
+                        cookbook.name, CookbookDownloadFailure, @logger).request(&block)
     end
 
     # Create Powershell providers from cookbook repos

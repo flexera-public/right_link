@@ -79,12 +79,14 @@ module RightScale
     # exception(Exception):: the exception to throw if we are unable to download the resource.
     #                        Takes one argument which is an array of four elements
     #                        [+scope+, +resource+, +name+, +reason+]
-    def initialize(scope, resource, ticket, name, exception)
+    # logger(Logger):: logger to use
+    def initialize(scope, resource, ticket, name, exception, logger)
       @scope = scope
       @resource = resource
       @ticket = ticket
       @name = name
       @exception = exception
+      @logger = logger
       @failures  = 0
     end
 
@@ -213,9 +215,8 @@ module RightScale
     # === Return
     # true:: always returns true
     def self.discover_repose_servers(hostnames)
-      @@index     = 0
-      @@ips       = []
-      @@hostnames = {}
+      ips       = []
+      hostnames_hash = {}
       hostnames = [hostnames] unless hostnames.respond_to?(:each)
       hostnames.each do |hostname|
         infos = Socket.getaddrinfo(hostname, 443, Socket::AF_INET, Socket::SOCK_STREAM, Socket::IPPROTO_TCP)
@@ -223,10 +224,11 @@ module RightScale
         #Randomly permute the addrinfos of each hostname to help spread load.
         infos.shuffle.each do |info|
           ip = info[3]
-          @@ips << ip
-          @@hostnames[ip] = hostname
+          ips << ip
+          hostnames_hash[ip] = hostname
         end
       end
+      set_servers(ips, hostnames_hash)
 
       true
     end
@@ -247,6 +249,17 @@ module RightScale
                                      :exception => ReposeConnectionFailure,
                                      :fail_if_ca_mismatch => true,
                                      :ca_file => get_ca_file)
+    end
+
+    # Set the servers to use for Repose downloads.
+    #
+    # === Parameters
+    # ips(Array):: list of IP addresses to connect to
+    # hostnames(Hash):: IP -> hostname reverse lookup hash
+    def self.set_servers(ips, hostnames)
+      @@index = 0
+      @@ips = ips
+      @@hostnames = hostnames
     end
   end
 end

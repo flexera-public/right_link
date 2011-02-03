@@ -63,14 +63,14 @@ module RightScale
     # === Return
     # true:: always returns true
     def self.discover_repose_servers(hostnames)
-      @@index = 0
-      @@ips = []
-      @@hostnames = {}
+      ips = []
+      hostnames_hash = {}
       hostnames = [hostnames] unless hostnames.respond_to?(:each)
-      @@ips = hostnames
+      ips = hostnames
       hostnames.each do |name|
-        @@hostnames[name] = name
+        hostnames_hash[name] = name
       end
+      ReposeDownloader.set_servers(ips, hostnames_hash)
       true
     end
 
@@ -78,7 +78,7 @@ module RightScale
 
     # Make a Rightscale::HttpConnection for later use, respecting the
     # proxy settings.
-    def make_connection(host)
+    def make_connection
       Rightscale::HttpConnection.new(:user_agent => "RightLink v#{RightLinkConfig.protocol_version}",
                                      :logger => @logger,
                                      :proxy_host => @proxy.host,
