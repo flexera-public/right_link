@@ -85,8 +85,9 @@ module RightScale
       options[:agents_dir] ||= agent_dir(agent)
       options[:actors_dir] ||= actors_dir
       options[:ping_interval] ||= 4 * 60 * 60
-      cfg = agent_config(options[:agents_dir], agent)
-      fail("Cannot read configuration for agent #{options[:agent]}") unless cfg
+      c = agent_config(options[:agents_dir], agent)
+      fail("Cannot read configuration for agent #{options[:agent]}") unless c
+      cfg.merge!(c)
       actors = cfg.delete(:actors)
       fail('Agent configuration does not define actors') unless actors && actors.respond_to?(:each)
       actors.each do |actor|
