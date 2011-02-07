@@ -26,7 +26,7 @@ require 'socket'
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'config', 'platform'))
 
 module RightScale
-  
+
   class CloudUtilities
 
     # Does an interface have the given mac address?
@@ -155,7 +155,9 @@ module RightScale
 
         cloud_file = File.normalize_path(File.join(RightScale::Platform.filesystem.right_scale_state_dir, 'cloud'))
         if File.exist?(cloud_file)
-           @@cloud = File.read(cloud_file).strip.downcase.to_sym
+          @@cloud = File.read(cloud_file).strip.downcase.to_sym
+          # Note: hack for cloudstack name until all references to vmops are converted to cloudstack
+          @@cloud = :cloudstack if @@cloud == :vmops
         end
       #end
 

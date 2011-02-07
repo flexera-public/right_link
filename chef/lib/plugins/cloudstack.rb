@@ -24,9 +24,8 @@ provides "cloudstack"
 
 if RightScale::CloudUtilities.is_cloud?(:cloudstack)
   require_plugin "#{os}::cloudstack"
-
   if cloudstack != nil && RightScale::CloudUtilities.can_contact_metadata_server?(cloudstack[:dhcp_lease_provider_ip], 80)
-    cloudstack.update(RightScale::CloudUtilities.metadata("http://#{cloudstack[:dhcp_lease_provider_ip]}/latest", %w{service-offering availability-zone local-ipv4 local-hostname public-ipv4 public-hostname instance-id}))
+    cloudstack.update(RightScale::CloudUtilities.metadata("http://#{cloudstack[:dhcp_lease_provider_ip]}/latest", "", %w{service-offering availability-zone local-ipv4 local-hostname public-ipv4 public-hostname instance-id}))
     cloudstack[:userdata] = RightScale::CloudUtilities.userdata("http://#{cloudstack[:dhcp_lease_provider_ip]}/latest/user-data")
   else
     cloudstack nil
