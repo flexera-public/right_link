@@ -68,7 +68,7 @@ module RightScale
       recipe_name = File.basename(path)
       @recipes[recipe_name] = script.nickname
       recipe_content = <<-EOS
-right_script '#{script.nickname}' do
+right_script '#{script.nickname.gsub("'", "\\\\'")}' do
   parameters(#{script.parameters.inspect})
   cache_dir  '#{cache_dir(script)}'
   source_file '#{path}'
