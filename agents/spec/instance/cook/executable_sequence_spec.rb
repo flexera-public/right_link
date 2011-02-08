@@ -126,7 +126,8 @@ module RightScale
         tarball = File.open(File.join(File.dirname(__FILE__), "demo_tarball.tar")).binmode.read
         dl = flexmock(ReposeDownloader).should_receive(:new).
           with('cookbooks', "4cdae6d5f1bc33d8713b341578b942d42ed5817f", "not-a-token",
-               "nonexistent cookbook", ExecutableSequence::CookbookDownloadFailure).once.
+               "nonexistent cookbook", ExecutableSequence::CookbookDownloadFailure,
+               RightScale::RightLinkLog).once.
           and_return(flexmock(ReposeDownloader))
         response = flexmock(Net::HTTPSuccess.new("1.1", "200", "everything good"))
         response.should_receive(:read_body, Proc).and_yield(tarball).once
@@ -143,7 +144,8 @@ module RightScale
         @auditor.should_receive(:append_info).with(/Duration: \d+\.\d+ seconds/).never
         dl = flexmock(ReposeDownloader).should_receive(:new).
           with('cookbooks', "4cdae6d5f1bc33d8713b341578b942d42ed5817f", "not-a-token",
-               "nonexistent cookbook", ExecutableSequence::CookbookDownloadFailure).once.
+               "nonexistent cookbook", ExecutableSequence::CookbookDownloadFailure,
+               RightScale::RightLinkLog).once.
           and_return(flexmock(ReposeDownloader))
         dl.should_receive(:request, Proc).and_raise(ExecutableSequence::CookbookDownloadFailure,
                                                     ["cookbooks", "a-sha", "nonexistent cookbook",
@@ -158,7 +160,8 @@ module RightScale
         tarball = File.open(File.join(File.dirname(__FILE__), "demo_tarball.tar")).binmode.read
         dl = flexmock(ReposeDownloader).should_receive(:new).
           with('cookbooks', "4cdae6d5f1bc33d8713b341578b942d42ed5817f", "not-a-token",
-               "nonexistent cookbook", ExecutableSequence::CookbookDownloadFailure).once.
+               "nonexistent cookbook", ExecutableSequence::CookbookDownloadFailure,
+               RightScale::RightLinkLog).once.
           and_return(flexmock(ReposeDownloader))
         response = flexmock(Net::HTTPSuccess.new("1.1", "200", "everything good"))
         response.should_receive(:read_body, Proc).and_yield(tarball).once
@@ -190,7 +193,8 @@ module RightScale
         dl = flexmock(ReposeDownloader).should_receive(:new).
           with('attachments', Digest::SHA1.hexdigest("http://a-url/foo/bar/baz\000an-etag"),
                "not-a-token", "baz.tar",
-               ExecutableSequence::AttachmentDownloadFailure).once.
+               ExecutableSequence::AttachmentDownloadFailure,
+               RightScale::RightLinkLog).once.
           and_return(flexmock(ReposeDownloader))
         response = flexmock(Net::HTTPSuccess.new("1.1", "200", "everything good"))
         response.should_receive(:read_body, Proc).and_yield("\000" * 200).once
@@ -206,7 +210,8 @@ module RightScale
         hash = Digest::SHA1.hexdigest("http://a-url/foo/bar/baz\000an-etag")
         dl = flexmock(ReposeDownloader).should_receive(:new).
           with('attachments', hash, "not-a-token", "baz.tar",
-               ExecutableSequence::AttachmentDownloadFailure).once.
+               ExecutableSequence::AttachmentDownloadFailure,
+               RightScale::RightLinkLog).once.
           and_return(flexmock(ReposeDownloader))
         dl.should_receive(:request, Proc).
           and_raise(ExecutableSequence::AttachmentDownloadFailure, ["attachments", hash,
@@ -215,8 +220,8 @@ module RightScale
         manual_dl.should_receive(:download).with("http://a-url/foo/bar/baz?blah", String).
           and_return(true)
         manual_dl.should_receive(:details).with_no_args.and_return("nothing")
-        @auditor.should_receive(:update_status).with(/^Downloading baz\.tar into [^ ]* directly$/).once
-        @auditor.should_receive(:update_status).with(/^Downloading baz\.tar into [^ ]*$/).once
+        @auditor.should_receive(:update_status).with(/^Downloading baz\.tar into .* directly$/).once
+        @auditor.should_receive(:update_status).with(/^Downloading baz\.tar into .*$/).once
         @auditor.should_receive(:append_info).with("Repose download failed: spite while downloading #{hash}; falling back to direct download").once
         @auditor.should_receive(:append_info).with("nothing").once
         @auditor.should_receive(:append_info).with(/Duration: \d+\.\d+ seconds/).once
@@ -229,13 +234,14 @@ module RightScale
         dl = flexmock(ReposeDownloader).should_receive(:new).
           with('attachments', Digest::SHA1.hexdigest("http://a-url/foo/bar/baz\000an-etag"),
                "not-a-token", "baz.tar",
-               ExecutableSequence::AttachmentDownloadFailure).never
+               ExecutableSequence::AttachmentDownloadFailure,
+               RightScale::RightLinkLog).never
         manual_dl = flexmock(Downloader).should_receive(:new).once.and_return(flexmock(Downloader))
         manual_dl.should_receive(:download).with("http://a-url/foo/bar/baz?blah", String).
           and_return(true)
         manual_dl.should_receive(:details).with_no_args.and_return("nothing")
         @attachment.token = nil
-        @auditor.should_receive(:update_status).with(/Downloading baz\.tar into [^ ]* directly/).once
+        @auditor.should_receive(:update_status).with(/Downloading baz\.tar into .* directly/).once
         @auditor.should_receive(:append_info).with("nothing").once
         @auditor.should_receive(:append_info).with(/Duration: \d+\.\d+ seconds/).once
         @auditor.should_receive(:update_status).and_return {|string| p string}
@@ -248,13 +254,14 @@ module RightScale
         dl = flexmock(ReposeDownloader).should_receive(:new).
           with('attachments', Digest::SHA1.hexdigest("http://a-url/foo/bar/baz\000an-etag"),
                "not-a-token", "baz.tar",
-               ExecutableSequence::AttachmentDownloadFailure).never
+               ExecutableSequence::AttachmentDownloadFailure,
+               RightScale::RightLinkLog).never
         manual_dl = flexmock(Downloader).should_receive(:new).once.and_return(flexmock(Downloader))
         manual_dl.should_receive(:download).with("http://a-url/foo/bar/baz?blah", String).
           and_return(false)
         manual_dl.should_receive(:error).with_no_args.and_return("spite")
         @attachment.token = nil
-        @auditor.should_receive(:update_status).with(/Downloading baz\.tar into [^ ]* directly/).once
+        @auditor.should_receive(:update_status).with(/Downloading baz\.tar into .* directly/).once
         @sequence = ExecutableSequence.new(@bundle)
         @sequence.send(:download_attachments)
         @sequence.should have_failed("Failed to download attachment 'baz.tar'", "spite")

@@ -76,7 +76,7 @@ module RightScale
         ENV['HTTP_PROXY'] = "http://b/"
 
         ReposeProxyDownloader.new("scope", "resource", "ticket", "name",
-                                  nil).instance_variable_get(:@proxy).should ==
+                                  nil, nil).instance_variable_get(:@proxy).should ==
           URI.parse("http://b/")
       end
 
@@ -84,7 +84,7 @@ module RightScale
         ENV['HTTP_PROXY'] = "b:8080"
 
         ReposeProxyDownloader.new("scope", "resource", "ticket", "name",
-                                  nil).instance_variable_get(:@proxy).should ==
+                                  nil, nil).instance_variable_get(:@proxy).should ==
           URI.parse("http://b:8080/")
       end
 
@@ -92,7 +92,7 @@ module RightScale
         ENV['HTTP_PROXY'] = "b"
 
         ReposeProxyDownloader.new("scope", "resource", "ticket", "name",
-                                  nil).instance_variable_get(:@proxy).should ==
+                                  nil, nil).instance_variable_get(:@proxy).should ==
           URI.parse("http://b/")
       end
     end
@@ -105,7 +105,7 @@ module RightScale
         ENV['ALL_PROXY'] = "http://d/"
 
         ReposeProxyDownloader.new("scope", "resource", "ticket", "name",
-                                  nil).instance_variable_get(:@proxy).should ==
+                                  nil, nil).instance_variable_get(:@proxy).should ==
           URI.parse("http://a/")
       end
       it 'should read from HTTP_PROXY if HTTPS_PROXY is not set' do
@@ -113,14 +113,14 @@ module RightScale
         ENV['ALL_PROXY'] = "http://c/"
 
         ReposeProxyDownloader.new("scope", "resource", "ticket", "name",
-                                  nil).instance_variable_get(:@proxy).should ==
+                                  nil, nil).instance_variable_get(:@proxy).should ==
           URI.parse("http://b/")
       end
       it 'should read from ALL_PROXY if nothing else is set' do
         ENV['ALL_PROXY'] = "http://c/"
 
         ReposeProxyDownloader.new("scope", "resource", "ticket", "name",
-                                  nil).instance_variable_get(:@proxy).should ==
+                                  nil, nil).instance_variable_get(:@proxy).should ==
           URI.parse("http://c/")
       end
     end
@@ -140,8 +140,8 @@ module RightScale
     context 'making connections' do
       it 'should set up the HttpConnection properly with an ordinary proxy' do
         ENV['HTTPS_PROXY'] = 'http://a-proxy:2135/'
-        proxy = ReposeProxyDownloader.new("scope", "resource", "ticket", "name", nil)
-        connection = proxy.send(:make_connection, "a-hostname")
+        proxy = ReposeProxyDownloader.new("scope", "resource", "ticket", "name", nil, nil)
+        connection = proxy.send(:make_connection)
         connection.get_param(:proxy_host).should == "a-proxy"
         connection.get_param(:proxy_port).should == 2135
         connection.get_param(:proxy_username).should be_nil
@@ -149,8 +149,8 @@ module RightScale
       end
       it 'should set up the HttpConnection properly with an proxy that needs authentication' do
         ENV['HTTPS_PROXY'] = 'http://username:password@a-proxy:2135/'
-        proxy = ReposeProxyDownloader.new("scope", "resource", "ticket", "name", nil)
-        connection = proxy.send(:make_connection, "a-hostname")
+        proxy = ReposeProxyDownloader.new("scope", "resource", "ticket", "name", nil, nil)
+        connection = proxy.send(:make_connection)
         connection.get_param(:proxy_host).should == "a-proxy"
         connection.get_param(:proxy_port).should == 2135
         connection.get_param(:proxy_username).should == "username"

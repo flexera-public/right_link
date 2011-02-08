@@ -54,7 +54,7 @@ module RightScale
     end
 
     before(:each) do
-      @downloader = ReposeDownloader.new('scope', 'resource', 'ticket', 'name', TestException)
+      @downloader = ReposeDownloader.new('scope', 'resource', 'ticket', 'name', TestException, nil)
     end
 
     context 'with a shimmed HTTP connection' do
