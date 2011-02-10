@@ -24,11 +24,11 @@ provides "ec2"
 
 require_plugin "network"
 
-if RightScale::CloudUtilities.is_cloud?(:ec2){ RightScale::CloudUtilities.has_mac?(self, "fe:ff:ff:ff:ff:ff") }
-  if RightScale::CloudUtilities.can_contact_metadata_server?("169.254.169.254", 80)
+if ::RightScale::CloudUtilities.is_cloud?(:ec2){ ::RightScale::CloudUtilities.has_mac?(self, "fe:ff:ff:ff:ff:ff") }
+  if ::RightScale::CloudUtilities.can_contact_metadata_server?("169.254.169.254", 80)
     ec2 Mash.new
-    ec2.update(RightScale::CloudUtilities.metadata("http://169.254.169.254/2008-02-01/meta-data"))
-    ec2[:userdata] = RightScale::CloudUtilities.userdata("http://169.254.169.254/2008-02-01/user-data")
+    ec2.update(::RightScale::CloudUtilities.metadata("http://169.254.169.254/2008-02-01/meta-data"))
+    ec2[:userdata] = ::RightScale::CloudUtilities.userdata("http://169.254.169.254/2008-02-01/user-data")
   end
 end
 

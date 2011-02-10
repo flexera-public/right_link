@@ -22,15 +22,15 @@
 
 provides "eucalyptus"
 
-if RightScale::CloudUtilities.is_cloud?(:eucalyptus)
+if ::RightScale::CloudUtilities.is_cloud?(:eucalyptus)
   meta_data_server = nil
-  meta_data_server = "euca.metadata" if RightScale::CloudUtilities.can_contact_metadata_server?("euca.metadata", 80)
-  meta_data_server = "169.254.169.254" if meta_data_server.nil? && RightScale::CloudUtilities.can_contact_metadata_server?("169.254.169.254", 80)
+  meta_data_server = "euca.metadata" if ::RightScale::CloudUtilities.can_contact_metadata_server?("euca.metadata", 80)
+  meta_data_server = "169.254.169.254" if meta_data_server.nil? && ::RightScale::CloudUtilities.can_contact_metadata_server?("169.254.169.254", 80)
 
   unless meta_data_server.nil?
     eucalyptus Mash.new
-    eucalyptus.update(RightScale::CloudUtilities.metadata("http://#{meta_data_server}/2008-02-01/meta-data"))
-    eucalyptus[:userdata] = RightScale::CloudUtilities.userdata("http://#{meta_data_server}/2008-02-01/user-data")
+    eucalyptus.update(::RightScale::CloudUtilities.metadata("http://#{meta_data_server}/2008-02-01/meta-data"))
+    eucalyptus[:userdata] = ::RightScale::CloudUtilities.userdata("http://#{meta_data_server}/2008-02-01/user-data")
   end
 
 end
