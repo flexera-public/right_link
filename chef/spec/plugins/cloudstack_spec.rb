@@ -49,6 +49,22 @@ describe Ohai::System, " plugin cloudstack" do
         lease_file_content = <<-EOF
         lease {
           interface "eth0";
+          fixed-address 10.10.10.2;
+          option subnet-mask 255.255.255.0;
+          option routers 10.10.10.1;
+          option dhcp-lease-time 4294967295;
+          option dhcp-message-type 5;
+          option domain-name-servers 10.10.10.3;
+          option dhcp-server-identifier 10.10.10.3;
+          option broadcast-address 10.10.10.255;
+          option host-name "2-4-6-8";
+          option domain-name "qaz.cdra";
+          renew 0 2079/2/5 21:27:55;
+          rebind 1 2130/2/20 05:53:24;
+          expire 6 2147/2/25 00:42:02;
+        }
+        lease {
+          interface "eth0";
           fixed-address 111.111.111.2;
           option subnet-mask 255.255.255.0;
           option routers 111.111.111.1;
