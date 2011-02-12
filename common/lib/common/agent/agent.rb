@@ -51,7 +51,7 @@ module RightScale
     # (ActorRegistry) Registry for this agents actors
     attr_reader :registry
 
-    # (HA_MQ) High availability AMQP broker
+    # (HABrokerClient) High availability AMQP broker client
     attr_reader :broker
 
     # (Array) Tag strings published to mapper by agent
@@ -173,7 +173,7 @@ module RightScale
 
         # Initiate AMQP broker connection, wait for connection before proceeding
         # otherwise messages published on failed connection will be lost
-        @broker = HA_MQ.new(Serializer.new(:secure), @options)
+        @broker = HABrokerClient.new(Serializer.new(:secure), @options)
         @all_setup.each { |s| @remaining_setup[s] = @broker.all }
         @broker.connection_status(:one_off => @options[:connect_timeout]) do |status|
           if status == :connected
@@ -251,22 +251,22 @@ module RightScale
     # === Parameters
     # host(String):: Host name of broker
     # port(Integer):: Port number of broker
-    # alias_id(Integer):: Small unique id associated with this broker for use in forming alias
+    # index(Integer):: Small unique id associated with this broker for use in forming alias
     # priority(Integer|nil):: Priority position of this broker in list for use
     #   by this agent with nil meaning add to end of list
     # force(Boolean):: Reconnect even if already connected
     #
     # === Return
     # res(String|nil):: Error message if failed, otherwise nil
-    def connect(host, port, alias_id, priority = nil, force = false)
-      @connect_requests.update("connect b#{alias_id}")
+    def connect(host, port, index, priority = nil, force = false)
+      @connect_requests.update("connect b#{index}")
       even_if = " even if already connected" if force
       RightLinkLog.info("Connecting to broker at host #{host.inspect} port #{port.inspect} " +
-                        "alias_id #{alias_id.inspect} priority #{priority.inspect}#{even_if}")
+                        "index #{index.inspect} priority #{priority.inspect}#{even_if}")
       RightLinkLog.info("Current broker configuration: #{@broker.status.inspect}")
       res = nil
       begin
-        @broker.connect(host, port, alias_id, priority, force) do |id|
+        @broker.connect(host, port, index, priority, nil, force) do |id|
           @broker.connection_status(:one_off => @options[:connect_timeout], :brokers => [id]) do |status|
             begin
               if status == :connected
@@ -287,7 +287,7 @@ module RightScale
           end
         end
       rescue Exception => e
-        res = RightLinkLog.format("Failed to connect to broker #{HA_MQ.identity(host, port)}", e)
+        res = RightLinkLog.format("Failed to connect to broker #{HABrokerClient.identity(host, port)}", e)
         @exceptions.track("connect", e)
       end
       RightLinkLog.error(res) if res
@@ -310,7 +310,7 @@ module RightScale
       RightLinkLog.info("Disconnecting#{and_remove} broker at host #{host.inspect} " +
                         "port #{port.inspect}")
       RightLinkLog.info("Current broker configuration: #{@broker.status.inspect}")
-      id = HA_MQ.identity(host, port)
+      id = HABrokerClient.identity(host, port)
       @connect_requests.update("disconnect #{@broker.alias_(id)}")
       connected = @broker.connected
       res = nil
@@ -626,7 +626,7 @@ module RightScale
           when Result        then @mapper_proxy.handle_response(packet)
           end
           @mapper_proxy.message_received
-        rescue HA_MQ::NoConnectedBrokers => e
+        rescue HABrokerClient::NoConnectedBrokers => e
           RightLinkLog.error("Identity queue processing error", e)
         rescue Exception => e
           RightLinkLog.error("Identity queue processing error", e, :trace)
@@ -659,7 +659,7 @@ module RightScale
     def finish_setup
       @broker.failed(backoff = true).each do |id|
         p = {:agent_identity => @identity}
-        p[:host], p[:port], p[:id], p[:priority] = @broker.identity_parts(id)
+        p[:host], p[:port], p[:id], p[:priority], _ = @broker.identity_parts(id)
         @mapper_proxy.send_push("/registrar/connect", p)
       end
       true

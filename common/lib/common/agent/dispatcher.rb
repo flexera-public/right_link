@@ -109,7 +109,7 @@ module RightScale
     # (String) Identity of associated agent
     attr_reader :identity
 
-    # (HA_MQ) High availability AMQP broker
+    # (HABrokerClient) High availability AMQP broker client
     attr_reader :broker
 
     # (EM) Event machine class (exposed for unit tests)
@@ -225,7 +225,7 @@ module RightScale
             exchange = {:type => :queue, :name => request.reply_to, :options => {:durable => true, :no_declare => @secure}}
             @broker.publish(exchange, r, :persistent => true, :mandatory => true, :log_filter => [:tries, :persistent, :duration])
           end
-        rescue HA_MQ::NoConnectedBrokers => e
+        rescue HABrokerClient::NoConnectedBrokers => e
           RightLinkLog.error("Failed to publish result of dispatched request #{request.trace}", e)
         rescue Exception => e
           RightLinkLog.error("Failed to publish result of dispatched request #{request.trace}", e, :trace)

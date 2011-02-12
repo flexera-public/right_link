@@ -58,7 +58,7 @@ module RightScale
     #   :retry_parent(String):: Token for parent request in a retry situation, optional
     attr_accessor :pending_requests
 
-    # (HA_MQ) High availability AMQP broker
+    # (HABrokerClient) High availability AMQP broker client
     attr_accessor :broker
 
     # (String) Identity of the agent using the mapper proxy
@@ -639,7 +639,7 @@ module RightScale
         exchange = {:type => :fanout, :name => "request", :options => {:durable => true, :no_declare => @secure}}
         ids = @broker.publish(exchange, request, :persistent => request.persistent, :mandatory => true,
                               :log_filter => [:tags, :target, :tries, :persistent], :brokers => ids)
-      rescue HA_MQ::NoConnectedBrokers => e
+      rescue HABrokerClient::NoConnectedBrokers => e
         RightLinkLog.error("Failed to publish request #{request.to_s([:tags, :target, :tries])}", e)
         ids = []
       rescue Exception => e
@@ -701,8 +701,8 @@ module RightScale
             @pings.update("timeout")
             @pending_ping = nil
             RightLinkLog.warn("Mapper ping via broker #{id} timed out after #{PING_TIMEOUT} seconds, attempting to reconnect")
-            host, port, alias_id, priority = @broker.identity_parts(id)
-            @agent.connect(host, port, alias_id, priority, force = true)
+            host, port, index, priority, _ = @broker.identity_parts(id)
+            @agent.connect(host, port, index, priority, force = true)
           rescue Exception => e
             RightLinkLog.error("Failed to reconnect to broker #{id}", e, :trace)
             @exceptions.track("ping timeout", e)
