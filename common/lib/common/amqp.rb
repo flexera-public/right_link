@@ -811,11 +811,11 @@ module RightScale
     #
     # === Parameters
     # host{String):: IP host name or address for individual broker
-    # port(Integer):: TCP port number for individual broker
+    # port(Integer):: TCP port number for individual broker, defaults to ::AMQP::PORT
     #
     # === Returns
     # (String):: Broker serialized identity
-    def self.identity(host, port)
+    def self.identity(host, port = ::AMQP::PORT)
       AgentIdentity.new('rs', 'broker', port.to_i, host.gsub('-', '~')).to_s
     end
 
