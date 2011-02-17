@@ -25,42 +25,6 @@
 # name value
 
 # Current RightLink protocol version (aka r_s_version, no support below version 5)
-# 5:  Started storing timestamps in database for each instance state rather than storing state name
-#     Changed format of agent identifiers by replacing '-' with '*' as separator
-# 6:  Attributes in RecipeInstantiation no longer converted to JSON format
-#     (image 5.1.0)
-# 7:  ???
-# 8:  Deprecated full vs. partial converge distinction in ExecutableBundle
-#     Core agent booter actor superseded :set_r_s_version action with :declare
-#     Added request retry and duplicate request checking
-#     (image 5.4.0)
-# 9:  Introduced multiple brokers, which extended protocol but did not introduce any
-#     downrev incompatibilities, but wanted clear demarcation if needed to resolve issues
-#     (sprint 20, image 5.5.0)
-# 10: Changed multicast requests to no longer be collected in mapper
-#     Added request_from field to Result so that any mapper can forward a result to the original requester
-#     Changed /mapper/list_agents to /mapper/query_tags
-#     Eliminated agent periodic pings
-#     Eliminated instance agent registration
-#     Eliminated least_loaded and rr request selectors
-#     Eliminated nanite and mapper prefix for queue names and pid files
-#     Added returns field to Request, Push, and Result for message returns
-#     (sprint 21, image 5.6.0)
-# 11: Added stats packet, stats exchange & corresponding agent_manager request
-#     Changed InstanceSetup to use the Repose mirror to download cookbook repositories
-# 12: Support both JSON and MessagePack serialization of packets with MessagePack as the new default
-#     and use DER (binary) encoding instead of PEM (base64) for the secure serialization
-# 13: Refactored messaging to send_push, send_persistent_push, send_retryable_request, and send_persistent_request
-#     Removed support for fanout of two-way requests, which was only used for rabbit requests
-#     Disabled duplicate request checking for shared queues
-#     Refactored mandatory handling to track tries and to be able to send non-delivery result
-#     Applied mandatory flag when publishing in agent
-#     Added NON_DELIVERY to OperationResult and applied it in mapper for various non-delivery cases
-#     Replaced created_at in Push and Request with expires_at and changed option :fresh_timeout to :time_to_live
-#     Removed created_at from Registration and Result
-#     Changed request target selector name from :random to :any
-#     Deprecated Stale packet with conversion to Result packet with NON_DELIVERY OperationResult
-#     Changed InstanceSetup to use the Repose mirror to download RightScript attachments
 protocol_version 13
 
 # Path to RightLink root folder
