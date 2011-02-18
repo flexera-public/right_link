@@ -609,7 +609,7 @@ module RightScale
                 publish_with_timeout_retry(request, parent, count, multiplier * RETRY_BACKOFF_FACTOR, elapsed)
                 @retries.update(request.type.split('/').last)
               else
-                RightLinkLog.warn("RE-SEND TIMEOUT after #{elapsed} seconds for #{request.to_s([:tags, :target, :tries])}")
+                RightLinkLog.warn("RE-SEND TIMEOUT after #{elapsed.to_i} seconds for #{request.to_s([:tags, :target, :tries])}")
                 result = OperationResult.non_delivery(OperationResult::RETRY_TIMEOUT)
                 @non_deliveries.update(result.content)
                 handle_response(Result.new(request.token, request.reply_to, result, @identity))
