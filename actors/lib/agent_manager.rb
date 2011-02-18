@@ -26,7 +26,7 @@ class AgentManager
 
   include RightScale::Actor
 
-  expose :ping, :set_log_level, :execute, :connect, :disconnect, :record_fault
+  expose :ping, :stats, :set_log_level, :execute, :connect, :disconnect, :record_fault
 
   # Valid log levels
   LEVELS = [:debug, :info, :warn, :error, :fatal]
