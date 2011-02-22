@@ -1273,6 +1273,7 @@ describe RightScale::HA_MQ do
                                :disconnects => 0, :failures => 0, :retries => 0},
                               {:alias => "b1", :identity => "rs-broker-second-5673", :status => :connecting,
                                :disconnects => 0, :failures => 0, :retries => 0}]
+      ha_mq.brokers[1].should == ha_mq.instance_variable_get(:@brokers_hash)["rs-broker-second-5673"]
     end
 
     it "should reconnect an existing broker if it is not connected" do

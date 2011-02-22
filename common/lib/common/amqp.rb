@@ -1017,8 +1017,8 @@ module RightScale
       if existing && [:connected, :connecting].include?(existing[:status]) && !force
         RightLinkLog.info("Ignored request to reconnect #{identity} because already #{existing[:status].to_s}")
         false
-      elsif !existing && identity = get(alias_id)
-        raise Exception, "Not allowed to change host or port of existing broker #{identity}, " +
+      elsif !existing && identity2 = get(alias_id)
+        raise Exception, "Not allowed to change host or port of existing broker #{identity2}, " +
                          "alias b#{alias_id}, to #{host} and #{port.inspect}"
       else
         broker = internal_connect({:host => host, :port => port, :id => alias_id}, @options)
