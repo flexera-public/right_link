@@ -28,6 +28,7 @@ describe RightScale::MapperProxy do
   include FlexMock::ArgumentTypes
 
   before(:each) do
+#   flexmock(RightScale::RightLinkLog).should_receive(:error).with(on { |arg| puts caller.join("\n") } )
     flexmock(RightScale::RightLinkLog).should_receive(:error).never.by_default
     flexmock(RightScale::RightLinkLog).should_receive(:warn).never.by_default
     @timer = flexmock("timer", :cancel => true).by_default
@@ -231,8 +232,8 @@ describe RightScale::MapperProxy do
       @broker_ids = [@broker_id]
       @broker = flexmock("Broker", :subscribe => true, :publish => @broker_ids, :connected? => true,
                          :identity_parts => ["host", 123, 0, 0]).by_default
-      @agent = flexmock("Agent", :identity => "agent", :broker => @broker,
-                        :options => {:ping_interval => 0, :time_to_live => 100}).by_default
+      @agent = flexmock("Agent", :identity => "agent", :broker => @broker).by_default
+      @agent.should_receive(:options).and_return({:ping_interval => 0, :time_to_live => 100}).by_default
       RightScale::MapperProxy.new(@agent)
       @instance = RightScale::MapperProxy.instance
       @instance.initialize_offline_queue
@@ -249,7 +250,7 @@ describe RightScale::MapperProxy do
       flexmock(EM).should_receive(:next_tick).and_yield.once
       @instance.send_retryable_request('/welcome/aboard', 'iZac') {|response|}
     end
-    
+
     it "should set correct attributes on the request message" do
       flexmock(Time).should_receive(:now).and_return(Time.at(1000000))
       @broker.should_receive(:publish).with(hsh(:name => "request"), on do |request|
@@ -262,7 +263,19 @@ describe RightScale::MapperProxy do
       end, hsh(:persistent => false, :mandatory => true)).once
       @instance.send_retryable_request('/welcome/aboard', 'iZac') {|response|}
     end
-    
+
+    it "should disable time-to-live if disabled in configuration" do
+      @agent.should_receive(:options).and_return({:ping_interval => 0, :time_to_live => 0})
+      RightScale::MapperProxy.new(@agent)
+      @instance = RightScale::MapperProxy.instance
+      @instance.initialize_offline_queue
+      flexmock(Time).should_receive(:now).and_return(Time.at(1000000))
+      @broker.should_receive(:publish).with(hsh(:name => "request"), on do |request|
+        request.expires_at.should == 0
+      end, hsh(:persistent => false, :mandatory => true)).once
+      @instance.send_retryable_request('/welcome/aboard', 'iZac') {|response|}
+    end
+
     it "should set the correct target if specified" do
       @broker.should_receive(:publish).with(hsh(:name => "request"), on do |request|
         request.target.should == 'my-target'

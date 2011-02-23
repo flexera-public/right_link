@@ -556,7 +556,7 @@ module RightScale
             else
               request.target = target
             end
-            request.expires_at = Time.now.to_i + @options[:time_to_live] if !non_duplicate && @options[:time_to_live]
+            request.expires_at = Time.now.to_i + @options[:time_to_live] if !non_duplicate && @options[:time_to_live] && @options[:time_to_live] != 0
             request.persistent = non_duplicate
             @pending_requests[token] = {
               :response_handler => callback,
