@@ -186,7 +186,7 @@ module RightScale
             script.attachments.each do |a|
               script_file_path = File.join(attach_dir, a.file_name)
               unless a.token.nil?
-                @audit.update_status("Downloading #{a.file_name} into #{script_file_path}")
+                @audit.update_status("Downloading #{a.file_name} into #{script_file_path} through Repose")
 
                 begin
                   download_using_repose(a, script_file_path)
