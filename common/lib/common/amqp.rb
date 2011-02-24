@@ -1047,6 +1047,7 @@ module RightScale
           @brokers[i] = broker
         end
         @brokers_hash[identity] = broker
+        return_message { |identity, reason, msg, to, details| handle_return(identity, reason, msg, to, details) }
         yield broker[:identity] if block_given?
         true
       end
