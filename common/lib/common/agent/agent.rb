@@ -95,9 +95,8 @@ module RightScale
     #   :connect_timeout:: Number of seconds to wait for a broker connection to be established
     #   :ping_interval(Integer):: Minimum number of seconds since last message receipt to ping the mapper
     #     to check connectivity, defaults to 0 meaning do not ping
-    #   :check_interval:: Number of seconds between checks for broker connections that failed during
-    #     agent launch and then attempting to reconnect via the registrar; repeated failures will cause
-    #     this to backoff exponentially up to HA_MQ::MAX_FAILED_BACKOFF times this interval
+    #   :check_interval:: Number of seconds between publishing stats and checking for broker connections
+    #     that failed during agent launch and then attempting to reconnect via the registrar
     #   :grace_timeout(Integer):: Maximum number of seconds to wait after last request received before
     #     terminating regardless of whether there are still unfinished requests
     #   :dup_check(Boolean):: Whether to check for and reject duplicate requests, e.g., due to retries
@@ -185,9 +184,15 @@ module RightScale
                 setup_traps
                 setup_queues
                 start_console if @options[:console] && !@options[:daemonize]
+
+                # Need to keep reconnect interval at least :connect_timeout in size,
+                # otherwise connection_status callback will not timeout prior to next
+                # reconnect attempt, which can result in repeated attempts to setup
+                # queues when finally do connect
+                interval = [@options[:check_interval], @options[:connect_timeout]].max
                 @check_status_count = 0
                 @check_status_brokers = @broker.all
-                EM.add_periodic_timer(@options[:check_interval]) { check_status }
+                EM.add_periodic_timer(interval) { check_status }
               rescue Exception => e
                 RightLinkLog.error("Agent failed startup", e, :trace) unless e.message == "exit"
                 EM.stop
@@ -666,17 +671,24 @@ module RightScale
     # true:: Always return true
     def check_status
       begin
+        finish_setup
+      rescue Exception => e
+        RightLinkLog.error("Failed finishing setup", e)
+        @exceptions.track("check status", e)
+      end
+
+      begin
         if @stats_routing_key
           exchange = {:type => :topic, :name => "stats", :options => {:no_declare => true}}
           @broker.publish(exchange, Stats.new(stats.content, @identity), :no_log => true,
                           :routing_key => @stats_routing_key, :brokers => @check_status_brokers.rotate!)
         end
-        finish_setup
-        @check_status_count += 1
       rescue Exception => e
-        RightLinkLog.error("Failed checking status", e)
+        RightLinkLog.error("Failed publishing stats", e)
         @exceptions.track("check status", e)
       end
+
+      @check_status_count += 1
       true
     end
 
