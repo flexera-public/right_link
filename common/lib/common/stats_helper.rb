@@ -118,13 +118,14 @@ module RightScale
       # id(String):: Unique identifier associated with this activity
       #
       # === Return
-      # now(Time):: Finish time
+      # duration(Float):: Activity duration in seconds
       def finish(start_time = nil, id = nil)
         now = Time.now
         start_time ||= @last_start_time
-        @avg_duration = average(@avg_duration || 0.0, now - start_time)
+        duration = now - start_time
+        @avg_duration = average(@avg_duration || 0.0, duration)
         @last_id = 0 if id && id == @last_id
-        now
+        duration
       end
 
       # Convert average interval to average rate

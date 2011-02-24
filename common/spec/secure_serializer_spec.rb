@@ -60,7 +60,7 @@ describe RightScale::SecureSerializer do
     before(:each) do
       flexmock(JSON).should_receive(:dump).never
       flexmock(JSON).should_receive(:load).never
-      @data = RightScale::Result.new("token", "to", "from", ["results"], nil, nil, nil, [12, 12])
+      @data = RightScale::Result.new("token", "to", "from", ["results"], nil, nil, nil, nil, [12, 12])
     end
 
     it 'should unserialize signed data' do
@@ -82,7 +82,7 @@ describe RightScale::SecureSerializer do
     before(:each) do
       flexmock(MessagePack).should_receive(:dump).never
       flexmock(MessagePack).should_receive(:load).never
-      @data = RightScale::Result.new("token", "to", "from", ["results"], nil, nil, nil, [11, 11])
+      @data = RightScale::Result.new("token", "to", "from", ["results"], nil, nil, nil, nil, [11, 11])
     end
 
     it 'should unserialize signed data' do

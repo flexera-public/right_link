@@ -133,8 +133,29 @@ module RightScale
       v = __send__(version) if version
       v = (v && v != DEFAULT_VERSION) ? " v#{v}" : ""
       log_msg = "[#{name}#{v}]"
-      log_msg += " (#{@size.to_s.gsub(/(\d)(?=(\d\d\d)+(?!\d))/, "\\1,")} bytes)" if @size && !@size.to_s.empty?
+      duration = ", #{enough_precision(@duration)} sec" if @duration && (filter.nil? || filter.include?(:duration))
+      log_msg += " (#{@size.to_s.gsub(/(\d)(?=(\d\d\d)+(?!\d))/, "\\1,")} bytes#{duration})" if @size && !@size.to_s.empty?
       log_msg
+    end
+
+    # Determine enough precision for floating point value to give at least two significant
+    # digits and then convert the value to a decimal digit string of that precision
+    #
+    # === Parameters
+    # value(Float):: Value to be converted
+    #
+    # === Return
+    # (String):: Floating point digit string
+    def enough_precision(value)
+      scale = [1.0, 10.0, 100.0, 1000.0, 10000.0, 100000.0]
+      enough = lambda { |v| (v >= 10.0   ? 0 :
+                            (v >= 1.0    ? 1 :
+                            (v >= 0.1    ? 2 :
+                            (v >= 0.01   ? 3 :
+                            (v >  0.001  ? 4 :
+                            (v >  0.0    ? 5 : 0)))))) }
+      digit_str = lambda { |p, v| sprintf("%.#{p}f", (v * scale[p]).round / scale[p])}
+      digit_str.call(enough.call(value), value)
     end
 
     # Generate log friendly serialized identity
@@ -472,7 +493,7 @@ module RightScale
   # Packet for a work result notification sent from actor node
   class Result < Packet
 
-    attr_accessor :token, :results, :to, :from, :request_from, :tries, :persistent
+    attr_accessor :token, :results, :to, :from, :request_from, :tries, :persistent, :duration
 
     # Create packet
     #
@@ -485,10 +506,11 @@ module RightScale
     # tries(Array):: List of tokens for previous attempts to send associated request
     # persistent(Boolean):: Indicates if this result should be saved to persistent storage
     #   by the AMQP broker
+    # duration(Float):: Number of seconds required to produce the result
     # version(Array):: Protocol version of the original creator of the packet followed by the
     #   protocol version of the packet contents to be used when sending
     # size(Integer):: Size of request in bytes used only for marshalling
-    def initialize(token, to, results, from, request_from = nil, tries = nil, persistent = nil,
+    def initialize(token, to, results, from, request_from = nil, tries = nil, persistent = nil, duration = nil,
                    version = [VERSION, VERSION], size = nil)
       @token        = token
       @to           = to
@@ -497,6 +519,7 @@ module RightScale
       @request_from = request_from
       @tries        = tries || []
       @persistent   = persistent
+      @duration     = duration
       @version      = version
       @size         = size
     end
@@ -511,7 +534,7 @@ module RightScale
     def self.create(o)
       i = o['data']
       new(i['token'], self.compatible(i['to']), i['results'], self.compatible(i['from']),
-          self.compatible(i['request_from']), i['tries'], i['persistent'],
+          self.compatible(i['request_from']), i['tries'], i['persistent'], i['duration'],
           i['version'] || [DEFAULT_VERSION, DEFAULT_VERSION], o['size'])
     end
 

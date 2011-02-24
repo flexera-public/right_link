@@ -25,8 +25,10 @@ require File.join(File.dirname(__FILE__), '..', 'lib', 'common', 'serializer')
 
 class TestPacket < RightScale::Packet
   @@cls_attr = "ignore"
-  def initialize(attr1)
+  def initialize(attr1, duration = nil, size = nil)
     @attr1 = attr1
+    @duration = duration
+    @size = size
     @version = [RightScale::Packet::VERSION, RightScale::Packet::VERSION]
   end
 end
@@ -62,6 +64,41 @@ describe "Packet: Base class" do
     packet.send_version = 5
     packet.to_s(filter = nil, version = :recv_version).should == "[test_packet v#{RightScale::Packet::VERSION}]"
     packet.to_s(filter = nil, version = :send_version).should == "[test_packet v5]"
+  end
+
+  it "should convert to string including duration if filtered and size is also known" do
+    packet = TestPacket.new(1, 0.042122, 323)
+    packet.to_s(filter = nil).should == "[test_packet] (323 bytes, 0.042 sec)"
+    packet.to_s(filter = []).should == "[test_packet] (323 bytes)"
+    packet.to_s(filter = [:duration]).should == "[test_packet] (323 bytes, 0.042 sec)"
+    packet = TestPacket.new(1, 0.042122)
+    packet.to_s(filter = [:duration]).should == "[test_packet]"
+  end
+
+  it "should convert floating point values to decimal digit string with at least two digit precision" do
+    packet = TestPacket.new(1)
+    packet.enough_precision(100.5).should == "101"
+    packet.enough_precision(100.4).should == "100"
+    packet.enough_precision(99.0).should == "99"
+    packet.enough_precision(10.5).should == "11"
+    packet.enough_precision(10.4).should == "10"
+    packet.enough_precision(9.15).should == "9.2"
+    packet.enough_precision(9.1).should == "9.1"
+    packet.enough_precision(1.05).should == "1.1"
+    packet.enough_precision(1.01).should == "1.0"
+    packet.enough_precision(1.0).should == "1.0"
+    packet.enough_precision(0.995).should == "1.00"
+    packet.enough_precision(0.991).should == "0.99"
+    packet.enough_precision(0.0995).should == "0.100"
+    packet.enough_precision(0.0991).should == "0.099"
+    packet.enough_precision(0.00995).should == "0.0100"
+    packet.enough_precision(0.00991).should == "0.0099"
+    packet.enough_precision(0.000995).should == "0.00100"
+    packet.enough_precision(0.000991).should == "0.00099"
+    packet.enough_precision(0.000005).should == "0.00001"
+    packet.enough_precision(0.000001).should == "0.00000"
+    packet.enough_precision(0.0).should == "0"
+    packet.enough_precision(55).should == "55"
   end
 
   it "should be one-way by default" do
@@ -108,8 +145,12 @@ describe "Packet: Base class" do
     end
 
     it "should dump instance variables in 'data' key" do
-      packet = TestPacket.new(188)
-      packet.to_json.should =~ /\"data\":\{\"attr1\":188,\"version\":\[\d*,\d*\]\}/
+      packet = TestPacket.new(188, nil, 323)
+      json = packet.to_json
+      json.should =~ /\"data\":\{.*\"attr1\":188.*\}/
+      json.should =~ /\"data\":\{.*\"duration\":null.*\}/
+      json.should =~ /\"data\":\{.*\"size\":323.*\}/
+      json.should =~ /\"data\":\{.*\"version\":\[\d*,\d*\].*\}/
     end
 
     it "should not dump class variables" do

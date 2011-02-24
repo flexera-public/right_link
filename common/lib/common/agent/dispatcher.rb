@@ -220,10 +220,10 @@ module RightScale
         begin
           @pending_dispatches = [@pending_dispatches - 1, 0].max
           if request.kind_of?(Request)
-            @requests.finish(received_at, token)
-            r = Result.new(token, request.reply_to, r, @identity, request.from, request.tries, request.persistent)
+            duration = @requests.finish(received_at, token)
+            r = Result.new(token, request.reply_to, r, @identity, request.from, request.tries, request.persistent, duration)
             exchange = {:type => :queue, :name => request.reply_to, :options => {:durable => true, :no_declare => @secure}}
-            @broker.publish(exchange, r, :persistent => true, :mandatory => true, :log_filter => [:tries, :persistent])
+            @broker.publish(exchange, r, :persistent => true, :mandatory => true, :log_filter => [:tries, :persistent, :duration])
           end
         rescue HA_MQ::NoConnectedBrokers => e
           RightLinkLog.error("Failed to publish result of dispatched request #{request.trace}", e)
