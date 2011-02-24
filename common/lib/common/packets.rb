@@ -87,7 +87,8 @@ module RightScale
         'data'          => instance_variables.inject({}) { |m, ivar| m[ivar.to_s.sub(/@/,'')] = instance_variable_get(ivar); m },
         'size'          => nil
       }.to_msgpack(*a)
-      msg = msg.sub(/size\300/, "size#{msg.size.to_msgpack}")
+      @size = msg.size
+      msg = msg.sub(/size\300/, "size#{@size.to_msgpack}")
     end
 
     # Marshal packet into JSON format
@@ -108,7 +109,8 @@ module RightScale
         'json_class' => class_name,
         'data'       => instance_variables.inject({}) { |m, ivar| m[ivar.to_s.sub(/@/,'')] = instance_variable_get(ivar); m }
       }.to_json(*a)
-      js = js.chop + ",\"size\":#{js.size}}"
+      @size = js.size
+      js = js.chop + ",\"size\":#{@size}}"
     end
 
     # Name of packet in lower snake case
