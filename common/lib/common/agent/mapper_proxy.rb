@@ -426,7 +426,7 @@ module RightScale
     #     with percentage breakdown per request type, or nil if none
     def stats(reset = false)
       offlines = @offlines.all
-      offlines.merge!(@offlines.avg_duration) if offlines
+      offlines.merge!("duration" => @offlines.avg_duration) if offlines
       requests_pending = if @pending_requests.size > 0
         now = Time.now.to_i
         oldest = @pending_requests.values.inject(0) { |m, r| [m, now - r[:receive_time].to_i].max }
