@@ -143,6 +143,7 @@ module RightScale
         download_attachments if @ok
         install_packages if @ok
         download_repos if @ok
+        update_cookbook_path
         setup_powershell_providers if Platform.windows?
         check_ohai { |o| converge(o) } if @ok
       end
@@ -243,6 +244,25 @@ module RightScale
       true
     end
 
+    # Update the Chef cookbook_path based on the cookbooks in the bundle.
+    # Note: Starting with Chef 0.8, the cookbooks repositories list must be traversed in reverse
+    # order to preserve the semantic of the dashboard (first repo has priority)
+    # Revisit when upgrading to >= 0.9
+    #
+    # === Return
+    # true:: Always return true
+    def update_cookbook_path
+      @cookbooks.reverse.each_with_index do |cookbook_sequence, i|
+        i = @cookbooks.size - i - 1 #adjust for reversification
+        local_basedir = File.join(@download_path, i.to_s)
+        cookbook_sequence.paths.reverse.each {|path|
+          dir = File.expand_path(File.join(local_basedir, path))
+          Chef::Config[:cookbook_path] << dir unless Chef::Config[:cookbook_path].include?(dir)
+        }
+      end
+      true
+    end
+
     # Download required cookbooks from Repose mirror; update @ok.
     # Note: Starting with Chef 0.8, the cookbooks repositories list must be traversed in reverse
     # order to preserve the semantic of the dashboard (first repo has priority)
@@ -251,7 +271,10 @@ module RightScale
     # true:: Always return true
     def download_repos
       # Skip download if in dev mode and cookbooks repos directories already have files in them
-      return true unless DevState.download_cookbooks?
+      unless DevState.download_cookbooks?
+         @audit.append_info("Skipping cookbook download to allow local editing.") 
+         return true 
+      end
 
       @audit.create_new_section('Retrieving cookbooks') unless @cookbooks.empty?
       audit_time do
@@ -271,17 +294,6 @@ module RightScale
                              position.cookbook)
           end
         end
-      end
-
-      # NB: Chef 0.8.16 requires us to contort the path ordering to preserve the semantics of
-      # RS dashboard repo paths. Revisit when upgrading to >= 0.9
-      @cookbooks.reverse.each_with_index do |cookbook_sequence, i|
-        i = @cookbooks.size - i - 1 #adjust for reversification
-        local_basedir = File.join(@download_path, i.to_s)
-        cookbook_sequence.paths.reverse.each {|path|
-          dir = File.expand_path(File.join(local_basedir, path))
-          Chef::Config[:cookbook_path] << dir unless Chef::Config[:cookbook_path].include?(dir)
-        }
       end
 
       # record that cookbooks have been downloaded so we do not download them again in Dev mode
