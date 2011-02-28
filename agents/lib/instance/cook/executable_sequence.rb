@@ -143,7 +143,7 @@ module RightScale
         download_attachments if @ok
         install_packages if @ok
         download_repos if @ok
-        update_cookbook_path
+        update_cookbook_path if @ok
         setup_powershell_providers if Platform.windows?
         check_ohai { |o| converge(o) } if @ok
       end
