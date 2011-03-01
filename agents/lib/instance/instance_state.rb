@@ -179,6 +179,9 @@ module RightScale
         RightLinkLog.warn("Failed to load metadata: #{e.message}, #{e.backtrace[0]}")
       end
 
+      #Ensure MOTD is up to date
+      update_motd
+
       true
     end
 
@@ -404,7 +407,7 @@ module RightScale
       if File.directory?('/etc/update-motd.d')
         #Ubuntu 10.04 and above use a dynamic MOTD update system. In this case we assume
         #by convention that motd.tail will be appended to the dynamically-generated
-        #MOTD file.
+        #MOTD.
         motd = '/etc/motd.tail'
       else
         motd = '/etc/motd'
