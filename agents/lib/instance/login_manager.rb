@@ -67,31 +67,6 @@ module RightScale
       return describe_policy(new_lines.size, system_lines.size, new_policy)
     end
 
-    # Parse an SSH2-format public key and return a 4-tuple consisting
-    # of its constituent parts:
-    #  * leading comment (optional)
-    #  * algorithm (ssh-rsa or ssh-dsa)
-    #  * public key material, as a base64 string
-    #  * trailing comment or email (optional)
-    #
-    # === Parameters
-    # str(String):: the unparsed public key
-    #
-    # === Return
-    # components (Array|nil):: a 4-tuple of key components, or nil if the key was not a valid public key
-    #
-    def self.parse_public_key(str)
-      match = PUBLIC_KEY_REGEXP.match(str)
-
-      if match
-        #Return a nice array of strings with no leading/trailing whitespace, and empty
-        #strings transformed into nil
-        return match[1..4].map { |x| x.strip! ; x.empty? ? nil : x }
-      else
-        return nil
-      end
-    end
-
     protected
 
     # Read ~root/.ssh/authorized_keys if it exists
@@ -181,7 +156,7 @@ module RightScale
           if comp2
             old_users_keys << comp2[2]
           else
-            RightScale::RightLinkLog.error("Malformed (or not SSH2) entry in authorized_keys file: #{public_key}")            
+            RightScale::RightLinkLog.error("Malformed (or not SSH2) entry in old login policy: #{public_key}")            
           end
         end
       end
