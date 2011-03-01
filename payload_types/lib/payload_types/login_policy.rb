@@ -25,6 +25,8 @@ module RightScale
 
   # List of authorized users for Managed Login feature
   class LoginPolicy
+    PUBLIC_KEY_REGEXP      = /(.*)?(ssh-rsa|ssh-dsa)\s+(\S+)\s*(.*)?$/
+
     include Serializable
 
     attr_accessor :audit_id, :created_at, :exclusive, :users
@@ -42,5 +44,29 @@ module RightScale
       [ @audit_id, @created_at.to_i, @exclusive, @users ]
     end
 
+    # Utility method to parse an SSH2-format public key and return a 4-tuple consisting
+    # of its constituent parts:
+    #  * leading comment (optional)
+    #  * algorithm (ssh-rsa or ssh-dsa)
+    #  * public key material, as a base64 string
+    #  * trailing comment or email (optional)
+    #
+    # === Parameters
+    # str(String):: the unparsed public key
+    #
+    # === Return
+    # components (Array|nil):: a 4-tuple of key components, or nil if the key was not a valid public key
+    #
+    def self.parse_public_key(str)
+      match = PUBLIC_KEY_REGEXP.match(str)
+
+      if match
+        #Return a nice array of strings with no leading/trailing whitespace, and empty
+        #strings transformed into nil
+        return match[1..4].map { |x| x.strip! ; x.empty? ? nil : x }
+      else
+        return nil
+      end
+    end
   end
 end
