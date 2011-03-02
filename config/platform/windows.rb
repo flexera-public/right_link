@@ -173,9 +173,9 @@ module RightScale
           return pretty_path(File.join(Dir::COMMON_APPDATA, 'RightScale', 'run'))
         end
 
-        # Path to right link configuration scripts
-        def bin_dir
-          File.join(company_program_files_dir, 'bin')
+        # Path to right link configuration and internal usage scripts
+        def private_bin_dir
+          File.join(company_program_files_dir, 'right_link', 'scripts', 'windows')
         end
 
         def sandbox_dir
