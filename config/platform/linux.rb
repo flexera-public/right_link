@@ -129,6 +129,11 @@ module RightScale
           '/var/run'
         end
 
+        # Path to right link configuration scripts
+        def bin_dir
+          '/opt/rightscale/bin'
+        end
+
         def sandbox_dir
           '/opt/rightscale/sandbox'
         end
