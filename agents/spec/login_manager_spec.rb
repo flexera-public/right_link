@@ -125,6 +125,13 @@ describe RightScale::LoginManager do
         @mgr.update_policy(@policy)
       end
 
+      it "should ignore comments" do
+        flexmock(@mgr).should_receive(:read_keys_file).and_return(@system_keys + ['#i like traffic lights', '    #ice cream is good'])
+        flexmock(@mgr).should_receive(:write_keys_file).with((@policy_keys+@system_keys).sort).and_return(true)
+        flexmock(RightScale::RightLinkLog).should_receive(:error).never
+        @mgr.update_policy(@policy)
+      end
+
       it "should preserve system keys with an options field (without preserving options)" do
         @stripped_keys = @system_keys.dup
         fake_pub_material = rand(3**32).to_s(32) 
