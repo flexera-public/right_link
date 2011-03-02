@@ -29,7 +29,7 @@ module RightScale
 
     ROOT_TRUSTED_KEYS_FILE = '/root/.ssh/authorized_keys'
     ACTIVE_TAG             = 'rs_login:state=active'      
-    AUTHORIZED_KEY_REGEXP  = /(.*)?(ssh-rsa|ssh-dsa)\s+(\S+)\s+(.*)$/
+    COMMENT                = /^\s*#/
 
     # Can the login manager function on this platform?
     #
@@ -124,9 +124,11 @@ module RightScale
       file_triples = file_lines.map do |l|
         match = AUTHORIZED_KEY_REGEXP.match(l)
         
-        if match
-          #preserve algorithm, key and comments; discard options (the 1th match element)
-          next [ match[2], match[3], match[4] ]
+        if components
+          #preserve algorithm, key and comments; discard options (the 0th element)
+          next [ components[1], components[2], components[3] ]
+        elsif l =~ COMMENT
+          next nil
         else
           RightScale::RightLinkLog.error("Malformed (or not SSH2) entry in authorized_keys file: #{l}")
           next nil
