@@ -175,7 +175,7 @@ module RightScale
 
         # Path to right link configuration and internal usage scripts
         def private_bin_dir
-          File.join(company_program_files_dir, 'right_link', 'scripts', 'windows')
+          return pretty_path(File.join(sandbox_dir, 'right_link', 'scripts', 'windows'))
         end
 
         def sandbox_dir
@@ -343,7 +343,14 @@ module RightScale
             value = arg.to_s
             escaped << (value.index(' ') ? "\"#{value}\"" : value)
           end
-          return escaped.join(" ")
+
+          # let cmd do the extension resolution if no extension was given
+          ext = File.extname(executable_file_path)
+          if ext.nil? || ext.empty?
+            "cmd.exe /C \"#{escaped.join(" ")}\""
+          else
+            escaped.join(" ")
+          end
         end
 
         # Formats a powershell command using the given script path and arguments.
