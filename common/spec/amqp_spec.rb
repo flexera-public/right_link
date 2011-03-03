@@ -1154,6 +1154,20 @@ describe RightScale::HA_MQ do
 
       end
 
+      it "should update status to :stopping if message returned because access refused" do
+        ha_mq = RightScale::HA_MQ.new(@serializer, :host => "first,second")
+        ha_mq.brokers[0][:status] = :connected
+        ha_mq.brokers[1][:status] = :connected
+        options = {}
+        message = flexmock("message")
+        remaining = [ha_mq.brokers[1][:identity]]
+        flexmock(ha_mq).should_receive(:publish).with(hsh(:name => "to"), message,
+                hsh(:no_serialize => true, :brokers => remaining, :persistent => nil, :mandatory => true)).once
+        details = {:type => "/foo/bar", :options => options, :brokers => ha_mq.connected, :failed => []}
+        ha_mq.handle_return("rs-broker-first-5672", "ACCESS_REFUSED", message, "to", details)
+        ha_mq.brokers[0][:status].should == :stopping
+      end
+
       it "should republish to same broker without mandatory if message is persistent and no other brokers available" do
         flexmock(RightScale::RightLinkLog).should_receive(:info).with(/setup/).twice
         flexmock(RightScale::RightLinkLog).should_receive(:info).with(/RE-ROUTE/).once

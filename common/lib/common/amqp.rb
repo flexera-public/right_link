@@ -390,6 +390,7 @@ module RightScale
     STATUS = [
       :connecting,   # Initiated AMQP connection but not yet confirmed that connected
       :connected,    # Confirmed AMQP connection
+      :stopping,     # Broker is stopping service and, although still connected, is no longer usable
       :disconnected, # Notified by AMQP that connection has been lost and attempting to reconnect
       :closed,       # AMQP connection closed explicitly or because of too many failed connect attempts
       :failed        # Failed to connect due to internal failure or AMQP failure to connect
@@ -1150,6 +1151,7 @@ module RightScale
     #     "NO_ROUTE" - queue does not exist
     #     "NO_CONSUMERS" - queue exists but it has no consumers, or if :immediate was specified,
     #       all consumers are not immediately ready to consume
+    #     "ACCESS_REFUSED" - queue not usable because broker is in the process of stopping service
     #   msg(String):: Returned serialized message
     #   to(String):: Queue to which message was published
     #   details(Hash):: Additional details about message
@@ -1201,6 +1203,7 @@ module RightScale
     #   "NO_ROUTE" - queue does not exist
     #   "NO_CONSUMERS" - queue exists but it has no consumers, or if :immediate was specified,
     #     all consumers are not immediately ready to consume
+    #   "ACCESS_REFUSED" - queue not usable because broker is in the process of stopping service
     # message(String):: Returned message in serialized packet format
     # to(String):: Queue to which message was published
     # details(Hash):: Additional details about message
@@ -1218,6 +1221,8 @@ module RightScale
     def handle_return(identity, reason, message, to, details)
       @returns.update("#{alias_(identity)} (#{reason.to_s.downcase})")
 
+      update_status(@brokers_hash[identity], :stopping) if reason == "ACCESS_REFUSED"
+
       name = details[:name]
       options = details[:options] || {}
       token = details[:token]
@@ -1226,7 +1231,9 @@ module RightScale
       mandatory = true
       remaining = (details[:brokers] - details[:failed]) & connected
       if remaining.empty?
-        if (persistent || one_way) && reason == "NO_CONSUMERS" && !(remaining = details[:brokers] & connected).empty?
+        if (persistent || one_way) &&
+           ["ACCESS_REFUSED", "NO_CONSUMERS"].include?(reason) &&
+           !(remaining = details[:brokers] & connected).empty?
           # Retry because persistent, and this time w/o mandatory so that gets queued even though no consumers
           mandatory = false
         else
@@ -1256,6 +1263,7 @@ module RightScale
     #     "NO_ROUTE" - queue does not exist
     #     "NO_CONSUMERS" - queue exists but it has no consumers, or if :immediate was specified,
     #       all consumers are not immediately ready to consume
+    #     "ACCESS_REFUSED" - queue not usable because broker is in the process of stopping service
     #   type(String|nil):: Request type, or nil if not applicable
     #   token(String|nil):: Generated message identifier, or nil if not applicable
     #   from(String|nil):: Identity of original sender of message, or nil if not applicable
@@ -1604,7 +1612,7 @@ module RightScale
     #
     # === Parameters
     # broker(Hash):: Broker reporting status
-    # status(Symbol):: Status of connection (:connected, :ready, :disconnected, :failed, :closed)
+    # status(Symbol):: Status of connection (:connected, :ready, :disconnected, :stopping, :failed, :closed)
     #
     # === Return
     # true:: Always return true
