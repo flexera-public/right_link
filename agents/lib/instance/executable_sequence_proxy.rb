@@ -152,7 +152,7 @@ module RightScale
       if @exit_status && @audit_closed
         @audit_close_timeout.cancel if @audit_close_timeout
         if !@exit_status.success?
-          report_failure("Chef process failure", "Chef process failed #{SubprocessFormatting.reason(status)}")
+          report_failure("Chef process failure", "Chef process failed #{SubprocessFormatting.reason(@exit_status)}")
         else
           @context.succeeded = true
           succeed
