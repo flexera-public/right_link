@@ -140,7 +140,7 @@ module RightScale
               @logger.warn("cURL succeeded but response contained error information:\n#{out_text}")
             end
           else
-            @logger.error("cURL exited with status (#{$?.exitstatus}), returned:\n#{out}")
+            @logger.error("cURL exited (#{SubprocessFormatting.reason($?)}), returned:\n#{out}")
           end
 
           # retry, if allowed.

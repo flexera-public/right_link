@@ -396,8 +396,8 @@ module RightScale
 
       Dir.chdir(root_dir) do
         output, status = ProcessWatcher.run('tar', 'xf', tarball.path)
-        if status.exitstatus != 0
-          report_failure("Unknown error: #{status.exitstatus}", output)
+        unless status.success?
+          report_failure("Unknown error: #{SubprocessFormatting.reason(status)}")
           return
         else
           @audit.append_info(output)
