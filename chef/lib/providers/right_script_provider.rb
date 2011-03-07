@@ -127,7 +127,7 @@ class Chef
           current_state[:chef_state].record_script_execution(nickname)
           @new_resource.updated = true
         else
-          raise RightScale::Exceptions::Exec, "RightScript < #{nickname} > returned #{status.exitstatus}"
+          raise RightScale::Exceptions::Exec, "RightScript < #{nickname} > #{SubprocessFormatting.reason(status)}"
         end
 
         true

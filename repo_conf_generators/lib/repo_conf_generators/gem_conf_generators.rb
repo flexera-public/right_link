@@ -25,7 +25,7 @@ module Gems
 
   def self.execute(command)
     res = `#{command}`
-    raise "Error #{$?.exitstatus} executing: `#{command}`: #{res}" unless $? == 0
+    raise "Error #{RightScale::SubprocessFormatting.reason($?)} executing: `#{command}`: #{res}" unless $? == 0
     res
   end
 

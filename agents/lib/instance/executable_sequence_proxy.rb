@@ -133,7 +133,7 @@ module RightScale
     def on_exit(status)
       AuditCookStub.instance.audit_proxy = nil
       if !status.success?
-        report_failure("Chef process failure", "Chef process failed with return code #{status.exitstatus}")
+        report_failure("Chef process failure", "Chef process failed: #{SubprocessFormatting.reason(status)}")
       else
         @context.succeeded = true
         succeed
