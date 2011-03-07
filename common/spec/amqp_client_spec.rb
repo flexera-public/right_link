@@ -41,7 +41,7 @@ describe AMQP::Client do
       @sut.should_receive(:initialize)
     end
 
-    context 'and no :retry' do
+    context 'and no :reconnect_delay' do
       it 'should reconnect immediately' do
         flexmock(EM).should_receive(:reconnect).once
         flexmock(EM).should_receive(:add_timer).never
@@ -50,7 +50,7 @@ describe AMQP::Client do
       end
     end
 
-    context 'and a :retry of true' do
+    context 'and a :reconnect_delay of true' do
       it 'should reconnect immediately' do
         @sut.settings[:retry] = true
 
@@ -61,23 +61,36 @@ describe AMQP::Client do
       end
     end
 
-    context 'and a :retry of 15 seconds' do
+    context 'and a :reconnect_delay of 15 seconds' do
       it 'should schedule a reconnect attempt in 15s' do
-        @sut.settings[:retry] = 15
+        @sut.settings[:reconnect_delay] = 15
 
         flexmock(EM).should_receive(:reconnect).never
-        flexmock(EM).should_receive(:add_timer).with(15, Proc)
+        flexmock(EM).should_receive(:add_timer).with(15, Proc).once
 
         @sut.reconnect()
       end
     end
 
-    context 'and a :retry containing a Proc that returns 30' do
+    context 'and a :reconnect_delay containing a Proc that returns 30' do
       it 'should schedule a reconnect attempt in 30s' do
-        @sut.settings[:retry] = Proc.new {30}
+        @sut.settings[:reconnect_delay] = Proc.new {30}
 
         flexmock(EM).should_receive(:reconnect).never
-        flexmock(EM).should_receive(:add_timer).with(30, Proc)
+        flexmock(EM).should_receive(:add_timer).with(30, Proc).once
+
+        @sut.reconnect()
+      end
+    end
+
+    context 'and a :reconnect_interval of 5 seconds'  do
+      it 'should schedule reconnect attempts on a 5s interval' do
+        @sut.reconnecting = true
+        @sut.settings[:reconnect_delay] = 15
+        @sut.settings[:reconnect_interval] = 5
+
+        flexmock(EM).should_receive(:reconnect).never
+        flexmock(EM).should_receive(:add_timer).with(5, Proc).once
 
         @sut.reconnect()
       end

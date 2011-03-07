@@ -42,6 +42,7 @@
 #      --check-interval SEC     Set number of seconds between failed connection checks, increases exponentially
 #      --ping-interval SEC      Set minimum number of seconds since last message receipt for the agent
 #                               to ping the mapper to check connectivity, 0 means disable ping
+#      --reconnect-interval SEC Set number of seconds between broker reconnect attempts
 #      --grace-timeout SEC      Set number of seconds before graceful termination times out
 #      --[no-]dup-check         Set whether to check for and reject duplicate requests, .e.g., due to retries
 #      --prefetch COUNT         Set maximum requests AMQP broker is to prefetch before current is ack'd
@@ -101,26 +102,27 @@ module RightScale
 
     # Generate configuration files
     def write_config(options, cfg = {})
-      cfg[:identity]        = options[:identity] if options[:identity]
-      cfg[:pid_dir]         = options[:pid_dir] || RightScale::RightLinkConfig[:platform].filesystem.pid_dir
-      cfg[:user]            = options[:user] if options[:user]
-      cfg[:pass]            = options[:pass] if options[:pass]
-      cfg[:vhost]           = options[:vhost] if options[:vhost]
-      cfg[:port]            = options[:port] if options[:port]
-      cfg[:host]            = options[:host] if options[:host]
-      cfg[:initrb]          = options[:initrb] if options[:initrb]
-      cfg[:actors]          = options[:actors] if options[:actors]
-      cfg[:actors_dir]      = options[:actors_dir] if options[:actors_dir]
-      cfg[:prefetch]        = options[:prefetch] || 1
-      cfg[:time_to_live]    = options[:time_to_live] || 60
-      cfg[:retry_timeout]   = options[:retry_timeout] || 2 * 60
-      cfg[:retry_interval]  = options[:retry_interval] || 15
-      cfg[:ping_interval]   = options[:ping_interval] if options[:ping_interval]
-      cfg[:check_interval]  = options[:check_interval] if options[:check_interval]
-      cfg[:grace_timeout]   = options[:grace_timeout] if options[:grace_timeout]
-      cfg[:dup_check]       = options[:dup_check].nil? ? true : options[:dup_check]
-      cfg[:http_proxy]      = options[:http_proxy] if options[:http_proxy]
-      cfg[:http_no_proxy]   = options[:http_no_proxy] if options[:http_no_proxy]
+      cfg[:identity]           = options[:identity] if options[:identity]
+      cfg[:pid_dir]            = options[:pid_dir] || RightScale::RightLinkConfig[:platform].filesystem.pid_dir
+      cfg[:user]               = options[:user] if options[:user]
+      cfg[:pass]               = options[:pass] if options[:pass]
+      cfg[:vhost]              = options[:vhost] if options[:vhost]
+      cfg[:port]               = options[:port] if options[:port]
+      cfg[:host]               = options[:host] if options[:host]
+      cfg[:initrb]             = options[:initrb] if options[:initrb]
+      cfg[:actors]             = options[:actors] if options[:actors]
+      cfg[:actors_dir]         = options[:actors_dir] if options[:actors_dir]
+      cfg[:prefetch]           = options[:prefetch] || 1
+      cfg[:time_to_live]       = options[:time_to_live] || 60
+      cfg[:retry_timeout]      = options[:retry_timeout] || 2 * 60
+      cfg[:retry_interval]     = options[:retry_interval] || 15
+      cfg[:ping_interval]      = options[:ping_interval] if options[:ping_interval]
+      cfg[:check_interval]     = options[:check_interval] if options[:check_interval]
+      cfg[:reconnect_interval] = options[:reconnect_interval] if options[:reconnect_interval]
+      cfg[:grace_timeout]      = options[:grace_timeout] if options[:grace_timeout]
+      cfg[:dup_check]          = options[:dup_check].nil? ? true : options[:dup_check]
+      cfg[:http_proxy]         = options[:http_proxy] if options[:http_proxy]
+      cfg[:http_no_proxy]      = options[:http_no_proxy] if options[:http_no_proxy]
       options[:options].each { |k, v| cfg[k] = v } if options[:options]
 
       gen_dir = gen_agent_dir(options[:agent])
@@ -200,6 +202,10 @@ module RightScale
 
         opts.on('--ping-interval SEC') do |sec|
           options[:ping_interval] = sec.to_i
+        end
+
+        opts.on('--reconnect-interval SEC') do |sec|
+          options[:reconnect_interval] = sec.to_i
         end
 
         opts.on('--grace-timeout SEC') do |sec|

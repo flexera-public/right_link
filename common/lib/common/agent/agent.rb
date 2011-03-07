@@ -62,15 +62,16 @@ module RightScale
 
     # Default option settings for the agent
     DEFAULT_OPTIONS = COMMON_DEFAULT_OPTIONS.merge({
-      :user            => 'agent',
-      :time_to_live    => 0,
-      :retry_interval  => nil,
-      :retry_timeout   => nil,
-      :connect_timeout => 60,
-      :ping_interval   => 0,
-      :check_interval  => 5 * 60,
-      :grace_timeout   => 30,
-      :prefetch        => 1,
+      :user               => 'agent',
+      :time_to_live       => 0,
+      :retry_interval     => nil,
+      :retry_timeout      => nil,
+      :connect_timeout    => 60,
+      :reconnect_interval => 60,
+      :ping_interval      => 0,
+      :check_interval     => 5 * 60,
+      :grace_timeout      => 30,
+      :prefetch           => 1,
     }) unless defined?(DEFAULT_OPTIONS)
 
     # Initializes a new agent and establishes an AMQP connection.
@@ -93,6 +94,7 @@ module RightScale
     #   :time_to_live(Integer):: Number of seconds before a request expires and is to be ignored
     #     by the receiver, 0 means never expire, defaults to 0
     #   :connect_timeout:: Number of seconds to wait for a broker connection to be established
+    #   :reconnect_interval(Integer):: Number of seconds between broker reconnect attempts
     #   :ping_interval(Integer):: Minimum number of seconds since last message receipt to ping the mapper
     #     to check connectivity, defaults to 0 meaning do not ping
     #   :check_interval:: Number of seconds between publishing stats and checking for broker connections
@@ -702,25 +704,6 @@ module RightScale
     def tag(*tags)
       tags.each {|t| @tags << t}
       @tags.uniq!
-    end
-
-    # Publish packet to registration exchange
-    #
-    # === Parameters
-    # exchange(Hash):: Exchange to which to publish packet
-    # packet(Packet):: Packet to be published
-    # options(Hash):: Publish options
-    #
-    # === Return
-    # true:: Always return true
-    def publish(exchange, packet, options = {})
-      begin
-        @broker.publish(exchange, packet, options.merge(:mandatory => true))
-      rescue Exception => e
-        RightLinkLog.error("Failed to publish #{packet.class} to #{exchange[:name]} exchange", e) unless @terminating
-        @exceptions.track("publish", e, packet)
-      end
-      true
     end
 
     # Gracefully stop processing
