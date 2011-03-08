@@ -74,7 +74,7 @@ class Chef
           args[:returns] ||= [ 0 ]
           args[:returns] = [ args[:returns] ] unless args[:returns].is_a?(Array)
           if !args[:returns].include?(status.exitstatus)
-            raise RightScale::Exceptions::Exec.new("\"#{args[:command]}\" #{SubprocessFormatting.reason(status)}, expected #{args[:returns].join(' or ')}.", args[:cwd])
+            raise RightScale::Exceptions::Exec.new("\"#{args[:command]}\" #{RightScale::SubprocessFormatting.reason(status)}, expected #{args[:returns].join(' or ')}.", args[:cwd])
           end
         end
 
