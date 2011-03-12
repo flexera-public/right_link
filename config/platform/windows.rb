@@ -27,6 +27,7 @@ begin
   require 'windows/error'
   require 'windows/handle'
   require 'windows/security'
+  require 'windows/time'
   require 'win32ole'
 rescue LoadError => e
   raise e if !!(RUBY_PLATFORM =~ /mswin/)
@@ -38,6 +39,31 @@ require 'fileutils'
 # Windows code page. the workaround is to set the win32ole gem's code page to
 # UTF-8, which is probably a good general Ruby on Windows practice in any case.
 WIN32OLE.codepage = WIN32OLE::CP_UTF8
+
+# monkey patch Time.now because Windows Ruby interpreters used the wrong API
+# and queried local time instead of UTC time prior to Ruby v1.9.1. This
+# made the Ruby 1.8.x interpreters vulnerable to external changes to
+# timezone which cause Time.now to return times which are offset from from the
+# correct value. This implementation is borrowed from the C source for Ruby
+# v1.9.1 from www.ruby-lang.org ("win32/win32.c").
+class Time
+  def self.now
+    # query UTC time as a 64-bit ularge value.
+    filetime = 0.chr * 8
+    ::Windows::Time::GetSystemTimeAsFileTime.call(filetime)
+    low_date_time = filetime[0,4].unpack('V')[0]
+    high_date_time = filetime[4,4].unpack('V')[0]
+    value = high_date_time * 0x100000000 + low_date_time
+
+    # value is now 100-nanosec intervals since 1601/01/01 00:00:00 UTC,
+    # convert it into UNIX time (since 1970/01/01 00:00:00 UTC).
+    value /= 10  # nanoseconds to microseconds
+    microseconds = 1000 * 1000
+    value -= ((1970 - 1601) * 365.2425).to_i * 24 * 60 * 60 * microseconds
+
+    return Time.at(value / microseconds, value % microseconds)
+  end
+end
 
 # win32/process monkey-patches the Process class but drops support for any kill
 # signals which are not directly portable. some signals are acceptable, if not
@@ -284,7 +310,6 @@ module RightScale
 
       # Provides utilities for formatting executable shell commands, etc.
       class Shell
-
         POWERSHELL_V1x0_EXECUTABLE_PATH = "powershell.exe"
         POWERSHELL_V1x0_SCRIPT_EXTENSION = ".ps1"
         NULL_OUTPUT_NAME = "nul"
@@ -508,7 +533,7 @@ module RightScale
         # the time the machine has been up in seconds, 0 if there was an error.
         def uptime
           begin
-            return Time.now.to_f - booted_at.to_f
+            return Time.now.to_i.to_f - booted_at.to_f
           rescue Exception
             return 0.0
           end
