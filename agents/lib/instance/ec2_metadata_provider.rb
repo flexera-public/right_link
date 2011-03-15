@@ -130,7 +130,7 @@ module RightScale
             # expressions to match EC2 error replies (assuming we will always know
             # what they look like)? have yet to find documentation on such errors.
             out = out.split
-            out_text = File.read(out_file_path)
+            out_text = File.file?(out_file_path) ? File.read(out_file_path) : ""
             http_code = (out[0] || 0).to_i
             @logger.debug("http_code = #{http_code}")
             if http_code >= 200 && http_code < 300
