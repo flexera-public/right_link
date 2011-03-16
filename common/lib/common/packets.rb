@@ -88,7 +88,8 @@ module RightScale
         'size'          => nil
       }.to_msgpack(*a)
       @size = msg.size
-      msg = msg.sub(/size\300/, "size#{@size.to_msgpack}")
+      msg.sub!(/size\300/) { |m| "size" + @size.to_msgpack }
+      msg
     end
 
     # Marshal packet into JSON format
