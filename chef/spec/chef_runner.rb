@@ -170,8 +170,7 @@ EOF
         # prepare to run solo chef.
         run_list = [ run_list ] unless run_list.kind_of?(Array)
         attribs = { 'recipes' => run_list }
-        chef_client = ::Chef::Client.new
-        chef_client.json_attribs = attribs
+        chef_client = ::Chef::Client.new(attribs)
         done = false
         chef_node_server_terminated = false
         last_exception = nil
@@ -188,7 +187,7 @@ EOF
         EM.run do
           EM.defer do
             begin
-              chef_client.run_solo
+              chef_client.run
               block.call(chef_client) if block
             rescue Exception => e
               # can't raise exeception out of EM, so cache it here.

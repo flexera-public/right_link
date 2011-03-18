@@ -157,7 +157,7 @@ class Chef
         shell    = platform.shell
         command  = shell.format_shell_command(script_file_path)
 
-        return execute(command)
+        return exec_right_popen(command)
       end
 
     end

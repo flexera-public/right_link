@@ -50,8 +50,8 @@ class Chef
       # name(String):: FQDN or Id for server
       # collection(Array):: Collection of included recipes
       # node(Chef::Node):: Node where resource will be used
-      def initialize(name, collection=nil, node=nil)
-        super(name, collection, node)
+      def initialize(name, run_context=nil)
+        super(name, run_context)
         @resource_name = :dns
         @dns_id = nil
         @user = nil

@@ -127,6 +127,8 @@ module RightScale
         download_repos if DevState.cookbooks_path
         report_success(nil)
       else
+        configure_ohai
+        configure_logging
         configure_chef
         download_attachments if @ok
         install_packages if @ok
@@ -140,20 +142,26 @@ module RightScale
 
     protected
 
-    # Configure chef so it can find cookbooks and so its logs go to the audits
-    #
-    # === Return
-    # true:: Always return true
-    def configure_chef
+    def configure_ohai
       # Ohai plugins path and logging.
       #
       # note that this was moved to a separate .rb file to ensure that plugins
       # path is not relative to this potentially relocatable source file.
       RightScale::OhaiSetup.configure_ohai
+    end
 
-      # Chef logging
+    # Initialize and configure the logger
+    def configure_logging
       Chef::Log.logger = AuditLogger.new
       Chef::Log.logger.level = RightLinkLog.level_from_sym(RightLinkLog.level)
+    end
+
+    # Configure chef so it can find cookbooks and so its logs go to the audits
+    #
+    # === Return
+    # true:: Always return true
+    def configure_chef
+      Chef::Config[:exec_exception_factory] = lambda { |params| ::RightScale::Exceptions::Exec.new("\"#{params[:opts][:command]}\" #{::RightScale::SubprocessFormatting.reason(params[:status])}, expected #{params[:opts][:returns].join(' or ')}.", params[:opts][:cwd])}
 
       # Chef paths and run mode
       if DevState.use_cookbooks_path?
@@ -476,12 +484,11 @@ module RightScale
       @audit.append_info("Run list: #{@run_list.join(', ')}")
       attribs = { 'recipes' => @run_list }
       attribs.merge!(@attributes) if @attributes
-      c = Chef::Client.new
+      c = Chef::Client.new(attribs)
       c.ohai = ohai
       begin
         audit_time do
-          c.json_attribs = attribs
-          c.run_solo
+          c.run
         end
       rescue Exception => e
         report_failure('Chef converge failed', chef_error(e))
@@ -551,7 +558,7 @@ module RightScale
     # === Return
     # msg(String):: Human friendly error message
     def chef_error(e)
-      if e.is_a?(RightScale::Exceptions::Exec)
+      if e.is_a?(::RightScale::Exceptions::Exec)
         msg = "An external command returned an error during the execution of Chef:\n\n"
         msg += e.message
         msg += "\n\nThe command was run from \"#{e.path}\"" if e.path

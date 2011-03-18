@@ -23,15 +23,6 @@
 # The daemonize method of AR clashes with the daemonize Chef attribute, we don't need that method so undef it
 undef :daemonize if methods.include?('daemonize')
 
-# must monkey patch Chef::Mixin::Command before chef loads in Windows in order
-# to replace Linux-specific run_command() method. Linux side also benefits from
-# how right_popen divides stdout from stderr in logging.
-require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'mixin', 'command'))
-
-# must monkey patch Chef::CookbookLoader#load_cascading_files before
-# chef loads at all in order to un-break it.
-require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'mixin', 'cookbook_loader'))
-
 require 'chef'
 require 'chef/client'
 
