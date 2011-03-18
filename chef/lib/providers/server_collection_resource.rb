@@ -33,8 +33,8 @@ class Chef
       # name(String):: Collection name
       # collection(Array):: Collection of included recipes
       # node(Chef::Node):: Node where resource will be used
-      def initialize(name, collection=nil, node=nil)
-        super(name, collection, node)
+      def initialize(name, run_context=nil)
+        super(name, run_context)
         @resource_name = :server_collection
         @action = :load
         @allowed_actions.push(:load)

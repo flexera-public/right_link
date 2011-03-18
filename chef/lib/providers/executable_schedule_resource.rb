@@ -38,8 +38,8 @@ class Chef
       #
       # === Parameters
       # name(String):: Name of the schedule
-      def initialize(name, collection=nil, node=nil)
-        super(name, collection, node)
+      def initialize(name, run_context=nil)
+        super(name, run_context)
         @cron_resource = Chef::Resource::Cron.new(name)
         @cron_resource.user('rightscale')
         @resource_name = :executable_schedule

@@ -20,8 +20,6 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'mixin', 'command'))
-
 module RightScale
 
   # This class is responsible for managing a Powershell process instance

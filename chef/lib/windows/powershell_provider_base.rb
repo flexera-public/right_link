@@ -25,9 +25,9 @@ module RightScale
   # Base class to dynamically generated Powershell Chef providers
   class PowershellProviderBase < Chef::Provider
 
-    def initialize(node, new_resource, collection=nil, definitions={}, cookbook_loader=nil)
-      super(node, new_resource, collection, definitions, cookbook_loader)
-      self.class.init(node)
+    def initialize(new_resource, run_context)
+      super(new_resource, run_context)
+      self.class.init(run_context.node)
       # Have to wait until the Chef node server has been initialized before setting the new resource
       RightScale::Windows::ChefNodeServer.instance.new_resource = new_resource
     end
