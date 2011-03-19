@@ -1,6 +1,7 @@
 source :gemcutter
 source 'http://gems.github.com'
 
+gem 'right_support', :git=>'git@github.com:rightscale/right_support.git'
 gem "systemu", "1.2.0"
 gem "stomp", "1.1"
 gem "ruby-openid", "2.1.8"
@@ -25,7 +26,6 @@ gem "right_http_connection", "1.3.0"
 
 group :linux do
   gem "json", "1.1.7"
-  gem "SyslogLogger", "1.4.0"
   gem "eventmachine", "0.12.10"
   gem "right_popen", "1.0.11"
   gem "msgpack", "0.4.4"

@@ -22,7 +22,7 @@
 
 require 'logger'
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'config', 'right_link_config'))
-require 'syslog_logger' unless RightScale::RightLinkConfig[:platform].windows?
+require 'right_support'
 require File.join(File.dirname(__FILE__), 'multiplexer')
 require File.join(File.dirname(__FILE__), 'exceptions')
 require 'singleton'
@@ -394,7 +394,7 @@ module RightScale
           logger.formatter.datetime_format = "%b %d %H:%M:%S"
         else
           puts "Logging to syslog" if opts[:print]
-          logger = SyslogLogger.new(@program_name || identity || 'RightLink')
+          logger = RightSupport::SystemLogger.new(@program_name || identity || 'RightLink')
         end
 
         @logger = Multiplexer.new(logger)

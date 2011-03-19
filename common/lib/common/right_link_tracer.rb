@@ -33,7 +33,7 @@ module RightScale
 
   class RightLinkTracer
 
-    NON_TRACEABLE_CLASSES = [ 'Kernel', 'Module', 'Object' , 'SyslogLogger' ] +
+    NON_TRACEABLE_CLASSES = [ 'Kernel', 'Module', 'Object' , 'SyslogLogger', 'RightSupport::SystemLogger' ] +
                             [ 'RightScale::RightLinkTracer', 'RightScale::Multiplexer' ] +
                             [ 'RightScale::RightLinkLog', 'RightScale::RightLinkLog::Formatter' ]
 
