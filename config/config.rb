@@ -25,7 +25,7 @@
 # name value
 
 # Current RightLink protocol version (aka r_s_version, no support below version 5)
-protocol_version 13
+protocol_version 14
 
 # Path to RightLink root folder
 right_link_path File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'right_link'))

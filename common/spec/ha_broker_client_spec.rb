@@ -197,14 +197,14 @@ describe RightScale::HABrokerClient do
       broker4 = flexmock("broker_client4", :identity => "rs-broker-fourth-5672", :usable? => true, :return_message => true)
       flexmock(RightScale::BrokerClient).should_receive(:new).with("rs-broker-fourth-5672", address4, @serializer,
               RightScale::StatsHelper::ExceptionStats, Hash, @island2, nil).and_return(broker4).once
-      ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => 22)
+      ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => 22)
       ha.brokers.should == [broker3, broker4, broker2, broker1]
     end
 
     it "should raise an ArgumentError if it cannot find the home island" do
       flexmock(RightScale::BrokerClient).should_receive(:new).never
-      lambda { RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => 333) }.
-              should raise_error(ArgumentError, /Could not find home island 333/)
+      lambda { RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => 33) }.
+              should raise_error(ArgumentError, /Could not find home island 33/)
     end
 
     it "should setup to receive returned messages from each usable broker client" do
@@ -234,6 +234,16 @@ describe RightScale::HABrokerClient do
 
     it "should use default host and port for broker identity if none provided" do
       RightScale::HABrokerClient.addresses(nil, nil).should == [{:host => "localhost", :port => 5672, :index => 0}]
+    end
+
+    it "should use default port when ports is an empty string" do
+      RightScale::HABrokerClient.addresses("first, second", "").should ==
+        [{:host => "first", :port => 5672, :index => 0}, {:host => "second", :port => 5672, :index => 1}]
+    end
+
+    it "should use default host when hosts is an empty string" do
+      RightScale::HABrokerClient.addresses("", "5672, 5673").should ==
+        [{:host => "localhost", :port => 5672, :index => 0}, {:host => "localhost", :port => 5673, :index => 1}]
     end
 
     it "should reuse host if there is only one but multiple ports" do
@@ -407,7 +417,7 @@ describe RightScale::HABrokerClient do
       end
 
       it "should convert identity into parts that includes island_id" do
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => 22)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => 22)
         ha.identity_parts(@identity1).should == ["first", 5672, 0, 1, 11]
         ha.identity_parts(@identity2).should == ["second", 5672, 1, 0, 11]
         ha.identity_parts(@identity3).should == ["third", 5672, 0, 0, 22]
@@ -415,24 +425,24 @@ describe RightScale::HABrokerClient do
       end
 
       it "should generate host:index list for home island" do
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => 22)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => 22)
         ha.hosts.should == "third:0,fourth:1"
         ha.hosts(22).should == "third:0,fourth:1"
       end
 
       it "should generate host:index list for other island" do
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => 22)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => 22)
         ha.hosts(11).should == "second:1,first:0"
       end
 
       it "should generate port:index list for home island" do
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => 22)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => 22)
         ha.ports.should == "5672:0,5672:1"
         ha.ports(22).should == "5672:0,5672:1"
       end
 
       it "should generate port:index list for other island" do
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => 22)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => 22)
         ha.ports(11).should == "5672:1,5672:0"
       end
 
@@ -521,7 +531,7 @@ describe RightScale::HABrokerClient do
       end
 
       it "should a new broker client and reconnect broker clients when an island is specified" do
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => {22 => @island2}, :home_island_id => @home)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => {22 => @island2}, :home_island => @home)
         ha.brokers.size.should == 2
         ha.brokers[0].alias == "b0"
         ha.brokers[1].alias == "b1"
@@ -638,7 +648,7 @@ describe RightScale::HABrokerClient do
     describe "Connection updating" do
 
       it "should connect to any brokers for which not currently connected and return their identity" do
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
         ha.brokers.size.should == 4
         @island2.should_receive(:broker_hosts).and_return("third:0,fourth:1,fifth:2")
         ha.connect_update(@islands)
@@ -652,7 +662,7 @@ describe RightScale::HABrokerClient do
       end
 
       it "should do nothing if there is no change" do
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
         ha.brokers.size.should == 4
         ha.connect_update(@islands)
         ha.brokers.size.should == 4
@@ -663,7 +673,7 @@ describe RightScale::HABrokerClient do
       end
 
       it "should remove any broker clients for islands in which they are no longer configured" do
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
         ha.brokers.size.should == 4
         @broker1.should_receive(:close).and_return(true).once
         @broker3.should_receive(:close).and_return(true).once
@@ -684,7 +694,7 @@ describe RightScale::HABrokerClient do
     describe "Subscribing" do
 
       it "should subscribe on all usable broker clients and return their identities" do
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
         @broker1.should_receive(:usable?).and_return(false)
         @broker1.should_receive(:subscribe).never
         @broker2.should_receive(:subscribe).and_return(true).once
@@ -695,7 +705,7 @@ describe RightScale::HABrokerClient do
       end
 
       it "should not return the identity if subscribe fails" do
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
         @broker1.should_receive(:usable?).and_return(false)
         @broker1.should_receive(:subscribe).never
         @broker2.should_receive(:subscribe).and_return(true).once
@@ -706,7 +716,7 @@ describe RightScale::HABrokerClient do
       end
 
       it "should subscribe only on specified brokers" do
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
         @broker1.should_receive(:usable?).and_return(false)
         @broker1.should_receive(:subscribe).never
         @broker2.should_receive(:subscribe).and_return(true).once
@@ -738,7 +748,7 @@ describe RightScale::HABrokerClient do
       end
 
       it "should unsubscribe from named queues on all usable broker clients" do
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
         @broker1.should_receive(:usable?).and_return(false)
         @broker1.should_receive(:unsubscribe).never
         @broker2.should_receive(:unsubscribe).and_return(true).once
@@ -748,7 +758,7 @@ describe RightScale::HABrokerClient do
       end
 
       it "should yield to supplied block after unsubscribing" do
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
         ha.subscribe({:name => @queue_name}, {:type => :direct, :name => "exchange"})
         called = 0
         ha.unsubscribe([@queue_name]) { called += 1 }
@@ -757,7 +767,7 @@ describe RightScale::HABrokerClient do
 
       it "should yield to supplied block if timeout before finish unsubscribing" do
         flexmock(EM::Timer).should_receive(:new).with(10, Proc).and_return(@timer).and_yield.once
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
         ha.subscribe({:name => @queue_name}, {:type => :direct, :name => "exchange"})
         called = 0
         ha.unsubscribe([@queue_name], 10) { called += 1 }
@@ -767,7 +777,7 @@ describe RightScale::HABrokerClient do
       it "should cancel timer if finish unsubscribing before timer fires" do
         @timer.should_receive(:cancel).once
         flexmock(EM::Timer).should_receive(:new).with(10, Proc).and_return(@timer).once
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
         ha.subscribe({:name => @queue_name}, {:type => :direct, :name => "exchange"})
         called = 0
         ha.unsubscribe([@queue_name], 10) { called += 1 }
@@ -779,14 +789,14 @@ describe RightScale::HABrokerClient do
         @broker2.should_receive(:queues).and_return([])
         @broker3.should_receive(:queues).and_return([])
         @broker4.should_receive(:queues).and_return([])
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
         called = 0
         ha.unsubscribe([@queue_name]) { called += 1 }
         called.should == 1
       end
 
       it "should yield to supplied block once after unsubscribing all queues" do
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
         ha.subscribe({:name => @queue_name}, {:type => :direct, :name => "exchange"})
         called = 0
         ha.unsubscribe([@queue_name]) { called += 1 }
@@ -798,7 +808,7 @@ describe RightScale::HABrokerClient do
     describe "Declaring" do
 
       it "should declare exchange on all usable broker clients and return their identities" do
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
         @broker1.should_receive(:usable?).and_return(false)
         @broker1.should_receive(:declare).never
         @broker2.should_receive(:declare).and_return(true).once
@@ -809,7 +819,7 @@ describe RightScale::HABrokerClient do
       end
 
       it "should not return the identity if declare fails" do
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
         @broker1.should_receive(:usable?).and_return(false)
         @broker1.should_receive(:declare).never
         @broker2.should_receive(:declare).and_return(true).once
@@ -820,7 +830,7 @@ describe RightScale::HABrokerClient do
       end
 
       it "should declare exchange only on specified brokers" do
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
         @broker1.should_receive(:usable?).and_return(false)
         @broker1.should_receive(:declare).never
         @broker2.should_receive(:declare).and_return(true).once
@@ -846,19 +856,19 @@ describe RightScale::HABrokerClient do
 
       it "should serialize message, publish it, and return list of broker identifiers" do
         @serializer.should_receive(:dump).with(@packet).and_return(@message).once
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
         ha.publish({:type => :direct, :name => "exchange", :options => {:durable => true}},
                    @packet, :persistent => true).should == [@identity3]
       end
 
       it "should try other broker clients if a publish fails" do
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
         @broker3.should_receive(:publish).and_return(false)
         ha.publish({:type => :direct, :name => "exchange"}, @packet).should == [@identity4]
       end
 
       it "should only try to use home island brokers by default" do
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
         @broker3.should_receive(:publish).and_return(false)
         @broker4.should_receive(:publish).and_return(false)
         lambda { ha.publish({:type => :direct, :name => "exchange"}, @packet) }.
@@ -866,33 +876,33 @@ describe RightScale::HABrokerClient do
       end
 
       it "should publish to a randomly selected broker if random requested" do
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
         srand(100)
         ha.publish({:type => :direct, :name => "exchange"}, @packet, :order => :random,
                    :brokers =>[@identity1, @identity2, @identity3, @identity4]).should == [@identity2]
       end
 
       it "should publish to all connected brokers if fanout requested" do
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
         ha.publish({:type => :direct, :name => "exchange"}, @packet, :fanout => true,
                    :brokers =>[@identity1, @identity2]).should == [@identity1, @identity2]
       end
 
       it "should publish only using specified brokers" do
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
         ha.publish({:type => :direct, :name => "exchange"}, @packet,
                    :brokers =>[@identity1, @identity2]).should == [@identity1]
       end
 
       it "should log an error if a selected broker is unknown but still publish with any remaining brokers" do
         flexmock(RightScale::RightLinkLog).should_receive(:error).with(/Invalid broker identity "rs-broker-fifth-5672"/).once
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
         ha.publish({:type => :direct, :name => "exchange"}, @packet,
                    :brokers =>["rs-broker-fifth-5672", @identity1]).should == [@identity1]
       end
 
       it "should raise an exception if all available brokers fail to publish" do
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
         @broker3.should_receive(:publish).and_return(false)
         @broker4.should_receive(:publish).and_return(false)
         lambda { ha.publish({:type => :direct, :name => "exchange"}, @packet) }.
@@ -901,24 +911,24 @@ describe RightScale::HABrokerClient do
 
       it "should not serialize the message if it is already serialized" do
         @serializer.should_receive(:dump).with(@packet).and_return(@message).never
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
         ha.publish({:type => :direct, :name => "exchange"}, @packet, :no_serialize => true).should == [@identity3]
       end
 
       it "should store message info for use by message returns if :mandatory specified" do
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
         ha.publish({:type => :direct, :name => "exchange"}, @packet, :mandatory => true).should == [@identity3]
         ha.instance_variable_get(:@published).instance_variable_get(:@cache).size.should == 1
       end
 
       it "should not store message info for use by message returns if message already serialized" do
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
         ha.publish({:type => :direct, :name => "exchange"}, @packet, :no_serialize => true).should == [@identity3]
         ha.instance_variable_get(:@published).instance_variable_get(:@cache).size.should == 0
       end
 
       it "should not store message info for use by message returns if mandatory not specified" do
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
         ha.publish({:type => :direct, :name => "exchange"}, @packet).should == [@identity3]
         ha.instance_variable_get(:@published).instance_variable_get(:@cache).size.should == 0
       end
@@ -938,7 +948,7 @@ describe RightScale::HABrokerClient do
       end
 
       it "should invoke return block" do
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
         @broker1.should_receive(:return_message).and_yield("exchange", "NO_CONSUMERS", @message).once
         called = 0
         ha.return_message do |id, reason, message, to, context|
@@ -952,7 +962,7 @@ describe RightScale::HABrokerClient do
       end
 
       it "should record failure in message context if there is message context" do
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
         ha.publish({:type => :direct, :name => "exchange", :options => {:durable => true}},
                    @packet, :mandatory => true).should == [@identity3]
         @broker3.should_receive(:return_message).and_yield("exchange", "NO_CONSUMERS", @message).once
@@ -968,7 +978,7 @@ describe RightScale::HABrokerClient do
       describe "when non-delivery" do
 
         it "should store non-delivery block for use by return handler" do
-          ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+          ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
           non_delivery = lambda {}
           ha.non_delivery(&non_delivery)
           ha.instance_variable_get(:@non_delivery).should == non_delivery
@@ -986,7 +996,7 @@ describe RightScale::HABrokerClient do
 
         it "should republish using a broker not yet tried if possible and log that re-routing" do
           flexmock(RightScale::RightLinkLog).should_receive(:info).with(/RE-ROUTE/).once
-          ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+          ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
           @context.record_failure(@identity3)
           @broker4.should_receive(:publish).and_return(true).once
           ha.__send__(:handle_return, @identity3, "reason", @message, "to", @context)
@@ -994,7 +1004,7 @@ describe RightScale::HABrokerClient do
 
         it "should republish to same broker without mandatory if message is persistent and no other brokers available" do
           flexmock(RightScale::RightLinkLog).should_receive(:info).with(/RE-ROUTE/).once
-          ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+          ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
           @context.record_failure(@identity3)
           @context.record_failure(@identity4)
           @packet.should_receive(:persistent).and_return(true)
@@ -1004,7 +1014,7 @@ describe RightScale::HABrokerClient do
 
         it "should republish to same broker without mandatory if message is one-way and no other brokers available" do
           flexmock(RightScale::RightLinkLog).should_receive(:info).with(/RE-ROUTE/).once
-          ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+          ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
           @context.record_failure(@identity3)
           @context.record_failure(@identity4)
           @packet.should_receive(:one_way).and_return(true)
@@ -1014,7 +1024,7 @@ describe RightScale::HABrokerClient do
 
         it "should update status to :stopping if message returned because access refused" do
           flexmock(RightScale::RightLinkLog).should_receive(:info).with(/RE-ROUTE/).once
-          ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+          ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
           @context.record_failure(@identity3)
           @broker4.should_receive(:publish).and_return(true).once
           flexmock(ha).should_receive(:update_status).with(@broker3, :stopping).once
@@ -1023,7 +1033,7 @@ describe RightScale::HABrokerClient do
 
         it "should log info and make non-delivery call even if persistent when returned because of no queue" do
           flexmock(RightScale::RightLinkLog).should_receive(:info).with(/NO ROUTE/).once
-          ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+          ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
           called = 0
           ha.non_delivery { |reason, type, token, from, to| called += 1 }
           @context.record_failure(@identity3)
@@ -1037,7 +1047,7 @@ describe RightScale::HABrokerClient do
 
         it "should log info and make non-delivery call if no route can be found" do
           flexmock(RightScale::RightLinkLog).should_receive(:info).with(/NO ROUTE/).once
-          ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+          ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
           called = 0
           ha.non_delivery { |reason, type, token, from, to| called += 1 }
           @context.record_failure(@identity3)
@@ -1055,7 +1065,7 @@ describe RightScale::HABrokerClient do
     describe "Deleting" do
 
       it "should delete queue on all usable broker clients and return their identities" do
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
         @broker1.should_receive(:usable?).and_return(false)
         @broker1.should_receive(:delete).never
         @broker2.should_receive(:delete).and_return(true).once
@@ -1065,7 +1075,7 @@ describe RightScale::HABrokerClient do
       end
 
       it "should not return the identity if delete fails" do
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
         @broker1.should_receive(:usable?).and_return(false)
         @broker1.should_receive(:delete).never
         @broker2.should_receive(:delete).and_return(true).once
@@ -1081,7 +1091,7 @@ describe RightScale::HABrokerClient do
       it "should remove broker client after disconnecting and pass identity to block" do
         flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Removing/).once
         @broker2.should_receive(:close).with(true, true, false).once
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
         identity = nil
         result = ha.remove("second", 5672) { |i| identity = i }
         result.should == @identity2
@@ -1096,7 +1106,7 @@ describe RightScale::HABrokerClient do
       it "should remove broker when no block supplied but still return a result" do
         flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Removing/).once
         @broker2.should_receive(:close).once
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
         result = ha.remove("second", 5672)
         result.should == @identity2
         ha.get(@identity2).should be_nil
@@ -1112,7 +1122,7 @@ describe RightScale::HABrokerClient do
         @broker2.should_receive(:close).once
         @broker3.should_receive(:close).once
         @broker4.should_receive(:close).once
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
         result = ha.remove("second", 5672)
         result.should == @identity2
         ha.get(@identity2).should be_nil
@@ -1133,7 +1143,7 @@ describe RightScale::HABrokerClient do
 
       it "should return nil and not execute block if broker is unknown" do
         flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Ignored request to remove/).once
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
         ha.remove("fifth", 5672).should be_nil
         ha.brokers.size.should == 4
       end
@@ -1141,13 +1151,13 @@ describe RightScale::HABrokerClient do
       it "should close connection and mark as failed when told broker is not usable" do
         @broker2.should_receive(:close).with(true, false, false).once
         @broker3.should_receive(:close).with(true, false, false).once
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
         result = ha.declare_unusable([@identity2, @identity3])
         ha.brokers.size.should == 4
       end
 
       it "should raise an exception if broker that is declared not usable is unknown" do
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
         lambda { ha.declare_unusable(["rs-broker-fifth-5672"]) }.should raise_error(Exception, /Cannot mark unknown/)
         ha.brokers.size.should == 4
       end
@@ -1175,7 +1185,7 @@ describe RightScale::HABrokerClient do
       end
 
       it "should give access to or list usable brokers" do
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
         aliases = []
         res = ha.__send__(:each_usable) { |b| aliases << b.alias }
         aliases.should == ["b0", "b1", "i0b0", "i0b1"]
@@ -1197,7 +1207,7 @@ describe RightScale::HABrokerClient do
       end
 
       it "should give list of unusable brokers" do
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
         @broker1.should_receive(:usable?).and_return(true)
         @broker2.should_receive(:usable?).and_return(false)
         @broker3.should_receive(:usable?).and_return(false)
@@ -1206,7 +1216,7 @@ describe RightScale::HABrokerClient do
       end
 
       it "should give access to each selected usable broker" do
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
         @broker2.should_receive(:usable?).and_return(true)
         @broker3.should_receive(:usable?).and_return(false)
         aliases = []
@@ -1217,7 +1227,7 @@ describe RightScale::HABrokerClient do
       end
 
       it "should tell whether a broker is connected" do
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
         @broker2.should_receive(:connected?).and_return(false)
         @broker3.should_receive(:connected?).and_return(true)
         ha.connected?(@identity2).should be_false
@@ -1226,7 +1236,7 @@ describe RightScale::HABrokerClient do
       end
 
       it "should give list of connected brokers for home island by default" do
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
         @broker1.should_receive(:connected?).and_return(true)
         @broker2.should_receive(:connected?).and_return(false)
         @broker3.should_receive(:connected?).and_return(true)
@@ -1235,7 +1245,7 @@ describe RightScale::HABrokerClient do
       end
 
       it "should give list of connected brokers for a specific island" do
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
         @broker1.should_receive(:connected?).and_return(true)
         @broker2.should_receive(:connected?).and_return(false)
         @broker3.should_receive(:connected?).and_return(true)
@@ -1245,12 +1255,12 @@ describe RightScale::HABrokerClient do
       end
 
       it "should give list of all brokers" do
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
         ha.all.should == [@identity3, @identity4, @identity1, @identity2]
       end
 
       it "should give list of failed brokers" do
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
         @broker1.should_receive(:failed?).and_return(true)
         @broker2.should_receive(:failed?).and_return(false)
         @broker3.should_receive(:failed?).and_return(true)
@@ -1259,7 +1269,7 @@ describe RightScale::HABrokerClient do
       end
 
       it "should give broker client status list" do
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
         @broker1.should_receive(:summary).and_return("summary1")
         @broker2.should_receive(:summary).and_return("summary2")
         @broker3.should_receive(:summary).and_return("summary3")
@@ -1268,7 +1278,7 @@ describe RightScale::HABrokerClient do
       end
 
       it "should give broker client statistics" do
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
         @broker1.should_receive(:stats).and_return("stats1")
         @broker2.should_receive(:stats).and_return("stats2")
         @broker3.should_receive(:stats).and_return("stats3")
@@ -1280,26 +1290,26 @@ describe RightScale::HABrokerClient do
 
       it "should log broker client status update if there is a change" do
         flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Broker b0 is now connected/).once
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
         ha.__send__(:update_status, @broker3, false)
       end
 
       it "should not log broker client status update if there is no change" do
         flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Broker b0 is now connected/).never
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
         ha.__send__(:update_status, @broker3, true)
       end
 
       it "should log broker client status update when become disconnected" do
         flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Broker b0 is now disconnected/).once
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
         @broker3.should_receive(:status).and_return(:disconnected)
         @broker3.should_receive(:connected?).and_return(false)
         ha.__send__(:update_status, @broker3, true)
       end
 
       it "should provide connection status callback when cross 0/1 connection boundary for home island" do
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
         connected = 0
         disconnected = 0
         ha.connection_status do |status|
@@ -1330,7 +1340,7 @@ describe RightScale::HABrokerClient do
       end
 
       it "should provide connection status callback when cross n/n-1 connection boundary for home island when all specified" do
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
         connected = 0
         disconnected = 0
         ha.connection_status(:boundary => :all) do |status|
@@ -1361,7 +1371,7 @@ describe RightScale::HABrokerClient do
       end
 
       it "should provide connection status callback when cross connection boundary for non-home island" do
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
         @broker1.should_receive(:island_alias).and_return(:i0)
         @broker2.should_receive(:island_alias).and_return(:i0)
         connected = 0
@@ -1393,7 +1403,7 @@ describe RightScale::HABrokerClient do
       end
 
       it "should provide connection status callback for specific broker set" do
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
         @broker1.should_receive(:island_alias).and_return(:i0)
         @broker2.should_receive(:island_alias).and_return(:i0)
         connected = 0
@@ -1486,7 +1496,7 @@ describe RightScale::HABrokerClient do
         @broker2.should_receive(:close).with(false, Proc).and_return(true).and_yield.once
         @broker3.should_receive(:close).with(false, Proc).and_return(true).and_yield.once
         @broker4.should_receive(:close).with(false, Proc).and_return(true).and_yield.once
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
         called = 0
         ha.close { called += 1 }
         called.should == 1
@@ -1497,7 +1507,7 @@ describe RightScale::HABrokerClient do
         @broker2.should_receive(:close).with(false, Proc).and_return(true).and_yield.once
         @broker3.should_receive(:close).with(false, Proc).and_return(true).and_yield.once
         @broker4.should_receive(:close).with(false, Proc).and_return(true).and_yield.once
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
         ha.close
       end
 
@@ -1507,7 +1517,7 @@ describe RightScale::HABrokerClient do
         @broker2.should_receive(:close).and_raise(Exception).once
         @broker3.should_receive(:close).and_return(true).and_yield.once
         @broker4.should_receive(:close).and_return(true).and_yield.once
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
         called = 0
         ha.close { called += 1 }
         called.should == 1
@@ -1515,26 +1525,26 @@ describe RightScale::HABrokerClient do
 
       it "should close an individual broker connection" do
         @broker1.should_receive(:close).with(true).and_return(true).once
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
         ha.close_one(@identity1)
       end
 
       it "should not propagate connection status change if requested not to" do
         @broker1.should_receive(:close).with(false).and_return(true).once
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
         ha.close_one(@identity1, propagate = false)
       end
 
       it "should close an individual broker connection and execute block if given" do
         @broker1.should_receive(:close).with(true, Proc).and_return(true).and_yield.once
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
         called = 0
         ha.close_one(@identity1) { called += 1 }
         called.should == 1
       end
 
       it "should raise exception if unknown broker" do
-        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island_id => @home)
+        ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
         lambda { ha.close_one("rs-broker-fifth-5672") }.should raise_error(Exception, /Cannot close unknown broker/)
       end
 

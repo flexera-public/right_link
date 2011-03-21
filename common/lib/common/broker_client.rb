@@ -104,7 +104,7 @@ module RightScale
     #   :prefetch(Integer):: Maximum number of messages the AMQP broker is to prefetch for the mapper
     #     before it receives an ack. Value 1 ensures that only last unacknowledged gets redelivered
     #     if the mapper crashes. Value 0 means unlimited prefetch.
-    #   :home_island_id(Integer):: Identifier for home island of creator of this client
+    #   :home_island(Integer):: Identifier for home island of creator of this client
     #   :exception_on_receive_callback(Proc):: Callback activated on a receive exception with parameters
     #     message(Object):: Message received
     #     exception(Exception):: Exception raised
@@ -117,8 +117,8 @@ module RightScale
       @options         = options
       @identity        = identity
       @island_id       = island && island.id
-      @island_alias    = island ? "i#{island.index}" : ""
-      @in_home_island  = @island_id == @options[:home_island_id]
+      @island_alias    = island ? "i#{island.id}" : ""
+      @in_home_island  = @island_id == @options[:home_island]
       @host            = address[:host]
       @port            = address[:port].to_i
       @index           = address[:index].to_i

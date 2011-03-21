@@ -51,7 +51,7 @@ describe RightScale::BrokerClient do
       @amqp.should_receive(:connect).and_return(@connection).by_default
       @mq.should_receive(:prefetch).never.by_default
       flexmock(MQ).should_receive(:new).with(@connection).and_return(@mq).by_default
-      @island = flexmock("island", :id => 123, :index => 2, :broker_hosts => "local_host").by_default
+      @island = flexmock("island", :id => 2, :broker_hosts => "local_host").by_default
     end
 
     it "should create a broker with AMQP connection for specified address" do
@@ -76,26 +76,26 @@ describe RightScale::BrokerClient do
 
     it "should recognize the home island" do
       broker = RightScale::BrokerClient.new(@identity, @address, @serializer, @exceptions,
-                                            {:home_island_id => 123}, @island)
+                                            {:home_island => 2}, @island)
       broker.host.should == "localhost"
       broker.port.should == 5672
       broker.index.should == 0
       broker.queues.should == []
-      broker.island_id.should == 123
+      broker.island_id.should == 2
       broker.island_alias.should == "i2"
       broker.in_home_island.should be_true
       broker.summary.should == {:alias => "b0", :identity => @identity, :status => :connecting,
                                 :disconnects => 0, :failures => 0, :retries => 0}
     end
 
-    it "should store utilize island information when not home island" do
+    it "should use island information when not home island" do
       broker = RightScale::BrokerClient.new(@identity, @address, @serializer, @exceptions,
-                                            {:home_island_id => 111}, @island)
+                                            {:home_island => 1}, @island)
       broker.host.should == "localhost"
       broker.port.should == 5672
       broker.index.should == 0
       broker.queues.should == []
-      broker.island_id.should == 123
+      broker.island_id.should == 2
       broker.island_alias.should == "i2"
       broker.in_home_island.should be_false
       broker.summary.should == {:alias => "i2b0", :identity => @identity, :status => :connecting,

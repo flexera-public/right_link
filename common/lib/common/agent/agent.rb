@@ -30,6 +30,27 @@ end
 
 module RightScale
 
+  # Linkage to MapperProxy send functions as required by Actor plugin
+  class Sender
+
+    # Accessor for use by actor
+    #
+    # === Return
+    # (MapperProxy):: Mapper proxy instance if defined, otherwise nil
+    def self.instance
+      @@instance if defined?(@@instance)
+    end
+
+    # Initialize sender
+    #
+    # === Parameters
+    # mapper_proxy(MapperProxy):: Mapper proxy to be used by actors when making send requests
+    def initialize(mapper_proxy)
+      @@instance = mapper_proxy
+    end
+
+  end # Sender
+
   # RightLink agent for receiving messages from the mapper and acting upon them
   # by dispatching to a registered actor to perform
   # See load_actors for details on how the agent specific environment is loaded
@@ -84,7 +105,7 @@ module RightScale
     #   :identity(String):: Identity of this agent
     #   :root(String):: Application root for this agent. Defaults to Dir.pwd.
     #   :log_dir(String):: Log file path. Defaults to the current working directory.
-    #   :file_root(String):: Path to directory to files this agent provides. Defaults to app_root/files.
+    #   :log_level(Symbol):: The verbosity of logging -- :debug, :info, :warn, :error or :fatal.
     #   :console(Boolean):: true indicates to start interactive console
     #   :daemonize(Boolean):: true indicates to daemonize
     #   :pid_dir(String):: Path to the directory where the agent stores its pid file (only if daemonized).
@@ -98,7 +119,7 @@ module RightScale
     #   :ping_interval(Integer):: Minimum number of seconds since last message receipt to ping the mapper
     #     to check connectivity, defaults to 0 meaning do not ping
     #   :check_interval:: Number of seconds between publishing stats and checking for broker connections
-    #     that failed during agent launch and then attempting to reconnect via the registrar
+    #     that failed during agent launch and then attempting to reconnect via the mapper
     #   :grace_timeout(Integer):: Maximum number of seconds to wait after last request received before
     #     terminating regardless of whether there are still unfinished requests
     #   :dup_check(Boolean):: Whether to check for and reject duplicate requests, e.g., due to retries
@@ -118,9 +139,10 @@ module RightScale
     #   :user(String):: AMQP broker user
     #   :pass(String):: AMQP broker password
     #   :host(String):: Comma-separated list of AMQP broker hosts; if only one, it is reapplied
-    #     to successive ports; if none, defaults to localhost
+    #     to successive ports; if none, defaults to 'localhost'
     #   :port(Integer):: Comma-separated list of AMQP broker ports corresponding to hosts; if only one,
-    #     it is incremented and applied to successive hosts; if none, defaults to 5672
+    #     it is incremented and applied to successive hosts; if none, defaults to AMQP::HOST
+    #   :actors_dir(String):: Directory containing actor classes
     #
     # On start config.yml is read, so it is common to specify options in the YAML file. However, when both
     # Ruby code options and YAML file specify options, Ruby code options take precedence.
@@ -182,6 +204,7 @@ module RightScale
                 @registry = ActorRegistry.new
                 @dispatcher = Dispatcher.new(self)
                 @mapper_proxy = MapperProxy.new(self)
+                @sender = Sender.new(@mapper_proxy)
                 load_actors
                 setup_traps
                 setup_queues
@@ -503,7 +526,6 @@ module RightScale
       end
       opts.delete(:identity) unless opts[:identity]
       @options.update(custom_config.merge(opts))
-      @options[:file_root] ||= File.join(@options[:root], 'files')
       @options[:log_path] = false
       if @options[:daemonize] || @options[:log_dir]
         @options[:log_path] = (@options[:log_dir] || @options[:root] || Dir.pwd)
@@ -579,7 +601,7 @@ module RightScale
     end
 
     # Setup the queues on the specified brokers for this agent
-    # Also configure message prefetch and message non-delivery handling
+    # Also configure message non-delivery handling
     #
     # === Parameters
     # ids(Array):: Identity of brokers for which to subscribe, defaults to all usable
@@ -587,7 +609,6 @@ module RightScale
     # === Return
     # true:: Always return true
     def setup_queues(ids = nil)
-      @broker.prefetch(@options[:prefetch]) if @options[:prefetch]
       @broker.non_delivery do |reason, type, token, from, to|
         begin
           @non_deliveries.update(type)
@@ -667,7 +688,6 @@ module RightScale
 
     # Check status of agent by gathering current operation statistics and publishing them and
     # by completing any queue setup that can be completed now based on broker status
-    # Use registrar for initializing broker service
     #
     # === Return
     # true:: Always return true

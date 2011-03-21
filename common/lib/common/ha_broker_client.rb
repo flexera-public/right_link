@@ -117,8 +117,8 @@ module RightScale
     #     if the mapper crashes. Value 0 means unlimited prefetch.
     #   :islands(Hash):: RightNetIslands with host and port settings for which connections are to be
     #     created (takes precedence over any specified :host and :port option)
-    #   :home_island_id(Integer):: Identifier for home island for this server usable for accessing :islands
-    #     (takes precedence over any specified :host and :port option)
+    #   :home_island(Integer):: Identifier for home RightNet island for this server usable for accessing
+    #     :islands (takes precedence over any specified :host and :port option)
     #   :order(Symbol):: Broker selection order when publishing a message: :random or :priority,
     #     defaults to :priority, value can be overridden on publish call
     #   :exception_callback(Proc):: Callback activated on exception events with parameters
@@ -130,7 +130,7 @@ module RightScale
     #     exception(Exception):: Exception that was raised
     #
     # === Raise
-    # ArgumentError:: If :host and :port are not matched lists or :home_island_id is not found
+    # ArgumentError:: If :host and :port are not matched lists or :home_island is not found
     def initialize(serializer, options = {})
       @options = options.dup
       @options[:update_status_callback] = lambda { |b, c| update_status(b, c) }
@@ -143,11 +143,11 @@ module RightScale
       islands = @options[:islands]
       if islands
         islands.each_value do |i|
-          @brokers = connect_island(i.broker_hosts, i.broker_ports, i) if i.id == @options[:home_island_id]
+          @brokers = connect_island(i.broker_hosts, i.broker_ports, i) if i.id == @options[:home_island]
         end
-        raise ArgumentError, "Could not find home island #{@options[:home_island_id]}" unless @brokers
+        raise ArgumentError, "Could not find home island #{@options[:home_island]}" unless @brokers
         islands.each_value do |i|
-          @brokers += connect_island(i.broker_hosts, i.broker_ports, i) if i.id != @options[:home_island_id]
+          @brokers += connect_island(i.broker_hosts, i.broker_ports, i) if i.id != @options[:home_island]
         end
       else
         @brokers = connect_island(@options[:host], @options[:port])
@@ -174,8 +174,8 @@ module RightScale
     # === Raise
     # ArgumentError:: If host and port are not matched lists
     def self.addresses(host, port)
-      hosts = if host then host.split(/,\s*/) else [ "localhost" ] end
-      ports = if port then port.to_s.split(/,\s*/) else [ ::AMQP::PORT ] end
+      hosts = if host && !host.empty? then host.split(/,\s*/) else [ "localhost" ] end
+      ports = if port && port.size > 0 then port.to_s.split(/,\s*/) else [ ::AMQP::PORT ] end
       if hosts.size != ports.size && hosts.size != 1 && ports.size != 1
         raise ArgumentError.new("Unmatched AMQP host/port lists -- hosts: #{host.inspect} ports: #{port.inspect}")
       end

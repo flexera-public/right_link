@@ -23,14 +23,13 @@
 module RightScale
 
   COMMON_DEFAULT_OPTIONS = {
-    :pass => 'testing',
-    :vhost => '/right_net',
-    :secure => false,
-    :host => 'localhost',
+    :pass      => 'testing',
+    :vhost     => '/right_net',
+    :secure    => false,
     :log_level => :info,
     :daemonize => false,
-    :console => false,
-    :root => Dir.pwd
+    :console   => false,
+    :root      => Dir.pwd
   }
 
 end

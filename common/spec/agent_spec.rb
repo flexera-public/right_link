@@ -83,11 +83,6 @@ describe RightScale::Agent do
       @agent.options[:secure].should == false
     end
 
-    it "for host is localhost" do
-      @agent.options.should include(:host)
-      @agent.options[:host].should == "localhost"
-    end
-
     it "for log_level is info" do
       @agent.options.should include(:log_level)
       @agent.options[:log_level].should == :info
@@ -101,11 +96,6 @@ describe RightScale::Agent do
     it "for root is #{Dir.pwd}" do
       @agent.options.should include(:root)
       @agent.options[:root].should == Dir.pwd
-    end
-
-    it "for file_root is #{File.join(Dir.pwd, 'files')}" do
-      @agent.options.should include(:file_root)
-      @agent.options[:file_root].should == File.join(Dir.pwd, 'files')
     end
 
   end
@@ -227,13 +217,6 @@ describe RightScale::Agent do
                                        :identity => @identity)
       @agent.options.should include(:root)
       @agent.options[:root].should == File.normalize_path(File.dirname(__FILE__))
-    end
-
-    it "for file_root should override default (#{File.normalize_path(File.join(File.dirname(__FILE__), '..', 'files'))})" do
-      @agent = RightScale::Agent.start(:file_root => File.normalize_path(File.dirname(__FILE__)),
-                                       :identity => @identity)
-      @agent.options.should include(:file_root)
-      @agent.options[:file_root].should == File.normalize_path(File.dirname(__FILE__))
     end
 
     it "for a single tag should result in the agent's tags being set" do

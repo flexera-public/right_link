@@ -160,7 +160,7 @@ module RightScale
       # Determine which actor this request is for
       prefix, method = request.type.split('/')[1..-1]
       method ||= :index
-      actor = registry.actor_for(prefix)
+      actor = @registry.actor_for(prefix)
       token = request.token
       received_at = @requests.update(method, (token if request.kind_of?(Request)))
       if actor.nil?
