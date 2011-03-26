@@ -161,7 +161,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def configure_chef
-      Chef::Config[:exec_exception_factory] = lambda { |params| ::RightScale::Exceptions::Exec.new("\"#{params[:opts][:command]}\" #{::RightScale::SubprocessFormatting.reason(params[:status])}, expected #{params[:opts][:returns].join(' or ')}.", params[:opts][:cwd])}
+      Chef::Config[:custom_exec_exception] = lambda { |params| ::RightScale::Exceptions::Exec.new("\"#{params[:args][:command]}\" #{::RightScale::SubprocessFormatting.reason(params[:status])}, expected #{Array(params[:args][:returns]).join(' or ')}.", params[:args][:cwd])}
 
       # Chef paths and run mode
       if DevState.use_cookbooks_path?
@@ -179,6 +179,10 @@ module RightScale
         Chef::Config[:file_cache_path] = file_cache_path
         Chef::Config[:cache_options][:path] = File.join(file_cache_path, 'checksums')
       end
+
+      # Where backups of chef-managed files should go.  Set to nil to backup to the same directory the file being backed up is in.
+      Chef::Config[:file_backup_path] = nil
+
       true
     end
 
@@ -316,8 +320,8 @@ module RightScale
     def download_repos
       # Skip download if in dev mode and cookbooks repos directories already have files in them
       unless DevState.download_cookbooks?
-         @audit.append_info("Skipping cookbook download to allow local editing.") 
-         return true 
+         @audit.append_info("Skipping cookbook download to allow local editing.")
+         return true
       end
 
       @audit.create_new_section('Retrieving cookbooks') unless @cookbooks.empty?
@@ -564,7 +568,7 @@ module RightScale
         msg += "\n\nThe command was run from \"#{e.path}\"" if e.path
       elsif e.is_a?(::Chef::Exceptions::ValidationFailed) && (e.message =~ /Option action must be equal to one of:/)
         msg = "[chef] recipe references an action that does not exist.  #{e.message}"
-      elsif e.is_a?(::NameError) && (missing_action_match = /Cannot find Action\S* for action_(\S*)\s*Original exception: NameError: uninitialized constant Chef::Resource::Action\S*/.match(e.message)) && missing_action_match[1]
+      elsif e.is_a?(::NoMethodError) && (missing_action_match = /undefined method .action_(\S*)' for #<\S*:\S*>/.match(e.message)) && missing_action_match[1]
         msg = "[chef] recipe references the action <#{missing_action_match[1]}> which is missing an implementation"
       else
         msg = "An error occurred during the execution of Chef. The error message was:\n\n"

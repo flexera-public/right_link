@@ -27,9 +27,9 @@ module RightScale
 
     def initialize(new_resource, run_context)
       super(new_resource, run_context)
-      self.class.init(run_context.node)
+      self.class.init(@run_context.node)
       # Have to wait until the Chef node server has been initialized before setting the new resource
-      RightScale::Windows::ChefNodeServer.instance.new_resource = new_resource
+      RightScale::Windows::ChefNodeServer.instance.new_resource = @new_resource
     end
 
     # Initialize Powershell host, should be called before :run and :terminate
