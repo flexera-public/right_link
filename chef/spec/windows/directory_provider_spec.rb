@@ -25,7 +25,6 @@ require File.expand_path(File.join(File.dirname(__FILE__), '..', 'spec_helper'))
 if RightScale::RightLinkConfig[:platform].windows?
 
   require 'fileutils'
-  require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'mock_auditor_proxy'))
   require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'chef_runner'))
 
   module DirectoryProviderSpec
@@ -33,89 +32,81 @@ if RightScale::RightLinkConfig[:platform].windows?
     TEST_COOKBOOKS_PATH = RightScale::Test::ChefRunner.get_cookbooks_path(TEST_TEMP_PATH)
     TEST_DIR_PATH = File.join(TEST_TEMP_PATH, 'data', 'test')
     TEST_SUBDIR_PATH = File.join(TEST_DIR_PATH, 'subdir1', 'subdir2')
+  end
+
+  describe Chef::Provider::Directory do
 
     def create_cookbook
       RightScale::Test::ChefRunner.create_cookbook(
-        TEST_TEMP_PATH,
-          {
-            :create_dir_recipe => (
-<<EOF
-directory "#{TEST_DIR_PATH}" do
+              DirectoryProviderSpec::TEST_TEMP_PATH,
+              {
+                      :create_dir_recipe => (
+                      <<EOF
+directory "#{DirectoryProviderSpec::TEST_DIR_PATH}" do
   mode 0644
-  not_if { File.directory?("#{TEST_DIR_PATH}") }
+  not_if { File.directory?(" #{DirectoryProviderSpec::TEST_DIR_PATH} ") }
 end
 
-directory "#{TEST_SUBDIR_PATH}" do
+directory "#{DirectoryProviderSpec::TEST_SUBDIR_PATH}" do
   recursive true
-  only_if \"cmd.exe /C \\\"if exist \\\"#{TEST_SUBDIR_PATH.gsub("/", "\\")}\\\" exit 1\\\"\"
+  only_if \"cmd.exe /C \\\"if exist \\\"#{DirectoryProviderSpec::TEST_SUBDIR_PATH.gsub("/", "\\")}\\\" exit 1\\\"\"
 end
 EOF
-        ),
-        :fail_owner_create_dir_recipe => (
-<<EOF
-directory "#{TEST_DIR_PATH}" do
+                      ),
+                      :fail_owner_create_dir_recipe => (
+                      <<EOF
+directory "#{DirectoryProviderSpec::TEST_DIR_PATH}" do
   owner "Administrator"
   group "Administrators"
 end
 EOF
-        ),
-        :delete_dir_recipe => (
-<<EOF
-directory "#{TEST_SUBDIR_PATH}" do
+                      ),
+                      :delete_dir_recipe => (
+                      <<EOF
+directory "#{DirectoryProviderSpec::TEST_SUBDIR_PATH}" do
   action :delete
 end
 
-directory "#{TEST_DIR_PATH}" do
+directory "#{DirectoryProviderSpec::TEST_DIR_PATH} " do
   recursive true
   action :delete
 end
 EOF
-          )
-        }
+                      )
+              }
       )
     end
 
-    module_function :create_cookbook
-
     def cleanup
-      (FileUtils.rm_rf(TEST_TEMP_PATH) rescue nil) if File.directory?(TEST_TEMP_PATH)
+      (FileUtils.rm_rf(DirectoryProviderSpec::TEST_TEMP_PATH) rescue nil) if File.directory?(DirectoryProviderSpec::TEST_TEMP_PATH)
     end
 
-    module_function :cleanup
-  end
-
-  describe Chef::Provider::Directory do
-    include RightScale::Test::MockAuditorProxy
-
     before(:all) do
-      DirectoryProviderSpec.create_cookbook
       FileUtils.mkdir_p(File.dirname(DirectoryProviderSpec::TEST_DIR_PATH))
     end
 
-    before(:each) do
-      @logger = RightScale::Test::MockLogger.new
-      mock_chef_log(@logger)
+    after(:each) do
+      FileUtils.rm_rf(DirectoryProviderSpec::TEST_DIR_PATH) rescue nil
     end
 
-    after(:all) do
-      DirectoryProviderSpec.cleanup
-    end
+    it_should_behave_like 'generates cookbook for chef runner'
+    it_should_behave_like 'mocks logging'
 
     it "should create directories on windows" do
       runner = lambda {
         RightScale::Test::ChefRunner.run_chef(
-          DirectoryProviderSpec::TEST_COOKBOOKS_PATH,
-          'test::create_dir_recipe') }
-      runner.call.should == true
-      File.directory?(DirectoryProviderSpec::TEST_SUBDIR_PATH).should == true
-      FileUtils.rm_rf(DirectoryProviderSpec::TEST_DIR_PATH) rescue nil
+                DirectoryProviderSpec::TEST_COOKBOOKS_PATH,
+                'test::create_dir_recipe') }
+      runner.call.should be_true
+
+      File.directory?(DirectoryProviderSpec::TEST_SUBDIR_PATH).should be_true
     end
 
     it "should fail to create directories when owner or group attribute is used on windows" do
       runner = lambda {
         RightScale::Test::ChefRunner.run_chef(
-          DirectoryProviderSpec::TEST_COOKBOOKS_PATH,
-          'test::fail_owner_create_dir_recipe') }
+                DirectoryProviderSpec::TEST_COOKBOOKS_PATH,
+                'test::fail_owner_create_dir_recipe') }
       result = false
       begin
         # note that should raise_error() does not handle NoMethodError for some reason.
@@ -132,10 +123,11 @@ EOF
       FileUtils.mkdir_p(DirectoryProviderSpec::TEST_SUBDIR_PATH)
       runner = lambda {
         RightScale::Test::ChefRunner.run_chef(
-          DirectoryProviderSpec::TEST_COOKBOOKS_PATH,
-          run_list) }
-      runner.call.should == true
-      File.exists?(DirectoryProviderSpec::TEST_DIR_PATH).should == false
+                DirectoryProviderSpec::TEST_COOKBOOKS_PATH,
+                run_list) }
+      runner.call.should be_true
+
+      File.exists?(DirectoryProviderSpec::TEST_SUBDIR_PATH).should be_false
     end
 
   end

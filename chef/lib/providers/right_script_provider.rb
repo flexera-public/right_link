@@ -77,8 +77,8 @@ class Chef
 
         # Provide the customary RightScript environment metadata
         ENV['ATTACH_DIR'] = ENV['RS_ATTACH_DIR'] = @new_resource.cache_dir
-        ENV['RS_ALREADY_RUN'] = current_state[:chef_state].past_scripts.include?(nickname) ? 'true' : nil
-        ENV['RS_REBOOT']      = current_state[:instance_state].reboot? ? 'true' : nil
+        ENV['RS_ALREADY_RUN']                    = current_state[:chef_state].past_scripts.include?(nickname) ? 'true' : nil
+        ENV['RS_REBOOT']                         = current_state[:instance_state].reboot? ? 'true' : nil
 
         # RightScripts expect to find RS_DISTRO, RS_DIST and RS_ARCH in the environment.
         # Massage the distro name into the format they expect (all lower case, one word, no release info).
@@ -98,9 +98,9 @@ class Chef
 
         # Add Cloud-Independent Attributes
         begin
-          ENV['RS_CLOUD_PROVIDER'] = @node[:cloud][:provider]
-          ENV['RS_PUBLIC_IP']      = @node[:cloud][:public_ips].first
-          ENV['RS_PRIVATE_IP']     = @node[:cloud][:private_ips].first
+          ENV['RS_CLOUD_PROVIDER'] = node[:cloud][:provider]
+          ENV['RS_PUBLIC_IP']      = node[:cloud][:public_ips].first
+          ENV['RS_PRIVATE_IP']     = node[:cloud][:private_ips].first
         rescue Exception => e
           ::Chef::Log.info("Could not query Chef node for cloud-independent attributes (#{e.class.name})!")
           RightScale::RightLinkLog.error("#{e.class.name}: #{e.message}, #{e.backtrace[0]}")
@@ -125,7 +125,7 @@ class Chef
 
         if !status || status.success?
           current_state[:chef_state].record_script_execution(nickname)
-          @new_resource.updated = true
+          @new_resource.updated_by_last_action(true)
         else
           raise RightScale::Exceptions::Exec, "RightScript < #{nickname} > #{RightScale::SubprocessFormatting.reason(status)}"
         end

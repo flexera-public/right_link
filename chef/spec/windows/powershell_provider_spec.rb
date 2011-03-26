@@ -25,16 +25,18 @@ require File.expand_path(File.join(File.dirname(__FILE__), '..', 'spec_helper'))
 # FIX: rake spec should check parent directory name?
 if RightScale::RightLinkConfig[:platform].windows?
 
-  require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'mock_auditor_proxy'))
   require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'chef_runner'))
 
   module PowershellProviderSpec
     TEST_TEMP_PATH = File.normalize_path(File.join(Dir.tmpdir, "powershell-provider-spec-17AE1F97-496D-4f07-ABD7-4D989FA3D7A6"))
     TEST_COOKBOOKS_PATH = RightScale::Test::ChefRunner.get_cookbooks_path(TEST_TEMP_PATH)
+  end
+
+  describe Chef::Provider::Powershell do
 
     def create_cookbook
       RightScale::Test::ChefRunner.create_cookbook(
-        TEST_TEMP_PATH,
+        PowershellProviderSpec::TEST_TEMP_PATH,
         {
           :succeed_powershell_recipe => (<<EOF
 powershell 'test::succeed_powershell_recipe' do
@@ -94,7 +96,7 @@ end
 EOF
           ), :get_chef_node_recipe => (<<EOF
 powershell 'test::get_chef_node_recipe' do
-  @node[:powershell_provider_spec] = {:get_chef_node_recipe => 'get_chef_node_recipe_test_value'}
+  node[:powershell_provider_spec] = {:get_chef_node_recipe => 'get_chef_node_recipe_test_value'}
   source \"get-chefnode powershell_provider_spec,get_chef_node_recipe\"
 end
 EOF
@@ -268,17 +270,9 @@ EOF
       )
     end
 
-    module_function :create_cookbook
-
     def cleanup
-      (FileUtils.rm_rf(TEST_TEMP_PATH) rescue nil) if File.directory?(TEST_TEMP_PATH)
+      (FileUtils.rm_rf(PowershellProviderSpec::TEST_TEMP_PATH) rescue nil) if File.directory?(PowershellProviderSpec::TEST_TEMP_PATH)
     end
-
-    module_function :cleanup
-  end
-
-  describe Chef::Provider::Powershell do
-    include RightScale::Test::MockAuditorProxy
 
     def log_contains(str_to_match)
       # remove newlines and spaces
@@ -291,30 +285,20 @@ EOF
       @logger.info_text.gsub(/\s+/, "").should match(expected_message)
     end
 
-    before(:all) do
-      PowershellProviderSpec.create_cookbook
-    end
-
     before(:each) do
-      @logger = RightScale::Test::MockLogger.new
-      mock_chef_log(@logger)
-
-      # mock out Powershell script internals so we can run tests using the Powershell script provider
-      mock_instance_state = flexmock('MockInstanceState', :reboot? => false)
-      mock_chef_state = flexmock('MockChefState', :record_script_execution => true, :past_scripts => [])
-      flexmock(Chef::Provider::Powershell).new_instances.should_receive(:all_state).and_return({:instance_state => mock_instance_state, :chef_state => mock_chef_state})
+      RightScale::RightLinkLog.level = :debug
     end
 
-    after(:all) do
-      PowershellProviderSpec.cleanup
-    end
+    it_should_behave_like 'generates cookbook for chef runner'
+    it_should_behave_like 'mocks logging'
+    it_should_behave_like 'mocks state'
 
     it "should run powershell recipes on windows" do
       runner = lambda {
         RightScale::Test::ChefRunner.run_chef(
           PowershellProviderSpec::TEST_COOKBOOKS_PATH,
           'test::succeed_powershell_recipe') }
-      runner.call.should == true
+      runner.call.should be_true
 
       # note the powershell write-error method prints the cause of the error
       # (i.e. our script) prior to printing the error message and may insert
@@ -325,7 +309,7 @@ EOF
       # not necessarily errors by some Linux utilities. we cannot now test that
       # stdout and stderr are preserved as independent text streams because they
       # are being interleaved.
-      @logger.error_text.should == "";
+      @logger.error_text.should be_empty
       @logger.info_text.gsub("\n", "").should include("message for stdout")
     end
 
@@ -342,7 +326,7 @@ EOF
         RightScale::Test::ChefRunner.run_chef(
           PowershellProviderSpec::TEST_COOKBOOKS_PATH,
           'test::expected_exit_code_recipe') }
-      runner.call.should == true
+      runner.call.should be_true
     end
 
     it "should run native bitness powershell on all platforms" do
@@ -356,7 +340,7 @@ EOF
         RightScale::Test::ChefRunner.run_chef(
           PowershellProviderSpec::TEST_COOKBOOKS_PATH,
           'test::print_pshome_recipe') }
-      runner.call.should == true
+      runner.call.should be_true
       @logger.error_text.chomp.should == ""
       @logger.info_text.chomp.gsub("\\", "/").downcase.should include(expected_pshome.downcase)
     end
@@ -366,7 +350,7 @@ EOF
         RightScale::Test::ChefRunner.run_chef(
           PowershellProviderSpec::TEST_COOKBOOKS_PATH,
           ['test::set_env_var_recipe', 'test::check_env_var_recipe']) }
-      runner.call.should == true
+      runner.call.should be_true
     end
 
     it "should get chef nodes by powershell cmdlet" do
@@ -374,7 +358,7 @@ EOF
         RightScale::Test::ChefRunner.run_chef(
           PowershellProviderSpec::TEST_COOKBOOKS_PATH,
           'test::get_chef_node_recipe') }
-      runner.call.should == true
+      runner.call.should be_true
       @logger.info_text.should include("get_chef_node_recipe_test_value")
     end
 
@@ -386,7 +370,8 @@ EOF
           'test::set_chef_node_recipe') do |chef_client|
             test_node = chef_client.node
           end }
-      runner.call.should == true
+      runner.call.should be_true
+
       test_node[:powershell_provider_spec][:set_chef_node_recipe].should == 123
     end
 
@@ -395,7 +380,7 @@ EOF
         RightScale::Test::ChefRunner.run_chef(
           PowershellProviderSpec::TEST_COOKBOOKS_PATH,
           'test::get_current_resource_recipe') }
-      runner.call.should == true
+      runner.call.should be_true
     end
 
     it "should fail to set current resource by powershell cmdlet for powershell provider" do
@@ -403,7 +388,7 @@ EOF
         RightScale::Test::ChefRunner.run_chef(
           PowershellProviderSpec::TEST_COOKBOOKS_PATH,
           'test::set_current_resource_recipe') }
-      runner.call.should == true
+      runner.call.should be_true
     end
 
     it "should get new resource by powershell cmdlet" do
@@ -411,7 +396,7 @@ EOF
         RightScale::Test::ChefRunner.run_chef(
           PowershellProviderSpec::TEST_COOKBOOKS_PATH,
           'test::get_new_resource_recipe') }
-      runner.call.should == true
+      runner.call.should be_true
     end
 
     it "should set new resource by powershell cmdlet" do
@@ -419,22 +404,17 @@ EOF
         RightScale::Test::ChefRunner.run_chef(
           PowershellProviderSpec::TEST_COOKBOOKS_PATH,
           'test::set_new_resource_recipe') }
-      runner.call.should == true
+      runner.call.should be_true
     end
 
     it "should write debug to output stream when debugging is enabled" do
-      # mock out debug logging so the underlying recipe thinks it is debug logging.
-      mock_chef_logger = flexmock(Logger)
-      mock_chef_logger.should_receive(:level=).once
-      mock_chef_logger.should_receive(:debug?).and_return(true)
-      flexmock(Chef::Log).should_receive(:logger).and_return(mock_chef_logger)
-      flexmock(Chef::Log).should_receive(:level).and_return(Logger::DEBUG)
+      flexmock(::Chef::Log).should_receive(:level).and_return(Logger::DEBUG)
 
       runner = lambda {
         RightScale::Test::ChefRunner.run_chef(
           PowershellProviderSpec::TEST_COOKBOOKS_PATH,
           'test::debug_output_recipe') }
-      runner.call.should == true
+      runner.call.should be_true
 
       debug_output = @logger.info_text
       debug_output.should include("debug message")
@@ -446,7 +426,7 @@ EOF
         RightScale::Test::ChefRunner.run_chef(
           PowershellProviderSpec::TEST_COOKBOOKS_PATH,
           'test::execution_policy_recipe') }
-      runner.call.should == true
+      runner.call.should be_true
 
       # ensure the policy is not changed after the test
       (`powershell -command get-executionpolicy -Scope LocalMachine` =~ /Restricted|Undefined/).should_not be_nil

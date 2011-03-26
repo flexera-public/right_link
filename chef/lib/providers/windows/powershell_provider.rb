@@ -76,7 +76,7 @@ class Chef
           @new_resource.environment(environment)
 
           # 3. execute and wait
-          RightScale::Windows::ChefNodeServer.instance.start(:node => @node)
+          RightScale::Windows::ChefNodeServer.instance.start(:node => node)
 
           # new_resource points to the powershell script resource in this limited
           # context. there is no current resource in script execution context.
@@ -90,7 +90,7 @@ class Chef
           # super provider raises an exception on failure, so record success at
           # this point.
           current_state[:chef_state].record_script_execution(nickname)
-          @new_resource.updated = true
+          @new_resource.updated_by_last_action(true)
         ensure
           (FileUtils.rm_rf(SCRIPT_TEMP_DIR_PATH) rescue nil) if ::File.directory?(SCRIPT_TEMP_DIR_PATH)
         end

@@ -22,6 +22,8 @@
 module RightScale
   module Test
     module MockAuditorProxy
+      extend self
+
       def mock_chef_log(logger)
         flexmock(Chef::Log).should_receive(:debug).and_return { |m| logger.debug_text << m }
         flexmock(Chef::Log).should_receive(:error).and_return { |m| logger.error_text << m }
@@ -31,11 +33,18 @@ module RightScale
         flexmock(Chef::Log.logger).should_receive(:create_new_section).and_return { |m| }
       end
 
-      module_function :mock_chef_log
+      def mock_right_link_log(logger)
+        flexmock(RightScale::RightLinkLog).should_receive(:debug).and_return { |m| logger.debug_text << m }
+        flexmock(RightScale::RightLinkLog).should_receive(:error).and_return { |m| logger.error_text << m }
+        flexmock(RightScale::RightLinkLog).should_receive(:fatal).and_return { |m| logger.fatal_text << m }
+        flexmock(RightScale::RightLinkLog).should_receive(:info).and_return { |m| logger.info_text << m }
+        flexmock(RightScale::RightLinkLog).should_receive(:warn).and_return { |m| logger.warn_text << m }
+      end
     end
 
     class MockLogger
-      attr_accessor :debug_text, :error_text, :fatal_text, :info_text, :warn_text
+      attr_accessor :debug_text, :error_text, :fatal_text, :info_text, :warn_text,
+                    :audit_info, :audit_output, :audit_status, :audit_section
 
       def initialize
         @debug_text = ""
@@ -43,6 +52,10 @@ module RightScale
         @fatal_text = ""
         @info_text = ""
         @warn_text = ""
+        @audit_info = ""
+        @audit_output = ""
+        @audit_status = ""
+        @audit_section = ""
       end
     end
   end

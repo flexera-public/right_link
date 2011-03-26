@@ -25,40 +25,42 @@ require File.expand_path(File.join(File.dirname(__FILE__), '..', 'spec_helper'))
 if RightScale::RightLinkConfig[:platform].windows?
 
   require 'fileutils'
-  require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'mock_auditor_proxy'))
   require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'chef_runner'))
 
   module FileProviderSpec
     TEST_TEMP_PATH = File.normalize_path(File.join(Dir.tmpdir, "file-provider-spec-0C1CE753-0089-4ac7-B689-FB74F31E90F5")).gsub("\\", "/")
     TEST_COOKBOOKS_PATH = RightScale::Test::ChefRunner.get_cookbooks_path(TEST_TEMP_PATH)
     TEST_FILE_PATH = File.join(TEST_TEMP_PATH, 'data', 'test_file.txt')
+  end
+
+  describe Chef::Provider::File do
 
     def create_cookbook
       RightScale::Test::ChefRunner.create_cookbook(
-        TEST_TEMP_PATH,
+        FileProviderSpec::TEST_TEMP_PATH,
           {
             :create_file_recipe => (
 <<EOF
-file "#{TEST_FILE_PATH}" do
+file "#{FileProviderSpec::TEST_FILE_PATH}" do
   mode 0644
 end
 EOF
           ), :fail_owner_create_file_recipe => (
 <<EOF
-file "#{TEST_FILE_PATH}" do
+file "#{FileProviderSpec::TEST_FILE_PATH}" do
   owner "Administrator"
   group "Administrators"
 end
 EOF
           ), :touch_file_recipe => (
 <<EOF
-file "#{TEST_FILE_PATH}" do
+file "#{FileProviderSpec::TEST_FILE_PATH}" do
   action :touch
 end
 EOF
           ), :delete_file_recipe => (
 <<EOF
-file "#{TEST_FILE_PATH}" do
+file "#{FileProviderSpec::TEST_FILE_PATH}" do
   backup 2
   action :delete
 end
@@ -68,86 +70,92 @@ EOF
       )
     end
 
-    module_function :create_cookbook
-
     def cleanup
-      (FileUtils.rm_rf(TEST_TEMP_PATH) rescue nil) if File.directory?(TEST_TEMP_PATH)
+      (FileUtils.rm_rf(FileProviderSpec::TEST_TEMP_PATH) rescue nil) if File.directory?(FileProviderSpec::TEST_TEMP_PATH)
     end
 
-    module_function :cleanup
-  end
-
-  describe Chef::Provider::File do
-    include RightScale::Test::MockAuditorProxy
+    def backup_path
+      backup_path = "#{FileProviderSpec::TEST_FILE_PATH}.chef-*"
+    end
 
     before(:all) do
-      FileProviderSpec.create_cookbook
       FileUtils.mkdir_p(File.dirname(FileProviderSpec::TEST_FILE_PATH))
     end
 
-    before(:each) do
-      @logger = RightScale::Test::MockLogger.new
-      mock_chef_log(@logger)
-    end
-    
-    after(:all) do
-      FileProviderSpec.cleanup
-    end
+    it_should_behave_like 'generates cookbook for chef runner'
+    it_should_behave_like 'mocks logging'
 
-    it "should create files on windows" do
-      runner = lambda {
-        RightScale::Test::ChefRunner.run_chef(
-          FileProviderSpec::TEST_COOKBOOKS_PATH,
-          'test::create_file_recipe') }
-      runner.call.should == true
-      File.file?(FileProviderSpec::TEST_FILE_PATH).should == true
-      File.delete(FileProviderSpec::TEST_FILE_PATH)
-    end
-
-    it "should fail to create files when owner or group attribute is used on windows" do
-      runner = lambda {
-        RightScale::Test::ChefRunner.run_chef(
-          FileProviderSpec::TEST_COOKBOOKS_PATH,
-          'test::fail_owner_create_file_recipe') }
-      result = false
-      begin
-        # note that should raise_error() does not handle NoMethodError for some reason.
-        runner.call
-      rescue NoMethodError
-        result = true
+    context 'file creation' do
+      after(:each) do
+        File.delete(FileProviderSpec::TEST_FILE_PATH) rescue nil
       end
-      result.should == true
+
+      it "should create files on windows" do
+        File.file?(FileProviderSpec::TEST_FILE_PATH).should be_false
+
+        runner = lambda {
+          RightScale::Test::ChefRunner.run_chef(
+            FileProviderSpec::TEST_COOKBOOKS_PATH,
+            'test::create_file_recipe') }
+        runner.call.should be_true
+
+        File.file?(FileProviderSpec::TEST_FILE_PATH).should be_true
+      end
+
+      it "should fail to create files when owner or group attribute is used on windows" do
+        runner = lambda {
+          RightScale::Test::ChefRunner.run_chef(
+            FileProviderSpec::TEST_COOKBOOKS_PATH,
+            'test::fail_owner_create_file_recipe') }
+        result = false
+        begin
+          # note that should raise_error() does not handle NoMethodError for some reason.
+          runner.call
+        rescue NoMethodError
+          result = true
+        end
+        result.should == true
+      end
+
+      it "should touch files on windows" do
+        File.open(FileProviderSpec::TEST_FILE_PATH, "w") { |f| f.puts("stuff") }
+        sleep 1.1  # ensure touch changes measurable time
+        old_time = File.mtime(FileProviderSpec::TEST_FILE_PATH)
+        runner = lambda {
+          RightScale::Test::ChefRunner.run_chef(
+            FileProviderSpec::TEST_COOKBOOKS_PATH,
+            'test::touch_file_recipe') }
+        runner.call.should be_true
+        touch_time = File.mtime(FileProviderSpec::TEST_FILE_PATH)
+        old_time.should < touch_time
+      end
     end
 
-    it "should touch files on windows" do
-      File.open(FileProviderSpec::TEST_FILE_PATH, "w") { |f| f.puts("stuff") }
-      sleep 1.1  # ensure touch changes measurable time
-      old_time = File.mtime(FileProviderSpec::TEST_FILE_PATH)
-      runner = lambda {
-        RightScale::Test::ChefRunner.run_chef(
-          FileProviderSpec::TEST_COOKBOOKS_PATH,
-          'test::touch_file_recipe') }
-      runner.call.should == true
-      touch_time = File.mtime(FileProviderSpec::TEST_FILE_PATH)
-      (old_time < touch_time).should == true
-      File.delete(FileProviderSpec::TEST_FILE_PATH)
-    end
+    context 'file deletion' do
+      before(:each) do
+        backups = Dir[backup_path]
+        FileUtils.rm(backups)
+      end
 
-    it "should delete files on windows" do
-      run_list = []
-      2.times { run_list << 'test::delete_file_recipe' }
-      File.open(FileProviderSpec::TEST_FILE_PATH, "w") { |f| f.puts("stuff") }
-      runner = lambda {
-        RightScale::Test::ChefRunner.run_chef(
-          FileProviderSpec::TEST_COOKBOOKS_PATH,
-          run_list) }
-      runner.call.should == true
-      File.exists?(FileProviderSpec::TEST_FILE_PATH).should == false
+      after(:each) do
+        backups = Dir[backup_path]
+        FileUtils.rm(backups)
+      end
 
-      # check that backup file was created.
-      backups = Dir[FileProviderSpec::TEST_FILE_PATH + '*']
-      backups.length.should == 1
-      backups.each { |path| File.delete(path) }
+      it "should delete files on windows" do
+        run_list = []
+        2.times { run_list << 'test::delete_file_recipe' }
+        File.open(FileProviderSpec::TEST_FILE_PATH, "w") { |f| f.puts("stuff") }
+        runner = lambda {
+          RightScale::Test::ChefRunner.run_chef(
+            FileProviderSpec::TEST_COOKBOOKS_PATH,
+            run_list) }
+        runner.call.should be_true
+        File.exists?(FileProviderSpec::TEST_FILE_PATH).should be_false
+
+        backups = Dir[backup_path]
+        backups.length.should == 1
+      end
     end
 
   end

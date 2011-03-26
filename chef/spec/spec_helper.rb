@@ -22,5 +22,46 @@
 
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'spec', 'spec_helper'))
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'agents', 'lib', 'instance'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'agents', 'lib', 'instance', 'cook', 'audit_stub'))
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'providers'))
 require File.expand_path(File.join(File.dirname(__FILE__), '..', 'lib', 'cloud_utilities.rb'))
+
+shared_examples_for 'generates cookbook for chef runner' do
+  before(:all) do
+    create_cookbook
+  end
+
+  after(:all) do
+    cleanup
+  end
+end
+
+shared_examples_for 'mocks logging' do
+  require File.normalize_path(File.join(File.dirname(__FILE__), 'mock_auditor_proxy'))
+  include RightScale::Test::MockAuditorProxy
+
+  before(:each) do
+    @logger = RightScale::Test::MockLogger.new
+    mock_chef_log(@logger)
+    mock_right_link_log(@logger)
+
+    @auditor = flexmock(RightScale::AuditStub.instance)
+    @auditor.should_receive(:create_new_section).and_return { |m| @logger.audit_section << m }
+    @auditor.should_receive(:append_info).and_return { |m| @logger.audit_info << m }
+    @auditor.should_receive(:append_output).and_return { |m| @logger.audit_output << m }
+    @auditor.should_receive(:update_status).and_return { |m| @logger.audit_status << m }
+  end
+end
+
+shared_examples_for 'mocks state' do
+  require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'agents', 'lib', 'instance', 'cook', 'chef_state'))
+  include RightScale::SpecHelpers
+
+  before(:each) do
+    setup_state
+  end
+
+  after(:each) do
+    cleanup_state
+  end
+end

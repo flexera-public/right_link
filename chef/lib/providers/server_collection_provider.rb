@@ -51,8 +51,8 @@ class Chef
       # === Return
       # true:: Always return true
       def action_load
-        @node[:server_collection] ||= {}
-        @node[:server_collection][@new_resource.name] = {}
+        node[:server_collection] ||= {}
+        node[:server_collection][@new_resource.name] = {}
         return unless @new_resource.tags && !@new_resource.tags.empty?
         status = :pending
         result = nil
@@ -87,7 +87,7 @@ class Chef
         end
         if status == :succeeded && result
           collection = result.inject({}) { |res, (k, v)| res[k] = v['tags']; res }
-          @node[:server_collection][@new_resource.name] = collection
+          node[:server_collection][@new_resource.name] = collection
         else
           RightScale::RightLinkLog.debug("ServerCollection load failed for #{@new_resource.name} (timed out after #{QUERY_TIMEOUT}s)")
         end

@@ -211,8 +211,8 @@ describe RightScale::ExecutableSequence do
     end
 
     it 'should produce a readable message when the implementation of a referenced resource action does not exist' do
-      exception_string = ['Cannot find ActionDoesNotExist for action_does_not_exist', 'Original exception: NameError: uninitialized constant Chef::Resource::ActionDoesNotExist'].join("\n")
-      exception = NameError.new(exception_string)
+      exception_string = "undefined method 'action_does_not_exist' for #<TestCookbookErrorNoscript:0x9999999>"
+      exception = NoMethodError.new(exception_string, 'action_does_not_exist')
       msg = @sequence.__send__(:chef_error, exception)
       msg.should == "[chef] recipe references the action <does_not_exist> which is missing an implementation"
     end
