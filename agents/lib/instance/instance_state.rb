@@ -134,7 +134,7 @@ module RightScale
           RightLinkLog.debug("Bundle detected; transitioning state to booting")
           @@last_recorded_value = state['last_recorded_value']
           self.value = 'booting'
-        elsif state['reboot']
+        elsif state['reboot'] && !read_only
           # CASE 2 -- rebooting flagged by rightboot script in linux or by shutdown notification in windows
           RightLinkLog.debug("Reboot detected; transitioning state to booting")
           @@last_recorded_value = state['last_recorded_value']
