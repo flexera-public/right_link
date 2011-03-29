@@ -484,13 +484,13 @@ module RightScale
     # === Return
     # true:: Always return true
     def converge(ohai)
-      @audit.create_new_section('Converging')
-      @audit.append_info("Run list: #{@run_list.join(', ')}")
-      attribs = { 'recipes' => @run_list }
-      attribs.merge!(@attributes) if @attributes
-      c = Chef::Client.new(attribs)
-      c.ohai = ohai
       begin
+        @audit.create_new_section('Converging')
+        @audit.append_info("Run list: #{@run_list.join(', ')}")
+        attribs = { 'recipes' => @run_list }
+        attribs.merge!(@attributes) if @attributes
+        c = Chef::Client.new(attribs)
+        c.ohai = ohai
         audit_time do
           c.run
         end
