@@ -54,6 +54,7 @@ class InstanceSetup
     when "/booter/get_boot_bundle" then yield @@bundle
     when "/booter/get_login_policy" then yield @@login_policy
     when "/mapper/list_agents" then yield @@agents
+    when "/storage_valet/get_planned_volume_mappings" then yield success_result([])
     else raise ArgumentError.new("Don't know how to mock #{operation}")
     end
   end

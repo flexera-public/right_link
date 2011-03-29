@@ -31,11 +31,19 @@ class InstanceSetup
   # Amount of seconds to wait between set_r_s_version calls attempts
   RECONNECT_DELAY = 5
 
+  # Delay enough time for attach/detach state in core to refresh
+  VOLUME_RETRY_SECONDS = 15  # minimum retry time as recommended in docs when volumes are changing by automation
+
+  # Max retries for attaching/detaching a given volume.
+  MAX_VOLUME_ATTEMPTS = 8  # 8 * 15 seconds = 2 minutes
+
   # Amount of seconds to wait before shutting down if boot hasn't completed
   SUICIDE_DELAY = 45 * 60
 
   # Tag set on instances that are part of an array
-  AUTO_LAUNCH_TAG ='rs_launch:type=auto' 
+  AUTO_LAUNCH_TAG ='rs_launch:type=auto'
+
+  class UnsupportedDeviceName < Exception; end
 
   # Boot if and only if instance state is 'booting'
   # Prime timer for shutdown on unsuccessful boot ('suicide' functionality)
@@ -48,7 +56,7 @@ class InstanceSetup
     EM.threadpool_size = 1
     RightScale::InstanceState.init(@agent_identity)
     RightScale::RightLinkLog.force_debug if RightScale::DevState.enabled?
-    
+
     # Schedule boot sequence, don't run it now so agent is registered first
     if RightScale::InstanceState.value == 'booting'
       EM.next_tick { RightScale::MapperProxy.instance.initialize_offline_queue { init_boot } }
@@ -57,14 +65,14 @@ class InstanceSetup
     end
 
     # Setup suicide timer which will cause instance to shutdown if the rs_launch:type=auto tag
-    # is set and the instance has not gotten its boot bundle after SUICIDE_DELAY seconds and this is 
+    # is set and the instance has not gotten its boot bundle after SUICIDE_DELAY seconds and this is
     # the first time this instance boots
     @suicide_timer = EM::Timer.new(SUICIDE_DELAY) do
       if RightScale::InstanceState.startup_tags.include?(AUTO_LAUNCH_TAG) && !@got_boot_bundle
         msg = "Shutting down after having tried to boot for #{SUICIDE_DELAY / 60} minutes"
         log_error(msg)
         @audit.append_error(msg, :category => RightScale::EventCategories::CATEGORY_ERROR) if @audit
-        RightScale::Platform.controller.shutdown 
+        RightScale::Platform.controller.shutdown
       end
     end if RightScale::InstanceState.initial_boot?
 
@@ -95,7 +103,7 @@ class InstanceSetup
   end
 
   protected
-  
+
   # We start off by setting the instance 'r_s_version' in the core site and
   # then proceed with the actual boot sequence
   #
@@ -129,8 +137,8 @@ class InstanceSetup
   # === Return
   # true:: Always return true
   def enable_managed_login
-    if RightScale::Platform.windows? || RightScale::Platform.mac? 
-      boot
+    if RightScale::Platform.windows? || RightScale::Platform.mac?
+      boot_volumes
     else
       send_retryable_request("/booter/get_login_policy", {:agent_identity => @agent_identity}) do |r|
         res = result_from(r)
@@ -152,9 +160,343 @@ class InstanceSetup
           log_error("Could not get login policy", res.content)
         end
 
-        boot
+        boot_volumes
       end
     end
+  end
+
+  # Retrieve software repositories and configure mirrors accordingly then proceed to
+  # retrieving and running boot bundle.
+  #
+  # === Return
+  # true:: Always return true
+  def boot_volumes
+    # managing planned volumes is currently only needed in Windows and only if
+    # this is not a reboot scenario.
+    if RightScale::Platform.windows? and not RightScale::InstanceState.reboot?
+      manage_planned_volumes { boot }
+    else
+      boot
+    end
+    true
+  end
+
+  # Manages planned volumes by caching planned volume state and then ensuring
+  # volumes have been reattached in a predictable order for proper assignment
+  # of local drives.
+  #
+  # === Parameters
+  # block(Proc):: continuation callback for when volume management is complete.
+  #
+  # === Return
+  # result(Boolean):: true if successful
+  def manage_planned_volumes(&block)
+    # state may have changed since timer calling this method was added, so
+    # ensure we are still booting (and not stranded).
+    return if RightScale::InstanceState.value == 'stranded'
+
+    # query for planned volume mappings belonging to instance.
+    last_mappings = RightScale::InstanceState.planned_volume_state.mappings || []
+    payload = {:agent_identity => @agent_identity}
+    send_retryable_request("/storage_valet/get_planned_volume_mappings", payload) do |r|
+      res = result_from(r)
+      if res.success?
+        begin
+          mappings = merge_planned_volume_mappings(last_mappings, res.content) { |mapping| is_device_valid?(mapping[:device]) }
+          RightScale::InstanceState.planned_volume_state.mappings = mappings
+          if mappings.empty?
+            # no volumes requiring management.
+            block.call if block
+          else
+            # must do some management if any volumes are not 'assigned'
+            if mappings.find { |mapping| mapping[:management_state] != 'assigned' }
+              # must detach all 'attached' volumes if any are attached (or
+              # attaching) but not yet managed on the instance side. this is the
+              # only way to ensure they receive the correct device names.
+              detachable_volume_count = mappings.count { |mapping| is_attached_volume_unassigned?(mapping) }
+              if detachable_volume_count >= 1
+                mappings.each do |mapping|
+                  if is_attached_volume_unassigned?(mapping)
+                    detach_planned_volume(mapping) do
+                      detachable_volume_count -= 1
+                      if 0 == detachable_volume_count
+                        # add a timer to resume volume management later and pass the
+                        # block for continuation afterward (unless detachment stranded).
+                        log_info("Waiting for volumes to detach for management purposes. Retrying in #{VOLUME_RETRY_SECONDS} seconds...")
+                        EM.add_timer(VOLUME_RETRY_SECONDS) { manage_planned_volumes(&block) }
+                      end
+                    end
+                  end
+                end
+              else
+                mappings.each do |mapping|
+                  case mapping[:volume_state]
+                  when 'detached', 'detaching'
+                    # attach next volume and go around again.
+                    attach_planned_volume(mapping) do
+                      log_info("Waiting for volume #{mapping[:volume_id]} to attach. Retrying in #{VOLUME_RETRY_SECONDS} seconds...")
+                      EM.add_timer(VOLUME_RETRY_SECONDS) { manage_planned_volumes(&block) }
+                    end
+                    break  # out of mappings.each
+                  when 'attached', 'attaching'
+                    # assign next volume and go around again.
+                    if mapping[:management_state] != 'assigned'
+                      manage_volume_device_assignment(mapping) do
+                        # we can move on to next volume 'immediately' unless the
+                        # mapping requires a retry.
+                        if mapping[:management_state] == 'assigned'
+                          EM.next_tick { manage_planned_volumes(&block) }
+                        else
+                          log_info("Waiting for volume #{mapping[:volume_id]} to initialize using device #{mapping[:device]}. Retrying in #{VOLUME_RETRY_SECONDS} seconds...")
+                          EM.add_timer(VOLUME_RETRY_SECONDS) { manage_planned_volumes(&block) }
+                        end
+                      end
+                      break  # out of mappings.each
+                    end
+                  else
+                    # handle 'deleted', etc.
+                    strand("State of volume #{mapping[:volume_id]} was unexpected: #{mapping[:volume_state]}")
+                  end
+                end
+              end
+            else
+              # all volume mappings have been assigned and so we can proceed.
+              block.call if block
+            end
+          end
+        rescue Exception => e
+          strand(e.message)
+        end
+      else
+        strand("Failed to retrieve planned volume mappings", res)
+      end
+    end
+  end
+
+  # Detaches the planned volume given by its mapping.
+  #
+  # === Parameters
+  # mapping(Hash):: details of planned volume
+  def detach_planned_volume(mapping)
+    payload = {:agent_identity => @agent_identity, :device => mapping[:device]}
+    log_info("Detaching volume intended for #{mapping[:device]} for management purposes.")
+    send_retryable_request("/storage_valet/detach_volume", payload) do |r|
+      res = result_from(r)
+      if res.success?
+        mapping[:volume_state] = 'detaching'
+        mapping[:management_state] = 'detached'
+        mapping[:attempts] = nil
+        yield if block_given?
+      else
+        # volume could already be detaching or have been deleted
+        # which we can't see because of latency; go around again
+        # and check state of volume later.
+        log_info("Received retry for detaching device #{mapping[:device]}") if res.retry?
+        log_error("Failed to detach device #{mapping[:device]}: #{res.content}") if res.error?
+        mapping[:attempts] ||= 0
+        mapping[:attempts] += 1
+        if mapping[:attempts] >= MAX_VOLUME_ATTEMPTS
+          strand("Exceded maximum of #{MAX_VOLUME_ATTEMPTS} attempts detaching device #{mapping[:device]}")
+        else
+          yield if block_given?
+        end
+      end
+    end
+  end
+
+  # Attaches the planned volume given by its mapping.
+  #
+  # === Parameters
+  # mapping(Hash):: details of planned volume
+  def attach_planned_volume(mapping)
+    # preserve the initial list of disks/volumes before attachment for comparison later.
+    RightScale::InstanceState.planned_volume_state.disks ||= RightLinkConfig[:platform].volume_manager.disks
+    RightScale::InstanceState.planned_volume_state.volumes ||= RightLinkConfig[:platform].volume_manager.volumes
+
+    # attach.
+    payload = {:agent_identity => @agent_identity, :volume_id => mapping[:volume_id], :device => mapping[:device]}
+    log_info("Attaching volume #{mapping[:volume_id]} using device #{mapping[:device]}.")
+    send_retryable_request("/storage_valet/attach_volume", payload) do |r|
+      res = result_from(r)
+      if res.success?
+        mapping[:volume_state] = 'attaching'
+        mapping[:management_state] = 'attached'
+        mapping[:attempts] = nil
+        yield if block_given?
+      else
+        # volume could already be attaching or have been deleted
+        # which we can't see because of latency; go around again
+        # and check state of volume later.
+        log_info("Received retry for attaching volume #{mapping[:volume_id]} using device #{mapping[:device]}.") if res.retry?
+        log_error("Failed to attach volume #{mapping[:volume_id]} using device #{mapping[:device]}: #{res.content}") if res.error?
+        mapping[:attempts] ||= 0
+        mapping[:attempts] += 1
+        if mapping[:attempts] >= MAX_VOLUME_ATTEMPTS
+          strand("Exceeded maximum of #{MAX_VOLUME_ATTEMPTS} attempts attaching device #{mapping[:device]}")
+        else
+          yield if block_given?
+        end
+      end
+    end
+  end
+
+  # Manages device assignment for volumes with considerations for formatting
+  # blank attached volumes.
+  #
+  # === Parameters
+  # mapping(Hash):: details of planned volume
+  def manage_volume_device_assignment(mapping)
+    # check for changes in disks.
+    last_disks = RightScale::InstanceState.planned_volume_state.disks
+    last_volumes = RightScale::InstanceState.planned_volume_state.volumes
+    vm = RightLinkConfig[:platform].volume_manager
+    current_disks = vm.disks
+    current_volumes = vm.volumes
+
+    # correctly managing device assignment requires expecting precise changes
+    # to disks and volumes. any deviation from this requires a retry.
+    succeeded = false
+    if new_disk = find_distinct_item(current_disks, last_disks, :index)
+      # if the new disk as no partitions, then we will format and assign device.
+      if vm.partitions(new_disk[:index]).empty?
+        log_info("Creating primary partition and formatting device #{mapping[:device]}.")
+        vm.format_disk(new_disk[:index], mapping[:device])
+        succeeded = true
+      else
+        log_info("Preparing device #{mapping[:device]} for use.")
+        new_volume = find_distinct_item(current_volumes, last_volumes, :device)
+        unless new_volume
+          vm.online_disk(new_disk[:index])
+          current_volumes = vm.volumes
+          new_volume = find_distinct_item(current_volumes, last_volumes, :device)
+        end
+        if new_volume
+          vm.assign_device(new_volume[:index], mapping[:device]) unless new_volume[:device] == mapping[:device]
+          succeeded = true
+        end
+      end
+    end
+
+    # retry only if still not assigned.
+    if succeeded
+      # volume is (finally!) assigned to correct device name.
+      mapping[:management_state] = 'assigned'
+      mapping[:attempts] = nil
+
+      # reset cached volumes/disks for next attempt (to attach), if any.
+      RightScale::InstanceState.planned_volume_state.disks = nil
+      RightScale::InstanceState.planned_volume_state.volumes = nil
+
+      # continue.
+      yield if block_given?
+    else
+      mapping[:attempts] ||= 0
+      mapping[:attempts] += 1
+      if mapping[:attempts] >= MAX_VOLUME_ATTEMPTS
+        strand("Exceeded maximum of #{MAX_VOLUME_ATTEMPTS} attempts attaching device #{mapping[:device]}")
+      else
+        yield if block_given?
+      end
+    end
+  rescue Exception => e
+    strand(e.message)
+  end
+
+  # Determines a single, unique item (hash) by given key in the current
+  # list which does not appear in the last list, if any. finds nothing if
+  # multiple new items appear. This is useful for inspecting lists of
+  # disks/volumes to determine when a new item appears.
+  #
+  # === Parameter
+  # current_list(Array):: current list
+  # last_list(Array):: last list
+  # key(Symbol):: key used to uniquely identify items
+  #
+  # === Return
+  # result(Hash):: item in current list which does not appear in last list or nil
+  def find_distinct_item(current_list, last_list, key)
+    if current_list.size == last_list.size + 1
+      unique_values = current_list.map { |item| item[key] } - last_list.map { |item| item[key] }
+      if unique_values.size == 1
+        unique_value = unique_values[0]
+        return current_list.find { |item| item[key] == unique_value }
+      end
+    end
+    return nil
+  end
+
+  # Determines if the given volume is in an attached (or attaching) state and
+  # also not yet assigned a drive letter. Note that we can assign drive letters
+  # to 'attaching' volumes because they may appear locally before the repository
+  # can update their status to 'attached'.
+  #
+  # === Return
+  # result(Boolean):: true if volume is attached and unassigned
+  def is_attached_volume_unassigned?(mapping)
+    case mapping[:volume_state]
+    when 'attached', 'attaching'
+      mapping[:management_state] != 'assigned'
+    else
+      false
+    end
+  end
+
+  # Merges mappings from query with any last known mappings which may have a
+  # locally persisted state which needs to be evaluated.
+  def merge_planned_volume_mappings last_mappings, latest_mappings, &block
+    result = []
+
+    # merge latest mappings with last mappings, if any.
+    latest_mappings.each do |mapping|
+      mapping = SerializationHelper.symbolize_keys(mapping)
+      device = mapping[:device].upcase
+
+      # ignore any mention of "/dev/sda1" because it represents the boot
+      # volume (for both Windows and Linux) and should never be 'managed'.
+      #
+      # FIX: filter this on the server side?
+      unless device == "/dev/sda1"
+        # check that device name is valid
+        if block.call(device)
+          last_mapping = last_mappings.find { |last_mapping| last_mapping[:volume_id] == mapping[:volume_id] }
+          # TODO supply current volume state in mapping from core agent
+          mapping[:volume_state] ||= 'attached'
+          if last_mapping
+            # if device assignment has changed then we must start over (we can't prevent the user from doing this).
+            if last_mapping[:device] != mapping[:device]
+              last_mapping[:device] = mapping[:device]
+              last_mapping[:management_state] = nil
+            end
+            last_mapping[:volume_state] = mapping[:volume_state]
+            result = last_mapping
+          end
+          mappings << mapping
+        else
+          raise UnsupportedDeviceName.new("Cannot mount a volume using device name #{device}.")
+        end
+      end
+    end
+
+    # preserve any last mappings which do not appear in current mappings by
+    # assuming that they are 'detached' to support a limitation of the initial
+    # query implementation.
+    last_mappings.each do |last_mapping|
+      mapping = result.find { |mapping| mapping[:volume_id] == last_mapping[:volume_id] }
+      unless mapping
+        last_mapping[:volume_state] = 'detached'
+        result << last_mapping
+      end
+    end
+
+    return result
+  end
+
+  # Determines if the given device name is valid for current platform.
+  #
+  # === Return
+  # result(Boolean):: true if device name is valid
+  def is_device_valid?(device)
+    return RightLinkConfig[:platform].filesystem.is_attachable_volume_path?(device)
   end
 
   # Retrieve software repositories and configure mirrors accordingly then proceed to
@@ -242,7 +584,7 @@ class InstanceSetup
     if system('which apt-get')
       ENV['DEBIAN_FRONTEND'] = 'noninteractive' # this prevents prompts
       @audit.append_output(`apt-get update 2>&1`)
-    elsif system('which yum') 
+    elsif system('which yum')
       @audit.append_output(`yum clean metadata`)
     end
     true
