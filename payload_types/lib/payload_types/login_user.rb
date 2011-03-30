@@ -25,6 +25,7 @@ module RightScale
 
   # Authorized user for the Managed Login feature
   class LoginUser
+
     include Serializable
 
     attr_accessor :uuid, :username, :public_key, :public_keys, :common_name, :superuser, :expires_at
@@ -36,11 +37,11 @@ module RightScale
       @public_key  = args[2]
       @common_name = args[3] || ''
       @superuser   = args[4] || false
-      @expires_at  = Time.at(args[5]) if args[5] && (args[5] != 0) # in JSON, nil -> 0 for some reason...
+      @expires_at  = Time.at(args[5]) if args[5] && (args[5] != 0) # nil -> 0 because of expires_at.to_i below
       @public_keys = args[6]
 
       # we now expect an array of public_keys to be passed while supporting the
-      # singlular public_key as a legacy member. when serialized back from a
+      # singular public_key as a legacy member. when serialized back from a
       # legacy LoginUser record, the singular value may be set while the plural
       # is nil.
       if @public_keys

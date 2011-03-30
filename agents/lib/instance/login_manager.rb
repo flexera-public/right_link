@@ -29,7 +29,7 @@ module RightScale
 
     ROOT_TRUSTED_KEYS_FILE = '/root/.ssh/authorized_keys'
     ACTIVE_TAG             = 'rs_login:state=active'      
-    AUTHORIZED_KEY_REGEXP  = /(.*)?(ssh-rsa|ssh-dsa)\s+(\S+)\s+(.*)$/
+    COMMENT                = /^\s*#/
 
     # Can the login manager function on this platform?
     #
@@ -73,7 +73,7 @@ module RightScale
     # Read ~root/.ssh/authorized_keys if it exists
     #
     # === Return
-    # authorized_keys(Array[(String)]) list of lines of authorized_keys file
+    # authorized_keys(Array[String]):: list of lines of authorized_keys file
     def read_keys_file
       return [] unless File.exists?(ROOT_TRUSTED_KEYS_FILE)
       File.readlines(ROOT_TRUSTED_KEYS_FILE).map! { |l| l.chomp.strip }
@@ -82,7 +82,7 @@ module RightScale
     # Replace the contents of ~root/.ssh/authorized_keys
     #
     # === Parameters
-    # keys(Array[(String)]) list of lines that authorized_keys file should contain
+    # keys(Array[(String)]):: list of lines that authorized_keys file should contain
     #
     # === Return
     # true:: always returns true
@@ -92,6 +92,19 @@ module RightScale
       FileUtils.chmod(0700, dir)
 
       File.open(ROOT_TRUSTED_KEYS_FILE, 'w') do |f|
+        f.puts "#" * 78
+        f.puts "# USE CAUTION WHEN EDITING THIS FILE BY HAND"
+        f.puts "# This file is generated based on the RightScale dashboard permission"
+        f.puts "# 'server_login'. You can add trusted public keys to the file, but"
+        f.puts "# it is regenerated every 24 hours and keys may be added or removed"
+        f.puts "# without notice if they correspond to a dashbaord user."
+        f.puts "#"
+        f.puts "# Instead of editing this file, you probably want to do one of the"
+        f.puts "# followng:"
+        f.puts "# - Edit dashboard permissions (Settings > Account > Users)"
+        f.puts "# - Change your personal public key (Settings > User > SSH)"
+        f.puts "#"
+
         keys.each { |k| f.puts k }
       end
 
@@ -122,11 +135,13 @@ module RightScale
       file_lines = read_keys_file
 
       file_triples = file_lines.map do |l|
-        match = AUTHORIZED_KEY_REGEXP.match(l)
+        components = LoginPolicy.parse_public_key(l)
         
-        if match
-          #preserve algorithm, key and comments; discard options (the 1th match element)
-          next [ match[2], match[3], match[4] ]
+        if components
+          #preserve algorithm, key and comments; discard options (the 0th element)
+          next [ components[1], components[2], components[3] ]
+        elsif l =~ COMMENT
+          next nil
         else
           RightScale::RightLinkLog.error("Malformed (or not SSH2) entry in authorized_keys file: #{l}")
           next nil
@@ -138,7 +153,15 @@ module RightScale
       #These are the "system keys" that were not added by RightScale.
       old_users_keys = Set.new
       old_users.each do |u|
-        u.public_keys.each { |public_key| old_users_keys << AUTHORIZED_KEY_REGEXP.match(public_key)[3] }
+        u.public_keys.each do |public_key|
+          comp2 = LoginPolicy.parse_public_key(public_key)
+
+          if comp2
+            old_users_keys << comp2[2]
+          else
+            RightScale::RightLinkLog.error("Malformed (or not SSH2) entry in authorized_keys file: #{public_key}")            
+          end
+        end
       end
 
       system_triples = file_triples.select { |t| !old_users_keys.include?(t[1]) }
@@ -202,6 +225,13 @@ module RightScale
       next_expiry = policy.users.map { |u| u.expires_at }.compact.min
       return false unless next_expiry
       delay = next_expiry.to_i - Time.now.to_i + 1
+
+      #Clip timer to one day (86,400 sec) to work around EM timer bug involving
+      #32-bit integer. This works because update_policy is idempotent and can
+      #be safely called at any time. It will "reconverge" if it is called when
+      #no permissions have changed.
+      delay = [delay, 86_400].min
+
       return false unless delay > 0
       @expiry_timer = EventMachine::Timer.new(delay) do
         update_policy(policy)

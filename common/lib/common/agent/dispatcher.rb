@@ -109,7 +109,7 @@ module RightScale
           if request.respond_to?(:reply_to)
             packet = Stale.new(@identity, request.token, request.from, created_at, received_at.to_f, @fresh_timeout)
             exchange = {:type => :queue, :name => request.reply_to, :options => {:durable => true, :no_declare => @secure}}
-            @broker.publish(exchange, packet, :persistent => request.persistent)
+            @broker.publish(exchange, packet, :persistent => request.persistent, :mandatory => true)
           end
           return nil
         end
@@ -157,7 +157,7 @@ module RightScale
             @completed[request.token] = completed_at if @dup_check && request.token
             r = Result.new(request.token, request.reply_to, r, identity, request.from, request.tries, request.persistent)
             exchange = {:type => :queue, :name => request.reply_to, :options => {:durable => true, :no_declare => @secure}}
-            @broker.publish(exchange, r, :persistent => request.persistent, :log_filter => [:tries, :persistent])
+            @broker.publish(exchange, r, :persistent => request.persistent, :mandatory => true, :log_filter => [:tries, :persistent])
           end
         rescue HA_MQ::NoConnectedBrokers => e
           RightLinkLog.error("Failed to publish result of dispatched request #{request.trace}: #{e}")

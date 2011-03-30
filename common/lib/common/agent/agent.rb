@@ -510,10 +510,13 @@ module RightScale
     #   "exceptions"(Hash|nil):: Exceptions raised per category, or nil if none
     #     "total"(Integer):: Total exceptions for this category
     #     "recent"(Array):: Most recent as a hash of "count", "type", "message", "when", and "where"
+    #   "returns(Hash|nil):: Message return activity stats with keys "total", "percent", "last", and "rate"
+    #     with percentage breakdown per return reason, or nil if none
     def agent_stats(reset = false)
       stats = {
         "connect requests" => @connect_requests.all,
-        "exceptions"       => @exceptions.stats
+        "exceptions"       => @exceptions.stats,
+        "returns"          => @returns.all
       }
       reset_agent_stats if reset
       stats
@@ -526,6 +529,7 @@ module RightScale
     def reset_agent_stats
       @connect_requests = ActivityStats.new(measure_rate = false)
       @exceptions = ExceptionStats.new(self, @options[:exception_callback])
+      @returns = ActivityStats.new
       true
     end
 
@@ -632,6 +636,17 @@ module RightScale
     # true:: Always return true
     def setup_queues(ids = nil)
       @broker.prefetch(@options[:prefetch]) if @options[:prefetch]
+      @broker.return_message do |broker_id, reason, message, to|
+        begin
+          handle_return(broker_id, reason, message, to)
+        rescue HA_MQ::NoConnectedBrokers => e
+          RightLinkLog.error("Failed handling return of message from #{broker_id} for #{to}: #{e}")
+        rescue Exception => e
+          RightLinkLog.error("Failed handling return of message from #{broker_id} for #{to}: #{e}\n" +
+                             e.backtrace.join("\n"))
+          @exceptions.track("message return", e)
+        end
+      end
       @all_setup.each { |setup| @remaining_setup[setup] -= self.__send__(setup, ids) }
       true
     end
@@ -719,6 +734,36 @@ module RightScale
       true
     end
 
+    # Handle message returned by broker because it could not deliver it
+    # If possible, resend using another broker
+    #
+    # === Parameters
+    # broker_id(String):: Identity of broker that could not deliver message
+    # reason(String):: Reason for return
+    #   no queue - queue does not exist
+    #   no queue consumers - queue exists but it has no consumers, or if :immediate was specified,
+    #     all consumers are not immediately ready to consume
+    # message(String):: Returned message in serialized packet format
+    # to(String):: Queue to which message was sent
+    #
+    # === Return
+    # true:: Always return true
+    def handle_return(broker_id, reason, message, to)
+      @returns.update("#{@broker.alias_(broker_id)} (#{reason.to_s.downcase})")
+
+      broker_ids = @broker.connected
+      if broker_id == broker_ids[0] && broker_ids.size > 1
+        aliases = @broker.aliases(broker_ids[1..-1]).join(", ")
+        RightLinkLog.info("RE-ROUTE #{aliases} to #{to}")
+        exchange = {:type => :queue, :name => to, :options => {:no_declare => true}}
+        @broker.publish(exchange, message, :persistent => false, :mandatory => true, :no_serialize => true,
+                        :brokers => broker_ids[1..-1], :log_filter => [:tags, :target, :multicast, :tries, :persistent])
+      else
+        RightLinkLog.info("NO ROUTE to #{to}")
+      end
+      true
+    end
+
     # Check status of agent by gathering current operation statistics and publishing them and
     # by completing any queue setup that can be completed now based on broker status
     # Use registrar for initializing broker service for an instance agent
@@ -727,12 +772,6 @@ module RightScale
     # true:: Always return true
     def check_status
       begin
-        if @stats_routing_key
-          exchange = {:type => :topic, :name => "stats", :options => {:no_declare => true}}
-          @broker.publish(exchange, Stats.new(stats.content, @identity), :no_log => true,
-                          :routing_key => @stats_routing_key, :brokers => @check_status_brokers.rotate!)
-        end
-
         if @is_instance_agent
           @broker.failed(backoff = true).each do |id|
             p = {:agent_identity => @identity}
@@ -757,12 +796,23 @@ module RightScale
             end
           end
         end
-
-        @check_status_count += 1
       rescue Exception => e
-        RightLinkLog.error("Failed checking status: #{e}")
+        RightLinkLog.error("Failed finishing setup: #{e}\n" + e.backtrace.join("\n"))
         @exceptions.track("check status", e)
       end
+
+      begin
+        if @stats_routing_key
+          exchange = {:type => :topic, :name => "stats", :options => {:no_declare => true}}
+          @broker.publish(exchange, Stats.new(stats.content, @identity), :no_log => true,
+                          :routing_key => @stats_routing_key, :brokers => @check_status_brokers.rotate!)
+        end
+      rescue Exception => e
+        RightLinkLog.error("Failed publishing stats: #{e}\n" + e.backtrace.join("\n"))
+        @exceptions.track("check status", e)
+      end
+
+      @check_status_count += 1
       true
     end
 
