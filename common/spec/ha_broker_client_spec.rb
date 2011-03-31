@@ -215,6 +215,34 @@ describe RightScale::HABrokerClient do
 
   end # Initializing
 
+  describe "Parsing user_data" do
+
+    it "should extra host list from RS_rn_url and RS_rn_host" do
+      RightScale::HABrokerClient.parse_user_data("RS_rn_url=rs@first/right_net&RS_rn_host=:0,second:1").should ==
+        ["first:0,second:1", nil]
+    end
+
+    it "should extra port list from RS_rn_port" do
+      RightScale::HABrokerClient.parse_user_data("RS_rn_url=rs@host/right_net&RS_rn_host=:1,host:0&RS_rn_port=5673:1,5672:0").should ==
+        ["host:1,host:0", "5673:1,5672:0"]
+    end
+
+    it "should raise an exception if there is no user data" do
+      lambda { RightScale::HABrokerClient.parse_user_data(nil) }.should raise_error(RightScale::HABrokerClient::NoUserData)
+      lambda { RightScale::HABrokerClient.parse_user_data("") }.should raise_error(RightScale::HABrokerClient::NoUserData)
+    end
+
+    it "should raise an exception if there are no broker hosts defined in the data" do
+      lambda { RightScale::HABrokerClient.parse_user_data("blah") }.should raise_error(RightScale::HABrokerClient::NoBrokerHosts)
+    end
+
+    it "should translate old host name to standard form" do
+      RightScale::HABrokerClient.parse_user_data("RS_rn_url=rs@broker.rightscale.com/right_net").should ==
+        ["broker1-1.rightscale.com", nil]
+    end
+
+  end # Parsing user_data
+
   describe "Addressing" do
 
     it "should form list of broker addresses from specified hosts and ports" do

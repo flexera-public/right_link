@@ -29,6 +29,8 @@ module RightScale
 
     include StatsHelper
 
+    class NoUserData < Exception; end
+    class NoBrokerHosts < Exception; end
     class NoConnectedBrokers < Exception; end
 
     # Message publishing context
@@ -156,6 +158,44 @@ module RightScale
       @brokers_hash = {}
       @brokers.each { |b| @brokers_hash[b.identity] = b }
       return_message { |i, r, m, t, c| handle_return(i, r, m, t, c) }
+    end
+
+    # Parse agent user data to extract broker host and port configuration
+    # Agents below r_s_version 9 only support using one broker
+    #
+    # === Parameters
+    # user_data(String):: Agent user data in <name>=<value>&<name>=<value>&... form
+    #   with required name RS_rn_url and optional names RS_rn_host and RS_rn_port
+    #
+    # === Return
+    # (Array):: Broker hosts and ports as comma-separated list in priority order in the form
+    #   <hostname>:<index>,<hostname>:<index>,...
+    #   <port>:<index>,<port>:<index>,... or nil if none specified
+    #
+    # === Raise
+    # NoUserData:: If the user data is missing
+    # NoBrokerHosts:: If no brokers could be extracted from the user data
+    def self.parse_user_data(user_data)
+      raise NoUserData.new("User data is missing") if user_data.nil? || user_data.empty?
+      hosts = ""
+      ports = nil
+      user_data.split("&").each do |data|
+        name, value = data.split("=")
+        if name == "RS_rn_url"
+          h = value.split("@").last.split("/").first
+          # Translate host name used by very old agents using only one broker
+          h = "broker1-1.rightscale.com" if h == "broker.rightscale.com"
+          hosts = h + hosts
+        end
+        if name == "RS_rn_host"
+          hosts << value
+        end
+        if name == "RS_rn_port"
+          ports = value
+        end
+      end
+      raise NoBrokerHosts.new("No brokers found in user data") if hosts.empty?
+      [hosts, ports]
     end
 
     # Parse host and port information to form list of broker address information
