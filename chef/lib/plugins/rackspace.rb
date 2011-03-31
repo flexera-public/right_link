@@ -26,6 +26,5 @@ require_plugin "network"
 
 if ::RightScale::CloudUtilities.is_cloud?(:rackspace){ ::RightScale::CloudUtilities.has_mac?(self, "00:00:0c:07:ac:01") || kernel[:release].split('-').last.eql?("rscloud") }
   rackspace Mash.new
-  rackspace[:public_ip] = ::RightScale::CloudUtilities.ip_for_interface(self, :eth0)
-  rackspace[:private_ip] = ::RightScale::CloudUtilities.ip_for_interface(self, :eth1)
+  require_plugin "#{os}::rackspace"
 end
