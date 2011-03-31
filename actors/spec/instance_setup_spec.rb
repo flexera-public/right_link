@@ -187,7 +187,7 @@ describe InstanceSetup do
     @mapper_proxy.should_receive(:initialize_offline_queue).and_yield
 
     # stub out planned volumes for windows, cause failure under Mac/Linux where call is unexpected.
-    planned_volume_mapping_result = if RightScale::Platform.windows?; @results_factory.success_results([]); else; @results_factory.error_result("Unexpected call for platform."); end
+    planned_volume_mapping_result = if RightScale::Platform.windows?; @results_factory.success_results([]); else; @results_factory.error_results("Unexpected call for platform."); end
     InstanceSetup.planned_volume_mappings_results = [planned_volume_mapping_result]
 
     # prevent Chef logging reaching the console during spec test.
