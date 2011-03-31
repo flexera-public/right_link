@@ -43,16 +43,20 @@ module RightScale
     # (Binary string) Repose token for attachment
     attr_accessor :token
 
-    def initialize (*args)
+    # (String) Content digest
+    attr_accessor :digest
+
+    def initialize(*args)
       @url       = args[0] if args.size > 0
       @file_name = args[1] if args.size > 1
       @etag      = args[2] if args.size > 2
-      @token    = args[3] if args.size > 3
+      @token     = args[3] if args.size > 3
+      @digest    = args[4] if args.size > 4
     end
 
     # Array of serialized fields given to constructor
     def serialized_members
-      [ @url, @file_name, @etag, @token ]
+      [ @url, @file_name, @etag, @token, @digest ]
     end
 
     # Return the Repose hash for this attachment.
@@ -63,9 +67,13 @@ module RightScale
     # Fill out the session cookie appropriately for this attachment.
     def fill_out(session)
       session['scope'] = "attachments"
-      session['resource'] = to_hash
-      session['url'] = @url
-      session['etag'] = @etag
+      if @digest
+        session['resource'] = @digest
+      else
+        session['resource'] = to_hash
+        session['url'] = @url
+        session['etag'] = @etag
+      end
       @token = session.to_s
     end
 
