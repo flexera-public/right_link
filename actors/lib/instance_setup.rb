@@ -43,6 +43,7 @@ class InstanceSetup
   # Tag set on instances that are part of an array
   AUTO_LAUNCH_TAG ='rs_launch:type=auto'
 
+  class InvalidResponse < Exception; end
   class UnexpectedState < Exception; end
   class UnsupportedDeviceName < Exception; end
 
@@ -216,7 +217,7 @@ class InstanceSetup
             block.call if block
           else
             # must do some management if any volumes are not 'assigned'
-            if mappings.find { |mapping| mapping[:management_state] != 'assigned' }
+            if mappings.find { |mapping| mapping[:management_status] != 'assigned' }
               # must detach all 'attached' volumes if any are attached (or
               # attaching) but not yet managed on the instance side. this is the
               # only way to ensure they receive the correct device names.
@@ -237,7 +238,7 @@ class InstanceSetup
                 end
               else
                 mappings.each do |mapping|
-                  case mapping[:volume_state]
+                  case mapping[:volume_status]
                   when 'detached', 'detaching'
                     # attach next volume and go around again.
                     attach_planned_volume(mapping) do
@@ -247,11 +248,11 @@ class InstanceSetup
                     break  # out of mappings.each
                   when 'attached', 'attaching'
                     # assign next volume and go around again.
-                    if mapping[:management_state] != 'assigned'
+                    if mapping[:management_status] != 'assigned'
                       manage_volume_device_assignment(mapping) do
                         # we can move on to next volume 'immediately' unless the
                         # mapping requires a retry.
-                        if mapping[:management_state] == 'assigned'
+                        if mapping[:management_status] == 'assigned'
                           EM.next_tick { manage_planned_volumes(&block) }
                         else
                           log_info("Waiting for volume #{mapping[:volume_id]} to initialize using device #{mapping[:device]}. Retrying in #{VOLUME_RETRY_SECONDS} seconds...")
@@ -262,7 +263,7 @@ class InstanceSetup
                     end
                   else
                     # handle 'deleted', etc.
-                    strand("State of volume #{mapping[:volume_id]} was unexpected: #{mapping[:volume_state]}")
+                    strand("State of volume #{mapping[:volume_id]} was unexpected: #{mapping[:volume_status]}")
                   end
                 end
               end
@@ -290,8 +291,8 @@ class InstanceSetup
     send_retryable_request("/storage_valet/detach_volume", payload) do |r|
       res = result_from(r)
       if res.success?
-        mapping[:volume_state] = 'detaching'
-        mapping[:management_state] = 'detached'
+        mapping[:volume_status] = 'detaching'
+        mapping[:management_status] = 'detached'
         mapping[:attempts] = nil
         yield if block_given?
       else
@@ -327,8 +328,8 @@ class InstanceSetup
     send_retryable_request("/storage_valet/attach_volume", payload) do |r|
       res = result_from(r)
       if res.success?
-        mapping[:volume_state] = 'attaching'
-        mapping[:management_state] = 'attached'
+        mapping[:volume_status] = 'attaching'
+        mapping[:management_status] = 'attached'
         mapping[:attempts] = nil
         yield if block_given?
       else
@@ -356,8 +357,8 @@ class InstanceSetup
   def manage_volume_device_assignment(mapping)
 
     # only managed volumes should be in an attached state ready for assignment.
-    unless 'attached' == mapping[:management_state]
-      raise UnexpectedState.new("The volume #{mapping[:volume_id]} for device #{mapping[:device]} was in an unexpected managed state: #{mapping[:management_state]}")
+    unless 'attached' == mapping[:management_status]
+      raise UnexpectedState.new("The volume #{mapping[:volume_id]} for device #{mapping[:device]} was in an unexpected managed state: #{mapping[:management_status]}")
     end
 
     # check for changes in disks.
@@ -394,7 +395,7 @@ class InstanceSetup
     # retry only if still not assigned.
     if succeeded
       # volume is (finally!) assigned to correct device name.
-      mapping[:management_state] = 'assigned'
+      mapping[:management_status] = 'assigned'
       mapping[:attempts] = nil
 
       # reset cached volumes/disks for next attempt (to attach), if any.
@@ -447,9 +448,9 @@ class InstanceSetup
   # === Return
   # result(Boolean):: true if volume is attached and unassigned
   def is_attached_volume_unmanaged?(mapping)
-    case mapping[:volume_state]
+    case mapping[:volume_status]
     when 'attached', 'attaching'
-      mapping[:management_state].nil?
+      mapping[:management_status].nil?
     else
       false
     end
@@ -463,25 +464,24 @@ class InstanceSetup
     # merge latest mappings with last mappings, if any.
     current_mappings.each do |mapping|
       mapping = RightScale::SerializationHelper.symbolize_keys(mapping)
-      device = mapping[:device].upcase
+      valid_mapping = mapping[:device] && mapping[:volume_id] && mapping[:volume_status]
+      raise InvalidResponse.new("Reponse for volume mapping was invalid: #{mapping.inspect}") unless valid_mapping
 
       # ignore any mention of "/dev/sda1" because it represents the boot
       # volume (for both Windows and Linux) and should never be 'managed'.
       #
       # FIX: filter this on the server side?
-      unless device == "/dev/sda1"
+      unless mapping[:device] == "/dev/sda1"
         # check that device name is valid
-        if block.call(device)
+        if block.call(mapping[:device])
           last_mapping = last_mappings.find { |last_mapping| last_mapping[:volume_id] == mapping[:volume_id] }
-          # TODO supply current volume state in mapping from core agent
-          mapping[:volume_state] ||= 'attached'
           if last_mapping
             # if device assignment has changed then we must start over (we can't prevent the user from doing this).
             if last_mapping[:device] != mapping[:device]
               last_mapping[:device] = mapping[:device]
-              last_mapping[:management_state] = nil
+              last_mapping[:management_status] = nil
             end
-            last_mapping[:volume_state] = mapping[:volume_state]
+            last_mapping[:volume_status] = mapping[:volume_status]
             mapping = last_mapping
           end
           results << mapping
@@ -497,7 +497,7 @@ class InstanceSetup
     last_mappings.each do |last_mapping|
       mapping = results.find { |mapping| mapping[:volume_id] == last_mapping[:volume_id] }
       unless mapping
-        last_mapping[:volume_state] = 'detached'
+        last_mapping[:volume_status] = 'detached'
         results << last_mapping
       end
     end

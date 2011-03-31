@@ -291,8 +291,10 @@ describe InstanceSetup do
 
   def mock_core_api_planned_volume_mappings
     mappings = []
-    mappings << {:volume_id => 'test_vol_D', :device => 'D:'}  # map blank volume to D:
-    mappings << {:volume_id => 'test_vol_F', :device => 'F:'}  # snapshot volume might online automatically as E: but we explicitly request F:
+    mappings << {:volume_id => 'test_vol_D', :device => 'D:',  # map blank volume to D:
+                 :volume_status => 'attached'}
+    mappings << {:volume_id => 'test_vol_F', :device => 'F:',  # snapshot volume might online automatically as E: but we explicitly request F:
+                 :volume_status => 'attached'}
     results = []
     results << [mappings[0], mappings[1]]   # all volumes are initially attached in first implementation of core api
     results << []                           # detach-all removes all instance associations with volumes
