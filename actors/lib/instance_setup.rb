@@ -43,6 +43,7 @@ class InstanceSetup
   # Tag set on instances that are part of an array
   AUTO_LAUNCH_TAG ='rs_launch:type=auto'
 
+  class UnexpectedState < Exception; end
   class UnsupportedDeviceName < Exception; end
 
   # Boot if and only if instance state is 'booting'
@@ -174,7 +175,13 @@ class InstanceSetup
     # managing planned volumes is currently only needed in Windows and only if
     # this is not a reboot scenario.
     if RightScale::Platform.windows? and not RightScale::InstanceState.reboot?
-      manage_planned_volumes { boot }
+      RightScale::AuditProxy.create(@agent_identity, 'Planned volume management') do |audit|
+        @audit = audit
+        manage_planned_volumes do
+          @audit = nil
+          boot
+        end
+      end
     else
       boot
     end
@@ -213,10 +220,10 @@ class InstanceSetup
               # must detach all 'attached' volumes if any are attached (or
               # attaching) but not yet managed on the instance side. this is the
               # only way to ensure they receive the correct device names.
-              detachable_volume_count = mappings.count { |mapping| is_attached_volume_unassigned?(mapping) }
+              detachable_volume_count = mappings.count { |mapping| is_attached_volume_unmanaged?(mapping) }
               if detachable_volume_count >= 1
                 mappings.each do |mapping|
-                  if is_attached_volume_unassigned?(mapping)
+                  if is_attached_volume_unmanaged?(mapping)
                     detach_planned_volume(mapping) do
                       detachable_volume_count -= 1
                       if 0 == detachable_volume_count
@@ -265,7 +272,7 @@ class InstanceSetup
             end
           end
         rescue Exception => e
-          strand(e.message)
+          strand(e)
         end
       else
         strand("Failed to retrieve planned volume mappings", res)
@@ -310,12 +317,13 @@ class InstanceSetup
   # mapping(Hash):: details of planned volume
   def attach_planned_volume(mapping)
     # preserve the initial list of disks/volumes before attachment for comparison later.
-    RightScale::InstanceState.planned_volume_state.disks ||= RightLinkConfig[:platform].volume_manager.disks
-    RightScale::InstanceState.planned_volume_state.volumes ||= RightLinkConfig[:platform].volume_manager.volumes
+    vm = RightScale::RightLinkConfig[:platform].volume_manager
+    RightScale::InstanceState.planned_volume_state.disks ||= vm.disks
+    RightScale::InstanceState.planned_volume_state.volumes ||= vm.volumes
 
     # attach.
     payload = {:agent_identity => @agent_identity, :volume_id => mapping[:volume_id], :device => mapping[:device]}
-    log_info("Attaching volume #{mapping[:volume_id]} using device #{mapping[:device]}.")
+    @audit.append_info("Attaching volume #{mapping[:volume_id]} using device \"#{mapping[:device]}\".")
     send_retryable_request("/storage_valet/attach_volume", payload) do |r|
       res = result_from(r)
       if res.success?
@@ -327,7 +335,7 @@ class InstanceSetup
         # volume could already be attaching or have been deleted
         # which we can't see because of latency; go around again
         # and check state of volume later.
-        log_info("Received retry for attaching volume #{mapping[:volume_id]} using device #{mapping[:device]}.") if res.retry?
+        log_info("Received retry for attaching volume #{mapping[:volume_id]} using device \"#{mapping[:device]}\".") if res.retry?
         log_error("Failed to attach volume #{mapping[:volume_id]} using device #{mapping[:device]}: #{res.content}") if res.error?
         mapping[:attempts] ||= 0
         mapping[:attempts] += 1
@@ -346,10 +354,16 @@ class InstanceSetup
   # === Parameters
   # mapping(Hash):: details of planned volume
   def manage_volume_device_assignment(mapping)
+
+    # only managed volumes should be in an attached state ready for assignment.
+    unless 'attached' == mapping[:management_state]
+      raise UnexpectedState.new("The volume #{mapping[:volume_id]} for device #{mapping[:device]} was in an unexpected managed state: #{mapping[:management_state]}")
+    end
+
     # check for changes in disks.
     last_disks = RightScale::InstanceState.planned_volume_state.disks
     last_volumes = RightScale::InstanceState.planned_volume_state.volumes
-    vm = RightLinkConfig[:platform].volume_manager
+    vm = RightScale::RightLinkConfig[:platform].volume_manager
     current_disks = vm.disks
     current_volumes = vm.volumes
 
@@ -359,11 +373,11 @@ class InstanceSetup
     if new_disk = find_distinct_item(current_disks, last_disks, :index)
       # if the new disk as no partitions, then we will format and assign device.
       if vm.partitions(new_disk[:index]).empty?
-        log_info("Creating primary partition and formatting device #{mapping[:device]}.")
+        @audit.append_info("Creating primary partition and formatting device \"#{mapping[:device]}\".")
         vm.format_disk(new_disk[:index], mapping[:device])
         succeeded = true
       else
-        log_info("Preparing device #{mapping[:device]} for use.")
+        @audit.append_info("Preparing device \"#{mapping[:device]}\" for use.")
         new_volume = find_distinct_item(current_volumes, last_volumes, :device)
         unless new_volume
           vm.online_disk(new_disk[:index])
@@ -399,7 +413,7 @@ class InstanceSetup
       end
     end
   rescue Exception => e
-    strand(e.message)
+    strand(e)
   end
 
   # Determines a single, unique item (hash) by given key in the current
@@ -426,16 +440,16 @@ class InstanceSetup
   end
 
   # Determines if the given volume is in an attached (or attaching) state and
-  # also not yet assigned a drive letter. Note that we can assign drive letters
+  # not yet managed (in a managed state). Note that we can assign drive letters
   # to 'attaching' volumes because they may appear locally before the repository
   # can update their status to 'attached'.
   #
   # === Return
   # result(Boolean):: true if volume is attached and unassigned
-  def is_attached_volume_unassigned?(mapping)
+  def is_attached_volume_unmanaged?(mapping)
     case mapping[:volume_state]
     when 'attached', 'attaching'
-      mapping[:management_state] != 'assigned'
+      mapping[:management_state].nil?
     else
       false
     end
@@ -443,12 +457,12 @@ class InstanceSetup
 
   # Merges mappings from query with any last known mappings which may have a
   # locally persisted state which needs to be evaluated.
-  def merge_planned_volume_mappings last_mappings, latest_mappings, &block
-    result = []
+  def merge_planned_volume_mappings last_mappings, current_mappings, &block
+    results = []
 
     # merge latest mappings with last mappings, if any.
-    latest_mappings.each do |mapping|
-      mapping = SerializationHelper.symbolize_keys(mapping)
+    current_mappings.each do |mapping|
+      mapping = RightScale::SerializationHelper.symbolize_keys(mapping)
       device = mapping[:device].upcase
 
       # ignore any mention of "/dev/sda1" because it represents the boot
@@ -468,9 +482,9 @@ class InstanceSetup
               last_mapping[:management_state] = nil
             end
             last_mapping[:volume_state] = mapping[:volume_state]
-            result = last_mapping
+            mapping = last_mapping
           end
-          mappings << mapping
+          results << mapping
         else
           raise UnsupportedDeviceName.new("Cannot mount a volume using device name #{device}.")
         end
@@ -481,14 +495,14 @@ class InstanceSetup
     # assuming that they are 'detached' to support a limitation of the initial
     # query implementation.
     last_mappings.each do |last_mapping|
-      mapping = result.find { |mapping| mapping[:volume_id] == last_mapping[:volume_id] }
+      mapping = results.find { |mapping| mapping[:volume_id] == last_mapping[:volume_id] }
       unless mapping
         last_mapping[:volume_state] = 'detached'
-        result << last_mapping
+        results << last_mapping
       end
     end
 
-    return result
+    return results
   end
 
   # Determines if the given device name is valid for current platform.
@@ -496,7 +510,7 @@ class InstanceSetup
   # === Return
   # result(Boolean):: true if device name is valid
   def is_device_valid?(device)
-    return RightLinkConfig[:platform].filesystem.is_attachable_volume_path?(device)
+    return RightScale::RightLinkConfig[:platform].volume_manager.is_attachable_volume_path?(device)
   end
 
   # Retrieve software repositories and configure mirrors accordingly then proceed to
@@ -549,9 +563,21 @@ class InstanceSetup
   # === Return
   # true:: Always return true
   def strand(msg, res=nil)
-    RightScale::InstanceState.value = 'stranded'
+
+    # attempt to provide details of exception or result which caused stranding.
+    detailed = nil
+    if msg.kind_of? Exception
+      e = msg
+      detailed = "#{e.class}: #{e.message}\n#{e.backtrace.join("\n")}"
+      msg = e.message
+    end
     msg += ": #{res.content}" if res && res.content
     @audit.append_error(msg, :category => RightScale::EventCategories::CATEGORY_ERROR) if @audit
+    log_error(detailed) if detailed
+
+    # set stranded state last in case this would prevent final audits from being
+    # sent (as it does in testing).
+    RightScale::InstanceState.value = 'stranded'
     true
   end
 
