@@ -217,6 +217,8 @@ begin
         end
       end
 
+      RightScale::RightLinkLog.warning("Attempting to reconnect to broker " +
+        "#{RightScale::AgentIdentity.new('rs', 'broker', @settings[:port].to_i, @settings[:host].gsub('-', '~')).to_s}")
       log 'reconnecting'
       EM.reconnect(@settings[:host], @settings[:port], self)
     end
