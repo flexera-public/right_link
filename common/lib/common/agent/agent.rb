@@ -678,7 +678,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def finish_setup
-      @broker.failed(backoff = true).each do |id|
+      @broker.failed.each do |id|
         p = {:agent_identity => @identity}
         p[:host], p[:port], p[:id], p[:priority], _ = @broker.identity_parts(id)
         @mapper_proxy.send_push("/registrar/connect", p)
