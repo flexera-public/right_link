@@ -20,7 +20,7 @@ gem "ohai", "0.5.4"
 gem "moneta", "0.6.0"
 gem "right_scraper", "1.0.23"
 gem "bunny", "0.6.0"
-gem "chef", "0.8.16.3"
+gem "chef", "0.8.16.7"
 gem "process_watcher", "0.4"
 gem "right_http_connection", "1.3.0"
 
