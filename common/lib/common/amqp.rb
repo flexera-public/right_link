@@ -217,12 +217,6 @@ begin
         end
       end
 
-      if (@reconnect_try % 30) == 0
-        RightScale::RightLinkLog.warn("Attempting to reconnect to broker " +
-          "#{RightScale::AgentIdentity.new('rs', 'broker', @settings[:port].to_i, @settings[:host].gsub('-', '~')).to_s}")
-        @reconnect_log = :error if (@reconnect_try % 300) == 0
-      end
-      @reconnect_try += 1
       log 'reconnecting'
       EM.reconnect(@settings[:host], @settings[:port], self)
     end
@@ -248,7 +242,7 @@ begin
   # This monkey patch catches exceptions that would otherwise cause EM to stop or be in a bad
   # state if a top level EM error handler was setup. Instead close the connection and leave EM
   # alone.
-  # Don't log an error if the environment variable IGNORE_AMQP_FAILURES is set (used in the 
+  # Don't log an error if the environment variable IGNORE_AMQP_FAILURES is set (used in the
   # enroll script)
   AMQP::Client.module_eval do
     alias :orig_receive_data :receive_data
@@ -687,7 +681,7 @@ module RightScale
         end
       end
     end
- 
+
     # Parse host and port information to form list of broker identities
     #
     # === Parameters
@@ -1005,7 +999,7 @@ module RightScale
         update_status(broker, :failed)
       end
     end
- 
+
     # Provide callback to be activated when there is a change in connection status
     # Can be called more than once without affecting previous callbacks
     #
