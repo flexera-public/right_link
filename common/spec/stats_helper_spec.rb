@@ -322,7 +322,7 @@ describe RightScale::StatsHelper do
       sort_key({3 => "c", 1 => "a", 2 => "b"}).should == [[1, "a"], [2, "b"], [3, "c"]]
       sort_key({11 => "c", 9 => "a", 10 => "b"}).should == [[9, "a"], [10, "b"], [11, "c"]]
       sort_key({"append_info" => 9.6, "create_new_section" => 8.5, "append_output" => 7.3, "record" => 4.7,
-                "update_for_global_object_save_or_destroy" => 4.5, "update_status" => 4.4,
+                "update_status" => 4.4,
                 "declare" => 39.2, "list_agents" => 3.7, "update_tags" => 3.2, "append_error" => 3.0,
                 "add_user" => 2.4, "get_boot_bundle" => 1.4, "get_repositories" => 1.4,
                 "update_login_policy" => 1.3, "schedule_decommission" => 0.91, "update_inputs" => 0.75,
@@ -334,7 +334,7 @@ describe RightScale::StatsHelper do
                 ["get_decommission_bundle", 0.083], ["get_login_policy", 0.58], ["get_repositories", 1.4],
                 ["list_agents", 3.7], ["list_queues", 0.083], ["ping", 0.5], ["query_tags", 0.083],
                 ["record", 4.7], ["remove", 0.66], ["schedule_decommission", 0.91], ["soft_decommission", 0.75],
-                ["update_entry", 0.25], ["update_for_global_object_save_or_destroy", 4.5], ["update_inputs", 0.75],
+                ["update_entry", 0.25], ["update_inputs", 0.75],
                 ["update_login_policy", 1.3], ["update_status", 4.4], ["update_tags", 3.2]]
     end
 
@@ -342,7 +342,7 @@ describe RightScale::StatsHelper do
       sort_value({"c" => 3, "a" => 2, "b" => 1}).should == [["b", 1], ["a", 2], ["c", 3]]
       sort_value({"c" => 3.0, "a" => 2, "b" => 1.0}).should == [["b", 1.0], ["a", 2], ["c", 3.0]]
       sort_value({"append_info" => 9.6, "create_new_section" => 8.5, "append_output" => 7.3, "record" => 4.7,
-                  "update_for_global_object_save_or_destroy" => 4.5, "update_status" => 4.4,
+                  "update_status" => 4.4,
                   "declare" => 39.2, "list_agents" => 3.7, "update_tags" => 3.2, "append_error" => 3.0,
                   "add_user" => 2.4, "get_boot_bundle" => 1.4, "get_repositories" => 1.4,
                   "update_login_policy" => 1.3, "schedule_decommission" => 0.91, "update_inputs" => 0.75,
@@ -354,7 +354,7 @@ describe RightScale::StatsHelper do
                   ["delete_queues", 0.75], ["update_inputs", 0.75], ["soft_decommission", 0.75],
                   ["schedule_decommission", 0.91], ["update_login_policy", 1.3], ["get_boot_bundle", 1.4],
                   ["get_repositories", 1.4], ["add_user", 2.4], ["append_error", 3.0], ["update_tags", 3.2],
-                  ["list_agents", 3.7], ["update_status", 4.4], ["update_for_global_object_save_or_destroy", 4.5],
+                  ["list_agents", 3.7], ["update_status", 4.4],
                   ["record", 4.7], ["append_output", 7.3], ["create_new_section", 8.5], ["append_info", 9.6],
                   ["declare", 39.2]]
     end
