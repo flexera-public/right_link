@@ -26,6 +26,9 @@ module RightScale
   # X.509 certificate signing
   class SecureSerializer
 
+    class MissingCertificate < Exception; end
+    class InvalidSignature < Exception; end
+
     # Initialize serializer, must be called prior to using it
     #
     # === Parameters
@@ -61,6 +64,9 @@ module RightScale
     #
     # === Return
     # (String):: MessagePack serialized and optionally encrypted object
+    #
+    # === Raise
+    # Exception:: If certificate identity, certificate store, certificate, or private key missing
     def self.dump(obj, encrypt = nil)
       raise "Missing certificate identity" unless @identity
       raise "Missing certificate" unless @cert
@@ -95,6 +101,11 @@ module RightScale
     #
     # === Return
     # (Object):: Unserialized object
+    #
+    # === Raise
+    # Exception:: If certificate store, certificate, or private key missing
+    # MissingCertificate:: If could not find certificate for message signer
+    # InvalidSignature:: If message signature check failed for message
     def self.load(msg)
       raise "Missing certificate store" unless @store
       raise "Missing certificate" unless @cert || !@encrypt
@@ -103,10 +114,10 @@ module RightScale
       msg = @serializer.load(msg)
       sig = Signature.from_data(msg['signature'])
       certs = @store.get_signer(msg['id'])
-      raise "Could not find a cert for signer #{msg['id']}" unless certs
+      raise MissingCertificate.new("Could not find a certificate for signer #{msg['id']}") unless certs
 
       certs = [ certs ] unless certs.respond_to?(:any?)
-      raise "Failed to check signature for signer #{msg['id']}" unless certs.any? { |c| sig.match?(c) }
+      raise InvalidSignature.new("Failed signature check for signer #{msg['id']}") unless certs.any? { |c| sig.match?(c) }
 
       data = msg['data']
       if data && @encrypt && msg['encrypted']
