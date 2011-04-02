@@ -579,7 +579,8 @@ module RightScale
           nil
         end
       rescue Exception => e
-        RightLinkLog.error("Failed receiving from queue #{queue} on #{@alias}", e, :trace)
+        trace = e.is_a?(Serializer::SerializationError) ? :caller : :trace
+        RightLinkLog.error("Failed receiving from queue #{queue} on #{@alias}", e, trace)
         @exceptions.track("receive", e)
         @options[:exception_on_receive_callback].call(message, e) if @options[:exception_on_receive_callback]
         nil
