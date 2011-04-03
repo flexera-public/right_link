@@ -61,7 +61,7 @@ describe RightScale::MapperProxy do
     before(:each) do
       flexmock(EM).should_receive(:next_tick).and_yield.by_default
       @broker = flexmock("Broker", :subscribe => true, :publish => ["broker"], :connected? => true,
-                         :identity_parts => ["host", 123, 0, 0]).by_default
+                         :identity_parts => ["host", 123, 0, 0, nil]).by_default
       @agent = flexmock("Agent", :identity => "agent", :broker => @broker, :options => {:ping_interval => 0}).by_default
     end
 
@@ -117,7 +117,7 @@ describe RightScale::MapperProxy do
       flexmock(RightScale::RightLinkLog).should_receive(:warn).with(/Mapper ping via broker/).once
       @agent.should_receive(:options).and_return(:ping_interval => 1000)
       broker_id = "rs-broker-localhost-5672"
-      @broker.should_receive(:identity_parts).with(broker_id).and_return(["localhost", 5672, 0, 0]).once
+      @broker.should_receive(:identity_parts).with(broker_id).and_return(["localhost", 5672, 0, 0, nil]).once
       @agent.should_receive(:connect).with("localhost", 5672, 0, 0, true).once
       old_ping_timeout = RightScale::MapperProxy::PING_TIMEOUT
       begin
@@ -231,7 +231,7 @@ describe RightScale::MapperProxy do
       @broker_id = "broker"
       @broker_ids = [@broker_id]
       @broker = flexmock("Broker", :subscribe => true, :publish => @broker_ids, :connected? => true,
-                         :identity_parts => ["host", 123, 0, 0]).by_default
+                         :identity_parts => ["host", 123, 0, 0, nil]).by_default
       @agent = flexmock("Agent", :identity => "agent", :broker => @broker).by_default
       @agent.should_receive(:options).and_return({:ping_interval => 0, :time_to_live => 100}).by_default
       RightScale::MapperProxy.new(@agent)
@@ -509,7 +509,7 @@ describe RightScale::MapperProxy do
       @broker_id = "broker"
       @broker_ids = [@broker_id]
       @broker = flexmock("Broker", :subscribe => true, :publish => @broker_ids, :connected? => true,
-                         :identity_parts => ["host", 123, 0, 0]).by_default
+                         :identity_parts => ["host", 123, 0, 0, nil]).by_default
       @agent = flexmock("Agent", :identity => "agent", :broker => @broker,
                         :options => {:ping_interval => 0, :time_to_live => 100}).by_default
       RightScale::MapperProxy.new(@agent)
@@ -564,7 +564,7 @@ describe RightScale::MapperProxy do
       flexmock(EM).should_receive(:next_tick).and_yield.by_default
       flexmock(EM).should_receive(:defer).and_yield.by_default
       @broker = flexmock("Broker", :subscribe => true, :publish => ["broker"], :connected? => true,
-                         :identity_parts => ["host", 123, 0, 0]).by_default
+                         :identity_parts => ["host", 123, 0, 0, nil]).by_default
       @agent = flexmock("Agent", :identity => "agent", :broker => @broker, :options => {:ping_interval => 0}).by_default
       RightScale::MapperProxy.new(@agent)
       @instance = RightScale::MapperProxy.instance
@@ -620,7 +620,7 @@ describe RightScale::MapperProxy do
       flexmock(EM).should_receive(:next_tick).and_yield.by_default
       flexmock(EM).should_receive(:defer).and_yield.by_default
       @broker = flexmock("Broker", :subscribe => true, :publish => ["broker"], :connected? => true,
-                         :identity_parts => ["host", 123, 0, 0]).by_default
+                         :identity_parts => ["host", 123, 0, 0, nil]).by_default
       @agent = flexmock("Agent", :identity => "agent", :broker => @broker, :options => {:ping_interval => 0}).by_default
       RightScale::MapperProxy.new(@agent)
       @instance = RightScale::MapperProxy.instance
@@ -694,7 +694,7 @@ describe RightScale::MapperProxy do
   describe "when use offline queueing" do
     before(:each) do
       @broker = flexmock("Broker", :subscribe => true, :publish => ["broker"], :connected? => true,
-                         :identity_parts => ["host", 123, 0, 0]).by_default
+                         :identity_parts => ["host", 123, 0, 0, nil]).by_default
       @agent = flexmock("Agent", :identity => "agent", :broker => @broker, :options => {}).by_default
       RightScale::MapperProxy.new(@agent)
       @instance = RightScale::MapperProxy.instance

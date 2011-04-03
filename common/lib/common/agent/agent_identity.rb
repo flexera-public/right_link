@@ -101,9 +101,9 @@ module RightScale
     def self.parse(serialized_id)
       serialized_id = self.compatible_serialized(serialized_id)
       prefix, agent_name, token, bid, separator = parts(serialized_id)
-      raise RightScale::Exceptions::Argument, "Invalid agent identity token" unless prefix && agent_name && token && bid
+      raise RightScale::Exceptions::Argument, "Invalid agent identity token: #{serialized_id}" unless prefix && agent_name && token && bid
       base_id = bid.to_i
-      raise RightScale::Exceptions::Argument, "Invalid agent identity token (Base ID)" unless base_id.to_s == bid
+      raise RightScale::Exceptions::Argument, "Invalid agent identity token (base ID): #{serialized_id}" unless base_id.to_s == bid
 
       AgentIdentity.new(prefix, agent_name, base_id, token, separator)
     end

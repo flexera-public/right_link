@@ -104,7 +104,7 @@ class AgentManager
   # options(Hash):: Connect options:
   #   :host(String):: Host name of broker
   #   :port(Integer):: Port number of broker
-  #   :id(Integer):: Small unique id associated with this broker for use in forming alias
+  #   :id(Integer):: Small unique id (aka index) associated with this broker for use in forming alias
   #   :priority(Integer|nil):: Priority position of this broker in list for use
   #     by this agent with nil meaning add to end of list
   #   :force(Boolean):: Reconnect even if already connected

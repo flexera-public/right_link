@@ -119,10 +119,12 @@ module RightScale
     def cascade_serializers(action, packet, serializers)
       errors = []
       serializers.map do |serializer|
+        obj = nil
         begin
           obj = serializer.__send__(action, packet)
+        rescue SecureSerializer::MissingCertificate, SecureSerializer::InvalidSignature => e
+          errors << RightLinkLog.format("Failed to #{action} with #{serializer.name}", e)
         rescue Exception => e
-          obj = nil
           errors << RightLinkLog.format("Failed to #{action} with #{serializer.name}", e, :trace)
         end
         return obj if obj

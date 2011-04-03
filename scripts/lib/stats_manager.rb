@@ -35,12 +35,6 @@ module RightScale
 
     SERVERS = ["instance"]
 
-    DEFAULT_AMQP_OPTIONS = { :host  => 'localhost',
-                             :vhost => '/right_net',
-                             :user  => 'test',
-                             :pass  => 'testing',
-                             :port  => 5672 }
-
     # Convenience wrapper
     def self.run
       begin

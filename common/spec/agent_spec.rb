@@ -47,7 +47,7 @@ describe RightScale::Agent do
                          :all => ["b1"], :connected => ["b1"], :failed => [], :close_one => true,
                          :non_delivery => true).by_default
       @broker.should_receive(:connection_status).and_yield(:connected)
-      flexmock(RightScale::HA_MQ).should_receive(:new).and_return(@broker)
+      flexmock(RightScale::HABrokerClient).should_receive(:new).and_return(@broker)
       flexmock(RightScale::PidFile).should_receive(:new).
               and_return(flexmock("pid file", :check=>true, :write=>true, :remove=>true))
       @identity = "rs-instance-123-1"
@@ -83,11 +83,6 @@ describe RightScale::Agent do
       @agent.options[:secure].should == false
     end
 
-    it "for host is localhost" do
-      @agent.options.should include(:host)
-      @agent.options[:host].should == "localhost"
-    end
-
     it "for log_level is info" do
       @agent.options.should include(:log_level)
       @agent.options[:log_level].should == :info
@@ -101,11 +96,6 @@ describe RightScale::Agent do
     it "for root is #{Dir.pwd}" do
       @agent.options.should include(:root)
       @agent.options[:root].should == Dir.pwd
-    end
-
-    it "for file_root is #{File.join(Dir.pwd, 'files')}" do
-      @agent.options.should include(:file_root)
-      @agent.options[:file_root].should == File.join(Dir.pwd, 'files')
     end
 
   end
@@ -135,7 +125,7 @@ describe RightScale::Agent do
                          :connected => ["b1"], :failed => [], :all => ["b0", "b1"],
                          :non_delivery => true).by_default
       @broker.should_receive(:connection_status).and_yield(:connected)
-      flexmock(RightScale::HA_MQ).should_receive(:new).and_return(@broker)
+      flexmock(RightScale::HABrokerClient).should_receive(:new).and_return(@broker)
       flexmock(RightScale::PidFile).should_receive(:new).
               and_return(flexmock("pid file", :check=>true, :write=>true, :remove=>true))
       @identity = "rs-instance-123-1"
@@ -229,13 +219,6 @@ describe RightScale::Agent do
       @agent.options[:root].should == File.normalize_path(File.dirname(__FILE__))
     end
 
-    it "for file_root should override default (#{File.normalize_path(File.join(File.dirname(__FILE__), '..', 'files'))})" do
-      @agent = RightScale::Agent.start(:file_root => File.normalize_path(File.dirname(__FILE__)),
-                                       :identity => @identity)
-      @agent.options.should include(:file_root)
-      @agent.options[:file_root].should == File.normalize_path(File.dirname(__FILE__))
-    end
-
     it "for a single tag should result in the agent's tags being set" do
       @agent = RightScale::Agent.start(:tag => "sample_tag", :identity => @identity)
       @agent.tags.should include("sample_tag")
@@ -268,11 +251,11 @@ describe RightScale::Agent do
       @broker = flexmock("broker", :subscribe => @broker_ids, :publish => @broker_ids.first(1), :prefetch => true,
                          :all => @broker_ids, :connected => @broker_ids.first(1), :failed => @broker_ids.last(1),
                          :unusable => @broker_ids.last(1), :close_one => true, :non_delivery => true,
-                         :stats => "", :identity_parts => ["123", 2, 1, 1], :status => "status",
+                         :stats => "", :identity_parts => ["123", 2, 1, 1, nil], :status => "status",
                          :hosts => ["123"], :ports => [1, 2], :get => true, :alias_ => "b1",
                          :aliases => ["b1"]).by_default
       @broker.should_receive(:connection_status).and_yield(:connected)
-      flexmock(RightScale::HA_MQ).should_receive(:new).and_return(@broker)
+      flexmock(RightScale::HABrokerClient).should_receive(:new).and_return(@broker)
       flexmock(RightScale::PidFile).should_receive(:new).
               and_return(flexmock("pid file", :check=>true, :write=>true, :remove=>true))
       @mapper_proxy = flexmock("mapper_proxy", :pending_requests => [], :request_age => nil,
@@ -313,7 +296,7 @@ describe RightScale::Agent do
           @broker.should_receive(:subscribe).with(hsh(:name => @identity), nil, hsh(:brokers => nil), Proc).
                                              and_return(@broker_ids.first(1)).once
           @agent = RightScale::Agent.start(:user => "tester", :identity => @identity)
-          @broker.should_receive(:connect).with("123", 2, 1, 1, false, Proc).once
+          @broker.should_receive(:connect).with("123", 2, 1, 1, nil, false, Proc).once
           @agent.connect("123", 2, 1, 1)
         end
       end
@@ -323,7 +306,7 @@ describe RightScale::Agent do
           @broker.should_receive(:subscribe).with(hsh(:name => @identity), nil, hsh(:brokers => nil), Proc).
                                              and_return(@broker_ids.first(1)).once
           @agent = RightScale::Agent.start(:user => "tester", :identity => @identity)
-          @broker.should_receive(:connect).with("123", 2, 1, 1, false, Proc).and_yield(@broker_ids.last).once
+          @broker.should_receive(:connect).with("123", 2, 1, 1, nil, false, Proc).and_yield(@broker_ids.last).once
           @broker.should_receive(:subscribe).with(hsh(:name => @identity), nil, hsh(:brokers => @broker_ids.last(1)), Proc).
                                              and_return(@broker_ids.last(1)).once
           flexmock(@agent).should_receive(:update_configuration).with(:host => ["123"], :port => [1, 2]).and_return(true).once
@@ -336,7 +319,7 @@ describe RightScale::Agent do
           @broker.should_receive(:subscribe).with(hsh(:name => @identity), nil, hsh(:brokers => nil), Proc).
                                              and_return(@broker_ids.first(1)).once
           @agent = RightScale::Agent.start(:user => "tester", :identity => @identity)
-          @broker.should_receive(:connect).with("123", 2, 1, 1, false, Proc).and_yield(@broker_ids.last).once
+          @broker.should_receive(:connect).with("123", 2, 1, 1, nil, false, Proc).and_yield(@broker_ids.last).once
           @broker.should_receive(:connection_status).and_yield(:failed)
           flexmock(RightScale::RightLinkLog).should_receive(:error).with(/Failed to connect to broker/).once
           flexmock(@agent).should_receive(:update_configuration).never

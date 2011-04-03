@@ -62,10 +62,11 @@ describe InstanceScheduler do
                               {:state => 'decommissioned', :agent_identity => '1', :user_id => @user_id,
                                :skip_db_update => nil, :kind => nil},
                                nil, {:offline_queueing => true}, Proc]
-      @mapper_proxy = flexmock(RightScale::MapperProxy.instance, :message_received => true)
       @record_success = @results_factory.success_results
+      @mapper_proxy.should_receive(:message_received).and_return(true)
       @mapper_proxy.should_receive(:send_retryable_request).with(*@booting_args).and_yield(@record_success).once.by_default
       @mapper_proxy.should_receive(:send_retryable_request).and_yield(@record_success).by_default
+      flexmock(RightScale::Sender).should_receive(:instance).and_return(@mapper_proxy)
     end
 
     # Reset previous calls to EM.next_tick

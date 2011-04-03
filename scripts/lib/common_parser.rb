@@ -36,7 +36,6 @@ module RightScale
         options[:user] = 'test'
         options[:pass] = 'testing'
         options[:vhost] = '/right_net'
-        options[:host] = 'localhost'
         options[:test] = true
         options[:pid_dir] = Dir.tmpdir
         options[:base_id] = "#{rand(1000000)}"
