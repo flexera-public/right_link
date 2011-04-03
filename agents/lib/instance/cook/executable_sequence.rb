@@ -161,7 +161,12 @@ module RightScale
     # === Return
     # true:: Always return true
     def configure_chef
-      Chef::Config[:custom_exec_exception] = lambda { |params| ::RightScale::Exceptions::Exec.new("\"#{params[:args][:command]}\" #{::RightScale::SubprocessFormatting.reason(params[:status])}, expected #{Array(params[:args][:returns]).join(' or ')}.", params[:args][:cwd])}
+      Chef::Config[:custom_exec_exception] = Proc.new { |params|
+        failure_reason = ::RightScale::SubprocessFormatting.reason(params[:status])
+        expected_error_codes = Array(params[:args][:returns]).join(' or ')
+        ::RightScale::Exceptions::Exec.new("\"#{params[:args][:command]}\" #{failure_reason}, expected #{expected_error_codes}.",
+                                           params[:args][:cwd])
+      }
 
       # Chef paths and run mode
       if DevState.use_cookbooks_path?

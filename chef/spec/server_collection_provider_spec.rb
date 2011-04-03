@@ -51,7 +51,7 @@ describe Chef::Provider::ServerCollection do
   end
 
   it 'should timeout appropriately' do
-    pending 'needs to be refactored'
+    pending 'needs to be refactored - the wrong things are mocked and tests timeout by coincidence'
     old_timeout = Chef::Provider::ServerCollection::QUERY_TIMEOUT
     begin
       Chef::Provider::ServerCollection.const_set(:QUERY_TIMEOUT, 0.5)
@@ -66,14 +66,14 @@ describe Chef::Provider::ServerCollection do
   end
 
   it 'should timeout when request for tags takes too long' do
-    pending
+    pending 'notions of new tests'
 #    @mock_cook.should_receive(:send_retryable_request).and_ ???
 #    perform_load
 #    @completed.should be_false
   end
 
   it 'should populate server collection when tags exits' do
-    pending
+    pending 'notions of new tests'
 #    @result = {'server-1' => {:tags => ['tag1', 'tag2']}, 'server-2' => {:tags => ['tag1', 'tag3']}}
 #    @is_done = lambda { @provider.node[:server_collection]['resource_name'] == @result }
 #    @mock_cook = flexmock('Cook')
@@ -84,7 +84,7 @@ describe Chef::Provider::ServerCollection do
   end
 
   it 'should not populate server collection when request fails' do
-    pending
+    pending 'notions of new tests'
 #    @mock_cook = flexmock('Cook')
 #    flexmock(RightScale::Cook).should_receive(:instance).and_return(@mock_cook).by_defaul
 #    @mock_cook.should_receive(:send_retryable_request).and_yield(RightScale::OperationResult.new(1, nil))
