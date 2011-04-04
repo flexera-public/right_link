@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2009 RightScale Inc
+# Copyright (c) 2009-2011 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -52,8 +52,8 @@ require File.join(COMMON_BASE_DIR, 'agent', 'agent_identity')
 require File.join(COMMON_BASE_DIR, 'agent', 'actor')
 require File.join(COMMON_BASE_DIR, 'agent', 'actor_registry')
 require File.join(COMMON_BASE_DIR, 'agent', 'dispatcher')
-require File.join(COMMON_BASE_DIR, 'agent', 'agent')
 require File.join(COMMON_BASE_DIR, 'agent', 'mapper_proxy')
+require File.join(COMMON_BASE_DIR, 'agent', 'agent')
 require File.join(COMMON_BASE_DIR, 'agent', 'reenroll_manager')
 require File.join(COMMON_BASE_DIR, 'agent', 'secure_identity')
 require File.join(COMMON_BASE_DIR, 'agent', 'secure_serializer_initializer')

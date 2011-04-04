@@ -227,6 +227,7 @@ module RightScale
       #   "total"(Integer):: Total exceptions for this category
       #   "recent"(Array):: Most recent as a hash of "count", "type", "message", "when", and "where"
       attr_reader :stats
+      alias :all :stats
 
       # Initialize exception data
       #

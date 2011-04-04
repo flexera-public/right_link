@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2009 RightScale Inc
+# Copyright (c) 2009-2011 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -30,26 +30,8 @@ end
 
 module RightScale
 
-  # Linkage to MapperProxy send functions as required by Actor plugin
-  class Sender
-
-    # Accessor for use by actor
-    #
-    # === Return
-    # (MapperProxy):: Mapper proxy instance if defined, otherwise nil
-    def self.instance
-      @@instance if defined?(@@instance)
-    end
-
-    # Initialize sender
-    #
-    # === Parameters
-    # mapper_proxy(MapperProxy):: Mapper proxy to be used by actors when making send requests
-    def initialize(mapper_proxy)
-      @@instance = mapper_proxy
-    end
-
-  end # Sender
+  # Agents actors use mapper proxy to send messages
+  Sender = MapperProxy
 
   # RightLink agent for receiving messages from the mapper and acting upon them
   # by dispatching to a registered actor to perform
@@ -204,7 +186,6 @@ module RightScale
                 @registry = ActorRegistry.new
                 @dispatcher = Dispatcher.new(self)
                 @mapper_proxy = MapperProxy.new(self)
-                @sender = Sender.new(@mapper_proxy)
                 load_actors
                 setup_traps
                 setup_queues

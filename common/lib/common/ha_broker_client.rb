@@ -505,7 +505,7 @@ module RightScale
         b = @brokers_hash[identity]
         remove(b.host, b.port)
       end
-      new
+      { :add => new, :remove => old, :home => home }
     end
 
     # Subscribe an AMQP queue to an AMQP exchange on all broker clients that are connected or still connecting
