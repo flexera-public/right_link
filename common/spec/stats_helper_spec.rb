@@ -349,11 +349,11 @@ describe RightScale::StatsHelper do
                   "delete_queues" => 0.75, "soft_decommission" => 0.75, "remove" => 0.66,
                   "get_login_policy" => 0.58, "ping" => 0.50, "update_entry" => 0.25, "query_tags" => 0.083,
                   "get_decommission_bundle" => 0.083, "list_queues" => 0.083}).should ==
-                 [["list_queues", 0.083], ["get_decommission_bundle", 0.083], ["query_tags", 0.083],
+                 [["list_queues", 0.083], ["query_tags", 0.083], ["get_decommission_bundle", 0.083],
                   ["update_entry", 0.25], ["ping", 0.5], ["get_login_policy", 0.58], ["remove", 0.66],
-                  ["delete_queues", 0.75], ["update_inputs", 0.75], ["soft_decommission", 0.75],
-                  ["schedule_decommission", 0.91], ["update_login_policy", 1.3], ["get_boot_bundle", 1.4],
-                  ["get_repositories", 1.4], ["add_user", 2.4], ["append_error", 3.0], ["update_tags", 3.2],
+                  ["delete_queues", 0.75], ["soft_decommission", 0.75], ["update_inputs", 0.75],
+                  ["schedule_decommission", 0.91], ["update_login_policy", 1.3], ["get_repositories", 1.4],
+                  ["get_boot_bundle", 1.4], ["add_user", 2.4], ["append_error", 3.0], ["update_tags", 3.2],
                   ["list_agents", 3.7], ["update_status", 4.4],
                   ["record", 4.7], ["append_output", 7.3], ["create_new_section", 8.5], ["append_info", 9.6],
                   ["declare", 39.2]]
