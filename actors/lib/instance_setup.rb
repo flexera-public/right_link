@@ -215,66 +215,72 @@ class InstanceSetup
           if mappings.empty?
             # no volumes requiring management.
             block.call if block
-          else
-            # must do some management if any volumes are not 'assigned'
-            if mappings.find { |mapping| mapping[:management_status] != 'assigned' }
-              # must detach all 'attached' volumes if any are attached (or
-              # attaching) but not yet managed on the instance side. this is the
-              # only way to ensure they receive the correct device names.
-              detachable_volume_count = mappings.count { |mapping| is_attached_volume_unmanaged?(mapping) }
-              if detachable_volume_count >= 1
-                mappings.each do |mapping|
-                  if is_attached_volume_unmanaged?(mapping)
-                    detach_planned_volume(mapping) do
-                      detachable_volume_count -= 1
-                      if 0 == detachable_volume_count
-                        # add a timer to resume volume management later and pass the
-                        # block for continuation afterward (unless detachment stranded).
-                        log_info("Waiting for volumes to detach for management purposes. Retrying in #{VOLUME_RETRY_SECONDS} seconds...")
-                        EM.add_timer(VOLUME_RETRY_SECONDS) { manage_planned_volumes(&block) }
-                      end
-                    end
-                  end
-                end
-              else
-                mappings.each do |mapping|
-                  case mapping[:volume_status]
-                  when 'detached', 'detaching'
-                    # attach next volume and go around again.
-                    attach_planned_volume(mapping) do
-                      log_info("Waiting for volume #{mapping[:volume_id]} to attach. Retrying in #{VOLUME_RETRY_SECONDS} seconds...")
+          elsif (detachable_volume_count = mappings.count { |mapping| is_unmanaged_attached_volume?(mapping) }) >= 1
+            # must detach all 'attached' volumes if any are attached (or
+            # attaching) but not yet managed on the instance side. this is the
+            # only way to ensure they receive the correct device names.
+            mappings.each do |mapping|
+              if is_unmanaged_attached_volume?(mapping)
+                detach_planned_volume(mapping) do
+                  unless RightScale::InstanceState.value == 'stranded'
+                    detachable_volume_count -= 1
+                    if 0 == detachable_volume_count
+                      # add a timer to resume volume management later and pass the
+                      # block for continuation afterward (unless detachment stranded).
+                      log_info("Waiting for volumes to detach for management purposes. "\
+                               "Retrying in #{VOLUME_RETRY_SECONDS} seconds...")
                       EM.add_timer(VOLUME_RETRY_SECONDS) { manage_planned_volumes(&block) }
                     end
-                    break  # out of mappings.each
-                  when 'attached', 'attaching'
-                    # assign next volume and go around again.
-                    if mapping[:management_status] != 'assigned'
-                      manage_volume_device_assignment(mapping) do
-                        # we can move on to next volume 'immediately' unless the
-                        # mapping requires a retry.
-                        if mapping[:management_status] == 'assigned'
-                          EM.next_tick { manage_planned_volumes(&block) }
-                        else
-                          log_info("Waiting for volume #{mapping[:volume_id]} to initialize using device #{mapping[:device]}. Retrying in #{VOLUME_RETRY_SECONDS} seconds...")
-                          EM.add_timer(VOLUME_RETRY_SECONDS) { manage_planned_volumes(&block) }
-                        end
-                      end
-                      break  # out of mappings.each
-                    end
-                  else
-                    # handle 'deleted', etc.
-                    strand("State of volume #{mapping[:volume_id]} was unexpected: #{mapping[:volume_status]}")
                   end
                 end
               end
-            else
-              # all volume mappings have been assigned and so we can proceed.
-              block.call if block
             end
+          elsif mapping = mappings.find { |mapping| is_detaching_volume?(mapping) }
+            # we successfully requested detachment but status has not
+            # changed to reflect this yet.
+            log_info("Waiting for volume #{mapping[:volume_id]} to fully detach. "\
+                     "Retrying in #{VOLUME_RETRY_SECONDS} seconds...")
+            EM.add_timer(VOLUME_RETRY_SECONDS) { manage_planned_volumes(&block) }
+          elsif mapping = mappings.find { |mapping| is_managed_attaching_volume?(mapping) }
+            log_info("Waiting for volume #{mapping[:volume_id]} to fully attach. Retrying in #{VOLUME_RETRY_SECONDS} seconds...")
+            EM.add_timer(VOLUME_RETRY_SECONDS) { manage_planned_volumes(&block) }
+          elsif mapping = mappings.find { |mapping| is_managed_attached_unassigned_volume?(mapping) }
+            manage_volume_device_assignment(mapping) do
+              unless RightScale::InstanceState.value == 'stranded'
+                # we can move on to next volume 'immediately' if volume was
+                # successfully assigned its device name.
+                if mapping[:management_status] == 'assigned'
+                  EM.next_tick { manage_planned_volumes(&block) }
+                else
+                  log_info("Waiting for volume #{mapping[:volume_id]} to initialize using device \"#{mapping[:device]}\". "\
+                           "Retrying in #{VOLUME_RETRY_SECONDS} seconds...")
+                  EM.add_timer(VOLUME_RETRY_SECONDS) { manage_planned_volumes(&block) }
+                end
+              end
+            end
+          elsif mapping = mappings.find { |mapping| is_detached_volume?(mapping) }
+            attach_planned_volume(mapping) do
+              unless RightScale::InstanceState.value == 'stranded'
+                unless mapping[:attempts]
+                  @audit.append_info("Attached volume #{mapping[:volume_id]} using device \"#{mapping[:device]}\".")
+                  log_info("Waiting for volume #{mapping[:volume_id]} to appear using device \"#{mapping[:device]}\". "\
+                           "Retrying in #{VOLUME_RETRY_SECONDS} seconds...")
+                end
+                EM.add_timer(VOLUME_RETRY_SECONDS) { manage_planned_volumes(&block) }
+              end
+            end
+          elsif mapping = mappings.find { |mapping| is_unmanageable_volume?(mapping) }
+            strand("State of volume #{mapping[:volume_id]} was unmanageable: #{mapping[:volume_status]}")
+          else
+            # all volumes are managed and have been assigned and so we can proceed.
+            block.call if block
           end
         rescue Exception => e
           strand(e)
         end
+      elsif res.retry?
+        log_info("Received retry for getting planned volume mappings: #{res.content}")
+        EM.add_timer(VOLUME_RETRY_SECONDS) { manage_planned_volumes(&block) }
       else
         strand("Failed to retrieve planned volume mappings", res)
       end
@@ -299,12 +305,13 @@ class InstanceSetup
         # volume could already be detaching or have been deleted
         # which we can't see because of latency; go around again
         # and check state of volume later.
-        log_info("Received retry for detaching device #{mapping[:device]}") if res.retry?
-        log_error("Failed to detach device #{mapping[:device]}: #{res.content}") if res.error?
+        log_info("Received retry for detaching device \"#{mapping[:device]}\".") if res.retry?
+        log_error("Failed to detach device \"#{mapping[:device]}\": #{res.content}") if res.error?
         mapping[:attempts] ||= 0
         mapping[:attempts] += 1
-        if mapping[:attempts] >= MAX_VOLUME_ATTEMPTS
-          strand("Exceded maximum of #{MAX_VOLUME_ATTEMPTS} attempts detaching device #{mapping[:device]}")
+        # retry indefinitely so long as core api instructs us to retry or else fail after max attempts.
+        if mapping[:attempts] >= MAX_VOLUME_ATTEMPTS && res.error?
+          strand("Exceeded maximum of #{MAX_VOLUME_ATTEMPTS} attempts detaching device \"#{mapping[:device]}\" with error: #{res.content}")
         else
           yield if block_given?
         end
@@ -324,7 +331,7 @@ class InstanceSetup
 
     # attach.
     payload = {:agent_identity => @agent_identity, :volume_id => mapping[:volume_id], :device => mapping[:device]}
-    @audit.append_info("Attaching volume #{mapping[:volume_id]} using device \"#{mapping[:device]}\".")
+    log_info("Attaching volume #{mapping[:volume_id]} using device \"#{mapping[:device]}\".")
     send_retryable_request("/storage_valet/attach_volume", payload) do |r|
       res = result_from(r)
       if res.success?
@@ -337,11 +344,12 @@ class InstanceSetup
         # which we can't see because of latency; go around again
         # and check state of volume later.
         log_info("Received retry for attaching volume #{mapping[:volume_id]} using device \"#{mapping[:device]}\".") if res.retry?
-        log_error("Failed to attach volume #{mapping[:volume_id]} using device #{mapping[:device]}: #{res.content}") if res.error?
+        log_error("Failed to attach volume #{mapping[:volume_id]} using device \"#{mapping[:device]}\": #{res.content}") if res.error?
         mapping[:attempts] ||= 0
         mapping[:attempts] += 1
-        if mapping[:attempts] >= MAX_VOLUME_ATTEMPTS
-          strand("Exceeded maximum of #{MAX_VOLUME_ATTEMPTS} attempts attaching device #{mapping[:device]}")
+        # retry indefinitely so long as core api instructs us to retry or else fail after max attempts.
+        if mapping[:attempts] >= MAX_VOLUME_ATTEMPTS && res.error?
+          strand("Exceeded maximum of #{MAX_VOLUME_ATTEMPTS} attempts attaching device \"#{mapping[:device]}\" with error: #{res.content}")
         else
           yield if block_given?
         end
@@ -358,7 +366,8 @@ class InstanceSetup
 
     # only managed volumes should be in an attached state ready for assignment.
     unless 'attached' == mapping[:management_status]
-      raise UnexpectedState.new("The volume #{mapping[:volume_id]} for device #{mapping[:device]} was in an unexpected managed state: #{mapping[:management_status]}")
+      raise UnexpectedState.new("The volume #{mapping[:volume_id]} for device \"#{mapping[:device]}\" was "\
+                                "in an unexpected managed state: #{mapping[:management_status]}\n#{mapping.inspect}")
     end
 
     # check for changes in disks.
@@ -408,7 +417,7 @@ class InstanceSetup
       mapping[:attempts] ||= 0
       mapping[:attempts] += 1
       if mapping[:attempts] >= MAX_VOLUME_ATTEMPTS
-        strand("Exceeded maximum of #{MAX_VOLUME_ATTEMPTS} attempts attaching device #{mapping[:device]}")
+        strand("Exceeded maximum of #{MAX_VOLUME_ATTEMPTS} attempts waiting for device \"#{mapping[:device]}\" to be in a managable state.")
       else
         yield if block_given?
       end
@@ -447,12 +456,74 @@ class InstanceSetup
   #
   # === Return
   # result(Boolean):: true if volume is attached and unassigned
-  def is_attached_volume_unmanaged?(mapping)
+  def is_unmanaged_attached_volume?(mapping)
     case mapping[:volume_status]
     when 'attached', 'attaching'
       mapping[:management_status].nil?
     else
       false
+    end
+  end
+
+  # Determines if the given volume is detaching regardless of whether detachment
+  # was managed (will adopt any detatching volumes).
+  #
+  # === Return
+  # result(Boolean):: true if volume is detaching
+  def is_detaching_volume?(mapping)
+    case mapping[:volume_status]
+    when 'detaching'
+      true
+    when 'attached', 'attaching'
+      # also detaching if we have successfully requested detachment but volume
+      # status does not yet reflect this change.
+      'detached' == mapping[:management_status]
+    else
+      false
+    end
+  end
+
+  # Determines if the given volume is detached regardless of whether detachment
+  # was managed (will adopt any detatched volumes).
+  #
+  # === Return
+  # result(Boolean):: true if volume is detaching
+  def is_detached_volume?(mapping)
+    # detached by volume status unless we have successfully requested attachment
+    # and volume status does not yet reflect this change. an unmanaged volume
+    # can also be detached.
+    return 'detached' == mapping[:volume_status] && 'attached' != mapping[:management_status]
+  end
+
+  # Determines if the given volume is attaching and managed (indicating that we
+  # requested attachment).
+  #
+  # === Return
+  # result(Boolean):: true if volume is managed and attaching
+  def is_managed_attaching_volume?(mapping)
+    return 'attached' == mapping[:management_status] && 'attached' != mapping[:volume_status]
+  end
+
+  # Determines if the given volume is attached and managed (indicating that we
+  # requested attachment) but not yet assigned its device name.
+  #
+  # === Return
+  # result(Boolean):: true if volume is managed, attached and unassigned
+  def is_managed_attached_unassigned_volume?(mapping)
+    return 'attached' == mapping[:volume_status] && 'attached' == mapping[:management_status]
+  end
+
+  # Determines if the given volume is in an unmanageable state (such as
+  # 'deleted').
+  #
+  # === Return
+  # result(Boolean):: true if volume is managed but unrecoverable
+  def is_unmanageable_volume?(mapping)
+    case mapping[:volume_status]
+    when 'attached', 'attaching', 'detached', 'detaching'
+      false
+    else
+      true
     end
   end
 
