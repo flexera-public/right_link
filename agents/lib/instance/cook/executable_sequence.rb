@@ -170,7 +170,7 @@ module RightScale
 
       # Chef paths and run mode
       if DevState.use_cookbooks_path?
-        Chef::Config[:cookbook_path] = DevState.cookbooks_path.reverse
+        Chef::Config[:cookbook_path] = DevState.cookbooks_path
         @audit.append_info("Using development cookbooks repositories path:\n\t- #{Chef::Config[:cookbook_path].join("\n\t- ")}")
       else
         Chef::Config[:cookbook_path] = (@right_scripts_cookbook.empty? ? [] : [ @right_scripts_cookbook.repo_dir ])
@@ -305,8 +305,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def update_cookbook_path
-      @cookbooks.reverse.each_with_index do |cookbook_sequence, i|
-        i = @cookbooks.size - i - 1 #adjust for reversification
+      @cookbooks.each_with_index do |cookbook_sequence, i|
         local_basedir = File.join(@download_path, i.to_s)
         cookbook_sequence.paths.reverse.each {|path|
           dir = File.expand_path(File.join(local_basedir, path))
