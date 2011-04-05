@@ -59,6 +59,9 @@ module RightScale
       platform = RightScale::RightLinkConfig[:platform]
       input_text = "#{JSON.dump(@context.payload)}\n"
 
+      # update CookState with the latest instance before launching Cook
+      CookState.update(InstanceState)
+
       # FIX: we have an issue with EM not allowing both sockets and named
       # pipes to share the same file/socket id. sending the input on the
       # command line is a temporary workaround.

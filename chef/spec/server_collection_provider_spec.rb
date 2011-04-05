@@ -21,7 +21,6 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 require File.join(File.dirname(__FILE__), 'spec_helper')
-require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'agents', 'lib', 'instance', 'dev_state'))
 require 'thread'
 
 describe Chef::Provider::ServerCollection do

@@ -78,7 +78,7 @@ class Chef
         # Provide the customary RightScript environment metadata
         ENV['ATTACH_DIR'] = ENV['RS_ATTACH_DIR'] = @new_resource.cache_dir
         ENV['RS_ALREADY_RUN']                    = current_state[:chef_state].past_scripts.include?(nickname) ? 'true' : nil
-        ENV['RS_REBOOT']                         = current_state[:instance_state].reboot? ? 'true' : nil
+        ENV['RS_REBOOT']                         = current_state[:cook_state].reboot? ? 'true' : nil
 
         # RightScripts expect to find RS_DISTRO, RS_DIST and RS_ARCH in the environment.
         # Massage the distro name into the format they expect (all lower case, one word, no release info).
@@ -139,10 +139,10 @@ class Chef
       #
       # == Returns
       # result(Hash):: States:
-      #    :instance_state(RightScale::InstanceState):: current instance state
+      #    :cook_state(RightScale::CookState):: current cook state
       #    :chef_state(RightScale::ChefState):: current chef state
       def all_state
-        result = {:instance_state => RightScale::InstanceState, :chef_state => RightScale::ChefState}
+        result = {:cook_state => RightScale::CookState, :chef_state => RightScale::ChefState}
       end
 
       # Runs the given RightScript.

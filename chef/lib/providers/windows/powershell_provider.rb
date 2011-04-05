@@ -72,7 +72,7 @@ class Chef
           # 2. Setup environment.
           environment = {} if environment.nil?
           environment['RS_ALREADY_RUN'] = current_state[:chef_state].past_scripts.include?(nickname) ? '1' : nil
-          environment['RS_REBOOT'] = current_state[:instance_state].reboot?
+          environment['RS_REBOOT'] = current_state[:cook_state].reboot?
           @new_resource.environment(environment)
 
           # 3. execute and wait
@@ -109,10 +109,10 @@ class Chef
       #
       # == Returns
       # result(Hash):: States:
-      #    :instance_state(RightScale::InstanceState):: current instance state
+      #    :cook_state(RightScale::CookState):: current cook state
       #    :chef_state(RightScale::ChefState):: current chef state
       def all_state
-        result = {:instance_state => RightScale::InstanceState, :chef_state => RightScale::ChefState}
+        result = {:cook_state => RightScale::CookState, :chef_state => RightScale::ChefState}
       end
 
 

@@ -99,7 +99,7 @@ module RightScale
       # Initializes run list for this sequence (partial converge support)
       @run_list = []
       @inputs = {}
-      breakpoint = DevState.breakpoint
+      breakpoint = CookState.breakpoint
       recipes.each do |recipe|
         if recipe.nickname == breakpoint
           @audit.append_info("Breakpoint set, running recipes up to < #{breakpoint} >")
@@ -124,7 +124,7 @@ module RightScale
       if @run_list.empty?
         # Deliberately avoid auditing anything since we did not run any recipes
         # Still download the cookbooks repos if in dev mode
-        download_repos if DevState.cookbooks_path
+        download_repos if CookState.cookbooks_path
         report_success(nil)
       else
         configure_ohai
@@ -169,8 +169,8 @@ module RightScale
       }
 
       # Chef paths and run mode
-      if DevState.use_cookbooks_path?
-        Chef::Config[:cookbook_path] = DevState.cookbooks_path
+      if CookState.use_cookbooks_path?
+        Chef::Config[:cookbook_path] = CookState.cookbooks_path
         @audit.append_info("Using development cookbooks repositories path:\n\t- #{Chef::Config[:cookbook_path].join("\n\t- ")}")
       else
         Chef::Config[:cookbook_path] = (@right_scripts_cookbook.empty? ? [] : [ @right_scripts_cookbook.repo_dir ])
@@ -323,7 +323,7 @@ module RightScale
     # true:: Always return true
     def download_repos
       # Skip download if in dev mode and cookbooks repos directories already have files in them
-      unless DevState.download_cookbooks?
+      unless CookState.download_cookbooks?
          @audit.append_info("Skipping cookbook download to allow local editing.")
          return true
       end
@@ -357,7 +357,7 @@ module RightScale
       end
 
       # record that cookbooks have been downloaded so we do not download them again in Dev mode
-      DevState.has_downloaded_cookbooks = true
+      CookState.has_downloaded_cookbooks = true
 
       true
     rescue Exception => e
