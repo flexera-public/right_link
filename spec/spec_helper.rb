@@ -83,7 +83,7 @@ module RightScale
       InstanceState.const_set(:BOOT_LOG_FILE, log_path)
       InstanceState.const_set(:OPERATION_LOG_FILE, log_path)
       InstanceState.const_set(:DECOMMISSION_LOG_FILE, log_path)
-      DevState.const_set(:STATE_FILE, dev_state_file_path)
+      CookState.const_set(:STATE_FILE, cook_state_file_path)
       RightScale::ChefState.const_set(:STATE_FILE, chef_file_path) if RightScale.const_defined?(:ChefState)
       RightScale::ChefState.const_set(:SCRIPTS_FILE, past_scripts_path) if RightScale.const_defined?(:ChefState)
       @identity = identity
@@ -105,7 +105,7 @@ module RightScale
       delete_if_exists(chef_file_path)
       delete_if_exists(past_scripts_path)
       delete_if_exists(log_path)
-      delete_if_exists(dev_state_file_path)
+      delete_if_exists(cook_state_file_path)
     end
 
     # Path to serialized instance state
@@ -123,9 +123,9 @@ module RightScale
       File.join(RIGHT_LINK_SPEC_HELPER_TEMP_PATH, '__past_scripts.js')
     end
 
-    # Path to dev state file
-    def dev_state_file_path
-      File.join(RIGHT_LINK_SPEC_HELPER_TEMP_PATH, '__dev_state.js')
+    # Path to cook state file
+    def cook_state_file_path
+      File.join(RIGHT_LINK_SPEC_HELPER_TEMP_PATH, '__cook_state.js')
     end
 
     # Path to instance boot logs
