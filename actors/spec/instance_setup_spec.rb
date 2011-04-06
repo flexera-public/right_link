@@ -27,19 +27,25 @@ require File.join(File.dirname(__FILE__), 'instantiation_mock')
 require File.join(File.dirname(__FILE__), '..', '..', 'spec', 'results_mock')
 require 'right_popen'
 
+module RightScale
+  class VolumeManagement
+
+    # shorten volume retry delay for tests
+    remove_const :VOLUME_RETRY_SECONDS
+    VOLUME_RETRY_SECONDS = 0.1
+
+    # limit test retries
+    remove_const :MAX_VOLUME_ATTEMPTS
+    MAX_VOLUME_ATTEMPTS = 2
+
+  end
+end
+
 # We can't mock the different calls to request properly
 # rake spec seems to always return the last match
 # We can't provide an implementation as a block because we need to
 # yield. So monkey patch to the rescue.
 class InstanceSetup
-
-  # shorten volume retry delay for tests
-  remove_const :VOLUME_RETRY_SECONDS
-  VOLUME_RETRY_SECONDS = 0.1
-
-  # limit test retries
-  remove_const :MAX_VOLUME_ATTEMPTS
-  MAX_VOLUME_ATTEMPTS = 2
 
   def self.results_factory=(factory)
     @@factory = factory
@@ -57,17 +63,17 @@ class InstanceSetup
     @@agents = agents
   end
 
-  @@planned_volume_mappings_results = []
-  def self.planned_volume_mappings_results; @@planned_volume_mappings_results; end
-  def self.planned_volume_mappings_results=(results); @@planned_volume_mappings_results = results; end
+  @@results_for_get_planned_volumes = []
+  def self.results_for_get_planned_volumes; @@results_for_get_planned_volumes; end
+  def self.results_for_get_planned_volumes=(results); @@results_for_get_planned_volumes = results; end
 
-  @@attach_volume_results = []
-  def self.attach_volume_results; @@attach_volume_results; end
-  def self.attach_volume_results=(results); @@attach_volume_results = results; end
+  @@results_for_attach_volume = []
+  def self.results_for_attach_volume; @@results_for_attach_volume; end
+  def self.results_for_attach_volume=(results); @@results_for_attach_volume = results; end
 
-  @@detach_volume_results = []
-  def self.detach_volume_results; @@detach_volume_results; end
-  def self.detach_volume_results=(results); @@detach_volume_results = results; end
+  @@results_for_detach_volume = []
+  def self.results_for_detach_volume; @@results_for_detach_volume; end
+  def self.results_for_detach_volume=(results); @@results_for_detach_volume = results; end
 
   def send_retryable_request(operation, *args)
     # defer response to better simulate asynchronous nature of calls to RightNet.
@@ -79,9 +85,9 @@ class InstanceSetup
         when "/booter/get_boot_bundle" then yield @@bundle
         when "/booter/get_login_policy" then yield @@login_policy
         when "/mapper/list_agents" then yield @@agents
-        when "/storage_valet/get_planned_volume_mappings" then yield @@planned_volume_mappings_results.shift.call
-        when "/storage_valet/attach_volume" then yield @@attach_volume_results.shift.call
-        when "/storage_valet/detach_volume" then yield @@detach_volume_results.shift.call
+        when "/storage_valet/get_planned_volumes" then yield @@results_for_get_planned_volumes.shift.call(*args)
+        when "/storage_valet/attach_volume" then yield @@results_for_attach_volume.shift.call(*args)
+        when "/storage_valet/detach_volume" then yield @@results_for_detach_volume.shift.call(*args)
         else raise ArgumentError.new("Don't know how to mock #{operation}")
         end
       rescue Exception => e
@@ -105,15 +111,15 @@ class InstanceSetup
   end
 
   def self.assert_all_expectations_met
-    @@planned_volume_mappings_results.size.should == 0
-    @@attach_volume_results.size.should == 0
-    @@detach_volume_results.size.should == 0
+    @@results_for_get_planned_volumes.size.should == 0
+    @@results_for_attach_volume.size.should == 0
+    @@results_for_detach_volume.size.should == 0
   end
 
   def self.reset_expectations
-    @@planned_volume_mappings_results = []
-    @@attach_volume_results = []
-    @@detach_volume_results = []
+    @@results_for_get_planned_volumes = []
+    @@results_for_attach_volume = []
+    @@results_for_detach_volume = []
   end
 end
 
@@ -126,47 +132,47 @@ module RightScale
 
     class MockVolumeManager
       def initialize
-        @disks_results = []
-        @volumes_results = []
-        @partitions_results = []
-        @format_disk_results = []
-        @online_disk_results = []
-        @assign_device_results = []
+        @results_for_disks = []
+        @results_for_volumes = []
+        @results_for_partitions = []
+        @results_for_format_disk = []
+        @results_for_online_disk = []
+        @results_for_assign_device = []
       end
 
       def is_attachable_volume_path?(path); true; end
 
-      def disks(conditions = nil); return @disks_results.shift.call; end
-      def disks_results; @disks_results; end
-      def disks_results=(results); @disks_results = results; end
+      def disks(conditions = nil); return @results_for_disks.shift.call; end
+      def results_for_disks; @results_for_disks; end
+      def results_for_disks=(results); @results_for_disks = results; end
 
-      def volumes(conditions = nil); return @volumes_results.shift.call; end
-      def volumes_results; @volumes_results; end
-      def volumes_results=(results); @volumes_results = results; end
+      def volumes(conditions = nil); return @results_for_volumes.shift.call; end
+      def results_for_volumes; @results_for_volumes; end
+      def results_for_volumes=(results); @results_for_volumes = results; end
 
-      def partitions(disk_index, conditions = nil); @partitions_results.shift.call(disk_index); end
-      def partitions_results; @partitions_results; end
-      def partitions_results=(results); @partitions_results = results; end
+      def partitions(disk_index, conditions = nil); @results_for_partitions.shift.call(disk_index); end
+      def results_for_partitions; @results_for_partitions; end
+      def results_for_partitions=(results); @results_for_partitions = results; end
 
-      def format_disk(disk_index, device); @format_disk_results.shift.call(disk_index); end
-      def format_disk_results; @format_disk_results; end
-      def format_disk_results=(results); @format_disk_results = results; end
+      def format_disk(disk_index, device); @results_for_format_disk.shift.call(disk_index); end
+      def results_for_format_disk; @results_for_format_disk; end
+      def results_for_format_disk=(results); @results_for_format_disk = results; end
 
-      def online_disk(disk_index); @online_disk_results.shift.call(disk_index); end
-      def online_disk_results; @online_disk_results; end
-      def online_disk_results=(results); @online_disk_results = results; end
+      def online_disk(disk_index); @results_for_online_disk.shift.call(disk_index); end
+      def results_for_online_disk; @results_for_online_disk; end
+      def results_for_online_disk=(results); @results_for_online_disk = results; end
 
-      def assign_device(volume_index, device); @assign_device_results.shift.call(volume_index, device); end
-      def assign_device_results; @assign_device_results; end
-      def assign_device_results=(results); @assign_device_results = results; end
+      def assign_device(volume_index, device); @results_for_assign_device.shift.call(volume_index, device); end
+      def results_for_assign_device; @results_for_assign_device; end
+      def results_for_assign_device=(results); @results_for_assign_device = results; end
 
       def assert_all_expectations_met
-        @disks_results.size.should == 0
-        @volumes_results.size.should == 0
-        @partitions_results.size.should == 0
-        @format_disk_results.size.should == 0
-        @online_disk_results.size.should == 0
-        @assign_device_results.size.should == 0
+        @results_for_disks.size.should == 0
+        @results_for_volumes.size.should == 0
+        @results_for_partitions.size.should == 0
+        @results_for_format_disk.size.should == 0
+        @results_for_online_disk.size.should == 0
+        @results_for_assign_device.size.should == 0
       end
     end
   end
@@ -201,9 +207,9 @@ describe InstanceSetup do
 
     # default to no planned volumes in Windows case, Linux case will fail if it attempts to get planned volumes.
     if RightScale::RightLinkConfig[:platform].windows?
-      InstanceSetup.planned_volume_mappings_results = [lambda{ @results_factory.success_results([]) }]
+      InstanceSetup.results_for_get_planned_volumes = [lambda{ @results_factory.success_results([]) }]
     else
-      InstanceSetup.planned_volume_mappings_results = [lambda{ raise "Unexpected call for this platform." }]
+      InstanceSetup.results_for_get_planned_volumes = [lambda{ raise "Unexpected call for this platform." }]
     end
 
     # prevent Chef logging reaching the console during spec test.
@@ -260,20 +266,35 @@ describe InstanceSetup do
     return value * RightScale::InstanceSetupSpec::GIGABYTE
   end
 
+  def handle_get_planned_volume_mappings(payload, expected_agent_id, result)
+    payload.should == {:agent_identity => expected_agent_id}
+    return @results_factory.success_results(result)
+  end
+
+  def handle_attach_volume(payload, expected_agent_id, planned_volume)
+    payload.should == {:agent_identity => expected_agent_id, :volume_id => planned_volume.volume_id, :device_name => planned_volume.device_name}
+    return @results_factory.success_results({})
+  end
+
+  def handle_detach_volume(payload, expected_agent_id, planned_volume)
+    payload.should == {:agent_identity => expected_agent_id, :device_name => planned_volume.device_name}
+    return @results_factory.success_results({:volume_id => planned_volume.volume_id})
+  end
+
   def handle_partitions(actual_index, expected_index, result)
     actual_index.should == expected_index
     result
   end
 
-  def handle_format_disk(disk_index, device, disk, volume)
+  def handle_format_disk(disk_index, mount_point, disk, volume)
     disk_index.should == disk[:index]
     disk.merge!(:status => 'Online', :free_size => 0)
-    volume.merge!(:device => device, :filesystem => 'NTFS')
+    volume.merge!(:device => mount_point, :filesystem => 'NTFS')
     true
   end
 
-  def handle_online_disk(disk_index, device, disk, volume)
-    handle_format_disk(disk_index, device, disk, volume)
+  def handle_online_disk(disk_index, mount_point, disk, volume)
+    handle_format_disk(disk_index, mount_point, disk, volume)
 
     # online_disk may or may not set the next available device name (2003 yes,
     # 2008+ maybe (exact criteria is unclear).
@@ -313,34 +334,35 @@ describe InstanceSetup do
     @audit.audits.last[:text].should == expected_audit
   end
 
-  def mock_core_api_planned_volume_mappings
-    mappings = []
-    mappings << {:volume_id => 'test_vol_D', :device => 'D:',  # map blank volume to D:
-                 :volume_status => 'attached'}
-    mappings << {:volume_id => 'test_vol_F', :device => 'F:',  # snapshot volume might online automatically as E: but we explicitly request F:
-                 :volume_status => 'attached'}
+  def mock_core_api_get_planned_volumes
+    planned_volumes = []
+    planned_volumes << RightScale::PlannedVolume.new('test_vol_D', 'xvdd', ['D:'], 'attached')  # map blank volume to D:
+    planned_volumes << RightScale::PlannedVolume.new('test_vol_F', 'xvdf', ['F:'], 'attached')  # snapshot volume might online automatically as E: but we explicitly request F:
     results = []
-    results << [mappings[0], mappings[1]]   # all volumes are initially attached in first implementation of core api
-    results << []                           # detach-all removes all instance associations with volumes
-    results << [mappings[0]]                # after attaching first volume
-    results << [mappings[0]]                # before attaching second volume
-    results << [mappings[0], mappings[1]]   # after attaching second volume
-    results << [mappings[0], mappings[1]]   # final evaluation before proceeding to boot
-    InstanceSetup.planned_volume_mappings_results = results.map { |result| lambda{@results_factory.success_results(result)} }
-    mappings
+    results << [planned_volumes[0], planned_volumes[1]]   # all volumes are initially attached in first implementation of core api
+    results << []                                         # detach-all removes all instance associations with volumes
+    results << [planned_volumes[0]]                       # after attaching first volume
+    results << [planned_volumes[0]]                       # before attaching second volume
+    results << [planned_volumes[0], planned_volumes[1]]   # after attaching second volume
+    results << [planned_volumes[0], planned_volumes[1]]   # final evaluation before proceeding to boot
+    InstanceSetup.results_for_get_planned_volumes = results.map { |result| lambda{ |payload| handle_get_planned_volume_mappings(payload, @agent_identity.to_s, result) } }
+    planned_volumes
   end
 
-  def mock_core_api_detach_volume(mappings)
+  def mock_core_api_attach_volume(planned_volumes)
     results = []
-    results << lambda{ @results_factory.success_results({:volume_id => mappings[0][:volume_id]}) }
-    results << lambda{ @results_factory.success_results({:volume_id => mappings[1][:volume_id]}) }
-    InstanceSetup.detach_volume_results = results
+    planned_volumes.each do |planned_volume|
+      results << lambda{ |payload| handle_attach_volume(payload, @agent_identity.to_s, planned_volume) }
+    end
+    InstanceSetup.results_for_attach_volume = results
   end
 
-  def mock_core_api_attach_volume
+  def mock_core_api_detach_volume(planned_volumes)
     results = []
-    2.times { results << lambda{ @results_factory.success_results({}) } }
-    InstanceSetup.attach_volume_results = results
+    planned_volumes.each do |planned_volume|
+      results << lambda{ |payload| handle_detach_volume(payload, @agent_identity.to_s, planned_volume) }
+    end
+    InstanceSetup.results_for_detach_volume = results
   end
 
   def mock_vm_disks
@@ -356,19 +378,19 @@ describe InstanceSetup do
     results << lambda {[disks[0], disks[1]]}            # after first attachment
     results << lambda {[disks[0], disks[1]]}            # before second attachment
     results << lambda {[disks[0], disks[1], disks[2]]}  # after second attachment
-    @mock_vm.disks_results = results
+    @mock_vm.results_for_disks = results
     disks
   end
 
   def mock_vm_volumes
     volumes = []
-    volumes << {:index => 0, :device => "C:", :label => '2008Boot',    # boot volume C:
+    volumes << {:index => 0, :device => "C:", :label => '2008Boot',   # boot volume C:
                 :filesystem => 'NTFS', :type => 'Partition',
                 :total_size => gigabytes(80), :status => 'Healthy', :info => 'System'}
-    volumes << {:index => 1, :device => nil, :label => nil,            # blank volume planned for D:
+    volumes << {:index => 1, :device => nil, :label => nil,           # blank volume planned for D:
                 :filesystem => nil, :type => 'Partition',
                 :total_size => gigabytes(32), :status => 'Healthy', :info => nil}
-    volumes << {:index => 2, :device => nil, :label => 'OEM_2008x64',  # snapshot volume planned for E:
+    volumes << {:index => 2, :device => nil, :label => '2008Media',   # snapshot volume planned for F:
                 :filesystem => 'NTFS', :type => 'Partition',
                 :total_size => gigabytes(2), :status => 'Healthy', :info => nil}
     results = []
@@ -377,7 +399,7 @@ describe InstanceSetup do
     results << lambda {[volumes[0], volumes[1]]}              # before second attachment
     results << lambda {[volumes[0], volumes[1]]}              # after second attachment
     results << lambda {[volumes[0], volumes[1], volumes[2]]}  # after online disk
-    @mock_vm.volumes_results = results
+    @mock_vm.results_for_volumes = results
     volumes
   end
 
@@ -389,40 +411,40 @@ describe InstanceSetup do
     results = []
     results << lambda { |disk_index| handle_partitions(disk_index, disks[1][:index], partitions[1]) }
     results << lambda { |disk_index| handle_partitions(disk_index, disks[2][:index], partitions[2]) }
-    @mock_vm.partitions_results = results
+    @mock_vm.results_for_partitions = results
     partitions
   end
 
-  def mock_vm_format_disk(mappings, disks, volumes)
+  def mock_vm_format_disk(planned_volumes, disks, volumes)
     results = []
-    results << lambda { |disk_index| handle_format_disk(disk_index, mappings[0][:device], disks[1], volumes[1]) }
-    @mock_vm.format_disk_results = results
+    results << lambda { |disk_index| handle_format_disk(disk_index, planned_volumes[0].mount_points.first, disks[1], volumes[1]) }
+    @mock_vm.results_for_format_disk = results
   end
 
   def mock_vm_online_disk(disks, volumes)
     results = []
     results << lambda { |disk_index| handle_online_disk(disk_index, "P:", disks[2], volumes[2]) }
-    @mock_vm.online_disk_results = results
+    @mock_vm.results_for_online_disk = results
   end
 
-  def mock_vm_assign_device(mappings, volumes)
+  def mock_vm_assign_device(planned_volumes, volumes)
     results = []
-    results << lambda { |volume_index, device| handle_assign_device(volume_index, device, mappings[1][:device], volumes[2]) }
-    @mock_vm.assign_device_results = results
+    results << lambda { |volume_index, device| handle_assign_device(volume_index, device, planned_volumes[1].mount_points.first, volumes[2]) }
+    @mock_vm.results_for_assign_device = results
   end
 
   if RightScale::Platform.windows?
     it 'should boot after managing planned volumes' do
       # setup series of responses to mock both core agent api and windows volume management.
-      mappings = mock_core_api_planned_volume_mappings
-      mock_core_api_detach_volume(mappings)
-      mock_core_api_attach_volume
+      planned_volumes = mock_core_api_get_planned_volumes
+      mock_core_api_detach_volume(planned_volumes)
+      mock_core_api_attach_volume(planned_volumes)
       disks = mock_vm_disks
       volumes = mock_vm_volumes
       mock_vm_partitions(disks)
-      mock_vm_format_disk(mappings, disks, volumes)
+      mock_vm_format_disk(planned_volumes, disks, volumes)
       mock_vm_online_disk(disks, volumes)
-      mock_vm_assign_device(mappings, volumes)
+      mock_vm_assign_device(planned_volumes, volumes)
 
       # test.
       boot_to_operational
@@ -436,7 +458,7 @@ describe InstanceSetup do
       # cause failure to get.
       results = []
       results << lambda{ @results_factory.error_results("Simluating unknown call failure.") }
-      InstanceSetup.planned_volume_mappings_results = results
+      InstanceSetup.results_for_get_planned_volumes = results
 
       # test.
       boot_to_stranded_with "Failed to retrieve planned volume mappings: Simluating unknown call failure."
@@ -447,21 +469,21 @@ describe InstanceSetup do
 
     it 'should strand when detach planned volumes fails' do
       # standard mocks.
-      mappings = mock_core_api_planned_volume_mappings
+      planned_volumes = mock_core_api_get_planned_volumes
 
       # tweak mocks to repeat the first planned volume mappings response.
       results = []
       # expect requery of current volume status once per detach pass.
-      InstanceSetup::MAX_VOLUME_ATTEMPTS.times { results << InstanceSetup.planned_volume_mappings_results[0] }
-      InstanceSetup.planned_volume_mappings_results = results
+      RightScale::VolumeManagement::MAX_VOLUME_ATTEMPTS.times { results << InstanceSetup.results_for_get_planned_volumes[0] }
+      InstanceSetup.results_for_get_planned_volumes = results
       results = []
-      total_detach_retries = 1 + mappings.size * (InstanceSetup::MAX_VOLUME_ATTEMPTS - 1)  # max-1 attempts to detach all then once more to strand
+      total_detach_retries = 1 + planned_volumes.size * (RightScale::VolumeManagement::MAX_VOLUME_ATTEMPTS - 1)  # max-1 attempts to detach all then once more to strand
       total_detach_retries.times { results << lambda{ @results_factory.error_results("Simulating failure to detach volume.") } }
-      InstanceSetup.detach_volume_results = results
+      InstanceSetup.results_for_detach_volume = results
 
       # test.
-      boot_to_stranded_with "Exceeded maximum of #{InstanceSetup::MAX_VOLUME_ATTEMPTS} attempts detaching "\
-                            "device \"#{mappings[0][:device]}\" with error: Simulating failure to detach volume."
+      boot_to_stranded_with "Exceeded maximum of #{RightScale::VolumeManagement::MAX_VOLUME_ATTEMPTS} attempts detaching "\
+                            "volume #{planned_volumes[0].volume_id} with error: Simulating failure to detach volume."
 
       # assert all lists were consumed.
       InstanceSetup.assert_all_expectations_met
@@ -469,24 +491,24 @@ describe InstanceSetup do
 
     it 'should strand when attach planned volumes fails' do
       # standard mocks.
-      mappings = mock_core_api_planned_volume_mappings
-      mock_core_api_detach_volume(mappings)
-      @mock_vm.disks_results = [lambda{[]}]     # ignored
-      @mock_vm.volumes_results = [lambda{[]}]   # ignored
+      planned_volumes = mock_core_api_get_planned_volumes
+      mock_core_api_detach_volume(planned_volumes)
+      @mock_vm.results_for_disks = [lambda{[]}]     # ignored
+      @mock_vm.results_for_volumes = [lambda{[]}]   # ignored
 
       # tweak mocks to repeat the second planned volume mappings response.
       results = []
-      results << InstanceSetup.planned_volume_mappings_results[0]
+      results << InstanceSetup.results_for_get_planned_volumes[0]
       # expect requery of current volume status once per attach pass.
-      InstanceSetup::MAX_VOLUME_ATTEMPTS.times { results << InstanceSetup.planned_volume_mappings_results[1] }
-      InstanceSetup.planned_volume_mappings_results = results
+      RightScale::VolumeManagement::MAX_VOLUME_ATTEMPTS.times { results << InstanceSetup.results_for_get_planned_volumes[1] }
+      InstanceSetup.results_for_get_planned_volumes = results
       results = []
-      InstanceSetup::MAX_VOLUME_ATTEMPTS.times { results << lambda { @results_factory.error_results("Simulating failure to attach volume.") } }
-      InstanceSetup.attach_volume_results = results
+      RightScale::VolumeManagement::MAX_VOLUME_ATTEMPTS.times { results << lambda { @results_factory.error_results("Simulating failure to attach volume.") } }
+      InstanceSetup.results_for_attach_volume = results
 
       # test.
-      boot_to_stranded_with "Exceeded maximum of #{InstanceSetup::MAX_VOLUME_ATTEMPTS} attempts attaching "\
-                            "device \"#{mappings[0][:device]}\" with error: Simulating failure to attach volume."
+      boot_to_stranded_with "Exceeded maximum of #{RightScale::VolumeManagement::MAX_VOLUME_ATTEMPTS} attempts attaching "\
+                            "volume #{planned_volumes[0].volume_id} with error: Simulating failure to attach volume."
 
       # assert all lists were consumed.
       InstanceSetup.assert_all_expectations_met
@@ -494,12 +516,12 @@ describe InstanceSetup do
     end
 
     it 'should strand when list disks fails' do
-      mappings = mock_core_api_planned_volume_mappings
-      mock_core_api_detach_volume(mappings)
-      @mock_vm.disks_results = [lambda{ raise "Simulating vm disks error." }]
+      planned_volumes = mock_core_api_get_planned_volumes
+      mock_core_api_detach_volume(planned_volumes)
+      @mock_vm.results_for_disks = [lambda{ raise "Simulating vm disks error." }]
 
       # tweak mocks to only give the first two planned volume mappings responses.
-      InstanceSetup.planned_volume_mappings_results = InstanceSetup.planned_volume_mappings_results[0, 2]
+      InstanceSetup.results_for_get_planned_volumes = InstanceSetup.results_for_get_planned_volumes[0, 2]
 
       # test.
       boot_to_stranded_with "Simulating vm disks error."
@@ -510,13 +532,13 @@ describe InstanceSetup do
     end
 
     it 'should strand when list volumes fails' do
-      mappings = mock_core_api_planned_volume_mappings
-      mock_core_api_detach_volume(mappings)
-      @mock_vm.disks_results = [lambda{[]}]     # ignored
-      @mock_vm.volumes_results = [lambda{ raise "Simulating vm volumes error." }]
+      planned_volumes = mock_core_api_get_planned_volumes
+      mock_core_api_detach_volume(planned_volumes)
+      @mock_vm.results_for_disks = [lambda{[]}]     # ignored
+      @mock_vm.results_for_volumes = [lambda{ raise "Simulating vm volumes error." }]
 
       # tweak mocks to only give the first two planned volume mappings responses.
-      InstanceSetup.planned_volume_mappings_results = InstanceSetup.planned_volume_mappings_results[0, 2]
+      InstanceSetup.results_for_get_planned_volumes = InstanceSetup.results_for_get_planned_volumes[0, 2]
 
       # test.
       boot_to_stranded_with "Simulating vm volumes error."
@@ -527,18 +549,18 @@ describe InstanceSetup do
     end
 
     it 'should strand when list partitions fails' do
-      mappings = mock_core_api_planned_volume_mappings
-      mock_core_api_detach_volume(mappings)
-      mock_core_api_attach_volume
+      planned_volumes = mock_core_api_get_planned_volumes
+      mock_core_api_detach_volume(planned_volumes)
+      mock_core_api_attach_volume(planned_volumes)
       mock_vm_disks
       mock_vm_volumes
-      @mock_vm.partitions_results = [lambda{ raise "Simulating vm partitions error." }]
+      @mock_vm.results_for_partitions = [lambda{ raise "Simulating vm partitions error." }]
 
       # tweak mocks to only give the results leading to first call to partitions.
-      InstanceSetup.planned_volume_mappings_results = InstanceSetup.planned_volume_mappings_results[0, 3]
-      InstanceSetup.attach_volume_results = InstanceSetup.attach_volume_results[0, 1]
-      @mock_vm.disks_results = @mock_vm.disks_results[0, 2]
-      @mock_vm.volumes_results = @mock_vm.volumes_results[0, 2]
+      InstanceSetup.results_for_get_planned_volumes = InstanceSetup.results_for_get_planned_volumes[0, 3]
+      InstanceSetup.results_for_attach_volume = InstanceSetup.results_for_attach_volume[0, 1]
+      @mock_vm.results_for_disks = @mock_vm.results_for_disks[0, 2]
+      @mock_vm.results_for_volumes = @mock_vm.results_for_volumes[0, 2]
 
       # test.
       boot_to_stranded_with "Simulating vm partitions error."
@@ -549,20 +571,20 @@ describe InstanceSetup do
     end
 
     it 'should strand when format disk fails' do
-      mappings = mock_core_api_planned_volume_mappings
-      mock_core_api_detach_volume(mappings)
-      mock_core_api_attach_volume
+      planned_volumes = mock_core_api_get_planned_volumes
+      mock_core_api_detach_volume(planned_volumes)
+      mock_core_api_attach_volume(planned_volumes)
       disks = mock_vm_disks
       mock_vm_volumes
       mock_vm_partitions(disks)
-      @mock_vm.format_disk_results = [lambda{ raise "Simulating vm format disk error." }]
+      @mock_vm.results_for_format_disk = [lambda{ raise "Simulating vm format disk error." }]
 
       # tweak mocks to only give the results leading to call to format disk.
-      InstanceSetup.planned_volume_mappings_results = InstanceSetup.planned_volume_mappings_results[0, 3]
-      InstanceSetup.attach_volume_results = InstanceSetup.attach_volume_results[0, 1]
-      @mock_vm.disks_results = @mock_vm.disks_results[0, 2]
-      @mock_vm.volumes_results = @mock_vm.volumes_results[0, 2]
-      @mock_vm.partitions_results = @mock_vm.partitions_results[0, 1]
+      InstanceSetup.results_for_get_planned_volumes = InstanceSetup.results_for_get_planned_volumes[0, 3]
+      InstanceSetup.results_for_attach_volume = InstanceSetup.results_for_attach_volume[0, 1]
+      @mock_vm.results_for_disks = @mock_vm.results_for_disks[0, 2]
+      @mock_vm.results_for_volumes = @mock_vm.results_for_volumes[0, 2]
+      @mock_vm.results_for_partitions = @mock_vm.results_for_partitions[0, 1]
 
       # test.
       boot_to_stranded_with "Simulating vm format disk error."
@@ -573,18 +595,18 @@ describe InstanceSetup do
     end
 
     it 'should strand when online disk fails' do
-      mappings = mock_core_api_planned_volume_mappings
-      mock_core_api_detach_volume(mappings)
-      mock_core_api_attach_volume
+      planned_volumes = mock_core_api_get_planned_volumes
+      mock_core_api_detach_volume(planned_volumes)
+      mock_core_api_attach_volume(planned_volumes)
       disks = mock_vm_disks
       volumes = mock_vm_volumes
       mock_vm_partitions(disks)
-      mock_vm_format_disk(mappings, disks, volumes)
-      @mock_vm.online_disk_results = [lambda{ raise "Simulating vm online disk error." }]
+      mock_vm_format_disk(planned_volumes, disks, volumes)
+      @mock_vm.results_for_online_disk = [lambda{ raise "Simulating vm online disk error." }]
 
       # tweak mocks to only give the results leading to call to format disk.
-      InstanceSetup.planned_volume_mappings_results = InstanceSetup.planned_volume_mappings_results[0, 5]
-      @mock_vm.volumes_results = @mock_vm.volumes_results[0, 4]
+      InstanceSetup.results_for_get_planned_volumes = InstanceSetup.results_for_get_planned_volumes[0, 5]
+      @mock_vm.results_for_volumes = @mock_vm.results_for_volumes[0, 4]
 
       # test.
       boot_to_stranded_with "Simulating vm online disk error."
@@ -595,18 +617,18 @@ describe InstanceSetup do
     end
 
     it 'should strand when assign device fails' do
-      mappings = mock_core_api_planned_volume_mappings
-      mock_core_api_detach_volume(mappings)
-      mock_core_api_attach_volume
+      planned_volumes = mock_core_api_get_planned_volumes
+      mock_core_api_detach_volume(planned_volumes)
+      mock_core_api_attach_volume(planned_volumes)
       disks = mock_vm_disks
       volumes = mock_vm_volumes
       mock_vm_partitions(disks)
-      mock_vm_format_disk(mappings, disks, volumes)
+      mock_vm_format_disk(planned_volumes, disks, volumes)
       mock_vm_online_disk(disks, volumes)
-      @mock_vm.assign_device_results = [lambda{ raise "Simulating vm assign device error." }]
+      @mock_vm.results_for_assign_device = [lambda{ raise "Simulating vm assign device error." }]
 
       # tweak mocks to only give the results leading to call to format disk.
-      InstanceSetup.planned_volume_mappings_results = InstanceSetup.planned_volume_mappings_results[0, 5]
+      InstanceSetup.results_for_get_planned_volumes = InstanceSetup.results_for_get_planned_volumes[0, 5]
 
       # test.
       boot_to_stranded_with "Simulating vm assign device error."
