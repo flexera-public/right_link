@@ -54,7 +54,6 @@ module RightScale
       RightLinkLog.program_name = 'RightLink'
       RightLinkLog.log_to_file_only(options[:log_to_file_only])
       RightLinkLog.init(agent_id, options[:log_path])
-      InstanceState.init(agent_id, read_only = true)
       sequence = ExecutableSequence.new(bundle)
       EM.threadpool_size = 1
       EM.error_handler do |e|
