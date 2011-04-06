@@ -491,7 +491,7 @@ module RightScale
       begin
         @audit.create_new_section('Converging')
         @audit.append_info("Run list: #{@run_list.join(', ')}")
-        attribs = { 'recipes' => @run_list }
+        attribs = { 'run_list' => @run_list }
         attribs.merge!(@attributes) if @attributes
         c = Chef::Client.new(attribs)
         c.ohai = ohai
@@ -529,7 +529,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def report_success(node)
-      ChefState.merge_attributes(node.attribute) if node
+      ChefState.merge_attributes(node.normal_attrs) if node
       patch = ChefState.create_patch(@inputs, ChefState.attributes)
       # We don't want to send back new attributes (ohai etc.)
       patch[:right_only] = {}
