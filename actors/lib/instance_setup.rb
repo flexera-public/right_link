@@ -49,9 +49,10 @@ class InstanceSetup
     
     # Schedule boot sequence, don't run it now so agent is registered first
     if RightScale::InstanceState.value == 'booting'
-      EM.next_tick { RightScale::RequestForwarder.instance.init { init_boot } }
+      EM.next_tick { init_boot }
     else
       RightScale::RequestForwarder.instance.init
+      RightScale::RequestForwarder.instance.start
     end
 
     # Setup suicide timer which will cause instance to shutdown if the rs_launch:type=auto tag
@@ -99,13 +100,15 @@ class InstanceSetup
   #
   # === Return
   # true:: Always return true
-  def init_boot
+  def init_boot 
+    RightScale::RequestForwarder.instance.init
     options = { :agent_identity => @agent_identity,
                 :r_s_version    => RightScale::RightLinkConfig.protocol_version,
                 :resource_uid   => RightScale::InstanceState.resource_uid }
     RightScale::RequestForwarder.instance.request('/booter/declare', options) do |r|
       res = RightScale::OperationResult.from_results(r)
       if res.success?
+        RightScale::RequestForwarder.instance.start
         enable_managed_login
       else
         if res.retry?
