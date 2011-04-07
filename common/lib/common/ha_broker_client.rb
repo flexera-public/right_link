@@ -1067,7 +1067,7 @@ module RightScale
           end
           if update
             if v[:callback].arity == 2
-              v[:callback].call(update, b.island_id)
+              v[:callback].call(update, broker.island_id)
             else
               v[:callback].call(update)
             end
