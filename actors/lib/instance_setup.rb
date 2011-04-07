@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2009 RightScale Inc
+# Copyright (c) 2009-2011 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -53,9 +53,10 @@ class InstanceSetup
     EM.threadpool_size = 1
     # Schedule boot sequence, don't run it now so agent is registered first
     if RightScale::InstanceState.value == 'booting'
-      EM.next_tick { RightScale::RequestForwarder.instance.init { init_boot } }
+      EM.next_tick { init_boot }
     else
       RightScale::RequestForwarder.instance.init
+      RightScale::RequestForwarder.instance.start
     end
   end
 
@@ -90,11 +91,15 @@ class InstanceSetup
   #
   # === Return
   # true:: Always return true
-  def init_boot
-    options = { :agent_identity => @agent_identity, :r_s_version => RightScale::RightLinkConfig.protocol_version, :aws_id => RightScale::InstanceState.aws_id }
+  def init_boot 
+    RightScale::RequestForwarder.instance.init
+    options = { :agent_identity => @agent_identity,
+                :r_s_version    => RightScale::RightLinkConfig.protocol_version,
+                :aws_id         => RightScale::InstanceState.aws_id }
     RightScale::RequestForwarder.instance.request('/booter/declare', options) do |r|
       res = RightScale::OperationResult.from_results(r)
       if res.success?
+        RightScale::RequestForwarder.instance.start
         enable_managed_login
       else
         if res.retry?

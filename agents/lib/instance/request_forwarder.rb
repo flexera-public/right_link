@@ -68,11 +68,18 @@ module RightScale
       unless @running
         @running = true
         @in_init = true
-        yield if block_given?
-        @in_init = false
-        flush_queue unless @mode == :offline
-        @mode = :online if @mode == :initializing
       end
+    end
+
+    # Switch to online mode and flush all buffered requests
+    #
+    # === Return
+    # true:: Always return true
+    def start
+      @in_init = false
+      flush_queue unless @mode == :offline
+      @mode = :online if @mode == :initializing
+      true
     end
 
     # Send request or buffer it if we are in offline mode
