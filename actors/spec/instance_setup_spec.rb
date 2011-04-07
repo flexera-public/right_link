@@ -303,8 +303,8 @@ describe InstanceSetup do
     true
   end
 
-  def handle_assign_device(volume_index, device, expected_device, volume)
-    volume_index.should == volume[:index]
+  def handle_assign_device(volume_device_or_index, device, expected_device, volume)
+    volume_device_or_index.should == volume[:device] || volume[:index]
     device.should == expected_device
     volume.merge!(:device => device)
     true
@@ -429,7 +429,7 @@ describe InstanceSetup do
 
   def mock_vm_assign_device(planned_volumes, volumes)
     results = []
-    results << lambda { |volume_index, device| handle_assign_device(volume_index, device, planned_volumes[1].mount_points.first, volumes[2]) }
+    results << lambda { |volume_device_or_index, device| handle_assign_device(volume_device_or_index, device, planned_volumes[1].mount_points.first, volumes[2]) }
     @mock_vm.results_for_assign_device = results
   end
 

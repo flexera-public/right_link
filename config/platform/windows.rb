@@ -357,7 +357,7 @@ rescan
 list disk
 EOF
           exit_code, output_text = run_script(script)
-          raise VolumeError.new("Failed to list disks: exit code = #{exit_code}, #{output_text}") if exit_code != 0
+          raise VolumeError.new("Failed to list disks: exit code = #{exit_code}\n#{script}\n#{output_text}") if exit_code != 0
           return parse_disks(output_text, conditions)
         end
 
@@ -400,7 +400,7 @@ rescan
 list volume
 EOF
           exit_code, output_text = run_script(script)
-          raise VolumeError.new("Failed to list volumes exit code = #{exit_code}, #{output_text}") if exit_code != 0
+          raise VolumeError.new("Failed to list volumes exit code = #{exit_code}\n#{script}\n#{output_text}") if exit_code != 0
           return parse_volumes(output_text, conditions)
         end
 
@@ -430,7 +430,7 @@ select disk #{disk_index}
 list partition
 EOF
           exit_code, output_text = run_script(script)
-          raise VolumeError.new("Failed to list partitions exit code = #{exit_code}, #{output_text}") if exit_code != 0
+          raise VolumeError.new("Failed to list partitions exit code = #{exit_code}\n#{script}\n#{output_text}") if exit_code != 0
           return parse_partitions(output_text, conditions)
         end
 
@@ -461,6 +461,8 @@ EOF
           # format so that has to be done separately.
           format_command = if @os_info.major < 6; ""; else; "format FS=NTFS quick"; end
           script = <<EOF
+rescan
+list disk
 select disk #{disk_index}
 #{clear_readonly_command}
 #{online_command}
@@ -470,14 +472,14 @@ assign letter=#{letter}
 #{format_command}
 EOF
           exit_code, output_text = run_script(script)
-          raise VolumeError.new("Failed to format disk #{disk_index} for device #{device}: exit code = #{exit_code}, #{output_text}") if exit_code != 0
+          raise VolumeError.new("Failed to format disk #{disk_index} for device #{device}: exit code = #{exit_code}\n#{script}\n#{output_text}") if exit_code != 0
 
           # must format using command shell's FORMAT command before 2008 server.
           if @os_info.major < 6
             command = "echo Y | format #{letter}: /Q /V: /FS:NTFS"
             output_text = `#{command}`
             exit_code = $?.exitstatus
-            raise VolumeError.new("Failed to format disk #{disk_index} for device #{device}: exit code = #{exit_code}, #{output_text}") if exit_code != 0
+            raise VolumeError.new("Failed to format disk #{disk_index} for device #{device}: exit code = #{exit_code}\n#{output_text}") if exit_code != 0
           end
           true
         end
@@ -503,12 +505,14 @@ EOF
           clear_readonly_command = if @os_info.major < 6; ""; else; "attribute disk clear readonly noerr"; end
           online_command = if @os_info.major < 6; "online"; else; "online disk noerr"; end
           script = <<EOF
+rescan
+list disk
 select disk #{disk_index}
 #{clear_readonly_command}
 #{online_command}
 EOF
           exit_code, output_text = run_script(script)
-          raise VolumeError.new("Failed to online disk #{disk_index}: exit code = #{exit_code}, #{output_text}") if exit_code != 0
+          raise VolumeError.new("Failed to online disk #{disk_index}: exit code = #{exit_code}\n#{script}\n#{output_text}") if exit_code != 0
           true
         end
 
@@ -517,7 +521,7 @@ EOF
         # in use.
         #
         # === Parameters
-        # volume_index(int):: zero-based volume index (from volumes list, etc.)
+        # volume_device_or_index(int):: old device or zero-based volume index (from volumes list, etc.) to select for assignment.
         # device(String):: device specified for the volume to create
         #
         # === Return
@@ -527,17 +531,21 @@ EOF
         # ArgumentError:: on invalid parameters
         # VolumeError:: on failure to assign device name
         # ParserError:: on failure to parse volume list
-        def assign_device(volume_index, device)
-          raise ArgumentError.new("Invalid volume_index = #{volume_index}") unless volume_index >= 0
+        def assign_device(volume_device_or_index, device)
+          volume_selector_match = volume_device_or_index.to_s.match(/^([D-Zd-z]|\d+):?$/)
+          raise ArgumentError.new("Invalid volume_device_or_index = #{volume_device_or_index}") unless volume_selector_match
+          volume_selector = volume_selector_match[1]
           raise ArgumentError.new("Invalid device = #{device}") unless is_attachable_volume_path?(device)
-          letter = device[0,1]
+          new_letter = device[0,1]
           script = <<EOF
-select volume #{volume_index}
+rescan
+list volume
+select volume #{volume_selector}
 attribute volume clear readonly noerr
-assign letter=#{letter}
+assign letter=#{new_letter}
 EOF
           exit_code, output_text = run_script(script)
-          raise VolumeError.new("Failed to assign device #{device} for volume #{volume_index}: exit code = #{exit_code}, #{output_text}") if exit_code != 0
+          raise VolumeError.new("Failed to assign device \"#{device}\" for volume \"#{volume_device_or_index}\": exit code = #{exit_code}\n#{script}\n#{output_text}") if exit_code != 0
           true
         end
 
@@ -641,8 +649,10 @@ EOF
               end
               match_data = line.match(line_regex)
               raise ParserError.new("Failed to parse volume info from #{line.inspect} using #{line_regex.inspect}") unless match_data
+              letter = nil_if_empty(match_data[2])
+              device = "#{letter.upcase}:" if letter
               data = {:index => match_data[1].to_i,
-                      :device => "#{match_data[2].upcase}:",
+                      :device => device,
                       :label => nil_if_empty(match_data[3]),
                       :filesystem => nil_if_empty(match_data[4]),
                       :type => nil_if_empty(match_data[5]),
@@ -668,7 +678,7 @@ EOF
               type_width = header_match[3].length
               status_width = header_match[4].length
               info_width = header_match[5].length
-              line_regex_text = "^[\\* ] Volume (\\d[\\d ]\{2\})   ([A-Za-z])   "\
+              line_regex_text = "^[\\* ] Volume (\\d[\\d ]\{2\})   ([A-Za-z ])   "\
                                 "(.\{#{label_width}\})  (.\{#{filesystem_width}\})  "\
                                 "(.\{#{type_width}\})  [ ]?([\\d ]\{3\}\\d) (.?B)  "\
                                 "(.\{#{status_width}\})  (.\{#{info_width}\})"

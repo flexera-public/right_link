@@ -65,6 +65,7 @@ module RightScale
             RightScale::InstanceState.planned_volume_state.mappings = mappings
             if mappings.empty?
               # no volumes requiring management.
+              @audit.append_info("This instance has no planned volumes.")
               block.call if block
             elsif (detachable_volume_count = mappings.count { |mapping| is_unmanaged_attached_volume?(mapping) }) >= 1
               # must detach all 'attached' volumes if any are attached (or
@@ -253,7 +254,11 @@ module RightScale
             new_volume = find_distinct_item(current_volumes, last_volumes, :device)
           end
           if new_volume
-            vm.assign_device(new_volume[:index], mapping[:mount_points].first) unless new_volume[:device] == mapping[:mount_points].first
+            # prefer selection by existing device because it is more reliable in Windows 2003 case.
+            unless new_volume[:device] && (0 == new_volume[:device].casecmp(mapping[:mount_points].first))
+              device_or_index_to_select = new_volume[:device] || new_volume[:index]
+              vm.assign_device(device_or_index_to_select, mapping[:mount_points].first)
+            end
             succeeded = true
           end
         end
