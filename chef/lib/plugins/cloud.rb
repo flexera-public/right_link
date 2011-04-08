@@ -32,8 +32,8 @@ if ec2 != nil
 elsif rackspace != nil
   cloud Mash.new
   cloud[:provider] = "rackspace"
-  cloud[:public_ips] = [ rackspace['public_ip'] ]
-  cloud[:private_ips] = [ rackspace['private_ip'] ]
+  cloud[:public_ips] = [ rackspace[:public_ip] ]
+  cloud[:private_ips] = [ rackspace[:private_ip] ]
 elsif eucalyptus != nil
   cloud Mash.new
   cloud[:provider] = "eucalyptus"

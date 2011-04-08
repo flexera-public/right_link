@@ -122,7 +122,7 @@ describe Ohai::System, " plugin rackspace" do
     end
   end
 
-  context 'when in a windows instance' do
+  context 'when on a windows instance' do
     before(:each) do
       @ohai[:os] = 'windows'
     end
@@ -133,8 +133,8 @@ describe Ohai::System, " plugin rackspace" do
 
     context 'and is in the rackspace cloud' do
       before(:each) do
-        flexmock(RightScale::CloudUtilities).should_receive(:ip_for_interface).with(@ohai, "0x3").and_return(@expected_public_ip)
-        flexmock(RightScale::CloudUtilities).should_receive(:ip_for_interface).with(@ohai, "0x2").and_return(@expected_private_ip)
+        flexmock(RightScale::CloudUtilities).should_receive(:ip_for_windows_interface).with(@ohai, 'public').and_return(@expected_public_ip)
+        flexmock(RightScale::CloudUtilities).should_receive(:ip_for_windows_interface).with(@ohai, 'private').and_return(@expected_private_ip)
       end
 
       it_should_behave_like 'on the rackspace cloud'
