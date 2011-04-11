@@ -304,7 +304,8 @@ describe InstanceSetup do
   end
 
   def handle_assign_device(volume_device_or_index, device, expected_device, volume)
-    volume_device_or_index.should == volume[:device] || volume[:index]
+    expected_volume_device_or_index = volume[:device] || volume[:index]
+    volume_device_or_index.should == expected_volume_device_or_index
     device.should == expected_device
     volume.merge!(:device => device)
     true
