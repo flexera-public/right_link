@@ -319,6 +319,7 @@ module RightScale
       return false unless usable?
       begin
         RightLinkLog.info("[setup] Declaring #{name} #{type.to_s} on broker #{@alias}")
+        delete_from_cache(:queue, name)
         @mq.__send__(type, name, options)
         true
       rescue Exception => e
@@ -403,7 +404,7 @@ module RightScale
       true
     end
 
-    # Delete queue
+    # Delete queue if subscribed to it
     #
     # === Parameters
     # name(String):: Queue name
@@ -417,7 +418,7 @@ module RightScale
         begin
           @queues.reject! do |q|
             if q.name == name
-              @mq.queue(name, options).delete
+              @mq.queue(name, options.merge(:no_declare => true)).delete
               deleted = true
             end
           end

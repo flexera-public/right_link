@@ -25,7 +25,6 @@ require File.expand_path(File.join(File.dirname(__FILE__), '..', 'spec_helper'))
 # FIX: rake spec should check parent directory name?
 if RightScale::RightLinkConfig[:platform].windows?
 
-  require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'mock_auditor_proxy'))
   require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'chef_runner'))
 
   module PowershellBasedProviderSpec
@@ -34,55 +33,26 @@ if RightScale::RightLinkConfig[:platform].windows?
   end
 
   describe "Powershell::Provider - Given a cookbook containing a powershell provider" do
-    include RightScale::Test::MockAuditorProxy
 
     def is_debug?
       return !!ENV['DEBUG']
     end
 
-    before(:each) do
-      @original_logger = ::Chef::Log.logger
-      @log_file_name = File.normalize_path(File.join(Dir.tmpdir, "chef_runner_#{File.basename(__FILE__, '.rb')}_#{Time.now.strftime("%Y-%m-%d-%H%M%S")}.log"))
-      @log_file = File.open(@log_file_name, 'w')
-
-      # redirect the Chef logs to a file before creating the chef client
-      ::Chef::Log.logger = Logger.new(@log_file)
-      if is_debug?
-        RightScale::RightLinkLog.level = :debug
-        RightScale::RightLinkLog = ::Chef::Log.logger
-        flexmock(Chef::Log).should_receive(:level).and_return(Logger::DEBUG)
-      end
-
-      @logger = RightScale::Test::MockLogger.new
-      mock_chef_log(@logger)
-
-      flexmock(RightScale::RightLinkLog).should_receive(:error).and_return { |m| @logger.error_text << m }
-      flexmock(RightScale::RightLinkLog).should_receive(:info).and_return { |m| @logger.info_text << m }
-
-
-      # mock out Powershell script internals so we can run tests using the Powershell script provider
-      mock_instance_state = flexmock('MockInstanceState', :reboot? => false)
-      mock_chef_state = flexmock('MockChefState', :record_script_execution => true, :past_scripts => [])
-      flexmock(Chef::Provider::Powershell).new_instances.should_receive(:all_state).and_return({:instance_state => mock_instance_state, :chef_state => mock_chef_state})
+    def run_failing_recipe(recipe_name, matcher=raise_exception)
+      runner = lambda {
+        RightScale::Test::ChefRunner.run_chef(PowershellBasedProviderSpec::TEST_COOKBOOK_PATH, recipe_name)
+      }
+      runner.should matcher
     end
 
-    after(:each) do
-      # reset the original logger and delete the log file for this run unless explicitly kept
-      ::Chef::Log.logger = @original_logger
-      @log_file.close rescue nil
-      if ENV['RS_LOG_KEEP']
-        puts "Log saved to \"#{@log_file_name}\""
-      else
-        FileUtils.rm_f(@log_file_name)
-      end
-    end
-
+    it_should_behave_like 'mocks logging'
+    it_should_behave_like 'mocks state'
 
     it "should run a simple recipe" do
       runner = lambda {
         RightScale::Test::ChefRunner.run_chef(PowershellBasedProviderSpec::TEST_COOKBOOK_PATH, 'test_cookbook::run_powershell_based_simple_recipe')
       }
-      runner.call.should == true
+      runner.call.should be_true
       @logger.error_text.should == ""
 
       # TODO: verify order of execution
@@ -107,7 +77,7 @@ if RightScale::RightLinkConfig[:platform].windows?
       runner = lambda {
         RightScale::Test::ChefRunner.run_chef(PowershellBasedProviderSpec::TEST_COOKBOOK_PATH, 'test_cookbook::run_powershell_based_recipe_with_resources')
       }
-      runner.call.should == true
+      runner.call.should be_true
       @logger.error_text.should == ""
 
       # TODO: verify order of execution
@@ -143,7 +113,7 @@ if RightScale::RightLinkConfig[:platform].windows?
       runner = lambda {
         RightScale::Test::ChefRunner.run_chef(PowershellBasedProviderSpec::TEST_COOKBOOK_PATH, 'test_cookbook::mix_of_powershell_script_and_powershell_providers')
       }
-      runner.call.should == true
+      runner.call.should be_true
       @logger.error_text.should == ""
 
       # TODO: verify order of execution
@@ -189,7 +159,7 @@ if RightScale::RightLinkConfig[:platform].windows?
       runner = lambda {
         RightScale::Test::ChefRunner.run_chef(PowershellBasedProviderSpec::TEST_COOKBOOK_PATH, 'test_cookbook::modify_chef_node')
       }
-      runner.call.should == true
+      runner.call.should be_true
 
     end
 
@@ -206,7 +176,7 @@ if RightScale::RightLinkConfig[:platform].windows?
           RightScale::RightLinkLog.level = old_level
         end
       }
-      runner.call.should == true
+      runner.call.should be_true
       @logger.error_text.should == ""
 
       logs = @logger.info_text.gsub("\n", "")
@@ -388,29 +358,22 @@ EOF
 
     context 'missing resource errors' do
       it "should produce a readable error when powershell action script is not defined" do
-        run_failing_recipe('test_cookbook::missing_action_script', raise_exception(NameError, /Cannot find Action\S* for action_\S*\s*Original exception: NameError: uninitialized constant Chef::Resource::Action\S*/))
+        run_failing_recipe('test_cookbook::missing_action_script', raise_exception(::NoMethodError, /undefined method .action_does_not_exist. for #<TestCookbookErrorNoscript:\S*>/))
         @logger.info_text.gsub("\n", "").should match /\[chef\] Warning! no powershell script exists for the action: does_not_exist/
       end
 
       it "should produce a readable error when multiple powershell action scripts are not defined" do
-        run_failing_recipe('test_cookbook::missing_many_action_scripts', raise_exception(NameError, /Cannot find Action\S* for action_\S*\s*Original exception: NameError: uninitialized constant Chef::Resource::Action\S*/))
+        run_failing_recipe('test_cookbook::missing_many_action_scripts', raise_exception(::NoMethodError, /undefined method .action_does_not_exist2. for #<TestCookbookErrorMissingManyScripts:\S*/))
         @logger.info_text.gsub("\n", "").should match /\[chef\] Warning! no powershell scripts exist for the following actions: does_not_exist1, does_not_exist2, does_not_exist3/
       end
 
       it "should produce a readable error when lwr action implementation is not defined " do
-        run_failing_recipe('test_cookbook::missing_lwr_resource', raise_exception(NameError, /Cannot find Action\S* for action_\S*\s*Original exception: NameError: uninitialized constant Chef::Resource::Action\S*/))
+        run_failing_recipe('test_cookbook::missing_lwr_resource', raise_exception(::NoMethodError, /undefined method `action_create' for #<Chef::Provider::TestCookbookMysql:\S*>/))
       end
 
       it "should produce a readable error when an undefined action is used in a recipe" do
-        run_failing_recipe('test_cookbook::undefined_action', raise_exception(RuntimeError, /Chef::Exceptions::ValidationFailed: Option action must be equal to one of: .*You passed :\S*./))
+        run_failing_recipe('test_cookbook::undefined_action', raise_exception(::RuntimeError, /Chef::Exceptions::ValidationFailed: Option action must be equal to one of: .*You passed :\S*./))
       end
     end
-    def run_failing_recipe(recipe_name, matcher=raise_exception)
-      runner = lambda {
-        RightScale::Test::ChefRunner.run_chef(PowershellBasedProviderSpec::TEST_COOKBOOK_PATH, recipe_name)
-      }
-      runner.should matcher
-    end
-
   end
 end

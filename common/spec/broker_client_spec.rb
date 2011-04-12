@@ -461,12 +461,21 @@ describe RightScale::BrokerClient do
 
     before(:each) do
       flexmock(MQ).should_receive(:new).with(@connection).and_return(@mq).by_default
+      @mq.should_receive(:queues).and_return({}).by_default
+      @mq.should_receive(:exchanges).and_return({}).by_default
     end
 
     it "should declare exchange and return true" do
       @mq.should_receive(:exchange).once
       broker = RightScale::BrokerClient.new(@identity, @address, @serializer, @exceptions, @options)
       broker.declare(:exchange, "x", :durable => true).should be_true
+    end
+
+    it "should delete the exchange or queue from the AMQP cache before declaring" do
+      @mq.should_receive(:queue).once
+      broker = RightScale::BrokerClient.new(@identity, @address, @serializer, @exceptions, @options)
+      flexmock(broker).should_receive(:delete_from_cache).with(:queue, "queue").once
+      broker.declare(:queue, "queue", :durable => true).should be_true
     end
 
     it "should log declaration" do

@@ -25,7 +25,8 @@ require 'chef/client'
 module RightScale
   module Test
     module ChefRunner
-      
+      extend self
+
       # Generates the path for the cookbooks directory for a given base path.
       #
       # === Parameters
@@ -37,9 +38,7 @@ module RightScale
         # Chef fails if cookbook paths contain backslashes.
         return File.join(base_path, "cookbooks").gsub("\\", "/")
       end
-      
-      module_function :get_cookbooks_path
-      
+
       # Creates a cookbook from a hash of recipe names to text.
       #
       # === Parameters
@@ -82,12 +81,10 @@ EOF
         # metadata
         metadata_path = recipes_path = File.join(cookbook_path, 'metadata.rb')
         File.open(metadata_path, "w") { |f| f.write(metadata_text) }
-        
+
         return cookbooks_path
       end
-      
-      module_function :create_cookbook
-      
+
       # Runs a Chef recipe.
       #
       # === Parameters
@@ -105,9 +102,7 @@ EOF
       def run_chef(cookbook_path, run_list, &block)
         inner_run_chef(cookbook_path, run_list, false, &block)
       end
-      
-      module_function :run_chef
-      
+
       # Runs a Chef recipe.
       #
       # === Parameters
@@ -125,9 +120,7 @@ EOF
       def run_chef_as_server(cookbook_path, run_list, &block)
         inner_run_chef(cookbook_path, run_list, true, &block)
       end
-      
-      module_function :run_chef_as_server
-      
+
       protected
 
       TEMP_DIR_NAME = "chef-runner-FF628CD5-9D48-46ff-BC11-D9DE3CC2215A"
@@ -150,7 +143,6 @@ EOF
       # === Raises
       # RightScale::Exceptions::Exec on failure
       def inner_run_chef(cookbook_path, run_list, run_as_server, &block)
-
         # ensure local drive for cookbook because scripts cannot run from
         # network locations (in windows).
         platform = RightScale::RightLinkConfig[:platform]
@@ -159,6 +151,12 @@ EOF
         # minimal chef configuration.
         ::Chef::Config[:solo] = true
         ::Chef::Config[:cookbook_path] = cookbook_path
+        Chef::Config[:custom_exec_exception] = Proc.new { |params|
+          failure_reason = ::RightScale::SubprocessFormatting.reason(params[:status])
+          expected_error_codes = Array(params[:args][:returns]).join(' or ')
+          ::RightScale::Exceptions::Exec.new("\"#{params[:args][:command]}\" #{failure_reason}, expected #{expected_error_codes}.", 
+                                             params[:args][:cwd])
+        }
 
         # must set file cache path for Windows case of using remote files, templates. etc.
         if platform.windows?
@@ -167,11 +165,13 @@ EOF
           Chef::Config[:cache_options][:path] = File.join(file_cache_path, 'checksums')
         end
 
+        # Where backups of chef-managed files should go.  Set to nil to backup to the same directory the file being backed up is in.
+        Chef::Config[:file_backup_path] = nil
+
         # prepare to run solo chef.
         run_list = [ run_list ] unless run_list.kind_of?(Array)
         attribs = { 'recipes' => run_list }
-        chef_client = ::Chef::Client.new
-        chef_client.json_attribs = attribs
+        chef_client = ::Chef::Client.new(attribs)
         done = false
         chef_node_server_terminated = false
         last_exception = nil
@@ -188,7 +188,7 @@ EOF
         EM.run do
           EM.defer do
             begin
-              chef_client.run_solo
+              chef_client.run
               block.call(chef_client) if block
             rescue Exception => e
               # can't raise exeception out of EM, so cache it here.
@@ -253,9 +253,6 @@ EOF
         end
         true
       end
-      
-      module_function :inner_run_chef
-
     end
   end
 end

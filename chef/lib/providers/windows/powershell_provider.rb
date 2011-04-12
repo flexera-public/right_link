@@ -72,11 +72,11 @@ class Chef
           # 2. Setup environment.
           environment = {} if environment.nil?
           environment['RS_ALREADY_RUN'] = current_state[:chef_state].past_scripts.include?(nickname) ? '1' : nil
-          environment['RS_REBOOT'] = current_state[:instance_state].reboot?
+          environment['RS_REBOOT'] = current_state[:cook_state].reboot?
           @new_resource.environment(environment)
 
           # 3. execute and wait
-          RightScale::Windows::ChefNodeServer.instance.start(:node => @node)
+          RightScale::Windows::ChefNodeServer.instance.start(:node => node)
 
           # new_resource points to the powershell script resource in this limited
           # context. there is no current resource in script execution context.
@@ -90,7 +90,7 @@ class Chef
           # super provider raises an exception on failure, so record success at
           # this point.
           current_state[:chef_state].record_script_execution(nickname)
-          @new_resource.updated = true
+          @new_resource.updated_by_last_action(true)
         ensure
           (FileUtils.rm_rf(SCRIPT_TEMP_DIR_PATH) rescue nil) if ::File.directory?(SCRIPT_TEMP_DIR_PATH)
         end
@@ -109,10 +109,10 @@ class Chef
       #
       # == Returns
       # result(Hash):: States:
-      #    :instance_state(RightScale::InstanceState):: current instance state
+      #    :cook_state(RightScale::CookState):: current cook state
       #    :chef_state(RightScale::ChefState):: current chef state
       def all_state
-        result = {:instance_state => RightScale::InstanceState, :chef_state => RightScale::ChefState}
+        result = {:cook_state => RightScale::CookState, :chef_state => RightScale::ChefState}
       end
 
 

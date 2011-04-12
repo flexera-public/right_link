@@ -177,6 +177,42 @@ describe RightScale::CloudUtilities do
     end
   end
 
+    context '#ip_for_windows_interface' do
+    it 'retrieves the appropriate ip address for a given interface' do
+      @ohai[:network] = {:interfaces => {"0x1"=> {"addresses"=>
+                                          {"1.1.1.1"=>
+                                            {"netmask"=>"255.255.255.0",
+                                             "broadcast"=>"1.1.1.255",
+                                             "family"=>"inet"},
+                                           "10:10:10:10:10:0"=>{"family"=>"lladdr"}},
+                                         "type"=>"Ethernet 802.3",
+                                         "instance"=>
+                                          {"system_creation_class_name"=>"Win32_ComputerSystem",
+                                           "net_connection_id"=>"public"},
+                                         "encapsulation"=>"Ethernet",
+                                         "configuration"=>
+                                          {"ip_enabled"=>true,
+                                           "ip_address"=>["1.1.1.1"]}}}}
+
+      RightScale::CloudUtilities.ip_for_windows_interface(@ohai, 'public').should == "1.1.1.1"
+    end
+
+    it 'returns nothing when no network mash exists' do
+      @ohai[:network] = nil
+      RightScale::CloudUtilities.ip_for_windows_interface(@ohai, 'public').should be_nil
+    end
+
+    it 'returns nothing when no interfaces are defined' do
+      @ohai[:network] = {}
+      RightScale::CloudUtilities.ip_for_windows_interface(@ohai, 'public').should be_nil
+    end
+
+    it 'returns nothing when there are no addresses on a given interface' do
+      @ohai[:network] = {:interfaces => {"0xC" => {} } }
+      RightScale::CloudUtilities.ip_for_windows_interface(@ohai, 'public').should be_nil
+    end
+  end
+
   context '#cloud' do
     it 'cloud file does not exist' do
       flexmock(File).should_receive(:exist?).and_return(false)

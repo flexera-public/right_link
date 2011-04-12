@@ -36,7 +36,7 @@ class Chef
       # === Return
       # true:: Always return true
       def load_current_resource
-        @original_cron_provider = Chef::Provider::Cron.new(@node, @new_resource.cron_resource)
+        @original_cron_provider = Chef::Provider::Cron.new(@new_resource.cron_resource, @run_context)
         @original_cron_provider.load_current_resource
         @current_resource = @original_cron_provider.current_resource
         true
@@ -48,7 +48,7 @@ class Chef
       # true:: Always return true
       def action_create
         @original_cron_provider.action_create
-        @new_resource.updated = @original_cron_provider.new_resource.updated
+        @new_resource.updated_by_last_action(@original_cron_provider.new_resource.updated_by_last_action)
         true
       end
 
@@ -58,7 +58,7 @@ class Chef
       # true:: Always return true
       def action_delete
         @original_cron_provider.action_delete
-        @new_resource.updated = @original_cron_provider.new_resource.updated
+        @new_resource.updated_by_last_action(@original_cron_provider.new_resource.updated_by_last_action)
       end
 
     end

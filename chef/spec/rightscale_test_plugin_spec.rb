@@ -22,62 +22,45 @@
 require File.expand_path(File.join(File.dirname(__FILE__), 'spec_helper'))
 
 require 'fileutils'
-require File.normalize_path(File.join(File.dirname(__FILE__), 'mock_auditor_proxy'))
 require File.normalize_path(File.join(File.dirname(__FILE__), 'chef_runner'))
 
 module RightScaleTestPluginSpec
   TEST_TEMP_PATH = File.normalize_path(File.join(Dir.tmpdir, "rightscale-test-plugin-spec-C6C7AFC5-94C4-4667-AFA8-46B9BAE7ED42"))
   TEST_COOKBOOKS_PATH = RightScale::Test::ChefRunner.get_cookbooks_path(TEST_TEMP_PATH)
-
-  def create_cookbook
-    RightScale::Test::ChefRunner.create_cookbook(
-      TEST_TEMP_PATH,
-      {
-        :echo_test_node_recipe => (
-<<EOF
-ruby 'test::echo_test_node_recipe' do
-  test_value = @node[:rightscale_test_plugin][:test_value]
-  code \"puts \\\"test node value = \#\{test_value\}\\\"\\n\"
-end
-EOF
-        )
-      }
-    )
-  end
-
-  module_function :create_cookbook
-
-  def cleanup
-    (FileUtils.rm_rf(TEST_TEMP_PATH) rescue nil) if File.directory?(TEST_TEMP_PATH)
-  end
-
-  module_function :cleanup
 end
 
 describe Ohai::System, " rightscale_test_plugin" do
-  include RightScale::Test::MockAuditorProxy
-
-  before(:all) do
-    RightScaleTestPluginSpec.create_cookbook
+  def create_cookbook
+    RightScale::Test::ChefRunner.create_cookbook(
+            RightScaleTestPluginSpec::TEST_TEMP_PATH,
+            {
+                    :echo_test_node_recipe => (
+                    <<EOF
+ruby 'test::echo_test_node_recipe' do
+  test_value = node[:rightscale_test_plugin][:test_value]
+  code \"puts \\\"test node value = \#\{test_value\}\\\"\\n\"
+end
+EOF
+                    )
+            }
+    )
   end
 
-  before(:each) do
-    @logger = RightScale::Test::MockLogger.new
-    mock_chef_log(@logger)
+  def cleanup
+    (FileUtils.rm_rf(RightScaleTestPluginSpec::TEST_TEMP_PATH) rescue nil) if File.directory?(RightScaleTestPluginSpec::TEST_TEMP_PATH)
   end
 
-  after(:all) do
-    RightScaleTestPluginSpec.cleanup
-  end
+  it_should_behave_like 'generates cookbook for chef runner'
+  it_should_behave_like 'mocks logging'
 
   it "should load custom ohai plugins" do
     runner = lambda {
       RightScale::Test::ChefRunner.run_chef(
-        RightScaleTestPluginSpec::TEST_COOKBOOKS_PATH,
-        'test::echo_test_node_recipe') }
-    runner.call.should == true
+              RightScaleTestPluginSpec::TEST_COOKBOOKS_PATH,
+              'test::echo_test_node_recipe') }
+    runner.call.should be_true
 
-    @logger.error_text.should == "";
+    @logger.error_text.should be_empty
     @logger.info_text.should include("test node value = abc")
   end
 

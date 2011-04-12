@@ -20,8 +20,6 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'mixin', 'command'))
-
 module RightScale
 
   # This class is responsible for managing a Powershell process instance
@@ -47,8 +45,10 @@ module RightScale
       RightLinkLog.debug(format_log_message("Starting pipe server"))
       @pipe_server = RightScale::Windows::PowershellPipeServer.new(:pipe_name => @pipe_name) do |kind, payload|
         case kind
-          when :is_ready then query
-          when :respond  then respond(payload)
+          when :is_ready then
+            query
+          when :respond then
+            respond(payload)
         end
       end
 
@@ -184,10 +184,10 @@ module RightScale
       lines_after_script = []
 
       command = shell.format_powershell_command4(
-        RightScale::Platform::Windows::Shell::POWERSHELL_V1x0_EXECUTABLE_PATH,
-        lines_before_script,
-        lines_after_script,
-        RUN_LOOP_SCRIPT_PATH)
+              RightScale::Platform::Windows::Shell::POWERSHELL_V1x0_EXECUTABLE_PATH,
+              lines_before_script,
+              lines_after_script,
+              RUN_LOOP_SCRIPT_PATH)
 
       RightLinkLog.debug(format_log_message("Starting powershell process for host #{command}"))
 
@@ -244,7 +244,22 @@ module RightScale
     # === Return
     # true:: Always return true
     def on_read_output(data)
-      ::Chef::Mixin::Command.write_output_to_log(data)
+      write_output_to_log(data)
+    end
+
+    # Handles a tendency of Windows command line tools to append extraneous
+    # newlines by stripping whitespace before logging. this might accidentally
+    # strip whitespace on a buffer boundary, but the buffer will likely be
+    # read more frequently than it is written to and the after-boundary text
+    # would appear on a new logger line anyway.
+    #
+    # === Parameters
+    # data(String):: data to write
+    def write_output_to_log(data)
+      data = data.strip
+      unless data.empty?
+        ::Chef::Log.info(data)
+      end
     end
 
     # Process exited event

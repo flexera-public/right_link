@@ -46,7 +46,8 @@ describe Chef::Provider::ExecutableSchedule do
   before(:each) do
     @node = flexmock('Chef::Node')
     @node.should_ignore_missing
-    @resource = Chef::Resource::ExecutableSchedule.new('my_schedule')
+    @run_context = Chef::RunContext.new(@node, {})
+    @resource = Chef::Resource::ExecutableSchedule.new('my_schedule', @run_context)
     @resource.minute('1')
     @resource.hour('1')
     @resource.day('1')
@@ -66,7 +67,7 @@ describe Chef::Provider::ExecutableSchedule do
       pending "Non crontab executable on this machine" unless system('which crontab')
       pending "Existing cron entries, cannot run test" if system('crontab -l 2>/dev/null')
 
-      @provider = Chef::Provider::ExecutableSchedule.new(@node, @resource)
+      @provider = Chef::Provider::ExecutableSchedule.new(@resource, @run_context)
       @provider.load_current_resource
 
       #Because there is no cron_entry initially, the current_resource should have the default values for min,hour,..
@@ -77,7 +78,7 @@ describe Chef::Provider::ExecutableSchedule do
       @provider.action_create
 
       #validate that the schedule has been created
-      @provider = Chef::Provider::ExecutableSchedule.new(@node, @resource)
+      @provider = Chef::Provider::ExecutableSchedule.new(@resource, @run_context)
       @provider.load_current_resource
       [:minute, :hour, :day, :month, :weekday].each { |attr| @provider.current_resource.send(attr).should == @resource.send(attr) }
     ensure
@@ -90,19 +91,19 @@ describe Chef::Provider::ExecutableSchedule do
       pending "Non crontab executable on this machine" unless system('which crontab')
       pending "Existing cron entries, cannot run test" if system('crontab -l 2>/dev/null')
 
-      @resource2 = Chef::Resource::ExecutableSchedule.new("my_schedule")
+      @resource2 = Chef::Resource::ExecutableSchedule.new("my_schedule", @run_context)
       @resource2.minute("2")
       @resource2.hour("2")
       @resource2.day("2")
       @resource2.month("2")
       @resource2.weekday("2")
 
-      @provider = Chef::Provider::ExecutableSchedule.new(@node, @resource2)
+      @provider = Chef::Provider::ExecutableSchedule.new(@resource2, @run_context)
       @provider.load_current_resource
       @provider.action_create
 
       #validate that the schedule has been updated
-      @provider = Chef::Provider::ExecutableSchedule.new(@node, @resource)
+      @provider = Chef::Provider::ExecutableSchedule.new(@resource2, @run_context)
       @provider.load_current_resource
       [:minute, :hour, :day, :month, :weekday].each { |attr| @provider.current_resource.send(attr).should == @resource2.send(attr) }
     ensure
@@ -116,7 +117,7 @@ describe Chef::Provider::ExecutableSchedule do
     pending "Chef.popen4 is raising Errno::EBADF for some runs of this test...needs more investigation"
 
     begin
-      @provider = Chef::Provider::ExecutableSchedule.new(@node, @resource)
+      @provider = Chef::Provider::ExecutableSchedule.new(@resource, @run_context)
       @provider.load_current_resource
       @provider.action_create
       @provider.load_current_resource
