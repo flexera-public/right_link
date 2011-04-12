@@ -25,6 +25,7 @@ class InstanceSetup
   include RightScale::Actor
   include RightScale::RightLinkLogHelpers
   include RightScale::OperationResultHelpers
+  include RightScale::ShutdownManagement::Helpers
 
   expose :report_state
 
@@ -182,7 +183,13 @@ class InstanceSetup
             @audit.update_status('Boot bundle ready')
             run_boot_bundle(prep_res.content) do |boot_res|
               if boot_res.success?
-                RightScale::InstanceState.value = 'operational'
+                # want to go operational only if no immediate shutdown request.
+                # immediate shutdown requires we stay in the current (booting)
+                # state pending full reboot/restart of instance so that we don't
+                # bounce between operational and booting in a multi-reboot case.
+                # if shutdown is deferred, then go operational before shutdown.
+                RightScale::InstanceState.value = 'operational' unless shutdown_request.immediately?
+                manage_shutdown_request(@audit)
               else
                 strand("Failed to run boot sequence", boot_res)
               end
@@ -211,6 +218,12 @@ class InstanceSetup
     msg += ": #{res.content}" if res && res.content
     @audit.append_error(msg, :category => RightScale::EventCategories::CATEGORY_ERROR) if @audit
     true
+  end
+
+  # Overrides default shutdown management failure handler in order to strand.
+  def handle_failed_shutdown_request(audit, msg, res = nil)
+    @audit = audit
+    strand(msg, res)
   end
 
   # Configure software repositories

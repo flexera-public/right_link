@@ -25,6 +25,7 @@ class InstanceScheduler
   include RightScale::Actor
   include RightScale::RightLinkLogHelpers
   include RightScale::OperationResultHelpers
+  include RightScale::ShutdownManagement::Helpers
 
   expose :schedule_bundle, :execute, :schedule_decommission
 
@@ -42,7 +43,7 @@ class InstanceScheduler
   def initialize(agent)
     @agent = agent
     @agent_identity = agent.identity
-    @bundles_queue  = RightScale::BundlesQueue.new do
+    @bundles_queue  = RightScale::BundlesQueue.new(self) do
       RightScale::InstanceState.value = 'decommissioned'
       @post_decommission_callback.call
     end
@@ -73,6 +74,15 @@ class InstanceScheduler
       @bundles_queue.push(context)
     end
     res = success_result
+  end
+
+  # Schedules a shutdown by appending it to the bundles queue.
+  #
+  # === Return
+  # always true
+  def schedule_shutdown
+    @bundles_queue.push(RightScale::BundlesQueue::SHUTDOWN_BUNDLE)
+    true
   end
 
   # Ask agent to execute given recipe or RightScript

@@ -22,6 +22,7 @@ require File.normalize_path(File.join(BASE_DIR, 'common', 'lib', 'common'))
 require File.normalize_path(File.join(BASE_DIR, 'command_protocol', 'lib', 'command_protocol'))
 require File.normalize_path(File.join(BASE_DIR, 'payload_types', 'lib', 'payload_types'))
 require File.normalize_path(File.join(BASE_DIR, 'scripts', 'lib', 'agent_utils'))
+require File.normalize_path(File.join(BASE_DIR, 'agents', 'lib', 'instance', 'shutdown_request'))
 
 module RightScale
 
@@ -136,6 +137,49 @@ module RightScale
       @client.send_command(cmd)
     end
 
+    # Queries shutdown request state (from parent process) only if not cached
+    # locally.
+    #
+    # === Returns
+    # result(token):: current state
+    def shutdown_request
+      return @shutdown_request if @shutdown_request
+      cmd = {:name => :get_shutdown_request}
+      @client.send_command(cmd) do |result|
+        if result[:error]
+          RightLinkLog.error("Failed getting state of requested shutdown: #{result[:error]}")
+        else
+          @shutdown_request ||= ::RightScale::ShutdownManagement::ShutdownRequest.new
+          @shutdown_request.level = result[:level]
+          @shutdown_request.immediately! if result[:immediately]
+        end
+      end
+      return @shutdown_request
+    end
+
+    # Updates shutdown request state (for parent process) which may be
+    # superceded by a previous, higher-priority shutdown level.
+    #
+    # === Parameters
+    # level(String):: shutdown request level
+    # immediately(Boolean):: shutdown request immediacy
+    #
+    # === Returns
+    # result(token):: current state
+    def shutdown_request=(level, immediately = false)
+      cmd = {:name => :set_shutdown_request, :level => level, :immediately => !!immediately}
+      @client.send_command(cmd) do |result|
+        if result[:error]
+          RightLinkLog.error("Failed setting state of requested shutdown: #{result[:error]}")
+        else
+          @shutdown_request ||= ::RightScale::ShutdownManagement::ShutdownRequest.new
+          @shutdown_request.level = result[:level]
+          @shutdown_request.immediately! if result[:immediately]
+        end
+      end
+      return @shutdown_request
+    end
+
     # Access cook instance from anywhere to send requests to core through
     # command protocol
     def self.instance
@@ -147,6 +191,7 @@ module RightScale
     # Initialize instance variables
     def initialize
       @client = nil
+      @shutdown_request = nil
     end
 
     # Load serialized content

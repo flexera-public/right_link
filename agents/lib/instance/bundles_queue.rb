@@ -25,15 +25,21 @@ module RightScale
   class BundlesQueue 
 
     FINAL_BUNDLE = 'end'
+    SHUTDOWN_BUNDLE = 'shutdown'
 
     # Set continuation block to be called after 'close' is called
     #
+    # === Parameters
+    # shutdown_manager(Object):: shutdown manager to handle shutdown requests.
+    #
     # === Block
     # continuation block
-    def initialize(&continuation)
+    def initialize(shutdown_manager, &continuation)
+      @shutdown_manager = shutdown_manager
       @queue = Queue.new
       @continuation = continuation
       @active = false
+      @shutdown_scheduled = false
     end
 
     # Activate queue for execution, idempotent
@@ -66,6 +72,22 @@ module RightScale
       if context == FINAL_BUNDLE
         EM.next_tick { @continuation.call if @continuation }
         @active = false
+      elsif context == SHUTDOWN_BUNDLE
+        unless @shutdown_scheduled
+          RightScale::AuditProxy.create(@agent_identity, "Requesting shutdown: #{@shutdown_manager.shutdown_request.level}") do |audit|
+            @shutdown_manager.manage_shutdown_request(audit) do
+              @shutdown_scheduled = true
+            end
+          end
+        end
+        # continue in queue expecting the decommission bundle to finish us off.
+        EM.defer { run }
+      elsif false == context.decommission && @shutdown_manager.shutdown_request.immediately?
+        # immediate shutdown pre-empts any futher attempts to run operational
+        # scripts but still allows the decommission bundle to run.
+        # proceed ignoring bundles until final or shutdown are encountered.
+        context.audit.update_status("Skipped bundle due to immediate shutdown: #{context.payload}")
+        EM.defer { run }
       else
         sequence = RightScale::ExecutableSequenceProxy.new(context)
         sequence.callback { audit_status(context) }
@@ -110,9 +132,3 @@ module RightScale
   end
 
 end
-
-
-
-
-
-
