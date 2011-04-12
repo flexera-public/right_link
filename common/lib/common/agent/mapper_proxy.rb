@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2009 RightScale Inc
+# Copyright (c) 2009-2011 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -153,7 +153,16 @@ module RightScale
       unless @queue_running
         @queue_running = true
         @queue_initializing = true
-        yield if block_given?
+      end
+      true
+    end
+
+    # Switch offline queueing to online mode and flush all buffered messages
+    #
+    # === Return
+    # true:: Always return true
+    def start_offline_queue
+      if @queue_initializing
         @queue_initializing = false
         flush_queue unless @queueing_mode == :offline
         @queueing_mode = :online if @queueing_mode == :initializing

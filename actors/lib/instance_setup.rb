@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2009 RightScale Inc
+# Copyright (c) 2009-2011 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -51,9 +51,10 @@ class InstanceSetup
     
     # Schedule boot sequence, don't run it now so agent is registered first
     if RightScale::InstanceState.value == 'booting'
-      EM.next_tick { RightScale::MapperProxy.instance.initialize_offline_queue { init_boot } }
+      EM.next_tick { init_boot }
     else
       RightScale::MapperProxy.instance.initialize_offline_queue
+      RightScale::MapperProxy.instance.start_offline_queue
     end
 
     # Setup suicide timer which will cause instance to shutdown if the rs_launch:type=auto tag
@@ -102,6 +103,7 @@ class InstanceSetup
   # === Return
   # true:: Always return true
   def init_boot
+    RightScale::MapperProxy.instance.initialize_offline_queue
     payload = {:agent_identity => @agent_identity,
                :r_s_version    => RightScale::RightLinkConfig.protocol_version,
                :resource_uid   => RightScale::InstanceState.resource_uid}
@@ -109,6 +111,7 @@ class InstanceSetup
     send_persistent_request("/booter/declare", payload, nil, :offline_queueing => true) do |r|
       res = result_from(r)
       if res.success?
+        RightScale::MapperProxy.instance.start_offline_queue
         enable_managed_login
       else
         if res.retry?
