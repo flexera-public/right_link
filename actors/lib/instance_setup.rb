@@ -26,6 +26,7 @@ class InstanceSetup
   include RightScale::RightLinkLogHelpers
   include RightScale::OperationResultHelpers
   include RightScale::ShutdownManagement::Helpers
+  include RightScale::VolumeManagementHelpers
 
   expose :report_state
 
@@ -131,7 +132,7 @@ class InstanceSetup
   # true:: Always return true
   def enable_managed_login
     if RightScale::Platform.windows? || RightScale::Platform.mac?
-      boot
+      boot_volumes
     else
       send_retryable_request("/booter/get_login_policy", {:agent_identity => @agent_identity}) do |r|
         res = result_from(r)
@@ -153,9 +154,31 @@ class InstanceSetup
           log_error("Could not get login policy", res.content)
         end
 
-        boot
+        boot_volumes
       end
     end
+  end
+
+  # Retrieve software repositories and configure mirrors accordingly then proceed to
+  # retrieving and running boot bundle.
+  #
+  # === Return
+  # true:: Always return true
+  def boot_volumes
+    # managing planned volumes is currently only needed in Windows and only if
+    # this is not a reboot scenario.
+    if RightScale::Platform.windows? and not RightScale::InstanceState.reboot?
+      RightScale::AuditProxy.create(@agent_identity, 'Planned volume management') do |audit|
+        @audit = audit
+        manage_planned_volumes do
+          @audit = nil
+          boot
+        end
+      end
+    else
+      boot
+    end
+    true
   end
 
   # Retrieve software repositories and configure mirrors accordingly then proceed to
@@ -214,9 +237,21 @@ class InstanceSetup
   # === Return
   # true:: Always return true
   def strand(msg, res=nil)
-    RightScale::InstanceState.value = 'stranded'
+
+    # attempt to provide details of exception or result which caused stranding.
+    detailed = nil
+    if msg.kind_of? Exception
+      e = msg
+      detailed = "#{e.class}: #{e.message}\n#{e.backtrace.join("\n")}"
+      msg = e.message
+    end
     msg += ": #{res.content}" if res && res.content
     @audit.append_error(msg, :category => RightScale::EventCategories::CATEGORY_ERROR) if @audit
+    log_error(detailed) if detailed
+
+    # set stranded state last in case this would prevent final audits from being
+    # sent (as it does in testing).
+    RightScale::InstanceState.value = 'stranded'
     true
   end
 

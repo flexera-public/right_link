@@ -79,10 +79,11 @@ module RightScale
       @mac     = !!(RUBY_PLATFORM =~ /darwin/)
       @linux   = !!(RUBY_PLATFORM =~ /linux/)
 
-      @filesystem = nil
-      @shell      = nil
-      @ssh        = nil
-      @controller = nil
+      @filesystem     = nil
+      @volume_manager = nil
+      @shell          = nil
+      @ssh            = nil
+      @controller     = nil
 
       @ec2        = nil
       @rackspace  = nil
@@ -189,6 +190,14 @@ module RightScale
     # fs(Filesystem):: Platform-specific filesystem config object
     def filesystem
       platform_service(:filesystem)
+    end
+
+    # VolumeManager config object
+    #
+    # === Return
+    # vm(VolumeManager):: Platform-specific volume manager config object
+    def volume_manager
+      platform_service(:volume_manager)
     end
 
     # Shell information object

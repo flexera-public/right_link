@@ -103,11 +103,18 @@ module RightScale
           return path
         end
 
-        # for windows compatibility; has no significance in linux
+        # for windows compatibility; has no significance in darwin
         def ensure_local_drive_path(path, temp_dir_name)
           return path
         end
 
+      end
+
+      # provides utilities for managing volumes (disks).
+      class VolumeManager
+        def initialize
+          raise "not yet implemented"
+        end
       end
 
       class Shell
