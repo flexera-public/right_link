@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2009 RightScale Inc
+# Copyright (c) 2009-2011 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -86,7 +86,8 @@ describe InstanceSetup do
     status = flexmock('status', :success? => true)
     flexmock(RightScale).should_receive(:popen3).and_return { |o| o[:target].send(o[:exit_handler], status) }
     setup_state
-    @mapper_proxy.should_receive(:initialize_offline_queue).and_yield
+    @mapper_proxy.should_receive(:initialize_offline_queue)
+    @mapper_proxy.should_receive(:start_offline_queue)
 
     # prevent Chef logging reaching the console during spec test.
     logger = flexmock(::RightScale::RightLinkLog.logger)
