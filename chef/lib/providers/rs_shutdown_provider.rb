@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2009 RightScale Inc
+# Copyright (c) 2011 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -20,51 +20,53 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-# To install the chef gem:
-# sudo gem sources -a http://gems.opscode.com
-# sudo gem install chef ohai
-
-require 'fileutils'
 class Chef
+
   class Provider
 
-    # Executable Schedule chef provider.
-    class ExecutableSchedule < Chef::Provider
+    # Scriptable system reboot chef provider.
+    class RsShutdown < Chef::Provider
 
-      # Initialize underlying Chef cron provider with existing entries
+      # Load current
       #
       # === Return
       # true:: Always return true
       def load_current_resource
-        @original_cron_provider = Chef::Provider::Cron.new(@new_resource.cron_resource, @run_context)
-        @original_cron_provider.load_current_resource
-        @current_resource = @original_cron_provider.current_resource
         true
       end
 
-      # Create cron entries if they don't exist yet
+      # Schedules a reboot.
       #
       # === Return
       # true:: Always return true
-      def action_create
-        @original_cron_provider.action_create
-        @new_resource.updated_by_last_action(@original_cron_provider.new_resource.updated_by_last_action)
+      def action_reboot
+        RightScale::Cook.instance.schedule_shutdown(RightScale::ShutdownManagement::REBOOT, @new_resource.immediately)
         true
       end
 
-      # Delete existing cron entries, do nothing if they don't exist
+      # Schedules a reboot.
       #
       # === Return
       # true:: Always return true
-      def action_delete
-        @original_cron_provider.action_delete
-        @new_resource.updated_by_last_action(@original_cron_provider.new_resource.updated_by_last_action)
+      def action_stop
+        RightScale::Cook.instance.schedule_shutdown(RightScale::ShutdownManagement::STOP, @new_resource.immediately)
+        true
+      end
+
+      # Schedules a reboot.
+      #
+      # === Return
+      # true:: Always return true
+      def action_terminate
+        RightScale::Cook.instance.schedule_shutdown(RightScale::ShutdownManagement::TERMINATE, @new_resource.immediately)
+        true
       end
 
     end
 
   end
+
 end
 
 # self-register
-Chef::Platform.platforms[:default].merge!(:executable_schedule => Chef::Provider::ExecutableSchedule)
+Chef::Platform.platforms[:default].merge!(:rs_shutdown => Chef::Provider::RsShutdown)

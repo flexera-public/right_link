@@ -31,6 +31,8 @@ describe RightScale::ExecutableSequence do
 
   context 'Testing sequence execution' do
 
+    it_should_behave_like 'mocks cook'
+
     before(:all) do
       flexmock(RightScale::RightLinkLog).should_receive(:debug)
       @attachment_file = File.normalize_path(File.join(File.dirname(__FILE__), '__test_download__'))

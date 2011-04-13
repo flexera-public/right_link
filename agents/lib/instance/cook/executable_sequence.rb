@@ -502,12 +502,15 @@ module RightScale
         # exit is expected in case where a script has invoked rs_shutdown
         # (command line tool or Chef resource). exit is considered to be
         # unexpected if rs_shutdown has not been called. note that it is
-        # possible for a recipe (but not a RightScript) to call rs_shutdown
+        # possible, but not a 'best practice', for a recipe (but not a
+        # RightScript) to call rs_shutdown as an external command line utility
         # without calling exit (i.e. request a deferred reboot) and continue
         # running recipes until the list of recipes is complete. in this case,
-        # the reboot occurs after subsequent recipes have finished.
+        # the shutdown occurs after subsequent recipes have finished. the best
+        # practice for a recipe is to use the rs_shutdown chef resource which
+        # calls exit when appropriate.
         if RightScale::Cook.instance.shutdown_request.continue?
-          report_failure('Chef converge failed due to rs_reboot not being called before exit', chef_error(e))
+          report_failure('Chef converge failed due to rs_shutdown not being called before exit', chef_error(e))
           RightLinkLog.debug("Chef failed with '#{e.message}' at\n" + e.backtrace.join("\n"))
         end
       rescue Exception => e

@@ -91,6 +91,13 @@ class Chef
           # this point.
           current_state[:chef_state].record_script_execution(nickname)
           @new_resource.updated_by_last_action(true)
+
+          # a script may have requested reboot via rs_shutdown command line
+          # tool. if the script requested immediate shutdown then we must call
+          # exit here to interrupt the Chef converge (assuming any subsequent
+          # boot recipes are pending). otherwise, defer shutdown until scripts/
+          # recipes finish or another script escalates to an immediate shutdown.
+          exit 0 if RightScale::Cook.instance.shutdown_request.immediately?
         ensure
           (FileUtils.rm_rf(SCRIPT_TEMP_DIR_PATH) rescue nil) if ::File.directory?(SCRIPT_TEMP_DIR_PATH)
         end

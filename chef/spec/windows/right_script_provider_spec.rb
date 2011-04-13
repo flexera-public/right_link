@@ -95,6 +95,7 @@ EOF
     it_should_behave_like 'generates cookbook for chef runner'
     it_should_behave_like 'mocks logging'
     it_should_behave_like 'mocks state'
+    it_should_behave_like 'mocks cook'
 
     it "should run right scripts on windows" do
       runner = lambda {

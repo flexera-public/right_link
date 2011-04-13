@@ -1,3 +1,25 @@
+# === Synopsis:
+#   RightScale Chef Cook - (c) 2010-11 RightScale
+#
+#   This utility is meant to be used internally by RightLink, use
+#   rs_run_right_script and rs_run_recipe instead.
+#
+
+require 'rubygems'
+require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'config', 'right_link_config'))
+require 'eventmachine'
+require 'chef'
+require 'fileutils'
+require 'right_scraper'
+
+BASE_DIR = File.join(File.dirname(__FILE__), '..', '..')
+
+require File.normalize_path(File.join(BASE_DIR, 'agents', 'lib', 'instance'))
+require File.normalize_path(File.join(BASE_DIR, 'agents', 'lib', 'instance', 'cook'))
+
+# Launch it!
+RightScale::Cook.new.run
+
 #
 # Copyright (c) 2009 RightScale Inc
 #
@@ -19,45 +41,3 @@
 # LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-class Chef
-
-  class Provider
-
-    # RightLinkTag chef provider.
-    class RightLinkTag < Chef::Provider
-
-      # Load current
-      #
-      # === Return
-      # true:: Always return true
-      def load_current_resource
-        true
-      end
-
-      # Publish tag
-      #
-      # === Return
-      # true:: Always return true
-      def action_publish
-        RightScale::Cook.instance.add_tag(@new_resource.name)
-        true
-      end
-
-      # Remove tag
-      #
-      # === Return
-      # true:: Always return true
-      def action_remove
-        RightScale::Cook.instance.remove_tag(@new_resource.name)
-        true
-      end
-
-    end
-
-  end
-
-end
-
-# self-register
-Chef::Platform.platforms[:default].merge!(:right_link_tag => Chef::Provider::RightLinkTag)

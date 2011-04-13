@@ -248,3 +248,15 @@ EOF
 rescue LoadError
   #do nothing; if Chef isn't loaded, then no need to monkey patch
 end
+
+shared_examples_for 'mocks cook' do
+
+  require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'agents', 'lib', 'instance', 'cook'))
+
+  before(:each) do
+    @mock_cook = Object.new
+    @mock_shutdown_request = RightScale::ShutdownManagement::ShutdownRequest.new
+    flexmock(RightScale::Cook).should_receive(:instance).and_return(@mock_cook)
+    flexmock(@mock_cook).should_receive(:shutdown_request).and_return(@mock_shutdown_request)
+  end
+end

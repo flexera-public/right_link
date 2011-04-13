@@ -190,6 +190,9 @@ EOF
             begin
               chef_client.run
               block.call(chef_client) if block
+            rescue SystemExit => e
+              # can't raise exit out of EM, so cache it here.
+              last_exception = e
             rescue Exception => e
               # can't raise exeception out of EM, so cache it here.
               last_exception = e
@@ -241,6 +244,8 @@ EOF
           message = "#{last_exception.message}\n#{last_exception.backtrace.join("\n")}"
           if last_exception.class == ArgumentError
             raise ArgumentError, message
+          elsif last_exception.class == SystemExit
+            raise "SystemExit: #{message}"
           else
             begin
               raise last_exception.class, message

@@ -99,3 +99,6 @@ class Chef
   end # Provider
 
 end # Chef
+
+# self-register
+Chef::Platform.platforms[:default].merge!(:server_collection => Chef::Provider::ServerCollection)

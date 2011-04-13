@@ -77,3 +77,5 @@ class Chef
   end
 end
 
+# self-register
+Chef::Platform.platforms[:default].merge!(:dns => Chef::Provider::DnsMadeEasy)

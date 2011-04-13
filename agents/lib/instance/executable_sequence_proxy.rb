@@ -90,12 +90,12 @@ module RightScale
 
     protected
 
-    # Path to 'cook' ruby script
+    # Path to 'cook_runner' ruby script
     #
     # === Return
     # path(String):: Path to ruby script used to run Chef
     def cook_path
-      return File.join(RightLinkConfig[:right_link_path], 'scripts', 'lib', 'cook.rb')
+      return File.join(RightLinkConfig[:right_link_path], 'scripts', 'lib', 'cook_runner.rb')
     end
 
     # Command line fragment for the cook script path and any arguments.
