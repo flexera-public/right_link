@@ -113,7 +113,7 @@ module RightScale
           when STOP, TERMINATE
             operation = "/forwarder/soft_decommission"
             payload = {:agent_identity => @agent_identity,
-                       :audit_id => audit.id,
+                       :audit_id => audit.audit_id,
                        :skip_db_update => false,
                        :kind => level}
           else
