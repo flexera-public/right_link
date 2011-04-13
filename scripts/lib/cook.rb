@@ -22,7 +22,6 @@ require File.normalize_path(File.join(BASE_DIR, 'common', 'lib', 'common'))
 require File.normalize_path(File.join(BASE_DIR, 'command_protocol', 'lib', 'command_protocol'))
 require File.normalize_path(File.join(BASE_DIR, 'payload_types', 'lib', 'payload_types'))
 require File.normalize_path(File.join(BASE_DIR, 'scripts', 'lib', 'agent_utils'))
-require File.normalize_path(File.join(BASE_DIR, 'agents', 'lib', 'instance', 'shutdown_request'))
 
 module RightScale
 

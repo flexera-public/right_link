@@ -74,11 +74,7 @@ module RightScale
         @active = false
       elsif context == SHUTDOWN_BUNDLE
         unless @shutdown_scheduled
-          RightScale::AuditProxy.create(@agent_identity, "Requesting shutdown: #{@shutdown_manager.shutdown_request.level}") do |audit|
-            @shutdown_manager.manage_shutdown_request(audit) do
-              @shutdown_scheduled = true
-            end
-          end
+          @shutdown_manager.manage_shutdown_request { @shutdown_scheduled = true }
         end
         # continue in queue expecting the decommission bundle to finish us off.
         EM.defer { run }

@@ -80,8 +80,6 @@ module RightScale
     # Mixin for managing shutdown requests.
     module Helpers
 
-      protected
-
       # gets shared instance shutdown request state.
       def shutdown_request
         InstanceState.shutdown_request
@@ -91,40 +89,50 @@ module RightScale
       # instance with the core agent, if necessary.
       #
       # === Parameters
-      # audit(Audit):: audit for shutdown action, if needed.
+      # audit(Audit):: audit for shutdown action, if needed, or nil.
       #
       # === Block
       # block(Proc):: continuation block for successful handling of shutdown or nil
       #
       # === Return
       # always true
-      def manage_shutdown_request(audit)
+      def manage_shutdown_request(audit = nil, &block)
         request = shutdown_request
-        case level = request.level
-        when CONTINUE
-          yield if block_given?
+        if request.continue?
+          block.call if block
           return true
-        when REBOOT
-          operation = "/forwarder/reboot"
-          payload = {:agent_identity => @agent_identity}
-        when STOP, TERMINATE
-          operation = "/forwarder/soft_decommission"
-          payload = {:agent_identity => @agent_identity,
-                     :audit_id => audit.id,
-                     :skip_db_update => false,
-                     :kind => level}
-        else
-          raise InvalidLevel.new("Unexpected shutdown level: #{level.inspect}")
         end
 
-        # request shutdown (kind indicated by operation and/or payload).
-        audit.update_status("Requesting remote #{level} instance.")
-        send_retryable_request(operation, payload) do |r|
-          res = result_from(r)
-          if res.success?
-            yield if block_given?
+        # ensure we have an audit, creating a temporary audit if necessary.
+        level = request.level
+        if audit
+          case level
+          when REBOOT
+            operation = "/forwarder/reboot"
+            payload = {:agent_identity => @agent_identity}
+          when STOP, TERMINATE
+            operation = "/forwarder/soft_decommission"
+            payload = {:agent_identity => @agent_identity,
+                       :audit_id => audit.id,
+                       :skip_db_update => false,
+                       :kind => level}
           else
-            handle_failed_shutdown_request(audit, "Failed to remotely #{level} instance", res)
+            raise InvalidLevel.new("Unexpected shutdown level: #{level.inspect}")
+          end
+
+          # request shutdown (kind indicated by operation and/or payload).
+          audit.update_status("Requesting #{level} instance")
+          send_retryable_request(operation, payload) do |r|
+            res = result_from(r)
+            if res.success?
+              block.call if block
+            else
+              handle_failed_shutdown_request(audit, "Failed to #{level} instance", res)
+            end
+          end
+        else
+          RightScale::AuditProxy.create(@agent_identity, "Requesting #{level} instance") do |new_audit|
+            manage_shutdown_request(new_audit, &block)
           end
         end
         true
@@ -132,16 +140,18 @@ module RightScale
         handle_failed_shutdown_request(audit, e)
       end
 
+      protected
+
       # Handles any shutdown failure.
       #
       # === Parameters
+      # audit(Audit):: Audit or nil
       # msg(String):: Error message that will be audited and logged
       # res(RightScale::OperationResult):: Operation result with additional information
       #
       # === Return
       # always true
       def handle_failed_shutdown_request(audit, msg, res = nil)
-
         if msg.kind_of?(Exception)
           e = msg
           detailed = "#{e.class}: #{e.message}\n#{e.backtrace.join("\n")}"
@@ -150,7 +160,7 @@ module RightScale
           detailed = nil
         end
         msg += ": #{res.content}" if res && res.content
-        audit.append_error(msg, :category => RightScale::EventCategories::CATEGORY_ERROR)
+        audit.append_error(msg, :category => RightScale::EventCategories::CATEGORY_ERROR) if audit
         log_error(detailed) if detailed
         true
       end

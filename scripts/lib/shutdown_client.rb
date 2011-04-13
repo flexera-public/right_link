@@ -36,8 +36,8 @@ require 'rdoc/ri/ri_paths' # For backwards compat with ruby 1.8.5
 require 'rdoc/usage'
 require 'rdoc_patch'
 require 'agent_utils'
-require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'command_protocol', 'lib', 'command_protocol'))
-require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'common', 'lib', 'common', 'agent', 'shutdown_management'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'command_protocol', 'lib', 'command_protocol'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'common', 'lib', 'common', 'agent', 'shutdown_management'))
 
 module RightScale
 
@@ -58,7 +58,7 @@ module RightScale
       cmd = {}
       cmd[:name] = :set_shutdown_request
       cmd[:level] = options[:level]
-      cmd[:immediately] = options[:level]
+      cmd[:immediately] = options[:immediately]
       config_options = agent_options('instance')
       listen_port = config_options[:listen_port]
       fail('Could not retrieve agent listen port') unless listen_port
