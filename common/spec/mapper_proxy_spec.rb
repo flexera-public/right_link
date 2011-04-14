@@ -210,7 +210,7 @@ describe RightScale::MapperProxy do
           RightScale::MapperProxy.new(@agent)
           @instance = RightScale::MapperProxy.instance
           flexmock(@instance).should_receive(:check_connection).once
-          @broker.should_receive(:publish).and_return(["broker"]).times(3)
+          @broker.should_receive(:publish).and_return(["broker"]).times(2)
           @instance.request('/welcome/aboard', 'iZac') do |response|
             result = RightScale::OperationResult.from_results(response)
           end
@@ -218,7 +218,7 @@ describe RightScale::MapperProxy do
           EM.add_timer(1.2) do
             EM.stop
             result.timeout?.should be_true
-            result.content.should == "Timeout after 0.7 seconds and 3 attempts"
+            result.content.should == "Timeout after 0.5 seconds and 2 attempts"
             @instance.pending_requests.empty?.should be_true
           end
         end

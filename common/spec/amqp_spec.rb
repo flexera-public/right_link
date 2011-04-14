@@ -1289,7 +1289,7 @@ describe RightScale::HA_MQ do
       ha_mq.brokers[1][:status] = :failed
       72.times do |i|
         failed = ha_mq.failed(backoff = true)
-        failed.should == if [0,2,6,14,30,50,70].include?(i) then ["rs-broker-second-5672"] else [] end
+        failed.should == if [0,2,6,14,26,38,50,62].include?(i) then ["rs-broker-second-5672"] else [] end
         ha_mq.connect("second", 5672, 1) unless failed.empty?
       end
     end

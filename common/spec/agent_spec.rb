@@ -143,6 +143,7 @@ describe RightScale::Agent do
     before(:each) do
       flexmock(EM).should_receive(:add_periodic_timer)
       flexmock(EM).should_receive(:next_tick).and_yield
+      flexmock(EM).should_receive(:stop)
       @timer = flexmock("timer")
       flexmock(EM::Timer).should_receive(:new).and_return(@timer)
       @timer.should_receive(:cancel)
