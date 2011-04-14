@@ -27,6 +27,7 @@ begin
   require 'windows/error'
   require 'windows/handle'
   require 'windows/security'
+  require 'windows/system_info'
   require 'windows/time'
   require 'win32ole'
 rescue LoadError => e
@@ -34,6 +35,7 @@ rescue LoadError => e
 end
 
 require 'fileutils'
+require 'tmpdir'
 
 # ohai 0.3.6 has a bug which causes WMI data to be imported using the default
 # Windows code page. the workaround is to set the win32ole gem's code page to
@@ -308,6 +310,512 @@ module RightScale
 
       end
 
+      # provides utilities for managing volumes (disks).
+      class VolumeManager
+
+        class ParserError < Exception; end
+        class VolumeError < Exception; end
+
+        def initialize
+          @os_info = OSInformation.new
+        end
+
+        # Determines if the given path is valid for a Windows volume attachemnt
+        # (excluding the reserved A: B: C: drives).
+        #
+        # === Return
+        # result(Boolean):: true if path is a valid volume root
+        def is_attachable_volume_path?(path)
+           return nil != (path =~ /^[D-Zd-z]:[\/\\]?$/)
+        end
+
+        # Gets a list of physical or virtual disks in the form:
+        #   [{:index, :status, :total_size, :free_size, :dynamic, :gpt}*]
+        #
+        # where
+        #   :index >= 0
+        #   :status = 'Online' | 'Offline'
+        #   :total_size = bytes used by partitions
+        #   :free_size = bytes not used by partitions
+        #   :dynamic = true | false
+        #   :gpt = true | false
+        #
+        # GPT = GUID partition table
+        #
+        # === Parameters
+        # conditions{Hash):: hash of conditions to match or nil (default)
+        #
+        # === Return
+        # volumes(Array):: array of hashes detailing visible volumes.
+        #
+        # === Raise
+        # VolumeError:: on failure to list disks
+        # ParserError:: on failure to parse disks from output
+        def disks(conditions = nil)
+          script = <<EOF
+rescan
+list disk
+EOF
+          exit_code, output_text = run_script(script)
+          raise VolumeError.new("Failed to list disks: exit code = #{exit_code}\n#{script}\n#{output_text}") if exit_code != 0
+          return parse_disks(output_text, conditions)
+        end
+
+        # Gets a list of currently visible volumes in the form:
+        #   [{:index, :device, :label, :filesystem, :type, :total_size, :status, :info}*]
+        #
+        # where
+        #   :index >= 0
+        #   :device = "[A-Z]:"
+        #   :label = up to 11 characters
+        #   :filesystem = nil | 'NTFS' | <undocumented>
+        #   :type = 'NTFS' | <undocumented>
+        #   :total_size = size in bytes
+        #   :status = 'Healthy' | <undocumented>
+        #   :info = 'System' | empty | <undocumented>
+        #
+        # note that a strange aspect of diskpart is that it won't correlate
+        # disks to volumes in any list even though partition lists are always
+        # in the context of a selected disk.
+        #
+        # volume order can change as volumes are created/destroyed between
+        # diskpart sessions so volume 0 can represent C: in one session and
+        # then be represented as volume 1 in the next call to diskpart.
+        #
+        # volume labels are truncated to 11 characters by diskpart even though
+        # NTFS allows up to 32 characters.
+        #
+        # === Parameters
+        # conditions{Hash):: hash of conditions to match or nil (default)
+        #
+        # === Return
+        # volumes(Array):: array of hashes detailing visible volumes.
+        #
+        # === Raise
+        # VolumeError:: on failure to list volumes
+        # ParserError:: on failure to parse volumes from output
+        def volumes(conditions = nil)
+          script = <<EOF
+rescan
+list volume
+EOF
+          exit_code, output_text = run_script(script)
+          raise VolumeError.new("Failed to list volumes exit code = #{exit_code}\n#{script}\n#{output_text}") if exit_code != 0
+          return parse_volumes(output_text, conditions)
+        end
+
+        # Gets a list of partitions for the disk given by index in the form:
+        #   {:index, :type, :size, :offset}
+        #
+        # where
+        #   :index >= 0
+        #   :type = 'OEM' | 'Primary' | <undocumented>
+        #   :size = size in bytes used by partition on disk
+        #   :offset = offset of partition in bytes from head of disk
+        #
+        # === Parameters
+        # disk_index(int):: disk index to query
+        # conditions{Hash):: hash of conditions to match or nil (default)
+        #
+        # === Return
+        # result(Array):: list of partitions or empty
+        #
+        # === Raise
+        # VolumeError:: on failure to list partitions
+        # ParserError:: on failure to parse partitions from output
+        def partitions(disk_index, conditions = nil)
+           script = <<EOF
+rescan
+select disk #{disk_index}
+list partition
+EOF
+          exit_code, output_text = run_script(script)
+          raise VolumeError.new("Failed to list partitions exit code = #{exit_code}\n#{script}\n#{output_text}") if exit_code != 0
+          return parse_partitions(output_text, conditions)
+        end
+
+        # Formats a disk given by disk index and the device (e.g. "D:") for the
+        # volume on the primary NTFS partition which will be created.
+        #
+        # === Parameters
+        # disk_index(int): zero-based disk index (from disks list, etc.)
+        # device(String):: device specified for the volume to create
+        #
+        # === Return
+        # always true
+        #
+        # === Raise
+        # ArgumentError:: on invalid parameters
+        # VolumeError:: on failure to format
+        def format_disk(disk_index, device)
+          # note that creating the primary partition automatically creates and
+          # selects a new volume, which can be assigned a letter before the
+          # partition has actually been formatted.
+          raise ArgumentError.new("Invalid index = #{disk_index}") unless disk_index >= 0
+          raise ArgumentError.new("Invalid device = #{device}") unless is_attachable_volume_path?(device)
+          letter = device[0,1]
+          online_command = if @os_info.major < 6; "online noerr"; else; "online disk noerr"; end
+          clear_readonly_command = if @os_info.major < 6; ""; else; "attribute disk clear readonly noerr"; end
+
+          # note that Windows 2003 server version of diskpart doesn't support
+          # format so that has to be done separately.
+          format_command = if @os_info.major < 6; ""; else; "format FS=NTFS quick"; end
+          script = <<EOF
+rescan
+list disk
+select disk #{disk_index}
+#{clear_readonly_command}
+#{online_command}
+clean
+create partition primary
+assign letter=#{letter}
+#{format_command}
+EOF
+          exit_code, output_text = run_script(script)
+          raise VolumeError.new("Failed to format disk #{disk_index} for device #{device}: exit code = #{exit_code}\n#{script}\n#{output_text}") if exit_code != 0
+
+          # must format using command shell's FORMAT command before 2008 server.
+          if @os_info.major < 6
+            command = "echo Y | format #{letter}: /Q /V: /FS:NTFS"
+            output_text = `#{command}`
+            exit_code = $?.exitstatus
+            raise VolumeError.new("Failed to format disk #{disk_index} for device #{device}: exit code = #{exit_code}\n#{output_text}") if exit_code != 0
+          end
+          true
+        end
+
+        # Brings the disk given by index online and clears the readonly
+        # attribute, if necessary. The latter is required for some kinds of
+        # disks to online successfully and SAN volumes may be readonly when
+        # initially attached. As this change may bring additional volumes online
+        # the updated volumes list is returned.
+        #
+        # === Parameters
+        # disk_index(int):: zero-based disk index
+        #
+        # === Return
+        # always true
+        #
+        # === Raise
+        # ArgumentError:: on invalid parameters
+        # VolumeError:: on failure to online disk
+        # ParserError:: on failure to parse volume list
+        def online_disk(disk_index)
+          raise ArgumentError.new("Invalid disk_index = #{disk_index}") unless disk_index >= 0
+          clear_readonly_command = if @os_info.major < 6; ""; else; "attribute disk clear readonly noerr"; end
+          online_command = if @os_info.major < 6; "online"; else; "online disk noerr"; end
+          script = <<EOF
+rescan
+list disk
+select disk #{disk_index}
+#{clear_readonly_command}
+#{online_command}
+EOF
+          exit_code, output_text = run_script(script)
+          raise VolumeError.new("Failed to online disk #{disk_index}: exit code = #{exit_code}\n#{script}\n#{output_text}") if exit_code != 0
+          true
+        end
+
+        # Assigns the given device name to the volume given by index and clears
+        # the readonly attribute, if necessary. The device must not currently be
+        # in use.
+        #
+        # === Parameters
+        # volume_device_or_index(int):: old device or zero-based volume index (from volumes list, etc.) to select for assignment.
+        # device(String):: device specified for the volume to create
+        #
+        # === Return
+        # always true
+        #
+        # === Raise
+        # ArgumentError:: on invalid parameters
+        # VolumeError:: on failure to assign device name
+        # ParserError:: on failure to parse volume list
+        def assign_device(volume_device_or_index, device)
+          volume_selector_match = volume_device_or_index.to_s.match(/^([D-Zd-z]|\d+):?$/)
+          raise ArgumentError.new("Invalid volume_device_or_index = #{volume_device_or_index}") unless volume_selector_match
+          volume_selector = volume_selector_match[1]
+          raise ArgumentError.new("Invalid device = #{device}") unless is_attachable_volume_path?(device)
+          new_letter = device[0,1]
+          script = <<EOF
+rescan
+list volume
+select volume #{volume_selector}
+attribute volume clear readonly noerr
+assign letter=#{new_letter}
+EOF
+          exit_code, output_text = run_script(script)
+          raise VolumeError.new("Failed to assign device \"#{device}\" for volume \"#{volume_device_or_index}\": exit code = #{exit_code}\n#{script}\n#{output_text}") if exit_code != 0
+          true
+        end
+
+        protected
+
+        # Parses raw output from diskpart looking for the (first) disk list.
+        #
+        # Example of raw output from diskpart (column width is dictated by the
+        # header and some columns can be empty):
+        #
+        #  Disk ###  Status      Size     Free     Dyn  Gpt
+        #  --------  ----------  -------  -------  ---  ---
+        #  Disk 0    Online        80 GB      0 B
+        #* Disk 1    Offline     4096 MB  4096 MB
+        #  Disk 2    Online      4096 MB  4096 MB   *
+        #
+        # === Parameters
+        # output_text(String):: raw output from diskpart
+        # conditions{Hash):: hash of conditions to match or nil (default)
+        #
+        # === Return
+        # result(Array):: volumes or empty
+        #
+        # === Raise
+        # ParserError:: on failure to parse disk list
+        def parse_disks(output_text, conditions = nil)
+          result = []
+          line_regex = nil
+          header_regex = /  --------  (-+)  -------  -------  ---  ---/
+          header_match = nil
+          output_text.each do |line|
+            line = line.chomp
+            if line_regex
+              if line.strip.empty?
+                break
+              end
+              match_data = line.match(line_regex)
+              raise ParserError.new("Failed to parse disk info from #{line.inspect} using #{line_regex.inspect}") unless match_data
+              data = {:index => match_data[1].to_i,
+                      :status => match_data[2].strip,
+                      :total_size => size_factor_to_bytes(match_data[3], match_data[4]),
+                      :free_size => size_factor_to_bytes(match_data[5], match_data[6]),
+                      :dynamic => match_data[7].strip[0,1] == '*',
+                      :gpt => match_data[8].strip[0,1] == '*'}
+              if conditions
+                matched = true
+                conditions.each do |key, value|
+                  unless data[key] == value
+                    matched = false
+                    break
+                  end
+                end
+                result << data if matched
+              else
+                result << data
+              end
+            elsif header_match = line.match(header_regex)
+              # account for some fields being variable width between versions of the OS.
+              status_width = header_match[1].length
+              line_regex_text = "^[\\* ] Disk (\\d[\\d ]\{2\})  (.\{#{status_width}\})  "\
+                                "[ ]?([\\d ]\{3\}\\d) (.?B)  [ ]?([\\d ]\{3\}\\d) (.?B)   ([\\* ])    ([\\* ])"
+              line_regex = Regexp.compile(line_regex_text)
+            else
+              # one or more lines of ignored headers
+            end
+          end
+          raise ParserError.new("Failed to parse disk list header from output #{output_text.inspect} using #{header_regex.inspect}") unless header_match
+          return result
+        end
+
+        # Parses raw output from diskpart looking for the (first) volume list.
+        #
+        # Example of raw output from diskpart (column width is dictated by the
+        # header and some columns can be empty):
+        #
+        #  Volume ###  Ltr  Label        Fs     Type        Size     Status     Info
+        #  ----------  ---  -----------  -----  ----------  -------  ---------  --------
+        #  Volume 0     C   2008Boot     NTFS   Partition     80 GB  Healthy    System
+        #* Volume 1     D                NTFS   Partition   4094 MB  Healthy
+        #  Volume 2                      NTFS   Partition   4094 MB  Healthy
+        #
+        # === Parameters
+        # output_text(String):: raw output from diskpart
+        # conditions{Hash):: hash of conditions to match or nil (default)
+        #
+        # === Return
+        # result(Array):: volumes or empty
+        #
+        # === Raise
+        # ParserError:: on failure to parse volume list
+        def parse_volumes(output_text, conditions = nil)
+          result = []
+          header_regex = /  ----------  ---  (-+)  (-+)  (-+)  -------  (-+)  (-+)/
+          header_match = nil
+          line_regex = nil
+          output_text.each do |line|
+            line = line.chomp
+            if line_regex
+              if line.strip.empty?
+                break
+              end
+              match_data = line.match(line_regex)
+              raise ParserError.new("Failed to parse volume info from #{line.inspect} using #{line_regex.inspect}") unless match_data
+              letter = nil_if_empty(match_data[2])
+              device = "#{letter.upcase}:" if letter
+              data = {:index => match_data[1].to_i,
+                      :device => device,
+                      :label => nil_if_empty(match_data[3]),
+                      :filesystem => nil_if_empty(match_data[4]),
+                      :type => nil_if_empty(match_data[5]),
+                      :total_size => size_factor_to_bytes(match_data[6], match_data[7]),
+                      :status => nil_if_empty(match_data[8]),
+                      :info => nil_if_empty(match_data[9])}
+              if conditions
+                matched = true
+                conditions.each do |key, value|
+                  unless data[key] == value
+                    matched = false
+                    break
+                  end
+                end
+                result << data if matched
+              else
+                result << data
+              end
+            elsif header_match = line.match(header_regex)
+              # account for some fields being variable width between versions of the OS.
+              label_width = header_match[1].length
+              filesystem_width = header_match[2].length
+              type_width = header_match[3].length
+              status_width = header_match[4].length
+              info_width = header_match[5].length
+              line_regex_text = "^[\\* ] Volume (\\d[\\d ]\{2\})   ([A-Za-z ])   "\
+                                "(.\{#{label_width}\})  (.\{#{filesystem_width}\})  "\
+                                "(.\{#{type_width}\})  [ ]?([\\d ]\{3\}\\d) (.?B)  "\
+                                "(.\{#{status_width}\})  (.\{#{info_width}\})"
+              line_regex = Regexp.compile(line_regex_text)
+            else
+              # one or more lines of ignored headers
+            end
+          end
+          raise ParserError.new("Failed to parse volume list header from output #{output_text.inspect} using #{header_regex.inspect}") unless header_match
+          return result
+        end
+
+        # Parses raw output from diskpart looking for the (first) partition list.
+        #
+        # Example of raw output from diskpart (column width is dictated by the
+        # header and some columns can be empty):
+        #
+        #  Partition ###  Type              Size     Offset
+        #  -------------  ----------------  -------  -------
+        #  Partition 1    OEM                 39 MB    31 KB
+        #* Partition 2    Primary             14 GB    40 MB
+        #  Partition 3    Primary            451 GB    14 GB
+        #
+        # === Parameters
+        # output_text(String):: raw output from diskpart
+        # conditions{Hash):: hash of conditions to match or nil (default)
+        #
+        # === Return
+        # result(Array):: volumes or empty
+        #
+        # === Raise
+        # ParserError:: on failure to parse volume list
+        def parse_partitions(output_text, conditions = nil)
+          result = []
+          header_regex = /  -------------  (-+)  -------  -------/
+          header_match = nil
+          line_regex = nil
+          output_text.each do |line|
+            line = line.chomp
+            if line_regex
+              if line.strip.empty?
+                break
+              end
+              match_data = line.match(line_regex)
+              raise ParserError.new("Failed to parse partition info from #{line.inspect} using #{line_regex.inspect}") unless match_data
+              data = {:index => match_data[1].to_i,
+                      :type => nil_if_empty(match_data[2]),
+                      :size => size_factor_to_bytes(match_data[3], match_data[4]),
+                      :offset => size_factor_to_bytes(match_data[5], match_data[6])}
+              if conditions
+                matched = true
+                conditions.each do |key, value|
+                  unless data[key] == value
+                    matched = false
+                    break
+                  end
+                end
+                result << data if matched
+              else
+                result << data
+              end
+            elsif header_match = line.match(header_regex)
+              # account for some fields being variable width between versions of the OS.
+              type_width = header_match[1].length
+              line_regex_text = "^[\\* ] Partition (\\d[\\d ]\{2\})  (.\{#{type_width}\})  "\
+                                "[ ]?([\\d ]\{3\}\\d) (.?B)  [ ]?([\\d ]\{3\}\\d) (.?B)"
+              line_regex = Regexp.compile(line_regex_text)
+            elsif line.start_with?("There are no partitions on this disk")
+              return []
+            else
+              # one or more lines of ignored headers
+            end
+          end
+          raise ParserError.new("Failed to parse volume list header from output #{output_text.inspect} using #{header_regex.inspect}") unless header_match
+          return result
+        end
+
+        # Run a diskpart script and get the exit code and text output. See also
+        # technet and search for "DiskPart Command-Line Options" or else
+        # "http://technet.microsoft.com/en-us/library/cc766465%28WS.10%29.aspx".
+        # Note that there are differences between 2003 and 2008 server versions
+        # of this utility.
+        #
+        # === Parameters
+        # script(String):: diskpart script with commands delimited by newlines
+        #
+        # === Return
+        # result(Array):: tuple of [exit_code, output_text]
+        def run_script(script)
+          Dir.mktmpdir do |temp_dir_path|
+            script_file_path = File.join(temp_dir_path, "rs_diskpart_script.txt")
+            File.open(script_file_path, "w") { |f| f.puts(script.strip) }
+            executable_path = "diskpart.exe"
+            executable_arguments = ["/s", File.normalize_path(script_file_path)]
+            shell = RightScale::Platform.shell
+            executable_path, executable_arguments = shell.format_right_run_path(executable_path, executable_arguments)
+            command = shell.format_executable_command(executable_path, executable_arguments)
+            output_text = `#{command}`
+            return $?.exitstatus, output_text
+          end
+        end
+
+        # Determines if the given value is empty and returns nil in that case.
+        #
+        # === Parameters
+        # value(String):: value to chec
+        #
+        # === Return
+        # result(String):: trimmed value or nil
+        def nil_if_empty(value)
+          value = value.strip
+          return nil if value.empty?
+          return value
+        end
+
+        # Multiplies a raw size value by a size factor given as a standardized
+        # bytes acronym.
+        #
+        # === Parameters
+        # size_by(String or Number):: value to multiply
+        # size_factor(String):: multiplier acronym
+        #
+        # === Return
+        # result(int):: bytes
+        def size_factor_to_bytes(size_by, size_factor)
+          value = size_by.to_i
+          case size_factor
+          when 'KB' then return value * 1024
+          when 'MB' then return value * 1024 * 1024
+          when 'GB' then return value * 1024 * 1024 * 1024
+          when 'TB' then return value * 1024 * 1024 * 1024 * 1024
+          else return value # assume bytes
+          end
+        end
+
+      end
+
       # Provides utilities for formatting executable shell commands, etc.
       class Shell
         POWERSHELL_V1x0_EXECUTABLE_PATH = "powershell.exe"
@@ -316,6 +824,33 @@ module RightScale
 
         @@executable_extensions = nil
         @@right_run_path = nil
+
+        # Formats an executable path and arguments by inserting a reference to
+        # RightRun.exe on platforms only when necessary.
+        #
+        # === Parameters
+        # executable_path(String):: 64-bit executable path
+        # executable_arguments(Array):: arguments for 64-bit executable
+        #
+        # === Return
+        # result(Array):: tuple for updated [executable_path, executable_arguments]
+        def format_right_run_path(executable_path, executable_arguments)
+          if @@right_run_path.nil?
+            @@right_run_path = ""
+            if ENV['ProgramW6432']
+              temp_path = File.join(ENV['ProgramW6432'], 'RightScale', 'Shared', 'RightRun.exe')
+              if File.file?(temp_path)
+                @@right_run_path = File.normalize_path(temp_path).gsub("/", "\\")
+              end
+            end
+          end
+          unless @@right_run_path.empty?
+            executable_arguments.unshift(executable_path)
+            executable_path = @@right_run_path
+          end
+
+          return executable_path, executable_arguments
+        end
 
         # Formats a script file name to ensure it is executable on the current
         # platform.
@@ -455,19 +990,7 @@ module RightScale
           # 32-bit instances and perhaps not for test/dev environments).
           executable_path = powershell_exe_path
           executable_arguments = ["-command", powershell_command]
-          if @@right_run_path.nil?
-            @@right_run_path = ""
-            if ENV['ProgramW6432']
-              temp_path = File.join(ENV['ProgramW6432'], 'RightScale', 'Shared', 'RightRun.exe')
-              if File.file?(temp_path)
-                @@right_run_path = File.normalize_path(temp_path).gsub("/", "\\")
-              end
-            end
-          end
-          unless @@right_run_path.empty?
-            executable_arguments.unshift(executable_path)
-            executable_path = @@right_run_path
-          end
+          executable_path, executable_arguments = format_right_run_path(executable_path, executable_arguments)
 
           # combine command string with powershell executable and arguments.
           return format_executable_command(executable_path, executable_arguments)
@@ -625,14 +1148,27 @@ module RightScale
       class Rng
         def pseudorandom_bytes(count)
           bytes = ''
-
-          srand #to give us a fighting chance at avoiding state-sync issues
-
           count.times do
             bytes << rand(0xff)
           end
 
           bytes
+        end
+      end
+
+      protected
+
+      # internal class for querying OS version, etc.
+      class OSInformation
+        include ::Windows::SystemInfo
+
+        attr_reader :version, :major, :minor, :build
+
+        def initialize
+          @version = GetVersion()
+          @major = LOBYTE(LOWORD(version))
+          @minor = HIBYTE(LOWORD(version))
+          @build = HIWORD(version)
         end
       end
 

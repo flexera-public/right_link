@@ -155,6 +155,13 @@ module RightScale
 
       end
 
+      # provides utilities for managing volumes (disks).
+      class VolumeManager
+        def initialize
+          raise "not yet implemented"
+        end
+      end
+
       class Shell
 
         NULL_OUTPUT_NAME = "/dev/null"

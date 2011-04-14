@@ -25,6 +25,7 @@ class InstanceSetup
   include RightScale::Actor
   include RightScale::RightLinkLogHelpers
   include RightScale::OperationResultHelpers
+  include RightScale::VolumeManagementHelpers
 
   expose :report_state
 
@@ -35,7 +36,7 @@ class InstanceSetup
   SUICIDE_DELAY = 45 * 60
 
   # Tag set on instances that are part of an array
-  AUTO_LAUNCH_TAG ='rs_launch:type=auto' 
+  AUTO_LAUNCH_TAG ='rs_launch:type=auto'
 
   # Boot if and only if instance state is 'booting'
   # Prime timer for shutdown on unsuccessful boot ('suicide' functionality)
@@ -48,7 +49,7 @@ class InstanceSetup
     EM.threadpool_size = 1
     RightScale::InstanceState.init(@agent_identity)
     RightScale::RightLinkLog.force_debug if RightScale::DevState.enabled?
-    
+
     # Schedule boot sequence, don't run it now so agent is registered first
     if RightScale::InstanceState.value == 'booting'
       EM.next_tick { init_boot }
@@ -58,14 +59,14 @@ class InstanceSetup
     end
 
     # Setup suicide timer which will cause instance to shutdown if the rs_launch:type=auto tag
-    # is set and the instance has not gotten its boot bundle after SUICIDE_DELAY seconds and this is 
+    # is set and the instance has not gotten its boot bundle after SUICIDE_DELAY seconds and this is
     # the first time this instance boots
     @suicide_timer = EM::Timer.new(SUICIDE_DELAY) do
       if RightScale::InstanceState.startup_tags.include?(AUTO_LAUNCH_TAG) && !@got_boot_bundle
         msg = "Shutting down after having tried to boot for #{SUICIDE_DELAY / 60} minutes"
         log_error(msg)
         @audit.append_error(msg, :category => RightScale::EventCategories::CATEGORY_ERROR) if @audit
-        RightScale::Platform.controller.shutdown 
+        RightScale::Platform.controller.shutdown
       end
     end if RightScale::InstanceState.initial_boot?
 
@@ -96,7 +97,7 @@ class InstanceSetup
   end
 
   protected
-  
+
   # We start off by setting the instance 'r_s_version' in the core site and
   # then proceed with the actual boot sequence
   #
@@ -132,8 +133,8 @@ class InstanceSetup
   # === Return
   # true:: Always return true
   def enable_managed_login
-    if RightScale::Platform.windows? || RightScale::Platform.mac? 
-      boot
+    if RightScale::Platform.windows? || RightScale::Platform.mac?
+      boot_volumes
     else
       send_retryable_request("/booter/get_login_policy", {:agent_identity => @agent_identity}) do |r|
         res = result_from(r)
@@ -155,9 +156,31 @@ class InstanceSetup
           log_error("Could not get login policy", res.content)
         end
 
-        boot
+        boot_volumes
       end
     end
+  end
+
+  # Retrieve software repositories and configure mirrors accordingly then proceed to
+  # retrieving and running boot bundle.
+  #
+  # === Return
+  # true:: Always return true
+  def boot_volumes
+    # managing planned volumes is currently only needed in Windows and only if
+    # this is not a reboot scenario.
+    if RightScale::Platform.windows? and not RightScale::InstanceState.reboot?
+      RightScale::AuditProxy.create(@agent_identity, 'Planned volume management') do |audit|
+        @audit = audit
+        manage_planned_volumes do
+          @audit = nil
+          boot
+        end
+      end
+    else
+      boot
+    end
+    true
   end
 
   # Retrieve software repositories and configure mirrors accordingly then proceed to
@@ -210,9 +233,21 @@ class InstanceSetup
   # === Return
   # true:: Always return true
   def strand(msg, res=nil)
-    RightScale::InstanceState.value = 'stranded'
+
+    # attempt to provide details of exception or result which caused stranding.
+    detailed = nil
+    if msg.kind_of? Exception
+      e = msg
+      detailed = "#{e.class}: #{e.message}\n#{e.backtrace.join("\n")}"
+      msg = e.message
+    end
     msg += ": #{res.content}" if res && res.content
     @audit.append_error(msg, :category => RightScale::EventCategories::CATEGORY_ERROR) if @audit
+    log_error(detailed) if detailed
+
+    # set stranded state last in case this would prevent final audits from being
+    # sent (as it does in testing).
+    RightScale::InstanceState.value = 'stranded'
     true
   end
 
@@ -245,7 +280,7 @@ class InstanceSetup
     if system('which apt-get')
       ENV['DEBIAN_FRONTEND'] = 'noninteractive' # this prevents prompts
       @audit.append_output(`apt-get update 2>&1`)
-    elsif system('which yum') 
+    elsif system('which yum')
       @audit.append_output(`yum clean metadata`)
     end
     true

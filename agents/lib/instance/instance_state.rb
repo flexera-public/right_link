@@ -71,6 +71,11 @@ module RightScale
     # Minimum interval in seconds for persistent storage of last communication
     LAST_COMMUNICATION_STORAGE_INTERVAL = 2
 
+    # State for recording progress of planned volume management.
+    class PlannedVolumeState
+      attr_accessor :disks, :mappings, :volumes
+    end
+
     # (String) One of STATES
     def self.value
       @@value
@@ -89,6 +94,14 @@ module RightScale
     # (LoginPolicy) The most recently enacted login policy
     def self.login_policy
       @@login_policy
+    end
+
+    # Queries most recent state of planned volume mappings.
+    #
+    # === Return
+    # result(Array):: persisted mappings or empty
+    def self.planned_volume_state
+      @@planned_volume_state ||= PlannedVolumeState.new
     end
 
     # Set instance id with given id
@@ -113,6 +126,7 @@ module RightScale
       @@resource_uid = nil
       @@last_recorded_value = nil
       @@record_retries = 0
+      @@planned_volume_state = nil
 
       @@last_communication = 0
       MapperProxy.instance.message_received { message_received } unless @@read_only
