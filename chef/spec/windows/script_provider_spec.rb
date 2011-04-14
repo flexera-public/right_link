@@ -25,16 +25,17 @@ require File.expand_path(File.join(File.dirname(__FILE__), '..', 'spec_helper'))
 if RightScale::RightLinkConfig[:platform].windows?
 
   require 'fileutils'
-  require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'mock_auditor_proxy'))
   require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'chef_runner'))
 
   module ScriptProviderSpec
     TEST_TEMP_PATH = File.normalize_path(File.join(Dir.tmpdir, "script-provider-spec-46C1FDCC-DF6A-4472-B41F-409629045FD1"))
     TEST_COOKBOOKS_PATH = RightScale::Test::ChefRunner.get_cookbooks_path(TEST_TEMP_PATH)
+  end
 
+  describe Chef::Provider::Script do
     def create_cookbook
       RightScale::Test::ChefRunner.create_cookbook(
-        TEST_TEMP_PATH,
+        ScriptProviderSpec::TEST_TEMP_PATH,
         {
           :succeed_ruby_recipe => (
 <<EOF
@@ -53,42 +54,24 @@ EOF
       )
     end
 
-    module_function :create_cookbook
-
     def cleanup
-      (FileUtils.rm_rf(TEST_TEMP_PATH) rescue nil) if File.directory?(TEST_TEMP_PATH)
+      (FileUtils.rm_rf(ScriptProviderSpec::TEST_TEMP_PATH) rescue nil) if File.directory?(ScriptProviderSpec::TEST_TEMP_PATH)
     end
 
-    module_function :cleanup
-  end
-
-  describe Chef::Provider::Script do
-    include RightScale::Test::MockAuditorProxy
-    
-    before(:all) do
-      ScriptProviderSpec.create_cookbook
-    end
-
-    before(:each) do
-      @logger = RightScale::Test::MockLogger.new
-      mock_chef_log(@logger)
-    end
-
-    after(:all) do
-      ScriptProviderSpec.cleanup
-    end
+    it_should_behave_like 'generates cookbook for chef runner'
+    it_should_behave_like 'mocks logging'
 
     it "should run chef scripts on windows" do
       runner = lambda {
         RightScale::Test::ChefRunner.run_chef(
           ScriptProviderSpec::TEST_COOKBOOKS_PATH,
           'test::succeed_ruby_recipe') }
-      runner.call.should == true
+      runner.call.should be_true
 
       # note that Chef::Mixin::Command has changed to redirect both stdout and
       # stderr to info because the stderr stream is used for verbose output and
       # not necessarily errors by some Linux utilities.
-      @logger.error_text.should == "";
+      @logger.error_text.should be_empty
       @logger.info_text.should include("message for stderr")
       @logger.info_text.should include("message for stdout")
     end

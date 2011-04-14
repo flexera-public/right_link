@@ -25,7 +25,6 @@ require File.expand_path(File.join(File.dirname(__FILE__), '..', 'spec_helper'))
 if RightScale::RightLinkConfig[:platform].windows?
 
   require 'fileutils'
-  require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'mock_auditor_proxy'))
   require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'chef_runner'))
 
   module TemplateProviderSpec
@@ -34,15 +33,17 @@ if RightScale::RightLinkConfig[:platform].windows?
     TEST_COOKBOOK_PATH = File.join(TEST_COOKBOOKS_PATH, 'test')
     SOURCE_FILE_PATH = File.join(TEST_COOKBOOK_PATH, 'templates', 'default', 'test.erb')
     TEST_FILE_PATH = File.join(TEST_TEMP_PATH, 'data', 'template_file.txt')
+  end
 
+  describe Chef::Provider::Template do
     def create_cookbook
       RightScale::Test::ChefRunner.create_cookbook(
-        TEST_TEMP_PATH,
+        TemplateProviderSpec::TEST_TEMP_PATH,
           {
             :create_templated_file_recipe => (
 <<EOF
-template "#{TEST_FILE_PATH}" do
-  source "#{File.basename(SOURCE_FILE_PATH)}"
+template "#{TemplateProviderSpec::TEST_FILE_PATH}" do
+  source "#{File.basename(TemplateProviderSpec::SOURCE_FILE_PATH)}"
   mode 0440
   variables( :var1 => 'Chef', :var2 => 'Windows' )
 end
@@ -52,50 +53,38 @@ EOF
       )
 
       # template source.
-      FileUtils.mkdir_p(File.dirname(SOURCE_FILE_PATH))
+      FileUtils.mkdir_p(File.dirname(TemplateProviderSpec::SOURCE_FILE_PATH))
       source_text =
 <<EOF
 <%= @var1 %> can work in <%= @var2 %>.
 EOF
-      File.open(SOURCE_FILE_PATH, "w") { |f| f.write(source_text) }
+      File.open(TemplateProviderSpec::SOURCE_FILE_PATH, "w") { |f| f.write(source_text) }
     end
-
-    module_function :create_cookbook
 
     def cleanup
-      (FileUtils.rm_rf(TEST_TEMP_PATH) rescue nil) if File.directory?(TEST_TEMP_PATH)
+      (FileUtils.rm_rf(TemplateProviderSpec::TEST_TEMP_PATH) rescue nil) if File.directory?(TemplateProviderSpec::TEST_TEMP_PATH)
     end
 
-    module_function :cleanup
-  end
-
-  describe Chef::Provider::Template do
-    include RightScale::Test::MockAuditorProxy
-
     before(:all) do
-      TemplateProviderSpec.create_cookbook
       FileUtils.mkdir_p(File.dirname(TemplateProviderSpec::TEST_FILE_PATH))
     end
 
-    before(:each) do
-      @logger = RightScale::Test::MockLogger.new
-      mock_chef_log(@logger)
+    after(:each) do
+      File.delete(TemplateProviderSpec::TEST_FILE_PATH)
     end
 
-    after(:all) do
-      TemplateProviderSpec.cleanup
-    end
+    it_should_behave_like 'generates cookbook for chef runner'
+    it_should_behave_like 'mocks logging'
 
     it "should create templated files on windows" do
       runner = lambda {
         RightScale::Test::ChefRunner.run_chef(
           TemplateProviderSpec::TEST_COOKBOOKS_PATH,
           'test::create_templated_file_recipe') }
-      runner.call.should == true
+      runner.call.should be_true
       File.file?(TemplateProviderSpec::TEST_FILE_PATH).should == true
       message = File.read(TemplateProviderSpec::TEST_FILE_PATH)
       message.chomp.should == "Chef can work in Windows."
-      File.delete(TemplateProviderSpec::TEST_FILE_PATH)
     end
 
   end

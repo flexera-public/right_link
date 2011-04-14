@@ -25,7 +25,6 @@ require File.expand_path(File.join(File.dirname(__FILE__), '..', 'spec_helper'))
 if RightScale::RightLinkConfig[:platform].windows?
 
   require 'fileutils'
-  require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'mock_auditor_proxy'))
   require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'chef_runner'))
 
   module RemoteFileProviderSpec
@@ -34,15 +33,17 @@ if RightScale::RightLinkConfig[:platform].windows?
     TEST_COOKBOOK_PATH = File.join(TEST_COOKBOOKS_PATH, 'test')
     SOURCE_FILE_PATH = File.join(TEST_COOKBOOK_PATH, 'files', 'default', 'test.txt')
     TEST_FILE_PATH = File.join(TEST_TEMP_PATH, 'data', 'test.txt')
+  end
 
+  describe Chef::Provider::RemoteFile do
     def create_cookbook
       RightScale::Test::ChefRunner.create_cookbook(
-        TEST_TEMP_PATH,
+        RemoteFileProviderSpec::TEST_TEMP_PATH,
         {
           :create_remote_file_recipe => (
 <<EOF
-remote_file "#{TEST_FILE_PATH}" do
-  source "#{File.basename(SOURCE_FILE_PATH)}"
+remote_file "#{RemoteFileProviderSpec::TEST_FILE_PATH}" do
+  source "#{File.basename(RemoteFileProviderSpec::SOURCE_FILE_PATH)}"
   mode 0440
 end
 EOF
@@ -51,46 +52,31 @@ EOF
       )
 
       # template source.
-      FileUtils.mkdir_p(File.dirname(SOURCE_FILE_PATH))
+      FileUtils.mkdir_p(File.dirname(RemoteFileProviderSpec::SOURCE_FILE_PATH))
       source_text =
 <<EOF
 Remote file test
 EOF
-      File.open(SOURCE_FILE_PATH, "w") { |f| f.write(source_text) }
+      File.open(RemoteFileProviderSpec::SOURCE_FILE_PATH, "w") { |f| f.write(source_text) }
     end
-
-    module_function :create_cookbook
 
     def cleanup
-      (FileUtils.rm_rf(TEST_TEMP_PATH) rescue nil) if File.directory?(TEST_TEMP_PATH)
+      (FileUtils.rm_rf(RemoteFileProviderSpec::TEST_TEMP_PATH) rescue nil) if File.directory?(RemoteFileProviderSpec::TEST_TEMP_PATH)
     end
 
-    module_function :cleanup
-  end
-
-  describe Chef::Provider::RemoteFile do
-    include RightScale::Test::MockAuditorProxy
-
     before(:all) do
-      RemoteFileProviderSpec.create_cookbook
       FileUtils.mkdir_p(File.dirname(RemoteFileProviderSpec::TEST_FILE_PATH))
     end
 
-    before(:each) do
-      @logger = RightScale::Test::MockLogger.new
-      mock_chef_log(@logger)
-    end
-
-    after(:all) do
-      RemoteFileProviderSpec.cleanup
-    end
+    it_should_behave_like 'generates cookbook for chef runner'
+    it_should_behave_like 'mocks logging'
 
     it "should create remote files on windows" do
       runner = lambda {
         RightScale::Test::ChefRunner.run_chef(
           RemoteFileProviderSpec::TEST_COOKBOOKS_PATH,
           'test::create_remote_file_recipe') }
-      runner.call.should == true
+      runner.call.should be_true
       File.file?(RemoteFileProviderSpec::TEST_FILE_PATH).should == true
       message = File.read(RemoteFileProviderSpec::TEST_FILE_PATH)
       message.chomp.should == "Remote file test"

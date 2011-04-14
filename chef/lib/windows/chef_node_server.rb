@@ -138,7 +138,7 @@ module RightScale
       #
       # === Parameters
       # request(Hash):: hash containing the following parameters:
-      # 
+      #
       # PATH_KEY(Array):: array of path elements
       #
       # === Returns

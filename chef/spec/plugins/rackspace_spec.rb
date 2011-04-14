@@ -30,9 +30,13 @@ describe Ohai::System, " plugin rackspace" do
     # ohai to be tested
     @ohai = Ohai::System.new
     flexmock(@ohai).should_receive(:require_plugin).and_return(true)
+
+    # test IPs
+    @expected_public_ip = "1.1.1.1"
+    @expected_private_ip = "10.252.252.10"
   end
 
-  context 'when not in the rackspace cloud' do
+  shared_examples_for 'not on the rackspace cloud' do
     shared_examples_for 'not in rackspace' do
       it 'does not populate the rackspace mash' do
         @ohai._require_plugin("rackspace")
@@ -50,16 +54,11 @@ describe Ohai::System, " plugin rackspace" do
     end
   end
 
-  context 'when in the rackspace cloud' do
+  shared_examples_for 'on the rackspace cloud' do
     shared_examples_for 'is in rackspace' do
       before(:each) do
-        @expected_public_ip = "1.1.1.1"
-        @expected_private_ip = "10.252.252.10"
-
-        flexmock(RightScale::CloudUtilities).should_receive(:ip_for_interface).with(@ohai, :eth0).and_return(@expected_public_ip)
-        flexmock(RightScale::CloudUtilities).should_receive(:ip_for_interface).with(@ohai, :eth1).and_return(@expected_private_ip)
-
         @ohai._require_plugin("rackspace")
+        @ohai._require_plugin("#{@ohai[:os]}::rackspace")
       end
 
       it 'rackspace is defined' do
@@ -101,6 +100,44 @@ describe Ohai::System, " plugin rackspace" do
       end
 
       it_should_behave_like 'is in rackspace'
+    end
+  end
+
+  context 'when in a linux instance' do
+    before(:each) do
+      @ohai[:os] = 'linux'
+    end
+
+    context 'and not in the rackspace cloud' do
+      it_should_behave_like 'not on the rackspace cloud'
+    end
+
+    context 'and is in the rackspace cloud' do
+      before(:each) do
+        flexmock(RightScale::CloudUtilities).should_receive(:ip_for_interface).with(@ohai, :eth0).and_return(@expected_public_ip)
+        flexmock(RightScale::CloudUtilities).should_receive(:ip_for_interface).with(@ohai, :eth1).and_return(@expected_private_ip)
+      end
+
+      it_should_behave_like 'on the rackspace cloud'
+    end
+  end
+
+  context 'when on a windows instance' do
+    before(:each) do
+      @ohai[:os] = 'windows'
+    end
+
+    context 'and not in the rackspace cloud' do
+      it_should_behave_like 'not on the rackspace cloud'
+    end
+
+    context 'and is in the rackspace cloud' do
+      before(:each) do
+        flexmock(RightScale::CloudUtilities).should_receive(:ip_for_windows_interface).with(@ohai, 'public').and_return(@expected_public_ip)
+        flexmock(RightScale::CloudUtilities).should_receive(:ip_for_windows_interface).with(@ohai, 'private').and_return(@expected_private_ip)
+      end
+
+      it_should_behave_like 'on the rackspace cloud'
     end
   end
 end

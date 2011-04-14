@@ -48,7 +48,7 @@ class InstanceSetup
     @got_boot_bundle   = false
     EM.threadpool_size = 1
     RightScale::InstanceState.init(@agent_identity)
-    RightScale::RightLinkLog.force_debug if RightScale::DevState.enabled?
+    RightScale::RightLinkLog.force_debug if RightScale::CookState.dev_mode_enabled?
 
     # Schedule boot sequence, don't run it now so agent is registered first
     if RightScale::InstanceState.value == 'booting'

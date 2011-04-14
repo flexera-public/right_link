@@ -122,7 +122,7 @@ describe RightScale::DynamicPowershellProvider do
 
       Chef::Resource.const_set("CookbookScripts", Class.new(Chef::Resource))
       resource = flexmock('Resource', :cookbook_name=>'cookbook', :name=>'foo')
-      cb = CookbookScripts.new(nil, resource)
+      cb = CookbookScripts.new(resource, flexmock(:node=>nil))
       cb.load_current_resource
       cb.action_action1
       cb.action_action2

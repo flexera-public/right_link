@@ -59,7 +59,7 @@ module RightScale
       begin
         t.connect_nonblock(saddr)
       rescue Errno::EINPROGRESS
-        r,w,e = IO::select(nil,[t],nil,timeout)
+        r, w, e = IO::select(nil, [t], nil, timeout)
         if !w.nil?
           connected = true
         else
@@ -138,8 +138,37 @@ module RightScale
          ohai[:network][:interfaces][interface] != nil &&
          ohai[:network][:interfaces][interface][:addresses] != nil
 
-        addresses = ohai[:network][:interfaces][interface][:addresses].find {|key, item| item['family'] == 'inet'}
+        addresses = ohai[:network][:interfaces][interface][:addresses].find { |key, item| item['family'] == 'inet' }
         address = addresses.first unless addresses.nil?
+      end
+
+      address
+    end
+
+    # Finds the first ip address that matches a given connection type (private|public)
+    #
+    # === Parameters
+    # ohai(Mash):: ohai state
+    # connection_type(Symbol):: either 'public' or 'private'
+    #
+    # === Return
+    # address(String|nil):: ip address associated with the given interface, nil if interface could not be found
+    def self.ip_for_windows_interface(ohai, connection_type)
+      address = nil
+
+      # find the right interface
+      if ohai[:network] != nil &&
+         ohai[:network][:interfaces] != nil
+        interface = ohai[:network][:interfaces].values.find do |item|
+          !(item.nil? || item[:instance].nil?) && item[:instance][:net_connection_id] == connection_type
+        end
+
+        # grab the ip if there is one
+        if interface != nil &&
+           interface["configuration"] != nil &&
+           interface["configuration"]["ip_address"] != nil
+          address = interface["configuration"]["ip_address"].first
+        end
       end
 
       address
@@ -151,14 +180,14 @@ module RightScale
     # @@cloud(Symbol):: symbolized name of the cloud (:ec2, :rackspace, :cloudstack, :eucalyptus, ...)
     def self.cloud
       #unless defined?(@@cloud)
-        @@cloud = :unknown
+      @@cloud = :unknown
 
-        cloud_file = File.normalize_path(File.join(RightScale::Platform.filesystem.right_scale_state_dir, 'cloud'))
-        if File.exist?(cloud_file)
-          @@cloud = File.read(cloud_file).strip.downcase.to_sym
-          # Note: hack for cloudstack name until all references to vmops are converted to cloudstack
-          @@cloud = :cloudstack if @@cloud == :vmops
-        end
+      cloud_file = File.normalize_path(File.join(RightScale::Platform.filesystem.right_scale_state_dir, 'cloud'))
+      if File.exist?(cloud_file)
+        @@cloud = File.read(cloud_file).strip.downcase.to_sym
+        # Note: hack for cloudstack name until all references to vmops are converted to cloudstack
+        @@cloud = :cloudstack if @@cloud == :vmops
+      end
       #end
 
       @@cloud
@@ -175,12 +204,15 @@ module RightScale
     #
     # === Return
     # (Boolean):: true if on cloud, or cloud cannot be determined, false otherwise.
-    def self.is_cloud?(expected_cloud, &block)
-      block ||= lambda{ true }
+    def self.is_cloud?(expected_cloud, & block)
+      block ||= lambda { true }
       case cloud
-        when expected_cloud then return true
-        when :unknown then return block.call(expected_cloud)
-        else return false
+        when expected_cloud then
+          return true
+        when :unknown then
+          return block.call(expected_cloud)
+        else
+          return false
       end
     end
 
@@ -209,7 +241,7 @@ module RightScale
         rescue OpenURI::HTTPError => e
           # 404 Not Found is not retryable (server resonded but metadata path was
           # invalid).
-          if e.message[0,4] == "404 "
+          if e.message[0, 4] == "404 "
             raise
           end
           Ohai::Log.warn("#{e.class}: #{e.message}")

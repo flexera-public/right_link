@@ -99,7 +99,7 @@ module RightScale
       # Initializes run list for this sequence (partial converge support)
       @run_list = []
       @inputs = {}
-      breakpoint = DevState.breakpoint
+      breakpoint = CookState.breakpoint
       recipes.each do |recipe|
         if recipe.nickname == breakpoint
           @audit.append_info("Breakpoint set, running recipes up to < #{breakpoint} >")
@@ -124,9 +124,11 @@ module RightScale
       if @run_list.empty?
         # Deliberately avoid auditing anything since we did not run any recipes
         # Still download the cookbooks repos if in dev mode
-        download_repos if DevState.cookbooks_path
+        download_repos if CookState.cookbooks_path
         report_success(nil)
       else
+        configure_ohai
+        configure_logging
         configure_chef
         download_attachments if @ok
         install_packages if @ok
@@ -140,24 +142,35 @@ module RightScale
 
     protected
 
-    # Configure chef so it can find cookbooks and so its logs go to the audits
-    #
-    # === Return
-    # true:: Always return true
-    def configure_chef
+    def configure_ohai
       # Ohai plugins path and logging.
       #
       # note that this was moved to a separate .rb file to ensure that plugins
       # path is not relative to this potentially relocatable source file.
       RightScale::OhaiSetup.configure_ohai
+    end
 
-      # Chef logging
+    # Initialize and configure the logger
+    def configure_logging
       Chef::Log.logger = AuditLogger.new
       Chef::Log.logger.level = RightLinkLog.level_from_sym(RightLinkLog.level)
+    end
+
+    # Configure chef so it can find cookbooks and so its logs go to the audits
+    #
+    # === Return
+    # true:: Always return true
+    def configure_chef
+      Chef::Config[:custom_exec_exception] = Proc.new { |params|
+        failure_reason = ::RightScale::SubprocessFormatting.reason(params[:status])
+        expected_error_codes = Array(params[:args][:returns]).join(' or ')
+        ::RightScale::Exceptions::Exec.new("\"#{params[:args][:command]}\" #{failure_reason}, expected #{expected_error_codes}.",
+                                           params[:args][:cwd])
+      }
 
       # Chef paths and run mode
-      if DevState.use_cookbooks_path?
-        Chef::Config[:cookbook_path] = DevState.cookbooks_path.reverse
+      if CookState.use_cookbooks_path?
+        Chef::Config[:cookbook_path] = CookState.cookbooks_path
         @audit.append_info("Using development cookbooks repositories path:\n\t- #{Chef::Config[:cookbook_path].join("\n\t- ")}")
       else
         Chef::Config[:cookbook_path] = (@right_scripts_cookbook.empty? ? [] : [ @right_scripts_cookbook.repo_dir ])
@@ -171,6 +184,10 @@ module RightScale
         Chef::Config[:file_cache_path] = file_cache_path
         Chef::Config[:cache_options][:path] = File.join(file_cache_path, 'checksums')
       end
+
+      # Where backups of chef-managed files should go.  Set to nil to backup to the same directory the file being backed up is in.
+      Chef::Config[:file_backup_path] = nil
+
       true
     end
 
@@ -288,8 +305,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def update_cookbook_path
-      @cookbooks.reverse.each_with_index do |cookbook_sequence, i|
-        i = @cookbooks.size - i - 1 #adjust for reversification
+      @cookbooks.each_with_index do |cookbook_sequence, i|
         local_basedir = File.join(@download_path, i.to_s)
         cookbook_sequence.paths.reverse.each {|path|
           dir = File.expand_path(File.join(local_basedir, path))
@@ -307,9 +323,9 @@ module RightScale
     # true:: Always return true
     def download_repos
       # Skip download if in dev mode and cookbooks repos directories already have files in them
-      unless DevState.download_cookbooks?
-         @audit.append_info("Skipping cookbook download to allow local editing.") 
-         return true 
+      unless CookState.download_cookbooks?
+         @audit.append_info("Skipping cookbook download to allow local editing.")
+         return true
       end
 
       @audit.create_new_section('Retrieving cookbooks') unless @cookbooks.empty?
@@ -341,7 +357,7 @@ module RightScale
       end
 
       # record that cookbooks have been downloaded so we do not download them again in Dev mode
-      DevState.has_downloaded_cookbooks = true
+      CookState.has_downloaded_cookbooks = true
 
       true
     rescue Exception => e
@@ -472,16 +488,15 @@ module RightScale
     # === Return
     # true:: Always return true
     def converge(ohai)
-      @audit.create_new_section('Converging')
-      @audit.append_info("Run list: #{@run_list.join(', ')}")
-      attribs = { 'recipes' => @run_list }
-      attribs.merge!(@attributes) if @attributes
-      c = Chef::Client.new
-      c.ohai = ohai
       begin
+        @audit.create_new_section('Converging')
+        @audit.append_info("Run list: #{@run_list.join(', ')}")
+        attribs = { 'run_list' => @run_list }
+        attribs.merge!(@attributes) if @attributes
+        c = Chef::Client.new(attribs)
+        c.ohai = ohai
         audit_time do
-          c.json_attribs = attribs
-          c.run_solo
+          c.run
         end
       rescue Exception => e
         report_failure('Chef converge failed', chef_error(e))
@@ -514,7 +529,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def report_success(node)
-      ChefState.merge_attributes(node.attribute) if node
+      ChefState.merge_attributes(node.normal_attrs) if node
       patch = ChefState.create_patch(@inputs, ChefState.attributes)
       # We don't want to send back new attributes (ohai etc.)
       patch[:right_only] = {}
@@ -551,13 +566,13 @@ module RightScale
     # === Return
     # msg(String):: Human friendly error message
     def chef_error(e)
-      if e.is_a?(RightScale::Exceptions::Exec)
+      if e.is_a?(::RightScale::Exceptions::Exec)
         msg = "An external command returned an error during the execution of Chef:\n\n"
         msg += e.message
         msg += "\n\nThe command was run from \"#{e.path}\"" if e.path
       elsif e.is_a?(::Chef::Exceptions::ValidationFailed) && (e.message =~ /Option action must be equal to one of:/)
         msg = "[chef] recipe references an action that does not exist.  #{e.message}"
-      elsif e.is_a?(::NameError) && (missing_action_match = /Cannot find Action\S* for action_(\S*)\s*Original exception: NameError: uninitialized constant Chef::Resource::Action\S*/.match(e.message)) && missing_action_match[1]
+      elsif e.is_a?(::NoMethodError) && (missing_action_match = /undefined method .action_(\S*)' for #<\S*:\S*>/.match(e.message)) && missing_action_match[1]
         msg = "[chef] recipe references the action <#{missing_action_match[1]}> which is missing an implementation"
       else
         msg = "An error occurred during the execution of Chef. The error message was:\n\n"

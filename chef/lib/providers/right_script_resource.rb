@@ -54,8 +54,8 @@ class Chef
       # name(String):: Nickname of RightScript
       # collection(Array):: Collection of included recipes
       # node(Chef::Node):: Node where resource will be used
-      def initialize(name, collection, node)
-        super(name, collection, node)
+      def initialize(name, run_context=nil)
+        super(name, run_context)
         @resource_name = :right_script
         @cache_dir = ::File.join(DEFAULT_CACHE_DIR_ROOT, RightScale::AgentIdentity.generate)
         @parameters = {}
