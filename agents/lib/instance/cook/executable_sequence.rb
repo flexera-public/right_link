@@ -509,9 +509,12 @@ module RightScale
         # the shutdown occurs after subsequent recipes have finished. the best
         # practice for a recipe is to use the rs_shutdown chef resource which
         # calls exit when appropriate.
-        if RightScale::Cook.instance.shutdown_request.continue?
+        shutdown_request = RightScale::Cook.instance.shutdown_request
+        if shutdown_request.continue?
           report_failure('Chef converge failed due to rs_shutdown not being called before exit', chef_error(e))
           RightLinkLog.debug("Chef failed with '#{e.message}' at\n" + e.backtrace.join("\n"))
+        else
+          RightLinkLog.info("Shutdown requested by script: #{shutdown_request}")
         end
       rescue Exception => e
         report_failure('Chef converge failed', chef_error(e))

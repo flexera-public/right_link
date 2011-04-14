@@ -49,7 +49,7 @@ module RightScale
 
       def initialize
         @level = CONTINUE
-        @immediate = false
+        @immediately = false
       end
 
       # true if no shutdown was requested, false if shutdown was requested.
@@ -73,6 +73,13 @@ module RightScale
         # strictly escalate to higher level and ignore lower level requests.
         @level = value if LEVELS.index(value) > LEVELS.index(@level)
         @level
+      end
+
+      # Stringizer.
+      def to_s
+        result = @level
+        (result += " immediately") if @immediately
+        return result
       end
 
     end  # ShutdownRequest
@@ -121,17 +128,17 @@ module RightScale
           end
 
           # request shutdown (kind indicated by operation and/or payload).
-          audit.update_status("Requesting #{level} instance")
+          audit.append_info("Shutdown requested: #{request}")
           send_retryable_request(operation, payload) do |r|
             res = result_from(r)
             if res.success?
               block.call if block
             else
-              handle_failed_shutdown_request(audit, "Failed to #{level} instance", res)
+              handle_failed_shutdown_request(audit, "Failed to shutdown instance", res)
             end
           end
         else
-          RightScale::AuditProxy.create(@agent_identity, "Requesting #{level} instance") do |new_audit|
+          RightScale::AuditProxy.create(@agent_identity, "Shutdown requested: #{request}") do |new_audit|
             manage_shutdown_request(new_audit, &block)
           end
         end
