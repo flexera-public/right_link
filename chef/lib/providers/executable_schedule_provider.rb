@@ -48,7 +48,7 @@ class Chef
       # true:: Always return true
       def action_create
         @original_cron_provider.action_create
-        @new_resource.updated_by_last_action(@original_cron_provider.new_resource.updated_by_last_action)
+        @new_resource.updated_by_last_action(@original_cron_provider.new_resource.updated_by_last_action?)
         true
       end
 
@@ -58,7 +58,7 @@ class Chef
       # true:: Always return true
       def action_delete
         @original_cron_provider.action_delete
-        @new_resource.updated_by_last_action(@original_cron_provider.new_resource.updated_by_last_action)
+        @new_resource.updated_by_last_action(@original_cron_provider.new_resource.updated_by_last_action?)
       end
 
     end

@@ -114,7 +114,6 @@ describe Chef::Provider::ExecutableSchedule do
   it "should delete an already existing schedule" do
     pending "Non crontab executable on this machine" unless system('which crontab')
     pending "Existing cron entries, cannot run test" if system('crontab -l 2>/dev/null')
-    pending "Chef.popen4 is raising Errno::EBADF for some runs of this test...needs more investigation"
 
     begin
       @provider = Chef::Provider::ExecutableSchedule.new(@resource, @run_context)
