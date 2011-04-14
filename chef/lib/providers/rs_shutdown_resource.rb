@@ -30,10 +30,9 @@ class Chef
       #
       # === Parameters
       # name(String):: Tag name
-      # collection(Array):: Collection of included recipes
-      # node(Chef::Node):: Node where resource will be used
-      def initialize(name, collection=nil, node=nil)
-        super(name, collection, node)
+      # run_context(Chef::RunContext):: Run context or nil
+      def initialize(name, run_context=nil)
+        super(name, run_context)
         @resource_name = :rs_shutdown
         @action = :reboot
         @immediately = false

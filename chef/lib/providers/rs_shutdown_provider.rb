@@ -41,6 +41,7 @@ class Chef
       # true:: Always return true
       def action_reboot
         RightScale::Cook.instance.schedule_shutdown(RightScale::ShutdownManagement::REBOOT, @new_resource.immediately)
+        exit 0 if @new_resource.immediately
         true
       end
 
@@ -50,6 +51,7 @@ class Chef
       # true:: Always return true
       def action_stop
         RightScale::Cook.instance.schedule_shutdown(RightScale::ShutdownManagement::STOP, @new_resource.immediately)
+        exit 0 if @new_resource.immediately
         true
       end
 
@@ -59,6 +61,7 @@ class Chef
       # true:: Always return true
       def action_terminate
         RightScale::Cook.instance.schedule_shutdown(RightScale::ShutdownManagement::TERMINATE, @new_resource.immediately)
+        exit 0 if @new_resource.immediately
         true
       end
 
