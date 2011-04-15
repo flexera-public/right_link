@@ -489,6 +489,10 @@ module RightScale
     # true:: Always return true
     def converge(ohai)
       begin
+        # suppress unnecessary error log output for cases of explictly exiting
+        # from converge (rs_shutdown, etc.).
+        ::Chef::Client.clear_notifications
+
         @audit.create_new_section('Converging')
         @audit.append_info("Run list: #{@run_list.join(', ')}")
         attribs = { 'run_list' => @run_list }

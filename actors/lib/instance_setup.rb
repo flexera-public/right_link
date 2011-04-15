@@ -381,6 +381,17 @@ class InstanceSetup
     end
   end
 
+  # Creates a new sequence for the given context.
+  #
+  # === Parameters
+  # context(RightScale::OperationContext):: context
+  #
+  # === Return
+  # sequence(RightScale::ExecutableSequenceProxy):: new sequence
+  def create_sequence(context)
+    return RightScale::ExecutableSequenceProxy.new(context)
+  end
+
   # Retrieve and run boot scripts
   #
   # === Return
@@ -390,7 +401,7 @@ class InstanceSetup
 
     # Force full converge on boot so that Chef state gets persisted
     context = RightScale::OperationContext.new(bundle, @audit)
-    sequence = RightScale::ExecutableSequenceProxy.new(context)
+    sequence = create_sequence(context)
     sequence.callback do
       if patch = sequence.inputs_patch && !patch.empty?
         payload = {:agent_identity => @agent_identity, :patch => patch}

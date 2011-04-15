@@ -474,6 +474,26 @@ EOF
       log_contains(stdout_match)
       log_contains(stderr_match)
     end
+
+    it "should exit chef converge when a powershell script invokes rs_shutdown --reboot --immediately" do
+      runner = lambda {
+        @mock_shutdown_request.level = ::RightScale::ShutdownManagement::REBOOT
+        @mock_shutdown_request.immediately!
+        RightScale::Test::ChefRunner.run_chef(
+          PowershellProviderSpec::TEST_COOKBOOKS_PATH,
+          'test::succeed_powershell_recipe') }
+      runner.should raise_exception(RightScale::Test::ChefRunner::MockSystemExit)
+    end
+
+    it "should not exit chef converge when a powershell script invokes rs_shutdown --reboot --deferred" do
+      runner = lambda {
+        @mock_shutdown_request.level = ::RightScale::ShutdownManagement::REBOOT
+        RightScale::Test::ChefRunner.run_chef(
+          PowershellProviderSpec::TEST_COOKBOOKS_PATH,
+          'test::succeed_powershell_recipe') }
+      runner.call.should be_true
+    end
+
   end
 
 end # if windows?
