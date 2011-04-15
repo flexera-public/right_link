@@ -172,7 +172,7 @@ MQ::Queue.class_eval do
 end
 
 begin
-  # Horrible evil hack to implement AMQP connection backoff until the AMQP gem contains our patches
+  # Monkey patch AMQP reconnect backoff
   require 'amqp'
 
   AMQP::Client.module_eval do
@@ -190,8 +190,8 @@ begin
 
     def reconnect(force = false)
       if @reconnecting and not force
-        # Wait 1 second after first reconnect attempt, in between each subsequent attempt
-        EM.add_timer(1) { reconnect(true) }
+        # Wait after first reconnect attempt and in between each subsequent attempt
+        EM.add_timer(@settings[:reconnect_interval] || 5) { reconnect(true) }
         return
       end
 
@@ -204,33 +204,27 @@ begin
         mqs.each{ |_,mq| mq.reset } if mqs
 
         @reconnecting = true
-        @reconnect_try = 0
-        @reconnect_log = :warn
 
-        again = @settings[:retry]
+        again = @settings[:reconnect_delay]
         again = again.call if again.is_a?(Proc)
 
         if again.is_a?(Numeric)
-          # Retry connection after N seconds
+          # Wait before making initial reconnect attempt
           EM.add_timer(again) { reconnect(true) }
           return
         elsif ![nil, true].include?(again)
-          raise ::AMQP::Error, "Could not interpret :retry=>#{again.inspect}; expected nil, true or Numeric"
+          raise ::AMQP::Error, "Could not interpret :reconnect_delay => #{again.inspect}; expected nil, true, or Numeric"
         end
       end
 
-      if (@reconnect_try % 30) == 0
-        RightScale::RightLinkLog.send(@reconnect_log, "Attempting reconnect to broker " +
-          "#{RightScale::AgentIdentity.new('rs', 'broker', @settings[:port].to_i, @settings[:host].gsub('-', '~')).to_s}")
-        @reconnect_log = :error if (@reconnect_try % 300) == 0
-      end
-      @reconnect_try += 1
+      RightScale::RightLinkLog.warning("Attempting to reconnect to broker " +
+        "#{RightScale::AgentIdentity.new('rs', 'broker', @settings[:port].to_i, @settings[:host].gsub('-', '~')).to_s}")
       log 'reconnecting'
       EM.reconnect(@settings[:host], @settings[:port], self)
     end
   end
 
-  # monkey patch AMQP to clean up @conn when an error is raised after a broker request failure,
+  # Monkey patch AMQP to clean up @conn when an error is raised after a broker request failure,
   # otherwise AMQP becomes unusable
   AMQP.module_eval do
     def self.start *args, &blk
@@ -292,6 +286,9 @@ module RightScale
 
     class NoConnectedBrokers < Exception; end
 
+    # Default number of seconds between reconnect attempts
+    RECONNECT_INTERVAL = 60
+
     # Maximum number of times the failed? function would be called for a failed broker without
     # returning true
     MAX_RETRY_BACKOFF = 12
@@ -333,7 +330,7 @@ module RightScale
     #   :pass(String):: Password
     #   :vhost(String):: Virtual host path name
     #   :insist(Boolean):: Whether to suppress redirection of connection
-    #   :retry(Integer|Proc):: Number of seconds before try to reconnect or proc returning same
+    #   :reconnect_interval(Integer):: Number of seconds between reconnect attempts, defaults to RECONNECT_INTERVAL
     #   :host{String):: Comma-separated list of AMQP broker host names; if only one, it is reapplied
     #     to successive ports; if none, defaults to localhost; each host may be followed by ':'
     #     and a short string to be used as an alias id; the alias id defaults to the list index,
@@ -1338,13 +1335,15 @@ module RightScale
       }
       begin
         RightLinkLog.info("[setup] Connecting to broker #{broker[:identity]}, alias #{broker[:alias]}")
-        broker[:connection] = AMQP.connect(:user   => options[:user],
-                                           :pass   => options[:pass],
-                                           :vhost  => options[:vhost],
-                                           :host   => address[:host],
-                                           :port   => address[:port],
-                                           :insist => options[:insist] || false,
-                                           :retry  => options[:retry] || 15)
+        reconnect_interval = options[:reconnect_interval] || RECONNECT_INTERVAL
+        broker[:connection] = AMQP.connect(:user               => options[:user],
+                                           :pass               => options[:pass],
+                                           :vhost              => options[:vhost],
+                                           :host               => address[:host],
+                                           :port               => address[:port],
+                                           :insist             => options[:insist] || false,
+                                           :reconnect_delay    => lambda { rand(reconnect_interval) },
+                                           :reconnect_interval => reconnect_interval)
         broker[:mq] = MQ.new(broker[:connection])
         broker[:mq].__send__(:connection).connection_status { |status| update_status(broker, status) }
       rescue Exception => e
