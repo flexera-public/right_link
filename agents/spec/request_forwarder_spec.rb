@@ -54,9 +54,9 @@ describe RightScale::RequestForwarder do
     @mapper_proxy.should_receive(:request).with('/first', 'first_payload', {:one => 1}).once.ordered
     @mapper_proxy.should_receive(:request).with('/second', 'second_payload', {:two => 2}).once.ordered
     RightScale::RequestForwarder.instance.request('/second', 'second_payload', {:two => 2})
-    RightScale::RequestForwarder.instance.init do
-      RightScale::RequestForwarder.instance.request('/first', 'first_payload', {:one => 1})
-    end
+    RightScale::RequestForwarder.instance.init
+    RightScale::RequestForwarder.instance.request('/first', 'first_payload', {:one => 1})
+    RightScale::RequestForwarder.instance.start
   end
 
   it 'should buffer requests in offline mode' do

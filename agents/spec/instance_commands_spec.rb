@@ -60,7 +60,8 @@ describe RightScale::InstanceCommands do
     it 'should execute locally via forwarder' do
       options = {:recipe => "recipe"}
       payload = options.merge(:agent_identity => @agent_identity)
-      @forwarder.should_receive(:request).with("/forwarder/schedule_recipe", payload, {}, Proc).once
+      @forwarder.should_receive(:push).with("/forwarder/schedule_recipe", {:agent_identity=>@agent_identity, :recipe=>"recipe"}, {}).once
+      flexmock(RightScale::CommandIO.instance).should_receive(:reply).once
       @commands.send(:run_recipe_command, {:conn => 42, :options => options}).should be_true
     end
 
@@ -85,7 +86,8 @@ describe RightScale::InstanceCommands do
     it 'should execute locally via forwarder' do
       options = {:right_script => "right script"}
       payload = options.merge(:agent_identity => @agent_identity)
-      @forwarder.should_receive(:request).with("/forwarder/schedule_right_script", payload, {}, Proc).once
+      @forwarder.should_receive(:push).with("/forwarder/schedule_right_script", {:agent_identity=>@agent_identity, :right_script=>"right script"}, {}).once
+      flexmock(RightScale::CommandIO.instance).should_receive(:reply).once
       @commands.send(:run_right_script_command, {:conn => 42, :options => options}).should be_true
     end
 

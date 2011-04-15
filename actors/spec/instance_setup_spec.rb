@@ -49,12 +49,12 @@ class InstanceSetup
   end
   def request(operation, *args)
     case operation
-      when "/booter/set_r_s_version" then yield @@factory.success_results
-      when "/booter/get_repositories" then yield @@repos
-      when "/booter/get_boot_bundle" then yield @@bundle
-      when "/booter/get_login_policy" then yield @@login_policy
-      when "/mapper/list_agents" then yield @@agents
-      else raise ArgumentError.new("Don't know how to mock #{operation}")
+    when "/booter/set_r_s_version" then yield @@factory.success_results
+    when "/booter/get_repositories" then yield @@repos
+    when "/booter/get_boot_bundle" then yield @@bundle
+    when "/booter/get_login_policy" then yield @@login_policy
+    when "/mapper/list_agents" then yield @@agents
+    else raise ArgumentError.new("Don't know how to mock #{operation}")
     end
   end
 end
@@ -126,6 +126,18 @@ describe InstanceSetup do
     policy = RightScale::InstantiationMock.login_policy 
     repos  = RightScale::InstantiationMock.repositories
     bundle = RightScale::InstantiationMock.script_bundle('__TestScripts', '__TestScripts_too')
+
+    flexmock(RightScale::RequestForwarder.instance).should_receive(:request).
+      with('/booter/declare', {:agent_identity=>@agent_identity.to_s, :resource_uid=>nil, :r_s_version=>11}, Proc).
+      and_yield(RightScale::ResultsMock.new.success_results)
+    puts "request(#{'/state_recorder/record'}, #{{:from_state=>'pending', :agent_identity=>@agent_identity.to_s, :state=>'booting'}.inspect})"
+    flexmock(RightScale::RequestForwarder.instance).should_receive(:request).
+      with('/state_recorder/record', {:from_state=>'pending', :agent_identity=>@agent_identity.to_s, :state=>'booting'}, Proc).
+      and_yield(RightScale::ResultsMock.new.success_results('booting'))
+    flexmock(RightScale::RequestForwarder.instance).should_receive(:request).
+      with('/state_recorder/record', { :from_state=>'booting', :state => 'operational', :agent_identity => @agent_identity.to_s }, Proc).
+      and_yield(RightScale::ResultsMock.new.success_results('operational'))
+    
     boot(policy, repos, bundle)
     res = @setup.report_state
     if !res.success? || res.content != 'operational'
@@ -136,6 +148,19 @@ describe InstanceSetup do
   end
 
   it 'should strand' do
+    flexmock(RightScale::RequestForwarder.instance).should_receive(:request).
+      with('/booter/declare', {:agent_identity=>@agent_identity.to_s, :resource_uid=>nil, :r_s_version=>11}, Proc).
+      and_yield(RightScale::ResultsMock.new.success_results)
+    flexmock(RightScale::RequestForwarder.instance).should_receive(:request).
+      with('/state_recorder/record', { :from_state=>'pending', :state => 'booting', :agent_identity => @agent_identity.to_s }, Proc).
+      and_yield(RightScale::ResultsMock.new.success_results('booting'))
+    flexmock(RightScale::RequestForwarder.instance).should_receive(:request).
+      with('/state_recorder/record', { :from_state=>'booting', :state => 'booting', :agent_identity => @agent_identity.to_s }, Proc).
+      and_yield(RightScale::ResultsMock.new.success_results('booting'))
+    flexmock(RightScale::RequestForwarder.instance).should_receive(:request).
+      with('/state_recorder/record', { :from_state=>'booting', :state => 'stranded', :agent_identity => @agent_identity.to_s }, Proc).
+      and_yield(RightScale::ResultsMock.new.success_results('stranded'))
+
     boot(RightScale::InstantiationMock.login_policy, RightScale::InstantiationMock.repositories)
     res = @setup.report_state
     res.should be_success
