@@ -135,7 +135,7 @@ describe RightScale::Agent do
     after(:each) do
       FileUtils.rm_rf(File.normalize_path(File.join(@agent.options[:root], 'config.yml'))) if @agent
     end
- 
+
   end
 
   describe "Passed in Options" do
@@ -143,6 +143,7 @@ describe RightScale::Agent do
     before(:each) do
       flexmock(EM).should_receive(:add_periodic_timer)
       flexmock(EM).should_receive(:next_tick).and_yield
+      flexmock(EM).should_receive(:stop)
       @timer = flexmock("timer")
       flexmock(EM::Timer).should_receive(:new).and_return(@timer)
       @timer.should_receive(:cancel)
@@ -284,12 +285,12 @@ describe RightScale::Agent do
       @agent.tags.should include("sample_tag_1")
       @agent.tags.should include("sample_tag_2")
     end
-    
+
     it "for threadpool_size" do
       @agent = RightScale::Agent.start(:threadpool_size => 5, :identity => @identity)
       @agent.dispatcher.em.threadpool_size.should == 5
     end
-    
+
   end
 
   describe "Terminating" do

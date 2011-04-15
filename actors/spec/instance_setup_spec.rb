@@ -35,26 +35,37 @@ class InstanceSetup
   def self.results_factory=(factory)
     @@factory = factory
   end
+
   def self.repos=(repos)
     @@repos = repos
   end
+
   def self.bundle=(bundle)
     @@bundle = bundle
   end
+
   def self.login_policy=(login_policy)
     @@login_policy = login_policy
   end
+
   def self.agents=(agents)
     @@agents = agents
   end
-  def request(operation, *args)
+
+  def request(operation, * args)
     case operation
-      when "/booter/set_r_s_version" then yield @@factory.success_results
-      when "/booter/get_repositories" then yield @@repos
-      when "/booter/get_boot_bundle" then yield @@bundle
-      when "/booter/get_login_policy" then yield @@login_policy
-      when "/mapper/list_agents" then yield @@agents
-      else raise ArgumentError.new("Don't know how to mock #{operation}")
+      when "/booter/set_r_s_version" then
+        yield @@factory.success_results
+      when "/booter/get_repositories" then
+        yield @@repos
+      when "/booter/get_boot_bundle" then
+        yield @@bundle
+      when "/booter/get_login_policy" then
+        yield @@login_policy
+      when "/mapper/list_agents" then
+        yield @@agents
+      else
+        raise ArgumentError.new("Don't know how to mock #{operation}")
     end
   end
 end
@@ -96,7 +107,7 @@ describe InstanceSetup do
   def check_state
     EM.stop if @setup.report_state.content =~ /operational|stranded/
   end
- 
+
   def boot(login_policy, repos, bundle = nil)
     login_policy = @results_factory.success_results(login_policy)
     repos        = @results_factory.success_results(repos)
@@ -111,8 +122,8 @@ describe InstanceSetup do
     InstanceSetup.repos        = repos
     InstanceSetup.bundle       = bundle
 
-    result = RightScale::OperationResult.success({ 'agent_id1' => { 'tags' => ['tag1'] } })
-    agents = flexmock('result', :results => { 'mapper_id1' => result })
+    result = RightScale::OperationResult.success({'agent_id1' => {'tags' => ['tag1']}})
+    agents = flexmock('result', :results => {'mapper_id1' => result})
     InstanceSetup.agents       = agents
 
     EM.run do
@@ -123,9 +134,20 @@ describe InstanceSetup do
   end
 
   it 'should boot' do
-    policy = RightScale::InstantiationMock.login_policy 
+    policy = RightScale::InstantiationMock.login_policy
     repos  = RightScale::InstantiationMock.repositories
     bundle = RightScale::InstantiationMock.script_bundle('__TestScripts', '__TestScripts_too')
+
+    flexmock(RightScale::RequestForwarder.instance).should_receive(:request).
+            with('/booter/declare', {:agent_identity=>nil, :aws_id=>nil, :r_s_version=>9}, Proc).
+            and_yield(RightScale::ResultsMock.new.success_results)
+    flexmock(RightScale::RequestForwarder.instance).should_receive(:request).
+            with('/state_recorder/record', {:state => "booting", :agent_identity => nil}, Proc).
+            and_yield(RightScale::ResultsMock.new.success_results('booting'))
+    flexmock(RightScale::RequestForwarder.instance).should_receive(:request).
+            with('/state_recorder/record', {:state => "operational", :agent_identity => nil}, Proc).
+            and_yield(RightScale::ResultsMock.new.success_results('operational'))
+
     boot(policy, repos, bundle)
     res = @setup.report_state
     if !res.success? || res.content != 'operational'
@@ -136,6 +158,17 @@ describe InstanceSetup do
   end
 
   it 'should strand' do
+
+    flexmock(RightScale::RequestForwarder.instance).should_receive(:request).
+            with('/booter/declare', {:agent_identity=>nil, :aws_id=>nil, :r_s_version=>9}, Proc).
+            and_yield(RightScale::ResultsMock.new.success_results)
+    flexmock(RightScale::RequestForwarder.instance).should_receive(:request).
+            with('/state_recorder/record', {:state => "booting", :agent_identity => nil}, Proc).
+            and_yield(RightScale::ResultsMock.new.success_results('booting'))
+    flexmock(RightScale::RequestForwarder.instance).should_receive(:request).
+            with('/state_recorder/record', {:state => "stranded", :agent_identity => nil}, Proc).
+            and_yield(RightScale::ResultsMock.new.success_results('stranded'))
+
     boot(RightScale::InstantiationMock.login_policy, RightScale::InstantiationMock.repositories)
     res = @setup.report_state
     res.should be_success
