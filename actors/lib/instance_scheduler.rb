@@ -125,6 +125,8 @@ class InstanceScheduler
   # === Parameter
   # options[:bundle](RightScale::ExecutableBundle):: Decommission bundle
   # options[:user_id](Integer):: User id which requested decommission
+  # options[:skip_db_update](FalseClass|TrueClass):: Whether to requery instance state (false)
+  # options[:kind](String):: 'terminate', 'stop' or 'reboot'
   #
   # === Return
   # (RightScale::OperationResult):: Status value, either success or error with message
