@@ -75,9 +75,9 @@ class InstanceSetup
   def self.results_for_detach_volume; @@results_for_detach_volume; end
   def self.results_for_detach_volume=(results); @@results_for_detach_volume = results; end
 
-  @@results_for_reboot = []
-  def self.results_for_reboot; @@results_for_reboot; end
-  def self.results_for_reboot=(results); @@results_for_reboot = results; end
+  @@results_for_shutdown = []
+  def self.results_for_shutdown; @@results_for_shutdown; end
+  def self.results_for_shutdown=(results); @@results_for_shutdown = results; end
 
   def send_retryable_request(operation, *args)
     # defer response to better simulate asynchronous nature of calls to RightNet.
@@ -88,7 +88,7 @@ class InstanceSetup
         when "/booter/get_repositories" then yield @@repos
         when "/booter/get_boot_bundle" then yield @@bundle
         when "/booter/get_login_policy" then yield @@login_policy
-        when "/forwarder/reboot" then yield @@results_for_reboot.shift.call(*args)
+        when "/forwarder/shutdown" then yield @@results_for_shutdown.shift.call(*args)
         when "/mapper/list_agents" then yield @@agents
         when "/storage_valet/get_planned_volumes" then yield @@results_for_get_planned_volumes.shift.call(*args)
         when "/storage_valet/attach_volume" then yield @@results_for_attach_volume.shift.call(*args)
@@ -671,7 +671,7 @@ describe InstanceSetup do
       EM.next_tick { @done_state_regex = /operational|stranded|booting/ }
       @results_factory.success_results
     end
-    InstanceSetup.results_for_reboot = results
+    InstanceSetup.results_for_shutdown = results
     flexmock(@setup).
       should_receive(:shutdown_request).
       and_return(flexmock(

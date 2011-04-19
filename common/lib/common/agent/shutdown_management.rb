@@ -114,15 +114,9 @@ module RightScale
         level = request.level
         if audit
           case level
-          when REBOOT
-            operation = "/forwarder/reboot"
-            payload = {:agent_identity => @agent_identity}
-          when STOP, TERMINATE
-            operation = "/forwarder/soft_decommission"
-            payload = {:agent_identity => @agent_identity,
-                       :audit_id => audit.audit_id,
-                       :skip_db_update => false,
-                       :kind => level}
+          when REBOOT, STOP, TERMINATE
+            operation = "/forwarder/shutdown"
+            payload = {:agent_identity => @agent_identity, :kind => level}
           else
             raise InvalidLevel.new("Unexpected shutdown level: #{level.inspect}")
           end
