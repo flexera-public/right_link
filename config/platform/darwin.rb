@@ -187,6 +187,11 @@ module RightScale
         def shutdown
           `shutdown -h now`
         end
+
+        # Reboot machine now
+        def reboot
+          `shutdown -r now`
+        end
       end
 
       class Rng

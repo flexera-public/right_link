@@ -232,6 +232,11 @@ module RightScale
         def shutdown
           `init 0`
         end
+
+        # Reboot machine now
+        def reboot
+          `init 6`
+        end
       end
 
       class Rng

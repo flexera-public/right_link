@@ -1096,6 +1096,17 @@ EOF
 
         # Shutdown machine now
         def shutdown
+          initiate_system_shutdown(false)
+        end
+
+        # Reboot machine now
+        def reboot
+          initiate_system_shutdown(true)
+        end
+
+        private
+
+        def initiate_system_shutdown(reboot_after_shutdown)
 
           @@initiate_system_shutdown_api = Win32::API.new('InitiateSystemShutdown', 'PPLLL', 'B', 'advapi32') unless @@initiate_system_shutdown_api
 
@@ -1119,13 +1130,13 @@ EOF
             luid = luid.unpack('VV')
 
             # adjust token priviledge to enable shutdown.
-            tokenPrivileges       = 0.chr * 16                        # TOKEN_PRIVILEGES tokenPrivileges;
-            tokenPrivileges[0,4]  = [1].pack("V")                     # tokenPrivileges.PrivilegeCount = 1;
-            tokenPrivileges[4,8]  = luid.pack("VV")                   # tokenPrivileges.Privileges[0].Luid = luid;
-            tokenPrivileges[12,4] = [SE_PRIVILEGE_ENABLED].pack("V")  # tokenPrivileges.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+            token_privileges       = 0.chr * 16 # TOKEN_PRIVILEGES tokenPrivileges;
+            token_privileges[0,4]  = [1].pack("V") # tokenPrivileges.PrivilegeCount = 1;
+            token_privileges[4,8]  = luid.pack("VV") # tokenPrivileges.Privileges[0].Luid = luid;
+            token_privileges[12,4] = [SE_PRIVILEGE_ENABLED].pack("V") # tokenPrivileges.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
             unless AdjustTokenPrivileges(token_handle,
                                          disable_all_privileges = 0,
-                                         tokenPrivileges,
+                                         token_privileges,
                                          new_state = 0,
                                          previous_state = nil,
                                          return_length = nil)
@@ -1135,7 +1146,7 @@ EOF
                                                        message = nil,
                                                        timeout_secs = 1,
                                                        force_apps_closed = 1,
-                                                       reboot_after_shutdown = 0)
+                                                       reboot_after_shutdown ? 1 : 0)
               raise get_last_error
             end
           ensure
