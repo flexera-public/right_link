@@ -177,13 +177,12 @@ module RightScale
       end
       Chef::Config[:solo] = true
 
-      # must set file cache path for Windows case of using remote files, templates. etc.
-      platform = RightScale::RightLinkConfig[:platform]
-      if platform.windows?
-        file_cache_path = File.join(platform.filesystem.cache_dir, 'chef')
-        Chef::Config[:file_cache_path] = file_cache_path
-        Chef::Config[:cache_options][:path] = File.join(file_cache_path, 'checksums')
-      end
+      # must set file cache path and ensure it exists otherwise evented run_command will fail
+      file_cache_path = File.join(InstanceConfiguration::CACHE_PATH, 'chef')
+      Chef::Config[:file_cache_path] = RightScale::InstanceConfiguration::CACHE_PATH
+      Chef::Config[:cache_options][:path] = File.join(file_cache_path, 'checksums')
+      FileUtils.mkdir_p(Chef::Config[:file_cache_path])
+      FileUtils.mkdir_p(Chef::Config[:cache_options][:path])
 
       # Where backups of chef-managed files should go.  Set to nil to backup to the same directory the file being backed up is in.
       Chef::Config[:file_backup_path] = nil
