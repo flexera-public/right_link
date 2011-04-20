@@ -305,6 +305,14 @@ module RightScale
       {"percent" => percent, "total" => total}
     end
 
+    def self.percentage(values)
+      total = 0
+      values.each_value { |v| total += v }
+      percent = {}
+      values.each { |k, v| percent[k] = (v / total.to_f) * 100.0 } if total > 0
+      {"percent" => percent, "total" => total}
+    end
+
     # Converts server statistics to a displayable format
     #
     # === Parameters
