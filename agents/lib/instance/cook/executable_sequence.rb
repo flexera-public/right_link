@@ -246,8 +246,14 @@ module RightScale
       begin
         attachment_dir = File.dirname(script_file_path)
         FileUtils.mkdir_p(attachment_dir)
-        dl = @repose_class.new('attachments', attachment.to_hash, attachment.token,
-                               attachment.file_name, AttachmentDownloadFailure, @logger)
+        dl = nil
+        if attachment.digest
+          dl = @repose_class.new('attachments/1', attachment.digest, attachment.token,
+                                 attachment.file_name, AttachmentDownloadFailure, @logger)
+        else
+          dl = @repose_class.new('attachments', attachment.to_hash, attachment.token,
+                                 attachment.file_name, AttachmentDownloadFailure, @logger)
+        end
         tempfile = Tempfile.open('attachment', attachment_dir)
         dl.request do |response|
           response.read_body do |chunk|
