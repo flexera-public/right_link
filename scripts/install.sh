@@ -79,7 +79,7 @@ EOF
 done
 
 echo Installing command line tools from $RIGHT_LINK_SCRIPTS ...
-for script in rs_run_right_script rs_run_recipe rs_log_level rs_reenroll rs_tag
+for script in rs_run_right_script rs_run_recipe rs_log_level rs_reenroll rs_tag rs_shutdown
 do
   echo Installing $script
   cat > /usr/bin/$script <<EOF

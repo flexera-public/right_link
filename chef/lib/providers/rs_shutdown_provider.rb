@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2009 RightScale Inc
+# Copyright (c) 2011 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -24,8 +24,8 @@ class Chef
 
   class Provider
 
-    # RightLinkTag chef provider.
-    class RightLinkTag < Chef::Provider
+    # Scriptable system reboot chef provider.
+    class RsShutdown < Chef::Provider
 
       # Load current
       #
@@ -35,21 +35,33 @@ class Chef
         true
       end
 
-      # Publish tag
+      # Schedules a reboot.
       #
       # === Return
       # true:: Always return true
-      def action_publish
-        RightScale::Cook.instance.add_tag(@new_resource.name)
+      def action_reboot
+        RightScale::Cook.instance.schedule_shutdown(RightScale::ShutdownManagement::REBOOT, @new_resource.immediately)
+        exit 0 if @new_resource.immediately
         true
       end
 
-      # Remove tag
+      # Schedules a reboot.
       #
       # === Return
       # true:: Always return true
-      def action_remove
-        RightScale::Cook.instance.remove_tag(@new_resource.name)
+      def action_stop
+        RightScale::Cook.instance.schedule_shutdown(RightScale::ShutdownManagement::STOP, @new_resource.immediately)
+        exit 0 if @new_resource.immediately
+        true
+      end
+
+      # Schedules a reboot.
+      #
+      # === Return
+      # true:: Always return true
+      def action_terminate
+        RightScale::Cook.instance.schedule_shutdown(RightScale::ShutdownManagement::TERMINATE, @new_resource.immediately)
+        exit 0 if @new_resource.immediately
         true
       end
 
@@ -60,4 +72,4 @@ class Chef
 end
 
 # self-register
-Chef::Platform.platforms[:default].merge!(:right_link_tag => Chef::Provider::RightLinkTag)
+Chef::Platform.platforms[:default].merge!(:rs_shutdown => Chef::Provider::RsShutdown)

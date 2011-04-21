@@ -81,4 +81,6 @@ class Chef
   end
  
 end
-          
+
+# self-register
+Chef::Platform.platforms[:default].merge!(:remote_recipe => Chef::Provider::RemoteRecipe)

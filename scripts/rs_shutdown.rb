@@ -1,5 +1,6 @@
+#!/opt/rightscale/sandbox/bin/ruby
 #
-# Copyright (c) 2009 RightScale Inc
+# Copyright (c) 2011 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -20,44 +21,16 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-class Chef
+# rs_reboot --help for usage information
+#
+# See lib/rebooter.rb for additional information.
 
-  class Provider
+THIS_FILE = File.symlink?(__FILE__) ? File.readlink(__FILE__) : __FILE__
+$:.push(File.join(File.dirname(THIS_FILE), 'lib'))
 
-    # RightLinkTag chef provider.
-    class RightLinkTag < Chef::Provider
+require 'rubygems'
+require 'shutdown_client'
 
-      # Load current
-      #
-      # === Return
-      # true:: Always return true
-      def load_current_resource
-        true
-      end
-
-      # Publish tag
-      #
-      # === Return
-      # true:: Always return true
-      def action_publish
-        RightScale::Cook.instance.add_tag(@new_resource.name)
-        true
-      end
-
-      # Remove tag
-      #
-      # === Return
-      # true:: Always return true
-      def action_remove
-        RightScale::Cook.instance.remove_tag(@new_resource.name)
-        true
-      end
-
-    end
-
-  end
-
-end
-
-# self-register
-Chef::Platform.platforms[:default].merge!(:right_link_tag => Chef::Provider::RightLinkTag)
+shutdown_client = RightScale::ShutdownClient.new
+options = shutdown_client.parse_args
+shutdown_client.run(options)

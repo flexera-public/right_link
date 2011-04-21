@@ -494,6 +494,10 @@ module RightScale
     # true:: Always return true
     def converge(ohai)
       begin
+        # suppress unnecessary error log output for cases of explictly exiting
+        # from converge (rs_shutdown, etc.).
+        ::Chef::Client.clear_notifications
+
         @audit.create_new_section('Converging')
         @audit.append_info("Run list: #{@run_list.join(', ')}")
         attribs = { 'run_list' => @run_list }
@@ -502,6 +506,24 @@ module RightScale
         c.ohai = ohai
         audit_time do
           c.run
+        end
+      rescue SystemExit => e
+        # exit is expected in case where a script has invoked rs_shutdown
+        # (command line tool or Chef resource). exit is considered to be
+        # unexpected if rs_shutdown has not been called. note that it is
+        # possible, but not a 'best practice', for a recipe (but not a
+        # RightScript) to call rs_shutdown as an external command line utility
+        # without calling exit (i.e. request a deferred reboot) and continue
+        # running recipes until the list of recipes is complete. in this case,
+        # the shutdown occurs after subsequent recipes have finished. the best
+        # practice for a recipe is to use the rs_shutdown chef resource which
+        # calls exit when appropriate.
+        shutdown_request = RightScale::Cook.instance.shutdown_request
+        if shutdown_request.continue?
+          report_failure('Chef converge failed due to rs_shutdown not being called before exit', chef_error(e))
+          RightLinkLog.debug("Chef failed with '#{e.message}' at\n" + e.backtrace.join("\n"))
+        else
+          RightLinkLog.info("Shutdown requested by script: #{shutdown_request}")
         end
       rescue Exception => e
         report_failure('Chef converge failed', chef_error(e))

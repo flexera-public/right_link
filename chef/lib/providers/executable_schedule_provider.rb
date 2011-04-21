@@ -65,3 +65,6 @@ class Chef
 
   end
 end
+
+# self-register
+Chef::Platform.platforms[:default].merge!(:executable_schedule => Chef::Provider::ExecutableSchedule)

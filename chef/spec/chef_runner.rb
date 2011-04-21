@@ -25,6 +25,9 @@ require 'chef/client'
 module RightScale
   module Test
     module ChefRunner
+
+      class MockSystemExit < Exception; end
+
       extend self
 
       # Generates the path for the cookbooks directory for a given base path.
@@ -176,6 +179,10 @@ EOF
         chef_node_server_terminated = false
         last_exception = nil
 
+        # suppress unnecessary error log output for cases of explictly exiting
+        # from converge (rs_shutdown, etc.).
+        ::Chef::Client.clear_notifications
+
         powershell_providers = nil
         if platform.windows?
           # generate the powershell providers if any in the cookbook
@@ -190,6 +197,9 @@ EOF
             begin
               chef_client.run
               block.call(chef_client) if block
+            rescue SystemExit => e
+              # can't raise exit out of EM, so cache it here.
+              last_exception = e
             rescue Exception => e
               # can't raise exeception out of EM, so cache it here.
               last_exception = e
@@ -241,6 +251,8 @@ EOF
           message = "#{last_exception.message}\n#{last_exception.backtrace.join("\n")}"
           if last_exception.class == ArgumentError
             raise ArgumentError, message
+          elsif last_exception.class == SystemExit
+            raise MockSystemExit.new("SystemExit(#{last_exception.status}): #{message}")
           else
             begin
               raise last_exception.class, message

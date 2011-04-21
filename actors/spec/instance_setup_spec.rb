@@ -75,6 +75,10 @@ class InstanceSetup
   def self.results_for_detach_volume; @@results_for_detach_volume; end
   def self.results_for_detach_volume=(results); @@results_for_detach_volume = results; end
 
+  @@results_for_shutdown = []
+  def self.results_for_shutdown; @@results_for_shutdown; end
+  def self.results_for_shutdown=(results); @@results_for_shutdown = results; end
+
   def send_retryable_request(operation, *args)
     # defer response to better simulate asynchronous nature of calls to RightNet.
     EM.defer do
@@ -84,6 +88,7 @@ class InstanceSetup
         when "/booter/get_repositories" then yield @@repos
         when "/booter/get_boot_bundle" then yield @@bundle
         when "/booter/get_login_policy" then yield @@login_policy
+        when "/forwarder/shutdown" then yield @@results_for_shutdown.shift.call(*args)
         when "/mapper/list_agents" then yield @@agents
         when "/storage_valet/get_planned_volumes" then yield @@results_for_get_planned_volumes.shift.call(*args)
         when "/storage_valet/attach_volume" then yield @@results_for_attach_volume.shift.call(*args)
@@ -183,6 +188,7 @@ describe InstanceSetup do
   include RightScale::SpecHelpers
 
   before(:each) do
+    @done_state_regex = /operational|stranded/
     @agent_identity = RightScale::AgentIdentity.new('rs', 'test', 1)
     @setup = flexmock(InstanceSetup.allocate)
     @setup.should_receive(:configure_repositories).and_return(RightScale::OperationResult.success)
@@ -225,11 +231,10 @@ describe InstanceSetup do
     InstanceSetup.reset_expectations
   end
 
-  # Stop EM if setup reports a state of 'running' or 'stranded'
   def check_state
-    EM.stop if @setup.report_state.content =~ /operational|stranded/
+    EM.stop if @setup.report_state.content =~ @done_state_regex
   end
- 
+
   def boot(login_policy, repos, bundle = nil)
     login_policy = @results_factory.success_results(login_policy)
     repos        = @results_factory.success_results(repos)
@@ -312,20 +317,33 @@ describe InstanceSetup do
     true
   end
 
-  def boot_to_operational
+  def boot_to(expected_state)
+    @sequence = flexmock('mock executable sequence proxy', :inputs_patch => nil)
+    flexmock(@setup).should_receive(:create_sequence).and_return(@sequence)
+    flexmock(@sequence).should_receive(:callback).and_return { |b| @callback = b }
+    flexmock(@sequence).should_receive(:errback)
+    flexmock(@sequence).should_receive(:run).and_return { @callback.call }
     policy = RightScale::InstantiationMock.login_policy
     repos  = RightScale::InstantiationMock.repositories
     bundle = RightScale::InstantiationMock.script_bundle('__TestScripts', '__TestScripts_too')
     boot(policy, repos, bundle)
     res = @setup.report_state
-    if !res.success? || res.content != 'operational'
+    if !res.success? || res.content != expected_state
       # FIX: also print errors from mock logger for debugging purposes since audits are abbreviated
       puts "*** Audits from unexpected stranding ***"
       @audit.audits.each { |a| puts a[:text] }
       puts "****************************************"
     end
     res.should be_success
-    res.content.should == 'operational'
+    res.content.should == expected_state
+  end
+
+  def boot_to_booting
+    boot_to 'booting'
+  end
+
+  def boot_to_operational
+    boot_to 'operational'
   end
 
   def boot_to_stranded_with(expected_audit)
@@ -646,6 +664,21 @@ describe InstanceSetup do
       boot_to_operational
     end
 
+  end
+
+  it 'should remain in booting when a boot script calls rs_shutdown --reboot --immediately' do
+    results = []
+    results << lambda do
+      EM.next_tick { @done_state_regex = /operational|stranded|booting/ }
+      @results_factory.success_results
+    end
+    InstanceSetup.results_for_shutdown = results
+    flexmock(@setup).
+      should_receive(:shutdown_request).
+      and_return(flexmock(
+        'mock shutdown request',
+        :level => ::RightScale::ShutdownManagement::REBOOT, :immediately? => true, :continue? => false))
+    boot_to_booting
   end
 
   it 'should strand when failing to prepare boot bundle' do

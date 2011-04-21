@@ -26,48 +26,30 @@ undef :daemonize if methods.include?('daemonize')
 require 'chef'
 require 'chef/client'
 
-require File.join(File.dirname(__FILE__), 'providers', 'dns_dnsmadeeasy_provider')
-require File.join(File.dirname(__FILE__), 'providers', 'dns_resource')
-require File.join(File.dirname(__FILE__), 'providers', 'executable_schedule_provider')
-require File.join(File.dirname(__FILE__), 'providers', 'executable_schedule_resource')
-require File.join(File.dirname(__FILE__), 'providers', 'remote_recipe_provider')
-require File.join(File.dirname(__FILE__), 'providers', 'remote_recipe_resource')
-require File.join(File.dirname(__FILE__), 'providers', 'right_link_tag_provider')
-require File.join(File.dirname(__FILE__), 'providers', 'right_link_tag_resource')
-require File.join(File.dirname(__FILE__), 'providers', 'right_script_provider')
-require File.join(File.dirname(__FILE__), 'providers', 'right_script_resource')
-require File.join(File.dirname(__FILE__), 'providers', 'server_collection_provider')
-require File.join(File.dirname(__FILE__), 'providers', 'server_collection_resource')
+BASE_CHEF_LIB_DIR_PATH = File.normalize_path(File.dirname(__FILE__))
+BASE_CHEF_PROVIDER_DIR_PATH = File.join(BASE_CHEF_LIB_DIR_PATH, 'providers')
 
-# Register all of our custom providers with Chef
-#
-# FIX: as a suggestion, providers should self-register (merge their key => class
-# into the Chef::Platform.platforms[:default] hash after definition) and be
-# dynamically loaded from a directory **/*.rb search in the same manner as the
-# built-in Chef providers. if so, there would be no need to edit this file for
-# each new provider.
-Chef::Platform.platforms[:default].merge!(:dns                 => Chef::Provider::DnsMadeEasy,
-                                          :executable_schedule => Chef::Provider::ExecutableSchedule,
-                                          :remote_recipe       => Chef::Provider::RemoteRecipe,
-                                          :right_link_tag      => Chef::Provider::RightLinkTag,
-                                          :right_script        => Chef::Provider::RightScript,
-                                          :server_collection   => Chef::Provider::ServerCollection)
+# load (and self-register) all common providers
+pattern = File.join(BASE_CHEF_PROVIDER_DIR_PATH, '*.rb')
+Dir[pattern].each do |rb_file|
+  require File.normalize_path(rb_file)
+end
 
 if RightScale::RightLinkConfig[:platform].windows?
+
+  DYNAMIC_WINDOWS_CHEF_PROVIDERS_PATH = File.join(BASE_CHEF_LIB_DIR_PATH, 'windows')
+  STATIC_WINDOWS_CHEF_PROVIDERS_PATH = File.join(BASE_CHEF_PROVIDER_DIR_PATH, 'windows')
+  WINDOWS_CHEF_PROVIDERS_PATHS = [STATIC_WINDOWS_CHEF_PROVIDERS_PATH, DYNAMIC_WINDOWS_CHEF_PROVIDERS_PATH]
 
   # create the Windows default platform hash before loading windows providers.
   Chef::Platform.platforms[:windows] = { :default => { } } unless Chef::Platform.platforms[:windows]
 
-  # load (and self-register) all Windows chef libraries
-  windows_chef = File.join(File.dirname(__FILE__), 'windows', '*.rb').gsub("\\", "/")
-  Dir[windows_chef].each do |rb_file|
-    require File.normalize_path(rb_file)
-  end
-
-  # load (and self-register) all Windows providers
-  windows_providers = File.join(File.dirname(__FILE__), 'providers', 'windows', '*.rb').gsub("\\", "/")
-  Dir[windows_providers].each do |rb_file|
-    require File.normalize_path(rb_file)
+  # load (and self-register) all static/dynamic Windows providers.
+  WINDOWS_CHEF_PROVIDERS_PATHS.each do |base_path|
+    pattern = File.join(base_path, '*.rb')
+    Dir[pattern].each do |rb_file|
+      require File.normalize_path(rb_file)
+    end
   end
 
 end

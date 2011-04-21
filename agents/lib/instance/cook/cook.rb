@@ -1,21 +1,27 @@
-# === Synopsis:
-#   RightScale Chef Cook - (c) 2010 RightScale
 #
-#   This utility is meant to be used internally by RightLink, use
-#   rs_run_right_script and rs_run_recipe instead.
+# Copyright (c) 2010-11 RightScale Inc
 #
+# Permission is hereby granted, free of charge, to any person obtaining
+# a copy of this software and associated documentation files (the
+# "Software"), to deal in the Software without restriction, including
+# without limitation the rights to use, copy, modify, merge, publish,
+# distribute, sublicense, and/or sell copies of the Software, and to
+# permit persons to whom the Software is furnished to do so, subject to
+# the following conditions:
+#
+# The above copyright notice and this permission notice shall be
+# included in all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+# NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+# LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+# OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+# WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require 'rubygems'
-require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'config', 'right_link_config'))
-require 'eventmachine'
-require 'chef'
-require 'fileutils'
-require 'right_scraper'
+BASE_DIR = File.join(File.dirname(__FILE__), '..', '..', '..', '..')
 
-BASE_DIR = File.join(File.dirname(__FILE__), '..', '..')
-
-require File.normalize_path(File.join(BASE_DIR, 'agents', 'lib', 'instance'))
-require File.normalize_path(File.join(BASE_DIR, 'agents', 'lib', 'instance', 'cook'))
 require File.normalize_path(File.join(BASE_DIR, 'chef', 'lib', 'providers'))
 require File.normalize_path(File.join(BASE_DIR, 'chef', 'lib', 'plugins'))
 require File.normalize_path(File.join(BASE_DIR, 'common', 'lib', 'common'))
@@ -31,6 +37,9 @@ module RightScale
 
     # Name of agent running the cook process
     AGENT_NAME = 'instance'
+
+    # exceptions.
+    class ShutdownQueryFailed < Exception; end
 
     # Run bundle given in stdin
     def run
@@ -135,6 +144,54 @@ module RightScale
       @client.send_command(cmd)
     end
 
+    # Queries shutdown request state (from parent process) only if not cached
+    # locally.
+    #
+    # === Returns
+    # shutdown_request(ShutdownRequest):: current state
+    def shutdown_request
+      # use a queue to block and wait for response.
+      result_queue = Queue.new
+      cmd = {:name => :get_shutdown_request}
+      @client.send_command(cmd) do |result|
+        shutdown_request = nil
+        if result[:error]
+          RightLinkLog.error("Failed getting state of requested shutdown: #{result[:error]}")
+        else
+          shutdown_request = ::RightScale::ShutdownManagement::ShutdownRequest.new
+          shutdown_request.level = result[:level]
+          shutdown_request.immediately! if result[:immediately]
+        end
+        result_queue << shutdown_request
+      end
+      shutdown_request = result_queue.shift
+      raise ShutdownQueryFailed.new("Unable to retrieve state of shutdown request from parent process.") unless shutdown_request
+      return shutdown_request
+    end
+
+    # Updates shutdown request state (for parent process) which may be
+    # superceded by a previous, higher-priority shutdown level.
+    #
+    # === Parameters
+    # level(String):: shutdown request level
+    # immediately(Boolean):: shutdown request immediacy
+    #
+    # === Returns
+    # shutdown_request(ShutdownRequest):: current state
+    def schedule_shutdown(level, immediately = false)
+      cmd = {:name => :set_shutdown_request, :level => level, :immediately => !!immediately}
+      @client.send_command(cmd) do |result|
+        if result[:error]
+          RightLinkLog.error("Failed setting state of requested shutdown: #{result[:error]}")
+        else
+          shutdown_request = ::RightScale::ShutdownManagement::ShutdownRequest.new
+          shutdown_request.level = result[:level]
+          shutdown_request.immediately! if result[:immediately]
+        end
+      end
+      return shutdown_request
+    end
+
     # Access cook instance from anywhere to send requests to core through
     # command protocol
     def self.instance
@@ -217,29 +274,3 @@ module RightScale
 
   end
 end
-
-# Launch it!
-RightScale::Cook.new.run
-
-#
-# Copyright (c) 2009 RightScale Inc
-#
-# Permission is hereby granted, free of charge, to any person obtaining
-# a copy of this software and associated documentation files (the
-# "Software"), to deal in the Software without restriction, including
-# without limitation the rights to use, copy, modify, merge, publish,
-# distribute, sublicense, and/or sell copies of the Software, and to
-# permit persons to whom the Software is furnished to do so, subject to
-# the following conditions:
-#
-# The above copyright notice and this permission notice shall be
-# included in all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-# NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
-# LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-# OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
-# WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-

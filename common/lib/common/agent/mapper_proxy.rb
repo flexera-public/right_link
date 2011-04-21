@@ -351,7 +351,7 @@ module RightScale
         RightLinkLog.info("[offline] Disconnect from broker detected, entering offline mode")
         RightLinkLog.info("[offline] Messages will be queued in memory until connection to broker is re-established")
         @offlines.update
-        @queue = []
+        @queue ||= []  # ensure queue is valid without losing any messages when going offline
         @queueing_mode = :offline
         @reenroll_vote_timer ||= EM::Timer.new(REENROLL_VOTE_DELAY) { vote_to_reenroll(timer_trigger=true) }
       end

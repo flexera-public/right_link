@@ -55,7 +55,9 @@ module RightScale
       :set_inputs_patch         => 'Set inputs patch post execution',
       :check_connectivity       => 'Check whether the instance is able to communicate',
       :close_connection         => 'Close persistent connection (used for auditing)',
-      :stats                    => 'Get statistics about instance agent operation'
+      :stats                    => 'Get statistics about instance agent operation',
+      :get_shutdown_request     => 'Gets the requested reboot state.',
+      :set_shutdown_request     => 'Sets the requested reboot state.'
     }
 
     # Build hash of commands associating command names with block
@@ -468,6 +470,36 @@ module RightScale
     # true:: Always return true
     def stats_command(opts)
       CommandIO.instance.reply(opts[:conn], JSON.dump(@agent_manager.stats({:reset => opts[:reset]})))
+    end
+
+    # Get shutdown request command
+    #
+    # === Parameters
+    # opts[:conn](EM::Connection):: Connection used to send reply
+    #
+    # === Return
+    # true:: Always return true
+    def get_shutdown_request_command(opts)
+      shutdown_request = InstanceState.shutdown_request
+      CommandIO.instance.reply(opts[:conn], { :level => shutdown_request.level, :immediately => shutdown_request.immediately? })
+    end
+
+    # Set reboot timeout command
+    #
+    # === Parameters
+    # opts[:conn](EM::Connection):: Connection used to send reply
+    # opts[:reboot_request_state](int):: reboot request state
+    #
+    # === Return
+    # true:: Always return true
+    def set_shutdown_request_command(opts)
+      shutdown_request = InstanceState.shutdown_request
+      shutdown_request.level = opts[:level]
+      shutdown_request.immediately! if opts[:immediately]
+      @scheduler.schedule_shutdown if false == shutdown_request.continue?
+      CommandIO.instance.reply(opts[:conn], { :level => shutdown_request.level, :immediately => shutdown_request.immediately? })
+    rescue Exception => e
+      CommandIO.instance.reply(opts[:conn], { :error => e.message })
     end
 
   end # InstanceCommands

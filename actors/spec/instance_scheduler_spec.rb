@@ -60,7 +60,7 @@ describe InstanceScheduler do
                                nil, {:offline_queueing => true}, Proc]
       @decommissioned_args = ['/state_recorder/record',
                               {:state => 'decommissioned', :agent_identity => '1', :user_id => @user_id,
-                               :skip_db_update => nil, :kind => nil},
+                               :skip_db_update => nil, :kind => 'terminate'},
                                nil, {:offline_queueing => true}, Proc]
       @record_success = @results_factory.success_results
       @mapper_proxy.should_receive(:message_received).and_return(true)
@@ -105,7 +105,7 @@ describe InstanceScheduler do
     @mapper_proxy.should_receive(:send_retryable_request).with(*@decommissioned_args).and_yield(@record_success).once.and_return { EM.stop }
     flexmock(@audit).should_receive(:append_error).never
     EM.run do
-      res = @scheduler.schedule_decommission(:bundle => @bundle, :user_id => @user_id)
+      res = @scheduler.schedule_decommission(:bundle => @bundle, :user_id => @user_id, :kind => 'terminate')
       res.success?.should be_true
       EM.add_timer(5) { EM.stop; raise 'timeout' }
     end
@@ -118,7 +118,7 @@ describe InstanceScheduler do
     flexmock(@audit).should_receive(:update_status).ordered.once.and_return { |s, _| s.should include('Scheduling execution of ') }
     flexmock(@audit).should_receive(:update_status).ordered.once.and_return { |s, _| s.should include('failed: ') }
     EM.run do
-      res = @scheduler.schedule_decommission(:bundle => @bundle, :user_id => @user_id)
+      res = @scheduler.schedule_decommission(:bundle => @bundle, :user_id => @user_id, :kind => 'terminate')
       res.success?.should be_true
       EM.add_timer(5) { EM.stop; raise 'timeout' }
     end
@@ -127,9 +127,9 @@ describe InstanceScheduler do
   it 'should not decommission twice' do
     @mapper_proxy.should_receive(:send_retryable_request).with(*@decommissioning_args).and_yield(@record_success).once
     EM.run do
-      res = @scheduler.schedule_decommission(:bundle => @bundle, :user_id => @user_id)
+      res = @scheduler.schedule_decommission(:bundle => @bundle, :user_id => @user_id, :kind => 'terminate')
       res.success?.should be_true
-      res = @scheduler.schedule_decommission(:bundle => @bundle, :user_id => @user_id)
+      res = @scheduler.schedule_decommission(:bundle => @bundle, :user_id => @user_id, :kind => 'terminate')
       res.success?.should be_false
       EM.stop
     end
@@ -160,7 +160,7 @@ describe InstanceScheduler do
       InstanceScheduler.const_set(:SHUTDOWN_DELAY, 1)
       flexmock(ExecutableSequenceMock).new_instances.should_receive(:run).and_return { sleep 2 }
       EM.run do
-        @scheduler.schedule_decommission(:bundle => @bundle, :user_id => @user_id)
+        @scheduler.schedule_decommission(:bundle => @bundle, :user_id => @user_id, :kind => 'terminate')
         EM.add_timer(5) { EM.stop; raise 'timeout' }
       end
     ensure
@@ -177,7 +177,7 @@ describe InstanceScheduler do
             {:offline_queueing => true})
     flexmock(@controller).should_receive(:shutdown).once.and_return { EM.stop }
     EM.run do
-      @scheduler.schedule_decommission(:bundle => @bundle, :user_id => @user_id)
+      @scheduler.schedule_decommission(:bundle => @bundle, :user_id => @user_id, :kind => 'terminate')
       EM.add_timer(5) { EM.stop; raise 'timeout' }
     end
   end

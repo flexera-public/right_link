@@ -126,9 +126,10 @@ module RightScale
       @@resource_uid = nil
       @@last_recorded_value = nil
       @@record_retries = 0
-      @@planned_volume_state = nil
-
       @@last_communication = 0
+      @@planned_volume_state = nil
+      @@shutdown_request = nil
+
       MapperProxy.instance.message_received { message_received } unless @@read_only
 
       dir = File.dirname(STATE_FILE)
@@ -269,7 +270,7 @@ module RightScale
     # === Parameters
     # user_id(Integer):: ID of user that triggered soft-termination
     # skip_db_update(Boolean):: Whether to re-query instance state after call to Ec2 to terminate was made
-    # kind(String):: 'terminate' or 'stop'
+    # kind(String):: 'terminate', 'stop' or 'reboot'
     #
     # === Return
     # true:: Always return true
@@ -277,11 +278,30 @@ module RightScale
       payload = {:agent_identity => @@identity, :state => FINAL_STATE, :user_id => user_id, :skip_db_update => skip_db_update, :kind => kind}
       MapperProxy.instance.send_retryable_request("/state_recorder/record", payload, nil, :offline_queueing => true) do |r|
         res = OperationResult.from_results(r)
-        MapperProxy.instance.send_push("/registrar/remove", {:agent_identity => @@identity, :created_at => Time.now.to_i},
-                                       nil, :offline_queueing => true)
-        Platform.controller.shutdown unless res.success?
+        case kind
+        when 'reboot'
+          Platform.controller.reboot unless res.success?
+        when 'terminate', 'stop'
+          MapperProxy.instance.send_push("/registrar/remove", {:agent_identity => @@identity, :created_at => Time.now.to_i},
+                                         nil, :offline_queueing => true)
+          Platform.controller.shutdown unless res.success?
+        else
+          RightLinkLog.error("InstanceState.shutdown() kind was unexpected: #{kind}")
+        end
       end
-      EM.add_timer(FORCE_SHUTDOWN_DELAY) { Platform.controller.shutdown }
+      case kind
+      when 'reboot'
+        EM.add_timer(FORCE_SHUTDOWN_DELAY) { Platform.controller.reboot }
+      when 'terminate', 'stop'
+        EM.add_timer(FORCE_SHUTDOWN_DELAY) { Platform.controller.shutdown }
+      else
+        RightLinkLog.error("InstanceState.shutdown() kind was unexpected: #{kind}")
+      end
+    end
+
+    # Current requested shutdown state, if any.
+    def self.shutdown_request
+      @@shutdown_request ||= ::RightScale::ShutdownManagement::ShutdownRequest.new
     end
 
     # Set startup tags

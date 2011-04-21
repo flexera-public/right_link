@@ -22,7 +22,7 @@
 
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'spec', 'spec_helper'))
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'agents', 'lib', 'instance'))
-require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'agents', 'lib', 'instance', 'cook', 'audit_stub'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'agents', 'lib', 'instance', 'cook'))
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'providers'))
 require File.expand_path(File.join(File.dirname(__FILE__), '..', 'lib', 'cloud_utilities.rb'))
 
@@ -54,7 +54,6 @@ shared_examples_for 'mocks logging' do
 end
 
 shared_examples_for 'mocks state' do
-  require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'agents', 'lib', 'instance', 'cook', 'chef_state'))
   include RightScale::SpecHelpers
 
   before(:each) do
