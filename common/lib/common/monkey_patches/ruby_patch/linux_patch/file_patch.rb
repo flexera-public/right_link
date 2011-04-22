@@ -20,10 +20,11 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require 'rubygems'
+class File
 
-# load ruby interpreter monkey-patches first (to ensure File.normalize_path is
-# defined, etc.).
-require File.expand_path(File.join(File.dirname(__FILE__), 'monkey_patches', 'ruby_patch'))
+  # On *nix systems, resolves to File.expand_path
+  def self.normalize_path(file_name, *dir_string)
+    File.expand_path(file_name, *dir_string)
+  end
 
-# TODO reference more monkey-patches for any gems that need patching.
+end

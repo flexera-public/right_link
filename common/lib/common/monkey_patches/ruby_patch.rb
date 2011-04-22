@@ -20,10 +20,19 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require 'rubygems'
+# load platform-specific patches before any other patches (in order to define
+# File.normalize_path, etc.)
+if (RUBY_PLATFORM =~ /mswin/)
+  require File.expand_path(File.join(File.dirname(__FILE__), 'ruby_patch', 'windows_patch'))
+elsif (RUBY_PLATFORM =~ /linux/)
+  require File.expand_path(File.join(File.dirname(__FILE__), 'ruby_patch', 'linux_patch'))
+elsif (RUBY_PLATFORM =~ /darwin/)
+  require File.expand_path(File.join(File.dirname(__FILE__), 'ruby_patch', 'darwin_patch'))
+else
+  raise LoadError, "Unsupported platform: #{RUBY_PLATFORM}"
+end
 
-# load ruby interpreter monkey-patches first (to ensure File.normalize_path is
-# defined, etc.).
-require File.expand_path(File.join(File.dirname(__FILE__), 'monkey_patches', 'ruby_patch'))
+RUBY_PATCH_BASE_DIR = File.normalize_path(File.join(File.dirname(__FILE__), 'ruby_patch'))
 
-# TODO reference more monkey-patches for any gems that need patching.
+require File.join(RUBY_PATCH_BASE_DIR, 'string_patch')
+require File.join(RUBY_PATCH_BASE_DIR, 'object_patch')

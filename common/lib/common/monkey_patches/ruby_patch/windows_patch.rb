@@ -20,10 +20,13 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require 'rubygems'
+# load File monkey-patch first to enable use of File.normalize_path
+require File.expand_path(File.join(File.dirname(__FILE__), 'windows_patch', 'file_patch'))
 
-# load ruby interpreter monkey-patches first (to ensure File.normalize_path is
-# defined, etc.).
-require File.expand_path(File.join(File.dirname(__FILE__), 'monkey_patches', 'ruby_patch'))
+# hereafter used normalize_path to ensure files are only required once.
+WINDOWS_MONKEY_PATCHES_BASE_DIR = File.normalize_path(File.join(File.dirname(__FILE__), 'windows_patch'))
 
-# TODO reference more monkey-patches for any gems that need patching.
+require File.join(WINDOWS_MONKEY_PATCHES_BASE_DIR, 'process_patch')
+require File.join(WINDOWS_MONKEY_PATCHES_BASE_DIR, 'stdio_patch')
+require File.join(WINDOWS_MONKEY_PATCHES_BASE_DIR, 'time_patch')
+require File.join(WINDOWS_MONKEY_PATCHES_BASE_DIR, 'win32ole_patch')

@@ -22,8 +22,16 @@
 
 require 'rubygems'
 
-# load ruby interpreter monkey-patches first (to ensure File.normalize_path is
-# defined, etc.).
-require File.expand_path(File.join(File.dirname(__FILE__), 'monkey_patches', 'ruby_patch'))
+# load platform-specific patches before any gem patches.
+if (RUBY_PLATFORM =~ /mswin/)
+  require File.expand_path(File.join(File.dirname(__FILE__), 'monkey_patches', 'platform', 'windows'))
+elsif (RUBY_PLATFORM =~ /linux/)
+  require File.expand_path(File.join(File.dirname(__FILE__), 'monkey_patches', 'platform', 'linux'))
+elsif (RUBY_PLATFORM =~ /darwin/)
+  require File.expand_path(File.join(File.dirname(__FILE__), 'monkey_patches', 'platform', 'darwin'))
+else
+  raise LoadError, "Unsupported platform: #{RUBY_PLATFORM}"
+end
 
-# TODO reference more monkey-patches for any gems that need patching.
+# TODO load and patch any gems requiring patches
+# MONKEY_PATCHES_BASE_DIR = File.normalize_path(File.join(File.dirname(__FILE__), 'monkey_patches'))

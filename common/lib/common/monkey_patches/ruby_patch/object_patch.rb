@@ -20,10 +20,30 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require 'rubygems'
+class Object
+  unless defined? instance_exec # 1.9 and 1.8.7
+    module InstanceExecHelper; end
+    include InstanceExecHelper
 
-# load ruby interpreter monkey-patches first (to ensure File.normalize_path is
-# defined, etc.).
-require File.expand_path(File.join(File.dirname(__FILE__), 'monkey_patches', 'ruby_patch'))
+    # Evaluate the block with the given arguments within the context of
+    # this object, so self is set to the method receiver.
+    #
+    # From Mauricio's http://eigenclass.org/hiki/bounded+space+instance_exec
+    def instance_exec(*args, &block)
+      begin
+        old_critical, Thread.critical = Thread.critical, true
+        n = 0
+        n += 1 while respond_to?(method_name = "__instance_exec#{n}")
+        InstanceExecMethods.module_eval { define_method(method_name, &block) }
+      ensure
+        Thread.critical = old_critical
+      end
 
-# TODO reference more monkey-patches for any gems that need patching.
+      begin
+        send(method_name, *args)
+      ensure
+        InstanceExecMethods.module_eval { remove_method(method_name) } rescue nil
+      end
+    end
+  end
+end

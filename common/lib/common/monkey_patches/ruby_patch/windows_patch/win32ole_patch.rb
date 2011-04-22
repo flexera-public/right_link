@@ -21,9 +21,9 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 require 'rubygems'
+require 'win32ole'
 
-# load ruby interpreter monkey-patches first (to ensure File.normalize_path is
-# defined, etc.).
-require File.expand_path(File.join(File.dirname(__FILE__), 'monkey_patches', 'ruby_patch'))
-
-# TODO reference more monkey-patches for any gems that need patching.
+# ohai 0.3.6 has a bug which causes WMI data to be imported using the default
+# Windows code page. the workaround is to set the win32ole gem's code page to
+# UTF-8, which is probably a good general Ruby on Windows practice in any case.
+WIN32OLE.codepage = WIN32OLE::CP_UTF8

@@ -20,10 +20,8 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require 'rubygems'
-
-# load ruby interpreter monkey-patches first (to ensure File.normalize_path is
-# defined, etc.).
-require File.expand_path(File.join(File.dirname(__FILE__), 'monkey_patches', 'ruby_patch'))
-
-# TODO reference more monkey-patches for any gems that need patching.
+# it's useful to auto-flush console output on Windows where it would otherwise
+# be unavailable from a ruby process which was hanging (our code would never
+# hang, of course). this is consistent with Powershell's auto-flush behavior.
+STDOUT.sync = true
+STDERR.sync = true
