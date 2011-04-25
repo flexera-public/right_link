@@ -22,33 +22,42 @@
 
 require 'rubygems'
 
-# win32/process monkey-patches the Process class but drops support for any kill
-# signals which are not directly portable. some signals are acceptable, if not
-# strictly portable. the 'TERM' signal used to be supported in Ruby v1.8.6 but
-# raises an exception in Ruby v1.8.7. we will monkey-patch the monkey-patch to
-# get the best possible implementation of signals.
-module Process
-  unless defined?(@@ruby_c_kill)
-    @@ruby_c_kill = method(:kill)
+begin
+  # win32/process monkey-patches the Process class but drops support for any kill
+  # signals which are not directly portable. some signals are acceptable, if not
+  # strictly portable. the 'TERM' signal used to be supported in Ruby v1.8.6 but
+  # raises an exception in Ruby v1.8.7. we will monkey-patch the monkey-patch to
+  # get the best possible implementation of signals.
+  WIN32_PROCESS_LOAD_ORDER_ERROR = "Must require process_patch before win32/process"
 
-    # check to ensure this is the first time 'win32/process' has been required
-    raise LoadError, "Must require process_patch before win32/process" unless require 'win32/process'
+  module Process
+    unless defined?(@@ruby_c_kill)
+      @@ruby_c_kill = method(:kill)
 
-    @@win32_kill = method(:kill)
+      # check to ensure this is the first time 'win32/process' has been required
+      raise LoadError, WIN32_PROCESS_LOAD_ORDER_ERROR unless require 'win32/process'
 
-    def self.kill(sig, *pids)
-      sig = 1 if 'TERM' == sig  # Signals 1 and 4-8 kill the process in a nice manner.
-      @@win32_kill.call(sig, *pids)
-    end
+      @@win32_kill = method(:kill)
 
-    # implements getpgid() for Windws
-    def self.getpgid(pid)
-      # FIX: we currently only use this to check if the process is running.
-      # it is possible to get the parent process id for a process in Windows if
-      # we actually need this info.
-      return Process.kill(0, pid).contains?(pid) ? 0 : -1
-    rescue
-      raise Errno::ESRCH
+      def self.kill(sig, *pids)
+        sig = 1 if 'TERM' == sig  # Signals 1 and 4-8 kill the process in a nice manner.
+        @@win32_kill.call(sig, *pids)
+      end
+
+      # implements getpgid() for Windws
+      def self.getpgid(pid)
+        # FIX: we currently only use this to check if the process is running.
+        # it is possible to get the parent process id for a process in Windows if
+        # we actually need this info.
+        return Process.kill(0, pid).contains?(pid) ? 0 : -1
+      rescue
+        raise Errno::ESRCH
+      end
     end
   end
+
+rescue LoadError => e
+  # ignore load error and skip monkey-patch if gems are not yet installed.
+  # re-raise if the error condition we explicitly check for.
+  raise if WIN32_PROCESS_LOAD_ORDER_ERROR == e.message
 end

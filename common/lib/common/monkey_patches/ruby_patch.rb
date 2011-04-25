@@ -20,6 +20,12 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+# This file may get required twice on Windows: Once using long path and once
+# using short path. Since this is where we define the File.normalize_path
+# method to alleviate this issue, we have a chicken & egg problem. So detect if
+# we already required this file and skip the rest if that was the case
+unless defined?(RUBY_PATCH_BASE_DIR)
+
 # load platform-specific patches before any other patches (in order to define
 # File.normalize_path, etc.)
 if (RUBY_PLATFORM =~ /mswin/)
@@ -36,3 +42,5 @@ RUBY_PATCH_BASE_DIR = File.normalize_path(File.join(File.dirname(__FILE__), 'rub
 
 require File.join(RUBY_PATCH_BASE_DIR, 'string_patch')
 require File.join(RUBY_PATCH_BASE_DIR, 'object_patch')
+
+end # Unless already defined
