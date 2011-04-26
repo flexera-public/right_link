@@ -21,6 +21,7 @@ require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'config',
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'command_protocol', 'lib', 'command_protocol'))
 require 'optparse'
 require 'fileutils'
+require 'json'
 require File.join(File.dirname(__FILE__), 'agent_utils')
 
 module RightScale
@@ -31,6 +32,12 @@ module RightScale
 
     VERSION = [0, 1]
 
+    if Platform.windows?
+      # note we currently only need a reenroller state file under windows.
+      STATE_DIR  = RightScale::RightLinkConfig[:agent_state_dir]
+      STATE_FILE = File.join(STATE_DIR, 'reenroller_state.js')
+    end
+
     # Trigger re-enrollment
     #
     # === Return
@@ -38,6 +45,11 @@ module RightScale
     def run(options)
       if Platform.windows?
         cleanup_certificates(options)
+        # write state file to indicate to RightScaleService that it should not
+        # enter the rebooting state (which is the default behavior when the
+        # RightScaleService starts).
+        reenroller_state = {:reenroll => true}
+        File.open(STATE_FILE, "w") { |f| f.write reenroller_state.to_json }
         print 'Restarting RightScale service...' if options[:verbose]
         res = system('net start RightScale')
         puts to_ok(res) if options[:verbose]
