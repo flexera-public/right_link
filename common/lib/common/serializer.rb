@@ -21,6 +21,7 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 require 'rubygems'
+require 'date'
 require 'json'
 
 require File.normalize_path(File.join(File.dirname(__FILE__), 'message_pack'))
