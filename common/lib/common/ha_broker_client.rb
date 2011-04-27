@@ -117,7 +117,7 @@ module RightScale
     #   :prefetch(Integer):: Maximum number of messages the AMQP broker is to prefetch for the mapper
     #     before it receives an ack. Value 1 ensures that only last unacknowledged gets redelivered
     #     if the mapper crashes. Value 0 means unlimited prefetch.
-    #   :islands(Hash):: RightNetIslands with host and port settings for which connections are to be
+    #   :islands(IslandData):: RightNet islands with host and port settings for which connections are to be
     #     created (takes precedence over any specified :host and :port option)
     #   :home_island(Integer):: Identifier for home RightNet island for this server usable for accessing
     #     :islands (takes precedence over any specified :host and :port option)
@@ -424,7 +424,7 @@ module RightScale
     # index(Integer):: Unique index for broker within given island for use in forming alias
     # priority(Integer|nil):: Priority position of this broker in list for use by this agent
     #   with nil or a value that would leave a gap in the list meaning add to end of list
-    # island(RightNetIsland|nil):: RightNet island containing this broker, defaults to home island
+    # island(IslandData|nil):: RightNet island containing this broker, defaults to home island
     # force(Boolean):: Reconnect even if already connected
     #
     # === Block
@@ -481,7 +481,7 @@ module RightScale
     # Remove any broker clients for islands in which they are no longer configured
     #
     # === Parameters
-    # islands(Array):: List of RightNetIslands
+    # islands(Array):: List of RightNet islands as IslandData object
     #
     # === Return
     # identities(Array):: Identity of newly connected brokers
@@ -929,7 +929,7 @@ module RightScale
     #   e.g., "host_a:0, host_c:2"
     # port(String|Integer):: Comma-separated list of AMQP broker port numbers corresponding to :host list;
     #   if only one, it is incremented and applied to successive hosts; if none, defaults to AMQP::PORT
-    # island(RightNetIsland|nil):: RightNet island containing these brokers, defaults to home island
+    # island(IslandData|nil):: RightNet island containing these brokers, defaults to home island
     #
     # === Return
     # (Array):: Broker clients created

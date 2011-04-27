@@ -111,7 +111,7 @@ module RightScale
     #   :update_status_callback(Proc):: Callback activated on a connection status change with parameters
     #     broker(BrokerClient):: Broker client
     #     connected_before(Boolean):: Whether was connected prior to this status change
-    # island(RightNetIsland|nil):: RightNet island containing this broker, or nil if unknown
+    # island(IslandData|nil):: RightNet island containing this broker, or nil if unknown
     # existing(BrokerClient|nil):: Existing broker client for this address, or nil if none
     def initialize(identity, address, serializer, exceptions, options, island = nil, existing = nil)
       @options         = options

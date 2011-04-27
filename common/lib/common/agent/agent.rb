@@ -30,9 +30,6 @@ end
 
 module RightScale
 
-  # Agents actors use mapper proxy to send messages
-  Sender = MapperProxy
-
   # RightLink agent for receiving messages from the mapper and acting upon them
   # by dispatching to a registered actor to perform
   # See load_actors for details on how the agent specific environment is loaded
@@ -145,6 +142,9 @@ module RightScale
     # === Return
     # true:: Always return true
     def initialize(opts)
+      # Agent actors use the mapper proxy to send messages
+      RightScale.module_eval("Sender = MapperProxy")
+
       set_configuration(opts)
       @tags = []
       @tags << opts[:tag] if opts[:tag]
