@@ -138,17 +138,30 @@ module RightScale
         state = RightScale::JsonUtilities::read_json(STATE_FILE)
         RightLinkLog.debug("Initializing instance #{identity} with #{state.inspect}")
 
+        @@resource_uid = current_resource_uid
+
         # Initial state reconciliation: use recorded state and boot timestamp to determine how we last stopped.
         # There are four basic scenarios to worry about:
         #  1) first run          -- Agent is starting up for the first time after a fresh install
         #  2) reboot/restart     -- Agent already ran; agent ID not changed; reboot detected: transition back to booting
         #  3) bundled boot       -- Agent already ran; agent ID changed: transition back to booting
         #  4) decommission/crash -- Agent exited anyway; ID not changed; no reboot; keep old state entirely
+        #  5) ec2 restart        -- Agent already ran; agent ID changed; instance ID is the same; transition back to booting
         if state['identity'] && state['identity'] != identity
-          # CASE 3 -- identity has changed; bundled boot
-          RightLinkLog.debug("Bundle detected; transitioning state to booting")
           @@last_recorded_value = state['last_recorded_value']
           self.value = 'booting'
+          # if the current resource_uid is the same as the last
+          # observed resource_uid, then this is a restart,
+          # otherwise this is a bundle
+          old_resource_uid = state["last_observed_resource_uid"]
+          if @@resource_uid && @@resource_uid == old_resource_uid
+            # CASE 5 -- identity has changed; ec2 restart
+            RightLinkLog.debug("Restart detected; transitioning state to booting")
+            @@reboot = true
+          else
+            # CASE 3 -- identity has changed; bundled boot
+            RightLinkLog.debug("Bundle detected; transitioning state to booting")
+          end
         elsif state['reboot']
           # CASE 2 -- rebooting flagged by rightboot script in linux or by shutdown notification in windows
           RightLinkLog.debug("Reboot detected; transitioning state to booting")
@@ -184,15 +197,6 @@ module RightScale
         @@login_policy = nil
       end
       RightLinkLog.debug("Existing login users: #{@@login_policy.users.length} recorded") if @@login_policy
-
-      begin
-        meta_data_file = ::File.join(RightScale::RightLinkConfig[:cloud_state_dir], 'meta-data-cache.rb')
-        # metadata does not exist on all clouds, hence the conditional
-        load(meta_data_file) if File.file?(meta_data_file)
-        @@resource_uid = ENV['EC2_INSTANCE_ID']
-      rescue Exception => e
-        RightLinkLog.warn("Failed to load metadata: #{e.message}, #{e.backtrace[0]}")
-      end
 
       #Ensure MOTD is up to date
       update_motd
@@ -470,15 +474,16 @@ module RightScale
     # === Return
     # true:: Always return true
     def self.store_state
-      RightScale::JsonUtilities::write_json(STATE_FILE, {'value'               => @@value,
-                                                         'identity'            => @@identity,
-                                                         'uptime'              => uptime,
-                                                         'reboot'              => @@reboot,
-                                                         'startup_tags'        => @@startup_tags,
-                                                         'log_level'           => @@log_level,
-                                                         'record_retries'      => @@record_retries,
-                                                         'last_recorded_value' => @@last_recorded_value,
-                                                         'last_communication'  => @@last_communication})
+      RightScale::JsonUtilities::write_json(STATE_FILE, {'value'                      => @@value,
+                                                         'identity'                   => @@identity,
+                                                         'uptime'                     => uptime,
+                                                         'reboot'                     => @@reboot,
+                                                         'startup_tags'               => @@startup_tags,
+                                                         'log_level'                  => @@log_level,
+                                                         'record_retries'             => @@record_retries,
+                                                         'last_recorded_value'        => @@last_recorded_value,
+                                                         'last_communication'         => @@last_communication,
+                                                         'last_observed_resource_uid' => @@resource_uid})
       true
     end
 
@@ -528,6 +533,23 @@ module RightScale
       true
     end
 
+    #
+    # retrieve the resource uid from the metadata
+    #
+    # === Return
+    # resource_uid(String|nil):: the resource uid or nil
+    def self.current_resource_uid
+      resource_uid = nil
+      begin
+        meta_data_file = ::File.join(RightScale::RightLinkConfig[:cloud_state_dir], 'meta-data-cache.rb')
+        # metadata does not exist on all clouds, hence the conditional
+        load(meta_data_file) if File.file?(meta_data_file)
+        resource_uid = ENV['EC2_INSTANCE_ID']
+      rescue Exception => e
+        RightLinkLog.warn("Failed to load metadata: #{e.message}, #{e.backtrace[0]}")
+      end
+      resource_uid
+    end
   end
 
 end
