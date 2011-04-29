@@ -255,6 +255,7 @@ module RightScale
                                  attachment.file_name, AttachmentDownloadFailure, @logger)
         end
         tempfile = Tempfile.open('attachment', attachment_dir)
+        tempfile.binmode
         dl.request do |response|
           response.read_body do |chunk|
             tempfile << chunk
