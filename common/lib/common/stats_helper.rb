@@ -71,6 +71,14 @@ module RightScale
       # measure_rate(Boolean):: Whether to measure activity rate
       def initialize(measure_rate = true)
         @measure_rate = measure_rate
+        reset
+      end
+
+      # Reset statistics
+      #
+      # === Return
+      # true:: Always return true
+      def reset
         @interval = 0.0
         @last_start_time = Time.now
         @avg_duration = nil
@@ -78,6 +86,7 @@ module RightScale
         @count_per_type = {}
         @last_type = nil
         @last_id = nil
+        true
       end
 
       # Mark the start of an activity and update counts and average rate
@@ -240,7 +249,16 @@ module RightScale
       def initialize(server = nil, callback = nil)
         @server = server
         @callback = callback
+        reset
+      end
+
+      # Reset statistics
+      #
+      # === Return
+      # true:: Always return true
+      def reset
         @stats = nil
+        true
       end
 
       # Track exception statistics and optionally make callback to report exception
@@ -278,6 +296,111 @@ module RightScale
 
     end # ExceptionStats
 
+    # Utility functions that are useful on there own
+    class Utilities
+
+      # Convert values hash into percentages
+      #
+      # === Parameters
+      # values(Hash):: Values to be converted whose sum is the total for calculating percentages
+      #
+      # === Return
+      # (Hash):: Converted values with keys "total" and "percent" with latter being a hash with values as percentages
+      def self.percentage(values)
+        total = 0
+        values.each_value { |v| total += v }
+        percent = {}
+        values.each { |k, v| percent[k] = (v / total.to_f) * 100.0 } if total > 0
+        {"percent" => percent, "total" => total}
+      end
+
+      # Convert elapsed time in seconds to displayable format
+      #
+      # === Parameters
+      # time(Integer|Float):: Elapsed time
+      #
+      # === Return
+      # (String):: Display string
+      def self.elapsed(time)
+        time = time.to_i
+        if time <= MINUTE
+          "#{time} sec"
+        elsif time <= HOUR
+          minutes = time / MINUTE
+          seconds = time - (minutes * MINUTE)
+          "#{minutes} min #{seconds} sec"
+        elsif time <= DAY
+          hours = time / HOUR
+          minutes = (time - (hours * HOUR)) / MINUTE
+          "#{hours} hr #{minutes} min"
+        else
+          days = time / DAY
+          hours = (time - (days * DAY)) / HOUR
+          minutes = (time - (days * DAY) - (hours * HOUR)) / MINUTE
+          "#{days} day#{days == 1 ? '' : 's'} #{hours} hr #{minutes} min"
+        end
+      end
+
+      # Determine enough precision for floating point value(s) so that all have
+      # at least two significant digits and then convert each value to a decimal digit
+      # string of that precision after applying rounding
+      # When precision is wide ranging, limit precision of the larger numbers
+      #
+      # === Parameters
+      # value(Float|Array|Hash):: Value(s) to be converted
+      #
+      # === Return
+      # (String|Array|Hash):: Value(s) converted to decimal digit string
+      def self.enough_precision(value)
+        scale = [1.0, 10.0, 100.0, 1000.0, 10000.0, 100000.0]
+        enough = lambda { |v| (v >= 10.0   ? 0 :
+                              (v >= 1.0    ? 1 :
+                              (v >= 0.1    ? 2 :
+                              (v >= 0.01   ? 3 :
+                              (v >  0.001  ? 4 :
+                              (v >  0.0    ? 5 : 0)))))) }
+        digit_str = lambda { |p, v| sprintf("%.#{p}f", (v * scale[p]).round / scale[p])}
+
+        if value.is_a?(Float)
+          digit_str.call(enough.call(value), value)
+        elsif value.is_a?(Array)
+          min, max = value.map { |_, v| enough.call(v) }.minmax
+          precision = (max - min) > 1 ? min + 1 : max
+          value.map { |k, v| [k, digit_str.call([precision, enough.call(v)].max, v)] }
+        elsif value.is_a?(Hash)
+          min, max = value.to_a.map { |_, v| enough.call(v) }.minmax
+          precision = (max - min) > 1 ? min + 1 : max
+          value.to_a.inject({}) { |s, v| s[v[0]] = digit_str.call([precision, enough.call(v[1])].max, v[1]); s }
+        else
+          value.to_s
+        end
+      end
+
+      # Wrap string by breaking it into lines at the specified separator
+      #
+      # === Parameters
+      # string(String):: String to be wrapped
+      # max_length(Integer):: Maximum length of a line excluding indentation
+      # indent(String):: Indentation for each line
+      # separator(String):: Separator at which to make line breaks
+      #
+      # === Return
+      # (String):: Multi-line string
+      def self.wrap(string, max_length, indent, separator)
+        all = []
+        line = ""
+        for l in string.split(separator)
+          if (line + l).length >= max_length
+            all.push(line)
+            line = ""
+          end
+          line += line == "" ? l : separator + l
+        end
+        all.push(line).join(separator + "\n" + indent)
+      end
+
+    end
+
     # Convert 0 value to nil
     # This is in support of displaying "none" rather than 0
     #
@@ -298,19 +421,79 @@ module RightScale
     # === Return
     # (Hash):: Converted values with keys "total" and "percent" with latter being a hash with values as percentages
     def percentage(values)
-      total = 0
-      values.each_value { |v| total += v }
-      percent = {}
-      values.each { |k, v| percent[k] = (v / total.to_f) * 100.0 } if total > 0
-      {"percent" => percent, "total" => total}
+      Utilities.percentage(values)
     end
 
-    def self.percentage(values)
-      total = 0
-      values.each_value { |v| total += v }
-      percent = {}
-      values.each { |k, v| percent[k] = (v / total.to_f) * 100.0 } if total > 0
-      {"percent" => percent, "total" => total}
+    # Determine enough precision for floating point value(s) so that all have
+    # at least two significant digits and then convert each value to a decimal digit
+    # string of that precision after applying rounding
+    # When precision is wide ranging, limit precision of the larger numbers
+    #
+    # === Parameters
+    # value(Float|Array|Hash):: Value(s) to be converted
+    #
+    # === Return
+    # (String|Array|Hash):: Value(s) converted to decimal digit string
+    def enough_precision(value)
+      Utilities.enough_precision(value)
+    end
+
+    # Wrap string by breaking it into lines at the specified separator
+    #
+    # === Parameters
+    # string(String):: String to be wrapped
+    # max_length(Integer):: Maximum length of a line excluding indentation
+    # indent(String):: Indentation for each line
+    # separator(String):: Separator at which to make line breaks
+    #
+    # === Return
+    # (String):: Multi-line string
+    def wrap(string, max_length, indent, separator)
+      Utilities.wrap(string, max_length, indent, separator)
+    end
+
+    # Convert elapsed time in seconds to displayable format
+    #
+    # === Parameters
+    # time(Integer|Float):: Elapsed time
+    #
+    # === Return
+    # (String):: Display string
+    def elapsed(time)
+      Utilities.elapsed(time)
+    end
+
+    # Format UTC time value
+    #
+    # === Parameters
+    # time(Integer):: Time in seconds in Unix-epoch to be formatted
+    #
+    # (String):: Formatted time string
+    def time_at(time)
+      Time.at(time).strftime("%a %b %d %H:%M:%S")
+    end
+
+    # Sort hash elements by key in ascending order into array of key/value pairs
+    # Sort keys numerically if possible, otherwise as is
+    #
+    # === Parameters
+    # hash(Hash):: Data to be sorted
+    #
+    # === Return
+    # (Array):: Key/value pairs from hash in key sorted order
+    def sort_key(hash)
+      hash.to_a.map { |k, v| [k =~ /^\d+$/ ? k.to_i : k, v] }.sort
+    end
+
+    # Sort hash elements by value in ascending order into array of key/value pairs
+    #
+    # === Parameters
+    # hash(Hash):: Data to be sorted
+    #
+    # === Return
+    # (Array):: Key/value pairs from hash in value sorted order
+    def sort_value(hash)
+      hash.to_a.sort { |a, b| a[1] <=> b[1] }
     end
 
     # Converts server statistics to a displayable format
@@ -540,124 +723,6 @@ module RightScale
           "#{v || "none"}"
         end
       end.join(", ")
-    end
-
-    # Sort hash elements by key in ascending order into array of key/value pairs
-    # Sort keys numerically if possible, otherwise as is
-    #
-    # === Parameters
-    # hash(Hash):: Data to be sorted
-    #
-    # === Return
-    # (Array):: Key/value pairs from hash in key sorted order
-    def sort_key(hash)
-      hash.to_a.map { |k, v| [k =~ /^\d+$/ ? k.to_i : k, v] }.sort
-    end
-
-    # Sort hash elements by value in ascending order into array of key/value pairs
-    #
-    # === Parameters
-    # hash(Hash):: Data to be sorted
-    #
-    # === Return
-    # (Array):: Key/value pairs from hash in value sorted order
-    def sort_value(hash)
-      hash.to_a.sort { |a, b| a[1] <=> b[1] }
-    end
-
-    # Wrap string by breaking it into lines at the specified separator
-    #
-    # === Parameters
-    # string(String):: String to be wrapped
-    # max_length(Integer):: Maximum length of a line excluding indentation
-    # indent(String):: Indentation for each line
-    # separator(String):: Separator at which to make line breaks
-    #
-    # === Return
-    # (String):: Multi-line string
-    def wrap(string, max_length, indent, separator)
-      all = []
-      line = ""
-      for l in string.split(separator)
-        if (line + l).length >= max_length
-          all.push(line)
-          line = ""
-        end
-        line += line == "" ? l : separator + l
-      end
-      all.push(line).join(separator + "\n" + indent)
-    end
-
-    # Format UTC time value
-    #
-    # === Parameters
-    # time(Integer):: Time in seconds in Unix-epoch to be formatted
-    #
-    # (String):: Formatted time string
-    def time_at(time)
-      Time.at(time).strftime("%a %b %d %H:%M:%S")
-    end
-
-    # Convert elapsed time in seconds to displayable format
-    #
-    # === Parameters
-    # time(Integer|Float):: Elapsed time
-    #
-    # === Return
-    # (String):: Display string
-    def elapsed(time)
-      time = time.to_i
-      if time <= MINUTE
-        "#{time} sec"
-      elsif time <= HOUR
-        minutes = time / MINUTE
-        seconds = time - (minutes * MINUTE)
-        "#{minutes} min #{seconds} sec"
-      elsif time <= DAY
-        hours = time / HOUR
-        minutes = (time - (hours * HOUR)) / MINUTE
-        "#{hours} hr #{minutes} min"
-      else
-        days = time / DAY
-        hours = (time - (days * DAY)) / HOUR
-        minutes = (time - (days * DAY) - (hours * HOUR)) / MINUTE
-        "#{days} day#{days == 1 ? '' : 's'} #{hours} hr #{minutes} min"
-      end
-    end
-
-    # Determine enough precision for floating point value(s) so that all have
-    # at least two significant digits and then convert each value to a decimal digit
-    # string of that precision after applying rounding
-    # When precision is wide ranging, limit precision of the larger numbers
-    #
-    # === Parameters
-    # value(Float|Array|Hash):: Value(s) to be converted
-    #
-    # === Return
-    # (String|Array|Hash):: Value(s) converted to decimal digit string
-    def enough_precision(value)
-      scale = [1.0, 10.0, 100.0, 1000.0, 10000.0, 100000.0]
-      enough = lambda { |v| (v >= 10.0   ? 0 :
-                            (v >= 1.0    ? 1 :
-                            (v >= 0.1    ? 2 :
-                            (v >= 0.01   ? 3 :
-                            (v >  0.001  ? 4 :
-                            (v >  0.0    ? 5 : 0)))))) }
-      digit_str = lambda { |p, v| sprintf("%.#{p}f", (v * scale[p]).round / scale[p])}
-
-      if value.is_a?(Float)
-        digit_str.call(enough.call(value), value)
-      elsif value.is_a?(Array)
-        min, max = value.map { |_, v| enough.call(v) }.minmax
-        precision = (max - min) > 1 ? min + 1 : max
-        value.map { |k, v| [k, digit_str.call([precision, enough.call(v)].max, v)] }
-      elsif value.is_a?(Hash)
-        min, max = value.to_a.map { |_, v| enough.call(v) }.minmax
-        precision = (max - min) > 1 ? min + 1 : max
-        value.to_a.inject({}) { |s, v| s[v[0]] = digit_str.call([precision, enough.call(v[1])].max, v[1]); s }
-      else
-        value.to_s
-      end
     end
 
   end # StatsHelper
