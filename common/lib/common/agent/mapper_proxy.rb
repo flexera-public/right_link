@@ -799,6 +799,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def queue_request(request)
+      RightLinkLog.info("[offline] Queuing request: #{request.inspect}")
       @reenroll_vote_count += 1 if @queue_running
       vote_to_reenroll(timer_trigger = false) if @reenroll_vote_count >= MAX_QUEUED_REQUESTS
       if @queue_initializing
