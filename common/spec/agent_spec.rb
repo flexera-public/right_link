@@ -40,6 +40,7 @@ describe RightScale::Agent do
       flexmock(RightScale::RightLinkLog).should_receive(:error).never.by_default
       flexmock(EM).should_receive(:add_periodic_timer)
       flexmock(EM).should_receive(:next_tick).and_yield
+      flexmock(EM).should_receive(:add_timer).and_yield
       @timer = flexmock("timer")
       flexmock(EM::Timer).should_receive(:new).and_return(@timer)
       @timer.should_receive(:cancel)
@@ -118,6 +119,7 @@ describe RightScale::Agent do
       flexmock(RightScale::RightLinkLog).should_receive(:error).never.by_default
       flexmock(EM).should_receive(:add_periodic_timer)
       flexmock(EM).should_receive(:next_tick).and_yield
+      flexmock(EM).should_receive(:add_timer).and_yield
       @timer = flexmock("timer")
       flexmock(EM::Timer).should_receive(:new).and_return(@timer)
       @timer.should_receive(:cancel)
@@ -243,6 +245,7 @@ describe RightScale::Agent do
       flexmock(RightScale::RightLinkLog).should_receive(:error).never.by_default
       flexmock(EM).should_receive(:add_periodic_timer)
       flexmock(EM).should_receive(:next_tick).and_yield
+      flexmock(EM).should_receive(:add_timer).and_yield
       @timer = flexmock("timer")
       flexmock(EM::Timer).should_receive(:new).and_return(@timer).by_default
       @timer.should_receive(:cancel).by_default

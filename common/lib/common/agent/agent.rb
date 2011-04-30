@@ -181,7 +181,10 @@ module RightScale
         @all_setup.each { |s| @remaining_setup[s] = @broker.all }
         @broker.connection_status(:one_off => @options[:connect_timeout]) do |status|
           if status == :connected
-            EM.next_tick do
+            # need to give EM (on Windows) a chance to respond to the AMQP handshake
+            # before doing anything interesting to prevent AMQP handshake from
+            # timing-out; delay post-connected activity a second.
+            EM.add_timer(1) do
               begin
                 @registry = ActorRegistry.new
                 @dispatcher = Dispatcher.new(self)
