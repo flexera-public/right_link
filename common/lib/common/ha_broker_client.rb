@@ -96,6 +96,9 @@ module RightScale
     # (Array(Broker)) Priority ordered list of AMQP broker clients (exposed only for unit test purposes)
     attr_accessor :brokers
 
+    # (Integer|nil) Home island identifier, or nil if unknown
+    attr_reader :home_island
+
     # Create connections to all configured AMQP brokers
     # The constructed broker client list is in priority order with brokers in home island first
     #
@@ -147,9 +150,10 @@ module RightScale
         islands.each_value do |i|
           @brokers = connect_island(i.broker_hosts, i.broker_ports, i) if i.id == @options[:home_island]
         end
-        raise ArgumentError, "Could not find home island #{@options[:home_island]}" unless @brokers
+        @home_island = @options[:home_island]
+        raise ArgumentError, "Could not find home island #{@home_island}" unless @brokers
         islands.each_value do |i|
-          @brokers += connect_island(i.broker_hosts, i.broker_ports, i) if i.id != @options[:home_island]
+          @brokers += connect_island(i.broker_hosts, i.broker_ports, i) if i.id != @home_island
         end
       else
         @brokers = connect_island(@options[:host], @options[:port])

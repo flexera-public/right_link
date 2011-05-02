@@ -178,6 +178,7 @@ describe RightScale::HABrokerClient do
               RightScale::StatsHelper::ExceptionStats, Hash, nil, nil).and_return(broker2).once
       ha = RightScale::HABrokerClient.new(@serializer, :host => "first, second", :port => 5672)
       ha.brokers.should == [broker1, broker2]
+      ha.home_island.should be_nil
     end
 
     it "should create broker clients for specified islands" do
@@ -199,6 +200,7 @@ describe RightScale::HABrokerClient do
               RightScale::StatsHelper::ExceptionStats, Hash, @island2, nil).and_return(broker4).once
       ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => 22)
       ha.brokers.should == [broker3, broker4, broker2, broker1]
+      ha.home_island.should == 22
     end
 
     it "should raise an ArgumentError if it cannot find the home island" do
