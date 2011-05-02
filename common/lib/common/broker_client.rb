@@ -202,9 +202,11 @@ module RightScale
     #   message(Packet|String):: Message received, which is unserialized unless :no_unserialize was specified
     #
     # === Return
-    # (Boolean):: true if subscribe successfully, otherwise false
+    # (Boolean):: true if subscribe successfully or if already subscribed, otherwise false
     def subscribe(queue, exchange = nil, options = {}, &blk)
       return false unless usable?
+      return true unless @queues.select { |q| q.name == queue[:name] }.empty?
+
       to_exchange =  if exchange
         if options[:exchange2]
           " to exchanges #{exchange[:name]} and #{options[:exchange2][:name]}"
