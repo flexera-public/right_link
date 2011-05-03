@@ -25,7 +25,6 @@ class InstanceScheduler
   include RightScale::Actor
   include RightScale::RightLinkLogHelpers
   include RightScale::OperationResultHelpers
-  include RightScale::ShutdownManagement::Helpers
 
   expose :schedule_bundle, :execute, :schedule_decommission
 
@@ -43,7 +42,7 @@ class InstanceScheduler
   def initialize(agent)
     @agent = agent
     @agent_identity = agent.identity
-    @bundles_queue  = RightScale::BundlesQueue.new(self) do
+    @bundles_queue  = RightScale::BundlesQueue.new do
       RightScale::InstanceState.value = 'decommissioned'
       @post_decommission_callback.call
     end

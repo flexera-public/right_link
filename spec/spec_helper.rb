@@ -90,6 +90,8 @@ module RightScale
       @results_factory = ResultsMock.new
       @mapper_proxy = flexmock('MapperProxy')
       flexmock(MapperProxy).should_receive(:instance).and_return(@mapper_proxy).by_default
+      RightScale.module_eval("Sender = MapperProxy") unless defined?(::RightScale::Sender)
+      @mapper_proxy.should_receive(:identity).and_return(@identity).by_default
       @mapper_proxy.should_receive(:send_push).by_default
       @mapper_proxy.should_receive(:send_persistent_push).by_default
       @mapper_proxy.should_receive(:send_retryable_request).and_yield(@results_factory.success_results).by_default
@@ -250,14 +252,35 @@ rescue LoadError
   #do nothing; if Chef isn't loaded, then no need to monkey patch
 end
 
-shared_examples_for 'mocks cook' do
+shared_examples_for 'mocks state' do
+  include RightScale::SpecHelpers
+
+  before(:each) do
+    setup_state
+  end
+
+  after(:each) do
+    cleanup_state
+  end
+end
+
+shared_examples_for 'mocks shutdown request' do
+
+  require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'agents', 'lib', 'instance'))
+
+  before(:each) do
+    @mock_shutdown_request = ::RightScale::ShutdownRequest.new
+    flexmock(::RightScale::ShutdownRequest).should_receive(:instance).and_return(@mock_shutdown_request)
+  end
+end
+
+shared_examples_for 'mocks shutdown request proxy' do
 
   require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'agents', 'lib', 'instance', 'cook'))
 
   before(:each) do
-    @mock_cook = Object.new
-    @mock_shutdown_request = RightScale::ShutdownManagement::ShutdownRequest.new
-    flexmock(RightScale::Cook).should_receive(:instance).and_return(@mock_cook)
-    flexmock(@mock_cook).should_receive(:shutdown_request).and_return(@mock_shutdown_request)
+    ::RightScale::ShutdownRequestProxy.init(nil)  # nil command client for unit testing
+    @mock_shutdown_request = ::RightScale::ShutdownRequestProxy.new
+    flexmock(::RightScale::ShutdownRequestProxy).should_receive(:instance).and_return(@mock_shutdown_request)
   end
 end

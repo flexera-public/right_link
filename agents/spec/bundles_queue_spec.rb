@@ -22,27 +22,13 @@
 
 require File.join(File.dirname(__FILE__), 'spec_helper')
 
-module RightScale
-  module BundlesQueueSpec
-    class ShutdownManager
-
-      def initialize
-        @shutdown_request = RightScale::ShutdownManagement::ShutdownRequest.new
-      end
-
-      def shutdown_request; return @shutdown_request; end
-      def manage_shutdown_request; yield if block_given?; end
-
-    end
-  end
-end
-
 describe RightScale::BundlesQueue do
+
+  it_should_behave_like 'mocks shutdown request'
 
   before(:each) do
     @term = false
-    @shutdown_manager = RightScale::BundlesQueueSpec::ShutdownManager.new
-    @queue = RightScale::BundlesQueue.new(@shutdown_manager) { @term = true; EM.stop }
+    @queue = RightScale::BundlesQueue.new { @term = true; EM.stop }
     @context = flexmock('context', :audit => 42, :decommission => false)
     flexmock(RightScale::ExecutableSequenceProxy).new_instances.should_receive(:run).and_return { @status = :run; EM.stop }
   end
@@ -79,6 +65,19 @@ describe RightScale::BundlesQueue do
       @queue.close
     end
     @term.should be_true
+  end
+
+  it 'should process the shutdown bundle' do
+    processed = false
+    flexmock(@mock_shutdown_request).
+      should_receive(:process).
+      and_return { @queue.push(@context); processed = true; true }
+    @queue.activate
+    EM.run do
+      EM.add_timer(5) { EM.stop }
+      @queue.push(::RightScale::BundlesQueue::SHUTDOWN_BUNDLE)
+    end
+    processed.should be_true
   end
 
 end

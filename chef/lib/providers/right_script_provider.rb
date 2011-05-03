@@ -132,7 +132,7 @@ class Chef
           # exit here to interrupt the Chef converge (assuming any subsequent
           # boot recipes are pending). otherwise, defer shutdown until scripts/
           # recipes finish or another script escalates to an immediate shutdown.
-          exit 0 if RightScale::Cook.instance.shutdown_request.immediately?
+          exit 0 if RightScale::ShutdownRequestProxy.instance.immediately?
         else
           raise RightScale::Exceptions::Exec, "RightScript < #{nickname} > #{RightScale::SubprocessFormatting.reason(status)}"
         end

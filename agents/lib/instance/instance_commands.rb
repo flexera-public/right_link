@@ -480,23 +480,23 @@ module RightScale
     # === Return
     # true:: Always return true
     def get_shutdown_request_command(opts)
-      shutdown_request = InstanceState.shutdown_request
+      shutdown_request = ShutdownRequest.instance
       CommandIO.instance.reply(opts[:conn], { :level => shutdown_request.level, :immediately => shutdown_request.immediately? })
+    rescue Exception => e
+      CommandIO.instance.reply(opts[:conn], { :error => e.message })
     end
 
     # Set reboot timeout command
     #
     # === Parameters
     # opts[:conn](EM::Connection):: Connection used to send reply
-    # opts[:reboot_request_state](int):: reboot request state
+    # opts[:level](String):: shutdown request level
+    # opts[:immediately](Boolean):: shutdown immediacy or nil
     #
     # === Return
     # true:: Always return true
     def set_shutdown_request_command(opts)
-      shutdown_request = InstanceState.shutdown_request
-      shutdown_request.level = opts[:level]
-      shutdown_request.immediately! if opts[:immediately]
-      @scheduler.schedule_shutdown if false == shutdown_request.continue?
+      shutdown_request = ShutdownRequest.submit(opts)
       CommandIO.instance.reply(opts[:conn], { :level => shutdown_request.level, :immediately => shutdown_request.immediately? })
     rescue Exception => e
       CommandIO.instance.reply(opts[:conn], { :error => e.message })

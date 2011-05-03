@@ -128,7 +128,6 @@ module RightScale
       @@record_retries = 0
       @@last_communication = 0
       @@planned_volume_state = nil
-      @@shutdown_request = nil
 
       MapperProxy.instance.message_received { message_received } unless @@read_only
 
@@ -301,11 +300,6 @@ module RightScale
       else
         RightLinkLog.error("InstanceState.shutdown() kind was unexpected: #{kind}")
       end
-    end
-
-    # Current requested shutdown state, if any.
-    def self.shutdown_request
-      @@shutdown_request ||= ::RightScale::ShutdownManagement::ShutdownRequest.new
     end
 
     # Set startup tags

@@ -23,7 +23,7 @@
 
 # rs_reboot --help for usage information
 #
-# See lib/rebooter.rb for additional information.
+# See lib/shutdown_client.rb for additional information.
 
 THIS_FILE = File.symlink?(__FILE__) ? File.readlink(__FILE__) : __FILE__
 $:.push(File.join(File.dirname(THIS_FILE), 'lib'))

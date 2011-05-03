@@ -88,13 +88,13 @@ module RightScale
 
       opts = OptionParser.new do |opts|
         opts.on('-r', '--reboot') do
-          options[:level] = ::RightScale::ShutdownManagement::REBOOT
+          options[:level] = ::RightScale::ShutdownRequest::REBOOT
         end
         opts.on('-s', '--stop') do
-          options[:level] = ::RightScale::ShutdownManagement::STOP
+          options[:level] = ::RightScale::ShutdownRequest::STOP
         end
         opts.on('-t', '--terminate') do
-          options[:level] = ::RightScale::ShutdownManagement::TERMINATE
+          options[:level] = ::RightScale::ShutdownRequest::TERMINATE
         end
         opts.on('-i', '--immediately') do
           options[:immediately] = true
@@ -113,8 +113,8 @@ module RightScale
       end
 
       opts.on_tail('--help') do
-         RDoc::usage_from_file(__FILE__)
-         exit
+        RDoc::usage_from_file(__FILE__)
+        exit
       end
 
       begin

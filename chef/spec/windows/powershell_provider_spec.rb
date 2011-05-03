@@ -292,7 +292,7 @@ EOF
     it_should_behave_like 'generates cookbook for chef runner'
     it_should_behave_like 'mocks logging'
     it_should_behave_like 'mocks state'
-    it_should_behave_like 'mocks cook'
+    it_should_behave_like 'mocks shutdown request proxy'
 
     it "should run powershell recipes on windows" do
       runner = lambda {
@@ -477,7 +477,7 @@ EOF
 
     it "should exit chef converge when a powershell script invokes rs_shutdown --reboot --immediately" do
       runner = lambda {
-        @mock_shutdown_request.level = ::RightScale::ShutdownManagement::REBOOT
+        @mock_shutdown_request.level = ::RightScale::ShutdownRequest::REBOOT
         @mock_shutdown_request.immediately!
         RightScale::Test::ChefRunner.run_chef(
           PowershellProviderSpec::TEST_COOKBOOKS_PATH,
@@ -487,7 +487,7 @@ EOF
 
     it "should not exit chef converge when a powershell script invokes rs_shutdown --reboot --deferred" do
       runner = lambda {
-        @mock_shutdown_request.level = ::RightScale::ShutdownManagement::REBOOT
+        @mock_shutdown_request.level = ::RightScale::ShutdownRequest::REBOOT
         RightScale::Test::ChefRunner.run_chef(
           PowershellProviderSpec::TEST_COOKBOOKS_PATH,
           'test::succeed_powershell_recipe') }

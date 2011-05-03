@@ -25,7 +25,6 @@ class InstanceSetup
   include RightScale::Actor
   include RightScale::RightLinkLogHelpers
   include RightScale::OperationResultHelpers
-  include RightScale::ShutdownManagement::Helpers
   include RightScale::VolumeManagementHelpers
 
   expose :report_state
@@ -216,8 +215,17 @@ class InstanceSetup
                 # state pending full reboot/restart of instance so that we don't
                 # bounce between operational and booting in a multi-reboot case.
                 # if shutdown is deferred, then go operational before shutdown.
-                RightScale::InstanceState.value = 'operational' unless shutdown_request.immediately?
-                manage_shutdown_request(@audit)
+                shutdown_request = ::RightScale::ShutdownRequest.instance
+                if shutdown_request.immediately?
+                  # process the shutdown request immediately since the
+                  # operational bundles queue will not start in this case.
+                  errback = lambda { strand("Failed to #{shutdown_request} while running boot sequence") }
+                  shutdown_request.process(errback, @audit)
+                else
+                  # any deferred shutdown request was submitted to the
+                  # operational bundles queue and will execute later.
+                  RightScale::InstanceState.value = 'operational'
+                end
               else
                 strand("Failed to run boot sequence", boot_res)
               end

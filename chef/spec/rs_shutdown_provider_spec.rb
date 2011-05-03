@@ -95,7 +95,7 @@ EOF
   it_should_behave_like 'generates cookbook for chef runner'
   it_should_behave_like 'mocks logging'
   it_should_behave_like 'mocks state'
-  it_should_behave_like 'mocks cook'
+  it_should_behave_like 'mocks shutdown request proxy'
 
   def update_mock_shutdown_request(level, immediately = nil)
     @mock_shutdown_request.level = level
@@ -104,9 +104,10 @@ EOF
   end
 
   it "should reboot deferred" do
-    flexmock(@mock_cook).should_receive(:schedule_shutdown).
-                         with(::RightScale::ShutdownManagement::REBOOT, false).
-                         and_return(update_mock_shutdown_request(::RightScale::ShutdownManagement::REBOOT, false))
+    flexmock(::RightScale::ShutdownRequestProxy).
+      should_receive(:submit).
+      with(:level => ::RightScale::ShutdownRequest::REBOOT, :immediately => false).
+      and_return(update_mock_shutdown_request(::RightScale::ShutdownRequest::REBOOT, false))
     runner = lambda {
       RightScale::Test::ChefRunner.run_chef(
         RsShutdownProviderSpec::TEST_COOKBOOKS_PATH,
@@ -116,9 +117,10 @@ EOF
   end
 
   it "should reboot immediately" do
-    flexmock(@mock_cook).should_receive(:schedule_shutdown).
-                         with(::RightScale::ShutdownManagement::REBOOT, true).
-                         and_return(update_mock_shutdown_request(::RightScale::ShutdownManagement::REBOOT, true))
+    flexmock(::RightScale::ShutdownRequestProxy).
+      should_receive(:submit).
+      with(:level => ::RightScale::ShutdownRequest::REBOOT, :immediately => true).
+      and_return(update_mock_shutdown_request(::RightScale::ShutdownRequest::REBOOT, true))
     runner = lambda {
       RightScale::Test::ChefRunner.run_chef(
         RsShutdownProviderSpec::TEST_COOKBOOKS_PATH,
@@ -128,9 +130,10 @@ EOF
   end
 
   it "should stop deferred" do
-    flexmock(@mock_cook).should_receive(:schedule_shutdown).
-                         with(::RightScale::ShutdownManagement::STOP, false).
-                         and_return(update_mock_shutdown_request(::RightScale::ShutdownManagement::STOP, false))
+    flexmock(::RightScale::ShutdownRequestProxy).
+      should_receive(:submit).
+      with(:level => ::RightScale::ShutdownRequest::STOP, :immediately => false).
+      and_return(update_mock_shutdown_request(::RightScale::ShutdownRequest::STOP, false))
     runner = lambda {
       RightScale::Test::ChefRunner.run_chef(
         RsShutdownProviderSpec::TEST_COOKBOOKS_PATH,
@@ -140,9 +143,10 @@ EOF
   end
 
   it "should stop immediately" do
-    flexmock(@mock_cook).should_receive(:schedule_shutdown).
-                         with(::RightScale::ShutdownManagement::STOP, true).
-                         and_return(update_mock_shutdown_request(::RightScale::ShutdownManagement::STOP, true))
+    flexmock(::RightScale::ShutdownRequestProxy).
+      should_receive(:submit).
+      with(:level => ::RightScale::ShutdownRequest::STOP, :immediately => true).
+      and_return(update_mock_shutdown_request(::RightScale::ShutdownRequest::STOP, true))
     runner = lambda {
       RightScale::Test::ChefRunner.run_chef(
         RsShutdownProviderSpec::TEST_COOKBOOKS_PATH,
@@ -152,9 +156,10 @@ EOF
   end
 
   it "should terminate deferred" do
-    flexmock(@mock_cook).should_receive(:schedule_shutdown).
-                         with(::RightScale::ShutdownManagement::TERMINATE, false).
-                         and_return(update_mock_shutdown_request(::RightScale::ShutdownManagement::TERMINATE, false))
+    flexmock(::RightScale::ShutdownRequestProxy).
+      should_receive(:submit).
+      with(:level => ::RightScale::ShutdownRequest::TERMINATE, :immediately => false).
+      and_return(update_mock_shutdown_request(::RightScale::ShutdownRequest::TERMINATE, false))
     runner = lambda {
       RightScale::Test::ChefRunner.run_chef(
         RsShutdownProviderSpec::TEST_COOKBOOKS_PATH,
@@ -164,9 +169,10 @@ EOF
   end
 
   it "should terminate immediately" do
-    flexmock(@mock_cook).should_receive(:schedule_shutdown).
-                         with(::RightScale::ShutdownManagement::TERMINATE, true).
-                         and_return(update_mock_shutdown_request(::RightScale::ShutdownManagement::TERMINATE, true))
+    flexmock(::RightScale::ShutdownRequestProxy).
+      should_receive(:submit).
+      with(:level => ::RightScale::ShutdownRequest::TERMINATE, :immediately => true).
+      and_return(update_mock_shutdown_request(::RightScale::ShutdownRequest::TERMINATE, true))
     runner = lambda {
       RightScale::Test::ChefRunner.run_chef(
         RsShutdownProviderSpec::TEST_COOKBOOKS_PATH,
@@ -176,14 +182,15 @@ EOF
   end
 
   it "should fail converge if failed to schedule shutdown" do
-    flexmock(@mock_cook).should_receive(:schedule_shutdown).
-                         with(::RightScale::ShutdownManagement::TERMINATE, true).
-                         and_raise(::RightScale::ShutdownManagement::InvalidLevel, "mock invalid level exception")
+    flexmock(::RightScale::ShutdownRequestProxy).
+      should_receive(:submit).
+      with(:level => ::RightScale::ShutdownRequest::TERMINATE, :immediately => true).
+      and_raise(::RightScale::ShutdownRequest::InvalidLevel, "mock invalid level exception")
     runner = lambda {
       RightScale::Test::ChefRunner.run_chef(
         RsShutdownProviderSpec::TEST_COOKBOOKS_PATH,
         'test::terminate_immediately_recipe') }
-    runner.should raise_exception(::RightScale::ShutdownManagement::InvalidLevel)
+    runner.should raise_exception(::RightScale::ShutdownRequest::InvalidLevel)
     @logger.error_text.should == ""  # chef apparently doesn't log exceptions, it just re-raises them after running handlers
   end
 
