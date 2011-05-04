@@ -512,6 +512,40 @@ module RightScale
       }
     end
 
+    # Callback from AMQP with connection status or from HABrokerClient
+    # Makes client callback with :connected or :disconnected status if boundary crossed
+    #
+    # === Parameters
+    # status(Symbol):: Status of connection (:connected, :ready, :disconnected, :stopping, :failed, :closed)
+    #
+    # === Return
+    # true:: Always return true
+    def update_status(status)
+      # Do not let closed connection regress to failed
+      return true if status == :failed && @status == :closed
+
+      # Wait until connection is ready (i.e. handshake with broker is completed) before
+      # changing our status to connected
+      return true if status == :connected
+      status = :connected if status == :ready
+
+      before = @status
+      @status = status
+
+      if status == :connected
+        update_success
+      elsif status == :failed
+        update_failure
+      elsif status == :disconnected && before != :disconnected
+        @disconnects.update
+      end
+
+      unless status == before || @options[:update_status_callback].nil?
+        @options[:update_status_callback].call(self, before == :connected)
+      end
+      true
+    end
+
     protected
 
     # Connect to broker and register for status updates
@@ -588,40 +622,6 @@ module RightScale
         @options[:exception_on_receive_callback].call(message, e) if @options[:exception_on_receive_callback]
         nil
       end
-    end
- 
-    # Callback from AMQP with connection status
-    # Makes client callback with :connected or :disconnected status if boundary crossed
-    #
-    # === Parameters
-    # status(Symbol):: Status of connection (:connected, :ready, :disconnected, :stopping, :failed, :closed)
-    #
-    # === Return
-    # true:: Always return true
-    def update_status(status)
-      # Do not let closed connection regress to failed
-      return true if status == :failed && @status == :closed
-
-      # Wait until connection is ready (i.e. handshake with broker is completed) before
-      # changing our status to connected
-      return true if status == :connected
-      status = :connected if status == :ready
-
-      before = @status
-      @status = status
-
-      if status == :connected
-        update_success
-      elsif status == :failed
-        update_failure
-      elsif status == :disconnected && before != :disconnected
-        @disconnects.update
-      end
-
-      unless status == before || @options[:update_status_callback].nil?
-        @options[:update_status_callback].call(self, before == :connected)
-      end
-      true
     end
 
     # Make status updates for connect success
