@@ -367,6 +367,14 @@ module RightScale
       in_island(island_id).inject([]) { |c, b| if b.connected? then c << b.identity else c end }
     end
 
+    # Get serialized identity of connected brokers for all islands
+    #
+    # === Return
+    # (Array):: Serialized identity of connected brokers
+    def all_connected
+      @brokers.inject([]) { |c, b| if b.connected? then c << b.identity else c end }
+    end
+
     # Get serialized identity of brokers that are usable, i.e., connecting or confirmed connected
     #
     # === Return
@@ -1119,13 +1127,13 @@ module RightScale
       one_way = context.one_way
       persistent = options[:persistent]
       mandatory = true
-      remaining = (context.brokers - context.failed) & connected
+      remaining = (context.brokers - context.failed) & all_connected
       RightLinkLog.debug("RETURN reason #{reason} token #{token} brokers #{context.brokers.inspect} failed #{context.failed.inspect} " +
-                         " connected #{connected.inspect} remaining #{remaining.inspect}")
+                         " connected #{all_connected.inspect} remaining #{remaining.inspect}")
       if remaining.empty?
         if (persistent || one_way) &&
            ["ACCESS_REFUSED", "NO_CONSUMERS"].include?(reason) &&
-           !(remaining = context.brokers & connected).empty?
+           !(remaining = context.brokers & all_connected).empty?
           # Retry because persistent, and this time w/o mandatory so that gets queued even though no consumers
           mandatory = false
         else
