@@ -1119,7 +1119,7 @@ module RightScale
     def handle_return(identity, reason, message, to, context)
       @returns.update("#{alias_(identity)} (#{reason.to_s.downcase})")
 
-      update_status(@brokers_hash[identity], :stopping) if reason == "ACCESS_REFUSED"
+      @brokers_hash[identity].update_status(:stopping) if reason == "ACCESS_REFUSED"
 
       name = context.name
       options = context.options || {}

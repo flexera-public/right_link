@@ -154,6 +154,7 @@ describe RightScale::HABrokerClient do
       @address = {:host => "localhost", :port => 5672, :index => 0}
       @broker = flexmock("broker_client", :identity => @identity, :usable? => true)
       @broker.should_receive(:return_message).by_default
+      @broker.should_receive(:update_status).by_default
       flexmock(RightScale::BrokerClient).should_receive(:new).and_return(@broker).by_default
       @island1 = flexmock("island1", :id => 11, :broker_hosts => "second:1,first:0", :broker_ports => "5673")
       @island2 = flexmock("island2", :id => 22, :broker_hosts => "third:0,fourth:1", :broker_ports => nil)
@@ -1057,7 +1058,7 @@ describe RightScale::HABrokerClient do
           ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
           @context.record_failure(@identity3)
           @broker4.should_receive(:publish).and_return(true).once
-          flexmock(ha).should_receive(:update_status).with(@broker3, :stopping).once
+          @broker3.should_receive(:update_status).with(:stopping).and_return(true).once
           ha.__send__(:handle_return, @identity3, "ACCESS_REFUSED", @message, "to", @context)
         end
 
