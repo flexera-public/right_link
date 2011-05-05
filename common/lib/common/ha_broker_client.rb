@@ -1128,8 +1128,8 @@ module RightScale
       persistent = options[:persistent]
       mandatory = true
       remaining = (context.brokers - context.failed) & all_connected
-      RightLinkLog.debug("RETURN reason #{reason} token #{token} brokers #{context.brokers.inspect} failed #{context.failed.inspect} " +
-                         " connected #{all_connected.inspect} remaining #{remaining.inspect}")
+      RightLinkLog.info("RETURN reason #{reason} token #{token} brokers #{context.brokers.inspect} failed #{context.failed.inspect} " +
+                        " connected #{all_connected.inspect} remaining #{remaining.inspect}")
       if remaining.empty?
         if (persistent || one_way) &&
            ["ACCESS_REFUSED", "NO_CONSUMERS"].include?(reason) &&
