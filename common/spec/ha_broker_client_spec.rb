@@ -1027,6 +1027,7 @@ describe RightScale::HABrokerClient do
 
         it "should republish using a broker not yet tried if possible and log that re-routing" do
           flexmock(RightScale::RightLinkLog).should_receive(:info).with(/RE-ROUTE/).once
+          flexmock(RightScale::RightLinkLog).should_receive(:info).with(/RETURN reason/).once
           ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
           @context.record_failure(@identity3)
           @broker4.should_receive(:publish).and_return(true).once
@@ -1035,6 +1036,7 @@ describe RightScale::HABrokerClient do
 
         it "should republish to same broker without mandatory if message is persistent and no other brokers available" do
           flexmock(RightScale::RightLinkLog).should_receive(:info).with(/RE-ROUTE/).once
+          flexmock(RightScale::RightLinkLog).should_receive(:info).with(/RETURN reason/).once
           ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
           @context.record_failure(@identity3)
           @context.record_failure(@identity4)
@@ -1045,6 +1047,7 @@ describe RightScale::HABrokerClient do
 
         it "should republish to same broker without mandatory if message is one-way and no other brokers available" do
           flexmock(RightScale::RightLinkLog).should_receive(:info).with(/RE-ROUTE/).once
+          flexmock(RightScale::RightLinkLog).should_receive(:info).with(/RETURN reason/).once
           ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
           @context.record_failure(@identity3)
           @context.record_failure(@identity4)
@@ -1055,6 +1058,7 @@ describe RightScale::HABrokerClient do
 
         it "should update status to :stopping if message returned because access refused" do
           flexmock(RightScale::RightLinkLog).should_receive(:info).with(/RE-ROUTE/).once
+          flexmock(RightScale::RightLinkLog).should_receive(:info).with(/RETURN reason/).once
           ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
           @context.record_failure(@identity3)
           @broker4.should_receive(:publish).and_return(true).once
@@ -1064,6 +1068,7 @@ describe RightScale::HABrokerClient do
 
         it "should log info and make non-delivery call even if persistent when returned because of no queue" do
           flexmock(RightScale::RightLinkLog).should_receive(:info).with(/NO ROUTE/).once
+          flexmock(RightScale::RightLinkLog).should_receive(:info).with(/RETURN reason/).once
           ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
           called = 0
           ha.non_delivery { |reason, type, token, from, to| called += 1 }
@@ -1078,6 +1083,7 @@ describe RightScale::HABrokerClient do
 
         it "should log info and make non-delivery call if no route can be found" do
           flexmock(RightScale::RightLinkLog).should_receive(:info).with(/NO ROUTE/).once
+          flexmock(RightScale::RightLinkLog).should_receive(:info).with(/RETURN reason/).once
           ha = RightScale::HABrokerClient.new(@serializer, :islands => @islands, :home_island => @home)
           called = 0
           ha.non_delivery { |reason, type, token, from, to| called += 1 }
