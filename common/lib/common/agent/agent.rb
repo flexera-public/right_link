@@ -109,6 +109,7 @@ module RightScale
     #     exception(Exception):: Exception
     #     message(Packet):: Message being processed
     #     agent(Agent):: Reference to agent
+    #   :ready_callback(Proc):: Called once agent is connected ready to service (no argument)
     #   :services(Symbol):: List of services provided by this agent. Defaults to all methods exposed by actors.
     #   :secure(Boolean):: true indicates to use Security features of RabbitMQ to restrict agents to themselves
     #   :single_threaded(Boolean):: true indicates to run all operations in one thread; false indicates
@@ -198,6 +199,7 @@ module RightScale
                 interval = [@options[:check_interval], @options[:connect_timeout]].max
                 @check_status_count = 0
                 @check_status_brokers = @broker.all
+                EM.next_tick { @options[:ready_callback].call } if @options[:ready_callback]
                 EM.add_periodic_timer(interval) { check_status }
               rescue Exception => e
                 RightLinkLog.error("Agent failed startup", e, :trace) unless e.message == "exit"
