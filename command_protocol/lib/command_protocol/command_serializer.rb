@@ -51,9 +51,13 @@ module RightScale
     # === Raise
     # (RightScale::Exceptions::IO): If serialized data is incorrect
     def self.load(data)
-      command = YAML::load(data) rescue nil
+      command = YAML::load(data)
       raise RightScale::Exceptions::IO, "Invalid serialized command:\n#{data}" unless command
       command
+    rescue RightScale::Exceptions::IO
+      raise
+    rescue Exception => e
+      raise RightScale::Exceptions::IO, "Invalid serialized command: #{e.message}\n#{data}"
     end
   end
 end
