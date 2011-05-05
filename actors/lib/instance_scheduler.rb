@@ -160,7 +160,17 @@ class InstanceScheduler
     end
     @bundles_queue.close
 
-    RightScale::InstanceState.value = 'decommissioning'
+    # transition state to 'decommissioning' (by setting decommissioning_type if given)
+    #
+    # note that decommission_type can be nil in case where a script or user
+    # shuts down the instance manually (without using rs_shutdown, etc.).
+    # more specifically, it happens when "rnac --decommission" is invoked
+    # either directly or indirectly (on Linux by runlevel 0|6 script).
+    if options[:kind]
+      RightScale::InstanceState.decommission_type = options[:kind]
+    else
+      RightScale::InstanceState.value = 'decommissioning'
+    end
     success_result
   end
 

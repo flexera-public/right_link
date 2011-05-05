@@ -249,7 +249,6 @@ describe InstanceSetup do
     result = RightScale::OperationResult.success({ 'agent_id1' => { 'tags' => ['tag1'] } })
     agents = flexmock('result', :results => { 'mapper_id1' => result })
     InstanceSetup.agents = agents
-
     EM.run do
       @setup.__send__(:initialize, @agent_identity.to_s)
       EM.add_periodic_timer(0.1) { check_state }
@@ -341,6 +340,10 @@ describe InstanceSetup do
 
   def boot_to_operational
     boot_to 'operational'
+  end
+
+  def boot_to_decommissioned
+    boot_to 'decommissioned'
   end
 
   def boot_to_stranded_with(expected_audit)
@@ -680,6 +683,21 @@ describe InstanceSetup do
 
   it 'should strand when failing to prepare boot bundle' do
     boot_to_stranded_with "Failed to prepare boot bundle: Failed to retrieve boot scripts (Test)"
+  end
+
+  it 'should recover from an aborted decommissioning state' do
+    flexmock(::RightScale::InstanceState).
+      should_receive(:shutdown).
+      with(nil, false, ::RightScale::ShutdownRequest::TERMINATE).
+      once.
+      and_return do
+        EM.next_tick { @done_state_regex = /operational|stranded|decommissioned/ }
+        RightScale::InstanceState.value = RightScale::InstanceState::FINAL_STATE
+        true
+      end
+    ::RightScale::InstanceState.init(@agent_identity)
+    ::RightScale::InstanceState.decommission_type = ::RightScale::ShutdownRequest::TERMINATE
+    boot_to_decommissioned
   end
 
 end

@@ -104,6 +104,15 @@ module RightScale
       @@planned_volume_state ||= PlannedVolumeState.new
     end
 
+    # (String) Type of decommission currently in progress or nil
+    def self.decommission_type
+      if @@value == 'decommissioning'
+        @@decommission_type
+      else
+        raise RightScale::Exceptions::WrongState.new("Unexpected call to InstanceState.decommission_type for current state #{@value.inspect}")
+      end
+    end
+
     # Set instance id with given id
     # Load persisted state if any, compare instance ids and force boot if instance ID
     # is different or if reboot flagged
@@ -128,6 +137,7 @@ module RightScale
       @@record_retries = 0
       @@last_communication = 0
       @@planned_volume_state = nil
+      @@decommission_type = nil
 
       MapperProxy.instance.message_received { message_received } unless @@read_only
 
@@ -174,6 +184,7 @@ module RightScale
           @@log_level = state['log_level']
           @@last_recorded_value = state['last_recorded_value']
           @@record_retries = state['record_retries']
+          @@decommission_type = state['decommission_type'] if @@value == 'decommissioning'
           if @@value != @@last_recorded_value && RECORDED_STATES.include?(@@value) &&
              @@record_retries < MAX_RECORD_STATE_RETRIES && !@@read_only
             record_state
@@ -220,12 +231,32 @@ module RightScale
       RightLinkLog.info("Transitioning state from #{@@value rescue INITIAL_STATE} to #{val}")
       @@reboot = false if val != :booting
       @@value = val
+      @@decommission_type = nil unless @@value == 'decommissioning'
       update_logger
       update_motd
       record_state if RECORDED_STATES.include?(val)
       store_state
       @observers.each { |o| o.call(val) } if @observers
       val
+    end
+
+    # Set decommission type and set state to 'decommissioning'
+    #
+    # === Parameters
+    # decommission_type(String):: One of RightScale::ShutdownRequest::LEVELS or nil
+    #
+    # === Return
+    # result(String):: new decommission type
+    # 
+    # === Raise
+    # RightScale::Exceptions::Application:: Cannot update in read-only mod
+    def self.decommission_type=(decommission_type)
+      unless RightScale::ShutdownRequest::LEVELS.include?(decommission_type)
+        raise RightScale::ShutdownRequest::InvalidLevel.new("Unexpected decommission_type: #{decommission_type}")
+      end
+      @@decommission_type = decommission_type
+      self.value = 'decommissioning'
+      @@decommission_type
     end
 
     # Instance AWS id for EC2 instances
@@ -468,16 +499,22 @@ module RightScale
     # === Return
     # true:: Always return true
     def self.store_state
-      RightScale::JsonUtilities::write_json(STATE_FILE, {'value'                      => @@value,
-                                                         'identity'                   => @@identity,
-                                                         'uptime'                     => uptime,
-                                                         'reboot'                     => @@reboot,
-                                                         'startup_tags'               => @@startup_tags,
-                                                         'log_level'                  => @@log_level,
-                                                         'record_retries'             => @@record_retries,
-                                                         'last_recorded_value'        => @@last_recorded_value,
-                                                         'last_communication'         => @@last_communication,
-                                                         'last_observed_resource_uid' => @@resource_uid})
+      state_to_store = {'value'                      => @@value,
+                        'identity'                   => @@identity,
+                        'uptime'                     => uptime,
+                        'reboot'                     => @@reboot,
+                        'startup_tags'               => @@startup_tags,
+                        'log_level'                  => @@log_level,
+                        'record_retries'             => @@record_retries,
+                        'last_recorded_value'        => @@last_recorded_value,
+                        'last_communication'         => @@last_communication,
+                        'last_observed_resource_uid' => @@resource_uid}
+
+      # only include deommission_type when decommissioning
+      state_to_store['decommission_type'] = @@decommission_type if @@value == 'decommissioning'
+
+      # store
+      RightScale::JsonUtilities::write_json(STATE_FILE, state_to_store)
       true
     end
 

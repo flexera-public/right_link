@@ -56,6 +56,20 @@ class InstanceSetup
     else
       RightScale::MapperProxy.instance.initialize_offline_queue
       RightScale::MapperProxy.instance.start_offline_queue
+
+      # handle case of a decommission which was abruptly interrupted and never
+      # shutdown the instance (likely due to a decommission script which induced
+      # an unexpected fault in the agent).
+      #
+      # note that upon successfuly reboot (or start of a stopped instance) the
+      # instance state file is externally reset to a rebooting state (thus
+      # avoiding the dreaded infinite reboot/stop scenario).
+      if RightScale::InstanceState.value == 'decommissioning' &&
+         RightScale::InstanceState.last_recorded_value == 'decommissioning' &&
+         (kind = RightScale::InstanceState.decommission_type)
+
+        EM.next_tick { recover_decommission(user_id = nil, skip_db_update = false, kind) }
+      end
     end
 
     # Setup suicide timer which will cause instance to shutdown if the rs_launch:type=auto tag
@@ -436,6 +450,27 @@ class InstanceSetup
       strand(format_error(msg, e))
     end
 
+    true
+  end
+
+  # Recovers from an aborted decommission.
+  #
+  # === Parameters
+  # user_id(int):: user id or zero or nil
+  # skip_db_update(Boolean):: true to skip db update after shutdown
+  # kind(String):: 'reboot', 'stop' or 'terminate'
+  #
+  # === Return
+  # always true
+  def recover_decommission(user_id, skip_db_update, kind)
+    # skip running decommission bundle again to avoid repeating the failure
+    # which caused the previous decommission to kill the agent. log this
+    # strange situation and go directly to instance shutdown.
+    RightScale::RightLinkLog.warning("Instance has recovered from an aborted decommission and will perform the last requested shutdown: #{kind}")
+    RightScale::InstanceState.shutdown(user_id, skip_db_update, kind)
+    true
+  rescue Exception => e
+    ::RightScale::RightLinkLog.error("#{e.class}: #{e.message}\n#{e.backtrace.join("\n")}")
     true
   end
 

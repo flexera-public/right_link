@@ -171,6 +171,7 @@ describe RightScale::InstanceState do
       RightScale::InstanceState.value = "decommissioning"
       RightScale::InstanceState.init(@identity)
       RightScale::InstanceState.value.should == "decommissioning"
+      RightScale::InstanceState.decommission_type.should == nil
     end
 
     it 'should record state' do
@@ -181,6 +182,24 @@ describe RightScale::InstanceState do
       @mapper_proxy.should_receive(:send_retryable_request).with(*@decommissioning_args).and_yield(@record_success).once
       RightScale::InstanceState.value = "decommissioning"
       RightScale::InstanceState.value.should == "decommissioning"
+      RightScale::InstanceState.decommission_type.should == nil
+    end
+
+    it 'should persist decommissioning state with decommission type if specified' do
+      RightScale::InstanceState.value.should == "booting"
+      @mapper_proxy.should_receive(:send_retryable_request).with(*@operational_args).and_yield(@record_success).once
+      RightScale::InstanceState.value = "operational"
+      RightScale::InstanceState.value.should == "operational"
+      @mapper_proxy.should_receive(:send_retryable_request).with(*@decommissioning_args).and_yield(@record_success).once
+      RightScale::InstanceState.decommission_type = RightScale::ShutdownRequest::REBOOT
+      RightScale::InstanceState.value.should == "decommissioning"
+      RightScale::InstanceState.decommission_type.should == RightScale::ShutdownRequest::REBOOT
+
+      # reinitialize from state file to simulate aborted decommission case.
+      RightScale::InstanceState.init(@identity)
+      RightScale::InstanceState.value.should == "decommissioning"
+      RightScale::InstanceState.last_recorded_value.should == "decommissioning"
+      RightScale::InstanceState.decommission_type.should == RightScale::ShutdownRequest::REBOOT
     end
 
     it 'should not record state for unrecorded values' do
