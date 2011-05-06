@@ -64,10 +64,7 @@ class InstanceSetup
       # note that upon successfuly reboot (or start of a stopped instance) the
       # instance state file is externally reset to a rebooting state (thus
       # avoiding the dreaded infinite reboot/stop scenario).
-      if RightScale::InstanceState.value == 'decommissioning' &&
-         RightScale::InstanceState.last_recorded_value == 'decommissioning' &&
-         (kind = RightScale::InstanceState.decommission_type)
-
+      if RightScale::InstanceState.value == 'decommissioning' && (kind = RightScale::InstanceState.decommission_type)
         EM.next_tick { recover_decommission(user_id = nil, skip_db_update = false, kind) }
       end
     end
