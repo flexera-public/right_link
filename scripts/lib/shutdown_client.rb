@@ -37,7 +37,7 @@ require 'rdoc/usage'
 require 'rdoc_patch'
 require 'agent_utils'
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'command_protocol', 'lib', 'command_protocol'))
-require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'common', 'lib', 'common', 'agent', 'shutdown_management'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'agents', 'lib', 'instance', 'shutdown_request'))
 
 module RightScale
 
