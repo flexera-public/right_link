@@ -200,6 +200,15 @@ describe RightScale::BrokerClient do
       result.should be_true
     end
 
+    it "should return true if already subscribed and not try to resubscribe" do
+      @queue.should_receive(:name).and_return("queue").once
+      @bind.should_receive(:subscribe).and_yield(@message)
+      broker = RightScale::BrokerClient.new(@identity, @address, @serializer, @exceptions, @options)
+      result = broker.subscribe({:name => "queue"}, {:type => :direct, :name => "exchange"}) {|b, p| p.should == nil}
+      result.should be_true
+      result = broker.subscribe({:name => "queue"}, {:type => :direct, :name => "exchange"}) {|b, p| p.should == nil}
+    end
+
     it "should ack received message if requested" do
       @info.should_receive(:ack).once
       @bind.should_receive(:subscribe).and_yield(@info, @message).once

@@ -96,6 +96,9 @@ module RightScale
     # (Array(Broker)) Priority ordered list of AMQP broker clients (exposed only for unit test purposes)
     attr_accessor :brokers
 
+    # (Integer|nil) Home island identifier, or nil if unknown
+    attr_reader :home_island
+
     # Create connections to all configured AMQP brokers
     # The constructed broker client list is in priority order with brokers in home island first
     #
@@ -147,9 +150,10 @@ module RightScale
         islands.each_value do |i|
           @brokers = connect_island(i.broker_hosts, i.broker_ports, i) if i.id == @options[:home_island]
         end
-        raise ArgumentError, "Could not find home island #{@options[:home_island]}" unless @brokers
+        @home_island = @options[:home_island]
+        raise ArgumentError, "Could not find home island #{@home_island}" unless @brokers
         islands.each_value do |i|
-          @brokers += connect_island(i.broker_hosts, i.broker_ports, i) if i.id != @options[:home_island]
+          @brokers += connect_island(i.broker_hosts, i.broker_ports, i) if i.id != @home_island
         end
       else
         @brokers = connect_island(@options[:host], @options[:port])
@@ -361,6 +365,14 @@ module RightScale
     # (Array):: Serialized identity of connected brokers
     def connected(island_id = nil)
       in_island(island_id).inject([]) { |c, b| if b.connected? then c << b.identity else c end }
+    end
+
+    # Get serialized identity of connected brokers for all islands
+    #
+    # === Return
+    # (Array):: Serialized identity of connected brokers
+    def all_connected
+      @brokers.inject([]) { |c, b| if b.connected? then c << b.identity else c end }
     end
 
     # Get serialized identity of brokers that are usable, i.e., connecting or confirmed connected
@@ -1107,7 +1119,7 @@ module RightScale
     def handle_return(identity, reason, message, to, context)
       @returns.update("#{alias_(identity)} (#{reason.to_s.downcase})")
 
-      update_status(@brokers_hash[identity], :stopping) if reason == "ACCESS_REFUSED"
+      @brokers_hash[identity].update_status(:stopping) if reason == "ACCESS_REFUSED"
 
       name = context.name
       options = context.options || {}
@@ -1115,11 +1127,13 @@ module RightScale
       one_way = context.one_way
       persistent = options[:persistent]
       mandatory = true
-      remaining = (context.brokers - context.failed) & connected
+      remaining = (context.brokers - context.failed) & all_connected
+      RightLinkLog.debug("RETURN reason #{reason} token #{token} brokers #{context.brokers.inspect} failed #{context.failed.inspect} " +
+                         " connected #{all_connected.inspect} remaining #{remaining.inspect}")
       if remaining.empty?
         if (persistent || one_way) &&
            ["ACCESS_REFUSED", "NO_CONSUMERS"].include?(reason) &&
-           !(remaining = context.brokers & connected).empty?
+           !(remaining = context.brokers & all_connected).empty?
           # Retry because persistent, and this time w/o mandatory so that gets queued even though no consumers
           mandatory = false
         else
