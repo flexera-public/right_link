@@ -313,7 +313,6 @@ protected
                 client.send_command({:name => :terminate}, verbose = @options[:verbose], timeout = 30) do |r|
                   info(r)
                   terminate
-                  exit
                 end
               rescue Exception => e
                 error("Failed stopping checker daemon, confirm it is still running", e, abort = true)
@@ -321,11 +320,9 @@ protected
             else
               Process.kill('TERM', pid_data[:pid])
               terminate
-              exit
             end
           else
             terminate
-            exit
           end
         elsif @options[:daemon]
           # Run checker as daemon
