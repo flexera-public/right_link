@@ -51,6 +51,9 @@ cmd_opts = RightScale::CommandRunner.start(RightScale::CommandConstants::BASE_IN
                                            InstanceCommands.get(@identity, scheduler, agent_manager),
                                            @options)
 
+# initialize shutdown request state.
+RightScale::ShutdownRequest.init(scheduler)
+
 # Set environment variable containing options so child (cook) process can retrieve them
 RightScale::OptionsBag.store(@options.merge(cmd_opts))
 

@@ -53,13 +53,33 @@ module RightScale
       chunks = @buildup.split(CommandSerializer::SEPARATOR, -1)
       if do_call = chunks.size > 1
         commands = []
-        commands << CommandSerializer.load(@buildup)
-        (1..chunks.size - 2).each { |i| commands << CommandSerializer.load(chunks[i]) }
-        commands.each { |cmd| EM.next_tick { @callback.call(cmd) } }
+        (0..chunks.size - 2).each do |i|
+          begin
+            commands << CommandSerializer.load(chunks[i])
+          rescue Exception => e
+            # log any exceptions caused by serializing individual chunks instead
+            # of halting EM. each command is discrete so we need to keep trying
+            # so long as there are more commands to process (although subsequent
+            # commands may lack context if previous commands failed).
+            ::RightScale::RightLinkLog.error("#{e.class.name}: #{e.message}\n#{e.backtrace.join("\n")}")
+          end
+        end
+        commands.each do |cmd|
+          EM.next_tick do
+            begin
+              @callback.call(cmd)
+            rescue Exception => e
+              # log any exceptions raised by callback instead of halting EM.
+              ::RightScale::RightLinkLog.error("#{e.class.name}: #{e.message}\n#{e.backtrace.join("\n")}")
+            end
+          end
+        end
         @buildup = chunks.last
       end
       do_call
+    rescue Exception => e
+      # log any other exceptions instead of halting EM.
+      ::RightScale::RightLinkLog.error("#{e.class.name}: #{e.message}\n#{e.backtrace.join("\n")}")
     end
-
   end
 end

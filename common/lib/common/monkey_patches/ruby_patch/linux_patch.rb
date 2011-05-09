@@ -1,4 +1,3 @@
-#!/opt/rightscale/sandbox/bin/ruby
 #
 # Copyright (c) 2011 RightScale Inc
 #
@@ -21,16 +20,5 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-# rs_reboot --help for usage information
-#
-# See lib/shutdown_client.rb for additional information.
-
-THIS_FILE = File.symlink?(__FILE__) ? File.readlink(__FILE__) : __FILE__
-$:.push(File.join(File.dirname(THIS_FILE), 'lib'))
-
-require 'rubygems'
-require 'shutdown_client'
-
-shutdown_client = RightScale::ShutdownClient.new
-options = shutdown_client.parse_args
-shutdown_client.run(options)
+# load File monkey-patch first to enable use of File.normalize_path
+require File.expand_path(File.join(File.dirname(__FILE__), 'linux_patch', 'file_patch'))

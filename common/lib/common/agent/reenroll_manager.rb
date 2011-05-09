@@ -28,6 +28,10 @@ module RightScale
     # Number of votes required to trigger re-enroll
     REENROLL_THRESHOLD = 3
 
+    # Additional number of seconds that should be spent in offline mode before
+    # triggering a re-enroll after vote threshold has been reached
+    MAXIMUM_REENROLL_DELAY = 900 # 15 minutes
+
     # Delay in seconds until votes count is reset if no more votes occur
     # This value should be more than two hours as this is the period at which
     # votes will get generated in offline mode
@@ -43,7 +47,7 @@ module RightScale
     end
 
     # Set reenrolling flag
-    # 
+    #
     # === Return
     # true:: Always return true
     def self.set_reenrolling
@@ -64,7 +68,7 @@ module RightScale
       if @total_votes >= REENROLL_THRESHOLD && !@reenrolling
         RightLinkLog.info('[re-enroll] Re-enroll threshold reached, shutting down and re-enrolling')
         set_reenrolling
-        reenroll!
+        EM::Timer.new(rand(MAXIMUM_REENROLL_DELAY)) { reenroll! }
       end
       true
     end

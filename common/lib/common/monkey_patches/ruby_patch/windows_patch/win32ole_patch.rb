@@ -1,4 +1,3 @@
-#!/opt/rightscale/sandbox/bin/ruby
 #
 # Copyright (c) 2011 RightScale Inc
 #
@@ -21,16 +20,15 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-# rs_reboot --help for usage information
-#
-# See lib/shutdown_client.rb for additional information.
-
-THIS_FILE = File.symlink?(__FILE__) ? File.readlink(__FILE__) : __FILE__
-$:.push(File.join(File.dirname(THIS_FILE), 'lib'))
-
 require 'rubygems'
-require 'shutdown_client'
 
-shutdown_client = RightScale::ShutdownClient.new
-options = shutdown_client.parse_args
-shutdown_client.run(options)
+begin
+  require 'win32ole'
+
+  # ohai 0.3.6 has a bug which causes WMI data to be imported using the default
+  # Windows code page. the workaround is to set the win32ole gem's code page to
+  # UTF-8, which is probably a good general Ruby on Windows practice in any case.
+  WIN32OLE.codepage = WIN32OLE::CP_UTF8
+rescue LoadError
+  # ignore load error and skip monkey-patch if gems are not yet installed.
+end

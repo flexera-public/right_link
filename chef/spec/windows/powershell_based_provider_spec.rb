@@ -47,7 +47,7 @@ if RightScale::RightLinkConfig[:platform].windows?
 
     it_should_behave_like 'mocks logging'
     it_should_behave_like 'mocks state'
-    it_should_behave_like 'mocks cook'
+    it_should_behave_like 'mocks shutdown request proxy'
 
     it "should run a simple recipe" do
       runner = lambda {

@@ -20,83 +20,20 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+require 'rubygems'
+require 'fileutils'
+require 'tmpdir'
+
 begin
-  require 'rubygems'
   require 'win32/dir'
   require 'windows/api'
   require 'windows/error'
   require 'windows/handle'
   require 'windows/security'
   require 'windows/system_info'
-  require 'windows/time'
-  require 'win32ole'
 rescue LoadError => e
   raise e if !!(RUBY_PLATFORM =~ /mswin/)
 end
-
-require 'fileutils'
-require 'tmpdir'
-
-# ohai 0.3.6 has a bug which causes WMI data to be imported using the default
-# Windows code page. the workaround is to set the win32ole gem's code page to
-# UTF-8, which is probably a good general Ruby on Windows practice in any case.
-WIN32OLE.codepage = WIN32OLE::CP_UTF8
-
-# monkey patch Time.now because Windows Ruby interpreters used the wrong API
-# and queried local time instead of UTC time prior to Ruby v1.9.1. This
-# made the Ruby 1.8.x interpreters vulnerable to external changes to
-# timezone which cause Time.now to return times which are offset from from the
-# correct value. This implementation is borrowed from the C source for Ruby
-# v1.9.1 from www.ruby-lang.org ("win32/win32.c").
-class Time
-  def self.now
-    # query UTC time as a 64-bit ularge value.
-    filetime = 0.chr * 8
-    ::Windows::Time::GetSystemTimeAsFileTime.call(filetime)
-    low_date_time = filetime[0,4].unpack('V')[0]
-    high_date_time = filetime[4,4].unpack('V')[0]
-    value = high_date_time * 0x100000000 + low_date_time
-
-    # value is now 100-nanosec intervals since 1601/01/01 00:00:00 UTC,
-    # convert it into UNIX time (since 1970/01/01 00:00:00 UTC).
-    value /= 10  # nanoseconds to microseconds
-    microseconds = 1000 * 1000
-    value -= ((1970 - 1601) * 365.2425).to_i * 24 * 60 * 60 * microseconds
-
-    return Time.at(value / microseconds, value % microseconds)
-  end
-end
-
-# win32/process monkey-patches the Process class but drops support for any kill
-# signals which are not directly portable. some signals are acceptable, if not
-# strictly portable. the 'TERM' signal used to be supported in Ruby v1.8.6 but
-# raises an exception in Ruby v1.8.7. we will monkey-patch the monkey-patch to
-# get the best possible implementation of signals.
-module Process
-  unless defined?(@@ruby_c_kill)
-    @@ruby_c_kill = method(:kill)
-
-    fail "Must require platform/win32 before win32/process" unless require 'win32/process'
-
-    @@win32_kill = method(:kill)
-
-    def self.kill(sig, *pids)
-      sig = 1 if 'TERM' == sig  # Signals 1 and 4-8 kill the process in a nice manner.
-      @@win32_kill.call(sig, *pids)
-    end
-
-    # implements getpgid() for Windws
-    def self.getpgid(pid)
-      # FIX: we currently only use this to check if the process is running.
-      # it is possible to get the parent process id for a process in Windows if
-      # we actually need this info.
-      return Process.kill(0, pid).contains?(pid) ? 0 : -1
-    rescue
-      raise Errno::ESRCH
-    end
-  end
-end
-
 
 module RightScale
   class Platform
@@ -106,7 +43,6 @@ module RightScale
         MAX_PATH = 260
 
         @@get_temp_dir_api = nil
-        @@get_short_path_name = nil
 
         def initialize
           @temp_dir = nil
@@ -230,30 +166,7 @@ module RightScale
         # === Return
         # short_path(String):: short path equivalent or same path if non-existent
         def long_path_to_short_path(long_path)
-          @@get_short_path_name = Win32::API.new('GetShortPathName', 'PPL', 'L') unless @@get_short_path_name
-          if File.exists?(long_path)
-            length = MAX_PATH
-            while true
-              buffer = 0.chr * length
-              length = @@get_short_path_name.call(long_path, buffer, buffer.length)
-              if length < buffer.length
-                break
-              end
-            end
-            return pretty_path(buffer.unpack('A*').first)
-          else
-            # must get short path for any existing ancestor since child doesn't
-            # (currently) exist.
-            child_name = File.basename(long_path)
-            long_parent_path = File.dirname(long_path)
-
-            # note that root dirname is root itself (at least in windows)
-            return long_path if long_path == long_parent_path
-
-            # recursion
-            short_parent_path = long_path_to_short_path(File.dirname(long_path))
-            return File.join(short_parent_path, child_name)
-          end
+          return File.long_path_to_short_path(long_path)
         end
 
         # specific to the windows environment to aid in resolving paths to
@@ -1185,19 +1098,4 @@ EOF
 
     end
   end
-end
-
-# Platform specific implementation of File.normalize_path
-class File
-
-  # First expand the path then shorten the directory.
-  # Only shorten the directory and not the file name because 'gem' wants
-  # long file names
-  def self.normalize_path(file_name, *dir_string)
-    @fs ||= RightScale::Platform::Windows::Filesystem.new
-    path = File.expand_path(file_name, *dir_string)
-    dir = @fs.long_path_to_short_path(File.dirname(path))
-    File.join(dir, File.basename(path))
-  end
-
 end

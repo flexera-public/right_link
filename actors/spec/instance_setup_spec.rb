@@ -75,10 +75,6 @@ class InstanceSetup
   def self.results_for_detach_volume; @@results_for_detach_volume; end
   def self.results_for_detach_volume=(results); @@results_for_detach_volume = results; end
 
-  @@results_for_shutdown = []
-  def self.results_for_shutdown; @@results_for_shutdown; end
-  def self.results_for_shutdown=(results); @@results_for_shutdown = results; end
-
   def send_retryable_request(operation, *args)
     # defer response to better simulate asynchronous nature of calls to RightNet.
     EM.defer do
@@ -88,7 +84,6 @@ class InstanceSetup
         when "/booter/get_repositories" then yield @@repos
         when "/booter/get_boot_bundle" then yield @@bundle
         when "/booter/get_login_policy" then yield @@login_policy
-        when "/forwarder/shutdown" then yield @@results_for_shutdown.shift.call(*args)
         when "/mapper/list_agents" then yield @@agents
         when "/storage_valet/get_planned_volumes" then yield @@results_for_get_planned_volumes.shift.call(*args)
         when "/storage_valet/attach_volume" then yield @@results_for_attach_volume.shift.call(*args)
@@ -187,6 +182,8 @@ describe InstanceSetup do
 
   include RightScale::SpecHelpers
 
+  it_should_behave_like 'mocks shutdown request'
+
   before(:each) do
     @done_state_regex = /operational|stranded/
     @agent_identity = RightScale::AgentIdentity.new('rs', 'test', 1)
@@ -252,7 +249,6 @@ describe InstanceSetup do
     result = RightScale::OperationResult.success({ 'agent_id1' => { 'tags' => ['tag1'] } })
     agents = flexmock('result', :results => { 'mapper_id1' => result })
     InstanceSetup.agents = agents
-
     EM.run do
       @setup.__send__(:initialize, @agent_identity.to_s)
       EM.add_periodic_timer(0.1) { check_state }
@@ -344,6 +340,10 @@ describe InstanceSetup do
 
   def boot_to_operational
     boot_to 'operational'
+  end
+
+  def boot_to_decommissioned
+    boot_to 'decommissioned'
   end
 
   def boot_to_stranded_with(expected_audit)
@@ -667,22 +667,37 @@ describe InstanceSetup do
   end
 
   it 'should remain in booting when a boot script calls rs_shutdown --reboot --immediately' do
-    results = []
-    results << lambda do
-      EM.next_tick { @done_state_regex = /operational|stranded|booting/ }
-      @results_factory.success_results
-    end
-    InstanceSetup.results_for_shutdown = results
-    flexmock(@setup).
-      should_receive(:shutdown_request).
-      and_return(flexmock(
-        'mock shutdown request',
-        :level => ::RightScale::ShutdownManagement::REBOOT, :immediately? => true, :continue? => false))
+    shutdown_requested = false
+    flexmock(@mock_shutdown_request).
+      should_receive(:process).
+      and_return do
+        EM.next_tick { @done_state_regex = /operational|stranded|booting/ }
+        shutdown_requested = true
+        true
+      end
+    flexmock(@mock_shutdown_request).should_receive(:kind).and_return(::RightScale::ShutdownRequest::REBOOT)
+    flexmock(@mock_shutdown_request).should_receive(:immediately?).and_return(true)
     boot_to_booting
+    shutdown_requested.should be_true
   end
 
   it 'should strand when failing to prepare boot bundle' do
     boot_to_stranded_with "Failed to prepare boot bundle: Failed to retrieve boot scripts (Test)"
+  end
+
+  it 'should recover from an aborted decommissioning state' do
+    flexmock(::RightScale::InstanceState).
+      should_receive(:shutdown).
+      with(nil, false, ::RightScale::ShutdownRequest::TERMINATE).
+      once.
+      and_return do
+        EM.next_tick { @done_state_regex = /operational|stranded|decommissioned/ }
+        RightScale::InstanceState.value = RightScale::InstanceState::FINAL_STATE
+        true
+      end
+    ::RightScale::InstanceState.init(@agent_identity)
+    ::RightScale::InstanceState.decommission_type = ::RightScale::ShutdownRequest::TERMINATE
+    boot_to_decommissioned
   end
 
 end

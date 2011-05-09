@@ -1,4 +1,3 @@
-#!/opt/rightscale/sandbox/bin/ruby
 #
 # Copyright (c) 2011 RightScale Inc
 #
@@ -21,16 +20,13 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-# rs_reboot --help for usage information
-#
-# See lib/shutdown_client.rb for additional information.
+# load File monkey-patch first to enable use of File.normalize_path
+require File.expand_path(File.join(File.dirname(__FILE__), 'windows_patch', 'file_patch'))
 
-THIS_FILE = File.symlink?(__FILE__) ? File.readlink(__FILE__) : __FILE__
-$:.push(File.join(File.dirname(THIS_FILE), 'lib'))
+# hereafter used normalize_path to ensure files are only required once.
+WINDOWS_MONKEY_PATCHES_BASE_DIR = File.normalize_path(File.join(File.dirname(__FILE__), 'windows_patch'))
 
-require 'rubygems'
-require 'shutdown_client'
-
-shutdown_client = RightScale::ShutdownClient.new
-options = shutdown_client.parse_args
-shutdown_client.run(options)
+require File.join(WINDOWS_MONKEY_PATCHES_BASE_DIR, 'process_patch')
+require File.join(WINDOWS_MONKEY_PATCHES_BASE_DIR, 'stdio_patch')
+require File.join(WINDOWS_MONKEY_PATCHES_BASE_DIR, 'time_patch')
+require File.join(WINDOWS_MONKEY_PATCHES_BASE_DIR, 'win32ole_patch')

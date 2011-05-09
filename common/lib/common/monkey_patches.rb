@@ -1,4 +1,3 @@
-#!/opt/rightscale/sandbox/bin/ruby
 #
 # Copyright (c) 2011 RightScale Inc
 #
@@ -21,16 +20,18 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-# rs_reboot --help for usage information
-#
-# See lib/shutdown_client.rb for additional information.
-
-THIS_FILE = File.symlink?(__FILE__) ? File.readlink(__FILE__) : __FILE__
-$:.push(File.join(File.dirname(THIS_FILE), 'lib'))
-
 require 'rubygems'
-require 'shutdown_client'
 
-shutdown_client = RightScale::ShutdownClient.new
-options = shutdown_client.parse_args
-shutdown_client.run(options)
+# load platform-specific patches before any gem patches.
+if (RUBY_PLATFORM =~ /mswin/)
+  require File.expand_path(File.join(File.dirname(__FILE__), 'monkey_patches', 'platform', 'windows'))
+elsif (RUBY_PLATFORM =~ /linux/)
+  require File.expand_path(File.join(File.dirname(__FILE__), 'monkey_patches', 'platform', 'linux'))
+elsif (RUBY_PLATFORM =~ /darwin/)
+  require File.expand_path(File.join(File.dirname(__FILE__), 'monkey_patches', 'platform', 'darwin'))
+else
+  raise LoadError, "Unsupported platform: #{RUBY_PLATFORM}"
+end
+
+# TODO load and patch any gems requiring patches
+# MONKEY_PATCHES_BASE_DIR = File.normalize_path(File.join(File.dirname(__FILE__), 'monkey_patches'))

@@ -35,8 +35,10 @@ module RightScale
         @input = input
        end
       def post_init
-        send_data(RightScale::CommandSerializer.dump(@input))
-        close_connection_after_writing
+        if @input
+          send_data(RightScale::CommandSerializer.dump(@input))
+          close_connection_after_writing
+        end
       end
     end
   end
@@ -84,6 +86,29 @@ describe RightScale::CommandIO do
     @inputs.size.should == 51
     (0..49).each { |i| @inputs[i].should == "input#{i+1}" }
     @inputs[50].should == 'final'
+  end
+
+  it 'should log exceptions raised by invalid commands and continue' do
+    @input = []
+    EM.run do
+      RightScale::CommandIO.instance.listen(@socket_port) do |input, _|
+        case input
+        when 'final'
+          stop
+        when 'fail'
+          raise ArgumentError.new("simulating bad input")
+        end
+        @input << input
+      end
+      c = send_input(nil)
+      c.send_data(RightScale::CommandSerializer.dump('stuff'))
+      c.send_data(RightScale::CommandSerializer.dump('fail'))
+      c.send_data("---\n:xyz: :xyz: :xyz" + RightScale::CommandSerializer::SEPARATOR)  # causes YAML::load raise exception
+      c.send_data("---\n---\n---" + RightScale::CommandSerializer::SEPARATOR)  # causes YAML::load to return nil
+      c.send_data(RightScale::CommandSerializer.dump('final'))
+      EM.add_timer(2) { stop }
+    end
+    @input.should == ['stuff', 'final']
   end
 
   def stop

@@ -1,4 +1,3 @@
-#!/opt/rightscale/sandbox/bin/ruby
 #
 # Copyright (c) 2011 RightScale Inc
 #
@@ -21,16 +20,30 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-# rs_reboot --help for usage information
-#
-# See lib/shutdown_client.rb for additional information.
+class Object
+  unless defined? instance_exec # 1.9 and 1.8.7
+    module InstanceExecHelper; end
+    include InstanceExecHelper
 
-THIS_FILE = File.symlink?(__FILE__) ? File.readlink(__FILE__) : __FILE__
-$:.push(File.join(File.dirname(THIS_FILE), 'lib'))
+    # Evaluate the block with the given arguments within the context of
+    # this object, so self is set to the method receiver.
+    #
+    # From Mauricio's http://eigenclass.org/hiki/bounded+space+instance_exec
+    def instance_exec(*args, &block)
+      begin
+        old_critical, Thread.critical = Thread.critical, true
+        n = 0
+        n += 1 while respond_to?(method_name = "__instance_exec#{n}")
+        InstanceExecMethods.module_eval { define_method(method_name, &block) }
+      ensure
+        Thread.critical = old_critical
+      end
 
-require 'rubygems'
-require 'shutdown_client'
-
-shutdown_client = RightScale::ShutdownClient.new
-options = shutdown_client.parse_args
-shutdown_client.run(options)
+      begin
+        send(method_name, *args)
+      ensure
+        InstanceExecMethods.module_eval { remove_method(method_name) } rescue nil
+      end
+    end
+  end
+end

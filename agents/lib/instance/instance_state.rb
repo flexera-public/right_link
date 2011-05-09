@@ -104,6 +104,15 @@ module RightScale
       @@planned_volume_state ||= PlannedVolumeState.new
     end
 
+    # (String) Type of decommission currently in progress or nil
+    def self.decommission_type
+      if @@value == 'decommissioning'
+        @@decommission_type
+      else
+        raise RightScale::Exceptions::WrongState.new("Unexpected call to InstanceState.decommission_type for current state #{@value.inspect}")
+      end
+    end
+
     # Set instance id with given id
     # Load persisted state if any, compare instance ids and force boot if instance ID
     # is different or if reboot flagged
@@ -128,7 +137,7 @@ module RightScale
       @@record_retries = 0
       @@last_communication = 0
       @@planned_volume_state = nil
-      @@shutdown_request = nil
+      @@decommission_type = nil
 
       MapperProxy.instance.message_received { message_received } unless @@read_only
 
@@ -138,17 +147,30 @@ module RightScale
         state = RightScale::JsonUtilities::read_json(STATE_FILE)
         RightLinkLog.debug("Initializing instance #{identity} with #{state.inspect}")
 
+        @@resource_uid = current_resource_uid
+
         # Initial state reconciliation: use recorded state and boot timestamp to determine how we last stopped.
         # There are four basic scenarios to worry about:
         #  1) first run          -- Agent is starting up for the first time after a fresh install
         #  2) reboot/restart     -- Agent already ran; agent ID not changed; reboot detected: transition back to booting
         #  3) bundled boot       -- Agent already ran; agent ID changed: transition back to booting
         #  4) decommission/crash -- Agent exited anyway; ID not changed; no reboot; keep old state entirely
+        #  5) ec2 restart        -- Agent already ran; agent ID changed; instance ID is the same; transition back to booting
         if state['identity'] && state['identity'] != identity
-          # CASE 3 -- identity has changed; bundled boot
-          RightLinkLog.debug("Bundle detected; transitioning state to booting")
           @@last_recorded_value = state['last_recorded_value']
           self.value = 'booting'
+          # if the current resource_uid is the same as the last
+          # observed resource_uid, then this is a restart,
+          # otherwise this is a bundle
+          old_resource_uid = state["last_observed_resource_uid"]
+          if @@resource_uid && @@resource_uid == old_resource_uid
+            # CASE 5 -- identity has changed; ec2 restart
+            RightLinkLog.debug("Restart detected; transitioning state to booting")
+            @@reboot = true
+          else
+            # CASE 3 -- identity has changed; bundled boot
+            RightLinkLog.debug("Bundle detected; transitioning state to booting")
+          end
         elsif state['reboot']
           # CASE 2 -- rebooting flagged by rightboot script in linux or by shutdown notification in windows
           RightLinkLog.debug("Reboot detected; transitioning state to booting")
@@ -162,6 +184,7 @@ module RightScale
           @@log_level = state['log_level']
           @@last_recorded_value = state['last_recorded_value']
           @@record_retries = state['record_retries']
+          @@decommission_type = state['decommission_type'] if @@value == 'decommissioning'
           if @@value != @@last_recorded_value && RECORDED_STATES.include?(@@value) &&
              @@record_retries < MAX_RECORD_STATE_RETRIES && !@@read_only
             record_state
@@ -184,15 +207,6 @@ module RightScale
         @@login_policy = nil
       end
       RightLinkLog.debug("Existing login users: #{@@login_policy.users.length} recorded") if @@login_policy
-
-      begin
-        meta_data_file = ::File.join(RightScale::RightLinkConfig[:cloud_state_dir], 'meta-data-cache.rb')
-        # metadata does not exist on all clouds, hence the conditional
-        load(meta_data_file) if File.file?(meta_data_file)
-        @@resource_uid = ENV['EC2_INSTANCE_ID']
-      rescue Exception => e
-        RightLinkLog.warn("Failed to load metadata: #{e.message}, #{e.backtrace[0]}")
-      end
 
       #Ensure MOTD is up to date
       update_motd
@@ -217,12 +231,32 @@ module RightScale
       RightLinkLog.info("Transitioning state from #{@@value rescue INITIAL_STATE} to #{val}")
       @@reboot = false if val != :booting
       @@value = val
+      @@decommission_type = nil unless @@value == 'decommissioning'
       update_logger
       update_motd
       record_state if RECORDED_STATES.include?(val)
       store_state
       @observers.each { |o| o.call(val) } if @observers
       val
+    end
+
+    # Set decommission type and set state to 'decommissioning'
+    #
+    # === Parameters
+    # decommission_type(String):: One of RightScale::ShutdownRequest::LEVELS or nil
+    #
+    # === Return
+    # result(String):: new decommission type
+    # 
+    # === Raise
+    # RightScale::Exceptions::Application:: Cannot update in read-only mod
+    def self.decommission_type=(decommission_type)
+      unless RightScale::ShutdownRequest::LEVELS.include?(decommission_type)
+        raise RightScale::ShutdownRequest::InvalidLevel.new("Unexpected decommission_type: #{decommission_type}")
+      end
+      @@decommission_type = decommission_type
+      self.value = 'decommissioning'
+      @@decommission_type
     end
 
     # Instance AWS id for EC2 instances
@@ -297,11 +331,6 @@ module RightScale
       else
         RightLinkLog.error("InstanceState.shutdown() kind was unexpected: #{kind}")
       end
-    end
-
-    # Current requested shutdown state, if any.
-    def self.shutdown_request
-      @@shutdown_request ||= ::RightScale::ShutdownManagement::ShutdownRequest.new
     end
 
     # Set startup tags
@@ -470,15 +499,22 @@ module RightScale
     # === Return
     # true:: Always return true
     def self.store_state
-      RightScale::JsonUtilities::write_json(STATE_FILE, {'value'               => @@value,
-                                                         'identity'            => @@identity,
-                                                         'uptime'              => uptime,
-                                                         'reboot'              => @@reboot,
-                                                         'startup_tags'        => @@startup_tags,
-                                                         'log_level'           => @@log_level,
-                                                         'record_retries'      => @@record_retries,
-                                                         'last_recorded_value' => @@last_recorded_value,
-                                                         'last_communication'  => @@last_communication})
+      state_to_store = {'value'                      => @@value,
+                        'identity'                   => @@identity,
+                        'uptime'                     => uptime,
+                        'reboot'                     => @@reboot,
+                        'startup_tags'               => @@startup_tags,
+                        'log_level'                  => @@log_level,
+                        'record_retries'             => @@record_retries,
+                        'last_recorded_value'        => @@last_recorded_value,
+                        'last_communication'         => @@last_communication,
+                        'last_observed_resource_uid' => @@resource_uid}
+
+      # only include deommission_type when decommissioning
+      state_to_store['decommission_type'] = @@decommission_type if @@value == 'decommissioning'
+
+      # store
+      RightScale::JsonUtilities::write_json(STATE_FILE, state_to_store)
       true
     end
 
@@ -528,6 +564,23 @@ module RightScale
       true
     end
 
+    #
+    # retrieve the resource uid from the metadata
+    #
+    # === Return
+    # resource_uid(String|nil):: the resource uid or nil
+    def self.current_resource_uid
+      resource_uid = nil
+      begin
+        meta_data_file = ::File.join(RightScale::RightLinkConfig[:cloud_state_dir], 'meta-data-cache.rb')
+        # metadata does not exist on all clouds, hence the conditional
+        load(meta_data_file) if File.file?(meta_data_file)
+        resource_uid = ENV['EC2_INSTANCE_ID']
+      rescue Exception => e
+        RightLinkLog.warn("Failed to load metadata: #{e.message}, #{e.backtrace[0]}")
+      end
+      resource_uid
+    end
   end
 
 end

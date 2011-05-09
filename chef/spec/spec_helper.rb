@@ -52,15 +52,3 @@ shared_examples_for 'mocks logging' do
     @auditor.should_receive(:update_status).and_return { |m| @logger.audit_status << m }
   end
 end
-
-shared_examples_for 'mocks state' do
-  include RightScale::SpecHelpers
-
-  before(:each) do
-    setup_state
-  end
-
-  after(:each) do
-    cleanup_state
-  end
-end

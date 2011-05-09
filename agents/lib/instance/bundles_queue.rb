@@ -29,17 +29,12 @@ module RightScale
 
     # Set continuation block to be called after 'close' is called
     #
-    # === Parameters
-    # shutdown_manager(Object):: shutdown manager to handle shutdown requests.
-    #
     # === Block
     # continuation block
-    def initialize(shutdown_manager, &continuation)
-      @shutdown_manager = shutdown_manager
+    def initialize(&continuation)
       @queue = Queue.new
       @continuation = continuation
       @active = false
-      @shutdown_scheduled = false
     end
 
     # Activate queue for execution, idempotent
@@ -73,12 +68,13 @@ module RightScale
         EM.next_tick { @continuation.call if @continuation }
         @active = false
       elsif context == SHUTDOWN_BUNDLE
-        unless @shutdown_scheduled
-          @shutdown_manager.manage_shutdown_request { @shutdown_scheduled = true }
-        end
-        # continue in queue expecting the decommission bundle to finish us off.
+        # process shutdown request.
+        ShutdownRequest.instance.process
+
+        # continue in queue in the expectation that the decommission bundle will
+        # shutdown the instance and its agent normally.
         EM.defer { run }
-      elsif false == context.decommission && @shutdown_manager.shutdown_request.immediately?
+      elsif false == context.decommission && ShutdownRequest.instance.immediately?
         # immediate shutdown pre-empts any futher attempts to run operational
         # scripts but still allows the decommission bundle to run.
         # proceed ignoring bundles until final or shutdown are encountered.

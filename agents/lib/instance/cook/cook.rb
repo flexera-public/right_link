@@ -38,9 +38,6 @@ module RightScale
     # Name of agent running the cook process
     AGENT_NAME = 'instance'
 
-    # exceptions.
-    class ShutdownQueryFailed < Exception; end
-
     # Run bundle given in stdin
     def run
 
@@ -55,6 +52,7 @@ module RightScale
       fail('Missing command server listen port') unless options[:listen_port]
       fail('Missing command cookie') unless options[:cookie]
       @client = CommandClient.new(options[:listen_port], options[:cookie])
+      ShutdownRequestProxy.init(@client)
 
       # 3. Run bundle
       @@instance = self
@@ -142,54 +140,6 @@ module RightScale
     def remove_tag(tag_name)
       cmd = { :name => :remove_tag, :tag => tag_name }
       @client.send_command(cmd)
-    end
-
-    # Queries shutdown request state (from parent process) only if not cached
-    # locally.
-    #
-    # === Returns
-    # shutdown_request(ShutdownRequest):: current state
-    def shutdown_request
-      # use a queue to block and wait for response.
-      result_queue = Queue.new
-      cmd = {:name => :get_shutdown_request}
-      @client.send_command(cmd) do |result|
-        shutdown_request = nil
-        if result[:error]
-          RightLinkLog.error("Failed getting state of requested shutdown: #{result[:error]}")
-        else
-          shutdown_request = ::RightScale::ShutdownManagement::ShutdownRequest.new
-          shutdown_request.level = result[:level]
-          shutdown_request.immediately! if result[:immediately]
-        end
-        result_queue << shutdown_request
-      end
-      shutdown_request = result_queue.shift
-      raise ShutdownQueryFailed.new("Unable to retrieve state of shutdown request from parent process.") unless shutdown_request
-      return shutdown_request
-    end
-
-    # Updates shutdown request state (for parent process) which may be
-    # superceded by a previous, higher-priority shutdown level.
-    #
-    # === Parameters
-    # level(String):: shutdown request level
-    # immediately(Boolean):: shutdown request immediacy
-    #
-    # === Returns
-    # shutdown_request(ShutdownRequest):: current state
-    def schedule_shutdown(level, immediately = false)
-      cmd = {:name => :set_shutdown_request, :level => level, :immediately => !!immediately}
-      @client.send_command(cmd) do |result|
-        if result[:error]
-          RightLinkLog.error("Failed setting state of requested shutdown: #{result[:error]}")
-        else
-          shutdown_request = ::RightScale::ShutdownManagement::ShutdownRequest.new
-          shutdown_request.level = result[:level]
-          shutdown_request.immediately! if result[:immediately]
-        end
-      end
-      return shutdown_request
     end
 
     # Access cook instance from anywhere to send requests to core through

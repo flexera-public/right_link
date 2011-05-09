@@ -40,14 +40,32 @@ describe RightScale::CommandParser do
   it 'should parse in chunks' do
     data = RightScale::CommandSerializer.dump({ :some => 'random', :and => 'long', :serialized => 'data' })
     data.size.should > 6
-    parts = data[0..2], data[3..4], data[5..6], data[7..data.size - 1]
-    command = ''
-    parser = RightScale::CommandParser.new { |cmd| command = cmd; EM.stop }
+    separator_length = RightScale::CommandSerializer::SEPARATOR.size
+    parts = data[0..2], data[3..4], data[5..6],
+            data[7..(data.size - separator_length - 1)],
+            data[(data.size - separator_length)..-1]
+
+    # duplicate the parts but join last part of the first command to the first
+    # part of the second command to simluate EM truncating a large data chunk
+    # due to buffer restrictions. this creates a part which contains the command
+    # separator followed by an incomplete (and therefore invalid) start-of-YAML-
+    # doc separator which raises a YAML exception if parsed. this tests that our
+    # parser will wait for more parts before parsing the second command.
+    parts = parts[0..-2] + [parts[-1] + parts[0]] + parts[1..-1]
+
+    commands = []
+    parser = RightScale::CommandParser.new do |cmd|
+      commands << cmd
+      EM.stop if commands.size >= 2
+    end
     EM.run do
       parts.each { |p| parser.parse_chunk(p) }
-      EM.add_timer(0.5) { EM.stop }
+      EM.add_timer(1) { EM.stop }
     end
-    command.should == { :some => 'random', :and => 'long', :serialized => 'data' }
+    commands.size.should == 2
+    commands.each do |command|
+      command.should == { :some => 'random', :and => 'long', :serialized => 'data' }
+    end
   end
 
   it 'should parse multiple commands' do
