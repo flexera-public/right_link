@@ -712,17 +712,19 @@ module RightScale
       true
     end
 
-    # Delete queue in all usable brokers
+    # Delete queue in all usable brokers or all selected brokers that are usable
     #
     # === Parameters
     # name(String):: Queue name
-    # options(Hash):: Queue declare options
+    # options(Hash):: Queue declare options plus
+    #   :brokers(Array):: Identity of brokers in which queue is to be deleted
     #
     # === Return
     # identities(Array):: Identity of brokers where queue was deleted
     def delete(name, options = {})
       identities = []
-      each_usable { |b| identities << b.identity if b.delete(name, options) }
+      u = usable
+      ((options[:brokers] || u) & u).each { |i| identities << i if (b = @brokers_hash[i]) && b.delete(name, options) }
       identities
     end
 
