@@ -406,7 +406,7 @@ module RightScale
       true
     end
 
-    # Delete queue if subscribed to it
+    # Delete queue
     #
     # === Parameters
     # name(String):: Queue name
@@ -423,6 +423,12 @@ module RightScale
               @mq.queue(name, options.merge(:no_declare => true)).delete
               deleted = true
             end
+          end
+          unless deleted
+            # Allowing declare to happen since queue may not exist and do not want NOT_FOUND
+            # failure to cause AMQP channel to close
+            @mq.queue(name, options).delete
+            deleted = true
           end
         rescue Exception => e
           RightLinkLog.error("Failed deleting queue #{name.inspect} on broker #{@alias}", e, :trace)
