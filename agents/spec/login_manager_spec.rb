@@ -140,7 +140,6 @@ describe RightScale::LoginManager do
 
         flexmock(@mgr).should_receive(:read_keys_file).and_return(@system_keys)
         flexmock(@mgr).should_receive(:write_keys_file).with((@policy_keys+@stripped_keys).sort).and_return(true)
-        puts (@policy_keys+@stripped_keys).sort.inspect 
         @mgr.update_policy(@policy)
       end
 

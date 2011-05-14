@@ -394,7 +394,8 @@ module RightScale
           logger.formatter.datetime_format = "%b %d %H:%M:%S"
         else
           puts "Logging to syslog" if opts[:print]
-          logger = RightSupport::SystemLogger.new(@program_name || identity || 'RightLink')
+          logger = RightSupport::SystemLogger.new(@program_name || identity || 'RightLink',
+                                                  :facility=>'user')
         end
 
         @logger = Multiplexer.new(logger)
