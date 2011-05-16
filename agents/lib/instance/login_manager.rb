@@ -28,6 +28,8 @@ module RightScale
     include Singleton
 
     ROOT_TRUSTED_KEYS_FILE = '/root/.ssh/authorized_keys'
+    PUBLIC_KEY_FILES       = ['/etc/ssh/ssh_host_rsa_key.pub',
+                              '/etc/ssh/ssh_host_dsa_key.pub']
     ACTIVE_TAG             = 'rs_login:state=active'      
     COMMENT                = /^\s*#/
 
@@ -59,7 +61,12 @@ module RightScale
       new_lines, system_lines = merge_keys(old_users, new_users, new_policy.exclusive)
       InstanceState.login_policy = new_policy
       write_keys_file(new_lines)
-      AgentTagsManager.instance.add_tags(ACTIVE_TAG)
+
+      tags = [ACTIVE_TAG]
+      local_public_keys.each_pair do |algorithm, data|
+        tags << "rs_login:#{algorithm}=#{data}"
+      end
+      AgentTagsManager.instance.add_tags(tags)
 
       #Schedule a timer to handle any expiration that is planned to happen in the future
       schedule_expiry(new_policy)
@@ -69,6 +76,25 @@ module RightScale
     end
 
     protected
+
+    # Read various public keys from /etc/ssh
+    #
+    # === Return
+    # keys(Hash):: map of algorithm-name => public key material
+    def local_public_keys
+      keys = {}
+
+      PUBLIC_KEY_FILES.each do |f|
+        if File.exist?(f) && File.readable?(f) && (data = File.read(f))
+          data      = data.split
+          algorithm = data[0].split('-').last
+          key       = data[1]
+          keys[algorithm] = key
+        end
+      end
+
+      keys
+    end
 
     # Read ~root/.ssh/authorized_keys if it exists
     #
