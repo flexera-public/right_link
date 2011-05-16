@@ -695,7 +695,7 @@ describe InstanceSetup do
         RightScale::InstanceState.value = RightScale::InstanceState::FINAL_STATE
         true
       end
-    ::RightScale::InstanceState.init(@agent_identity)
+    ::RightScale::InstanceState.init(@agent_identity.to_s)
     ::RightScale::InstanceState.decommission_type = ::RightScale::ShutdownRequest::TERMINATE
     boot_to_decommissioned
   end
