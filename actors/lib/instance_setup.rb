@@ -109,14 +109,15 @@ class InstanceSetup
     payload = {:agent_identity => @agent_identity,
                :r_s_version    => RightScale::RightLinkConfig.protocol_version,
                :resource_uid   => RightScale::InstanceState.resource_uid}
-    # Do not allow this request to be retried because it is not idempotent
-    send_persistent_request("/booter/declare", payload, nil, :offline_queueing => true) do |r|
+    send_retryable_request("/booter/declare", payload, nil, :offline_queueing => true) do |r|
       res = result_from(r)
       if res.success?
         RightScale::MapperProxy.instance.start_offline_queue
         enable_managed_login
       else
-        if res.retry?
+        if res.non_delivery?
+          log_info("Request non-delivery (#{res.content}), retrying in #{RECONNECT_DELAY} seconds...")
+        elsif res.retry?
           log_info("RightScale not ready, retrying in #{RECONNECT_DELAY} seconds...")
         else
           log_warning("Failed to contact RightScale: #{res.content}, retrying in #{RECONNECT_DELAY} seconds...")

@@ -84,6 +84,7 @@ class InstanceSetup
     EM.defer do
       begin
         case operation
+        when "/booter/declare" then yield @@factory.success_results
         when "/booter/set_r_s_version" then yield @@factory.success_results
         when "/booter/get_repositories" then yield @@repos
         when "/booter/get_boot_bundle" then yield @@bundle
@@ -93,20 +94,6 @@ class InstanceSetup
         when "/storage_valet/get_planned_volumes" then yield @@results_for_get_planned_volumes.shift.call(*args)
         when "/storage_valet/attach_volume" then yield @@results_for_attach_volume.shift.call(*args)
         when "/storage_valet/detach_volume" then yield @@results_for_detach_volume.shift.call(*args)
-        else raise ArgumentError.new("Don't know how to mock #{operation}")
-        end
-      rescue Exception => e
-        strand(e)
-      end
-    end
-  end
-
-  def send_persistent_request(operation, *args)
-    # defer response to better simulate asynchronous nature of calls to RightNet.
-    EM.defer do
-      begin
-        case operation
-        when "/booter/declare" then yield @@factory.success_results
         else raise ArgumentError.new("Don't know how to mock #{operation}")
         end
       rescue Exception => e
