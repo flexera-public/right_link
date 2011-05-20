@@ -390,6 +390,29 @@ module RightScale
       age
     end
 
+    # Take any actions necessary to quiesce mapper interaction in preparation
+    # for agent termination but allow message receipt to continue
+    #
+    # === Return
+    # (Array):: Number of pending requests and age of youngest request
+    def terminate
+      @terminating = true
+      @ping_interval = 0
+      if @pending_ping
+        @pending_ping.cancel
+        @pending_ping = nil
+      end
+      if @timer
+        @timer.cancel
+        @timer = nil
+      end
+      if @reenroll_vote_timer
+        @reenroll_vote_timer.cancel
+        @reenroll_vote_timer = nil
+      end
+      [@pending_requests.size, request_age]
+    end
+
     # Create displayable dump of unfinished request information
     # Truncate list if there are more than 50 requests
     #
@@ -704,7 +727,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def check_connection(id = nil)
-      unless @pending_ping || (id && !@broker.connected?(id))
+      unless @terminating || @pending_ping || (id && !@broker.connected?(id))
         @pending_ping = EM::Timer.new(PING_TIMEOUT) do
           begin
             @pings.update("timeout")

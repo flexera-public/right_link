@@ -263,6 +263,7 @@ describe RightScale::Agent do
               and_return(flexmock("pid file", :check=>true, :write=>true, :remove=>true))
       @mapper_proxy = flexmock("mapper_proxy", :pending_requests => [], :request_age => nil,
                                :message_received => true, :stats => "").by_default
+      @mapper_proxy.should_receive(:terminate).and_return([0, 0]).by_default
       flexmock(RightScale::MapperProxy).should_receive(:new).and_return(@mapper_proxy)
       @dispatcher = flexmock("dispatcher", :dispatch_age => nil, :dispatch => true, :stats => "").by_default
       flexmock(RightScale::Dispatcher).should_receive(:new).and_return(@dispatcher)
@@ -437,9 +438,7 @@ describe RightScale::Agent do
       end
 
       it "should wait to terminate if there are recent unfinished requests" do
-        @mapper_proxy.should_receive(:pending_requests).and_return(["request"]).once
-        @mapper_proxy.should_receive(:request_age).and_return(10).once
-        @dispatcher.should_receive(:dispatch_age).and_return(nil).once
+        @mapper_proxy.should_receive(:terminate).and_return([1, 10]).once
         flexmock(EM::Timer).should_receive(:new).with(20, Proc).and_return(@timer).once
         run_in_em do
           @agent = RightScale::Agent.new(:user => "me", :identity => @identity)
@@ -449,8 +448,7 @@ describe RightScale::Agent do
       end
 
       it "should wait to terminate if there are recent dispatches" do
-        @mapper_proxy.should_receive(:pending_requests).and_return([]).once
-        @mapper_proxy.should_receive(:request_age).and_return(nil).once
+        @mapper_proxy.should_receive(:terminate).and_return([0, 20]).once
         @dispatcher.should_receive(:dispatch_age).and_return(20).and_return(@timer).once
         flexmock(EM::Timer).should_receive(:new).with(10, Proc).once
         run_in_em do
@@ -461,8 +459,7 @@ describe RightScale::Agent do
       end
 
       it "should wait to terminate if there are recent unfinished requests or recent dispatches" do
-        @mapper_proxy.should_receive(:pending_requests).and_return(["request"]).once
-        @mapper_proxy.should_receive(:request_age).and_return(21).once
+        @mapper_proxy.should_receive(:terminate).and_return([1, 21]).once
         @dispatcher.should_receive(:dispatch_age).and_return(22).once
         flexmock(EM::Timer).should_receive(:new).with(9, Proc).and_return(@timer).once
         run_in_em do
@@ -473,8 +470,7 @@ describe RightScale::Agent do
       end
 
       it "should log that terminating and then log the reason for waiting to terminate" do
-        @mapper_proxy.should_receive(:pending_requests).and_return(["request"]).once
-        @mapper_proxy.should_receive(:request_age).and_return(21).once
+        @mapper_proxy.should_receive(:terminate).and_return([1, 21]).once
         @dispatcher.should_receive(:dispatch_age).and_return(22).once
         flexmock(EM::Timer).should_receive(:new).with(9, Proc).and_return(@timer).once
         run_in_em do
@@ -488,8 +484,7 @@ describe RightScale::Agent do
       end
 
       it "should not log reason for waiting to terminate if no need to wait" do
-        @mapper_proxy.should_receive(:pending_requests).and_return([]).once
-        @mapper_proxy.should_receive(:request_age).and_return(nil).once
+        @mapper_proxy.should_receive(:terminate).and_return([0, nil]).once
         @dispatcher.should_receive(:dispatch_age).and_return(nil).once
         flexmock(EM::Timer).should_receive(:new).with(0, Proc).and_return(@timer).once
         run_in_em do
@@ -503,8 +498,7 @@ describe RightScale::Agent do
       end
 
       it "should continue with termination after waiting and log that continuing" do
-        @mapper_proxy.should_receive(:pending_requests).and_return(["request"]).twice
-        @mapper_proxy.should_receive(:request_age).and_return(10).twice
+        @mapper_proxy.should_receive(:terminate).and_return([1, 10]).twice
         @mapper_proxy.should_receive(:dump_requests).and_return(["request"]).once
         @dispatcher.should_receive(:dispatch_age).and_return(10).once
         @broker.should_receive(:close).once
@@ -522,8 +516,7 @@ describe RightScale::Agent do
       end
 
       it "should execute block after all brokers have been closed" do
-        @mapper_proxy.should_receive(:pending_requests).and_return(["request"]).twice
-        @mapper_proxy.should_receive(:request_age).and_return(10).twice
+        @mapper_proxy.should_receive(:terminate).and_return([1, 10]).twice
         @mapper_proxy.should_receive(:dump_requests).and_return(["request"]).once
         @dispatcher.should_receive(:dispatch_age).and_return(10).once
         @broker.should_receive(:close).and_yield.once
@@ -538,8 +531,7 @@ describe RightScale::Agent do
       end
 
       it "should stop EM if no block specified" do
-        @mapper_proxy.should_receive(:pending_requests).and_return(["request"]).twice
-        @mapper_proxy.should_receive(:request_age).and_return(10).twice
+        @mapper_proxy.should_receive(:terminate).and_return([1, 10]).twice
         @mapper_proxy.should_receive(:dump_requests).and_return(["request"]).once
         @dispatcher.should_receive(:dispatch_age).and_return(10).once
         @broker.should_receive(:close).once
@@ -552,8 +544,7 @@ describe RightScale::Agent do
       end
 
       it "should terminate immediately if called a second time but should still execute block" do
-        @mapper_proxy.should_receive(:pending_requests).and_return(["request"]).once
-        @mapper_proxy.should_receive(:request_age).and_return(10).once
+        @mapper_proxy.should_receive(:terminate).and_return([1, 10]).once
         @dispatcher.should_receive(:dispatch_age).and_return(10).once
         flexmock(EM::Timer).should_receive(:new).with(20, Proc).and_return(@timer).once
         @timer.should_receive(:cancel).once

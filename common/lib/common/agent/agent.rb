@@ -395,9 +395,8 @@ module RightScale
           RightScale::RightLinkLog.info("[stop] Agent #{@identity} terminating")
           stop_gracefully(timeout) do
             if @mapper_proxy
-              request_count = @mapper_proxy.pending_requests.size
-              request_age = @mapper_proxy.request_age
               dispatch_age = @dispatcher.dispatch_age
+              request_count, request_age = @mapper_proxy.terminate
               wait_time = [timeout - (request_age || timeout), timeout - (dispatch_age || timeout), 0].max
               if wait_time > 0
                 reason = ""
@@ -409,8 +408,8 @@ module RightScale
               @termination_timer = EM::Timer.new(wait_time) do
                 begin
                   RightLinkLog.info("[stop] Continuing with termination") if wait_time > 0
-                  if request_age = @mapper_proxy.request_age
-                    request_count = @mapper_proxy.pending_requests.size
+                  request_count, request_age = @mapper_proxy.terminate
+                  if request_age
                     request_dump = @mapper_proxy.dump_requests.join("\n  ")
                     RightLinkLog.info("[stop] The following #{request_count} requests initiated as recently as #{request_age} " +
                                       "seconds ago are being dropped:\n  #{request_dump}")
