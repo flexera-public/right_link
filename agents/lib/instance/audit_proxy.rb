@@ -201,7 +201,11 @@ module RightScale
     # === Return
     # Always return true
     def flush_buffer
-      @timer.cancel if @timer
+      # note we must discard cancelled timer or else we never create a new timer and stay cancelled.
+      if @timer
+        @timer.cancel
+        @timer = nil
+      end
       unless @buffer.empty?
         internal_send_audit(:kind => :output, :text => @buffer, :category => EventCategories::NONE)
         @buffer = ''
@@ -222,4 +226,3 @@ module RightScale
 
   end
 end
-
