@@ -784,7 +784,9 @@ module RightScale
     # === Return
     # true:: Always return true
     def close(&blk)
-      unless @closed
+      if @closed
+        blk.call if blk
+      else
         @closed = true
         @connection_status = {}
         handler = CountedDeferrable.new(@brokers.size)
