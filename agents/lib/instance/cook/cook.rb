@@ -20,14 +20,16 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-BASE_DIR = File.join(File.dirname(__FILE__), '..', '..', '..', '..')
-
-require File.normalize_path(File.join(BASE_DIR, 'chef', 'lib', 'providers'))
-require File.normalize_path(File.join(BASE_DIR, 'chef', 'lib', 'plugins'))
-require File.normalize_path(File.join(BASE_DIR, 'common', 'lib', 'common'))
-require File.normalize_path(File.join(BASE_DIR, 'command_protocol', 'lib', 'command_protocol'))
-require File.normalize_path(File.join(BASE_DIR, 'payload_types', 'lib', 'payload_types'))
-require File.normalize_path(File.join(BASE_DIR, 'scripts', 'lib', 'agent_utils'))
+begin
+  # note using local base_dir constant to avoid redefinition warnings.
+  base_dir = File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', '..', '..'))
+  require File.normalize_path(File.join(base_dir, 'chef', 'lib', 'providers'))
+  require File.normalize_path(File.join(base_dir, 'chef', 'lib', 'plugins'))
+  require File.normalize_path(File.join(base_dir, 'common', 'lib', 'common'))
+  require File.normalize_path(File.join(base_dir, 'command_protocol', 'lib', 'command_protocol'))
+  require File.normalize_path(File.join(base_dir, 'payload_types', 'lib', 'payload_types'))
+  require File.normalize_path(File.join(base_dir, 'scripts', 'lib', 'agent_utils'))
+end
 
 module RightScale
 
