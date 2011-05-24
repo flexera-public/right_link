@@ -18,7 +18,7 @@
 
 $:.push(File.dirname(__FILE__))
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'config', 'right_link_config'))
-require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'command_protocol', 'lib', 'command_protocol'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'command_protocol', 'lib', 'command_protocol'))
 require 'optparse'
 require 'fileutils'
 require 'json'

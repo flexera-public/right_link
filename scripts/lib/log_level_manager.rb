@@ -32,8 +32,8 @@ require 'rdoc/ri/ri_paths' # For backwards compat with ruby 1.8.5
 require 'rdoc/usage'
 require 'rdoc_patch'
 require 'agent_utils'
-require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'command_protocol', 'lib', 'command_protocol'))
-require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'actors', 'lib', 'agent_manager'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'command_protocol', 'lib', 'command_protocol'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'actors', 'lib', 'agent_manager'))
 
 module RightScale
 

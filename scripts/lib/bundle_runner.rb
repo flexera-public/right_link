@@ -14,7 +14,7 @@
 #     rs_run_recipe -n nginx -j attribs.js
 #     rs_run_recipe --name nginx --json attribs.js
 #
-#   Run RightScript with id 14 and override input 'APPLICATION' with value 
+#   Run RightScript with id 14 and override input 'APPLICATION' with value
 #   'Mephisto':
 #     rs_run_right_script -i 14 -p APPLICATION=text:Mephisto
 #     rs_run_right_script --identity 14 --parameter APPLICATION=text:Mephisto
@@ -49,10 +49,10 @@
 
 $:.push(File.dirname(__FILE__))
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'config', 'right_link_config'))
-require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'common', 'lib', 'common', 'serializer'))
-require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'common', 'lib', 'common', 'serializable'))
-require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'common', 'lib', 'common', 'operation_result'))
-require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'command_protocol', 'lib', 'command_protocol'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'common', 'lib', 'common', 'serializer'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'common', 'lib', 'common', 'serializable'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'common', 'lib', 'common', 'operation_result'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'command_protocol', 'lib', 'command_protocol'))
 require 'optparse'
 require 'rdoc/ri/ri_paths' # For backwards compat with ruby 1.8.5
 require 'rdoc/usage'
@@ -263,7 +263,7 @@ protected
 
   end
 
-end 
+end
 
 #
 # Copyright (c) 2009 RightScale Inc
