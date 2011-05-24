@@ -20,12 +20,6 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-BASE_DIR = File.join(File.dirname(__FILE__), '..', '..', '..', '..')
-
-require File.normalize_path(File.join(BASE_DIR, 'common', 'lib', 'common'))
-require File.normalize_path(File.join(BASE_DIR, 'command_protocol', 'lib', 'command_protocol'))
-require File.normalize_path(File.join(BASE_DIR, 'payload_types', 'lib', 'payload_types'))
-
 module RightScale
 
   # Proxy for a remote shutdown request state.
