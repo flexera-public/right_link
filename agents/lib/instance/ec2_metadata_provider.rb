@@ -49,10 +49,17 @@ module RightScale
       url = RightScale::CloudInfo.metadata_server_url + '/latest/meta-data/'
       return recursive_fetch_metadata(url)
     ensure
+      # ensure attempted close for each connection.
+      last_exception = nil
       @connections.each_value do |connection|
-        connection.finish
+        begin
+          connection.finish
+        rescue Exception => e
+          last_exception = e
+        end
       end
       @connections = {}
+      raise last_exception if last_exception
     end
 
     private
