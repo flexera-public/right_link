@@ -169,7 +169,7 @@ module RightScale
 
         # keep history of live connections for more efficient redirection.
         host = uri.host
-        connection = @connections[host] ||= Rightscale::HttpConnection.new(:logger => @logger)
+        connection = @connections[host] ||= Rightscale::HttpConnection.new(:logger => @logger, :exception => HttpMetadataException)
 
         # prepare request. ensure path not empty due to Net::HTTP limitation.
         #
