@@ -62,6 +62,12 @@ module RightScale
     }
 
   end
+
+  class Ec2MetadataProvider
+    # monkey patch for quicker testing of retries.
+    RETRY_DELAY_FACTOR = 0.01
+  end
+
 end
 
 describe RightScale::Ec2MetadataProvider do
@@ -82,23 +88,18 @@ describe RightScale::Ec2MetadataProvider do
   end
 
   it 'should raise exception for failing cURL calls' do
-    pending "disabled pending fix for periodically hanging Windows CI" if RightScale::Platform.windows?
-    metadata_provider = ::RightScale::Ec2MetadataProvider.new(:logger => @logger,
-                                                              :curl_retry_max_time => 1,
-                                                              :retry_delay_secs => 0.1,
-                                                              :max_curl_retries => 1)
+    metadata_provider = ::RightScale::Ec2MetadataProvider.new(:logger => @logger)
     metadata_formatter = ::RightScale::Ec2MetadataFormatter.new
     mock_cloud_info
     lambda do
       @runner.run_fetcher(metadata_provider, metadata_formatter) do |server|
         # intentionally not mounting any paths
       end
-    end.should raise_error(IOError)
+    end.should raise_error(::RightScale::Ec2MetadataProvider::HttpMetadataException)
   end
 
   it 'should recover from successful cURL calls which return malformed HTTP response' do
-    pending "disabled pending fix for periodically hanging Windows CI + timeout in Linux CI"
-    metadata_provider = ::RightScale::Ec2MetadataProvider.new(:logger => @logger, :retry_delay_secs => 0.1)
+    metadata_provider = ::RightScale::Ec2MetadataProvider.new(:logger => @logger)
     metadata_formatter = ::RightScale::Ec2MetadataFormatter.new
     requested_branch = false
     requested_leaf = false
@@ -147,20 +148,30 @@ describe RightScale::Ec2MetadataProvider do
     requested_branch.should == true
     requested_leaf.should == true
     metadata.size.should == 19
+
+    # verify normal responses.
     metadata["EC2_INSTANCE_TYPE"].should == "m1.small"
+    metadata["EC2_RESERVATION_ID"].should == "r-0ddf0f49"
+
+    # verify malformed responses were retried.
     metadata["EC2_BLOCK_DEVICE_MAPPING_AMI"].should == "/dev/sda1"
+    metadata["EC2_BLOCK_DEVICE_MAPPING_ROOT"].should == "/dev/sda1"
   end
 
   it 'should succeed for successful cURL calls' do
-    pending "disabled pending fix for periodically hanging Windows CI + bad file descriptor for Linux CI"
-    metadata_provider = ::RightScale::Ec2MetadataProvider.new(:logger => @logger, :retry_delay_secs => 0.1)
+    metadata_provider = ::RightScale::Ec2MetadataProvider.new(:logger => @logger)
     metadata_formatter = ::RightScale::Ec2MetadataFormatter.new
     mock_cloud_info
     metadata = @runner.run_fetcher(metadata_provider, metadata_formatter) do |server|
       server.recursive_mount_metadata(::RightScale::Ec2MetadataProviderSpec::METADATA_TREE, ::RightScale::Ec2MetadataProviderSpec::METADATA_ROOT.clone)
     end
     metadata.size.should == 19
+
+    # verify normal responses.
+    metadata["EC2_INSTANCE_TYPE"].should == "m1.small"
     metadata["EC2_RESERVATION_ID"].should == "r-0ddf0f49"
+    metadata["EC2_BLOCK_DEVICE_MAPPING_AMI"].should == "/dev/sda1"
+    metadata["EC2_BLOCK_DEVICE_MAPPING_ROOT"].should == "/dev/sda1"
   end
 
 end

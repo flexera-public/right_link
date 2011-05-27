@@ -123,7 +123,12 @@ module RightScale
 
     # Setup log for test.
     def setup_log
-      @log_file_name = File.normalize_path(File.join(Dir.tmpdir, "#{File.basename(__FILE__, '.rb')}_#{Time.now.strftime("%Y-%m-%d-%H%M%S")}.log"))
+      unless defined?(@@log_file_base_name)
+        @@log_file_base_name = File.normalize_path(File.join(Dir.tmpdir, "#{File.basename(__FILE__, '.rb')}_#{Time.now.strftime("%Y-%m-%d-%H%M%S")}"))
+        @@log_file_index = 0
+      end
+      @@log_file_index += 1
+      @log_file_name = "#{@@log_file_base_name}_#{@@log_file_index}.log"
       @log_file = File.open(@log_file_name, 'w')
       @logger = Logger.new(@log_file)
       @logger.level = is_debug? ? Logger::DEBUG : Logger::INFO
