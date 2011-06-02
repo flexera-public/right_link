@@ -52,26 +52,31 @@ module RightScale
     # === Return
     # connected(Boolean):: true if a connection could be made, false otherwise
     def self.can_contact_metadata_server?(addr, port, timeout=2)
-      t = Socket.new(Socket::Constants::AF_INET, Socket::Constants::SOCK_STREAM, 0)
-      saddr = Socket.pack_sockaddr_in(port, addr)
       connected = false
 
-      begin
-        t.connect_nonblock(saddr)
-      rescue Errno::EINPROGRESS
-        r,w,e = IO::select(nil,[t],nil,timeout)
-        if !w.nil?
-          connected = true
-        else
-          begin
-            t.connect_nonblock(saddr)
-          rescue Errno::EISCONN
-            t.close
+      begin 
+        t = Socket.new(Socket::Constants::AF_INET, Socket::Constants::SOCK_STREAM, 0)
+        saddr = Socket.pack_sockaddr_in(port, addr)
+
+        begin
+          t.connect_nonblock(saddr)
+        rescue Errno::EINPROGRESS
+          r,w,e = IO::select(nil,[t],nil,timeout)
+          if !w.nil?
             connected = true
-          rescue SystemCallError
+          else
+            begin
+              t.connect_nonblock(saddr)
+            rescue Errno::EISCONN
+              t.close
+              connected = true
+            rescue SystemCallError
+            end
           end
+        rescue SystemCallError
         end
-      rescue SystemCallError
+      rescue SocketError 
+        # catches 'getaddrinfo: Name or service not known'
       end
 
       connected
