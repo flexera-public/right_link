@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2010 RightScale Inc
+# Copyright (c) 2011 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -20,49 +20,89 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require File.expand_path(File.join(File.dirname(__FILE__), 'metadata_provider'))
-require File.expand_path(File.join(File.dirname(__FILE__), 'cloud_info'))
-require 'tmpdir'
+require File.expand_path(File.join(File.dirname(__FILE__), 'metadata_source'))
 require 'right_http_connection'
 require 'uri'
 
 module RightScale
 
-  # Implements MetadataProvider for EC2.
-  class Ec2MetadataProvider < MetadataProvider
+  # Provides metadata via a single http connection which is kept alive in the
+  # case of a tree of metadata.
+  class HttpMetadataSource < MetadataSource
 
-    class HttpMetadataException < Exception; end
-
-    # === Parameters
-    # options[:logger](Logger):: logger (required)
     def initialize(options)
       raise ArgumentError, "options[:logger] is required" unless @logger = options[:logger]
+      @connections = {}
     end
 
-    # Fetches EC2 metadata for the current instance.
+    # Appends a branch name to the given path.
     #
-    # === Returns
-    # metadata(Hash):: tree of metadata
-    def metadata
-      raise "Unexpected leftover connections" if @connections
-      @connections = {}
-      url = RightScale::CloudInfo.metadata_server_url + '/latest/meta-data/'
-      return recursive_fetch_metadata(url)
-    ensure
-      # ensure attempted close for each connection.
-      last_exception = nil
+    # === Parameters
+    # path(String):: metadata path
+    # branch_name(String):: branch name to append
+    #
+    # === Return
+    # result(String):: updated path
+    def append_branch_name(path, branch_name)
+      # remove anything after equals.
+      branch_name = branch_name.gsub(/\=.*$/, '')
+      branch_name = "#{branch_name}/" unless '/' == branch_name[-1..-1]
+      return append_leaf_name(path, branch_name)
+    end
+
+    # Appends a leaf name to the given path.
+    #
+    # === Parameters
+    # path(String):: metadata path
+    # leaf_name(String):: leaf name to append
+    #
+    # === Return
+    # result(String):: updated path
+    def append_leaf_name(path, leaf_name)
+      path = "#{path}/" unless '/' == path[-1..-1]
+      return "#{path}#{URI.escape(leaf_name)}"
+    end
+
+    # Queries for metadata using the given path.
+    #
+    # === Parameters
+    # path(String):: metadata path
+    #
+    # === Return
+    # metadata(String):: query result
+    #
+    # === Raises
+    # QueryFailed:: on any failure to query
+    def query(path)
+      attempts = 0
+      while true
+        # get.
+        result = http_get(path)
+        return result if result
+
+        # retry, if allowed.
+        attempts += 1
+        if snooze(attempts)
+          @logger.info("Retrying \"#{path}\"...")
+        else
+          raise QueryFailed, "Could not contact metadata server; retry limit exceeded."
+        end
+      end
+    end
+
+    # Closes any http connections left open after fetching metadata.
+    def finish
       @connections.each_value do |connection|
         begin
           connection.finish
         rescue Exception => e
-          last_exception = e
+          @logger.error("#{e.class}: #{e.message}\n#{e.backtrace.join("\n")}")
         end
       end
       @connections = {}
-      raise last_exception if last_exception
     end
 
-    private
+    protected
 
     # max wait 64 (2**6) sec between retries
     RETRY_BACKOFF_MAX = 6
@@ -73,72 +113,8 @@ module RightScale
     # retry factor (which can be monkey-patched for quicker testing of retries)
     RETRY_DELAY_FACTOR = 1
 
-    # Recursively grabs a tree of metadata and uses it to populate a tree of
-    # metadata.
-    #
-    # === Parameters
-    # url(String):: URL to query for metadata.
-    #
-    # === Returns
-    # tree_metadata(Hash):: tree of metadata
-    def recursive_fetch_metadata(url)
-
-      # query URL expecting a plain text list of URL subpaths delimited by
-      # newlines.
-      tree_metadata = {}
-      sub_paths = get_from(url)
-      sub_paths.each do |sub_path|
-        sub_path = sub_path.strip
-        unless sub_path.empty?
-
-          # an equals means there is a subtree to query by the key preceeding
-          # the equals sign.
-          # example: /public_keys/0=pubkey_name
-          equals_index = sub_path.index('=')
-          if equals_index
-            sub_path = sub_path[0,equals_index]
-            sub_path += "/"
-          end
-
-          # a URL ending with forward slash is a branch, otherwise a leaf
-          if sub_path =~ /\/$/
-            tree_metadata[sub_path.chomp('/')] = recursive_fetch_metadata(url + sub_path)
-          else
-            tree_metadata[sub_path] = get_from(url + sub_path)
-          end
-
-        end
-      end
-
-      return tree_metadata
-    end
-
-    # Requests metadata (in any form) from the given URL.
-    #
-    # === Parameters
-    # url(String):: URL to query for metadata.
-    #
-    # === Return
-    # result(String):: body of response
-    #
-    # === Raise
-    # HttpMetadataException:: on failure to retrieve metadata
-    def get_from(url)
-      attempts = 0
-      while true
-        # get.
-        result = http_get(url)
-        return result if result
-
-        # retry, if allowed.
-        attempts += 1
-        if snooze(attempts)
-          @logger.info("Retrying \"#{url}\"...")
-        else
-          raise HttpMetadataException, "Could not contact metadata server; retry limit exceeded."
-        end
-      end
-    end
+    # ensures we are not infinitely redirected.
+    MAX_REDIRECT_HISTORY = 16
 
     # Exponential backoff sleep algorithm.  Returns true if processing
     # should continue or false if the maximum number of attempts has
@@ -168,15 +144,15 @@ module RightScale
     #
     # === Return
     # result(String):: body of response or nil
-    def http_get(url, keep_alive = true)
-      uri = safe_parse_http_uri(url)
+    def http_get(path, keep_alive = true)
+      uri = safe_parse_http_uri(path)
       history = []
       loop do
-        @logger.debug("#{uri}")
+        @logger.debug("http_get(#{uri})")
 
         # keep history of live connections for more efficient redirection.
         host = uri.host
-        connection = @connections[host] ||= Rightscale::HttpConnection.new(:logger => @logger, :exception => HttpMetadataException)
+        connection = @connections[host] ||= Rightscale::HttpConnection.new(:logger => @logger, :exception => QueryFailed)
 
         # prepare request. ensure path not empty due to Net::HTTP limitation.
         #
@@ -201,6 +177,9 @@ module RightScale
             if history.include?(uri.to_s)
               @logger.error("Circular redirection to #{location.inspect} detected; giving up")
               return nil
+            elsif history.size >= MAX_REDIRECT_HISTORY
+              @logger.error("Unbounded redirection to #{location.inspect} detected; giving up")
+              return nil
             else
               # redirect and continue in loop.
               @logger.debug("Request redirected to #{location.inspect}: #{response.class.name}")
@@ -218,7 +197,7 @@ module RightScale
           # consider these to be 'bananas' and retry automatically (up to a
           # pre-defined limit).
           @logger.error("Request for metadata failed: #{response.class.name}")
-          raise HttpMetadataException, "Request for metadata failed: #{response.class.name}"
+          raise QueryFailed, "Request for metadata failed: #{response.class.name}"
         end
       end
     end
@@ -226,29 +205,29 @@ module RightScale
     # Handles some cases which raise exceptions in the URI class.
     #
     # === Parameters
-    # url(String)
-    def safe_parse_http_uri(url)
+    # path(String)
+    def safe_parse_http_uri(path)
       begin
-        uri = URI.parse(url)
+        uri = URI.parse(path)
       rescue URI::InvalidURIError => e
-        # URI raises an exception for URLs like "<IP>:<port>"
+        # URI raises an exception for paths like "<IP>:<port>"
         # (e.g. "127.0.0.1:123") unless they also have scheme (e.g. http)
         # prefix. we can do better than that.
-        raise e if url.start_with?("http://") || url.start_with?("https://")
-        uri = URI.parse("http://" + url)
-        uri = URI.parse("https://" + url) if uri.port == 443
-        url = uri.to_s
+        raise e if path.start_with?("http://") || path.start_with?("https://")
+        uri = URI.parse("http://" + path)
+        uri = URI.parse("https://" + path) if uri.port == 443
+        path = uri.to_s
       end
 
       # supply any missing default values to make URI as complete as possible.
       if uri.scheme.nil?
         scheme = (uri.port == 443) ? 'https' : 'http'
-        uri = URI.parse("#{scheme}://#{url}")
-        url = uri.to_s
+        uri = URI.parse("#{scheme}://#{path}")
+        path = uri.to_s
       end
       if uri.path.to_s.empty?
-        uri = URI.parse("#{url}/")
-        url = uri.to_s
+        uri = URI.parse("#{path}/")
+        path = uri.to_s
       end
       return uri
     end

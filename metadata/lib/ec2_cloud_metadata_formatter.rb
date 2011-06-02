@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2010 RightScale Inc
+# Copyright (c) 2011 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -20,18 +20,24 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+require File.expand_path(File.join(File.dirname(__FILE__), 'metadata_formatter_base'))
+
 module RightScale
 
-  # Interface for a metadata provider.
-  class MetadataProvider
+  # Implements formatter for EC2 cloud metadata.
+  class Ec2CloudMetadataFormatter < MetadataFormatterBase
 
-    # Queries metadata in an implementation-specific manner. The resulting tree
-    # of metadata is a hash of hashes with string keys and string leaf values.
+    protected
+
+    # Decorates flat metadata names with 'EC2_'.
+    #
+    # === Parameters
+    # metadata_path(Array):: array of metadata path elements
     #
     # === Returns
-    # tree_metadata(Hash):: tree of metadata
-    def metadata
-      raise NotImplementedError
+    # flat_path(String):: flattened path
+    def flatten_metadata_path(metadata_path)
+      'EC2_' + super(metadata_path)
     end
 
   end

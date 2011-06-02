@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2010 RightScale Inc
+# Copyright (c) 2010-11 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -20,25 +20,33 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require File.expand_path(File.join(File.dirname(__FILE__), 'ec2_metadata_provider'))
-require File.expand_path(File.join(File.dirname(__FILE__), 'metadata_formatter_base'))
+require File.normalize_path(File.join(File.dirname(__FILE__), 'metadata_leaf_eater'))
 
 module RightScale
 
-  # Implements MetadataFormatter for EC2.
-  class Ec2MetadataFormatter < MetadataFormatterBase
+  # Provides rules for splitting leaves into arrays.
+  class XSplitMetadataLeafEater < MetadataLeafEater
 
-    protected
-
-    # Decorates flat metadata names with 'EC2_'.
+    # Initializer.
     #
     # === Parameters
-    # metadata_path(Array):: array of metadata path elements
+    # options[:leaf_split_character](Class):: character used to split values into arrays (defaults to newline)
+    def initialize(options = {})
+      @leaf_split_character = options[:leaf_split_character] || "\n"
+    end
+
+    # Splits leaf data into arrays of text using the initialized
+    # :leaf_split_character option.
     #
-    # === Returns
-    # flat_path(String):: flattened path
-    def flatten_metadata_path(metadata_path)
-      'EC2_' + super(metadata_path)
+    # === Parameters
+    # path(String):: path to metadata
+    # data(String):: raw data for leaf
+    #
+    # returns(Object):: any kind of leaf value
+    def leaf_from(path, data)
+      values = data.strip.gsub("\r\n", "\n").split(@leaf_split_character)
+      return "" if values.empty?
+      return (1 == values.size) ? values.first : values
     end
 
   end

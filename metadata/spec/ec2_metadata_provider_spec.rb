@@ -21,9 +21,10 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 require File.join(File.dirname(__FILE__), 'spec_helper')
-require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'instance', 'ec2_metadata_provider'))
-require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'instance', 'ec2_metadata_formatter'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'ec2_metadata_provider'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'ec2_cloud_metadata_formatter'))
 require File.join(File.dirname(__FILE__), 'fetch_runner')
+require 'json'
 
 module RightScale
   module Ec2MetadataProviderSpec
@@ -55,15 +56,23 @@ module RightScale
       "public-keys" => {
         "0=windows_image_build_key" => {
           "openssh-key" => "ssh-rsa AAAAAAAAAA/BBBBBBBBBB/CCCCCCCCCCC/DDDDDDDDDEEEEEEE/EFFFFFFFFFFGGGGGGGG/GGHHHHHHHHIIIIIIIJJJ/JJJJJJJKKKKKKKKKLLLL/LLLLLLMMMMMMMMMMN/NNNNNNNOOOOOOOOOOOOOOOOOOOO/OOOOOPPPPPPPPPPPPPPPPQQQ/QQQQQQQQQQQQQQQQQQQQQQQQQQQQQ/RRRRRRRRRRRRRRRRRRRRRRRRRSSSSSSSS/SSSSSSSSSSSSSSTTTTTTTTTTTTTTUUUUUUUUUUUUUU/UUUUVVVVVVVVVVVVVVVVVVVVVVWWWWWWWWWWWWWWWWWWWWW/WWWXXXXXXXXXXXXXXXXXXXXXXXYYYYYYY windows_image_build_key\n"
-          }
+        }
       },
       "reservation-id" => "r-0ddf0f49",
       "security-groups" => "windows_image_build"
     }
 
+    USERDATA_ROOT = ['latest', 'user-data']
+    USERDATA_LEAF = "RS_rn_url=amqp://1234567890@broker1-2.rightscale.com/right_net&RS_rn_id=1234567890&RS_server=my.rightscale.com&RS_rn_auth=1234567890&RS_api_url=https://my.rightscale.com/api/inst/ec2_instances/1234567890&RS_rn_host=:1,broker1-1.rightscale.com:0&RS_version=5.6.5&RS_sketchy=sketchy4-2.rightscale.com&RS_token=1234567890"
   end
 
   class Ec2MetadataProvider
+    # monkey patch EC2 host and port for test
+    HOST = ::RightScale::FetchRunner::FETCH_TEST_SOCKET_ADDRESS
+    PORT = ::RightScale::FetchRunner::FETCH_TEST_SOCKET_PORT
+  end
+
+  class HttpMetadataSource
     # monkey patch for quicker testing of retries.
     RETRY_DELAY_FACTOR = 0.01
   end
@@ -71,11 +80,6 @@ module RightScale
 end
 
 describe RightScale::Ec2MetadataProvider do
-
-  def mock_cloud_info
-    mock_url = "#{::RightScale::FetchRunner::FETCH_TEST_SOCKET_ADDRESS}:#{::RightScale::FetchRunner::FETCH_TEST_SOCKET_PORT}"
-    flexmock(RightScale::CloudInfo).should_receive(:metadata_server_url).and_return(mock_url)
-  end
 
   before(:each) do
     @runner = ::RightScale::FetchRunner.new
@@ -87,25 +91,37 @@ describe RightScale::Ec2MetadataProvider do
     @runner.teardown_log
   end
 
+  def verify_cloud_metadata(cloud_metadata)
+    compare_tree = JSON::parse(::RightScale::Ec2MetadataProviderSpec::METADATA_TREE.to_json)
+    compare_tree["public-keys"] = compare_tree["public-keys"].dup
+    compare_tree["public-keys"]["0"] = {"openssh-key" => compare_tree["public-keys"]["0=windows_image_build_key"]["openssh-key"].strip}
+    compare_tree["public-keys"].delete_if { |key, value| key == "0=windows_image_build_key" }
+
+    cloud_metadata.should == compare_tree
+  end
+
+  def verify_user_metadata(user_metadata)
+    user_metadata.should == ::RightScale::Ec2MetadataProviderSpec::USERDATA_LEAF
+  end
+
   it 'should raise exception for failing cURL calls' do
     metadata_provider = ::RightScale::Ec2MetadataProvider.new(:logger => @logger)
-    metadata_formatter = ::RightScale::Ec2MetadataFormatter.new
-    mock_cloud_info
+    metadata_formatter = ::RightScale::Ec2CloudMetadataFormatter.new
     lambda do
       @runner.run_fetcher(metadata_provider, metadata_formatter) do |server|
         # intentionally not mounting any paths
       end
-    end.should raise_error(::RightScale::Ec2MetadataProvider::HttpMetadataException)
+    end.should raise_error(::RightScale::MetadataSource::QueryFailed)
   end
 
   it 'should recover from successful cURL calls which return malformed HTTP response' do
     metadata_provider = ::RightScale::Ec2MetadataProvider.new(:logger => @logger)
-    metadata_formatter = ::RightScale::Ec2MetadataFormatter.new
+    metadata_formatter = ::RightScale::Ec2CloudMetadataFormatter.new
     requested_branch = false
     requested_leaf = false
-    mock_cloud_info
-    metadata = @runner.run_fetcher(metadata_provider, metadata_formatter) do |server|
+    cloud_metadata, user_metadata = @runner.run_fetcher(metadata_provider, metadata_formatter) do |server|
       server.recursive_mount_metadata(::RightScale::Ec2MetadataProviderSpec::METADATA_TREE, ::RightScale::Ec2MetadataProviderSpec::METADATA_ROOT.clone)
+      server.recursive_mount_metadata(::RightScale::Ec2MetadataProviderSpec::USERDATA_LEAF, ::RightScale::Ec2MetadataProviderSpec::USERDATA_ROOT.clone)
 
       # fail a branch request.
       branch_name = 'block-device-mapping'
@@ -147,31 +163,21 @@ describe RightScale::Ec2MetadataProvider do
     end
     requested_branch.should == true
     requested_leaf.should == true
-    metadata.size.should == 19
 
-    # verify normal responses.
-    metadata["EC2_INSTANCE_TYPE"].should == "m1.small"
-    metadata["EC2_RESERVATION_ID"].should == "r-0ddf0f49"
-
-    # verify malformed responses were retried.
-    metadata["EC2_BLOCK_DEVICE_MAPPING_AMI"].should == "/dev/sda1"
-    metadata["EC2_BLOCK_DEVICE_MAPPING_ROOT"].should == "/dev/sda1"
+    verify_cloud_metadata(cloud_metadata)
+    verify_user_metadata(user_metadata)
   end
 
   it 'should succeed for successful cURL calls' do
     metadata_provider = ::RightScale::Ec2MetadataProvider.new(:logger => @logger)
-    metadata_formatter = ::RightScale::Ec2MetadataFormatter.new
-    mock_cloud_info
-    metadata = @runner.run_fetcher(metadata_provider, metadata_formatter) do |server|
+    metadata_formatter = ::RightScale::Ec2CloudMetadataFormatter.new
+    cloud_metadata, user_metadata = @runner.run_fetcher(metadata_provider, metadata_formatter) do |server|
       server.recursive_mount_metadata(::RightScale::Ec2MetadataProviderSpec::METADATA_TREE, ::RightScale::Ec2MetadataProviderSpec::METADATA_ROOT.clone)
+      server.recursive_mount_metadata(::RightScale::Ec2MetadataProviderSpec::USERDATA_LEAF, ::RightScale::Ec2MetadataProviderSpec::USERDATA_ROOT.clone)
     end
-    metadata.size.should == 19
 
-    # verify normal responses.
-    metadata["EC2_INSTANCE_TYPE"].should == "m1.small"
-    metadata["EC2_RESERVATION_ID"].should == "r-0ddf0f49"
-    metadata["EC2_BLOCK_DEVICE_MAPPING_AMI"].should == "/dev/sda1"
-    metadata["EC2_BLOCK_DEVICE_MAPPING_ROOT"].should == "/dev/sda1"
+    verify_cloud_metadata(cloud_metadata)
+    verify_user_metadata(user_metadata)
   end
 
 end

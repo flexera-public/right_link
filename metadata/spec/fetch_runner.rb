@@ -166,16 +166,23 @@ module RightScale
       server = nil
       done = false
       last_exception = nil
-      flat_metadata = nil
+      cloud_metadata = nil
+      user_metadata = nil
       EM.run do
         begin
           server = MockHTTPServer.new({:Logger => @logger}, &block)
           EM.defer do
             begin
-              tree_metadata = metadata_provider.metadata
-              flat_metadata = metadata_formatter.format_metadata(tree_metadata)
+              cloud_metadata = metadata_provider.cloud_metadata
+              user_metadata = metadata_provider.user_metadata
             rescue Exception => e
               last_exception = e
+            ensure
+              begin
+                metadata_provider.finish
+              rescue Exception => e
+                last_exception = e unless last_exception
+              end
             end
             done = true
           end
@@ -214,7 +221,7 @@ module RightScale
         end
       end
 
-      return flat_metadata
+      return cloud_metadata, user_metadata
     end
   end
 end
