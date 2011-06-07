@@ -20,23 +20,40 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require File.expand_path(File.join(File.dirname(__FILE__), 'metadata_formatter'))
-
 module RightScale
 
-  # Partial implementation of MetadataFormatter.
-  class MetadataFormatterBase < MetadataFormatter
+  # Abstracts a formatter which maps one kind of metadata output to another.
+  class MetadataFormatter
 
-    # Formats metadata in an implementation-specific manner as a hash of
-    # metadata with any hierarchical details flattened into simple key names.
+    # RS_ is reserved for use by RightScale and should be avoided by users
+    # passing non-RightScale metadata to instances.
+    RS_METADATA_PREFIX = 'RS_'
+
+    attr_accessor :formatted_path_prefix, :format_metadata_override
+
+    # Initializer.
+    #
+    # === Parameters
+    # options[:format_metadata_callback](Proc):: specialization callback or nil
+    def initialize(options)
+      # options
+      @formatted_path_prefix = options[:formatted_path_prefix] || RS_METADATA_PREFIX
+
+      # overrides
+      @format_metadata_override = options[:format_metadata_override]
+    end
+
+    # Formats metadata such that any hierarchical details flattened into simple
+    # key names.
     #
     # === Parameters
     # tree_metadata(Hash):: tree of raw metadata
     #
     # === Returns
     # flat_metadata(Hash):: flattened metadata
-    def format_metadata(tree_metadata)
-      return recursive_flatten_metadata(tree_metadata)
+    def format_metadata(metadata)
+      return @format_metadata_override.call(metadata) if @format_metadata_override
+      return recursive_flatten_metadata(metadata)
     end
 
     protected
@@ -78,9 +95,13 @@ module RightScale
     # === Returns
     # flat_path(String):: flattened path
     def flatten_metadata_path(metadata_path)
-      return metadata_path.join('_').gsub(/[\W,\/]/, '_').upcase
+      flat_path = metadata_path.join('_').gsub(/[\W,\/]/, '_').upcase
+      if @formatted_path_prefix && !(flat_path.start_with?(RS_METADATA_PREFIX) || flat_path.start_with?(@formatted_path_prefix))
+        return @formatted_path_prefix + flat_path
+      end
+      return flat_path
     end
 
-  end
+  end  # MetadataFormatter
 
-end
+end  # RightScale

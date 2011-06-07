@@ -29,6 +29,8 @@ module RightScale
   # metadata are external to this class.
   class MetadataTreeClimber
 
+    attr_accessor :root_path, :tree_class, :child_name_delimiter
+
     # Initializer.
     #
     # === Parameters
@@ -41,11 +43,11 @@ module RightScale
       @child_name_delimiter = options[:child_name_delimiter] || "\n"
 
       # callbacks (optional)
-      @branch_key_callback = options[:branch_key_callback]
-      @child_names_callback = options[:child_names_callback]
-      @has_children_callback = options[:has_children_callback]
-      @leaf_key_callback = options[:leaf_key_callback]
-      @leaf_value_callback = options[:leaf_value_callback]
+      @branch_key_override = options[:branch_key_override]
+      @child_names_override = options[:child_names_override]
+      @create_leaf_override = options[:create_leaf_override]
+      @has_children_override = options[:has_children_override]
+      @leaf_key_override = options[:leaf_key_override]
     end
 
     # Determines if the given path represents a parent branch. This information
@@ -61,7 +63,7 @@ module RightScale
     # === Return
     # result(Boolean):: true if branch, false if leaf
     def has_children?(path, values)
-      return @has_children_callback.call(path, values) if @has_children_callback
+      return @has_children_override.call(self, path, values) if @has_children_override
       return '/' == path[-1..-1] || path == @root_path
     end
 
@@ -75,7 +77,7 @@ module RightScale
     # === Returns
     # result(Array):: array of child (leaf or branch) names or empty
     def child_names(path, query_result)
-      return @children_from_callback.call(path, query_result) if @children_from_callback
+      return @children_from_override.call(self, path, query_result) if @children_from_override
       child_names = []
       sub_values = query_result.gsub("\r\n", "\n").split(@child_name_delimiter)
       sub_values.each do |sub_value|
@@ -98,11 +100,11 @@ module RightScale
     #
     # === Parameters
     # path(String):: path to metadata
-    # value(String):: raw data queried using path
+    # data(String):: raw data queried using path
     #
-    def create_leaf(path, value)
-      return @leaf_value_callback.call(leaf_value) if @leaf_value_callback
-      return value.strip
+    def create_leaf(path, data)
+      return @create_leaf_override.call(self, data) if @create_leaf_override
+      return data.strip
     end
 
     # Looks for equals anywhere in the sub-value or trailing forward slash at
@@ -114,7 +116,7 @@ module RightScale
     # === Returns
     # key(String):: branch key or nil
     def branch_key(branch_name)
-      return @branch_key_callback.call(branch_name) if (branch_name && @branch_key_callback)
+      return @branch_key_override.call(self, branch_name) if (branch_name && @branch_key_override)
 
       # replace any equals and subsequent text with forward slash and chomp any
       # trailing slash. note that chomp! returns nil if character (i.e. slash)
@@ -130,7 +132,7 @@ module RightScale
     # === Returns
     # key(String):: leaf key or nil
     def leaf_key(leaf_name)
-      return @leaf_key_callback.call(branch_name) if @leaf_key_callback
+      return @leaf_key_override.call(self, leaf_name) if @leaf_key_override
       return leaf_name
     end
 

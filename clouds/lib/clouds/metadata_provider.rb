@@ -24,13 +24,17 @@ require File.normalize_path(File.join(File.dirname(__FILE__), 'metadata_provider
 
 module RightScale
 
-  # Base implementation for a metadata provider which implements recursive tree
-  # building and relies on an external fetcher object
-  class MetadataProviderBase < MetadataProvider
+  # Abstracts a metadata provider which implements recursive tree building and
+  # relies on an external fetcher object
+  class MetadataProvider
 
-    def initialize(options)
-      raise ArgumentError.new("options[:metadata_source] is required") unless @metadata_source = options[:metadata_source]
-      @options = options
+    attr_accessor :metadata_source, :metadata_tree_climber, :raw_metadata_writer
+
+    def initialize(options = {})
+      @metadata_source = options[:metadata_source]
+      @metadata_tree_climber = options[:metadata_tree_climber]
+      @raw_metadata_writer = options[:raw_metadata_writer]
+      @build_metadata_override = options[:build_metadata_override]
     end
 
     # Queries cloud-specific instance metadata in an implementation-specific
@@ -43,36 +47,12 @@ module RightScale
     #
     # === Raises
     # RightScale::MetadataSource::QueryFailed:: on failure to query metadata
-    def cloud_metadata
-      return nil unless path = @options[:cloud_metadata_root_path]
-      return nil unless @tree_climber = @options[:cloud_metadata_tree_climber]
-      build_metadata(path)
+    def build_metadata
+      return @build_metadata_override.call(self) if @build_metadata_override
+      @root_path = @metadata_tree_climber.root_path
+      recursive_build_metadata(@root_path)
     ensure
-      @tree_climber = nil
-    end
-
-    # Queries cloud-agnostic instance metadata in an implementation-specific
-    # manner. The resulting tree of metadata is built using the given Hash-like
-    # class.
-    #
-    # === Return
-    # tree_metadata(Hash|String):: tree of metadata or leaf value or nil
-    #  depending on options
-    #
-    # === Raises
-    # RightScale::MetadataSource::QueryFailed:: on failure to query metadata
-    def user_metadata
-      return nil unless path = @options[:user_metadata_root_path]
-      return nil unless @tree_climber = @options[:user_metadata_tree_climber]
-      build_metadata(path)
-    ensure
-      @tree_climber = nil
-    end
-
-    # Releases any resources used to get metadata. Must be called before
-    # releasing provider.
-    def finish
-      @metadata_source.finish
+      @root_path = nil
     end
 
     protected
@@ -87,25 +67,34 @@ module RightScale
     # === Return
     # tree_metadata(Hash|String):: tree of metadata or raw value depending on
     #  options
-    def build_metadata(path)
+    def recursive_build_metadata(path)
+      # query
       query_result = @metadata_source.query(path)
-      if @tree_climber.has_children?(path, query_result)
-        metadata = @tree_climber.create_branch
-        child_names = @tree_climber.child_names(path, query_result)
+
+      # write raw responses to query writer, if given
+      if @raw_metadata_writer
+        subpath = (path.length > @root_path.length) ? path[@root_path.length..-1] : nil
+        @raw_metadata_writer.write(query_result, subpath)
+      end
+
+      # climb, if arboreal
+      if @metadata_tree_climber.has_children?(path, query_result)
+        metadata = @metadata_tree_climber.create_branch
+        child_names = @metadata_tree_climber.child_names(path, query_result)
         child_names.each do |child_name|
-          if key = @tree_climber.branch_key(child_name)
+          if key = @metadata_tree_climber.branch_key(child_name)
             branch_path = @metadata_source.append_branch_name(path, child_name)
-            metadata[key] = build_metadata(branch_path)
-          elsif key = @tree_climber.leaf_key(child_name)
+            metadata[key] = recursive_build_metadata(branch_path)
+          elsif key = @metadata_tree_climber.leaf_key(child_name)
             leaf_path = @metadata_source.append_leaf_name(path, child_name)
-            metadata[key] = @tree_climber.create_leaf(leaf_path, @metadata_source.query(leaf_path))
+            metadata[key] = @metadata_tree_climber.create_leaf(leaf_path, @metadata_source.query(leaf_path))
           end
         end
         return metadata
       end
 
-      # operate on only leaf.
-      return @tree_climber.create_leaf(path, query_result)
+      # the only leaf.
+      return @metadata_tree_climber.create_leaf(path, query_result)
     end
 
   end

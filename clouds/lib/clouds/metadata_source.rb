@@ -28,6 +28,9 @@ module RightScale
     # exceptions.
     class QueryFailed < Exception; end
 
+    # true if source can be used more than once to query metadata, false if one-shot.
+    def reusable; true; end
+
     # Appends a branch name to the given path.
     #
     # === Parameters

@@ -20,26 +20,16 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require File.expand_path(File.join(File.dirname(__FILE__), 'metadata_formatter_base'))
+require 'rubygems'
+require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'config', 'right_link_config'))
 
-module RightScale
-
-  # Implements formatter for EC2 cloud metadata.
-  class Ec2CloudMetadataFormatter < MetadataFormatterBase
-
-    protected
-
-    # Decorates flat metadata names with 'EC2_'.
-    #
-    # === Parameters
-    # metadata_path(Array):: array of metadata path elements
-    #
-    # === Returns
-    # flat_path(String):: flattened path
-    def flatten_metadata_path(metadata_path)
-      'EC2_' + super(metadata_path)
-    end
-
-  end
-
+begin
+  base_dir_path = File.join(File.dirname(__FILE__), 'clouds')
+  require File.normalize_path(File.join(base_dir_path, 'cloud'))
+  require File.normalize_path(File.join(base_dir_path, 'cloud_factory'))
+  require File.normalize_path(File.join(base_dir_path, 'metadata_formatter'))
+  require File.normalize_path(File.join(base_dir_path, 'metadata_provider'))
+  require File.normalize_path(File.join(base_dir_path, 'metadata_source'))
+  require File.normalize_path(File.join(base_dir_path, 'metadata_tree_climber'))
+  require File.normalize_path(File.join(base_dir_path, 'metadata_writer'))
 end

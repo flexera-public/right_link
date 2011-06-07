@@ -30,7 +30,7 @@ module RightScale
 
     FETCH_TEST_SOCKET_ADDRESS = '127.0.0.1'
     FETCH_TEST_SOCKET_PORT = 55555
-    FETCH_TEST_TIMEOUT_SECS = 30  # test runs a bit slow in Windows
+    FETCH_TEST_TIMEOUT_SECS = 60
 
     class MockHTTPServer < WEBrick::HTTPServer
       def initialize(options={}, &block)
@@ -162,27 +162,21 @@ module RightScale
     #
     # === Returns
     # metadata(Hash):: flat metadata hash
-    def run_fetcher(metadata_provider, metadata_formatter, &block)
+    def run_fetcher(*args, &block)
       server = nil
       done = false
       last_exception = nil
-      cloud_metadata = nil
-      user_metadata = nil
+      results = []
       EM.run do
         begin
           server = MockHTTPServer.new({:Logger => @logger}, &block)
           EM.defer do
             begin
-              cloud_metadata = metadata_provider.cloud_metadata
-              user_metadata = metadata_provider.user_metadata
+              args.each do |metadata_provider|
+                results << metadata_provider.build_metadata
+              end
             rescue Exception => e
               last_exception = e
-            ensure
-              begin
-                metadata_provider.finish
-              rescue Exception => e
-                last_exception = e unless last_exception
-              end
             end
             done = true
           end
@@ -221,7 +215,7 @@ module RightScale
         end
       end
 
-      return cloud_metadata, user_metadata
+      return 1 == results.size ? results[0] : results
     end
   end
 end
