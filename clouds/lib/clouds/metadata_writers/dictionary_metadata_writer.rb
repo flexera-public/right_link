@@ -40,9 +40,7 @@ module RightScale
           metadata.each do |k, v|
             # ensure value is a single line by truncation since most
             # dictionary format parsers expect literal chars on a single line.
-            v = v.flatten if v.respond_to?(:flatten)
-            v = v.first if v.respond_to?(:first)
-            v = v.to_s.strip
+            v = self.class.first_line_of(v)
             f.puts "#{k}=#{v}"
           end
         end

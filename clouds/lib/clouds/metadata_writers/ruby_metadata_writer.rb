@@ -53,7 +53,7 @@ module RightScale
           f.puts RUBY_HEADER
           metadata.each do |k, v|
             # escape backslashes and single quotes.
-            v = v.gsub(/\\|'/) { |c| "\\#{c}" }
+            v = self.class.escape_single_quotes(v)
             f.puts "ENV['#{k}']='#{v}'"
           end
         end

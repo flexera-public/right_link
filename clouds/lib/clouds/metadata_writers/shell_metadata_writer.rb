@@ -24,7 +24,7 @@ module RightScale
           options[:file_extension] ||= '.bat'
           options[:write_file_override] ||= method(:windows_write_file)
         else
-          options[:file_extension] ||= '.bat'
+          options[:file_extension] ||= '.sh'
           options[:write_file_override] ||= method(:linux_write_file)
         end
         @generation_command = options[:generation_command]
@@ -61,14 +61,14 @@ module RightScale
           f.puts(LINUX_SHELL_HEADER)
           metadata.each do |k, v|
             # escape backslashes and double quotes.
-            v = v.gsub(/\\|"/) { |c| "\\#{c}" }
+            v = self.class.escape_double_quotes(v)
             f.puts "export #{k}=\"#{v}\""
           end
         end
 
         # write the generation command, if given.
         if @generation_command
-          File.open(create_full_path(subpath), "w") do |f|
+          File.open(create_full_path(@file_name_prefix, subpath), "w") do |f|
             f.puts(LINUX_SHELL_HEADER)
             f.puts(@generation_command)
             f.puts(". #{env_file_path}")
@@ -97,9 +97,7 @@ module RightScale
             # ensure value is a single line (multiple lines could be interpreted
             # as subsequent commands) by truncation since windows shell doesn't
             # have escape characters.
-            v = v.flatten if v.respond_to?(:flatten)
-            v = v.first if v.respond_to?(:first)
-            v = v.to_s.strip
+            v = self.class.first_line_of(v)
             f.puts "set #{k}=#{v}"
           end
         end

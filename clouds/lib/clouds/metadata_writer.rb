@@ -52,6 +52,39 @@ module RightScale
       return write_file(metadata, subpath)
     end
 
+    # Escapes double-quotes (and literal backslashes since they are escape
+    # characters) in the given string.
+    def self.escape_double_quotes(value)
+      return value.gsub(/\\|"/) { |c| "\\#{c}" }
+    end
+
+    # Escapes single-quotes (and literal backslashes since they are escape
+    # characters) in the given string.
+    def self.escape_single_quotes(value)
+      return value.gsub(/\\|'/) { |c| "\\#{c}" }
+    end
+
+    # Determines the first line of text (or the only line) for the given value.
+    #
+    # === Parameters
+    # value(Object):: any value
+    #
+    # === Return
+    # result(String):: first line or empty
+    def self.first_line_of(value)
+      # flatten any value which supports it
+      value = value.flatten if value.respond_to?(:flatten)
+
+      # note that the active_support gem redefines String.first from being the
+      # same as .lines.first to returning the .first(n=1) characters.
+      if value.respond_to?(:lines)
+        value = value.lines.first
+      elsif value.respond_to?(:first)
+        value = value.first
+      end
+      return value.to_s.strip
+    end
+
     protected
 
     # Full path of generated file.

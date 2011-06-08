@@ -81,6 +81,7 @@ describe RightScale::MetadataSources::HttpMetadataSource do
   before(:each) do
     @runner = ::RightScale::FetchRunner.new
     @logger = @runner.setup_log
+    @output_dir_path = File.join(::RightScale::RightLinkConfig[:platform].filesystem.temp_dir, 'rs_raw_metadata_writer_output')
     setup_metadata_provider
   end
 
@@ -88,6 +89,8 @@ describe RightScale::MetadataSources::HttpMetadataSource do
     teardown_metadata_provider
     @logger = nil
     @runner.teardown_log
+    FileUtils.rm_rf(@output_dir_path) if File.directory?(@output_dir_path)
+    @output_dir_path = nil
   end
 
   def setup_metadata_provider
@@ -99,7 +102,6 @@ describe RightScale::MetadataSources::HttpMetadataSource do
                                                                        :has_children_override => lambda{ false } )
 
     # raw metadata writer.
-    @output_dir_path = File.join(ENV['TEMP'], 'rs_raw_metadata_writer_output')
     @cloud_raw_metadata_writer = ::RightScale::MetadataWriter.new(:file_name_prefix => ::RightScale::HttpMetadataSourceSpec::METADATA_ROOT.last,
                                                                   :output_dir_path => @output_dir_path)
     @user_raw_metadata_writer = ::RightScale::MetadataWriter.new(:file_name_prefix => ::RightScale::HttpMetadataSourceSpec::USERDATA_ROOT.last,
@@ -119,7 +121,6 @@ describe RightScale::MetadataSources::HttpMetadataSource do
   end
 
   def teardown_metadata_provider
-    FileUtils.rm_rf(@output_dir_path) if File.directory?(@output_dir_path)
     @cloud_metadata_provider = nil
     @user_metadata_provider = nil
     @metadata_source.finish

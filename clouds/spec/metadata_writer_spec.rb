@@ -43,11 +43,12 @@ end
 describe RightScale::MetadataWriter do
 
   before(:each) do
-    @output_dir_path = File.join(ENV['TEMP'], 'rs_metadata_writers_output').gsub("\\", '/')
+    @output_dir_path = File.join(::RightScale::RightLinkConfig[:platform].filesystem.temp_dir, 'rs_metadata_writers_output')
   end
 
   after(:each) do
     FileUtils.rm_rf(@output_dir_path) if File.directory?(@output_dir_path)
+    @output_dir_path = nil
   end
 
   it 'should write dictionary files' do
