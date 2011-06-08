@@ -34,7 +34,10 @@ module RightScale
 
     METADATA = {'RS_mw_spec_x' => 'A1\'s\\', 'RS_mw_spec_YY' => " \"B2\" \n B3 ", 'RS_mw_spec_Zzz' => ''}
     FILTERED_METADATA = {'RS_mw_spec_x' => 'A1\'s\\', 'RS_mw_spec_YY' => "\"B2\"", 'RS_mw_spec_Zzz' => ''}
-    GENERATION_COMMAND = 'echo some-metadata-generation-command'
+    RAW_METADATA = 'some raw metadata'
+
+    GENERATION_COMMAND_OUTPUT = 'some-metadata-generation-command'
+    GENERATION_COMMAND = "echo #{GENERATION_COMMAND_OUTPUT}"
 
   end
 
@@ -44,6 +47,7 @@ describe RightScale::MetadataWriter do
 
   before(:each) do
     @output_dir_path = File.join(::RightScale::RightLinkConfig[:platform].filesystem.temp_dir, 'rs_metadata_writers_output')
+    FileUtils.rm_rf(@output_dir_path) if File.directory?(@output_dir_path)
   end
 
   after(:each) do
@@ -51,11 +55,39 @@ describe RightScale::MetadataWriter do
     @output_dir_path = nil
   end
 
+  it 'should write raw files by default' do
+    writer = ::RightScale::MetadataWriter.new(:file_name_prefix => 'test', :output_dir_path => @output_dir_path)
+    output_file_path = File.join(@output_dir_path, 'test.raw')
+    writer.write(::RightScale::MetadataWriterSpec::RAW_METADATA)
+    File.file?(output_file_path).should be_true
+    contents = File.read(output_file_path)
+    contents.should == ::RightScale::MetadataWriterSpec::RAW_METADATA
+  end
+
+  it 'should support override of read and write' do
+    output = {}
+    reader_writer = ::RightScale::MetadataWriter.new(
+      :file_name_prefix => 'test',
+      :output_dir_path => @output_dir_path,
+      :write_override => lambda do |writer, metadata, subpath|
+        writer.should == reader_writer
+        output[subpath] = metadata
+      end,
+      :read_override => lambda do |reader, subpath|
+        reader.should == reader_writer
+        output[subpath]
+       end
+    )
+    reader_writer.write(1, 'a')
+    reader_writer.write(2, 'b/c')
+    output.should == {"b/c"=>2, "a"=>1}
+    reader_writer.read('a').should == 1
+    reader_writer.read('b/c').should == 2
+  end
+
   it 'should write dictionary files' do
     writer = ::RightScale::MetadataWriters::DictionaryMetadataWriter.new(:file_name_prefix => 'test', :output_dir_path => @output_dir_path)
     output_file_path = File.join(@output_dir_path, 'test.dict')
-    FileUtils.rm_f(path) if File.file?(output_file_path)
-    File.file?(output_file_path).should be_false
     writer.write(::RightScale::MetadataWriterSpec::METADATA)
     File.file?(output_file_path).should be_true
     contents = File.read(output_file_path)
@@ -73,8 +105,6 @@ describe RightScale::MetadataWriter do
                                                                    :output_dir_path => @output_dir_path,
                                                                    :generation_command => ::RightScale::MetadataWriterSpec::GENERATION_COMMAND)
     output_file_path = File.join(@output_dir_path, 'test.rb')
-    FileUtils.rm_f(output_file_path) if File.file?(output_file_path)
-    File.file?(output_file_path).should be_false
     writer.write(::RightScale::MetadataWriterSpec::METADATA)
     File.file?(output_file_path).should be_true
 
@@ -88,8 +118,9 @@ describe RightScale::MetadataWriter do
       f.puts "exit 0"
     end
     interpreter = File.normalize_path(::RightScale::RightLinkConfig[:sandbox_ruby_cmd])
-    `#{interpreter} #{verify_file_path}`
+    output = `#{interpreter} #{verify_file_path}`
     $?.success?.should be_true
+    output.strip.should == ::RightScale::MetadataWriterSpec::GENERATION_COMMAND_OUTPUT
   end
 
   it 'should write shell files' do
@@ -97,14 +128,13 @@ describe RightScale::MetadataWriter do
                                                                     :output_dir_path => @output_dir_path,
                                                                     :generation_command => ::RightScale::MetadataWriterSpec::GENERATION_COMMAND)
     output_file_path = File.join(@output_dir_path, "test#{writer.file_extension}")
-    FileUtils.rm_f(output_file_path) if File.file?(output_file_path)
-    File.file?(output_file_path).should be_false
     writer.write(::RightScale::MetadataWriterSpec::METADATA)
     File.file?(output_file_path).should be_true
 
     if ::RightScale::RightLinkConfig[:platform].windows?
       verify_file_path = File.join(@output_dir_path, 'verify.bat')
       File.open(verify_file_path, "w") do |f|
+        f.puts "@echo off"
         f.puts "call \"#{output_file_path}\""
         ::RightScale::MetadataWriterSpec::FILTERED_METADATA.each do |k, v|
           f.puts "if \"%#{k}%\" neq \"#{v}\" exit 100"
@@ -124,8 +154,9 @@ describe RightScale::MetadataWriter do
       end
       interpreter = "/bin/bash"
     end
-    `#{interpreter} #{verify_file_path}`
+    output = `#{interpreter} #{verify_file_path}`
     $?.success?.should be_true
+    output.strip.should == ::RightScale::MetadataWriterSpec::GENERATION_COMMAND_OUTPUT
   end
 
 end

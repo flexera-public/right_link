@@ -15,7 +15,11 @@ module RightScale
     # Initializer
     #
     # === Parameters
+    # options[:file_extension](String):: output file extension
+    # options[:file_name_prefix](String):: output file name sans extension
     # options[:output_dir_path](String):: output directory, defaults to RS spool dir
+    # options[:read_override](Proc(reader, subpath):: read override or nil
+    # options[:write_override](Proc(writer, metadata subpath):: write override or nil
     #
     # === Return
     # always true
@@ -23,8 +27,8 @@ module RightScale
       raise ArgumentError.new("options[:file_name_prefix] is required") unless @file_name_prefix = options[:file_name_prefix]
       raise ArgumentError.new("options[:output_dir_path] is required") unless @output_dir_path = options[:output_dir_path]
       @file_extension = options[:file_extension] || '.raw'
-      @read_file_override = options[:read_file_override]
-      @write_file_override = options[:write_file_override]
+      @read_override = options[:read_override]
+      @write_override = options[:write_override]
     end
 
     # Reads metadata from file.
@@ -35,7 +39,7 @@ module RightScale
     # === Return
     # result(String):: contents of generated file
     def read(subpath = nil)
-      return @read_file_override.call(self, subpath) if @read_file_override
+      return @read_override.call(self, subpath) if @read_override
       return read_file(subpath)
     end
 
@@ -48,7 +52,7 @@ module RightScale
     # === Return
     # always true
     def write(metadata, subpath = nil)
-      return @write_file_override.call(self, metadata, subpath) if @write_file_override
+      return @write_override.call(self, metadata, subpath) if @write_override
       return write_file(metadata, subpath)
     end
 

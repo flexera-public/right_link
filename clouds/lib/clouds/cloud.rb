@@ -105,8 +105,8 @@ module RightScale
       # options(Hash):: options grab bag used to configure cloud and dependencies.
       def initialize(options)
         @options = JSON::parse(options.to_json)  # break options lineage
-        default_options(@options, [:metadata_formatter, :formatted_path_prefix], "#{@abbreviation.upcase}_")
         default_options(@options, [:metadata_writers, :output_dir_path], File.join(RightScale::Platform.filesystem.spool_dir, 'cloud'))
+        default_options(@options, [:cloud_metadata, :metadata_formatter, :formatted_path_prefix], "#{@abbreviation.upcase}_")
         default_options(@options, [:cloud_metadata, :metadata_writers, :file_name_prefix], CLOUD_METADATA_FILE_PREFIX)
         default_options(@options, [:user_metadata, :metadata_writers, :file_name_prefix], USER_METADATA_FILE_PREFIX)
       end
@@ -134,9 +134,11 @@ module RightScale
       # always true
       def write_metadata(kind = WILDCARD)
         writers = create_dependent_type(kind, :metadata_writers, WILDCARD)
+        formatter = create_dependent_type(kind, :metadata_formatter)
         kinds = [:cloud_metadata, :user_metadata].select { |k| WILDCARD == kind || k == kind }
         kinds.each do |k|
           metadata = query_metadata(k)
+          metadata = formatter.format_metadata(metadata)
           writers.each { |writer| writer.write(metadata) }
         end
         true

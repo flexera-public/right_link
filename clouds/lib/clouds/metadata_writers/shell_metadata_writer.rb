@@ -20,13 +20,8 @@ module RightScale
       def initialize(options)
         # defaults
         options = options.dup
-        if RightLinkConfig[:platform].windows?
-          options[:file_extension] ||= '.bat'
-          options[:write_file_override] ||= method(:windows_write_file)
-        else
-          options[:file_extension] ||= '.sh'
-          options[:write_file_override] ||= method(:linux_write_file)
-        end
+        default_file_extension = RightLinkConfig[:platform].windows? ? '.bat' : '.sh'
+        options[:file_extension] ||= default_file_extension
         @generation_command = options[:generation_command]
 
         # super
@@ -35,83 +30,89 @@ module RightScale
 
       protected
 
-      LINUX_SHELL_HEADER = ['#!/bin/bash',
-                            '# Warning: this file has been auto-generated',
-                            '# any modifications can be overwritten']
+      if RightLinkConfig[:platform].windows?
 
-      WINDOWS_SHELL_HEADER = ['@echo off',
-                              'rem # Warning: this file has been auto-generated',
-                              'rem # any modifications can be overwritten']
+        WINDOWS_SHELL_HEADER = ['@echo off',
+                                'rem # Warning: this file has been auto-generated',
+                                'rem # any modifications can be overwritten']
 
-      # Write given metadata to a bash file.
-      #
-      # === Parameters
-      # metadata(Hash):: Hash-like metadata to write
-      # subpath(Array|String):: subpath or nil
-      #
-      # === Return
-      # always true
-      def linux_write_file(_, metadata, subpath)
-        return super(metadata, subpath) unless metadata.respond_to?(:has_key?)
+        # Write given metadata to a bash file.
+        #
+        # === Parameters
+        # metadata(Hash):: Hash-like metadata to write
+        # subpath(Array|String):: subpath or nil
+        #
+        # === Return
+        # always true
+        def write_file(metadata, subpath)
+          return super(metadata, subpath) unless metadata.respond_to?(:has_key?)
 
-        # write the cached file variant if the code-generation command line was passed.
-        env_file_name = @generation_command ? "#{@file_name_prefix}-cache" : @file_name_prefix
-        env_file_path = create_full_path(env_file_name, subpath)
-        File.open(env_file_path, "w") do |f|
-          f.puts(LINUX_SHELL_HEADER)
-          metadata.each do |k, v|
-            # escape backslashes and double quotes.
-            v = self.class.escape_double_quotes(v)
-            f.puts "export #{k}=\"#{v}\""
-          end
-        end
-
-        # write the generation command, if given.
-        if @generation_command
-          File.open(create_full_path(@file_name_prefix, subpath), "w") do |f|
-            f.puts(LINUX_SHELL_HEADER)
-            f.puts(@generation_command)
-            f.puts(". #{env_file_path}")
-          end
-        end
-        true
-      end
-
-      # Write given metadata to a bash file.
-      #
-      # === Parameters
-      # metadata(Hash):: Hash-like metadata to write
-      # subpath(Array|String):: subpath or nil
-      #
-      # === Return
-      # always true
-      def windows_write_file(_, metadata, subpath)
-        return super(metadata, subpath) unless metadata.respond_to?(:has_key?)
-
-        # write the cached file variant if the code-generation command line was passed.
-        env_file_name = @generation_command ? "#{@file_name_prefix}-cache" : @file_name_prefix
-        env_file_path = create_full_path(env_file_name, subpath)
-        File.open(env_file_path, "w") do |f|
-          f.puts(WINDOWS_SHELL_HEADER)
-          metadata.each do |k, v|
-            # ensure value is a single line (multiple lines could be interpreted
-            # as subsequent commands) by truncation since windows shell doesn't
-            # have escape characters.
-            v = self.class.first_line_of(v)
-            f.puts "set #{k}=#{v}"
-          end
-        end
-
-        # write the generation command, if given.
-        if @generation_command
-          File.open(create_full_path(@file_name_prefix, subpath), "w") do |f|
+          # write the cached file variant if the code-generation command line was passed.
+          env_file_name = @generation_command ? "#{@file_name_prefix}-cache" : @file_name_prefix
+          env_file_path = create_full_path(env_file_name, subpath)
+          File.open(env_file_path, "w") do |f|
             f.puts(WINDOWS_SHELL_HEADER)
-            f.puts(@generation_command)
-            f.puts("call \"#{env_file_path}\"")
+            metadata.each do |k, v|
+              # ensure value is a single line (multiple lines could be interpreted
+              # as subsequent commands) by truncation since windows shell doesn't
+              # have escape characters.
+              v = self.class.first_line_of(v)
+              f.puts "set #{k}=#{v}"
+            end
           end
+
+          # write the generation command, if given.
+          if @generation_command
+            File.open(create_full_path(@file_name_prefix, subpath), "w") do |f|
+              f.puts(WINDOWS_SHELL_HEADER)
+              f.puts(@generation_command)
+              f.puts("call \"#{env_file_path}\"")
+            end
+          end
+          true
         end
-        true
-      end
+
+      else  # not windows
+
+        LINUX_SHELL_HEADER = ['#!/bin/bash',
+                              '# Warning: this file has been auto-generated',
+                              '# any modifications can be overwritten']
+
+        # Write given metadata to a bash file.
+        #
+        # === Parameters
+        # metadata(Hash):: Hash-like metadata to write
+        # subpath(Array|String):: subpath or nil
+        #
+        # === Return
+        # always true
+        def write_file( metadata, subpath)
+          return super(metadata, subpath) unless metadata.respond_to?(:has_key?)
+
+          # write the cached file variant if the code-generation command line was passed.
+          env_file_name = @generation_command ? "#{@file_name_prefix}-cache" : @file_name_prefix
+          env_file_path = create_full_path(env_file_name, subpath)
+          File.open(env_file_path, "w") do |f|
+            f.puts(LINUX_SHELL_HEADER)
+            metadata.each do |k, v|
+              # escape backslashes and double quotes.
+              v = self.class.escape_double_quotes(v)
+              f.puts "export #{k}=\"#{v}\""
+            end
+          end
+
+          # write the generation command, if given.
+          if @generation_command
+            File.open(create_full_path(@file_name_prefix, subpath), "w") do |f|
+              f.puts(LINUX_SHELL_HEADER)
+              f.puts(@generation_command)
+              f.puts(". #{env_file_path}")
+            end
+          end
+          true
+        end
+
+      end  # if windows
 
     end  # ShellMetadataWriter
 

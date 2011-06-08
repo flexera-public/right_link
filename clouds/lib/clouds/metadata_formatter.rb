@@ -34,8 +34,9 @@ module RightScale
     # Initializer.
     #
     # === Parameters
-    # options[:format_metadata_callback](Proc):: specialization callback or nil
-    def initialize(options)
+    # options[:formatted_path_prefix](String):: default prefix for formatted metadata keys
+    # options[:format_metadata_override](Proc(formatter, metadata):: format_metadata override or nil
+    def initialize(options = {})
       # options
       @formatted_path_prefix = options[:formatted_path_prefix] || RS_METADATA_PREFIX
 
@@ -52,7 +53,7 @@ module RightScale
     # === Returns
     # flat_metadata(Hash):: flattened metadata
     def format_metadata(metadata)
-      return @format_metadata_override.call(metadata) if @format_metadata_override
+      return @format_metadata_override.call(self, metadata) if @format_metadata_override
       return recursive_flatten_metadata(metadata)
     end
 
