@@ -8,27 +8,43 @@ module RightScale
 
   module MetadataWriters
 
-    # Dictionary writer.
+    # Dictionary (key=value pairs) writer.
     class DictionaryMetadataWriter < MetadataWriter
 
-      # File extension for bash output
-      def file_extension; '.dict'; end
+      # Initializer.
+      #
+      # === Parameters
+      # options[:file_extension](String):: dotted extension for dictionary files or nil
+      def initialize(options)
+        # defaults
+        options = options.dup
+        options[:file_extension] ||= '.dict'
+
+        # super
+        super(options)
+      end
 
       protected
 
       # Write given metadata to a bash file.
       #
       # === Parameters
-      # file_name_prefix(String):: name prefix for generated file
       # metadata(Hash):: Hash-like metadata to write
       # subpath(Array|String):: subpath or nil
       #
       # === Return
       # always true
-      def write_file(file_name_prefix, metadata, subpath = nil)
-        return super(file_name_prefix, metadata, subpath) unless metadata.respond_to?(:has_key?)
-        File.open(full_path(file_name_prefix, subpath), "w") do |f|
-          metadata.each { |k, v| f.puts "#{k}=#{v}" }
+      def write_file(metadata, subpath = nil)
+        return super(metadata, subpath) unless metadata.respond_to?(:has_key?)
+        File.open(create_full_path(@file_name_prefix, subpath), "w") do |f|
+          metadata.each do |k, v|
+            # ensure value is a single line by truncation since most
+            # dictionary format parsers expect literal chars on a single line.
+            v = v.flatten if v.respond_to?(:flatten)
+            v = v.first if v.respond_to?(:first)
+            v = v.to_s.strip
+            f.puts "#{k}=#{v}"
+          end
         end
         true
       end

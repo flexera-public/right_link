@@ -94,21 +94,32 @@ describe RightScale::MetadataSources::HttpMetadataSource do
     # source is shared between cloud and user metadata providers.
     hosts = [:host => ::RightScale::FetchRunner::FETCH_TEST_SOCKET_ADDRESS, :port => ::RightScale::FetchRunner::FETCH_TEST_SOCKET_PORT]
     @metadata_source = RightScale::MetadataSources::HttpMetadataSource.new(:hosts => hosts, :logger => @logger)
-    cloud_metadata_tree_climber = ::RightScale::MetadataTreeClimber.new(:root_path => 'latest/meta-data')
-    user_metadata_tree_climber = ::RightScale::MetadataTreeClimber.new(:root_path => 'latest/user-data', :has_children_override => lambda{ false } )
+    cloud_metadata_tree_climber = ::RightScale::MetadataTreeClimber.new(:root_path => ::RightScale::HttpMetadataSourceSpec::METADATA_ROOT.join('/'))
+    user_metadata_tree_climber = ::RightScale::MetadataTreeClimber.new(:root_path => ::RightScale::HttpMetadataSourceSpec::USERDATA_ROOT.join('/'),
+                                                                       :has_children_override => lambda{ false } )
+
+    # raw metadata writer.
+    @output_dir_path = File.join(ENV['TEMP'], 'rs_raw_metadata_writer_output')
+    @cloud_raw_metadata_writer = ::RightScale::MetadataWriter.new(:file_name_prefix => ::RightScale::HttpMetadataSourceSpec::METADATA_ROOT.last,
+                                                                  :output_dir_path => @output_dir_path)
+    @user_raw_metadata_writer = ::RightScale::MetadataWriter.new(:file_name_prefix => ::RightScale::HttpMetadataSourceSpec::USERDATA_ROOT.last,
+                                                                 :output_dir_path => @output_dir_path)
 
     # cloud metadata
     @cloud_metadata_provider = ::RightScale::MetadataProvider.new
     @cloud_metadata_provider.metadata_source = @metadata_source
     @cloud_metadata_provider.metadata_tree_climber = cloud_metadata_tree_climber
+    @cloud_metadata_provider.raw_metadata_writer = @cloud_raw_metadata_writer
 
     # user metadata
     @user_metadata_provider = ::RightScale::MetadataProvider.new
     @user_metadata_provider.metadata_source = @metadata_source
     @user_metadata_provider.metadata_tree_climber = user_metadata_tree_climber
+    @user_metadata_provider.raw_metadata_writer = @user_raw_metadata_writer
   end
 
   def teardown_metadata_provider
+    FileUtils.rm_rf(@output_dir_path) if File.directory?(@output_dir_path)
     @cloud_metadata_provider = nil
     @user_metadata_provider = nil
     @metadata_source.finish
@@ -128,6 +139,17 @@ describe RightScale::MetadataSources::HttpMetadataSource do
     user_metadata.should == ::RightScale::HttpMetadataSourceSpec::USERDATA_LEAF
   end
 
+  def verify_raw_metadata_writer(reader, metadata, subpath = [])
+    if metadata.respond_to?(:has_key?)
+      metadata.each do |key, value|
+        verify_raw_metadata_writer(reader, value, subpath + [key])
+      end
+    else
+      result = reader.read(subpath)
+      result.strip.should == metadata
+    end
+  end
+
   it 'should raise exception for failing cURL calls' do
     lambda do
       @runner.run_fetcher(@cloud_metadata_provider) do |server|
@@ -144,6 +166,8 @@ describe RightScale::MetadataSources::HttpMetadataSource do
 
     verify_cloud_metadata(cloud_metadata)
     verify_user_metadata(user_metadata)
+    verify_raw_metadata_writer(@cloud_raw_metadata_writer, cloud_metadata)
+    verify_raw_metadata_writer(@user_raw_metadata_writer, user_metadata, nil)
   end
 
   it 'should recover from successful cURL calls which return malformed HTTP response' do
@@ -194,6 +218,7 @@ describe RightScale::MetadataSources::HttpMetadataSource do
     requested_leaf.should == true
 
     verify_cloud_metadata(cloud_metadata)
+    verify_raw_metadata_writer(@cloud_raw_metadata_writer, cloud_metadata)
   end
 
 end

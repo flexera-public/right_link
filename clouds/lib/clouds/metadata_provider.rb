@@ -71,12 +71,6 @@ module RightScale
       # query
       query_result = @metadata_source.query(path)
 
-      # write raw responses to query writer, if given
-      if @raw_metadata_writer
-        subpath = (path.length > @root_path.length) ? path[@root_path.length..-1] : nil
-        @raw_metadata_writer.write(query_result, subpath)
-      end
-
       # climb, if arboreal
       if @metadata_tree_climber.has_children?(path, query_result)
         metadata = @metadata_tree_climber.create_branch
@@ -87,14 +81,33 @@ module RightScale
             metadata[key] = recursive_build_metadata(branch_path)
           elsif key = @metadata_tree_climber.leaf_key(child_name)
             leaf_path = @metadata_source.append_leaf_name(path, child_name)
-            metadata[key] = @metadata_tree_climber.create_leaf(leaf_path, @metadata_source.query(leaf_path))
+            query_result = @metadata_source.query(leaf_path)
+            write_raw_leaf_query_result(leaf_path, query_result)
+            metadata[key] = @metadata_tree_climber.create_leaf(leaf_path, query_result)
           end
         end
         return metadata
       end
 
       # the only leaf.
+      write_raw_leaf_query_result(path, query_result)
       return @metadata_tree_climber.create_leaf(path, query_result)
+    end
+
+    # Writes raw responses to query writer, if given
+    #
+    # === Parameters
+    # path(String):: path to metadata
+    # query_result(String):: raw query result
+    #
+    # === Return
+    # always true
+    def write_raw_leaf_query_result(path, query_result)
+      if @raw_metadata_writer
+        subpath = (path.length > @root_path.length) ? path[@root_path.length..-1] : nil
+        @raw_metadata_writer.write(query_result, subpath)
+      end
+      true
     end
 
   end
