@@ -733,6 +733,7 @@ EOF
       class Shell
         POWERSHELL_V1x0_EXECUTABLE_PATH = "powershell.exe"
         POWERSHELL_V1x0_SCRIPT_EXTENSION = ".ps1"
+        RUBY_SCRIPT_EXTENSION = ".rb"
         NULL_OUTPUT_NAME = "nul"
 
         @@executable_extensions = nil
@@ -840,6 +841,20 @@ EOF
           return format_powershell_command4(POWERSHELL_V1x0_EXECUTABLE_PATH, nil, nil, shell_script_file_path, *arguments)
         end
 
+        # Formats a ruby command using the given script path and arguments.
+        # This method is only implemented for Windows since ruby scripts on
+        # linux should rely on shebang to indicate the ruby bin path.
+        #
+        # === Parameters
+        # shell_script_file_path(String):: shell script file path
+        # arguments(Array):: variable stringizable arguments
+        #
+        # === Returns
+        # executable_command(string):: executable command string
+        def format_ruby_command(shell_script_file_path, *arguments)
+          return format_executable_command(sandbox_ruby, *([shell_script_file_path] + arguments))
+        end
+
         # Formats a powershell command using the given script path and arguments.
         # Allows for specifying powershell from a specific installed location.
         # This method is only implemented for Windows.
@@ -918,10 +933,16 @@ EOF
         # === Returns
         # executable_command(string):: executable command string
         def format_shell_command(shell_script_file_path, *arguments)
-          # special case for powershell scripts.
+          # special case for powershell scripts and ruby scripts (because we
+          # don't necessarily setup the association for .rb with our sandbox
+          # ruby in the environment).
           extension = File.extname(shell_script_file_path)
-          if extension && 0 == POWERSHELL_V1x0_SCRIPT_EXTENSION.casecmp(extension)
-            return format_powershell_command(shell_script_file_path, *arguments)
+          unless extension.to_s.empty?
+            if 0 == POWERSHELL_V1x0_SCRIPT_EXTENSION.casecmp(extension)
+              return format_powershell_command(shell_script_file_path, *arguments)
+            elsif 0 == RUBY_SCRIPT_EXTENSION.casecmp(extension)
+              return format_ruby_command(shell_script_file_path, *arguments)
+            end
           end
 
           # execution is based on script extension (.bat, .cmd, .js, .vbs, etc.)
@@ -959,6 +980,7 @@ EOF
           return cmd + " 1>#{target} 2>&1"
         end
 
+        # Returns path to sandbox ruby executable.
         def sandbox_ruby
           return File.normalize_path(File.join(RightScale::Platform.filesystem.sandbox_dir, 'Ruby', 'bin', 'ruby.exe'))
         end
