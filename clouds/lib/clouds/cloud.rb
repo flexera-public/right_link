@@ -20,6 +20,8 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+require 'extlib'
+
 module RightScale
 
   # Mixin for a cloud type. Multiple clouds can reuse the same cloud type if the
@@ -93,22 +95,34 @@ module RightScale
 
     module InstanceMethods
 
+      # default writer output file prefixes are based on EC2 legacy files.
       CLOUD_METADATA_FILE_PREFIX = 'meta-data'
       USER_METADATA_FILE_PREFIX = 'user-data'
+
+      # wildcard used for some 'all kinds' selections.
       WILDCARD = '*'
 
-      attr_accessor :name, :abbreviation
+      attr_accessor :name
 
       # Initializer.
       #
       # === Parameters
       # options(Hash):: options grab bag used to configure cloud and dependencies.
       def initialize(options)
-        @options = JSON::parse(options.to_json)  # break options lineage
-        default_options(@options, [:metadata_writers, :output_dir_path], File.join(RightScale::Platform.filesystem.spool_dir, 'cloud'))
-        default_options(@options, [:cloud_metadata, :metadata_formatter, :formatted_path_prefix], "#{@abbreviation.upcase}_")
-        default_options(@options, [:cloud_metadata, :metadata_writers, :file_name_prefix], CLOUD_METADATA_FILE_PREFIX)
-        default_options(@options, [:user_metadata, :metadata_writers, :file_name_prefix], USER_METADATA_FILE_PREFIX)
+        # break options lineage and use Mash to handle keys as strings or tokens.
+        @options = Mash.new(JSON::parse(options.to_json))
+        default_options([:metadata_writers, :output_dir_path], File.join(RightScale::Platform.filesystem.spool_dir, 'cloud'))
+        default_options([:cloud_metadata, :metadata_writers, :file_name_prefix], CLOUD_METADATA_FILE_PREFIX)
+        default_options([:user_metadata, :metadata_writers, :file_name_prefix], USER_METADATA_FILE_PREFIX)
+      end
+
+      # Getter/setter for abbreviation which also sets default formatter options
+      # when an abbreviation is set.
+      def abbreviation; @abbreviation; end
+      def abbreviation=(value)
+        raise ArgumentError.new("abbreviation cannot be empty") if value.to_s.empty?
+        default_options([:cloud_metadata, :metadata_formatter, :formatted_path_prefix], "#{value.upcase}_")
+        @abbreviation = value
       end
 
       # Reads the generated metadata file of the given kind and writer type.
@@ -116,7 +130,7 @@ module RightScale
       # === Parameters
       # kind(Symbol):: kind of metadata must be one of [:cloud_metadata, :user_metadata]
       # writer_type(Symbol):: writer_type [:raw, ...]
-      def read_metadata(kind, writer_type = :raw, subpath = nil)
+      def read_metadata(kind = :user_metadata, writer_type = :raw, subpath = nil)
         if :raw == writer_type
           reader = raw_metadata_writer(kind)
         else
@@ -133,20 +147,22 @@ module RightScale
       # === Return
       # always true
       def write_metadata(kind = WILDCARD)
-        writers = create_dependent_type(kind, :metadata_writers, WILDCARD)
-        formatter = create_dependent_type(kind, :metadata_formatter)
         kinds = [:cloud_metadata, :user_metadata].select { |k| WILDCARD == kind || k == kind }
         kinds.each do |k|
-          metadata = query_metadata(k)
+          formatter = create_dependent_type(k, :metadata_formatter)
+          writers = create_dependent_type(k, :metadata_writers, WILDCARD)
+          metadata = build_metadata(k)
           metadata = formatter.format_metadata(metadata)
           writers.each { |writer| writer.write(metadata) }
         end
         true
       ensure
         # release metadata source after querying all metadata.
-        temp_metadata_source = @metadata_source
-        @metadata_source = nil
-        temp_metadata_source.finish
+        if @metadata_source
+          temp_metadata_source = @metadata_source
+          @metadata_source = nil
+          temp_metadata_source.finish
+        end
       end
 
       # Convenience method for reading only cloud metdata.
@@ -171,45 +187,35 @@ module RightScale
       #
       # === Return
       # metadata(Hash):: Hash-like metadata response
-      def query_metadata(kind)
+      def build_metadata(kind)
         @metadata_source = create_dependent_type(kind, :metadata_source) unless @metadata_source
         metadata_tree_climber = create_dependent_type(kind, :metadata_tree_climber)
         provider = create_dependent_type(kind, :metadata_provider)
-        provider.send(:metadata_source, @metadata_source)
-        provider.send(:metadata_tree_climber, metadata_tree_climber)
-        provider.send(:raw_metadata_writer, raw_metadata_writer(kind))
+        provider.send(:metadata_source=, @metadata_source)
+        provider.send(:metadata_tree_climber=, metadata_tree_climber)
+        provider.send(:raw_metadata_writer=, raw_metadata_writer(kind))
 
-        # query
-        metadata = @provider.send(:build_metadata)
-
-        # format
-        formatter = create_dependent_type(kind, :metadata_formatter)
-        metadata = formatter.format_metadata(metadata)
-        metadata
-      ensure
-        # release metadata source if it is not reusable.
-        if @metadata_source && !@metadata_source.reusable
-          temp_metadata_source = @metadata_source
-          @metadata_source = nil
-          temp_metadata_source.finish
-        end
+        # build
+        return provider.send(:build_metadata)
       end
 
       # Merges the given default options at the given depth in the options hash.
       #
       # === Parameters
-      # options(Hash):: caller options
       # path(Array|String):: path to option as an array of path elements or single string
       # defaults(Object):: object of any kind representing option to merge
-      def default_options(options, path, defaults)
+      # options(Hash):: options to merge with defaults or nil to merge into @options
+      def default_options(path, defaults, options = nil)
         # create subhashes to end of path.
-        path[0..-2].each { |child| options = options[child] ||= {} }
+        options = @options unless options
+        path[0..-2].each { |child| options = options[child] ||= Mash.new }
         last_child = path[-1]
+
+        # ensure any existing options override defaults.
         if options[last_child].respond_to?(:merge)
-          # ensure any existing options override defaults.
           options[last_child] = defaults.dup.merge(options[last_child])
         else
-          options[last_child] = defaults
+          options[last_child] ||= defaults
         end
       end
 
@@ -227,18 +233,19 @@ module RightScale
         # support wildcard case for all dependency types in a category.
         kind = kind.to_sym
         category = category.to_sym
+        clazz = self.class
         if WILDCARD == type
-          types = self.send(category)
+          types = clazz.send(category)
           return types.map { |t| create_dependent_type(kind, category, t) }
         end
 
         # get specific type from category on cloud, if necessary.
-        type = self.send(category) unless type
+        type = clazz.send(category) unless type
         raise NotImplementedError.new("The #{name.inspect} cloud has not declared a #{category} type.") unless type
         type = type.to_s
 
         options = resolve_options(kind, category, type)
-        dependency = CloudFactory.instance.resolve_dependency(self.class, type)
+        dependency = CloudFactory.resolve_dependency(clazz, type)
         return dependency.new(options)
       end
 
@@ -255,11 +262,11 @@ module RightScale
       def resolve_options(kind, category, type)
         # remove any module reference for type when finding options.
         type = type.to_s.gsub(/^.*\//, '').to_sym
-        options = @options[category] ? @options[category].dup : {}
+        options = @options[category] ? @options[category].dup : Mash.new
         options = options.merge(@options[category][type]) if @options[category] && @options[category][type]
         if @options[kind] && @options[kind][category]
           options = options.merge(@options[kind][category])
-          options = options.merge(@options[kind][category][type])
+          options = options.merge(@options[kind][category][type]) if @options[kind][category][type]
         end
         options
       end

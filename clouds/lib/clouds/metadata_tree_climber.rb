@@ -58,12 +58,12 @@ module RightScale
     #
     # === Parameters
     # path(String):: path to metadata
-    # values(String):: raw data queried using path
+    # query_result(String):: raw data queried using path
     #
     # === Return
     # result(Boolean):: true if branch, false if leaf
-    def has_children?(path, values)
-      return @has_children_override.call(self, path, values) if @has_children_override
+    def has_children?(path, query_result)
+      return @has_children_override.call(self, path, query_result) if @has_children_override
       return '/' == path[-1..-1] || path == @root_path
     end
 
@@ -104,7 +104,7 @@ module RightScale
     #
     def create_leaf(path, data)
       return @create_leaf_override.call(self, data) if @create_leaf_override
-      return data.strip
+      return data.to_s.strip
     end
 
     # Looks for equals anywhere in the sub-value or trailing forward slash at

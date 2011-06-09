@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2010 RightScale Inc
+# Copyright (c) 2011 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -21,12 +21,6 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 require File.join(File.dirname(__FILE__), 'spec_helper')
-begin
-  writers_path = File.join(File.dirname(__FILE__), '..', 'lib', 'clouds', 'metadata_writers')
-  require File.normalize_path(File.join(writers_path, 'dictionary_metadata_writer'))
-  require File.normalize_path(File.join(writers_path, 'ruby_metadata_writer'))
-  require File.normalize_path(File.join(writers_path, 'shell_metadata_writer'))
-end
 
 module RightScale
 
@@ -39,7 +33,7 @@ module RightScale
 
 end
 
-describe RightScale::MetadataWriter do
+describe RightScale::MetadataFormatter do
 
   it 'should format metadata using the default prefix' do
     formatter = ::RightScale::MetadataFormatter.new

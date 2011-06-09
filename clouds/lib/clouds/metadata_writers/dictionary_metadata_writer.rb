@@ -26,7 +26,25 @@ module RightScale
 
       protected
 
-      # Write given metadata to a bash file.
+      # Write given metadata from a dictionary file.
+      #
+      # === Parameters
+      # subpath(Array|String):: subpath or nil
+      #
+      # === Return
+      # result(Hash):: dictionary of metadata
+      def read_file(subpath = nil)
+        result = {}
+        path = full_path(@file_name_prefix, subpath)
+        contents = File.file?(path) ? File.read(path) : ''
+        contents.each do |line|
+          match = line.chomp.match(/^(.+)=(.*)$/)
+          result[match[1]] = match[2]
+        end
+        result
+      end
+
+      # Write given metadata to a dictionary file.
       #
       # === Parameters
       # metadata(Hash):: Hash-like metadata to write

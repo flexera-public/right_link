@@ -65,7 +65,7 @@ module RightScale
       # just-in-time require cloud's list of dependencies in order to
       # avoid having to pre-require all cloud dependencies s when only one type
       # will actually be used.
-      cloud_type.dependencies.each { |dependency| resolve_dependency(cloud_type, dependency) }
+      cloud_type.dependencies.each { |dependency| self.class.resolve_dependency(cloud_type, dependency) }
       cloud = cloud_type.new(options)
       cloud.name = cloud_name unless cloud.name
       cloud.abbreviation = cloud_abbreviation(cloud_type) unless cloud.abbreviation
@@ -78,9 +78,43 @@ module RightScale
     # === Return
     # result(String):: default cloud name or nil
     def default_cloud_name
-      cloud_file_path = File.normalize_path(File.join(::RightScale::Platform.filesystem.right_scale_state_dir, 'cloud'))
-      return File.read(cloud_file_path).strip.downcase if File.file?(cloud_file_path)
+      cloud_file_path = File.normalize_path(File.join(::RightScale::RightLinkConfig[:platform].filesystem.right_scale_state_dir, 'cloud'))
+      return File.read(cloud_file_path).strip if File.file?(cloud_file_path)
       nil
+    end
+
+    # Just-in-time requires a cloud's dependency, which should include its
+    # relative location (and sub-type) in the dependency name
+    # (e.g. 'metadata_sources/http_metadata_source' => Sources::HttpMetadataSource).
+    # the dependency can also be in the RightScale module namespace because it
+    # begin evaluated there.
+    #
+    # note that actual instantiation of the dependency is on-demand from the
+    # cloud type.
+    #
+    # === Parameters
+    # cloud_type(Class):: cloud class
+    # dependency(String|Token):: name for dependency class
+    #
+    # === Return
+    # dependency(Class):: resolved dependency class
+    def self.resolve_dependency(cloud_type, dependency)
+      dependency_class_name = dependency.to_s.camelize
+      begin
+        dependency = Class.class_eval(dependency_class_name)
+      rescue NameError
+        dependency_base_paths = cloud_type.dependency_base_paths.dup << File.dirname(__FILE__)
+        dependency_file_name = dependency + ".rb"
+        dependency_base_paths.each do |dependency_base_path|
+          file_path = File.normalize_path(File.join(dependency_base_path, dependency_file_name))
+          if File.file?(file_path)
+            require File.normalize_path(File.join(dependency_base_path, dependency))
+            break
+          end
+        end
+        dependency = Class.class_eval(dependency_class_name)
+      end
+      dependency
     end
 
     protected
@@ -106,40 +140,6 @@ module RightScale
       shortest = aliases.first.to_s
       aliases[1..-1].each { |a| shortest = a.to_s if a.to_s.length < shortest.length }
       return shortest.upcase
-    end
-
-    # Just-in-time requires a cloud's dependency, which should include its
-    # relative location (and sub-type) in the dependency name
-    # (e.g. 'metadata_sources/http_metadata_source' => Sources::HttpMetadataSource).
-    # the dependency can also be in the RightScale module namespace because it
-    # begin evaluated there.
-    #
-    # note that actual instantiation of the dependency is on-demand from the
-    # cloud type.
-    # 
-    # === Parameters
-    # cloud_type(Class):: cloud class
-    # dependency(String|Token):: name for dependency class
-    #
-    # === Return
-    # dependency(Class):: resolved dependency class
-    def resolve_dependency(cloud_type, dependency)
-      dependency_class_name = dependency.to_s.camelize
-      begin
-        dependency = Class.class_eval(dependency_class_name)
-      rescue NameError
-        dependency_base_paths = cloud_type.dependency_base_paths.dup << File.dirname(__FILE__)
-        dependency_file_name = dependency + ".rb"
-        dependency_base_paths.each do |dependency_base_path|
-          file_path = File.normalize_path(File.join(dependency_base_path, dependency_file_name))
-          if File.file?(file_path)
-            require File.normalize_path(File.join(dependency_base_path, dependency))
-            break
-          end
-        end
-        dependency = Class.class_eval(dependency_class_name)
-      end
-      dependency
     end
 
   end

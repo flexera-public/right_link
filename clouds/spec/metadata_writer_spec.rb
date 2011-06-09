@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2010 RightScale Inc
+# Copyright (c) 2011 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -86,17 +86,11 @@ describe RightScale::MetadataWriter do
   end
 
   it 'should write dictionary files' do
-    writer = ::RightScale::MetadataWriters::DictionaryMetadataWriter.new(:file_name_prefix => 'test', :output_dir_path => @output_dir_path)
+    reader_writer = ::RightScale::MetadataWriters::DictionaryMetadataWriter.new(:file_name_prefix => 'test', :output_dir_path => @output_dir_path)
     output_file_path = File.join(@output_dir_path, 'test.dict')
-    writer.write(::RightScale::MetadataWriterSpec::METADATA)
+    reader_writer.write(::RightScale::MetadataWriterSpec::METADATA)
     File.file?(output_file_path).should be_true
-    contents = File.read(output_file_path)
-    result = {}
-    contents.each do |line|
-      match = line.chomp.match(/^(.+)=(.*)$/)
-      match.should_not be_nil
-      result[match[1]] = match[2]
-    end
+    result = reader_writer.read
     result.should == ::RightScale::MetadataWriterSpec::FILTERED_METADATA
   end
 
