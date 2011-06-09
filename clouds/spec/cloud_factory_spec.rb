@@ -131,6 +131,9 @@ describe RightScale::CloudFactory do
   end
 
   it 'should create clouds that can be extended by external scripts' do
+    # ensure script can execute (under Linux). note that chmod has no effect
+    #in Wndows.
+    File.chmod(0744, File.join(File.dirname(__FILE__), 'scripts', ::RightScale::CloudFactorySpec::CLOUD_NAME, 'wait_for_instance_ready.rb'))
     cloud = ::RightScale::CloudFactory.instance.create(::RightScale::CloudFactorySpec::CLOUD_NAME)
     result = cloud.wait_for_instance_ready
     result[:exitstatus].should == 0
