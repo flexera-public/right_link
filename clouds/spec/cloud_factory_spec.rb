@@ -26,7 +26,7 @@ module RightScale
 
   class CloudFactorySpec
 
-    CLOUD_NAME = 'Connor'
+    CLOUD_NAME = 'connor'
     CLOUD_METADATA_ROOT = 'cloud metadata'
     CLOUD_METADATA = {'ABC' => ['easy', 123], 'simple' => "do re mi", 'abc_123' => {'baby' => [:you, :me, :girl] }}
     USER_METADATA_ROOT = 'user metadata'
@@ -42,6 +42,8 @@ module RightScale
 
       # describe a custom dependency base path for mock_metadata_source
       dependency_base_paths(File.join(File.dirname(__FILE__)))
+
+      extension_script_base_paths(File.join(File.dirname(__FILE__), 'scripts', CLOUD_NAME))
 
       def initialize(options)
         # super.
@@ -126,6 +128,13 @@ describe RightScale::CloudFactory do
     result.should == {"CONNOR_SIMPLE"=>"do re mi", "CONNOR_ABC_123_BABY"=>"you", "CONNOR_ABC"=>"easy"}
     result = cloud.read_metadata(:user_metadata, writer_type)
     result.should == {"RS_RN_ID"=>"12345", "RS_SERVER"=>"my.rightscale.com"}
+  end
+
+  it 'should create clouds that can be extended by external scripts' do
+    cloud = ::RightScale::CloudFactory.instance.create(::RightScale::CloudFactorySpec::CLOUD_NAME)
+    result = cloud.wait_for_instance_ready
+    result[:exitstatus].should == 0
+    result[:output].should == "Simulating wait for something to happen\nSomething happened!\n"
   end
 
 end

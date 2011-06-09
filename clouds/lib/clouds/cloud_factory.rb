@@ -69,6 +69,7 @@ module RightScale
       cloud = cloud_type.new(options)
       cloud.name = cloud_name unless cloud.name
       cloud.abbreviation = cloud_abbreviation(cloud_type) unless cloud.abbreviation
+      extend_cloud_by_scripts(cloud)
       return cloud
     end
 
@@ -142,5 +143,41 @@ module RightScale
       return shortest.upcase
     end
 
-  end
+    # Supports runtime extension of the cloud object by external scripts which
+    # are associated with instance methods. These scripts can also override the
+    # predefined methods (e.g. write_metadata) to further customize a cloud's
+    # behavior on a given instance. It may also be better to run some complex
+    # operation in a child process instead of in the process which is loading
+    # the cloud object.
+    def extend_cloud_by_scripts(cloud)
+      # add default search paths first.
+      search_paths = []
+      cloud.class.cloud_aliases.each do |cloud_alias|
+        search_paths << File.join(RightLinkConfig[:rs_root_path], 'bin', cloud_alias.to_s)
+      end
+
+      # custom paths are last in order to supercede any preceeding extensions.
+      search_paths += cloud.class.extension_script_base_paths
+      search_paths.each do |search_path|
+        search_path = File.normalize_path(search_path)
+        Dir.glob(File.join(search_path, "*")).each do |script_path|
+          script_ext = File.extname(script_path)
+          script_name = File.basename(script_path, script_ext)
+
+          # ignore any script names which contain strange characters (like
+          # semicolon) for security reasons.
+          if script_name =~ /^[_A-Za-z][_A-Za-z0-9]*$/
+            eval_me = <<EOF
+def #{script_name}(*arguments)
+  return execute_script(\"#{script_path}\", *arguments)
 end
+EOF
+            cloud.instance_eval(eval_me)
+          end
+        end
+      end
+    end
+
+  end  # CloudFactory
+
+end  # RightScale

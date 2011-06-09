@@ -57,6 +57,16 @@ module RightScale
         @dependency_base_paths
       end
 
+      # Base paths for external scripts which extend methods of cloud object.
+      # Names of scripts become instance methods and can override the predefined
+      # cloud methods. The factory defaults to using any scripts in
+      # "<rs_root_path>/bin/<cloud alias(es)>" directories.
+      def extension_script_base_paths(*args)
+        @extension_script_base_paths ||= []
+        args.each { |path| @extension_script_base_paths << path unless @extension_script_base_paths.include?(path) }
+        @extension_script_base_paths
+      end
+
       # Dependency type for metadata formatter
       def metadata_formatter(type = nil)
         dependencies(type) if type
@@ -275,6 +285,23 @@ module RightScale
       def raw_metadata_writer(kind)
         options = resolve_options(kind, :metadata_writers, :raw)
         return MetadataWriter.new(options)
+      end
+
+      # Called internally to execute a cloud extension script with the given
+      # command-line arguments, if any. It is generally assumed scripts will not
+      # exit until finished and will read any instance-specific information from
+      # the system or from the output of write_metadata.
+      #
+      # === Parameters
+      # script_path(String):: path to script to execute
+      # arguments(Array):: arguments for script command line or empty
+      #
+      # === Return
+      # result(Hash):: hash in form of { :exitstatus => <script exit status>, :output => <output text from script> }
+      def execute_script(script_path, *arguments)
+        cmd = ::RightScale::RightLinkConfig[:platform].shell.format_shell_command(script_path, *arguments)
+        output = `#{cmd}`
+        return { :exitstatus => $?.exitstatus, :output => output }
       end
 
     end  # InstanceMethods
