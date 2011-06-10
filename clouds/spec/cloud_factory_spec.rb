@@ -27,44 +27,11 @@ module RightScale
   class CloudFactorySpec
 
     CLOUD_NAME = 'connor'
-    CLOUD_METADATA_ROOT = 'cloud metadata'
-    CLOUD_METADATA = {'ABC' => ['easy', 123], 'simple' => "do re mi", 'abc_123' => {'baby' => [:you, :me, :girl] }}
-    USER_METADATA_ROOT = 'user metadata'
-    USER_METADATA = { 'RS_RN_ID' => '12345', 'RS_SERVER' => 'my.rightscale.com' }
-    METADATA = { CLOUD_METADATA_ROOT => CLOUD_METADATA, USER_METADATA_ROOT => USER_METADATA }
 
-    # Uses DSL to describe a mock cloud for testing purposes.
-    class MockCloud
-      include Cloud
-
-      metadata_source 'metadata_sources/mock_metadata_source'
-      metadata_writers 'metadata_writers/dictionary_metadata_writer'
-
-      # describe a custom dependency base path for mock_metadata_source
-      dependency_base_paths(File.join(File.dirname(__FILE__)))
-
-      extension_script_base_paths(File.join(File.dirname(__FILE__), 'scripts', CLOUD_NAME))
-
-      def initialize(options)
-        # super.
-        super(options)
-
-        # all options are specific to the category of dependency and can even be
-        # specific to the exact dependency type.
-        default_options([:metadata_source, :mock_metadata_source, :mock_metadata], METADATA)
-        default_options([:metadata_tree_climber, :create_leaf_override], lambda{ |_, data| data })
-
-        # options can be further distinguished between cloud and user metadata
-        # or can be used by both if kind is not specified (as in the
-        # mock_metadata_source example).
-        default_options([:cloud_metadata, :metadata_tree_climber, :root_path], CLOUD_METADATA_ROOT)
-        default_options([:user_metadata, :metadata_tree_climber, :root_path], USER_METADATA_ROOT)
-      end
-
+    # static cloud registration had better just work.
+    Dir.glob(File.normalize_path(File.join(File.dirname(__FILE__), 'clouds', '*.rb'))) do |file_path|
+      CloudFactory.instance.register(File.basename(file_path, '.rb'), file_path)
     end
-
-    # each cloud should self-register when declared.
-    ::RightScale::CloudFactory.instance.register(CLOUD_NAME, MockCloud)
 
   end
 
@@ -88,11 +55,11 @@ describe RightScale::CloudFactory do
 
   it 'should register new clouds with multiple aliases' do
     aliases = ['Highlander', 'MacLeod']
-    ::RightScale::CloudFactory.instance.register(aliases, ::RightScale::CloudFactorySpec::MockCloud)
+    ::RightScale::CloudFactory.instance.register(aliases, File.join(File.dirname(__FILE__), 'clouds', 'macleod.rb'))
     last_cloud = nil
-    (aliases + [::RightScale::CloudFactorySpec::CLOUD_NAME]).each do |cloud_alias|
+    (aliases + [::RightScale::CloudFactorySpec::CLOUD_NAME] * 2).each do |cloud_alias|
       cloud = ::RightScale::CloudFactory.instance.create(cloud_alias)
-      cloud.class.should == ::RightScale::CloudFactorySpec::MockCloud
+      cloud.class.should == ::RightScale::Cloud
       cloud.name.should == cloud_alias
       last_cloud.should_not == cloud  # factory always returns new instance
       last_cloud = cloud
@@ -108,7 +75,7 @@ describe RightScale::CloudFactory do
     FileUtils.mkdir_p(mock_state_dir_path)
     File.open(mock_cloud_file_path, "w") { |f| f.puts(::RightScale::CloudFactorySpec::CLOUD_NAME) }
     cloud = ::RightScale::CloudFactory.instance.create
-    cloud.class.should == ::RightScale::CloudFactorySpec::MockCloud
+    cloud.class.should == ::RightScale::Cloud
     cloud.name.should == ::RightScale::CloudFactorySpec::CLOUD_NAME
   end
 
@@ -117,7 +84,7 @@ describe RightScale::CloudFactory do
     cloud = ::RightScale::CloudFactory.instance.create(::RightScale::CloudFactorySpec::CLOUD_NAME, options)
     cloud.write_metadata
     File.directory?(@output_dir_path).should be_true
-    writer_type = cloud.class.metadata_writers.first
+    writer_type = cloud.metadata_writers.first
 
     # note that the default metadata formatter automatically uses the shortest
     # alias as the prefix for key names (i.e. 'CONNER_') and the dictionary
@@ -132,7 +99,7 @@ describe RightScale::CloudFactory do
 
   it 'should create clouds that can be extended by external scripts' do
     # ensure script can execute (under Linux). note that chmod has no effect
-    #in Wndows.
+    # in Wndows.
     File.chmod(0744, File.join(File.dirname(__FILE__), 'scripts', ::RightScale::CloudFactorySpec::CLOUD_NAME, 'wait_for_instance_ready.rb'))
     cloud = ::RightScale::CloudFactory.instance.create(::RightScale::CloudFactorySpec::CLOUD_NAME)
     result = cloud.wait_for_instance_ready
