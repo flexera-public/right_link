@@ -92,19 +92,21 @@ describe RightScale::CloudFactory do
     # first line or array element only (currently all known metadata values are
     # single lines of text).
     result = cloud.read_metadata(:cloud_metadata, writer_type)
-    result.should == {"CONNOR_SIMPLE"=>"do re mi", "CONNOR_ABC_123_BABY"=>"you", "CONNOR_ABC"=>"easy"}
+    result.exitstatus.should == 0
+    result.output.should == {"CONNOR_SIMPLE"=>"do re mi", "CONNOR_ABC_123_BABY"=>"you", "CONNOR_ABC"=>"easy"}
     result = cloud.read_metadata(:user_metadata, writer_type)
-    result.should == {"RS_RN_ID"=>"12345", "RS_SERVER"=>"my.rightscale.com"}
+    result.exitstatus.should == 0
+    result.output.should == {"RS_RN_ID"=>"12345", "RS_SERVER"=>"my.rightscale.com"}
   end
 
   it 'should create clouds that can be extended by external scripts' do
     # ensure script can execute (under Linux). note that chmod has no effect
-    # in Wndows.
+    # in Windows.
     File.chmod(0744, File.join(File.dirname(__FILE__), 'scripts', ::RightScale::CloudFactorySpec::CLOUD_NAME, 'wait_for_instance_ready.rb'))
     cloud = ::RightScale::CloudFactory.instance.create(::RightScale::CloudFactorySpec::CLOUD_NAME)
     result = cloud.wait_for_instance_ready
-    result[:exitstatus].should == 0
-    result[:output].should == "Simulating wait for something to happen\nSomething happened!\n"
+    result.exitstatus.should == 0
+    result.output.should == "Simulating wait for something to happen\nSomething happened!\n"
   end
 
 end

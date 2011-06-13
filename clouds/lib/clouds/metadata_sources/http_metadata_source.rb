@@ -31,6 +31,8 @@ module RightScale
     # case of a tree of metadata.
     class HttpMetadataSource < MetadataSource
 
+      attr_accessor :host, :port
+
       def initialize(options)
         raise ArgumentError, "options[:logger] is required" unless @logger = options[:logger]
         raise ArgumentError, "options[:hosts] is required" unless @hosts = options[:hosts]

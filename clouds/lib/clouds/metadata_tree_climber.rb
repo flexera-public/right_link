@@ -77,7 +77,7 @@ module RightScale
     # === Returns
     # result(Array):: array of child (leaf or branch) names or empty
     def child_names(path, query_result)
-      return @children_from_override.call(self, path, query_result) if @children_from_override
+      return @child_names_override.call(self, path, query_result) if @child_names_override
       child_names = []
       sub_values = query_result.gsub("\r\n", "\n").split(@child_name_delimiter)
       sub_values.each do |sub_value|

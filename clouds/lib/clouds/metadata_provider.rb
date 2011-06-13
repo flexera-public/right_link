@@ -35,6 +35,7 @@ module RightScale
       @metadata_tree_climber = options[:metadata_tree_climber]
       @raw_metadata_writer = options[:raw_metadata_writer]
       @build_metadata_override = options[:build_metadata_override]
+      @query_override = options[:query_override]
     end
 
     # Queries cloud-specific instance metadata in an implementation-specific
@@ -69,7 +70,7 @@ module RightScale
     #  options
     def recursive_build_metadata(path)
       # query
-      query_result = @metadata_source.query(path)
+      query_result = query(path)
 
       # climb, if arboreal
       if @metadata_tree_climber.has_children?(path, query_result)
@@ -92,6 +93,18 @@ module RightScale
       # the only leaf.
       write_raw_leaf_query_result(path, query_result)
       return @metadata_tree_climber.create_leaf(path, query_result)
+    end
+
+    # Executes a query on the source using the given path.
+    #
+    # === Parameters
+    # path(String):: path to metadata
+    #
+    # === Return
+    # result(Object):: any kind of metadata
+    def query(path)
+      return @query_override.call(self, path) if @query_override
+      return @metadata_source.query(path)
     end
 
     # Writes raw responses to query writer, if given

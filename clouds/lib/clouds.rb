@@ -27,6 +27,7 @@ begin
   base_dir_path = File.join(File.dirname(__FILE__), 'clouds')
   require File.normalize_path(File.join(base_dir_path, 'cloud'))
   require File.normalize_path(File.join(base_dir_path, 'cloud_factory'))
+  require File.normalize_path(File.join(base_dir_path, 'cloud_utilities'))
   require File.normalize_path(File.join(base_dir_path, 'metadata_formatter'))
   require File.normalize_path(File.join(base_dir_path, 'metadata_provider'))
   require File.normalize_path(File.join(base_dir_path, 'metadata_source'))

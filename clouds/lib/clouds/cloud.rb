@@ -28,9 +28,25 @@ module RightScale
   class Cloud
 
     # wildcard used for some 'all kinds' selections.
-    WILDCARD = '*'
+    WILDCARD = :*
+
+    # raw metadata writer is a special case and normally only invoked while
+    # metadata is being queried from source. it can also be referenced to read
+    # back the metadata in raw form.
+    RAW_METADATA_WRITER = :raw
 
     attr_reader :name, :script_path, :extended_clouds
+
+    # Return type for any cloud action (e.g. write_metadata).
+    class ActionResult
+      attr_reader :error, :exitstatus, :output
+
+      def initialize(options = {})
+        @error = options[:error]
+        @exitstatus = options[:exitstatus] || 0
+        @output = options[:output]
+      end
+    end
 
     # Initializer.
     #
@@ -185,18 +201,54 @@ module RightScale
       @metadata_writers
     end
 
+    # Determines if the current instance is running on the cloud indicated by
+    # this object.
+    #
+    # === Return
+    # result(Boolean):: true if current cloud, false otherwise
+    def is_current_cloud?
+      false  # clouds cannot self-detect without a specific implementation
+    end
+
+    # Updates the given node with any cloud-specific detailed information. Adds
+    # nothing by default. The ohai node can be retreived as option(:ohai) and
+    # any details can be added to the option(:ohai)[name] node.
+    #
+    # === Return
+    # always true
+    def update_details
+      true
+    end
+
+    # Convenience method for getting information about the current machine
+    # platform.
+    #
+    # === Return
+    # result(Boolean):: true if windows
+    def platform
+      ::RightScale::RightLinkConfig[:platform]
+    end
+
     # Reads the generated metadata file of the given kind and writer type.
     #
     # === Parameters
     # kind(Symbol):: kind of metadata must be one of [:cloud_metadata, :user_metadata]
-    # writer_type(Symbol):: writer_type [:raw, ...]
-    def read_metadata(kind = :user_metadata, writer_type = :raw, subpath = nil)
-      if :raw == writer_type
+    # writer_type(Symbol):: writer_type [RAW_METADATA_WRITER, ...]
+    # 
+    # === Return
+    # result(ActionResult):: action result
+    def read_metadata(kind = :user_metadata, writer_type = RAW_METADATA_WRITER, subpath = nil)
+      kind = kind.to_sym
+      writer_type = writer_type.to_sym
+      if RAW_METADATA_WRITER == writer_type
         reader = raw_metadata_writer(kind)
       else
         reader = create_dependency_type(kind, :metadata_writers, writer_type)
       end
-      return reader.read(subpath)
+      output = reader.read(subpath)
+      return ActionResult.new(:output => output)
+    rescue Exception => e
+      return ActionResult.new(:exitstatus => 1, :error => "ERROR: #{e.message}")
     end
 
     # Queries and writes current metadata to file.
@@ -205,8 +257,9 @@ module RightScale
     # kind(Symbol):: kind of metadata must be one of [:cloud_metadata, :user_metadata, WILDCARD]
     #
     # === Return
-    # always true
+    # result(ActionResult):: action result
     def write_metadata(kind = WILDCARD)
+      kind = kind.to_sym
       kinds = [:cloud_metadata, :user_metadata].select { |k| WILDCARD == kind || k == kind }
       kinds.each do |k|
         formatter = create_dependency_type(k, :metadata_formatter)
@@ -215,7 +268,9 @@ module RightScale
         metadata = formatter.format_metadata(metadata)
         writers.each { |writer| writer.write(metadata) }
       end
-      true
+      return ActionResult.new
+    rescue Exception => e
+      return ActionResult.new(:exitstatus => 1, :error => "ERROR: #{e.message}")
     ensure
       # release metadata source after querying all metadata.
       if @metadata_source_instance
@@ -226,10 +281,10 @@ module RightScale
     end
 
     # Convenience method for reading only cloud metdata.
-    def read_cloud_metadata(writer_type = :raw, subpath = nil); read_metadata(:cloud_metadata, writer_type, subpath); end
+    def read_cloud_metadata(writer_type = RAW_METADATA_WRITER, subpath = nil); read_metadata(:cloud_metadata, writer_type, subpath); end
 
     # Convenience method for reading only cloud metdata.
-    def read_cloud_metadata(writer_type = :raw, subpath = nil); read_metadata(:user_metadata, writer_type, subpath); end
+    def read_user_metadata(writer_type = RAW_METADATA_WRITER, subpath = nil); read_metadata(:user_metadata, writer_type, subpath); end
 
     # Convenience method for writing only cloud metdata.
     def write_cloud_metadata; write_metadata(:cloud_metadata); end
@@ -357,7 +412,7 @@ module RightScale
 
     # Creates the internal-use raw metadata writer.
     def raw_metadata_writer(kind)
-      options = resolve_options(kind, :metadata_writers, :raw)
+      options = resolve_options(kind, :metadata_writers, RAW_METADATA_WRITER)
       return MetadataWriter.new(options)
     end
 
@@ -371,11 +426,13 @@ module RightScale
     # arguments(Array):: arguments for script command line or empty
     #
     # === Return
-    # result(Hash):: hash in form of { :exitstatus => <script exit status>, :output => <output text from script> }
+    # result(ActionResult):: action result
     def execute_script(script_path, *arguments)
       cmd = ::RightScale::RightLinkConfig[:platform].shell.format_shell_command(script_path, *arguments)
       output = `#{cmd}`
-      return { :exitstatus => $?.exitstatus, :output => output }
+      return ActionResult.new(:exitstatus => $?.exitstatus, :output => output)
+    rescue Exception => e
+      return ActionResult.new(:exitstatus => 1, :error => "ERROR: #{e.message}")
     end
 
     # make the given path relative to this cloud's DSL script path only if the

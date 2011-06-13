@@ -38,4 +38,3 @@ require File.normalize_path(File.join(File.dirname(__FILE__), 'instance', 'opera
 require File.normalize_path(File.join(File.dirname(__FILE__), 'instance', 'options_bag'))
 require File.normalize_path(File.join(File.dirname(__FILE__), 'instance', 'right_scripts_cookbook'))
 require File.normalize_path(File.join(File.dirname(__FILE__), 'instance', 'shutdown_request'))
-require File.normalize_path(File.join(File.dirname(__FILE__), 'instance', 'user_data_writer'))

@@ -23,8 +23,8 @@
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'spec', 'spec_helper'))
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'agents', 'lib', 'instance'))
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'agents', 'lib', 'instance', 'cook'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'clouds', 'lib', 'clouds'))
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'providers'))
-require File.expand_path(File.join(File.dirname(__FILE__), '..', 'lib', 'cloud_utilities.rb'))
 
 shared_examples_for 'generates cookbook for chef runner' do
   before(:all) do
