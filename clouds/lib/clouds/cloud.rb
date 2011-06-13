@@ -57,7 +57,9 @@ module RightScale
       raise ArgumentError.new("options[:script_path] is required") unless @script_path = options[:script_path]
 
       # break options lineage and use Mash to handle keys as strings or tokens.
-      @options = Mash.new(JSON::parse(options.to_json))
+      # note that this is not a deep copy as :ohai is an option representing the
+      # full ohai node in at least one use case.
+      @options = Mash.new(options)
       @extended_clouds = []
       default_option([:metadata_writers, :output_dir_path], File.join(RightScale::Platform.filesystem.spool_dir, 'cloud'))
       default_option([:cloud_metadata, :metadata_writers, :file_name_prefix], DEFAULT_CLOUD_METADATA_FILE_PREFIX)
