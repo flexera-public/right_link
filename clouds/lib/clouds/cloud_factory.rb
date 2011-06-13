@@ -123,12 +123,13 @@ module RightScale
     def detect_cloud(options)
       @names_to_script_paths.each_key do |cloud_name|
         begin
-          cloud = create(cloud, options)
+          cloud = create(cloud_name, options)
           return cloud if cloud.is_current_cloud?
         rescue Exception
           # ignore failures and proceed to detecting next cloud, if any.
         end
       end
+      nil
     end
 
     # Normalizes a cloud name to ensure all variants are resolvable.
