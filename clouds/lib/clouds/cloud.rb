@@ -35,6 +35,9 @@ module RightScale
     # back the metadata in raw form.
     RAW_METADATA_WRITER = :raw
 
+    # exceptions
+    class CloudError < Exception; end
+
     attr_reader :name, :script_path, :extended_clouds
 
     # Return type for any cloud action (e.g. write_metadata).
@@ -220,6 +223,17 @@ module RightScale
     # always true
     def update_details
       true
+    end
+
+    # Convenience method for failing to load or execute cloud definition.
+    #
+    # === Parameters
+    # message(String):: message
+    #
+    # === Raise
+    # always CloudError
+    def fail(message)
+      raise CloudError.new(message)
     end
 
     # Convenience method for getting information about the current machine
