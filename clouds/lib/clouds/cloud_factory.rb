@@ -29,6 +29,9 @@ module RightScale
 
     include Singleton
 
+    # the unknown cloud is used to automatically detect current instance's cloud
+    UNKNOWN_CLOUD_NAME = :unknown
+
     # exceptions
     class UnknownCloud < Exception; end
 
@@ -66,7 +69,7 @@ module RightScale
     # Factory method for dynamic metadata types.
     #
     # === Parameters
-    # cloud(String):: a registered_type cloud name
+    # cloud(String):: a registered_type cloud name or UNKNOWN_CLOUD_NAME
     # options(Hash):: options for creation or empty
     #
     # === Return
@@ -74,17 +77,20 @@ module RightScale
     #
     # === Raise
     # UnknownCloud:: on error
-    def create(cloud_name = nil, options = {})
-      cloud_name = default_cloud_name unless cloud_name
-      if cloud_name.nil? && (cloud = detect_cloud(options))
+    def create(cloud_name = UNKNOWN_CLOUD_NAME, options = {})
+      raise ArgumentError.new("cloud_name is required") if cloud_name.to_s.empty?
+      cloud_name = cloud_name.to_sym
+      cloud_name = default_cloud_name if UNKNOWN_CLOUD_NAME == cloud_name
+      if UNKNOWN_CLOUD_NAME == cloud_name
         # persist default cloud name after successful detection.
+        cloud = detect_cloud(options)
+        raise UnknownCloud.new("Unable to determine a default cloud") unless cloud
         default_cloud_name(cloud.name)
         return cloud
       end
-      raise UnknownCloud.new("Unable to determine a default cloud") unless cloud_name
       cloud_script_path = registered_script_path(cloud_name)
       options = options.dup
-      options[:name] ||= cloud_name
+      options[:name] ||= cloud_name.to_s
       options[:script_path] = cloud_script_path
       cloud = Cloud.new(options)
       text = File.read(cloud_script_path)
@@ -109,7 +115,7 @@ module RightScale
       else
         value = File.read(cloud_file_path).strip if File.file?(cloud_file_path)
       end
-      value.to_s.empty? ? nil : value
+      value.to_s.empty? ? UNKNOWN_CLOUD_NAME : value
     end
 
     # Attempts to detect the current instance's cloud by instantiating the

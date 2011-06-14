@@ -151,7 +151,7 @@ describe RightScale::MetadataSources::HttpMetadataSource do
     end
   end
 
-  it 'should raise exception for failing cURL calls' do
+  it 'should raise exception for failing HTTP calls' do
     lambda do
       @runner.run_fetcher(@cloud_metadata_provider) do |server|
         # intentionally not mounting any paths
@@ -159,7 +159,7 @@ describe RightScale::MetadataSources::HttpMetadataSource do
     end.should raise_error(::RightScale::MetadataSource::QueryFailed)
   end
 
-  it 'should succeed for successful cURL calls' do
+  it 'should succeed for successful HTTP calls' do
     cloud_metadata, user_metadata = @runner.run_fetcher(@cloud_metadata_provider, @user_metadata_provider) do |server|
       server.recursive_mount_metadata(::RightScale::HttpMetadataSourceSpec::METADATA_TREE, ::RightScale::HttpMetadataSourceSpec::METADATA_ROOT.clone)
       server.recursive_mount_metadata(::RightScale::HttpMetadataSourceSpec::USERDATA_LEAF, ::RightScale::HttpMetadataSourceSpec::USERDATA_ROOT.clone)
@@ -171,7 +171,7 @@ describe RightScale::MetadataSources::HttpMetadataSource do
     verify_raw_metadata_writer(@user_raw_metadata_writer, user_metadata, nil)
   end
 
-  it 'should recover from successful cURL calls which return malformed HTTP response' do
+  it 'should recover from successful HTTP calls which return malformed HTTP response' do
     requested_branch = false
     requested_leaf = false
     cloud_metadata = @runner.run_fetcher(@cloud_metadata_provider) do |server|

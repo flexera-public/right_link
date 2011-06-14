@@ -36,7 +36,7 @@ begin
   options[:user_metadata] = {:metadata_tree_climber => {:create_leaf_override => lambda { |_, value| value }}}
 
   default_option([:user_metadata, :metadata_tree_climber, :create_leaf_override], method(:create_user_metadata_leaf))
-  cloud_instance = ::RightScale::CloudFactory.instance.create(nil, options)
+  cloud_instance = ::RightScale::CloudFactory.instance.create(::RightScale::CloudFactory::UNKNOWN_CLOUD_NAME, options)
   cloud[:provider] = cloud_instance.name
 
   # create node using cloud name.

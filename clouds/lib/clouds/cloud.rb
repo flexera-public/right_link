@@ -71,7 +71,7 @@ module RightScale
     def abbreviation(value = nil)
       unless value.to_s.empty?
         @abbreviation = value.to_s
-        default_option([:cloud_metadata, :metadata_formatter, :formatted_path_prefix], "#{value.upcase}_")
+        default_option([:cloud_metadata, :metadata_formatter, :formatted_path_prefix], "#{value.to_s.upcase}_")
       end
       @abbreviation
     end
@@ -349,7 +349,7 @@ module RightScale
     def default_option(path, default_value)
       # create subhashes to end of path.
       options = @options
-      path = path.split('/') unless path.kind_of?(Array)
+      path = path.to_s.split('/') unless path.kind_of?(Array)
       path[0..-2].each { |child| options = options[child] ||= Mash.new }
       last_child = path[-1]
 
