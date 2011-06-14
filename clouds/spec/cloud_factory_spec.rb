@@ -99,6 +99,15 @@ describe RightScale::CloudFactory do
     result.output.should == {"RS_RN_ID"=>"12345", "RS_SERVER"=>"my.rightscale.com"}
   end
 
+  it 'should create clouds that can clear their state' do
+    options = { :metadata_writers => { :output_dir_path => @output_dir_path } }
+    cloud = ::RightScale::CloudFactory.instance.create(::RightScale::CloudFactorySpec::CLOUD_NAME, options)
+    cloud.write_metadata
+    File.directory?(@output_dir_path).should be_true
+    cloud.clear_state
+    File.directory?(@output_dir_path).should be_false
+  end
+
   it 'should create clouds that can be extended by external scripts' do
     # ensure script can execute (under Linux). note that chmod has no effect
     # in Windows.
