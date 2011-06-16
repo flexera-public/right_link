@@ -184,7 +184,7 @@ module RightScale
             history << uri.to_s
             location = response['Location']
             uri = safe_parse_http_uri(location)
-            if location.absolute?
+            if uri.absolute?
               if history.include?(uri.to_s)
                 @logger.error("Circular redirection to #{location.inspect} detected; giving up")
                 return nil
