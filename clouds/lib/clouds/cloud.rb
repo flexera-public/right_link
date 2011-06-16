@@ -331,7 +331,9 @@ module RightScale
         end
       end
       fail(last_exception.message) if last_exception
-      true
+      return ActionResult.new
+    rescue Exception => e
+      return ActionResult.new(:exitstatus => 1, :error => "ERROR: #{e.message}")
     end
 
     protected
