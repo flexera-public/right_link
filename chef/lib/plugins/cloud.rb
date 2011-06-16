@@ -35,22 +35,21 @@ begin
   # ensure user metadata is returned in raw form for legacy node support.
   options[:user_metadata] = {:metadata_tree_climber => {:create_leaf_override => lambda { |_, value| value }}}
 
-  default_option([:user_metadata, :metadata_tree_climber, :create_leaf_override], method(:create_user_metadata_leaf))
   cloud_instance = ::RightScale::CloudFactory.instance.create(::RightScale::CloudFactory::UNKNOWN_CLOUD_NAME, options)
+
   cloud[:provider] = cloud_instance.name
 
   # create node using cloud name.
-  provides cloud.name.to_s
+  provides cloud_instance.name.to_s
 
-  named_cloud_node = nil
-  self.instance_eval("#{cloud.name} Mash.new\nnamed_cloud_node = #{cloud.name}")
+  named_cloud_node = @data[cloud_instance.name.to_s.to_sym] = Mash.new
   named_cloud_node.update(cloud_instance.build_metadata(:cloud))
 
   # user metadata appears as a node of cloud metadata for legacy support.
   named_cloud_node[:userdata] = cloud_instance.build_metadata(:user)
 
   # cloud may have specific details to insert into ohai node(s).
-  cloud_instance.update_details
+  named_cloud_node.update(cloud_instance.update_details)
 
   # expecting public/private IPs to come from all clouds.
   cloud[:public_ips] = [ named_cloud_node[:public_ipv4] || named_cloud_node[:public_ip] ]

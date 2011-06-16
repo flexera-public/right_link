@@ -30,7 +30,7 @@ describe RightScale::CloudUtilities do
 
   context '#has_mac?' do
     before(:each) do
-      @ohai[:network] = {:interfaces => {:eth0 => {} } }
+      @ohai[:network] = {:interfaces => {:eth0 => {}}}
     end
 
     it 'that matches' do
@@ -50,7 +50,7 @@ describe RightScale::CloudUtilities do
       flexmock(t).should_receive(:connect_nonblock).and_raise(Errno::EINPROGRESS)
       flexmock(Socket).should_receive(:new).and_return(t)
 
-      flexmock(IO).should_receive(:select).and_return([[],[1],[]])
+      flexmock(IO).should_receive(:select).and_return([[], [1], []])
 
       RightScale::CloudUtilities.can_contact_metadata_server?("1.1.1.1", 80).should be_true
     end
@@ -60,7 +60,7 @@ describe RightScale::CloudUtilities do
       flexmock(t).should_receive(:connect_nonblock).and_raise(Errno::EINPROGRESS)
       flexmock(Socket).should_receive(:new).and_return(t)
 
-      flexmock(IO).should_receive(:select).and_return([[],nil,[]])
+      flexmock(IO).should_receive(:select).and_return([[], nil, []])
 
       RightScale::CloudUtilities.can_contact_metadata_server?("1.1.1.1", 80).should be_false
     end
@@ -82,81 +82,22 @@ describe RightScale::CloudUtilities do
     end
   end
 
-  context '#metadata' do
-    before(:each) do
-      flexmock(OpenURI).should_receive(:open_uri).with("http://1.1.1.1/the/meta-data/").and_return(flexmock("IO1", :read => "item-one\nitem_two\nL1/\narray-type"))
-      flexmock(OpenURI).should_receive(:open_uri).with("http://1.1.1.1/the/meta-data/item-one").and_return(flexmock("IO2", :read => "value.one"))
-      flexmock(OpenURI).should_receive(:open_uri).with("http://1.1.1.1/the/meta-data/item_two").and_return(flexmock("IO3", :read => "value_two"))
-      flexmock(OpenURI).should_receive(:open_uri).with("http://1.1.1.1/the/meta-data/L1/").and_return(flexmock("IO4", :read => "L2-item-1\nL2-item-2\nL2-item-3"))
-      flexmock(OpenURI).should_receive(:open_uri).with("http://1.1.1.1/the/meta-data/L1/L2-item-1").and_return(flexmock("IO5", :read => "L2-one"))
-      flexmock(OpenURI).should_receive(:open_uri).with("http://1.1.1.1/the/meta-data/L1/L2-item-2").and_return(flexmock("IO6", :read => "L2two"))
-      flexmock(OpenURI).should_receive(:open_uri).with("http://1.1.1.1/the/meta-data/L1/L2-item-3").and_return(flexmock("IO7", :read => "L2/three"))
-      flexmock(OpenURI).should_receive(:open_uri).with("http://1.1.1.1/the/meta-data/array-type").and_return(flexmock("IOn", :read => "one\ntwo"))
-    end
-
-    shared_examples_for 'has valid metadata' do
-      it 'converts - in key name to _' do
-        @data['item_one'].should == "value.one"
-      end
-
-      it 'retrieves simple value' do
-        @data['item_two'].should == "value_two"
-      end
-
-      it 'retrieves array values' do
-        @data['array_type'].should eql ['one', 'two']
-      end
-
-      it 'retrieves hierarchical values' do
-        @data['L1_L2_item_1'].should == "L2-one"
-        @data['L1_L2_item_2'].should == "L2two"
-        @data['L1_L2_item_3'].should == "L2/three"
-      end
-    end
-
-    context 'querying for root metadata' do
-      before(:each) do
-        @data = RightScale::CloudUtilities.metadata("http://1.1.1.1/the/meta-data")
-      end
-
-      it_should_behave_like 'has valid metadata'
-    end
-
-    context 'using predefined set of root metadata' do
-      before(:each) do
-        predefined_metadata = %w{item-one item_two L1/ array-type}
-
-        @data = RightScale::CloudUtilities.metadata("http://1.1.1.1/the/meta-data", '', predefined_metadata)
-      end
-
-      it_should_behave_like 'has valid metadata'
-    end
-  end
-
-  context '#userdata' do
-    it 'retrieves user data' do
-      flexmock(OpenURI).should_receive(:open_uri).with("http://1.1.1.1/the/user-data/").and_return(flexmock("IOn", :read => "a bunch of data, with\ninteresting, characters !.#=1$ to be left alone"))
-
-      RightScale::CloudUtilities.userdata("http://1.1.1.1/the/user-data").should == "a bunch of data, with\ninteresting, characters !.#=1$ to be left alone"
-    end
-  end
-
   context '#ip_for_interface' do
     it 'retrieves the appropriate ip address for a given interface' do
       @ohai[:network] = {:interfaces => {"eth0" => {"addresses" => {
-                                                      "ffff::111:fff:ffff:11" => {
-                                                        "scope"=> "Link",
-                                                        "prefixlen"=> "64",
-                                                        "family"=> "inet6"
-                                                      },
-                                                      "ff:ff:ff:ff:ff:ff" => {
-                                                        "family"=> "lladdr"
-                                                      },
-                                                      "1.1.1.1" => {
-                                                        "broadcast" => "1.1.1.255",
-                                                        "netmask" => "255.255.255.0",
-                                                        "family" => "inet"
-                                                      } } } } }
+              "ffff::111:fff:ffff:11" => {
+                      "scope"=> "Link",
+                      "prefixlen"=> "64",
+                      "family"=> "inet6"
+              },
+              "ff:ff:ff:ff:ff:ff" => {
+                      "family"=> "lladdr"
+              },
+              "1.1.1.1" => {
+                      "broadcast" => "1.1.1.255",
+                      "netmask" => "255.255.255.0",
+                      "family" => "inet"
+              }}}}}
 
       RightScale::CloudUtilities.ip_for_interface(@ohai, :eth0).should == "1.1.1.1"
     end
@@ -172,27 +113,27 @@ describe RightScale::CloudUtilities do
     end
 
     it 'returns nothing when there are no addresses on a given interface' do
-      @ohai[:network] = {:interfaces => {"eth1" => {} } }
+      @ohai[:network] = {:interfaces => {"eth1" => {}}}
       RightScale::CloudUtilities.ip_for_interface(@ohai, :eth1).should be_nil
     end
   end
 
-    context '#ip_for_windows_interface' do
+  context '#ip_for_windows_interface' do
     it 'retrieves the appropriate ip address for a given interface' do
       @ohai[:network] = {:interfaces => {"0x1"=> {"addresses"=>
-                                          {"1.1.1.1"=>
-                                            {"netmask"=>"255.255.255.0",
-                                             "broadcast"=>"1.1.1.255",
-                                             "family"=>"inet"},
-                                           "10:10:10:10:10:0"=>{"family"=>"lladdr"}},
-                                         "type"=>"Ethernet 802.3",
-                                         "instance"=>
-                                          {"system_creation_class_name"=>"Win32_ComputerSystem",
-                                           "net_connection_id"=>"public"},
-                                         "encapsulation"=>"Ethernet",
-                                         "configuration"=>
-                                          {"ip_enabled"=>true,
-                                           "ip_address"=>["1.1.1.1"]}}}}
+              {"1.1.1.1"=>
+                      {"netmask"=>"255.255.255.0",
+                       "broadcast"=>"1.1.1.255",
+                       "family"=>"inet"},
+               "10:10:10:10:10:0"=>{"family"=>"lladdr"}},
+                                                  "type"=>"Ethernet 802.3",
+                                                  "instance"=>
+                                                          {"system_creation_class_name"=>"Win32_ComputerSystem",
+                                                           "net_connection_id"=>"public"},
+                                                  "encapsulation"=>"Ethernet",
+                                                  "configuration"=>
+                                                          {"ip_enabled"=>true,
+                                                           "ip_address"=>["1.1.1.1"]}}}}
 
       RightScale::CloudUtilities.ip_for_windows_interface(@ohai, 'public').should == "1.1.1.1"
     end
@@ -208,48 +149,9 @@ describe RightScale::CloudUtilities do
     end
 
     it 'returns nothing when there are no addresses on a given interface' do
-      @ohai[:network] = {:interfaces => {"0xC" => {} } }
+      @ohai[:network] = {:interfaces => {"0xC" => {}}}
       RightScale::CloudUtilities.ip_for_windows_interface(@ohai, 'public').should be_nil
     end
   end
 
-  context '#cloud' do
-    it 'cloud file does not exist' do
-      flexmock(File).should_receive(:exist?).and_return(false)
-      RightScale::CloudUtilities.cloud.should == :unknown
-    end
-
-    it 'cloud file contains a valid cloud' do
-      flexmock(File).should_receive(:exist?).and_return(true)
-      flexmock(File).should_receive(:read).and_return("acloud")
-      RightScale::CloudUtilities.cloud.should == :acloud
-    end
-  end
-
-  context '#is_cloud?' do
-    it 'cloud matches expected cloud' do
-      flexmock(RightScale::CloudUtilities).should_receive(:cloud).and_return(:acloud)
-      RightScale::CloudUtilities.is_cloud?(:acloud).should be_true
-    end
-
-    it 'cloud does not match expected cloud' do
-      flexmock(RightScale::CloudUtilities).should_receive(:cloud).and_return(:somecloud)
-      RightScale::CloudUtilities.is_cloud?(:acloud).should be_false
-    end
-
-    it 'cloud is unknown no block' do
-      flexmock(RightScale::CloudUtilities).should_receive(:cloud).and_return(:unknown)
-      RightScale::CloudUtilities.is_cloud?(:acloud).should be_true
-    end
-
-    it 'cloud is unknown false block' do
-      flexmock(RightScale::CloudUtilities).should_receive(:cloud).and_return(:unknown)
-      RightScale::CloudUtilities.is_cloud?(:acloud){false}.should be_false
-    end
-
-    it 'cloud is unknown true block' do
-      flexmock(RightScale::CloudUtilities).should_receive(:cloud).and_return(:unknown)
-      RightScale::CloudUtilities.is_cloud?(:acloud){true}.should be_true
-    end
-  end
 end
