@@ -29,7 +29,8 @@ module RightScale
     CLOUD_NAME = 'connor'
 
     # static cloud registration had better just work.
-    Dir.glob(File.normalize_path(File.join(File.dirname(__FILE__), 'clouds', '*.rb'))) do |file_path|
+    GLOB_PATH = File.normalize_path(File.join(File.dirname(__FILE__), 'clouds', '*.rb'))
+    Dir.glob(GLOB_PATH).each do |file_path|
       CloudFactory.instance.register(File.basename(file_path, '.rb'), file_path)
     end
 
