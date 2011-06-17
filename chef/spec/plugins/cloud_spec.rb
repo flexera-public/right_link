@@ -39,8 +39,8 @@ describe Ohai::System, ' plugin cloud' do
     context 'contains generic settings' do
       before(:each) do
         @cloud_instance = flexmock('fake_cloud', :name=> @expected_cloud)
-        @cloud_instance.should_receive(:build_metadata).with(:cloud).and_return(@metadata)
-        @cloud_instance.should_receive(:build_metadata).with(:user).and_return(@userdata)
+        @cloud_instance.should_receive(:build_metadata).with(:cloud_metadata).and_return(@metadata)
+        @cloud_instance.should_receive(:build_metadata).with(:user_metadata).and_return(@userdata)
         @cloud_instance.should_receive(:update_details).and_return(@additionaldata)
         @cloud_factory = flexmock('fake_factory')
         @cloud_factory.should_receive(:create).and_return(@cloud_instance)
@@ -90,7 +90,7 @@ describe Ohai::System, ' plugin cloud' do
   context 'on EC2' do
     before(:each) do
       @expected_cloud = 'ec2'
-      @metadata = {:public_ipv4 => @expected_public_ip, :local_ipv4 => @expected_private_ip}
+      @metadata = {:"public-ipv4" => @expected_public_ip, :"local-ipv4" => @expected_private_ip}
       @userdata = {}
       @additionaldata = {}
     end
@@ -112,7 +112,7 @@ describe Ohai::System, ' plugin cloud' do
   context 'on Eucalyptus' do
     before(:each) do
       @expected_cloud = "eucalyptus"
-      @metadata = {:public_ipv4 => @expected_public_ip, :local_ipv4 => @expected_private_ip}
+      @metadata = {:"public-ipv4" => @expected_public_ip, :"local-ipv4" => @expected_private_ip}
       @userdata = {}
       @additionaldata = {}
     end
@@ -123,7 +123,7 @@ describe Ohai::System, ' plugin cloud' do
   context 'on cloudstack' do
     before(:each) do
       @expected_cloud = "cloudstack"
-      @metadata = {:public_ipv4 => @expected_public_ip, :local_ipv4 => @expected_private_ip}
+      @metadata = {:"public-ipv4" => @expected_public_ip, :"local-ipv4" => @expected_private_ip}
       @userdata = {}
       @additionaldata = {}
     end
