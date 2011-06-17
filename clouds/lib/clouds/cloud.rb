@@ -30,6 +30,10 @@ module RightScale
     # wildcard used for some 'all kinds' selections.
     WILDCARD = :*
 
+    # default writer output file prefixes are based on EC2 legacy files.
+    DEFAULT_CLOUD_METADATA_FILE_PREFIX = 'meta-data'
+    DEFAULT_USER_METADATA_FILE_PREFIX = 'user-data'
+
     # raw metadata writer is a special case and normally only invoked while
     # metadata is being queried from source. it can also be referenced to read
     # back the metadata in raw form.
@@ -222,7 +226,7 @@ module RightScale
     # === Return
     # always true
     def update_details
-      true
+      {}
     end
 
     # Convenience method for failing to load or execute cloud definition.
@@ -250,7 +254,7 @@ module RightScale
     # === Parameters
     # kind(Symbol):: kind of metadata must be one of [:cloud_metadata, :user_metadata]
     # writer_type(Symbol):: writer_type [RAW_METADATA_WRITER, ...]
-    # 
+    #
     # === Return
     # result(ActionResult):: action result
     def read_metadata(kind = :user_metadata, writer_type = RAW_METADATA_WRITER, subpath = nil)
@@ -338,12 +342,6 @@ module RightScale
       return ActionResult.new(:exitstatus => 1, :error => "ERROR: #{e.message}")
     end
 
-    protected
-
-    # default writer output file prefixes are based on EC2 legacy files.
-    DEFAULT_CLOUD_METADATA_FILE_PREFIX = 'meta-data'
-    DEFAULT_USER_METADATA_FILE_PREFIX = 'user-data'
-
     # Executes a query for metadata and builds a metadata 'tree' according to
     # the rules of provider and tree climber.
     #
@@ -363,6 +361,8 @@ module RightScale
       # build
       return provider.send(:build_metadata)
     end
+
+    protected
 
     # Gets the option given by path, if it exists.
     #

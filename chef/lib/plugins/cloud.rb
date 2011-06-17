@@ -20,6 +20,9 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', '..', '..', 'lib', 'clouds'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'clouds', 'lib', 'clouds'))
+
 provides "cloud"
 
 require_plugin "network"
@@ -35,6 +38,10 @@ begin
   # ensure user metadata is returned in raw form for legacy node support.
   options[:user_metadata] = {:metadata_tree_climber => {:create_leaf_override => lambda { |_, value| value }}}
 
+  # log to the ohai log
+  options[:logger] = Ohai::Log
+
+  # create the cloud instance
   cloud_instance = ::RightScale::CloudFactory.instance.create(::RightScale::CloudFactory::UNKNOWN_CLOUD_NAME, options)
 
   cloud[:provider] = cloud_instance.name
@@ -43,17 +50,17 @@ begin
   provides cloud_instance.name.to_s
 
   named_cloud_node = @data[cloud_instance.name.to_s.to_sym] = Mash.new
-  named_cloud_node.update(cloud_instance.build_metadata(:cloud))
+  named_cloud_node.update(cloud_instance.build_metadata(:cloud_metadata))
 
   # user metadata appears as a node of cloud metadata for legacy support.
-  named_cloud_node[:userdata] = cloud_instance.build_metadata(:user)
+  named_cloud_node[:userdata] = cloud_instance.build_metadata(:user_metadata)
 
   # cloud may have specific details to insert into ohai node(s).
   named_cloud_node.update(cloud_instance.update_details)
 
   # expecting public/private IPs to come from all clouds.
-  cloud[:public_ips] = [ named_cloud_node[:public_ipv4] || named_cloud_node[:public_ip] ]
-  cloud[:private_ips] = [ named_cloud_node[:local_ipv4] || named_cloud_node[:private_ip] ]
+  cloud[:public_ips] = [ named_cloud_node[:"public-ipv4"] || named_cloud_node[:public_ip] ]
+  cloud[:private_ips] = [ named_cloud_node[:"local-ipv4"] || named_cloud_node[:private_ip] ]
 
 rescue Exception => e
   # cloud was unresolvable, but not all ohai use cases are cloud instances.
