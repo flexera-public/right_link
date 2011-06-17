@@ -281,8 +281,10 @@ module RightScale
         formatter = create_dependency_type(k, :metadata_formatter)
         writers = create_dependency_type(k, :metadata_writers, WILDCARD)
         metadata = build_metadata(k)
-        metadata = formatter.format_metadata(metadata)
-        writers.each { |writer| writer.write(metadata) }
+        unless metadata.empty?
+          metadata = formatter.format_metadata(metadata)
+          writers.each { |writer| writer.write(metadata) }
+        end
       end
       return ActionResult.new
     rescue Exception => e

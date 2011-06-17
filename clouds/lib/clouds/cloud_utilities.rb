@@ -126,5 +126,23 @@ module RightScale
       address
     end
 
+    # Splits data on the given splitter character and merges to the given hash.
+    #
+    # === Parameters
+    # data(String):: raw data
+    # splitter(String):: splitter character
+    # hash(Hash):: hash to merge
+    # name_value_delimiter(String):: name/value delimiter (defaults to '=')
+    #
+    # === Return
+    # hash(Hash):: merged hash result
+    def self.split_metadata(data, splitter, hash, name_value_delimiter = '=')
+      data.split(splitter).each do |pair|
+        name, value = pair.split(name_value_delimiter, 2)
+        hash[name.strip] = value.strip if name && value
+      end
+      hash
+    end
+
   end
 end
