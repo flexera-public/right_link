@@ -50,7 +50,12 @@ begin
   provides cloud_instance.name.to_s
 
   named_cloud_node = @data[cloud_instance.name.to_s.to_sym] = Mash.new
-  named_cloud_node.update(cloud_instance.build_metadata(:cloud_metadata))
+  cloud_metadata = cloud_instance.build_metadata(:cloud_metadata)
+  if cloud_metadata.instance_of?(::Hash)
+    named_cloud_node.update(cloud_metadata)
+  elsif cloud_metadata != nil
+    named_cloud_node.update({:metadata => cloud_metadata})
+  end
 
   # user metadata appears as a node of cloud metadata for legacy support.
   named_cloud_node[:userdata] = cloud_instance.build_metadata(:user_metadata)
