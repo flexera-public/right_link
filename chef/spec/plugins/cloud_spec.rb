@@ -101,8 +101,8 @@ describe Ohai::System, ' plugin cloud' do
   context 'on Rackspace' do
     before(:each) do
       @expected_cloud = "rackspace"
-      @metadata = {}
-      @userdata = {}
+      @metadata = ""
+      @userdata = ""
       @additionaldata = {:public_ip => @expected_public_ip, :private_ip => @expected_private_ip}
     end
 
