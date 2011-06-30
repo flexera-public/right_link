@@ -21,6 +21,7 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 require File.join(File.dirname(__FILE__), 'spec_helper')
+require File.join(File.dirname(__FILE__), '..', '..', 'agents', 'lib', 'instance', 'idempotent_request')
 require File.join(File.dirname(__FILE__), '..', 'lib', 'instance_setup')
 require File.join(File.dirname(__FILE__), 'audit_proxy_mock')
 require File.join(File.dirname(__FILE__), 'instantiation_mock')
@@ -76,23 +77,24 @@ class InstanceSetup
   def self.results_for_detach_volume=(results); @@results_for_detach_volume = results; end
 
   def send_retryable_request(operation, *args)
-    # defer response to better simulate asynchronous nature of calls to RightNet.
-    EM.defer do
+    # next_tick response to better simulate asynchronous nature of calls to RightNet.
+    callback = args.last
+    callback = nil unless callback.is_a? Proc
+    EM.next_tick do
       begin
         case operation
-        when "/booter/declare" then yield @@factory.success_results
-        when "/booter/set_r_s_version" then yield @@factory.success_results
-        when "/booter/get_repositories" then yield @@repos
-        when "/booter/get_boot_bundle" then yield @@bundle
-        when "/booter/get_login_policy" then yield @@login_policy
-        when "/mapper/list_agents" then yield @@agents
-        when "/storage_valet/get_planned_volumes" then yield @@results_for_get_planned_volumes.shift.call(*args)
-        when "/storage_valet/attach_volume" then yield @@results_for_attach_volume.shift.call(*args)
-        when "/storage_valet/detach_volume" then yield @@results_for_detach_volume.shift.call(*args)
+        when "/booter/declare" then callback.call @@factory.success_results if callback
+        when "/booter/set_r_s_version" then callback.call @@factory.success_results if callback
+        when "/booter/get_repositories" then callback.call @@repos if callback
+        when "/booter/get_boot_bundle" then callback.call @@bundle if callback
+        when "/booter/get_login_policy" then callback.call @@login_policy if callback
+        when "/mapper/list_agents" then callback.call @@agents if callback
+        when "/state_recorder/record" then callback.call @@factory.success_results if callback
+        when "/storage_valet/get_planned_volumes" then callback.call @@results_for_get_planned_volumes.shift.call(*args) if callback
+        when "/storage_valet/attach_volume" then callback.call @@results_for_attach_volume.shift.call(*args) if callback
+        when "/storage_valet/detach_volume" then callback.call @@results_for_detach_volume.shift.call(*args) if callback
         else raise ArgumentError.new("Don't know how to mock #{operation}")
         end
-      rescue Exception => e
-        strand(e)
       end
     end
   end
@@ -108,6 +110,7 @@ class InstanceSetup
     @@results_for_attach_volume = []
     @@results_for_detach_volume = []
   end
+
 end
 
 module RightScale
@@ -171,6 +174,13 @@ describe InstanceSetup do
 
   it_should_behave_like 'mocks shutdown request'
 
+  before(:all) do
+    if @sender_exists = RightScale.const_defined?(:Sender)
+      RightScale.module_eval('OldSender = Sender')
+    end
+    RightScale.module_eval('Sender = MapperProxy')
+  end
+
   before(:each) do
     @done_state_regex = /operational|stranded/
     @agent_identity = RightScale::AgentIdentity.new('rs', 'test', 1)
@@ -191,6 +201,9 @@ describe InstanceSetup do
     setup_state
     @mapper_proxy.should_receive(:initialize_offline_queue)
     @mapper_proxy.should_receive(:start_offline_queue)
+    
+    # Mock requests
+    @mapper_proxy.should_receive(:send_retryable_request).and_return { |*args| @setup.send_retryable_request(*args) }
 
     # always mock volume manager in testing (it can be hazardous to your dev/test machine's health).
     @mock_vm = RightScale::InstanceSetupSpec::MockVolumeManager.new
@@ -213,6 +226,12 @@ describe InstanceSetup do
     cleanup_state
     cleanup_script_execution
     InstanceSetup.reset_expectations
+  end
+
+  after(:all) do
+    if @sender_exists
+      RightScale.module_eval('Sender = OldSender')
+    end
   end
 
   def check_state

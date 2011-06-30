@@ -121,23 +121,12 @@ class InstanceSetup
     payload = {:agent_identity => @agent_identity,
                :r_s_version    => RightScale::RightLinkConfig.protocol_version,
                :resource_uid   => RightScale::InstanceState.resource_uid}
-    send_retryable_request("/booter/declare", payload, nil, :offline_queueing => true) do |r|
-      res = result_from(r)
-      if res.success?
-        RightScale::MapperProxy.instance.start_offline_queue
-        enable_managed_login
-      else
-        if res.non_delivery?
-          log_info("Request non-delivery (#{res.content}), retrying in #{RECONNECT_DELAY} seconds...")
-        elsif res.retry?
-          log_info("RightScale not ready, retrying in #{RECONNECT_DELAY} seconds...")
-        else
-          log_warning("Failed to contact RightScale: #{res.content}, retrying in #{RECONNECT_DELAY} seconds...")
-        end
-        # Retry in RECONNECT_DELAY seconds, retry forever, nothing else we can do
-        EM.add_timer(RECONNECT_DELAY) { init_boot }
-      end
+    req = RightScale::IdempotentRequest.new('/booter/declare', payload, retry_on_error=true)
+    req.callback do |res|
+      RightScale::MapperProxy.instance.start_offline_queue
+      enable_managed_login
     end
+    req.run
     true
   end
 
@@ -147,43 +136,46 @@ class InstanceSetup
   # === Return
   # true:: Always return true
   def enable_managed_login
-    if RightScale::Platform.windows? || RightScale::Platform.mac?
-      boot_volumes
+    if RightScale::Platform.windows?
+      setup_volumes
     else
-      send_retryable_request("/booter/get_login_policy", {:agent_identity => @agent_identity}) do |r|
-        res = result_from(r)
-        if res.success?
-          policy  = res.content
-          audit = RightScale::AuditProxy.new(policy.audit_id)
-          begin
-            audit_content = RightScale::LoginManager.instance.update_policy(policy)
-            if audit_content
-              audit.create_new_section('Managed login enabled')
-              audit.append_info(audit_content)
-            end
-          rescue Exception => e
-            audit.create_new_section('Failed to enable managed login')
-            audit.append_error("Error applying login policy: #{e}", :category => RightScale::EventCategories::CATEGORY_ERROR)
-            log_error("Failed to enable managed login", e, :trace)
-          end
-        else
-          log_error("Could not get login policy", res.content)
-        end
+      req = RightScale::IdempotentRequest.new('/booter/get_login_policy', {:agent_identity => @agent_identity})
 
-        boot_volumes
+      req.callback do |policy|
+        audit = RightScale::AuditProxy.new(policy.audit_id)
+        begin
+          audit_content = RightScale::LoginManager.instance.update_policy(policy)
+          if audit_content
+            audit.create_new_section('Managed login enabled')
+            audit.append_info(audit_content)
+          end
+        rescue Exception => e
+          audit.create_new_section('Failed to enable managed login')
+          audit.append_error("Error applying login policy: #{e}", :category => RightScale::EventCategories::CATEGORY_ERROR)
+          log_error('Failed to enable managed login', e, :trace)
+        end
+        boot
       end
+
+      req.errback do |res|
+        log_error('Could not get login policy', res)
+        boot
+      end
+
+      req.run
     end
   end
 
-  # Retrieve software repositories and configure mirrors accordingly then proceed to
-  # retrieving and running boot bundle.
+  # Attach EBS volumes to drive letters on Windows
   #
   # === Return
   # true:: Always return true
-  def boot_volumes
+  def setup_volumes
     # managing planned volumes is currently only needed in Windows and only if
     # this is not a reboot scenario.
-    if RightScale::Platform.windows? and not RightScale::InstanceState.reboot?
+    if RightScale::InstanceState.reboot?
+      boot
+    else
       RightScale::AuditProxy.create(@agent_identity, 'Planned volume management') do |audit|
         @audit = audit
         manage_planned_volumes do
@@ -191,8 +183,6 @@ class InstanceSetup
           boot
         end
       end
-    else
-      boot
     end
     true
   end
@@ -203,53 +193,56 @@ class InstanceSetup
   # === Return
   # true:: Always return true
   def boot
-    send_retryable_request("/booter/get_repositories", @agent_identity) do |r|
-      res = result_from(r)
-      if res.success?
-        @audit = RightScale::AuditProxy.new(res.content.audit_id)
-        unless RightScale::Platform.windows? || RightScale::Platform.mac?
-          reps = res.content.repositories
-          audit_content = "Using the following software repositories:\n"
-          reps.each { |rep| audit_content += "  - #{rep.to_s}\n" }
-          @audit.create_new_section('Configuring software repositories')
-          @audit.append_info(audit_content)
-          configure_repositories(reps)
-          @audit.update_status('Software repositories configured')
-        end
-        @audit.create_new_section('Preparing boot bundle')
-        prepare_boot_bundle do |prep_res|
-          if prep_res.success?
-            @audit.update_status('Boot bundle ready')
-            run_boot_bundle(prep_res.content) do |boot_res|
-              if boot_res.success?
-                # want to go operational only if no immediate shutdown request.
-                # immediate shutdown requires we stay in the current (booting)
-                # state pending full reboot/restart of instance so that we don't
-                # bounce between operational and booting in a multi-reboot case.
-                # if shutdown is deferred, then go operational before shutdown.
-                shutdown_request = ::RightScale::ShutdownRequest.instance
-                if shutdown_request.immediately?
-                  # process the shutdown request immediately since the
-                  # operational bundles queue will not start in this case.
-                  errback = lambda { strand("Failed to #{shutdown_request} while running boot sequence") }
-                  shutdown_request.process(errback, @audit)
-                else
-                  # any deferred shutdown request was submitted to the
-                  # operational bundles queue and will execute later.
-                  RightScale::InstanceState.value = 'operational'
-                end
+    req = RightScale::IdempotentRequest.new('/booter/get_repositories', @agent_identity) 
+
+    req.callback do |res|
+      @audit = RightScale::AuditProxy.new(res.audit_id)
+      unless RightScale::Platform.windows? || RightScale::Platform.mac?
+        reps = res.repositories
+        audit_content = "Using the following software repositories:\n"
+        reps.each { |rep| audit_content += "  - #{rep.to_s}\n" }
+        @audit.create_new_section('Configuring software repositories')
+        @audit.append_info(audit_content)
+        configure_repositories(reps)
+        @audit.update_status('Software repositories configured')
+      end
+      @audit.create_new_section('Preparing boot bundle')
+      prepare_boot_bundle do |prep_res|
+        if prep_res.success?
+          @audit.update_status('Boot bundle ready')
+          run_boot_bundle(prep_res.content) do |boot_res|
+            if boot_res.success?
+              # want to go operational only if no immediate shutdown request.
+              # immediate shutdown requires we stay in the current (booting)
+              # state pending full reboot/restart of instance so that we don't
+              # bounce between operational and booting in a multi-reboot case.
+              # if shutdown is deferred, then go operational before shutdown.
+              shutdown_request = ::RightScale::ShutdownRequest.instance
+              if shutdown_request.immediately?
+                # process the shutdown request immediately since the
+                # operational bundles queue will not start in this case.
+                errback = lambda { strand("Failed to #{shutdown_request} while running boot sequence") }
+                shutdown_request.process(errback, @audit)
               else
-                strand("Failed to run boot sequence", boot_res)
+                # any deferred shutdown request was submitted to the
+                # operational bundles queue and will execute later.
+                RightScale::InstanceState.value = 'operational'
               end
+            else
+              strand('Failed to run boot sequence', boot_res)
             end
-          else
-            strand("Failed to prepare boot bundle", prep_res)
           end
+        else
+          strand('Failed to prepare boot bundle', prep_res)
         end
-      else
-        strand("Failed to retrieve software repositories", res)
       end
     end
+    
+    req.errback do|res| 
+      strand('Failed to retrieve software repositories', res)
+    end
+    
+    req.run
     true
   end
 
@@ -262,7 +255,6 @@ class InstanceSetup
   # === Return
   # true:: Always return true
   def strand(msg, res=nil)
-
     # attempt to provide details of exception or result which caused stranding.
     detailed = nil
     if msg.kind_of? Exception
@@ -339,19 +331,21 @@ class InstanceSetup
         @audit.append_info("Tags discovered on startup: '#{tags.join("', '")}'")
       end
       payload = {:agent_identity => @agent_identity, :audit_id => @audit.audit_id}
-      send_retryable_request("/booter/get_boot_bundle", payload) do |r|
-        res = result_from(r)
-        if res.success?
-          bundle = res.content
-          if bundle.executables.any? { |e| !e.ready }
-            retrieve_missing_inputs(bundle) { cb.call(success_result(bundle)) }
-          else
-            yield success_result(bundle)
-          end
+      req = RightScale::IdempotentRequest.new('/booter/get_boot_bundle', payload) 
+
+      req.callback do |bundle|
+        if bundle.executables.any? { |e| !e.ready }
+          retrieve_missing_inputs(bundle) { cb.call(success_result(bundle)) }
         else
-          yield error_result(format_error("Failed to retrieve boot scripts", res.content))
+          yield success_result(bundle)
         end
       end
+      
+      req.errback do |res|
+        yield error_result(format_error('Failed to retrieve boot scripts', res))
+      end
+
+      req.run
     end
   end
 
@@ -375,35 +369,38 @@ class InstanceSetup
     payload = {:agent_identity => @agent_identity,
                :scripts_ids    => scripts_ids,
                :recipes_ids    => recipes_ids}
-    send_retryable_request("/booter/get_missing_attributes", payload, nil, :offline_queueing => true) do |r|
-      res = result_from(r)
-      if res.success?
-        res.content.each do |e|
-          if e.is_a?(RightScale::RightScriptInstantiation)
-            if script = scripts.detect { |s| s.id == e.id }
-              script.ready = true
-              script.parameters = e.parameters
-            end
-          else
-            if recipe = recipes.detect { |s| s.id == e.id }
-              recipe.ready = true
-              recipe.attributes = e.attributes
-            end
+    req = RightScale::IdempotentRequest.new('/booter/get_missing_attributes', payload)
+
+    req.callback do |res|
+      res.each do |e|
+        if e.is_a?(RightScale::RightScriptInstantiation)
+          if script = scripts.detect { |s| s.id == e.id }
+            script.ready = true
+            script.parameters = e.parameters
+          end
+        else
+          if recipe = recipes.detect { |s| s.id == e.id }
+            recipe.ready = true
+            recipe.attributes = e.attributes
           end
         end
-        pending_executables = bundle.executables.select { |e| !e.ready }
-        if pending_executables.empty?
-          yield
-        else
-          titles = pending_executables.map { |e| RightScale::RightScriptsCookbook.recipe_title(e.nickname) }
-          @audit.append_info("Missing inputs for #{titles.join(", ")}, waiting...")
-          sleep(20)
-          retrieve_missing_inputs(bundle, &cb)
-        end
+      end
+      pending_executables = bundle.executables.select { |e| !e.ready }
+      if pending_executables.empty?
+        yield
       else
-        strand("Failed to retrieve missing inputs", res)
+        titles = pending_executables.map { |e| RightScale::RightScriptsCookbook.recipe_title(e.nickname) }
+        @audit.append_info("Missing inputs for #{titles.join(", ")}, waiting...")
+        sleep(20)
+        retrieve_missing_inputs(bundle, &cb)
       end
     end
+    
+    req.errback do |res| 
+      strand('Failed to retrieve missing inputs', res)
+    end
+
+    req.run
   end
 
   # Creates a new sequence for the given context.
@@ -430,20 +427,20 @@ class InstanceSetup
     sequence.callback do
       if patch = sequence.inputs_patch && !patch.empty?
         payload = {:agent_identity => @agent_identity, :patch => patch}
-        send_push("/updater/update_inputs", payload, nil, :offline_queueing => true)
+        send_push('/updater/update_inputs', payload, nil, :offline_queueing => true)
       end
       @audit.update_status("boot completed: #{bundle}")
       yield success_result
     end
     sequence.errback  do
       @audit.update_status("boot failed: #{bundle}")
-      yield error_result("Failed to run boot bundle")
+      yield error_result('Failed to run boot bundle')
     end
 
     begin
       sequence.run
     rescue Exception => e
-      msg = "Execution of Chef boot sequence failed"
+      msg = 'Execution of Chef boot sequence failed'
       log_error(msg, e, :trace)
       strand(format_error(msg, e))
     end

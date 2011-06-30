@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2009 RightScale Inc
+# Copyright (c) 2009-2011 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -30,6 +30,7 @@ require File.normalize_path(File.join(File.dirname(__FILE__), 'instance', 'cook'
 require File.normalize_path(File.join(File.dirname(__FILE__), 'instance', 'downloader'))
 require File.normalize_path(File.join(File.dirname(__FILE__), 'instance', 'duplicable'))
 require File.normalize_path(File.join(File.dirname(__FILE__), 'instance', 'executable_sequence_proxy'))
+require File.normalize_path(File.join(File.dirname(__FILE__), 'instance', 'idempotent_request'))
 require File.normalize_path(File.join(File.dirname(__FILE__), 'instance', 'instance_commands'))
 require File.normalize_path(File.join(File.dirname(__FILE__), 'instance', 'instance_configuration'))
 require File.normalize_path(File.join(File.dirname(__FILE__), 'instance', 'instance_state'))
