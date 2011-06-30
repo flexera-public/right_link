@@ -275,17 +275,17 @@ describe InstanceSetup do
   end
 
   def handle_get_planned_volume_mappings(payload, expected_agent_id, result)
-    payload.should == {:agent_identity => expected_agent_id}
+    payload.include?({:agent_identity => expected_agent_id}).should be_true
     return @results_factory.success_results(result)
   end
 
   def handle_attach_volume(payload, expected_agent_id, planned_volume)
-    payload.should == {:agent_identity => expected_agent_id, :volume_id => planned_volume.volume_id, :device_name => planned_volume.device_name}
+    payload.include?({:agent_identity => expected_agent_id, :volume_id => planned_volume.volume_id, :device_name => planned_volume.device_name}).should be_true
     return @results_factory.success_results({})
   end
 
   def handle_detach_volume(payload, expected_agent_id, planned_volume)
-    payload.should == {:agent_identity => expected_agent_id, :device_name => planned_volume.device_name}
+    payload.include?({:agent_identity => expected_agent_id, :device_name => planned_volume.device_name}).should be_true
     return @results_factory.success_results({:volume_id => planned_volume.volume_id})
   end
 
@@ -502,8 +502,11 @@ describe InstanceSetup do
       # expect requery of current volume status once per detach pass.
       RightScale::VolumeManagement::MAX_VOLUME_ATTEMPTS.times { results << InstanceSetup.results_for_get_planned_volumes[0] }
       InstanceSetup.results_for_get_planned_volumes = results
+
+      # all potential detach volume requests now get queued before stranding can
+      # stop all planned volume activity.
       results = []
-      total_detach_retries = 1 + planned_volumes.size * (RightScale::VolumeManagement::MAX_VOLUME_ATTEMPTS - 1)  # max-1 attempts to detach all then once more to strand
+      total_detach_retries = planned_volumes.size * RightScale::VolumeManagement::MAX_VOLUME_ATTEMPTS
       total_detach_retries.times { results << lambda{ @results_factory.error_results("Simulating failure to detach volume.") } }
       InstanceSetup.results_for_detach_volume = results
 

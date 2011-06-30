@@ -29,23 +29,25 @@ module RightScale
     include EM::Deferrable
 
     # Wait 5 seconds before retrying in case of failure
-    RETRY_DELAY = 5
+    DEFAULT_RETRY_DELAY = 5
 
     # Send idempotent request
     # Retry until timeout is reached (indefinitely if timeout <= 0)
     # Calls deferrable callback on completion, error callback on timeout
     #
     # === Parameters
-    # operation(String):: Request operation (i.e. '/booter/get_boot_bundle')
-    # payload(Hash):: Request payload
-    # retry_on_error(FalseClass|TrueClass):: Whether request should be retried 
+    # options[:operation](String):: Request operation (i.e. '/booter/get_boot_bundle')
+    # options[:payload](Hash):: Request payload
+    # options[:retry_on_error](FalseClass|TrueClass):: Whether request should be retried
     #   if recipient returned an error
-    # timeout(Fixnum):: Number of seconds before error callback gets called
-    def initialize(operation, payload, retry_on_error=false, timeout=-1)
-      @operation = operation
-      @payload = payload
-      @retry_on_error = retry_on_error || false
-      @timeout = timeout || -1
+    # options[:timeout](Fixnum):: Number of seconds before error callback gets called
+    # options[:retry_delay](Fixnum):: Number of seconds before retry, defaults to 5
+    def initialize(options)
+      raise ArgumentError.new("options[:operation] is required") unless @operation = options[:operation]
+      raise ArgumentError.new("options[:payload] is required") unless @payload = options[:payload]
+      @retry_on_error = options[:retry_on_error] || false
+      @timeout = options[:timeout] || -1
+      @retry_delay = options[:retry_delay] || DEFAULT_RETRY_DELAY
       @done = false
     end
 
@@ -106,8 +108,8 @@ module RightScale
           log_info("Request #{@operation} failed (#{res.content})")
         end
         if res.non_delivery? || res.retry? || @retry_on_error
-          log_info("Retrying in #{RETRY_DELAY} seconds...")
-          EM.add_timer(RETRY_DELAY) { run }
+          log_info("Retrying in #{@retry_delay} seconds...")
+          EM.add_timer(@retry_delay) { run }
         else
           cancel(res.content)
         end

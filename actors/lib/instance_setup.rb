@@ -121,7 +121,7 @@ class InstanceSetup
     payload = {:agent_identity => @agent_identity,
                :r_s_version    => RightScale::RightLinkConfig.protocol_version,
                :resource_uid   => RightScale::InstanceState.resource_uid}
-    req = RightScale::IdempotentRequest.new('/booter/declare', payload, retry_on_error=true)
+    req = RightScale::IdempotentRequest.new(:operation => '/booter/declare', :payload => payload, :retry_on_error => true)
     req.callback do |res|
       RightScale::MapperProxy.instance.start_offline_queue
       enable_managed_login
@@ -139,7 +139,7 @@ class InstanceSetup
     if RightScale::Platform.windows?
       setup_volumes
     else
-      req = RightScale::IdempotentRequest.new('/booter/get_login_policy', {:agent_identity => @agent_identity})
+      req = RightScale::IdempotentRequest.new(:operation => '/booter/get_login_policy', :payload => {:agent_identity => @agent_identity})
 
       req.callback do |policy|
         audit = RightScale::AuditProxy.new(policy.audit_id)
@@ -193,7 +193,7 @@ class InstanceSetup
   # === Return
   # true:: Always return true
   def boot
-    req = RightScale::IdempotentRequest.new('/booter/get_repositories', @agent_identity) 
+    req = RightScale::IdempotentRequest.new(:operation => '/booter/get_repositories', :payload => @agent_identity)
 
     req.callback do |res|
       @audit = RightScale::AuditProxy.new(res.audit_id)
@@ -262,7 +262,9 @@ class InstanceSetup
       detailed = "#{e.class}: #{e.message}\n#{e.backtrace.join("\n")}"
       msg = e.message
     end
-    msg += ": #{res.content}" if res && res.content
+    res = res.content if res.respond_to?(:content)
+    msg += ": #{res}" if res
+
     @audit.append_error(msg, :category => RightScale::EventCategories::CATEGORY_ERROR) if @audit
     log_error(detailed) if detailed
 
@@ -331,7 +333,7 @@ class InstanceSetup
         @audit.append_info("Tags discovered on startup: '#{tags.join("', '")}'")
       end
       payload = {:agent_identity => @agent_identity, :audit_id => @audit.audit_id}
-      req = RightScale::IdempotentRequest.new('/booter/get_boot_bundle', payload) 
+      req = RightScale::IdempotentRequest.new(:operation => '/booter/get_boot_bundle', :payload => payload)
 
       req.callback do |bundle|
         if bundle.executables.any? { |e| !e.ready }
@@ -369,7 +371,7 @@ class InstanceSetup
     payload = {:agent_identity => @agent_identity,
                :scripts_ids    => scripts_ids,
                :recipes_ids    => recipes_ids}
-    req = RightScale::IdempotentRequest.new('/booter/get_missing_attributes', payload)
+    req = RightScale::IdempotentRequest.new(:operation => '/booter/get_missing_attributes', :payload => payload)
 
     req.callback do |res|
       res.each do |e|

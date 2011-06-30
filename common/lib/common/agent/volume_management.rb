@@ -57,86 +57,83 @@ module RightScale
       # query for planned volume mappings belonging to instance.
       last_mappings = RightScale::InstanceState.planned_volume_state.mappings || []
       payload = {:agent_identity => @agent_identity}
-      send_retryable_request("/storage_valet/get_planned_volumes", payload) do |r|
-        res = result_from(r)
-        if res.success?
-          begin
-            mappings = merge_planned_volume_mappings(last_mappings, res.content)
-            RightScale::InstanceState.planned_volume_state.mappings = mappings
-            if mappings.empty?
-              # no volumes requiring management.
-              @audit.append_info("This instance has no planned volumes.")
-              block.call if block
-            elsif (detachable_volume_count = mappings.count { |mapping| is_unmanaged_attached_volume?(mapping) }) >= 1
-              # must detach all 'attached' volumes if any are attached (or
-              # attaching) but not yet managed on the instance side. this is the
-              # only way to ensure they receive the correct device names.
-              mappings.each do |mapping|
-                if is_unmanaged_attached_volume?(mapping)
-                  detach_planned_volume(mapping) do
-                    unless RightScale::InstanceState.value == 'stranded'
-                      detachable_volume_count -= 1
-                      if 0 == detachable_volume_count
-                        # add a timer to resume volume management later and pass the
-                        # block for continuation afterward (unless detachment stranded).
-                        log_info("Waiting for volumes to detach for management purposes. "\
-                                 "Retrying in #{VolumeManagement::VOLUME_RETRY_SECONDS} seconds...")
-                        EM.add_timer(VolumeManagement::VOLUME_RETRY_SECONDS) { manage_planned_volumes(&block) }
-                      end
-                    end
+      req = RightScale::IdempotentRequest.new(:operation => "/storage_valet/get_planned_volumes", :payload => payload, :retry_delay => ::RightScale::VolumeManagement::VOLUME_RETRY_SECONDS)
+      req.callback do |res|
+        begin
+          mappings = merge_planned_volume_mappings(last_mappings, res)
+          RightScale::InstanceState.planned_volume_state.mappings = mappings
+          if mappings.empty?
+            # no volumes requiring management.
+            @audit.append_info("This instance has no planned volumes.")
+            block.call if block
+          elsif (detachable_volume_count = mappings.count { |mapping| is_unmanaged_attached_volume?(mapping) }) >= 1
+            # must detach all 'attached' volumes if any are attached (or
+            # attaching) but not yet managed on the instance side. this is the
+            # only way to ensure they receive the correct device names.
+            mappings.each do |mapping|
+              if is_unmanaged_attached_volume?(mapping)
+                detach_planned_volume(mapping) do
+                  detachable_volume_count -= 1
+                  if 0 == detachable_volume_count
+                    # add a timer to resume volume management later and pass the
+                    # block for continuation afterward (unless detachment stranded).
+                    log_info("Waiting for volumes to detach for management purposes. "\
+                             "Retrying in #{::RightScale::VolumeManagement::VOLUME_RETRY_SECONDS} seconds...")
+                    EM.add_timer(::RightScale::VolumeManagement::VOLUME_RETRY_SECONDS) { manage_planned_volumes(&block) }
                   end
                 end
               end
-            elsif mapping = mappings.find { |mapping| is_detaching_volume?(mapping) }
-              # we successfully requested detachment but status has not
-              # changed to reflect this yet.
-              log_info("Waiting for volume #{mapping[:volume_id]} to fully detach. "\
-                       "Retrying in #{VolumeManagement::VOLUME_RETRY_SECONDS} seconds...")
-              EM.add_timer(VolumeManagement::VOLUME_RETRY_SECONDS) { manage_planned_volumes(&block) }
-            elsif mapping = mappings.find { |mapping| is_managed_attaching_volume?(mapping) }
-              log_info("Waiting for volume #{mapping[:volume_id]} to fully attach. Retrying in #{VolumeManagement::VOLUME_RETRY_SECONDS} seconds...")
-              EM.add_timer(VolumeManagement::VOLUME_RETRY_SECONDS) { manage_planned_volumes(&block) }
-            elsif mapping = mappings.find { |mapping| is_managed_attached_unassigned_volume?(mapping) }
-              manage_volume_device_assignment(mapping) do
-                unless RightScale::InstanceState.value == 'stranded'
-                  # we can move on to next volume 'immediately' if volume was
-                  # successfully assigned its device name.
-                  if mapping[:management_status] == 'assigned'
-                    EM.next_tick { manage_planned_volumes(&block) }
-                  else
-                    log_info("Waiting for volume #{mapping[:volume_id]} to initialize using \"#{mapping[:mount_points].first}\". "\
-                             "Retrying in #{VolumeManagement::VOLUME_RETRY_SECONDS} seconds...")
-                    EM.add_timer(VolumeManagement::VOLUME_RETRY_SECONDS) { manage_planned_volumes(&block) }
-                  end
-                end
-              end
-            elsif mapping = mappings.find { |mapping| is_detached_volume?(mapping) }
-              attach_planned_volume(mapping) do
-                unless RightScale::InstanceState.value == 'stranded'
-                  unless mapping[:attempts]
-                    @audit.append_info("Attached volume #{mapping[:volume_id]} using \"#{mapping[:mount_points].first}\".")
-                    log_info("Waiting for volume #{mapping[:volume_id]} to appear using \"#{mapping[:mount_points].first}\". "\
-                             "Retrying in #{VolumeManagement::VOLUME_RETRY_SECONDS} seconds...")
-                  end
-                  EM.add_timer(VolumeManagement::VOLUME_RETRY_SECONDS) { manage_planned_volumes(&block) }
-                end
-              end
-            elsif mapping = mappings.find { |mapping| is_unmanageable_volume?(mapping) }
-              strand("State of volume #{mapping[:volume_id]} was unmanageable: #{mapping[:volume_status]}")
-            else
-              # all volumes are managed and have been assigned and so we can proceed.
-              block.call if block
             end
-          rescue Exception => e
-            strand(e)
+          elsif mapping = mappings.find { |mapping| is_detaching_volume?(mapping) }
+            # we successfully requested detachment but status has not
+            # changed to reflect this yet.
+            log_info("Waiting for volume #{mapping[:volume_id]} to fully detach. "\
+                     "Retrying in #{::RightScale::VolumeManagement::VOLUME_RETRY_SECONDS} seconds...")
+            EM.add_timer(::RightScale::VolumeManagement::VOLUME_RETRY_SECONDS) { manage_planned_volumes(&block) }
+          elsif mapping = mappings.find { |mapping| is_managed_attaching_volume?(mapping) }
+            log_info("Waiting for volume #{mapping[:volume_id]} to fully attach. Retrying in #{::RightScale::VolumeManagement::VOLUME_RETRY_SECONDS} seconds...")
+            EM.add_timer(::RightScale::VolumeManagement::VOLUME_RETRY_SECONDS) { manage_planned_volumes(&block) }
+          elsif mapping = mappings.find { |mapping| is_managed_attached_unassigned_volume?(mapping) }
+            manage_volume_device_assignment(mapping) do
+              unless RightScale::InstanceState.value == 'stranded'
+                # we can move on to next volume 'immediately' if volume was
+                # successfully assigned its device name.
+                if mapping[:management_status] == 'assigned'
+                  EM.next_tick { manage_planned_volumes(&block) }
+                else
+                  log_info("Waiting for volume #{mapping[:volume_id]} to initialize using \"#{mapping[:mount_points].first}\". "\
+                           "Retrying in #{::RightScale::VolumeManagement::VOLUME_RETRY_SECONDS} seconds...")
+                  EM.add_timer(::RightScale::VolumeManagement::VOLUME_RETRY_SECONDS) { manage_planned_volumes(&block) }
+                end
+              end
+            end
+          elsif mapping = mappings.find { |mapping| is_detached_volume?(mapping) }
+            attach_planned_volume(mapping) do
+              unless RightScale::InstanceState.value == 'stranded'
+                unless mapping[:attempts]
+                  @audit.append_info("Attached volume #{mapping[:volume_id]} using \"#{mapping[:mount_points].first}\".")
+                  log_info("Waiting for volume #{mapping[:volume_id]} to appear using \"#{mapping[:mount_points].first}\". "\
+                           "Retrying in #{::RightScale::VolumeManagement::VOLUME_RETRY_SECONDS} seconds...")
+                end
+                EM.add_timer(::RightScale::VolumeManagement::VOLUME_RETRY_SECONDS) { manage_planned_volumes(&block) }
+              end
+            end
+          elsif mapping = mappings.find { |mapping| is_unmanageable_volume?(mapping) }
+            strand("State of volume #{mapping[:volume_id]} was unmanageable: #{mapping[:volume_status]}")
+          else
+            # all volumes are managed and have been assigned and so we can proceed.
+            block.call if block
           end
-        elsif res.retry?
-          log_info("Received retry for getting planned volume mappings: #{res.content}")
-          EM.add_timer(VolumeManagement::VOLUME_RETRY_SECONDS) { manage_planned_volumes(&block) }
-        else
-          strand("Failed to retrieve planned volume mappings", res)
+        rescue Exception => e
+          strand(e)
         end
       end
+
+      req.errback do |res|
+        strand("Failed to retrieve planned volume mappings", res)
+      end
+
+      req.run
     end
 
     # Detaches the planned volume given by its mapping.
@@ -146,29 +143,33 @@ module RightScale
     def detach_planned_volume(mapping)
       payload = {:agent_identity => @agent_identity, :device_name => mapping[:device_name]}
       log_info("Detaching volume #{mapping[:volume_id]} for management purposes.")
-      send_retryable_request("/storage_valet/detach_volume", payload) do |r|
-        res = result_from(r)
-        if res.success?
-          # don't set :volume_status here as that should only be queried
-          mapping[:management_status] = 'detached'
-          mapping[:attempts] = nil
-          yield if block_given?
-        else
+      req = RightScale::IdempotentRequest.new(:operation => "/storage_valet/detach_volume", :payload => payload, :retry_delay => ::RightScale::VolumeManagement::VOLUME_RETRY_SECONDS)
+
+      req.callback do |res|
+        # don't set :volume_status here as that should only be queried
+        mapping[:management_status] = 'detached'
+        mapping[:attempts] = nil
+        yield if block_given?
+      end
+
+      req.errback do |res|
+        unless RightScale::InstanceState.value == 'stranded'
           # volume could already be detaching or have been deleted
           # which we can't see because of latency; go around again
           # and check state of volume later.
-          log_info("Received retry for detaching volume #{mapping[:volume_id]}.") if res.retry?
-          log_error("Failed to detach volume #{mapping[:volume_id]}: #{res.content}") if res.error?
+          log_error("Failed to detach volume #{mapping[:volume_id]}: #{res}")
           mapping[:attempts] ||= 0
           mapping[:attempts] += 1
           # retry indefinitely so long as core api instructs us to retry or else fail after max attempts.
-          if mapping[:attempts] >= VolumeManagement::MAX_VOLUME_ATTEMPTS && res.error?
-            strand("Exceeded maximum of #{VolumeManagement::MAX_VOLUME_ATTEMPTS} attempts detaching volume #{mapping[:volume_id]} with error: #{res.content}")
+          if mapping[:attempts] >= VolumeManagement::MAX_VOLUME_ATTEMPTS
+            strand("Exceeded maximum of #{VolumeManagement::MAX_VOLUME_ATTEMPTS} attempts detaching volume #{mapping[:volume_id]} with error: #{res}")
           else
             yield if block_given?
           end
         end
       end
+
+      req.run
     end
 
     # Attaches the planned volume given by its mapping.
@@ -184,29 +185,31 @@ module RightScale
       # attach.
       payload = {:agent_identity => @agent_identity, :volume_id => mapping[:volume_id], :device_name => mapping[:device_name]}
       log_info("Attaching volume #{mapping[:volume_id]}.")
-      send_retryable_request("/storage_valet/attach_volume", payload) do |r|
-        res = result_from(r)
-        if res.success?
-          # don't set :volume_status here as that should only be queried
-          mapping[:management_status] = 'attached'
-          mapping[:attempts] = nil
-          yield if block_given?
+      req = RightScale::IdempotentRequest.new(:operation => "/storage_valet/attach_volume", :payload => payload, :retry_delay => ::RightScale::VolumeManagement::VOLUME_RETRY_SECONDS)
+      
+      req.callback do |res|
+        # don't set :volume_status here as that should only be queried
+        mapping[:management_status] = 'attached'
+        mapping[:attempts] = nil
+        yield if block_given?
+      end
+
+      req.errback do |res|
+        # volume could already be attaching or have been deleted
+        # which we can't see because of latency; go around again
+        # and check state of volume later.
+        log_error("Failed to attach volume #{mapping[:volume_id]}: #{res}")
+        mapping[:attempts] ||= 0
+        mapping[:attempts] += 1
+        # retry indefinitely so long as core api instructs us to retry or else fail after max attempts.
+        if mapping[:attempts] >= VolumeManagement::MAX_VOLUME_ATTEMPTS
+          strand("Exceeded maximum of #{VolumeManagement::MAX_VOLUME_ATTEMPTS} attempts attaching volume #{mapping[:volume_id]} with error: #{res}")
         else
-          # volume could already be attaching or have been deleted
-          # which we can't see because of latency; go around again
-          # and check state of volume later.
-          log_info("Received retry for attaching volume #{mapping[:volume_id]}.") if res.retry?
-          log_error("Failed to attach volume #{mapping[:volume_id]}: #{res.content}") if res.error?
-          mapping[:attempts] ||= 0
-          mapping[:attempts] += 1
-          # retry indefinitely so long as core api instructs us to retry or else fail after max attempts.
-          if mapping[:attempts] >= VolumeManagement::MAX_VOLUME_ATTEMPTS && res.error?
-            strand("Exceeded maximum of #{VolumeManagement::MAX_VOLUME_ATTEMPTS} attempts attaching volume #{mapping[:volume_id]} with error: #{res.content}")
-          else
-            yield if block_given?
-          end
+          yield if block_given?
         end
       end
+
+      req.run
     end
 
     # Manages device assignment for volumes with considerations for formatting
