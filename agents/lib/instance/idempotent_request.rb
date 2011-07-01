@@ -36,15 +36,15 @@ module RightScale
     # Calls deferrable callback on completion, error callback on timeout
     #
     # === Parameters
-    # options[:operation](String):: Request operation (i.e. '/booter/get_boot_bundle')
-    # options[:payload](Hash):: Request payload
+    # operation(String):: Request operation (i.e. '/booter/get_boot_bundle')
+    # payload(Hash):: Request payload
     # options[:retry_on_error](FalseClass|TrueClass):: Whether request should be retried
     #   if recipient returned an error
     # options[:timeout](Fixnum):: Number of seconds before error callback gets called
     # options[:retry_delay](Fixnum):: Number of seconds before retry, defaults to 5
-    def initialize(options)
-      raise ArgumentError.new("options[:operation] is required") unless @operation = options[:operation]
-      raise ArgumentError.new("options[:payload] is required") unless @payload = options[:payload]
+    def initialize(operation, payload, options={})
+      raise ArgumentError.new("options[:operation] is required") unless @operation = operation
+      raise ArgumentError.new("options[:payload] is required") unless @payload = payload
       @retry_on_error = options[:retry_on_error] || false
       @timeout = options[:timeout] || -1
       @retry_delay = options[:retry_delay] || DEFAULT_RETRY_DELAY

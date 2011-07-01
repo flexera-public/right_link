@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2009 RightScale Inc
+# Copyright (c) 2009-2011 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -57,7 +57,7 @@ module RightScale
       # query for planned volume mappings belonging to instance.
       last_mappings = RightScale::InstanceState.planned_volume_state.mappings || []
       payload = {:agent_identity => @agent_identity}
-      req = RightScale::IdempotentRequest.new(:operation => "/storage_valet/get_planned_volumes", :payload => payload, :retry_delay => ::RightScale::VolumeManagement::VOLUME_RETRY_SECONDS)
+      req = RightScale::IdempotentRequest.new("/storage_valet/get_planned_volumes", payload, :retry_delay => ::RightScale::VolumeManagement::VOLUME_RETRY_SECONDS)
       req.callback do |res|
         begin
           mappings = merge_planned_volume_mappings(last_mappings, res)
@@ -143,7 +143,7 @@ module RightScale
     def detach_planned_volume(mapping)
       payload = {:agent_identity => @agent_identity, :device_name => mapping[:device_name]}
       log_info("Detaching volume #{mapping[:volume_id]} for management purposes.")
-      req = RightScale::IdempotentRequest.new(:operation => "/storage_valet/detach_volume", :payload => payload, :retry_delay => ::RightScale::VolumeManagement::VOLUME_RETRY_SECONDS)
+      req = RightScale::IdempotentRequest.new("/storage_valet/detach_volume", payload, :retry_delay => ::RightScale::VolumeManagement::VOLUME_RETRY_SECONDS)
 
       req.callback do |res|
         # don't set :volume_status here as that should only be queried
@@ -185,7 +185,7 @@ module RightScale
       # attach.
       payload = {:agent_identity => @agent_identity, :volume_id => mapping[:volume_id], :device_name => mapping[:device_name]}
       log_info("Attaching volume #{mapping[:volume_id]}.")
-      req = RightScale::IdempotentRequest.new(:operation => "/storage_valet/attach_volume", :payload => payload, :retry_delay => ::RightScale::VolumeManagement::VOLUME_RETRY_SECONDS)
+      req = RightScale::IdempotentRequest.new("/storage_valet/attach_volume", payload, :retry_delay => ::RightScale::VolumeManagement::VOLUME_RETRY_SECONDS)
       
       req.callback do |res|
         # don't set :volume_status here as that should only be queried
