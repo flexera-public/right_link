@@ -29,11 +29,18 @@ require 'right_http_connection'
 
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'config', 'right_link_config'))
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'common', 'lib', 'common'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'agents', 'lib', 'instance'))
 require 'rdoc_patch'
 
 module RightScale
 
   class ServerIncarnationManager
+    # Exception class to use as a token that something went wrong with an HTTP query
+    class QueryFailed < Exception; end
+
+    # Exception class to use when the user data doesn't look right
+    class MalformedResponse < Exception; end
+
     VERSION = [0, 1]
 
     # Run
@@ -49,6 +56,7 @@ module RightScale
       case options[:action]
         when :attach
           url  = options[:url]
+          cloud_file  = File.join(RightScale::Platform.filesystem.right_scale_state_dir, 'cloud')
           cloud_dir   = File.dirname(cloud_file)
           output_file = File.join(RightScale::Platform.filesystem.spool_dir, 'none', 'user-data.txt')
           output_dir  = File.dirname(output_file)
@@ -56,7 +64,11 @@ module RightScale
           puts "Fetching launch settings from RightScale"
           data = http_get(url, false)
 
-          cloud_file  = File.join(RightScale::Platform.filesystem.right_scale_state_dir, 'cloud')
+          unless data =~ /RS_rn_id/i
+            RightLinkLog.error("Malformed launch settings: #{data}")
+            raise MalformedResponse, "Launch settings do not look well-formed; did you specify the right URL?"
+          end
+
           puts "Creating cloud-family hint file (#{cloud_file})"
           FileUtils.mkdir_p(cloud_dir)
           File.open(cloud_file, 'w') do |f|
@@ -145,11 +157,7 @@ protected
       RightLinkLog.level = Logger::INFO
       FileUtils.mkdir_p(File.dirname(InstanceState::BOOT_LOG_FILE))
       RightLinkLog.add_logger(Logger.new(File.open(InstanceState::BOOT_LOG_FILE, 'a')))
-      RightLinkLog.add_logger(Logger.new(STDOUT))
     end
-
-    # Exception class to use as a token that something went wrong with an HTTP query
-    class QueryFailed < Exception; end
 
     # Performs an HTTP get request with built-in retries and redirection based
     # on HTTP responses.
@@ -185,25 +193,8 @@ protected
           return nil
         elsif response.kind_of?(Net::HTTPRedirection)
           # keep history of redirects.
-          history << uri.to_s
           location = response['Location']
           uri = safe_parse_http_uri(location)
-          if uri.absolute?
-            if history.include?(uri.to_s)
-              RightLinkLog.error("Circular redirection to #{location.inspect} detected; giving up")
-              return nil
-            elsif history.size >= MAX_REDIRECT_HISTORY
-              RightLinkLog.error("Unbounded redirection to #{location.inspect} detected; giving up")
-              return nil
-            else
-              # redirect and continue in loop.
-              RightLinkLog.debug("Request redirected to #{location.inspect}: #{response.class.name}")
-            end
-          else
-            # can't redirect without an absolute location.
-            RightLinkLog.error("Unable to redirect to metadata server location #{location.inspect}: #{response.class.name}")
-            return nil
-          end
         else
           # not retryable.
           #
@@ -211,8 +202,8 @@ protected
           # responses on rare occasions, but the right_http_connection will
           # consider these to be 'bananas' and retry automatically (up to a
           # pre-defined limit).
-          RightLinkLog.error("Request for metadata failed: #{response.class.name}")
-          raise QueryFailed, "Request for metadata failed: #{response.class.name}"
+          RightLinkLog.error("HTTP request failed: #{response.class.name}")
+          raise QueryFailed, "HTTP request failed: #{response.class.name}"
         end
       end
     end
