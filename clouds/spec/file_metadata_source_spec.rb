@@ -67,7 +67,7 @@ describe RightScale::MetadataSources::FileMetadataSource do
   # result(Hash):: Hash-like leaf value
   def create_user_metadata_leaf(tree_climber, data)
     result = tree_climber.create_branch
-    ::RightScale::CloudUtilities::split_metadata(data, "\n", result)
+    ::RightScale::CloudUtilities.split_metadata(data, "\n", result)
     result
   end
 
@@ -109,14 +109,14 @@ describe RightScale::MetadataSources::FileMetadataSource do
 
   def verify_cloud_metadata(cloud_metadata)
     data = ::RightScale::FileMetadataSourceSpec::CLOUD_METADATA_FILE_TEXT
-    compare_hash = ::RightScale::CloudUtilities::split_metadata(data, "\n", {})
+    compare_hash = ::RightScale::CloudUtilities.split_metadata(data, "\n", {})
 
     cloud_metadata.should == compare_hash
   end
 
   def verify_user_metadata(user_metadata)
     data = ::RightScale::FileMetadataSourceSpec::USER_METADATA_FILE_TEXT
-    compare_hash = ::RightScale::CloudUtilities::split_metadata(data, "\n", {})
+    compare_hash = ::RightScale::CloudUtilities.split_metadata(data, "\n", {})
 
     user_metadata.should == compare_hash
   end
