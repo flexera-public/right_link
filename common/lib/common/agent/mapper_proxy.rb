@@ -50,7 +50,7 @@ module RightScale
 
     # (EM::Timer) Timer while waiting for mapper ping response
     attr_accessor :pending_ping
-  
+
     # (Hash) Pending requests; key is request token and value is a hash
     #   :response_handler(Proc):: Block to be activated when response is received
     #   :receive_time(Time):: Time when message was received
@@ -102,7 +102,7 @@ module RightScale
       @retry_timeout = nil_if_zero(@options[:retry_timeout])
       @retry_interval = nil_if_zero(@options[:retry_interval])
       @ping_interval = @options[:ping_interval] || 0
-
+      @is_instance_agent = AgentIdentity.instance_agent?(@agent.identity)
       # Only to be accessed from primary thread
       @pending_requests = {}
       @pending_ping = nil
@@ -811,7 +811,7 @@ module RightScale
     # === Return
     # (Boolean):: true if should queue request, otherwise false
     def should_queue?(opts)
-      opts[:offline_queueing] && offline? && !@flushing_queue
+      (opts[:offline_queueing] || @is_instance_agent) && offline? && !@flushing_queue
     end
 
     # Queue given request in memory
