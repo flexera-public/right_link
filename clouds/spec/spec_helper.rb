@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2010 RightScale Inc
+# Copyright (c) 2011 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -20,24 +20,5 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-module RightScale
-
-  # Interface for fetching metadata from a cloud-specific source and then
-  # converting it to a flat list suitable for use as environment variables.
-  class MetadataFormatter
-
-    # Formats metadata in an implementation-specific manner as a hash of
-    # metadata with any hierarchical details flattened into simple key names.
-    #
-    # === Parameters
-    # tree_metadata(Hash):: tree of raw metadata
-    #
-    # === Returns
-    # flat_metadata(Hash):: flattened metadata
-    def format_metadata(tree_metadata)
-      raise NotImplementedError
-    end
-
-  end
-
-end
+require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'spec', 'spec_helper'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'clouds'))

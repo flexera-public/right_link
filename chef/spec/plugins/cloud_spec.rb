@@ -38,13 +38,21 @@ describe Ohai::System, ' plugin cloud' do
   shared_examples_for 'generic cloud' do
     context 'contains generic settings' do
       before(:each) do
+        @cloud_instance = flexmock('fake_cloud', :name=> @expected_cloud)
+        @cloud_instance.should_receive(:build_metadata).with(:cloud_metadata).and_return(@metadata)
+        @cloud_instance.should_receive(:build_metadata).with(:user_metadata).and_return(@userdata)
+        @cloud_instance.should_receive(:update_details).and_return(@additionaldata)
+        @cloud_factory = flexmock('fake_factory')
+        @cloud_factory.should_receive(:create).and_return(@cloud_instance)
+        flexmock(::RightScale::CloudFactory).should_receive(:instance).and_return(@cloud_factory)
+
         flexmock(@ohai).should_receive(:require_plugin).and_return(true)
 
         @ohai._require_plugin("cloud")
       end
 
       it 'should not define other cloud plugins' do
-        %w{ec2 rackspace cloudstack eucalyptus}.select{|cloud| cloud != @expected_cloud}.each do |cloud_name|
+        %w{ ec2 rackspace cloudstack eucalyptus }.select { |cloud| cloud != @expected_cloud }.each do |cloud_name|
           @ohai[cloud_name.to_sym].should be_nil
         end
       end
@@ -54,11 +62,11 @@ describe Ohai::System, ' plugin cloud' do
       end
 
       it 'should populate cloud public ip' do
-        @ohai[:cloud][:public_ips][0].should == @expected_public_ip
+        @ohai[:cloud][:public_ips].first.should == @expected_public_ip
       end
 
       it 'should populate cloud private ip' do
-        @ohai[:cloud][:private_ips][0].should == @expected_private_ip
+        @ohai[:cloud][:private_ips].first.should == @expected_private_ip
       end
     end
   end
@@ -66,6 +74,11 @@ describe Ohai::System, ' plugin cloud' do
   context 'no cloud' do
     before :each do
       flexmock(@ohai).should_receive(:require_plugin).and_return(true)
+
+      cloud_file_path = File.normalize_path(File.join(::RightScale::RightLinkConfig[:platform].filesystem.right_scale_state_dir, 'cloud'))
+      flexmock(File).should_receive(:read).with(cloud_file_path).and_return('no_cloud')
+      flexmock(File).should_receive(:file?).with(cloud_file_path).and_return(true)
+
       @ohai._require_plugin("cloud")
     end
 
@@ -76,10 +89,10 @@ describe Ohai::System, ' plugin cloud' do
 
   context 'on EC2' do
     before(:each) do
-      @expected_cloud = "ec2"
-      @ohai[:ec2] = Mash.new()
-      @ohai[:ec2]['public_ipv4'] = @expected_public_ip
-      @ohai[:ec2]['local_ipv4'] = @expected_private_ip
+      @expected_cloud = 'ec2'
+      @metadata = {:"public-ipv4" => @expected_public_ip, :"local-ipv4" => @expected_private_ip}
+      @userdata = {}
+      @additionaldata = {}
     end
 
     it_should_behave_like 'generic cloud'
@@ -88,9 +101,9 @@ describe Ohai::System, ' plugin cloud' do
   context 'on Rackspace' do
     before(:each) do
       @expected_cloud = "rackspace"
-      @ohai[:rackspace] = Mash.new()
-      @ohai[:rackspace]['public_ip'] = @expected_public_ip
-      @ohai[:rackspace]['private_ip'] = @expected_private_ip
+      @metadata = ""
+      @userdata = ""
+      @additionaldata = {:public_ip => @expected_public_ip, :private_ip => @expected_private_ip}
     end
 
     it_should_behave_like 'generic cloud'
@@ -99,9 +112,9 @@ describe Ohai::System, ' plugin cloud' do
   context 'on Eucalyptus' do
     before(:each) do
       @expected_cloud = "eucalyptus"
-      @ohai[:eucalyptus] = Mash.new()
-      @ohai[:eucalyptus]['public_ipv4'] = @expected_public_ip
-      @ohai[:eucalyptus]['local_ipv4'] = @expected_private_ip
+      @metadata = {:"public-ipv4" => @expected_public_ip, :"local-ipv4" => @expected_private_ip}
+      @userdata = {}
+      @additionaldata = {}
     end
 
     it_should_behave_like 'generic cloud'
@@ -110,9 +123,9 @@ describe Ohai::System, ' plugin cloud' do
   context 'on cloudstack' do
     before(:each) do
       @expected_cloud = "cloudstack"
-      @ohai[:cloudstack] = Mash.new()
-      @ohai[:cloudstack]['public_ipv4'] = @expected_public_ip
-      @ohai[:cloudstack]['local_ipv4'] = @expected_private_ip
+      @metadata = {:"public-ipv4" => @expected_public_ip, :"local-ipv4" => @expected_private_ip}
+      @userdata = {}
+      @additionaldata = {}
     end
 
     it_should_behave_like 'generic cloud'

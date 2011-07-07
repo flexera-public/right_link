@@ -20,21 +20,17 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-leases_file = %w{/var/lib/dhcp3/dhclient.eth0.leases /var/lib/dhclient/dhclient-eth0.leases /var/lib/dhclient-eth0.leases}.find{|dhcpconfig| File.exist?(dhcpconfig)}
-unless leases_file.nil?
-  lease_file_content = File.read(leases_file)
+require 'rubygems'
+require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'config', 'right_link_config'))
 
-  # leases are appended to the lease file, so to get the appropriate dhcp lease provider, we must grab
-  # the info from the last lease entry.
-  #
-  # reverse the content and reverse the regex to find the dhcp lease provider from the last lease entry
-  lease_file_content.reverse!
-  provider_line = lease_file_content[/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}) reifitnedi-revres-pchd/, 1]
-  dhcp_lease_provider_ip = provider_line.reverse unless provider_line.nil?
-
-  # only create the mash if the lease provider was found
-  unless provider_line.nil?
-    cloudstack Mash.new
-    cloudstack[:dhcp_lease_provider_ip] = dhcp_lease_provider_ip
-  end
+begin
+  base_dir_path = File.join(File.dirname(__FILE__), 'clouds')
+  require File.normalize_path(File.join(base_dir_path, 'cloud'))
+  require File.normalize_path(File.join(base_dir_path, 'cloud_factory'))
+  require File.normalize_path(File.join(base_dir_path, 'cloud_utilities'))
+  require File.normalize_path(File.join(base_dir_path, 'metadata_formatter'))
+  require File.normalize_path(File.join(base_dir_path, 'metadata_provider'))
+  require File.normalize_path(File.join(base_dir_path, 'metadata_source'))
+  require File.normalize_path(File.join(base_dir_path, 'metadata_tree_climber'))
+  require File.normalize_path(File.join(base_dir_path, 'metadata_writer'))
 end

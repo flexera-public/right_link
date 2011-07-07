@@ -1,5 +1,5 @@
-#
-# Copyright (c) 2010 RightScale Inc
+#!/opt/rude/sandbox/bin/ruby
+# Copyright (c) 2011 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -20,20 +20,7 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-module RightScale
-
-  # Interface for a metadata provider.
-  class MetadataProvider
-
-    # Queries metadata in an implementation-specific manner. The resulting tree
-    # of metadata is a hash of hashes with string keys and string leaf values.
-    #
-    # === Returns
-    # tree_metadata(Hash):: tree of metadata
-    def metadata
-      raise NotImplementedError
-    end
-
-  end
-
-end
+$stdout.sync=true
+$stdout.puts 'Simulating wait for something to happen'
+sleep 0.01
+$stdout.puts 'Something happened!'

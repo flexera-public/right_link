@@ -63,9 +63,9 @@ def add_server(key, data)
 end
 
 # ----------------------------------------
-# ec2
+# cloud
 # ----------------------------------------
-require_plugin "ec2"
+require_plugin "cloud"
 
 # Detect if RightScale platform is running on ec2 cloud
 #

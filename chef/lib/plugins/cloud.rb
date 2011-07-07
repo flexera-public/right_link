@@ -20,30 +20,55 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', '..', '..', 'lib', 'clouds'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'clouds', 'lib', 'clouds'))
+
 provides "cloud"
 
-%w{ec2 rackspace cloudstack eucalyptus}.each { |cloud| require_plugin(cloud) }
+require_plugin "network"
 
-if ec2 != nil
+begin
+  # create the default cloud using ohai for detection, if necessary.
   cloud Mash.new
-  cloud[:provider] = "ec2"
-  cloud[:public_ips] = [ ec2['public_ipv4'] ]
-  cloud[:private_ips] = [ ec2['local_ipv4'] ]
-elsif rackspace != nil
-  cloud Mash.new
-  cloud[:provider] = "rackspace"
-  cloud[:public_ips] = [ rackspace[:public_ip] ]
-  cloud[:private_ips] = [ rackspace[:private_ip] ]
-elsif eucalyptus != nil
-  cloud Mash.new
-  cloud[:provider] = "eucalyptus"
-  cloud[:public_ips] = [ eucalyptus['public_ipv4'] ]
-  cloud[:private_ips] = [ eucalyptus['local_ipv4'] ]
-elsif cloudstack != nil
-  cloud Mash.new
-  cloud[:provider] = "cloudstack"
-  cloud[:public_ips] = [ cloudstack['public_ipv4'] ]
-  cloud[:private_ips] = [ cloudstack['local_ipv4'] ]
-else
+  options = {:ohai_node => self}
+
+  # ensure metadata tree(s) are built using Mash.
+  options[:metadata_tree_climber] = {:tree_class => Mash}
+
+  # ensure user metadata is returned in raw form for legacy node support.
+  options[:user_metadata] = {:metadata_tree_climber => {:create_leaf_override => lambda { |_, value| value }}}
+
+  # log to the ohai log
+  options[:logger] = Ohai::Log
+
+  # create the cloud instance
+  cloud_instance = ::RightScale::CloudFactory.instance.create(::RightScale::CloudFactory::UNKNOWN_CLOUD_NAME, options)
+
+  cloud[:provider] = cloud_instance.name
+
+  # create node using cloud name.
+  provides cloud_instance.name.to_s
+
+  named_cloud_node = @data[cloud_instance.name.to_s.to_sym] = Mash.new
+  cloud_metadata = cloud_instance.build_metadata(:cloud_metadata)
+  if cloud_metadata.kind_of?(::Hash)
+    named_cloud_node.update(cloud_metadata)
+  elsif cloud_metadata != nil
+    named_cloud_node.update({:metadata => cloud_metadata})
+  end
+
+  # user metadata appears as a node of cloud metadata for legacy support.
+  named_cloud_node[:userdata] = cloud_instance.build_metadata(:user_metadata)
+
+  # cloud may have specific details to insert into ohai node(s).
+  named_cloud_node.update(cloud_instance.update_details)
+
+  # expecting public/private IPs to come from all clouds.
+  cloud[:public_ips] = [ named_cloud_node[:"public-ipv4"] || named_cloud_node[:public_ip] ]
+  cloud[:private_ips] = [ named_cloud_node[:"local-ipv4"] || named_cloud_node[:private_ip] ]
+
+rescue Exception => e
+  # cloud was unresolvable, but not all ohai use cases are cloud instances.
+  Ohai::Log.debug("#{e.class}\n#{e.message}: #{e.backtrace.join("\n")}")
   cloud nil
 end

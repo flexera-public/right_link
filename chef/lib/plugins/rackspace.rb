@@ -20,11 +20,6 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-provides "rackspace"
+require_plugin "cloud"
 
-require_plugin "network"
-
-if ::RightScale::CloudUtilities.is_cloud?(:rackspace){ ::RightScale::CloudUtilities.has_mac?(self, "00:00:0c:07:ac:01") || kernel[:release].split('-').last.eql?("rscloud") }
-  rackspace Mash.new
-  require_plugin "#{os}::rackspace"
-end
+Ohai::Log.warn("deprecated in favor of cloud plugin")

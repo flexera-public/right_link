@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2010 RightScale Inc
+# Copyright (c) 2011 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -30,7 +30,7 @@ module RightScale
 
     FETCH_TEST_SOCKET_ADDRESS = '127.0.0.1'
     FETCH_TEST_SOCKET_PORT = 55555
-    FETCH_TEST_TIMEOUT_SECS = 30  # test runs a bit slow in Windows
+    FETCH_TEST_TIMEOUT_SECS = 60
 
     class MockHTTPServer < WEBrick::HTTPServer
       def initialize(options={}, &block)
@@ -123,7 +123,12 @@ module RightScale
 
     # Setup log for test.
     def setup_log
-      @log_file_name = File.normalize_path(File.join(Dir.tmpdir, "#{File.basename(__FILE__, '.rb')}_#{Time.now.strftime("%Y-%m-%d-%H%M%S")}.log"))
+      unless defined?(@@log_file_base_name)
+        @@log_file_base_name = File.normalize_path(File.join(Dir.tmpdir, "#{File.basename(__FILE__, '.rb')}_#{Time.now.strftime("%Y-%m-%d-%H%M%S")}"))
+        @@log_file_index = 0
+      end
+      @@log_file_index += 1
+      @log_file_name = "#{@@log_file_base_name}_#{@@log_file_index}.log"
       @log_file = File.open(@log_file_name, 'w')
       @logger = Logger.new(@log_file)
       @logger.level = is_debug? ? Logger::DEBUG : Logger::INFO
@@ -157,18 +162,19 @@ module RightScale
     #
     # === Returns
     # metadata(Hash):: flat metadata hash
-    def run_fetcher(metadata_provider, metadata_formatter, &block)
+    def run_fetcher(*args, &block)
       server = nil
       done = false
       last_exception = nil
-      flat_metadata = nil
+      results = []
       EM.run do
         begin
           server = MockHTTPServer.new({:Logger => @logger}, &block)
           EM.defer do
             begin
-              tree_metadata = metadata_provider.metadata
-              flat_metadata = metadata_formatter.format_metadata(tree_metadata)
+              args.each do |metadata_provider|
+                results << metadata_provider.build_metadata
+              end
             rescue Exception => e
               last_exception = e
             end
@@ -209,7 +215,7 @@ module RightScale
         end
       end
 
-      return flat_metadata
+      return 1 == results.size ? results[0] : results
     end
   end
 end

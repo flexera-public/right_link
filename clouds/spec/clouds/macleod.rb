@@ -20,28 +20,20 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require File.expand_path(File.join(File.dirname(__FILE__), '..', 'spec_helper.rb'))
+# additionally search custom dependency base path (relative to this script).
+dependency_base_paths '..'
 
-describe Ohai::System, " plugin eucalyptus" do
-  before(:each) do
-    # configure ohai for RightScale
-    RightScale::OhaiSetup.configure_ohai
+metadata_source 'metadata_sources/mock_metadata_source'
+metadata_writers 'metadata_writers/dictionary_metadata_writer'
 
-    # ohai to be tested
-    @ohai = Ohai::System.new
-    flexmock(@ohai).should_receive(:require_plugin).and_return(true)
-  end
+# all options are specific to the category of dependency.
+default_option(%w(metadata_tree_climber create_leaf_override), lambda{ |_, data| data })
 
-  context 'when not in the eucalyptus cloud' do
-    shared_examples_for 'not in eucalyptus' do
-      it 'does not populate the eucalyptus mash' do
-        @ohai._require_plugin("eucalyptus")
-        @ohai[:eucalyptus].should be_nil
-      end
-    end
-  end
+# options can be further distinguished between cloud and user metadata
+# or can be used by both if kind is not specified (as in the
+# mock_metadata_source example).
+CLOUD_METADATA_ROOT = 'cloud metadata'
+USER_METADATA_ROOT = 'user metadata'
 
-  context 'when in the eucalyptus cloud' do
-
-  end
-end
+default_option('cloud_metadata/metadata_tree_climber/root_path', CLOUD_METADATA_ROOT)
+default_option('user_metadata/metadata_tree_climber/root_path', USER_METADATA_ROOT)

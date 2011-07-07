@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2010 RightScale Inc
+# Copyright (c) 2011 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -20,27 +20,20 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require File.expand_path(File.join(File.dirname(__FILE__), 'ec2_metadata_provider'))
-require File.expand_path(File.join(File.dirname(__FILE__), 'metadata_formatter_base'))
+# clouds can specialize other clouds by extension.
+extend_cloud :macleod
 
-module RightScale
+metadata_source 'metadata_sources/mock_metadata_source'
+metadata_writers 'metadata_writers/dictionary_metadata_writer'
 
-  # Implements MetadataFormatter for EC2.
-  class Ec2MetadataFormatter < MetadataFormatterBase
+# additionally search for extension scripts (relative to this script).
+extension_script_base_paths '../scripts'
 
-    protected
+# constants can be declared which are local to the cloud instance (i.e. do not
+# affect the shared Cloud class) and can be inherited when clouds are extended.
+CLOUD_METADATA = {'ABC' => ['easy', 123], 'simple' => "do re mi", 'abc_123' => {'baby' => [:you, :me, :girl] }}
+USER_METADATA = { 'RS_RN_ID' => '12345', 'RS_SERVER' => 'my.rightscale.com' }
+METADATA = { CLOUD_METADATA_ROOT => CLOUD_METADATA, USER_METADATA_ROOT => USER_METADATA }
 
-    # Decorates flat metadata names with 'EC2_'.
-    #
-    # === Parameters
-    # metadata_path(Array):: array of metadata path elements
-    #
-    # === Returns
-    # flat_path(String):: flattened path
-    def flatten_metadata_path(metadata_path)
-      'EC2_' + super(metadata_path)
-    end
-
-  end
-
-end
+# options can be specific to the exact dependency type.
+default_option([:metadata_source, :mock_metadata_source, :mock_metadata], METADATA)
