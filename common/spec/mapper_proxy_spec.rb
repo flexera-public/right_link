@@ -38,21 +38,21 @@ describe RightScale::MapperProxy do
     before do
       RightScale::MapperProxy.class_eval do
         if class_variable_defined?(:@@instance)
-          remove_class_variable(:@@instance) 
+          remove_class_variable(:@@instance)
         end
       end
     end
-    
+
     it "should return nil when the instance is undefined" do
       RightScale::MapperProxy.instance.should == nil
     end
-    
+
     it "should return the instance if defined" do
       instance = flexmock
       RightScale::MapperProxy.class_eval do
         @@instance = "instance"
       end
-      
+
       RightScale::MapperProxy.instance.should_not == nil
     end
   end
@@ -134,7 +134,7 @@ describe RightScale::MapperProxy do
       end
     end
   end
-  
+
   describe "when making a push request" do
     before(:each) do
       @timer = flexmock("timer")
@@ -787,4 +787,32 @@ describe RightScale::MapperProxy do
     end
   end
 
+  describe "when instance agent" do
+    before(:each) do
+      @timer = flexmock("timer")
+      flexmock(EM::Timer).should_receive(:new).and_return(@timer)
+      @broker = flexmock("Broker", :subscribe => true, :publish => ["broker"], :connected? => true,
+                         :identity_parts => ["host", 123, 0, 0, nil]).by_default
+      @agent = flexmock("Agent", :identity => "rs-instance-123", :broker => @broker, :options => {}).by_default
+      RightScale::MapperProxy.new(@agent)
+      @instance = RightScale::MapperProxy.instance
+      @instance.initialize_offline_queue
+    end
+
+    it "should identify agent as instance agent" do
+      @instance.instance_variable_get(:@is_instance_agent).should be_true
+    end
+
+    it "should queue send_push when offline without offline_queuing parameter" do
+      @instance.enable_offline_mode
+      @instance.send_push('/dummy', 'payload', nil)
+      @instance.instance_variable_get(:@queue).size.should == 1
+    end
+
+    it "should queue send_persistent_request when offline without offline_queuing parameter" do
+      @instance.enable_offline_mode
+      @instance.send_persistent_request('/dummy', 'payload', nil)
+      @instance.instance_variable_get(:@queue).size.should == 1
+    end
+  end
 end
