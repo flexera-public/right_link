@@ -34,7 +34,7 @@ require 'rdoc_patch'
 
 module RightScale
 
-  class ServerIncarnationManager
+  class ServerImporter
     # Exception class to use as a token that something went wrong with an HTTP query
     class QueryFailed < Exception; end
 
@@ -61,6 +61,16 @@ module RightScale
           output_file = File.join(RightScale::Platform.filesystem.spool_dir, 'none', 'user-data.txt')
           output_dir  = File.dirname(output_file)
 
+          if File.exist?(InstanceState::STATE_FILE) && !options[:force]
+            puts "It appears this system is already managed by RightScale; cannot continue"
+            puts
+            puts "To override this decision, use the --force option. Please make sure you"
+            puts "know what you are doing! Connecting this system to a server when it is"
+            puts "already connected to another server could cause unexpected behavior in"
+            puts "the RightScale dashboard, and in certain cases, data loss!"
+            exit(-1)
+          end
+
           puts "Fetching launch settings from RightScale"
           data = http_get(url, false)
 
@@ -83,6 +93,16 @@ module RightScale
 
           puts "Done! Please reboot to continue transforming this machine into"
           puts "a RightScale-managed server."
+
+          unless RightScale::Platform.windows?
+            puts
+            puts " If you are unable to reboot, you may be able to launch RightLink on the fly"
+            puts "by starting the following system services, in order:"
+            puts "  * rightscale"
+            puts "  * rightlink"
+          end
+
+          exit
         else
           RDoc::usage_from_file(__FILE__)
           exit
@@ -101,6 +121,9 @@ module RightScale
           options[:action] = :attach
           options[:url] = url
         end
+        opts.on('-f', '--force') do
+          options[:force] = true
+        end
       end
 
       opts.on_tail('--version') do
@@ -115,8 +138,10 @@ module RightScale
 
       begin
         opts.parse!(ARGV)
+        options[:action] ||= :attach
+
         if options[:action] == :attach && !options[:url]
-          raise ArgumentError, "Missing required shutdown argument"
+          raise ArgumentError, "Missing required --url argument"
         end
       rescue Exception => e
         puts e.message + "\nUse --help for additional information"
@@ -146,7 +171,7 @@ protected
     # === Return
     # version(String):: Version information
     def version
-      return "rs_server v#{VERSION.join('.')} - RightLink's server incarnation command line utility (c) 2011 RightScale"
+      return "rs_connect v#{VERSION.join('.')} - RightScale server import utility (c) 2011 RightScale"
     end
 
     private
