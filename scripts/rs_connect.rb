@@ -29,8 +29,8 @@ THIS_FILE = File.symlink?(__FILE__) ? File.readlink(__FILE__) : __FILE__
 $:.push(File.join(File.dirname(THIS_FILE), 'lib'))
 
 require 'rubygems'
-require 'server_incarnation_manager'
+require 'server_importer'
 
-manager = RightScale::ServerIncarnationManager.new
+manager = RightScale::ServerImporter.new
 options = manager.parse_args
 manager.run(options)
