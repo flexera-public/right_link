@@ -1,12 +1,11 @@
 # === Synopsis:
-#   RightScale Server Incarnation Manager (rs_server) (c) 2011 RightScale
+#   RightScale Server Import Utility (rs_connect) (c) 2011 RightScale
 #
 #   This utility allows an arbitrary virtual or physical machine to be
-#   attached to a RightScale server, allowing existing machines to be
-#   used with the RightScale dashboard.
+#   managed by the RightScale dashboard.
 #
 # === Usage
-#    rs_server --attach <url> [options]
+#    rs_connect --attach <url> [options]
 #
 #    Options:
 #      --attach, -a       Attach this machine to a server
@@ -91,12 +90,13 @@ module RightScale
             f.puts data
           end
 
+          puts
           puts "Done! Please reboot to continue transforming this machine into"
           puts "a RightScale-managed server."
 
           unless RightScale::Platform.windows?
             puts
-            puts " If you are unable to reboot, you may be able to launch RightLink on the fly"
+            puts "If you are unable to reboot, you may be able to launch RightLink on the fly"
             puts "by starting the following system services, in order:"
             puts "  * rightscale"
             puts "  * rightlink"
@@ -273,25 +273,3 @@ protected
   end
 
 end
-
-#
-# Copyright (c) 2011 RightScale Inc
-#
-# Permission is hereby granted, free of charge, to any person obtaining
-# a copy of this software and associated documentation files (the
-# "Software"), to deal in the Software without restriction, including
-# without limitation the rights to use, copy, modify, merge, publish,
-# distribute, sublicense, and/or sell copies of the Software, and to
-# permit persons to whom the Software is furnished to do so, subject to
-# the following conditions:
-#
-# The above copyright notice and this permission notice shall be
-# included in all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-# NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
-# LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-# OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
-# WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
