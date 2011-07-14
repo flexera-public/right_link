@@ -82,20 +82,23 @@ module RightScale
         client.send_command(cmd, options[:verbose]) do |res|
           if options[:action] == :get_tags
             if res.empty?
-              puts "No server tag found"
+              STDERR.puts "No server tags found" unless options[:quiet]
+              exit(44) if options[:die]
             else
-              puts "Server tags (#{res.size}):\n#{res.map { |tag| "  - #{tag}" }.join("\n")}\n"
+              puts format_output(res, options[:format])
             end
           elsif options[:action] == :query_tags
             r = OperationResult.from_results(command_serializer.load(res))
             r = if r.success?
               if r.content.empty?
-                puts "No servers with tags '#{options[:tags].inspect}'"
+                STDERR.puts "No servers with tags '#{options[:tags].inspect}'" unless options[:quiet]
+                exit(44) if options[:die]
               else
-                puts JSON.pretty_generate(r.content)
+                puts format_output(r.content)
               end
             else
-              puts "Tag query failed: #{r.content}"
+              STDERR.puts "Tag query failed: #{r.content}" unless options[:quiet]
+              exit(53) if options[:die]
             end
           else
             puts res
@@ -139,6 +142,17 @@ module RightScale
           options[:verbose] = true
         end
 
+        opts.on('-e', '--die') do
+          options[:die] = true
+        end
+
+        opts.on('-f', '--format FMT') do |fmt|
+          options[:format] = fmt
+        end
+
+        opts.on('-q', '--quiet') do
+          options[:quiet] = true
+        end
       end
 
       opts.on_tail('--version') do
@@ -154,13 +168,33 @@ module RightScale
       begin
         opts.parse!(ARGV)
       rescue Exception => e
-        puts e.message + "\nUse rs_tag --help for additional information"
+        STDERR.puts e.message + "\nUse rs_tag --help for additional information"
         exit(1)
       end
       options
     end
 
 protected
+    # Print error on console and exit abnormally
+    #
+    # === Parameter
+    # result(Object):: JSON-compatible data structure (array, hash, etc)
+    # format(String):: how to print output - json, yaml, text
+    #
+    # === Return
+    # a String containing the specified output format
+    def format_output(result, format)
+      case format
+        when /jso?n?/, nil
+          JSON.pretty_generate(result)
+        when /ya?ml/
+          YAML.dump(result)
+        when /te?xt/
+          result.map { |x| " - #{x}" }.join("\n")
+        else
+          raise ArgumentError, "Unknown output format #{format}"
+      end
+    end
 
     # Print error on console and exit abnormally
     #
@@ -171,9 +205,9 @@ protected
     # === Return
     # R.I.P. does not return
     def fail(msg=nil, print_usage=false)
-      puts "** #{msg}" if msg
+      STDERR.puts "** #{msg}" if msg
       RDoc::usage_from_file(__FILE__) if print_usage
-      exit(1)
+      exit(50)
     end
 
     # Version information
@@ -181,7 +215,7 @@ protected
     # === Return
     # ver(String):: Version information
     def version
-      ver = "rs_tagger #{VERSION.join('.')} - RightLink's tagger (c) 2010 RightScale"
+      ver = "rs_tagger #{VERSION.join('.')} - RightLink's tagger (c) 2011 RightScale"
     end
 
   end
