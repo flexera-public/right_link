@@ -141,7 +141,7 @@ module RightScale
         options[:action] ||= :attach
 
         if options[:action] == :attach && !options[:url]
-          raise ArgumentError, "Missing required --url argument"
+          raise ArgumentError, "Missing required --attach argument"
         end
       rescue Exception => e
         puts e.message + "\nUse --help for additional information"
