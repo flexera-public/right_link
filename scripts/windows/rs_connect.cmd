@@ -1,5 +1,5 @@
 @echo off
-rem # Copyright (c) 2009 RightScale Inc
+rem # Copyright (c) 2011 RightScale Inc
 rem #
 rem # Permission is hereby granted, free of charge, to any person obtaining
 rem # a copy of this software and associated documentation files (the
@@ -22,7 +22,10 @@ rem # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 setlocal
 
-call LocateSandBox.bat
+rem # note that this utility needs to run after install but before the PATH
+rem # variable has been setup (assuming user console was open before install and
+rem # has the old PATH value).
+call "%~dps0\..\..\..\bin\windows\LocateSandBox.bat"
 if %ERRORLEVEL% neq 0 (
   exit /B %ERRORLEVEL%
 )

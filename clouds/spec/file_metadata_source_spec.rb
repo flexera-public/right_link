@@ -79,10 +79,10 @@ describe RightScale::MetadataSources::FileMetadataSource do
     @user_metadata_source_file_path = File.join(@source_dir_path, 'user_metadata.dict')
     @metadata_source = ::RightScale::MetadataSources::FileMetadataSource.new(:cloud_metadata_source_file_path => @cloud_metadata_source_file_path,
                                                                            :user_metadata_source_file_path => @user_metadata_source_file_path)
-    cloud_metadata_tree_climber = ::RightScale::MetadataTreeClimber.new(:root_path => ::RightScale::MetadataSources::FileMetadataSource::CLOUD_METADATA_ROOT_PATH,
+    cloud_metadata_tree_climber = ::RightScale::MetadataTreeClimber.new(:root_path => ::RightScale::MetadataSources::FileMetadataSource::DEFAULT_CLOUD_METADATA_ROOT_PATH,
                                                                         :has_children_override => lambda{ false },
                                                                         :create_leaf_override => method(:create_user_metadata_leaf))
-    user_metadata_tree_climber = ::RightScale::MetadataTreeClimber.new(:root_path => ::RightScale::MetadataSources::FileMetadataSource::USER_METADATA_ROOT_PATH,
+    user_metadata_tree_climber = ::RightScale::MetadataTreeClimber.new(:root_path => ::RightScale::MetadataSources::FileMetadataSource::DEFAULT_USER_METADATA_ROOT_PATH,
                                                                        :has_children_override => lambda{ false },
                                                                        :create_leaf_override => method(:create_user_metadata_leaf))
     # cloud metadata
