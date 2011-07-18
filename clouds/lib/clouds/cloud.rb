@@ -454,8 +454,10 @@ module RightScale
         options = options.merge(@options[kind][category][type]) if @options[kind][category][type]
       end
 
-      # :logger is a special option which should be available to all categories.
+      # set special options which should be available to all categories.
+      options[:cloud] = self
       options[:logger] ||= @options[:logger]
+
       return options
     end
 

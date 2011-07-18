@@ -28,14 +28,17 @@ module RightScale
     class FileMetadataSource < MetadataSource
 
       # definitions for querying kinds of metadata by a simple path.
-      CLOUD_METADATA_ROOT_PATH = "cloud_metadata"
-      USER_METADATA_ROOT_PATH = "user_metadata"
+      DEFAULT_CLOUD_METADATA_ROOT_PATH = "cloud_metadata"
+      DEFAULT_USER_METADATA_ROOT_PATH = "user_metadata"
 
       attr_accessor :cloud_metadata_source_file_path, :user_metadata_source_file_path
 
       def initialize(options)
         @cloud_metadata_source_file_path = options[:cloud_metadata_source_file_path]
+        @cloud_metadata_root_path = options[:cloud_metadata_root_path] || DEFAULT_CLOUD_METADATA_ROOT_PATH
+
         @user_metadata_source_file_path = options[:user_metadata_source_file_path]
+        @user_metadata_root_path = options[:user_metadata_root_path] || DEFAULT_USER_METADATA_ROOT_PATH
       end
 
       # Queries for metadata using the given path.
@@ -50,9 +53,9 @@ module RightScale
       # QueryFailed:: on any failure to query
       def query(path)
         result = ""
-        if path == CLOUD_METADATA_ROOT_PATH
+        if path == @cloud_metadata_root_path
           result = File.read(@cloud_metadata_source_file_path) if @cloud_metadata_source_file_path
-        elsif path == USER_METADATA_ROOT_PATH
+        elsif path == @user_metadata_root_path
           result = File.read(@user_metadata_source_file_path) if @user_metadata_source_file_path
         else
           raise QueryFailed.new("Unknown path: #{path}")
