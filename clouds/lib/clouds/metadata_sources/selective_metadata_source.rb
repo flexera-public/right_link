@@ -53,6 +53,7 @@ module RightScale
       # QueryFailed:: on any failure to query
       def query(path)
         merged_metadata = ""
+        last_query_failed = nil
         @metadata_sources.each do |metadata_source|
           type = metadata_source[:type]
           unless source = metadata_source[:source]
@@ -62,11 +63,18 @@ module RightScale
             source = @cloud.create_dependency_type(kind, :metadata_source, type)
             metadata_source[:source] = source
           end
-          query_result = source.query(path)
-          selected = select_metadata(path, type, query_result, merged_metadata)
-          merged_metadata = selected[:merged_metadata]
-          break unless selected[:query_next_metadata]
+          begin
+            query_result = source.query(path)
+            selected = select_metadata(path, type, query_result, merged_metadata)
+            merged_metadata = selected[:merged_metadata]
+            last_query_failed = nil  # reset last failed query
+            break unless selected[:query_next_metadata]
+          rescue QueryFailed => e
+            # temporarily ignore failed query in case next source query succeeds
+            last_query_failed = e
+          end
         end
+        raise last_query_failed if last_query_failed
         return merged_metadata
       rescue Exception => e
         raise QueryFailed.new(e.message)

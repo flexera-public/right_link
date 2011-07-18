@@ -362,8 +362,6 @@ module RightScale
       return provider.send(:build_metadata)
     end
 
-    protected
-
     # Gets the option given by path, if it exists.
     #
     # === Parameters
@@ -433,6 +431,8 @@ module RightScale
       dependency_class = resolve_dependency(dependency_type)
       return dependency_class.new(options)
     end
+
+    protected
 
     # Resolve options to pass to new object, giving precedency to most
     # specific options based on kind, category and type.
