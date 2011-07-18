@@ -176,9 +176,15 @@ module RightScale
           # get.
           response = connection.request(:protocol => uri.scheme, :server => uri.host, :port => uri.port, :request => request)
           return response.body if response.kind_of?(Net::HTTPSuccess)
-          if response.kind_of?(Net::HTTPServerError) || response.kind_of?(Net::HTTPNotFound)
+          if response.kind_of?(Net::HTTPServerError)
             @logger.debug("Request failed but can retry; #{response.class.name}")
             return nil
+          elsif response.kind_of?(Net::HTTPNotFound)
+            # EC2 and clouds which emulate it can return 404s for leaves (or for
+            # user metadata) that were announced or expected but have no data.
+            # it seems consistent to return emtpy for leaves which are expected
+            # but were "not found".
+            return ""
           elsif response.kind_of?(Net::HTTPRedirection)
             # keep history of redirects.
             history << uri.to_s
