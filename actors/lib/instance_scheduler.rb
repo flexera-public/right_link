@@ -197,32 +197,22 @@ class InstanceScheduler
         if res.success?
           schedule_decommission(:bundle => res.content)
         else
-          log_debug("Failed to retrieve decommission bundle", res.content)
+          log_debug("Failed to retrieve decommission bundle: #{res.content}")
         end
       end
     end
     true
   end
 
-  # Suicide, use TERM so agent's handler gets triggered and agent unregisters
+  # Terminate self
   # Note: Will *not* run the decommission scripts, call run_decommission first if you need to
   #
   # === Return
   # Well... does not return...
   def terminate
-    log_info("Instance agent #{@agent_identity} terminating")
     RightScale::CommandRunner.stop
     # Delay terminate a bit to give reply a chance to be sent
-    EM.next_tick do
-      # FIXME: Do not TERM in Windows because it will not trigger the agent handler.  Instead, directly
-      # terminate the agent.  Leaving the current implementation for Linux until the Windows solution
-      # also works for Linux.
-      if RightScale::Platform.windows?
-        @agent.terminate
-      else
-        Process.kill('TERM', Process.pid)
-      end
-    end
+    EM.next_tick { @agent.terminate }
   end
 
 end

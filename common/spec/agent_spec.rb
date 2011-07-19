@@ -38,11 +38,11 @@ describe RightScale::Agent do
 
     before(:all) do
       flexmock(RightScale::RightLinkLog).should_receive(:error).never.by_default
-      flexmock(EM).should_receive(:add_periodic_timer)
       flexmock(EM).should_receive(:next_tick).and_yield
       flexmock(EM).should_receive(:add_timer).and_yield
       @timer = flexmock("timer")
       flexmock(EM::Timer).should_receive(:new).and_return(@timer)
+      flexmock(EM::PeriodicTimer).should_receive(:new).and_return(@timer)
       @timer.should_receive(:cancel)
       @broker = flexmock("broker", :subscribe => ["b1"], :publish => ["b1"], :prefetch => true,
                          :all => ["b1"], :connected => ["b1"], :failed => [], :close_one => true,
@@ -117,11 +117,11 @@ describe RightScale::Agent do
 
     before(:each) do
       flexmock(RightScale::RightLinkLog).should_receive(:error).never.by_default
-      flexmock(EM).should_receive(:add_periodic_timer)
       flexmock(EM).should_receive(:next_tick).and_yield
       flexmock(EM).should_receive(:add_timer).and_yield
       @timer = flexmock("timer")
       flexmock(EM::Timer).should_receive(:new).and_return(@timer)
+      flexmock(EM::PeriodicTimer).should_receive(:new).and_return(@timer)
       @timer.should_receive(:cancel)
       @broker = flexmock("broker", :subscribe => ["b1"], :publish => ["b1"], :prefetch => true,
                          :connected => ["b1"], :failed => [], :all => ["b0", "b1"],
@@ -243,12 +243,14 @@ describe RightScale::Agent do
 
     before(:each) do
       flexmock(RightScale::RightLinkLog).should_receive(:error).never.by_default
-      flexmock(EM).should_receive(:add_periodic_timer)
       flexmock(EM).should_receive(:next_tick).and_yield
       flexmock(EM).should_receive(:add_timer).and_yield
       @timer = flexmock("timer")
       flexmock(EM::Timer).should_receive(:new).and_return(@timer).by_default
       @timer.should_receive(:cancel).by_default
+      @periodic_timer = flexmock("timer")
+      flexmock(EM::PeriodicTimer).should_receive(:new).and_return(@periodic_timer)
+      @periodic_timer.should_receive(:cancel).by_default
       @broker_id = "rs-broker-123-1"
       @broker_ids = ["rs-broker-123-1", "rs-broker-123-2"]
       @broker = flexmock("broker", :subscribe => @broker_ids, :publish => @broker_ids.first(1), :prefetch => true,
@@ -484,9 +486,10 @@ describe RightScale::Agent do
       end
 
       it "should not log reason for waiting to terminate if no need to wait" do
-        @mapper_proxy.should_receive(:terminate).and_return([0, nil]).once
+        @mapper_proxy.should_receive(:terminate).and_return([0, nil]).twice
         @dispatcher.should_receive(:dispatch_age).and_return(nil).once
-        flexmock(EM::Timer).should_receive(:new).with(0, Proc).and_return(@timer).once
+        @broker.should_receive(:close).once
+        flexmock(EM::Timer).should_receive(:new).with(0, Proc).never
         run_in_em do
           flexmock(RightScale::RightLinkLog).should_receive(:info).with(/Agent rs-instance-123-1 with actors/).once
           @agent = RightScale::Agent.new(:user => "me", :identity => @identity)
@@ -548,6 +551,7 @@ describe RightScale::Agent do
         @dispatcher.should_receive(:dispatch_age).and_return(10).once
         flexmock(EM::Timer).should_receive(:new).with(20, Proc).and_return(@timer).once
         @timer.should_receive(:cancel).once
+        @periodic_timer.should_receive(:cancel).once
         run_in_em do
           @agent = RightScale::Agent.new(:user => "me", :identity => @identity)
           @agent.run

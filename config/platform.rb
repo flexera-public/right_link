@@ -73,6 +73,9 @@ module RightScale
   #   * release
   #   * codename
   class Platform
+
+    @@instance = nil
+
     # Initialize platform values
     def initialize
       @windows = !!(RUBY_PLATFORM =~ /mswin/)
@@ -237,7 +240,8 @@ module RightScale
 
     def self.method_missing(meth, *args)
       if self.instance_methods.include?(meth.to_s)
-        self.new.send(meth, *args)
+        @@instance = self.new unless @@instance
+        @@instance.send(meth, *args)
       else
         super
       end

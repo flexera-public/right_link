@@ -32,7 +32,7 @@ module RightScale
   end
 
   # Initialize platform
-  RightLinkConfig[:platform] = Platform.new
+  RightLinkConfig[:platform] = Platform
 
   # Initialized from content of 'config.rb'
   # Modify 'config.rb' and not this file!
