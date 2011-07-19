@@ -203,7 +203,7 @@ module RightScale
                 @check_status_count = 0
                 @check_status_brokers = @broker.all
                 EM.next_tick { @options[:ready_callback].call } if @options[:ready_callback]
-                EM.add_periodic_timer(interval) { check_status }
+                @check_status_timer = EM::PeriodicTimer.new(interval) { check_status }
               rescue Exception => e
                 RightLinkLog.error("Agent failed startup", e, :trace) unless e.message == "exit"
                 EM.stop
@@ -388,37 +388,44 @@ module RightScale
         if @terminating
           RightLinkLog.info("[stop] Terminating immediately")
           @termination_timer.cancel if @termination_timer
+          @termination_timer = nil
           if blk then blk.call else EM.stop end
         else
           @terminating = true
+          @check_status_timer.cancel if @check_status_timer
+          @check_status_timer = nil
           timeout = @options[:grace_timeout]
           RightScale::RightLinkLog.info("[stop] Agent #{@identity} terminating")
           stop_gracefully(timeout) do
             if @mapper_proxy
               dispatch_age = @dispatcher.dispatch_age
               request_count, request_age = @mapper_proxy.terminate
+
+              finish = lambda do
+                request_count, request_age = @mapper_proxy.terminate
+                RightScale::RightLinkLog.info("[stop] The following #{request_count} requests initiated as recently as #{request_age} " +
+                         "seconds ago are being dropped:\n  " + @mapper_proxy.dump_requests.join("\n  ")) if request_age
+                @broker.close(&blk)
+                EM.stop unless blk
+              end
+
               wait_time = [timeout - (request_age || timeout), timeout - (dispatch_age || timeout), 0].max
-              if wait_time > 0
+              if wait_time == 0
+                finish.call
+              else
                 reason = ""
                 reason = "completion of #{request_count} requests initiated as recently as #{request_age} seconds ago" if request_age
                 reason += " and " if request_age && dispatch_age
                 reason += "requests received as recently as #{dispatch_age} seconds ago" if dispatch_age
                 RightLinkLog.info("[stop] Termination waiting #{wait_time} seconds for #{reason}")
-              end
-              @termination_timer = EM::Timer.new(wait_time) do
-                begin
-                  RightLinkLog.info("[stop] Continuing with termination") if wait_time > 0
-                  request_count, request_age = @mapper_proxy.terminate
-                  if request_age
-                    request_dump = @mapper_proxy.dump_requests.join("\n  ")
-                    RightLinkLog.info("[stop] The following #{request_count} requests initiated as recently as #{request_age} " +
-                                      "seconds ago are being dropped:\n  #{request_dump}")
+                @termination_timer = EM::Timer.new(wait_time) do
+                  begin
+                    RightLinkLog.info("[stop] Continuing with termination")
+                    finish.call
+                  rescue Exception => e
+                    RightLinkLog.error("Failed while finishing termination", e, :trace)
+                    EM.stop
                   end
-                  @broker.close(&blk)
-                  EM.stop unless blk
-                rescue Exception => e
-                  RightLinkLog.error("Failed while finishing termination", e, :trace)
-                  EM.stop
                 end
               end
             end

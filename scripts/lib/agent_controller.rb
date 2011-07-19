@@ -226,8 +226,9 @@ module RightScale
           options[:console] = true
         end
 
-        opts.on("-S", "--shutdown") do
+        opts.on("-S", "--shutdown [AGENT]") do |a|
           options[:action] = 'shutdown'
+          options[:agent_name] = a || 'instance'
         end
 
         opts.on("--help") do
