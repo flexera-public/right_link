@@ -9,6 +9,12 @@
 #
 #    Options:
 #      --attach, -a       Attach this machine to a server
+#      --force, -f        Force attachment even if server appears already connected.
+#      --cloud, -c        Name of cloud in which instance is running or 'none'
+#                         to indicate instance is not running in any cloud. If a
+#                         cloud has already been selected during installation of
+#                         RightLink then this option will override that choice.
+#                         If no choice has been made then the default is 'none'.
 #      --help:            Display help
 #      --version:         Display version information
 #
@@ -54,10 +60,16 @@ module RightScale
 
       case options[:action]
         when :attach
-          url  = options[:url]
+          # resolve cloud name.
           cloud_file  = File.join(RightScale::Platform.filesystem.right_scale_state_dir, 'cloud')
+          cloud_name = options[:cloud_name]
+          if cloud_name.nil? && File.file?(cloud_file)
+            cloud_name = File.read(cloud_file).strip
+          end
+          cloud_name = 'none' if cloud_name.to_s.empty?
+
           cloud_dir   = File.dirname(cloud_file)
-          output_file = File.join(RightScale::Platform.filesystem.spool_dir, 'none', 'user-data.txt')
+          output_file = File.join(RightScale::Platform.filesystem.spool_dir, cloud_name, 'user-data.txt')
           output_dir  = File.dirname(output_file)
 
           if File.exist?(InstanceState::STATE_FILE) && !options[:force]
@@ -71,6 +83,7 @@ module RightScale
           end
 
           puts "Fetching launch settings from RightScale"
+          url  = options[:url]
           data = http_get(url, false)
 
           unless data =~ /RS_rn_id/i
@@ -81,7 +94,7 @@ module RightScale
           puts "Creating cloud-family hint file (#{cloud_file})"
           FileUtils.mkdir_p(cloud_dir)
           File.open(cloud_file, 'w') do |f|
-            f.puts 'none'
+            f.puts cloud_name
           end
 
           puts "Writing launch settings to file"
@@ -90,18 +103,17 @@ module RightScale
             f.puts data
           end
 
-          puts
-          puts "Done! Please reboot to continue transforming this machine into"
-          puts "a RightScale-managed server."
-
-          unless RightScale::Platform.windows?
-            puts
-            puts "If you are unable to reboot, you may be able to launch RightLink on the fly"
-            puts "by starting the following system services, in order:"
-            puts "  * rightscale"
-            puts "  * rightlink"
+          puts "Done connecting server to RightScale. Will now attempt to start the RightLink services."
+          puts "If starting of services fails, you can attempt to start them by rebooting."
+          if RightScale::Platform.windows?
+            puts `net start rightscale`
+            exit $?.exitstatus unless $?.success?
+          elsif RightScale::Platform.linux?
+            puts `/etc/init.d/rightscale start && /etc/init.d/rightlink start`
+            exit $?.exitstatus unless $?.success?
+          else
+            puts "Starting services is not supported for this platform."
           end
-
           exit
         else
           RDoc::usage_from_file(__FILE__)
@@ -124,6 +136,9 @@ module RightScale
         opts.on('-f', '--force') do
           options[:force] = true
         end
+        opts.on('-c', '--cloud NAME') do |cloud_name|
+          options[:cloud_name] = cloud_name.strip
+        end
       end
 
       opts.on_tail('--version') do
@@ -141,7 +156,7 @@ module RightScale
         options[:action] ||= :attach
 
         if options[:action] == :attach && !options[:url]
-          raise ArgumentError, "Missing required --url argument"
+          raise ArgumentError, "Missing required --attach argument"
         end
       rescue Exception => e
         puts e.message + "\nUse --help for additional information"
