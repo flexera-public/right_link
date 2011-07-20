@@ -33,7 +33,6 @@
 #                           with the TAG_LIST being quoted if it contains spaces
 #      --die, -e            Exit with error if query/list fails
 #      --format, -f FMT     Output format: json, yaml, text
-#      -s, -V               Silence extraneous output to stderr
 #      --verbose, -v        Display debug information
 #      --help:              Display help
 #      --version:           Display version information
@@ -219,13 +218,13 @@ protected
     # a String containing the specified output format
     def format_output(result, format)
       case format
-        when /jso?n?/, nil
+        when /^jso?n?$/, nil
           JSON.pretty_generate(result)
-        when /ya?ml/
+        when /^ya?ml$/
           YAML.dump(result)
-        when /te?xt/, /sh(ell)?/, 'bash'
+        when /^te?xt$/, /^sh(ell)?/, 'list'
           result = result.keys if result.respond_to?(:keys)
-          result.map.join(" ")
+          result.join(" ")
         else
           raise ArgumentError, "Unknown output format #{format}"
       end
@@ -273,7 +272,7 @@ protected
     # === Return
     # ver(String):: Version information
     def version
-      ver = "rs_tagger #{VERSION.join('.')} - RightLink's tagger (c) 2011 RightScale"
+      ver = "rs_tag #{VERSION.join('.')} - RightLink's tagger (c) 2011 RightScale"
     end
 
   end
