@@ -1,6 +1,6 @@
 # === Synopsis:
 #   RightScale Tagger (rs_tag)
-#   (c) 2010 RightScale
+#   (c) 2011 RightScale
 #
 #   Tagger allows listing, adding and removing tags on the current instance and
 #   querying for all instances with a given set of tags
@@ -31,6 +31,8 @@
 #      --remove, -r TAG     Remove tag named TAG
 #      --query, -q TAG_LIST Query for all instances that have any of the tags in TAG_LIST
 #                           with the TAG_LIST being quoted if it contains spaces
+#      --die, -e            Exit with error if query/list fails
+#      --format, -f FMT     Output format: json, yaml, text
 #      --verbose, -v        Display debug information
 #      --help:              Display help
 #      --version:           Display version information
@@ -53,6 +55,15 @@ module RightScale
 
   class Tagger
 
+    class TagError < Exception
+      attr_reader :code
+
+      def initialize(msg, code=nil)
+        super(msg)
+        @code = code || 1
+      end
+    end
+
     include Utils
 
     VERSION = [0, 1]
@@ -65,9 +76,16 @@ module RightScale
     # === Return
     # true:: Always return true
     def run(options)
+      if options[:verbose]
+        log = Logger.new(STDERR)
+      else
+        log = Logger.new(StringIO.new)
+      end
+      RightScale::RightLinkLog.force_logger(log)
+
       unless options.include?(:action)
-        puts "Missing argument, rs_tag --help for additional information"
-        exit 1
+        STDERR.puts "Missing argument, rs_tag --help for additional information"
+        fail(1)
       end
       cmd = { :name => options[:action] }
       cmd[:tag] = options[:tag] if options[:tag]
@@ -75,36 +93,58 @@ module RightScale
       cmd[:query] = options[:query] if options[:query]
       config_options = agent_options('instance')
       listen_port = config_options[:listen_port]
-      fail('Could not retrieve agent listen port') unless listen_port
+      raise ArgumentError.new('Could not retrieve agent listen port') unless listen_port
       command_serializer = Serializer.new
       client = CommandClient.new(listen_port, config_options[:cookie])
       begin
+        @disposition = nil
+
         client.send_command(cmd, options[:verbose]) do |res|
           if options[:action] == :get_tags
             if res.empty?
-              puts "No server tag found"
+              if options[:die]
+                @disposition = TagError.new('No server tags found', 44)
+              else
+                puts format_output([], options[:format])
+                @disposition = 0
+              end
             else
-              puts "Server tags (#{res.size}):\n#{res.map { |tag| "  - #{tag}" }.join("\n")}\n"
+              puts format_output(res, options[:format])
+              @disposition = 0
             end
           elsif options[:action] == :query_tags
             r = OperationResult.from_results(command_serializer.load(res))
-            r = if r.success?
+            if r.success?
               if r.content.empty?
-                puts "No servers with tags '#{options[:tags].inspect}'"
+                if options[:die]
+                  @disposition = TagError.new("No servers with tags #{options[:tags].inspect}", 44)
+                else
+                  puts format_output({}, options[:format])
+                  @disposition = 0
+                end
               else
-                puts JSON.pretty_generate(r.content)
+                puts format_output(r.content, options[:format])
+                @disposition = 0
               end
             else
-              puts "Tag query failed: #{r.content}"
+              @disposition = TagError.new("Tag query failed: #{r.content}", 53)
             end
           else
-            puts res
+            STDERR.puts res
+            @disposition = 0
           end
         end
       rescue Exception => e
-        fail(e.message)
+        @disposition = e
       end
-      true
+
+      pass while @disposition.nil?
+      case @disposition
+        when 0
+          succeed
+        else
+          fail(@disposition)
+      end
     end
 
     # Create options hash from command line arguments
@@ -139,28 +179,64 @@ module RightScale
           options[:verbose] = true
         end
 
+        opts.on('-e', '--die') do
+          options[:die] = true
+        end
+
+        opts.on('-f', '--format FMT') do |fmt|
+          options[:format] = fmt
+        end
       end
 
       opts.on_tail('--version') do
         puts version
-        exit
+        succeed
       end
 
       opts.on_tail('--help') do
          RDoc::usage_from_file(__FILE__)
-         exit
+         succeed
       end
 
       begin
         opts.parse!(ARGV)
       rescue Exception => e
-        puts e.message + "\nUse rs_tag --help for additional information"
-        exit(1)
+        STDERR.puts e.message + "\nUse rs_tag --help for additional information"
+        fail(1)
       end
       options
     end
 
 protected
+    # Format output for display to user
+    #
+    # === Parameter
+    # result(Object):: JSON-compatible data structure (array, hash, etc)
+    # format(String):: how to print output - json, yaml, text
+    #
+    # === Return
+    # a String containing the specified output format
+    def format_output(result, format)
+      case format
+        when /^jso?n?$/, nil
+          JSON.pretty_generate(result)
+        when /^ya?ml$/
+          YAML.dump(result)
+        when /^te?xt$/, /^sh(ell)?/, 'list'
+          result = result.keys if result.respond_to?(:keys)
+          result.join(" ")
+        else
+          raise ArgumentError, "Unknown output format #{format}"
+      end
+    end
+
+    # Exit with success.
+    #
+    # === Return
+    # R.I.P. does not return
+    def succeed
+      exit(0)
+    end
 
     # Print error on console and exit abnormally
     #
@@ -170,10 +246,25 @@ protected
     #
     # === Return
     # R.I.P. does not return
-    def fail(msg=nil, print_usage=false)
-      puts "** #{msg}" if msg
-      RDoc::usage_from_file(__FILE__) if print_usage
-      exit(1)
+    def fail(reason=nil, options={})
+      case reason
+      when TagError
+        STDERR.puts reason.message
+        code = reason.code
+      when Exception
+        STDERR.puts reason.message
+        code = 50
+      when String
+        STDERR.puts reason
+        code = 50
+      when Integer
+        code = reason
+      else
+        code = 1
+      end
+
+      RDoc::usage_from_file(__FILE__) if options[:print_usage]
+      exit(code)
     end
 
     # Version information
@@ -181,14 +272,14 @@ protected
     # === Return
     # ver(String):: Version information
     def version
-      ver = "rs_tagger #{VERSION.join('.')} - RightLink's tagger (c) 2010 RightScale"
+      ver = "rs_tag #{VERSION.join('.')} - RightLink's tagger (c) 2011 RightScale"
     end
 
   end
 end
 
 #
-# Copyright (c) 2010 RightScale Inc
+# Copyright (c) 2011 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
