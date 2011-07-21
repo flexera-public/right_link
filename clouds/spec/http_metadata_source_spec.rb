@@ -151,12 +151,12 @@ describe RightScale::MetadataSources::HttpMetadataSource do
     end
   end
 
-  it 'should raise exception for failing HTTP calls' do
-    lambda do
-      @runner.run_fetcher(@cloud_metadata_provider) do |server|
-        # intentionally not mounting any paths
-      end
-    end.should raise_error(::RightScale::MetadataSource::QueryFailed)
+  it 'should return empty metadata for HTTP calls which return 404s' do
+    cloud_metadata, user_metadata = @runner.run_fetcher(@cloud_metadata_provider, @user_metadata_provider) do |server|
+      # intentionally not mounting metadata
+    end
+    cloud_metadata.should == {}
+    user_metadata.should == ""
   end
 
   it 'should succeed for successful HTTP calls' do
