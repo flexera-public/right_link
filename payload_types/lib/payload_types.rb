@@ -34,4 +34,6 @@ require File.join(File.dirname(__FILE__), 'payload_types', 'right_script_attachm
 require File.join(File.dirname(__FILE__), 'payload_types', 'right_script_instantiation')
 require File.join(File.dirname(__FILE__), 'payload_types', 'login_policy')
 require File.join(File.dirname(__FILE__), 'payload_types', 'login_user')
+require File.join(File.dirname(__FILE__), 'payload_types', 'secure_document')
+require File.join(File.dirname(__FILE__), 'payload_types', 'secure_document_location')
 require File.join(File.dirname(__FILE__), 'payload_types', 'planned_volume')
