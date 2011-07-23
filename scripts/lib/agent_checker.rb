@@ -518,10 +518,10 @@ protected
     # === Return
     # true:: Always return true
     def setup_traps
-      ['INT', 'TERM'].each do |sig|
-        old = trap(sig) do
+      ['INT', 'TERM'].each do |_|
+        trap(sig) do
           terminate
-          old.call if old.is_a? Proc
+          exit
         end
       end
       true
