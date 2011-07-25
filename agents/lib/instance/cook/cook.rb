@@ -63,6 +63,7 @@ module RightScale
       RightLinkLog.program_name = 'RightLink'
       RightLinkLog.log_to_file_only(options[:log_to_file_only])
       RightLinkLog.init(agent_id, options[:log_path])
+      gatherer = ExternalParameterGatherer.new(bundle, options)
       sequence = ExecutableSequence.new(bundle)
       EM.threadpool_size = 1
       EM.error_handler do |e|
@@ -72,9 +73,12 @@ module RightScale
       EM.run do
         begin
           AuditStub.instance.init(options)
+          gatherer.callback { EM.defer { sequence.run } }
+          gatherer.errback { success = false; report_failure(gatherer) }
           sequence.callback { success = true; send_inputs_patch(sequence) }
           sequence.errback { success = false; report_failure(sequence) }
-          EM.defer { sequence.run }
+
+          EM.defer { gatherer.run }
         rescue Exception => e
           fail('Execution failed', "Execution failed (#{e.message}) from\n#{e.backtrace.join("\n")}")
         end
@@ -192,10 +196,10 @@ module RightScale
     end
 
     # Report failure to core
-    def report_failure(sequence)
+    def report_failure(subject)
       begin
-        AuditStub.instance.append_error(sequence.failure_title, :category => RightScale::EventCategories::CATEGORY_ERROR) if sequence.failure_title
-        AuditStub.instance.append_error(sequence.failure_message) if sequence.failure_message
+        AuditStub.instance.append_error(subject.failure_title, :category => RightScale::EventCategories::CATEGORY_ERROR) if subject.failure_title
+        AuditStub.instance.append_error(subject.failure_message) if subject.failure_message
       rescue Exception => e
         fail('Failed to report failure', "Failed to report failure after execution (#{e.message}) from\n#{e.backtrace.join("\n")}")
       ensure

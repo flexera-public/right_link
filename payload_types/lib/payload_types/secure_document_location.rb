@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2009-2011 RightScale Inc
+# Copyright (c) 2011 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -23,38 +23,34 @@
 
 module RightScale
 
-  # Recipe with json
-  class RecipeInstantiation
+  # Everything necessary to retrieve a SecureDocument from a RightNet agent.
+  class SecureDocumentLocation
 
     include Serializable
 
-    # (String) Recipe nickname
-    attr_accessor :nickname
+    # (String) Namespace within which the document resides
+    attr_accessor :namespace
 
-    # (Hash) Recipe override attributes (JSON string for RightLink v5.0)
-    attr_accessor :attributes
+    # (String) )Namespace-unique identifier of the document that should be retrieved.
+    attr_accessor :name
 
-    # (Integer) Recipe id
-    attr_accessor :id
+    # (Integer) Monotonic version of the document to be requested
+    attr_accessor :version
 
-    # (Boolean) Whether recipe inputs are ready
-    attr_accessor :ready
+    # (String) Access token that should be used to fetch this credential
+    attr_accessor :ticket
 
-    # (Array of SecureDocumentLocation) attributes that must be resolved by the instance
-    attr_accessor :external_inputs
-
+    # Initialize fields from given arguments
     def initialize(*args)
-      @nickname        = args[0] if args.size > 0
-      @attributes      = args[1] if args.size > 1
-      @id              = args[2] if args.size > 2
-      @ready           = args[3] if args.size > 3
-      @external_inputs = args[4] if args.size > 4
+      @namespace = args[0] if args.size > 0
+      @name      = args[1] if args.size > 1
+      @version   = args[2] if args.size > 2
+      @ticket    = args[3] if args.size > 3
     end
 
     # Array of serialized fields given to constructor
     def serialized_members
-      [ @nickname, @attributes, @id, @ready, @external_inputs ]
+      [ @namespace, @name, @version, @ticket ]
     end
-
   end
 end
