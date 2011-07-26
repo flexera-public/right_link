@@ -88,37 +88,64 @@ module RightScale
 
     context 'given credential locations' do
       context 'when fatal errors occur' do
-        it 'fails gracefully' do
+        it 'fails RightScripts gracefully' do
           creds = []
           (0..2).each { |j| creds << secure_document_location(j) }
           script = @script.dup
           script.external_inputs = {}
-          recipe = @recipe.dup
-          recipe.external_inputs = {}
           creds.each_with_index do |cred, j|
             p = "SECRET_CRED#{j}"
             script.external_inputs[p] = cred
-            recipe.external_inputs[p] = cred
           end
 
-          @bundle = ExecutableBundle.new([@script, @recipe], [], 1234)
-          @bundle.executables << script
-          @bundle.executables << recipe
-
+          @bundle = ExecutableBundle.new([script], [], 1234)
           @gatherer = ExternalParameterGatherer.new(@bundle, @options)
 
           [0, 1].each do |j|
             payload = {:ticket=>'open sesame', :namespace=>'777', :names=>[ (123+j).to_s ]}
             data = @serializer.dump(OperationResult.success([ secure_document(j) ]))
             flexmock(@gatherer).should_receive(:send_idempotent_request).
-              with('/vault/read_document', payload, Proc).and_yield(data).twice
+              with('/vault/read_document', payload, Proc).and_yield(data)
           end
 
           [2].each do |j|
             payload = {:ticket=>'open sesame', :namespace=>'777', :names=>[ (123+j).to_s ]}
             data = @serializer.dump(OperationResult.error('too many cows on the moon'))
             flexmock(@gatherer).should_receive(:send_idempotent_request).
-              with('/vault/read_document', payload, Proc).and_yield(data).twice
+              with('/vault/read_document', payload, Proc).and_yield(data)
+          end
+
+          result = run(@gatherer)
+          @gatherer.failure_title.should_not be_nil
+          @gatherer.failure_message.should_not be_nil
+          result.should be_false
+        end
+
+        it 'fails recipes gracefully' do
+          creds = []
+          (0..2).each { |j| creds << secure_document_location(j) }
+          recipe = @recipe.dup
+          recipe.external_inputs = {}
+          creds.each_with_index do |cred, j|
+            p = "SECRET_CRED#{j}"
+            recipe.external_inputs[p] = cred
+          end
+
+          @bundle = ExecutableBundle.new([recipe], [], 1234)
+          @gatherer = ExternalParameterGatherer.new(@bundle, @options)
+
+          [0, 1].each do |j|
+            payload = {:ticket=>'open sesame', :namespace=>'777', :names=>[ (123+j).to_s ]}
+            data = @serializer.dump(OperationResult.success([ secure_document(j) ]))
+            flexmock(@gatherer).should_receive(:send_idempotent_request).
+              with('/vault/read_document', payload, Proc).and_yield(data)
+          end
+
+          [2].each do |j|
+            payload = {:ticket=>'open sesame', :namespace=>'777', :names=>[ (123+j).to_s ]}
+            data = @serializer.dump(OperationResult.error('too many cows on the moon'))
+            flexmock(@gatherer).should_receive(:send_idempotent_request).
+              with('/vault/read_document', payload, Proc).and_yield(data)
           end
 
           result = run(@gatherer)
