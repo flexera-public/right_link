@@ -518,7 +518,7 @@ protected
     # === Return
     # true:: Always return true
     def setup_traps
-      ['INT', 'TERM'].each do |_|
+      ['INT', 'TERM'].each do |sig|
         trap(sig) do
           terminate
           exit
