@@ -243,11 +243,11 @@ class InstanceSetup
         end
       end
     end
-    
-    req.errback do|res| 
+
+    req.errback do|res|
       strand('Failed to retrieve software repositories', res)
     end
-    
+
     req.run
     true
   end
@@ -348,7 +348,7 @@ class InstanceSetup
           yield success_result(bundle)
         end
       end
-      
+
       req.errback do |res|
         yield error_result(format_error('Failed to retrieve boot scripts', res))
       end
@@ -430,9 +430,9 @@ class InstanceSetup
         end
 
         # audit any executables which now have all inputs.
-        last_missing_inputs[:executables].each_key do |k|
-          unless missing_inputs_executables[k]
-            title = RightScale::RightScriptsCookbook.recipe_title(e.nickname)
+        last_missing_inputs[:executables].each_key do |nickname|
+          unless missing_inputs_executables[nickname]
+            title = RightScale::RightScriptsCookbook.recipe_title(nickname)
             @audit.append_info("The inputs used by #{title} which had been missing have now been resolved.")
             sent_audit = true
           end
@@ -445,7 +445,7 @@ class InstanceSetup
       end
     end
 
-    req.errback do |res| 
+    req.errback do |res|
       strand('Failed to retrieve missing inputs', res)
     end
 
