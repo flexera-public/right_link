@@ -412,6 +412,7 @@ class InstanceSetup
         sent_audit = false
 
         # audit missing inputs, if necessary.
+        missing_inputs_executables = {}
         pending_executables.each do |e|
           missing_input_names = []
           if e.is_a?(RightScale::RightScriptInstantiation)
@@ -425,8 +426,18 @@ class InstanceSetup
             @audit.append_info("Waiting for the following missing inputs which are used by #{title}: #{missing_input_names.join(", ")}")
             sent_audit = true
           end
-          last_missing_inputs[:executables][e.nickname] = missing_input_names
+          missing_inputs_executables[e.nickname] = missing_input_names
         end
+
+        # audit any executables which now have all inputs.
+        last_missing_inputs[:executables].each_key do |k|
+          unless missing_inputs_executables[k]
+            title = RightScale::RightScriptsCookbook.recipe_title(e.nickname)
+            @audit.append_info("The inputs used by #{title} which had been missing have now been resolved.")
+            sent_audit = true
+          end
+        end
+        last_missing_inputs[:executables] = missing_inputs_executables
         last_missing_inputs[:last_audit_time] = Time.now if sent_audit
 
         # schedule retry to retrieve missing inputs.
