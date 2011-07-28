@@ -21,5 +21,3 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 require_plugin "cloud"
-
-Ohai::Log.warn("deprecated in favor of cloud plugin")
