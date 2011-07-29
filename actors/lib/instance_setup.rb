@@ -39,7 +39,7 @@ class InstanceSetup
   MISSING_INPUT_RETRY_DELAY_SECS = 20
 
   # Maximum time between nag audits for missing inputs.
-  MISSING_INPUT_AUDIT_DELAY_SECS = 10 * 60
+  MISSING_INPUT_AUDIT_DELAY_SECS = 2 * 60
 
   # Tag set on instances that are part of an array
   AUTO_LAUNCH_TAG ='rs_launch:type=auto'
@@ -414,16 +414,19 @@ class InstanceSetup
         # audit missing inputs, if necessary.
         missing_inputs_executables = {}
         pending_executables.each do |e|
+          # names of missing inputs are available from RightScripts.
           missing_input_names = []
           if e.is_a?(RightScale::RightScriptInstantiation)
             e.parameters.each { |key, value| missing_input_names << key unless value }
-          else
-            e.attributes.each { |key, value| missing_input_names << key unless value }
           end
           last_missing_input_names = last_missing_inputs[:executables][e.nickname]
           if audit_missing_inputs || last_missing_input_names != missing_input_names
             title = RightScale::RightScriptsCookbook.recipe_title(e.nickname)
-            @audit.append_info("Waiting for the following missing inputs which are used by #{title}: #{missing_input_names.join(", ")}")
+            if missing_input_names.empty?
+              @audit.append_info("Waiting for missing inputs which are used by #{title}.")
+            else
+              @audit.append_info("Waiting for the following missing inputs which are used by #{title}: #{missing_input_names.join(", ")}")
+            end
             sent_audit = true
           end
           missing_inputs_executables[e.nickname] = missing_input_names
