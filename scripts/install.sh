@@ -1,6 +1,6 @@
 #!/bin/bash -e
 #
-# Copyright (c) 2009 RightScale Inc
+# Copyright (c) 2009-2011 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -23,17 +23,17 @@
 
 #
 # First figure out where this script lives, which lets us infer
-# where the Ruby scripts live (parallel to this script).
+# where the Ruby scripts live (parallel to this script)
 #
 FIXED_PATH_GUESS=/opt/rightscale/right_link/scripts
-ABSOL_PATH_GUESS=`dirname $0`
+ABSOLUTE_PATH_GUESS=`dirname $0`
 if [ -e $FIXED_PATH_GUESS/install.sh ]
 then
-  RIGHT_LINK_SCRIPTS=$FIXED_PATH_GUESS
-elif [ -e $ABSOL_PATH_GUESS/install.sh ]
+  SCRIPTS_DIR=$FIXED_PATH_GUESS
+elif [ -e $ABSOLUTE_PATH_GUESS/install.sh ]
 then
-  pushd $ABSOL_PATH_GUESS > /dev/null
-  RIGHT_LINK_SCRIPTS=$PWD
+  pushd $ABSOLUTE_PATH_GUESS > /dev/null
+  SCRIPTS_DIR=$PWD
   popd > /dev/null
 else
   echo "Cannot determine path from $0"
@@ -64,27 +64,51 @@ then
 fi
 
 #
-# Finally, create stub scripts for all of the RightLink binaries
+# Create private scripts for running all of the RightLink binaries
 #
+echo Installing scripts from $SCRIPTS_DIR...
 
 echo Installing private scripts from $RIGHT_LINK_SCRIPTS ...
 for script in rad rchk rnac rstat
 do
+  case "$script" in
+    rad)   require="right_agent/scripts/agent_deployer"
+           class=RightScale::AgentDeployer;;
+    rnac)  require="right_agent/scripts/agent_controller"
+           class=RightScale::AgentController;;
+    rchk)  require="right_agent/scripts/agent_checker"
+           class=RightScale::AgentChecker;;
+    rstat) require="$SCRIPTS_DIR/mapper_stats_manager"
+           class=RightScale::StatsManager;;
+  esac
   echo Installing $script
+  rm -f /opt/rightscale/bin/$script
   cat > /opt/rightscale/bin/$script <<EOF
-#!/bin/bash
-exec $RUBY_BIN $RIGHT_LINK_SCRIPTS/${script}.rb "\$@"
+#!/usr/bin/env ruby
+
+# $script --help for usage information
+#
+# See $require.rb for additional information
+
+require '$require'
+
+\$stdout.sync=true
+
+$class.run
 EOF
   chmod a+x /opt/rightscale/bin/$script
 done
 
-echo Installing command line tools from $RIGHT_LINK_SCRIPTS ...
+#
+# Finally, create stub scripts for all of the RightLink binaries
+#
+echo Installing command line tools from $SCRIPTS_DIR ...
 for script in rs_run_right_script rs_run_recipe rs_log_level rs_reenroll rs_tag rs_shutdown rs_connect
 do
   echo Installing $script
   cat > /usr/bin/$script <<EOF
 #!/bin/bash
-exec $RUBY_BIN $RIGHT_LINK_SCRIPTS/${script}.rb "\$@"
+exec $RUBY_BIN $SCRIPTS_DIR/${script}.rb "\$@"
 EOF
   chmod a+x /usr/bin/$script
 done

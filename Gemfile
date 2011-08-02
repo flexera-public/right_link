@@ -2,6 +2,8 @@ source :gemcutter
 source 'http://gems.github.com'
 
 gem 'right_support', :git=>'git@github.com:rightscale/right_support.git'
+gem 'right_agent',                :git => 'git@github.com:rightscale/right_agent.git',
+                                  :require => ['right_agent', 'right_agent/core_payload_types']
 gem "systemu", "1.2.0"
 gem "stomp", "1.1"
 gem "ruby-openid", "2.1.8"

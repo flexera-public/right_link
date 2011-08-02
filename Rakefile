@@ -1,4 +1,4 @@
-require 'spec/rake/spectask'
+ require 'spec/rake/spectask'
 require 'fileutils'
 
 # Usage (rake --tasks):
