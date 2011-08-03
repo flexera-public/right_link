@@ -373,4 +373,36 @@ describe RightScale::CookState do
       end
     end
   end
+
+  context 'log_level' do
+    context 'when cook state has never been persisted' do
+      before(:each) do
+        File.exists?(RightScale::CookState::STATE_FILE).should be_false
+      end
+
+      it 'should default to info' do
+        RightScale::CookState.log_level.should == Logger::INFO
+      end
+    end
+
+    context 'when no log level in state file' do
+      before(:each) do
+        RightScale::JsonUtilities::write_json(RightScale::CookState::STATE_FILE, {})
+        File.exists?(RightScale::CookState::STATE_FILE).should be_true
+      end
+
+      it 'should default to info' do
+        RightScale::CookState.log_level.should == Logger::INFO
+      end
+    end
+
+    context 'when log level is set in the state file' do
+      RightScale::RightLinkLog::LEVELS_MAP.each_pair do |log_symbol, log_level|
+        it "should be #{log_symbol}" do
+          RightScale::JsonUtilities::write_json(RightScale::CookState::STATE_FILE, {"log_level"=>log_level})
+          RightScale::CookState.log_level.should == log_level
+        end
+      end
+    end
+  end
 end
