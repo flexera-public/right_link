@@ -204,6 +204,10 @@ module RightScale
         state_to_merge.reboot?
       end
 
+      @@log_level = if state_to_merge.respond_to?(:log_level)
+        state_to_merge.log_level
+      end
+
       save_state
 
       true
@@ -249,7 +253,8 @@ module RightScale
     def self.save_state
       # start will al state to be saved
       state_to_save = {'startup_tags' => startup_tags,
-                       'reboot' => reboot?}
+                       'reboot' => reboot?,
+                       'log_level' => log_level}
 
       # only save persist the fact we downloaded cookbooks if we are in dev mode
       if download_once?
