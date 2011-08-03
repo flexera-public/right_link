@@ -49,6 +49,7 @@ module RightScale
       @@downloaded    = false
       @@reboot        = false
       @@startup_tags  = []
+      @@log_level     = Logger::INFO
 
       if File.file?(STATE_FILE)
         state = RightScale::JsonUtilities::read_json(STATE_FILE)
@@ -57,6 +58,7 @@ module RightScale
         @@downloaded = state['has_downloaded_cookbooks']
         @@startup_tags = state['startup_tags'] || []
         @@reboot = state['reboot']
+        @@log_level = state['log_level'] || Logger::INFO
       end
 
       @@initialized = true
@@ -171,6 +173,15 @@ module RightScale
     # false:: Otherwise
     def self.download_once?
       tag_value(DOWNLOAD_ONCE_TAG) == 'true'
+    end
+
+    # Current logger severity
+    #
+    # === Return
+    # level(Integer):: one of Logger::INFO ... Logger::FATAL
+    def self.log_level
+      init unless initialized?
+      @@log_level
     end
 
     # Re-initialize then merge given state
