@@ -25,7 +25,7 @@ module Apt
 
   module Ubuntu
     SUPPORTED_REPOS = ['hardy', 'intrepid', 'jaunty', 'karmic', 'lucid', 'maverick' ]
-    
+
     # The different generate classes will always generate an exception ("string") if there's anything that went wrong. If no exception, things went well.
     [ 'Hardy', 'Intrepid', 'Jaunty', 'Karmic' , 'Lucid', 'Maverick' ].each do |c|
       module_eval <<-EOS
@@ -50,8 +50,7 @@ module Apt
 
     ############## INTERNAL FUNCTIONS #######################################################
     def self.abstract_generate(params)
-      platform = RightScale::Platform.new
-      return unless platform.linux? && platform.linux.ubuntu?
+      return unless RightScale::Platform.linux? && RightScale::Platform.linux.ubuntu?
 
       opts = { :enabled => true, :frozen_date => "latest"}
       opts.merge!(params)
@@ -63,7 +62,7 @@ module Apt
 
       return unless opts[:enabled]
 
-      codename = platform.linux.codename.downcase
+      codename = RightScale::Platform.linux.codename.downcase
       raise RightScale::PlatformError.new("Unsupported ubuntu release #{codename}") unless SUPPORTED_REPOS.include?(codename)
       FileUtils.mkdir_p(Apt::Ubuntu::path_to_sources_list)
 

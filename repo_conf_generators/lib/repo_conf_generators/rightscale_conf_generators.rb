@@ -57,7 +57,7 @@ module Yum
 
       ############## INTERNAL FUNCTIONS #######################################################
       def self.abstract_generate(params)
-
+        return unless is_this_centos?
         epel_version = get_enterprise_linux_version
         puts "found EPEL version: #{epel_version}"
         opts = { :enabled => true, :frozen_date => "latest"}
@@ -91,17 +91,15 @@ END
         mirror_list
       end
 
+      def self.is_this_centos?
+        return RightScale::Platform.linux? && RightScale::Platform.linux.centos?
+      end
+
       # Return the enterprise linux version of the running machine...or an exception if it's a non-enterprise version of linux.
       # At this point we will only test for CentOS ... but in the future we can test RHEL, and any other compatible ones
       # Note the version is a single (major) number.
       def self.get_enterprise_linux_version
-        version=nil
-        if Yum::CentOS::is_this_centos?
-          version = Yum::execute("lsb_release  -rs").strip.split(".").first
-        else
-          raise "This doesn't appear to be an Enterprise Linux edition"
-        end
-        version
+        RightScale::Platform.linux.release
       end
     end
 

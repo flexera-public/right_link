@@ -119,7 +119,7 @@ module Yum
     else
       repo_path = "#{ver}/#{opts[:repo_subpath]}/#{arch}/archive/"+opts[:frozen_date]
     end
-    
+
     mirror_list =  opts[:base_urls].map do |bu|
         bu +='/' unless bu[-1..-1] == '/' # ensure the base url is terminated with a '/'
         bu+repo_path
@@ -141,13 +141,8 @@ END
     mirror_list
     end
 
-    def self.is_this_centos?    
-      distributor_id = Yum::execute("lsb_release --id")
-      puts "This is not a CentOS distribution: [#{distributor_id}]" if distributor_id !~ /CentOS/ 
-      distributor_id =~ /CentOS/ # return true if the distributor matches centos, false otherwise
-    rescue Exception => e
-      puts "This is not a CentOS distribution: #{e}"
-      false
+    def self.is_this_centos?
+      return RightScale::Platform.linux? && RightScale::Platform.linux.centos?
     end
 
   end # Module CentOS
@@ -166,7 +161,7 @@ END
     end
     ############## INTERNAL FUNCTIONS #######################################################
     def self.abstract_generate(params)
-
+    return unless is_this_centos?
     epel_version = get_enterprise_linux_version
     puts "found EPEL version: #{epel_version}"
     opts = { :enabled => true, :gpgkey_file => RPM_GPG_KEY_EPEL, :frozen_date => "latest"}
@@ -176,7 +171,7 @@ END
 
     arch = Yum::execute("uname -i").strip
 
-     repo_path = "#{epel_version}/#{arch}/archive/"+opts[:frozen_date]
+      repo_path = "#{epel_version}/#{arch}/archive/"+opts[:frozen_date]
     mirror_list =  opts[:base_urls].map do |bu|
         bu +='/' unless bu[-1..-1] == '/' # ensure the base url is terminated with a '/'
         bu+repo_path
@@ -202,13 +197,7 @@ END
     # At this point we will only test for CentOS ... but in the future we can test RHEL, and any other compatible ones
     # Note the version is a single (major) number.
     def self.get_enterprise_linux_version
-      version=nil
-      if Yum::CentOS::is_this_centos?
-        version = Yum::execute("lsb_release  -rs").strip.split(".").first
-      else
-        raise "This doesn't appear to be an Enterprise Linux edition"
-      end
-      version
+      RightScale::Platform.linux.release
     end
   end
 
