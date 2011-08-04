@@ -25,7 +25,7 @@ module RightScale
 
   # List of authorized users for Managed Login feature
   class LoginPolicy
-    PUBLIC_KEY_REGEXP      = /(.*)?(ssh-rsa|ssh-dsa)\s+(\S+)\s*(.*)?$/
+    PUBLIC_KEY_REGEXP      = /(.*)?(ssh-[a-z]{1,3})\s+(\S+)\s*(.*)?$/
 
     include Serializable
 
