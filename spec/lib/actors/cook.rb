@@ -28,6 +28,7 @@ if port = ENV.delete('COOK_DEBUG')
 end
 
 require 'eventmachine'
+require 'right_agent'
 
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'lib', 'instance'))
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'lib', 'instance', 'cook'))
@@ -51,7 +52,7 @@ module RightScale
     def initialize(bundle)
       agent_identity = nil
       File.open(AgentTestConfig.agent_identity_file,"r"){|f| agent_identity = f.gets.chomp }
-      RightScale::AgentConfig.cache_dir = AgentTestConfig.cache_path(agent_identity)
+      RightScale::AgentConfig.cache_dir = AgentTestConfig.cache_dir(agent_identity)
       RightScale::CookState.const_set(:STATE_FILE, AgentTestConfig.cook_state_file)
       FileUtils.mkdir_p(RightScale::AgentConfig.cache_dir)
       original_initialize(bundle)
@@ -62,7 +63,7 @@ module RightScale
     def configure_chef
       begin
         original_configure_chef
-        Chef::Config[:cookbook_path] << File.expand_path(File.join(File.dirname(__FILE__), '..', '..'))
+        Chef::Config[:cookbook_path] << File.expand_path(File.join(File.dirname(__FILE__), '..'))
         file_cache_path = File.join(AgentConfig.cache_dir, 'chef')
         Chef::Config[:file_cache_path] = file_cache_path
         Chef::Config[:cache_options] ||= {}
@@ -83,6 +84,6 @@ module RightScale
   end
 end
 
-load File.expand_path(File.join(File.dirname(__FILE__), '..', '..', '..', '..', 'instance', 'right_link', 'agents', 'lib', 'instance', 'cook.rb'))
+load File.expand_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'lib', 'instance', 'cook.rb'))
 
 RightScale::Cook.new.run

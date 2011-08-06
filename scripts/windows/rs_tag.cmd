@@ -27,4 +27,4 @@ if %ERRORLEVEL% neq 0 (
   exit /B %ERRORLEVEL%
 )
 
-%RS_RUBY_EXE% %RS_SANDBOX_HOME%\right_link\scripts\rs_tag.rb %*
+%RS_RUBY_EXE% %RS_SANDBOX_HOME%\right_link\bin\rs_tag.rb %*

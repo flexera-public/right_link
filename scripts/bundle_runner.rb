@@ -40,6 +40,7 @@
 #        -r TAG_LIST        with the TAG_LIST being quoted if it contains spaces
 #      --scope, -s SCOPE    Scope for selecting tagged recipients: 'single' or 'all',
 #                           with 'all' default
+#      --cfg-dir, -c DIR    Set directory containing configuration for all agents
 #      --verbose, -v        Display progress information
 #      --help:              Display help
 #
@@ -54,10 +55,6 @@ require 'right_agent/scripts/common_parser'
 module RightScale
 
   class BundleRunner
-
-    include Utils
-
-    VERSION = [0, 1]
 
     # Default number of seconds to wait for command response
     DEFAULT_TIMEOUT = 20
@@ -78,7 +75,8 @@ module RightScale
       echo(options)
       cmd = { :options => to_forwarder_options(options) }
       cmd[:name] = options[:bundle_type] == :right_script ? 'run_right_script' : 'run_recipe'
-      config_options = agent_options('instance')
+      AgentConfig.cfg_dir = options[:cfg_dir]
+      config_options = AgentConfig.agent_options('instance')
       listen_port = config_options[:listen_port]
       fail('Could not retrieve listen port', false) unless listen_port
       command_serializer = Serializer.new
@@ -176,6 +174,10 @@ module RightScale
           else
             fail("Invalid scope definition '#{s}', should be either 'single' or 'all'")
           end
+        end
+
+        opts.on("-c", "--cfg-dir DIR") do |d|
+          options[:cfg_dir] = d
         end
 
         opts.on('-v', '--verbose') do

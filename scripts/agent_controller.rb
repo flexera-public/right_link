@@ -75,11 +75,21 @@
 #      --test                     Use test settings
 #      --help                     Display help
 
+require 'rubygems'
 require 'right_agent/scripts/agent_controller'
 
 module RightScale
 
   class RightLinkAgentController < AgentController
+
+    # Create and run controller
+    #
+    # === Return
+    # true:: Always return true
+    def self.run
+      c = RightLinkAgentController.new
+      c.control(c.parse_args)
+    end
 
     protected
 
@@ -142,15 +152,15 @@ module RightScale
       options = AgentConfig.agent_options(@options[:agent_name])
       listen_port = options[:listen_port]
       unless listen_port
-        puts "Could not retrieve listen port for agent #{@options[:identity]}"
+        $stderr.puts "Could not retrieve listen port for agent #{@options[:identity]}"
         return false
       end
       puts message
       begin
         @client = CommandClient.new(listen_port, options[:cookie])
-        @client.run_command({ :name => command }, verbose = false, timeout = 100) { |r| puts r }
+        @client.send_command({ :name => command }, verbose = false, timeout = 100) { |r| puts r }
       rescue Exception => e
-        puts Log.format("Failed or else time limit was exceeded, confirm that local instance is still running", e, :trace)
+        $stderr.puts Log.format("Failed or else time limit was exceeded, confirm that local instance is still running", e, :trace)
         return false
       end
       true

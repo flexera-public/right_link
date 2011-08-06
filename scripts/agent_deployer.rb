@@ -52,11 +52,21 @@
 #      --quiet, -Q              Do not produce output
 #      --help                   Display help
 
+require 'rubygems'
 require 'right_agent/scripts/agent_deployer'
 
 module RightScale
 
   class RightLinkAgentDeployer < AgentDeployer
+
+    # Create and run deployer
+    #
+    # === Return
+    # true:: Always return true
+    def self.run
+      d = RightLinkAgentDeployer.new
+      d.deploy(d.parse_args)
+    end
 
     protected
 

@@ -20,11 +20,13 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'actors' 'instance_setup'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'actors', 'instance_setup'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'lib', 'instance', 'agent_config'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'lib', 'instance', 'instance_state'))
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'lib', 'instance', 'executable_sequence_proxy'))
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'lib', 'instance', 'reenroll_manager'))
-require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'lib', 'instance', 'cook', 'cook_state')
-require File.join(File.dirname(__FILE__), '..', 'agent_test_config')
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'lib', 'instance', 'cook', 'cook_state'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'agent_test_config'))
 
 class InstanceSetup
 

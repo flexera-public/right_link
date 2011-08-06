@@ -31,11 +31,11 @@ require 'right_agent/core_payload_types'
 require 'right_agent/command/agent_manager_commands'
 
 BASE_DIR = File.join(File.dirname(__FILE__), '..', 'lib')
-require File.normalize_path(BASE_DIR, 'instance')
-require File.normalize_path(BASE_DIR, 'chef', 'providers')
-require File.normalize_path(BASE_DIR, 'chef', 'plugins')
-require File.normalize_path(BASE_DIR, 'repo_conf_generators')
-¥
+require File.normalize_path(File.join(BASE_DIR, 'instance'))
+require File.normalize_path(File.join(BASE_DIR, 'chef', 'providers'))
+require File.normalize_path(File.join(BASE_DIR, 'chef', 'plugins'))
+require File.normalize_path(File.join(BASE_DIR, 'repo_conf_generators'))
+
 SecureSerializerInitializer.init('instance', @identity)
 
 # Initialize any singletons that have dependencies on non-singletons
@@ -46,8 +46,9 @@ register scheduler = InstanceScheduler.new(self)
 register agent_manager = AgentManager.new(self)
 register InstanceServices.new(@identity)
 
-# Start command runner to enable running instance agent reque¥sts from the command line
-cmd_opts = CommandRunner.start(CommandConstants::BASE_INSTANCE_AGENT_SOCKET_PORT, @identity, AgentManagerCommands.get(agent_manager))
+# Start command runner to enable running instance agent requests from the command line
+cmd_opts = CommandRunner.start(CommandConstants::BASE_INSTANCE_AGENT_SOCKET_PORT, @identity,
+                               InstanceCommands.get(@identity, scheduler, agent_manager))
 
 # Initialize shutdown request state
 ShutdownRequest.init(scheduler)

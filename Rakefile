@@ -1,18 +1,13 @@
- require 'spec/rake/spectask'
 require 'fileutils'
+require 'spec/rake/spectask'
+require File.expand_path(File.join(File.dirname(__FILE__), 'lib', 'run_shell'))
+require File.expand_path(File.join(File.dirname(__FILE__), 'lib', 'gem_utilities'))
 
-# Usage (rake --tasks):
-#
-# rake autotest           # Run autotest
-# rake autotest:rcov      # Run RCov when autotest successful
-# rake spec               # Run all specs in all specs directories
-# rake spec:clobber_rcov  # Remove rcov products for rcov
-# rake spec:doc           # Print Specdoc for all specs
-# rake spec:rcov          # Run all specs all specs directories with RCov
+include RunShell
 
 RIGHT_BOT_ROOT = File.dirname(__FILE__)
 
-# allows for debugging of order of spec files by reading a specific ordering of
+# Allows for debugging of order of spec files by reading a specific ordering of
 # files from a text file, if present. all too frequently, success or failure
 # depends on the order in which tests execute.
 RAKE_SPEC_ORDER_FILE_PATH = ::File.join(RIGHT_BOT_ROOT, "rake_spec_order_list.txt")
@@ -96,6 +91,17 @@ namespace :autotest do
   task :rcov do
     ENV['RCOV'] = 'true'
     setup_auto_test
+  end
+end
+
+namespace :dev do
+  desc 'Install gem dependencies into Ruby VM'
+  task :setup do
+    gem_dirs = [File.join('pkg', 'common'),
+                File.join('pkg', is_windows? ? 'windows' : 'linux')]
+    gem_dirs << File.join('pkg', 'test') unless is_windows?
+    puts "\033[34mInstalling gems from #{gem_dirs.inspect} ...\033[0m"
+    GemUtilities.install(gem_dirs, 'gem', STDOUT, false)
   end
 end
 

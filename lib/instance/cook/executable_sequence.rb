@@ -368,7 +368,7 @@ module RightScale
       true
     rescue Exception => e
       report_failure("Failed to download cookbook", "Cannot continue due to #{e.class.name}: #{e.message}.")
-      Log.debug("Failed to download cookbook", e, :trace)
+      Log.debug(Log.format("Failed to download cookbook", e, :trace))
     ensure
       OpenSSL::SSL::SSLSocket.hostname_override = nil
     end
@@ -522,13 +522,13 @@ module RightScale
         shutdown_request = RightScale::ShutdownRequestProxy.instance
         if shutdown_request.continue?
           report_failure('Chef converge failed due to rs_shutdown not being called before exit', chef_error(e))
-          Log.debug("Chef converge failed", e, :trace)
+          Log.debug(Log.format("Chef converge failed", e, :trace))
         else
           Log.info("Shutdown requested by script: #{shutdown_request}")
         end
       rescue Exception => e
         report_failure('Chef converge failed', chef_error(e))
-        Log.debug("Chef converge failed", e, :trace)
+        Log.debug(Log.format("Chef converge failed", e, :trace))
       ensure
         # terminate the powershell providers
         # terminate the providers before the node server as the provider term scripts may still use the node server
@@ -537,7 +537,7 @@ module RightScale
             begin
               p.terminate
             rescue Exception => e
-              Log.debug("Error terminating #{p.inspect}", e, :trace)
+              Log.debug(Log.format("Error terminating #{p.inspect}", e, :trace))
             end
           end
         end

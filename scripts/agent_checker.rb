@@ -124,6 +124,15 @@ module RightScale
     HOUR = 60 * MINUTE
     DAY = 24 * HOUR
 
+    # Create and run checker
+    #
+    # === Return
+    # true:: Always return true
+    def self.run
+      c = AgentChecker.new
+      c.start(c.parse_args)
+    end
+
     # Run daemon or run one agent communication check
     # If running as a daemon, store pid in same location as agent except suffix the
     # agent identity with '-rchk' (per monit setup in agent deployer)
@@ -148,7 +157,7 @@ module RightScale
     #
     # === Return
     # true:: Always return true
-    def run(options)
+    def start(options)
       begin
         setup_traps
         @command_serializer = Serializer.new
