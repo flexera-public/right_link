@@ -311,8 +311,8 @@ module RightScale
     # === Return
     # true:: Always return true
     def update_cookbook_path
-      @cookbooks.each_with_index do |cookbook_sequence, i|
-        local_basedir = File.join(@download_path, i.to_s)
+      @cookbooks.each do |cookbook_sequence|
+        local_basedir = File.join(@download_path, cookbook_sequence.to_hash)
         cookbook_sequence.paths.reverse.each {|path|
           dir = File.expand_path(File.join(local_basedir, path))
           Chef::Config[:cookbook_path] << dir unless Chef::Config[:cookbook_path].include?(dir)
@@ -347,14 +347,14 @@ module RightScale
         # second, wipe out any preexisting cookbooks in the download path
         if File.directory?(@download_path)
           Dir.foreach(@download_path) do |entry|
-            FileUtils.remove_entry_secure(File.join(@download_path, entry)) if entry =~ /\A\d+\Z/
+            FileUtils.remove_entry_secure(File.join(@download_path, entry)) if entry =~ /\A[[:xdigit:]]+\Z/
           end
         end
 
         counter = 0
 
-        @cookbooks.each_with_index do |cookbook_sequence, i|
-          local_basedir = File.join(@download_path, i.to_s)
+        @cookbooks.each do |cookbook_sequence|
+          local_basedir = File.join(@download_path, cookbook_sequence.hash)
           cookbook_sequence.positions.each do |position|
             prepare_cookbook(local_basedir, position.position,
                              position.cookbook)
