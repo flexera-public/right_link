@@ -195,18 +195,10 @@ module RightScale
       # unconditionally load state from disk
       init
 
-      # only merge state if state to be merged has required values
-      @@startup_tags = if state_to_merge.respond_to?(:startup_tags)
-        state_to_merge.startup_tags
-      end
-
-      @@reboot = if state_to_merge.respond_to?(:reboot?)
-        state_to_merge.reboot?
-      end
-
-      @@log_level = if state_to_merge.respond_to?(:log_level)
-        state_to_merge.log_level
-      end
+      # only merge state if state to be merged has values
+      @@startup_tags  = state_to_merge.startup_tags if state_to_merge.respond_to?(:startup_tags)
+      @@reboot        = state_to_merge.reboot?      if state_to_merge.respond_to?(:reboot?)
+      @@log_level     = state_to_merge.log_level    if state_to_merge.respond_to?(:log_level)
 
       save_state
 
