@@ -30,16 +30,19 @@ module RightScale
     attr_accessor :paths
     # (Array) CookbookPosition objects for each cookbook.
     attr_accessor :positions
+    # (String) Hash for the repository this came from
+    attr_accessor :hash
 
     # Initialize fields from given arguments
     def initialize(*args)
       @paths     = args[0]
       @positions = args[1] if args.size > 1
+      @hash      = args[2] if args.size > 2
     end
 
     # Array of serialized fields given to constructor
     def serialized_members
-      [ @paths, @positions ]
+      [ @paths, @positions, @hash ]
     end
 
     # Reorder @positions so it respects @path.  The comparison rule is
