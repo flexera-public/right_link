@@ -1,0 +1,30 @@
+= RightScale Dev Windows Cookbooks
+
+= DESCRIPTION
+
+== Synopsis
+
+RightScale dev recipes.
+
+Please contact azure@rightscale.com to report any issues.
+
+== Supported Configuration
+
+TODO
+
+== Work in Progress
+
+RightScale cookbooks are a work in progress, expect more documentation and examples in the near
+future. 
+
+= ADDITIONAL RESOURCES
+
+* [1] Chef is http://wiki.opscode.com/display/chef/Home
+
+= LICENSE
+
+<b>RightScale Premium Cookbooks</b>
+
+Copyright:: Copyright (c) 2010 RightScale, Inc.
+
+All rights reserved - Do Not Redistribute

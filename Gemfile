@@ -27,7 +27,7 @@ gem "uuidtools",             "2.1.2"
 gem "mime-types",            "1.16"
 gem "rest-client",           "1.6.1"
 gem 'right_support',         "0.9.4"
-gem 'right_agent',           "0.3.1"
+gem 'right_agent',           "0.4.0"
 
 group :linux do
   gem "json",                "1.4.6"

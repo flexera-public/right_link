@@ -1,0 +1,14 @@
+= DESCRIPTION:
+
+Windows Continuous Integration recipes.
+
+= ATTRIBUTES: 
+
+See metadata.rb
+
+= USAGE:
+
+Designed to be run within a RightScale ServerTemplate
+
+Boot Scripts
+  * default - Sets up the Windows Continuous Integration box

@@ -20,7 +20,7 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', '..', '..', 'lib', 'clouds')) # TODO fix this reach into instance below right_link
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'clouds', 'register_clouds'))
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'clouds'))
 
 provides "cloud"
