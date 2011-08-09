@@ -312,7 +312,7 @@ module RightScale
     # true:: Always return true
     def update_cookbook_path
       @cookbooks.each do |cookbook_sequence|
-        local_basedir = File.join(@download_path, cookbook_sequence.to_hash)
+        local_basedir = File.join(@download_path, cookbook_sequence.hash)
         cookbook_sequence.paths.reverse.each {|path|
           dir = File.expand_path(File.join(local_basedir, path))
           Chef::Config[:cookbook_path] << dir unless Chef::Config[:cookbook_path].include?(dir)
@@ -328,12 +328,6 @@ module RightScale
     # === Return
     # true:: Always return true
     def download_repos
-      # Skip download if in dev mode and cookbooks repos directories already have files in them
-      unless CookState.download_cookbooks?
-         @audit.append_info("Skipping cookbook download to allow local editing.")
-         return true
-      end
-
       @audit.create_new_section('Retrieving cookbooks') unless @cookbooks.empty?
       audit_time do
         # first, if @download_path is world writable, stop that nonsense right this second.
@@ -344,20 +338,25 @@ module RightScale
           end
         end
 
-        # second, wipe out any preexisting cookbooks in the download path
-        if File.directory?(@download_path)
-          Dir.foreach(@download_path) do |entry|
-            FileUtils.remove_entry_secure(File.join(@download_path, entry)) if entry =~ /\A[[:xdigit:]]+\Z/
+        unless CookState.download_once?
+          @audit.append_info("Deleting existing cookbooks")
+          # second, wipe out any preexisting cookbooks in the download path
+          if File.directory?(@download_path)
+            Dir.foreach(@download_path) do |entry|
+              FileUtils.remove_entry_secure(File.join(@download_path, entry)) if entry =~ /\A[[:xdigit:]]+\Z/
+            end
           end
         end
-
-        counter = 0
 
         @cookbooks.each do |cookbook_sequence|
           local_basedir = File.join(@download_path, cookbook_sequence.hash)
           cookbook_sequence.positions.each do |position|
-            prepare_cookbook(local_basedir, position.position,
-                             position.cookbook)
+            if File.exists?(File.join(local_basedir, relative_path))
+              @audit.append_info("Skipping #{position.cookbook.name}, already there")
+            else
+              prepare_cookbook(local_basedir, position.position,
+                               position.cookbook)
+            end
           end
         end
       end
