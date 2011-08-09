@@ -157,7 +157,7 @@ module RightScale
         @disposition = e
       end
 
-      pass while @disposition.nil?
+      Thread.pass while @disposition.nil?
       case @disposition
         when 0
           succeed
