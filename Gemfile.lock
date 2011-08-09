@@ -12,19 +12,19 @@ GEM
     amqp (0.6.7)
       eventmachine (>= 0.12.4)
     bunny (0.6.0)
-    chef (0.9.14.1)
+    chef (0.9.14.3)
       bunny (>= 0.6.0)
       erubis
       extlib
       highline
-      json (>= 1.4.4, <= 1.4.6)
+      json (<= 1.4.6, >= 1.4.4)
       mixlib-authentication (>= 1.1.0)
       mixlib-cli (>= 1.1.0)
       mixlib-config (>= 1.1.2)
       mixlib-log (>= 1.2.0)
       moneta
       ohai (>= 0.5.7)
-      rest-client (>= 1.0.4, < 1.7.0)
+      rest-client (< 1.7.0, >= 1.0.4)
       uuidtools
     erubis (2.6.5)
       abstract (>= 1.0.0)
@@ -46,7 +46,7 @@ GEM
     msgpack (0.4.4)
     ohai (0.5.8)
       extlib
-      json (>= 1.4.4, <= 1.4.6)
+      json (<= 1.4.6, >= 1.4.4)
       mixlib-cli
       mixlib-config
       mixlib-log
@@ -89,7 +89,7 @@ DEPENDENCIES
   abstract (= 1.0.0)
   amqp (= 0.6.7)
   bunny (= 0.6.0)
-  chef (= 0.9.14.1)
+  chef (= 0.9.14.3)
   erubis (= 2.6.5)
   eventmachine (= 0.12.10)
   extlib (= 0.9.14)
