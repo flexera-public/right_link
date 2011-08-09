@@ -303,8 +303,10 @@ module RightScale
     # === Return
     # true:: Always return true
     def add_tag_command(opts)
-      AgentTagsManager.instance.add_tags(opts[:tag])
-      CommandIO.instance.reply(opts[:conn], "Request to add tag '#{opts[:tag]}' sent successfully.")
+      AgentTagsManager.instance.add_tags(opts[:tag]) do |r|
+        reply = @serializer.dump(r) rescue 'Failed to serialize response'
+        CommandIO.instance.reply(opts[:conn], reply)
+      end
     end
 
     # Remove given tag
@@ -316,8 +318,10 @@ module RightScale
     # === Return
     # true:: Always return true
     def remove_tag_command(opts)
-      AgentTagsManager.instance.remove_tags(opts[:tag])
-      CommandIO.instance.reply(opts[:conn], "Request to remove tag '#{opts[:tag]}' sent successfully.")
+      AgentTagsManager.instance.remove_tags(opts[:tag]) do |r|
+        reply = @serializer.dump(r) rescue 'Failed to serialize response'
+        CommandIO.instance.reply(opts[:conn], reply)
+      end
     end
 
     # Query for instances with given tags

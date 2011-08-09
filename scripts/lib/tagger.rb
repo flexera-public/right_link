@@ -55,6 +55,8 @@ module RightScale
 
   class Tagger
 
+    TAG_REQUEST_TIMEOUT = 2 * 60  # synchronous tag requests need a long timeout
+
     class TagError < Exception
       attr_reader :code
 
@@ -99,8 +101,9 @@ module RightScale
       begin
         @disposition = nil
 
-        client.send_command(cmd, options[:verbose]) do |res|
-          if options[:action] == :get_tags
+        client.send_command(cmd, options[:verbose], TAG_REQUEST_TIMEOUT) do |res|
+          case options[:action]
+          when :get_tags
             if res.empty?
               if options[:die]
                 @disposition = TagError.new('No server tags found', 44)
@@ -112,7 +115,7 @@ module RightScale
               puts format_output(res, options[:format])
               @disposition = 0
             end
-          elsif options[:action] == :query_tags
+          when :query_tags
             r = OperationResult.from_results(command_serializer.load(res))
             if r.success?
               if r.content.empty?
@@ -128,6 +131,22 @@ module RightScale
               end
             else
               @disposition = TagError.new("Tag query failed: #{r.content}", 53)
+            end
+          when :add_tag
+            r = OperationResult.from_results(command_serializer.load(res))
+            if r.success?
+              STDERR.puts "Successfully added tag #{options[:tag]}"
+              @disposition = 0
+            else
+              @disposition = TagError.new("Add tag failed: #{r.content}", 54)
+            end
+          when :remove_tag
+            r = OperationResult.from_results(command_serializer.load(res))
+            if r.success?
+              STDERR.puts "Successfully removed tag #{options[:tag]}"
+              @disposition = 0
+            else
+              @disposition = TagError.new("Remove tag failed: #{r.content}", 55)
             end
           else
             STDERR.puts res

@@ -241,14 +241,17 @@ module RightScale
     # === Parameters
     # new_tags(Array):: Tags to be added
     # obsolete_tags(Array):: Tags to be removed
+    # cb(Block):: callback for reply or nil
     #
     # === Return
     # true:: Always return true
-    def update_tags(new_tags, obsolete_tags)
+    def update_tags(new_tags, obsolete_tags, &cb)
       @tags += (new_tags || [])
       @tags -= (obsolete_tags || [])
       @tags.uniq!
-      @mapper_proxy.send_persistent_push("/mapper/update_tags", :new_tags => new_tags, :obsolete_tags => obsolete_tags)
+      @mapper_proxy.send_retryable_request("/mapper/update_tags",
+                                           :new_tags => new_tags,
+                                           :obsolete_tags => obsolete_tags) { |r| cb.call(r) if cb }
       true
     end
 

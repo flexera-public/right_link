@@ -59,12 +59,13 @@ module RightScale
     #
     # === Parameters
     # new_tags(Array):: Tags to be added
+    # cb(Block):: callback for reply or nil
     #
     # === Return
     # true always return true
-    def add_tags(*new_tags)
+    def add_tags(*new_tags, &cb)
       raise TypeError, "Must set agent= before using tag manager" unless @agent
-      @agent.update_tags(new_tags, [])
+      @agent.update_tags(new_tags, [], &cb)
       true
     end
 
@@ -72,22 +73,26 @@ module RightScale
     #
     # === Parameters
     # old_tags(Array):: Tags to be removed
+    # cb(Block):: callback for reply or nil
     #
     # === Return
     # true always return true
-    def remove_tags(*old_tags)
+    def remove_tags(*old_tags, &cb)
       raise TypeError, "Must set agent= before using tag manager" unless @agent
-      @agent.update_tags([], old_tags)
+      @agent.update_tags([], old_tags, &cb)
       true
     end
 
     # Clear all agent tags
     #
+    # === Parameters
+    # cb(Block):: callback for reply or nil
+    #
     # === Return
     # true::Always return true
-    def clear
+    def clear(&cb)
       raise TypeError, "Must set agent= before using tag manager" unless @agent
-      @agent.update_tags([], tags)
+      @agent.update_tags([], tags, &cb)
       true
     end
 
