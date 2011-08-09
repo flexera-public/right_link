@@ -351,7 +351,7 @@ module RightScale
         @cookbooks.each do |cookbook_sequence|
           local_basedir = File.join(@download_path, cookbook_sequence.hash)
           cookbook_sequence.positions.each do |position|
-            if File.exists?(File.join(local_basedir, relative_path))
+            if File.exists?(File.join(local_basedir, position.position))
               @audit.append_info("Skipping #{position.cookbook.name}, already there")
             else
               prepare_cookbook(local_basedir, position.position,
