@@ -63,6 +63,7 @@ module RightScale
       RightLinkLog.program_name = 'RightLink'
       RightLinkLog.log_to_file_only(options[:log_to_file_only])
       RightLinkLog.init(agent_id, options[:log_path])
+      RightLinkLog.level = CookState.log_level
       gatherer = ExternalParameterGatherer.new(bundle, options)
       sequence = ExecutableSequence.new(bundle)
       EM.threadpool_size = 1

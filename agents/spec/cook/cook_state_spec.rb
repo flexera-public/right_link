@@ -290,18 +290,13 @@ describe RightScale::CookState do
   end
 
   context 'updating' do
-    before(:each) do
-      @mock_instance_state = flexmock('mock instance state', {:reboot? => true, :startup_tags => ['some:machine=value_one', 'rs_agent_dev:download_cookbooks_once=true']})
-    end
-
-    context 'when updating and cook state has never been persisted' do
+    shared_examples_for 'when the cook state is updated from a given instance state' do
       before(:each) do
-        File.exists?(RightScale::CookState::STATE_FILE).should be_false
-
         # update cook state, then reset to force loading of new state
-        RightScale::CookState.has_downloaded_cookbooks?.should be_false
+        RightScale::CookState.has_downloaded_cookbooks?.should == @default_has_downloaded_cookbooks
         RightScale::CookState.download_once?.should be_false
         RightScale::CookState.reboot?.should be_false
+        RightScale::CookState.log_level.should == Logger::INFO
         RightScale::CookState.update(@mock_instance_state)
         RightScale::CookState.reset
       end
@@ -310,39 +305,44 @@ describe RightScale::CookState do
         RightScale::CookState.reboot?.should be_true
       end
 
-      it 'should override the startup_tags value' do
+      it 'should set download once value' do
         RightScale::CookState.download_once?.should be_true
       end
 
-      it 'should not change the has_downloaded_cookbooks value' do
-        RightScale::CookState.has_downloaded_cookbooks?.should be_false
+      it 'should override the startup_tags value' do
+        RightScale::CookState.startup_tags.should == @mock_instance_state.startup_tags
       end
+
+      it 'should override the log_level value' do
+        RightScale::CookState.log_level.should == Logger::DEBUG
+      end
+
+      it 'should not change the has_downloaded_cookbooks value' do
+        RightScale::CookState.has_downloaded_cookbooks?.should == @default_has_downloaded_cookbooks
+      end
+    end
+
+    before(:each) do
+      @mock_instance_state = flexmock('mock instance state', {:log_level => Logger::DEBUG, :reboot? => true, :startup_tags => ['some:machine=value_one', 'rs_agent_dev:download_cookbooks_once=true']})
+    end
+
+    context 'when updating and cook state has never been persisted' do
+      before(:each) do
+        File.exists?(RightScale::CookState::STATE_FILE).should be_false
+        @default_has_downloaded_cookbooks = false
+      end
+
+      it_should_behave_like 'when the cook state is updated from a given instance state'
     end
 
     context 'when updating and cook state and persisted cook state is empty' do
       before(:each) do
         RightScale::JsonUtilities::write_json(RightScale::CookState::STATE_FILE, {})
         File.exists?(RightScale::CookState::STATE_FILE).should be_true
-
-        # update cook state, then reset to force loading of new state
-        RightScale::CookState.has_downloaded_cookbooks?.should be_false
-        RightScale::CookState.download_once?.should be_false
-        RightScale::CookState.reboot?.should be_false
-        RightScale::CookState.update(@mock_instance_state)
-        RightScale::CookState.reset
+        @default_has_downloaded_cookbooks = false
       end
 
-      it 'should override the reboot value' do
-        RightScale::CookState.reboot?.should be_true
-      end
-
-      it 'should override the startup_tags value' do
-        RightScale::CookState.download_once?.should be_true
-      end
-
-      it 'should not change the has_downloaded_cookbooks value' do
-        RightScale::CookState.has_downloaded_cookbooks?.should be_false
-      end
+      it_should_behave_like 'when the cook state is updated from a given instance state'
     end
 
     context 'when updating and cook state has been persisted with existing state' do
@@ -351,25 +351,41 @@ describe RightScale::CookState do
                                                                                   'reboot' => false,
                                                                                   'startup_tags' => ['some:initial=tag']})
         File.exists?(RightScale::CookState::STATE_FILE).should be_true
-
-        # update cook state, then reset to force loading of new state
-        RightScale::CookState.has_downloaded_cookbooks?.should be_true
-        RightScale::CookState.download_once?.should be_false
-        RightScale::CookState.reboot?.should be_false
-        RightScale::CookState.update(@mock_instance_state)
-        RightScale::CookState.reset
+        @default_has_downloaded_cookbooks = true
       end
 
-      it 'should override the reboot value' do
-        RightScale::CookState.reboot?.should be_true
+      it_should_behave_like 'when the cook state is updated from a given instance state'
+    end
+  end
+
+  context 'log_level' do
+    context 'when cook state has never been persisted' do
+      before(:each) do
+        File.exists?(RightScale::CookState::STATE_FILE).should be_false
       end
 
-      it 'should override the startup_tags value' do
-        RightScale::CookState.download_once?.should be_true
+      it 'should default to info' do
+        RightScale::CookState.log_level.should == Logger::INFO
+      end
+    end
+
+    context 'when no log level in state file' do
+      before(:each) do
+        RightScale::JsonUtilities::write_json(RightScale::CookState::STATE_FILE, {})
+        File.exists?(RightScale::CookState::STATE_FILE).should be_true
       end
 
-      it 'should not change the has_downloaded_cookbooks value' do
-        RightScale::CookState.has_downloaded_cookbooks?.should be_true
+      it 'should default to info' do
+        RightScale::CookState.log_level.should == Logger::INFO
+      end
+    end
+
+    context 'when log level is set in the state file' do
+      RightScale::RightLinkLog::LEVELS_MAP.each_pair do |log_symbol, log_level|
+        it "should be #{log_symbol}" do
+          RightScale::JsonUtilities::write_json(RightScale::CookState::STATE_FILE, {"log_level"=>log_level})
+          RightScale::CookState.log_level.should == log_level
+        end
       end
     end
   end
