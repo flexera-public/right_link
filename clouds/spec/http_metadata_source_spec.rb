@@ -133,7 +133,18 @@ describe RightScale::MetadataSources::HttpMetadataSource do
     compare_tree["public-keys"]["0"] = {"openssh-key" => compare_tree["public-keys"]["0=windows_image_build_key"]["openssh-key"].strip}
     compare_tree["public-keys"].delete_if { |key, value| key == "0=windows_image_build_key" }
 
-    cloud_metadata.should == compare_tree
+    recursive_compare(compare_tree, cloud_metadata)
+  end
+
+  def recursive_compare(compare_tree, cloud_metadata)
+    compare_tree.each_pair do |key, value|
+      normalized_key = key.gsub(/=.*$/, '/').gsub('-', '_')
+      if value.kind_of?(Hash)
+        recursive_compare(value, cloud_metadata[normalized_key])
+      else
+        cloud_metadata[normalized_key].should == value
+      end
+    end
   end
 
   def verify_user_metadata(user_metadata)
@@ -143,7 +154,9 @@ describe RightScale::MetadataSources::HttpMetadataSource do
   def verify_raw_metadata_writer(reader, metadata, subpath = [])
     if metadata.respond_to?(:has_key?)
       metadata.each do |key, value|
-        verify_raw_metadata_writer(reader, value, subpath + [key])
+        # reversing dash to underscore substitution.  This appears to be valid for the
+        # test data, but will fail if the test data keys ever contain '_' 
+        verify_raw_metadata_writer(reader, value, subpath + [key.gsub('_','-')])
       end
     else
       result = reader.read(subpath)
