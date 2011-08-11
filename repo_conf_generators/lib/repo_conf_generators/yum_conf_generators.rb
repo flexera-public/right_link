@@ -205,7 +205,12 @@ END
     # At this point we will only test for CentOS ... but in the future we can test RHEL, and any other compatible ones
     # Note the version is a single (major) number.
     def self.get_enterprise_linux_version
-      RightScale::Platform.linux.release
+      distributor_id = Yum::execute("lsb_release --id")
+      puts "This is not a CentOS distribution: [#{distributor_id}]" if distributor_id !~ /CentOS/
+      distributor_id =~ /CentOS/ # return true if the distributor matches centos, false otherwise
+    rescue Exception => e
+      puts "This is not a CentOS distribution: #{e}"
+      false
     end
   end
 
