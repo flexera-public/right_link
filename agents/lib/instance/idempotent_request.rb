@@ -31,6 +31,8 @@ module RightScale
     # Wait 5 seconds before retrying in case of failure
     DEFAULT_RETRY_DELAY = 5
 
+    attr_reader :raw_reponse
+
     # Send idempotent request
     # Retry until timeout is reached (indefinitely if timeout <= 0)
     # Calls deferrable callback on completion, error callback on timeout
@@ -48,6 +50,7 @@ module RightScale
       @retry_on_error = options[:retry_on_error] || false
       @timeout = options[:timeout] || -1
       @retry_delay = options[:retry_delay] || DEFAULT_RETRY_DELAY
+      @raw_reponse = nil
       @done = false
     end
 
@@ -94,11 +97,12 @@ module RightScale
     # true:: Always return true
     def handle_response(r)
       return true if @done
+      @raw_reponse = r
       res = result_from(r)
       res = OperationResult.non_delivery unless res
       if res.success?
         @done = true
-        succeed(res.content) 
+        succeed(res.content)
       else
         if res.non_delivery?
           log_info("Request non-delivery (#{res.content}) for #{@operation}")

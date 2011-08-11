@@ -31,7 +31,7 @@ module RightScale
     # (Agent) Agent being managed
     attr_accessor :agent
 
-    # Retrieve current agent tags and give result to block, asynchronous
+    # Retrieve current agent tags and give result to block
     #
     # === Block
     # Given block should take one argument which will be set with an array
@@ -40,59 +40,128 @@ module RightScale
     # === Return
     # true:: Always return true
     def tags
-      raise TypeError, "Must set agent= before using tag manager" unless @agent
-      MapperProxy.instance.send_retryable_request("/mapper/query_tags", {:agent_ids => [@agent.identity]}, nil,
-                                                  :offline_queueing => true) do |r|
-        res = RightScale::OperationResult.from_results(r)
-        if res.success?
-          result = res.content
-          tags = (result.size == 1 ? result[result.keys[0]]['tags'] : [])
-          yield tags
-        else
-          RightScale::RightLinkLog.error("Failed to get identified server, got: #{res.content}")
-        end
+      do_query do |result|
+        tags = (result.size == 1 ? result.values.first['tags'] : [])
+        yield tags
       end
-      true
+    end
+
+    # Queries a list of servers in the current deployment which have one or more
+    # of the given tags.
+    #
+    # === Parameters
+    # tags(Array):: tags to query or empty
+    #
+    # === Block
+    # Given block should take one argument which will be set with an array
+    # initialized with the tags of this instance
+    #
+    # === Return
+    # true:: Always return true
+    def query_tags(*tags)
+      do_query(tags) { |result| yield result }
+    end
+
+    # Queries a list of servers in the current deployment which have one or more
+    # of the given tags. Yields the raw response (for responding locally).
+    #
+    # === Parameters
+    # tags(Array):: tags to query or empty
+    #
+    # === Block
+    # Given block should take one argument which will be set with the raw response
+    #
+    # === Return
+    # true:: Always return true
+    def query_tags_raw(*tags)
+      do_query(tags, true) { |raw_response| yield raw_response }
     end
 
     # Add given tags to agent
     #
     # === Parameters
     # new_tags(Array):: Tags to be added
-    # cb(Block):: callback for reply or nil
+    #
+    # === Block
+    # Given block should take one argument which will be set with the raw response
     #
     # === Return
     # true always return true
-    def add_tags(*new_tags, &cb)
-      raise TypeError, "Must set agent= before using tag manager" unless @agent
-      @agent.update_tags(new_tags, [], &cb)
-      true
+    def add_tags(*new_tags)
+      do_update(new_tags, []) { |raw_response| yield raw_response }
     end
 
     # Remove given tags from agent
     #
     # === Parameters
     # old_tags(Array):: Tags to be removed
-    # cb(Block):: callback for reply or nil
+    #
+    # === Block
+    # Given block should take one argument which will be set with the raw response
     #
     # === Return
     # true always return true
-    def remove_tags(*old_tags, &cb)
-      raise TypeError, "Must set agent= before using tag manager" unless @agent
-      @agent.update_tags([], old_tags, &cb)
-      true
+    def remove_tags(*old_tags)
+      do_update([], old_tags) { |raw_response| yield raw_response }
     end
 
     # Clear all agent tags
     #
-    # === Parameters
-    # cb(Block):: callback for reply or nil
+    # === Block
+    # Given block should take one argument which will be set with the raw response
     #
     # === Return
     # true::Always return true
-    def clear(&cb)
-      raise TypeError, "Must set agent= before using tag manager" unless @agent
-      @agent.update_tags([], tags, &cb)
+    def clear
+      do_update([], tags) { |raw_response| yield raw_response }
+    end
+
+    private
+
+    def agent_check
+      raise ArgumentError, "Must set agent= before using tag manager" unless @agent
+    end
+
+    # Runs a tag query with an optional list of tags.
+    #
+    # === Parameters
+    # tags(Array):: tags to query or empty
+    # raw(Boolean):: true to yield raw tag response instead of deserialized tags
+    #
+    # === Block
+    # Given block should take one argument which will be set with an array
+    # initialized with the tags of this instance
+    #
+    # === Return
+    # true:: Always return true
+    def do_query(tags = nil, raw = false)
+      agent_check
+      opts = {:agent_ids => [@agent.identity]}
+      opts[:tags] = tags unless tags.nil? || tags.empty?
+      request = RightScale::IdempotentRequest.new("/mapper/query_tags", opts, :offline_queueing => true)
+      request.callback { |result| yield raw ? request.raw_response : result }
+      request.errback do |message|
+        RightScale::RightLinkLog.error("Failed to query tags: #{message}")
+        yield request.raw_response if raw
+      end
+      request.run
+      true
+    end
+
+    # Runs a tag update with a list of new and old tags.
+    #
+    # === Parameters
+    # tags(Array):: tags to query or empty
+    # raw(Boolean):: true to yield raw tag response instead of deserialized tags
+    #
+    # === Block
+    # Given block should take one argument which will be set with the raw response
+    #
+    # === Return
+    # true:: Always return true
+    def do_update(new_tags, old_tags)
+      agent_check
+      @agent.update_tags(new_tags, old_tags) { |raw_response| yield raw_response }
       true
     end
 

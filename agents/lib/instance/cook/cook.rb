@@ -40,6 +40,12 @@ module RightScale
     # Name of agent running the cook process
     AGENT_NAME = 'instance'
 
+    # synchronous tag requests need a long timeout
+    TAG_REQUEST_TIMEOUT = 2 * 60
+
+    # exceptions
+    class TagError < Exception; end
+
     # Run bundle given in stdin
     def run
 
@@ -132,8 +138,18 @@ module RightScale
     # === Return
     # true:: Always return true
     def add_tag(tag_name)
+      # use a queue to block and wait for response.
       cmd = { :name => :add_tag, :tag => tag_name }
-      @client.send_command(cmd)
+      response_queue = Queue.new
+      @client.send_command(cmd, false, TAG_REQUEST_TIMEOUT) { |response| enqueue_result(response_queue, response) }
+      response = response_queue.shift
+      result = OperationResult.from_results(load(response, "Unexpected response #{response.inspect}"))
+      if result.success?
+        RightLinkLog.info("Successfully added tag #{tag_name}")
+      else
+        raise TagError.new("Add tag failed: #{result.content}")
+      end
+      true
     end
 
     # Remove given tag from tags exposed by corresponding server
@@ -145,7 +161,16 @@ module RightScale
     # true:: Always return true
     def remove_tag(tag_name)
       cmd = { :name => :remove_tag, :tag => tag_name }
-      @client.send_command(cmd)
+      response_queue = Queue.new
+      @client.send_command(cmd, false, TAG_REQUEST_TIMEOUT) { |response| enqueue_result(response_queue, response) }
+      response = response_queue.shift
+      result = OperationResult.from_results(load(response, "Unexpected response #{response.inspect}"))
+      if result.success?
+        RightLinkLog.info("Successfully removed tag #{tag_name}")
+      else
+        raise TagError.new("Remove tag failed: #{result.content}")
+      end
+      true
     end
 
     # Access cook instance from anywhere to send requests to core through

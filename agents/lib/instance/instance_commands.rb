@@ -291,7 +291,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def get_tags_command(opts)
-      AgentTagsManager.instance.tags { |t| CommandIO.instance.reply(opts[:conn], t) }
+      AgentTagsManager.instance.tags { |tags| CommandIO.instance.reply(opts[:conn], tags) }
     end
 
     # Add given tag
@@ -303,8 +303,8 @@ module RightScale
     # === Return
     # true:: Always return true
     def add_tag_command(opts)
-      AgentTagsManager.instance.add_tags(opts[:tag]) do |r|
-        reply = @serializer.dump(r) rescue 'Failed to serialize response'
+      AgentTagsManager.instance.add_tags(opts[:tag]) do |raw_response|
+        reply = @serializer.dump(raw_response) rescue 'Failed to serialize response'
         CommandIO.instance.reply(opts[:conn], reply)
       end
     end
@@ -318,8 +318,8 @@ module RightScale
     # === Return
     # true:: Always return true
     def remove_tag_command(opts)
-      AgentTagsManager.instance.remove_tags(opts[:tag]) do |r|
-        reply = @serializer.dump(r) rescue 'Failed to serialize response'
+      AgentTagsManager.instance.remove_tags(opts[:tag]) do |raw_response|
+        reply = @serializer.dump(raw_response) rescue 'Failed to serialize response'
         CommandIO.instance.reply(opts[:conn], reply)
       end
     end
@@ -333,7 +333,10 @@ module RightScale
     # === Return
     # true:: Always return true
     def query_tags_command(opts)
-      send_persistent_request('/mapper/query_tags', opts[:conn], :tags => opts[:tags])
+      AgentTagsManager.instance.query_tags_raw(opts[:tags]) do |raw_response|
+        reply = @serializer.dump(raw_response) rescue 'Failed to serialize response'
+        CommandIO.instance.reply(opts[:conn], reply)
+      end
     end
 
     # Update audit summary
