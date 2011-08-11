@@ -64,8 +64,8 @@ begin
   named_cloud_node.update(cloud_instance.update_details)
 
   # expecting public/private IPs to come from all clouds.
-  cloud[:public_ips] = [ named_cloud_node[:"public-ipv4"] || named_cloud_node[:public_ip] ]
-  cloud[:private_ips] = [ named_cloud_node[:"local-ipv4"] || named_cloud_node[:private_ip] ]
+  cloud[:public_ips]  = [ named_cloud_node[:"public-ipv4"] || named_cloud_node[:"public_ipv4"] || named_cloud_node[:public_ip] ]
+  cloud[:private_ips] = [ named_cloud_node[:"local-ipv4"] || named_cloud_node[:"local_ipv4"] || named_cloud_node[:private_ip] ]
 
 rescue Exception => e
   # cloud was unresolvable, but not all ohai use cases are cloud instances.
