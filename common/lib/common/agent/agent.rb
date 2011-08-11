@@ -55,7 +55,7 @@ module RightScale
     attr_reader :broker
 
     # (Array) Tag strings published to mapper by agent
-    attr_reader :tags
+    attr_accessor :tags
 
     # (Proc) Callback procedure for exceptions
     attr_reader :exception_callback
@@ -239,26 +239,15 @@ module RightScale
     # Add tags in 'new_tags' and remove tags in 'old_tags'
     #
     # === Parameters
-    # new_tags(Array):: Tags to be added
-    # obsolete_tags(Array):: Tags to be removed
-    # block(Block):: callback for raw response or nil
+    # new_tags(Array):: new tags to add or empty
+    # old_tags(Array):: old tags to remove or empty
+    # block(Block):: optional callback for update response
     #
     # === Return
     # true:: Always return true
     def update_tags(new_tags, obsolete_tags, &block)
-      @tags += (new_tags || [])
-      @tags -= (obsolete_tags || [])
-      @tags.uniq!
-
-      request = RightScale::IdempotentRequest.new("/mapper/update_tags",
-                                                  {:new_tags => new_tags, :obsolete_tags => obsolete_tags})
-      if block
-        # always yield raw response
-        request.callback { |_| block.call(request.raw_response) }
-        request.errback { |_| block.call(request.raw_response) }
-      end
-      request.run
-      true
+      # deprecated, use AgentTagsManager.update_tags()
+      AgentTagsManager.instance.update_tags(new_tags, obsolete_tags, &block)
     end
 
     # Connect to an additional broker or reconnect it if connection has failed

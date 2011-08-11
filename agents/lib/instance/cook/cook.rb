@@ -141,11 +141,11 @@ module RightScale
       # use a queue to block and wait for response.
       cmd = { :name => :add_tag, :tag => tag_name }
       response_queue = Queue.new
-      @client.send_command(cmd, false, TAG_REQUEST_TIMEOUT) { |response| enqueue_result(response_queue, response) }
+      @client.send_command(cmd, false, TAG_REQUEST_TIMEOUT) { |response| response_queue << response }
       response = response_queue.shift
       result = OperationResult.from_results(load(response, "Unexpected response #{response.inspect}"))
       if result.success?
-        RightLinkLog.info("Successfully added tag #{tag_name}")
+        ::Chef::Log.info("Successfully added tag #{tag_name}")
       else
         raise TagError.new("Add tag failed: #{result.content}")
       end
@@ -162,11 +162,11 @@ module RightScale
     def remove_tag(tag_name)
       cmd = { :name => :remove_tag, :tag => tag_name }
       response_queue = Queue.new
-      @client.send_command(cmd, false, TAG_REQUEST_TIMEOUT) { |response| enqueue_result(response_queue, response) }
+      @client.send_command(cmd, false, TAG_REQUEST_TIMEOUT) { |response| response_queue << response }
       response = response_queue.shift
       result = OperationResult.from_results(load(response, "Unexpected response #{response.inspect}"))
       if result.success?
-        RightLinkLog.info("Successfully removed tag #{tag_name}")
+        ::Chef::Log.info("Successfully removed tag #{tag_name}")
       else
         raise TagError.new("Remove tag failed: #{result.content}")
       end

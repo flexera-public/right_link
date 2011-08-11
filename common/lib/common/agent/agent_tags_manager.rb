@@ -31,6 +31,9 @@ module RightScale
     # (Agent) Agent being managed
     attr_accessor :agent
 
+    # synchronous tag requests need a long timeout
+    TAG_REQUEST_TIMEOUT = 2 * 60
+
     # Retrieve current agent tags and give result to block
     #
     # === Block
@@ -88,7 +91,7 @@ module RightScale
     # === Return
     # true always return true
     def add_tags(*new_tags)
-      do_update(new_tags, []) { |raw_response| yield raw_response }
+      update_tags(new_tags, []) { |raw_response| yield raw_response }
     end
 
     # Remove given tags from agent
@@ -102,7 +105,42 @@ module RightScale
     # === Return
     # true always return true
     def remove_tags(*old_tags)
-      do_update([], old_tags) { |raw_response| yield raw_response }
+      update_tags([], old_tags) { |raw_response| yield raw_response }
+    end
+
+    # Runs a tag update with a list of new and old tags.
+    #
+    # === Parameters
+    # new_tags(Array):: new tags to add or empty
+    # old_tags(Array):: old tags to remove or empty
+    # block(Block):: optional callback for update response
+    #
+    # === Block
+    # Given block should take one argument which will be set with the raw response
+    #
+    # === Return
+    # true:: Always return true
+    def update_tags(new_tags, old_tags, &block)
+      agent_check
+      tags = @agent.tags
+      tags += (new_tags || [])
+      tags -= (old_tags || [])
+      tags.uniq!
+
+      request = RightScale::IdempotentRequest.new("/mapper/update_tags",
+                                                  {:new_tags => new_tags, :obsolete_tags => old_tags},
+                                                  {:timeout => TAG_REQUEST_TIMEOUT})
+      if block
+        # always yield raw response
+        request.callback do |_|
+          # refresh agent's copy of tags on successful update
+          @agent.tags = tags
+          block.call(request.raw_response)
+        end
+        request.errback { |_| block.call(request.raw_response) }
+      end
+      request.run
+      true
     end
 
     # Clear all agent tags
@@ -113,7 +151,7 @@ module RightScale
     # === Return
     # true::Always return true
     def clear
-      do_update([], tags) { |raw_response| yield raw_response }
+      update_tags([], tags) { |raw_response| yield raw_response }
     end
 
     private
@@ -136,32 +174,17 @@ module RightScale
     # true:: Always return true
     def do_query(tags = nil, raw = false)
       agent_check
-      opts = {:agent_ids => [@agent.identity]}
-      opts[:tags] = tags unless tags.nil? || tags.empty?
-      request = RightScale::IdempotentRequest.new("/mapper/query_tags", opts, :offline_queueing => true)
+      payload = {:agent_ids => [@agent.identity]}
+      payload[:tags] = tags unless tags.nil? || tags.empty?
+      request = RightScale::IdempotentRequest.new("/mapper/query_tags",
+                                                  payload,
+                                                  {:timeout => TAG_REQUEST_TIMEOUT})
       request.callback { |result| yield raw ? request.raw_response : result }
       request.errback do |message|
         RightScale::RightLinkLog.error("Failed to query tags: #{message}")
         yield request.raw_response if raw
       end
       request.run
-      true
-    end
-
-    # Runs a tag update with a list of new and old tags.
-    #
-    # === Parameters
-    # tags(Array):: tags to query or empty
-    # raw(Boolean):: true to yield raw tag response instead of deserialized tags
-    #
-    # === Block
-    # Given block should take one argument which will be set with the raw response
-    #
-    # === Return
-    # true:: Always return true
-    def do_update(new_tags, old_tags)
-      agent_check
-      @agent.update_tags(new_tags, old_tags) { |raw_response| yield raw_response }
       true
     end
 
