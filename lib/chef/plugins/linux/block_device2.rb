@@ -21,4 +21,4 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 provides "block_device2"
-block_device RightScale::LinuxBlockDevice.info
+block_device ::RightScale::LinuxBlockDevice.info
