@@ -79,8 +79,10 @@ module RightScale
     # === Return
     # true:: Always return true
     def cancel(msg)
-      @cancel_timer.cancel if @cancel_timer
-      @cancel_timer = nil
+      if @cancel_timer
+        @cancel_timer.cancel
+        @cancel_timer = nil
+      end
       @done = true
       fail(msg)
       true
@@ -101,6 +103,10 @@ module RightScale
       res = result_from(r)
       res = OperationResult.non_delivery unless res
       if res.success?
+        if @cancel_timer
+          @cancel_timer.cancel
+          @cancel_timer = nil
+        end
         @done = true
         succeed(res.content)
       else
