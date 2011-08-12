@@ -520,8 +520,10 @@ protected
     def setup_traps
       ['INT', 'TERM'].each do |sig|
         trap(sig) do
-          terminate
-          exit
+          EM.next_tick do
+            terminate
+            EM.stop
+          end
         end
       end
       true

@@ -167,7 +167,7 @@ module RightScale
       RightLinkLog.debug("Start options:")
       log_opts = @options.inject([]){ |t, (k, v)| t << "-  #{k}: #{v}" }
       log_opts.each { |l| RightLinkLog.debug(l) }
-      
+
       begin
         # Capture process id in file after optional daemonize
         pid_file = PidFile.new(@identity, @options)
@@ -658,9 +658,11 @@ module RightScale
     def setup_traps
       ['INT', 'TERM'].each do |sig|
         old = trap(sig) do
-          terminate do
-            EM.stop
-            old.call if old.is_a? Proc
+          EM.next_tick do
+            terminate do
+              EM.stop
+              old.call if old.is_a? Proc
+            end
           end
         end
       end
