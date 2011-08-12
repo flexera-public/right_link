@@ -206,12 +206,13 @@ END
     # At this point we will only test for CentOS ... but in the future we can test RHEL, and any other compatible ones
     # Note the version is a single (major) number.
     def self.get_enterprise_linux_version
-      distributor_id = Yum::execute("lsb_release --id")
-      puts "This is not a CentOS distribution: [#{distributor_id}]" if distributor_id !~ /CentOS/
-      distributor_id =~ /CentOS/ # return true if the distributor matches centos, false otherwise
-    rescue Exception => e
-      puts "This is not a CentOS distribution: #{e}"
-      false
+      version=nil
+      if Yum::CentOS::is_this_centos?
+        version = Yum::execute("lsb_release  -rs").strip.split(".").first
+      else
+        raise "This doesn't appear to be an Enterprise Linux edition"
+      end
+      version
     end
   end
 
