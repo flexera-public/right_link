@@ -108,7 +108,7 @@ module Yum
 
     ############## INTERNAL FUNCTIONS #######################################################
     def self.abstract_generate(params)
-    return unless is_this_centos?
+    return unless Yum::CentOS::is_this_centos?
     opts = { :enabled => true, :gpgkey_file => RPM_GPG_KEY_CentOS5, :frozen_date => "latest"}
     opts.merge!(params)
     raise "missing parameters to generate file!" unless opts[:repo_filename] && opts[:repo_name] && opts[:repo_subpath] &&
@@ -169,7 +169,8 @@ END
     end
     ############## INTERNAL FUNCTIONS #######################################################
     def self.abstract_generate(params)
-    return unless is_this_centos?
+    return unless Yum::CentOS::is_this_centos?
+
     epel_version = get_enterprise_linux_version
     puts "found EPEL version: #{epel_version}"
     opts = { :enabled => true, :gpgkey_file => RPM_GPG_KEY_EPEL, :frozen_date => "latest"}
