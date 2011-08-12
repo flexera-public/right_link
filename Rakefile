@@ -1,18 +1,17 @@
-require 'spec/rake/spectask'
 require 'fileutils'
+require 'spec/rake/spectask'
+require File.expand_path(File.join(File.dirname(__FILE__), 'lib', 'run_shell'))
+require File.expand_path(File.join(File.dirname(__FILE__), 'lib', 'gem_utilities'))
 
-# Usage (rake --tasks):
-#
-# rake autotest           # Run autotest
-# rake autotest:rcov      # Run RCov when autotest successful
-# rake spec               # Run all specs in all specs directories
-# rake spec:clobber_rcov  # Remove rcov products for rcov
-# rake spec:doc           # Print Specdoc for all specs
-# rake spec:rcov          # Run all specs all specs directories with RCov
+include RunShell
 
 RIGHT_BOT_ROOT = File.dirname(__FILE__)
 
-# allows for debugging of order of spec files by reading a specific ordering of
+def windows?
+  return !!(RUBY_PLATFORM =~ /mswin/)
+end
+
+# Allows for debugging of order of spec files by reading a specific ordering of
 # files from a text file, if present. all too frequently, success or failure
 # depends on the order in which tests execute.
 RAKE_SPEC_ORDER_FILE_PATH = ::File.join(RIGHT_BOT_ROOT, "rake_spec_order_list.txt")
@@ -99,14 +98,49 @@ namespace :autotest do
   end
 end
 
-# Currently only need to build for Windows.
-if !!(RUBY_PLATFORM =~ /mswin/)
-  desc "Builds any binaries local to right_net or right_link"
+namespace :dev do
+
+  task :setup => ['dev:setup:gems', 'dev:setup:hooks']
+
+  namespace :setup do
+
+    desc 'Install gem dependencies into Ruby VM'
+    task :gems do
+      gem_dirs = [File.join('pkg', 'common'),
+                  File.join('pkg', is_windows? ? 'windows' : 'linux')]
+      gem_dirs << File.join('pkg', 'test') unless is_windows?
+      puts "\033[34mInstalling gems from #{gem_dirs.inspect} ...\033[0m"
+      GemUtilities.install(gem_dirs, 'gem', STDOUT, false)
+    end
+
+    desc "Install any hooks in lib/git_hooks"
+    task :hooks do
+      git_hooks = File.join(File.dirname(__FILE__), ".git", "hooks")
+      right_link_hooks = Dir[File.join(File.dirname(__FILE__), "lib", "git_hooks", "*.rb")]
+      right_link_hooks.each do |hook|
+        hook_name = hook.split("/").last.sub(".rb","")
+        hook_path = File.join(git_hooks, hook_name)
+        if windows?
+          FileUtils.cp(hook, hook_path)
+        else
+          File.unlink hook_path if File.exists? hook_path
+          File.symlink hook, hook_path
+          File.chmod 0700, hook_path
+        end
+      end
+    end
+
+  end
+end
+
+# Currently only need to build for Windows
+if windows?
+  desc "Builds any binaries local to right_link"
   task :build do
     ms_build_path = "#{ENV['WINDIR']}\\Microsoft.NET\\Framework\\v3.5\\msbuild.exe"
     Dir.chdir(File.join(RIGHT_BOT_ROOT, 'chef', 'lib', 'windows', 'ChefNodeCmdlet')) do
-      # note that we can build C# components using msbuild instead of needing to
-      # have Developer Studio installed.
+      # Note that we can build C# components using msbuild instead of needing to
+      # have Developer Studio installed
       build_command = "#{ms_build_path} ChefNodeCmdlet.sln /t:clean,build /p:configuration=Release > ChefNodeCmdlet.build.txt 2>&1"
       puts "#{build_command}"
       `#{build_command}`

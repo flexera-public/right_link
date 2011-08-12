@@ -1,5 +1,5 @@
 @echo off
-rem # Copyright (c) 2009 RightScale Inc
+rem # Copyright (c) 2009-2011 RightScale Inc
 rem #
 rem # Permission is hereby granted, free of charge, to any person obtaining
 rem # a copy of this software and associated documentation files (the
@@ -27,4 +27,4 @@ if %ERRORLEVEL% neq 0 (
   exit /B %ERRORLEVEL%
 )
 
-%RS_RUBY_EXE% %RS_SANDBOX_HOME%\right_link\scripts\rs_run_recipe.rb %*
+%RS_RUBY_EXE% %RS_SANDBOX_HOME%\right_link\bin\rs_run_recipe.rb %*

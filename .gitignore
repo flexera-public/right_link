@@ -1,5 +1,7 @@
 .idea
 tags
 .DS_Store
+.rvmrc
 *.swp
 .bundle
+certs/*
