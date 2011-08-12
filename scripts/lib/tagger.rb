@@ -102,55 +102,63 @@ module RightScale
         @disposition = nil
 
         client.send_command(cmd, options[:verbose], TAG_REQUEST_TIMEOUT) do |res|
-          case options[:action]
-          when :get_tags
-            if res.empty?
-              if options[:die]
-                @disposition = TagError.new('No server tags found', 44)
-              else
-                puts format_output([], options[:format])
-                @disposition = 0
-              end
-            else
-              puts format_output(res, options[:format])
-              @disposition = 0
-            end
-          when :query_tags
-            r = OperationResult.from_results(command_serializer.load(res))
-            if r.success?
-              if r.content.empty?
+          begin
+            case options[:action]
+            when :get_tags
+              raise TagError.new("List current server tags failed: #{res.inspect}", 45) unless res.kind_of?(Array)
+              if res.empty?
                 if options[:die]
-                  @disposition = TagError.new("No servers with tags #{options[:tags].inspect}", 44)
+                  raise TagError.new('No server tags found', 44)
                 else
-                  puts format_output({}, options[:format])
+                  puts format_output([], options[:format])
                   @disposition = 0
                 end
               else
-                puts format_output(r.content, options[:format])
+                puts format_output(res, options[:format])
                 @disposition = 0
               end
+            when :query_tags
+              r = OperationResult.from_results(command_serializer.load(res))
+              raise TagError.new("Query tags failed: #{r.inspect}", 46) unless r.kind_of?(OperationResult)
+              if r.success?
+                if r.content.empty?
+                  if options[:die]
+                    raise TagError.new("No servers with tags #{options[:tags].inspect}", 44)
+                  else
+                    puts format_output({}, options[:format])
+                    @disposition = 0
+                  end
+                else
+                  puts format_output(r.content, options[:format])
+                  @disposition = 0
+                end
+              else
+                raise TagError.new("Query tags failed: #{r.content}", 53)
+              end
+            when :add_tag
+              r = OperationResult.from_results(command_serializer.load(res))
+              raise TagError.new("Add tag failed: #{r.inspect}", 47) unless r.kind_of?(OperationResult)
+              if r.success?
+                STDERR.puts "Successfully added tag #{options[:tag]}"
+                @disposition = 0
+              else
+                raise TagError.new("Add tag failed: #{r.content}", 54)
+              end
+            when :remove_tag
+              r = OperationResult.from_results(command_serializer.load(res))
+              raise TagError.new("Remove tag failed: #{r.inspect}", 48) unless r.kind_of?(OperationResult)
+              if r.success?
+                STDERR.puts "Successfully removed tag #{options[:tag]}"
+                @disposition = 0
+              else
+                raise TagError.new("Remove tag failed: #{r.content}", 55)
+              end
             else
-              @disposition = TagError.new("Tag query failed: #{r.content}", 53)
-            end
-          when :add_tag
-            r = OperationResult.from_results(command_serializer.load(res))
-            if r.success?
-              STDERR.puts "Successfully added tag #{options[:tag]}"
+              STDERR.puts res
               @disposition = 0
-            else
-              @disposition = TagError.new("Add tag failed: #{r.content}", 54)
             end
-          when :remove_tag
-            r = OperationResult.from_results(command_serializer.load(res))
-            if r.success?
-              STDERR.puts "Successfully removed tag #{options[:tag]}"
-              @disposition = 0
-            else
-              @disposition = TagError.new("Remove tag failed: #{r.content}", 55)
-            end
-          else
-            STDERR.puts res
-            @disposition = 0
+          rescue Exception => e
+            @disposition = e
           end
         end
       rescue Exception => e

@@ -304,7 +304,7 @@ module RightScale
     # true:: Always return true
     def add_tag_command(opts)
       AgentTagsManager.instance.add_tags(opts[:tag]) do |raw_response|
-        reply = @serializer.dump(raw_response) rescue 'Failed to serialize response'
+        reply = @serializer.dump(raw_response) rescue raw_response
         CommandIO.instance.reply(opts[:conn], reply)
       end
     end
@@ -319,7 +319,7 @@ module RightScale
     # true:: Always return true
     def remove_tag_command(opts)
       AgentTagsManager.instance.remove_tags(opts[:tag]) do |raw_response|
-        reply = @serializer.dump(raw_response) rescue 'Failed to serialize response'
+        reply = @serializer.dump(raw_response) rescue raw_response
         CommandIO.instance.reply(opts[:conn], reply)
       end
     end
@@ -334,7 +334,7 @@ module RightScale
     # true:: Always return true
     def query_tags_command(opts)
       AgentTagsManager.instance.query_tags_raw(opts[:tags], opts[:agent_ids]) do |raw_response|
-        reply = @serializer.dump(raw_response) rescue 'Failed to serialize response'
+        reply = @serializer.dump(raw_response) rescue raw_response
         CommandIO.instance.reply(opts[:conn], reply)
       end
     end

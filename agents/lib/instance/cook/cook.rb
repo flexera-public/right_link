@@ -40,9 +40,6 @@ module RightScale
     # Name of agent running the cook process
     AGENT_NAME = 'instance'
 
-    # synchronous tag requests need a long timeout
-    TAG_REQUEST_TIMEOUT = 2 * 60
-
     # exceptions
     class TagError < Exception; end
 
@@ -142,11 +139,15 @@ module RightScale
       cmd = { :name => :query_tags, :tags => tags }
       cmd[:agent_ids] = agent_ids unless agent_ids.nil? || agent_ids.empty?
       response_queue = Queue.new
-      @client.send_command(cmd, false, TAG_REQUEST_TIMEOUT) { |response| response_queue << response }
+      @client.send_command(cmd) { |response| response_queue << response }
       response = response_queue.shift
-      result = OperationResult.from_results(load(response, "Unexpected response #{response.inspect}"))
-      raise TagError.new("Query tags failed: #{result.content}") unless result.success?
-      return result.content
+      begin
+        result = OperationResult.from_results(load(response, "Unexpected response #{response.inspect}"))
+        raise TagError.new("Query tags failed: #{result.content}") unless result.success?
+        return result.content
+      rescue
+        raise TagError.new("Query tags failed: #{response.inspect}")
+      end
     end
 
     # Add given tag to tags exposed by corresponding server
@@ -160,13 +161,17 @@ module RightScale
       # use a queue to block and wait for response.
       cmd = { :name => :add_tag, :tag => tag_name }
       response_queue = Queue.new
-      @client.send_command(cmd, false, TAG_REQUEST_TIMEOUT) { |response| response_queue << response }
+      @client.send_command(cmd) { |response| response_queue << response }
       response = response_queue.shift
-      result = OperationResult.from_results(load(response, "Unexpected response #{response.inspect}"))
-      if result.success?
-        ::Chef::Log.info("Successfully added tag #{tag_name}")
-      else
-        raise TagError.new("Add tag failed: #{result.content}")
+      begin
+        result = OperationResult.from_results(load(response, "Unexpected response #{response.inspect}"))
+        if result.success?
+          ::Chef::Log.info("Successfully added tag #{tag_name}")
+        else
+          raise TagError.new("Add tag failed: #{result.content}")
+        end
+      rescue
+        raise TagError.new("Add tag failed: #{response.inspect}")
       end
       true
     end
@@ -181,13 +186,17 @@ module RightScale
     def remove_tag(tag_name)
       cmd = { :name => :remove_tag, :tag => tag_name }
       response_queue = Queue.new
-      @client.send_command(cmd, false, TAG_REQUEST_TIMEOUT) { |response| response_queue << response }
+      @client.send_command(cmd) { |response| response_queue << response }
       response = response_queue.shift
-      result = OperationResult.from_results(load(response, "Unexpected response #{response.inspect}"))
-      if result.success?
-        ::Chef::Log.info("Successfully removed tag #{tag_name}")
-      else
-        raise TagError.new("Remove tag failed: #{result.content}")
+      begin
+        result = OperationResult.from_results(load(response, "Unexpected response #{response.inspect}"))
+        if result.success?
+          ::Chef::Log.info("Successfully removed tag #{tag_name}")
+        else
+          raise TagError.new("Remove tag failed: #{result.content}")
+        end
+      rescue
+        raise TagError.new("Remove tag failed: #{response.inspect}")
       end
       true
     end

@@ -31,9 +31,6 @@ module RightScale
     # (Agent) Agent being managed
     attr_accessor :agent
 
-    # synchronous tag requests need a long timeout
-    TAG_REQUEST_TIMEOUT = 2 * 60
-
     # Retrieve current agent tags and give result to block
     #
     # === Block
@@ -44,8 +41,11 @@ module RightScale
     # true:: Always return true
     def tags
       do_query do |result|
-        tags = (result.size == 1 ? result.values.first['tags'] : [])
-        yield tags
+        if result.kind_of?(Hash)
+          yield(result.size == 1 ? result.values.first['tags'] : [])
+        else
+          yield result
+        end
       end
     end
 
@@ -128,9 +128,8 @@ module RightScale
       tags -= (old_tags || [])
       tags.uniq!
 
-      request = RightScale::IdempotentRequest.new("/mapper/update_tags",
-                                                  {:new_tags => new_tags, :obsolete_tags => old_tags},
-                                                  {:timeout => TAG_REQUEST_TIMEOUT})
+      payload = {:new_tags => new_tags, :obsolete_tags => old_tags}
+      request = RightScale::IdempotentRequest.new("/mapper/update_tags", payload)
       if block
         # always yield raw response
         request.callback do |_|
@@ -138,7 +137,7 @@ module RightScale
           @agent.tags = tags
           block.call(request.raw_response)
         end
-        request.errback { |_| block.call(request.raw_response) }
+        request.errback { |message| block.call(request.raw_response || message) }
       end
       request.run
       true
@@ -179,13 +178,11 @@ module RightScale
       payload = {:agent_ids => [@agent.identity]}
       payload[:tags] = ensure_flat_array_value(tags) unless tags.nil? || tags.empty?
       payload[:agent_ids] = ensure_flat_array_value(agent_ids) unless agent_ids.nil? || agent_ids.empty?
-      request = RightScale::IdempotentRequest.new("/mapper/query_tags",
-                                                  payload,
-                                                  {:timeout => TAG_REQUEST_TIMEOUT})
+      request = RightScale::IdempotentRequest.new("/mapper/query_tags", payload)
       request.callback { |result| yield raw ? request.raw_response : result }
       request.errback do |message|
         RightScale::RightLinkLog.error("Failed to query tags: #{message}")
-        yield request.raw_response if raw
+        yield((raw ? request.raw_response : nil) || message)
       end
       request.run
       true
