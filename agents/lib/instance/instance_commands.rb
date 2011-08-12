@@ -333,7 +333,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def query_tags_command(opts)
-      AgentTagsManager.instance.query_tags_raw(opts[:tags]) do |raw_response|
+      AgentTagsManager.instance.query_tags_raw(opts[:tags], opts[:agent_ids]) do |raw_response|
         reply = @serializer.dump(raw_response) rescue 'Failed to serialize response'
         CommandIO.instance.reply(opts[:conn], reply)
       end

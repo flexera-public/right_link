@@ -136,6 +136,25 @@ module RightScale
     # tag(String):: Tag to be added
     #
     # === Return
+    # result(Hash):: contents of response
+    def query_tags(tags, agent_ids = nil)
+      # use a queue to block and wait for response.
+      cmd = { :name => :query_tags, :tags => tags }
+      cmd[:agent_ids] = agent_ids unless agent_ids.nil? || agent_ids.empty?
+      response_queue = Queue.new
+      @client.send_command(cmd, false, TAG_REQUEST_TIMEOUT) { |response| response_queue << response }
+      response = response_queue.shift
+      result = OperationResult.from_results(load(response, "Unexpected response #{response.inspect}"))
+      raise TagError.new("Query tags failed: #{result.content}") unless result.success?
+      return result.content
+    end
+
+    # Add given tag to tags exposed by corresponding server
+    #
+    # === Parameters
+    # tag(String):: Tag to be added
+    #
+    # === Return
     # true:: Always return true
     def add_tag(tag_name)
       # use a queue to block and wait for response.

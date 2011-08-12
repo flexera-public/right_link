@@ -70,14 +70,15 @@ module RightScale
     #
     # === Parameters
     # tags(Array):: tags to query or empty
+    # agent_ids(Array):: agent IDs to query or empty or nil
     #
     # === Block
     # Given block should take one argument which will be set with the raw response
     #
     # === Return
     # true:: Always return true
-    def query_tags_raw(*tags)
-      do_query(tags, true) { |raw_response| yield raw_response }
+    def query_tags_raw(tags, agent_ids = nil)
+      do_query(tags, agent_ids, true) { |raw_response| yield raw_response }
     end
 
     # Add given tags to agent
@@ -163,7 +164,8 @@ module RightScale
     # Runs a tag query with an optional list of tags.
     #
     # === Parameters
-    # tags(Array):: tags to query or empty
+    # tags(Array):: tags to query or empty or nil
+    # agent_ids(Array):: agent IDs to query or empty or nil
     # raw(Boolean):: true to yield raw tag response instead of deserialized tags
     #
     # === Block
@@ -172,10 +174,11 @@ module RightScale
     #
     # === Return
     # true:: Always return true
-    def do_query(tags = nil, raw = false)
+    def do_query(tags = nil, agent_ids = nil, raw = false)
       agent_check
       payload = {:agent_ids => [@agent.identity]}
-      payload[:tags] = tags unless tags.nil? || tags.empty?
+      payload[:tags] = ensure_flat_array_value(tags) unless tags.nil? || tags.empty?
+      payload[:agent_ids] = ensure_flat_array_value(agent_ids) unless agent_ids.nil? || agent_ids.empty?
       request = RightScale::IdempotentRequest.new("/mapper/query_tags",
                                                   payload,
                                                   {:timeout => TAG_REQUEST_TIMEOUT})
@@ -186,6 +189,23 @@ module RightScale
       end
       request.run
       true
+    end
+
+    # Ensures value is a flat array, making an array from the single value if
+    # necessary.
+    #
+    # === Parameters
+    # value(Object):: any kind of value
+    #
+    # === Return
+    # result(Array):: flat array value
+    def ensure_flat_array_value(value)
+      if value.kind_of?(Array)
+        value.flatten!
+      else
+        value = [value]
+      end
+      value
     end
 
   end
