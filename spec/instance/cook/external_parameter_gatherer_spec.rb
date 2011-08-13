@@ -21,19 +21,12 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #++
 
-require File.expand_path(File.join(File.dirname(__FILE__), "..", "..",
-                                   "spec_helper"))
-require File.expand_path(File.join(File.dirname(__FILE__), "..", "..", "..",
-                                   "..", "payload_types", "lib",
-                                   "payload_types"))
-require File.expand_path(File.join(File.dirname(__FILE__), "..", "..", "..",
-                                   "lib", "instance", "cook"))
+require 'spec_helper'
+
 require 'tmpdir'
 
 module RightScale
   describe ExternalParameterGatherer do
-    include SpecHelpers
-
     def run(gatherer)
       flexmock(AuditStub.instance).should_receive(:create_new_section).and_return(true).by_default
       flexmock(AuditStub.instance).should_receive(:append_info).and_return(true).by_default

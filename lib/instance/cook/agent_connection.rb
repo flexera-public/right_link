@@ -38,7 +38,7 @@ module RightScale
         if callback
           callback.call(data)
         else
-          RightLinkLog.warn("[cook] Unexpected command protocol response '#{data}'") unless data == 'OK'
+          Log.warn("[cook] Unexpected command protocol response '#{data}'") unless data == 'OK'
         end
         @pending -= 1
         on_stopped if @stopped_callback && @pending == 0
@@ -83,9 +83,9 @@ module RightScale
     def stop(&callback)
       send_command(:name => :close_connection)
       @stopped_callback = callback
-      RightLinkLog.info("[cook] Disconnecting from agent (#{@pending} response#{@pending > 1 ? 's' : ''} pending)")
+      Log.info("[cook] Disconnecting from agent (#{@pending} response#{@pending > 1 ? 's' : ''} pending)")
       @stop_timeout = EM::Timer.new(STOP_TIMEOUT) do
-        RightLinkLog.warn("[cook] Time out waiting for responses from agent, forcing disconnection")
+        Log.warning("[cook] Time out waiting for responses from agent, forcing disconnection")
         @stop_timeout = nil
         on_stopped
       end

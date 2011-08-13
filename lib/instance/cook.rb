@@ -28,9 +28,11 @@
 COOK_BASE_DIR = File.join(File.dirname(__FILE__), 'cook')
 
 require File.normalize_path(File.join(COOK_BASE_DIR, 'cook.rb'))
+require File.normalize_path(File.join(COOK_BASE_DIR, 'agent_connection.rb'))
 require File.normalize_path(File.join(COOK_BASE_DIR, 'audit_stub.rb'))
 require File.normalize_path(File.join(COOK_BASE_DIR, 'cook_state.rb'))
 require File.normalize_path(File.join(COOK_BASE_DIR, 'chef_state.rb'))
+require File.normalize_path(File.join(COOK_BASE_DIR, 'external_parameter_gatherer'))
 require File.normalize_path(File.join(COOK_BASE_DIR, 'executable_sequence.rb'))
 require File.normalize_path(File.join(COOK_BASE_DIR, 'repose_downloader.rb'))
 require File.normalize_path(File.join(COOK_BASE_DIR, 'shutdown_request_proxy.rb'))
