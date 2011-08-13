@@ -36,6 +36,12 @@ class InstanceSetup
   # Amount of seconds to wait before shutting down if boot hasn't completed
   SUICIDE_DELAY = 45 * 60
 
+  # Time between attempts to get missing inputs.
+  MISSING_INPUT_RETRY_DELAY_SECS = 20
+
+  # Maximum time between nag audits for missing inputs.
+  MISSING_INPUT_AUDIT_DELAY_SECS = 2 * 60
+
   # Tag set on instances that are part of an array
   AUTO_LAUNCH_TAG ='rs_launch:type=auto'
 
@@ -238,11 +244,11 @@ class InstanceSetup
         end
       end
     end
-    
-    req.errback do|res| 
+
+    req.errback do|res|
       strand('Failed to retrieve software repositories', res)
     end
-    
+
     req.run
     true
   end
@@ -343,7 +349,7 @@ class InstanceSetup
           yield success_result(bundle)
         end
       end
-      
+
       req.errback do |res|
         yield error_result(RightScale::Log.format('Failed to retrieve boot scripts', res))
       end
@@ -359,12 +365,16 @@ class InstanceSetup
   # This is for environment variables that we are waiting on.
   # Retries forever.
   #
+  # === Parameters
+  # bundle(ExecutableBundle):: bundle containing at least one script/recipe with missing inputs.
+  # last_missing_inputs(Hash):: state of missing inputs for refreshing audit message as needed or nil.
+  #
   # === Block
   # Continuation block, will be called once attempt to retrieve attributes is completed
   #
   # === Return
   # true:: Always return true
-  def retrieve_missing_inputs(bundle, &cb)
+  def retrieve_missing_inputs(bundle, last_missing_inputs = nil, &cb)
     scripts = bundle.executables.select { |e| e.is_a?(RightScale::RightScriptInstantiation) }
     recipes = bundle.executables.select { |e| e.is_a?(RightScale::RecipeInstantiation) }
     scripts_ids = scripts.select { |s| !s.ready }.map { |s| s.id }
@@ -392,14 +402,54 @@ class InstanceSetup
       if pending_executables.empty?
         yield
       else
-        titles = pending_executables.map { |e| RightScale::RightScriptsCookbook.recipe_title(e.nickname) }
-        @audit.append_info("Missing inputs for #{titles.join(", ")}, waiting...")
-        sleep(20)
-        retrieve_missing_inputs(bundle, &cb)
+        # keep state to provide fewer but more meaningful audits.
+        last_missing_inputs ||= {}
+        last_missing_inputs[:executables] ||= {}
+
+        # don't need to audit on each attempt to resolve missing inputs, but nag
+        # every so often to let the user know this server is still waiting.
+        last_audit_time = last_missing_inputs[:last_audit_time]
+        audit_missing_inputs = last_audit_time.nil? || (last_audit_time + MISSING_INPUT_AUDIT_DELAY_SECS < Time.now)
+        sent_audit = false
+
+        # audit missing inputs, if necessary.
+        missing_inputs_executables = {}
+        pending_executables.each do |e|
+          # names of missing inputs are available from RightScripts.
+          missing_input_names = []
+          if e.is_a?(RightScale::RightScriptInstantiation)
+            e.parameters.each { |key, value| missing_input_names << key unless value }
+          end
+          last_missing_input_names = last_missing_inputs[:executables][e.nickname]
+          if audit_missing_inputs || last_missing_input_names != missing_input_names
+            title = RightScale::RightScriptsCookbook.recipe_title(e.nickname)
+            if missing_input_names.empty?
+              @audit.append_info("Waiting for missing inputs which are used by #{title}.")
+            else
+              @audit.append_info("Waiting for the following missing inputs which are used by #{title}: #{missing_input_names.join(", ")}")
+            end
+            sent_audit = true
+          end
+          missing_inputs_executables[e.nickname] = missing_input_names
+        end
+
+        # audit any executables which now have all inputs.
+        last_missing_inputs[:executables].each_key do |nickname|
+          unless missing_inputs_executables[nickname]
+            title = RightScale::RightScriptsCookbook.recipe_title(nickname)
+            @audit.append_info("The inputs used by #{title} which had been missing have now been resolved.")
+            sent_audit = true
+          end
+        end
+        last_missing_inputs[:executables] = missing_inputs_executables
+        last_missing_inputs[:last_audit_time] = Time.now if sent_audit
+
+        # schedule retry to retrieve missing inputs.
+        EM.add_timer(MISSING_INPUT_RETRY_DELAY_SECS) { retrieve_missing_inputs(bundle, last_missing_inputs, &cb) }
       end
     end
-    
-    req.errback do |res| 
+
+    req.errback do |res|
       strand('Failed to retrieve missing inputs', res)
     end
 

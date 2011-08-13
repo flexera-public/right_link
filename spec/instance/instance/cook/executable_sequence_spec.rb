@@ -105,6 +105,7 @@ module RightScale
       before(:each) do
         flexmock(ReposeDownloader).should_receive(:discover_repose_servers).with([SERVER]).once
         @auditor.should_receive(:create_new_section).with("Retrieving cookbooks").once
+        @auditor.should_receive(:append_info).with("Deleting existing cookbooks").once
         @auditor.should_receive(:append_info).with("Requesting nonexistent cookbook").once
 
         # prevent Chef logging reaching the console during spec test.
@@ -115,7 +116,7 @@ module RightScale
         cookbook = Cookbook.new("4cdae6d5f1bc33d8713b341578b942d42ed5817f", "not-a-token",
                                 "nonexistent cookbook")
         position = CookbookPosition.new("foo/bar", cookbook)
-        sequence = CookbookSequence.new(['foo'], [position])
+        sequence = CookbookSequence.new(['foo'], [position], ["deadbeef"])
         @bundle = ExecutableBundle.new([], [], 2, nil, [sequence],
                                        [SERVER])
       end

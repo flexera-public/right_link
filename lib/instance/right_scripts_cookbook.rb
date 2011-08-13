@@ -119,13 +119,18 @@ description "Automatically generated repo, do not modify"
     # Whether given recipe name corresponds to a converted RightScript
     #
     # === Parameters
-    # recipe(String):: Recipe nickname
+    # nickname(String):: Recipe nickname
     #
     # === Return
     # true:: If recipe was created from converting a RightScript
     # false:: Otherwise
-    def self.right_script?(recipe)
-      recipe =~ /^#{COOKBOOK_NAME}::/
+    def self.right_script?(nickname)
+      # the RightScripts deserialized from core appear to not have the
+      # RightScript cookbook in their nickname. actual Chef recipes will have
+      # their cookbook name, so assume missing cookbook name means RightScript.
+      regex = /^(.*)::/
+      match = regex.match(nickname)
+      return match.nil? || COOKBOOK_NAME == match[1]
     end
 
     # Human friendly title for given recipe instantiation

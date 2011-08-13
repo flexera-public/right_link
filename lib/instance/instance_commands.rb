@@ -39,6 +39,8 @@ module RightScale
       :send_retryable_request   => 'Send request to a remote agent with a response expected and retry if response times out',
       :send_persistent_request  => 'Send request to a remote agent with a response expected with persistence ' +
                                    'en route and no retries that would result in it being duplicated',
+      :send_idempotent_request  => 'Send a request to a remote agent (identified solely by operation), retrying at the' +
+                                   'application level until the request succeeds or the timeout elapses',
       :set_log_level            => 'Set log level to options[:level]',
       :get_log_level            => 'Get log level',
       :decommission             => 'Run instance decommission bundle synchronously',
@@ -207,11 +209,28 @@ module RightScale
     # opts[:type](String):: Request type
     # opts[:payload](String):: Request data, optional
     # opts[:target](String|Hash):: Request target or target selectors (random pick if multiple), optional
+    # opts[:options](Hash):: Request options
     #
     # === Return
     # true:: Always return true
     def send_persistent_request_command(opts)
-      send_persistent_request(opts[:type], opts[:conn], opts[:payload], opts[:target])
+      send_persistent_request(opts[:type], opts[:conn], opts[:payload], opts[:target], opts[:options])
+    end
+
+    # Send a retryable request to a single target with a response expected, retrying multiple times
+    # at the application layer in case failures or errors occur.
+    #
+    # === Parameters
+    # opts[:conn](EM::Connection):: Connection used to send reply
+    # opts[:type](String):: Request type
+    # opts[:payload](String):: Request data, optional
+    # opts[:timeout](Integer):: Timeout for idempotent request, -1 or nil for no timeout
+    # opts[:options](Hash):: Request options
+    #
+    # === Return
+    # true:: Always return true
+    def send_idempotent_request_command(opts)
+      send_idempotent_request(opts[:type], opts[:conn], opts[:payload], opts[:options])
     end
 
     # Set log level command
@@ -269,7 +288,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def get_tags_command(opts)
-      AgentTagsManager.instance.tags { |t| CommandIO.instance.reply(opts[:conn], t) }
+      AgentTagsManager.instance.tags { |tags| CommandIO.instance.reply(opts[:conn], tags) }
     end
 
     # Add given tag
@@ -281,8 +300,10 @@ module RightScale
     # === Return
     # true:: Always return true
     def add_tag_command(opts)
-      AgentTagsManager.instance.add_tags(opts[:tag])
-      CommandIO.instance.reply(opts[:conn], "Request to add tag '#{opts[:tag]}' sent successfully.")
+      AgentTagsManager.instance.add_tags(opts[:tag]) do |raw_response|
+        reply = @serializer.dump(raw_response) rescue raw_response
+        CommandIO.instance.reply(opts[:conn], reply)
+      end
     end
 
     # Remove given tag
@@ -294,8 +315,10 @@ module RightScale
     # === Return
     # true:: Always return true
     def remove_tag_command(opts)
-      AgentTagsManager.instance.remove_tags(opts[:tag])
-      CommandIO.instance.reply(opts[:conn], "Request to remove tag '#{opts[:tag]}' sent successfully.")
+      AgentTagsManager.instance.remove_tags(opts[:tag]) do |raw_response|
+        reply = @serializer.dump(raw_response) rescue raw_response
+        CommandIO.instance.reply(opts[:conn], reply)
+      end
     end
 
     # Query for instances with given tags
@@ -307,7 +330,10 @@ module RightScale
     # === Return
     # true:: Always return true
     def query_tags_command(opts)
-      send_persistent_request('/mapper/query_tags', opts[:conn], :tags => opts[:tags])
+      AgentTagsManager.instance.query_tags_raw(opts[:tags], opts[:agent_ids]) do |raw_response|
+        reply = @serializer.dump(raw_response) rescue raw_response
+        CommandIO.instance.reply(opts[:conn], reply)
+      end
     end
 
     # Update audit summary
@@ -446,14 +472,39 @@ module RightScale
     # additional network overhead
     # The request is never retried if there is the possibility of it being duplicated
     # See Sender for details
-    def send_persistent_request(type, conn, payload = nil, target = nil)
+    def send_persistent_request(type, conn, payload = nil, target = nil, opts = {})
       payload ||= {}
       payload[:agent_identity] = @agent_identity
-      Sender.instance.send_persistent_request(type, payload, target) do |r|
-        reply = JSON.dump(r) rescue '\"Failed to serialize response\"'
+      Sender.instance.send_persistent_request(type, payload, target, opts) do |r|
+        reply = @serializer.dump(r) rescue '\"Failed to serialize response\"'
         CommandIO.instance.reply(conn, reply)
       end
       true
+    end
+
+    # Helper method to send a retryable (and therefore idempotent!) request to a single target with a response
+    # expected, retrying at the application layer until the request succeeds or the timeout elapses; default
+    # timeout is 'forever'.
+    #
+    # See IdempotentRequest for details
+    def send_idempotent_request(type, conn, payload=nil, opts={})
+      req = IdempotentRequest.new(type, payload, opts)
+
+      callback = Proc.new do |content|
+        result = OperationResult.success(content)
+        reply = @serializer.dump(result) rescue '\"Failed to serialize response\"'
+        CommandIO.instance.reply(conn, reply)
+      end
+
+      errback = Proc.new do |content|
+        result = OperationResult.error(content)
+        reply = @serializer.dump(result) rescue '\"Failed to serialize response\"'
+        CommandIO.instance.reply(conn, reply)
+      end
+
+      req.callback(&callback)
+      req.errback(&errback)
+      req.run
     end
 
     # Stats command

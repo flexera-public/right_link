@@ -63,9 +63,6 @@ module RightScale
       write_keys_file(new_lines)
 
       tags = [ACTIVE_TAG]
-      local_public_keys.each_pair do |algorithm, data|
-        tags << "rs_login:#{algorithm}=#{data}"
-      end
       AgentTagsManager.instance.add_tags(tags)
 
       #Schedule a timer to handle any expiration that is planned to happen in the future

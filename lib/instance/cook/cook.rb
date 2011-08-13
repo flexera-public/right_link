@@ -33,6 +33,9 @@ module RightScale
     # Name of agent running the cook process
     AGENT_NAME = 'instance'
 
+    # exceptions
+    class TagError < Exception; end
+
     # Run bundle given in stdin
     def run
 
@@ -56,6 +59,7 @@ module RightScale
       Log.program_name = 'RightLink'
       Log.log_to_file_only(options[:log_to_file_only])
       Log.init(agent_id, options[:log_path])
+      gatherer = ExternalParameterGatherer.new(bundle, options)
       sequence = ExecutableSequence.new(bundle)
       EM.threadpool_size = 1
       EM.error_handler do |e|
@@ -65,9 +69,12 @@ module RightScale
       EM.run do
         begin
           AuditStub.instance.init(options)
+          gatherer.callback { EM.defer { sequence.run } }
+          gatherer.errback { success = false; report_failure(gatherer) }
           sequence.callback { success = true; send_inputs_patch(sequence) }
           sequence.errback { success = false; report_failure(sequence) }
-          EM.defer { sequence.run }
+
+          EM.defer { gatherer.run }
         rescue Exception => e
           fail('Execution failed', Log.format("Execution failed", e, :trace))
         end
@@ -119,10 +126,47 @@ module RightScale
     # tag(String):: Tag to be added
     #
     # === Return
+    # result(Hash):: contents of response
+    def query_tags(tags, agent_ids = nil)
+      # use a queue to block and wait for response.
+      cmd = { :name => :query_tags, :tags => tags }
+      cmd[:agent_ids] = agent_ids unless agent_ids.nil? || agent_ids.empty?
+      response_queue = Queue.new
+      @client.send_command(cmd) { |response| response_queue << response }
+      response = response_queue.shift
+      begin
+        result = OperationResult.from_results(load(response, "Unexpected response #{response.inspect}"))
+        raise TagError.new("Query tags failed: #{result.content}") unless result.success?
+        return result.content
+      rescue
+        raise TagError.new("Query tags failed: #{response.inspect}")
+      end
+    end
+
+    # Add given tag to tags exposed by corresponding server
+    #
+    # === Parameters
+    # tag(String):: Tag to be added
+    #
+    # === Return
     # true:: Always return true
     def add_tag(tag_name)
+      # use a queue to block and wait for response.
       cmd = { :name => :add_tag, :tag => tag_name }
-      @client.send_command(cmd)
+      response_queue = Queue.new
+      @client.send_command(cmd) { |response| response_queue << response }
+      response = response_queue.shift
+      begin
+        result = OperationResult.from_results(load(response, "Unexpected response #{response.inspect}"))
+        if result.success?
+          ::Chef::Log.info("Successfully added tag #{tag_name}")
+        else
+          raise TagError.new("Add tag failed: #{result.content}")
+        end
+      rescue
+        raise TagError.new("Add tag failed: #{response.inspect}")
+      end
+      true
     end
 
     # Remove given tag from tags exposed by corresponding server
@@ -134,7 +178,20 @@ module RightScale
     # true:: Always return true
     def remove_tag(tag_name)
       cmd = { :name => :remove_tag, :tag => tag_name }
-      @client.send_command(cmd)
+      response_queue = Queue.new
+      @client.send_command(cmd) { |response| response_queue << response }
+      response = response_queue.shift
+      begin
+        result = OperationResult.from_results(load(response, "Unexpected response #{response.inspect}"))
+        if result.success?
+          ::Chef::Log.info("Successfully removed tag #{tag_name}")
+        else
+          raise TagError.new("Remove tag failed: #{result.content}")
+        end
+      rescue
+        raise TagError.new("Remove tag failed: #{response.inspect}")
+      end
+      true
     end
 
     # Access cook instance from anywhere to send requests to core through
@@ -185,10 +242,10 @@ module RightScale
     end
 
     # Report failure to core
-    def report_failure(sequence)
+    def report_failure(subject)
       begin
-        AuditStub.instance.append_error(sequence.failure_title, :category => RightScale::EventCategories::CATEGORY_ERROR) if sequence.failure_title
-        AuditStub.instance.append_error(sequence.failure_message) if sequence.failure_message
+        AuditStub.instance.append_error(subject.failure_title, :category => RightScale::EventCategories::CATEGORY_ERROR) if subject.failure_title
+        AuditStub.instance.append_error(subject.failure_message) if subject.failure_message
       rescue Exception => e
         fail('Failed to report failure', Log.format("Failed to report failure after execution", e, :trace))
       ensure
