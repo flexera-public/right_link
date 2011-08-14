@@ -472,10 +472,10 @@ module RightScale
     # additional network overhead
     # The request is never retried if there is the possibility of it being duplicated
     # See Sender for details
-    def send_persistent_request(type, conn, payload = nil, target = nil, opts = {})
+    def send_persistent_request(type, conn, payload = nil, target = nil)
       payload ||= {}
       payload[:agent_identity] = @agent_identity
-      Sender.instance.send_persistent_request(type, payload, target, opts) do |r|
+      Sender.instance.send_persistent_request(type, payload, target) do |r|
         reply = @serializer.dump(r) rescue '\"Failed to serialize response\"'
         CommandIO.instance.reply(conn, reply)
       end

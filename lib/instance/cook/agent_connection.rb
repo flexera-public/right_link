@@ -38,7 +38,7 @@ module RightScale
         if callback
           callback.call(data)
         else
-          Log.warn("[cook] Unexpected command protocol response '#{data}'") unless data == 'OK'
+          Log.warning("[cook] Unexpected command protocol response '#{data}'") unless data == 'OK'
         end
         @pending -= 1
         on_stopped if @stopped_callback && @pending == 0
