@@ -50,10 +50,10 @@ module RightScale
   class AgentEnroller
     ENROLL_USER     = 'enrollment'
     ENROLL_PASSWORD = 'enrollment'
-    RETRY_DEFAULT   = 3600*6 # by default, try to enroll for six hours max
-    PRE_WAIT        = 5      # fixed time to wait between sending enroll request and reconnecting as the account user
-    WAIT_MIN        = 4      # min time to wait for an enroll response before retry
-    WAIT_MAX        = 64     # max time to wait for an enroll response before retry
+    RETRY_DEFAULT   = 3600*96 # by default, try to enroll for 96 hours max
+    PRE_WAIT        = 5       # fixed time to wait between sending enroll request and reconnecting as the account user
+    WAIT_MIN        = 4       # min time to wait for an enroll response before retry
+    WAIT_MAX        = 64      # max time to wait for an enroll response before retry
     TERMINATE_ON_FAILURE_WINDOW = 45*60..60*60 # Terminate on failure if flag is set in user data AND failure
                                                # occurred between 45 and 60 minutes of the initial boot
     def self.run()
