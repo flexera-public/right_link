@@ -25,20 +25,23 @@ module RightScale
       extend self
 
       def mock_chef_log(logger)
-        flexmock(Chef::Log).should_receive(:debug).and_return { |m| logger.debug_text << m }
-        flexmock(Chef::Log).should_receive(:error).and_return { |m| logger.error_text << m }
-        flexmock(Chef::Log).should_receive(:fatal).and_return { |m| logger.fatal_text << m }
-        flexmock(Chef::Log).should_receive(:info).and_return { |m| logger.info_text << m }
-        flexmock(Chef::Log).should_receive(:warn).and_return { |m| logger.warn_text << m }
+        flexmock(Chef::Log).should_receive(:debug).and_return { |m| logger.debug_text << m << "\n" }
+        flexmock(Chef::Log).should_receive(:error).and_return { |m| logger.error_text << m << "\n" }
+        flexmock(Chef::Log).should_receive(:fatal).and_return { |m| logger.fatal_text << m << "\n" }
+        flexmock(Chef::Log).should_receive(:info).and_return { |m| logger.info_text << m << "\n" }
+        flexmock(Chef::Log).should_receive(:warn).and_return { |m| logger.warn_text << m << "\n" }
         flexmock(Chef::Log.logger).should_receive(:create_new_section).and_return { |m| }
       end
 
       def mock_right_link_log(logger)
-        flexmock(RightScale::Log).should_receive(:debug).and_return { |m| logger.debug_text << m }
-        flexmock(RightScale::Log).should_receive(:error).and_return { |m| logger.error_text << m }
-        flexmock(RightScale::Log).should_receive(:fatal).and_return { |m| logger.fatal_text << m }
-        flexmock(RightScale::Log).should_receive(:info).and_return { |m| logger.info_text << m }
-        flexmock(RightScale::Log).should_receive(:warn).and_return { |m| logger.warn_text << m }
+        flexmock(RightScale::Log).should_receive(:debug).and_return { |m| logger.debug_text << m << "\n" }
+        flexmock(RightScale::Log).should_receive(:error).and_return do |m, e|
+          logger.error_text << m << "\n"
+          logger.error_text << e.inspect << "\n" if e
+        end
+        flexmock(RightScale::Log).should_receive(:fatal).and_return { |m| logger.fatal_text << m << "\n" }
+        flexmock(RightScale::Log).should_receive(:info).and_return { |m| logger.info_text << m << "\n" }
+        flexmock(RightScale::Log).should_receive(:warn).and_return { |m| logger.warn_text << m << "\n" }
       end
     end
 

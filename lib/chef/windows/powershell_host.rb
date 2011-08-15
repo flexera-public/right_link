@@ -184,7 +184,7 @@ module RightScale
       lines_after_script = []
 
       command = shell.format_powershell_command4(
-              RightScale::Platform::Windows::Shell::POWERSHELL_V1x0_EXECUTABLE_PATH,
+              ::RightScale::Platform::Shell::POWERSHELL_V1x0_EXECUTABLE_PATH,
               lines_before_script,
               lines_after_script,
               RUN_LOOP_SCRIPT_PATH)

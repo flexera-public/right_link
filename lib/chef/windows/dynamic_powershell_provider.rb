@@ -141,7 +141,7 @@ module RightScale
     # true:: Always return true
     def generate_single_provider(name, path)
       Log.info("[chef] Creating Powershell provider #{name}")
-      all_scripts = Dir[File.join(path, "*#{Platform::Windows::Shell::POWERSHELL_V1x0_SCRIPT_EXTENSION}")]
+      all_scripts = Dir[File.join(path, "*#{::RightScale::Platform::Shell::POWERSHELL_V1x0_SCRIPT_EXTENSION}")]
       action_scripts = all_scripts.select { |s| is_action_script?(s) }
 
       new_provider = create_provider_class(name) do |provider|

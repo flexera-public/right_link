@@ -21,6 +21,8 @@
 
 require File.expand_path(File.join(File.dirname(__FILE__), '..', 'spec_helper'))
 
+if RightScale::Platform.windows?
+
 CHEF_WINDOWS_BASE_DIR = File.join(File.dirname(__FILE__), '..', '..', '..', 'lib', 'chef', 'windows')
 
 require File.normalize_path(File.join(CHEF_WINDOWS_BASE_DIR, 'dynamic_powershell_provider'))
@@ -90,20 +92,6 @@ describe RightScale::DynamicPowershellProvider do
     end
 
     it 'should generate the correct actions' do
-      unless RightScale::Platform.const_defined?(:Windows)
-        # Hack so these tests can be run on any platform
-        Object.module_eval "module RightScale;class Windows;class ChefNodeServer;end;end;class Platform;class Windows;class Shell;POWERSHELL_V1x0_SCRIPT_EXTENSION='.ps1';end;end;end;end"
-
-        # fake the Chef node server as it is used by the generated code, but only available on windows platforms
-        mock_chef_node_server = flexmock('RightScale::Windows::ChefNodeServer')
-        mock_chef_node_server.should_receive(:new_resource=).and_return({})
-        mock_chef_node_server.should_receive(:current_resource=).and_return({})
-        flexmock(RightScale::Windows::ChefNodeServer).should_receive(:instance).and_return(mock_chef_node_server)
-
-        # need Chef::Platform[:windows][:default] to be defined because
-        # code generation adds new providers to the windows chef platform
-        Chef::Platform.platforms.merge!({:windows => { :default => {} }})
-      end
       @provider.generate_providers(@cookbooks_dir)
       Object.const_defined?(:CookbookScripts).should be_true
       Object.const_defined?(:Cookbook2Scripts).should be_true
@@ -136,3 +124,5 @@ describe RightScale::DynamicPowershellProvider do
 
   end
 end
+
+end # if windows?
