@@ -158,8 +158,8 @@ module RightScale
     # disposition so our caller gets notified via errback.
     def report_failure(title, message, exception=nil)
       if exception
-        RightLinkLog.error("ExternalParameterGatherer failed due to " +
-                           "#{exception.class.name}: #{exception.message} (#{exception.backtrace.first})")
+        Log.error("ExternalParameterGatherer failed due to " +
+                  "#{exception.class.name}: #{exception.message} (#{exception.backtrace.first})")
       end
 
       @failure_title   = title

@@ -315,7 +315,13 @@ module RightScale
         local_basedir = File.join(@download_path, cookbook_sequence.hash)
         cookbook_sequence.paths.reverse.each {|path|
           dir = File.expand_path(File.join(local_basedir, path))
-          Chef::Config[:cookbook_path] << dir unless Chef::Config[:cookbook_path].include?(dir)
+          unless Chef::Config[:cookbook_path].include?(dir)
+            if cookbook_sequence.positions.detect{|pos| pos.position.starts_with?(path)}
+              Chef::Config[:cookbook_path] << dir
+            else
+              RightScale::Log.info("Excluding #{path} from chef cookbooks_path because it will not be downloaded")
+            end
+          end
         }
       end
       true

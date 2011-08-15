@@ -34,8 +34,10 @@ module RightScale
       unless Ohai::Config[:plugin_path].include?(CUSTOM_PLUGINS_DIR_PATH)
         raise SetupError, "Missing custom Ohai plugins directory: \"#{CUSTOM_PLUGINS_DIR_PATH}\"" unless File.directory?(CUSTOM_PLUGINS_DIR_PATH)
         Ohai::Config[:plugin_path].unshift(CUSTOM_PLUGINS_DIR_PATH)
-        Ohai::Config.log_level Log.level
       end
+
+      Ohai::Log.logger = Log
+      Ohai::Config.log_level(Log.level_from_sym(Log.level))
     end
 
     module_function :configure_ohai

@@ -49,6 +49,7 @@ module RightScale
       @@downloaded    = false
       @@reboot        = false
       @@startup_tags  = []
+      @@log_level     = Logger::INFO
 
       if File.file?(STATE_FILE)
         state = RightScale::JsonUtilities::read_json(STATE_FILE)
@@ -57,6 +58,7 @@ module RightScale
         @@downloaded = state['has_downloaded_cookbooks']
         @@startup_tags = state['startup_tags'] || []
         @@reboot = state['reboot']
+        @@log_level = state['log_level'] || Logger::INFO
       end
 
       @@initialized = true
@@ -173,6 +175,15 @@ module RightScale
       tag_value(DOWNLOAD_ONCE_TAG) == 'true'
     end
 
+    # Current logger severity
+    #
+    # === Return
+    # level(Integer):: one of Logger::INFO ... Logger::FATAL
+    def self.log_level
+      init unless initialized?
+      @@log_level
+    end
+
     # Re-initialize then merge given state
     #
     # === Parameters
@@ -184,14 +195,10 @@ module RightScale
       # unconditionally load state from disk
       init
 
-      # only merge state if state to be merged has required values
-      @@startup_tags = if state_to_merge.respond_to?(:startup_tags)
-        state_to_merge.startup_tags
-      end
-
-      @@reboot = if state_to_merge.respond_to?(:reboot?)
-        state_to_merge.reboot?
-      end
+      # only merge state if state to be merged has values
+      @@startup_tags  = state_to_merge.startup_tags if state_to_merge.respond_to?(:startup_tags)
+      @@reboot        = state_to_merge.reboot?      if state_to_merge.respond_to?(:reboot?)
+      @@log_level     = state_to_merge.log_level    if state_to_merge.respond_to?(:log_level)
 
       save_state
 
@@ -238,7 +245,8 @@ module RightScale
     def self.save_state
       # start will al state to be saved
       state_to_save = {'startup_tags' => startup_tags,
-                       'reboot' => reboot?}
+                       'reboot' => reboot?,
+                       'log_level' => log_level}
 
       # only save persist the fact we downloaded cookbooks if we are in dev mode
       if download_once?
