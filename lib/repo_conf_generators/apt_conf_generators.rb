@@ -50,8 +50,8 @@ module Apt
 
     ############## INTERNAL FUNCTIONS #######################################################
     def self.abstract_generate(params)
-      platform = RightScale::Platform.new
-      return unless platform.linux? && platform.linux.ubuntu?
+      platform = ::RightScale::Platform
+      return unless platform.linux? && platform.ubuntu?
 
       opts = { :enabled => true, :frozen_date => "latest"}
       opts.merge!(params)
@@ -63,7 +63,7 @@ module Apt
 
       return unless opts[:enabled]
 
-      codename = platform.linux.codename.downcase
+      codename = platform.codename.downcase
       raise RightScale::PlatformError.new("Unsupported ubuntu release #{codename}") unless SUPPORTED_REPOS.include?(codename)
       FileUtils.mkdir_p(Apt::Ubuntu::path_to_sources_list)
 

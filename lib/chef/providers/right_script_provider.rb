@@ -83,7 +83,7 @@ class Chef
         # RightScripts expect to find RS_DISTRO, RS_DIST and RS_ARCH in the environment.
         # Massage the distro name into the format they expect (all lower case, one word, no release info).
         if platform.linux?
-          distro = platform.linux.distro.downcase
+          distro = platform.flavor.downcase
           ENV['RS_DISTRO'] = distro
           ENV['RS_DIST']   = distro
           arch_info=`uname -i`.downcase + `uname -m`.downcase
