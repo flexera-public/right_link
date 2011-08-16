@@ -23,6 +23,7 @@
 
 BASE_DIR = File.expand_path(File.join(File.dirname(__FILE__), '..'))
 
+require 'rubygems'
 require 'rbconfig'
 require 'fileutils'
 require File.join(BASE_DIR, 'lib', 'gem_utilities')
@@ -33,14 +34,24 @@ LINUX_PKG_DIR_NAME   = 'linux'
 DARWIN_PKG_DIR_NAME  = 'darwin'
 WINDOWS_PKG_DIR_NAME = 'windows'
 
+# Determine platform family
+# Cannot use the RightScale::Platform capability here because it
+# is inside the right_agent gem which cannot be assumed to be available yet
+def platform
+  case RbConfig::CONFIG['host_os']
+  when /mswin|win32|dos|mingw|cygwin/i then :windows
+  when /darwin/i then :darwin
+  when /linux/i then :linux
+  end
+end
+
 # The canonical version of this logic lives in RightLink's agent_config.rb.
 # This logic is vastly simpler in that it assumes a sandbox is present on the
 # system and does not try to account for development environments.
 #
 # Do not use this logic for your own purposes; instead, see agent_config.rb.
 def gem_cmd
-  platform = RightScale::Platform
-  if platform.windows?
+  if platform == :windows
     # Note that we cannot use the platform-specific filesystem calls because that
     # requires use of the win32-dir gem which is not (necessarily) present in the
     # initial sandbox
@@ -53,7 +64,7 @@ def gem_cmd
     # ruby.exe on the PATH instead of using the companion ruby.exe from the same
     # bin directory
     %("#{ruby_bin_path}\\ruby.exe" "#{ruby_bin_path}\\gem")
-  elsif platform.linux?
+  else
     '/opt/rightscale/sandbox/bin/gem'
   end
 end
@@ -65,12 +76,10 @@ exit(0) unless File.exists?(PKG_DIR)
 # windows gem can't handle space chars in the gem's parent directory names
 # (e.g. "Program Files")
 Dir.chdir(PKG_DIR) do
-  # Note that we cannot use the RightScale::Platform capability here because it
-  # is inside the right_agent gem which cannot be assumed to be available yet
-  platform_dir = case RbConfig::CONFIG['host_os']
-                 when /mswin|win32|dos|mingw|cygwin/i then WINDOWS_PKG_DIR_NAME
-                 when /darwin/i                       then DARWIN_PKG_DIR_NAME
-                 when /linux/i                        then LINUX_PKG_DIR_NAME
+  platform_dir = case platform
+                 when :windows then WINDOWS_PKG_DIR_NAME
+                 when :darwin  then DARWIN_PKG_DIR_NAME
+                 when :linux   then LINUX_PKG_DIR_NAME
                  end
-  GemUtilities.install(COMMON_PKG_DIR_NAME, platform_dir, gem_cmd, STDOUT, true)
+  GemUtilities.install([COMMON_PKG_DIR_NAME, platform_dir], gem_cmd, STDOUT, true)
 end

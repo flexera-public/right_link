@@ -5,8 +5,9 @@ module GemUtilities
   # Install gems
   #
   # === Parameters
-  # gem_dirs(Array):: Paths to platform-specific gems, relative to PWD
+  # gem_dirs(Array):: Paths to common and platform-specific gems, relative to PWD
   # gem_command(String):: Shell command to use when invoking "gem" binary
+  # output_io(Object):: Output object, e.g., STDOUT
   # idempotent(Boolean):: true if only to install non-existent packages, otherwise always install all
   #
   # === Return
