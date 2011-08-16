@@ -89,7 +89,7 @@ module RightScale
         end
       else
         if sandbox_dir
-          platform.shell.sandbox_ruby
+          RightScale::Platform.shell.sandbox_ruby
         else
           # Development setup
           `which ruby`.chomp

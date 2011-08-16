@@ -72,11 +72,11 @@ echo Installing private scripts from $RIGHT_LINK_SCRIPTS ...
 for script in rad rchk rnac rstat
 do
   case "$script" in
-    rad)   require="right_agent/scripts/agent_deployer"
-           class=RightScale::AgentDeployer;;
-    rnac)  require="right_agent/scripts/agent_controller"
-           class=RightScale::AgentController;;
-    rchk)  require="right_agent/scripts/agent_checker"
+    rad)   require="$SCRIPTS_DIR/agent_deployer"
+           class=RightScale::RightLinkAgentDeployer;;
+    rnac)  require="$SCRIPTS_DIR/agent_controller"
+           class=RightScale::RightLinkAgentController;;
+    rchk)  require="$SCRIPTS_DIR/agent_checker"
            class=RightScale::AgentChecker;;
     rstat) require="$SCRIPTS_DIR/mapper_stats_manager"
            class=RightScale::StatsManager;;
@@ -90,6 +90,7 @@ do
 #
 # See $require.rb for additional information
 
+require 'rubygems'
 require '$require'
 
 \$stdout.sync=true

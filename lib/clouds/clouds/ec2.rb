@@ -34,7 +34,7 @@ metadata_writers 'metadata_writers/dictionary_metadata_writer',
 # Assembles the command line needed to regenerate cloud metadata on demand.
 def cloud_metadata_generation_command
   ruby_path = File.normalize_path(AgentConfig.sandbox_ruby_cmd)
-  rs_cloud_path = File.join(AgentConfig.parent_dir, 'bin', 'right_link_cloud.rb')
+  rs_cloud_path = File.normalize_path(File.join(AgentConfig.parent_dir, 'right_link', 'bin', 'cloud.rb'))
   return "#{ruby_path} #{rs_cloud_path} --action write_cloud_metadata"
 end
 

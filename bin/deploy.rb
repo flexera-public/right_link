@@ -30,6 +30,7 @@ require 'rubygems'
 require 'right_agent'
 
 # RightLink dependencies
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'instance', 'agent_config'))
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'instance', 'instance_state'))
 
 module RightScale
@@ -84,6 +85,7 @@ module RightScale
       end
 
       cmd_opts = [ 'instance',
+                   '-r', '/opt/rightscale/right_link',
                    '-i', ENV['RS_RN_ID'],
                    '-t', ENV['RS_RN_AUTH'],
                    '-h', host,
@@ -103,7 +105,6 @@ module RightScale
       if Platform.linux?
         FileUtils.mkdir_p('/opt/rightscale/etc/monit.d')
         cmd_opts << '--monit'
-        cmd_opts << '--agent-checker'
       end
 
       cmd = Platform.shell.format_executable_command(File.join(Platform.filesystem.private_bin_dir, 'rad'), cmd_opts)

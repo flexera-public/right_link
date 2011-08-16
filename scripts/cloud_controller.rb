@@ -1,21 +1,21 @@
 # === Synopsis:
-#   RightScale Cloud Controller (right_link_cloud) - Copyright (c) 2011 by RightScale Inc
+#   RightScale Cloud Controller (cloud) - Copyright (c) 2011 by RightScale Inc
 #
-#   right_link_cloud is a command line tool which invokes cloud-specific actions
+#   cloud is a command line tool which invokes cloud-specific actions
 #
 # === Examples:
 #   Write cloud and user metadata to cache directory using default cloud:
-#     right_link_cloud --action=write_metadata
+#     cloud --action=write_metadata
 #
 #   Write user metadata only to cache directory using named ec2 cloud:
-#     right_link_cloud --name=ec2 --action=write_user_metadata
+#     cloud --name=ec2 --action=write_user_metadata
 #
 #   Read default cloud user metadata in dictionary format (metadata is output):
-#     right_link_cloud --action=read_user_metadata
+#     cloud --action=read_user_metadata
 #                      --parameters=dictionary_metadata_writer
 #
 # === Usage:
-#    right_link_cloud [options]
+#    cloud [options]
 #
 #    options:
 #      --action, -a       Action to perform (required, see below for details).
@@ -35,6 +35,7 @@ require 'fileutils'
 require 'right_agent'
 require 'right_agent/scripts/usage'
 
+require File.expand_path(File.join(File.dirname(__FILE__), '..', 'lib', 'instance', 'agent_config'))
 require File.expand_path(File.join(File.dirname(__FILE__), '..', 'lib', 'clouds', 'register_clouds'))
 
 module RightScale
