@@ -32,6 +32,7 @@ require 'json'
 require 'logger'
 require 'optparse'
 require 'fileutils'
+require 'right_agent'
 require 'right_agent/scripts/usage'
 
 require File.expand_path(File.join(File.dirname(__FILE__), '..', 'lib', 'clouds', 'register_clouds'))
