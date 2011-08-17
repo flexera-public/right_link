@@ -1,5 +1,5 @@
 @echo off
-rem # Copyright (c) 2009-2011 RightScale Inc
+rem # Copyright (c) 2011 RightScale Inc
 rem #
 rem # Permission is hereby granted, free of charge, to any person obtaining
 rem # a copy of this software and associated documentation files (the
@@ -33,26 +33,7 @@ if %ERRORLEVEL% neq 0 (
 )
 
 
-rem # put found "ruby.exe" on the path for convenience in dev. the production
-rem # environment should not expect the sandbox "ruby.exe" to be on the path
-rem # because users may want their own ruby on the path.
-
-if "%1" neq "dev" goto :AfterRuby
-
-set PATH=%PATH%;%RS_RUBY_HOME%\bin
-set RS_CURL_EXE=%RS_RIGHT_LINK_HOME%\windows_sandbox_build\utilities\shell\bin\curl.exe
-set RS_TAR_RB=%RS_RIGHT_LINK_HOME%\windows_sandbox_build\utilities\shell\script\tar.rb
-set RS_RIGHT_RUN_EXE=%RS_RIGHT_LINK_HOME%\win32_sandbox_service\RightRun\bin\Release\RightRun.exe
-
-:AfterRuby
-if exist "%RS_RIGHT_LINK_HOME%\right_link_package\instance\bin\windows" (
-  set RS_RIGHT_LINK_PACKAGE_BIN_WINDOWS=%RS_RIGHT_LINK_HOME%\right_link_package\instance\bin\windows
-) else (
-  set RS_RIGHT_LINK_PACKAGE_BIN_WINDOWS=%RS_RIGHT_LINK_HOME%\bin\windows
+rem # removing gems directory cleans all gem history.
+if exist "%RS_RUBY_HOME%\lib\ruby\gems" (
+  rd /S /Q "%RS_RUBY_HOME%\lib\ruby\gems"
 )
-set PATH=%PATH%;%RS_RIGHT_LINK_PACKAGE_BIN_WINDOWS%;%RS_RIGHT_LINK_HOME%\right_link\scripts\windows
-
-
-rem # include spec scripts on path
-set PATH=%PATH%;%~dps0.
-start "RightScale SandBox" cmd.exe /k "cd /d %RS_RIGHT_LINK_HOME%"
