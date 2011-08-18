@@ -85,7 +85,7 @@ module RightScale
       end
 
       cmd_opts = [ 'instance',
-                   '-r', '/opt/rightscale/right_link',
+                   '-r', Platform.filesystem.right_link_dir,
                    '-i', ENV['RS_RN_ID'],
                    '-t', ENV['RS_RN_AUTH'],
                    '-h', host,
