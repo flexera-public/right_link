@@ -22,4 +22,3 @@
 
 require_plugin "cloud"
 
-Ohai::Log.warn("deprecated in favor of cloud plugin")
