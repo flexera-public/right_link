@@ -64,7 +64,7 @@ module Yum
     class AddOns
       def self.generate(description, base_urls, frozen_date="latest")
         # Support CentOS 6+ by NOT generating AddOns repo.
-        return unless Yum::Epel::get_enterprise_linux_version.to_i < 6
+        return unless Yum::CentOS::is_this_centos? && Yum::Epel::get_enterprise_linux_version.to_i < 6
 
         opts = {:repo_filename => "CentOS-addons",
                   :repo_name => "addons",
@@ -145,12 +145,7 @@ END
     end
 
     def self.is_this_centos?
-      distributor_id = Yum::execute("lsb_release --id")
-      puts "This is not a CentOS distribution: [#{distributor_id}]" if distributor_id !~ /CentOS/
-      distributor_id =~ /CentOS/ # return true if the distributor matches centos, false otherwise
-    rescue Exception => e
-      puts "This is not a CentOS distribution: #{e}"
-      false
+      return ::RightScale::Platform.linux? && ::RightScale::Platform.linux.centos?
     end
 
   end # Module CentOS
