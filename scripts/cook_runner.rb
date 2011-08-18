@@ -6,10 +6,10 @@
 #
 
 require 'rubygems'
+require 'right_agent'
 require 'eventmachine'
 require 'chef'
 require 'fileutils'
-require 'right_agent'
 require 'right_scraper'
 
 BASE_DIR = File.join(File.dirname(__FILE__), '..')
