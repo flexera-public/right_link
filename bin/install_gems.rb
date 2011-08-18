@@ -58,7 +58,7 @@ def gem_cmd
     program_files_x86_env_var = ENV['ProgramFiles(x86)']
     program_files_path = program_files_x86_env_var ? program_files_x86_env_var : ENV['ProgramFiles']
     company_path = File.join(program_files_path, 'RightScale')
-    ruby_bin_path = File.join(company_path, 'SandBox', 'Ruby', 'bin')
+    ruby_bin_path = File.join(company_path, 'RightLink', 'sandbox', 'ruby', 'bin')
 
     # Note that we cannot use the provided windows gem.bat because it pulls any
     # ruby.exe on the PATH instead of using the companion ruby.exe from the same

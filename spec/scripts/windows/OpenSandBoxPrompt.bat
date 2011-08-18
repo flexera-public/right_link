@@ -24,7 +24,13 @@ setlocal
 
 rem # use dev source if specified. "ruby.exe" will be located as usual.
 if "%1" equ "dev" (
-  if exist "%~dps0..\..\..\..\right_link" set RS_RIGHT_LINK_HOME=%~dps0..\..\..\..
+  if exist "%~dps0..\..\..\..\right_link_package\instance\right_link" (
+    set RS_RIGHT_LINK_HOME=%~dps0..\..\..\..\right_link_package\instance
+  ) else (
+    if exist "%~dps0..\..\..\..\right_link" (
+      set RS_RIGHT_LINK_HOME=%~dps0..\..\..\..
+    )
+  )
 )
 call %~dps0LocateSpecSandBox.bat
 if %ERRORLEVEL% neq 0 (
