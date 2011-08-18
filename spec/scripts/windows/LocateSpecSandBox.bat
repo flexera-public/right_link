@@ -20,8 +20,8 @@ rem # LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 rem # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 rem # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-if exist "%~dps0..\..\..\..\right_link_package\instance\bin\windows\LocateSandBox.bat" (
-  call %~dps0..\..\..\..\right_link_package\instance\bin\windows\LocateSandBox.bat
+if exist "%~dps0..\..\..\..\bin\windows\LocateSandBox.bat" (
+  call %~dps0..\..\..\..\bin\windows\LocateSandBox.bat
 ) else (
   if "" equ "%ProgramFiles(x86)%" (
     call "%ProgramFiles%\RightScale\SandBox\bin\windows\LocateSandBox.bat"
