@@ -12,7 +12,7 @@ require 'fileutils'
 require 'right_agent'
 require 'right_scraper'
 
-BASE_DIR = File.join(File.dirname(__FILE__), '..', '..')
+BASE_DIR = File.join(File.dirname(__FILE__), '..')
 
 require File.normalize_path(File.join(BASE_DIR, 'lib', 'instance'))
 require File.normalize_path(File.join(BASE_DIR, 'lib', 'instance', 'cook'))

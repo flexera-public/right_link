@@ -164,7 +164,7 @@ module RightScale
         @state_serializer = Serializer.new(:json)
 
         # Retrieve instance agent configuration options
-        @agent = agent_options('instance')
+        @agent = AgentConfig.agent_options('instance')
         error("No instance agent configured", nil, abort = true) if @agent.empty?
 
         # Apply agent's ping interval if needed and adjust options to make them consistent
@@ -302,7 +302,7 @@ protected
     def check
       begin
         checker_identity = "#{@agent[:identity]}-rchk"
-        pid_file = PidFile.new(checker_identity, @agent)
+        pid_file = PidFile.new(checker_identity, @agent[:pid_dir])
 
         if @options[:stop]
           # Stop checker
@@ -334,7 +334,7 @@ protected
           at_exit { pid_file.remove }
 
           listen_port = CommandConstants::BASE_INSTANCE_AGENT_CHECKER_SOCKET_PORT
-          @command_runner = CommandRunner.start(listen_port, checker_identity, AgentCheckerCommands.get(self), @agent)
+          @command_runner = CommandRunner.start(listen_port, checker_identity, AgentCheckerCommands.get(self))
 
           info("Checker daemon options:")
           log_options = @options.inject([]) { |t, (k, v)| t << "-  #{k}: #{v}" }
