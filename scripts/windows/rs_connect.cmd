@@ -31,10 +31,10 @@ if %ERRORLEVEL% neq 0 (
 )
 
 rem # need to install sandbox gems before attempting to connect
-%RS_RUBY_EXE% %RS_SANDBOX_HOME%\right_link\bin\install_gems.rb
+%RS_RUBY_EXE% %RS_RIGHT_LINK_HOME%\right_link\bin\install_gems.rb
 if %ERRORLEVEL% neq 0 (
   exit /B %ERRORLEVEL%
 )
 
 rem # connect
-%RS_RUBY_EXE% %RS_SANDBOX_HOME%\right_link\bin\rs_connect.rb %*
+%RS_RUBY_EXE% %RS_RIGHT_LINK_HOME%\right_link\bin\rs_connect.rb %*
