@@ -133,6 +133,18 @@ namespace :dev do
   end
 end
 
+desc "Fire up IRB console with preloaded environment"
+task :console => :load_env do
+  ARGV[0] = nil
+  IRB.start
+end
+
+task :load_env do
+  require "rubygems"
+  require "right_agent"
+  require 'irb'
+end
+
 # Currently only need to build for Windows
 if windows?
   desc "Builds any binaries local to right_link"
@@ -147,3 +159,5 @@ if windows?
     end
   end
 end
+
+
