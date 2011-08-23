@@ -54,16 +54,26 @@ module RightScale
         http_path = "http://#{@host}:#{@port}/#{path}"
         attempts = 0
         while true
-          # get.
-          result = http_get(http_path)
-          return result if result
+          begin
+            @logger.info("Querying \"#{http_path}\"...")
+            # get.
+            result = http_get(http_path)
+            if result
+              @logger.info("Successfully retrieved from: \"#{http_path}\"  Result: #{path} = #{result}")
+              return result
+            end
 
-          # retry, if allowed.
-          attempts += 1
-          if snooze(attempts)
-            @logger.info("Retrying \"#{path}\"...")
-          else
-            raise QueryFailed, "Could not contact metadata server; retry limit exceeded."
+            # retry, if allowed.
+            attempts += 1
+            if snooze(attempts)
+              @logger.info("Retrying \"#{http_path}\"...")
+            else
+              @logger.error("Could not retrieve metadata from \"#{http_path}\"; retry limit exceeded.")
+              return ""
+            end
+          rescue Exception => e
+            @logger.error("Exception occurred while attempting to retrieve metadata from \"#{http_path}\"; Exception:#{e.message}\nTrace:#{e.backtrace.join("\n")}")
+            return ""
           end
         end
       end
@@ -137,7 +147,7 @@ module RightScale
       # === Return
       # result(Boolean):: true to continue, false to give up
       def snooze(attempts)
-        if attempts > RETRY_MAX_ATTEMPTS
+        if attempts >= RETRY_MAX_ATTEMPTS
           @logger.debug("Exceeded retry limit of #{RETRY_MAX_ATTEMPTS}.")
           false
         else
@@ -179,12 +189,6 @@ module RightScale
           if response.kind_of?(Net::HTTPServerError)
             @logger.debug("Request failed but can retry; #{response.class.name}")
             return nil
-          elsif response.kind_of?(Net::HTTPNotFound)
-            # EC2 and clouds which emulate it can return 404s for leaves (or for
-            # user metadata) that were announced or expected but have no data.
-            # it seems consistent to return emtpy for leaves which are expected
-            # but were "not found".
-            return ""
           elsif response.kind_of?(Net::HTTPRedirection)
             # keep history of redirects.
             history << uri.to_s
@@ -209,12 +213,14 @@ module RightScale
           else
             # not retryable.
             #
+            # log an error and return empty string.
+            #
             # note that the EC2 metadata server is known to give malformed
             # responses on rare occasions, but the right_http_connection will
             # consider these to be 'bananas' and retry automatically (up to a
             # pre-defined limit).
             @logger.error("Request for metadata failed: #{response.class.name}")
-            raise QueryFailed, "Request for metadata failed: #{response.class.name}"
+            return ""
           end
         end
       end
