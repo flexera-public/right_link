@@ -57,7 +57,8 @@ module Yum
 
       ############## INTERNAL FUNCTIONS #######################################################
       def self.abstract_generate(params)
-        return unless is_this_centos?
+        return unless Yum::CentOS::is_this_centos?
+
         epel_version = get_enterprise_linux_version
         puts "found EPEL version: #{epel_version}"
         opts = { :enabled => true, :frozen_date => "latest"}
