@@ -39,7 +39,7 @@ begin
   options[:user_metadata] = {:metadata_tree_climber => {:create_leaf_override => lambda { |_, value| value }}}
 
   # log to the ohai log
-  options[:logger] = Ohai::Log
+  options[:logger] = ::RightScale::Log
 
   # create the cloud instance
   cloud_instance = RightScale::CloudFactory.instance.create(RightScale::CloudFactory::UNKNOWN_CLOUD_NAME, options)
@@ -69,6 +69,6 @@ begin
 
 rescue Exception => e
   # cloud was unresolvable, but not all ohai use cases are cloud instances.
-  Ohai::Log.debug(RightScale::Log.format("Cloud was unresolvable", e, :trace))
+  ::RightScale::Log.info(::RightScale::Log.format("Cloud was unresolvable", e, :trace))
   cloud nil
 end
