@@ -63,21 +63,21 @@ module Yum
 
     # The AddOns repository is used in CentOS 5 but not in 6+.
     class AddOns
-      # Support CentOS 6 by NOT generating AddOns repo.
-# TODO Fix this - commented out this block because not right and interfering with launching
-#      unless get_enterprise_linux_version.to_i >= 6
-        def self.generate(description, base_urls, frozen_date="latest")
-          opts = {:repo_filename => "CentOS-addons",
+
+      def self.generate(description, base_urls, frozen_date="latest")
+        # Support CentOS 6+ by NOT generating AddOns repo.
+        return unless Yum::CentOS::is_this_centos? && Yum::Epel::get_enterprise_linux_version.to_i < 6
+
+        opts = {:repo_filename => "CentOS-addons",
                   :repo_name => "addons",
                   :repo_subpath => "addons",
                   :description => description,
                   :base_urls => base_urls,
                   :frozen_date => frozen_date,
                   :enabled => true }
-          opts[:frozen_date] = frozen_date || "latest" # Optional frozen date
-          Yum::CentOS::abstract_generate(opts)
-        end
-#      end
+        opts[:frozen_date] = frozen_date || "latest" # Optional frozen date
+        Yum::CentOS::abstract_generate(opts)
+      end
     end
 
     class Extras
