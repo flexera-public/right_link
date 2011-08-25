@@ -22,7 +22,7 @@
 
 require File.join(File.dirname(__FILE__), 'spec_helper')
 require File.join(File.dirname(__FILE__), 'fetch_runner')
-require File.join(File.dirname(__FILE__), '..', 'lib', 'clouds', 'metadata_sources', 'http_metadata_source')
+require File.join(File.dirname(__FILE__), '..', '..', 'lib', 'clouds', 'metadata_sources', 'http_metadata_source')
 require 'json'
 
 module RightScale
@@ -81,7 +81,7 @@ describe RightScale::MetadataSources::HttpMetadataSource do
     before(:each) do
       @runner = ::RightScale::FetchRunner.new
       @logger = @runner.setup_log
-      @output_dir_path = File.join(::RightScale::RightLinkConfig[:platform].filesystem.temp_dir, 'rs_raw_metadata_writer_output')
+      @output_dir_path = File.join(::RightScale::Platform.filesystem.temp_dir, 'rs_raw_metadata_writer_output')
       setup_metadata_provider
     end
 
