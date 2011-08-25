@@ -26,7 +26,11 @@ abbreviation :ec2
 # Searches for a file containing dhcp lease information.
 def dhcp_lease_provider
   if platform.windows?
-    fail("not yet implemented for windows")
+    ipconfig_data = `ipconfig /all`
+    match_result = ipconfig_data.match(/DHCP Server.*\: (\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/)
+    unless match_result.nil? || match_result[1].nil?
+      return match_result[1]
+    end
   else
     leases_file = %w{/var/lib/dhcp3/dhclient.eth0.leases /var/lib/dhclient/dhclient-eth0.leases /var/lib/dhclient-eth0.leases}.find{|dhcpconfig| File.exist?(dhcpconfig)}
     unless leases_file.nil?
@@ -45,10 +49,10 @@ def dhcp_lease_provider
         return dhcp_lease_provider_ip
       end
     end
-
-    # no known defaults so we must fail at this point.
-    fail("Cannot determine dhcp lease provider for cloudstack instance")
   end
+
+  # no known defaults so we must fail at this point.
+  fail("Cannot determine dhcp lease provider for cloudstack instance")
 end
 
 # set default hosts before extending ec2. avoid search for dhcp lease provider
@@ -70,6 +74,9 @@ default_option('cloud_metadata/metadata_provider/query_override', lambda do |pro
   return provider.metadata_source.query(path)
 end)
 
+# override metadasta soures.  Using only HTTP source
+metadata_source 'metadata_sources/http_metadata_source'
+
 # extend EC2 cloud definition.
 extend_cloud :ec2
 
@@ -82,7 +89,8 @@ end
 # Updates details of cloudstack instance.
 def update_details
   details = {}
-  source = create_dependency_type(:user_metadata, :metadata_source)
-  details[:dhcp_lease_provider_ip] = source.host
+  hosts = option('metadata_source/hosts')
+  # do not resolve the dhcp lease providr again.  just get it from the cloud host option
+  details[:dhcp_lease_provider_ip] = hosts.first[:host]
   return details
 end

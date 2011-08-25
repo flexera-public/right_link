@@ -20,27 +20,11 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-# eucalyptus can use any DNS name for host but port is known and we are
-# constrained to requiring a specific DNS name by default.
-EUCA_HOST = 'euca-metadata'
-EUCA_PORT = 8773
-
 # set abbreviation for env var generation to be same as ec2 for scripters.
 abbreviation :ec2
-
-# preserve any initial hosts option.
-initial_hosts = option('metadata_source/hosts')
 
 # override metadasta soures.  Using only HTTP source
 metadata_source 'metadata_sources/http_metadata_source'
 
 # extend EC2 cloud definition.
 extend_cloud :ec2
-
-# defaults.
-unless initial_hosts
-  # eucalyptus hosts supercede ec2 hosts in search order.
-  metadata_source_options = default_option(:metadata_source, {})
-  ec2_hosts = metadata_source_options[:hosts] || []
-  metadata_source_options[:hosts] = [:host => EUCA_HOST, :port => EUCA_PORT] + ec2_hosts
-end
