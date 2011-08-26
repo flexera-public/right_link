@@ -22,8 +22,13 @@
 
 # The daemonize method of AR clashes with the daemonize Chef attribute, we don't need that method so undef it
 undef :daemonize if methods.include?('daemonize')
+
 # Exclude right_link from load path to avoid loading this file in internal chef "require 'chef/providers'"
-$:.delete_if { |i| i =~ /\/right_link\/lib$/ || i == "lib" }
+begin
+  expanded_lib_path = File.expand_path(File.join(File.dirname(__FILE__), '..'))
+  normalized_lib_path = File.normalize_path(expanded_lib_path)
+  $:.delete_if { |i| i == expanded_lib_path || i == normalized_lib_path || i == "lib" }
+end
 
 require 'chef'
 require 'chef/client'
