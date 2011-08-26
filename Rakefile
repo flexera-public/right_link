@@ -100,12 +100,15 @@ if defined?(Spec)
     end
   end
 
-  desc "Default to running specs"
+  desc "Runs unit tests"
   if windows?
-    task :default => [:clean, :build, :spec]
+    task :units => [:clean, :build, :spec]
   else
-    task :default => :spec
+    task :units => :spec
   end
+
+  desc "Default to running unit tests"
+  task :default => :units
 end
 
 namespace :dev do
@@ -119,6 +122,7 @@ namespace :dev do
       gem_dirs = [File.join('pkg', 'common'),
                   File.join('pkg', is_windows? ? 'windows' : 'linux')]
       gem_dirs << File.join('pkg', 'test')
+      gem_dirs << File.join('pkg', 'test', 'windows') if is_windows?
       puts "\033[34mInstalling gems from #{gem_dirs.inspect} ...\033[0m"
       GemUtilities.install(gem_dirs, 'gem', STDOUT, false)
     end
