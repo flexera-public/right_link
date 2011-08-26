@@ -124,7 +124,7 @@ namespace :dev do
       gem_dirs << File.join('pkg', 'test')
       gem_dirs << File.join('pkg', 'test', 'windows') if is_windows?
       puts "\033[34mInstalling gems from #{gem_dirs.inspect} ...\033[0m"
-      GemUtilities.install(gem_dirs, 'gem', STDOUT, false)
+      GemUtilities.install(gem_dirs, 'gem', STDOUT, true)
     end
 
     desc "Install any hooks in lib/git_hooks"
