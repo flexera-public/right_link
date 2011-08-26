@@ -143,6 +143,11 @@ task :load_env do
   require "rubygems"
   require "right_agent"
   require 'irb'
+  BASE_DIR = File.join(File.dirname(__FILE__), 'lib')
+  require File.normalize_path(File.join(BASE_DIR, 'instance'))
+  require File.normalize_path(File.join(BASE_DIR, 'chef', 'providers'))
+  require File.normalize_path(File.join(BASE_DIR, 'chef', 'plugins'))
+  require File.normalize_path(File.join(BASE_DIR, 'repo_conf_generators'))
 end
 
 # Currently only need to build for Windows
