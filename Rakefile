@@ -1,5 +1,9 @@
 require 'fileutils'
-require 'spec/rake/spectask'
+begin
+  require 'spec/rake/spectask'
+rescue LoadError
+  # allow for loading rakefile when rspec gem is not present
+end
 require File.expand_path(File.join(File.dirname(__FILE__), 'lib', 'run_shell'))
 require File.expand_path(File.join(File.dirname(__FILE__), 'lib', 'gem_utilities'))
 
@@ -61,41 +65,50 @@ def setup_auto_test
   $stderr.puts('Unable to find autotest. Please install ZenTest or fix your PATH') && false
 end
 
-# Default to running unit tests
-task :default => :spec
-
-# List of tasks
-desc 'Run all specs in all specs directories'
-Spec::Rake::SpecTask.new(:spec) do |t|
-  setup_spec(t)
-end
-
-namespace :spec do
-  desc 'Run all specs all specs directories with RCov'
-  Spec::Rake::SpecTask.new(:rcov) do |t|
+if defined?(Spec)
+  # List of tasks
+  desc 'Run all specs in all specs directories'
+  Spec::Rake::SpecTask.new(:spec) do |t|
     setup_spec(t)
-    t.rcov = true
-    t.rcov_opts = lambda { IO.readlines("#{RIGHT_BOT_ROOT}/spec/rcov.opts").map {|l| l.chomp.split ' '}.flatten }
   end
 
-  desc 'Print Specdoc for all specs (excluding plugin specs)'
-  Spec::Rake::SpecTask.new(:doc) do |t|
-    setup_spec(t)
-    t.spec_opts = ['--format', 'specdoc', '--dry-run']
+  namespace :spec do
+    desc 'Run all specs all specs directories with RCov'
+    Spec::Rake::SpecTask.new(:rcov) do |t|
+      setup_spec(t)
+      t.rcov = true
+      t.rcov_opts = lambda { IO.readlines("#{RIGHT_BOT_ROOT}/spec/rcov.opts").map {|l| l.chomp.split ' '}.flatten }
+    end
+
+    desc 'Print Specdoc for all specs (excluding plugin specs)'
+    Spec::Rake::SpecTask.new(:doc) do |t|
+      setup_spec(t)
+      t.spec_opts = ['--format', 'specdoc', '--dry-run']
+    end
   end
-end
 
-desc 'Run autotest'
-task :autotest do
-  setup_auto_test
-end
-
-namespace :autotest do
-  desc 'Run RCov when autotest successful'
-  task :rcov do
-    ENV['RCOV'] = 'true'
+  desc 'Run autotest'
+  task :autotest do
     setup_auto_test
   end
+
+  namespace :autotest do
+    desc 'Run RCov when autotest successful'
+    task :rcov do
+      ENV['RCOV'] = 'true'
+      setup_auto_test
+    end
+  end
+
+  desc "Runs unit tests"
+  if windows?
+    task :units => [:clean, :build, :spec]
+  else
+    task :units => :spec
+  end
+
+  desc "Default to running unit tests"
+  task :default => :units
 end
 
 namespace :dev do
@@ -108,7 +121,8 @@ namespace :dev do
     task :gems do
       gem_dirs = [File.join('pkg', 'common'),
                   File.join('pkg', is_windows? ? 'windows' : 'linux')]
-      gem_dirs << File.join('pkg', 'test') unless is_windows?
+      gem_dirs << File.join('pkg', 'test')
+      gem_dirs << File.join('pkg', 'test', 'windows') if is_windows?
       puts "\033[34mInstalling gems from #{gem_dirs.inspect} ...\033[0m"
       GemUtilities.install(gem_dirs, 'gem', STDOUT, false)
     end
@@ -135,15 +149,24 @@ end
 
 # Currently only need to build for Windows
 if windows?
-  desc "Builds any binaries local to right_link"
-  task :build do
+  def do_chef_node_cmdlet_task(task)
     ms_build_path = "#{ENV['WINDIR']}\\Microsoft.NET\\Framework\\v3.5\\msbuild.exe"
     Dir.chdir(File.join(RIGHT_BOT_ROOT, 'lib', 'chef', 'windows', 'ChefNodeCmdlet')) do
       # Note that we can build C# components using msbuild instead of needing to
       # have Developer Studio installed
-      build_command = "#{ms_build_path} ChefNodeCmdlet.sln /t:clean,build /p:configuration=Release > ChefNodeCmdlet.build.txt 2>&1"
+      build_command = "#{ms_build_path} ChefNodeCmdlet.sln /t:#{task} /p:configuration=Release > ChefNodeCmdlet.build.txt 2>&1"
       puts "#{build_command}"
       `#{build_command}`
     end
+  end
+
+  desc "Cleans any binaries local to right_link"
+  task :clean do
+    do_chef_node_cmdlet_task(:clean)
+  end
+
+  desc "Builds any binaries local to right_link"
+  task :build do
+    do_chef_node_cmdlet_task(:build)
   end
 end
