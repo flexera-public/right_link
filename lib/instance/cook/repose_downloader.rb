@@ -24,26 +24,24 @@
 require 'right_http_connection'
 
 #TODO TS factor this into its own source file; make it slightly less monkey-patchy (e.g. mixin)
-module OpenSSL
-  module SSL
-    class SSLSocket
-      alias post_connection_check_without_hack post_connection_check
+OpenSSL::SSL::SSLSocket.class_exec {
 
-      # Class variable. Danger! THOU SHALT NOT CAUSE 'openssl/ssl' TO RELOAD
-      # nor shalt thou use this monkey patch in conjunction with Rails
-      # auto-loading or class-reloading mechanisms! You have been warned...
-      @@hostname_override = nil
+  alias post_connection_check_without_hack post_connection_check
 
-      def self.hostname_override=(hostname_override)
-        @@hostname_override = hostname_override
-      end
+  # Class variable. Danger! THOU SHALT NOT CAUSE 'openssl/ssl' TO RELOAD
+  # nor shalt thou use this monkey patch in conjunction with Rails
+  # auto-loading or class-reloading mechanisms! You have been warned...
+  @@hostname_override = nil
 
-      def post_connection_check(hostname)
-        return post_connection_check_without_hack(@@hostname_override || hostname)
-      end
-    end
+  def self.hostname_override=(hostname_override)
+    @@hostname_override = hostname_override
   end
-end
+
+  def post_connection_check(hostname)
+    return post_connection_check_without_hack(@@hostname_override || hostname)
+  end
+
+} unless OpenSSL::SSL::SSLSocket.instance_methods.include?('post_connection_check_without_hack')
 
 module RightScale
   # Class centralizing logic for downloading objects from Repose.

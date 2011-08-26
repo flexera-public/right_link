@@ -147,6 +147,23 @@ namespace :dev do
   end
 end
 
+desc "Fire up IRB console with preloaded environment"
+task :console => :load_env do
+  ARGV[0] = nil
+  IRB.start
+end
+
+task :load_env do
+  require "rubygems"
+  require "right_agent"
+  require 'irb'
+  BASE_DIR = File.join(File.dirname(__FILE__), 'lib')
+  require File.normalize_path(File.join(BASE_DIR, 'instance'))
+  require File.normalize_path(File.join(BASE_DIR, 'chef', 'providers'))
+  require File.normalize_path(File.join(BASE_DIR, 'chef', 'plugins'))
+  require File.normalize_path(File.join(BASE_DIR, 'repo_conf_generators'))
+end
+
 # Currently only need to build for Windows
 if windows?
   def do_chef_node_cmdlet_task(task)
@@ -170,3 +187,5 @@ if windows?
     do_chef_node_cmdlet_task(:build)
   end
 end
+
+
