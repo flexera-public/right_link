@@ -22,17 +22,18 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #
-# First figure out where this script lives, which lets us infer
-# where the Ruby scripts live (parallel to this script)
+# First figure out where the RightLink CLI scripts actually
+# live so we can generate stubs/wrappers that point to them.
 #
-FIXED_PATH_GUESS=/opt/rightscale/right_link/scripts
-ABSOLUTE_PATH_GUESS=`dirname $0`
+MY_DIR=`dirname $0`
+FIXED_PATH_GUESS=/opt/rightscale/right_link/bin
+RELATIVE_PATH_GUESS="$MY_DIR/../bin"
 if [ -e $FIXED_PATH_GUESS/install.sh ]
 then
   SCRIPTS_DIR=$FIXED_PATH_GUESS
-elif [ -e $ABSOLUTE_PATH_GUESS/install.sh ]
+elif [ -e $RELATIVE_PATH_GUESS ]
 then
-  pushd $ABSOLUTE_PATH_GUESS > /dev/null
+  pushd $RELATIVE_PATH_GUESS > /dev/null
   SCRIPTS_DIR=$PWD
   popd > /dev/null
 else
@@ -68,34 +69,13 @@ fi
 #
 echo Installing scripts from $SCRIPTS_DIR...
 
-echo Installing private scripts from $RIGHT_LINK_SCRIPTS ...
+echo Installing private scripts from $SCRIPTS_DIR ...
 for script in rad rchk rnac rstat
 do
-  case "$script" in
-    rad)   require="$SCRIPTS_DIR/agent_deployer"
-           class=RightScale::RightLinkAgentDeployer;;
-    rnac)  require="$SCRIPTS_DIR/agent_controller"
-           class=RightScale::RightLinkAgentController;;
-    rchk)  require="$SCRIPTS_DIR/agent_checker"
-           class=RightScale::AgentChecker;;
-    rstat) require="$SCRIPTS_DIR/mapper_stats_manager"
-           class=RightScale::StatsManager;;
-  esac
   echo Installing $script
-  rm -f /opt/rightscale/bin/$script
   cat > /opt/rightscale/bin/$script <<EOF
-#!/usr/bin/env ruby
-
-# $script --help for usage information
-#
-# See $require.rb for additional information
-
-require 'rubygems'
-require '$require'
-
-\$stdout.sync=true
-
-$class.run
+#!/bin/bash
+exec $RUBY_BIN $SCRIPTS_DIR/${script}.rb "\$@"
 EOF
   chmod a+x /opt/rightscale/bin/$script
 done
