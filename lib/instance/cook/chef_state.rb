@@ -44,15 +44,12 @@ module RightScale
     def self.init(reset=false)
       return true if initialized? && !reset
       @@attributes = {}
-      dir = File.dirname(STATE_FILE)
-      FileUtils.mkdir_p(dir) unless File.directory?(dir)
+      @@past_scripts = []
       if reset
         save_state
-      elsif File.file?(STATE_FILE)
-        js = RightScale::JsonUtilities::read_json(STATE_FILE) rescue {}
-        @@attributes = js['attributes'] || {}
+      else
+        load_state
       end
-      Log.debug("Initializing chef state with attributes #{@@attributes.inspect}")
       true
     end
 
@@ -80,16 +77,7 @@ module RightScale
     # === Return
     # (Array[(String)]) Scripts that have already executed
     def self.past_scripts
-      # only load once
-      unless !!defined?(@@past_scripts)
-        # load the list of previously run scripts
-        if File.file?(SCRIPTS_FILE)
-          @@past_scripts = RightScale::JsonUtilities::read_json(SCRIPTS_FILE)
-        else
-          @@past_scripts = []
-        end
-        Log.debug("Past scripts: #{@@past_scripts.inspect}")
-      end
+      init
       @@past_scripts
     end
 
@@ -209,6 +197,7 @@ module RightScale
       begin
         js = { 'attributes' => @@attributes }.to_json
         RightScale::JsonUtilities.write_json(STATE_FILE, js)
+        RightScale::JsonUtilities::write_json(SCRIPTS_FILE, @@past_scripts)
       rescue Exception => e
         Log.warning("Failed to save Chef state: #{e.message}")
       end
@@ -224,15 +213,32 @@ module RightScale
     # true:: If script was added to past scripts collection
     # false:: If script was already in past scripts collection
     def self.record_script_execution(nickname)
+      init
       new_script = !@@past_scripts.include?(nickname)
-      if new_script
-        @@past_scripts << nickname
-        RightScale::JsonUtilities::write_json(SCRIPTS_FILE, @@past_scripts)
-      end
+      @@past_scripts << nickname if new_script
+      # note that we only persist state on successful execution of bundle.
       new_script
     end
 
     protected
+
+    # Loads Chef state from file(s), if any.
+    #
+    # === Return
+    # always true
+    def self.load_state
+      # load the previously saved Chef node attributes, if any.
+      if File.file?(STATE_FILE)
+        js = RightScale::JsonUtilities::read_json(STATE_FILE) rescue {}
+        @@attributes = js['attributes'] || {}
+      end
+      Log.debug("Initializing chef state with attributes #{@@attributes.inspect}")
+
+      # load the list of previously run scripts
+      @@past_scripts = RightScale::JsonUtilities::read_json(SCRIPTS_FILE) rescue [] if File.file?(SCRIPTS_FILE)
+      Log.debug("Past scripts: #{@@past_scripts.inspect}")
+      true
+    end
 
     # Deep copy of given hash
     # Hash values should be strings, arrays or hashes

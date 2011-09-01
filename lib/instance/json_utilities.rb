@@ -20,6 +20,8 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+require 'fileutils'
+
 module RightScale
 
   # collection of Json utilities
@@ -53,6 +55,8 @@ module RightScale
     # true:: Always return true
     def self.write_json(path, contents)
       contents = contents.to_json unless contents.is_a?(String)
+      dir = File.dirname(path)
+      FileUtils.mkdir_p(dir) unless File.directory?(dir)
       File.open(path, 'w') do |f|
         f.flock(File::LOCK_EX)
         f.write(contents)
@@ -75,6 +79,8 @@ module RightScale
     # true:: Always return true
     def self.merge_json(path, contents)
       contents = JSON.load(contents) if contents.is_a?(String)
+      dir = File.dirname(path)
+      FileUtils.mkdir_p(dir) unless File.directory?(dir)
       File.open(path, 'a+') do |f|
         f.flock(File::LOCK_EX)
         if File.size(path) > 0
