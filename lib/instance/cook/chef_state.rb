@@ -49,10 +49,8 @@ module RightScale
       if reset
         save_state
       elsif File.file?(STATE_FILE)
-        File.open(STATE_FILE, 'r') do |f|
-          js = JSON.load(f) rescue {}
-          @@attributes = js['attributes'] || {}
-        end
+        js = RightScale::JsonUtilities::read_json(STATE_FILE) rescue {}
+        @@attributes = js['attributes'] || {}
       end
       Log.debug("Initializing chef state with attributes #{@@attributes.inspect}")
       true
@@ -210,7 +208,7 @@ module RightScale
     def self.save_state
       begin
         js = { 'attributes' => @@attributes }.to_json
-        File.open(STATE_FILE, 'w') { |f| f.puts js }
+        RightScale::JsonUtilities.write_json(STATE_FILE, js)
       rescue Exception => e
         Log.warning("Failed to save Chef state: #{e.message}")
       end
