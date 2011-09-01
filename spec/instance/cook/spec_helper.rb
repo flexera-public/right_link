@@ -23,3 +23,25 @@
 
 require File.expand_path(File.join(File.dirname(__FILE__), '..', 'spec_helper'))
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'lib', 'instance', 'cook'))
+
+module RightScale
+  class MockCook
+
+    def initialize(locks)
+      @locks = locks
+    end
+
+    def has_default_lock?
+      @locks.include?(:default)
+    end
+
+  end
+end
+
+shared_examples_for 'mocks cook' do
+  before(:each) do
+    @mock_cook_locks = [:default]
+    @mock_cook = ::RightScale::MockCook.new(@mock_cook_locks)
+    flexmock(::RightScale::Cook).should_receive(:instance).and_return(@mock_cook)
+  end
+end

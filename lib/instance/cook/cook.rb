@@ -83,6 +83,12 @@ module RightScale
       exit(1) unless success
     end
 
+    # Determines if the current cook process has the default lock for purposes
+    # of concurrency with non-defaulted cooks.
+    def has_default_lock?
+      true  # TODO concurrency not yet implemented
+    end
+
     # Helper method to send a request to one or more targets with no response expected
     # See InstanceCommands for details
     def send_push(type, payload = nil, target = nil, opts = {})

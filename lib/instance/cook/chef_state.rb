@@ -194,12 +194,16 @@ module RightScale
     # === Return
     # true:: Always return true
     def self.save_state
-      begin
-        js = { 'attributes' => @@attributes }.to_json
-        RightScale::JsonUtilities.write_json(STATE_FILE, js)
-        RightScale::JsonUtilities::write_json(SCRIPTS_FILE, @@past_scripts)
-      rescue Exception => e
-        Log.warning("Failed to save Chef state: #{e.message}")
+      if Cook.instance.has_default_lock?
+        begin
+          js = { 'attributes' => @@attributes }.to_json
+          RightScale::JsonUtilities.write_json(STATE_FILE, js)
+          RightScale::JsonUtilities::write_json(SCRIPTS_FILE, @@past_scripts)
+        rescue Exception => e
+          Log.warning("Failed to save Chef state: #{e.message}")
+        end
+      else
+        Log.warning("Ignoring any changes to Chef state due to non-defaulted locking.")
       end
       true
     end

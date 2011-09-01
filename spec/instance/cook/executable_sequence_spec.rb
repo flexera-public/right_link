@@ -31,6 +31,7 @@ describe RightScale::ExecutableSequence do
 
   context 'Testing sequence execution' do
 
+    it_should_behave_like 'mocks cook'
     it_should_behave_like 'mocks shutdown request proxy'
 
     before(:all) do
