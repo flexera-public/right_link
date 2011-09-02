@@ -63,21 +63,21 @@ module Yum
 
     # The AddOns repository is used in CentOS 5 but not in 6+.
     class AddOns
-      # Support CentOS 6 by NOT generating AddOns repo.
-# TODO Fix this - commented out this block because not right and interfering with launching
-#      unless get_enterprise_linux_version.to_i >= 6
-        def self.generate(description, base_urls, frozen_date="latest")
-          opts = {:repo_filename => "CentOS-addons",
+
+      def self.generate(description, base_urls, frozen_date="latest")
+        # Support CentOS 6+ by NOT generating AddOns repo.
+        return unless Yum::CentOS::is_this_centos? && Yum::Epel::get_enterprise_linux_version.to_i < 6
+
+        opts = {:repo_filename => "CentOS-addons",
                   :repo_name => "addons",
                   :repo_subpath => "addons",
                   :description => description,
                   :base_urls => base_urls,
                   :frozen_date => frozen_date,
                   :enabled => true }
-          opts[:frozen_date] = frozen_date || "latest" # Optional frozen date
-          Yum::CentOS::abstract_generate(opts)
-        end
-#      end
+        opts[:frozen_date] = frozen_date || "latest" # Optional frozen date
+        Yum::CentOS::abstract_generate(opts)
+      end
     end
 
     class Extras
@@ -110,7 +110,7 @@ module Yum
 
     ############## INTERNAL FUNCTIONS #######################################################
     def self.abstract_generate(params)
-    return unless is_this_centos?
+    return unless Yum::CentOS::is_this_centos?
     opts = { :enabled => true, :gpgkey_file => RPM_GPG_KEY_CentOS5, :frozen_date => "latest"}
     opts.merge!(params)
     raise "missing parameters to generate file!" unless opts[:repo_filename] && opts[:repo_name] && opts[:repo_subpath] &&
@@ -124,7 +124,7 @@ module Yum
     else
       repo_path = "#{ver}/#{opts[:repo_subpath]}/#{arch}/archive/"+opts[:frozen_date]
     end
-    
+
     mirror_list =  opts[:base_urls].map do |bu|
         bu +='/' unless bu[-1..-1] == '/' # ensure the base url is terminated with a '/'
         bu+repo_path
@@ -146,13 +146,8 @@ END
     mirror_list
     end
 
-    def self.is_this_centos?    
-      distributor_id = Yum::execute("lsb_release --id")
-      puts "This is not a CentOS distribution: [#{distributor_id}]" if distributor_id !~ /CentOS/ 
-      distributor_id =~ /CentOS/ # return true if the distributor matches centos, false otherwise
-    rescue Exception => e
-      puts "This is not a CentOS distribution: #{e}"
-      false
+    def self.is_this_centos?
+      return ::RightScale::Platform.linux? && ::RightScale::Platform.centos?
     end
 
   end # Module CentOS
@@ -171,6 +166,7 @@ END
     end
     ############## INTERNAL FUNCTIONS #######################################################
     def self.abstract_generate(params)
+    return unless Yum::CentOS::is_this_centos?
 
     epel_version = get_enterprise_linux_version
     puts "found EPEL version: #{epel_version}"
@@ -181,7 +177,7 @@ END
 
     arch = Yum::execute("uname -i").strip
 
-     repo_path = "#{epel_version}/#{arch}/archive/"+opts[:frozen_date]
+      repo_path = "#{epel_version}/#{arch}/archive/"+opts[:frozen_date]
     mirror_list =  opts[:base_urls].map do |bu|
         bu +='/' unless bu[-1..-1] == '/' # ensure the base url is terminated with a '/'
         bu+repo_path

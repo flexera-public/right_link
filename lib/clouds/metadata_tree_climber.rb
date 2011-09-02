@@ -121,7 +121,7 @@ module RightScale
       # replace any equals and subsequent text with forward slash and chomp any
       # trailing slash. note that chomp! returns nil if character (i.e. slash)
       # is not found at end.
-      return branch_name.gsub(/\=.*$/, '/').chomp!('/')
+      return branch_name.gsub(/=.*$/, '/').gsub('-', '_').chomp!('/')
     end
 
     # Leaf name is used as key by default.
@@ -133,7 +133,8 @@ module RightScale
     # key(String):: leaf key or nil
     def leaf_key(leaf_name)
       return @leaf_key_override.call(self, leaf_name) if @leaf_key_override
-      return leaf_name
+      # replace '-' and '/' with '_' so that metadata keys are Mash friendly
+      return leaf_name.gsub('-', '_')
     end
 
   end
