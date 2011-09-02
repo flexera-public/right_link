@@ -27,7 +27,7 @@ undef :daemonize if methods.include?('daemonize')
 begin
   expanded_lib_path = File.expand_path(File.join(File.dirname(__FILE__), '..'))
   normalized_lib_path = File.normalize_path(expanded_lib_path)
-  $:.delete_if { |i| i == expanded_lib_path || i == normalized_lib_path || i == "lib" }
+  $:.delete_if { |i| i == expanded_lib_path || File.normalize_path(i) == normalized_lib_path || i == "lib" }
 end
 
 require 'chef'
