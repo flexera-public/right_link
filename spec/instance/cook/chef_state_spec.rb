@@ -72,7 +72,7 @@ describe RightScale::ChefState do
   end
 
   it 'should not persist the state if cook does not hold the default lock' do
-    @mock_cook_locks.clear << :backup
+    @mock_cook.mock_attributes[:thread_name] = 'backup'
     RightScale::ChefState.attributes = { :one => 'two' }
     File.file?(@chef_file).should be_false
   end

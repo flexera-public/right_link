@@ -194,7 +194,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def self.save_state
-      if Cook.instance.has_default_lock?
+      if Cook.instance.has_default_thread?
         begin
           js = { 'attributes' => @@attributes }.to_json
           RightScale::JsonUtilities.write_json(STATE_FILE, js)

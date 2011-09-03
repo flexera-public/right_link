@@ -43,15 +43,16 @@ end
 
 module RightScale
 
-  OHAI_RETRY_MIN_DELAY = 20      # Min number of seconds to wait before retrying Ohai to get the hostname
-  OHAI_RETRY_MAX_DELAY = 20 * 60 # Max number of seconds to wait before retrying Ohai to get the hostname
-
   # Bundle sequence, includes installing dependent packages,
   # downloading attachments and running scripts in given bundle.
   # Also downloads cookbooks and run recipes in given bundle.
   # Runs in separate (runner) process.
   class ExecutableSequence
     include EM::Deferrable
+
+    OHAI_RETRY_MIN_DELAY = 20             # Min number of seconds to wait before retrying Ohai to get the hostname
+    OHAI_RETRY_MAX_DELAY = 20 * 60        # Max number of seconds to wait before retrying Ohai to get the hostname
+    RETRY_ACQUIRE_THREAD_DELAY_SECS = 10  # delay before attempting to acquire locks again from instance agent
 
     class CookbookDownloadFailure < Exception
       def initialize(tuple)
@@ -135,7 +136,7 @@ module RightScale
         download_repos if @ok
         update_cookbook_path if @ok
         setup_powershell_providers if RightScale::Platform.windows?
-        check_ohai { |o| converge(o) } if @ok
+        check_ohai { |o| acquire_thread { converge(o) } } if @ok
       end
       true
     end
@@ -477,18 +478,43 @@ module RightScale
     #
     # === Return
     # true:: Always return true
-    def check_ohai
-      ohai = Ohai::System.new
-      ohai.require_plugin('os')
-      ohai.require_plugin('hostname')
+    def check_ohai(&block)
+      ohai = create_ohai
       if ohai[:hostname]
-        yield(ohai)
+        block.call(ohai)
       else
         Log.warning("Could not determine node name from Ohai, will retry in #{@ohai_retry_delay}s...")
-        EM.add_timer(@ohai_retry_delay) { check_ohai }
+        # need to execute on a non-timer thread or else EM main thread will block.
+        EM.add_timer(@ohai_retry_delay) { EM.defer { check_ohai(&block) } }
         @ohai_retry_delay = [ 2 * @ohai_retry_delay, OHAI_RETRY_MAX_DELAY ].min
       end
       true
+    end
+
+    # Creates a new ohai and configures it.
+    #
+    # === Return
+    # ohai(Ohai::System):: configured ohai
+    def create_ohai
+      ohai = Ohai::System.new
+      ohai.require_plugin('os')
+      ohai.require_plugin('hostname')
+      return ohai
+    end
+
+    # Acquires thread required by executable bundle prior to converging.
+    #
+    # &block(Proc):: yields when lock is acquired
+    def acquire_thread(&block)
+      if Cook.instance.acquire_thread
+        block.call
+      else
+        # need to execute on a non-timer thread or else EM main thread will block.
+        EM.add_timer(RETRY_ACQUIRE_THREAD_DELAY_SECS) { EM.defer { acquire_thread(&block) } }
+      end
+    rescue Exception => e
+      report_failure('acquire_thread failed', e.message)
+      Log.debug(Log.format('acquire_thread failed', e, :trace))
     end
 
     # Chef converge
@@ -532,6 +558,7 @@ module RightScale
           Log.info("Shutdown requested by script: #{shutdown_request}")
         end
       rescue Exception => e
+puts "#{e.class}: #{e.message}", e.backtrace.join("\n")
         report_failure('Chef converge failed', chef_error(e))
         Log.debug(Log.format("Chef converge failed", e, :trace))
       ensure
@@ -583,7 +610,6 @@ module RightScale
       @ok = false
       @failure_title = title
       @failure_message = msg
-
       # note that the errback handler is expected to audit the message based on
       # the preserved title and message and so we don't audit it here.
       EM.next_tick { fail }

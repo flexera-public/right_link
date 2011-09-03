@@ -25,6 +25,15 @@ require 'right_scraper'
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'lib', 'chef', 'plugins'))
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'lib', 'chef', 'providers'))
 
+module RightScale
+  class ExecutableSequence
+    # monkey-patch delays for faster testing
+    OHAI_RETRY_MIN_DELAY = 0.1
+    OHAI_RETRY_MAX_DELAY = 1
+    RETRY_ACQUIRE_THREAD_DELAY_SECS = 0.1
+  end
+end
+
 describe RightScale::ExecutableSequence do
 
   include RightScale::SpecHelper
@@ -50,7 +59,7 @@ describe RightScale::ExecutableSequence do
       @script.should_receive(:is_a?).with(RightScale::RightScriptInstantiation).and_return(true)
       @script.should_receive(:is_a?).with(RightScale::RecipeInstantiation).and_return(false)
 
-      @bundle = RightScale::ExecutableBundle.new([ @script ], [], 0, true, [], '')
+      @bundle = RightScale::ExecutableBundle.new([ @script ], [], 0, true, [], '', nil)
 
       @auditor = flexmock(RightScale::AuditStub.instance)
       @auditor.should_receive(:create_new_section)
@@ -78,6 +87,7 @@ describe RightScale::ExecutableSequence do
     # Run sequence and print out exceptions
     def run_sequence
       res = nil
+      EM.threadpool_size = 1
       EM.run do
         Thread.new do
           begin
@@ -112,6 +122,7 @@ describe RightScale::ExecutableSequence do
         attachment.should_receive(:url).at_least.once.and_return("file://#{@attachment_file}")
         @script.should_receive(:attachments).at_least.once.and_return([ attachment ])
         @auditor.should_receive(:append_error).never
+        @mock_cook.should_receive(:acquire_thread).once.and_return(true)
         run_sequence.should be_true
       ensure
         @sequence = nil
@@ -153,6 +164,52 @@ describe RightScale::ExecutableSequence do
       run_sequence.should be_false
       @sequence.failure_title.should_not be_nil
       @sequence.failure_message.should_not be_nil
+    end
+
+    it 'should retry if ohai is not ready' do
+      begin
+        @script.should_receive(:packages).and_return(nil)
+        @script.should_receive(:source).and_return(format_script_text(0))
+        @sequence = RightScale::ExecutableSequence.new(@bundle)
+        flexmock(@sequence).should_receive(:install_packages).and_return(true)
+        @script.should_receive(:attachments).at_least.once.and_return([])
+        @auditor.should_receive(:append_error).never
+        @mock_cook.should_receive(:acquire_thread).once.and_return(true)
+
+        # force check_ohai to retry.
+        mock_ohai = nil
+        flexmock(@sequence).should_receive(:create_ohai).twice.and_return do
+          if mock_ohai
+            mock_ohai[:hostname] = 'hostname'
+          else
+            mock_ohai = {}
+          end
+          mock_ohai
+        end
+        run_sequence.should be_true
+        mock_ohai.should == { :hostname => 'hostname' }
+      ensure
+        @sequence = nil
+      end
+    end
+
+    it 'should retry if thread is already locked first attempt' do
+      begin
+        @script.should_receive(:packages).and_return(nil)
+        @script.should_receive(:source).and_return(format_script_text(0))
+        @sequence = RightScale::ExecutableSequence.new(@bundle)
+        flexmock(@sequence).should_receive(:install_packages).and_return(true)
+        @script.should_receive(:attachments).at_least.once.and_return([])
+        @auditor.should_receive(:append_error).never
+
+        # force acquire_thread to retry.
+        acquire_thread_counter = 0
+        @mock_cook.should_receive(:acquire_thread).twice.and_return { 2 == acquire_thread_counter += 1 }
+        run_sequence.should be_true
+        acquire_thread_counter.should == 2
+      ensure
+        @sequence = nil
+      end
     end
 
   end

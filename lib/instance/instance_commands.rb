@@ -59,7 +59,8 @@ module RightScale
       :close_connection         => 'Close persistent connection (used for auditing)',
       :stats                    => 'Get statistics about instance agent operation',
       :get_shutdown_request     => 'Gets the requested reboot state.',
-      :set_shutdown_request     => 'Sets the requested reboot state.'
+      :set_shutdown_request     => 'Sets the requested reboot state.',
+      :acquire_thread           => 'Acquires a named thread for concurrent execution'
     }
 
     # Build hash of commands associating command names with block
@@ -547,6 +548,25 @@ module RightScale
       CommandIO.instance.reply(opts[:conn], { :level => shutdown_request.level, :immediately => shutdown_request.immediately? })
     rescue Exception => e
       CommandIO.instance.reply(opts[:conn], { :error => e.message })
+    end
+
+    # Attempts to acquire exclusive access to the named thread.
+    #
+    # === Parameters
+    # opts[:conn](EM::Connection):: Connection used to send reply
+    # opts[:thread_name](String):: name of thread to acquire
+    #
+    # === Return
+    # true:: Always return true
+    def acquire_thread_command(opts)
+      result = OperationResult.success  # TODO not yet implemented
+      reply = @serializer.dump(result)
+      CommandIO.instance.reply(opts[:conn], reply)
+      true
+    rescue Exception => e
+puts Log.format("acquire_thread_command failed", e, :trace)
+      Log.error(Log.format("acquire_thread_command failed", e, :trace))
+      CommandIO.instance.reply(opts[:conn], e.message)
     end
 
   end # InstanceCommands

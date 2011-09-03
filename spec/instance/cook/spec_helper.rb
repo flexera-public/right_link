@@ -27,12 +27,14 @@ require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', '..', 
 module RightScale
   class MockCook
 
-    def initialize(locks)
-      @locks = locks
+    attr_accessor :mock_attributes
+
+    def initialize
+      @mock_attributes = {:thread_name => ::RightScale::Cook::DEFAULT_THREAD_NAME}
     end
 
-    def has_default_lock?
-      @locks.include?(:default)
+    def has_default_thread?
+      ::RightScale::Cook::DEFAULT_THREAD_NAME == @mock_attributes[:thread_name]
     end
 
   end
@@ -40,8 +42,7 @@ end
 
 shared_examples_for 'mocks cook' do
   before(:each) do
-    @mock_cook_locks = [:default]
-    @mock_cook = ::RightScale::MockCook.new(@mock_cook_locks)
+    @mock_cook = flexmock(::RightScale::MockCook.new)
     flexmock(::RightScale::Cook).should_receive(:instance).and_return(@mock_cook)
   end
 end

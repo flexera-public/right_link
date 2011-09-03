@@ -109,4 +109,21 @@ describe RightScale::InstanceCommands do
 
   end
 
+  describe "acquire_thread command" do
+
+    before(:each) do
+      @commands = RightScale::InstanceCommands.new(@agent_identity, @scheduler, @agent_manager)
+    end
+
+    it 'should acquire thread' do
+      options = {:thread_name => 'some thread'}  # TODO implement locking
+      payload = options.merge(:agent_identity => @agent_identity)
+      mock_connection = flexmock(Object.new)
+      mock_connection.should_receive(:send_data).and_return(true)
+      mock_connection.should_receive(:close_connection_after_writing).and_return(true)
+      @commands.send(:acquire_thread_command, {:conn => mock_connection, :options => options}).should be_true
+    end
+
+  end
+
 end
