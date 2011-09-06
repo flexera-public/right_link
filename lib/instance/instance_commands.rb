@@ -564,7 +564,6 @@ module RightScale
       CommandIO.instance.reply(opts[:conn], reply)
       true
     rescue Exception => e
-puts Log.format("acquire_thread_command failed", e, :trace)
       Log.error(Log.format("acquire_thread_command failed", e, :trace))
       CommandIO.instance.reply(opts[:conn], e.message)
     end

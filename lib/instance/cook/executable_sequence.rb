@@ -558,7 +558,6 @@ module RightScale
           Log.info("Shutdown requested by script: #{shutdown_request}")
         end
       rescue Exception => e
-puts "#{e.class}: #{e.message}", e.backtrace.join("\n")
         report_failure('Chef converge failed', chef_error(e))
         Log.debug(Log.format("Chef converge failed", e, :trace))
       ensure
