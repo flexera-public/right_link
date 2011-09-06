@@ -50,7 +50,6 @@ describe RightScale::ExecutableSequenceProxy do
       EM.defer do
         begin
           block.call
-          EM.stop
         rescue Exception => e
           last_exception = e
           EM.stop
@@ -83,7 +82,7 @@ describe RightScale::ExecutableSequenceProxy do
       o[:target].send(o[:exit_handler], status)
     end
     @proxy.instance_variable_get(:@deferred_status).should == nil
-    run_em_test { @proxy.run }
+    run_em_test { @proxy.run; EM.next_tick { EM.stop } }
     @proxy.instance_variable_get(:@deferred_status).should == :succeeded
   end
 
@@ -91,11 +90,11 @@ describe RightScale::ExecutableSequenceProxy do
     status = flexmock('status', :success? => true)
     cmd = nil
     flexmock(RightScale).should_receive(:popen3).and_return do |o|
-      cmd = o[:command] 
+      cmd = o[:command]
       o[:target].instance_variable_set(:@audit_closed, true)
       o[:target].send(o[:exit_handler], status)
     end
-    run_em_test { @proxy.run }
+    run_em_test { @proxy.run; EM.next_tick { EM.stop } }
 
     # note that normalize_path makes it tricky to guess at full command string
     # so it is best to rely on config constants.
@@ -111,19 +110,20 @@ describe RightScale::ExecutableSequenceProxy do
 
   it 'should report failures when cook fails' do
     status = flexmock('status', :success? => false, :exitstatus => 1)
-    flexmock(RightScale).should_receive(:popen3).and_return do |o| 
+    flexmock(RightScale).should_receive(:popen3).and_return do |o|
       o[:target].instance_variable_set(:@audit_closed, true)
       o[:target].send(o[:exit_handler], status)
     end
     @audit.should_receive(:append_error).twice
     @proxy.instance_variable_get(:@deferred_status).should == nil
-    run_em_test { @proxy.run }
+    run_em_test { @proxy.run; EM.next_tick { EM.stop } }
     @proxy.instance_variable_get(:@deferred_status).should == :failed
   end
 
   context 'when running popen3' do
 
     it 'should call the cook utility' do
+
       mock_output = File.join(File.dirname(__FILE__), 'cook_mock_output')
       File.delete(mock_output) if File.exists?(mock_output)
       flexmock(@proxy).instance_variable_set(:@audit_closed, true)
