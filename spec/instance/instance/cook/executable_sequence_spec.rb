@@ -101,6 +101,9 @@ module RightScale
     end
 
     context 'with a cookbook specified' do
+
+      it_should_behave_like 'mocks cook'
+
       before(:each) do
         flexmock(ReposeDownloader).should_receive(:discover_repose_servers).with([SERVER]).once
         @auditor.should_receive(:create_new_section).with("Retrieving cookbooks").once

@@ -26,6 +26,8 @@ describe RightScale::ExecutableSequenceProxy do
 
   include RightScale::SpecHelper
 
+  it_should_behave_like 'mocks cook'
+
   before(:each) do
     setup_state
     @audit = flexmock('audit')
@@ -40,6 +42,40 @@ describe RightScale::ExecutableSequenceProxy do
     cleanup_state
   end
 
+  def run_em_test(&block)
+    last_exception = nil
+    EM.threadpool_size = 1
+    EM.run do
+      EM.add_timer(5) { EM.stop; raise 'Timeout' }
+      EM.defer do
+        begin
+          block.call
+          EM.stop
+        rescue Exception => e
+          last_exception = e
+          EM.stop
+        end
+      end
+    end
+
+    # reraise with full backtrace for debugging purposes. this assumes the
+    # exception class accepts a single string on construction.
+    if last_exception
+      message = "#{last_exception.message}\n#{last_exception.backtrace.join("\n")}"
+      if last_exception.class == ArgumentError
+        raise ArgumentError, message
+      else
+        begin
+          raise last_exception.class, message
+        rescue ArgumentError
+          # exception class does not support single string construction.
+          message = "#{last_exception.class}: #{message}"
+          raise message
+        end
+      end
+    end
+  end
+
   it 'should run a valid command' do
     status = flexmock('status', :success? => true)
     flexmock(RightScale).should_receive(:popen3).and_return do |o|
@@ -47,14 +83,7 @@ describe RightScale::ExecutableSequenceProxy do
       o[:target].send(o[:exit_handler], status)
     end
     @proxy.instance_variable_get(:@deferred_status).should == nil
-    EM.run do
-      EM.defer do
-        @proxy.run
-        EM.next_tick do
-          EM.stop
-        end
-      end
-    end
+    run_em_test { @proxy.run }
     @proxy.instance_variable_get(:@deferred_status).should == :succeeded
   end
 
@@ -66,14 +95,7 @@ describe RightScale::ExecutableSequenceProxy do
       o[:target].instance_variable_set(:@audit_closed, true)
       o[:target].send(o[:exit_handler], status)
     end
-    EM.run do
-      EM.defer do
-        @proxy.run
-        EM.next_tick do
-          EM.stop
-        end
-      end
-    end
+    run_em_test { @proxy.run }
 
     # note that normalize_path makes it tricky to guess at full command string
     # so it is best to rely on config constants.
@@ -95,14 +117,7 @@ describe RightScale::ExecutableSequenceProxy do
     end
     @audit.should_receive(:append_error).twice
     @proxy.instance_variable_get(:@deferred_status).should == nil
-    EM.run do
-      EM.defer do
-        @proxy.run
-        EM.next_tick do
-          EM.stop
-        end
-      end
-    end
+    run_em_test { @proxy.run }
     @proxy.instance_variable_get(:@deferred_status).should == :failed
   end
 
@@ -115,10 +130,7 @@ describe RightScale::ExecutableSequenceProxy do
       flexmock(@proxy).should_receive(:cook_path).and_return(File.join(File.dirname(__FILE__), 'cook_mock.rb'))
       flexmock(@proxy).should_receive(:succeed).and_return { |*args| EM.stop }
       flexmock(@proxy).should_receive(:report_failure).and_return { |*args| puts args.inspect; EM.stop }
-      EM.run do
-        EM.add_timer(5) { EM.stop; raise 'Timeout' }
-        EM.defer { @proxy.run }
-      end
+      run_em_test { @proxy.run }
       begin
         output = File.read(mock_output)
         output.should == "#{JSON.dump(@context.payload)}\n"

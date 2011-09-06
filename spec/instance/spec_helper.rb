@@ -22,3 +22,30 @@
 
 require File.expand_path(File.join(File.dirname(__FILE__), '..', 'spec_helper'))
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'lib', 'instance'))
+
+shared_examples_for 'mocks cook' do
+
+  module RightScale
+    class MockCook
+
+      attr_accessor :mock_attributes
+
+      def initialize
+        @mock_attributes = {:thread_name => ::RightScale::Cook::DEFAULT_THREAD_NAME}
+      end
+
+      def has_default_thread?
+        ::RightScale::Cook::DEFAULT_THREAD_NAME == @mock_attributes[:thread_name]
+      end
+
+    end
+  end
+
+  require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'lib', 'instance', 'cook'))
+
+  before(:each) do
+    @mock_cook = flexmock(::RightScale::MockCook.new)
+    flexmock(::RightScale::Cook).should_receive(:instance).and_return(@mock_cook)
+  end
+
+end  # 'mocks cook'
