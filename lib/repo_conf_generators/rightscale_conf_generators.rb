@@ -57,6 +57,7 @@ module Yum
 
       ############## INTERNAL FUNCTIONS #######################################################
       def self.abstract_generate(params)
+        return unless Yum::CentOS::is_this_centos?
 
         epel_version = get_enterprise_linux_version
         puts "found EPEL version: #{epel_version}"
@@ -89,6 +90,10 @@ END
         File.open(target_filename,'w') { |f| f.write(config_body) }
         puts "Yum config file for Epel successfully generated in #{target_filename}"
         mirror_list
+      end
+
+      def self.is_this_centos?
+        return ::RightScale::Platform.linux? && ::RightScale::Platform.centos?
       end
 
       # Return the enterprise linux version of the running machine...or an exception if it's a non-enterprise version of linux.

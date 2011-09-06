@@ -39,7 +39,7 @@ begin
   options[:user_metadata] = {:metadata_tree_climber => {:create_leaf_override => lambda { |_, value| value }}}
 
   # log to the ohai log
-  options[:logger] = Ohai::Log
+  options[:logger] = ::RightScale::Log
 
   # create the cloud instance
   cloud_instance = RightScale::CloudFactory.instance.create(RightScale::CloudFactory::UNKNOWN_CLOUD_NAME, options)
@@ -64,11 +64,11 @@ begin
   named_cloud_node.update(cloud_instance.update_details)
 
   # expecting public/private IPs to come from all clouds.
-  cloud[:public_ips] = [ named_cloud_node[:"public-ipv4"] || named_cloud_node[:public_ip] ]
-  cloud[:private_ips] = [ named_cloud_node[:"local-ipv4"] || named_cloud_node[:private_ip] ]
+  cloud[:public_ips]  = [ named_cloud_node[:"public-ipv4"] || named_cloud_node[:"public_ipv4"] || named_cloud_node[:public_ip] ]
+  cloud[:private_ips] = [ named_cloud_node[:"local-ipv4"] || named_cloud_node[:"local_ipv4"] || named_cloud_node[:private_ip] ]
 
 rescue Exception => e
   # cloud was unresolvable, but not all ohai use cases are cloud instances.
-  Ohai::Log.debug(RightScale::Log.format("Cloud was unresolvable", e, :trace))
+  ::RightScale::Log.info(::RightScale::Log.format("Cloud was unresolvable", e, :trace))
   cloud nil
 end

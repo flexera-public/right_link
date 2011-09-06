@@ -50,6 +50,16 @@ EOF
     (FileUtils.rm_rf(RightScaleTestPluginSpec::TEST_TEMP_PATH) rescue nil) if File.directory?(RightScaleTestPluginSpec::TEST_TEMP_PATH)
   end
 
+  # skip the 'cloud' plugin to prevent querying of http metadata during tests
+  before(:each) do
+    @original_plugins = Ohai::System::EXCLUDED_OHAI_PLUGINS
+    Ohai::System::EXCLUDED_OHAI_PLUGINS << "cloud"
+  end
+
+  after(:each) do
+    Ohai::System::EXCLUDED_OHAI_PLUGINS = @original_plugins
+  end
+
   it_should_behave_like 'generates cookbook for chef runner'
   it_should_behave_like 'mocks logging'
 
@@ -59,6 +69,9 @@ EOF
               RightScaleTestPluginSpec::TEST_COOKBOOKS_PATH,
               'test::echo_test_node_recipe') }
     runner.call.should be_true
+
+    puts @logger.error_text
+
 
     @logger.error_text.should be_empty
     @logger.info_text.should include("test node value = abc")

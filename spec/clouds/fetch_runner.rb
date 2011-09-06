@@ -80,7 +80,7 @@ module RightScale
       # === Returns
       # metadata_path(String):: request path or empty for root or nil
       def get_metadata_request_path(metadata_path)
-         return "/" + metadata_path.join("/")
+        return "/" + metadata_path.join("/")
       end
 
       # Generates the correct response from the given metadata.
@@ -112,6 +112,7 @@ module RightScale
       @log_file_name = nil
       @log_file = nil
       @logger = nil
+      @log_content = nil
     end
 
     attr_accessor :logger
@@ -122,15 +123,22 @@ module RightScale
     end
 
     # Setup log for test.
-    def setup_log
-      unless defined?(@@log_file_base_name)
-        @@log_file_base_name = File.normalize_path(File.join(Dir.tmpdir, "#{File.basename(__FILE__, '.rb')}_#{Time.now.strftime("%Y-%m-%d-%H%M%S")}"))
-        @@log_file_index = 0
+    def setup_log(type=:memory)
+      case type
+        when :memory
+          @log_content = StringIO.new
+          @logger = Logger.new(@log_content)
+        else
+          unless defined?(@@log_file_base_name)
+            @@log_file_base_name = File.normalize_path(File.join(Dir.tmpdir, "#{File.basename(__FILE__, '.rb')}_#{Time.now.strftime("%Y-%m-%d-%H%M%S")}"))
+            @@log_file_index = 0
+          end
+          @@log_file_index += 1
+          @log_file_name = "#{@@log_file_base_name}_#{@@log_file_index}.log"
+          @log_file = File.open(@log_file_name, 'w')
+          @logger = Logger.new(@log_file)
       end
-      @@log_file_index += 1
-      @log_file_name = "#{@@log_file_base_name}_#{@@log_file_index}.log"
-      @log_file = File.open(@log_file_name, 'w')
-      @logger = Logger.new(@log_file)
+
       @logger.level = is_debug? ? Logger::DEBUG : Logger::INFO
       return @logger
     end
@@ -144,7 +152,7 @@ module RightScale
         if ENV['RS_LOG_KEEP']
           puts "Log saved to \"#{@log_file_name}\""
         else
-          FileUtils.rm_f(@log_file_name)
+          FileUtils.rm_f(@log_file_name) unless @log_file_name.nil?
         end
         @log_file_name = nil
       end

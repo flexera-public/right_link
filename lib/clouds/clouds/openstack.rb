@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2009-2011 RightScale Inc
+# Copyright (c) 2011 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -20,5 +20,11 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-provides "block_device2"
-block_device ::RightScale::LinuxBlockDevice.info
+# set abbreviation for env var generation to be same as ec2 for scripters.
+abbreviation :ec2
+
+# override metadasta soures.  Using only HTTP source
+metadata_source 'metadata_sources/http_metadata_source'
+
+# extend EC2 cloud definition.
+extend_cloud :ec2

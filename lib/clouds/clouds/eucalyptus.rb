@@ -28,8 +28,13 @@ EUCA_PORT = 8773
 # set abbreviation for env var generation to be same as ec2 for scripters.
 abbreviation :ec2
 
-# extend EC2 cloud definition. preserve any initial hosts option.
+# preserve any initial hosts option.
 initial_hosts = option('metadata_source/hosts')
+
+# override metadasta soures.  Using only HTTP source
+metadata_source 'metadata_sources/http_metadata_source'
+
+# extend EC2 cloud definition.
 extend_cloud :ec2
 
 # defaults.

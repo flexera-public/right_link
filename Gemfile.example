@@ -25,9 +25,9 @@ gem "right_http_connection", "1.3.0"
 gem "highline",              "1.6.1"
 gem "uuidtools",             "2.1.2"
 gem "mime-types",            "1.16"
-gem "rest-client",           "1.6.1"
+gem "rest-client",           "1.6.3"
 gem 'right_support',         "0.9.4"
-gem 'right_agent',           "0.4.1"
+gem 'right_agent',           "0.4.7"
 
 group :linux do
   gem "json",                "1.4.6"
@@ -44,7 +44,7 @@ end
 group :windows do
   gem "json",                "1.4.6"
   gem "eventmachine",        "0.12.10"
-  gem "right_popen",         "1.0.11"
+  gem "right_popen",         "1.0.15"
   gem "msgpack",             "0.4.4"
   gem "win32-api",           "1.4.5"
   gem "windows-api",         "0.4.0"
