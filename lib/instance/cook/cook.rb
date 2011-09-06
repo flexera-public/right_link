@@ -251,13 +251,15 @@ module RightScale
 
     # Report inputs patch to core
     def send_inputs_patch(sequence)
-      begin
-        cmd = { :name => :set_inputs_patch, :patch => sequence.inputs_patch }
-        @client.send_command(cmd)
-      rescue Exception => e
-        fail('Failed to update inputs', Log.format("Failed to apply inputs patch after execution", e, :trace))
-      ensure
-        stop
+      if has_default_thread?
+        begin
+          cmd = { :name => :set_inputs_patch, :patch => sequence.inputs_patch }
+          @client.send_command(cmd)
+        rescue Exception => e
+          fail('Failed to update inputs', Log.format("Failed to apply inputs patch after execution", e, :trace))
+        ensure
+          stop
+        end
       end
       true
     end

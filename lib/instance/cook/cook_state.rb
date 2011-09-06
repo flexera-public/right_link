@@ -243,18 +243,19 @@ module RightScale
     # === Return
     # true:: Always return true
     def self.save_state
-      # start will al state to be saved
-      state_to_save = {'startup_tags' => startup_tags,
-                       'reboot' => reboot?,
-                       'log_level' => log_level}
+      if Cook.instance.has_default_thread?
+        # start will al state to be saved
+        state_to_save = {'startup_tags' => startup_tags,
+                         'reboot' => reboot?,
+                         'log_level' => log_level}
 
-      # only save persist the fact we downloaded cookbooks if we are in dev mode
-      if download_once?
-        state_to_save['has_downloaded_cookbooks'] = has_downloaded_cookbooks?
+        # only save persist the fact we downloaded cookbooks if we are in dev mode
+        if download_once?
+          state_to_save['has_downloaded_cookbooks'] = has_downloaded_cookbooks?
+        end
+
+        RightScale::JsonUtilities::write_json(RightScale::CookState::STATE_FILE, state_to_save)
       end
-
-      RightScale::JsonUtilities::write_json(RightScale::CookState::STATE_FILE, state_to_save)
-
       true
     end
   end
