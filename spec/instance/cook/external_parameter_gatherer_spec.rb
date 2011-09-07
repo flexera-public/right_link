@@ -98,14 +98,14 @@ module RightScale
             payload = {:ticket=>'open sesame', :namespace=>'777', :names=>[ (123+j).to_s ]}
             data = @serializer.dump(OperationResult.success([ secure_document(j) ]))
             flexmock(@gatherer).should_receive(:send_idempotent_request).
-              with('/vault/read_document', payload, Proc).and_yield(data)
+              with('/vault/read_documents', payload, Proc).and_yield(data)
           end
 
           [2].each do |j|
             payload = {:ticket=>'open sesame', :namespace=>'777', :names=>[ (123+j).to_s ]}
             data = @serializer.dump(OperationResult.error('too many cows on the moon'))
             flexmock(@gatherer).should_receive(:send_idempotent_request).
-              with('/vault/read_document', payload, Proc).and_yield(data)
+              with('/vault/read_documents', payload, Proc).and_yield(data)
           end
 
           result = run(@gatherer)
@@ -131,14 +131,14 @@ module RightScale
             payload = {:ticket=>'open sesame', :namespace=>'777', :names=>[ (123+j).to_s ]}
             data = @serializer.dump(OperationResult.success([ secure_document(j) ]))
             flexmock(@gatherer).should_receive(:send_idempotent_request).
-              with('/vault/read_document', payload, Proc).and_yield(data)
+              with('/vault/read_documents', payload, Proc).and_yield(data)
           end
 
           [2].each do |j|
             payload = {:ticket=>'open sesame', :namespace=>'777', :names=>[ (123+j).to_s ]}
             data = @serializer.dump(OperationResult.error('too many cows on the moon'))
             flexmock(@gatherer).should_receive(:send_idempotent_request).
-              with('/vault/read_document', payload, Proc).and_yield(data)
+              with('/vault/read_documents', payload, Proc).and_yield(data)
           end
 
           result = run(@gatherer)
@@ -172,7 +172,7 @@ module RightScale
             payload = {:ticket=>'open sesame', :namespace=>'777', :names=>[ (123+j).to_s ]}
             data = @serializer.dump(OperationResult.success([ secure_document(j) ]))
             flexmock(@gatherer).should_receive(:send_idempotent_request).
-              with('/vault/read_document', payload, Proc).and_yield(data).twice
+              with('/vault/read_documents', payload, Proc).and_yield(data).twice
           end
 
           result = run(@gatherer)
