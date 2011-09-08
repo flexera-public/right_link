@@ -31,6 +31,4 @@ $:.push(File.join(File.dirname(THIS_FILE), '..', 'scripts'))
 require 'rubygems'
 require 'log_level_manager'
 
-m = RightScale::LogLevelManager.new
-opts = m.parse_args
-m.run(opts)
+RightScale::RightLinkLogLevelManager::run

@@ -29,6 +29,15 @@ module RightScale
 
   class RightLinkLogLevelManager < LogLevelManager
 
+    # Convenience wrapper for creating and running log level manager
+    #
+    # === Return
+    # true:: Always return true
+    def self.run
+      m = RightLinkLogLevelManager.new
+      m.manage(m.parse_args)
+    end
+
     # Create options hash from command line arguments
     #
     # === Return
