@@ -300,7 +300,7 @@ module RightScale
     #
     # === Return
     # response(String):: raw response
-    def blocking_request
+    def blocking_request(cmd)
       # use a queue to block and wait for response.
       response_queue = Queue.new
       @client.send_command(cmd) { |response| response_queue << response }
