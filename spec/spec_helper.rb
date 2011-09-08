@@ -170,6 +170,58 @@ module RightScale
       [ Certificate.new(key, dn, dn), key ]
     end
 
+    # Runs the given block in an EM loop with exception handling to ensure
+    # deferred code is rescued and printed to console properly on error.
+    #
+    # === Parameters
+    # options[:defer](Fixnum):: true to defer (default), false to run once EM starts
+    # options[:timeout](Fixnum):: timeout in seconds or 5
+    #
+    # === Block
+    # block to call for test
+    #
+    # === Return
+    # always true
+    def run_em_test(options = {:defer => true, :timeout => 5})
+      defer = options[:defer]
+      timeout = options[:timeout]
+      last_exception = nil
+      EM.threadpool_size = 1
+      tester = lambda do
+        begin
+          yield
+        rescue Exception => e
+          last_exception = e
+          EM.stop
+        end
+      end
+      EM.run do
+        EM.add_timer(timeout) { EM.stop; raise 'timeout' }
+        if defer
+          EM.defer(&tester)
+        else
+          tester.call
+        end
+      end
+
+      # reraise with full backtrace for debugging purposes. this assumes the
+      # exception class accepts a single string on construction.
+      if last_exception
+        message = "#{last_exception.message}\n#{last_exception.backtrace.join("\n")}"
+        if last_exception.class == ArgumentError
+          raise ArgumentError, message
+        else
+          begin
+            raise last_exception.class, message
+          rescue ArgumentError
+            # exception class does not support single string construction.
+            message = "#{last_exception.class}: #{message}"
+            raise message
+          end
+        end
+      end
+    end
+
   end # SpecHelper
 
 end # RightScale

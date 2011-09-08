@@ -199,27 +199,35 @@ describe InstanceScheduler do
       @identity = "rs-instance-1-1"
       @agent = RightScale::Agent.new({:identity => @identity})
       @bundles_queue = flexmock('bundles_queue')
-      flexmock(InstanceScheduler).should_receive(:create_bundles_queue).once.and_return(@bundles_queue)
+      @bundles_queue.should_receive(:activate).and_return { EM.stop; true }
+      flexmock(::InstanceScheduler).should_receive(:create_bundles_queue).once.and_return(@bundles_queue)
+      flexmock(::RightScale::InstanceState).should_receive(:observe).and_return { EM.stop; true }
       @scheduler = InstanceScheduler.new(@agent)
     end
 
     it 'should allow only default thread access while booting' do
       flexmock(::RightScale::InstanceState).should_receive(:value).and_return('booting')
-      @scheduler.acquire_thread(::RightScale::ExecutableBundle::DEFAULT_THREAD_NAME, 123).should be_true
-      lambda { @scheduler.acquire_thread('some thread', 123) }.should raise_exception(ThreadError)
+      run_em_test do
+        @scheduler.acquire_thread(::RightScale::ExecutableBundle::DEFAULT_THREAD_NAME, 123).should be_true
+        lambda { @scheduler.acquire_thread('some thread', 123) }.should raise_exception(ThreadError)
+      end
     end
 
     it 'should allow only default thread access while decommissioning' do
       flexmock(::RightScale::InstanceState).should_receive(:value).and_return('decommissioning')
-      @scheduler.acquire_thread(::RightScale::ExecutableBundle::DEFAULT_THREAD_NAME, 123).should be_true
-      lambda { @scheduler.acquire_thread('some thread', 123) }.should raise_exception(ThreadError)
+      run_em_test do
+        @scheduler.acquire_thread(::RightScale::ExecutableBundle::DEFAULT_THREAD_NAME, 123).should be_true
+        lambda { @scheduler.acquire_thread('some thread', 123) }.should raise_exception(ThreadError)
+      end
     end
 
     it 'should allow concurrent thread access while operational' do
       flexmock(::RightScale::InstanceState).should_receive(:value).and_return('operational')
       @bundles_queue.should_receive(:acquire_thread).twice.and_return(true)
-      @scheduler.acquire_thread(::RightScale::ExecutableBundle::DEFAULT_THREAD_NAME, 123).should be_true
-      @scheduler.acquire_thread('some thread', 234).should be_true
+      run_em_test do
+        @scheduler.acquire_thread(::RightScale::ExecutableBundle::DEFAULT_THREAD_NAME, 123).should be_true
+        @scheduler.acquire_thread('some thread', 234).should be_true
+      end
     end
 
   end  # thread access

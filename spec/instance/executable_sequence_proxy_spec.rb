@@ -45,39 +45,6 @@ describe RightScale::ExecutableSequenceProxy do
     cleanup_state
   end
 
-  def run_em_test(&block)
-    last_exception = nil
-    EM.threadpool_size = 1
-    EM.run do
-      EM.add_timer(5) { EM.stop; raise 'Timeout' }
-      EM.defer do
-        begin
-          block.call
-        rescue Exception => e
-          last_exception = e
-          EM.stop
-        end
-      end
-    end
-
-    # reraise with full backtrace for debugging purposes. this assumes the
-    # exception class accepts a single string on construction.
-    if last_exception
-      message = "#{last_exception.message}\n#{last_exception.backtrace.join("\n")}"
-      if last_exception.class == ArgumentError
-        raise ArgumentError, message
-      else
-        begin
-          raise last_exception.class, message
-        rescue ArgumentError
-          # exception class does not support single string construction.
-          message = "#{last_exception.class}: #{message}"
-          raise message
-        end
-      end
-    end
-  end
-
   it 'should run a valid command' do
     status = flexmock('status', :success? => true)
     flexmock(RightScale).should_receive(:popen3).and_return do |o|
