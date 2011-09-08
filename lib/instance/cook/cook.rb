@@ -33,11 +33,7 @@ module RightScale
     # Name of agent running the cook process
     AGENT_NAME = 'instance'
 
-    # Default thread name when no thread is specified for an execution bundle.
-    DEFAULT_THREAD_NAME = 'default'
-
     # exceptions
-    class ThreadError < Exception; end
     class TagError < Exception; end
 
     # Run bundle given in stdin
@@ -48,7 +44,7 @@ module RightScale
       bundle = nil
       fail('Missing bundle', 'No bundle to run') if input.blank?
       bundle = load(input, 'Invalid bundle', :json)
-      @thread_name = self.thread_name_from_bundle(bundle)
+      @thread_name = bundle.thread_name
 
       # 2. Load configuration settings
       options = OptionsBag.load
@@ -92,7 +88,7 @@ module RightScale
     # Determines if the current cook process has the default thread for purposes
     # of concurrency with non-defaulted cooks.
     def has_default_thread?
-      DEFAULT_THREAD_NAME == @thread_name
+      ::RightScale::ExecutableBundle::DEFAULT_THREAD_NAME == @thread_name
     end
 
     # Request to acquire the thread associated with the current cook process.
@@ -100,7 +96,7 @@ module RightScale
     # === Return
     # result(Boolean):: true if thread was acquired, false to retry later
     def acquire_thread
-      cmd = { :name => :acquire_thread, :thread_name => @thread_name }
+      cmd = { :name => :acquire_thread, :thread_name => @thread_name, :pid => Process.pid }
       response = blocking_request(cmd)
       begin
         result = OperationResult.from_results(load(response, "Unexpected response #{response.inspect}"))
@@ -309,18 +305,6 @@ module RightScale
       response_queue = Queue.new
       @client.send_command(cmd) { |response| response_queue << response }
       return response_queue.shift
-    end
-
-    # Gets the thread name from a bundle, if any. Uses the default thread name for
-    # when a thread name is not specified (for backward compatibility, etc.).
-    #
-    # === Parameters
-    # bundle(ExecutableBundle):: bundle to inspect
-    #
-    # === Return
-    # thread_name(String):: thread name for bundle execution
-    def self.thread_name_from_bundle(bundle)
-      return bundle.thread_name || DEFAULT_THREAD_NAME
     end
 
   end

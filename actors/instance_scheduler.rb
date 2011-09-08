@@ -27,10 +27,6 @@ class InstanceScheduler
 
   expose :schedule_bundle, :execute, :schedule_decommission
 
-  # (RightScale::ExecutableSequenceProxy) Executable sequence proxy accessed
-  # via command protocol from Cook process
-  attr_reader :sequence
-
   SHUTDOWN_DELAY = 180 # Number of seconds to wait for decommission scripts to finish before forcing shutdown
 
   # Setup signal traps for running decommission scripts
@@ -41,10 +37,13 @@ class InstanceScheduler
   def initialize(agent)
     @agent = agent
     @agent_identity = agent.identity
-    @bundles_queue  = RightScale::BundlesQueue.new do
+
+    # invoke the bundles queue factory method as an assist to testing.
+    @bundles_queue = self.class.create_bundles_queue do
       RightScale::InstanceState.value = 'decommissioned'
       @post_decommission_callback.call
     end
+
     # Wait until instance setup actor has initialized the instance state
     # We need to wait until after the InstanceSetup actor has run its
     # bundle in the Chef thread before we can use it
@@ -173,6 +172,30 @@ class InstanceScheduler
     success_result
   end
 
+  # Attempts to acquire the thread given by name for the given pid.
+  #
+  # === Parameters
+  # thread_name(String):: thread name
+  # pid(Fixnum):: cook process ID
+  #
+  # === Return
+  # result(Boolean):: true if acquired thread, false to retry
+  def acquire_thread(thread_name, pid)
+    # non-operational states only support the default thread and do not allow
+    # concurrent run lists.
+    case RightScale::InstanceState.value
+    when 'booting', 'decommissioning'
+      return true if ::RightScale::ExecutableBundle::DEFAULT_THREAD_NAME == thread_name
+    when 'operational'
+      # pass operational thread requests to bundles queue.
+      return @bundles_queue.acquire_thread(thread_name, pid)
+    end
+
+    # something went wrong in concurrency or else a bundle was sent with the
+    # wrong thread name for the current instance state.
+    raise ThreadError.new("Unexpected thread requested #{thread_name.inspect} for state #{RightScale::InstanceState.value.inspect}")
+  end
+
   # Schedule decommission and call given block back once decommission bundle has run
   # Note: Overrides existing post decommission callback if there was one
   # This is so that if the instance is being hard-terminated after soft-termination has started
@@ -213,4 +236,11 @@ class InstanceScheduler
     EM.next_tick { @agent.terminate }
   end
 
-end
+  protected
+
+  # Factory method for a new bundles queue.
+  def self.create_bundles_queue(&block)
+    return RightScale::BundlesQueue.new(&block)
+  end
+
+end  # InstanceScheduler

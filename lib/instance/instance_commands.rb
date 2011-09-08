@@ -559,7 +559,15 @@ module RightScale
     # === Return
     # true:: Always return true
     def acquire_thread_command(opts)
-      result = OperationResult.success  # TODO not yet implemented
+      result = nil
+      begin
+        raise ArgumentError.new("opts[:thread_name] is required") unless opts[:thread_name]
+        raise ArgumentError.new("opts[:pid] is required") unless opts[:pid]
+        acquired = @scheduler.acquire_thread(opts[:thread_name], opts[:pid])
+        result = acquired ? OperationResult.success : OperationResult.retry
+      rescue Exception => e
+        result = OperationResult.error('Failed to acquire thread', e, :no_trace)
+      end
       reply = @serializer.dump(result)
       CommandIO.instance.reply(opts[:conn], reply)
       true

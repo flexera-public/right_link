@@ -33,6 +33,7 @@ module RightScale
     # continuation block
     def initialize(&continuation)
       @queue = Queue.new
+      @thread_names_to_pids = {}
       @continuation = continuation
       @active = false
     end
@@ -81,12 +82,43 @@ module RightScale
         context.audit.update_status("Skipped bundle due to immediate shutdown: #{context.payload}")
         EM.defer { run }
       else
-        sequence = RightScale::ExecutableSequenceProxy.new(context)
-        sequence.callback { audit_status(context) }
-        sequence.errback  { audit_status(context) }
+        # provide callbacks to manage thread access.
+        # TODO implement concurrency
+        pid_callback = lambda do |sequence|
+          # map executable bundle thread names to an ordered array of PIDs
+          # (a priority queue) such that the first PID in the queue always gets
+          # access to the thread until it dies and is popped from the head.
+          (@thread_names_to_pids[sequence.thread_name] ||= []) << sequence.pid
+        end
+        sequence = RightScale::ExecutableSequenceProxy.new(context, :pid_callback => pid_callback )
+        sequence.callback { audit_status(sequence) }
+        sequence.errback  { audit_status(sequence) }
         sequence.run
       end
       true
+    rescue Exception => e
+      Log.error(Log.format("BundlesQueue.run failed", e, :trace))
+    end
+
+    # Attempts to acquire the thread given by name for the given pid.
+    #
+    # === Parameters
+    # thread_name(String):: thread name
+    # pid(Fixnum):: cook process ID
+    #
+    # === Return
+    # result(Boolean):: true if acquired thread, false to retry
+    def acquire_thread(thread_name, pid)
+      # check the priority queue and only grant the PID access if it is the
+      # first PID in its swim lane.
+      #
+      # note that it is possible (albeit extremely unlikely) for a child cook
+      # process to request access before it's PID has been recorded locally. in
+      # that case it would have to retry later.
+      if pids = @thread_names_to_pids[thread_name]
+        return pids.first == pid
+      end
+      return false
     end
 
     # Clear queue content
@@ -109,16 +141,27 @@ module RightScale
     # Audit executable sequence status after it ran
     #
     # === Parameters
-    # context(RightScale::OperationContext):: Context used by execution
+    # sequence(RightScale::ExecutableSequence):: finished sequence being audited
     #
     # === Return
     # true:: Always return true
-    def audit_status(context)
+    def audit_status(sequence)
+      # remove PID for finished cook process. note that it should always appear
+      # at the head of the queue but for sanity remove the PID wherever it
+      # appears in the list.
+      Log.debug("Removing cook #{sequence.pid} from thread #{sequence.thread_name.inspect} list = #{@thread_names_to_pids[sequence.thread_name].inspect}")
+      if pids = @thread_names_to_pids[sequence.thread_name]
+        pids.delete(sequence.pid)
+      end
+      context = sequence.context
       title = context.decommission ? 'decommission ' : ''
       title += context.succeeded ? 'completed' : 'failed'
       context.audit.update_status("#{title}: #{context.payload}")
-      EM.defer { run }
       true
+    rescue Exception => e
+      Log.error(Log.format("BundlesQueue.audit_status failed", e, :trace))
+    ensure
+      EM.defer { run }
     end
 
   end

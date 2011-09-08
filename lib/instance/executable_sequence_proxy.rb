@@ -36,15 +36,23 @@ module RightScale
     # (Hash) Inputs patch to be forwarded to core after each converge
     attr_accessor :inputs_patch
 
-    # Associated bundle
-    attr_reader :bundle
+    # (::RightScale::OperationContext) operation context containing bundle
+    attr_reader :context
+
+    # PID for created process or nil
+    attr_reader :pid
+
+    # Eexecution thread name or default.
+    attr_reader :thread_name
 
     # Initialize sequence
     #
     # === Parameter
     # context(RightScale::OperationContext):: Bundle to be run and associated audit
-    def initialize(context)
+    def initialize(context, options = {})
       @context = context
+      @thread_name = context.payload.respond_to?(:thread_name) ? context.payload.thread_name : ::RightScale::ExecutableBundle::DEFAULT_THREAD_NAME
+      @pid_callback = options[:pid_callback]
       AuditCookStub.instance.audit_proxy = context.audit
       AuditCookStub.instance.on_close { @audit_closed = true; check_done }
     end
@@ -84,6 +92,7 @@ module RightScale
                           :environment    => { OptionsBag::OPTIONS_ENV => ENV[OptionsBag::OPTIONS_ENV] },
                           :stdout_handler => :on_read_stdout,
                           :stderr_handler => :on_read_stderr,
+                          :pid_handler    => :on_pid,
                           :exit_handler   => :on_exit)
       end
     end
@@ -127,6 +136,12 @@ module RightScale
     # true:: Always return true
     def on_read_stderr(data)
       @context.audit.append_info(data)
+    end
+
+    # Receives the pid for the created process.
+    def on_pid(pid)
+      @pid = pid
+      @pid_callback.call(self) if @pid_callback
     end
 
     # Handle runner process exited event

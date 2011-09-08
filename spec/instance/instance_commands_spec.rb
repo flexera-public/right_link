@@ -29,7 +29,6 @@ describe RightScale::InstanceCommands do
     @commands = RightScale::InstanceCommands::COMMANDS
     @agent_identity = RightScale::AgentIdentity.new('rs', 'test', 1).to_s
     @scheduler = flexmock('Scheduler')
-    @scheduler.should_ignore_missing
     @agent_manager = flexmock('AgentManager')
   end
 
@@ -116,14 +115,47 @@ describe RightScale::InstanceCommands do
     end
 
     it 'should acquire thread' do
-      options = {:thread_name => 'some thread'}  # TODO implement locking
-      payload = options.merge(:agent_identity => @agent_identity)
-      mock_connection = flexmock(Object.new)
-      mock_connection.should_receive(:send_data).and_return(true)
-      mock_connection.should_receive(:close_connection_after_writing).and_return(true)
-      @commands.send(:acquire_thread_command, {:conn => mock_connection, :options => options}).should be_true
+      mock_connection = 42
+      flexmock(::RightScale::CommandIO.instance).should_receive(:reply).once.and_return do |conn, response|
+        conn.should == mock_connection
+        result = ::RightScale::OperationResult.from_results(::RightScale::Serializer.new.load(response))
+        result.success?.should be_true
+      end
+      thread_name = 'some thread'
+      pid = 123
+      @scheduler.should_receive(:acquire_thread).with(thread_name, pid).once.and_return(true)
+      options = {:conn => mock_connection, :thread_name => thread_name, :pid => pid}
+      @commands.send(:acquire_thread_command, options).should be_true
     end
 
-  end
+    it 'should respond with retry if thread cannot be acquired from scheduler' do
+      mock_connection = 42
+      flexmock(::RightScale::CommandIO.instance).should_receive(:reply).once.and_return do |conn, response|
+        conn.should == mock_connection
+        result = ::RightScale::OperationResult.from_results(::RightScale::Serializer.new.load(response))
+        result.retry?.should be_true
+      end
+      thread_name = 'some thread'
+      pid = 123
+      @scheduler.should_receive(:acquire_thread).with(thread_name, pid).once.and_return(false)
+      options = {:conn => mock_connection, :thread_name => thread_name, :pid => pid}
+      @commands.send(:acquire_thread_command, options).should be_true
+    end
 
-end
+    it 'should respond with error if thread request is rejected by scheduler' do
+      mock_connection = 42
+      flexmock(::RightScale::CommandIO.instance).should_receive(:reply).once.and_return do |conn, response|
+        conn.should == mock_connection
+        result = ::RightScale::OperationResult.from_results(::RightScale::Serializer.new.load(response))
+        result.error?.should be_true
+      end
+      thread_name = 'some thread'
+      pid = 123
+      @scheduler.should_receive(:acquire_thread).with(thread_name, pid).once.and_raise(ThreadError)
+      options = {:conn => mock_connection, :thread_name => thread_name, :pid => pid}
+      @commands.send(:acquire_thread_command, options).should be_true
+    end
+
+  end  # acquire_thread command
+
+end  # RightScale::InstanceCommands

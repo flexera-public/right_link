@@ -29,10 +29,13 @@ describe RightScale::BundlesQueue do
   before(:each) do
     @term = false
     @queue = RightScale::BundlesQueue.new { @term = true; EM.stop }
-    @context = flexmock('context', :audit => 42, :decommission => false)
+    @audit = flexmock('audit')
+    @bundle = flexmock('bundle', :thread_name => 'some thread name')
+    @bundle.should_receive(:to_json).and_return("[\"some json\"]")
+    @context = flexmock('context', :audit => @audit, :payload => @bundle, :decommission => false)
     flexmock(RightScale::ExecutableSequenceProxy).new_instances.should_receive(:run).and_return { @status = :run; EM.stop }
   end
- 
+
   it 'should default to non active' do
     @queue.push(@context)
     @status.should be_nil

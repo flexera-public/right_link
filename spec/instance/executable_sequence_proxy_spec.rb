@@ -31,11 +31,14 @@ describe RightScale::ExecutableSequenceProxy do
   before(:each) do
     setup_state
     @audit = flexmock('audit')
-    @context = flexmock('context', :audit => @audit, :payload => { :p => 'payload' })
+    @bundle = flexmock('bundle', :thread_name => 'some thread name')
+    @bundle.should_receive(:to_json).and_return("[\"some json\"]")
+    @context = flexmock('context', :audit => @audit, :payload => @bundle, :decommission => false)
     @context.should_receive(:succeeded=)
     @audit.should_receive(:update_status)
     flexmock(RightScale::AuditProxy).should_receive(:new).and_return(@audit)
-    @proxy = RightScale::ExecutableSequenceProxy.new(@context)
+    @pid = nil
+    @proxy = RightScale::ExecutableSequenceProxy.new(@context, :pid_callback => lambda { |sequence| @pid = sequence.pid })
   end
 
   after(:each) do
@@ -79,11 +82,15 @@ describe RightScale::ExecutableSequenceProxy do
     status = flexmock('status', :success? => true)
     flexmock(RightScale).should_receive(:popen3).and_return do |o|
       o[:target].instance_variable_set(:@audit_closed, true)
+      o[:target].send(o[:pid_handler], 123)
       o[:target].send(o[:exit_handler], status)
     end
     @proxy.instance_variable_get(:@deferred_status).should == nil
     run_em_test { @proxy.run; EM.next_tick { EM.stop } }
     @proxy.instance_variable_get(:@deferred_status).should == :succeeded
+    @proxy.thread_name.should == 'some thread name'
+    @proxy.pid.should == 123
+    @proxy.pid.should == @pid
   end
 
   it 'should find the cook utility' do
@@ -131,6 +138,8 @@ describe RightScale::ExecutableSequenceProxy do
       flexmock(@proxy).should_receive(:succeed).and_return { |*args| EM.stop }
       flexmock(@proxy).should_receive(:report_failure).and_return { |*args| puts args.inspect; EM.stop }
       run_em_test { @proxy.run }
+      @pid.should_not be_nil
+      @pid.should > 0
       begin
         output = File.read(mock_output)
         output.should == "#{JSON.dump(@context.payload)}\n"
