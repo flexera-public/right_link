@@ -30,7 +30,6 @@ module RightScale
     # monkey-patch delays for faster testing
     OHAI_RETRY_MIN_DELAY = 0.1
     OHAI_RETRY_MAX_DELAY = 1
-    RETRY_ACQUIRE_THREAD_DELAY_SECS = 0.1
   end
 end
 
@@ -122,7 +121,6 @@ describe RightScale::ExecutableSequence do
         attachment.should_receive(:url).at_least.once.and_return("file://#{@attachment_file}")
         @script.should_receive(:attachments).at_least.once.and_return([ attachment ])
         @auditor.should_receive(:append_error).never
-        @mock_cook.should_receive(:acquire_thread).once.and_return(true)
         run_sequence.should be_true
       ensure
         @sequence = nil
@@ -174,7 +172,6 @@ describe RightScale::ExecutableSequence do
         flexmock(@sequence).should_receive(:install_packages).and_return(true)
         @script.should_receive(:attachments).at_least.once.and_return([])
         @auditor.should_receive(:append_error).never
-        @mock_cook.should_receive(:acquire_thread).once.and_return(true)
 
         # force check_ohai to retry.
         mock_ohai = nil
@@ -188,25 +185,6 @@ describe RightScale::ExecutableSequence do
         end
         run_sequence.should be_true
         mock_ohai.should == { :hostname => 'hostname' }
-      ensure
-        @sequence = nil
-      end
-    end
-
-    it 'should retry if thread is already locked first attempt' do
-      begin
-        @script.should_receive(:packages).and_return(nil)
-        @script.should_receive(:source).and_return(format_script_text(0))
-        @sequence = RightScale::ExecutableSequence.new(@bundle)
-        flexmock(@sequence).should_receive(:install_packages).and_return(true)
-        @script.should_receive(:attachments).at_least.once.and_return([])
-        @auditor.should_receive(:append_error).never
-
-        # force acquire_thread to retry.
-        acquire_thread_counter = 0
-        @mock_cook.should_receive(:acquire_thread).twice.and_return { 2 == acquire_thread_counter += 1 }
-        run_sequence.should be_true
-        acquire_thread_counter.should == 2
       ensure
         @sequence = nil
       end

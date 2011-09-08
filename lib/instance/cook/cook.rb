@@ -91,22 +91,6 @@ module RightScale
       ::RightScale::ExecutableBundle::DEFAULT_THREAD_NAME == @thread_name
     end
 
-    # Request to acquire the thread associated with the current cook process.
-    #
-    # === Return
-    # result(Boolean):: true if thread was acquired, false to retry later
-    def acquire_thread
-      cmd = { :name => :acquire_thread, :thread_name => @thread_name, :pid => Process.pid }
-      response = blocking_request(cmd)
-      begin
-        result = OperationResult.from_results(load(response, "Unexpected response #{response.inspect}"))
-        raise ThreadError.new("Acquire thread failed: #{result.content}") if result.error?
-        return result.success?
-      rescue
-        raise ThreadError.new("Acquire thread failed: #{response.inspect}")
-      end
-    end
-
     # Helper method to send a request to one or more targets with no response expected
     # See InstanceCommands for details
     def send_push(type, payload = nil, target = nil, opts = {})

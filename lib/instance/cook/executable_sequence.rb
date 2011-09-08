@@ -52,7 +52,6 @@ module RightScale
 
     OHAI_RETRY_MIN_DELAY = 20             # Min number of seconds to wait before retrying Ohai to get the hostname
     OHAI_RETRY_MAX_DELAY = 20 * 60        # Max number of seconds to wait before retrying Ohai to get the hostname
-    RETRY_ACQUIRE_THREAD_DELAY_SECS = 10  # delay before attempting to acquire locks again from instance agent
 
     class CookbookDownloadFailure < Exception
       def initialize(tuple)
@@ -136,7 +135,7 @@ module RightScale
         download_repos if @ok
         update_cookbook_path if @ok
         setup_powershell_providers if RightScale::Platform.windows?
-        check_ohai { |o| acquire_thread { converge(o) } } if @ok
+        check_ohai { |o| converge(o) } if @ok
       end
       true
     end
@@ -501,21 +500,6 @@ module RightScale
       ohai.require_plugin('os')
       ohai.require_plugin('hostname')
       return ohai
-    end
-
-    # Acquires thread required by executable bundle prior to converging.
-    #
-    # &block(Proc):: yields when lock is acquired
-    def acquire_thread(&block)
-      if Cook.instance.acquire_thread
-        block.call
-      else
-        # need to execute on a non-timer thread or else EM main thread will block.
-        EM.add_timer(RETRY_ACQUIRE_THREAD_DELAY_SECS) { EM.defer { acquire_thread(&block) } }
-      end
-    rescue Exception => e
-      report_failure('acquire_thread failed', e.message)
-      Log.debug(Log.format('acquire_thread failed', e, :trace))
     end
 
     # Chef converge

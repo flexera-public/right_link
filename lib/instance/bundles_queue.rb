@@ -100,27 +100,6 @@ module RightScale
       Log.error(Log.format("BundlesQueue.run failed", e, :trace))
     end
 
-    # Attempts to acquire the thread given by name for the given pid.
-    #
-    # === Parameters
-    # thread_name(String):: thread name
-    # pid(Fixnum):: cook process ID
-    #
-    # === Return
-    # result(Boolean):: true if acquired thread, false to retry
-    def acquire_thread(thread_name, pid)
-      # check the priority queue and only grant the PID access if it is the
-      # first PID in its swim lane.
-      #
-      # note that it is possible (albeit extremely unlikely) for a child cook
-      # process to request access before it's PID has been recorded locally. in
-      # that case it would have to retry later.
-      if pids = @thread_names_to_pids[thread_name]
-        return pids.first == pid
-      end
-      return false
-    end
-
     # Clear queue content
     #
     # === Return
