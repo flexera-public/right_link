@@ -42,7 +42,10 @@ describe RightScale::BundlesQueue do
     @sequence.should_receive(:errback).and_return(true)
     @sequence.should_receive(:run).and_return { @status = :run; @callback.call }
     flexmock(@queue).should_receive(:create_sequence).and_return { @sequence }
-    flexmock(::RightScale::Log).should_receive(:error).never
+  end
+
+  after(:each) do
+    ::RightScale::Log.has_errors?.should be_false
   end
 
   it 'should default to non active' do
