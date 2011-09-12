@@ -26,6 +26,8 @@ describe RightScale::CookState do
 
   include RightScale::SpecHelper
 
+  it_should_behave_like 'mocks cook'
+
   # monkey patch CookState so we can reset singleton state during the test
   module RightScale
     class CookState

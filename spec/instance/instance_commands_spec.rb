@@ -29,7 +29,6 @@ describe RightScale::InstanceCommands do
     @commands = RightScale::InstanceCommands::COMMANDS
     @agent_identity = RightScale::AgentIdentity.new('rs', 'test', 1).to_s
     @scheduler = flexmock('Scheduler')
-    @scheduler.should_ignore_missing
     @agent_manager = flexmock('AgentManager')
   end
 
@@ -109,4 +108,4 @@ describe RightScale::InstanceCommands do
 
   end
 
-end
+end  # RightScale::InstanceCommands

@@ -24,15 +24,30 @@ require File.join(File.dirname(__FILE__), 'spec_helper')
 
 describe RightScale::BundlesQueue do
 
+  include RightScale::SpecHelper
+
   it_should_behave_like 'mocks shutdown request'
 
   before(:each) do
     @term = false
     @queue = RightScale::BundlesQueue.new { @term = true; EM.stop }
-    @context = flexmock('context', :audit => 42, :decommission => false)
-    flexmock(RightScale::ExecutableSequenceProxy).new_instances.should_receive(:run).and_return { @status = :run; EM.stop }
+    @audit = flexmock('audit')
+    @audit.should_receive(:update_status).and_return(true)
+    @bundle = flexmock('bundle', :thread_name => 'some thread name')
+    @bundle.should_receive(:to_json).and_return("[\"some json\"]")
+    @context = flexmock('context', :audit => @audit, :payload => @bundle, :decommission => false, :succeeded => true)
+    @callback = nil
+    @sequence = flexmock('sequence', :context => @context)
+    @sequence.should_receive(:callback).and_return { |callback| @callback = callback; true }
+    @sequence.should_receive(:errback).and_return(true)
+    @sequence.should_receive(:run).and_return { @status = :run; @callback.call }
+    flexmock(@queue).should_receive(:create_sequence).and_return { @sequence }
   end
- 
+
+  after(:each) do
+    ::RightScale::Log.has_errors?.should be_false
+  end
+
   it 'should default to non active' do
     @queue.push(@context)
     @status.should be_nil
@@ -40,30 +55,21 @@ describe RightScale::BundlesQueue do
 
   it 'should run bundles once active' do
     @queue.activate
-    EM.run do
-      EM.add_timer(5) { EM.stop }
+    run_em_test do
       @queue.push(@context)
+      @queue.close
     end
     @status.should == :run
+    @term.should be_true
   end
 
   it 'should not be active after being closed' do
     @queue.activate
-    EM.run do 
-      EM.add_timer(5) { EM.stop }
+    run_em_test do
       @queue.close
       @queue.push(@context)
     end
     @status.should be_nil
-  end
-
-  it 'should call back continuation on close' do
-    EM.run do
-      EM.add_timer(5) { EM.stop }
-      @queue.activate
-      @term.should be_false
-      @queue.close
-    end
     @term.should be_true
   end
 
@@ -71,13 +77,18 @@ describe RightScale::BundlesQueue do
     processed = false
     flexmock(@mock_shutdown_request).
       should_receive(:process).
-      and_return { @queue.push(@context); processed = true; true }
+      and_return do
+        @queue.push(@context)
+        @queue.close
+        processed = true
+        true
+      end
     @queue.activate
-    EM.run do
-      EM.add_timer(5) { EM.stop }
+    run_em_test do
       @queue.push(::RightScale::BundlesQueue::SHUTDOWN_BUNDLE)
     end
     processed.should be_true
+    @term.should be_true
   end
 
 end

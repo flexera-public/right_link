@@ -43,15 +43,15 @@ end
 
 module RightScale
 
-  OHAI_RETRY_MIN_DELAY = 20      # Min number of seconds to wait before retrying Ohai to get the hostname
-  OHAI_RETRY_MAX_DELAY = 20 * 60 # Max number of seconds to wait before retrying Ohai to get the hostname
-
   # Bundle sequence, includes installing dependent packages,
   # downloading attachments and running scripts in given bundle.
   # Also downloads cookbooks and run recipes in given bundle.
   # Runs in separate (runner) process.
   class ExecutableSequence
     include EM::Deferrable
+
+    OHAI_RETRY_MIN_DELAY = 20             # Min number of seconds to wait before retrying Ohai to get the hostname
+    OHAI_RETRY_MAX_DELAY = 20 * 60        # Max number of seconds to wait before retrying Ohai to get the hostname
 
     class CookbookDownloadFailure < Exception
       def initialize(tuple)
@@ -478,18 +478,28 @@ module RightScale
     #
     # === Return
     # true:: Always return true
-    def check_ohai
-      ohai = Ohai::System.new
-      ohai.require_plugin('os')
-      ohai.require_plugin('hostname')
+    def check_ohai(&block)
+      ohai = create_ohai
       if ohai[:hostname]
-        yield(ohai)
+        block.call(ohai)
       else
         Log.warning("Could not determine node name from Ohai, will retry in #{@ohai_retry_delay}s...")
-        EM.add_timer(@ohai_retry_delay) { check_ohai }
+        # need to execute on a non-timer thread or else EM main thread will block.
+        EM.add_timer(@ohai_retry_delay) { EM.defer { check_ohai(&block) } }
         @ohai_retry_delay = [ 2 * @ohai_retry_delay, OHAI_RETRY_MAX_DELAY ].min
       end
       true
+    end
+
+    # Creates a new ohai and configures it.
+    #
+    # === Return
+    # ohai(Ohai::System):: configured ohai
+    def create_ohai
+      ohai = Ohai::System.new
+      ohai.require_plugin('os')
+      ohai.require_plugin('hostname')
+      return ohai
     end
 
     # Chef converge
@@ -584,7 +594,6 @@ module RightScale
       @ok = false
       @failure_title = title
       @failure_message = msg
-
       # note that the errback handler is expected to audit the message based on
       # the preserved title and message and so we don't audit it here.
       EM.next_tick { fail }

@@ -20,6 +20,8 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+require 'fileutils'
+
 module RightScale
 
   # collection of Json utilities
@@ -36,7 +38,10 @@ module RightScale
     # Errno::ENOENT:: Invalid path
     # JSON Exception:: Invalid JSON content
     def self.read_json(path)
-      JSON.load(File.read(path))
+      File.open(path, "r") do |f|
+        f.flock(File::LOCK_EX)
+        return JSON.load(f)
+      end
     end
 
     # Serialize object to JSON and write result to file, override existing file if any.
@@ -50,8 +55,48 @@ module RightScale
     # true:: Always return true
     def self.write_json(path, contents)
       contents = contents.to_json unless contents.is_a?(String)
-      File.open(path, 'w') { |f| f.write(contents) }
+      dir = File.dirname(path)
+      FileUtils.mkdir_p(dir) unless File.directory?(dir)
+      File.open(path, 'w') do |f|
+        f.flock(File::LOCK_EX)
+        f.write(contents)
+      end
       true
     end
+
+    # Merges any existing JSON file with given contents or else writes a new
+    # JSON file while file is locked.
+    #
+    # === Parameters
+    # path(String):: Path to file being written
+    # contents(Object|String):: Object to be serialized into JSON or JSON string
+    #
+    # === Block
+    # custom merge callback which takes (left_data, right_data) where left
+    # represents current the disk image.
+    #
+    # === Return
+    # true:: Always return true
+    def self.merge_json(path, contents)
+      contents = JSON.load(contents) if contents.is_a?(String)
+      dir = File.dirname(path)
+      FileUtils.mkdir_p(dir) unless File.directory?(dir)
+      File.open(path, 'a+') do |f|
+        f.flock(File::LOCK_EX)
+        if File.size(path) > 0
+          begin
+            previous_contents = JSON.load(f)
+            yield(previous_contents, contents)
+          rescue JSONError
+            # ignored
+          end
+          f.seek(0)
+          f.truncate(0)
+        end
+        f.write(contents.to_json)
+      end
+      true
+    end
+
   end
 end

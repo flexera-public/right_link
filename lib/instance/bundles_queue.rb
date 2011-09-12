@@ -32,9 +32,12 @@ module RightScale
     # === Block
     # continuation block
     def initialize(&continuation)
-      @queue = Queue.new
-      @continuation = continuation
       @active = false
+      @continuation = continuation
+      @cook_pid = nil
+      @mutex = Mutex.new
+      @queue = Queue.new
+      @sequence_finished = ConditionVariable.new
     end
 
     # Activate queue for execution, idempotent
@@ -43,9 +46,13 @@ module RightScale
     # === Return
     # true:: Always return true
     def activate
-      return if @active
-      EM.defer { run }
-      @active = true
+      @mutex.synchronize do
+        unless @active
+          Thread.new { run }
+          @active = true
+        end
+      end
+      true
     end
 
     # Push new context to bundle queue and run next bundle
@@ -54,38 +61,6 @@ module RightScale
     # true:: Always return true
     def push(context)
       @queue << context
-      true
-    end
-
-    # Run next bundle in the queue if active
-    # If bundle is FINAL_BUNDLE then call continuation block and deactivate
-    #
-    # === Return
-    # true:: Always return true
-    def run
-      context = @queue.shift
-      if context == FINAL_BUNDLE
-        EM.next_tick { @continuation.call if @continuation }
-        @active = false
-      elsif context == SHUTDOWN_BUNDLE
-        # process shutdown request.
-        ShutdownRequest.instance.process
-
-        # continue in queue in the expectation that the decommission bundle will
-        # shutdown the instance and its agent normally.
-        EM.defer { run }
-      elsif false == context.decommission && ShutdownRequest.instance.immediately?
-        # immediate shutdown pre-empts any futher attempts to run operational
-        # scripts but still allows the decommission bundle to run.
-        # proceed ignoring bundles until final or shutdown are encountered.
-        context.audit.update_status("Skipped bundle due to immediate shutdown: #{context.payload}")
-        EM.defer { run }
-      else
-        sequence = RightScale::ExecutableSequenceProxy.new(context)
-        sequence.callback { audit_status(context) }
-        sequence.errback  { audit_status(context) }
-        sequence.run
-      end
       true
     end
 
@@ -106,19 +81,83 @@ module RightScale
       push(FINAL_BUNDLE)
     end
 
-    # Audit executable sequence status after it ran
-    #
-    # === Parameters
-    # context(RightScale::OperationContext):: Context used by execution
+    protected
+
+    # Run next bundle in the queue if active
+    # If bundle is FINAL_BUNDLE then call continuation block and deactivate
     #
     # === Return
     # true:: Always return true
-    def audit_status(context)
+    def run
+      loop do
+        context = @queue.shift
+        if context == FINAL_BUNDLE
+          break
+        elsif context == SHUTDOWN_BUNDLE
+          # process shutdown request.
+          ShutdownRequest.instance.process
+          # continue in queue in the expectation that the decommission bundle will
+          # shutdown the instance and its agent normally.
+        elsif false == context.decommission && ShutdownRequest.instance.immediately?
+          # immediate shutdown pre-empts any futher attempts to run operational
+          # scripts but still allows the decommission bundle to run.
+          context.audit.update_status("Skipped bundle due to immediate shutdown: #{context.payload}")
+          # proceed ignoring bundles until final or shutdown are encountered.
+        else
+          sequence = create_sequence(context)
+          sequence.callback { audit_status(sequence) }
+          sequence.errback  { audit_status(sequence) }
+
+          # wait until sequence is finished using a ruby mutex conditional.
+          # need to synchronize before run to ensure we are waiting before any
+          # immediate signalling occurs (under test conditions, etc.).
+          @mutex.synchronize do
+            sequence.run
+            @sequence_finished.wait(@mutex)
+            @cook_pid = nil
+          end
+        end
+      end
+      true
+    rescue Exception => e
+      Log.error(Log.format("BundlesQueue.run failed", e, :trace))
+    ensure
+      # invoke continuation (off of this thread which is going away).
+      @mutex.synchronize { @active = false }
+      EM.next_tick { @continuation.call } if @continuation
+    end
+
+    # Factory method for a new sequence.
+    #
+    # context(RightScale::OperationContext)
+    def create_sequence(context)
+      pid_callback = lambda do |sequence|
+        # TODO preserve cook PIDs per thread in InstanceState and recover
+        # orphaned cook in case of agent crash.
+        @mutex.synchronize { @cook_pid = sequence.pid }
+      end
+      return RightScale::ExecutableSequenceProxy.new(context, :pid_callback => pid_callback )
+    end
+
+    # Audit executable sequence status after it ran
+    #
+    # === Parameters
+    # sequence(RightScale::ExecutableSequence):: finished sequence being audited
+    #
+    # === Return
+    # true:: Always return true
+    def audit_status(sequence)
+      context = sequence.context
       title = context.decommission ? 'decommission ' : ''
       title += context.succeeded ? 'completed' : 'failed'
       context.audit.update_status("#{title}: #{context.payload}")
-      EM.defer { run }
       true
+    rescue Exception => e
+      Log.error(Log.format("BundlesQueue.audit_status failed", e, :trace))
+    ensure
+      # release queue thread to wait on next bundle in queue. we must ensure
+      # that we are not currently on the queue thread so next-tick the signal.
+      EM.next_tick { @mutex.synchronize { @sequence_finished.signal } }
     end
 
   end

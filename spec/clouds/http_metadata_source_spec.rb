@@ -196,7 +196,6 @@ describe RightScale::MetadataSources::HttpMetadataSource do
         branch_metadata = ::RightScale::HttpMetadataSourceSpec::METADATA_TREE[branch_name]
         branch_path = server.get_metadata_request_path(branch_metadata_path)
         branch_response = server.get_metadata_response(branch_metadata)
-        server.unmount(branch_path)
         server.mount_proc(branch_path) do |request, response|
           response.body = branch_response
           unless requested_branch
@@ -215,7 +214,6 @@ describe RightScale::MetadataSources::HttpMetadataSource do
         leaf_metadata = branch_metadata[leaf_name]
         leaf_path = server.get_metadata_request_path(leaf_metadata_path)
         leaf_response = server.get_metadata_response(leaf_metadata)
-        server.unmount(leaf_path)
         server.mount_proc(leaf_path) do |request, response|
           response.body = leaf_response
           unless requested_leaf

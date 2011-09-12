@@ -27,10 +27,6 @@ class InstanceScheduler
 
   expose :schedule_bundle, :execute, :schedule_decommission
 
-  # (RightScale::ExecutableSequenceProxy) Executable sequence proxy accessed
-  # via command protocol from Cook process
-  attr_reader :sequence
-
   SHUTDOWN_DELAY = 180 # Number of seconds to wait for decommission scripts to finish before forcing shutdown
 
   # Setup signal traps for running decommission scripts
@@ -41,10 +37,13 @@ class InstanceScheduler
   def initialize(agent)
     @agent = agent
     @agent_identity = agent.identity
-    @bundles_queue  = RightScale::BundlesQueue.new do
+
+    # invoke the bundles queue factory method as an assist to testing.
+    @bundles_queue = self.class.create_bundles_queue do
       RightScale::InstanceState.value = 'decommissioned'
       @post_decommission_callback.call
     end
+
     # Wait until instance setup actor has initialized the instance state
     # We need to wait until after the InstanceSetup actor has run its
     # bundle in the Chef thread before we can use it
@@ -213,4 +212,11 @@ class InstanceScheduler
     EM.next_tick { @agent.terminate }
   end
 
-end
+  protected
+
+  # Factory method for a new bundles queue.
+  def self.create_bundles_queue(&block)
+    return RightScale::BundlesQueue.new(&block)
+  end
+
+end  # InstanceScheduler
