@@ -85,6 +85,7 @@ module RightScale
       @scripts                = bundle.executables.select { |e| e.is_a?(RightScriptInstantiation) }
       recipes                 = bundle.executables.map    { |e| e.is_a?(RecipeInstantiation) ? e : @right_scripts_cookbook.recipe_from_right_script(e) }
       @cookbooks              = bundle.cookbooks
+      @dev_cookbooks          = bundle.dev_cookbooks
       @downloader             = Downloader.new
       @download_path          = AgentConfig.cookbook_download_dir
       @powershell_providers   = nil

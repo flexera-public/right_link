@@ -176,6 +176,129 @@ module RightScale
       end
     end
 
+    context 'dev_cookbooks' do
+      def build_dev_sequence(cookbook_sequences, cookbook_names)
+        dev_repo = DevRepositories.new
+        cookbook_sequences.each do |cookbook_sequence|
+          positions = cookbook_sequence.positions.inject([]) do |memo, position|
+            memo << position if cookbook_names.include?(position.cookbook.name)
+            memo
+          end
+          dev_repo.add_repo(cookbook_sequence.hash, {}, positions)
+        end
+        dev_repo
+      end
+
+      def run_bundle(cookbooks, dev_cookbooks)
+        @bundle = ExecutableBundle.new([], [], 2, nil, cookbooks, [SERVER], dev_cookbooks)
+
+        flexmock(ReposeDownloader).should_receive(:discover_repose_servers).with([SERVER]).once
+        @auditor.should_receive(:append_info).with("Deleting existing cookbooks").once
+
+        tarball = File.open(File.join(File.dirname(__FILE__), "demo_tarball.tar")).binmode.read
+        dl = flexmock(ReposeDownloader)
+        cookbooks.each do |sequence|
+          sequence.positions.each do |position|
+              dl.should_receive(:new).
+                with(sequence.paths.first, position.cookbook.hash, position.cookbook.token, position.cookbook.name,
+                     ExecutableSequence::CookbookDownloadFailure, RightScale::Log).once.
+                and_return(flexmock(ReposeDownloader))
+              response = flexmock(Net::HTTPSuccess.new("1.1", "200", "everything good"))
+              response.should_receive(:read_body, Proc).and_yield(tarball).once
+              @auditor.should_receive(:append_info).with("Requesting #{position.cookbook.name}").once
+              @auditor.should_receive(:append_info).with("Success; unarchiving cookbook").once
+              @auditor.should_receive(:append_info).with("").once
+              dl.should_receive(:request, Proc).and_yield(response).once
+          end
+        end
+        @auditor.should_receive(:append_info).with(/Duration: \d+\.\d+ seconds/).once
+
+        @sequence = ExecutableSequence.new(@bundle)
+        @sequence.send(:download_dev_cookbooks)
+        @sequence.should be_okay
+        @sequence.send(:download_repos)
+        @sequence.should be_okay
+      end
+
+      before(:each) do
+        cookbook1r1 = Cookbook.new("1cdae6d5f1bc33d8713b341578b942d42ed5817f", "token1", "test_cookbook1")
+        cookbook1r2 = Cookbook.new("3cdae6d5f1bc33d8713b341578b942d42ed5817f", "token2", "test_cookbook1")
+        cookbook2r1 = Cookbook.new("5cdae6d5f1bc33d8713b341578b942d42ed5817f", "token3", "test_cookbook2")
+        cookbook3r3 = Cookbook.new("7cdae6d5f1bc33d8713b341578b942d42ed5817f", "token4", "test_cookbook3")
+
+        cookbook1r1_position = CookbookPosition.new("cookbooks/test_cookbook1", cookbook1r1)
+        cookbook1r2_position = CookbookPosition.new("other_cookbooks/test_cookbook1", cookbook1r2)
+        cookbook2r1_position = CookbookPosition.new("cookbooks/test_cookbook2", cookbook2r1)
+        cookbook3r3_position = CookbookPosition.new("test_cookbook3", cookbook3r3)
+
+        @cookbook_sequence_r1 = CookbookSequence.new(['cookbooks'], [cookbook1r1_position, cookbook1r2_position], "e59ff97941044f85df5297e1c302d260")
+        @cookbook_sequence_r2 = CookbookSequence.new(['cookbooks'], [cookbook2r1_position], "53961c3d705734f5e1f473c0d706330d")
+        @cookbook_sequence_r3 = CookbookSequence.new(['cookbooks'], [cookbook3r3_position], "b14e6313910d695e68abbd354b10a8fa")
+
+        @cookbooks = [@cookbook_sequence_r1, @cookbook_sequence_r2, @cookbook_sequence_r3]
+
+        @checkout_root_dir = File.join(Dir.tmpdir,"rightscale","executable_sequence_spec")
+        flexmock(RightScale::CookState).should_receive(:cookbooks_path).and_return(@checkout_root_dir)
+      end
+
+      it_should_behave_like 'mocks cook'
+
+      context 'debugging no cookbooks' do
+        before(:each) do
+          @dev_cookbooks = []
+        end
+
+      end
+
+      context 'debugging one cookbook that exists in only one repo' do
+        context 'repo contains only one cookbook' do
+          before(:each) do
+            @dev_cookbooks = build_dev_sequence([@cookbook_sequence_r3], "test_cookbook3")
+
+            run_bundle(@cookbooks, @dev_cookbooks)
+          end
+
+          after(:each) do
+            FileUtils.rm_rf(@checkout_root_dir)
+          end
+
+          it 'should checkout dev_cookbooks to the cookbooks tag path' do
+
+          end
+
+          it 'should symlink repose down load path to checkout location only for dev_cookbooks' do
+
+          end
+
+          it 'should audit checkout progress' do
+
+          end
+
+          context "when checkout of one repo fails" do
+            it 'should attempt to checkout all repos' do
+
+            end
+
+            it 'should audit the failure' do
+
+            end
+          end
+        end
+
+        context 'repo contains more than one cookbook' do
+
+        end
+      end
+
+      context 'debugging one cookbook that exists in two repos' do
+
+      end
+
+      context 'debugging multiple cookbooks from multiple repos' do
+
+      end
+    end
+
     context 'with an attachment specified' do
       before(:each) do
         flexmock(ReposeDownloader).should_receive(:discover_repose_servers).with([SERVER]).once
