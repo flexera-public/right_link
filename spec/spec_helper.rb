@@ -235,12 +235,22 @@ raise "RightLink specs require rspec v1.3.x" unless defined?(::Spec::Runner::Rep
 module Spec
   module Runner
     class Reporter
-      unless self.respond_to?(:example_failed_for_right_link_spec)
-        alias :example_failed_for_right_link_spec :example_failed
+      class Failure
+        unless method_defined?(:header_for_right_link_spec)
 
-        def example_failed(example, error)
-          ::RightScale::Log.dump_errors
-          example_failed_for_right_link_spec(example, error)
+          alias :initialize_for_right_link_spec :initialize
+          def initialize(group_description, example_description, exception)
+            initialize_for_right_link_spec(group_description, example_description, exception)
+            @errors = ::RightScale::Log.errors
+          end
+
+          alias :header_for_right_link_spec :header
+          def header
+            default_header = header_for_right_link_spec
+            return "#{default_header}\n=== Begin dump of logged errors ===\n#{@errors}\n=== End dump of logged errors ===" if @errors
+            return default_header
+          end
+
         end
       end
     end
@@ -257,13 +267,15 @@ module RightScale
         alias :method_missing_for_right_link_spec :method_missing
       end
 
+      @@error_io = nil
+
       def self.method_missing(m, *args)
         unless [:debug, :info, :warn, :warning, :error, :fatal].include?(m) && ENV['RS_LOG'].nil?
           method_missing_for_right_link_spec(m, *args)
         end
       end
 
-      def self.error(message, exception = nil, backtrace = :trace)
+      def self.error(message, exception = nil, backtrace = :caller)
         @@error_io.puts(::RightScale::Log.format(message, exception, backtrace)) if @@error_io
         logger.error(message, exception, backtrace) if ENV['RS_LOG']
       end
@@ -272,24 +284,18 @@ module RightScale
         return @@error_io && @@error_io.pos > 0
       end
 
+      def self.errors
+        return nil unless has_errors?
+        @@error_io.rewind
+        result = @@error_io.read
+        @@error_io = nil
+        return result
+      end
+
       def self.reset_errors
         @@error_io = StringIO.new
       end
 
-      def self.dump_errors
-        if has_errors?
-          @@error_io.rewind
-          $stdout.puts "=== Begin dump of logged errors ==="
-          $stdout.write(@@error_io.read)
-          $stdout.puts "=== End dump of logged errors ==="
-          @@error_io.rewind
-          @@error_io.truncate(0)
-        end
-      end
-
-      private
-
-      @@error_io = nil
     end
   end
 end
