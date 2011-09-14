@@ -4,8 +4,13 @@ source :rubygems
 gem "rubyforge",             "1.0.4"
 gem "rake",                  "0.8.7"
 gem 'right_support',         "~> 0.9"
-gem 'right_agent',           "~> 0.4"
-gem "right_scraper",         "~> 1.0.23"
+gem 'right_agent',:git => 'git@github.com:rightscale/right_agent.git',
+                  :branch => 'azure_28_edit_recipe_on_instance',
+                  :require => ['right_agent', 'right_agent/core_payload_types']
+
+# Dependencies for right_scraper
+gem "right_scraper", :git => "git://github.com/rightscale/right_scraper.git"
+
 gem "right_http_connection", "~> 1.3.0"
 
 #WARNING: for v5.7, Linux used to use 1.0.11; Windows used to use 1.0.15

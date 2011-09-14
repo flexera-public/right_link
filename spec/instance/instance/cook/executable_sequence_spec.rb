@@ -214,8 +214,6 @@ module RightScale
         @auditor.should_receive(:append_info).with(/Duration: \d+\.\d+ seconds/).once
 
         @sequence = ExecutableSequence.new(@bundle)
-        @sequence.send(:download_dev_cookbooks)
-        @sequence.should be_okay
         @sequence.send(:download_repos)
         @sequence.should be_okay
       end
@@ -254,6 +252,8 @@ module RightScale
         context 'repo contains only one cookbook' do
           before(:each) do
             @dev_cookbooks = build_dev_sequence([@cookbook_sequence_r3], "test_cookbook3")
+
+            flexmock(RightScraper::Scraper).should_receive(:new).with(nil, "", nil, nil)
 
             run_bundle(@cookbooks, @dev_cookbooks)
           end
