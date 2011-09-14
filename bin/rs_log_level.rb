@@ -1,5 +1,4 @@
 #!/opt/rightscale/sandbox/bin/ruby
-#
 # Copyright (c) 2009-2011 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
@@ -25,10 +24,11 @@
 #
 # See lib/log_level_manager.rb for additional information.
 
-THIS_FILE = File.symlink?(__FILE__) ? File.readlink(__FILE__) : __FILE__
-$:.push(File.join(File.dirname(THIS_FILE), '..', 'scripts'))
-
+# Activate Bundler
 require 'rubygems'
+require 'bundler/setup'
+
+$:.push(File.join(File.dirname(__FILE__), '..', 'scripts'))
 require 'log_level_manager'
 
 m = RightScale::LogLevelManager.new
