@@ -38,6 +38,7 @@ describe RightScale::BundleQueue do
     @required_completion_order = {}
     @run_sequence_names = {}
     @multi_threaded = false
+    @threads_started = []
   end
 
   after(:each) do
@@ -87,22 +88,22 @@ describe RightScale::BundleQueue do
         sequence.should_receive(:callback).and_return { |callback| sequence_callback = callback; true }
         sequence.should_receive(:errback).and_return(true)
         sequence.should_receive(:run).and_return do
-          done = false
-          begin
-            @mutex.synchronize do
-              # note that the sequence die timer nils the required completion
-              # order to make threads go away (before the overall timeout fires)
-              done = @required_completion_order.nil? || @required_completion_order[thread_name].first == sequence_name
-              if done && @required_completion_order
-                @run_sequence_names[thread_name] ||= []
-                @run_sequence_names[thread_name] << sequence_name
-                @required_completion_order[thread_name].shift
-                @required_completion_order.delete(thread_name) if @required_completion_order[thread_name].empty?
-              end
-            end
-            sleep 0.1  # force each queue to yield CPU to exercize internal synchronization
-          end until done
-          sequence_callback.call
+          @mutex.synchronize do
+            @threads_started << Thread.current.object_id unless @threads_started.include?(Thread.current.object_id)
+          end
+          @mutex.synchronize do
+            # note that the sequence die timer nils the required completion
+            # order to make threads go away (before the overall timeout fires)
+            raise "timeout" if @required_completion_order.nil?
+            @required_completion_order[thread_name].first.should == sequence_name
+            @run_sequence_names[thread_name] ||= []
+            @run_sequence_names[thread_name] << sequence_name
+            @required_completion_order[thread_name].shift
+            @required_completion_order.delete(thread_name) if @required_completion_order[thread_name].empty?
+          end
+
+          # simulate callback from spawned process' exit handler on next tick.
+          EM.next_tick { sequence_callback.call }
         end
         @sequences[thread_name] ||= {}
         @sequences[thread_name][sequence_name] = sequence
@@ -133,9 +134,11 @@ describe RightScale::BundleQueue do
 
     it 'should run all bundles once active' do
       # enough sequences/threads to make it interesting.
-      4.times do |thread_index|
-        mock_sequence(:count => 4) do |sequence_index|
-          [0 == thread_index ? ::RightScale::ExecutableBundle::DEFAULT_THREAD_NAME : "thread #{thread_index}",
+      thread_name_count = 4
+      sequence_count = 4
+      thread_name_count.times do |thread_name_index|
+        mock_sequence(:count => sequence_count) do |sequence_index|
+          [0 == thread_name_index ? ::RightScale::ExecutableBundle::DEFAULT_THREAD_NAME : "thread #{thread_name_index}",
            "sequence ##{sequence_index + 1}"]
         end
       end
@@ -149,8 +152,9 @@ describe RightScale::BundleQueue do
         @queue.close
       end
       @queue_closed.should be_true
-      @run_sequence_names.values.flatten.size.should == 16
+      @run_sequence_names.values.flatten.size.should == thread_name_count * sequence_count
       @required_completion_order.should == {}
+      @threads_started.size.should == (@multi_threaded ? thread_name_count : 1)
     end
 
     it 'should not be active upon closing' do
@@ -171,9 +175,11 @@ describe RightScale::BundleQueue do
 
     it 'should process the shutdown bundle' do
       # prepare multiple contexts which must finish before decommissioning.
-      3.times do |thread_index|
-        mock_sequence(:count => 3) do |sequence_index|
-          [0 == thread_index ? ::RightScale::ExecutableBundle::DEFAULT_THREAD_NAME : "thread #{thread_index}",
+      thread_name_count = 3
+      sequence_count = 3
+      thread_name_count.times do |thread_name_index|
+        mock_sequence(:count => sequence_count) do |sequence_index|
+          [0 == thread_name_index ? ::RightScale::ExecutableBundle::DEFAULT_THREAD_NAME : "thread #{thread_name_index}",
            "sequence ##{sequence_index + 1}"]
         end
       end
@@ -207,6 +213,7 @@ describe RightScale::BundleQueue do
       @run_sequence_names.values.flatten.size.should == count_before_decommission + 1
       @run_sequence_names[::RightScale::ExecutableBundle::DEFAULT_THREAD_NAME].last.should == 'decommission bundle'
       @required_completion_order.should == { ::RightScale::ExecutableBundle::DEFAULT_THREAD_NAME => ['never runs after decommission closes queue'] }
+      @threads_started.size.should == (@multi_threaded ? (thread_name_count + 1) : 1)
     end
 
   end
