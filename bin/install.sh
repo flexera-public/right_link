@@ -33,7 +33,6 @@ then
   # This script was packaged and then deployed onto a cloud instance
   # Private-tool wrappers live into /opt/rightscale/bin
   BIN_DIR="$fixed_path_guess"
-  PRIVATE_WRAPPER_DIR="/opt/rightscale/bin"
 elif [ -e $relative_path_guess ]
 then
   # This script is running in out of a Git repository, e.g. on a developer machine
@@ -48,6 +47,7 @@ else
 fi
 
 PUBLIC_WRAPPER_DIR="/usr/bin"
+PRIVATE_WRAPPER_DIR="/opt/rightscale/bin"
 
 echo Creating wrappers for command-line tools in $BIN_DIR
 
@@ -96,15 +96,17 @@ echo Done.
 # Create stub scripts for private RightLink tools
 # OPTIONAL -- does not happen in development
 #
-if [ -z "$PRIVATE_WRAPPER_DIR" ]
+if [ ! -w "$PRIVATE_WRAPPER_DIR" ]
 then
-  echo "Skipping private-tool wrappers since we are using relative paths"
+  echo "Cannot install private-tool wrappers to $PRIVATE_WRAPPER_DIR"
+  echo "Make sure the directory exists and is writable!"
+  echo "Skipping private-tool wrappers; this probably will not work except for tests."
   exit 0
 fi
 
 echo
 echo Installing private-tool wrappers to $PRIVATE_WRAPPER_DIR
-for script in rad rchk rnac rstat
+for script in rad rchk rnac rstat cloud deploy enroll
 do
   echo " - $script"
   cat > $PRIVATE_WRAPPER_DIR/$script <<EOF
