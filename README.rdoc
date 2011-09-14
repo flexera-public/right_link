@@ -71,7 +71,7 @@ RightLink agent with the right execution bundle.
 
 The <i>scripts</i> folder contains a set of scripts that can be used to
 configure and manage the agent. Install these scripts by running the provided
-<i>install.sh</i> bash script from the <i>scripts</i> folder.
+<i>install.sh</i> bash script from the <i>bin</i> folder.
 
 Installing the agent can then be done using the <b>rad</b> command line tool as
 follows:

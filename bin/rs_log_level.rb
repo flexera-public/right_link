@@ -31,6 +31,4 @@ require 'bundler/setup'
 $:.push(File.join(File.dirname(__FILE__), '..', 'scripts'))
 require 'log_level_manager'
 
-m = RightScale::LogLevelManager.new
-opts = m.parse_args
-m.run(opts)
+RightScale::RightLinkLogLevelManager::run
