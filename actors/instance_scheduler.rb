@@ -216,7 +216,7 @@ class InstanceScheduler
 
   # Factory method for a new bundles queue.
   def self.create_bundles_queue(&block)
-    return RightScale::BundlesQueue.new(&block)
+    return RightScale::MultiThreadBundleQueue.new(&block)
   end
 
 end  # InstanceScheduler

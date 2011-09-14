@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2009-2011 RightScale Inc
+# Copyright (c) 2011 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -22,22 +22,32 @@
 
 module RightScale
 
-  class BundlesQueue 
+  class SingleThreadBundleQueue < BundleQueue
 
-    FINAL_BUNDLE = 'end'
-    SHUTDOWN_BUNDLE = 'shutdown'
+    attr_reader :thread_name
 
     # Set continuation block to be called after 'close' is called
     #
     # === Block
     # continuation block
-    def initialize(&continuation)
+    def initialize(thread_name = ::RightScale::ExecutableBundle::DEFAULT_THREAD_NAME, &continuation)
+      super(&continuation)
       @active = false
-      @continuation = continuation
-      @cook_pid = nil
+      @thread_name = thread_name
+      @pid = nil
       @mutex = Mutex.new
       @queue = Queue.new
       @sequence_finished = ConditionVariable.new
+    end
+
+    # Determines if queue is active
+    #
+    # === Return
+    # active(Boolean):: true if queue is active
+    def active?
+      active = false
+      @mutex.synchronize { active = @active }
+      return active
     end
 
     # Activate queue for execution, idempotent
@@ -101,7 +111,7 @@ module RightScale
         elsif false == context.decommission && ShutdownRequest.instance.immediately?
           # immediate shutdown pre-empts any futher attempts to run operational
           # scripts but still allows the decommission bundle to run.
-          context.audit.update_status("Skipped bundle due to immediate shutdown: #{context.payload}")
+          context.audit.update_status("Skipped bundle due to immediate shutdown of #{@thread_name} thread: #{context.payload}")
           # proceed ignoring bundles until final or shutdown are encountered.
         else
           sequence = create_sequence(context)
@@ -114,17 +124,17 @@ module RightScale
           @mutex.synchronize do
             sequence.run
             @sequence_finished.wait(@mutex)
-            @cook_pid = nil
+            @pid = nil
           end
         end
       end
       true
     rescue Exception => e
-      Log.error(Log.format("BundlesQueue.run failed", e, :trace))
+      Log.error(Log.format("SingleThreadBundleQueue.run failed for #{@thread_name} thread", e, :trace))
     ensure
       # invoke continuation (off of this thread which is going away).
       @mutex.synchronize { @active = false }
-      EM.next_tick { @continuation.call } if @continuation
+      run_continuation
     end
 
     # Factory method for a new sequence.
@@ -134,7 +144,7 @@ module RightScale
       pid_callback = lambda do |sequence|
         # TODO preserve cook PIDs per thread in InstanceState and recover
         # orphaned cook in case of agent crash.
-        @mutex.synchronize { @cook_pid = sequence.pid }
+        @mutex.synchronize { @pid = sequence.pid }
       end
       return RightScale::ExecutableSequenceProxy.new(context, :pid_callback => pid_callback )
     end
@@ -153,7 +163,7 @@ module RightScale
       context.audit.update_status("#{title}: #{context.payload}")
       true
     rescue Exception => e
-      Log.error(Log.format("BundlesQueue.audit_status failed", e, :trace))
+      Log.error(Log.format("SingleThreadBundleQueue.audit_status failed for #{@thread_name} thread", e, :trace))
     ensure
       # release queue thread to wait on next bundle in queue. we must ensure
       # that we are not currently on the queue thread so next-tick the signal.
