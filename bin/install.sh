@@ -94,8 +94,9 @@ echo Done.
 
 #
 # Create stub scripts for private RightLink tools
-# OPTIONAL -- does not happen in development
+# OPTIONAL - does not always happen, e.g. for development mode
 #
+mkdir -p "$PRIVATE_WRAPPER_DIR" || true
 if [ ! -w "$PRIVATE_WRAPPER_DIR" ]
 then
   echo "Cannot install private-tool wrappers to $PRIVATE_WRAPPER_DIR"
