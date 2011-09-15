@@ -114,35 +114,55 @@ describe RightScale::InstanceCommands do
         @thread_name = 'some thread'
         @received_options = {}
         @forwarded_options = {:conn => @command_io_connection, :content => @text, :thread_name => @thread_name, :options => @received_options }
-        flexmock(::RightScale::CommandIO.instance).should_receive(:reply).with(@command_io_connection, 'OK', false).once.and_return(true)
         @audit_cook_stub = flexmock('audit cook stub')
         flexmock(::RightScale::AuditCookStub).should_receive(:instance).and_return(@audit_cook_stub)
       end
 
-      it 'should audit update status' do
-        @audit_cook_stub.should_receive(:forward_audit).with(:update_status, @text, @thread_name, @received_options).once.and_return(true)
-        @commands.send(:audit_update_status_command, @forwarded_options).should be_true
-      end
+      describe 'which leave connection open' do
 
-      it 'should audit create new section' do
-        @audit_cook_stub.should_receive(:forward_audit).with(:create_new_section, @text, @thread_name, @received_options).once.and_return(true)
-        @commands.send(:audit_create_new_section_command, @forwarded_options).should be_true
-      end
+        before(:each) do
+          flexmock(::RightScale::CommandIO.instance).should_receive(:reply).with(@command_io_connection, 'OK', false).once.and_return(true)
+        end
 
-      it 'should audit append output' do
-        @audit_cook_stub.should_receive(:forward_audit).with(:append_output, @text, @thread_name, @received_options).once.and_return(true)
-        @commands.send(:audit_append_output_command, @forwarded_options).should be_true
-      end
+        it 'should audit update status' do
+          @audit_cook_stub.should_receive(:forward_audit).with(:update_status, @text, @thread_name, @received_options).once.and_return(true)
+          @commands.send(:audit_update_status_command, @forwarded_options).should be_true
+        end
 
-      it 'should audit append info' do
-        @audit_cook_stub.should_receive(:forward_audit).with(:append_info, @text, @thread_name, @received_options).once.and_return(true)
-        @commands.send(:audit_append_info_command, @forwarded_options).should be_true
-      end
+        it 'should audit create new section' do
+          @audit_cook_stub.should_receive(:forward_audit).with(:create_new_section, @text, @thread_name, @received_options).once.and_return(true)
+          @commands.send(:audit_create_new_section_command, @forwarded_options).should be_true
+        end
 
-      it 'should audit append error' do
-        @audit_cook_stub.should_receive(:forward_audit).with(:append_error, @text, @thread_name, @received_options).once.and_return(true)
-        @commands.send(:audit_append_error_command, @forwarded_options).should be_true
-      end
+        it 'should audit append output' do
+          @audit_cook_stub.should_receive(:forward_audit).with(:append_output, @text, @thread_name, @received_options).once.and_return(true)
+          @commands.send(:audit_append_output_command, @forwarded_options).should be_true
+        end
+
+        it 'should audit append info' do
+          @audit_cook_stub.should_receive(:forward_audit).with(:append_info, @text, @thread_name, @received_options).once.and_return(true)
+          @commands.send(:audit_append_info_command, @forwarded_options).should be_true
+        end
+
+        it 'should audit append error' do
+          @audit_cook_stub.should_receive(:forward_audit).with(:append_error, @text, @thread_name, @received_options).once.and_return(true)
+          @commands.send(:audit_append_error_command, @forwarded_options).should be_true
+        end
+
+      end  # which leave connection open
+
+      describe 'which close connection' do
+
+        before(:each) do
+          flexmock(::RightScale::CommandIO.instance).should_receive(:reply).with(@command_io_connection, 'OK').once.and_return(true)
+        end
+
+        it 'should audit close connection' do
+          @audit_cook_stub.should_receive(:close).with(@thread_name).once.and_return(true)
+          @commands.send(:close_connection_command, @forwarded_options).should be_true
+        end
+
+      end  # which leave connection open
 
     end  # audit commands
 
