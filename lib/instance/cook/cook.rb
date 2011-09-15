@@ -238,11 +238,11 @@ module RightScale
           @client.send_command(cmd)
         rescue Exception => e
           fail('Failed to update inputs', Log.format("Failed to apply inputs patch after execution", e, :trace))
-        ensure
-          stop
         end
       end
       true
+    ensure
+      stop
     end
 
     # Report failure to core
