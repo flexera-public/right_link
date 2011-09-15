@@ -345,7 +345,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def audit_update_status_command(opts)
-      AuditCookStub.instance.forward_audit(:update_status, opts[:content], opts[:options])
+      AuditCookStub.instance.forward_audit(:update_status, opts[:content], opts[:thread_name], opts[:options])
       CommandIO.instance.reply(opts[:conn], 'OK', close_after_writing=false)
     end
 
@@ -358,7 +358,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def audit_create_new_section_command(opts)
-      AuditCookStub.instance.forward_audit(:create_new_section, opts[:content], opts[:options])
+      AuditCookStub.instance.forward_audit(:create_new_section, opts[:content], opts[:thread_name], opts[:options])
       CommandIO.instance.reply(opts[:conn], 'OK', close_after_writing=false)
     end
 
@@ -371,7 +371,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def audit_append_output_command(opts)
-      AuditCookStub.instance.forward_audit(:append_output, opts[:content], opts[:options])
+      AuditCookStub.instance.forward_audit(:append_output, opts[:content], opts[:thread_name], opts[:options])
       CommandIO.instance.reply(opts[:conn], 'OK', close_after_writing=false)
     end
 
@@ -384,7 +384,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def audit_append_info_command(opts)
-      AuditCookStub.instance.forward_audit(:append_info, opts[:content], opts[:options])
+      AuditCookStub.instance.forward_audit(:append_info, opts[:content], opts[:thread_name], opts[:options])
       CommandIO.instance.reply(opts[:conn], 'OK', close_after_writing=false)
     end
 
@@ -397,7 +397,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def audit_append_error_command(opts)
-      AuditCookStub.instance.forward_audit(:append_error, opts[:content], opts[:options])
+      AuditCookStub.instance.forward_audit(:append_error, opts[:content], opts[:thread_name], opts[:options])
       CommandIO.instance.reply(opts[:conn], 'OK', close_after_writing=false)
     end
 

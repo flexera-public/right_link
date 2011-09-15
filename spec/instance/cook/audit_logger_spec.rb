@@ -22,7 +22,7 @@
 #
 require File.join(File.dirname(__FILE__), 'spec_helper')
 require 'right_agent/log'
-require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'lib', 'instance', 'cook', 'audit_stub'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'lib', 'instance', 'cook', 'audit_stub'))
 
 describe RightScale::AuditLogger do
 

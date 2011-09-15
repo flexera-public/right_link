@@ -38,7 +38,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def init(options)
-      @agent_connection = EM.connect('127.0.0.1', options[:listen_port], AgentConnection, options[:cookie])
+      @agent_connection = EM.connect('127.0.0.1', options[:listen_port], AgentConnection, options[:cookie], options[:thread_name])
       true
     end
 
@@ -65,7 +65,7 @@ module RightScale
     #
     # === Return
     # true:: Always return true
-    def update_status(status, options={})
+    def update_status(status, options = nil)
       send_command(:audit_update_status, status, options)
     end
 
@@ -77,7 +77,7 @@ module RightScale
     #
     # === Return
     # true:: Always return true
-    def create_new_section(title, options={})
+    def create_new_section(title, options = nil)
       send_command(:audit_create_new_section, title, options)
     end
 
@@ -88,8 +88,8 @@ module RightScale
     #
     # === Return
     # true:: Always return true
-    def append_output(text)
-      send_command(:audit_append_output, text)
+    def append_output(text, options = nil)
+      send_command(:audit_append_output, text, options)
     end
 
     # Append info text to current audit section. A special marker will be prepended to each line of audit to
@@ -101,7 +101,7 @@ module RightScale
     #
     # === Return
     # true:: Always return true
-    def append_info(text, options={})
+    def append_info(text, options = nil)
       send_command(:audit_append_info, text, options)
     end
 
@@ -113,7 +113,7 @@ module RightScale
     #
     # === Return
     # true:: Always return true
-    def append_error(text, options={})
+    def append_error(text, options = nil)
       send_command(:audit_append_error, text, options)
     end
 
@@ -124,13 +124,13 @@ module RightScale
     # === Parameters
     # cmd(String):: Command name
     # content(String):: Audit content
-    # options(Hash):: Audit options
+    # options(Hash):: Audit options or nil
     #
     # === Return
     # true:: Always return true
-    def send_command(cmd, content, options={})
-      options ||= {}
+    def send_command(cmd, content, options)
       begin
+        options ||= {}
         cmd = { :name => cmd, :content => content, :options => options }
         EM.next_tick { @agent_connection.send_command(cmd) }
       rescue Exception => e

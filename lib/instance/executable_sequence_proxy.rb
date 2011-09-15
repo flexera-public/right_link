@@ -53,8 +53,8 @@ module RightScale
       @context = context
       @thread_name = context.respond_to?(:thread_name) ? context.thread_name : ::RightScale::ExecutableBundle::DEFAULT_THREAD_NAME
       @pid_callback = options[:pid_callback]
-      AuditCookStub.instance.audit_proxy = context.audit
-      AuditCookStub.instance.on_close { @audit_closed = true; check_done }
+      AuditCookStub.instance.setup_audit_forwarding(@thread_name, context.audit)
+      AuditCookStub.instance.on_close(@thread_name) { @audit_closed = true; check_done }
     end
 
     # Run given executable bundle
@@ -169,7 +169,10 @@ module RightScale
     # true:: Always return true
     def check_done
       if @exit_status && @audit_closed
-        @audit_close_timeout.cancel if @audit_close_timeout
+        if @audit_close_timeout
+          @audit_close_timeout.cancel
+          @audit_close_timeout = nil
+        end
         if !@exit_status.success?
           report_failure("Chef process failure", "Chef process failed #{SubprocessFormatting.reason(@exit_status)}")
         else
@@ -177,7 +180,7 @@ module RightScale
           succeed
         end
       elsif @exit_status
-        @audit_close_timeout = EM::Timer.new(AUDIT_CLOSE_TIMEOUT) { AuditCookStub.instance.close }
+        @audit_close_timeout = EM::Timer.new(AUDIT_CLOSE_TIMEOUT) { AuditCookStub.instance.close(@thread_name) }
       end
       true
     end

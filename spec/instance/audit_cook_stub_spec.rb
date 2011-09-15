@@ -25,36 +25,64 @@ require File.join(File.dirname(__FILE__), 'spec_helper')
 describe RightScale::AuditCookStub do
 
   before(:each) do
-    @audit_proxy = flexmock('audit_proxy')
-    RightScale::AuditCookStub.instance.audit_proxy = @audit_proxy
+    @thread_count = 4
+    @auditors = []
+    @auditor_options = []
     @text = 'some text'
-    @options = { :one => 'two' }
+    @thread_names = []
+    @forwarded_options = {}
+    @thread_count.times do |thread_index|
+      thread_name = (0 == thread_index) ? ::RightScale::ExecutableBundle::DEFAULT_THREAD_NAME : "thread ##{thread_index}"
+      auditor = flexmock("auditor for #{thread_name}")
+      @auditors << auditor
+      RightScale::AuditCookStub.instance.setup_audit_forwarding(thread_name, auditor)
+      @thread_names << thread_name
+    end
   end
 
   it 'should forward info' do
-    @audit_proxy.should_receive(:append_info).with(@text, @options).once
-    RightScale::AuditCookStub.instance.forward_audit(:append_info, @text, @options)
+    @thread_count.times do |thread_index|
+      auditor = @auditors[thread_index]
+      thread_name = @thread_names[thread_index]
+      auditor.should_receive(:append_info).with(@text, options).once
+      RightScale::AuditCookStub.instance.forward_audit(:append_info, @text, thread_name, @forwarded_options)
+    end
   end
 
   it 'should forward new section' do
-    @audit_proxy.should_receive(:create_new_section).with(@text, @options).once
-    RightScale::AuditCookStub.instance.forward_audit(:create_new_section, @text, @options)
+    @thread_count.times do |thread_index|
+      auditor = @auditors[thread_index]
+      thread_name = @thread_names[thread_index]
+      auditor.should_receive(:create_new_section).with(@text, options).once
+      RightScale::AuditCookStub.instance.forward_audit(:create_new_section, @text, thread_name, options)
+    end
   end
 
   it 'should forward error' do
-    @audit_proxy.should_receive(:append_error).with(@text, @options).once
-    RightScale::AuditCookStub.instance.forward_audit(:append_error, @text, @options)
+    @thread_count.times do |thread_index|
+      auditor = @auditors[thread_index]
+      thread_name = @thread_names[thread_index]
+      auditor.should_receive(:append_error).with(@text, options).once
+      RightScale::AuditCookStub.instance.forward_audit(:append_error, @text, thread_name, options)
+    end
   end
 
   it 'should forward status' do
-    @audit_proxy.should_receive(:update_status).with(@text, @options).once
-    RightScale::AuditCookStub.instance.forward_audit(:update_status, @text, @options)
+    @thread_count.times do |thread_index|
+      auditor = @auditors[thread_index]
+      thread_name = @thread_names[thread_index]
+      auditor.should_receive(:update_status).with(@text, options).once
+      RightScale::AuditCookStub.instance.forward_audit(:update_status, @text, thread_name, options)
+    end
   end
 
   it 'should forward output' do
-    @audit_proxy.should_receive(:append_output).with(@text)
-    RightScale::AuditCookStub.instance.forward_audit(:append_output, @text, @options)
+    @thread_count.times do |thread_index|
+      auditor = @auditors[thread_index]
+      thread_name = @thread_names[thread_index]
+      auditor.should_receive(:append_output).with(@text).once
+      RightScale::AuditCookStub.instance.forward_audit(:append_output, @text, thread_name, options)
+    end
   end
 
-end
-
+end  # RightScale::AuditCookStub

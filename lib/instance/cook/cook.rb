@@ -50,6 +50,7 @@ module RightScale
       options = OptionsBag.load
       fail('Missing command server listen port') unless options[:listen_port]
       fail('Missing command cookie') unless options[:cookie]
+      options[:thread_name] = @thread_name
       @client = CommandClient.new(options[:listen_port], options[:cookie])
       ShutdownRequestProxy.init(@client)
 

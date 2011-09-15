@@ -24,7 +24,6 @@ INSTANCE_BASE_DIR = File.join(File.dirname(__FILE__), 'instance')
 
 require File.normalize_path(File.join(INSTANCE_BASE_DIR, 'agent_config'))
 require File.normalize_path(File.join(INSTANCE_BASE_DIR, 'audit_cook_stub'))
-require File.normalize_path(File.join(INSTANCE_BASE_DIR, 'audit_logger'))
 require File.normalize_path(File.join(INSTANCE_BASE_DIR, 'audit_proxy'))
 require File.normalize_path(File.join(INSTANCE_BASE_DIR, 'bundle_queue'))
 require File.normalize_path(File.join(INSTANCE_BASE_DIR, 'single_thread_bundle_queue'))
