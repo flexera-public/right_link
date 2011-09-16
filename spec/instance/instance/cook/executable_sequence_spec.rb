@@ -423,32 +423,11 @@ module RightScale
         @bundle = ExecutableBundle.new([], [], 2, nil, cookbooks, [SERVER], dev_cookbooks)
 
         flexmock(ReposeDownloader).should_receive(:discover_repose_servers).with([SERVER]).once
-        @auditor.should_receive(:append_info).with("Deleting existing cookbooks").once
 
-        tarball = File.open(File.join(File.dirname(__FILE__), "demo_tarball.tar")).binmode.read
-        dl = flexmock(ReposeDownloader)
-        cookbooks.each do |sequence|
-          dev_repo = dev_cookbooks[sequence.hash]
-          dev_positions = (dev_repo.nil?) ? {} : dev_repo[:positions].collect { |position| position.position}
-          sequence.positions.each do |position|
-            unless dev_positions.include?(position.position)
-              dl.should_receive(:new).
-                with('cookbooks', position.cookbook.hash, position.cookbook.token, position.cookbook.name,
-                     ExecutableSequence::CookbookDownloadFailure, RightScale::Log).once.
-                and_return(flexmock(ReposeDownloader))
-              response = flexmock(Net::HTTPSuccess.new("1.1", "200", "everything good"))
-              response.should_receive(:read_body, Proc).and_yield(tarball).once
-              @auditor.should_receive(:append_info).with("Requesting #{position.cookbook.name}").once
-              @auditor.should_receive(:append_info).with("Success; unarchiving cookbook").once
-              @auditor.should_receive(:append_info).with("").once
-              dl.should_receive(:request, Proc).and_yield(response).once
-            end
-          end
-        end
         @auditor.should_receive(:append_info).with(/Duration: \d+\.\d+ seconds/).once
 
         @sequence = ExecutableSequence.new(@bundle)
-        @sequence.send(:download_repos)
+        @sequence.send(:checkout_repos)
         @sequence.should be_okay
       end
 
@@ -487,12 +466,13 @@ module RightScale
                 true
               end
             end
-            mock_scraper.should_receive(:repo_dir).once.with(dev_cookbook[:repo]).and_return(repo_base_dir) if @failure_repos[dev_repo_sha].nil?
+            mock_scraper.should_receive(:repo_dir).once.with(dev_cookbook[:repo]).and_return(repo_base_dir)
           end
         end
 
         after(:each) do
           FileUtils.rm_rf(@checkout_root_dir)
+          FileUtils.rm_rf(AgentConfig.cookbook_download_dir)
         end
       end
 
@@ -517,9 +497,8 @@ module RightScale
                   if failed_positions && failed_positions.include?(position.position)
                     local_basedir.should_not exist_on_filesystem
                   elsif dev_position.nil?
-                    # not a dev cookbook, so should not be linked
-                    local_basedir.should exist_on_filesystem
-                    local_basedir.should_not be_symlink
+                    # not a dev cookbook, so should not exist
+                    local_basedir.should_not exist_on_filesystem
                   else
                     # is a dev cookbook, so should be linked
                     local_basedir.should be_symlink_to(@checkout_paths[local_basedir])
@@ -529,7 +508,7 @@ module RightScale
                 # no cookbook should be symlink
                 cookbook_sequence.positions.each do |position|
                   local_basedir = File.join(AgentConfig.cookbook_download_dir, cookbook_sequence.hash, position.position)
-                  local_basedir.should exist_on_filesystem
+                  local_basedir.should_not exist_on_filesystem
                   local_basedir.should_not be_symlink
                 end
               end

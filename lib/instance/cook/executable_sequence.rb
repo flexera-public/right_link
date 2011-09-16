@@ -391,7 +391,7 @@ module RightScale
     #  :value (String):: full path of the cookbook in the repo
     def checkout_cookbook_repo(scraper, repo_detail)
       # checkout the repo
-      scrape_result = scraper.scrape(repo_detail) do |state, operation, explaination, exception|
+      scraper.scrape(repo_detail) do |state, operation, explaination, exception|
         # audit progress
         case state
           when :begin, :commit
@@ -400,11 +400,36 @@ module RightScale
             report_failure("Failed #{operation} #{explaination}", "Cannot continue due to #{exception.class.name}: #{exception.message}.")
         end
       end
-      if scrape_result
-        # get the root dir the repo was checked out to
-        return scraper.repo_dir(repo_detail)
+      # get the root dir the repo was checked out to
+      scraper.repo_dir(repo_detail)
+    end
+
+    def checkout_repos
+      @audit.create_new_section('Checking out cookbooks for development') unless @dev_cookbooks.empty?
+      audit_time do
+        # only create a scraper if there are dev cookbooks
+        checkout_root = CookState.cookbooks_path
+        scraper       = ::RightScraper::Scraper.new(:kind => :cookbook, :basedir => checkout_root)
+        @dev_cookbooks.each_pair do |repo_sha, dev_repo|
+          cookbook_path_manager = CookbookPathManager.new({ :repose_root   => @download_path,
+                                                            :checkout_root => checkout_root,
+                                                            :repo_sha      => repo_sha })
+
+          repo_dir = checkout_cookbook_repo(scraper, dev_repo[:repo])
+          cookbook_path_manager.register_checkout_paths(repo_dir, dev_repo[:positions]) if repo_dir
+
+          # symlink to the checked out cookbook only if it was actually checked out
+          dev_repo[:positions].each do |position|
+            checkout_path = cookbook_path_manager.checkout_path(position.position)
+            repose_path   = cookbook_path_manager.repose_path(position.position)
+            puts "symlink[#{position.position}] #{checkout_path} => #{repose_path}"
+            if File.exists?(checkout_path)
+              FileUtils.mkdir_p(File.dirname(repose_path))
+              File.symlink(checkout_path, repose_path)
+            end
+          end
+        end
       end
-      return nil
     end
 
     # Download required cookbooks from Repose mirror; update @ok.
@@ -434,35 +459,16 @@ module RightScale
           end
         end
 
-        # only create a scraper if there are dev cookbooks
         checkout_root = CookState.cookbooks_path
-        scraper       = ::RightScraper::Scraper.new(:kind => :cookbook, :basedir => checkout_root)
         @cookbooks.each do |cookbook_sequence|
-          cookbook_path_manager = CookbookPathManager.new({ :repose_root   => @download_path,
+          cookbook_sequence.positions.each do |position|
+            cookbook_path_manager = CookbookPathManager.new({ :repose_root   => @download_path,
                                                             :checkout_root => checkout_root,
                                                             :repo_sha      => cookbook_sequence.hash })
 
-          # checkout repos containing dev cookbooks
-          if @dev_cookbooks.has_key?(cookbook_sequence.hash)
-            dev_repo = @dev_cookbooks[cookbook_sequence.hash]
-
-            repo_dir = checkout_cookbook_repo(scraper, dev_repo[:repo])
-            cookbook_path_manager.register_checkout_paths(repo_dir, dev_repo[:positions]) if repo_dir
-          end
-
-          cookbook_sequence.positions.each do |position|
-            if @dev_cookbooks.has_key?(cookbook_sequence.hash) &&
-               @dev_cookbooks[cookbook_sequence.hash][:positions] &&
-               @dev_cookbooks[cookbook_sequence.hash][:positions].detect { |dev_position| dev_position.position == position.position }
-
-              # symlink to the checked out cookbook only if it was actually checked out
-              if cookbook_path_manager.has_checkout_path?(position.position)
-                checkout_path = cookbook_path_manager.checkout_path(position.position)
-                repose_path   = cookbook_path_manager.repose_path(position.position)
-                FileUtils.mkdir_p(File.dirname(repose_path))
-                File.symlink(checkout_path, repose_path)
-              end
-            else
+            unless @dev_cookbooks.has_key?(cookbook_sequence.hash) &&
+                   @dev_cookbooks[cookbook_sequence.hash][:positions] &&
+                   @dev_cookbooks[cookbook_sequence.hash][:positions].detect { |dev_position| dev_position.position == position.position }
               # download with repose
               if File.exists?(cookbook_path_manager.repose_path(position.position))
                 @audit.append_info("Skipping #{position.cookbook.name}, already there")
