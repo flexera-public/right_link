@@ -1,6 +1,6 @@
 GIT
   remote: git://github.com/rightscale/right_scraper.git
-  revision: 5aff949d328011e52ada0e5cd6c374ca68956d95
+  revision: 2bfcf518b409b0285e9e1ff9d67a39153477baae
   specs:
     right_scraper (3.0.0)
       curb (>= 0.7.7.1)

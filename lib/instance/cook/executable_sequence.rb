@@ -22,6 +22,7 @@
 
 require 'right_http_connection'
 require 'process_watcher'
+require 'right_scraper'
 require 'socket'
 require 'tempfile'
 require 'fileutils'
@@ -43,6 +44,55 @@ end
 
 module RightScale
 
+  class CookbookPathManager
+    attr_accessor :repose_root, :checkout_root
+
+    # Initialize scrape destination directory
+    #
+    # === Options
+    # <tt>:repose_root</tt>:: download dir of repose managed cookbooks
+    # <tt>:checkout_root</tt>:: base dir for all cookbooks that are checked out
+    # <tt>:repo_sha</tt>:: repo sha/hash of the managed paths
+    def initialize(options={ })
+      @repose_root            = options[:repose_root]
+      @checkout_root          = options[:checkout_root]
+      @repo_sha               = options[:repo_sha]
+      @dev_cookbook_positions = { }
+      @cached_repose_paths    = { }
+    end
+
+
+    def register_checkout_paths(repo_root_dir, positions)
+      positions.each do |cookbook_position|
+        position                          = cookbook_position.position
+        @dev_cookbook_positions[position] = build_path([repo_root_dir], position)
+        cache_repose_path(position)
+      end
+    end
+
+    def has_checkout_path?(position)
+      @dev_cookbook_positions.has_key?(position)
+    end
+
+    def repose_path(position)
+      cache_repose_path(position) unless @cached_repose_paths.has_key?(position)
+      @cached_repose_paths[position]
+    end
+
+    def checkout_path(position)
+      @dev_cookbook_positions[position]
+    end
+
+    private
+    def cache_repose_path(position)
+      @cached_repose_paths[position] = build_path([repose_root, @repo_sha], position)
+    end
+
+    def build_path(roots, sub_path)
+      File.join(*(roots + sub_path.split('/')))
+    end
+  end
+
   # Bundle sequence, includes installing dependent packages,
   # downloading attachments and running scripts in given bundle.
   # Also downloads cookbooks and run recipes in given bundle.
@@ -50,8 +100,8 @@ module RightScale
   class ExecutableSequence
     include EM::Deferrable
 
-    OHAI_RETRY_MIN_DELAY = 20             # Min number of seconds to wait before retrying Ohai to get the hostname
-    OHAI_RETRY_MAX_DELAY = 20 * 60        # Max number of seconds to wait before retrying Ohai to get the hostname
+    OHAI_RETRY_MIN_DELAY = 20      # Min number of seconds to wait before retrying Ohai to get the hostname
+    OHAI_RETRY_MAX_DELAY = 20 * 60 # Max number of seconds to wait before retrying Ohai to get the hostname
 
     class CookbookDownloadFailure < Exception
       def initialize(tuple)
@@ -83,7 +133,7 @@ module RightScale
       @description            = bundle.to_s
       @right_scripts_cookbook = RightScriptsCookbook.new
       @scripts                = bundle.executables.select { |e| e.is_a?(RightScriptInstantiation) }
-      recipes                 = bundle.executables.map    { |e| e.is_a?(RecipeInstantiation) ? e : @right_scripts_cookbook.recipe_from_right_script(e) }
+      recipes                 = bundle.executables.map { |e| e.is_a?(RecipeInstantiation) ? e : @right_scripts_cookbook.recipe_from_right_script(e) }
       @cookbooks              = bundle.cookbooks
       @dev_cookbooks          = bundle.dev_cookbooks
       @downloader             = Downloader.new
@@ -98,8 +148,8 @@ module RightScale
       @repose_class.discover_repose_servers(bundle.repose_servers)
 
       # Initializes run list for this sequence (partial converge support)
-      @run_list = []
-      @inputs = {}
+      @run_list  = []
+      @inputs    = { }
       breakpoint = CookState.breakpoint
       recipes.each do |recipe|
         if recipe.nickname == breakpoint
@@ -153,7 +203,7 @@ module RightScale
 
     # Initialize and configure the logger
     def configure_logging
-      Chef::Log.logger = AuditLogger.new
+      Chef::Log.logger       = AuditLogger.new
       Chef::Log.logger.level = Log.level_from_sym(Log.level)
     end
 
@@ -163,7 +213,7 @@ module RightScale
     # true:: Always return true
     def configure_chef
       Chef::Config[:custom_exec_exception] = Proc.new { |params|
-        failure_reason = ::RightScale::SubprocessFormatting.reason(params[:status])
+        failure_reason       = ::RightScale::SubprocessFormatting.reason(params[:status])
         expected_error_codes = Array(params[:args][:returns]).join(' or ')
         ::RightScale::Exceptions::Exec.new("\"#{params[:args][:command]}\" #{failure_reason}, expected #{expected_error_codes}.",
                                            params[:args][:cwd])
@@ -174,13 +224,13 @@ module RightScale
         Chef::Config[:cookbook_path] = CookState.cookbooks_path
         @audit.append_info("Using development cookbooks repositories path:\n\t- #{Chef::Config[:cookbook_path].join("\n\t- ")}")
       else
-        Chef::Config[:cookbook_path] = (@right_scripts_cookbook.empty? ? [] : [ @right_scripts_cookbook.repo_dir ])
+        Chef::Config[:cookbook_path] = (@right_scripts_cookbook.empty? ? [] : [@right_scripts_cookbook.repo_dir])
       end
-      Chef::Config[:solo] = true
+      Chef::Config[:solo]                 = true
 
       # must set file cache path and ensure it exists otherwise evented run_command will fail
-      file_cache_path = File.join(AgentConfig.cache_dir, 'chef')
-      Chef::Config[:file_cache_path] = file_cache_path
+      file_cache_path                     = File.join(AgentConfig.cache_dir, 'chef')
+      Chef::Config[:file_cache_path]      = file_cache_path
       Chef::Config[:cache_options][:path] = File.join(file_cache_path, 'checksums')
       FileUtils.mkdir_p(Chef::Config[:file_cache_path])
       FileUtils.mkdir_p(Chef::Config[:cache_options][:path])
@@ -211,7 +261,7 @@ module RightScale
                   next
                 rescue AttachmentDownloadFailure => e
                   @audit.append_info("Repose download failed: #{e.message}; " +
-                                     "falling back to direct download")
+                                         "falling back to direct download")
                 end
               end
 
@@ -314,7 +364,7 @@ module RightScale
     def update_cookbook_path
       @cookbooks.each do |cookbook_sequence|
         local_basedir = File.join(@download_path, cookbook_sequence.hash)
-        cookbook_sequence.paths.reverse.each {|path|
+        cookbook_sequence.paths.reverse.each { |path|
           dir = File.expand_path(File.join(local_basedir, path))
           unless Chef::Config[:cookbook_path].include?(dir)
             if File.directory?(dir)
@@ -327,6 +377,34 @@ module RightScale
       end
       RightScale::Log.info("Updated cookbook_path to: #{Chef::Config[:cookbook_path].join(", ")}")
       true
+    end
+
+    # Checkout the given repo and map the full path to each cookbook of the dev repo to its position
+    #
+    # === Parameters
+    # scraper (RightScraper::Scraper):: scraper to do the checkout
+    # repository (Hash):: DevRepositiories entry
+    #
+    # === Return
+    # dev_cookbook_positions(Hash):: Collection of paths to the checked out cookbooks
+    #  :key (String):: cookbook position (relative path of the cookbook in the repo)
+    #  :value (String):: full path of the cookbook in the repo
+    def checkout_cookbook_repo(scraper, repo_detail)
+      # checkout the repo
+      scrape_result = scraper.scrape(repo_detail) do |state, operation, explaination, exception|
+        # audit progress
+        case state
+          when :begin, :commit
+            @audit.append_info("#{state} #{operation} #{explaination}")
+          when :abort
+            report_failure("Failed #{operation} #{explaination}", "Cannot continue due to #{exception.class.name}: #{exception.message}.")
+        end
+      end
+      if scrape_result
+        # get the root dir the repo was checked out to
+        return scraper.repo_dir(repo_detail)
+      end
+      return nil
     end
 
     # Download required cookbooks from Repose mirror; update @ok.
@@ -356,14 +434,41 @@ module RightScale
           end
         end
 
+        # only create a scraper if there are dev cookbooks
+        checkout_root = CookState.cookbooks_path
+        scraper       = ::RightScraper::Scraper.new(:kind => :cookbook, :basedir => checkout_root)
         @cookbooks.each do |cookbook_sequence|
-          local_basedir = File.join(@download_path, cookbook_sequence.hash)
+          cookbook_path_manager = CookbookPathManager.new({ :repose_root   => @download_path,
+                                                            :checkout_root => checkout_root,
+                                                            :repo_sha      => cookbook_sequence.hash })
+
+          # checkout repos containing dev cookbooks
+          if @dev_cookbooks.has_key?(cookbook_sequence.hash)
+            dev_repo = @dev_cookbooks[cookbook_sequence.hash]
+
+            repo_dir = checkout_cookbook_repo(scraper, dev_repo[:repo])
+            cookbook_path_manager.register_checkout_paths(repo_dir, dev_repo[:positions]) if repo_dir
+          end
+
           cookbook_sequence.positions.each do |position|
-            if File.exists?(File.join(local_basedir, position.position))
-              @audit.append_info("Skipping #{position.cookbook.name}, already there")
+            if @dev_cookbooks.has_key?(cookbook_sequence.hash) &&
+               @dev_cookbooks[cookbook_sequence.hash][:positions] &&
+               @dev_cookbooks[cookbook_sequence.hash][:positions].detect { |dev_position| dev_position.position == position.position }
+
+              # symlink to the checked out cookbook only if it was actually checked out
+              if cookbook_path_manager.has_checkout_path?(position.position)
+                checkout_path = cookbook_path_manager.checkout_path(position.position)
+                repose_path   = cookbook_path_manager.repose_path(position.position)
+                FileUtils.mkdir_p(File.dirname(repose_path))
+                File.symlink(checkout_path, repose_path)
+              end
             else
-              prepare_cookbook(local_basedir, position.position,
-                               position.cookbook)
+              # download with repose
+              if File.exists?(cookbook_path_manager.repose_path(position.position))
+                @audit.append_info("Skipping #{position.cookbook.name}, already there")
+              else
+                prepare_cookbook(cookbook_path_manager.repose_path(position.position), position.cookbook)
+              end
             end
           end
         end
@@ -384,8 +489,7 @@ module RightScale
     # Download a cookbook from the mirror and extract it to the filesystem.
     #
     # === Parameters
-    # local_basedir(String):: dir where all the cookbooks are going
-    # relative_path(String):: subdir of basedir into which this cookbook goes
+    # root_dir(String):: subdir of basedir into which this cookbook goes
     # cookbook(Cookbook):: cookbook
     #
     # === Raise
@@ -394,7 +498,7 @@ module RightScale
     #
     # === Return
     # true:: always returns true
-    def prepare_cookbook(local_basedir, relative_path, cookbook)
+    def prepare_cookbook(root_dir, cookbook)
       @audit.append_info("Requesting #{cookbook.name}")
       tarball = Tempfile.new("tarball")
       tarball.binmode
@@ -419,8 +523,6 @@ module RightScale
       # This ensures we will be able to deal with future changes to the Chef merge algorithm,
       # as well as accommodate "naughty" cookbooks that side-load data from the filesystem
       # using relative paths to other cookbooks.
-      root_dir = [local_basedir] + relative_path.split('/')
-      root_dir = File.join(*root_dir)
       FileUtils.mkdir_p(root_dir)
 
       Dir.chdir(root_dir) do
@@ -487,7 +589,7 @@ module RightScale
         Log.warning("Could not determine node name from Ohai, will retry in #{@ohai_retry_delay}s...")
         # need to execute on a non-timer thread or else EM main thread will block.
         EM.add_timer(@ohai_retry_delay) { EM.defer { check_ohai(&block) } }
-        @ohai_retry_delay = [ 2 * @ohai_retry_delay, OHAI_RETRY_MAX_DELAY ].min
+        @ohai_retry_delay = [2 * @ohai_retry_delay, OHAI_RETRY_MAX_DELAY].min
       end
       true
     end
@@ -520,7 +622,7 @@ module RightScale
         @audit.append_info("Run list: #{@run_list.join(', ')}")
         attribs = { 'run_list' => @run_list }
         attribs.merge!(@attributes) if @attributes
-        c = Chef::Client.new(attribs)
+        c      = Chef::Client.new(attribs)
         c.ohai = ohai
         audit_time do
           c.run
@@ -575,10 +677,10 @@ module RightScale
     # true:: Always return true
     def report_success(node)
       ChefState.merge_attributes(node.normal_attrs) if node
-      patch = ChefState.create_patch(@inputs, ChefState.attributes)
+      patch              = ChefState.create_patch(@inputs, ChefState.attributes)
       # We don't want to send back new attributes (ohai etc.)
-      patch[:right_only] = {}
-      @inputs_patch = patch
+      patch[:right_only] = { }
+      @inputs_patch      = patch
       EM.next_tick { succeed }
       true
     end
@@ -592,8 +694,8 @@ module RightScale
     # === Return
     # true:: Always return true
     def report_failure(title, msg)
-      @ok = false
-      @failure_title = title
+      @ok              = false
+      @failure_title   = title
       @failure_message = msg
       # note that the errback handler is expected to audit the message based on
       # the preserved title and message and so we don't audit it here.
@@ -619,10 +721,10 @@ module RightScale
       elsif e.is_a?(::NoMethodError) && (missing_action_match = /undefined method .action_(\S*)' for #<\S*:\S*>/.match(e.message)) && missing_action_match[1]
         msg = "[chef] recipe references the action <#{missing_action_match[1]}> which is missing an implementation"
       else
-        msg = "An error occurred during the execution of Chef. The error message was:\n\n"
-        msg += e.message
+        msg              = "An error occurred during the execution of Chef. The error message was:\n\n"
+        msg              += e.message
         file, line, meth = e.backtrace[0].scan(/(.*):(\d+):in `(\w+)'/).flatten
-        line_number = line.to_i
+        line_number      = line.to_i
         if file && line && (line_number.to_s == line)
           dir = AgentConfig.cookbook_download_dir
           if file[0..dir.size - 1] == dir
@@ -635,10 +737,10 @@ module RightScale
           context = ""
           if File.readable?(file)
             File.open(file, 'r') do |f|
-              lines = f.readlines
+              lines       = f.readlines
               lines_count = lines.size
               if lines_count >= line_number
-                upper = [lines_count, line_number + 2].max
+                upper   = [lines_count, line_number + 2].max
                 padding = upper.to_s.size
                 context += context_line(lines, line_number - 2, padding)
                 context += context_line(lines, line_number - 1, padding)
@@ -682,10 +784,10 @@ module RightScale
     # === Return
     # success(Boolean):: true if execution was successful, false otherwise.
     def retry_execution(retry_message, times = AgentConfig.max_packages_install_retries)
-      count = 0
+      count   = 0
       success = false
       begin
-        count += 1
+        count   += 1
         success = yield
         @audit.append_info("\n#{retry_message}\n") unless success || count > times
       end while !success && count <= times
