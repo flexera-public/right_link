@@ -83,6 +83,7 @@ function install_gems() {
         bundle_flags=""
     fi
 
+    cd $right_link_root
     $bundle_bin install $bundle_flags
 }
 
