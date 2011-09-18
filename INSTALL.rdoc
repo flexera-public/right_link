@@ -15,25 +15,24 @@ functionality at runtime:
 
 == Supported Configurations
 
-RightLink is regularly tested on the following OS distributions:
+RightLink is regularly tested on the following Linux distributions:
 * CentOS - 5.4, 5.6
 * Ubuntu - 8.04, 10.04, 10.10, 11.04
-* Windows - 2008, 2008 R2
 
 It has been known to work on the following with little or no modification:
 * Debian
 * RedHat Enterprise Linux
 * SuSE Linux
-* Windows 2003
 
 And on the following kinds of cloud:
 * Amazon Web Services (AWS)
-* Rackspace Servers
+* Rackspace Cloud Servers
+* Eucalyptus
 * CloudStack
 
-Although RightLink is Windows-compatible and is regularly tested on several
+Although RightLink is Windows-compatible and is regularly released for
 Windows variants, installation and configuration are not yet covered in this
-document. For information on using RightLink with Windows, see the relevant
+document. For information on the RightLink Windows MSI, see the documentation
 page on our {support wiki}[http://support.rightscale.com/12-Guides/Windows_User_Guide]
 
 == CentOS Systems
@@ -79,7 +78,8 @@ get them from a mirror {close to you}[http://packages.ubuntu.com/natty/all/rubyg
 Ruby Version Manager (RVM) is a set of shell scripts that allows you to build
 and install multiple Ruby interpreters side by side.
 
-*NOTE* - If you create init scripts for RightLink,
+*NOTE* - If you create init scripts for RightLink, they should source rvm.sh
+and "rvm use" the appropriate Ruby before invoking any RightLink commands.
 
  bash < <(curl -sk https://rvm.beginrescueend.com/install/rvm)
  source /etc/profile.d/rvm.sh
@@ -160,20 +160,14 @@ and relaunching.
  cd /opt/rightscale
  
  # Fetch metadata from cloud and make it available in the shell environment
- bin/cloud --name $RS_CLOUD --action clear_state --only-if
- bin/cloud --name $RS_CLOUD --action wait_for_instance_ready --only-if > /dev/null
- bin/cloud --name $RS_CLOUD --action write_cloud_metadata --only-if > /dev/null
- bin/cloud --name $RS_CLOUD --action write_user_metadata > /dev/null
- bin/cloud --name $RS_CLOUD --action wait_for_eip --only-if
+ bin/cloud --name $RS_CLOUD --action bootstrap > /dev/null
  . /var/spool/cloud/user-data.sh
  
-=== Check for RightLink Dashboard
+=== Determine Boot State
 
  # TODO - check_for_rightscale
 
-=== Record Boot State
-
- # TODO - rightboot init script (tweak state, detect reboot)
+ # TODO - rightboot init script (detect reboot & tweak state)
 
  # TODO - check_boot_state, update_boot_state 
 
@@ -193,8 +187,8 @@ and relaunching.
  # Start the RightLink agent
  bin/rnac --start instance
 
- # TODO - rchk
- bin/rchk --start
+ # Start the agent watchdog process
+ bin/rchk --start
 
 At this point, your instance should be booting and sending audit entries back to the RightScale dashboard.
 Navigate to this server and verify that it's booting cleanly.
