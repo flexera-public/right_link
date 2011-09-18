@@ -13,31 +13,10 @@ functionality at runtime:
 * curl (for download of RightScript attachments)
 * dig, sed and perl (used by some cloud-specific config logic)
 
-== Preparing a CentOS System
-
-TODO
-
-== Preparing an Ubuntu System
-
-Install Ruby and some related packages.
-
- apt-get update
- apt-get install ruby1.8 ">=1.8.7"
- apt-get install -y ruby1.8 ruby1.8-dev g++ libreadline-ruby1.8 rubygems1.8 irb1.8 rdoc1.8
- apt-get install -y monit git-core perl sed curl dnsutils
-
-On Ubuntu < 10.04.3 it is necessary to fetch the newer packages from an Ubuntu
-mirror. You can download them from EasyNews (as in the example below), or
-get them from a mirror {close to you}[http://packages.ubuntu.com/natty/all/rubygems1.8/download]
-
- wget http://mirrors.easynews.com/linux/ubuntu//pool/universe/libg/libgems-ruby/rubygems1.8_1.3.7-2_all.deb
- dpkg -i rubygems1.8_1.3.7-2.deb
- apt-get -f install
-
 == Supported Configurations
 
 RightLink is regularly tested on the following OS distributions:
-* CentOS - 5.4, 5.6, 6.0
+* CentOS - 5.4, 5.6
 * Ubuntu - 8.04, 10.04, 10.10, 11.04
 * Windows - 2008, 2008 R2
 
@@ -57,18 +36,76 @@ Windows variants, installation and configuration are not yet covered in this
 document. For information on using RightLink with Windows, see the relevant
 page on our {support wiki}[http://support.rightscale.com/12-Guides/Windows_User_Guide]
 
+== CentOS Systems
+
+Install the C toolchain and related libraries, plus some additional libs
+required for RightLink,
+
+ yum install -y gcc-c++ patch readline readline-devel zlib zlib-devel libyaml-devel libffi-devel openssl-devel make bzip2 iconv-devel
+
+CentOS does not have a suitable prepackaged Ruby. To run RightLink, you
+can install RVM and use it to
+
+== Ubuntu Systems
+
+Install the C toolchain and related libraries, plus some additional libs
+required for RightLink.
+
+ apt-get update
+ apt-get install -y build-essential gcc g++
+ apt-get install -y bison openssl libreadline5 libreadline-dev zlib1g zlib1g-dev libssl-dev vim libreadline-dev libxml2-dev autoconf
+ apt-get install -y git-core perl sed curl dnsutils
+
+=== System Ruby (Optional)
+
+On Ubuntu, you have the choice of using RVM (see instructions below) or
+installing a system Ruby interpreter. RVM is recommended, but it is
+possible to run against the system Ruby interpreter provided it's recent
+enough.
+
+On Ubuntu < 10.04.3, it is necessary to fetch the newer packages from an Ubuntu
+mirror. You can download them from EasyNews (as in the example below), or
+get them from a mirror {close to you}[http://packages.ubuntu.com/natty/all/rubygems1.8/download]
+
+ apt-get install -y ruby1.8 ">=1.8.7"
+ apt-get install -y ruby1.8-dev g++ libreadline-ruby1.8 rubygems1.8 irb1.8 rdoc1.8
+
+ wget http://mirrors.easynews.com/linux/ubuntu//pool/universe/libg/libgems-ruby/rubygems1.8_1.3.7-2_all.deb
+ dpkg -i rubygems1.8_1.3.7-2.deb
+ apt-get -f install
+
+== All Linux Systems
+
+Ruby Version Manager (RVM) is a set of shell scripts that allows you to build
+and install multiple Ruby interpreters side by side.
+
+*NOTE* - If you create init scripts for RightLink,
+
+ bash < <(curl -sk https://rvm.beginrescueend.com/install/rvm)
+ source /etc/profile.d/rvm.sh
+
+ rvm install ruby-1.8.7-p352
+
+ rvm use ruby-1.8.7-p352
+
 = INSTALLATION
 
 == One-Time Setup
 
-=== Get the Source
+If you are packaging RightLink, run these commands as a post-install step
+for your package. If you are bundling a cloud image, run these commands
+_before_ bundling.
 
-Clone the RightLink open-source repository from GitHub.
+=== Fetch RightLink Source
 
  mkdir -p /opt/rightscale
  cd /opt/rightscale
  git clone git://github.com/rightscale/right_link.git
  
+Clone the RightLink source repository from GitHub. By cloning it into
+/opt/rightscale, you will be able to run RightLink directly out of the source
+repository with no intermediate packaging or install steps.
+
 === Run Setup Script
 
  cd right_link
@@ -81,46 +118,92 @@ system directories so they can be invoked by users and scripts.
 On Unix systems, CLI tools are created in /usr/bin. By convention, they
 begin with the prefix "rs_" e.g. rs_tag or rs_run_recipe.
 
-== On-Boot and On-Shutdown Tasks
+= INTEGRATING WITH THE SYSTEM
 
-The operating system must launch RightLink at boot. Under Linux this is
-accomplished with init scripts, optionally using monit for robustness.
-Under Windows, a system service spawns the agent process and monitors
-its health.
+== Multi-Cloud Support
 
-CAUTION: if your instance is attached to the RightScale dashboard,
-running the commands below will cause it to begin running boot scripts!
-This is not necessarily harmful, but if your intent is to bundle a
-"pristine" image, you probably want to put the following commands
-into an init script and test by bundling and relaunching.
+ export RS_CLOUD=ec2 # or another cloud type, see below...
+
+RightLink supports many virtualization engines, cloud APIs and other facets
+of cloud technology. Due to lack of standardization, there is no reliable
+way for RightLink to auto-detect the cloud type in which it is running.
+
+We have taken the pragmatic approach and require the user to give RightLink a
+hint about its runtime environment. RightLink must know its cloud type in
+order to retrieve launch settings and runtime metadata that are crucial to
+successful operation.
+
+In the commands below, we refer to an environment variable RS_CLOUD. You
+should set RS_CLOUD to the cloud type under which RightLink is running, before
+running any of the commands below. RS_CLOUD is your "hint" to RightLink.
+
+RightLink knows about the following values of RS_CLOUD:
+* ec2
+* rackspace
+* eucalyptus
+* cloudstack
+* openstack
+
+== On-Boot Commands
+
+Under Linux these are accomplished with init scripts, optionally using monit
+for robustness. Under Windows, a system service spawns the agent process and
+monitors its health.
+
+CAUTION: if your instance is attached to the RightScale dashboard, running
+the commands below will cause it to begin running boot scripts! This is not
+harmful, but if your intent is to bundle a "pristine" image, you probably
+want to put the following commands into an init script and test by bundling
+and relaunching.
 
  #The commands below use relative paths for readability
  cd /opt/rightscale
  
- # Fetch user data from cloud and make it available in the shell environment
- export RS_CLOUD=ec2
+ # Fetch metadata from cloud and make it available in the shell environment
  bin/cloud --name $RS_CLOUD --action clear_state --only-if
- bin/cloud --name $RS_CLOUD --action wait_for_instance_ready --only-if
- bin/cloud --name $RS_CLOUD --action write_cloud_metadata --only-if
- bin/cloud --name $RS_CLOUD --action write_user_metadata
+ bin/cloud --name $RS_CLOUD --action wait_for_instance_ready --only-if > /dev/null
+ bin/cloud --name $RS_CLOUD --action write_cloud_metadata --only-if > /dev/null
+ bin/cloud --name $RS_CLOUD --action write_user_metadata > /dev/null
  bin/cloud --name $RS_CLOUD --action wait_for_eip --only-if
  . /var/spool/cloud/user-data.sh
  
+=== Check for RightLink Dashboard
+
+ # TODO - check_for_rightscale
+
+=== Record Boot State
+
  # TODO - rightboot init script (tweak state, detect reboot)
- # TODO - check_for_rightscale, check_boot_state, update_boot_state 
+
+ # TODO - check_boot_state, update_boot_state 
+
+=== Run Fix-It Tasks
 
  # TODO - UNDOCUMENTED - sys_configure ssh
  # TODO - UNDOCUMENTED - sys_configure hostname
  # TODO - UNDOCUMENTED - sys_configure http_proxy
+
+=== Configure RightLink Agent
  
- # Configure the RightLink agent
  bin/enroll --root-dir /opt/rightscale/right_link --url $RS_RN_URL --host $RS_RN_HOST --id $RS_RN_ID --token $RS_RN_AUTH
  bin/deploy
  
- # TODO - monit and rchk
- 
+=== Launch RightLink Agent
+
  # Start the RightLink agent
  bin/rnac --start instance
 
+ # TODO - rchk
+ bin/rchk --start
+
 At this point, your instance should be booting and sending audit entries back to the RightScale dashboard.
 Navigate to this server and verify that it's booting cleanly.
+
+== On-Shutdown Commands
+
+When the system is terminating, you should allow RightLink to run its decommission scripts.
+
+ #The commands below use relative paths for readability
+ cd /opt/rightscale
+ 
+ bin/rnac --decommission

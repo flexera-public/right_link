@@ -31,12 +31,15 @@ relative_path_guess=`dirname $0`
 if [ -e $fixed_path_guess/setup.sh ]
 then
   # This script was packaged and then deployed into /opt/rightscale
-  right_link_root="/opt/rightscale"
+  right_scale_root="/opt/rightscale"
+  right_link_root="${right_scale_root}/right_link"
 elif [ -e $relative_path_guess ]
 then
   # This script is running in out of a Git repository, e.g. on a developer machine
   pushd $relative_path_guess/.. > /dev/null
   right_link_root="$PWD"
+  cd ..
+  right_scale_root="$PWD"
   popd > /dev/null
 else
   echo "Cannot infer location of bin dir from $0"
@@ -48,7 +51,7 @@ fi
 # Install RightLink gem dependencies
 #
 function install_gems() {
-    echo "Installing RightLink gem dependencies are satisfied"
+    echo "Installing RightLink gem dependencies"
     cd $right_link_root
 
     if [ -e /opt/rightscale/sandbox/bin/gem ]
