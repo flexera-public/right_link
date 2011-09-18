@@ -173,9 +173,9 @@ and relaunching.
 
 === Run Fix-It Tasks
 
- # TODO - UNDOCUMENTED - sys_configure ssh
- # TODO - UNDOCUMENTED - sys_configure hostname
- # TODO - UNDOCUMENTED - sys_configure http_proxy
+ # TODO - UNDOCUMENTED - bin/system ssh
+ # TODO - UNDOCUMENTED - bin/system hostname
+ # TODO - UNDOCUMENTED - bin/system proxy
 
 === Configure RightLink Agent
  

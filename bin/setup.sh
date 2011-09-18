@@ -161,7 +161,7 @@ function install_private_wrappers() {
 
     echo
     echo Installing private-tool wrappers to $private_wrapper_dir
-    for script in rad rchk rnac rstat cloud deploy enroll
+    for script in rad rchk rnac rstat cloud system enroll deploy
     do
       echo " - $script"
       cat > $private_wrapper_dir/$script <<EOF
