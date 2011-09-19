@@ -1,5 +1,4 @@
 #!/opt/rightscale/sandbox/bin/ruby
-#
 # Copyright (c) 2009-2011 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
@@ -25,8 +24,12 @@
 #
 # See scripts/agent_deployer.rb for additional information.
 
+# Activate Bundler
 require 'rubygems'
-require File.expand_path(File.join(File.dirname(__FILE__), '..', 'scripts', 'agent_deployer'))
+require 'bundler/setup'
+
+$:.push(File.join(File.dirname(__FILE__), '..', 'scripts'))
+require 'agent_deployer'
 
 RightScale::RightLinkAgentDeployer.run
 

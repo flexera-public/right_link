@@ -1,5 +1,4 @@
 #!/opt/rightscale/sandbox/bin/ruby
-
 # Copyright (c) 2011 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
@@ -21,7 +20,10 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+# Activate Bundler
 require 'rubygems'
+require 'bundler/setup'
+
 require File.expand_path(File.join(File.dirname(__FILE__), '..', 'scripts', 'cloud_controller'))
 
 RightScale::CloudController.run
