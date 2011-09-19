@@ -10,7 +10,7 @@ require 'spec/rake/spectask'
 
 # Project-specific dependencies
 RIGHT_LINK_ROOT = File.dirname(__FILE__)
-require File.expand_path(RIGHT_LINK_ROOT, 'lib', 'run_shell'))
+require File.join(RIGHT_LINK_ROOT, 'lib', 'run_shell')
 
 include RunShell
 
