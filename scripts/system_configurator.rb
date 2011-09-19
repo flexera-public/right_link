@@ -20,6 +20,13 @@ require 'right_agent'
 require 'right_agent/scripts/usage'
 require 'right_agent/scripts/common_parser'
 
+begin
+  require '/var/spool/cloud/meta-data-cache'
+  require '/var/spool/cloud/user-data'
+rescue LoadError => e
+
+end
+
 module RightScale
   class SystemConfigurator
     RSA_KEY = '/etc/ssh/ssh_host_rsa_key'
@@ -195,7 +202,7 @@ module RightScale
     end
 
     def restart_sshd
-      sshd_name = (RightScale::Platform.centos?) ? "sshd" : "ssh"
+      sshd_name = File.exist?('/etc/init.d/sshd') ? "sshd" : "ssh"
       puts "Restarting SSHD..."
       runshell("/etc/init.d/#{sshd_name} restart")
     end
@@ -223,52 +230,43 @@ module RightScale
       runshell("echo #{hostname} > /etc/hostname")
       puts "Changed hostname to #{hostname}"
 
-      # Make sure 'hostname --fqdn' will work
-      #  1) Remove any existing /etc/hosts entries with our name
-      #  2) Add an entry mapping our local IP to our FQDN
-      #
-      # The following command doesn't work with ruby 1.8.5:
-      #    => runshell("cat /etc/hosts | grep -v #{hostname} > /etc/hosts_temp")
-      # It looks that structure "smth | grep smth" is unsupported.
       mask = Regexp.new(hostname)
       begin
-        output_file = File.open("/etc/hosts_temp", "w")
-        File.open("/etc/hosts").each { |line| output_file.puts line unless line =~ mask}
-        output_file.puts("#{my_addr} #{my_fqdn} #{hostname}")
-        output_file.close
-      rescue Exception => e
-        # TO DISCUSS: this block
+        lines = File.readlines('/etc/hosts')
+        hosts_file = File.open("/etc/hosts", "w")
+        lines.each { |line| hosts_file.puts line.strip unless line =~ mask}
+        hosts_file.puts("#{my_addr} #{my_fqdn} #{hostname}")
+        hosts_file.close
       end
-      runshell("mv /etc/hosts_temp /etc/hosts")
-      # runshell("echo #{my_addr} #{my_fqdn} #{hostname} >> /etc/hosts")
       puts "Added FQDN hostname entry (#{my_fqdn}) to /etc/hosts"
     end
 
     def get_proxy_exclude_list
-      default_no_proxy = 'http://169.254.169.254'
-
       rs_cloud = get_cloud_type
       no_proxy = []
 
-      # TODO: check if metadata server exist
-      # euca_metadata = "get_euca_metadata_server"
       no_proxy = []
       case rs_cloud
-        when 'ec2', 'eucalyptus'
-          # meta_server = IPSocket.getaddress(euca_metadata)
-          # no_proxy << meta_server ? meta_server : default_no_proxy
+        when 'eucalyptus'
+          meta_server = IPSocket.getaddress(euca_metadata) rescue '169.254.169.254'
+          no_proxy << meta_server
+        else
+          #a reasonable default...
+          no_proxy << '169.254.169.254'
       end
 
       #parse "skip proxy for these servers" setting out of metadata element
-      no_proxy << ENV['RS_NO_PROXY'] if ENV['RS_NO_PROXY']
+      if ENV['RS_NO_PROXY']
+        no_proxy = no_proxy + ENV['RS_NO_PROXY'].split(',')
+      end
 
       no_proxy
     end
 
     # Hack for detecting current Cloud
     def get_cloud_type
+      return ENV['RS_CLOUD'] if env['RS_CLOUD']
       cloud_path = '/etc/rightscale.d/cloud'
-
       rs_cloud = ''
       File.open(cloud_path) { |f| rs_cloud = f.gets } if File.exists?(cloud_path)
       rs_cloud
