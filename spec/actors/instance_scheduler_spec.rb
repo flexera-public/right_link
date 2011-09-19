@@ -54,6 +54,8 @@ describe InstanceScheduler do
 
   include RightScale::SpecHelper
 
+  it_should_behave_like 'mocks shutdown request'
+
   describe 'schedule bundles' do
 
     before(:each) do
@@ -79,9 +81,6 @@ describe InstanceScheduler do
         @sender.should_receive(:send_retryable_request).and_yield(@record_success).by_default
       end
 
-      # Reset previous calls to EM.next_tick
-      EM.instance_variable_set(:@next_tick_queue, [])
-
       @audit = RightScale::AuditProxyMock.new(1)
       @controller = ControllerMock.new
       flexmock(RightScale::AuditProxy).should_receive(:new).and_return(@audit)
@@ -101,13 +100,30 @@ describe InstanceScheduler do
       setup_script_execution
     end
 
+    after(:each) do
+      # not expecting errors.
+      ::RightScale::Log.has_errors?.should be_false
+
+      # ensure we have consumed all queued next_ticks instead of leaking them
+      EM.instance_variable_get(:@next_tick_queue).should be_nil
+    end
+
     after(:all) do
       cleanup_state
     end
 
     it 'should run bundles' do
-      res = @scheduler.schedule_bundle(@bundle)
-      res.success?.should be_true
+      flexmock(RightScale::ExecutableSequenceProxy).should_receive(:new).and_return(@sequence_success)
+      @sender.should_receive(:send_retryable_request).with(*@decommissioning_args).never
+      @sender.should_receive(:send_retryable_request).with(*@decommissioned_args).never
+      @sender.should_receive(:send_push).with('/registrar/remove', {:agent_identity => @identity}).never
+      flexmock(@controller).should_receive(:shutdown).never
+      flexmock(@agent).should_receive(:terminate).and_return { EM.stop; true }
+      run_em_test do
+        res = @scheduler.schedule_bundle(@bundle)
+        res.success?.should be_true
+        EM.next_tick { @scheduler.terminate }
+      end
     end
 
     it 'should decommission' do
@@ -115,10 +131,9 @@ describe InstanceScheduler do
       @sender.should_receive(:send_retryable_request).with(*@decommissioning_args).and_yield(@record_success).once
       @sender.should_receive(:send_retryable_request).with(*@decommissioned_args).and_yield(@record_success).once.and_return { EM.stop }
       flexmock(@audit).should_receive(:append_error).never
-      EM.run do
+      run_em_test do
         res = @scheduler.schedule_decommission(:bundle => @bundle, :user_id => @user_id, :kind => 'terminate')
         res.success?.should be_true
-        EM.add_timer(5) { EM.stop; raise 'timeout' }
       end
     end
 
@@ -128,16 +143,15 @@ describe InstanceScheduler do
       @sender.should_receive(:send_retryable_request).with(*@decommissioned_args).and_yield(@record_success).once.and_return { EM.stop }
       flexmock(@audit).should_receive(:update_status).ordered.once.and_return { |s, _| s.should include('Scheduling execution of ') }
       flexmock(@audit).should_receive(:update_status).ordered.once.and_return { |s, _| s.should include('failed: ') }
-      EM.run do
+      run_em_test do
         res = @scheduler.schedule_decommission(:bundle => @bundle, :user_id => @user_id, :kind => 'terminate')
         res.success?.should be_true
-        EM.add_timer(5) { EM.stop; raise 'timeout' }
       end
     end
 
     it 'should not decommission twice' do
       @sender.should_receive(:send_retryable_request).with(*@decommissioning_args).and_yield(@record_success).once
-      EM.run do
+      run_em_test do
         res = @scheduler.schedule_decommission(:bundle => @bundle, :user_id => @user_id, :kind => 'terminate')
         res.success?.should be_true
         res = @scheduler.schedule_decommission(:bundle => @bundle, :user_id => @user_id, :kind => 'terminate')
@@ -155,9 +169,8 @@ describe InstanceScheduler do
       @sender.should_receive(:send_retryable_request).with(*@decommissioned_args).never
       flexmock(@audit).should_receive(:append_error).never
       flexmock(@controller).should_receive(:shutdown).never
-      EM.run do
+      run_em_test do
         @scheduler.run_decommission { EM.stop }
-        EM.add_timer(5) { EM.stop; raise 'timeout' }
       end
     end
 
@@ -169,9 +182,8 @@ describe InstanceScheduler do
         orig_shutdown_delay = InstanceScheduler::SHUTDOWN_DELAY
         InstanceScheduler.const_set(:SHUTDOWN_DELAY, 1)
         flexmock(ExecutableSequenceMock).new_instances.should_receive(:run).and_return { sleep 2 }
-        EM.run do
+        run_em_test do
           @scheduler.schedule_decommission(:bundle => @bundle, :user_id => @user_id, :kind => 'terminate')
-          EM.add_timer(5) { EM.stop; raise 'timeout' }
         end
       ensure
         InstanceScheduler.const_set(:SHUTDOWN_DELAY, orig_shutdown_delay)
@@ -185,9 +197,8 @@ describe InstanceScheduler do
               and_yield({'1' => RightScale::OperationResult.error('test')}).once
       @sender.should_receive(:send_push).with('/registrar/remove', {:agent_identity => @identity})
       flexmock(@controller).should_receive(:shutdown).once.and_return { EM.stop }
-      EM.run do
+      run_em_test do
         @scheduler.schedule_decommission(:bundle => @bundle, :user_id => @user_id, :kind => 'terminate')
-        EM.add_timer(5) { EM.stop; raise 'timeout' }
       end
     end
 
