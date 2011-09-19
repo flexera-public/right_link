@@ -39,7 +39,7 @@ class InstanceScheduler
     @agent_identity = agent.identity
 
     # invoke the bundles queue factory method as an assist to testing.
-    @bundles_queue = self.class.create_bundles_queue do
+    @bundle_queue = self.class.create_bundles_queue do
       RightScale::InstanceState.value = 'decommissioned'
       @post_decommission_callback.call
     end
@@ -49,9 +49,9 @@ class InstanceScheduler
     # bundle in the Chef thread before we can use it
     EM.next_tick do
       if RightScale::InstanceState.value != 'booting'
-        @bundles_queue.activate
+        @bundle_queue.activate
       else
-        RightScale::InstanceState.observe { |s| @bundles_queue.activate if s != 'booting' }
+        RightScale::InstanceState.observe { |s| @bundle_queue.activate if s != 'booting' }
       end
     end
   end
@@ -68,7 +68,7 @@ class InstanceScheduler
       audit = RightScale::AuditProxy.new(bundle.audit_id)
       audit.update_status("Scheduling execution of #{bundle.to_s}")
       context = RightScale::OperationContext.new(bundle, audit)
-      @bundles_queue.push(context)
+      @bundle_queue.push(context)
     end
     res = success_result
   end
@@ -78,7 +78,7 @@ class InstanceScheduler
   # === Return
   # always true
   def schedule_shutdown
-    @bundles_queue.push(RightScale::BundlesQueue::SHUTDOWN_BUNDLE)
+    @bundle_queue.push(RightScale::BundleQueue::SHUTDOWN_BUNDLE)
     true
   end
 
@@ -151,12 +151,12 @@ class InstanceScheduler
       end
     end
 
-    @bundles_queue.clear # Cancel any pending bundle
+    @bundle_queue.clear # Cancel any pending bundle
     unless bundle.executables.empty?
       audit.update_status("Scheduling execution of #{bundle.to_s} for decommission")
-      @bundles_queue.push(context)
+      @bundle_queue.push(context)
     end
-    @bundles_queue.close
+    @bundle_queue.close
 
     # transition state to 'decommissioning' (by setting decommissioning_type if given)
     #
@@ -216,7 +216,7 @@ class InstanceScheduler
 
   # Factory method for a new bundles queue.
   def self.create_bundles_queue(&block)
-    return RightScale::BundlesQueue.new(&block)
+    return RightScale::MultiThreadBundleQueue.new(&block)
   end
 
 end  # InstanceScheduler

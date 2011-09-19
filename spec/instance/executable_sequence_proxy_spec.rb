@@ -33,7 +33,7 @@ describe RightScale::ExecutableSequenceProxy do
     @audit = flexmock('audit')
     @bundle = flexmock('bundle', :thread_name => 'some thread name')
     @bundle.should_receive(:to_json).and_return("[\"some json\"]")
-    @context = flexmock('context', :audit => @audit, :payload => @bundle, :decommission => false)
+    @context = flexmock('context', :audit => @audit, :payload => @bundle, :decommission => false, :thread_name => 'some thread name')
     @context.should_receive(:succeeded=)
     @audit.should_receive(:update_status)
     flexmock(RightScale::AuditProxy).should_receive(:new).and_return(@audit)

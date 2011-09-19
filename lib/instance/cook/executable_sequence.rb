@@ -86,6 +86,7 @@ module RightScale
       @scripts                = bundle.executables.select { |e| e.is_a?(RightScriptInstantiation) }
       recipes                 = bundle.executables.map { |e| e.is_a?(RecipeInstantiation) ? e : @right_scripts_cookbook.recipe_from_right_script(e) }
       @cookbooks              = bundle.cookbooks
+      @thread_name            = bundle.thread_name
       @downloader             = Downloader.new
       @download_path          = AgentConfig.cookbook_download_dir
       @powershell_providers   = nil
@@ -544,7 +545,7 @@ module RightScale
         ::Chef::Client.clear_notifications
 
         @audit.create_new_section('Converging')
-        @audit.append_info("Run list: #{@run_list.join(', ')}")
+        @audit.append_info("Run list for #{@thread_name.inspect} thread: #{@run_list.join(', ')}")
         attribs = { 'run_list' => @run_list }
         attribs.merge!(@attributes) if @attributes
         c      = Chef::Client.new(attribs)

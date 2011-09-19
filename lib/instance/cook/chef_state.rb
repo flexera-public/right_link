@@ -203,7 +203,7 @@ module RightScale
           Log.warning("Failed to save Chef state: #{e.message}")
         end
       else
-        Log.warning("Ignoring any changes to Chef state due to non-defaulted locking.")
+        Log.warning("Ignoring any changes to Chef state due to running on a non-default thread.")
       end
       true
     end

@@ -286,8 +286,7 @@ module RightScale
 
       def self.errors
         return nil unless has_errors?
-        @@error_io.rewind
-        result = @@error_io.read
+        result = @@error_io.string
         @@error_io = nil
         return result
       end

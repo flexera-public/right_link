@@ -37,12 +37,16 @@ module RightScale
 
     # (TrueClass|FalseClass) Whether bundle is a decommission bundle
     attr_reader :decommission
-    
+
+    # (String) Thread name for context or default
+    attr_reader :thread_name
+
     # Initialize payload and audit
     def initialize(payload, audit, decommission=false)
       @payload = payload
       @audit = audit
       @decommission = decommission
+      @thread_name = payload.respond_to?(:thread_name) ? payload.thread_name : ::RightScale::ExecutableBundle::DEFAULT_THREAD_NAME
     end
 
   end
