@@ -94,9 +94,7 @@ module RightScale
       @audit                  = AuditStub.instance
       @logger                 = Log
       @repose_class           = ReposeDownloader.select_repose_class
-      @cookbook_repo_retriever= CookbookRepoRetriever.new(:repose_root    => @download_path,
-                                                          :checkout_root  => CookState.cookbooks_path,
-                                                          :dev_cookbooks  => bundle.dev_cookbooks)
+      @cookbook_repo_retriever= CookbookRepoRetriever.new(CookState.cookbooks_path, @download_path, bundle.dev_cookbooks)
 
       #Lookup
       @repose_class.discover_repose_servers(bundle.repose_servers)

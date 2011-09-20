@@ -76,8 +76,11 @@ describe RightScale::CookbookRepoRetriever do
     context 'when initialized with dev cookbooks' do
       context 'and scrape succeeds' do
         before(:each) do
-          @expected_checkout_root = "/tmp/my/checkout/path"
-          @expected_repose_root = "/tmp/reposeroot"
+          @expected_checkout_root = File.join(Dir.mktmpdir,"my/checkout/path")
+          @expected_repose_root = File.join(Dir.mktmpdir,"repose_root")
+
+          FileUtils.rm_rf(@expected_checkout_root) rescue nil
+          FileUtils.rm_rf(@expected_repose_root)  rescue nil
 
           mock_scraper = flexmock("Mock RightScraper")
           mock_scraper.should_receive(:scrape).once.and_return(true)
@@ -89,23 +92,29 @@ describe RightScale::CookbookRepoRetriever do
           @retriever = RightScale::CookbookRepoRetriever.new(@expected_checkout_root, @expected_repose_root, {@repo_sha => {:repo => {}, :positions => [flexmock("cookbook position", :position => @position, :cookbook => nil)]}})
         end
 
+        after(:each) do
+          FileUtils.rm_rf(@expected_checkout_root) rescue nil
+          FileUtils.rm_rf(@expected_repose_root)  rescue nil
+        end
+
         it 'should check out repos' do
           @retriever.checkout_cookbook_repos.should be_true
           @retriever.is_checked_out?(@repo_sha).should be_true
         end
 
         it 'should be able to link' do
-          begin
-            # pretend to checkout
-            FileUtils.mkdir_p(RightScale::CookbookPathMapping.checkout_path(@expected_checkout_root, @position))
+          # pretend to checkout
+          FileUtils.mkdir_p(RightScale::CookbookPathMapping.checkout_path(@expected_checkout_root, @position))
 
-            @retriever.checkout_cookbook_repos.should be_true
-            @retriever.link(@repo_sha, @position).should be_true
+          @retriever.checkout_cookbook_repos.should be_true
+          @retriever.link(@repo_sha, @position).should be_true
+          if ::RightScale::Platform.windows?
+            File.exists?(RightScale::CookbookPathMapping.repose_path(@expected_repose_root, @repo_sha, @position)).should be_true
+            File.exists?(RightScale::CookbookPathMapping.checkout_path(@expected_checkout_root, @position)).should be_true
+          else
             File.readlink(RightScale::CookbookPathMapping.repose_path(@expected_repose_root, @repo_sha, @position)).should == RightScale::CookbookPathMapping.checkout_path(@expected_checkout_root, @position)
-          ensure
-            FileUtils.rm_rf(RightScale::CookbookPathMapping.checkout_path(@expected_checkout_root, @position))
-            FileUtils.rm_rf(RightScale::CookbookPathMapping.repose_path(@expected_repose_root, @repo_sha, @position))
           end
+
         end
       end
 

@@ -46,8 +46,8 @@ describe RightScale::CookbookPathMapping do
    [nil, "/1/2/", "/1/2"],
    ["/8675309", "1/2", "/8675309/1/2"],
    ["/8675309/34", "1/2", "/8675309/34/1/2"],
-   ["8675309/34", "1/2", "/8675309/34/1/2"],
-   ["1/2", nil,"/root/1/2"],
+   ["8675309/34", "1/2", "8675309/34/1/2"],
+   ["1/2", nil,"1/2"],
   ].each do |args|
     it "checkout mapping with '#{args[0..1].join(",").gsub(",", "', '")}' should be #{args[2]}" do
       RightScale::CookbookPathMapping.checkout_path(args[0], args[1]).should == args[2]

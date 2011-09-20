@@ -529,7 +529,11 @@ module RightScale
                     local_basedir.should_not be_symlink
                   else
                     # is a dev cookbook, so should be linked
-                    local_basedir.should be_symlink_to(@checkout_paths[local_basedir])
+                    if Platform.windows?
+                      File.exists?(local_basedir).should be_true
+                    else
+                      local_basedir.should be_symlink_to(@checkout_paths[local_basedir])
+                    end
                   end
                 end
               else
@@ -547,7 +551,9 @@ module RightScale
 
       context 'debugging no cookbooks' do
         before(:each) do
-          @cookbooks, @sequences_by_cookbook_name = build_cookbook_sequences.values
+          sequences = build_cookbook_sequences
+          @cookbooks = sequences[:cookbooks]
+          @sequences_by_cookbook_name = sequences[:sequences_by_cookbook_name]
           @dev_cookbooks = {}
           @expected_scrape_count = 0
           @failure_repos = {}
@@ -559,7 +565,9 @@ module RightScale
       context 'debugging one cookbook that exists in only one repo' do
         context 'repo contains only one cookbook' do
           before(:each) do
-            @cookbooks, @sequences_by_cookbook_name = build_cookbook_sequences.values
+            sequences = build_cookbook_sequences
+            @cookbooks = sequences[:cookbooks]
+            @sequences_by_cookbook_name = sequences[:sequences_by_cookbook_name]
             @dev_cookbooks = build_dev_sequences(@sequences_by_cookbook_name, ["test_cookbook3"])
             @expected_scrape_count = 1
             @failure_repos = {}
@@ -570,7 +578,9 @@ module RightScale
 
         context 'repo contains more than one cookbook' do
           before(:each) do
-            @cookbooks, @sequences_by_cookbook_name = build_cookbook_sequences.values
+            sequences = build_cookbook_sequences
+            @cookbooks = sequences[:cookbooks]
+            @sequences_by_cookbook_name = sequences[:sequences_by_cookbook_name]
             @dev_cookbooks = build_dev_sequences(@sequences_by_cookbook_name, ["test_cookbook2"])
             @expected_scrape_count = 1
             @failure_repos = {}
@@ -583,7 +593,9 @@ module RightScale
 
       context 'debugging one cookbook that exists in two repos' do
         before(:each) do
-          @cookbooks, @sequences_by_cookbook_name = build_cookbook_sequences.values
+          sequences = build_cookbook_sequences
+          @cookbooks = sequences[:cookbooks]
+          @sequences_by_cookbook_name = sequences[:sequences_by_cookbook_name]
           @dev_cookbooks = build_dev_sequences(@sequences_by_cookbook_name, ["test_cookbook1"])
           @expected_scrape_count = 2
           @failure_repos = {}
@@ -594,7 +606,9 @@ module RightScale
 
       context 'debugging multiple cookbooks from multiple repos' do
         before(:each) do
-          @cookbooks, @sequences_by_cookbook_name = build_cookbook_sequences.values
+          sequences = build_cookbook_sequences
+          @cookbooks = sequences[:cookbooks]
+          @sequences_by_cookbook_name = sequences[:sequences_by_cookbook_name]
           @dev_cookbooks = build_dev_sequences(@sequences_by_cookbook_name, ["test_cookbook1", "test_cookbook2", "test_cookbook3"])
           @expected_scrape_count = 3
           @failure_repos = {}
@@ -605,7 +619,9 @@ module RightScale
 
       context "when checkout of one repo fails" do
         before(:each) do
-          @cookbooks, @sequences_by_cookbook_name = build_cookbook_sequences.values
+          sequences = build_cookbook_sequences
+          @cookbooks = sequences[:cookbooks]
+          @sequences_by_cookbook_name = sequences[:sequences_by_cookbook_name]
           @dev_cookbooks = build_dev_sequences(@sequences_by_cookbook_name, ["test_cookbook1", "test_cookbook2", "test_cookbook3"])
           @expected_scrape_count = 2
 

@@ -58,7 +58,7 @@ describe RightScale::ExecutableSequence do
       @script.should_receive(:is_a?).with(RightScale::RightScriptInstantiation).and_return(true)
       @script.should_receive(:is_a?).with(RightScale::RecipeInstantiation).and_return(false)
 
-      @bundle = RightScale::ExecutableBundle.new([ @script ], [], 0, true, [], '', nil)
+      @bundle = RightScale::ExecutableBundle.new([ @script ], [], 0, true, [], '', nil, [])
 
       @auditor = flexmock(RightScale::AuditStub.instance)
       @auditor.should_receive(:create_new_section)

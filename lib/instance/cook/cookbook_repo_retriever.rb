@@ -108,7 +108,7 @@ module RightScale
         checkout_path = CookbookPathMapping.checkout_path(repo_dir, position)
         repose_path   = CookbookPathMapping.repose_path(@repose_root, repo_sha, position)
         FileUtils.mkdir_p(File.dirname(repose_path))
-        File.symlink(checkout_path, repose_path)
+        Platform.filesystem.create_symlink(checkout_path, repose_path)
         return true
       end
       false
