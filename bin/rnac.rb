@@ -1,5 +1,4 @@
 #!/opt/rightscale/sandbox/bin/ruby
-#
 # Copyright (c) 2009-2011 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
@@ -29,7 +28,11 @@
 # We can re-set any necessary environment here
 ENV['HOME'] = "/root" unless ENV['HOME'] # Needed by package installer
 
+# Activate Bundler
 require 'rubygems'
-require File.expand_path(File.join(File.dirname(__FILE__), '..', 'scripts', 'agent_controller'))
+require 'bundler/setup'
+
+$:.push(File.join(File.dirname(__FILE__), '..', 'scripts'))
+require 'agent_controller'
 
 RightScale::RightLinkAgentController.run
