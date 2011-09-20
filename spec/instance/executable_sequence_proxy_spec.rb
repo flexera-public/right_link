@@ -26,14 +26,19 @@ describe RightScale::ExecutableSequenceProxy do
 
   include RightScale::SpecHelper
 
+  it_should_behave_like 'mocks cook'
+
   before(:each) do
     setup_state
     @audit = flexmock('audit')
-    @context = flexmock('context', :audit => @audit, :payload => { :p => 'payload' })
+    @bundle = flexmock('bundle', :thread_name => 'some thread name')
+    @bundle.should_receive(:to_json).and_return("[\"some json\"]")
+    @context = flexmock('context', :audit => @audit, :payload => @bundle, :decommission => false, :thread_name => 'some thread name')
     @context.should_receive(:succeeded=)
     @audit.should_receive(:update_status)
     flexmock(RightScale::AuditProxy).should_receive(:new).and_return(@audit)
-    @proxy = RightScale::ExecutableSequenceProxy.new(@context)
+    @pid = nil
+    @proxy = RightScale::ExecutableSequenceProxy.new(@context, :pid_callback => lambda { |sequence| @pid = sequence.pid })
   end
 
   after(:each) do
@@ -44,36 +49,26 @@ describe RightScale::ExecutableSequenceProxy do
     status = flexmock('status', :success? => true)
     flexmock(RightScale).should_receive(:popen3).and_return do |o|
       o[:target].instance_variable_set(:@audit_closed, true)
+      o[:target].send(o[:pid_handler], 123)
       o[:target].send(o[:exit_handler], status)
     end
     @proxy.instance_variable_get(:@deferred_status).should == nil
-    EM.run do
-      EM.defer do
-        @proxy.run
-        EM.next_tick do
-          EM.stop
-        end
-      end
-    end
+    run_em_test { @proxy.run; EM.next_tick { EM.stop } }
     @proxy.instance_variable_get(:@deferred_status).should == :succeeded
+    @proxy.thread_name.should == 'some thread name'
+    @proxy.pid.should == 123
+    @proxy.pid.should == @pid
   end
 
   it 'should find the cook utility' do
     status = flexmock('status', :success? => true)
     cmd = nil
     flexmock(RightScale).should_receive(:popen3).and_return do |o|
-      cmd = o[:command] 
+      cmd = o[:command]
       o[:target].instance_variable_set(:@audit_closed, true)
       o[:target].send(o[:exit_handler], status)
     end
-    EM.run do
-      EM.defer do
-        @proxy.run
-        EM.next_tick do
-          EM.stop
-        end
-      end
-    end
+    run_em_test { @proxy.run; EM.next_tick { EM.stop } }
 
     # note that normalize_path makes it tricky to guess at full command string
     # so it is best to rely on config constants.
@@ -89,36 +84,29 @@ describe RightScale::ExecutableSequenceProxy do
 
   it 'should report failures when cook fails' do
     status = flexmock('status', :success? => false, :exitstatus => 1)
-    flexmock(RightScale).should_receive(:popen3).and_return do |o| 
+    flexmock(RightScale).should_receive(:popen3).and_return do |o|
       o[:target].instance_variable_set(:@audit_closed, true)
       o[:target].send(o[:exit_handler], status)
     end
     @audit.should_receive(:append_error).twice
     @proxy.instance_variable_get(:@deferred_status).should == nil
-    EM.run do
-      EM.defer do
-        @proxy.run
-        EM.next_tick do
-          EM.stop
-        end
-      end
-    end
+    run_em_test { @proxy.run; EM.next_tick { EM.stop } }
     @proxy.instance_variable_get(:@deferred_status).should == :failed
   end
 
   context 'when running popen3' do
 
     it 'should call the cook utility' do
+
       mock_output = File.join(File.dirname(__FILE__), 'cook_mock_output')
       File.delete(mock_output) if File.exists?(mock_output)
       flexmock(@proxy).instance_variable_set(:@audit_closed, true)
       flexmock(@proxy).should_receive(:cook_path).and_return(File.join(File.dirname(__FILE__), 'cook_mock.rb'))
       flexmock(@proxy).should_receive(:succeed).and_return { |*args| EM.stop }
       flexmock(@proxy).should_receive(:report_failure).and_return { |*args| puts args.inspect; EM.stop }
-      EM.run do
-        EM.add_timer(5) { EM.stop; raise 'Timeout' }
-        EM.defer { @proxy.run }
-      end
+      run_em_test { @proxy.run }
+      @pid.should_not be_nil
+      @pid.should > 0
       begin
         output = File.read(mock_output)
         output.should == "#{JSON.dump(@context.payload)}\n"

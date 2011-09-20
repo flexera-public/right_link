@@ -54,6 +54,7 @@ require 'eventmachine'
 require 'fileutils'
 require 'right_agent'
 require 'right_agent/core_payload_types'
+require 'stringio'
 
 require File.join(File.dirname(__FILE__), 'results_mock')
 
@@ -170,25 +171,130 @@ module RightScale
       [ Certificate.new(key, dn, dn), key ]
     end
 
+    # Runs the given block in an EM loop with exception handling to ensure
+    # deferred code is rescued and printed to console properly on error.
+    #
+    # === Parameters
+    # options[:defer](Fixnum):: true to defer (default), false to run once EM starts
+    # options[:timeout](Fixnum):: timeout in seconds or 5
+    #
+    # === Block
+    # block to call for test
+    #
+    # === Return
+    # always true
+    def run_em_test(options = {:defer => true, :timeout => 5})
+      defer = options[:defer]
+      timeout = options[:timeout]
+      last_exception = nil
+      EM.threadpool_size = 1
+      tester = lambda do
+        begin
+          yield
+        rescue Exception => e
+          last_exception = e
+          EM.stop
+        end
+      end
+      EM.run do
+        EM.add_timer(timeout) { EM.stop; raise 'timeout' }
+        if defer
+          EM.defer(&tester)
+        else
+          tester.call
+        end
+      end
+
+      # reraise with full backtrace for debugging purposes. this assumes the
+      # exception class accepts a single string on construction.
+      if last_exception
+        message = "#{last_exception.message}\n#{last_exception.backtrace.join("\n")}"
+        if last_exception.class == ArgumentError
+          raise ArgumentError, message
+        else
+          begin
+            raise last_exception.class, message
+          rescue ArgumentError
+            # exception class does not support single string construction.
+            message = "#{last_exception.class}: #{message}"
+            raise message
+          end
+        end
+      end
+    end
+
   end # SpecHelper
 
 end # RightScale
 
+# Monkey patch spec reporter to dump logged errors to console only on spec
+# failure.
+#
+# FIX: support rspec v2.6.x+
+raise "RightLink specs require rspec v1.3.x" unless defined?(::Spec::Runner::Reporter)
+module Spec
+  module Runner
+    class Reporter
+      class Failure
+        unless method_defined?(:header_for_right_link_spec)
+
+          alias :initialize_for_right_link_spec :initialize
+          def initialize(group_description, example_description, exception)
+            initialize_for_right_link_spec(group_description, example_description, exception)
+            @errors = ::RightScale::Log.errors
+          end
+
+          alias :header_for_right_link_spec :header
+          def header
+            default_header = header_for_right_link_spec
+            return "#{default_header}\n=== Begin dump of logged errors ===\n#{@errors}\n=== End dump of logged errors ===" if @errors
+            return default_header
+          end
+
+        end
+      end
+    end
+  end
+end
+
 module RightScale
   class Log
     unless self.respond_to?(:method_missing_for_right_link_spec)
-      # Monkey path RightLink logger to not log by default
+      # Monkey patch RightLink logger to not log by default
       # Define env var RS_LOG to override this behavior and have
       # the logger log normally
       class << self
         alias :method_missing_for_right_link_spec :method_missing
       end
 
+      @@error_io = nil
+
       def self.method_missing(m, *args)
         unless [:debug, :info, :warn, :warning, :error, :fatal].include?(m) && ENV['RS_LOG'].nil?
           method_missing_for_right_link_spec(m, *args)
         end
       end
+
+      def self.error(message, exception = nil, backtrace = :caller)
+        @@error_io.puts(::RightScale::Log.format(message, exception, backtrace)) if @@error_io
+        logger.error(message, exception, backtrace) if ENV['RS_LOG']
+      end
+
+      def self.has_errors?
+        return @@error_io && @@error_io.pos > 0
+      end
+
+      def self.errors
+        return nil unless has_errors?
+        result = @@error_io.string
+        @@error_io = nil
+        return result
+      end
+
+      def self.reset_errors
+        @@error_io = StringIO.new
+      end
+
     end
   end
 end
@@ -283,4 +389,9 @@ shared_examples_for 'mocks shutdown request proxy' do
     @mock_shutdown_request = ::RightScale::ShutdownRequestProxy.new
     flexmock(::RightScale::ShutdownRequestProxy).should_receive(:instance).and_return(@mock_shutdown_request)
   end
+end
+
+# global spec configuration.
+::Spec::Runner.configure do |config|
+  config.before(:each) { ::RightScale::Log.reset_errors }
 end

@@ -22,7 +22,8 @@
 
 module RightScale
 
-  class BundlesQueue 
+  # Abstract base class for a Bundle Queue.
+  class BundleQueue
 
     FINAL_BUNDLE = 'end'
     SHUTDOWN_BUNDLE = 'shutdown'
@@ -32,9 +33,15 @@ module RightScale
     # === Block
     # continuation block
     def initialize(&continuation)
-      @queue = Queue.new
       @continuation = continuation
-      @active = false
+    end
+
+    # Determines if queue is active
+    #
+    # === Return
+    # active(Boolean):: true if queue is active
+    def active?
+      raise NotImplementedError.new("must be overridden")
     end
 
     # Activate queue for execution, idempotent
@@ -43,50 +50,18 @@ module RightScale
     # === Return
     # true:: Always return true
     def activate
-      return if @active
-      EM.defer { run }
-      @active = true
+      raise NotImplementedError.new("must be overridden")
     end
 
     # Push new context to bundle queue and run next bundle
     #
-    # === Return
-    # true:: Always return true
-    def push(context)
-      @queue << context
-      true
-    end
-
-    # Run next bundle in the queue if active
-    # If bundle is FINAL_BUNDLE then call continuation block and deactivate
+    # === Parameters
+    # context(Object):: any supported kind of context
     #
     # === Return
     # true:: Always return true
-    def run
-      context = @queue.shift
-      if context == FINAL_BUNDLE
-        EM.next_tick { @continuation.call if @continuation }
-        @active = false
-      elsif context == SHUTDOWN_BUNDLE
-        # process shutdown request.
-        ShutdownRequest.instance.process
-
-        # continue in queue in the expectation that the decommission bundle will
-        # shutdown the instance and its agent normally.
-        EM.defer { run }
-      elsif false == context.decommission && ShutdownRequest.instance.immediately?
-        # immediate shutdown pre-empts any futher attempts to run operational
-        # scripts but still allows the decommission bundle to run.
-        # proceed ignoring bundles until final or shutdown are encountered.
-        context.audit.update_status("Skipped bundle due to immediate shutdown: #{context.payload}")
-        EM.defer { run }
-      else
-        sequence = RightScale::ExecutableSequenceProxy.new(context)
-        sequence.callback { audit_status(context) }
-        sequence.errback  { audit_status(context) }
-        sequence.run
-      end
-      true
+    def push(context)
+      raise NotImplementedError.new("must be overridden")
     end
 
     # Clear queue content
@@ -94,8 +69,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def clear
-      @queue.clear
-      true
+      raise NotImplementedError.new("must be overridden")
     end
 
     # Close queue so that further call to 'push' will be ignored
@@ -103,21 +77,17 @@ module RightScale
     # === Return
     # true:: Always return true
     def close
-      push(FINAL_BUNDLE)
+      raise NotImplementedError.new("must be overridden")
     end
 
-    # Audit executable sequence status after it ran
-    #
-    # === Parameters
-    # context(RightScale::OperationContext):: Context used by execution
+    protected
+
+    # Invokes continuation (off of the current thread which may be going away).
     #
     # === Return
     # true:: Always return true
-    def audit_status(context)
-      title = context.decommission ? 'decommission ' : ''
-      title += context.succeeded ? 'completed' : 'failed'
-      context.audit.update_status("#{title}: #{context.payload}")
-      EM.defer { run }
+    def run_continuation
+      EM.next_tick { @continuation.call } if @continuation
       true
     end
 

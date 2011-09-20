@@ -24,17 +24,18 @@ require 'singleton'
 
 module RightScale
 
-  # Wait up to 20 seconds before forcing disconnection to agent
-  STOP_TIMEOUT = 20
-
   # Class managing connection to agent
   module AgentConnection
 
+    # Wait up to 20 seconds before forcing disconnection to agent
+    STOP_TIMEOUT = 20
+
     # Set command client cookie and initialize responses parser
-    def initialize(cookie, callback=nil)
-      @cookie  = cookie
+    def initialize(cookie, thread_name, callback=nil)
+      @cookie = cookie
+      @thread_name = thread_name
       @pending = 0
-      @parser  = CommandParser.new do |data|
+      @parser = CommandParser.new do |data|
         if callback
           callback.call(data)
         else
@@ -59,6 +60,7 @@ module RightScale
       @pending += 1
       command = options.dup
       command[:cookie] = @cookie
+      command[:thread_name] = @thread_name
       send_data(CommandSerializer.dump(command))
       true
     end

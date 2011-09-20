@@ -26,6 +26,8 @@ describe RightScale::ChefState do
 
   include RightScale::SpecHelper
 
+  it_should_behave_like 'mocks cook'
+
   before(:all) do
     flexmock(RightScale::Log).should_receive(:debug)
   end
@@ -67,6 +69,12 @@ describe RightScale::ChefState do
   it 'should persist the state' do
     RightScale::ChefState.attributes = { :one => 'two' }
     JSON.load(IO.read(@chef_file)).should == { 'attributes' => { 'one' => 'two' } }
+  end
+
+  it 'should not persist the state if cook does not hold the default lock' do
+    @mock_cook.mock_attributes[:thread_name] = 'backup'
+    RightScale::ChefState.attributes = { :one => 'two' }
+    File.file?(@chef_file).should be_false
   end
 
   it 'should create patch from hashes' do

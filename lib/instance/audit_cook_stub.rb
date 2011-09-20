@@ -32,24 +32,38 @@ module RightScale
 
     include Singleton
 
-    # The audit proxy that should be used to forward all audit commands
-    attr_writer :audit_proxy
+    def initialize
+      @auditors = {}
+      @close_callbacks = {}
+    end
+
+    # Sets up the audit proxy that should be used to forward all audit commands.
+    #
+    # === Parameters
+    # thread_name(String):: execution thread name or default
+    # auditor(AuditProxy):: audit proxy
+    def setup_audit_forwarding(thread_name, auditor)
+      @auditors ||= {}
+      @auditors[thread_name] = auditor
+    end
 
     # Forward audit command received from cook using audit proxy
     #
     # === Parameters
     # kind(Symbol):: Kind of audit, one of :append_info, :append_error, :create_new_section, :update_status and :append_output
     # text(String):: Audit content
+    # thread_name(String):: thread name for audit or default
     # options[:category]:: Optional, associated event category, one of RightScale::EventCategories
     #
     # === Raise
     # RuntimeError:: If audit_proxy is not set prior to calling this
-    def forward_audit(kind, text, options)
-      return unless @audit_proxy
+    def forward_audit(kind, text, thread_name, options)
+      auditor = @auditors[thread_name]
+      return unless auditor
       if kind == :append_output
-        @audit_proxy.append_output(text)
+        auditor.append_output(text)
       else
-        @audit_proxy.__send__(kind, text, options)
+        auditor.__send__(kind, text, options)
       end
     end
 
@@ -57,25 +71,33 @@ module RightScale
     # Listener is executable sequence proxy to synchronize betweek
     # cook process going away and all audits having been processed
     #
+    # === Parameters
+    # thread_name(String):: execution thread name or default
+    #
     # === Block
     # Given block should not take any argument and gets called back when proxy is reset
     #
     # === Return
     # true:: Always return true
-    def on_close(&blk)
-      @on_close = blk
+    def on_close(thread_name, &blk)
+      @close_callbacks[thread_name] = blk
       true
     end
 
     # Reset proxy object and notify close event listener
     #
+    # === Parameters
+    # thread_name(String):: execution thread name or default
+    #
     # === Return
     # true:: Always return true
-    def close
-      @on_close.call if @on_close
-      @audit_proxy = nil
-      @on_close = nil
+    def close(thread_name)
+      close_callback = @close_callbacks[thread_name]
+      close_callback.call if close_callback
       true
+    ensure
+      @auditors[thread_name] = nil
+      @close_callbacks[thread_name] = nil
     end
 
   end

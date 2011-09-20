@@ -44,11 +44,13 @@ module RightScale
       bundle = nil
       fail('Missing bundle', 'No bundle to run') if input.blank?
       bundle = load(input, 'Invalid bundle', :json)
+      @thread_name = bundle.thread_name
 
       # 2. Load configuration settings
       options = OptionsBag.load
       fail('Missing command server listen port') unless options[:listen_port]
       fail('Missing command cookie') unless options[:cookie]
+      options[:thread_name] = @thread_name
       @client = CommandClient.new(options[:listen_port], options[:cookie])
       ShutdownRequestProxy.init(@client)
 
@@ -60,6 +62,7 @@ module RightScale
       Log.log_to_file_only(options[:log_to_file_only])
       Log.init(agent_id, options[:log_path])
       Log.level = CookState.log_level
+      Log.debug("[cook] Thread name associated with bundle = #{@thread_name}")
       gatherer = ExternalParameterGatherer.new(bundle, options)
       sequence = ExecutableSequence.new(bundle)
       EM.threadpool_size = 1
@@ -81,6 +84,12 @@ module RightScale
         end
       end
       exit(1) unless success
+    end
+
+    # Determines if the current cook process has the default thread for purposes
+    # of concurrency with non-defaulted cooks.
+    def has_default_thread?
+      ::RightScale::ExecutableBundle::DEFAULT_THREAD_NAME == @thread_name
     end
 
     # Helper method to send a request to one or more targets with no response expected
@@ -129,12 +138,9 @@ module RightScale
     # === Return
     # result(Hash):: contents of response
     def query_tags(tags, agent_ids = nil)
-      # use a queue to block and wait for response.
       cmd = { :name => :query_tags, :tags => tags }
       cmd[:agent_ids] = agent_ids unless agent_ids.nil? || agent_ids.empty?
-      response_queue = Queue.new
-      @client.send_command(cmd) { |response| response_queue << response }
-      response = response_queue.shift
+      response = blocking_request(cmd)
       begin
         result = OperationResult.from_results(load(response, "Unexpected response #{response.inspect}"))
         raise TagError.new("Query tags failed: #{result.content}") unless result.success?
@@ -152,11 +158,8 @@ module RightScale
     # === Return
     # true:: Always return true
     def add_tag(tag_name)
-      # use a queue to block and wait for response.
       cmd = { :name => :add_tag, :tag => tag_name }
-      response_queue = Queue.new
-      @client.send_command(cmd) { |response| response_queue << response }
-      response = response_queue.shift
+      response = blocking_request(cmd)
       begin
         result = OperationResult.from_results(load(response, "Unexpected response #{response.inspect}"))
         if result.success?
@@ -179,9 +182,7 @@ module RightScale
     # true:: Always return true
     def remove_tag(tag_name)
       cmd = { :name => :remove_tag, :tag => tag_name }
-      response_queue = Queue.new
-      @client.send_command(cmd) { |response| response_queue << response }
-      response = response_queue.shift
+      response = blocking_request(cmd)
       begin
         result = OperationResult.from_results(load(response, "Unexpected response #{response.inspect}"))
         if result.success?
@@ -231,15 +232,17 @@ module RightScale
 
     # Report inputs patch to core
     def send_inputs_patch(sequence)
-      begin
-        cmd = { :name => :set_inputs_patch, :patch => sequence.inputs_patch }
-        @client.send_command(cmd)
-      rescue Exception => e
-        fail('Failed to update inputs', Log.format("Failed to apply inputs patch after execution", e, :trace))
-      ensure
-        stop
+      if has_default_thread?
+        begin
+          cmd = { :name => :set_inputs_patch, :patch => sequence.inputs_patch }
+          @client.send_command(cmd)
+        rescue Exception => e
+          fail('Failed to update inputs', Log.format("Failed to apply inputs patch after execution", e, :trace))
+        end
       end
       true
+    ensure
+      stop
     end
 
     # Report failure to core
@@ -273,6 +276,20 @@ module RightScale
           EM.stop
         end
       end
+    end
+
+    # Provides a blocking request for the given command.
+    #
+    # === Parameters
+    # cmd(Hash):: request to send
+    #
+    # === Return
+    # response(String):: raw response
+    def blocking_request(cmd)
+      # use a queue to block and wait for response.
+      response_queue = Queue.new
+      @client.send_command(cmd) { |response| response_queue << response }
+      return response_queue.shift
     end
 
   end
