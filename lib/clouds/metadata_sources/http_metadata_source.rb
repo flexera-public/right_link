@@ -55,11 +55,11 @@ module RightScale
         attempts = 0
         while true
           begin
-            @logger.info("Querying \"#{http_path}\"...")
+            @logger.debug("Querying \"#{http_path}\"...")
             # get.
             result = http_get(http_path)
             if result
-              @logger.info("Successfully retrieved from: \"#{http_path}\"  Result: #{path} = #{result}")
+              @logger.debug("Successfully retrieved from: \"#{http_path}\"  Result: #{path} = #{result}")
               return result
             end
 

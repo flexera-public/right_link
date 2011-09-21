@@ -45,6 +45,7 @@ module RightScale
       @audit = AuditStub.instance
       @cookie = options[:cookie]
       @listen_port = options[:listen_port]
+      @thread_name = options[:thread_name]
       @executables_inputs = {}
 
       bundle.executables.each do |exe|
@@ -172,7 +173,7 @@ module RightScale
     # concurrently for performance reasons. The easiest way to do this is simply to open a
     # new command proto socket for every distinct request we make.
     def send_idempotent_request(operation, payload, options={}, &callback)
-      connection = EM.connect('127.0.0.1', @listen_port, AgentConnection, @cookie, callback)
+      connection = EM.connect('127.0.0.1', @listen_port, AgentConnection, @cookie, @thread_name, callback)
       EM.next_tick do
         connection.send_command(:name => :send_idempotent_request, :type => operation,
                                 :payload => payload, :options => options)

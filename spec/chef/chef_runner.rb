@@ -67,7 +67,7 @@ EOF
           recipe_text = value
           recipe_path = File.join(recipes_path, recipe_name + ".rb")
           File.open(recipe_path, "w") { |f| f.write(recipe_text) }
-          metadata_text += "recipe     \"#{cookbook_name}\"::#{recipe_name}, \"Description of #{recipe_name}\"\n"
+          metadata_text += "recipe     \"#{cookbook_name}::#{recipe_name}\", \"Description of #{recipe_name}\"\n"
         end
 
         if data_files
@@ -85,6 +85,16 @@ EOF
         metadata_path = recipes_path = File.join(cookbook_path, 'metadata.rb')
         File.open(metadata_path, "w") { |f| f.write(metadata_text) }
 
+        # rake metadata
+        md = Chef::Cookbook::Metadata.new
+        md.name(cookbook_name)
+        md.from_file(metadata_path)
+        json_file = File.join(cookbook_path, 'metadata.json')
+        File.open(json_file, "w") do |f|
+          f.write(Chef::JSONCompat.to_json_pretty(md))
+        end
+
+        # done
         return cookbooks_path
       end
 

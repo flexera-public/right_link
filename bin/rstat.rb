@@ -1,5 +1,4 @@
 #!/opt/rightscale/sandbox/bin/ruby
-#
 # Copyright (c) 2009-2011 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
@@ -25,7 +24,10 @@
 #
 # See scripts/stats_manager.rb for additional information.
 
+# Activate Bundler
 require 'rubygems'
+require 'bundler/setup'
+
 require 'right_agent/scripts/stats_manager'
 
 RightScale::StatsManager.run

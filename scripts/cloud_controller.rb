@@ -59,25 +59,37 @@ module RightScale
     def control(options)
 
       fail("No action specified on the command line.") unless options[:action]
-      action = options[:action].to_sym
       name = options[:name]
       parameters = options[:parameters] || []
       only_if = options[:only_if] || false
 
-      cloud = CloudFactory.instance.create(name, :logger => default_logger)
-      if cloud.respond_to?(action)
-        # Expect most methods to return ActionResult, but a cloud can expose any
-        # custom method so we can't assume return type
-        result = cloud.send(action, *parameters)
-        $stderr.puts result.error if result.respond_to?(:error) && result.error
-        $stdout.puts result.output if result.respond_to?(:output) && result.output
-        exit result.exitstatus if result.respond_to?(:exitstatus)
-        exit 0
-      elsif only_if
-        exit 0  # ignore missing method by request.
+      action = options[:action].to_sym
+      if action == :bootstrap
+        actions = [:clear_state, :wait_for_instance_ready, :write_cloud_metadata, :write_user_metadata, :wait_for_eip]
+        only_if = true
       else
-        $stderr.puts "ERROR: Unknown cloud action: #{action}"
-        exit 1
+        actions = [action]
+      end
+
+      cloud = CloudFactory.instance.create(name, :logger => default_logger)
+
+      actions.each do |action|
+        if cloud.respond_to?(action)
+          # Expect most methods to return ActionResult, but a cloud can expose any
+          # custom method so we can't assume return type
+          result = cloud.send(action, *parameters)
+          $stderr.puts result.error if result.respond_to?(:error) && result.error
+          $stdout.puts result.output if result.respond_to?(:output) && result.output
+
+          if result.respond_to?(:exitstatus) && (result.exitstatus != 0)
+            raise StandardError, "Action #{action} failed with status #{result.exitstatus}"
+          end
+        elsif only_if
+          next
+        else
+          $stderr.puts "ERROR: Unknown cloud action: #{action}"
+          raise ArgumentError, "ERROR: Unknown cloud action: #{action}"
+        end
       end
     rescue SystemExit
       raise

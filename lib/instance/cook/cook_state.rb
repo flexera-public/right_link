@@ -254,7 +254,6 @@ module RightScale
       end
 
       RightScale::JsonUtilities::write_json(RightScale::CookState::STATE_FILE, state_to_save)
-
       true
     end
   end

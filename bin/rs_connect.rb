@@ -1,5 +1,4 @@
 #!/opt/rightscale/sandbox/bin/ruby
-#
 # Copyright (c) 2011 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
@@ -21,14 +20,15 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-# rs_reboot --help for usage information
+# rs_connect --help for usage information
 #
-# See lib/shutdown_client.rb for additional information.
+# See scripts/server_importer.rb for additional information.
 
-THIS_FILE = File.symlink?(__FILE__) ? File.readlink(__FILE__) : __FILE__
-$:.push(File.join(File.dirname(THIS_FILE), '..', 'scripts'))
-
+# Activate Bundler
 require 'rubygems'
+require 'bundler/setup'
+
+$:.push(File.join(File.dirname(__FILE__), '..', 'scripts'))
 require 'server_importer'
 
 manager = RightScale::ServerImporter.new
