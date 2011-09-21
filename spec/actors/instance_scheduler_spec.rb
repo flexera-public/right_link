@@ -105,7 +105,8 @@ describe InstanceScheduler do
       ::RightScale::Log.has_errors?.should be_false
 
       # ensure we have consumed all queued next_ticks instead of leaking them
-      EM.instance_variable_get(:@next_tick_queue).should be_nil
+      queue = EM.instance_variable_get(:@next_tick_queue)
+      (queue.nil? || queue.empty?).should be_true
     end
 
     after(:all) do

@@ -61,7 +61,7 @@ module RightScale
 
     it 'should look up repose servers' do
       flexmock(ReposeDownloader).should_receive(:discover_repose_servers).with([SERVER]).once
-      @bundle = ExecutableBundle.new([], [], 2, nil, [], [SERVER], {})
+      @bundle = ExecutableBundle.new([], [], 2, nil, [], [SERVER], {}, nil)
       @sequence = ExecutableSequence.new(@bundle)
     end
 
@@ -120,7 +120,7 @@ module RightScale
                                 "nonexistent cookbook")
         position = CookbookPosition.new("foo/bar", cookbook)
         sequence = CookbookSequence.new(['foo'], [position], ["deadbeef"])
-        @bundle = ExecutableBundle.new([], [], 2, nil, [sequence], [SERVER], {})
+        @bundle = ExecutableBundle.new([], [], 2, nil, [sequence], [SERVER], {}, nil)
       end
 
       it 'should successfully request a cookbook we can access' do

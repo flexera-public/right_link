@@ -12,8 +12,8 @@ GIT
 
 GIT
   remote: git@github.com:rightscale/right_agent.git
-  revision: ce13d241fbebadd417d5df8b81858ceb04a99839
-  branch: azure_28_edit_recipe_on_instance
+  revision: b9c745180c3b8bc7d8f2356f49ccbaf0e824b1e5
+  branch: master
   specs:
     right_agent (0.4.9)
       amqp (= 0.6.7)
