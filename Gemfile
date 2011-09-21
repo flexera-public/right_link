@@ -4,9 +4,10 @@ source :rubygems
 gem "rubyforge",             "1.0.4"
 gem "rake",                  "0.8.7"
 gem 'right_support',         "~> 0.9"
-gem 'right_agent',           "~> 0.4"
 gem "right_scraper",         "~> 1.0.23"
 gem "right_http_connection", "~> 1.3.0"
+
+gem "right_agent", :git=>"git@github.com:rightscale/right_agent.git", :branch=>"10822_steward"
 
 #WARNING: for v5.7, Linux used to use 1.0.11; Windows used to use 1.0.15
 #should be harmless, but we'll see...
