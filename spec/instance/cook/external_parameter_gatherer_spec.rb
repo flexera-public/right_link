@@ -24,6 +24,9 @@
 require 'spec_helper'
 
 require 'tmpdir'
+require 'right_agent/core_payload_types'
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'lib', 'instance', 'cook','audit_stub'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'lib', 'instance', 'cook','external_parameter_gatherer'))
 
 module RightScale
   describe ExternalParameterGatherer do
