@@ -82,10 +82,10 @@ GEM
     right_aws (2.1.0)
       right_http_connection (>= 1.2.5)
     right_http_connection (1.3.0)
-    right_popen (1.0.16)
-      eventmachine (>= 0.12.10)
-    right_popen (1.0.16-x86-mswin32)
-      eventmachine (>= 0.12.10)
+    right_popen (1.0.17)
+      eventmachine (>= 0.12.11)
+    right_popen (1.0.17-x86-mswin32)
+      eventmachine (>= 0.12.11)
       win32-process (>= 0.6.1)
     right_support (0.9.9)
     rspec (1.3.2)
@@ -140,7 +140,7 @@ DEPENDENCIES
   rest-client (= 1.6.3)
   right_agent!
   right_http_connection (~> 1.3.0)
-  right_popen (= 1.0.16)
+  right_popen (= 1.0.17)
   right_scraper!
   right_support (~> 0.9)
   rspec (~> 1.3)

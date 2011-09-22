@@ -15,7 +15,7 @@ gem "right_http_connection", "~> 1.3.0"
 
 #WARNING: for v5.7, Linux used to use 1.0.11; Windows used to use 1.0.15
 #should be harmless, but we'll see...
-gem "right_popen",         "1.0.16"
+gem "right_popen",         "1.0.17"
 
 #HACK: we use a custom chef build
 gem "chef",                  "0.9.14.3"
