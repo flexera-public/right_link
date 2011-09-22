@@ -85,6 +85,8 @@ module RightScale
     context 'given credential locations' do
       context 'when fatal errors occur' do
         it 'fails RightScripts gracefully' do
+          nil_targets = {:targets=>nil}
+
           creds = []
           (0..2).each { |j| creds << secure_document_location(j) }
           script = @script.dup
@@ -101,14 +103,14 @@ module RightScale
             payload = {:ticket=>'open sesame', :namespace=>'777', :names=>[ (123+j).to_s ]}
             data = @serializer.dump(OperationResult.success([ secure_document(j) ]))
             flexmock(@gatherer).should_receive(:send_idempotent_request).
-              with('/vault/read_documents', payload, Proc).and_yield(data)
+              with('/vault/read_documents', payload, nil_targets, Proc).and_yield(data)
           end
 
           [2].each do |j|
             payload = {:ticket=>'open sesame', :namespace=>'777', :names=>[ (123+j).to_s ]}
             data = @serializer.dump(OperationResult.error('too many cows on the moon'))
             flexmock(@gatherer).should_receive(:send_idempotent_request).
-              with('/vault/read_documents', payload, Proc).and_yield(data)
+              with('/vault/read_documents', payload, nil_targets, Proc).and_yield(data)
           end
 
           result = run(@gatherer)
@@ -118,6 +120,8 @@ module RightScale
         end
 
         it 'fails recipes gracefully' do
+          nil_targets = {:targets=>nil}
+
           creds = []
           (0..2).each { |j| creds << secure_document_location(j) }
           recipe = @recipe.dup
@@ -134,14 +138,14 @@ module RightScale
             payload = {:ticket=>'open sesame', :namespace=>'777', :names=>[ (123+j).to_s ]}
             data = @serializer.dump(OperationResult.success([ secure_document(j) ]))
             flexmock(@gatherer).should_receive(:send_idempotent_request).
-              with('/vault/read_documents', payload, Proc).and_yield(data)
+              with('/vault/read_documents', payload, nil_targets, Proc).and_yield(data)
           end
 
           [2].each do |j|
             payload = {:ticket=>'open sesame', :namespace=>'777', :names=>[ (123+j).to_s ]}
             data = @serializer.dump(OperationResult.error('too many cows on the moon'))
             flexmock(@gatherer).should_receive(:send_idempotent_request).
-              with('/vault/read_documents', payload, Proc).and_yield(data)
+              with('/vault/read_documents', payload, nil_targets, Proc).and_yield(data)
           end
 
           result = run(@gatherer)
@@ -153,6 +157,7 @@ module RightScale
 
       [1, 3, 10].each do |i|
         it "handles #{i} credentials" do
+          nil_targets = {:targets=>nil}
 
           creds = []
           (0...i).each { |j| creds << secure_document_location(j) }
@@ -175,7 +180,7 @@ module RightScale
             payload = {:ticket=>'open sesame', :namespace=>'777', :names=>[ (123+j).to_s ]}
             data = @serializer.dump(OperationResult.success([ secure_document(j) ]))
             flexmock(@gatherer).should_receive(:send_idempotent_request).
-              with('/vault/read_documents', payload, Proc).and_yield(data).twice
+              with('/vault/read_documents', payload, nil_targets, Proc).and_yield(data).twice
           end
 
           result = run(@gatherer)
