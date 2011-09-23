@@ -384,7 +384,11 @@ module RightScale
         @cookbooks.each do |cookbook_sequence|
           cookbook_sequence.positions.each do |position|
             if @cookbook_repo_retriever.should_be_linked?(cookbook_sequence.hash, position.position)
-               @cookbook_repo_retriever.link(cookbook_sequence.hash, position.position)
+              begin
+                @cookbook_repo_retriever.link(cookbook_sequence.hash, position.position)
+              rescue Exception => e
+                ::RightScale::Log.error("Failed to link #{position.cookbook.name} for development", e)
+              end
             else
               # download with repose
               cookbook_path = CookbookPathMapping.repose_path(@download_path, cookbook_sequence.hash, position.position)

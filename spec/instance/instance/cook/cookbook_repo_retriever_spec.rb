@@ -102,19 +102,33 @@ describe RightScale::CookbookRepoRetriever do
           @retriever.is_checked_out?(@repo_sha).should be_true
         end
 
-        it 'should be able to link' do
+        if !::RightScale::Platform.windows? || defined?(::Windows::File::CreateSymbolicLink)
+          it 'should be able to link on supported platforms' do
+            # pretend to checkout
+            FileUtils.mkdir_p(RightScale::CookbookPathMapping.checkout_path(@expected_checkout_root, @position))
+
+            @retriever.checkout_cookbook_repos.should be_true
+            @retriever.link(@repo_sha, @position).should be_true
+            if ::RightScale::Platform.windows?
+              File.exists?(RightScale::CookbookPathMapping.repose_path(@expected_repose_root, @repo_sha, @position)).should be_true
+              File.exists?(RightScale::CookbookPathMapping.checkout_path(@expected_checkout_root, @position)).should be_true
+            else
+              File.readlink(RightScale::CookbookPathMapping.repose_path(@expected_repose_root, @repo_sha, @position)).should == RightScale::CookbookPathMapping.checkout_path(@expected_checkout_root, @position)
+            end
+          end
+        end
+
+        it 'should NOT be able to link on unsupported platforms' do
+          # pretend to thorw
+          mock_filesystem = flexmock("fake file system")
+          mock_filesystem.should_receive(:create_symlink).and_raise(::RightScale::PlatformNotSupported)
+          flexmock(::RightScale::Platform).should_receive(:filesystem).and_return(mock_filesystem)
+
           # pretend to checkout
           FileUtils.mkdir_p(RightScale::CookbookPathMapping.checkout_path(@expected_checkout_root, @position))
 
           @retriever.checkout_cookbook_repos.should be_true
-          @retriever.link(@repo_sha, @position).should be_true
-          if ::RightScale::Platform.windows?
-            File.exists?(RightScale::CookbookPathMapping.repose_path(@expected_repose_root, @repo_sha, @position)).should be_true
-            File.exists?(RightScale::CookbookPathMapping.checkout_path(@expected_checkout_root, @position)).should be_true
-          else
-            File.readlink(RightScale::CookbookPathMapping.repose_path(@expected_repose_root, @repo_sha, @position)).should == RightScale::CookbookPathMapping.checkout_path(@expected_checkout_root, @position)
-          end
-
+          lambda { @retriever.link(@repo_sha, @position) }.should raise_exception(::RightScale::PlatformNotSupported)
         end
       end
 

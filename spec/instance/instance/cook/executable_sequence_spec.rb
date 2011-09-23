@@ -340,7 +340,8 @@ module RightScale
       end
     end
 
-    context 'dev_cookbooks' do
+    if !::RightScale::Platform.windows? || defined?(::Windows::File::CreateSymbolicLink)
+      context 'dev_cookbooks' do
       Spec::Matchers.define :be_symlink_to do |path|
         match do |link|
           File.readlink(link) == path
@@ -632,6 +633,7 @@ module RightScale
         it_should_behave_like 'mocks checkout'
         it_should_behave_like 'checks out dev repos'
       end
+    end
     end
   end
 end
