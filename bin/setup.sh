@@ -1,4 +1,4 @@
-#!/bin/bash -e
+#!/bin/bash
 #
 # Copyright (c) 2009-2011 RightScale Inc
 #
@@ -56,31 +56,43 @@ function install_gems() {
 
     if [ -e /opt/rightscale/sandbox/bin/gem ]
     then
+      # Use RightScale sandbox as our first choice
       gem_bin="/opt/rightscale/sandbox/bin/gem"
+    elif [ -e /etc/profile.d/rvm.sh -a -e /usr/local/rvm/rubies/ruby-1.8.7-p352 ]
+    then
+      # Use RVM, if the Ruby we need is installed
+      source /etc/profile.d/rvm.sh
+      set +e
+      rvm use ruby-1.8.7-p352
+      set -e
+      using_rvm=1
+      gem_bin=`which gem`
     else
+      # Fallback choice: use the system Ruby
       gem_bin=`which gem`
     fi
 
-    ($gem_bin list bundler | grep -q bundler) || $gem_bin install --no-rdoc --no-ri -v '~> 1.0.18' bundler
+    $gem_bin install --no-rdoc --no-ri -v "~> 1.0.18" bundler | logger -st RightScale
 
     if [ -e /opt/rightscale/sandbox/bin/bundle ]
     then
-      # The RightScale sandbox lives in a fixed location on disk.
+      # The RightScale sandbox lives in a fixed location on disk. Use the sandbox
+      # Ruby as our first choice, if it exists.
       bundle_bin="/opt/rightscale/sandbox/bin/bundle"
-    elif [ -e /var/lib/gems/1.8/bin/bundle ]
+    elif [ "$using_rvm" == "" -a -e /var/lib/gems/1.8/bin/bundle ]
     then
       # Debian systems using the system Ruby package have a very odd location
       # for gem binaries!
       bundle_bin="/var/lib/gems/1.8/bin/bundle"
     else
-      # Generic case; works well for most systems
+      # Generic case; works for non-Debian system Ruby as well as for RVM
       bundle_bin=`which bundle`
     fi
 
     if [ -e vendor/cache ]
     then
-        echo "Installing gems in deployment mode"
-        bundle_flags="--deployment"
+        echo "Installing gems in release mode (local sources only)"
+        bundle_flags="--local"
     else
         echo "Installing gems in development mode"
         bundle_flags=""
@@ -119,6 +131,11 @@ EOF
 if [ -e /opt/rightscale/sandbox/bin/ruby ]
 then
   ruby_bin="/opt/rightscale/sandbox/bin/ruby"
+elif [ -e /etc/profile.d/rvm.sh -a -e /usr/local/rvm/rubies/ruby-1.8.7-p352 ]
+then
+  source /etc/profile.d/rvm.sh
+  rvm use ruby-1.8.7-p352
+  ruby_bin=`which ruby`
 else
   ruby_bin=`which ruby`
 fi
@@ -133,7 +150,7 @@ else
   echo "The Ruby interpreter at $ruby_bin is not RightLink-compatible"
   echo "Ruby >= 1.8.7 and < 1.9.0 is required!"
   echo "This machine is running 1.${ruby_minor}.${ruby_tiny}"
-  echo "Consider installing the RightLink sandbox"
+  echo "Consider installing RVM to the system"
   exit 187
 fi
 EOF
@@ -173,6 +190,11 @@ EOF
 if [ -e /opt/rightscale/sandbox/bin/ruby ]
 then
   ruby_bin="/opt/rightscale/sandbox/bin/ruby"
+elif [ -e /etc/profile.d/rvm.sh -a -e /usr/local/rvm/rubies/ruby-1.8.7-p352 ]
+then
+  source /etc/profile.d/rvm.sh
+  rvm use ruby-1.8.7-p352
+  ruby_bin=`which ruby`
 else
   ruby_bin=`which ruby`
 fi
