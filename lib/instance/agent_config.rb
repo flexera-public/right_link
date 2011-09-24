@@ -88,7 +88,7 @@ module RightScale
           'ruby'
         end
       else
-        if sandbox_dir
+        if sandbox_dir && File.exist?(RightScale::Platform.shell.sandbox_ruby)
           RightScale::Platform.shell.sandbox_ruby
         else
           # Development setup

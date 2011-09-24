@@ -203,3 +203,26 @@ When the system is terminating, you should allow RightLink to run its decommissi
  cd /opt/rightscale
  
  bin/rnac --decommission
+
+== Filesystem Locations
+
+=== Linux Systems
+
+| /var/spool/cloud           | Cloud instance user-data (.sh, .rb, raw formats)
+| /etc/rightcale.d           | Persistent agent state, e.g. state.js, cook.js
+| /etc/right_agent           | Static configuration files generated during enrollment
+| /etc/rightscale.d          | Static "hints" for init scripts: cloud, rightscale-release
+| /var/cache                 | Cookbooks, attachments, temp files
+| /var/run                   | Transient agent state, e.g. pid files
+| /opt/rightscale/right_link | RightLink root dir (program logic & support files)
+| /usr/bin                   | Rightlink public CLI e.g. rs_tag, rs_debug
+| /opt/rightscale/bin        | RightLink private CLI e.g. rnac, rad, cook
+| /opt/rightscale/sandbox    | Sandbox Ruby/RubyGems/monit binaries
+
+=== Windows Systems
+
+| COMMON_APPDATA\RightScale\spool        | Cloud instance user-data (.sh, .rb, raw formats)
+| COMMON_APPDATA\RightScale\rightscale.d | Persistent agent state, e.g. state.js, cook.js
+| COMMON_APPDATA\RightScale\RightAgent   | Static configuration files generated during enrollment
+| COMMON_APPDATA\RightScale\rightscale.d | Static "hints"
+| COMMON_APPDATA\RightScale\cache        | Cookbooks, attachments, temp files
