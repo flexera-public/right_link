@@ -4,9 +4,8 @@ source :rubygems
 gem "rubyforge",             "1.0.4"
 gem "rake",                  "0.8.7"
 gem 'right_support',         "~> 0.9"
-gem 'right_agent',:git => 'git@github.com:rightscale/right_agent.git',
-                  :branch => 'master',
-                  :require => ['right_agent', 'right_agent/core_payload_types']
+gem 'right_agent',           ">= 0.5.1",
+                             :require => ['right_agent', 'right_agent/core_payload_types']
 
 # Dependencies for right_scraper
 gem "right_scraper", :git => "git://github.com/rightscale/right_scraper.git"
