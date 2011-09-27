@@ -32,6 +32,8 @@ GEM
       rubyforge (>= 1.0.4)
     json (1.4.6)
     json (1.4.6-x86-mswin32)
+    libarchive (0.1.2)
+    libarchive (0.1.2-x86-mswin32)
     mime-types (1.16)
     mixlib-authentication (1.1.2)
       mixlib-log
