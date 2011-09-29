@@ -85,7 +85,10 @@ module RightScale
             :namespace => location.namespace,
             :names => [location.name]
           }
-          self.send_idempotent_request('/vault/read_document', payload) do |data|
+          options = {
+            :targets => location.targets
+          }
+          self.send_idempotent_request('/vault/read_documents', payload, options) do |data|
             handle_response(exe, name, location, data)
           end
         end
