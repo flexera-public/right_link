@@ -34,7 +34,7 @@ module RightScale
     def initialize(checkout_root, repose_root, dev_cookbooks)
       @checkout_root  = checkout_root
       @repose_root    = repose_root
-      @dev_cookbooks  = dev_cookbooks || {}
+      @dev_cookbooks  = (dev_cookbooks.nil? || dev_cookbooks.repositories.nil?) ? {} : dev_cookbooks.repositories
       @scraper        = RightScraper::Scraper.new(:kind => :cookbook, :basedir => @checkout_root)
 
       @registered_checkouts = {}

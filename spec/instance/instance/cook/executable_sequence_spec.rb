@@ -47,6 +47,10 @@ module RightScale
       @old_cache_path = AgentConfig.cache_dir
       @temp_cache_path = Dir.mktmpdir
       AgentConfig.cache_dir = @temp_cache_path
+
+      # FIX: currently these tests do not need EM, so we mock next_tick so we do not pollute EM.
+      # Should we run the entire sequence in em for these tests?
+      flexmock(EM).should_receive(:next_tick)
     end
 
     after(:each) do
@@ -61,7 +65,8 @@ module RightScale
 
     it 'should look up repose servers' do
       flexmock(ReposeDownloader).should_receive(:discover_repose_servers).with([SERVER]).once
-      @bundle = ExecutableBundle.new([], [], 2, nil, [], [SERVER], {}, nil)
+
+      @bundle = ExecutableBundle.new([], [], 2, nil, [], [SERVER], DevRepositories.new({}), nil)
       @sequence = ExecutableSequence.new(@bundle)
     end
 
@@ -120,7 +125,7 @@ module RightScale
                                 "nonexistent cookbook")
         position = CookbookPosition.new("foo/bar", cookbook)
         sequence = CookbookSequence.new(['foo'], [position], ["deadbeef"])
-        @bundle = ExecutableBundle.new([], [], 2, nil, [sequence], [SERVER], {}, nil)
+        @bundle = ExecutableBundle.new([], [], 2, nil, [sequence], [SERVER], DevRepositories.new({}), nil)
       end
 
       it 'should successfully request a cookbook we can access' do
@@ -398,9 +403,15 @@ module RightScale
         cookbook2r1_position = CookbookPosition.new("other_cookbooks/test_cookbook2", cookbook2r1)
         cookbook3r3_position = CookbookPosition.new("test_cookbook3", cookbook3r3)
 
-        cookbook_sequence_r1 = CookbookSequence.new(['cookbooks', 'other_cookbooks'], [cookbook1r1_position, cookbook2r1_position], "e59ff97941044f85df5297e1c302d260")
-        cookbook_sequence_r2 = CookbookSequence.new(['other_cookbooks'], [cookbook1r2_position], "53961c3d705734f5e1f473c0d706330d")
-        cookbook_sequence_r3 = CookbookSequence.new(['cookbooks'], [cookbook3r3_position], "b14e6313910d695e68abbd354b10a8fa")
+        cookbook_sequence_r1 = CookbookSequence.new(['cookbooks', 'other_cookbooks'],
+                                                    [cookbook1r1_position, cookbook2r1_position],
+                                                    "e59ff97941044f85df5297e1c302d260")
+        cookbook_sequence_r2 = CookbookSequence.new(['other_cookbooks'],
+                                                    [cookbook1r2_position],
+                                                    "53961c3d705734f5e1f473c0d706330d")
+        cookbook_sequence_r3 = CookbookSequence.new(['cookbooks'],
+                                                    [cookbook3r3_position],
+                                                    "b14e6313910d695e68abbd354b10a8fa")
 
         {:cookbooks => [cookbook_sequence_r1, cookbook_sequence_r2, cookbook_sequence_r3],
          :sequences_by_cookbook_name => {"test_cookbook1" => [cookbook_sequence_r1, cookbook_sequence_r2],
@@ -410,14 +421,15 @@ module RightScale
 
       def build_dev_sequences(sequences_by_cookbook_name, cookbook_names)
         # FIX: simulating uniq because CookbookSequence defines hash which defeats Array.uniq as it depends on hash to determine uniq....
-        cookbook_sequences = cookbook_names.inject({}) { |memo, name| sequences_by_cookbook_name[name].each { |sequence| memo[sequence.hash] = sequence }; memo }.values
+        cookbook_sequences = cookbook_names.inject({}) { |memo, name| sequences_by_cookbook_name[name].
+            each { |sequence| memo[sequence.hash] = sequence }; memo }.values
         dev_repo = RightScale::DevRepositories.new
         cookbook_sequences.each do |cookbook_sequence|
           positions = cookbook_sequence.positions.select { |position| cookbook_names.include?(position.cookbook.name) }
           dev_repo.add_repo(cookbook_sequence.hash, {:repo_type => :git,
                                                      :url => "http://github.com/#{cookbook_sequence.hash}"}, positions)
         end
-        dev_repo.repositories
+        dev_repo
       end
 
       def simulate_download_repos(cookbooks, dev_cookbooks)
@@ -430,8 +442,8 @@ module RightScale
         dl = flexmock(ReposeDownloader)
         cookbooks.each do |sequence|
           sequence.positions.each do |position|
-            unless dev_cookbooks[sequence.hash] &&
-                dev_cookbooks[sequence.hash][:positions].detect { |dp| dp.position == position.position }
+            unless dev_cookbooks.repositories[sequence.hash] &&
+                dev_cookbooks.repositories[sequence.hash][:positions].detect { |dp| dp.position == position.position }
               dl.should_receive(:new).
                   with('cookbooks', position.cookbook.hash, position.cookbook.token, position.cookbook.name,
                        ExecutableSequence::CookbookDownloadFailure, RightScale::Log).once.
@@ -467,11 +479,13 @@ module RightScale
 
           # mock the scraper so we pretend to checkout cookbooks
           mock_scraper = flexmock("mock scraper for sequence")
-          flexmock(::RightScraper::Scraper).should_receive(:new).once.with(:kind => :cookbook, :basedir => @checkout_root_dir).and_return(mock_scraper)
+          flexmock(::RightScraper::Scraper).
+              should_receive(:new).once.with(:kind => :cookbook, :basedir => @checkout_root_dir).
+              and_return(mock_scraper)
           @checkout_paths = {}
-          @dev_cookbooks.each_pair do |dev_repo_sha, dev_cookbook|
+          @dev_cookbooks.repositories.each_pair do |dev_repo_sha, dev_cookbook|
             repo_base_dir = File.join(@checkout_root_dir, rand(2**32).to_s(32), "repo")
-            mock_scraper.should_receive(:scrape).once.with(dev_cookbook[:repo], Proc).once.and_return do |repo, incremental, callback|
+            mock_scraper.should_receive(:scrape).once.with(dev_cookbook[:repo], Proc).and_return do |repo, incremental, callback|
               if @failure_repos[dev_repo_sha]
                 false
               else
@@ -516,8 +530,8 @@ module RightScale
 
           it 'should symlink repose download path to checkout location only for dev_cookbooks' do
             @cookbooks.each do |cookbook_sequence|
-              if @dev_cookbooks.has_key?(cookbook_sequence.hash)
-                dev_cookbook = @dev_cookbooks[cookbook_sequence.hash]
+              if @dev_cookbooks.repositories.has_key?(cookbook_sequence.hash)
+                dev_cookbook = @dev_cookbooks.repositories[cookbook_sequence.hash]
                 failed_positions = @failure_repos[cookbook_sequence.hash].collect { |position| position.position } if @failure_repos.has_key?(cookbook_sequence.hash)
                 cookbook_sequence.positions.each do |position|
                   local_basedir = File.join(AgentConfig.cookbook_download_dir, cookbook_sequence.hash, position.position)
@@ -555,7 +569,7 @@ module RightScale
           sequences = build_cookbook_sequences
           @cookbooks = sequences[:cookbooks]
           @sequences_by_cookbook_name = sequences[:sequences_by_cookbook_name]
-          @dev_cookbooks = {}
+          @dev_cookbooks = DevRepositories.new
           @expected_scrape_count = 0
           @failure_repos = {}
         end
@@ -610,7 +624,9 @@ module RightScale
           sequences = build_cookbook_sequences
           @cookbooks = sequences[:cookbooks]
           @sequences_by_cookbook_name = sequences[:sequences_by_cookbook_name]
-          @dev_cookbooks = build_dev_sequences(@sequences_by_cookbook_name, ["test_cookbook1", "test_cookbook2", "test_cookbook3"])
+          @dev_cookbooks = build_dev_sequences(@sequences_by_cookbook_name, ["test_cookbook1",
+                                                                             "test_cookbook2",
+                                                                             "test_cookbook3"])
           @expected_scrape_count = 3
           @failure_repos = {}
         end
@@ -623,7 +639,9 @@ module RightScale
           sequences = build_cookbook_sequences
           @cookbooks = sequences[:cookbooks]
           @sequences_by_cookbook_name = sequences[:sequences_by_cookbook_name]
-          @dev_cookbooks = build_dev_sequences(@sequences_by_cookbook_name, ["test_cookbook1", "test_cookbook2", "test_cookbook3"])
+          @dev_cookbooks = build_dev_sequences(@sequences_by_cookbook_name, ["test_cookbook1",
+                                                                             "test_cookbook2",
+                                                                             "test_cookbook3"])
           @expected_scrape_count = 2
 
           @failure_repos = {}

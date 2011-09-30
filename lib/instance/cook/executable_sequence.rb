@@ -84,7 +84,7 @@ module RightScale
       @description            = bundle.to_s
       @right_scripts_cookbook = RightScriptsCookbook.new
       @scripts                = bundle.executables.select { |e| e.is_a?(RightScriptInstantiation) }
-      recipes                 = bundle.executables.map { |e| e.is_a?(RecipeInstantiation) ? e : @right_scripts_cookbook.recipe_from_right_script(e) }
+      recipes                  = bundle.executables.map { |e| e.is_a?(RecipeInstantiation) ? e : @right_scripts_cookbook.recipe_from_right_script(e) }
       @cookbooks              = bundle.cookbooks
       @thread_name            = bundle.thread_name
       @downloader             = Downloader.new
@@ -94,7 +94,9 @@ module RightScale
       @audit                  = AuditStub.instance
       @logger                 = Log
       @repose_class           = ReposeDownloader.select_repose_class
-      @cookbook_repo_retriever= CookbookRepoRetriever.new(CookState.cookbooks_path, @download_path, bundle.dev_cookbooks)
+      @cookbook_repo_retriever= CookbookRepoRetriever.new(CookState.cookbooks_path,
+                                                          @download_path,
+                                                          bundle.dev_cookbooks)
 
       #Lookup
       @repose_class.discover_repose_servers(bundle.repose_servers)

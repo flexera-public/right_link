@@ -394,4 +394,9 @@ end
 # global spec configuration.
 ::Spec::Runner.configure do |config|
   config.before(:each) { ::RightScale::Log.reset_errors }
+  config.after(:each) do
+    # ensure all tests clean up their EM resources
+    queue = EM.instance_variable_get(:@next_tick_queue)
+    (queue.nil? || queue.empty?).should be_true
+  end
 end
