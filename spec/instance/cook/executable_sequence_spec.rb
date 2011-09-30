@@ -58,7 +58,7 @@ describe RightScale::ExecutableSequence do
       @script.should_receive(:is_a?).with(RightScale::RightScriptInstantiation).and_return(true)
       @script.should_receive(:is_a?).with(RightScale::RecipeInstantiation).and_return(false)
 
-      @bundle = RightScale::ExecutableBundle.new([ @script ], [], 0, true, [], '', nil, [])
+      @bundle = RightScale::ExecutableBundle.new([ @script ], [], 0, true, [], '', RightScale::DevRepositories.new, nil)
 
       @auditor = flexmock(RightScale::AuditStub.instance)
       @auditor.should_receive(:create_new_section)
@@ -68,7 +68,10 @@ describe RightScale::ExecutableSequence do
 
       @connection = flexmock('RightHttpConnection')
       flexmock(Rightscale::HttpConnection).should_receive(:new).and_return(@connection)
-      flexmock(RightScale::ExecutableSequence).new_instances.should_receive(:find_repose_server).with(@connection).and_return('repose0-0.rightscale.com')
+      flexmock(RightScale::ExecutableSequence).
+          new_instances.should_receive(:find_repose_server).
+          with(@connection).
+          and_return('repose0-0.rightscale.com')
 
       # prevent Chef logging reaching the console during spec test.
       logger = flexmock(RightScale::Log.logger)
