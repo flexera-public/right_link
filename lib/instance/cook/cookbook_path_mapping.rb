@@ -26,7 +26,7 @@ module RightScale
     # Constructs a repose download path for a given cookbook
     #
     # === Parameters
-    # repose_root (Stirng):: the root for all cookbooks downloaded with repose
+    # repose_root (String):: the root for all cookbooks downloaded with repose
     # repo_sha (String):: unique identifier for the repo containig the cookbook
     # position (String):: the relative path of the cookbook within the repo
     #

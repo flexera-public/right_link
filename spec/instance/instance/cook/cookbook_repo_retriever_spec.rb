@@ -28,11 +28,11 @@ require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', '..', 
 describe RightScale::CookbookRepoRetriever do
   context :has_cookbooks? do
     it 'when initialized with dev cookbooks, should be true' do
-      RightScale::CookbookRepoRetriever.new(nil, nil, {'sha-1' => {}}).has_cookbooks?.should be_true
+      RightScale::CookbookRepoRetriever.new(nil, nil, RightScale::DevRepositories.new({'sha-1' => {}})).has_cookbooks?.should be_true
     end
 
     it 'when initialized with empty dev cookbooks, should be false' do
-      RightScale::CookbookRepoRetriever.new(nil, nil, {}).has_cookbooks?.should be_false
+      RightScale::CookbookRepoRetriever.new(nil, nil, RightScale::DevRepositories.new({})).has_cookbooks?.should be_false
     end
 
     it 'when initialized with nil dev cookbooks, should be false' do
@@ -45,7 +45,7 @@ describe RightScale::CookbookRepoRetriever do
       before(:each) do
         @repo_sha = 'sha-1'
         @position = 'cookbooks/cookbook'
-        @retriever = RightScale::CookbookRepoRetriever.new(nil, nil, {@repo_sha => {:repo => {}, :positions => [flexmock("cookbook position", :position => @position, :cookbook => nil)]}})
+        @retriever = RightScale::CookbookRepoRetriever.new(nil, nil, RightScale::DevRepositories.new({@repo_sha => {:repo => {}, :positions => [flexmock("cookbook position", :position => @position, :cookbook => nil)]}}))
       end
 
       it 'repo matches and position matches should be true' do
@@ -62,7 +62,7 @@ describe RightScale::CookbookRepoRetriever do
     end
 
     it 'when initialized with empty dev cookbooks, should be false' do
-      retriever = RightScale::CookbookRepoRetriever.new(nil, nil, {})
+      retriever = RightScale::CookbookRepoRetriever.new(nil, nil, RightScale::DevRepositories.new({}))
       retriever.should_be_linked?(@repo_sha, @position).should be_false
     end
 
@@ -89,7 +89,7 @@ describe RightScale::CookbookRepoRetriever do
 
           @repo_sha = 'sha-1'
           @position = 'cookbooks/cookbook'
-          @retriever = RightScale::CookbookRepoRetriever.new(@expected_checkout_root, @expected_repose_root, {@repo_sha => {:repo => {}, :positions => [flexmock("cookbook position", :position => @position, :cookbook => nil)]}})
+          @retriever = RightScale::CookbookRepoRetriever.new(@expected_checkout_root, @expected_repose_root, RightScale::DevRepositories.new({@repo_sha => {:repo => {}, :positions => [flexmock("cookbook position", :position => @position, :cookbook => nil)]}}))
         end
 
         after(:each) do
@@ -141,7 +141,7 @@ describe RightScale::CookbookRepoRetriever do
 
           @repo_sha = 'sha-1'
           @position = 'cookbooks/cookbook'
-          @retriever = RightScale::CookbookRepoRetriever.new(nil, nil, {@repo_sha => {:repo => {}, :positions => [flexmock("cookbook position", :position => @position, :cookbook => nil)]}})
+          @retriever = RightScale::CookbookRepoRetriever.new(nil, nil, RightScale::DevRepositories.new({@repo_sha => {:repo => {}, :positions => [flexmock("cookbook position", :position => @position, :cookbook => nil)]}}))
         end
 
         it 'should NOT scrape' do
@@ -173,7 +173,7 @@ describe RightScale::CookbookRepoRetriever do
           end
           flexmock(RightScraper::Scraper).should_receive(:new).and_return(mock_scraper)
 
-          @retriever = RightScale::CookbookRepoRetriever.new(nil, nil, @dev_repos)
+          @retriever = RightScale::CookbookRepoRetriever.new(nil, nil, RightScale::DevRepositories.new(@dev_repos))
         end
 
         it 'should NOT scrape' do
@@ -192,7 +192,7 @@ describe RightScale::CookbookRepoRetriever do
       flexmock(RightScraper::Scraper).new_instances.should_receive(:scrape).never
       flexmock(RightScraper::Scraper).new_instances.should_receive(:repo_dir).never
 
-      retriever = RightScale::CookbookRepoRetriever.new(nil, nil, {})
+      retriever = RightScale::CookbookRepoRetriever.new(nil, nil, RightScale::DevRepositories.new({}))
       retriever.checkout_cookbook_repos { raise "Should not be called" }
     end
 
