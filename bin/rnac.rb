@@ -25,11 +25,13 @@
 
 # Monit cleans the environment before running a daemon
 # We can re-set any necessary environment here
+#
+# FIX: HOME appears to mean nothing in Windows (whereas HOMEPATH is significant)
+# but need to confirm this. yes, we support Linux AND Windows.
+
 ENV['HOME'] = "/root" unless ENV['HOME'] # Needed by package installer
 
-# Activate Bundler
-require 'rubygems'
-require 'bundler/setup'
+require File.expand_path(File.join(File.dirname(__FILE__), '..', 'lib', 'activate_bundler'))
 
 $:.push(File.join(File.dirname(__FILE__), '..', 'scripts'))
 require 'agent_controller'

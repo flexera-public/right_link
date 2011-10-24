@@ -19,9 +19,7 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-# Activate Bundler
-require 'rubygems'
-require 'bundler/setup'
+require File.expand_path(File.join(File.dirname(__FILE__), '..', 'lib', 'activate_bundler'))
 
 # Standard library dependencies
 require 'uri'

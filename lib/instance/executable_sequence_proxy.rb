@@ -104,7 +104,7 @@ module RightScale
     # === Return
     # path(String):: Path to ruby script used to run Chef
     def cook_path
-      relative_path = File.join(File.dirname(__FILE__), '..', '..', 'scripts', 'cook_runner.rb')
+      relative_path = File.join(File.dirname(__FILE__), '..', '..', 'bin', 'cook_runner.rb')
       return File.normalize_path(relative_path)
     end
 
