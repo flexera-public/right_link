@@ -33,6 +33,7 @@ module RightScale
     def initialize(thread_name = ::RightScale::ExecutableBundle::DEFAULT_THREAD_NAME, &continuation)
       super(&continuation)
       @active = false
+      @thread = nil
       @thread_name = thread_name
       @pid = nil
       @mutex = Mutex.new
@@ -58,7 +59,7 @@ module RightScale
     def activate
       @mutex.synchronize do
         unless @active
-          Thread.new { run }
+          @thread = Thread.new { run }
           @active = true
         end
       end
@@ -135,6 +136,7 @@ module RightScale
       # invoke continuation (off of this thread which is going away).
       @mutex.synchronize { @active = false }
       run_continuation
+      @thread = nil
     end
 
     # Factory method for a new sequence.
