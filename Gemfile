@@ -8,7 +8,7 @@ gem 'right_agent',           ">= 0.5.1",
                              :require => ['right_agent', 'right_agent/core_payload_types']
 
 # Dependencies for right_scraper
-gem "right_scraper",         "~> 3.0.0" 
+gem "right_scraper", "3.0.1"
 
 gem "right_http_connection", "~> 1.3.0"
 

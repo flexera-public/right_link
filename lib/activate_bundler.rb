@@ -1,27 +1,4 @@
-# === Synopsis:
-#   RightScale Chef Cook (cook) - (c) 2010-11 RightScale Inc
-#
-#   This utility is meant to be used internally by RightLink, use
-#   rs_run_right_script and rs_run_recipe instead.
-#
-
-require 'rubygems'
-require 'right_agent'
-require 'eventmachine'
-require 'chef'
-require 'fileutils'
-require 'right_scraper'
-
-BASE_DIR = File.join(File.dirname(__FILE__), '..')
-
-require File.normalize_path(File.join(BASE_DIR, 'lib', 'instance'))
-require File.normalize_path(File.join(BASE_DIR, 'lib', 'instance', 'cook'))
-
-# Launch it!
-RightScale::Cook.new.run
-
-#
-# Copyright (c) 2009-2011 RightScale Inc
+# Copyright (c) 2011 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -41,3 +18,13 @@ RightScale::Cook.new.run
 # LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+require 'rubygems'
+
+# bundler loads any Gemfile in current working directory or else silently uses
+# the empty bundle if none found. ensure it finds our Gemfile in the proper
+# location by temporarily changing working directory. the --gemfile command-line
+# override still applies but may not be supported by our command line parsing.
+Dir.chdir(File.join(File.dirname(__FILE__), '..')) do
+  require 'bundler/setup'
+end

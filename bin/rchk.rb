@@ -21,9 +21,7 @@
 
 # See scripts/agent_checker.rb for additional information.
 
-# Activate Bundler
-require 'rubygems'
-require 'bundler/setup'
+require File.expand_path(File.join(File.dirname(__FILE__), '..', 'lib', 'activate_bundler'))
 
 $:.push(File.join(File.dirname(__FILE__), '..', 'scripts'))
 require 'agent_checker'
