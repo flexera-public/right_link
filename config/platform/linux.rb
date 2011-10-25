@@ -74,6 +74,15 @@ module RightScale
         distro =~ /SUSE/i
       end
 
+      # Is this machine running RHEL
+      #
+      # === Return
+      # true:: If Linux distro is RHEL
+      # false:: Otherwise
+      def rhel?
+        distro =~ /RedHatEnterpriseServer/i
+      end
+
       class Filesystem
 
         # Is given command available in the PATH?

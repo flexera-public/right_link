@@ -164,7 +164,7 @@ END
     end
     ############## INTERNAL FUNCTIONS #######################################################
     def self.abstract_generate(params)
-    return unless Yum::CentOS::is_this_centos?
+    return unless Yum::CentOS::is_this_centos? || Yum::Epel::is_this_rhel?
 
     epel_version = get_enterprise_linux_version
     puts "found EPEL version: #{epel_version}"
@@ -202,12 +202,16 @@ END
     # Note the version is a single (major) number.
     def self.get_enterprise_linux_version
       version=nil
-      if Yum::CentOS::is_this_centos?
+      if Yum::CentOS::is_this_centos? || Yum::Epel::is_this_rhel?
         version = Yum::execute("lsb_release  -rs").strip.split(".").first
       else
         raise "This doesn't appear to be an Enterprise Linux edition"
       end
       version
+    end
+
+    def self.is_this_rhel?
+      return ::RightScale::Platform.linux? && ::RightScale::Platform.linux.rhel?
     end
   end
 
