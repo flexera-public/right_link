@@ -33,6 +33,7 @@ module RightScale
     def initialize(&continuation)
       super(&continuation)
       @active = false
+      @thread = nil
       @mutex = Mutex.new
       @queue = Queue.new
       @thread_name_to_queue = {}
@@ -56,7 +57,7 @@ module RightScale
     def activate
       @mutex.synchronize do
         unless @active
-          Thread.new { run }
+          @thread = Thread.new { run }
           @active = true
         end
       end
@@ -143,6 +144,7 @@ module RightScale
       # invoke continuation (off of this thread which is going away).
       @mutex.synchronize { @active = false }
       EM.next_tick { @continuation.call } if @continuation
+      @thread = nil
     end
 
     # Pushes a context to a thread based on a name determined from the context.
