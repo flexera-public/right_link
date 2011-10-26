@@ -100,13 +100,21 @@ END
         return ::RightScale::Platform.linux? && ::RightScale::Platform.linux.rhel?
       end
 
+      def self.full_version
+        return ::RightScale::Platform.linux? && ::RightScale::Platform.linux.release
+      end
+
+      def self.major_version
+        return Yum::Rightscale::Epel::full_version.split('.', 2).first
+      end
+
       # Return the enterprise linux version of the running machine...or an exception if it's a non-enterprise version of linux.
       # At this point we will only test for CentOS ... but in the future we can test RHEL, and any other compatible ones
       # Note the version is a single (major) number.
       def self.get_enterprise_linux_version
         version=nil
         if Yum::Rightscale::Epel::is_this_centos? || Yum::Rightscale::Epel::is_this_rhel?
-          version = Yum::execute("lsb_release  -rs").strip.split(".").first
+          version = Yum::Rightscale::Epel::major_version
         else
           raise "This doesn't appear to be an Enterprise Linux edition"
         end

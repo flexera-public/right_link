@@ -113,17 +113,17 @@ module Yum
     opts.merge!(params)
     raise "missing parameters to generate file!" unless opts[:repo_filename] && opts[:repo_name] && opts[:repo_subpath] &&
                                                         opts[:base_urls] && opts[:frozen_date] && opts[:enabled] && opts[:gpgkey_file]
-    ver = Yum::execute("lsb_release  -rs").strip
+    ver = Yum::CentOS::major_version
     arch = Yum::execute("uname -i").strip
 
-    if ver =~ /5\.[01]/
+    if Yum::CentOS::full_version =~ /5\.[01]/
       # Old CentOS versions 5.0 and 5.1 were not versioned...so we just point to the base of the repo instead.
       repo_path = "#{ver}/#{opts[:repo_subpath]}/#{arch}"
     else
       repo_path = "#{ver}/#{opts[:repo_subpath]}/#{arch}/archive/"+opts[:frozen_date]
     end
 
-    mirror_list =  opts[:base_urls].map do |bu|
+    mirror_list = opts[:base_urls].map do |bu|
         bu +='/' unless bu[-1..-1] == '/' # ensure the base url is terminated with a '/'
         bu+repo_path
       end
@@ -146,6 +146,14 @@ END
 
     def self.is_this_centos?
       return ::RightScale::Platform.linux? && ::RightScale::Platform.linux.centos?
+    end
+
+    def self.full_version
+      return ::RightScale::Platform.linux? && ::RightScale::Platform.linux.release
+    end
+
+    def self.major_version
+      return Yum::CentOS::full_version.split('.', 2).first
     end
 
   end # Module CentOS
@@ -203,7 +211,7 @@ END
     def self.get_enterprise_linux_version
       version=nil
       if Yum::CentOS::is_this_centos? || Yum::Epel::is_this_rhel?
-        version = Yum::execute("lsb_release  -rs").strip.split(".").first
+        version = Yum::Rightscale::CentOS::major_version
       else
         raise "This doesn't appear to be an Enterprise Linux edition"
       end
