@@ -4,7 +4,7 @@ source :rubygems
 gem "rubyforge",             "1.0.4"
 gem "rake",                  "0.8.7"
 gem 'right_support',         "~> 1.0.0"
-gem 'right_agent',           :git => 'http://github.com/rightscale/right_agent.git',
+gem 'right_agent',           :git => 'https://github.com/rightscale/right_agent.git',
                              :require => ['right_agent', 'right_agent/core_payload_types'],
                              :branch => 'master'
 

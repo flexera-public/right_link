@@ -1,5 +1,5 @@
 GIT
-  remote: http://github.com/rightscale/right_agent.git
+  remote: https://github.com/rightscale/right_agent.git
   revision: a43af096aaba3f2393ea6870878968da17861812
   branch: master
   specs:
