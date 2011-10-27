@@ -57,7 +57,7 @@ module Yum
 
       ############## INTERNAL FUNCTIONS #######################################################
       def self.abstract_generate(params)
-        return unless (Yum::Rightscale::Epel::is_this_centos? || Yum::Rightscale::Epel::is_this_rhel?)
+        return unless (Yum::RightScale::Epel::is_this_centos? || Yum::RightScale::Epel::is_this_rhel?)
 
         epel_version = get_enterprise_linux_version
         puts "found EPEL version: #{epel_version}"
@@ -105,7 +105,7 @@ END
       end
 
       def self.major_version
-        return Yum::Rightscale::Epel::full_version.split('.', 2).first
+        return Yum::RightScale::Epel::full_version.split('.', 2).first
       end
 
       # Return the enterprise linux version of the running machine...or an exception if it's a non-enterprise version of linux.
@@ -113,8 +113,8 @@ END
       # Note the version is a single (major) number.
       def self.get_enterprise_linux_version
         version=nil
-        if Yum::Rightscale::Epel::is_this_centos? || Yum::Rightscale::Epel::is_this_rhel?
-          version = Yum::Rightscale::Epel::major_version
+        if Yum::RightScale::Epel::is_this_centos? || Yum::RightScale::Epel::is_this_rhel?
+          version = Yum::RightScale::Epel::major_version
         else
           raise "This doesn't appear to be an Enterprise Linux edition"
         end

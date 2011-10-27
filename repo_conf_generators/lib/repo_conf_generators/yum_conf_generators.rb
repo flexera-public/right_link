@@ -211,7 +211,7 @@ END
     def self.get_enterprise_linux_version
       version=nil
       if Yum::CentOS::is_this_centos? || Yum::Epel::is_this_rhel?
-        version = Yum::Rightscale::CentOS::major_version
+        version = Yum::CentOS::major_version
       else
         raise "This doesn't appear to be an Enterprise Linux edition"
       end
