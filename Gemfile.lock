@@ -1,12 +1,12 @@
 GIT
   remote: https://github.com/rightscale/right_agent.git
-  revision: a43af096aaba3f2393ea6870878968da17861812
+  revision: ed1be46595a80f2a1a23c29817a009c2a12340e3
   branch: master
   specs:
-    right_agent (0.5.7)
+    right_agent (0.5.8)
       amqp (= 0.7.1)
       eventmachine (~> 0.12.10)
-      json (>= 1.4.4, <= 1.4.6)
+      json (~> 1.4)
       msgpack (= 0.4.4)
       right_popen (~> 1.0.11)
       right_support (~> 1.0)
