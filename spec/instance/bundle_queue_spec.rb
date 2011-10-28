@@ -22,6 +22,73 @@
 
 require File.join(File.dirname(__FILE__), 'spec_helper')
 
+module RightScale
+  module BundleQueueSpec
+
+    # note that we changed from using flexmock for Bundle, OperationContext and
+    # ExecutableSequence for the multi-threaded tests due to a Ruby 1.8.7 issue
+    # which appears to cause dynamically typed objects (i.e. flexmocked) to have
+    # their type garbage collected before the object, but (probably) only when
+    # the object is released on a different thread than that which defined the
+    # dynamic type. types, logically, are not thread-local but dynamic types are
+    # a strange animal because there is generally only ever one object
+    # associated with that type.
+    #
+    # more specifically, we were seeing a segmentation fault during the time
+    # when the thread's stack was being garbage collected and the type (i.e.
+    # class) of the object being recycled could not be determined by Ruby's
+    # garbage collector.
+
+    class MockBundle
+      attr_reader :name, :thread_name
+
+      def initialize(name, thread_name)
+        @name = name
+        @thread_name = thread_name
+      end
+
+      def to_json; "[\"some json\"]"; end
+    end
+
+    class MockContext
+      attr_reader :audit, :payload, :decommission, :succeeded, :thread_name, :sequence_name
+
+      def initialize(audit, payload, decommission, succeeded, thread_name, sequence_name)
+        @audit = audit
+        @payload = payload
+        @decommission = decommission
+        @succeeded = succeeded
+        @thread_name = thread_name
+        @sequence_name = sequence_name
+      end
+    end
+
+    class MockSequence
+      attr_reader :context
+
+      def initialize(context, &block)
+        @context = context
+        @callback = nil
+        @errback = nil
+        @runner = block
+      end
+
+      def callback(&block)
+        @callback = block if block
+        @callback
+      end
+
+      def errback(&block)
+        @errback = block if block
+        @errback
+      end
+
+      def run; @runner.call(self); end
+    end
+
+  end
+end
+
 describe RightScale::BundleQueue do
 
   include RightScale::SpecHelper
@@ -74,20 +141,10 @@ describe RightScale::BundleQueue do
         end
         names << sequence_name
         sequence_callback = nil
-        bundle = flexmock("bundle #{sequence_name}", :name => sequence_name, :thread_name => thread_name)
-        bundle.should_receive(:to_json).and_return("[\"some json\"]")
-        context = flexmock("context #{sequence_name}",
-                           :audit => @audit,
-                           :payload => bundle,
-                           :decommission => decommission,
-                           :succeeded => true,
-                           :thread_name => thread_name,
-                           :sequence_name => sequence_name)
+        bundle = ::RightScale::BundleQueueSpec::MockBundle.new(sequence_name, thread_name)
+        context = ::RightScale::BundleQueueSpec::MockContext.new(@audit, bundle, decommission, true, thread_name, sequence_name)
         @contexts << context
-        sequence = flexmock("sequence #{sequence_name}", :context => context)
-        sequence.should_receive(:callback).and_return { |callback| sequence_callback = callback; true }
-        sequence.should_receive(:errback).and_return(true)
-        sequence.should_receive(:run).and_return do
+        sequence = ::RightScale::BundleQueueSpec::MockSequence.new(context) do |sequence|
           @mutex.synchronize do
             @threads_started << Thread.current.object_id unless @threads_started.include?(Thread.current.object_id)
           end
@@ -103,7 +160,7 @@ describe RightScale::BundleQueue do
           end
 
           # simulate callback from spawned process' exit handler on next tick.
-          EM.next_tick { sequence_callback.call }
+          EM.next_tick { sequence.callback.call }
         end
         @sequences[thread_name] ||= {}
         @sequences[thread_name][sequence_name] = sequence
