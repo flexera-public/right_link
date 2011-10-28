@@ -462,17 +462,17 @@ EOF
       runner.should raise_exception(RightScale::Exceptions::Exec)
 
       stdout_match = "Line 1.*Line 3"
-      stderr_match = <<-EOF
+      stderr_match1 = <<-EOF
 Set-Location : Cannot find path 'C:\\a_folder_which_does_not_exist' because it does not exist.
 At .*:2 char:5
   + cd <<<<  c:\\a_folder_which_does_not_exist
   + CategoryInfo          : ObjectNotFound: (C:\\a_folder_which_does_not_exist:String) [Set-Location], ItemNotFoundException
   + FullyQualifiedErrorId : PathNotFound,Microsoft.PowerShell.Commands.SetLocationCommand
-.*
-WARNING: Script exited successfully but $Error contained 1 error(s).
 EOF
+      stderr_match2 = "WARNING: Script exited successfully but $Error contained 1 error(s)."
       log_contains(stdout_match)
-      log_contains(stderr_match)
+      log_contains(stderr_match1)
+      log_contains(stderr_match2)
     end
 
     it "should exit chef converge when a powershell script invokes rs_shutdown --reboot --immediately" do
