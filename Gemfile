@@ -6,7 +6,7 @@ gem "rake",                  "0.8.7"
 gem 'right_support',         "~> 1.0.0"
 gem 'right_agent',           :git => 'https://github.com/rightscale/right_agent.git',
                              :require => ['right_agent', 'right_agent/core_payload_types'],
-                             :branch => 'master'
+                             :branch => 'azure_30_speedup_rnac_shutdown'
 
 # Dependencies for right_scraper
 gem "right_scraper", "3.0.1"

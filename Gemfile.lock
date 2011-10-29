@@ -1,7 +1,7 @@
 GIT
   remote: https://github.com/rightscale/right_agent.git
-  revision: ed1be46595a80f2a1a23c29817a009c2a12340e3
-  branch: master
+  revision: 539eeeefda40f3cac6a71c02ccd3c1e9d4e04520
+  branch: azure_30_speedup_rnac_shutdown
   specs:
     right_agent (0.5.8)
       amqp (= 0.7.1)

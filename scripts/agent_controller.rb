@@ -105,11 +105,13 @@ module RightScale
       opts.on("-d", "--decommission [AGENT]") do |a|
         options[:action] = 'decommission'
         options[:agent_name] = a || 'instance'
+        options[:thin_command_client] = true
       end
 
       opts.on("-S", "--shutdown [AGENT]") do |a|
         options[:action] = 'shutdown'
         options[:agent_name] = a || 'instance'
+        options[:thin_command_client] = true
       end
 
       opts.on('--help') do
