@@ -159,7 +159,7 @@ module RightScale
           end
         end
 
-        opt.on('t', '--thread THREAD') do |p|
+        opts.on('t', '--thread THREAD') do |p|
           options[:thread] = p
         end
 
