@@ -51,7 +51,8 @@ Install the C toolchain and related libraries, plus some additional libs
 required for RightLink.
 
  apt-get update
- apt-get install -y build-essential gcc g++ bison openssl libreadline zlib1g vim autoconf libxml2 libffi
+ # may need libreadline5 (not 6), on older systems. Ditto with libreadline5-dev
+ apt-get install -y build-essential gcc g++ bison openssl libreadline6 zlib1g vim autoconf libxml2 libffi
  apt-get install -y libssl-dev libarchive-dev libreadline-dev zlib1g-dev libyaml-dev libffi-dev libxml2-dev
  apt-get install -y git-core perl sed curl dnsutils
 
