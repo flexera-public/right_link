@@ -26,6 +26,10 @@ describe RightScale::DevState do
 
   include RightScale::SpecHelpers
 
+  before(:each) do
+    RightScale::InstanceState.init(1)
+  end
+
   it 'should set the "enabled?" flag correctly' do
     RightScale::InstanceState.startup_tags = [ 'some_tag', 'some:machine=tag' ]
     RightScale::DevState.enabled?.should be_false

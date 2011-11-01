@@ -69,7 +69,7 @@ module RightScale
       @recipes[recipe_name] = script.nickname
       recipe_content = <<-EOS
 right_script '#{script.nickname}' do
-  parameters(#{script.parameters.inspect})
+  parameters(node["#{script.nickname}"][:parameters])
   cache_dir  '#{cache_dir(script)}'
   source_file '#{path}'
 end
@@ -79,7 +79,11 @@ end
       recipe_path = "#{path}.rb"
       File.open(recipe_path, 'w') { |f| f.puts recipe_content }
 
-      recipe = RecipeInstantiation.new("#{COOKBOOK_NAME}::#{recipe_name}", nil, script.id, script.ready)
+      RightScale::RightLinkLog.info({ script.nickname => { :parameters => script.parameters.inspect } }.to_json)
+
+      recipe = RecipeInstantiation.new("#{COOKBOOK_NAME}::#{recipe_name}",
+                                       { script.nickname => { :parameters => script.parameters } },
+                                       script.id, script.ready)
     end
 
     # Produce file name for given script nickname
