@@ -79,8 +79,6 @@ end
       recipe_path = "#{path}.rb"
       File.open(recipe_path, 'w') { |f| f.puts recipe_content }
 
-      RightScale::RightLinkLog.info({ script.nickname => { :parameters => script.parameters.inspect } }.to_json)
-
       recipe = RecipeInstantiation.new("#{COOKBOOK_NAME}::#{recipe_name}",
                                        { script.nickname => { :parameters => script.parameters } },
                                        script.id, script.ready)
