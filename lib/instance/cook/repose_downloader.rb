@@ -108,7 +108,7 @@ module RightScale
       attempts = 0
 
       while result == cookie
-        Log.info("Requesting /#{@scope}/#{@resource}")
+        Log.info("Requesting /#{@scope}/#{@resource.split('?')[0]}")
         request = Net::HTTP::Get.new("/#{@scope}/#{@resource}")
         request['Cookie'] = "repose_ticket=#{@ticket}"
         request['Host'] = @repose_connection.first
