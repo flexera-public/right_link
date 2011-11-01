@@ -1,6 +1,6 @@
 GIT
   remote: https://github.com/rightscale/right_agent.git
-  revision: 91b6fed324d64c11dfcb3228177b9e5ffbb6d50c
+  revision: c430572826f156b555b79d1bfc91f81c942083bd
   branch: azure_30_speedup_rnac_shutdown
   specs:
     right_agent (0.5.8)
