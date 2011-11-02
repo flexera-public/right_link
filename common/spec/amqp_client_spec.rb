@@ -96,6 +96,18 @@ describe AMQP::Client do
       end
     end
 
+    context 'and an EM reconnect failure' do
+      it 'should log an error and schedule another reconnect' do
+        @sut.settings[:reconnect_delay] = true
+
+        flexmock(RightScale::RightLinkLog).should_receive(:error).with(/Exception caught during AMQP reconnect/, Exception, :trace).once
+        flexmock(EM).should_receive(:reconnect).and_raise(Exception)
+        flexmock(EM).should_receive(:add_timer).with(5, Proc).once
+
+        @sut.reconnect()
+      end
+    end
+
   end
 
 end
