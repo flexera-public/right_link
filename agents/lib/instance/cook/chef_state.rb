@@ -210,7 +210,7 @@ module RightScale
     def self.save_state
       begin
         js = { 'attributes' => @@attributes }.to_json
-        File.open(STATE_FILE, 'w') { |f| f.puts js }
+        File.open(STATE_FILE, File::CREAT | File::RDWR, 0600) { |f| f.puts js }
       rescue Exception => e
         RightLinkLog.warn("Failed to save Chef state: #{e.message}")
       end
