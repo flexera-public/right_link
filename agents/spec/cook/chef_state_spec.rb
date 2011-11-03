@@ -69,6 +69,17 @@ describe RightScale::ChefState do
     JSON.load(IO.read(@chef_file)).should == { 'attributes' => { 'one' => 'two' } }
   end
 
+  it 'persisted state should only be readable by the owner' do
+    RightScale::ChefState.attributes = { :one => 'two' }
+    (File.stat(@chef_file).mode & 0777).should == 0600
+  end
+
+  it 'should change the permissions of the state file to only be readable by the owner' do
+    File.open(@chef_file, File::CREAT | File::RDWR, 0644)
+    RightScale::ChefState.attributes = { :one => 'two' }
+    (File.stat(@chef_file).mode & 0777).should == 0600
+  end
+
   it 'should create patch from hashes' do
     patches.each { |p| RightScale::ChefState.create_patch(p[:left], p[:right]).should == p[:res] }
   end
