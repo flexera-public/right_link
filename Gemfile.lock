@@ -1,16 +1,3 @@
-GIT
-  remote: https://github.com/rightscale/right_agent.git
-  revision: b4562100a605fc4c87437f2b52bae88b518d6b5b
-  branch: master
-  specs:
-    right_agent (0.5.8)
-      amqp (= 0.7.1)
-      eventmachine (~> 0.12.10)
-      json (~> 1.4)
-      msgpack (= 0.4.4)
-      right_popen (~> 1.0.11)
-      right_support (~> 1.0)
-
 GEM
   remote: https://s3.amazonaws.com/rightscale_rightlink_gems_dev/
   remote: http://rubygems.org/
@@ -68,6 +55,13 @@ GEM
     rake (0.8.7)
     rest-client (1.6.3)
       mime-types (>= 1.16)
+    right_agent (0.5.10)
+      amqp (= 0.7.1)
+      eventmachine (~> 0.12.10)
+      json (~> 1.4)
+      msgpack (= 0.4.4)
+      right_popen (~> 1.0.11)
+      right_support (~> 1.0)
     right_aws (2.1.0)
       right_http_connection (>= 1.2.5)
     right_http_connection (1.3.0)
@@ -133,11 +127,11 @@ DEPENDENCIES
   process_watcher (= 0.4)
   rake (= 0.8.7)
   rest-client (= 1.6.3)
-  right_agent!
+  right_agent (~> 0.5.0)
   right_http_connection (~> 1.3.0)
   right_popen (= 1.0.17)
   right_scraper (= 3.0.1)
-  right_support (~> 1.0.0)
+  right_support (~> 1.0)
   rspec (~> 1.3)
   ruby-openid (= 2.1.8)
   ruby-wmi (= 0.2.2)
