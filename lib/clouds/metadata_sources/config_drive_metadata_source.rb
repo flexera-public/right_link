@@ -20,6 +20,8 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+# Finding devices (in windows) - http://stackoverflow.com/questions/3258518/ruby-get-available-disk-drives
+
 module RightScale
   module MetadataSources
     class ConfigDriveMetadataSource < MetadataSource
