@@ -1,4 +1,4 @@
-source 'https://s3.amazonaws.com/rightscale_rightlink_gems_dev'
+source 'http://s3.amazonaws.com/rightscale_rightlink_gems_dev'
 source :rubygems
 
 gem "rubyforge",             "1.0.4"
