@@ -1,5 +1,5 @@
 GEM
-  remote: https://s3.amazonaws.com/rightscale_rightlink_gems_dev/
+  remote: http://s3.amazonaws.com/rightscale_rightlink_gems_dev/
   remote: http://rubygems.org/
   specs:
     abstract (1.0.0)
