@@ -1,12 +1,10 @@
-source 'https://s3.amazonaws.com/rightscale_rightlink_gems_dev'
+source 'http://s3.amazonaws.com/rightscale_rightlink_gems_dev'
 source :rubygems
 
 gem "rubyforge",             "1.0.4"
 gem "rake",                  "0.8.7"
-gem 'right_support',         "~> 1.0.0"
-gem 'right_agent',           :git => 'https://github.com/rightscale/right_agent.git',
-                             :require => ['right_agent', 'right_agent/core_payload_types'],
-                             :branch => 'master'
+gem 'right_support',         "~> 1.0"
+gem 'right_agent',           "~> 0.5.0"
 
 # Dependencies for right_scraper
 gem "right_scraper", "3.0.1"

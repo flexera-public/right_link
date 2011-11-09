@@ -374,7 +374,7 @@ module RightScale
     # result(Object):: existing option or nil
     def option(path)
       options = @options
-      path = path.split('/') unless path.kind_of?(Array)
+      path = path.to_s.split('/') unless path.kind_of?(Array)
       path[0..-2].each do |child|
         return nil unless (options = options[child]) && options.respond_to?(:has_key?)
       end

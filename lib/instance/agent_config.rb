@@ -78,11 +78,11 @@ module RightScale
 
     # Sandbox ruby command
     def self.sandbox_ruby_cmd
-      if RightScale::Platform.windows?
-        # Allow test environment to specify a non-program files location for tools
-        if ENV['RS_RUBY_EXE']
-          ENV['RS_RUBY_EXE']
-        elsif sandbox_dir
+      # Allow test environment to specify a non-program files location for tools
+      if ENV['RS_RUBY_EXE']
+        ENV['RS_RUBY_EXE']
+      elsif RightScale::Platform.windows?
+        if sandbox_dir
           RightScale::Platform.shell.sandbox_ruby
         else
           'ruby'

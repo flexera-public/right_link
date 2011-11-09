@@ -26,10 +26,17 @@ abbreviation :ec2
 # Searches for a file containing dhcp lease information.
 def dhcp_lease_provider
   if platform.windows?
-    ipconfig_data = `ipconfig /all`
-    match_result = ipconfig_data.match(/DHCP Server.*\: (\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/)
-    unless match_result.nil? || match_result[1].nil?
-      return match_result[1]
+    timeout = Time.now + 20 * 60  # 20 minutes
+    logger = option(:logger)
+    while Time.now < timeout
+      ipconfig_data = `ipconfig /all`
+      match_result = ipconfig_data.match(/DHCP Server.*\: (\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/)
+      unless match_result.nil? || match_result[1].nil?
+        return match_result[1]
+      end
+      # it may take time to resolve the DHCP Server for this instance, so sleepy wait.
+      logger.info("ipconfig /all did not contain any DHCP Servers. Retrying in 10 seconds...")
+      sleep 10
     end
   else
     leases_file = %w{/var/lib/dhcp3/dhclient.eth0.leases /var/lib/dhclient/dhclient-eth0.leases /var/lib/dhclient-eth0.leases}.find{|dhcpconfig| File.exist?(dhcpconfig)}

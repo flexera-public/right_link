@@ -154,7 +154,7 @@ describe RightScale::ExecutableSequence do
       @sequence = RightScale::ExecutableSequence.new(@bundle)
       attachment = flexmock('A3')
       attachment.should_receive(:token).at_least.once.and_return(nil)
-      attachment.should_receive(:url).and_return("http://thisurldoesnotexist.wrong")
+      attachment.should_receive(:url).and_return("http://127.0.0.1:65534")
       attachment.should_receive(:file_name).and_return("<FILENAME>") # to display any error message
       downloader = RightScale::Downloader.new(retry_period=0.1, use_backoff=false)
       @sequence.instance_variable_set(:@downloader, downloader)
