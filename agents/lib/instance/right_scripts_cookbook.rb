@@ -68,8 +68,8 @@ module RightScale
       recipe_name = File.basename(path)
       @recipes[recipe_name] = script.nickname
       recipe_content = <<-EOS
-right_script '#{script.nickname}' do
-  parameters(node["#{script.nickname}"][:parameters])
+  right_script '#{script.nickname}' do
+  parameters(node["#{script.nickname}"]["parameters"])
   cache_dir  '#{cache_dir(script)}'
   source_file '#{path}'
 end
@@ -80,7 +80,7 @@ end
       File.open(recipe_path, 'w') { |f| f.puts recipe_content }
 
       recipe = RecipeInstantiation.new("#{COOKBOOK_NAME}::#{recipe_name}",
-                                       { script.nickname => { :parameters => script.parameters } },
+                                       { script.nickname => { "parameters" => script.parameters } },
                                        script.id, script.ready)
     end
 
