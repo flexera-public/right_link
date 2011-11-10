@@ -147,7 +147,7 @@ class InstanceScheduler
         RightScale::InstanceState.shutdown(options[:user_id], options[:skip_db_update], options[:kind])
       end
       @bundle_queue_closed_callback = make_decommission_callback do
-        @shutdown_timeout.cancel
+        @shutdown_timeout.cancel if @shutdown_timeout
         @shutdown_timeout = nil
         RightScale::InstanceState.shutdown(options[:user_id], options[:skip_db_update], options[:kind])
       end

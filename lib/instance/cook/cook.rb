@@ -64,7 +64,7 @@ module RightScale
       Log.level = CookState.log_level
       Log.debug("[cook] Thread name associated with bundle = #{@thread_name}")
       gatherer = ExternalParameterGatherer.new(bundle, options)
-      sequence = ExecutableSequence.new(bundle)
+      sequence = ExecutableSequence.new(bundle, @thread_name)
       EM.threadpool_size = 1
       EM.error_handler do |e|
         Log.error("Chef process failed", e, :trace)

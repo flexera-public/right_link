@@ -32,6 +32,8 @@ module RightScale
 
     include SpecHelper
 
+    @@default_cache_path = nil
+
     SERVER = "a-repose-server"
     before(:all) do
       setup_state
@@ -39,6 +41,7 @@ module RightScale
 
     after(:all) do
       cleanup_state
+      FileUtils.rm_rf(@@default_cache_path) if @@default_cache_path
     end
 
     before(:each) do
@@ -46,7 +49,9 @@ module RightScale
       @auditor.should_receive(:append_info).with(/Starting at/)
       @old_cache_path = AgentConfig.cache_dir
       @temp_cache_path = Dir.mktmpdir
+      @@default_cache_path ||= @temp_cache_path
       AgentConfig.cache_dir = @temp_cache_path
+      @thread_name = RightScale::ExecutableBundle::DEFAULT_THREAD_NAME
 
       # FIX: currently these tests do not need EM, so we mock next_tick so we do not pollute EM.
       # Should we run the entire sequence in em for these tests?
@@ -55,19 +60,24 @@ module RightScale
 
     after(:each) do
       AgentConfig.cache_dir = @old_cache_path
-      FileUtils.remove_entry_secure(@temp_cache_path)
+      FileUtils.rm_rf(@temp_cache_path)
     end
 
     it 'should start with an empty bundle' do
+        # mock the cookbook checkout location
+      flexmock(CookState).should_receive(:cookbooks_path).and_return(@temp_cache_path)
+
       @bundle = ExecutableBundle.new([], [], 2, nil, [], [])
-      @sequence = ExecutableSequence.new(@bundle)
+      @sequence = ExecutableSequence.new(@bundle, @thread_name)
     end
 
     it 'should look up repose servers' do
+        # mock the cookbook checkout location
+      flexmock(CookState).should_receive(:cookbooks_path).and_return(@temp_cache_path)
       flexmock(ReposeDownloader).should_receive(:discover_repose_servers).with([SERVER]).once
 
       @bundle = ExecutableBundle.new([], [], 2, nil, [], [SERVER], DevRepositories.new({}), nil)
-      @sequence = ExecutableSequence.new(@bundle)
+      @sequence = ExecutableSequence.new(@bundle, @thread_name)
     end
 
     Spec::Matchers.define :be_okay do
@@ -126,6 +136,9 @@ module RightScale
         position = CookbookPosition.new("foo/bar", cookbook)
         sequence = CookbookSequence.new(['foo'], [position], ["deadbeef"])
         @bundle = ExecutableBundle.new([], [], 2, nil, [sequence], [SERVER], DevRepositories.new({}), nil)
+
+        # mock the cookbook checkout location
+        flexmock(CookState).should_receive(:cookbooks_path).and_return(@temp_cache_path)
       end
 
       it 'should successfully request a cookbook we can access' do
@@ -141,7 +154,7 @@ module RightScale
         @auditor.should_receive(:append_info).with(/Duration: \d+\.\d+ seconds/).once
         @auditor.should_receive(:append_info).with("").once
         dl.should_receive(:request, Proc).and_yield(response).once
-        @sequence = ExecutableSequence.new(@bundle)
+        @sequence = ExecutableSequence.new(@bundle, @thread_name)
         @sequence.send(:download_repos)
         @sequence.should be_okay
       end
@@ -156,7 +169,7 @@ module RightScale
         dl.should_receive(:request, Proc).and_raise(ExecutableSequence::CookbookDownloadFailure,
                                                     ["cookbooks", "a-sha", "nonexistent cookbook",
                                                      "not found"])
-        @sequence = ExecutableSequence.new(@bundle)
+        @sequence = ExecutableSequence.new(@bundle, @thread_name)
         @sequence.send(:download_repos)
         @sequence.should have_failed("Failed to download cookbook",
                                      "Cannot continue due to RightScale::ExecutableSequence::CookbookDownloadFailure: not found while downloading a-sha.")
@@ -175,7 +188,7 @@ module RightScale
         @auditor.should_receive(:append_info).with(/Duration: \d+\.\d+ seconds/).once
         @auditor.should_receive(:append_info).with("").once
         dl.should_receive(:request, Proc).and_yield(response).once
-        @sequence = ExecutableSequence.new(@bundle)
+        @sequence = ExecutableSequence.new(@bundle, @thread_name)
         @sequence.send(:download_repos)
         @sequence.should be_okay
       end
@@ -193,6 +206,8 @@ module RightScale
         @bundle = ExecutableBundle.new([instantiation], [], 2, nil, [],
                                        [SERVER])
 
+        # mock the cookbook checkout location
+        flexmock(CookState).should_receive(:cookbooks_path).and_return(@temp_cache_path)
       end
 
       it 'should successfully request an attachment we can access' do
@@ -207,7 +222,7 @@ module RightScale
         dl.should_receive(:request, Proc).and_yield(response).once
         @auditor.should_receive(:update_status).with(/Downloading baz\.tar into .*/).once
         @auditor.should_receive(:append_info).with(/Duration: \d+\.\d+ seconds/).once
-        @sequence = ExecutableSequence.new(@bundle)
+        @sequence = ExecutableSequence.new(@bundle, @thread_name)
         @sequence.send(:download_attachments)
         @sequence.should be_okay
       end
@@ -231,7 +246,7 @@ module RightScale
         @auditor.should_receive(:append_info).with("Repose download failed: spite while downloading #{hash}; falling back to direct download").once
         @auditor.should_receive(:append_info).with("nothing").once
         @auditor.should_receive(:append_info).with(/Duration: \d+\.\d+ seconds/).once
-        @sequence = ExecutableSequence.new(@bundle)
+        @sequence = ExecutableSequence.new(@bundle, @thread_name)
         @sequence.send(:download_attachments)
         @sequence.should be_okay
       end
@@ -251,7 +266,7 @@ module RightScale
         @auditor.should_receive(:append_info).with("nothing").once
         @auditor.should_receive(:append_info).with(/Duration: \d+\.\d+ seconds/).once
         @auditor.should_receive(:update_status).and_return { |string| p string }
-        @sequence = ExecutableSequence.new(@bundle)
+        @sequence = ExecutableSequence.new(@bundle, @thread_name)
         @sequence.send(:download_attachments)
         @sequence.should be_okay
       end
@@ -268,7 +283,7 @@ module RightScale
         manual_dl.should_receive(:error).with_no_args.and_return("spite")
         @attachment.token = nil
         @auditor.should_receive(:update_status).with(/Downloading baz\.tar into .* directly/).once
-        @sequence = ExecutableSequence.new(@bundle)
+        @sequence = ExecutableSequence.new(@bundle, @thread_name)
         @sequence.send(:download_attachments)
         @sequence.should have_failed("Failed to download attachment 'baz.tar'", "spite")
       end
@@ -286,6 +301,8 @@ module RightScale
         @bundle = ExecutableBundle.new([instantiation], [], 2, nil, [],
                                        [SERVER])
 
+        # mock the cookbook checkout location
+        flexmock(CookState).should_receive(:cookbooks_path).and_return(@temp_cache_path)
       end
 
       it 'should successfully request an attachment we can access' do
@@ -299,7 +316,7 @@ module RightScale
         dl.should_receive(:request, Proc).and_yield(response).once
         @auditor.should_receive(:update_status).with(/Downloading baz\.tar into .*/).once
         @auditor.should_receive(:append_info).with(/Duration: \d+\.\d+ seconds/).once
-        @sequence = ExecutableSequence.new(@bundle)
+        @sequence = ExecutableSequence.new(@bundle, @thread_name)
         @sequence.send(:download_attachments)
         @sequence.should be_okay
       end
@@ -323,7 +340,7 @@ module RightScale
         @auditor.should_receive(:append_info).with("Repose download failed: spite while downloading #{hash}; falling back to direct download").once
         @auditor.should_receive(:append_info).with("nothing").once
         @auditor.should_receive(:append_info).with(/Duration: \d+\.\d+ seconds/).once
-        @sequence = ExecutableSequence.new(@bundle)
+        @sequence = ExecutableSequence.new(@bundle, @thread_name)
         @sequence.send(:download_attachments)
         @sequence.should be_okay
       end
@@ -339,7 +356,7 @@ module RightScale
         manual_dl.should_receive(:error).with_no_args.and_return("spite")
         @attachment.token = nil
         @auditor.should_receive(:update_status).with(/Downloading baz\.tar into .* directly/).once
-        @sequence = ExecutableSequence.new(@bundle)
+        @sequence = ExecutableSequence.new(@bundle, @thread_name)
         @sequence.send(:download_attachments)
         @sequence.should have_failed("Failed to download attachment 'baz.tar'", "spite")
       end
@@ -459,7 +476,7 @@ module RightScale
         end
         @auditor.should_receive(:append_info).with(/Duration: \d+\.\d+ seconds/).once
 
-        @sequence = ExecutableSequence.new(@bundle)
+        @sequence = ExecutableSequence.new(@bundle, @thread_name)
         @sequence.send(:checkout_repos)
         @sequence.should be_okay
         @sequence.send(:download_repos)
@@ -473,7 +490,7 @@ module RightScale
           # counts the scrapes
           @total_scrape_count = 0
 
-          # mock the checkout location
+          # mock the cookbook checkout location
           @checkout_root_dir = Dir.mktmpdir("executable_sequence_spec")
           flexmock(CookState).should_receive(:cookbooks_path).once.and_return(@checkout_root_dir)
 
@@ -493,7 +510,7 @@ module RightScale
                 @cookbooks.each do |cookbook_sequence|
                   if cookbook_sequence.hash == dev_repo_sha
                     cookbook_sequence.positions.each do |position|
-                      repose_path = File.join(AgentConfig.cookbook_download_dir, cookbook_sequence.hash, position.position)
+                      repose_path = File.join(AgentConfig.cookbook_download_dir, @thread_name, cookbook_sequence.hash, position.position)
                       checkout_path = File.join(repo_base_dir, position.position)
                       @checkout_paths[repose_path] = checkout_path
                       FileUtils.mkdir_p(checkout_path)
@@ -514,7 +531,6 @@ module RightScale
             FileUtils.rm_rf(checkout_path)
           end
           FileUtils.rm_rf(@checkout_root_dir)
-
         end
       end
 
@@ -534,7 +550,7 @@ module RightScale
                 dev_cookbook = @dev_cookbooks.repositories[cookbook_sequence.hash]
                 failed_positions = @failure_repos[cookbook_sequence.hash].collect { |position| position.position } if @failure_repos.has_key?(cookbook_sequence.hash)
                 cookbook_sequence.positions.each do |position|
-                  local_basedir = File.join(AgentConfig.cookbook_download_dir, cookbook_sequence.hash, position.position)
+                  local_basedir = File.join(AgentConfig.cookbook_download_dir, @thread_name, cookbook_sequence.hash, position.position)
                   dev_position = dev_cookbook[:positions].detect { |dp| dp.position == position.position }
                   if failed_positions && failed_positions.include?(position.position)
                     local_basedir.should_not exist_on_filesystem
@@ -554,7 +570,7 @@ module RightScale
               else
                 # no cookbook should be symlink
                 cookbook_sequence.positions.each do |position|
-                  local_basedir = File.join(AgentConfig.cookbook_download_dir, cookbook_sequence.hash, position.position)
+                  local_basedir = File.join(AgentConfig.cookbook_download_dir, @thread_name, cookbook_sequence.hash, position.position)
                   local_basedir.should exist_on_filesystem
                   local_basedir.should_not be_symlink
                 end
