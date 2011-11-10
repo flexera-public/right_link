@@ -150,7 +150,7 @@ module RightScale
     # true:: Always return true
     def cleanup_certificates(options)
       puts 'Cleaning up certificates...' if options[:verbose]
-      AgentConfig.certs_files.each { |f| FileUtils.rm_f(f) } # requires that root_dir already known in AgentConfig
+      AgentConfig.certs_files("*.{cert,key}").each { |f| FileUtils.rm_f(f) } # requires that root_dir already known in AgentConfig
     end
 
     # Checks whether process with given pid is running
