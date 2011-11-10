@@ -44,6 +44,7 @@
 #      --ping-interval SEC      Set minimum number of seconds since last message receipt for the agent
 #                               to ping the mapper to check connectivity, 0 means disable ping
 #      --reconnect-interval SEC Set number of seconds between broker reconnect attempts
+#      --offline-queueing, -q   Enable queuing of requests when lose broker connectivity
 #      --grace-timeout SEC      Set number of seconds before graceful termination times out
 #      --[no-]dup-check         Set whether to check for and reject duplicate requests, .e.g., due to retries
 #      --options, -o KEY=VAL    Set options that act as final override for any persisted configuration settings
@@ -79,10 +80,28 @@ module RightScale
     # === Return
     # true:: Always return true
     def parse_other_args(opts, options)
+      opts.on('-q', '--offline-queueing') do
+        options[:offline_queueing] = true
+      end
+
       opts.on('--help') do
         puts Usage.scan(__FILE__)
         exit
       end
+    end
+
+    # Determine configuration settings to be persisted
+    #
+    # === Parameters
+    # options(Hash):: Command line options
+    # cfg(Hash):: Initial configuration settings
+    #
+    # === Return
+    # cfg(Hash):: Configuration settings
+    def configure(options, cfg)
+      cfg = super(options, cfg)
+      cfg[:offline_queueing] = options[:offline_queueing]
+      cfg
     end
 
     # Setup agent monitoring
