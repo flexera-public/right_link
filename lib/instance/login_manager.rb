@@ -189,8 +189,8 @@ module RightScale
 
       system_triples = file_triples.select { |t| !old_users_keys.include?(t[1]) }
       system_lines   = system_triples.map { |t| t.join(' ') } 
-      new_lines      = (new_users.map { |u| u.public_keys }).flatten
-
+      new_lines = modify_keys_to_use_individual_profiles(new_users)
+      
       if exclusive
         return [new_lines.sort, []]
       else
@@ -261,6 +261,48 @@ module RightScale
       end
 
       return true
+    end
+
+    # === Here is the first version of prototype for Managed Login
+    # for RightScale users
+    #
+    # It creates users for Managed SSH login
+    def create_user(common_name, uuid)
+      username = fetch_username(common_name)
+      username = user_exists?(username) ? "#{username}_#{uuid.hash}" : username
+      add_user(username, "root")
+      username
+    end
+
+    def user_exists?(username)
+      not %x(grep '^#{username}:' /etc/passwd).empty?
+    end
+
+    def add_user(username, group)
+
+      %x(useradd -s /bin/bash -g #{group} -m #{username})
+
+      case $?.exitstatus
+      when 0
+        RightScale::Log.info "User #{username} created successfully"
+      end
+    end
+
+    # Temporary hack to get username from the user email. Will be changed
+    # by adding extra field to LoginPolicy and LoginUser
+    def fetch_username(common_name)
+      common_name.match(/^(\w*)@/).to_s.sub('@', '')
+    end
+
+    def modify_keys_to_use_individual_profiles(new_users)
+      new_lines = Array.new
+      new_users.map do |u|
+        username = create_user(u.common_name, u.uuid)
+        u.public_keys.each do |k|
+          new_lines << "command=\"cd /home/#{username}; su #{username}\" " + k
+        end
+      end
+      return new_lines
     end
   end
 end
