@@ -267,10 +267,11 @@ module RightScale
     # for RightScale users
     #
     # It creates users for Managed SSH login
-    def create_user(common_name, uuid)
-      username = fetch_username(common_name)
-      username = user_exists?(username) ? "#{username}_#{uuid.hash}" : username
-      add_user(username, "root")
+    def create_user(common_name, uuid, superuser)
+      username  = fetch_username(common_name)
+      username  = user_exists?(username) ? "#{username}_#{uuid.hash}" : username
+      group     = fetch_group(superuser)
+      add_user(username, group, uuid)
       username
     end
 
@@ -278,9 +279,9 @@ module RightScale
       not %x(grep '^#{username}:' /etc/passwd).empty?
     end
 
-    def add_user(username, group)
-
-      %x(useradd -s /bin/bash -g #{group} -m #{username})
+    def add_user(username, group, uuid)
+      # We need to use user_id integer instead of translation uuid to integer!
+      %x(useradd -s /bin/bash -g #{group} -u #{uuid.hash.abs} -m #{username})
 
       case $?.exitstatus
       when 0
@@ -294,10 +295,14 @@ module RightScale
       common_name.match(/^(\w*)@/).to_s.sub('@', '')
     end
 
+    def fetch_group(superuser)
+      superuser ? "root" : "admin"
+    end
+
     def modify_keys_to_use_individual_profiles(new_users)
       new_lines = Array.new
       new_users.map do |u|
-        username = create_user(u.common_name, u.uuid)
+        username = create_user(u.common_name, u.uuid, u.superuser)
         u.public_keys.each do |k|
           new_lines << "command=\"cd /home/#{username}; su #{username}\" " + k
         end
