@@ -37,6 +37,10 @@ module RightScale
         Ohai::Config[:plugin_path].unshift(CUSTOM_PLUGINS_DIR_PATH)
         Ohai::Config.log_level RightLinkLog.level
       end
+
+      # must set file cache path and ensure it exists otherwise evented run_command will fail
+      Ohai::Config[:file_cache_path] = RightScale::InstanceConfiguration::CACHE_PATH
+      FileUtils.mkdir_p(Chef::Config[:file_cache_path])
     end
 
     module_function :configure_ohai
