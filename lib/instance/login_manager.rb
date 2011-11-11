@@ -268,20 +268,19 @@ module RightScale
     #
     # It creates users for Managed SSH login
     def create_user(common_name, uuid, superuser)
-      username  = fetch_username(common_name)
-      username  = user_exists?(username) ? "#{username}_#{uuid.hash}" : username
-      group     = fetch_group(superuser)
-      add_user(username, group, uuid)
-      username
+      uid = fetch_uid(uuid)
+
+      unless uid_exists?(uid)
+        username  = fetch_username(common_name)
+        group     = fetch_group(superuser)
+        add_user(username, group, uid)
+        username
+      end
     end
 
-    def user_exists?(username)
-      not %x(grep '^#{username}:' /etc/passwd).empty?
-    end
-
-    def add_user(username, group, uuid)
+    def add_user(username, group, uid)
       # We need to use user_id integer instead of translation uuid to integer!
-      %x(useradd -s /bin/bash -g #{group} -u #{uuid.hash.abs} -m #{username})
+      %x(useradd -s /bin/bash -g #{group} -u #{uid} -m #{username})
 
       case $?.exitstatus
       when 0
@@ -289,10 +288,49 @@ module RightScale
       end
     end
 
+    # Checks if user with specified name exists in the system.
+    #
+    # id command returns information about user and exit status. 
+    # It can be 0 for success; > 0 for error. 
+    def user_exists?(name)
+      %x(id #{name})
+
+      $?.exitstatus > 0
+    end
+
+    # Checks if user with specified UID exists in the system.
+    #
+    # Linux /etc/passwd file has the following structure:
+    # 
+    # <username>:x(hidden password):<UID>:<GID>:<info>:<homedir>:<command>
+    # 
+    # If command matches the defined regexp it means user with such UID
+    # exists.
+    def uid_exists?(uid)
+      not %x(grep '.*:.:#{uid}' /etc/passwd).empty?
+    end
+
     # Temporary hack to get username from the user email. Will be changed
-    # by adding extra field to LoginPolicy and LoginUser
+    # by adding extra field to LoginPolicy and LoginUser.
+    #
+    # Method fetches username from common_name(email).
+    # Then it checks for username existance incrementing postfix until
+    # suitable name is found.
     def fetch_username(common_name)
-      common_name.match(/^(\w*)@/).to_s.sub('@', '')
+      username = common_name.match(/^(\w*)@/).to_s.sub('@', '')
+
+      index = 0
+      while exists?(username)
+        index += 1
+        username = "#{username}_#{index}"
+      end
+
+      username
+    end
+
+    # Transforms RightScale UUID to linux uid.
+    def fetch_uid(uuid)
+      uuid.hash.abs
     end
 
     def fetch_group(superuser)
