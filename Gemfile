@@ -4,7 +4,7 @@ source :rubygems
 gem "rubyforge",             "1.0.4"
 gem "rake",                  "0.8.7"
 gem 'right_support',         "~> 1.0"
-gem 'right_agent',           "~> 0.5.0"
+gem 'right_agent',           "~> 0.6.0"
 
 # Dependencies for right_scraper
 gem "right_scraper", "3.0.1"
@@ -59,7 +59,6 @@ group :stable do
   gem "mixlib-config",         "1.1.2"
   gem "mixlib-log",            "1.2.0"
   gem "hoe",                   "2.3.3"
-  gem "amqp",                  "0.7.1"
   gem "ohai",                  "0.5.8"
   gem "moneta",                "0.6.0"
   gem "bunny",                 "0.6.0"
