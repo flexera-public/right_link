@@ -36,7 +36,8 @@ describe RightScale::RightScriptsCookbook do
     @old_cache_path = RightScale::AgentConfig.cache_dir
     @temp_cache_path = File.join(File.dirname(__FILE__), 'test_cb')
     RightScale::AgentConfig.cache_dir = @temp_cache_path
-    @cookbook = RightScale::RightScriptsCookbook.new
+    thread_name = RightScale::ExecutableBundle::DEFAULT_THREAD_NAME
+    @cookbook = RightScale::RightScriptsCookbook.new(thread_name)
   end
 
   after(:each) do

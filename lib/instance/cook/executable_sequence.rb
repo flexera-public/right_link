@@ -80,15 +80,15 @@ module RightScale
     #
     # === Parameter
     # bundle(RightScale::ExecutableBundle):: Bundle to be run
-    def initialize(bundle)
+    def initialize(bundle, thread_name)
       @description            = bundle.to_s
-      @right_scripts_cookbook = RightScriptsCookbook.new
+      @right_scripts_cookbook = RightScriptsCookbook.new(thread_name)
       @scripts                = bundle.executables.select { |e| e.is_a?(RightScriptInstantiation) }
-      recipes                  = bundle.executables.map { |e| e.is_a?(RecipeInstantiation) ? e : @right_scripts_cookbook.recipe_from_right_script(e) }
+      recipes                 = bundle.executables.map { |e| e.is_a?(RecipeInstantiation) ? e : @right_scripts_cookbook.recipe_from_right_script(e) }
       @cookbooks              = bundle.cookbooks
       @thread_name            = bundle.thread_name
       @downloader             = Downloader.new
-      @download_path          = AgentConfig.cookbook_download_dir
+      @download_path          = File.join(AgentConfig.cookbook_download_dir, thread_name)
       @powershell_providers   = nil
       @ohai_retry_delay       = OHAI_RETRY_MIN_DELAY
       @audit                  = AuditStub.instance
@@ -343,14 +343,14 @@ module RightScale
       @audit.create_new_section('Checking out cookbooks for development') if @cookbook_repo_retriever.has_cookbooks?
       audit_time do
         # only create a scraper if there are dev cookbooks
-        @cookbook_repo_retriever.checkout_cookbook_repos do |state, operation, explaination, exception|
+        @cookbook_repo_retriever.checkout_cookbook_repos do |state, operation, explanation, exception|
           # audit progress
           case state
             when :begin, :commit
-              @audit.append_info("#{state} #{operation} #{explaination}")
+              @audit.append_info("#{state} #{operation} #{explanation}")
             when :abort
-              @audit.append_info("Failed #{operation} #{explaination}")
-              Log.info(Log.format("Failed #{operation} #{explaination}", exception, :trace))
+              @audit.append_info("Failed #{operation} #{explanation}")
+              Log.info(Log.format("Failed #{operation} #{explanation}", exception, :trace))
           end
         end
       end

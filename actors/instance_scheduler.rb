@@ -89,6 +89,7 @@ class InstanceScheduler
   # options[:right_script](String):: RightScript name
   # options[:right_script_id](Integer):: RightScript id
   # options[:json](Hash):: Serialized hash of attributes to be used when running recipe
+  # options[:thread](String):: Thread name (default is 'default')
   # options[:arguments](Hash):: RightScript inputs hash
   #
   # === Return
@@ -146,7 +147,7 @@ class InstanceScheduler
         RightScale::InstanceState.shutdown(options[:user_id], options[:skip_db_update], options[:kind])
       end
       @bundle_queue_closed_callback = make_decommission_callback do
-        @shutdown_timeout.cancel
+        @shutdown_timeout.cancel if @shutdown_timeout
         @shutdown_timeout = nil
         RightScale::InstanceState.shutdown(options[:user_id], options[:skip_db_update], options[:kind])
       end

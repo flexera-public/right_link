@@ -91,6 +91,7 @@ module RightScale
                    '-u', url.user,
                    '-p', url.password,
                    '-v', url.path,
+                   '-q',
                    '-S' ]
 
       if ENV['http_proxy']
