@@ -27,7 +27,8 @@ module RightScale
   class LoginManager
     include Singleton
 
-    ROOT_TRUSTED_KEYS_FILE = '/root/.ssh/authorized_keys'
+    SUPERUSER_KEYS_FILE = '/root/.ssh/authorized_keys'
+    RIGHTSCALE_KEYS_FILE = '/home/rightscale/.ssh/authorized_keys'
     PUBLIC_KEY_FILES       = ['/etc/ssh/ssh_host_rsa_key.pub',
                               '/etc/ssh/ssh_host_dsa_key.pub']
     ACTIVE_TAG             = 'rs_login:state=active'      
@@ -53,14 +54,18 @@ module RightScale
     def update_policy(new_policy)
       return false unless supported_by_platform?
 
-      #As a sanity check, filter out any expired or non-superusers. The core should never send us these guys,
-      #but by filtering here additionally we prevent race conditions and handle boundary conditions, as well
-      #as allowing our internal expiry timer to simply call us back when a LoginUser expires.
+      # As a sanity check, filter out any expired users. The core should never send us these guys,
+      # but by filtering here additionally we prevent race conditions and handle boundary conditions, as well
+      # as allowing our internal expiry timer to simply call us back when a LoginUser expires.
+      # Non-superusers should be added to rightscale account's authorized_keys.
       old_users = InstanceState.login_policy ? InstanceState.login_policy.users : []
-      new_users = new_policy.users.select { |u| (u.expires_at == nil || u.expires_at > Time.now) && (u.superuser == true) }
-      new_lines, system_lines = merge_keys(old_users, new_users, new_policy.exclusive)
+      new_users = new_policy.users.select { |u| (u.expires_at == nil || u.expires_at > Time.now) }
+      superuser_lines, non_superuser_lines, system_lines = merge_keys(old_users, new_users, new_policy.exclusive)
+      
       InstanceState.login_policy = new_policy
-      write_keys_file(new_lines)
+      
+      write_keys_file(superuser_lines, SUPERUSER_KEYS_FILE)
+      write_keys_file(non_superuser_lines, RIGHTSCALE_KEYS_FILE)
 
       tags = [ACTIVE_TAG]
       AgentTagsManager.instance.add_tags(tags)
@@ -69,7 +74,7 @@ module RightScale
       schedule_expiry(new_policy)
       
       #Return a human-readable description of the policy, e.g. for an audit entry
-      return describe_policy(new_lines.size, system_lines.size, new_policy)
+      return describe_policy(superuser_lines.size, non_superuser_lines.size, system_lines.size, new_policy)
     end
 
     protected
@@ -93,34 +98,38 @@ module RightScale
       keys
     end
 
-    # Read ~root/.ssh/authorized_keys if it exists
+    # Read /root/.ssh/authorized_keys if it exists
+    #
+    # === Parameters
+    # path(String):: path to authorized_keys file
     #
     # === Return
     # authorized_keys(Array[String]):: list of lines of authorized_keys file
-    def read_keys_file
-      return [] unless File.exists?(ROOT_TRUSTED_KEYS_FILE)
-      File.readlines(ROOT_TRUSTED_KEYS_FILE).map! { |l| l.chomp.strip }
+    def read_keys_file(path)
+      return [] unless File.exists?(path)
+      File.readlines(path).map! { |l| l.chomp.strip }
     end
 
     # Replace the contents of ~root/.ssh/authorized_keys
     #
     # === Parameters
     # keys(Array[(String)]):: list of lines that authorized_keys file should contain
+    # keys_file(String):: path to authorized_keys file
     #
     # === Return
     # true:: always returns true
-    def write_keys_file (keys)
-      dir = File.dirname(ROOT_TRUSTED_KEYS_FILE)
+    def write_keys_file (keys, keys_file)
+      dir = File.dirname(keys_file)
       FileUtils.mkdir_p(dir)
       FileUtils.chmod(0700, dir)
 
-      File.open(ROOT_TRUSTED_KEYS_FILE, 'w') do |f|
+      File.open(keys_file, 'w') do |f|
         f.puts "#" * 78
         f.puts "# USE CAUTION WHEN EDITING THIS FILE BY HAND"
         f.puts "# This file is generated based on the RightScale dashboard permission"
         f.puts "# 'server_login'. You can add trusted public keys to the file, but"
         f.puts "# it is regenerated every 24 hours and keys may be added or removed"
-        f.puts "# without notice if they correspond to a dashbaord user."
+        f.puts "# without notice if they correspond to a dashboard user."
         f.puts "#"
         f.puts "# Instead of editing this file, you probably want to do one of the"
         f.puts "# followng:"
@@ -131,7 +140,7 @@ module RightScale
         keys.each { |k| f.puts k }
       end
 
-      FileUtils.chmod(0600, ROOT_TRUSTED_KEYS_FILE)
+      FileUtils.chmod(0600, keys_file)
       return true
     end
 
@@ -155,25 +164,10 @@ module RightScale
     # === Raise
     # Exception:: desc
     def merge_keys(old_users, new_users, exclusive)
-      file_lines = read_keys_file
+      superuser_keys = load_keys(SUPERUSER_KEYS_FILE)
 
-      file_triples = file_lines.map do |l|
-        components = LoginPolicy.parse_public_key(l)
-        
-        if components
-          #preserve algorithm, key and comments; discard options (the 0th element)
-          next [ components[1], components[2], components[3] ]
-        elsif l =~ COMMENT
-          next nil
-        else
-          RightScale::Log.error("Malformed (or not SSH2) entry in authorized_keys file: #{l}")
-          next nil
-        end
-      end
-      file_triples.compact!
-      
-      #Find all lines in authorized_keys file that do not correspond to an old user.
-      #These are the "system keys" that were not added by RightScale.
+      # Find all lines in authorized_keys file that do not correspond to an old user.
+      # These are the "system keys" that were not added by RightScale.
       old_users_keys = Set.new
       old_users.each do |u|
         u.public_keys.each do |public_key|
@@ -187,29 +181,63 @@ module RightScale
         end
       end
 
-      system_triples = file_triples.select { |t| !old_users_keys.include?(t[1]) }
-      system_lines   = system_triples.map { |t| t.join(' ') } 
-      new_lines = modify_keys_to_use_individual_profiles(new_users)
+      # Triples of algorithm, public key and comment
+      system_keys   = superuser_keys.select { |t| !old_users_keys.include?(t[1]) }
+      system_lines  = system_keys.map { |t| t.join(' ') } 
+
+      superuser_lines, non_superuser_lines = modify_keys_to_use_individual_profiles(new_users)
       
       if exclusive
-        return [new_lines.sort, []]
+        return [superuser_lines.sort, non_superuser_lines, []]
       else
-        return [(system_lines + new_lines).sort, system_lines.sort]
+        return [(system_lines + superuser_lines).sort, non_superuser_lines.sort, system_lines.sort]
       end
+    end
+
+    # Returns array of public keys of specified authorized_keys file
+    #
+    # === Parameters
+    # path(String):: path to authorized_keys file
+    #
+    # === Return
+    # keys(Array[Array]):: array of authorized_key parameters:
+    #   key[0](String):: algorithm
+    #   key[1](String):: public key
+    #   key[2](String):: comment
+    def load_keys(path)
+      file_lines = read_keys_file(path)
+
+      keys = file_lines.map do |l|
+        components = LoginPolicy.parse_public_key(l)
+        
+        if components
+          #preserve algorithm, key and comments; discard options (the 0th element)
+          next [ components[1], components[2], components[3] ]
+        elsif l =~ COMMENT
+          next nil
+        else
+          RightScale::Log.error("Malformed (or not SSH2) entry in authorized_keys file: #{l}")
+          next nil
+        end
+      end
+
+      keys.compact!
     end
 
     # Return a verbose, human-readable description of the login policy, suitable
     # for appending to an audit entry. Contains formatting such as newlines and tabs.
     #
     # === Parameters
-    # num_users(Integer) total number of users
+    # num_superusers(Integer) total number of superusers
+    # num_non_superusers(Integer) total number of non-superusers
     # num_system_users(Integer) number of preserved system keys
     # policy(LoginPolicy) the effective login policy
     #
     # === Return
     # description(String)
-    def describe_policy(num_users, num_system_users, policy)
-      audit = "#{num_users} total authorized key(s).\n"
+    def describe_policy(num_superusers, num_non_superusers, num_system_users, policy)
+      audit = "#{num_superusers} total superusers' authorized key(s).\n"
+      audit += "#{num_users} total non-superusers' authorized key(s).\n"
 
       unless policy.exclusive
         audit += "Non-exclusive policy; preserved #{num_system_users} non-RightScale key(s).\n"
@@ -337,15 +365,32 @@ module RightScale
       superuser ? "root" : "admin"
     end
 
+    # Sorts kyes for users and superusers; creates user accounts
+    # according to new login policy
+    #
+    # === Parameters
+    # new_users(Array(LoginUser)):: array of updated users list
+    #
+    # === Return
+    # superuser_lines(Array(String)):: public key lines of superuser
+    # accounts
+    # non_superuser_lines(Array(String)):: public key lines of
+    # non-superuser accounts
     def modify_keys_to_use_individual_profiles(new_users)
-      new_lines = Array.new
+      superuser_lines = Array.new
+      non_superuser_lines = Array.new
+
       new_users.map do |u|
         username = create_user(u.common_name, u.uuid, u.superuser)
         u.public_keys.each do |k|
-          new_lines << "command=\"cd /home/#{username}; su #{username}\" " + k
+          # TBD for thunking
+          # non_superuser_lines << %Q{command="rs_thunk --uid #{u.uuid} --email #{u.email} --profile='#{u.home_dir}'" } + k
+          non_superuser_lines << "command=\"cd /home/#{username}; su #{username}\" " + k
+          superusers_line << k if u.superuser
         end
       end
-      return new_lines
+
+      return superusers_lines, non_superusers_lines
     end
   end
 end
