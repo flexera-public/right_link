@@ -31,7 +31,7 @@ module RightScale
     RIGHTSCALE_KEYS_FILE = '/home/rightscale/.ssh/authorized_keys'
     PUBLIC_KEY_FILES       = ['/etc/ssh/ssh_host_rsa_key.pub',
                               '/etc/ssh/ssh_host_dsa_key.pub']
-    ACTIVE_TAG             = 'rs_login:state=active'      
+    ACTIVE_TAG             = 'rs_login:state=active'
     COMMENT                = /^\s*#/
 
     # Can the login manager function on this platform?
@@ -61,9 +61,9 @@ module RightScale
       old_users = InstanceState.login_policy ? InstanceState.login_policy.users : []
       new_users = new_policy.users.select { |u| (u.expires_at == nil || u.expires_at > Time.now) }
       superuser_lines, non_superuser_lines, system_lines = merge_keys(old_users, new_users, new_policy.exclusive)
-      
+
       InstanceState.login_policy = new_policy
-      
+
       write_keys_file(superuser_lines, SUPERUSER_KEYS_FILE)
       write_keys_file(non_superuser_lines, RIGHTSCALE_KEYS_FILE)
 
@@ -72,7 +72,7 @@ module RightScale
 
       #Schedule a timer to handle any expiration that is planned to happen in the future
       schedule_expiry(new_policy)
-      
+
       #Return a human-readable description of the policy, e.g. for an audit entry
       return describe_policy(superuser_lines.size, non_superuser_lines.size, system_lines.size, new_policy)
     end
@@ -186,7 +186,7 @@ module RightScale
       system_lines  = system_keys.map { |t| t.join(' ') } 
 
       superuser_lines, non_superuser_lines = modify_keys_to_use_individual_profiles(new_users)
-      
+
       if exclusive
         return [superuser_lines.sort, non_superuser_lines, []]
       else
@@ -209,7 +209,7 @@ module RightScale
 
       keys = file_lines.map do |l|
         components = LoginPolicy.parse_public_key(l)
-        
+
         if components
           #preserve algorithm, key and comments; discard options (the 0th element)
           next [ components[1], components[2], components[3] ]
@@ -295,11 +295,11 @@ module RightScale
     # for RightScale users
     #
     # It creates users for Managed SSH login
-    def create_user(common_name, uuid, superuser)
+    def create_user(username, uuid, superuser)
       uid = fetch_uid(uuid)
 
       unless uid_exists?(uid)
-        username  = fetch_username(common_name)
+        username  = fetch_username(username)
         group     = fetch_group(superuser)
         add_user(username, group, uid)
         username
@@ -344,9 +344,7 @@ module RightScale
     # Method fetches username from common_name(email).
     # Then it checks for username existance incrementing postfix until
     # suitable name is found.
-    def fetch_username(common_name)
-      username = common_name.match(/^(\w*)@/).to_s.sub('@', '')
-
+    def fetch_username(username)
       index = 0
       while exists?(username)
         index += 1
@@ -358,7 +356,7 @@ module RightScale
 
     # Transforms RightScale UUID to linux uid.
     def fetch_uid(uuid)
-      uuid.hash.abs
+      uuid.to_i + 4096
     end
 
     def fetch_group(superuser)
@@ -381,7 +379,7 @@ module RightScale
       non_superuser_lines = Array.new
 
       new_users.map do |u|
-        username = create_user(u.common_name, u.uuid, u.superuser)
+        username = create_user(u.username, u.uuid, u.superuser)
         u.public_keys.each do |k|
           # TBD for thunking
           # non_superuser_lines << %Q{command="rs_thunk --uid #{u.uuid} --email #{u.email} --profile='#{u.home_dir}'" } + k
