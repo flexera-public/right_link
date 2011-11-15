@@ -238,7 +238,7 @@ module RightScale
     # description(String)
     def describe_policy(num_superusers, num_non_superusers, num_system_users, policy)
       audit = "#{num_superusers} total superusers' authorized key(s).\n"
-      audit += "#{num_users} total non-superusers' authorized key(s).\n"
+      audit += "#{num_non_superusers} total non-superusers' authorized key(s).\n"
 
       unless policy.exclusive
         audit += "Non-exclusive policy; preserved #{num_system_users} non-RightScale key(s).\n"
