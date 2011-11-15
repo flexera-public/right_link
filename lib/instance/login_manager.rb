@@ -398,8 +398,6 @@ module RightScale
       new_users.map do |u|
         username = create_user(u.username, u.uuid, u.superuser)
 
-        next unless username
-
         u.public_keys.each do |k|
           # TBD for thunking
           # non_superuser_lines << %Q{command="rs_thunk --uid #{u.uuid} --email #{u.email} --profile='#{u.home_dir}'" } + k
