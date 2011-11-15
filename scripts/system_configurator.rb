@@ -201,6 +201,8 @@ module RightScale
         lines = File.readlines('/etc/sudoers')
         file = File.open("/etc/sudoers", "w")
         lines.each { |line| file.puts line.strip unless line =~ mask}
+        file.puts("\n")
+        file.puts("# Only rightscale user able to use sudo with NOPASSWD priveleges:")
         file.puts("rightscale ALL=NOPASSWD: ALL")
         file.close
       end
