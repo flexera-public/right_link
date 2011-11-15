@@ -299,12 +299,26 @@ module RightScale
     def create_user(username, uuid, superuser)
       uid = fetch_uid(uuid)
 
-      unless uid_exists?(uid)
-        username  = fetch_username(username)
+      if uid_exists?(uid)
+        fetch_username(uid)
+      else
+        username  = pick_username(username)
         group     = fetch_group(superuser)
         add_user(username, group, uid)
         username
       end
+    end
+
+    # Fetches username from account's UID.
+    #
+    # === Parameters
+    # uid(String):: linux account UID
+    #
+    # === Return
+    # username(String):: account's username or empty string
+    def fetch_username(uid)
+      user_line = %x(grep '^.*:.:#{uid}' /etc/passwd)
+      user_line.scan(/^(\w+)/).to_s
     end
 
     def add_user(username, group, uid)
@@ -342,10 +356,10 @@ module RightScale
     # Temporary hack to get username from the user email. Will be changed
     # by adding extra field to LoginPolicy and LoginUser.
     #
-    # Method fetches username from common_name(email).
+    # Method picks username from common_name(email).
     # Then it checks for username existance incrementing postfix until
     # suitable name is found.
-    def fetch_username(username)
+    def pick_username(username)
       name = username
 
       index = 0
@@ -383,6 +397,9 @@ module RightScale
 
       new_users.map do |u|
         username = create_user(u.username, u.uuid, u.superuser)
+
+        next unless username
+
         u.public_keys.each do |k|
           # TBD for thunking
           # non_superuser_lines << %Q{command="rs_thunk --uid #{u.uuid} --email #{u.email} --profile='#{u.home_dir}'" } + k
