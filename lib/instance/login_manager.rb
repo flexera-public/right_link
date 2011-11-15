@@ -77,7 +77,7 @@ module RightScale
       return describe_policy(superuser_lines.size, non_superuser_lines.size, system_lines.size, new_policy)
     end
 
-    protected
+    #protected
 
     # Read various public keys from /etc/ssh
     #
@@ -118,7 +118,7 @@ module RightScale
     #
     # === Return
     # true:: always returns true
-    def write_keys_file (keys, keys_file)
+    def write_keys_file(keys, keys_file)
       dir = File.dirname(keys_file)
       FileUtils.mkdir_p(dir)
       FileUtils.chmod(0700, dir)
@@ -206,22 +206,23 @@ module RightScale
     #   key[2](String):: comment
     def load_keys(path)
       file_lines = read_keys_file(path)
-
-      keys = file_lines.map do |l|
+      
+      keys = []
+      file_lines.map do |l|
         components = LoginPolicy.parse_public_key(l)
 
         if components
           #preserve algorithm, key and comments; discard options (the 0th element)
-          next [ components[1], components[2], components[3] ]
+          keys << [ components[1], components[2], components[3] ]
         elsif l =~ COMMENT
-          next nil
+          next 
         else
           RightScale::Log.error("Malformed (or not SSH2) entry in authorized_keys file: #{l}")
-          next nil
+          next
         end
       end
 
-      keys.compact!
+      keys
     end
 
     # Return a verbose, human-readable description of the login policy, suitable
@@ -323,7 +324,7 @@ module RightScale
     def user_exists?(name)
       %x(id #{name})
 
-      $?.exitstatus > 0
+      $?.exitstatus == 0
     end
 
     # Checks if user with specified UID exists in the system.
@@ -345,13 +346,15 @@ module RightScale
     # Then it checks for username existance incrementing postfix until
     # suitable name is found.
     def fetch_username(username)
-      index = 0
-      while exists?(username)
-        index += 1
-        username = "#{username}_#{index}"
-      end
+      name = username
 
-      username
+      index = 0
+      while user_exists?(name)
+        index += 1
+        name = "#{username}_#{index}"
+      end
+      
+      name
     end
 
     # Transforms RightScale UUID to linux uid.
@@ -384,11 +387,11 @@ module RightScale
           # TBD for thunking
           # non_superuser_lines << %Q{command="rs_thunk --uid #{u.uuid} --email #{u.email} --profile='#{u.home_dir}'" } + k
           non_superuser_lines << "command=\"cd /home/#{username}; su #{username}\" " + k
-          superusers_line << k if u.superuser
+          superuser_lines << k if u.superuser
         end
       end
 
-      return superusers_lines, non_superusers_lines
+      return superuser_lines, non_superuser_lines
     end
   end
 end
