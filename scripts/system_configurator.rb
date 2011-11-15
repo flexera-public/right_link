@@ -193,6 +193,19 @@ module RightScale
       end
     end
 
+    def configure_sudoers
+      return 0 unless Platform.linux?
+      puts "Configuring /etc/sudoers to ensure rightscale user able to use NOPASSWD priveleges"
+      mask = Regexp.new("rightscale ALL=NOPASSWD: ALL")
+      begin
+        lines = File.readlines('/etc/sudoers')
+        file = File.open("/etc/sudoers", "w")
+        lines.each { |line| file.puts line.strip unless line =~ mask}
+        file.puts("rightscale ALL=NOPASSWD: ALL")
+        file.close
+      end
+   end
+
     protected
 
     def runshell(command)
