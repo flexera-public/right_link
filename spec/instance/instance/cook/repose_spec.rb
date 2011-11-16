@@ -21,14 +21,11 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #++
 
-require 'right_agent/core_payload_types'
-
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'spec_helper'))
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', '..', '..', 'lib', 'instance', 'cook'))
 
 module RightScale
   describe ReposeDownloader do
-
     include RightScale::SpecHelper
 
     class TestException < Exception
@@ -54,7 +51,24 @@ module RightScale
       @downloader = ReposeDownloader.new('scope', 'resource', 'ticket', 'name', TestException, nil)
     end
 
-    context 'with a shimmed HTTP connection' do
+    context :discover_repose_servers do
+      it 'should retry DNS failures' do
+        params = ['repose666.rightscale.com', 443, Socket::AF_INET, Socket::SOCK_STREAM, Socket::IPPROTO_TCP]
+        result = [
+                  ["AF_INET", 443, "repose666-1.rightscale.com", "1.1.1.1", 2, 1, 6],
+                  ["AF_INET", 443, "repose666-2.rightscale.com", "2.2.2.2", 2, 1, 6]
+        ]
+        flexmock(Socket).should_receive(:getaddrinfo).with(*params).times(20).ordered.and_raise(SocketError, "socket to me!")
+        flexmock(Socket).should_receive(:getaddrinfo).with(*params).once.ordered.and_return(result)
+        ReposeDownloader.discover_repose_servers(['repose666.rightscale.com'])
+        index, ips, hostnames = ReposeDownloader.instance_eval { self.get_servers }
+        ips.sort.should == ["1.1.1.1", "2.2.2.2"].sort
+        hostnames.should == {"1.1.1.1" => "repose666.rightscale.com",
+                             "2.2.2.2" => "repose666.rightscale.com"}
+      end
+    end
+
+    context :request do
       before(:each) do
         @connection = flexmock(:repose_connection)
         flexmock(@downloader).should_receive(:next_repose_server).

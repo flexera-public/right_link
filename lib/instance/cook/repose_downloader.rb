@@ -255,6 +255,16 @@ module RightScale
                                      :ca_file => get_ca_file)
     end
 
+    # Get the servers that are currently being used for Repose downloads.
+    #
+    # === Return
+    # index(Integer):: Index into ips that is next in the list
+    # ips(Array):: list of IP addresses to connect to
+    # hostnames(Hash):: IP -> hostname reverse lookup hash
+    def self.get_servers
+      [@@index, @@ips, @@hostnames]
+    end
+
     # Set the servers to use for Repose downloads.
     #
     # === Parameters
