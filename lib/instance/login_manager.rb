@@ -141,7 +141,7 @@ module RightScale
       end
 
       FileUtils.chmod(0600, keys_file)
-      FileUtils.chown_R(chown[:user], chown[:group], File.dirname(keys_file)) if chown_params
+      FileUtils.chown_R(chown_params[:user], chown_params[:group], File.dirname(keys_file)) if chown_params
       return true
     end
 
