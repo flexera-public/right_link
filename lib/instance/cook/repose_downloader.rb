@@ -217,7 +217,13 @@ module RightScale
       hostnames_hash = {}
       hostnames = [hostnames] unless hostnames.respond_to?(:each)
       hostnames.each do |hostname|
-        infos = Socket.getaddrinfo(hostname, 443, Socket::AF_INET, Socket::SOCK_STREAM, Socket::IPPROTO_TCP)
+        infos = nil
+        begin
+          infos = Socket.getaddrinfo(hostname, 443, Socket::AF_INET, Socket::SOCK_STREAM, Socket::IPPROTO_TCP)
+        rescue Exception => e
+          Log.error "Rescued #{e.class.name} resolving Repose hostnames: #{e.message}; retrying"
+          retry
+        end
 
         #Randomly permute the addrinfos of each hostname to help spread load.
         infos.shuffle.each do |info|
