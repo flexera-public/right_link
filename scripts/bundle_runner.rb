@@ -61,6 +61,7 @@ require 'optparse'
 require 'right_agent'
 require 'right_agent/scripts/usage'
 require 'right_agent/scripts/common_parser'
+require 'right_agent/core_payload_types'
 
 module RightScale
 
@@ -82,7 +83,7 @@ module RightScale
     # true:: Always return true
     def run(options, &callback)
       fail('Missing identity or name argument', true) unless options[:id] || options[:name]
-      if options[:thread] && (options[:thread] !~ ExecutableBundle::VALID_THREAD_NAME)
+      if options[:thread] && (options[:thread] !~ RightScale::ExecutableBundle::VALID_THREAD_NAME)
         fail("Invalid thread name #{options[:thread]}", true)
       end
       echo(options)
