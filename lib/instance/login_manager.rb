@@ -400,9 +400,7 @@ module RightScale
         username = create_user(u.username, u.uuid, u.superuser)
 
         u.public_keys.each do |k|
-          # TBD for thunking
-          # non_superuser_lines << %Q{command="rs_thunk --uid #{u.uuid} --email #{u.email} --profile='#{u.home_dir}'" } + k
-          non_superuser_lines << "command=\"cd /home/#{username}; sudo su #{username}\" " + k
+          non_superuser_lines << "command=\"rs_thunk --username #{username} --email #{u.common_name} --profile 'http://example.com/#{username}.tar'\" " + k
           superuser_lines << k if u.superuser
         end
       end
