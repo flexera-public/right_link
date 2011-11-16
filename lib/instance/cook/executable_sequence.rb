@@ -80,15 +80,19 @@ module RightScale
     #
     # === Parameter
     # bundle(RightScale::ExecutableBundle):: Bundle to be run
-    def initialize(bundle, thread_name)
+    def initialize(bundle)
+      unless bundle.thread_name =~ RightScale::ExecutableBundle::VALID_THREAD_NAME
+        raise ArgumentError, "Invalid thread name #{thread_name}"
+      end
+
       @description            = bundle.to_s
-      @right_scripts_cookbook = RightScriptsCookbook.new(thread_name)
+      @thread_name            = bundle.thread_name
+      @right_scripts_cookbook = RightScriptsCookbook.new(@thread_name)
       @scripts                = bundle.executables.select { |e| e.is_a?(RightScriptInstantiation) }
       recipes                 = bundle.executables.map { |e| e.is_a?(RecipeInstantiation) ? e : @right_scripts_cookbook.recipe_from_right_script(e) }
       @cookbooks              = bundle.cookbooks
-      @thread_name            = bundle.thread_name
       @downloader             = Downloader.new
-      @download_path          = File.join(AgentConfig.cookbook_download_dir, thread_name)
+      @download_path          = File.join(AgentConfig.cookbook_download_dir, @thread_name)
       @powershell_providers   = nil
       @ohai_retry_delay       = OHAI_RETRY_MIN_DELAY
       @audit                  = AuditStub.instance
