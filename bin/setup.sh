@@ -118,7 +118,7 @@ function install_public_wrappers() {
       return 1
     fi
 
-    for script in rs_run_right_script rs_run_recipe rs_log_level rs_reenroll rs_tag rs_shutdown rs_connect
+    for script in rs_run_right_script rs_run_recipe rs_log_level rs_reenroll rs_tag rs_thunk rs_shutdown rs_connect
     do
       echo " - $script"
       cat > $public_wrapper_dir/$script <<EOF
