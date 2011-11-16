@@ -65,7 +65,7 @@ module RightScale
       InstanceState.login_policy = new_policy
 
       write_keys_file(superuser_lines, SUPERUSER_KEYS_FILE)
-      write_keys_file(non_superuser_lines, RIGHTSCALE_KEYS_FILE)
+      write_keys_file(non_superuser_lines, RIGHTSCALE_KEYS_FILE, {:user => 'rightscale', :group => 'rightscale'})
 
       tags = [ACTIVE_TAG]
       AgentTagsManager.instance.add_tags(tags)
@@ -118,7 +118,7 @@ module RightScale
     #
     # === Return
     # true:: always returns true
-    def write_keys_file(keys, keys_file)
+    def write_keys_file(keys, keys_file, chown_params = nil)
       dir = File.dirname(keys_file)
       FileUtils.mkdir_p(dir)
       FileUtils.chmod(0700, dir)
@@ -141,6 +141,7 @@ module RightScale
       end
 
       FileUtils.chmod(0600, keys_file)
+      FileUtils.chown_R(chown[:user], chown[:group], File.dirname(keys_file)) if chown_params
       return true
     end
 
@@ -206,7 +207,7 @@ module RightScale
     #   key[2](String):: comment
     def load_keys(path)
       file_lines = read_keys_file(path)
-      
+
       keys = []
       file_lines.map do |l|
         components = LoginPolicy.parse_public_key(l)
@@ -367,7 +368,7 @@ module RightScale
         index += 1
         name = "#{username}_#{index}"
       end
-      
+
       name
     end
 
@@ -377,7 +378,7 @@ module RightScale
     end
 
     def fetch_group(superuser)
-      superuser ? "root" : "admin"
+      superuser ? "root" : "rightscale"
     end
 
     # Sorts kyes for users and superusers; creates user accounts
@@ -401,7 +402,7 @@ module RightScale
         u.public_keys.each do |k|
           # TBD for thunking
           # non_superuser_lines << %Q{command="rs_thunk --uid #{u.uuid} --email #{u.email} --profile='#{u.home_dir}'" } + k
-          non_superuser_lines << "command=\"cd /home/#{username}; su #{username}\" " + k
+          non_superuser_lines << "command=\"cd /home/#{username}; sudo su #{username}\" " + k
           superuser_lines << k if u.superuser
         end
       end
