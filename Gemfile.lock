@@ -55,7 +55,7 @@ GEM
     rake (0.8.7)
     rest-client (1.6.3)
       mime-types (>= 1.16)
-    right_agent (0.6.1)
+    right_agent (0.6.2)
       amqp (= 0.7.5)
       eventmachine (~> 0.12.10)
       json (~> 1.4)
