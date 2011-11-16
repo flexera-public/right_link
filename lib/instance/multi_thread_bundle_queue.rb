@@ -69,7 +69,9 @@ module RightScale
     # === Return
     # active(Boolean):: true if queue is busy
     def busy?
-      @thread_name_to_queue.any? { |_, q| q.busy? }
+      busy = false
+      @mutex.synchronize { busy = @thread_name_to_queue.any? { |_, q| q.busy? } }
+      busy
     end
 
     # Push new context to bundle queue and run next bundle

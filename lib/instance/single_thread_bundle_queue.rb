@@ -71,7 +71,9 @@ module RightScale
     # === Return
     # active(Boolean):: true if queue is busy
     def busy?
-      !!@busy
+      busy = false
+      @mutex.synchronize { busy = !!@busy }
+      busy
     end
 
     # Push new context to bundle queue and run next bundle
@@ -130,8 +132,8 @@ module RightScale
           # wait until sequence is finished using a ruby mutex conditional.
           # need to synchronize before run to ensure we are waiting before any
           # immediate signalling occurs (under test conditions, etc.).
-          @busy = true
           @mutex.synchronize do
+            @busy = true
             sequence.run
             @sequence_finished.wait(@mutex)
             @pid = nil
