@@ -71,80 +71,25 @@ module RightScale
       tags = [ACTIVE_TAG,RESTRICTED_TAG]
       AgentTagsManager.instance.add_tags(tags)
 
-      #Schedule a timer to handle any expiration that is planned to happen in the future
+      # Schedule a timer to handle any expiration that is planned to happen in the future
       schedule_expiry(new_policy)
 
-      #Return a human-readable description of the policy, e.g. for an audit entry
+      # Return a human-readable description of the policy, e.g. for an audit entry
       return describe_policy(superuser_lines.size, non_superuser_lines.size, system_lines.size, new_policy)
     end
 
-    #protected
-
-    # Read various public keys from /etc/ssh
-    #
-    # === Return
-    # keys(Hash):: map of algorithm-name => public key material
-    def local_public_keys
-      keys = {}
-
-      PUBLIC_KEY_FILES.each do |f|
-        if File.exist?(f) && File.readable?(f) && (data = File.read(f))
-          data      = data.split
-          algorithm = data[0].split('-').last
-          key       = data[1]
-          keys[algorithm] = key
-        end
-      end
-
-      keys
-    end
-
-    # Read /root/.ssh/authorized_keys if it exists
+    # Returns prefix command for public key record
     #
     # === Parameters
-    # path(String):: path to authorized_keys file
+    # username(String):: account's username
     #
     # === Return
-    # authorized_keys(Array[String]):: list of lines of authorized_keys file
-    def read_keys_file(path)
-      return [] unless File.exists?(path)
-      File.readlines(path).map! { |l| l.chomp.strip }
+    # prefix(String):: command string
+    def get_key_prefix(username, email, url)
+      %Q{command="rs_thunk --username #{username} --email #{email} --profile #{url}" }
     end
 
-    # Replace the contents of ~root/.ssh/authorized_keys
-    #
-    # === Parameters
-    # keys(Array[(String)]):: list of lines that authorized_keys file should contain
-    # keys_file(String):: path to authorized_keys file
-    #
-    # === Return
-    # true:: always returns true
-    def write_keys_file(keys, keys_file, chown_params = nil)
-      dir = File.dirname(keys_file)
-      FileUtils.mkdir_p(dir)
-      FileUtils.chmod(0700, dir)
-
-      File.open(keys_file, 'w') do |f|
-        f.puts "#" * 78
-        f.puts "# USE CAUTION WHEN EDITING THIS FILE BY HAND"
-        f.puts "# This file is generated based on the RightScale dashboard permission"
-        f.puts "# 'server_login'. You can add trusted public keys to the file, but"
-        f.puts "# it is regenerated every 24 hours and keys may be added or removed"
-        f.puts "# without notice if they correspond to a dashboard user."
-        f.puts "#"
-        f.puts "# Instead of editing this file, you probably want to do one of the"
-        f.puts "# followng:"
-        f.puts "# - Edit dashboard permissions (Settings > Account > Users)"
-        f.puts "# - Change your personal public key (Settings > User > SSH)"
-        f.puts "#"
-
-        keys.each { |k| f.puts k }
-      end
-
-      FileUtils.chmod(0600, keys_file)
-      FileUtils.chown_R(chown_params[:user], chown_params[:group], File.dirname(keys_file)) if chown_params
-      return true
-    end
+    protected
 
     # Perform a three-way merge of the old login policy (if applicable), authorized_keys file
     # (if applicable) and the new login policy. Ensures that any policy users that no longer
@@ -190,7 +135,7 @@ module RightScale
       superuser_lines, non_superuser_lines = modify_keys_to_use_individual_profiles(new_users)
 
       if exclusive
-        return [superuser_lines.sort, non_superuser_lines, []]
+        return [superuser_lines.sort, non_superuser_lines.sort, []]
       else
         return [(system_lines + superuser_lines).sort, non_superuser_lines.sort, system_lines.sort]
       end
@@ -294,10 +239,117 @@ module RightScale
       return true
     end
 
+    ##############################
     # === Here is the first version of prototype for Managed Login
     # for RightScale users
     #
-    # It creates users for Managed SSH login
+
+    # Sorts keys for users and superusers; creates user accounts
+    # according to new login policy
+    #
+    # === Parameters
+    # new_users(Array(LoginUser)):: array of updated users list
+    #
+    # === Return
+    # superuser_lines(Array(String)):: public key lines of superuser
+    # accounts
+    # non_superuser_lines(Array(String)):: public key lines of
+    # non-superuser accounts
+    def modify_keys_to_use_individual_profiles(new_users)
+      superuser_lines = Array.new
+      non_superuser_lines = Array.new
+
+      new_users.map do |u|
+        username = create_user(u.username, u.uuid, u.superuser)
+
+        u.public_keys.each do |k|
+          # TBD for thunking
+          # non_superuser_lines << %Q{command="rs_thunk --uid #{u.uuid} --email #{u.email} --profile='#{u.home_dir}'" } + k
+          non_superuser_lines << "#{get_key_prefix(username, u.common_name, "http://example.com/#{username}.tgz")} #{k}"
+          superuser_lines << k if u.superuser
+        end
+      end
+
+      return superuser_lines, non_superuser_lines
+    end
+
+    # === OS specific methods
+
+    # Read various public keys from /etc/ssh
+    #
+    # === Return
+    # keys(Hash):: map of algorithm-name => public key material
+    def local_public_keys
+      keys = {}
+
+      PUBLIC_KEY_FILES.each do |f|
+        if File.exist?(f) && File.readable?(f) && (data = File.read(f))
+          data      = data.split
+          algorithm = data[0].split('-').last
+          key       = data[1]
+          keys[algorithm] = key
+        end
+      end
+
+      keys
+    end
+
+    # Read /root/.ssh/authorized_keys if it exists
+    #
+    # === Parameters
+    # path(String):: path to authorized_keys file
+    #
+    # === Return
+    # authorized_keys(Array[String]):: list of lines of authorized_keys file
+    def read_keys_file(path)
+      return [] unless File.exists?(path)
+      File.readlines(path).map! { |l| l.chomp.strip }
+    end
+
+    # Replace the contents of /root/.ssh/authorized_keys
+    #
+    # === Parameters
+    # keys(Array[(String)]):: list of lines that authorized_keys file should contain
+    # keys_file(String):: path to authorized_keys file
+    # chown_params(Hash):: additionatial parameters for user/group
+    # === Return
+    # true:: always returns true
+    def write_keys_file(keys, keys_file, chown_params = nil)
+      dir = File.dirname(keys_file)
+      FileUtils.mkdir_p(dir)
+      FileUtils.chmod(0700, dir)
+
+      File.open(keys_file, 'w') do |f|
+        f.puts "#" * 78
+        f.puts "# USE CAUTION WHEN EDITING THIS FILE BY HAND"
+        f.puts "# This file is generated based on the RightScale dashboard permission"
+        f.puts "# 'server_login'. You can add trusted public keys to the file, but"
+        f.puts "# it is regenerated every 24 hours and keys may be added or removed"
+        f.puts "# without notice if they correspond to a dashboard user."
+        f.puts "#"
+        f.puts "# Instead of editing this file, you probably want to do one of the"
+        f.puts "# following:"
+        f.puts "# - Edit dashboard permissions (Settings > Account > Users)"
+        f.puts "# - Change your personal public key (Settings > User > SSH)"
+        f.puts "#"
+
+        keys.each { |k| f.puts k }
+      end
+
+      FileUtils.chmod(0600, keys_file)
+      FileUtils.chown_R(chown_params[:user], chown_params[:group], File.dirname(keys_file)) if chown_params
+      return true
+    end
+
+    # Creates user account
+    #
+    # === Parameters
+    # username(String):: username
+    # uuid(String):: RightScale user's UUID
+    # superuser(Boolean):: flag if user is superuser
+    #
+    # === Return
+    # username(String):: created account's username
     def create_user(username, uuid, superuser)
       uid = fetch_uid(uuid)
 
@@ -323,6 +375,15 @@ module RightScale
       user_line.scan(/^(\w+)/).to_s
     end
 
+    # Binding for adding user's account record to OS
+    #
+    # === Parameters
+    # username(String):: username
+    # group(String):: user group name
+    # uid(String):: account's UID
+    #
+    # === Return
+    # nil
     def add_user(username, group, uid)
       # We need to use user_id integer instead of translation uuid to integer!
       %x(useradd -s /bin/bash -g #{group} -u #{uid} -m #{username})
@@ -337,6 +398,12 @@ module RightScale
     #
     # id command returns information about user and exit status. 
     # It can be 0 for success; > 0 for error. 
+    #
+    # === Parameter
+    # name(String):: username
+    #
+    # === Return
+    # exist_status(Boolean):: true if user exists; otherwise false
     def user_exists?(name)
       %x(id #{name})
 
@@ -351,6 +418,12 @@ module RightScale
     # 
     # If command matches the defined regexp it means user with such UID
     # exists.
+    #
+    # === Parameters
+    # uid(String):: account's UID
+    #
+    # === Return
+    # exist_status(Boolean):: true if exists;otherwise false
     def uid_exists?(uid)
       not %x(grep '.*:.:#{uid}' /etc/passwd).empty?
     end
@@ -361,6 +434,12 @@ module RightScale
     # Method picks username from common_name(email).
     # Then it checks for username existance incrementing postfix until
     # suitable name is found.
+    #
+    # === Parameters
+    # username(String):: username
+    #
+    # === Return
+    # username(String):: username with possible postfix
     def pick_username(username)
       name = username
 
@@ -380,33 +459,6 @@ module RightScale
 
     def fetch_group(superuser)
       superuser ? "root" : "rightscale"
-    end
-
-    # Sorts kyes for users and superusers; creates user accounts
-    # according to new login policy
-    #
-    # === Parameters
-    # new_users(Array(LoginUser)):: array of updated users list
-    #
-    # === Return
-    # superuser_lines(Array(String)):: public key lines of superuser
-    # accounts
-    # non_superuser_lines(Array(String)):: public key lines of
-    # non-superuser accounts
-    def modify_keys_to_use_individual_profiles(new_users)
-      superuser_lines = Array.new
-      non_superuser_lines = Array.new
-
-      new_users.map do |u|
-        username = create_user(u.username, u.uuid, u.superuser)
-
-        u.public_keys.each do |k|
-          non_superuser_lines << "command=\"rs_thunk --username #{username} --email #{u.common_name} --profile 'http://example.com/#{username}.tar'\" " + k
-          superuser_lines << k if u.superuser
-        end
-      end
-
-      return superuser_lines, non_superuser_lines
     end
   end
 end
