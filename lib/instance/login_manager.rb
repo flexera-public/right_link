@@ -27,12 +27,13 @@ module RightScale
   class LoginManager
     include Singleton
 
-    SUPERUSER_KEYS_FILE = '/root/.ssh/authorized_keys'
-    RIGHTSCALE_KEYS_FILE = '/home/rightscale/.ssh/authorized_keys'
-    PUBLIC_KEY_FILES       = ['/etc/ssh/ssh_host_rsa_key.pub',
+    SUPERUSER_KEYS_FILE     = '/root/.ssh/authorized_keys'
+    RIGHTSCALE_KEYS_FILE    = '/home/rightscale/.ssh/authorized_keys'
+    PUBLIC_KEY_FILES        = ['/etc/ssh/ssh_host_rsa_key.pub',
                               '/etc/ssh/ssh_host_dsa_key.pub']
-    ACTIVE_TAG             = 'rs_login:state=active'
-    COMMENT                = /^\s*#/
+    ACTIVE_TAG              = 'rs_login:state=active'
+    RESTRICTED_TAG          = 'rs_login:state=restricted'
+    COMMENT                 = /^\s*#/
 
     # Can the login manager function on this platform?
     #
@@ -67,7 +68,7 @@ module RightScale
       write_keys_file(superuser_lines, SUPERUSER_KEYS_FILE)
       write_keys_file(non_superuser_lines, RIGHTSCALE_KEYS_FILE, {:user => 'rightscale', :group => 'rightscale'})
 
-      tags = [ACTIVE_TAG]
+      tags = [ACTIVE_TAG,RESTRICTED_TAG]
       AgentTagsManager.instance.add_tags(tags)
 
       #Schedule a timer to handle any expiration that is planned to happen in the future
