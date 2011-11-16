@@ -153,7 +153,7 @@ describe RightScale::LoginManager do
         @policy.users << user
         user.public_keys.each do |key|
           @superuser_keys << key
-          @non_superuser_keys << "#{@mgr.get_key_prefix(user.username)} #{key}"
+          @non_superuser_keys << "#{@mgr.get_key_prefix(user.username, user.common_name, "http://example.com/#{user.username}.tgz")} #{key}"
         end
       end
     end
