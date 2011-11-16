@@ -64,6 +64,14 @@ module RightScale
       true
     end
 
+    # Determines if queue is busy
+    #
+    # === Return
+    # active(Boolean):: true if queue is busy
+    def busy?
+      @thread_name_to_queue.any? { |_, q| q.busy? }
+    end
+
     # Push new context to bundle queue and run next bundle
     #
     # === Return

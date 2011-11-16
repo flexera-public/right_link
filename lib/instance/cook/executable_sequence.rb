@@ -81,6 +81,10 @@ module RightScale
     # === Parameter
     # bundle(RightScale::ExecutableBundle):: Bundle to be run
     def initialize(bundle, thread_name)
+      unless thread_name =~ RightScale::ExecutableBundle::VALID_THREAD_NAME
+        raise ArgumentError, "Invalid thread name #{thread_name}"
+      end
+
       @description            = bundle.to_s
       @right_scripts_cookbook = RightScriptsCookbook.new(thread_name)
       @scripts                = bundle.executables.select { |e| e.is_a?(RightScriptInstantiation) }

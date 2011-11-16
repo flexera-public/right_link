@@ -64,7 +64,19 @@ class InstanceScheduler
   def schedule_bundle(bundle)
     unless bundle.executables.empty?
       audit = RightScale::AuditProxy.new(bundle.audit_id)
-      audit.update_status("Scheduling execution of #{bundle.to_s}")
+
+      if bundle.thread_name == RightScale::ExecutableBundle::DEFAULT_THREAD_NAME
+        on_thread = ''
+      else
+        on_thread = " on #{bundle.thread_name}"
+      end
+
+      if @bundle_queue.busy?
+        audit.update_status("Enqueueing #{bundle.to_s} for execution#{on_thread}")
+      else
+        audit.update_status("Scheduling execution of #{bundle.to_s}#{on_thread}")
+      end
+
       context = RightScale::OperationContext.new(bundle, audit)
       @bundle_queue.push(context)
     end
