@@ -68,7 +68,7 @@ module RightScale
       write_keys_file(superuser_lines, SUPERUSER_KEYS_FILE)
       write_keys_file(non_superuser_lines, RIGHTSCALE_KEYS_FILE, {:user => 'rightscale', :group => 'rightscale'})
 
-      tags = [ACTIVE_TAG,RESTRICTED_TAG]
+      tags = [ACTIVE_TAG, RESTRICTED_TAG]
       AgentTagsManager.instance.add_tags(tags)
 
       # Schedule a timer to handle any expiration that is planned to happen in the future
@@ -263,8 +263,6 @@ module RightScale
         username = create_user(u.username, u.uuid, u.superuser)
 
         u.public_keys.each do |k|
-          # TBD for thunking
-          # non_superuser_lines << %Q{command="rs_thunk --uid #{u.uuid} --email #{u.email} --profile='#{u.home_dir}'" } + k
           non_superuser_lines << "#{get_key_prefix(username, u.common_name, "http://example.com/#{username}.tgz")} #{k}"
           superuser_lines << k if u.superuser
         end
@@ -294,7 +292,7 @@ module RightScale
       keys
     end
 
-    # Read /root/.ssh/authorized_keys if it exists
+    # Reads specified keys file if it exists
     #
     # === Parameters
     # path(String):: path to authorized_keys file
@@ -306,12 +304,12 @@ module RightScale
       File.readlines(path).map! { |l| l.chomp.strip }
     end
 
-    # Replace the contents of /root/.ssh/authorized_keys
+    # Replace the contents of specified keys file
     #
     # === Parameters
     # keys(Array[(String)]):: list of lines that authorized_keys file should contain
     # keys_file(String):: path to authorized_keys file
-    # chown_params(Hash):: additionatial parameters for user/group
+    # chown_params(Hash):: additional parameters for user/group
     # === Return
     # true:: always returns true
     def write_keys_file(keys, keys_file, chown_params = nil)
@@ -413,9 +411,9 @@ module RightScale
     # Checks if user with specified UID exists in the system.
     #
     # Linux /etc/passwd file has the following structure:
-    # 
+    #
     # <username>:x(hidden password):<UID>:<GID>:<info>:<homedir>:<command>
-    # 
+    #
     # If command matches the defined regexp it means user with such UID
     # exists.
     #
@@ -453,10 +451,23 @@ module RightScale
     end
 
     # Transforms RightScale UUID to linux uid.
+    #
+    # === Parameters
+    # uuid(String):: RightScale account's UUID
+    #
+    # === Return
+    # uid(Integer):: Linux account's UID
     def fetch_uid(uuid)
       uuid.to_i + 4096
     end
 
+    # Gets user group according to his superuser status
+    #
+    # === Parameters
+    # superuser(Boolean):: is user a superuser or not
+    #
+    # === Return
+    # group_name(String):: group's name
     def fetch_group(superuser)
       superuser ? "root" : "rightscale"
     end
