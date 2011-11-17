@@ -25,7 +25,6 @@ require File.join(File.dirname(__FILE__), 'spec_helper')
 describe RightScale::LoginManager do
   include RightScale::SpecHelper
 
-  SUPERUSER_KEYS_FILE = '/root/.ssh/authorized_keys'
   RIGHTSCALE_KEYS_FILE = '/home/rightscale/.ssh/authorized_keys'
   RIGHTSCALE_ACCOUNT_CREDS = {:user=>"rightscale", :group=>"rightscale"}
 
@@ -134,6 +133,7 @@ describe RightScale::LoginManager do
       # === Mocks for OS specific operations
       flexmock(@mgr).should_receive(:write_keys_file).and_return(true).by_default
       flexmock(@mgr).should_receive(:add_user).and_return(nil).by_default
+      flexmock(@mgr).should_receive(:add_to_group).and_return(nil).by_default
       flexmock(@mgr).should_receive(:user_exists?).and_return(false).by_default
       # === Mocks end
 
@@ -142,18 +142,13 @@ describe RightScale::LoginManager do
       flexmock(RightScale::AgentTagsManager).should_receive("instance.add_tags")
       flexmock(@mgr).should_receive(:schedule_expiry)
 
-      @system_keys = [ "ssh-rsa #{rand(3**32).to_s(32)} someone@localhost",
-                       "ssh-dsa #{rand(3**32).to_s(32)} root@localhost" ]
-
       @policy = RightScale::LoginPolicy.new(1234, one_hour_ago)
-      @superuser_keys = []
-      @non_superuser_keys = []
+      @user_keys = []
       (0...3).each do |i|
         user = generate_user(i == 1 ? 2: 1, "rightscale.com")
         @policy.users << user
         user.public_keys.each do |key|
-          @superuser_keys << key
-          @non_superuser_keys << "#{@mgr.get_key_prefix(user.username, user.common_name, "http://example.com/#{user.username}.tgz")} #{key}"
+          @user_keys << "#{@mgr.get_key_prefix(user.username, user.common_name, "http://example.com/#{user.username}.tgz")} #{key}"
         end
       end
     end
@@ -162,8 +157,7 @@ describe RightScale::LoginManager do
       @policy.users[0].expires_at = one_day_ago
       flexmock(@mgr).should_receive(:read_keys_file).and_return([])
 
-      flexmock(@mgr).should_receive(:write_keys_file).with((@superuser_keys[1..3]).sort, SUPERUSER_KEYS_FILE).and_return(true)
-      flexmock(@mgr).should_receive(:write_keys_file).with(@non_superuser_keys[1..3].sort, RIGHTSCALE_KEYS_FILE, { :user=>"rightscale", :group=>"rightscale" }).and_return(true)
+      flexmock(@mgr).should_receive(:write_keys_file).with(@user_keys[1..3].sort, RIGHTSCALE_KEYS_FILE, { :user=>"rightscale", :group=>"rightscale" }).and_return(true)
 
       @mgr.update_policy(@policy)
     end
@@ -171,87 +165,9 @@ describe RightScale::LoginManager do
     it "should only add users with superuser privilege" do
       @policy.users[0].superuser = false
       flexmock(@mgr).should_receive(:read_keys_file).and_return([])
-      flexmock(@mgr).should_receive(:write_keys_file).with((@superuser_keys[1..3]).sort, SUPERUSER_KEYS_FILE).and_return(true)
-      flexmock(@mgr).should_receive(:write_keys_file).with(@non_superuser_keys.sort, RIGHTSCALE_KEYS_FILE, { :user=>"rightscale", :group=>"rightscale" }).and_return(true)
+      flexmock(@mgr).should_receive(:add_to_group).times(@policy.users.size - 1)
+      flexmock(@mgr).should_receive(:write_keys_file).with(@user_keys.sort, RIGHTSCALE_KEYS_FILE, { :user=>"rightscale", :group=>"rightscale" }).and_return(true)
       @mgr.update_policy(@policy)
-    end
-
-    context "when system keys exist" do
-      it "should discard malformed system keys" do
-        flexmock(@mgr).should_receive(:read_keys_file).and_return(@system_keys + ['hello world', 'four score and seven years ago'])
-
-        flexmock(@mgr).should_receive(:write_keys_file).with((@superuser_keys + @system_keys).sort, SUPERUSER_KEYS_FILE).and_return(true)
-        flexmock(@mgr).should_receive(:write_keys_file).with(@non_superuser_keys.sort, RIGHTSCALE_KEYS_FILE, { :user=>"rightscale", :group=>"rightscale" }).and_return(true)
-        @mgr.update_policy(@policy)
-      end
-
-      it "should ignore comments" do
-        flexmock(@mgr).should_receive(:read_keys_file).and_return(@system_keys + ['#i like traffic lights', '    #ice cream is good'])
-        flexmock(@mgr).should_receive(:write_keys_file).with((@superuser_keys + @system_keys).sort, SUPERUSER_KEYS_FILE).and_return(true)
-        flexmock(@mgr).should_receive(:write_keys_file).with(@non_superuser_keys.sort, RIGHTSCALE_KEYS_FILE, { :user=>"rightscale", :group=>"rightscale" }).and_return(true)
-        flexmock(RightScale::Log).should_receive(:error).never
-        @mgr.update_policy(@policy)
-      end
-
-      it "should preserve system keys with an options field (without preserving options)" do
-        @stripped_keys = @system_keys.dup
-        fake_pub_material = rand(3**32).to_s(32) 
-        @system_keys << "joebob=\"xyz wqr\",friendly=false ssh-rsa #{fake_pub_material} Hey, This is my Key!"
-        @stripped_keys << "ssh-rsa #{fake_pub_material} Hey, This is my Key!"
-
-        flexmock(@mgr).should_receive(:read_keys_file).and_return(@system_keys)
-        flexmock(@mgr).should_receive(:write_keys_file).with((@superuser_keys + @stripped_keys).sort, SUPERUSER_KEYS_FILE).and_return(true)
-        flexmock(@mgr).should_receive(:write_keys_file).with(@non_superuser_keys.sort, RIGHTSCALE_KEYS_FILE, { :user=>"rightscale", :group=>"rightscale" }).and_return(true)
-        @mgr.update_policy(@policy)
-      end
-
-      it "should preserve system keys with spaces in the comment" do
-        @system_keys << "ssh-rsa #{rand(3**32).to_s(32)} Hey, This is my Key!"
-        flexmock(@mgr).should_receive(:read_keys_file).and_return(@system_keys)
-        flexmock(@mgr).should_receive(:write_keys_file).with((@superuser_keys + @system_keys).sort, SUPERUSER_KEYS_FILE).and_return(true)
-        flexmock(@mgr).should_receive(:write_keys_file).with(@non_superuser_keys.sort, RIGHTSCALE_KEYS_FILE, { :user=>"rightscale", :group=>"rightscale" }).and_return(true)
-        @mgr.update_policy(@policy)
-      end
-
-      it "should preserve the system keys and add the policy keys" do
-        flexmock(@mgr).should_receive(:read_keys_file).and_return(@system_keys)
-        flexmock(@mgr).should_receive(:write_keys_file).with((@superuser_keys + @system_keys).sort, SUPERUSER_KEYS_FILE).and_return(true)
-        flexmock(@mgr).should_receive(:write_keys_file).with(@non_superuser_keys.sort, RIGHTSCALE_KEYS_FILE, { :user=>"rightscale", :group=>"rightscale" }).and_return(true)
-        @mgr.update_policy(@policy)
-      end
-
-      context "and a previous policy exists" do
-        before(:each) do
-          @old_policy_users = []
-          @old_policy_keys  = []
-          (0...3).each do |i|
-            user = generate_user(1, "rightscale.old")
-            @old_policy_users << user
-            user.public_keys.each { |key| @old_policy_keys << key }
-          end
-          @old_policy = RightScale::LoginPolicy.new(1234)
-          @old_policy.users = @old_policy_users
-          flexmock(RightScale::InstanceState).should_receive(:login_policy).and_return(@old_policy)
-        end
-
-        it "should preserve the system keys but remove the old policy keys" do
-          flexmock(@mgr).should_receive(:read_keys_file).and_return(@system_keys + @old_policy_keys)
-          flexmock(@mgr).should_receive(:write_keys_file).with((@superuser_keys + @system_keys).sort, SUPERUSER_KEYS_FILE).and_return(true)
-          flexmock(@mgr).should_receive(:write_keys_file).with(@non_superuser_keys.sort, RIGHTSCALE_KEYS_FILE, { :user=>"rightscale", :group=>"rightscale" }).and_return(true)
-          @mgr.update_policy(@policy)
-        end
-      end
-
-      context "and the new policy is exclusive" do
-        before(:each) { @policy.exclusive = true }
-
-        it "should remove the system keys and add the policy keys" do
-          flexmock(@mgr).should_receive(:read_keys_file).and_return(@system_keys)
-          flexmock(@mgr).should_receive(:write_keys_file).with(@superuser_keys.sort, SUPERUSER_KEYS_FILE).and_return(true)
-          flexmock(@mgr).should_receive(:write_keys_file).with(@non_superuser_keys.sort, RIGHTSCALE_KEYS_FILE, { :user=>"rightscale", :group=>"rightscale" }).and_return(true)
-          @mgr.update_policy(@policy)
-        end
-      end
     end
   end
 

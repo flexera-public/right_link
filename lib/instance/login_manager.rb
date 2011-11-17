@@ -27,10 +27,7 @@ module RightScale
   class LoginManager
     include Singleton
 
-    SUPERUSER_KEYS_FILE     = '/root/.ssh/authorized_keys'
     RIGHTSCALE_KEYS_FILE    = '/home/rightscale/.ssh/authorized_keys'
-    PUBLIC_KEY_FILES        = ['/etc/ssh/ssh_host_rsa_key.pub',
-                              '/etc/ssh/ssh_host_dsa_key.pub']
     ACTIVE_TAG              = 'rs_login:state=active'
     RESTRICTED_TAG          = 'rs_login:state=restricted'
     COMMENT                 = /^\s*#/
@@ -58,15 +55,13 @@ module RightScale
       # As a sanity check, filter out any expired users. The core should never send us these guys,
       # but by filtering here additionally we prevent race conditions and handle boundary conditions, as well
       # as allowing our internal expiry timer to simply call us back when a LoginUser expires.
-      # Non-superusers should be added to rightscale account's authorized_keys.
-      old_users = InstanceState.login_policy ? InstanceState.login_policy.users : []
+      # All users are added to RightScale account's authorized keys.
       new_users = new_policy.users.select { |u| (u.expires_at == nil || u.expires_at > Time.now) }
-      superuser_lines, non_superuser_lines, system_lines = merge_keys(old_users, new_users, new_policy.exclusive)
+      user_lines = modify_keys_to_use_individual_profiles(new_users)
 
       InstanceState.login_policy = new_policy
 
-      write_keys_file(superuser_lines, SUPERUSER_KEYS_FILE)
-      write_keys_file(non_superuser_lines, RIGHTSCALE_KEYS_FILE, {:user => 'rightscale', :group => 'rightscale'})
+      write_keys_file(user_lines, RIGHTSCALE_KEYS_FILE, { :user => 'rightscale', :group => 'rightscale' })
 
       tags = [ACTIVE_TAG, RESTRICTED_TAG]
       AgentTagsManager.instance.add_tags(tags)
@@ -75,7 +70,7 @@ module RightScale
       schedule_expiry(new_policy)
 
       # Return a human-readable description of the policy, e.g. for an audit entry
-      return describe_policy(superuser_lines.size, non_superuser_lines.size, system_lines.size, new_policy)
+      return describe_policy(new_users.size, (new_users.select { |u| u.superuser }).size, new_policy)
     end
 
     # Returns prefix command for public key record
@@ -90,56 +85,6 @@ module RightScale
     end
 
     protected
-
-    # Perform a three-way merge of the old login policy (if applicable), authorized_keys file
-    # (if applicable) and the new login policy. Ensures that any policy users that no longer
-    # have access are removed from the authorized keys, without removing "system" keys from
-    # the authorized keys file. System keys are defined as any line of authorized_keys
-    # that we did not put there.
-    #
-    # If exclusive=true, then system keys are not preserved; although a merge is still performed,
-    # the return value is simply the public keys of new_users.
-    #
-    # === Parameters
-    # old_users(Array[(LoginUser)]) old login policy's users
-    # new_users(Array[(LoginUser)]) new login policy's users
-    # exclusive(true|false) if true, system keys are not preserved
-    #
-    # === Return
-    # authorized_keys(Array[(String)]) new set of trusted public keys
-    #
-    # === Raise
-    # Exception:: desc
-    def merge_keys(old_users, new_users, exclusive)
-      superuser_keys = load_keys(SUPERUSER_KEYS_FILE)
-
-      # Find all lines in authorized_keys file that do not correspond to an old user.
-      # These are the "system keys" that were not added by RightScale.
-      old_users_keys = Set.new
-      old_users.each do |u|
-        u.public_keys.each do |public_key|
-          comp2 = LoginPolicy.parse_public_key(public_key)
-
-          if comp2
-            old_users_keys << comp2[2]
-          else
-            RightScale::Log.error("Malformed (or not SSH2) entry in old login policy: #{public_key}")
-          end
-        end
-      end
-
-      # Triples of algorithm, public key and comment
-      system_keys   = superuser_keys.select { |t| !old_users_keys.include?(t[1]) }
-      system_lines  = system_keys.map { |t| t.join(' ') } 
-
-      superuser_lines, non_superuser_lines = modify_keys_to_use_individual_profiles(new_users)
-
-      if exclusive
-        return [superuser_lines.sort, non_superuser_lines.sort, []]
-      else
-        return [(system_lines + superuser_lines).sort, non_superuser_lines.sort, system_lines.sort]
-      end
-    end
 
     # Returns array of public keys of specified authorized_keys file
     #
@@ -176,20 +121,16 @@ module RightScale
     # for appending to an audit entry. Contains formatting such as newlines and tabs.
     #
     # === Parameters
+    # num_users(Integer) total number of users
     # num_superusers(Integer) total number of superusers
-    # num_non_superusers(Integer) total number of non-superusers
-    # num_system_users(Integer) number of preserved system keys
     # policy(LoginPolicy) the effective login policy
     #
     # === Return
     # description(String)
-    def describe_policy(num_superusers, num_non_superusers, num_system_users, policy)
-      audit = "#{num_superusers} total superusers' authorized key(s).\n"
-      audit += "#{num_non_superusers} total non-superusers' authorized key(s).\n"
+    def describe_policy(num_users, num_superusers, policy)
+      audit = "#{num_users} total users' authorized key(s).\n"
+      audit += "#{num_superusers} total superusers' authorized key(s).\n"
 
-      unless policy.exclusive
-        audit += "Non-exclusive policy; preserved #{num_system_users} non-RightScale key(s).\n"
-      end
       if policy.users.empty?
         audit += "No authorized RightScale users."
       else
@@ -244,53 +185,29 @@ module RightScale
     # for RightScale users
     #
 
-    # Sorts keys for users and superusers; creates user accounts
-    # according to new login policy
+    # Creates user accounts and modifies public keys for individual
+    # access according to new login policy
     #
     # === Parameters
     # new_users(Array(LoginUser)):: array of updated users list
     #
     # === Return
-    # superuser_lines(Array(String)):: public key lines of superuser
-    # accounts
-    # non_superuser_lines(Array(String)):: public key lines of
-    # non-superuser accounts
+    # user_lines(Array(String)):: public key lines of user accounts
     def modify_keys_to_use_individual_profiles(new_users)
-      superuser_lines = Array.new
-      non_superuser_lines = Array.new
+      user_lines = []
 
-      new_users.map do |u|
+      new_users.each do |u|
         username = create_user(u.username, u.uuid, u.superuser)
 
         u.public_keys.each do |k|
-          non_superuser_lines << "#{get_key_prefix(username, u.common_name, "http://example.com/#{username}.tgz")} #{k}"
-          superuser_lines << k if u.superuser
+          user_lines << "#{get_key_prefix(username, u.common_name, "http://example.com/#{username}.tgz")} #{k}"
         end
       end
 
-      return superuser_lines, non_superuser_lines
+      return user_lines.sort
     end
 
     # === OS specific methods
-
-    # Read various public keys from /etc/ssh
-    #
-    # === Return
-    # keys(Hash):: map of algorithm-name => public key material
-    def local_public_keys
-      keys = {}
-
-      PUBLIC_KEY_FILES.each do |f|
-        if File.exist?(f) && File.readable?(f) && (data = File.read(f))
-          data      = data.split
-          algorithm = data[0].split('-').last
-          key       = data[1]
-          keys[algorithm] = key
-        end
-      end
-
-      keys
-    end
 
     # Reads specified keys file if it exists
     #
@@ -355,8 +272,9 @@ module RightScale
         fetch_username(uid)
       else
         username  = pick_username(username)
-        group     = fetch_group(superuser)
-        add_user(username, group, uid)
+        add_user(username, uid)
+        add_to_group(username, "rightscale") if superuser
+
         username
       end
     end
@@ -382,13 +300,30 @@ module RightScale
     #
     # === Return
     # nil
-    def add_user(username, group, uid)
+    def add_user(username, uid)
       # We need to use user_id integer instead of translation uuid to integer!
-      %x(useradd -s /bin/bash -g #{group} -u #{uid} -m #{username})
+      %x(useradd -s /bin/bash -u #{uid} -m #{username})
 
       case $?.exitstatus
       when 0
         RightScale::Log.info "User #{username} created successfully"
+      end
+    end
+
+    # Adds a user to specified group
+    #
+    # === Parameters
+    # username(String):: account's username
+    # group(String):: group name
+    #
+    # === Return
+    # nil
+    def add_to_group(username, group)
+      %x(usermod -a -G #{group} #{username})
+
+      case $?.exitstatus
+      when 0
+        RightScale::Log.info "User #{username} added to group '#{group}' successfully"
       end
     end
 
@@ -459,17 +394,6 @@ module RightScale
     # uid(Integer):: Linux account's UID
     def fetch_uid(uuid)
       uuid.to_i + 4096
-    end
-
-    # Gets user group according to his superuser status
-    #
-    # === Parameters
-    # superuser(Boolean):: is user a superuser or not
-    #
-    # === Return
-    # group_name(String):: group's name
-    def fetch_group(superuser)
-      superuser ? "root" : "rightscale"
     end
   end
 end
