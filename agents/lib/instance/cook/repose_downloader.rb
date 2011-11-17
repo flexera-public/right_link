@@ -219,7 +219,13 @@ module RightScale
       hostnames_hash = {}
       hostnames = [hostnames] unless hostnames.respond_to?(:each)
       hostnames.each do |hostname|
-        infos = Socket.getaddrinfo(hostname, 443, Socket::AF_INET, Socket::SOCK_STREAM, Socket::IPPROTO_TCP)
+        infos = nil
+        begin
+          infos = Socket.getaddrinfo(hostname, 443, Socket::AF_INET, Socket::SOCK_STREAM, Socket::IPPROTO_TCP)
+        rescue Exception => e
+          Log.error "Rescued #{e.class.name} resolving Repose hostnames: #{e.message}; retrying"
+          retry
+        end
 
         #Randomly permute the addrinfos of each hostname to help spread load.
         infos.shuffle.each do |info|
@@ -234,6 +240,7 @@ module RightScale
     end
 
     protected
+
     # Return a path to a CA file.  The CA bundle is a basically static
     # collection of trusted certs of top-level CAs. It should be
     # provided by the OS, but because of our cross-platform nature and
@@ -249,6 +256,16 @@ module RightScale
                                      :exception => ReposeConnectionFailure,
                                      :fail_if_ca_mismatch => true,
                                      :ca_file => get_ca_file)
+    end
+
+    # Get the servers that are currently being used for Repose downloads.
+    #
+    # === Return
+    # index(Integer):: Index into ips that is next in the list
+    # ips(Array):: list of IP addresses to connect to
+    # hostnames(Hash):: IP -> hostname reverse lookup hash
+    def self.get_servers
+      [@@index, @@ips, @@hostnames]
     end
 
     # Set the servers to use for Repose downloads.
