@@ -42,7 +42,7 @@ begin
   options[:logger] = ::RightScale::Log
 
   # create the cloud instance
-  cloud_instance = RightScale::CloudFactory.instance.create(RightScale::CloudFactory::UNKNOWN_CLOUD_NAME, options)
+  cloud_instance = ::RightScale::CloudFactory.instance.create(::RightScale::CloudFactory::UNKNOWN_CLOUD_NAME, options)
 
   cloud[:provider] = cloud_instance.name
 
