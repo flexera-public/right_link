@@ -40,7 +40,10 @@
 #        -p NAME=TYPE:VALUE  Define or override RightScript input
 #                              Note: Only applies to run_right_script
 #      --thread,             Schedule the operation on a specific thread name
-#        -t THREAD             for concurrent execution
+#        -t THREAD             for concurrent execution. Thread names must begin
+#                              with a letter and can consist only of lower-case
+#                              alphabetic characters, digits, and the underscore
+#                              character.
 #      --recipient_tags,     Tags for selecting which instances are to receive
 #                              request with the TAG_LIST being quoted if it
 #        -r TAG_LIST           contains spaces
@@ -58,6 +61,7 @@ require 'optparse'
 require 'right_agent'
 require 'right_agent/scripts/usage'
 require 'right_agent/scripts/common_parser'
+require 'right_agent/core_payload_types'
 
 module RightScale
 
@@ -79,6 +83,9 @@ module RightScale
     # true:: Always return true
     def run(options, &callback)
       fail('Missing identity or name argument', true) unless options[:id] || options[:name]
+      if options[:thread] && (options[:thread] !~ RightScale::ExecutableBundle::VALID_THREAD_NAME)
+        fail("Invalid thread name #{options[:thread]}", true)
+      end
       echo(options)
       cmd = { :options => to_forwarder_options(options) }
       cmd[:name] = options[:bundle_type] == :right_script ? 'run_right_script' : 'run_recipe'

@@ -125,7 +125,7 @@ describe RightScale::ExecutableSequence do
       begin
         @script.should_receive(:packages).and_return(nil)
         @script.should_receive(:source).and_return(format_script_text(0))
-        @sequence = RightScale::ExecutableSequence.new(@bundle, @thread_name)
+        @sequence = RightScale::ExecutableSequence.new(@bundle)
         flexmock(@sequence).should_receive(:install_packages).and_return(true)
         attachment = flexmock('A1')
         attachment.should_receive(:file_name).at_least.once.and_return('test_download')
@@ -142,7 +142,7 @@ describe RightScale::ExecutableSequence do
     it 'should audit failures' do
       @script.should_receive(:packages).and_return(nil)
       @script.should_receive(:source).and_return(format_script_text(1))
-      @sequence = RightScale::ExecutableSequence.new(@bundle, @thread_name)
+      @sequence = RightScale::ExecutableSequence.new(@bundle)
       flexmock(@sequence).should_receive(:install_packages).and_return(true)
       attachment = flexmock('A2')
       attachment.should_receive(:file_name).at_least.once.and_return('test_download')
@@ -160,7 +160,7 @@ describe RightScale::ExecutableSequence do
     it 'should report invalid attachments' do
       @script.should_receive(:packages).and_return(nil)
       @script.should_receive(:source).and_return(format_script_text(0))
-      @sequence = RightScale::ExecutableSequence.new(@bundle, @thread_name)
+      @sequence = RightScale::ExecutableSequence.new(@bundle)
       attachment = flexmock('A3')
       attachment.should_receive(:token).at_least.once.and_return(nil)
       attachment.should_receive(:url).and_return("http://127.0.0.1:65534")
@@ -180,7 +180,7 @@ describe RightScale::ExecutableSequence do
       begin
         @script.should_receive(:packages).and_return(nil)
         @script.should_receive(:source).and_return(format_script_text(0))
-        @sequence = RightScale::ExecutableSequence.new(@bundle, @thread_name)
+        @sequence = RightScale::ExecutableSequence.new(@bundle)
         flexmock(@sequence).should_receive(:install_packages).and_return(true)
         @script.should_receive(:attachments).at_least.once.and_return([])
         @auditor.should_receive(:append_error).never
@@ -213,9 +213,9 @@ describe RightScale::ExecutableSequence do
 
       bundle = flexmock('ExecutableBundle')
       bundle.should_receive(:repose_servers).and_return([]).by_default
+      bundle.should_receive(:thread_name).and_return(RightScale::ExecutableBundle::DEFAULT_THREAD_NAME)
       bundle.should_ignore_missing
-      thread_name = RightScale::ExecutableBundle::DEFAULT_THREAD_NAME
-      @sequence = RightScale::ExecutableSequence.new(bundle, thread_name)
+      @sequence = RightScale::ExecutableSequence.new(bundle)
       begin
         fourty_two
       rescue Exception => e
@@ -263,8 +263,8 @@ describe RightScale::ExecutableSequence do
       bundle = flexmock('ExecutableBundle')
       bundle.should_receive(:repose_servers).and_return([]).by_default
       bundle.should_ignore_missing
-      thread_name = RightScale::ExecutableBundle::DEFAULT_THREAD_NAME
-      @sequence = RightScale::ExecutableSequence.new(bundle, thread_name)
+      bundle.should_receive(:thread_name).and_return(RightScale::ExecutableBundle::DEFAULT_THREAD_NAME)
+      @sequence = RightScale::ExecutableSequence.new(bundle)
     end
 
     after(:each) do
