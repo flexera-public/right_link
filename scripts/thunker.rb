@@ -5,18 +5,18 @@
 #   RightScale and also group RightScale to give priveleges for authorization, managing the instance
 #   under individual users profile and download the tarballs with local user's bash configuration.
 #
-# === Examples:
-#   Authorize as RightScale user 'username':
-#     rs_thunk --username username
-#     rs_thunk -e username
 #
-# === Usage
-#    rs_thunk (--username, e USERNAME | --email, -e EMAIL | --profile, -p URL)
-#
-#    Options:
-#      --username,  -u USERNAME     Authorize as RiaghtScale user with USERNAME
+# === Options:
+#      --username,  -u USERNAME     Authorize as RightScale user with USERNAME
 #      --email,     -e EMAIL        Create audit entry saying "EMAIL logged in as USERNAME"
 #      --profile,   -p URL          If profile URL was specified - download file from profile URL
+#
+# === Examples:
+#   Authorize as 'alice' with email address alice@example.com:
+#     rs_thunk -u alice --e alice@example.com
+#
+# === Usage
+#    rs_thunk --username USERNAME [--email EMAIL] [--profile, -p URL]
 #
 
 require 'rubygems'
@@ -24,10 +24,12 @@ require 'optparse'
 require 'right_agent'
 require 'right_agent/scripts/usage'
 require 'right_agent/scripts/common_parser'
+require 'right_agent/core_payload_types'
 
 module RightScale
 
   class Thunker
+    AUDIT_REQUEST_TIMEOUT = 2 * 60  # synchronous tag requests need a long timeout
 
     class ThunkError < Exception
       attr_reader :code
@@ -46,14 +48,21 @@ module RightScale
     # === Return
     # true:: Always return true
     def run(options)
-      RightScale::Log.force_logger(Logger.new(STDERR))
+      @log_sink = StringIO.new
+      @log = Logger.new(@log_sink)
+      RightScale::Log.force_logger(@log)
+
       username, email, profile = options.delete(:username), options.delete(:email), options.delete(:profile)
       unless username
         STDERR.puts "Missing argument USERNAME, rs_thunk --help for additional information"
         fail(1)
       end
-      STDOUT.puts "# => WIP: We're going to upate AuditEntries for #{email} here" if email
+
+      create_audit_entry(email, username)
+
       STDOUT.puts "# => WIP: We're going to download your profile tarball from #{profile} here" if profile
+
+      #Thunk into user's context
       cmd = "cd /home/#{username}; sudo su #{username}"
       Kernel.exec(cmd)
     end
@@ -112,22 +121,53 @@ protected
     def fail(reason=nil, options={})
       case reason
       when ThunkError
-        STDERR.puts reason.message
+        STDOUT.puts reason.message
         code = reason.code
-      when Exception
-        STDERR.puts reason.message
-        code = 50
       when String
-        STDERR.puts reason
+        STDOUT.puts reason
         code = 50
       when Integer
         code = reason
+      when Exception
+        STDOUT.puts "Unexpected #{reason.class.name}: #{reason.message}"
+        STDOUT.puts "We apologize for the inconvenience. You may try connecting as root"
+        STDOUT.puts "to work around this problem, if you have sufficient privilege."
+        STDERR.puts
+        STDERR.puts("Debugging information:")
+        STDERR.puts(@log_sink.string)
+        code = 50
       else
         code = 1
       end
 
       puts Usage.scan(__FILE__) if options[:print_usage]
       exit(code)
+    end
+
+    def create_audit_entry(email, username)
+      config_options = AgentConfig.agent_options('instance')
+      listen_port = config_options[:listen_port]
+      raise ArgumentError.new('Could not retrieve agent listen port') unless listen_port
+      client = CommandClient.new(listen_port, config_options[:cookie])
+
+      options = {
+        :name => 'audit_create_entry',
+        :summary => "Managed SSH login as #{username}",
+        :category => RightScale::EventCategories::CATEGORY_SECURITY,
+        :user_email => email
+      }
+      client.send_command(options, false, AUDIT_REQUEST_TIMEOUT) do |res|
+        #This is a bit harsh, but if we couldn't audit, then we shouldn't let them thunk.
+        fail(ThunkError.new(res.to_s)) unless res.success?
+      end
+
+    rescue Exception => e
+      Log.error("#{e.class.name}:#{e.message}")
+      Log.error(e.backtrace.join("\n"))
+      #This is a bit harsh, but if we couldn't audit, then we shouldn't let them thunk.
+      error = SecurityError.new("Caused by #{e.class.name}: #{e.message}")
+      error.set_backtrace(e.backtrace)
+      fail(error)
     end
 
   end # Thunker

@@ -27,7 +27,7 @@ module RightScale
   # This class acts as a recipient of audit requests sent by the cook
   # process.
   # The audit proxy which will forward the audits to the core should be
-  # initialized before each invokation to cook
+  # initialized before each invocation to cook
   class AuditCookStub
 
     include Singleton
