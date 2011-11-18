@@ -521,7 +521,8 @@ module RightScale
         block.call(ohai)
       else
         Log.warning("Could not determine node name from Ohai, will retry in #{@ohai_retry_delay}s...")
-        # need to execute on a non-timer thread or else EM main thread will block.
+        # Need to execute on defer thread consistent with where ExecutableSequence is running
+        # otherwise EM main thread command client activity will block
         EM.add_timer(@ohai_retry_delay) { EM.defer { check_ohai(&block) } }
         @ohai_retry_delay = [2 * @ohai_retry_delay, OHAI_RETRY_MAX_DELAY].min
       end

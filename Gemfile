@@ -5,24 +5,9 @@ gem "rubyforge",             "1.0.4"
 gem "rake",                  "0.8.7"
 gem 'right_support',         "~> 1.0"
 gem 'right_agent',           "~> 0.6.0"
-
-# Dependencies for right_scraper
-gem "right_scraper", "3.0.1"
-
+gem "right_scraper",         "3.0.1"
 gem "right_http_connection", "~> 1.3.0"
-
-#WARNING: for v5.7, Linux used to use 1.0.11; Windows used to use 1.0.15
-#should be harmless, but we'll see...
-gem "right_popen",         "1.0.17"
-
-#HACK: we use a custom chef build
-gem "chef",                  "0.9.14.3"
-
-#HACK: we use custom eventmachine builds on both platforms
-#  --mswin eventmachine 0.12.10.2 gem
-#  --unix/linux eventmachine 0.12.11.5 gem
-#These need to be harmonized, and also published someplace the world can see
-gem "eventmachine",        "0.12.11.5"
+gem "right_popen",           "1.0.17"
 
 platform :mswin do
   gem "win32-api",           "1.4.5"
@@ -48,7 +33,6 @@ end
 # for paranoia's sake because we had them version locked in the pre-Gemfile
 # days.
 group :stable do
-  gem "systemu",               "1.2.0"
   gem "stomp",                 "1.1"
   gem "ruby-openid",           "2.1.8"
   gem "abstract",              "1.0.0"
@@ -59,7 +43,6 @@ group :stable do
   gem "mixlib-config",         "1.1.2"
   gem "mixlib-log",            "1.2.0"
   gem "hoe",                   "2.3.3"
-  gem "ohai",                  "0.5.8"
   gem "moneta",                "0.6.0"
   gem "bunny",                 "0.6.0"
   gem "process_watcher",       "0.4"
@@ -67,4 +50,10 @@ group :stable do
   gem "uuidtools",             "2.1.2"
   gem "mime-types",            "1.16"
   gem "rest-client",           "1.6.3"
+end
+
+group :custom do
+  gem "ohai",                  "0.5.8.3"
+  gem "chef",                  "0.9.14.3"
+  gem "eventmachine",          "0.12.11.5"
 end

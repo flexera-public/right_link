@@ -238,6 +238,7 @@ module RightScale
     end
 
     protected
+
     # Return a path to a CA file.  The CA bundle is a basically static
     # collection of trusted certs of top-level CAs. It should be
     # provided by the OS, but because of our cross-platform nature and
