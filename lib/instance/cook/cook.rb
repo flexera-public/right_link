@@ -33,8 +33,9 @@ module RightScale
     # Name of agent running the cook process
     AGENT_NAME = 'instance'
 
-    # exceptions
+    # Exceptions
     class TagError < Exception; end
+    class BlockingError < Exception; end
 
     # Run bundle given in stdin
     def run
@@ -90,44 +91,6 @@ module RightScale
     # of concurrency with non-defaulted cooks.
     def has_default_thread?
       ::RightScale::ExecutableBundle::DEFAULT_THREAD_NAME == @thread_name
-    end
-
-    # Helper method to send a request to one or more targets with no response expected
-    # See InstanceCommands for details
-    def send_push(type, payload = nil, target = nil, opts = {})
-      cmd = {:name => :send_push, :type => type, :payload => payload, :target => target, :options => opts}
-      @client.send_command(cmd)
-    end
-
-    # Helper method to send a request to one or more targets with no response expected
-    # The request is persisted en route to reduce the chance of it being lost
-    # See InstanceCommands for details
-    def send_persistent_push(type, payload = nil, target = nil, opts = {})
-      cmd = {:name => :send_persistent_push, :type => type, :payload => payload, :target => target, :options => opts}
-      @client.send_command(cmd)
-    end
-
-    # Helper method to send a request to a single target with a response expected
-    # The request is retried if the response is not received in a reasonable amount of time
-    # See InstanceCommands for details
-    def send_retryable_request(type, payload = nil, target = nil, opts = {}, &blk)
-      cmd = {:name => :send_retryable_request, :type => type, :payload => payload, :target => target, :options => opts}
-      @client.send_command(cmd) do |r|
-        response = load(r, "Request response #{r.inspect}")
-        blk.call(response)
-      end
-    end
-
-    # Helper method to send a request to a single target with a response expected
-    # The request is persisted en route to reduce the chance of it being lost
-    # The request is never retried if there is the possibility of it being duplicated
-    # See InstanceCommands for details
-    def send_persistent_request(type, payload = nil, target = nil, opts = {}, &blk)
-      cmd = {:name => :send_retryable_request, :type => type, :payload => payload, :target => target, :options => opts}
-      @client.send_command(cmd) do |r|
-        response = load_json(r, "Request response #{r.inspect}")
-        blk.call(response)
-      end
     end
 
     # Add given tag to tags exposed by corresponding server
@@ -278,17 +241,23 @@ module RightScale
       end
     end
 
-    # Provides a blocking request for the given command.
+    # Provides a blocking request for the given command
+    # Can only be called when on EM defer thread
     #
     # === Parameters
     # cmd(Hash):: request to send
     #
     # === Return
     # response(String):: raw response
+    #
+    # === Raise
+    # BlockingError:: If request called when on EM main thread
     def blocking_request(cmd)
-      # use a queue to block and wait for response.
+      raise BlockingError, "Blocking request not allowed on EM main thread for command #{cmd.inspect}" if EM.reactor_thread?
+      # Use a queue to block and wait for response
       response_queue = Queue.new
-      @client.send_command(cmd) { |response| response_queue << response }
+      # Need to execute on EM main thread where command client is running
+      EM.next_tick { @client.send_command(cmd) { |response| response_queue << response } }
       return response_queue.shift
     end
 
