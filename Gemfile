@@ -4,7 +4,8 @@ source :rubygems
 gem "rubyforge",             "1.0.4"
 gem "rake",                  "0.8.7"
 gem 'right_support',         "~> 1.0"
-gem 'right_agent',           "~> 0.6.0"
+gem 'right_agent',           :git=>'git://github.com/rightscale/right_agent',
+                             :branch=>'azure_31_individual_ssh_logins'
 
 # Dependencies for right_scraper
 gem "right_scraper", "3.0.1"
