@@ -9,14 +9,14 @@
 # === Options:
 #      --username,  -u USERNAME     Authorize as RightScale user with USERNAME
 #      --email,     -e EMAIL        Create audit entry saying "EMAIL logged in as USERNAME"
-#      --profile,   -p URL          If profile URL was specified - download file from profile URL
+#      --profile,   -p DATA         Extra profile data (e.g. a URL to download)
 #
 # === Examples:
 #   Authorize as 'alice' with email address alice@example.com:
 #     rs_thunk -u alice --e alice@example.com
 #
 # === Usage
-#    rs_thunk --username USERNAME [--email EMAIL] [--profile, -p URL]
+#    rs_thunk --username USERNAME [--email EMAIL] [--profile DATA]
 #
 
 require 'rubygems'
@@ -58,12 +58,16 @@ module RightScale
         fail(1)
       end
 
-      create_audit_entry(email, username)
+      if ENV.has_key?('SSH_CLIENT')
+        client_ip = ENV['SSH_CLIENT'].split(/\s+/).first
+      end
+
+      create_audit_entry(email, username, client_ip)
 
       STDOUT.puts "# => WIP: We're going to download your profile tarball from #{profile} here" if profile
 
       #Thunk into user's context
-      cmd = "cd /home/#{username}; sudo su #{username}"
+      cmd = "cd /home/#{username}; sudo su -l #{username}"
       Kernel.exec(cmd)
     end
 
@@ -82,8 +86,8 @@ module RightScale
           options[:email] = email
         end
 
-        opts.on('-p', '--profile PROFILE') do |profile|
-          options[:profile] = profile
+        opts.on('-p', '--profile DATA') do |data|
+          options[:profile] = data
         end
       end
 
@@ -144,27 +148,28 @@ protected
       exit(code)
     end
 
-    def create_audit_entry(email, username)
+    def create_audit_entry(email, username, client_ip=nil)
       config_options = AgentConfig.agent_options('instance')
       listen_port = config_options[:listen_port]
       raise ArgumentError.new('Could not retrieve agent listen port') unless listen_port
       client = CommandClient.new(listen_port, config_options[:cookie])
 
+      summary  = "SSH login as #{username}"
+      summary += " from #{client_ip}" if client_ip
+
       options = {
         :name => 'audit_create_entry',
-        :summary => "Managed SSH login as #{username}",
+        :summary => summary,
         :category => RightScale::EventCategories::CATEGORY_SECURITY,
         :user_email => email
       }
+
       client.send_command(options, false, AUDIT_REQUEST_TIMEOUT) do |res|
-        #This is a bit harsh, but if we couldn't audit, then we shouldn't let them thunk.
         fail(ThunkError.new(res.to_s)) unless res.success?
       end
-
     rescue Exception => e
       Log.error("#{e.class.name}:#{e.message}")
       Log.error(e.backtrace.join("\n"))
-      #This is a bit harsh, but if we couldn't audit, then we shouldn't let them thunk.
       error = SecurityError.new("Caused by #{e.class.name}: #{e.message}")
       error.set_backtrace(e.backtrace)
       fail(error)
