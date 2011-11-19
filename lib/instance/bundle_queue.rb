@@ -53,6 +53,14 @@ module RightScale
       raise NotImplementedError.new("must be overridden")
     end
 
+    # Determines if queue is busy
+    #
+    # === Return
+    # active(Boolean):: true if queue is busy
+    def busy?
+      raise NotImplementedError.new("must be overridden")
+    end
+
     # Push new context to bundle queue and run next bundle
     #
     # === Parameters

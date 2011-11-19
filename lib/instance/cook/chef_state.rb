@@ -197,6 +197,8 @@ module RightScale
       if Cook.instance.has_default_thread?
         begin
           js = { 'attributes' => @@attributes }.to_json
+          FileUtils.touch(STATE_FILE)
+          File.chmod(0600, STATE_FILE)
           RightScale::JsonUtilities.write_json(STATE_FILE, js)
           RightScale::JsonUtilities::write_json(SCRIPTS_FILE, @@past_scripts)
         rescue Exception => e

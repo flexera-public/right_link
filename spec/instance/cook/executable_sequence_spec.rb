@@ -59,6 +59,7 @@ describe RightScale::ExecutableSequence do
       @script.should_receive(:is_a?).with(RightScale::RecipeInstantiation).and_return(false)
 
       @bundle = RightScale::ExecutableBundle.new([ @script ], [], 0, true, [], '', RightScale::DevRepositories.new, nil)
+      @thread_name = RightScale::ExecutableBundle::DEFAULT_THREAD_NAME
 
       @auditor = flexmock(RightScale::AuditStub.instance)
       @auditor.should_receive(:create_new_section)
@@ -77,6 +78,14 @@ describe RightScale::ExecutableSequence do
       logger = flexmock(RightScale::Log.logger)
       logger.should_receive(:info).and_return(true)
       logger.should_receive(:error).and_return(true)
+
+      # mock the cookbook checkout location
+      @cookbooks_path = Dir.mktmpdir
+      flexmock(RightScale::CookState).should_receive(:cookbooks_path).and_return(@cookbooks_path)
+    end
+
+    after(:each) do
+      FileUtils.rm_rf(@cookbooks_path)
     end
 
     after(:all) do
@@ -198,8 +207,13 @@ describe RightScale::ExecutableSequence do
   context 'Chef error formatting' do
 
     before(:each) do
+      # mock the cookbook checkout location
+      @cookbooks_path = Dir.mktmpdir
+      flexmock(RightScale::CookState).should_receive(:cookbooks_path).and_return(@cookbooks_path)
+
       bundle = flexmock('ExecutableBundle')
       bundle.should_receive(:repose_servers).and_return([]).by_default
+      bundle.should_receive(:thread_name).and_return(RightScale::ExecutableBundle::DEFAULT_THREAD_NAME)
       bundle.should_ignore_missing
       @sequence = RightScale::ExecutableSequence.new(bundle)
       begin
@@ -217,6 +231,10 @@ describe RightScale::ExecutableSequence do
                  '    paths.size.should == 1',
                  "    paths.first.should == File.join(@sequence.send(:cookbook_repo_directory, repo), 'cookbooks_path')",
                  '  end' ]
+    end
+
+    after(:each) do
+      FileUtils.rm_rf(@cookbooks_path)
     end
 
     it 'should format lines of code for error message context' do
@@ -238,10 +256,19 @@ describe RightScale::ExecutableSequence do
 
   context 'Specific Chef error formatting' do
     before(:each) do
+      # mock the cookbook checkout location
+      @cookbooks_path = Dir.mktmpdir
+      flexmock(RightScale::CookState).should_receive(:cookbooks_path).and_return(@cookbooks_path)
+
       bundle = flexmock('ExecutableBundle')
       bundle.should_receive(:repose_servers).and_return([]).by_default
       bundle.should_ignore_missing
+      bundle.should_receive(:thread_name).and_return(RightScale::ExecutableBundle::DEFAULT_THREAD_NAME)
       @sequence = RightScale::ExecutableSequence.new(bundle)
+    end
+
+    after(:each) do
+      FileUtils.rm_rf(@cookbooks_path)
     end
 
     it 'should produce a readable message when cookbook does not contain a referenced resource' do
