@@ -4,9 +4,9 @@ source :rubygems
 gem "rubyforge",             "1.0.4"
 gem "rake",                  "0.8.7"
 gem 'right_support',         "~> 1.0.0"
-gem 'right_agent',           :git => 'https://github.com/rightscale/right_agent.git',
+gem 'right_agent',           :git => 'https://github.com/rgeyer/right_agent.git',
                              :require => nil,
-                             :branch => 'master'
+                             :branch => 'azure_31_softlayer_userdata'
 
 # Dependencies for right_scraper
 gem "right_scraper", "3.0.1"
