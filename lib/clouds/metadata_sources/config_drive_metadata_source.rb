@@ -20,30 +20,31 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+require File.normalize_path(File.expand_path('../file_metadata_source', __FILE__))
+
 module RightScale
   module MetadataSources
     class ConfigDriveMetadataSource < FileMetadataSource
 
-      DEFAULT_SYS_BLOCK_DIR_PATH      = "/sys/block"
+      DEFAULT_DEV_DISK_DIR_PATH       = "/dev/disk"
       DEFAULT_CONFIG_DRIVE_MOUNTPOINT = "/mnt/configdrive"
 
-      attr_accessor :sys_block_dir_path, :config_drive_sector_count, :config_drive_mountpoint
+      attr_accessor :config_drive_label, :config_drive_size_in_blocks, :config_drive_mountpoint, :config_drive_uuid
 
       def initialize(options)
         raise ArgumentError, "options[:logger] is required" unless @logger = options[:logger]
+        raise ArgumentError, "options[:config_drive_size_in_blocks] is required" unless @config_drive_size_in_blocks = options[:config_drive_size_in_blocks]
 
-        @sys_block_dir_path        = options[:sys_block_dir_path] || DEFAULT_SYS_BLOCK_DIR_PATH
-        @config_drive_mountpoint   = options[:config_drive_mountpoint] || DEFAULT_CONFIG_DRIVE_MOUNTPOINT
-        @config_drive_sector_count = options[:config_drive_sector_count]
+        @config_drive_mountpoint      = options[:config_drive_mountpoint] || DEFAULT_CONFIG_DRIVE_MOUNTPOINT
+        @config_drive_uuid            = options[:config_drive_uuid]
+        @config_drive_filesystem      = options[:config_drive_filesystem]
+        @config_drive_label           = options[:config_drive_label]
 
-        super(options.merge({
-          :cloud_metadata_source_file_path => File.join(@config_drive_mountpoint, 'metadata'),
-          :user_metadata_source_file_path => File.join(@config_drive_mountpoint, 'userdata')
-        }))
+        super(options)
       end
 
       def query(path)
-        mount_config_drive()
+        mount_config_drive
 
         super(path)
       end
@@ -56,34 +57,51 @@ module RightScale
         end
       end
 
+      def find_device
+        results = []
+        success = []
+        default = ""
+
+        if RightScale::Platform.windows?
+          # Probably some WMI magic here?
+        else
+          by_size = '/dev/'+blocking_popen("cat /proc/partitions | grep #{@config_drive_size_in_blocks} | awk '{print $4}'")
+          by_size.strip!
+          default = by_size
+          results << by_size
+          results << (@config_drive_uuid ? blocking_popen("blkid -t UUID=#{@config_drive_uuid} -o device").strip : by_size)
+          results << (@config_drive_filesystem ? blocking_popen("blkid -t TYPE=#{@config_drive_filesystem} -o device").strip : by_size)
+          results << (@config_drive_label ? blocking_popen("blkid -t LABEL=#{@config_drive_label} -o device").strip : by_size)
+        end
+
+        results.length.times do |i|
+          success << default
+        end
+
+        success == results ? default : nil
+      end
+
       def mount_config_drive
+        device = find_device
+
+        # Raise or log and exit?
+        if !device || device.empty?
+          @logger.error("No config drive device found.")
+          return
+        end
+
         if RightScale::Platform.windows?
           # Finding devices (in windows) - http://stackoverflow.com/questions/3258518/ruby-get-available-disk-drives
         else
           mount_list_output = blocking_popen('mount')
           if !(mount_list_output =~ /#{@config_drive_mountpoint}/)
-            @logger.debug("Config drive not mounted at specified mountpoint.  Searching for config drive in \"#{@sys_block_dir_path}\"")
-            Dir.entries(@sys_block_dir_path).each do |device|
-              size_file_path = File.join(@sys_block_dir_path, device, 'size')
-              if File.exists?(size_file_path)
-                device_size = File.open(size_file_path, 'r') {|f| f.read }
-                # We're only detecting the device's size in sectors, there are other properties we could look for
-                # I.E. ro flag, fat32, removable flag
-                if device_size == "#{@config_drive_sector_count}"
-                  @logger.debug("Found config drive as device \"#{device}\", mounting.")
-                  mount_output = blocking_popen("mount -t fat32 /dev/#{device} #{@config_drive_mountpoint}")
-                  unless $?.success?
-                    @logger.error("Unable to mount config drive to \"#{@config_drive_mountpoint}\" with device \"#{device}\"; Exit Status: #{$?.exitstatus}\nError: #{mount_output}")
-                  end
-                  return
-                end
-              end
+            FileUtils.mkdir_p(@config_drive_mountpoint) unless File.directory? @config_drive_mountpoint
+            mount_output = blocking_popen("mount -t vfat #{device} #{@config_drive_mountpoint}")
+            unless $?.success?
+              @logger.error("Unable to mount config drive to \"#{@config_drive_mountpoint}\" with device \"#{device}\"; Exit Status: #{$?.exitstatus}\nError: #{mount_output}")
             end
-            # TODO: Should I be raising an exception here instead?
-            @logger.error("No config drive was found with a sector count of \"#{@config_drive_sector_count}\"")
           end
         end
-
       end
 
     end
