@@ -4,7 +4,9 @@ source :rubygems
 gem "rubyforge",             "1.0.4"
 gem "rake",                  "0.8.7"
 gem 'right_support',         "~> 1.0"
-gem 'right_agent',           "~> 0.6.0"
+gem 'right_agent',           :git => 'https://github.com/rgeyer/right_agent.git',
+                             :require => nil,
+                             :branch => 'azure_31_softlayer_userdata'
 gem "right_scraper",         "3.0.1"
 gem "right_http_connection", "~> 1.3.0"
 gem "right_popen",           "1.0.17"

@@ -20,7 +20,7 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-CONFIG_DRIVE_MOUNTPOINT = File.join(RightScale::Platform.filesystem.spool_dir, name.to_s)
+CONFIG_DRIVE_MOUNTPOINT = ::RightScale::Platform.windows? ? 'Z' : File.join(RightScale::Platform.filesystem.spool_dir, name.to_s)
 
 # dependencies.
 metadata_source 'metadata_sources/config_drive_metadata_source'
@@ -58,8 +58,7 @@ default_option([:user_metadata, :metadata_tree_climber, :has_children_override],
 default_option([:user_metadata, :metadata_tree_climber, :create_leaf_override], method(:create_user_metadata_leaf))
 default_option([:metadata_source, :user_metadata_source_file_path], File.join(CONFIG_DRIVE_MOUNTPOINT, 'meta.js'))
 
-default_option([:metadata_source, :config_drive_size_in_blocks], 62464)
 default_option([:metadata_source, :config_drive_uuid], "681B-8C5D")
 default_option([:metadata_source, :config_drive_filesystem], "vfat")
 default_option([:metadata_source, :config_drive_label], 'METADATA')
-default_option([:metadata_source, :config_drive_mountpoint], CONFIG_DRIVE_MOUNTPOINT)
+default_option([:metadata_source, :config_drive_mountpoint],  CONFIG_DRIVE_MOUNTPOINT)

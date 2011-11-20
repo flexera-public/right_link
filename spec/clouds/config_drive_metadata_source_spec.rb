@@ -27,7 +27,6 @@ require File.join(File.dirname(__FILE__), '..', '..', 'lib', 'clouds', 'metadata
 module RightScale
   module ConfigDriveMetadataSourceSpec
 
-    CONFIG_DRIVE_SIZE_IN_BLOCKS   = 62464
     CONFIG_DRIVE_UUID             = "681B-8C5D"
     CONFIG_DRIVE_FILESYSTEM       = "vfat"
     CONFIG_DRIVE_LABEL            = "METADATA"
@@ -71,65 +70,31 @@ module RightScale
           :config_drive_uuid              => CONFIG_DRIVE_UUID,
           :config_drive_filesystem        => CONFIG_DRIVE_FILESYSTEM,
           :config_drive_label             => CONFIG_DRIVE_LABEL,
-          :config_drive_size_in_blocks    => CONFIG_DRIVE_SIZE_IN_BLOCKS,
           :user_metadata_source_file_path => File.join(CONFIG_DRIVE_MOUNTPOINT, 'userdata')
         })
       end
 
       def teardown_metadata_provider
-          FileUtils::rm_rf("/tmp/rl_test")
+        FileUtils::rm_rf("/tmp/rl_test")
       end
 
-      it 'can find and mount a device given all searchable properties' do
-        mount_resp = <<EOF
-/dev/sda1 /
+      context :mount_config_drive do
+        it 'raises config_drive_error if no device is found' do
+          volume_manager = flexmock(:volumes => [])
+          flexmock(::RightScale::Platform).should_receive(:volume_manager).and_return(volume_manager)
 
-EOF
+          lambda { @user_metadata_source.mount_config_drive }.should raise_error(RightScale::MetadataSources::ConfigDriveMetadataSource::ConfigDriveError)
+        end
 
-        device_path = <<EOF
-/dev/#{CONFIG_DRIVE_DEVICE}
+        it 'creates the config drive mountpoint if it does not exist' do
+          volume_manager = flexmock(:volumes => [{:device => "/dev/xvda1"}], :mount_volume => true, :assign_device => true)
+          flexmock(::RightScale::Platform).should_receive(:volume_manager).and_return(volume_manager)
 
-EOF
+          flexmock(File).should_receive(:directory?).at_least.once.with(CONFIG_DRIVE_MOUNTPOINT).and_return(false)
+          flexmock(FileUtils).should_receive(:mkdir_p).at_least.once.with(CONFIG_DRIVE_MOUNTPOINT)
 
-        mount_popen_obj = flexmock("foo")
-        mount_popen_obj.should_receive(:read).at_least.once.and_return(mount_resp)
-
-        cat_proc_mock = flexmock("cat_proc_mock")
-        cat_proc_mock.should_receive(:read).at_least.once.and_return(CONFIG_DRIVE_DEVICE)
-
-        blkid_mock = flexmock("blkid_mock")
-        blkid_mock.should_receive(:read).times(3).and_return(device_path)
-
-        flexmock(IO).should_receive(:popen).at_least.once.with("cat /proc/partitions | grep #{CONFIG_DRIVE_SIZE_IN_BLOCKS} | awk '{print $4}'",Proc).and_yield(cat_proc_mock)
-        flexmock(IO).should_receive(:popen).at_least.once.with("blkid -t UUID=#{CONFIG_DRIVE_UUID} -o device",Proc).and_yield(blkid_mock)
-        flexmock(IO).should_receive(:popen).at_least.once.with("blkid -t TYPE=#{CONFIG_DRIVE_FILESYSTEM} -o device",Proc).and_yield(blkid_mock)
-        flexmock(IO).should_receive(:popen).at_least.once.with("blkid -t LABEL=#{CONFIG_DRIVE_LABEL} -o device",Proc).and_yield(blkid_mock)
-
-        flexmock(IO).should_receive(:popen).at_least.once.with("mount",Proc).and_yield(mount_popen_obj)
-        flexmock(IO).should_receive(:popen).at_least.once.with("mount -t vfat /dev/#{CONFIG_DRIVE_DEVICE} /tmp/rl_test/mnt/configdrive",Proc).and_return(0)
-
-        @user_metadata_source.query('user_metadata').should === USER_METADATA_JSON
-      end
-
-#      it 'does not (re)mount the config drive if it\'s already mounted' do
-#        mount_resp = <<EOF
-#/dev/sda1 /
-#/dev/xvdz /tmp/rl_test/mnt/configdrive
-#EOF
-#        mount_popen_obj = flexmock("foo")
-#        mount_popen_obj.should_receive(:read).at_least.once.and_return(mount_resp)
-#
-#        flexmock(IO).should_receive(:popen).at_least.once.with("mount",Proc).and_yield(mount_popen_obj)
-#        flexmock(IO).should_receive(:popen).never.with("mount -t vfat /dev/xvdz /tmp/rl_test/mnt/configdrive",Proc).and_return(0)
-#
-#        @user_metadata_source.query('user_metadata').should === JSON.parse(USER_METADATA_JSON)
-#      end
-
-      it 'creates the config drive mountpoint if it does not exist' do
-        flexmock(File).should_receive(:directory?).at_least.once.with(CONFIG_DRIVE_MOUNTPOINT).and_return(false)
-        flexmock(FileUtils).should_receive(:mkdir_p).at_least.once.with(CONFIG_DRIVE_MOUNTPOINT)
-
-        @user_metadata_source.query('user_metadata')
+          @user_metadata_source.mount_config_drive
+        end
       end
     end
 

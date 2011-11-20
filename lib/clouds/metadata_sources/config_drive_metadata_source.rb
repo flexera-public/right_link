@@ -26,84 +26,82 @@ module RightScale
   module MetadataSources
     class ConfigDriveMetadataSource < FileMetadataSource
 
+      class ConfigDriveError < Exception; end
+
       DEFAULT_DEV_DISK_DIR_PATH       = "/dev/disk"
       DEFAULT_CONFIG_DRIVE_MOUNTPOINT = "/mnt/configdrive"
 
-      attr_accessor :config_drive_label, :config_drive_size_in_blocks, :config_drive_mountpoint, :config_drive_uuid
+      attr_accessor :config_drive_label, :config_drive_mountpoint, :config_drive_uuid, :config_drive_filesystem
 
       def initialize(options)
         raise ArgumentError, "options[:logger] is required" unless @logger = options[:logger]
-        raise ArgumentError, "options[:config_drive_size_in_blocks] is required" unless @config_drive_size_in_blocks = options[:config_drive_size_in_blocks]
 
         @config_drive_mountpoint      = options[:config_drive_mountpoint] || DEFAULT_CONFIG_DRIVE_MOUNTPOINT
         @config_drive_uuid            = options[:config_drive_uuid]
         @config_drive_filesystem      = options[:config_drive_filesystem]
         @config_drive_label           = options[:config_drive_label]
 
+        if @config_drive_uuid.nil? & @config_drive_label.nil? & @config_drive_filesystem.nil?
+          raise ArgumentError, "at least one of the following is required [options[:config_drive_label], options[:config_drive_filesystem],options[:config_drive_uuid]]"
+        end
+
         super(options)
       end
 
+      # Queries for metadata using the given path.
+      #
+      # === Parameters
+      # path(String):: metadata path
+      #
+      # === Return
+      # metadata(String):: query result
+      #
+      # === Raises
+      # QueryFailed:: on any failure to query
       def query(path)
         mount_config_drive
 
         super(path)
       end
 
-      private
-
-      def blocking_popen(command)
-        IO.popen(command) do |io|
-          io.read
-        end
-      end
-
-      def find_device
-        results = []
-        success = []
-        default = ""
-
-        if RightScale::Platform.windows?
-          # Probably some WMI magic here?
-        else
-          by_size = '/dev/'+blocking_popen("cat /proc/partitions | grep #{@config_drive_size_in_blocks} | awk '{print $4}'")
-          by_size.strip!
-          default = by_size
-          results << by_size
-          results << (@config_drive_uuid ? blocking_popen("blkid -t UUID=#{@config_drive_uuid} -o device").strip : by_size)
-          results << (@config_drive_filesystem ? blocking_popen("blkid -t TYPE=#{@config_drive_filesystem} -o device").strip : by_size)
-          results << (@config_drive_label ? blocking_popen("blkid -t LABEL=#{@config_drive_label} -o device").strip : by_size)
-        end
-
-        results.length.times do |i|
-          success << default
-        end
-
-        success == results ? default : nil
-      end
-
+      # Mounts the configuration drive based on the provided parameters
+      #
+      # === Parameters
+      #
+      # === Return
+      # always true
+      #
+      # === Raises
+      # ConfigDriveError:: on failure to find a config drive
+      # SystemCallError:: on failure to create the mountpoint
+      # ArgumentError:: on invalid parameters
+      # VolumeError:: on a failure to mount the device
+      # ParserError:: on failure to parse volume list
       def mount_config_drive
-        device = find_device
+        # These two conditions are available on *nix and windows
+        conditions = {}
+        conditions[:label] = @config_drive_label if @config_drive_label
+        conditions[:filesystem] = @config_drive_filesystem if @config_drive_filesystem
 
-        # Raise or log and exit?
-        if !device || device.empty?
-          @logger.error("No config drive device found.")
-          return
+        if ::RightScale::Platform.linux? && @config_drive_uuid
+          conditions[:uuid] = @config_drive_uuid
         end
 
-        if RightScale::Platform.windows?
-          # Finding devices (in windows) - http://stackoverflow.com/questions/3258518/ruby-get-available-disk-drives
+        device_ary = ::RightScale::Platform.volume_manager.volumes(conditions)
+
+        # REVIEW: Raise or log and exit?
+        raise ConfigDriveError.new("Config drive device found. Conditions: #{conditions.inspect}") if device_ary.length == 0
+
+        FileUtils.mkdir_p(@config_drive_mountpoint) unless File.directory? @config_drive_mountpoint
+
+        if ::RightScale::Platform.linux?
+          ::RightScale::Platform.volume_manager.mount_volume(device_ary[0], @config_drive_mountpoint)
         else
-          mount_list_output = blocking_popen('mount')
-          if !(mount_list_output =~ /#{@config_drive_mountpoint}/)
-            FileUtils.mkdir_p(@config_drive_mountpoint) unless File.directory? @config_drive_mountpoint
-            mount_output = blocking_popen("mount -t vfat #{device} #{@config_drive_mountpoint}")
-            unless $?.success?
-              @logger.error("Unable to mount config drive to \"#{@config_drive_mountpoint}\" with device \"#{device}\"; Exit Status: #{$?.exitstatus}\nError: #{mount_output}")
-            end
-          end
+          ::RightScale::Platform.volume_manager.assign_device(device_ary[0][:index], @config_drive_mountpoint)
         end
+        return true
       end
 
-    end
-  end
-end
+    end # ConfigDriveMetadataSource
+  end # MetadataSources
+end # RightScale
