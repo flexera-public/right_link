@@ -154,14 +154,16 @@ protected
       raise ArgumentError.new('Could not retrieve agent listen port') unless listen_port
       client = CommandClient.new(listen_port, config_options[:cookie])
 
-      summary  = "SSH login as #{username}"
-      summary += " from #{client_ip}" if client_ip
+      summary  = "SSH login"
+      detail   = "#{email} logged in as #{username}"
+      detail  += " from #{client_ip}" if client_ip
 
       options = {
         :name => 'audit_create_entry',
         :summary => summary,
         :category => RightScale::EventCategories::CATEGORY_SECURITY,
-        :user_email => email
+        :user_email => email,
+        :detail => detail
       }
 
       client.send_command(options, false, AUDIT_REQUEST_TIMEOUT) do |res|

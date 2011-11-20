@@ -352,7 +352,8 @@ module RightScale
         :agent_identity => @agent_identity,
         :summary        => opts[:summary],
         :category       => opts[:category] || RightScale::EventCategories::NONE,
-        :user_email     => opts[:user_email]
+        :user_email     => opts[:user_email],
+        :detail         => opts[:detail]
       }
       send_persistent_request('/auditor/create_entry', opts[:conn], payload)
     end
