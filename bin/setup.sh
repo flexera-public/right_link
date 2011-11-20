@@ -92,10 +92,10 @@ function install_gems() {
     if [ -e vendor/cache ]
     then
         echo "Installing gems in release mode (local sources only)"
-        bundle_flags="--local"
+        bundle_flags="--local --deployment"
     else
         echo "Installing gems in development mode"
-        bundle_flags=""
+        bundle_flags="--deployment"
     fi
 
     cd $right_link_root
