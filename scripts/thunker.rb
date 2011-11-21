@@ -218,11 +218,10 @@ module RightScale
       home_dir = "/home/#{username}"
       rs_profile_path = "#{home_dir}/#{RS_PROFILE_FILE}"
 
-      return false if File.exists?(rs_profile_path)
-
+      not_exist = !File.exists?(rs_profile_path)
       file_path = "/tmp/#{File.basename(url)}"
 
-      if download_file(url, file_path)
+      if not_exist && download_file(url, file_path)
         if extract_files(username, file_path, home_dir, force)
           save_checksum(file_path, rs_profile_path)
           STDOUT.puts "# Profile files for #{username} extracted"
@@ -234,6 +233,11 @@ module RightScale
         STDOUT.puts "# Profile for #{username} is not downloaded"
         return false
       end
+
+    rescue Exception => e
+      Log.error("#{e.class.name}:#{e.message}")
+      Log.error(e.backtrace.join("\n"))
+      fail(e)
     end
 
     # Downloads a file from specified URL
