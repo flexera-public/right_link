@@ -17,7 +17,7 @@
 #     rs_thunk -u alice -e alice@example.com
 #
 # === Usage
-#    rs_thunk --username USERNAME [--email EMAIL] [--profile DATA] [--force]
+#    rs_thunk --username USERNAME --email EMAIL [--profile DATA] [--force]
 #
 
 require 'rubygems'
@@ -59,10 +59,7 @@ module RightScale
       profile = options.delete(:profile)
       force = options.delete(:force)
 
-      unless username
-        STDERR.puts "Missing argument USERNAME, rs_thunk --help for additional information"
-        fail(1)
-      end
+      fail(1) if missing_argument(username, "USERNAME") || missing_argument(email, "EMAIL")
 
       if ENV.has_key?('SSH_CLIENT')
         client_ip = ENV['SSH_CLIENT'].split(/\s+/).first
@@ -115,6 +112,23 @@ module RightScale
     end
 
     protected
+
+    # Checks if argument is missing; shows error message
+    #
+    # === Parameters
+    # parameter(String):: parameter
+    # name(String):: parameter's name
+    #
+    # == Return
+    # missing(Boolean):: true if parameter is missing
+    def missing_argument(parameter, name)
+      unless parameter
+        STDERR.puts "Missing argument #{name}, rs_thunk --help for additional information"
+        return true
+      end
+
+      return false
+    end
 
     # Exit with success.
     #
