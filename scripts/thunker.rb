@@ -10,13 +10,14 @@
 #      --username,  -u USERNAME     Authorize as RightScale user with USERNAME
 #      --email,     -e EMAIL        Create audit entry saying "EMAIL logged in as USERNAME"
 #      --profile,   -p DATA         Extra profile data (e.g. a URL to download)
+#      --force,     -f              If profile option was specified - rewrite existing files
 #
 # === Examples:
 #   Authorize as 'alice' with email address alice@example.com:
-#     rs_thunk -u alice --e alice@example.com
+#     rs_thunk -u alice -e alice@example.com
 #
 # === Usage
-#    rs_thunk --username USERNAME [--email EMAIL] [--profile DATA]
+#    rs_thunk --username USERNAME [--email EMAIL] [--profile DATA] [--force]
 #
 
 require 'rubygems'
@@ -25,6 +26,7 @@ require 'right_agent'
 require 'right_agent/scripts/usage'
 require 'right_agent/scripts/common_parser'
 require 'right_agent/core_payload_types'
+require 'right_support/net'
 
 module RightScale
 
@@ -40,7 +42,7 @@ module RightScale
       end
     end
 
-    # Manage individual user SSH logings
+    # Manage individual user SSH logins
     #
     # === Parameters
     # options(Hash):: Hash of options as defined in +parse_args+
@@ -52,7 +54,11 @@ module RightScale
       @log = Logger.new(@log_sink)
       RightScale::Log.force_logger(@log)
 
-      username, email, profile = options.delete(:username), options.delete(:email), options.delete(:profile)
+      username = options.delete(:username)
+      email = options.delete(:email)
+      profile = options.delete(:profile)
+      force = options.delete(:force)
+
       unless username
         STDERR.puts "Missing argument USERNAME, rs_thunk --help for additional information"
         fail(1)
@@ -63,8 +69,7 @@ module RightScale
       end
 
       create_audit_entry(email, username, client_ip)
-
-      STDOUT.puts "# => WIP: We're going to download your profile tarball from #{profile} here" if profile
+      create_profile(username, profile, force) if profile
 
       #Thunk into user's context
       cmd = "cd /home/#{username}; sudo su -l #{username}"
@@ -89,6 +94,10 @@ module RightScale
         opts.on('-p', '--profile DATA') do |data|
           options[:profile] = data
         end
+
+        opts.on('-f', '--force') do
+          options[:force] = true
+        end
       end
 
       opts.on_tail('--help') do
@@ -105,7 +114,8 @@ module RightScale
       options
     end
 
-protected
+    protected
+
     # Exit with success.
     #
     # === Return
@@ -177,6 +187,107 @@ protected
       fail(error)
     end
 
+    RS_PROFILE_FILE = ".rightscale/rs_profile"
+
+    # Downloads an archive from given path; extracts files and moves
+    # them to username's home directory.
+    #
+    # === Parameters
+    # username(String):: account's username
+    # url(String):: URL to profile archive
+    # force(Boolean):: rewrite existing files if true; otherwise skip them
+    #
+    # === Return
+    # extracted(Boolean):: true if profile downloaded and copied; false
+    # if profile has been created earlier or error occured
+    def create_profile(username, url, force = false)
+      home_dir = "/home/#{username}"
+      rs_profile_path = "#{home_dir}/#{RS_PROFILE_FILE}"
+
+      return false if File.exists?(rs_profile_path)
+
+      file_path = "/tmp/#{File.basename(url)}"
+
+      if download_file(url, file_path)
+        if extract_files(username, file_path, home_dir, force)
+          save_checksum(file_path, rs_profile_path)
+          STDOUT.puts "# Profile files for #{username} extracted"
+        end
+
+        File.delete(file_path)
+        return true
+      else
+        STDOUT.puts "# Profile for #{username} is not downloaded"
+        return false
+      end
+    end
+
+    # Downloads a file from specified URL
+    #
+    # === Parameters
+    # url(String):: URL to file
+    # path(String):: downloaded file path
+    #
+    # === Return
+    # downloaded(Boolean):: true if downloaded and saved successfully
+    def download_file(url, path)
+      client = RightSupport::Net::HTTPClient.new
+
+      response = client.get(url)
+      open(path, "wb") { |file| file.write(response.body) }
+
+      File.exists?(path)
+    end
+
+    # Extracts an archive and moves files to destination directory
+    # Supported archive types are:
+    #   .tar.gz / .tgz
+    #   .zip
+    #
+    # === Parameters
+    # username(String):: account's username
+    # filename(String):: archive's path
+    # destination_path(String):: path where extracted files should be
+    # moved
+    # force(Boolean):: optional; if true existing files will be
+    # rewritten
+    #
+    # === Return
+    # extracted(Boolean):: true if archive is extracted successfully
+    def extract_files(username, filename, destination_path, force = false)
+      extraction_path = "/tmp/#{username}"
+      FileUtils.mkdir_p(extraction_path)
+      FileUtils.mkdir_p(destination_path)
+
+      case filename
+      when /(?:\.tar\.gz|\.tgz)$/
+        %x(tar zxf #{filename} -C #{extraction_path})
+      when /\.zip$/
+        %x(unzip -o #{filename} -d #{extraction_path})
+      end
+
+      extracted = $?.exitstatus == 0
+      FileUtils.move(extraction_path, destination_path, { :force => force })
+      FileUtils.chown_R(username, username, destination_path)
+
+      extracted
+    end
+
+    # Calculates MD5 checksum for specified file and saves it
+    #
+    # === Parameters
+    # target(String):: path to file
+    # destination(String):: path to file where checksum should be saved
+    #
+    # === Return
+    # nil
+    def save_checksum(target, destination)
+      checksum = Digest::MD5.file(target).to_s
+
+      FileUtils.mkdir_p(destination)
+      FileUtils.chmod(0700, destination)
+      open(destination, "w") { |f| f.write(checksum) }
+    end
   end # Thunker
 
 end # RightScale
