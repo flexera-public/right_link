@@ -237,7 +237,7 @@ module RightScale
     rescue Exception => e
       Log.error("#{e.class.name}:#{e.message}")
       Log.error(e.backtrace.join("\n"))
-      fail(e)
+      return false
     end
 
     # Downloads a file from specified URL
@@ -252,7 +252,7 @@ module RightScale
       client = RightSupport::Net::HTTPClient.new
 
       response = client.get(url)
-      open(path, "wb") { |file| file.write(response.body) }
+      open(path, "wb") { |file| file.write(response.body) } if response.status == 200
 
       File.exists?(path)
     end
