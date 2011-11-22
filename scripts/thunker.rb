@@ -272,6 +272,8 @@ module RightScale
     # extracted(Boolean):: true if archive is extracted successfully
     def extract_files(username, filename, destination_path, force = false)
       case filename
+      when /(?:\.tar\.bz2|\.tbz)$/
+        %x(sudo tar jxf #{Shellwords.escape(filename)} -C #{destination_path})
       when /(?:\.tar\.gz|\.tgz)$/
         %x(sudo tar zxf #{Shellwords.escape(filename)} -C #{destination_path})
       when /\.zip$/
