@@ -32,7 +32,6 @@ module RightScale
     CONFIG_DRIVE_LABEL            = "METADATA"
     CONFIG_DRIVE_DEVICE           = "xvdh1"
     CONFIG_DRIVE_MOUNTPOINT       = "/tmp/rl_test/mnt/configdrive"
-    DEV_DISK_DIR_PATH             = "/tmp/rl_test/dev/disk"
     USER_METADATA_JSON            = '["RS_rn_url=amqp:\/\/1234567890@broker1-2.rightscale.com\/right_net&RS_rn_id=1234567890&RS_server=my.rightscale.com&RS_rn_auth=1234567890&RS_api_url=https:\/\/my.rightscale.com\/api\/inst\/ec2_instances\/1234567890&RS_rn_host=:1,broker1-1.rightscale.com:0&RS_version=5.6.5&RS_sketchy=sketchy4-2.rightscale.com&RS_token=1234567890"]'
 
     describe RightScale::MetadataSources::ConfigDriveMetadataSource do
