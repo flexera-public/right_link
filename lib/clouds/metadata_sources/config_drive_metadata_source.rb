@@ -87,10 +87,21 @@ module RightScale
           conditions[:uuid] = @config_drive_uuid
         end
 
-        device_ary = ::RightScale::Platform.volume_manager.volumes(conditions)
+        timeout   = 60 * 10
+        starttime = Time.now.to_i
+        backoff   = [2,5,10]
+        idx       = -1
+
+        begin
+          device_ary = ::RightScale::Platform.volume_manager.volumes(conditions)
+          idx = idx + 1 unless idx == 2
+          break if (Time.now.to_i - starttime) > timeout || device_ary.length > 0
+          @logger.warn("Configuration drive device was not found.  Trying again in #{backoff[idx % backoff.length]} seconds.")
+          Kernel.sleep(backoff[idx])
+        end while device_ary.length == 0
 
         # REVIEW: Raise or log and exit?
-        raise ConfigDriveError.new("Config drive device found. Conditions: #{conditions.inspect}") if device_ary.length == 0
+        raise ConfigDriveError.new("Configuration drive device found. Conditions: #{conditions.inspect}") if device_ary.length == 0
 
         FileUtils.mkdir_p(@config_drive_mountpoint) unless File.directory? @config_drive_mountpoint
 

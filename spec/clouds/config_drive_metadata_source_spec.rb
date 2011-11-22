@@ -63,6 +63,7 @@ module RightScale
         logger = flexmock("log")
         logger.should_receive(:debug)
         logger.should_receive(:error)
+        logger.should_receive(:warn)
 
         @user_metadata_source = ::RightScale::MetadataSources::ConfigDriveMetadataSource.new({
           :logger                         => logger,
@@ -80,8 +81,10 @@ module RightScale
 
       context :mount_config_drive do
         it 'raises config_drive_error if no device is found' do
+          timeint = Time.now.to_i
           volume_manager = flexmock(:volumes => [])
           flexmock(::RightScale::Platform).should_receive(:volume_manager).and_return(volume_manager)
+          flexmock(Time).should_receive(:now).twice.and_return(timeint, timeint + (60*11))
 
           lambda { @user_metadata_source.mount_config_drive }.should raise_error(RightScale::MetadataSources::ConfigDriveMetadataSource::ConfigDriveError)
         end
@@ -92,6 +95,18 @@ module RightScale
 
           flexmock(File).should_receive(:directory?).at_least.once.with(CONFIG_DRIVE_MOUNTPOINT).and_return(false)
           flexmock(FileUtils).should_receive(:mkdir_p).at_least.once.with(CONFIG_DRIVE_MOUNTPOINT)
+
+          @user_metadata_source.mount_config_drive
+        end
+
+        it 'waits for the config drive to be attached' do
+          # Note, this will spin for 17 seconds. :(
+          volume_manager = flexmock("volume_manager")
+          volume_manager.should_receive(:volumes).times(5).and_return([],[],[],[],[{:device => "/dev/xvdh1"}])
+          volume_manager.should_receive(:assign_device).once.and_return(true)
+          flexmock(::RightScale::Platform).should_receive(:volume_manager).and_return(volume_manager)
+
+          flexmock(Kernel).should_receive(:sleep).times(4)
 
           @user_metadata_source.mount_config_drive
         end
