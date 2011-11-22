@@ -215,16 +215,17 @@ module RightScale
     # extracted(Boolean):: true if profile downloaded and copied; false
     # if profile has been created earlier or error occured
     def create_profile(username, url, force = false)
-      STDERR.puts "Performing custom profile setup for #{username}"
       home_dir = Etc.getpwnam(username).dir
       checksum_path = File.join('.rightscale', PROFILE_CHECKSUM)
       return false if File.exists?(File.join(home_dir, checksum_path))
+
+      STDOUT.puts "Performing custom profile setup for #{username}"
 
       tmpdir = Dir.mktmpdir
       file_path = File.join(tmpdir, File.basename(url))
       if download_file(url, file_path) && extract_files(username, file_path, home_dir, force)
         save_checksum(username, file_path, checksum_path, home_dir)
-        STDERR.puts "Extracted profile for #{username}"
+        STDOUT.puts "Extracted profile for #{username}"
       end
 
       return true
