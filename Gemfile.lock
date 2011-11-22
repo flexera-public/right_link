@@ -1,3 +1,16 @@
+GIT
+  remote: git://github.com/rightscale/right_agent.git
+  revision: b17fa125616b63b47129232af04fa93f4bdf7be3
+  branch: master
+  specs:
+    right_agent (0.6.3)
+      amqp (= 0.7.5)
+      eventmachine (~> 0.12.10)
+      json (~> 1.4)
+      msgpack (= 0.4.4)
+      right_popen (~> 1.0.11)
+      right_support (~> 1.0)
+
 GEM
   remote: http://s3.amazonaws.com/rightscale_rightlink_gems_dev/
   remote: http://rubygems.org/
@@ -54,14 +67,7 @@ GEM
     rake (0.8.7)
     rest-client (1.6.3)
       mime-types (>= 1.16)
-    right_agent (0.6.2)
-      amqp (= 0.7.5)
-      eventmachine (~> 0.12.10)
-      json (~> 1.4)
-      msgpack (= 0.4.4)
-      right_popen (~> 1.0.11)
-      right_support (~> 1.0)
-    right_aws (2.1.0)
+    right_aws (3.0.0)
       right_http_connection (>= 1.2.5)
     right_http_connection (1.3.0)
     right_popen (1.0.17)
@@ -75,8 +81,8 @@ GEM
       libarchive (>= 0.1.1)
       process_watcher (~> 0.3)
       right_aws (>= 2.0)
-    right_support (1.1.0)
-      json (~> 1.4)
+    right_support (1.1.1)
+      yajl-ruby (~> 1.1)
     rspec (1.3.2)
     ruby-openid (2.1.8)
     ruby-wmi (0.2.2)
@@ -100,6 +106,8 @@ GEM
     windows-pr (1.0.8)
       win32-api (>= 1.4.5)
       windows-api (>= 0.3.0)
+    yajl-ruby (1.1.0)
+    yajl-ruby (1.1.0-x86-mswin32)
 
 PLATFORMS
   ruby
@@ -125,7 +133,7 @@ DEPENDENCIES
   process_watcher (= 0.4)
   rake (= 0.8.7)
   rest-client (= 1.6.3)
-  right_agent (~> 0.6.0)
+  right_agent (~> 0.6.0)!
   right_http_connection (~> 1.3.0)
   right_popen (= 1.0.17)
   right_scraper (= 3.0.1)

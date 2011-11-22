@@ -21,10 +21,12 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 require File.expand_path(File.join(File.dirname(__FILE__), 'spec_helper.rb'))
+require 'tempfile'
 
 describe Ohai::System, ' plugin cloud' do
 
   before(:each) do
+    Chef::Config[:file_cache_path] = Dir.mktmpdir
     # configure ohai for RightScale
     RightScale::OhaiSetup.configure_ohai
 
