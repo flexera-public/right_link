@@ -32,6 +32,10 @@ module RightScale
     RESTRICTED_TAG          = 'rs_login:state=restricted'
     COMMENT                 = /^\s*#/
 
+    def initialize
+      require 'etc'
+    end
+
     # Can the login manager function on this platform?
     #
     # === Return
@@ -77,11 +81,19 @@ module RightScale
     #
     # === Parameters
     # username(String):: account's username
+    # email(String):: account's email address
+    # data(String):: optional profile_data to be included
     #
     # === Return
     # prefix(String):: command string
-    def get_key_prefix(username, email, url)
-      %Q{command="rs_thunk --username #{username} --email #{email} --profile #{url}" }
+    def get_key_prefix(username, email, profile_data=nil)
+      if profile_data
+        profile = " --profile #{Shellwords.escape(profile_data).gsub('"', '\\"')}"
+      else
+        profile = ""
+      end
+
+      %Q{command="rs_thunk --username #{username} --email #{email}#{profile}" }
     end
 
     protected
@@ -200,7 +212,7 @@ module RightScale
         username = create_user(u.username, u.uuid, u.superuser)
 
         u.public_keys.each do |k|
-          user_lines << "#{get_key_prefix(username, u.common_name, "http://example.com/#{username}.tgz")} #{k}"
+          user_lines << "#{get_key_prefix(username, u.common_name, u.profile_data)} #{k}"
         end
       end
 
@@ -266,17 +278,22 @@ module RightScale
     # === Return
     # username(String):: created account's username
     def create_user(username, uuid, superuser)
-      uid = fetch_uid(uuid)
+      uid = uuid_to_uid(uuid)
 
       if uid_exists?(uid)
-        fetch_username(uid)
+        username = uid_to_username(uid)
       else
         username  = pick_username(username)
         add_user(username, uid)
-        add_to_group(username, "rightscale") if superuser
-
-        username
       end
+
+      if superuser
+        manage_group('rightscale', :add, username)
+      else
+        manage_group('rightscale', :remove, username)
+      end
+
+      username
     end
 
     # Fetches username from account's UID.
@@ -286,23 +303,23 @@ module RightScale
     #
     # === Return
     # username(String):: account's username or empty string
-    def fetch_username(uid)
-      user_line = %x(grep '^.*:.:#{uid}' /etc/passwd)
-      user_line.scan(/^(\w+)/).to_s
+    def uid_to_username(uid)
+      uid = Integer(uid)
+      Etc.getpwuid(uid).name
     end
 
     # Binding for adding user's account record to OS
     #
     # === Parameters
     # username(String):: username
-    # group(String):: user group name
     # uid(String):: account's UID
     #
     # === Return
     # nil
     def add_user(username, uid)
-      # We need to use user_id integer instead of translation uuid to integer!
-      %x(useradd -s /bin/bash -u #{uid} -m #{username})
+      uid      = Integer(uid)
+
+      %x(useradd -s /bin/bash -u #{uid} -m #{Shellwords.escape(username)})
 
       case $?.exitstatus
       when 0
@@ -310,27 +327,54 @@ module RightScale
       end
     end
 
-    # Adds a user to specified group
+    # Adds or removes a user from an OS group; does nothing if the user
+    # is already in the correct membership state.
     #
     # === Parameters
-    # username(String):: account's username
     # group(String):: group name
+    # operation(Symbol):: :add or :remove
+    # username(String):: username to add/remove
+    #
+    # === Raise
+    # Raises ArgumentError
     #
     # === Return
-    # nil
-    def add_to_group(username, group)
-      %x(usermod -a -G #{group} #{username})
+    # result(Boolean):: true if user was added/removed; false if
+    #
+    def manage_group(group, operation, username)
+      #Ensure group/user exist; this raises ArgumentError if either does not exist
+      Etc.getgrnam(group)
+      Etc.getpwnam(username)
+
+      groups = Set.new
+      Etc.group { |g| groups << g.name if g.mem.include?(username) }
+
+      case operation
+        when :add
+          return false if groups.include?(group)
+          groups << group
+        when :remove
+          return false unless groups.include?(group)
+          groups.delete(group)
+        else
+          raise ArgumentError, "Unknown operation #{operation}; expected :add or :remove"
+      end
+
+      groups   = Shellwords.escape(groups.to_a.join(','))
+      username = Shellwords.escape(username)
+      output = %x(usermod -G #{groups} #{username})
 
       case $?.exitstatus
       when 0
-        RightScale::Log.info "User #{username} added to group '#{group}' successfully"
+        RightScale::Log.info "Successfully performed group-#{operation} of #{username} to #{group}"
+        return true
+      else
+        RightScale::Log.error "Failed group-#{operation} of #{username} to #{group}: #{output}"
+        return false
       end
     end
 
     # Checks if user with specified name exists in the system.
-    #
-    # id command returns information about user and exit status. 
-    # It can be 0 for success; > 0 for error. 
     #
     # === Parameter
     # name(String):: username
@@ -338,19 +382,12 @@ module RightScale
     # === Return
     # exist_status(Boolean):: true if user exists; otherwise false
     def user_exists?(name)
-      %x(id #{name})
-
-      $?.exitstatus == 0
+      Etc.getpwnam(name) == name
+    rescue ArgumentError
+      false
     end
 
-    # Checks if user with specified UID exists in the system.
-    #
-    # Linux /etc/passwd file has the following structure:
-    #
-    # <username>:x(hidden password):<UID>:<GID>:<info>:<homedir>:<command>
-    #
-    # If command matches the defined regexp it means user with such UID
-    # exists.
+    # Checks if user with specified Unix UID exists in the system.
     #
     # === Parameters
     # uid(String):: account's UID
@@ -358,15 +395,16 @@ module RightScale
     # === Return
     # exist_status(Boolean):: true if exists;otherwise false
     def uid_exists?(uid)
-      not %x(grep '.*:.:#{uid}' /etc/passwd).empty?
+      uid = Integer(uid)
+      Etc.getpwuid(uid).uid == uid
+    rescue ArgumentError
+      false
     end
 
-    # Temporary hack to get username from the user email. Will be changed
-    # by adding extra field to LoginPolicy and LoginUser.
-    #
-    # Method picks username from common_name(email).
-    # Then it checks for username existance incrementing postfix until
-    # suitable name is found.
+    # Pick a username that does not yet exist on the system. If the given
+    # username does not exist, it is returned; else we add a "_1" suffix
+    # and continue incrementing the number until we arrive at a username
+    # that does not yet exist.
     #
     # === Parameters
     # username(String):: username
@@ -376,7 +414,7 @@ module RightScale
     def pick_username(username)
       name = username
 
-      index = 0
+      index = 1
       while user_exists?(name)
         index += 1
         name = "#{username}_#{index}"
@@ -385,15 +423,15 @@ module RightScale
       name
     end
 
-    # Transforms RightScale UUID to linux uid.
+    # Transforms RightScale User UUID to Linux uid.
     #
     # === Parameters
-    # uuid(String):: RightScale account's UUID
+    # uuid(String):: RightScale user's UUID
     #
     # === Return
     # uid(Integer):: Linux account's UID
-    def fetch_uid(uuid)
-      uuid.to_i + 4096
+    def uuid_to_uid(uuid)
+      Integer(uuid) + 4096
     end
   end
 end

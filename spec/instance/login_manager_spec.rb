@@ -75,7 +75,7 @@ describe RightScale::LoginManager do
 
   # Generates a LoginUser with specified number of public keys
   def generate_user(public_keys_count, domain)
-    num = rand(2**32).to_s(32)
+    num = rand(2**32-4097)
     public_keys = []
 
     public_keys_count.times do
@@ -83,7 +83,7 @@ describe RightScale::LoginManager do
       public_keys << "ssh-rsa #{pub} #{num}@#{domain}"
     end
 
-    RightScale::LoginUser.new("v0-#{num}", "rs-#{num}", nil, "#{num}@#{domain}", true, nil, public_keys)
+    RightScale::LoginUser.new("#{num}", "user#{num}", nil, "#{num}@#{domain}", true, nil, public_keys)
   end
 
   before(:each) do
@@ -133,7 +133,7 @@ describe RightScale::LoginManager do
       # === Mocks for OS specific operations
       flexmock(@mgr).should_receive(:write_keys_file).and_return(true).by_default
       flexmock(@mgr).should_receive(:add_user).and_return(nil).by_default
-      flexmock(@mgr).should_receive(:add_to_group).and_return(nil).by_default
+      flexmock(@mgr).should_receive(:manage_group).and_return(true).by_default
       flexmock(@mgr).should_receive(:user_exists?).and_return(false).by_default
       # === Mocks end
 
@@ -153,20 +153,26 @@ describe RightScale::LoginManager do
       end
     end
 
-    it "should only add non-expired users" do
+    it "should not add authorized_keys for expired users" do
       @policy.users[0].expires_at = one_day_ago
-      flexmock(@mgr).should_receive(:read_keys_file).and_return([])
 
-      flexmock(@mgr).should_receive(:write_keys_file).with(@user_keys[1..3].sort, RIGHTSCALE_KEYS_FILE, { :user=>"rightscale", :group=>"rightscale" }).and_return(true)
+      flexmock(@mgr).should_receive(:read_keys_file).and_return([])
+      flexmock(@mgr).should_receive(:write_keys_file) do |keys, file, options|
+        keys.length.should == (@policy.users.size - 1)
+      end
 
       @mgr.update_policy(@policy)
     end
     
-    it "should only add users with superuser privilege" do
+    it "should respect the superuser bit" do
       @policy.users[0].superuser = false
       flexmock(@mgr).should_receive(:read_keys_file).and_return([])
-      flexmock(@mgr).should_receive(:add_to_group).times(@policy.users.size - 1)
-      flexmock(@mgr).should_receive(:write_keys_file).with(@user_keys.sort, RIGHTSCALE_KEYS_FILE, { :user=>"rightscale", :group=>"rightscale" }).and_return(true)
+      flexmock(@mgr).should_receive(:manage_group).with('rightscale', :remove, @policy.users[0].username).ordered
+      flexmock(@mgr).should_receive(:manage_group).with('rightscale', :add, @policy.users[1].username).ordered
+      flexmock(@mgr).should_receive(:manage_group).with('rightscale', :add, @policy.users[2].username).ordered
+      flexmock(@mgr).should_receive(:write_keys_file) do |keys, file, options|
+        keys.length.should == @policy.users.size
+      end
       @mgr.update_policy(@policy)
     end
   end
@@ -179,8 +185,8 @@ describe RightScale::LoginManager do
 
     context 'when no users are set to expire' do
       before(:each) do
-        u1 = RightScale::LoginUser.new("v0-1234", "rs1234", "ssh-rsa aaa 1234@rightscale.com", "1234@rightscale.com", true, nil)
-        u2 = RightScale::LoginUser.new("v0-2345", "rs2345", nil, "2345@rightscale.com", true, nil, ["ssh-rsa bbb 2345@rightscale.com"])
+        u1 = RightScale::LoginUser.new("1234", "rs1234", "ssh-rsa aaa 1234@rightscale.com", "1234@rightscale.com", true, nil)
+        u2 = RightScale::LoginUser.new("2345", "rs2345", nil, "2345@rightscale.com", true, nil, ["ssh-rsa bbb 2345@rightscale.com"])
         @policy.users << u1
         @policy.users << u2
       end
@@ -196,8 +202,8 @@ describe RightScale::LoginManager do
 
     context 'when a user will expire in 90 days' do
       before(:each) do
-        u1 = RightScale::LoginUser.new("v0-1234", "rs1234", "ssh-rsa aaa 1234@rightscale.com", "1234@rightscale.com", true, three_months_from_now)
-        u2 = RightScale::LoginUser.new("v0-2345", "rs2345", "ssh-rsa bbb 2345@rightscale.com", "2345@rightscale.com", true, nil)
+        u1 = RightScale::LoginUser.new("1234", "rs1234", "ssh-rsa aaa 1234@rightscale.com", "1234@rightscale.com", true, three_months_from_now)
+        u2 = RightScale::LoginUser.new("2345", "rs2345", "ssh-rsa bbb 2345@rightscale.com", "2345@rightscale.com", true, nil)
         @policy.users << u1
         @policy.users << u2
       end
@@ -214,8 +220,8 @@ describe RightScale::LoginManager do
 
     context 'when a user will expire in 1 hour' do
       before(:each) do
-        u1 = RightScale::LoginUser.new("v0-1234", "rs1234", "ssh-rsa aaa 1234@rightscale.com", "1234@rightscale.com", true, one_hour_from_now)
-        u2 = RightScale::LoginUser.new("v0-2345", "rs2345", "ssh-rsa bbb 2345@rightscale.com", "2345@rightscale.com", true, nil)
+        u1 = RightScale::LoginUser.new("1234", "rs1234", "ssh-rsa aaa 1234@rightscale.com", "1234@rightscale.com", true, one_hour_from_now)
+        u2 = RightScale::LoginUser.new("2345", "rs2345", "ssh-rsa bbb 2345@rightscale.com", "2345@rightscale.com", true, nil)
         @policy.users << u1
         @policy.users << u2
       end
@@ -230,7 +236,7 @@ describe RightScale::LoginManager do
 
       context 'and a user will expire in 15 minutes' do
         before(:each) do
-          u3 = RightScale::LoginUser.new("v0-1234", "rs1234", "ssh-rsa aaa 1234@rightscale.com", "1234@rightscale.com", true, minutes_from_now(15))
+          u3 = RightScale::LoginUser.new("1234", "rs1234", "ssh-rsa aaa 1234@rightscale.com", "1234@rightscale.com", true, minutes_from_now(15))
           @policy.users << u3
         end
 
