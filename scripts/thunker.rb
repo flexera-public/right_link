@@ -201,7 +201,7 @@ module RightScale
       fail(error)
     end
 
-    RS_PROFILE_FILE = ".rightscale/rs_profile"
+    PROFILE_CHECKSUM = "profile.md5"
 
     # Downloads an archive from given path; extracts files and moves
     # them to username's home directory.
@@ -215,29 +215,26 @@ module RightScale
     # extracted(Boolean):: true if profile downloaded and copied; false
     # if profile has been created earlier or error occured
     def create_profile(username, url, force = false)
+      STDERR.puts "Performing custom profile setup for #{username}"
       home_dir = Etc.getpwnam(username).dir
-      rs_profile_path = File.join(home_dir, RS_PROFILE_FILE)
+      checksum_path = File.join(home_dir, '.rightscale', PROFILE_CHECKSUM)
+      return false if File.exists?(checksum_path)
 
-      not_exist = !File.exists?(rs_profile_path)
-      file_path = "/tmp/#{File.basename(url)}"
-
-      if not_exist && download_file(url, file_path)
-        if extract_files(username, file_path, home_dir, force)
-          save_checksum(file_path, rs_profile_path)
-          STDOUT.puts "# Profile files for #{username} extracted"
-        end
-
-        File.delete(file_path)
-        return true
-      else
-        STDOUT.puts "# Profile for #{username} is not downloaded"
-        return false
+      tmpdir = Dir.mktmpdir
+      file_path = File.join(tmpdir, File.basename(url))
+      if download_file(url, file_path) && extract_files(username, file_path, home_dir, force)
+        save_checksum(file_path, checksum_path)
+        STDERR.puts "Extracted profile for #{username}"
       end
 
+      return true
     rescue Exception => e
-      Log.error("#{e.class.name}:#{e.message}")
-      Log.error(e.backtrace.join("\n"))
+      STDERR.puts "Failed to create profile for #{username}; continuing"
+      STDERR.puts "#{e.class.name}: #{e.message} - #{e.backtrace.first}"
+      Log.error("#{e.class.name}: #{e.message} - #{e.backtrace.first}")
       return false
+    ensure
+      FileUtils.rm_rf(tmpdir) if tmpdir && File.exists?(tmpdir)
     end
 
     # Downloads a file from specified URL
@@ -250,11 +247,12 @@ module RightScale
     # downloaded(Boolean):: true if downloaded and saved successfully
     def download_file(url, path)
       client = RightSupport::Net::HTTPClient.new
-
-      response = client.get(url)
-      open(path, "wb") { |file| file.write(response.body) } if response.status == 200
-
+      response = client.get(url, :timeout => 10)
+      File.open(path, "wb") { |file| file.write(response) } unless response.empty?
       File.exists?(path)
+    rescue Exception => e
+      Log.error("#{e.class.name}: #{e.message} - #{e.backtrace.first}")
+      false
     end
 
     # Extracts an archive and moves files to destination directory
@@ -273,22 +271,20 @@ module RightScale
     # === Return
     # extracted(Boolean):: true if archive is extracted successfully
     def extract_files(username, filename, destination_path, force = false)
-      extraction_path = "/tmp/#{username}"
-      FileUtils.mkdir_p(extraction_path)
-      FileUtils.mkdir_p(destination_path)
-
       case filename
       when /(?:\.tar\.gz|\.tgz)$/
-        %x(tar zxf #{filename} -C #{extraction_path})
+        %x(sudo tar zxf #{Shellwords.escape(filename)} -C #{destination_path})
       when /\.zip$/
-        %x(unzip -o #{filename} -d #{extraction_path})
+        %x(sudo unzip -o #{Shellwords.escape(filename)} -d #{destination_path})
+      else
+        raise ArgumentError, "Don't know how to extract #{filename}'"
       end
+      extracted = $?.success?
 
-      extracted = $?.exitstatus == 0
-      FileUtils.move(extraction_path, destination_path, { :force => force })
-      FileUtils.chown_R(username, username, destination_path)
+      %x(sudo chown -R #{Shellwords.escape(username)}.rightscale #{destination_path})
+      chowned = $?.success?
 
-      extracted
+      return extracted && chowned
     end
 
     # Calculates MD5 checksum for specified file and saves it
@@ -300,11 +296,12 @@ module RightScale
     # === Return
     # nil
     def save_checksum(target, destination)
+      dir      = File.dirname(destination)
       checksum = Digest::MD5.file(target).to_s
-
-      FileUtils.mkdir_p(destination)
+      FileUtils.mkdir_p(dir)
+      FileUtils.chmod(0700, dir)
+      File.open(destination, "w") { |f| f.write(checksum) }
       FileUtils.chmod(0700, destination)
-      open(destination, "w") { |f| f.write(checksum) }
     end
   end # Thunker
 
