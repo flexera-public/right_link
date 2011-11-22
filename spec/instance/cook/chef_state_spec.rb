@@ -77,6 +77,20 @@ describe RightScale::ChefState do
     File.file?(@chef_file).should be_false
   end
 
+  it 'persisted state should only be readable by the owner' do
+    RightScale::ChefState.attributes = { :one => 'two' }
+    expected_perms = (RightScale::Platform.windows?) ? 0644 : 0600
+    (File.stat(@chef_file).mode & 0777).should == expected_perms
+  end
+
+  it 'should change the permissions of the state file to only be readable by the owner' do
+    FileUtils.touch(@chef_file)
+    File.chmod(0666, @chef_file)
+    RightScale::ChefState.attributes = { :one => 'two' }
+    expected_perms = (RightScale::Platform.windows?) ? 0644 : 0600
+    (File.stat(@chef_file).mode & 0777).should == expected_perms
+  end
+
   it 'should create patch from hashes' do
     patches.each { |p| RightScale::ChefState.create_patch(p[:left], p[:right]).should == p[:res] }
   end

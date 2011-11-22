@@ -36,7 +36,8 @@ describe RightScale::RightScriptsCookbook do
     @old_cache_path = RightScale::AgentConfig.cache_dir
     @temp_cache_path = File.join(File.dirname(__FILE__), 'test_cb')
     RightScale::AgentConfig.cache_dir = @temp_cache_path
-    @cookbook = RightScale::RightScriptsCookbook.new
+    thread_name = RightScale::ExecutableBundle::DEFAULT_THREAD_NAME
+    @cookbook = RightScale::RightScriptsCookbook.new(thread_name)
   end
 
   after(:each) do
@@ -47,7 +48,7 @@ describe RightScale::RightScriptsCookbook do
   it 'should create recipe instantiations' do
     recipe = @cookbook.recipe_from_right_script(@script)
     recipe.nickname.should =~ /^#{RightScale::RightScriptsCookbook::COOKBOOK_NAME}::/
-    recipe.attributes.should be_nil
+    recipe.attributes.should == { @script.nickname => { "parameters" => @script.parameters } }
     recipe.id.should == 42
     recipe.ready.should be_true
   end
@@ -58,7 +59,7 @@ describe RightScale::RightScriptsCookbook do
     recipe_path = File.join(recipes_dir, recipe_from_script(@script.nickname, @cookbook))
     recipe_content = IO.read("#{recipe_path}.rb")
     regexp = "^right_script '#{@script.nickname}' do\n"
-    regexp += "^  parameters\\(#{@script.parameters.inspect}\\)\n"
+    regexp += "^  #{Regexp.escape("parameters(node[\"#{@script.nickname}\"][\"parameters\"])")}\n"
     regexp += "^  cache_dir +'#{Regexp.escape(@cookbook.cache_dir(@script))}'\n"
     regexp += "^  source_file +'#{recipe_path}'\n"
     regexp += "^end"

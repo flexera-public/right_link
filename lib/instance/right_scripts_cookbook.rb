@@ -42,10 +42,10 @@ module RightScale
 
     # Setup temporary directory for cookbook repo containing
     # recipes generated from RightScripts
-    def initialize
+    def initialize(thread_name)
       @saved        = false
       @recipes      = {}
-      @repo_dir     = AgentConfig.right_scripts_repo_dir
+      @repo_dir     = File.join(AgentConfig.right_scripts_repo_dir, thread_name)
       @cookbook_dir = File.join(@repo_dir, COOKBOOK_NAME)
       @recipes_dir  = File.join(@cookbook_dir, 'recipes')
       FileUtils.rm_rf(@cookbook_dir)
@@ -69,7 +69,7 @@ module RightScale
       @recipes[recipe_name] = script.nickname
       recipe_content = <<-EOS
 right_script '#{script.nickname.gsub("'", "\\\\'")}' do
-  parameters(#{script.parameters.inspect})
+  parameters(node["#{script.nickname}"]["parameters"])
   cache_dir  '#{cache_dir(script)}'
   source_file '#{path}'
 end
@@ -79,7 +79,10 @@ end
       recipe_path = "#{path}.rb"
       File.open(recipe_path, 'w') { |f| f.puts recipe_content }
 
-      recipe = RecipeInstantiation.new("#{COOKBOOK_NAME}::#{recipe_name}", nil, script.id, script.ready)
+      recipe = RecipeInstantiation.new("#{COOKBOOK_NAME}::#{recipe_name}",
+                                       { script.nickname => { "parameters" => script.parameters } },
+                                       script.id, script.ready)
+
     end
 
     # Produce file name for given script nickname

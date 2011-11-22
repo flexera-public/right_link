@@ -20,29 +20,39 @@
 #
 # === Usage:
 #    rs_run_recipe --identity, -i ID [--json, -j JSON_FILE] [--verbose, -v]
-#    rs_run_recipe --name, -n NAME [--json, -j JSON_FILE] [--recipient_tags, -r TAG_LIST]
+#    rs_run_recipe --name, -n NAME [--json, -j JSON_FILE]
+#                  [--recipient_tags, -r TAG_LIST]
 #                  [--scope, -s SCOPE] [--verbose, -v]
-#    rs_run_right_script --identity, -i ID [--parameter, -p NAME=type:VALUE]* [--verbose, -v]
-#    rs_run_right_script --name, -n NAME [--parameter, -p NAME=type:VALUE]* [--recipient_tags, -r TAG_LIST]
-#                        [--scope, -s SCOPE] [--verbose, -v]
+#    rs_run_right_script --identity, -i ID [--parameter, -p NAME=type:VALUE]*
+#                  [--verbose, -v]
+#    rs_run_right_script --name, -n NAME [--parameter, -p NAME=type:VALUE]*
+#                  [--recipient_tags, -r TAG_LIST]
+#                  [--scope, -s SCOPE] [--verbose, -v]
 #
 #      * Can appear multiple times
 #
 #    Options:
-#      --identity, -i ID    RightScript or ServerTemplateChefRecipe id
-#      --name, -n NAME      RightScript or Chef recipe name (overridden by id)
-#      --json, -j JSON_FILE JSON file name for JSON to be merged into
-#                           attributes before running recipe
+#      --identity, -i ID     RightScript or ServerTemplateChefRecipe id
+#      --name, -n NAME       RightScript or Chef recipe name (overridden by id)
+#      --json, -j JSON_FILE  JSON file name for JSON to be merged into
+#                              attributes before running recipe
 #      --parameter,
-#        -p NAME=type:VALUE Define or override RightScript input
-#                           Note: Only applies to run_right_script
-#      --recipient_tags,    Tags for selecting which instances are to receive request
-#        -r TAG_LIST        with the TAG_LIST being quoted if it contains spaces
-#      --scope, -s SCOPE    Scope for selecting tagged recipients: 'single' or 'all',
-#                           with 'all' default
-#      --cfg-dir, -c DIR    Set directory containing configuration for all agents
-#      --verbose, -v        Display progress information
-#      --help:              Display help
+#        -p NAME=TYPE:VALUE  Define or override RightScript input
+#                              Note: Only applies to run_right_script
+#      --thread,             Schedule the operation on a specific thread name
+#        -t THREAD             for concurrent execution. Thread names must begin
+#                              with a letter and can consist only of lower-case
+#                              alphabetic characters, digits, and the underscore
+#                              character.
+#      --recipient_tags,     Tags for selecting which instances are to receive
+#                              request with the TAG_LIST being quoted if it
+#        -r TAG_LIST           contains spaces
+#      --scope, -s SCOPE     Scope for selecting tagged recipients: single or
+#                              all (default all)
+#      --cfg-dir, -c DIR     Set directory containing configuration for all
+#                              agents
+#      --verbose, -v         Display progress information
+#      --help:               Display help
 #
 #    Note: Partially specified option names are accepted if not ambiguous.
 
@@ -51,6 +61,7 @@ require 'optparse'
 require 'right_agent'
 require 'right_agent/scripts/usage'
 require 'right_agent/scripts/common_parser'
+require 'right_agent/core_payload_types'
 
 module RightScale
 
@@ -72,6 +83,9 @@ module RightScale
     # true:: Always return true
     def run(options, &callback)
       fail('Missing identity or name argument', true) unless options[:id] || options[:name]
+      if options[:thread] && (options[:thread] !~ RightScale::ExecutableBundle::VALID_THREAD_NAME)
+        fail("Invalid thread name #{options[:thread]}", true)
+      end
       echo(options)
       cmd = { :options => to_forwarder_options(options) }
       cmd[:name] = options[:bundle_type] == :right_script ? 'run_right_script' : 'run_recipe'
@@ -152,6 +166,10 @@ module RightScale
           end
         end
 
+        opts.on('t', '--thread THREAD') do |p|
+          options[:thread] = p
+        end
+
         opts.on('-j', '--json JSON_FILE') do |f|
           fail("Invalid JSON filename '#{f}'") unless File.file?(f)
           options[:json_file] = f
@@ -222,23 +240,26 @@ protected
     # options(Hash):: Arguments options
     #
     # === Return
-    # opts(Hash):: Forwarder actor compatible options hash
+    # result(Hash):: Forwarder actor compatible options hash
     def to_forwarder_options(options)
-      opts = {}
+      result = {}
       if options[:tags]
-        opts[:tags] = options[:tags]
-        opts[:selector] = options[:scope]
+        result[:tags] = options[:tags]
+        result[:selector] = options[:scope]
+      end
+      if options[:thread]
+        result[:thread] = options[:thread]
       end
       if options[:bundle_type] == :right_script
-        opts[:right_script_id] = options[:id] if options[:id]
-        opts[:right_script]    = options[:name] if options[:name] && !options[:id]
-        opts[:arguments]       = options[:parameters] unless options[:parameters].empty?
+        result[:right_script_id] = options[:id] if options[:id]
+        result[:right_script]    = options[:name] if options[:name] && !options[:id]
+        result[:arguments]       = options[:parameters] unless options[:parameters].empty?
       else
-        opts[:recipe_id] = options[:id] if options[:id]
-        opts[:recipe]    = options[:name] if options[:name] && !options[:id]
-        opts[:json]      = options[:json]
+        result[:recipe_id] = options[:id] if options[:id]
+        result[:recipe]    = options[:name] if options[:name] && !options[:id]
+        result[:json]      = options[:json]
       end
-      opts
+      result
     end
 
   end # BundleRunner

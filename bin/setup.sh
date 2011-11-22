@@ -62,9 +62,7 @@ function install_gems() {
     then
       # Use RVM, if the Ruby we need is installed
       source /etc/profile.d/rvm.sh
-      set +e
       rvm use ruby-1.8.7-p352
-      set -e
       using_rvm=1
       gem_bin=`which gem`
     else

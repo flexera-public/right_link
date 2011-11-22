@@ -81,14 +81,18 @@ module RightScale
     # === Parameter
     # bundle(RightScale::ExecutableBundle):: Bundle to be run
     def initialize(bundle)
+      unless bundle.thread_name =~ RightScale::ExecutableBundle::VALID_THREAD_NAME
+        raise ArgumentError, "Invalid thread name #{thread_name}"
+      end
+
       @description            = bundle.to_s
-      @right_scripts_cookbook = RightScriptsCookbook.new
-      @scripts                = bundle.executables.select { |e| e.is_a?(RightScriptInstantiation) }
-      recipes                  = bundle.executables.map { |e| e.is_a?(RecipeInstantiation) ? e : @right_scripts_cookbook.recipe_from_right_script(e) }
-      @cookbooks              = bundle.cookbooks
       @thread_name            = bundle.thread_name
+      @right_scripts_cookbook = RightScriptsCookbook.new(@thread_name)
+      @scripts                = bundle.executables.select { |e| e.is_a?(RightScriptInstantiation) }
+      recipes                 = bundle.executables.map { |e| e.is_a?(RecipeInstantiation) ? e : @right_scripts_cookbook.recipe_from_right_script(e) }
+      @cookbooks              = bundle.cookbooks
       @downloader             = Downloader.new
-      @download_path          = AgentConfig.cookbook_download_dir
+      @download_path          = File.join(AgentConfig.cookbook_download_dir, @thread_name)
       @powershell_providers   = nil
       @ohai_retry_delay       = OHAI_RETRY_MIN_DELAY
       @audit                  = AuditStub.instance
@@ -343,14 +347,14 @@ module RightScale
       @audit.create_new_section('Checking out cookbooks for development') if @cookbook_repo_retriever.has_cookbooks?
       audit_time do
         # only create a scraper if there are dev cookbooks
-        @cookbook_repo_retriever.checkout_cookbook_repos do |state, operation, explaination, exception|
+        @cookbook_repo_retriever.checkout_cookbook_repos do |state, operation, explanation, exception|
           # audit progress
           case state
             when :begin, :commit
-              @audit.append_info("#{state} #{operation} #{explaination}")
+              @audit.append_info("#{state} #{operation} #{explanation}")
             when :abort
-              @audit.append_info("Failed #{operation} #{explaination}")
-              Log.info(Log.format("Failed #{operation} #{explaination}", exception, :trace))
+              @audit.append_info("Failed #{operation} #{explanation}")
+              Log.info(Log.format("Failed #{operation} #{explanation}", exception, :trace))
           end
         end
       end
@@ -517,7 +521,8 @@ module RightScale
         block.call(ohai)
       else
         Log.warning("Could not determine node name from Ohai, will retry in #{@ohai_retry_delay}s...")
-        # need to execute on a non-timer thread or else EM main thread will block.
+        # Need to execute on defer thread consistent with where ExecutableSequence is running
+        # otherwise EM main thread command client activity will block
         EM.add_timer(@ohai_retry_delay) { EM.defer { check_ohai(&block) } }
         @ohai_retry_delay = [2 * @ohai_retry_delay, OHAI_RETRY_MAX_DELAY].min
       end
