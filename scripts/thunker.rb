@@ -1,10 +1,13 @@
 # === Synopsis:
 #   RightScale Thunker (rs_thunk) - (c) 2011 RightScale Inc
 #
-#   Thunker allows you to manage custom SSH logins for non root users. It uses default user
-#   RightScale and also group RightScale to give priveleges for authorization, managing the instance
-#   under individual users profile and download the tarballs with local user's bash configuration.
+#   Thunker allows you to manage custom SSH logins for non root users. It uses the rightscale
+#   user and group RightScale to give privileges for authorization, managing the instance
+#   under individual users' profiles. It also downloads profile tarballs containing e.g.
+#   bash config.
 #
+## === Usage
+#    rs_thunk --username USERNAME --email EMAIL [--profile DATA] [--force]
 #
 # === Options:
 #      --username,  -u USERNAME     Authorize as RightScale user with USERNAME
@@ -16,10 +19,6 @@
 #   Authorize as 'alice' with email address alice@example.com:
 #     rs_thunk -u alice -e alice@example.com
 #
-# === Usage
-#    rs_thunk --username USERNAME --email EMAIL [--profile DATA] [--force]
-#
-
 require 'rubygems'
 require 'optparse'
 require 'right_agent'
@@ -69,7 +68,8 @@ module RightScale
       create_profile(username, profile, force) if profile
 
       #Thunk into user's context
-      cmd = "cd /home/#{username}; sudo su -l #{username}"
+      home = Etc.getpwnam(username).dir
+      cmd = "sudo su -l #{username}"
       Kernel.exec(cmd)
     end
 
@@ -215,8 +215,8 @@ module RightScale
     # extracted(Boolean):: true if profile downloaded and copied; false
     # if profile has been created earlier or error occured
     def create_profile(username, url, force = false)
-      home_dir = "/home/#{username}"
-      rs_profile_path = "#{home_dir}/#{RS_PROFILE_FILE}"
+      home_dir = Etc.getpwnam(username).dir
+      rs_profile_path = File.join(home_dir, RS_PROFILE_FILE)
 
       not_exist = !File.exists?(rs_profile_path)
       file_path = "/tmp/#{File.basename(url)}"
