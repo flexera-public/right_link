@@ -287,11 +287,10 @@ module RightScale
         add_user(username, uid)
       end
 
-      if superuser
-        manage_group('rightscale', :add, username)
-      else
-        manage_group('rightscale', :remove, username)
-      end
+      manage_group('rightscale', :add, username)
+
+      action = superuser ? :add : :remove
+      manage_group('rightscale_sudo', action, username)
 
       username
     end
