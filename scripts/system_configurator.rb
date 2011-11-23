@@ -198,7 +198,6 @@ module RightScale
       return 0 unless Platform.linux?
       puts "Configuring /etc/sudoers to ensure rightscale user able to use NOPASSWD priveleges"
       sudo_group = "rightscale_sudo"
-      runshell("groupadd #{sudo_group}")
 
       mask = Regexp.new("%#{sudo_group} ALL=NOPASSWD: ALL")
       begin
