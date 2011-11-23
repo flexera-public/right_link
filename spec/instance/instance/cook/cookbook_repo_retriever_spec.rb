@@ -28,7 +28,7 @@ require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', '..', 
 describe RightScale::CookbookRepoRetriever do
   context :has_cookbooks? do
     it 'when initialized with dev cookbooks, should be true' do
-      RightScale::CookbookRepoRetriever.new(nil, nil, RightScale::DevRepositories.new({'sha-1' => {}})).has_cookbooks?.should be_true
+      RightScale::CookbookRepoRetriever.new(nil, nil, RightScale::DevRepositories.new({'sha-1' => RightScale::DevRepository.new})).has_cookbooks?.should be_true
     end
 
     it 'when initialized with empty dev cookbooks, should be false' do
@@ -45,7 +45,9 @@ describe RightScale::CookbookRepoRetriever do
       before(:each) do
         @repo_sha = 'sha-1'
         @position = 'cookbooks/cookbook'
-        @retriever = RightScale::CookbookRepoRetriever.new(nil, nil, RightScale::DevRepositories.new({@repo_sha => {:repo => {}, :positions => [flexmock("cookbook position", :position => @position, :cookbook => nil)]}}))
+        @repo = RightScale::DevRepository.new
+        @repo.positions = [flexmock("cookbook position", :position => @position, :cookbook => nil)]
+        @retriever = RightScale::CookbookRepoRetriever.new(nil, nil, RightScale::DevRepositories.new({@repo_sha => @repo}))
       end
 
       it 'repo matches and position matches should be true' do
@@ -88,8 +90,10 @@ describe RightScale::CookbookRepoRetriever do
           flexmock(RightScraper::Scraper).should_receive(:new).and_return(mock_scraper)
 
           @repo_sha = 'sha-1'
+          @repo = RightScale::DevRepository.new
+          @repo.positions = [flexmock("cookbook position", :position => @position, :cookbook => nil)]
           @position = 'cookbooks/cookbook'
-          @retriever = RightScale::CookbookRepoRetriever.new(@expected_checkout_root, @expected_repose_root, RightScale::DevRepositories.new({@repo_sha => {:repo => {}, :positions => [flexmock("cookbook position", :position => @position, :cookbook => nil)]}}))
+          @retriever = RightScale::CookbookRepoRetriever.new(@expected_checkout_root, @expected_repose_root, RightScale::DevRepositories.new({@repo_sha => @repo}))
         end
 
         after(:each) do
@@ -140,8 +144,10 @@ describe RightScale::CookbookRepoRetriever do
           flexmock(RightScraper::Scraper).should_receive(:new).and_return(mock_scraper)
 
           @repo_sha = 'sha-1'
+          @repo = RightScale::DevRepository.new
+          @repo.positions = [flexmock("cookbook position", :position => @position, :cookbook => nil)]
           @position = 'cookbooks/cookbook'
-          @retriever = RightScale::CookbookRepoRetriever.new(nil, nil, RightScale::DevRepositories.new({@repo_sha => {:repo => {}, :positions => [flexmock("cookbook position", :position => @position, :cookbook => nil)]}}))
+          @retriever = RightScale::CookbookRepoRetriever.new(nil, nil, RightScale::DevRepositories.new({@repo_sha => @repo}))
         end
 
         it 'should NOT scrape' do
@@ -161,14 +167,15 @@ describe RightScale::CookbookRepoRetriever do
           @position = 'cookbooks/cookbook'
           @dev_repos = {}
           [1..3].each do |index|
-            repo = {}
-            repo[:repo] = {:url=>"http://github.com/#{index}"}
-            repo[:positions] = [flexmock("cookbook position", :position => "#{@position}#{index}", :cookbook => nil)]
+            repo = RightScale::DevRepository.new
+            repo.url = "http://github.com/#{index}"
+            repo.positions = [flexmock("cookbook position", :position => "#{@position}#{index}", :cookbook => nil)]
             @dev_repos["sha-#{index}"] = repo
           end
           mock_scraper = flexmock("Mock RightScraper")
           @dev_repos.each_pair do |repo_sha, dev_repo|
-            mock_scraper.should_receive(:scrape).once.with(dev_repo[:repo]).and_return(repo_sha == @fail_sha)
+            scraper_repo = RightScale::CookbookRepoRetriever.to_scraper_hash(dev_repo)
+            mock_scraper.should_receive(:scrape).once.with(scraper_repo).and_return(repo_sha == @fail_sha)
             mock_scraper.should_receive(:repo_dir).times((repo_sha == @fail_sha) ? 1 : 0)
           end
           flexmock(RightScraper::Scraper).should_receive(:new).and_return(mock_scraper)
