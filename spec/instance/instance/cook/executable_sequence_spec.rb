@@ -459,7 +459,7 @@ module RightScale
         cookbooks.each do |sequence|
           sequence.positions.each do |position|
             unless dev_cookbooks.repositories[sequence.hash] &&
-                dev_cookbooks.repositories[sequence.hash][:positions].detect { |dp| dp.position == position.position }
+                dev_cookbooks.repositories[sequence.hash].positions.detect { |dp| dp.position == position.position }
               dl.should_receive(:new).
                   with('cookbooks', position.cookbook.hash, position.cookbook.token, position.cookbook.name,
                        ExecutableSequence::CookbookDownloadFailure, RightScale::Log).once.
@@ -501,7 +501,7 @@ module RightScale
           @checkout_paths = {}
           @dev_cookbooks.repositories.each_pair do |dev_repo_sha, dev_cookbook|
             repo_base_dir = File.join(@checkout_root_dir, rand(2**32).to_s(32), "repo")
-            mock_scraper.should_receive(:scrape).once.with(dev_cookbook[:repo], Proc).and_return do |repo, incremental, callback|
+            mock_scraper.should_receive(:scrape).once.with(RightScale::CookbookRepoRetriever.to_scraper_hash(dev_cookbook), Proc).and_return do |repo, incremental, callback|
               if @failure_repos[dev_repo_sha]
                 false
               else
@@ -522,7 +522,7 @@ module RightScale
                 true
               end
             end
-            mock_scraper.should_receive(:repo_dir).once.with(dev_cookbook[:repo]).and_return(repo_base_dir) unless @failure_repos[dev_repo_sha]
+            mock_scraper.should_receive(:repo_dir).once.with(RightScale::CookbookRepoRetriever.to_scraper_hash(dev_cookbook)).and_return(repo_base_dir) unless @failure_repos[dev_repo_sha]
           end
           @auditor.should_receive(:append_info).with(/Duration: \d+\.\d+ seconds/).once
         end
@@ -556,7 +556,7 @@ module RightScale
                                             RightScale::ExecutableBundle::DEFAULT_THREAD_NAME,
                                             cookbook_sequence.hash,
                                             position.position)
-                  dev_position = dev_cookbook[:positions].detect { |dp| dp.position == position.position }
+                  dev_position = dev_cookbook.positions.detect { |dp| dp.position == position.position }
                   if failed_positions && failed_positions.include?(position.position)
                     local_basedir.should_not exist_on_filesystem
                   elsif dev_position.nil?
