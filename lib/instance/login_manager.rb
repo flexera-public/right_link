@@ -317,12 +317,15 @@ module RightScale
     # === Return
     # nil
     def add_user(username, uid)
-      uid      = Integer(uid)
+      uid = Integer(uid)
 
       %x(useradd -s /bin/bash -u #{uid} -m #{Shellwords.escape(username)})
 
       case $?.exitstatus
       when 0
+        home_dir = Etc.getpwnam(username).dir
+        FileUtils.chmod(0771, home_dir)
+
         RightScale::Log.info "User #{username} created successfully"
       end
     end

@@ -308,7 +308,7 @@ module RightScale
       temp_path = File.join(File.dirname(target), checksum_path)
 
       FileUtils.mkdir_p(temp_dir)
-      File.chmod(0771, temp_dir) # need +x to others for File.exists? => true
+      FileUtils.chmod_R(0771, temp_dir) # need +x to others for File.exists? => true
       File.open(temp_path, "w") { |f| f.write(checksum) }
 
       change_owner(username, username, temp_dir)
