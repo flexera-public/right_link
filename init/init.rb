@@ -51,14 +51,14 @@ commands = InstanceCommands.get(@identity, scheduler, agent_manager)
 cmd_opts = CommandRunner.start(CommandConstants::BASE_INSTANCE_AGENT_SOCKET_PORT,
                                @identity, commands) do |pid_file|
   # Customize the ownership and access mode of the cookie file, enabling
-  # anyone in the "rightscale" group to read its contents. This is useful
+  # the "rightscale" user to read its contents. This is useful
   # on Linux systems, where it enables invocation of the rs_* utilities
-  # even by non-root users. On Windows, it doesn't have any purpose, but
+  # without sudo. On Windows, it doesn't have any purpose, but
   # does no harm, and the Ruby VM might even map this chown and chmod
   # to equivalent ACL updates, if we're lucky...
   begin
-    FileUtils.chown(nil, 'rightscale', pid_file.cookie_file)
-    FileUtils.chmod(0640, pid_file.cookie_file)
+    FileUtils.chown('rightscale', nil, pid_file.cookie_file)
+    FileUtils.chmod(0600, pid_file.cookie_file)
   rescue Exception => e
     RightScale::Log.error("Failed to customize cookie file due to #{e.class.name}: #{e.message}")
     RightScale::Log.error(e.backtrace.join("\n"))
