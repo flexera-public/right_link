@@ -44,6 +44,18 @@ RightScale::Cook.const_set(:AGENT_NAME, ENV['RS_AGENT']) if ENV['RS_AGENT']
 
 module RightScale
 
+  class << CookState
+
+    # Use forced location of state file in cook process that was setup in instance
+    # by monkey patched InstanceState in test version of instance_setup.rb
+    alias :original_init :init
+    def init
+      CookState.const_set(:STATE_FILE, AgentTestConfig.cook_state_file)
+      original_init
+    end
+
+  end
+
   class ExecutableSequence
 
     # Use forced location of scripts cache and state files in cook process that was setup in instance
@@ -53,7 +65,6 @@ module RightScale
       agent_identity = nil
       File.open(AgentTestConfig.agent_identity_file,"r"){|f| agent_identity = f.gets.chomp }
       RightScale::AgentConfig.cache_dir = AgentTestConfig.cache_dir(agent_identity)
-      RightScale::CookState.const_set(:STATE_FILE, AgentTestConfig.cook_state_file)
       FileUtils.mkdir_p(RightScale::AgentConfig.cache_dir)
       original_initialize(bundle)
     end

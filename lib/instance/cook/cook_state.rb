@@ -53,12 +53,12 @@ module RightScale
 
       if File.file?(STATE_FILE)
         state = RightScale::JsonUtilities::read_json(STATE_FILE)
-        Log.debug("Initializing CookState from  #{STATE_FILE} with #{state.inspect}")
+        @@log_level = state['log_level'] || Logger::INFO
+        Log.info("Initializing CookState from  #{STATE_FILE} with #{state.inspect}") if @@log_level == Logger::DEBUG
 
         @@downloaded = state['has_downloaded_cookbooks']
         @@startup_tags = state['startup_tags'] || []
         @@reboot = state['reboot']
-        @@log_level = state['log_level'] || Logger::INFO
       end
 
       @@initialized = true
