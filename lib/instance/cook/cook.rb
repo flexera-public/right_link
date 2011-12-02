@@ -93,6 +93,14 @@ module RightScale
       ::RightScale::ExecutableBundle::DEFAULT_THREAD_NAME == @thread_name
     end
 
+    # Helper method to send a request to one or more targets with no response expected
+    # See InstanceCommands for details
+    def send_push(type, payload = nil, target = nil, opts = {})
+      cmd = {:name => :send_push, :type => type, :payload => payload, :target => target, :options => opts}
+      # Need to execute on EM main thread where command client is running
+      EM.next_tick { @client.send_command(cmd) }
+    end
+
     # Add given tag to tags exposed by corresponding server
     #
     # === Parameters
