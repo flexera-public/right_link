@@ -107,7 +107,7 @@ module RightScale
 
         if ::RightScale::Platform.linux?
           ::RightScale::Platform.volume_manager.mount_volume(device_ary[0], @config_drive_mountpoint)
-        else
+        elsif ::RightScale::Platform.windows?
           ::RightScale::Platform.volume_manager.assign_device(device_ary[0][:index], @config_drive_mountpoint)
         end
         return true
