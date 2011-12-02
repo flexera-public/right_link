@@ -9,7 +9,7 @@ gem 'right_agent',           "~> 0.6.0",
                              :branch=>"master"
 gem "right_scraper",         "3.0.1"
 gem "right_http_connection", "~> 1.3.0"
-gem "right_popen",           "1.0.17"
+gem "right_popen",           "1.0.18"
 
 platform :mswin do
   gem "win32-api",           "1.4.5"
@@ -57,5 +57,5 @@ end
 group :custom do
   gem "ohai",                  "0.5.8.3"
   gem "chef",                  "0.9.14.3"
-  gem "eventmachine",          "0.12.11.5"
+  gem "eventmachine",          "0.12.11.6"
 end
