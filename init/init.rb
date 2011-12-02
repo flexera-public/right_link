@@ -41,7 +41,7 @@ SecureSerializerInitializer.init('instance', @identity)
 # Initialize any singletons that have dependencies on non-singletons
 AgentTagsManager.instance.agent = self
 
-register setup = InstanceSetup.new(@identity)
+register setup = InstanceSetup.new(self)
 register scheduler = InstanceScheduler.new(self)
 register agent_manager = AgentManager.new(self)
 register InstanceServices.new(@identity)

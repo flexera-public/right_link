@@ -49,12 +49,16 @@ class InstanceSetup
   # Prime timer for shutdown on unsuccessful boot ('suicide' functionality)
   #
   # === Parameters
-  # agent_identity(String):: Serialized agent identity for current agent
-  def initialize(agent_identity)
-    @agent_identity    = agent_identity
+  # agent(RightScale::Agent):: Host agent
+  def initialize(agent)
+    @agent_identity    = agent.identity
     @got_boot_bundle   = false
     EM.threadpool_size = 1
     RightScale::InstanceState.init(@agent_identity)
+
+    # Reset log level here even though already initialized in the agent
+    # so that InstanceState gets notified of the level in use
+    RightScale::Log.level = agent.options[:log_level] if agent.options[:log_level]
     RightScale::Log.force_debug if RightScale::CookState.dev_mode_enabled?
 
     # Schedule boot sequence, don't run it now so agent is registered first
