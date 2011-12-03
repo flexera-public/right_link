@@ -255,7 +255,8 @@ describe InstanceSetup do
     agents = flexmock('result', :results => { 'mapper_id1' => result })
     InstanceSetup.agents = agents
     EM.run do
-      @setup.__send__(:initialize, @agent_identity.to_s)
+      @agent = RightScale::Agent.new({:identity => @agent_identity.to_s})
+      @setup.__send__(:initialize, @agent)
       EM.add_periodic_timer(0.1) { check_state }
       EM.add_timer(25) { EM.stop }
     end
