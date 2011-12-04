@@ -143,7 +143,7 @@ class InstanceSetup
   # === Return
   # true:: Always return true
   def enable_managed_login
-    if RightScale::Platform.windows?
+    if !RightScale::LoginManager.instance.supported_by_platform?
       setup_volumes
     else
       req = RightScale::IdempotentRequest.new('/booter/get_login_policy', {:agent_identity => @agent_identity})

@@ -25,6 +25,8 @@ require 'set'
 
 module RightScale
   class LoginManager
+    class SystemConflict < SecurityError; end
+
     include Singleton
 
     RIGHTSCALE_KEYS_FILE    = '/home/rightscale/.ssh/authorized_keys'
@@ -41,7 +43,9 @@ module RightScale
     # === Return
     # val(true|false) whether LoginManager works on this platform
     def supported_by_platform?
-      return RightScale::Platform.linux? || RightScale::Platform.darwin?
+      right_platform = RightScale::Platform.linux? || RightScale::Platform.darwin?
+      right_user = user_exists?('rightscale')
+      right_platform && right_user
     end
 
     # Enact the login policy specified in new_policy for this system. The policy becomes
@@ -74,7 +78,7 @@ module RightScale
       schedule_expiry(new_policy)
 
       # Return a human-readable description of the policy, e.g. for an audit entry
-      return describe_policy(new_users.size, (new_users.select { |u| u.superuser }).size, new_policy)
+      return describe_policy(new_users, new_users.select { |u| u.superuser })
     end
 
     # Returns prefix command for public key record
@@ -133,24 +137,31 @@ module RightScale
     # for appending to an audit entry. Contains formatting such as newlines and tabs.
     #
     # === Parameters
-    # num_users(Integer) total number of users
-    # num_superusers(Integer) total number of superusers
+    # users(Array) all LoginUsers
+    # superusers(Array) subset of LoginUsers who are authorized to act as superusers
     # policy(LoginPolicy) the effective login policy
     #
     # === Return
     # description(String)
-    def describe_policy(num_users, num_superusers, policy)
-      audit = "#{num_users} total users' authorized key(s).\n"
-      audit += "#{num_superusers} total superusers' authorized key(s).\n"
+    def describe_policy(users, superusers)
+      normal_users = users - superusers
 
-      if policy.users.empty?
-        audit += "No authorized RightScale users."
-      else
-        audit += "Authorized RightScale users:\n"
-        policy.users.each do |u|
-          audit += "  #{u.common_name.ljust(40)} #{u.username}\n"
-        end
-      end
+      audit = "#{users.size} authorized users " +
+              "(#{normal_users.size} normal, #{superusers.size} superuser).\n"
+
+      #unless normal_users.empty?
+      #  audit += "\nNormal users:\n"
+      #  normal_users.each do |u|
+      #    audit += "  #{u.common_name.ljust(40)} #{u.username}\n"
+      #  end
+      #end
+      #
+      #unless superusers.empty?
+      #  audit += "\nSuperusers:\n"
+      #  superusers.each do |u|
+      #    audit += "  #{u.common_name.ljust(40)} #{u.username}\n"
+      #  end
+      #end
 
       return audit
     end
@@ -278,19 +289,21 @@ module RightScale
     # === Return
     # username(String):: created account's username
     def create_user(username, uuid, superuser)
-      uid = uuid_to_uid(uuid)
+      uid = LoginUserManager.uuid_to_uid(uuid)
 
-      if uid_exists?(uid)
+      if uid_exists?(uid, ['rightscale'])
         username = uid_to_username(uid)
-      else
+      elsif !uid_exists?(uid)
         username  = pick_username(username)
         add_user(username, uid)
+        manage_group('rightscale', :add, username) if group_exists?('rightscale')
+      else
+        raise SystemConflict, "A user with UID #{uid} already exists and is " +
+                              "not managed by RightScale"
       end
 
-      manage_group('rightscale', :add, username)
-
       action = superuser ? :add : :remove
-      manage_group('rightscale_sudo', action, username)
+      manage_group('rightscale_sudo', action, username) if group_exists?('rightscale_sudo')
 
       username
     end
@@ -384,23 +397,40 @@ module RightScale
     # === Return
     # exist_status(Boolean):: true if user exists; otherwise false
     def user_exists?(name)
-      Etc.getpwnam(name) == name
+      Etc.getpwnam(name).name == name
     rescue ArgumentError
       false
     end
 
-    # Checks if user with specified Unix UID exists in the system.
+    # Check if user with specified Unix UID exists in the system, and optionally
+    # whether he belongs to all of the specified groups.
     #
     # === Parameters
     # uid(String):: account's UID
     #
     # === Return
     # exist_status(Boolean):: true if exists;otherwise false
-    def uid_exists?(uid)
+    def uid_exists?(uid, groups=[])
       uid = Integer(uid)
-      Etc.getpwuid(uid).uid == uid
+      user_exists = Etc.getpwuid(uid).uid == uid
+      if groups.empty?
+        user_belongs = true
+      else
+        mem = Set.new
+        username = Etc.getpwuid(uid).name
+        Etc.group { |g| mem << g.name if g.mem.include?(username) }
+        user_belongs = groups.all? { |g| mem.include?(g) }
+      end
+
+      user_exists && user_belongs
     rescue ArgumentError
       false
+    end
+
+    def group_exists?(name)
+      groups = Set.new
+      Etc.group { |g| groups << g.name }
+      groups.include?(name)
     end
 
     # Pick a username that does not yet exist on the system. If the given
@@ -415,25 +445,20 @@ module RightScale
     # username(String):: username with possible postfix
     def pick_username(username)
       name = username
+      blacklist = Set.new
 
-      index = 1
       while user_exists?(name)
-        index += 1
-        name = "#{username}_#{index}"
+        blacklist << name
+        new_name = LoginUserManager.pick_username(name, blacklist)
+
+        if blacklist.include?(new_name)
+          raise RangeError, "Misbehaved login policy chose blacklisted name #{new_name}"
+        else
+          name = new_name
+        end
       end
 
       name
-    end
-
-    # Transforms RightScale User UUID to Linux uid.
-    #
-    # === Parameters
-    # uuid(String):: RightScale user's UUID
-    #
-    # === Return
-    # uid(Integer):: Linux account's UID
-    def uuid_to_uid(uuid)
-      Integer(uuid) + 4096
     end
   end
 end

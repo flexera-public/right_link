@@ -197,15 +197,20 @@ module RightScale
     def configure_sudoers
       return 0 unless Platform.linux?
       puts "Configuring /etc/sudoers to ensure rightscale user able to use NOPASSWD priveleges"
-      sudo_group = "rightscale_sudo"
 
-      mask = Regexp.new("%#{sudo_group} ALL=NOPASSWD: ALL")
+      sudo_user  = 'rightscale'
+      sudo_group = 'rightscale_sudo'
+
+      mask = Regexp.new("%?(#{sudo_group}|#{sudo_user}) ALL=NOPASSWD: ALL")
+
       begin
         lines = File.readlines('/etc/sudoers')
         file = File.open("/etc/sudoers", "w")
         lines.each { |line| file.puts line.strip unless line =~ mask}
         file.puts("\n")
-        file.puts("# Only rightscale user able to use sudo with NOPASSWD priveleges:")
+        file.puts("# The rightscale user must be able to sudo, else RightLink may not function!")
+        file.puts("#{sudo_user} ALL=NOPASSWD: ALL")
+        file.puts("# RightScale dashboard users who are allowed superuser privileges")
         file.puts("%#{sudo_group} ALL=NOPASSWD: ALL")
         file.close
       end

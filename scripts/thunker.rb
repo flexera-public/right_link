@@ -27,6 +27,9 @@ require 'right_agent/scripts/common_parser'
 require 'right_agent/core_payload_types'
 require 'right_support/net'
 
+basedir = File.expand_path('../..', __FILE__)
+require File.join(basedir, 'lib', 'instance')
+
 module RightScale
 
   class Thunker
@@ -201,137 +204,28 @@ module RightScale
       fail(error)
     end
 
-    PROFILE_CHECKSUM = "profile.md5"
-
     # Downloads an archive from given path; extracts files and moves
     # them to username's home directory.
     #
     # === Parameters
     # username(String):: account's username
-    # url(String):: URL to profile archive
+    # custom_data(String):: custom data, e.g. personal tarball URL
     # force(Boolean):: rewrite existing files if true; otherwise skip them
     #
     # === Return
     # extracted(Boolean):: true if profile downloaded and copied; false
     # if profile has been created earlier or error occured
-    def create_profile(username, url, force = false)
+    def create_profile(username, custom_data, force = false)
       home_dir = Etc.getpwnam(username).dir
-      checksum_path = File.join('.rightscale', PROFILE_CHECKSUM)
-      return false if File.exists?(File.join(home_dir, checksum_path))
 
-      STDOUT.puts "Performing custom profile setup for #{username}"
-
-      tmpdir = Dir.mktmpdir
-      file_path = File.join(tmpdir, File.basename(url))
-      if download_file(url, file_path) && extract_files(username, file_path, home_dir, force)
-        save_checksum(username, file_path, checksum_path, home_dir)
-        STDOUT.puts "Extracted profile for #{username}"
-      end
-
+      LoginUserManager.setup_profile(username, home_dir, custom_data, force)
       return true
     rescue Exception => e
+      STDERR.puts
       STDERR.puts "Failed to create profile for #{username}; continuing"
       STDERR.puts "#{e.class.name}: #{e.message} - #{e.backtrace.first}"
       Log.error("#{e.class.name}: #{e.message} - #{e.backtrace.first}")
       return false
-    ensure
-      FileUtils.rm_rf(tmpdir) if tmpdir && File.exists?(tmpdir)
-    end
-
-    # Downloads a file from specified URL
-    #
-    # === Parameters
-    # url(String):: URL to file
-    # path(String):: downloaded file path
-    #
-    # === Return
-    # downloaded(Boolean):: true if downloaded and saved successfully
-    def download_file(url, path)
-      client = RightSupport::Net::HTTPClient.new
-      response = client.get(url, :timeout => 10)
-      File.open(path, "wb") { |file| file.write(response) } unless response.empty?
-      File.exists?(path)
-    rescue Exception => e
-      Log.error("#{e.class.name}: #{e.message} - #{e.backtrace.first}")
-      false
-    end
-
-    # Extracts an archive and moves files to destination directory
-    # Supported archive types are:
-    #   .tar.bz2 / .tbz
-    #   .tar.gz / .tgz
-    #   .zip
-    #
-    # === Parameters
-    # username(String):: account's username
-    # filename(String):: archive's path
-    # destination_path(String):: path where extracted files should be
-    # moved
-    # force(Boolean):: optional; if true existing files will be
-    # rewritten
-    #
-    # === Return
-    # extracted(Boolean):: true if archive is extracted successfully
-    def extract_files(username, filename, destination_path, force = false)
-      escaped_filename = Shellwords.escape(filename)
-
-      case filename
-      when /(?:\.tar\.bz2|\.tbz)$/
-        %x(sudo tar jxf #{escaped_filename} -C #{destination_path})
-      when /(?:\.tar\.gz|\.tgz)$/
-        %x(sudo tar zxf #{escaped_filename} -C #{destination_path})
-      when /\.zip$/
-        %x(sudo unzip -o #{escaped_filename} -d #{destination_path})
-      else
-        raise ArgumentError, "Don't know how to extract #{filename}'"
-      end
-      extracted = $?.success?
-
-      chowned = change_owner(username, username, destination_path)
-      return extracted && chowned
-    end
-
-    # Calculates MD5 checksum for specified file and saves it
-    #
-    # === Parameters
-    # username(String):: account's username
-    # target(String):: path to file
-    # checksum_path(String):: relative path to checksum file
-    # destination(String):: path to file where checksum should be saved
-    #
-    # === Return
-    # nil
-    def save_checksum(username, target, checksum_path, destination)
-      checksum = Digest::MD5.file(target).to_s
-
-      temp_dir = File.join(File.dirname(target), File.dirname(checksum_path))
-      temp_path = File.join(File.dirname(target), checksum_path)
-
-      FileUtils.mkdir_p(temp_dir)
-      FileUtils.chmod_R(0771, temp_dir) # need +x to others for File.exists? => true
-      File.open(temp_path, "w") { |f| f.write(checksum) }
-
-      change_owner(username, username, temp_dir)
-      %x(sudo mv #{temp_dir} #{destination})
-    rescue Exception => e
-      STDERR.puts "Failed to save checksum for #{username} profile"
-      STDERR.puts "#{e.class.name}: #{e.message} - #{e.backtrace.first}"
-      Log.error("#{e.class.name}: #{e.message} - #{e.backtrace.first}")
-    end
-
-    # Changes owner of directories and files from given path
-    #
-    # === Parameters
-    # username(String):: desired owner's username
-    # group(String):: desired group name
-    # path(String):: path for owner changing
-    #
-    # === Return
-    # chowned(Boolean):: true if owner changed successfully
-    def change_owner(username, group, path)
-      %x(sudo chown -R #{Shellwords.escape(username)}:#{Shellwords.escape(group)} #{path})
-
-      $?.success?
     end
   end # Thunker
 
