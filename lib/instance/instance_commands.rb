@@ -49,6 +49,7 @@ module RightScale
       :add_tag                  => 'Add given tag',
       :remove_tag               => 'Remove given tag',
       :query_tags               => 'Query for instances with specified tags',
+      :audit_create_entry       => 'Create a new audit entry',
       :audit_update_status      => 'Update last audit title',
       :audit_create_new_section => 'Create new audit section',
       :audit_append_output      => 'Append process output to audit',
@@ -334,6 +335,27 @@ module RightScale
         reply = @serializer.dump(raw_response) rescue raw_response
         CommandIO.instance.reply(opts[:conn], reply)
       end
+    end
+
+    # Create an audit entry.
+    #
+    # === Parameters
+    # opts[:conn](EM::Connection):: Connection used to send reply
+    # opts[:summary](String):: Initial audit summary; must be present in order to avoid a blank summary!
+    # opts[:category](String):: One of the categories enumerated by RightScale::EventCategories
+    # opts[:user_email](String):: Optional; email of user who caused the audit event
+    #
+    # === Return
+    # result(RightScale::OperationResult):: result; if successful, payload == an integer audit ID
+    def audit_create_entry_command(opts)
+      payload = {
+        :agent_identity => @agent_identity,
+        :summary        => opts[:summary],
+        :category       => opts[:category] || RightScale::EventCategories::NONE,
+        :user_email     => opts[:user_email],
+        :detail         => opts[:detail]
+      }
+      send_persistent_request('/auditor/create_entry', opts[:conn], payload)
     end
 
     # Update audit summary

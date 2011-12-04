@@ -90,10 +90,10 @@ function install_gems() {
     if [ -e vendor/cache ]
     then
         echo "Installing gems in release mode (local sources only)"
-        bundle_flags="--local"
+        bundle_flags="--local --deployment"
     else
         echo "Installing gems in development mode"
-        bundle_flags=""
+        bundle_flags="--deployment"
     fi
 
     cd $right_link_root
@@ -116,7 +116,7 @@ function install_public_wrappers() {
       return 1
     fi
 
-    for script in rs_run_right_script rs_run_recipe rs_log_level rs_reenroll rs_tag rs_shutdown rs_connect
+    for script in rs_run_right_script rs_run_recipe rs_log_level rs_reenroll rs_tag rs_thunk rs_shutdown rs_connect
     do
       echo " - $script"
       cat > $public_wrapper_dir/$script <<EOF
