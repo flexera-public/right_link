@@ -104,7 +104,7 @@ class InstanceScheduler
     forwarder = lambda do |type|
       send_retryable_request("/forwarder/schedule_#{type}", payload, nil, :offline_queueing => true) do |r|
         r = result_from(r)
-        log_info("Failed executing #{type} for #{payload.inspect}", r.content) unless r.success?
+        log_error("Failed executing #{type} for #{payload.inspect}", r.content) unless r.success?
       end
     end
 
