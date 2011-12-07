@@ -113,7 +113,7 @@ class InstanceScheduler
     forwarder = lambda do |type|
       send_retryable_request("/forwarder/schedule_#{type}", payload) do |r|
         r = result_from(r)
-        RightScale::Log.info("Failed executing #{type} for #{payload.inspect}", r.content) unless r.success?
+        RightScale::Log.error("Failed executing #{type} for #{payload.inspect}", r.content) unless r.success?
       end
     end
 
