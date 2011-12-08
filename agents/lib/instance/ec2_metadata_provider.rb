@@ -49,7 +49,7 @@ module RightScale
     # === Returns
     # metadata(Hash):: tree of metadata
     def metadata
-      url = RightScale::CloudInfo.metadata_server_url + '/latest/meta-data/'
+      url = RightScale::CloudInfo.metadata_server_url + '/2011-01-01/meta-data/'
       return recursive_fetch_metadata(url)
     end
 
