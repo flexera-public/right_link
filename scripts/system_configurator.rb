@@ -208,8 +208,11 @@ module RightScale
         file = File.open("/etc/sudoers", "w")
         lines.each { |line| file.puts line.strip unless line =~ mask}
         file.puts("\n")
-        file.puts("# The rightscale user must be able to sudo, else RightLink may not function!")
-        file.puts("#{sudo_user} ALL=NOPASSWD: ALL")
+
+        file.puts("# The rightscale user may impersonate anyone to run any command (just like root)")
+        file.puts("# Please leave this permission in place, else RightLink may not function!")
+        file.puts("#{sudo_user} ALL=(ALL)NOPASSWD: ALL")
+
         file.puts("# RightScale dashboard users who are allowed superuser privileges")
         file.puts("%#{sudo_group} ALL=NOPASSWD: ALL")
         file.close

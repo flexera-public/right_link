@@ -63,16 +63,27 @@ module RightScale
 
       fail(1) if missing_argument(username, "USERNAME") || missing_argument(email, "EMAIL")
 
-      if ENV.has_key?('SSH_CLIENT')
-        client_ip = ENV['SSH_CLIENT'].split(/\s+/).first
+      #Thunk into user's context
+      orig = ENV['SSH2_ORIGINAL_COMMAND'] || ENV['SSH_ORIGINAL_COMMAND']
+
+      if orig =~ /^[A-Za-z0-9_/]+scp -[ft]/
+        cmd = "sudo -u #{username} #{orig}"
+        access = :scp
+      elsif orig =~ %r{^[A-Za-z0-9_/]+sftp-server$}
+        cmd = "sudo -u #{username} #{orig}"
+        access = :sftp
+      elsif orig != nil && !orig.empty?
+        cmd = "sudo -u #{username} #{orig}"
+        access = :ssh_cmd
+      else
+        cmd = "sudo -i -u #{username}"
+        access = :ssh_shell
       end
 
-      create_audit_entry(email, username, client_ip)
-      create_profile(username, profile, force) if profile
+      client_ip = ENV['SSH_CLIENT'].split(/\s+/).first if ENV.has_key?('SSH_CLIENT')
 
-      #Thunk into user's context
-      home = Etc.getpwnam(username).dir
-      cmd = "sudo su -l #{username}"
+      create_audit_entry(email, username, access, orig, client_ip)
+      create_profile(username, profile, force) if profile
       Kernel.exec(cmd)
     end
 
@@ -175,22 +186,37 @@ module RightScale
       exit(code)
     end
 
-    def create_audit_entry(email, username, client_ip=nil)
+    def create_audit_entry(email, username, access, command, client_ip=nil)
       config_options = AgentConfig.agent_options('instance')
       listen_port = config_options[:listen_port]
       raise ArgumentError.new('Could not retrieve agent listen port') unless listen_port
       client = CommandClient.new(listen_port, config_options[:cookie])
 
-      summary  = "SSH login"
-      detail   = "#{email} logged in as #{username}"
-      detail  += " from #{client_ip}" if client_ip
+      case access
+        when :scp then
+          summary  = 'SSH file copy'
+          detail   = "User copied files (scp) as #{username}@localhost"
+        when :sftp then
+          summary  = 'SSH interactive file transfer'
+          detail   = "User started sftp session as #{username}@localhost"
+        when :ssh_cmd
+          summary  = 'SSH command'
+          detail   = "User ran command as #{username}@localhost"
+        when :ssh_shell
+          summary  = 'SSH interactive login'
+          detail   = "User logged in as #{username}@localhost"
+      end
+
+      detail += "\n"
+      detail += "\nclient IP: #{client_ip}" if client_ip
+      detail += "\ncommand: #{command}" if command
 
       options = {
         :name => 'audit_create_entry',
-        :summary => summary,
-        :category => RightScale::EventCategories::CATEGORY_SECURITY,
         :user_email => email,
-        :detail => detail
+        :summary => summary,
+        :detail => detail,
+        :category => RightScale::EventCategories::CATEGORY_SECURITY
       }
 
       client.send_command(options, false, AUDIT_REQUEST_TIMEOUT) do |res|
