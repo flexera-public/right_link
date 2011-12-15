@@ -193,8 +193,8 @@ describe InstanceSetup do
     @results_factory = RightScale::ResultsMock.new
     InstanceSetup.results_factory = @results_factory
     @mgr = RightScale::LoginManager.instance
-    flexmock(@mgr).should_receive(:supported_by_platform?).and_return(true)
-    flexmock(@mgr).should_receive(:write_keys_file).and_return(true)
+    #Don't bother to do anything with managed login; this is a unit test of instance setup!
+    flexmock(@mgr).should_receive(:supported_by_platform?).and_return(false)
     status = flexmock('status', :success? => true)
     flexmock(RightScale).should_receive(:popen3).and_return { |o| o[:target].send(o[:exit_handler], status) }
     setup_state
