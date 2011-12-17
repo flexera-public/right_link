@@ -56,6 +56,6 @@ end
 
 group :custom do
   gem "ohai",                  "0.6.11.1"
-  gem "chef",                  "0.10.6.1.1"
+  gem "chef",                  "0.10.6.1"
   gem "eventmachine",          "0.12.11.6"
 end

@@ -19,7 +19,7 @@ GEM
     amqp (0.7.5)
       eventmachine
     bunny (0.6.0)
-    chef (0.10.6.1.1)
+    chef (0.10.6.1)
       bunny (>= 0.6.0)
       erubis
       highline
@@ -46,8 +46,7 @@ GEM
     hoe (2.3.3)
       rake (>= 0.8.7)
       rubyforge (>= 1.0.4)
-    json (1.4.6)
-    json (1.4.6-x86-mswin32)
+    json (1.6.1)
     libarchive (0.1.2)
     libarchive (0.1.2-x86-mswin32)
     mime-types (1.16)
@@ -128,7 +127,7 @@ PLATFORMS
 DEPENDENCIES
   abstract (= 1.0.0)
   bunny (= 0.6.0)
-  chef (= 0.10.6.1.1)
+  chef (= 0.10.6.1)
   erubis (= 2.6.5)
   eventmachine (= 0.12.11.6)
   extlib (= 0.9.14)
