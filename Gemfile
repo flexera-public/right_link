@@ -41,7 +41,7 @@ group :stable do
   gem "mixlib-authentication", "1.1.2"
   gem "mixlib-cli",            "1.2.0"
   gem "mixlib-config",         "1.1.2"
-  gem "mixlib-log",            "1.2.0"
+  gem "mixlib-log",            "1.3.0"
   gem "hoe",                   "2.3.3"
   gem "moneta",                "0.6.0"
   gem "bunny",                 "0.6.0"
@@ -53,7 +53,7 @@ group :stable do
 end
 
 group :custom do
-  gem "ohai",                  "0.5.8.3"
-  gem "chef",                  "0.9.14.3"
+  gem "ohai",                  "0.6.11.1"
+  gem "chef",                  "0.10.6.1"
   gem "eventmachine",          "0.12.11.6"
 end
