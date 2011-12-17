@@ -66,7 +66,7 @@ module RightScale
       #Thunk into user's context
       orig = ENV['SSH2_ORIGINAL_COMMAND'] || ENV['SSH_ORIGINAL_COMMAND']
 
-      if orig =~ /^[A-Za-z0-9_/]+scp -[ft]/
+      if orig =~ %r{^[A-Za-z0-9_/]+scp -[ft]}
         cmd = "sudo -u #{username} #{orig}"
         access = :scp
       elsif orig =~ %r{^[A-Za-z0-9_/]+sftp-server$}
