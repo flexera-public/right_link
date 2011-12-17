@@ -192,24 +192,31 @@ module RightScale
       raise ArgumentError.new('Could not retrieve agent listen port') unless listen_port
       client = CommandClient.new(listen_port, config_options[:cookie])
 
+      begin
+        hostname = `hostname`.strip
+      rescue Exception => e
+        hostname = 'localhost'
+      end
+
       case access
         when :scp then
           summary  = 'SSH file copy'
-          detail   = "User copied files (scp) as #{username}@localhost"
+          detail   = "User copied files copied (scp) to/from host."
         when :sftp then
           summary  = 'SSH interactive file transfer'
-          detail   = "User started sftp session as #{username}@localhost"
+          detail   = "User initiated an SFTP session."
         when :ssh_cmd
           summary  = 'SSH command'
-          detail   = "User ran command as #{username}@localhost"
+          detail   = "User invoked an interactive program."
         when :ssh_shell
           summary  = 'SSH interactive login'
-          detail   = "User logged in as #{username}@localhost"
+          detail   = "User connected and invoked a login shell."
       end
 
       detail += "\n"
-      detail += "\nclient IP: #{client_ip}" if client_ip
-      detail += "\ncommand: #{command}" if command
+      detail += "\nLogin:     #{username}@#{hostname}" if username
+      detail += "\nClient IP: #{client_ip}" if client_ip
+      detail += "\nCommand:   #{command}" if command
 
       options = {
         :name => 'audit_create_entry',
