@@ -9,17 +9,37 @@ gem "right_scraper",         "3.0.1"
 gem "right_http_connection", "~> 1.3.0"
 gem "right_popen",           "1.0.18"
 
-platform :mswin do
-  gem "win32-api",           "1.4.5"
-  gem "windows-api",         "0.4.0"
-  gem "windows-pr",          "1.0.8"
-  gem "win32-dir",           "0.3.5"
-  gem "win32-eventlog",      "0.5.2"
-  gem "ruby-wmi",            "0.2.2"
-  gem "win32-process",       "0.6.1"
-  gem "win32-pipe",          "0.2.1"
-  gem "win32-open3",         "0.3.2"
-  gem "win32-service",       "0.7.2"
+# We have custom builds of some gems containing fixes and patches that are specific
+# to RightScale. Gems in the "custom" group are published by RightScale to our
+# custom gem repository (http://s3.amazonaws.com/rightscale_rightlink_gems_dev).
+group :custom do
+  gem "ohai",                  "0.6.11.1"
+  gem "chef",                  "0.10.6.2"
+  gem "eventmachine",          "0.12.11.6"
+end
+
+# We use some gems on both platforms, but the maintainer of the gem does not publish
+# his own builds of the gem. We must do it for him. Therefore we cannot upgrade these
+# gems without doing work on our side.
+#
+# DO NOT CHANGE VERSIONS of these gems until you have built a precompiled
+# mswin-platform gem for every one of the gems below AND published it to
+# the rightscale custom gem repository.
+group :not_windows_friendly do
+  gem "json",                  "1.4.6"
+
+  platform :mswin do
+    gem "win32-api",           "1.4.5"
+    gem "windows-api",         "0.4.0"
+    gem "windows-pr",          "1.0.8"
+    gem "win32-dir",           "0.3.5"
+    gem "win32-eventlog",      "0.5.2"
+    gem "ruby-wmi",            "0.2.2"
+    gem "win32-process",       "0.6.1"
+    gem "win32-pipe",          "0.2.1"
+    gem "win32-open3",         "0.3.2"
+    gem "win32-service",       "0.7.2"
+  end
 end
 
 group :test do
@@ -35,7 +55,6 @@ end
 # for paranoia's sake because we had them version locked in the pre-Gemfile
 # days.
 group :stable do
-  gem "json",                  "1.4.6"
   gem "stomp",                 "1.1"
   gem "ruby-openid",           "2.1.8"
   gem "abstract",              "1.0.0"
@@ -53,10 +72,4 @@ group :stable do
   gem "uuidtools",             "2.1.2"
   gem "mime-types",            "1.16"
   gem "rest-client",           "1.6.3"
-end
-
-group :custom do
-  gem "ohai",                  "0.6.11.1"
-  gem "chef",                  "0.10.6.1"
-  gem "eventmachine",          "0.12.11.6"
 end

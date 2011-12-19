@@ -30,6 +30,7 @@ module RightScaleTestPluginSpec
 end
 
 describe Ohai::System, " rightscale_test_plugin" do
+
   def create_cookbook
     RightScale::Test::ChefRunner.create_cookbook(
             RightScaleTestPluginSpec::TEST_TEMP_PATH,
@@ -54,6 +55,7 @@ EOF
   before(:each) do
     @original_plugins = Ohai::System::EXCLUDED_OHAI_PLUGINS
     Ohai::System::EXCLUDED_OHAI_PLUGINS << "cloud"
+    RightScale::AgentConfig.cache_dir = File.join(RightScale::SpecHelper::RIGHT_LINK_SPEC_HELPER_TEMP_PATH, 'cache')
   end
 
   after(:each) do
