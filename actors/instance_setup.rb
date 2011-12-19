@@ -165,7 +165,8 @@ class InstanceSetup
           audit.append_error("Error applying login policy: #{e}", :category => RightScale::EventCategories::CATEGORY_ERROR)
           RightScale::Log.error('Failed to enable managed login', e, :trace)
         end
-        boot
+
+        setup_volumes
       end
 
       req.errback do |res|
@@ -184,7 +185,7 @@ class InstanceSetup
   def setup_volumes
     # managing planned volumes is currently only needed in Windows and only if
     # this is not a reboot scenario.
-    if RightScale::InstanceState.reboot?
+    if !RightScale::Platform.windows? || RightScale::InstanceState.reboot?
       boot
     else
       RightScale::AuditProxy.create(@agent_identity, 'Planned volume management') do |audit|
