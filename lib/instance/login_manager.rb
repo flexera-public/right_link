@@ -43,7 +43,7 @@ module RightScale
     # === Return
     # val(true|false) whether LoginManager works on this platform
     def supported_by_platform?
-      right_platform = RightScale::Platform.linux? || RightScale::Platform.darwin?
+      right_platform = RightScale::Platform.linux?
       right_user = user_exists?('rightscale')
       right_platform && right_user
     end

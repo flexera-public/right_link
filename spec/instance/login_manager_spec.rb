@@ -92,10 +92,9 @@ describe RightScale::LoginManager do
   end
 
   describe "#supported_by_platform" do
-    context "when platform is not UNIX based" do
+    context "when platform is not Linux" do
       before(:each) do
         flexmock(RightScale::Platform).should_receive(:linux?).and_return(false)
-        flexmock(RightScale::Platform).should_receive(:darwin?).and_return(false)
       end
 
       it "returns false" do
@@ -103,26 +102,33 @@ describe RightScale::LoginManager do
       end
     end
 
-    context "when platform is Linux based" do
+    context "when platform is Linux" do
       before(:each) do
         flexmock(RightScale::Platform).should_receive(:linux?).and_return(true)
         flexmock(RightScale::Platform).should_receive(:darwin?).and_return(false)
+        flexmock(RightScale::Platform).should_receive(:windows?).and_return(false)
       end
 
-      it "returns true" do
-        @mgr.supported_by_platform?.should be(true)
-      end
-    end
+      context 'and rightscale user exists' do
+        before(:each) do
+          flexmock(@mgr).should_receive(:user_exists?).with('rightscale').and_return(true)
+        end
 
-    context "when platform is MacOS" do
-      before(:each) do
-        flexmock(RightScale::Platform).should_receive(:linux?).and_return(false)
-        flexmock(RightScale::Platform).should_receive(:darwin?).and_return(true)
+        it "returns true" do
+          @mgr.supported_by_platform?.should be(true)
+        end
       end
 
-      it "returns true" do
-        @mgr.supported_by_platform?.should be(true)
+      context 'and rightscale user does not exist' do
+        before(:each) do
+          flexmock(@mgr).should_receive(:user_exists?).with('rightscale').and_return(false)
+        end
+
+        it "returns false" do
+          @mgr.supported_by_platform?.should be(false)
+        end
       end
+
     end
   end
 
