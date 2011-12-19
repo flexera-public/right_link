@@ -19,6 +19,7 @@ platform :mswin do
   gem "win32-process",       "0.6.1"
   gem "win32-pipe",          "0.2.1"
   gem "win32-open3",         "0.3.2"
+  gem "win32-service",       "0.7.2"
 end
 
 group :test do
