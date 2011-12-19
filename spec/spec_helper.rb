@@ -58,6 +58,15 @@ require 'right_agent'
 require 'right_agent/core_payload_types'
 require 'stringio'
 
+# HACK: disable garbage collector (in Windows only?) for spec run as flexmocked
+# types cause segmentation faults when flexmocked objects are gc'd on a thread
+# other than where they were defined and allocated.
+begin
+  GC.disable if ::RightScale::Platform.windows?
+rescue Exception => e
+  puts "#{e.class}: #{e.message}", e.backtrace.join("\n")
+end
+
 require File.join(File.dirname(__FILE__), 'results_mock')
 
 config = Spec::Runner.configuration
