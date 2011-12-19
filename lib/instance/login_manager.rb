@@ -43,9 +43,7 @@ module RightScale
     # === Return
     # val(true|false) whether LoginManager works on this platform
     def supported_by_platform?
-      right_platform = RightScale::Platform.linux? || RightScale::Platform.darwin?
-      right_user = user_exists?('rightscale')
-      right_platform && right_user
+      RightScale::Platform.linux? || RightScale::Platform.darwin?
     end
 
     # Enact the login policy specified in new_policy for this system. The policy becomes
@@ -58,7 +56,7 @@ module RightScale
     # === Return
     # description(String) a human-readable description of the update, suitable for auditing
     def update_policy(new_policy)
-      return false unless supported_by_platform?
+      return false unless supported_by_platform? && user_exists?('rightscale')
 
       # As a sanity check, filter out any expired users. The core should never send us these guys,
       # but by filtering here additionally we prevent race conditions and handle boundary conditions, as well

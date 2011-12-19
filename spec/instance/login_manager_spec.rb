@@ -153,6 +153,21 @@ describe RightScale::LoginManager do
       end
     end
 
+    context "user 'rightscale' doesn't exist" do
+      before(:each) do
+        flexmock(@mgr).should_receive(:user_exists?).with('rightscale').and_return(false)
+      end
+
+      it "doesn't modify public keys file" do
+        flexmock(@mgr).should_receive(:write_keys_file).never
+        @mgr.update_policy(@policy)
+      end
+
+      it "returns false" do
+        @mgr.update_policy(@policy).should be(false)
+      end
+    end
+
     it "should not add authorized_keys for expired users" do
       @policy.users[0].expires_at = one_day_ago
 
