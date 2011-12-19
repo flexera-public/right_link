@@ -22,6 +22,7 @@ platform :mswin do
 end
 
 group :test do
+  gem "ruby-debug"
   gem "rspec",               "~> 1.3"
   gem "flexmock",            "~> 0.8"
   platform :mswin do
@@ -33,6 +34,7 @@ end
 # for paranoia's sake because we had them version locked in the pre-Gemfile
 # days.
 group :stable do
+  gem "json",                  "1.4.6"
   gem "stomp",                 "1.1"
   gem "ruby-openid",           "2.1.8"
   gem "abstract",              "1.0.0"
