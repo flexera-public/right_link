@@ -472,15 +472,15 @@ module RightScale
     #
     # === Return
     # true:: Always return true
-    def check_ohai
+    def check_ohai(&block)
       ohai = Ohai::System.new
       ohai.require_plugin('os')
       ohai.require_plugin('hostname')
       if ohai[:hostname]
-        yield(ohai)
+        block.call(ohai)
       else
         RightLinkLog.warn("Could not determine node name from Ohai, will retry in #{@ohai_retry_delay}s...")
-        EM.add_timer(@ohai_retry_delay) { check_ohai }
+        EM.add_timer(@ohai_retry_delay) { check_ohai(&block) }
         @ohai_retry_delay = [ 2 * @ohai_retry_delay, OHAI_RETRY_MAX_DELAY ].min
       end
       true
