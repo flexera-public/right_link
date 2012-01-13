@@ -519,9 +519,10 @@ protected
     # true:: Always return true
     def setup_traps
       ['INT', 'TERM'].each do |sig|
-        old = trap(sig) do
-          terminate
-          old.call if old.is_a? Proc
+        trap(sig) do
+          EM.next_tick do
+            terminate
+          end
         end
       end
       true
