@@ -57,6 +57,7 @@ function install_gems() {
     if [ -e /opt/rightscale/sandbox/bin/gem ]
     then
       # Use RightScale sandbox as our first choice
+      using_sandbox=1
       gem_bin="/opt/rightscale/sandbox/bin/gem"
     elif [ -e /etc/profile.d/rvm.sh -a -e /usr/local/rvm/rubies/ruby-1.8.7-p352 ]
     then
@@ -67,33 +68,37 @@ function install_gems() {
       gem_bin=`which gem`
     else
       # Fallback choice: use the system Ruby
+      using_system_ruby=1
       gem_bin=`which gem`
     fi
-
-    $gem_bin install --no-rdoc --no-ri -v "~> 1.0.18" bundler | logger -st RightScale
 
     if [ -e /opt/rightscale/sandbox/bin/bundle ]
     then
       # The RightScale sandbox lives in a fixed location on disk. Use the sandbox
       # Ruby as our first choice, if it exists.
       bundle_bin="/opt/rightscale/sandbox/bin/bundle"
-    elif [ "$using_rvm" == "" -a -e /var/lib/gems/1.8/bin/bundle ]
-    then
-      # Debian systems using the system Ruby package have a very odd location
-      # for gem binaries!
-      bundle_bin="/var/lib/gems/1.8/bin/bundle"
     else
-      # Generic case; works for non-Debian system Ruby as well as for RVM
-      bundle_bin=`which bundle`
+      # Ensure Bundler is installed, since we're not using the RightScale sandbox.
+      $gem_bin install --no-rdoc --no-ri -v "~> 1.0.18" bundler | logger -st RightScale
+
+      if [ "$using_system_ruby" == "1" -a -e /var/lib/gems/1.8/bin/bundle ]
+      then
+        # Debian systems using the system Ruby package have a very odd location
+        # for gem binaries!
+        bundle_bin="/var/lib/gems/1.8/bin/bundle"
+      else
+        # Generic case; works for RVM, as well as for non-Debian system Ruby
+        bundle_bin=`which bundle`
+      fi
     fi
 
-    if [ -e vendor/cache ]
+    if [ "$using_sandbox" == "1" ]
     then
-        echo "Installing gems in release mode (local sources only)"
-        bundle_flags="--local --deployment"
+        echo "Installing gems in release mode (sandbox present; local gem sources only)"
+        bundle_flags="--local"
     else
-        echo "Installing gems in development mode"
-        bundle_flags="--deployment"
+        echo "Installing gems in development mode (query sources; resolve dependency graph if needed)"
+        bundle_flags=""
     fi
 
     cd $right_link_root
