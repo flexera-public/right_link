@@ -86,14 +86,21 @@ module RightScale
       end
 
       EM.next_tick do
-        RightScale.popen3(:command        => cmd,
-                          :input          => input_text,
-                          :target         => self,
-                          :environment    => { OptionsBag::OPTIONS_ENV => ENV[OptionsBag::OPTIONS_ENV] },
-                          :stdout_handler => :on_read_stdout,
-                          :stderr_handler => :on_read_stderr,
-                          :pid_handler    => :on_pid,
-                          :exit_handler   => :on_exit)
+        # Cook will need a clean env for its Ruby subprocesses, therefore we
+        # must invoke IT with a clean env and let it activate Bundler on
+        # its own. Before cleaning the env, we rescue the one necessary env var
+        # that we must explicitly pass to the child process.
+        options_env = ENV[OptionsBag::OPTIONS_ENV]
+        Bundler.with_clean_env do
+          RightScale.popen3(:command        => cmd,
+                            :input          => input_text,
+                            :target         => self,
+                            :environment    => { OptionsBag::OPTIONS_ENV => options_env },
+                            :stdout_handler => :on_read_stdout,
+                            :stderr_handler => :on_read_stderr,
+                            :pid_handler    => :on_pid,
+                            :exit_handler   => :on_exit)
+        end
       end
     end
 

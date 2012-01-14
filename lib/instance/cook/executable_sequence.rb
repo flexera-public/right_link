@@ -560,7 +560,11 @@ module RightScale
         c      = Chef::Client.new(attribs)
         c.ohai = ohai
         audit_time do
-          c.run
+          # Ensure that Ruby subprocesses invoked by Chef do not inherit our
+          # RubyGems/Bundler environment.
+          Bundler.with_clean_env do
+            c.run
+          end
         end
       rescue SystemExit => e
         # exit is expected in case where a script has invoked rs_shutdown
