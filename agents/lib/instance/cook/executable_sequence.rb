@@ -138,6 +138,8 @@ module RightScale
         check_ohai { |o| converge(o) } if @ok
       end
       true
+      rescue Exception => e
+        report_failure('Sequence Execution failed', "The following execption occured prior to starting the Chef Process: (#{e.message}) from\n#{e.backtrace.join("\n")}")
     end
 
     protected
@@ -480,7 +482,7 @@ module RightScale
         block.call(ohai)
       else
         RightLinkLog.warn("Could not determine node name from Ohai, will retry in #{@ohai_retry_delay}s...")
-        EM.add_timer(@ohai_retry_delay) { check_ohai(&block) }
+        EM.add_timer(@ohai_retry_delay) { EM.defer { check_ohai(&block) } }
         @ohai_retry_delay = [ 2 * @ohai_retry_delay, OHAI_RETRY_MAX_DELAY ].min
       end
       true
