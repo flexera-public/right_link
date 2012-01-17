@@ -138,6 +138,8 @@ module RightScale
         check_ohai { |o| converge(o) } if @ok
       end
       true
+    rescue Exception => e
+      report_failure('Sequence Execution failed', "The following execption occured prior to starting the Chef Process: (#{e.message}) from\n#{e.backtrace.join("\n")}")
     end
 
     protected
