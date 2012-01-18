@@ -564,7 +564,7 @@ module RightScale
         audit_time do
           # Ensure that Ruby subprocesses invoked by Chef do not inherit our
           # RubyGems/Bundler environment.
-          Bundler.with_clean_env do
+          without_bundler_env do
             c.run
           end
         end
@@ -748,6 +748,17 @@ module RightScale
       res = yield
       @audit.append_info("Duration: #{'%.2f' % (Time.now - start_time)} seconds\n\n")
       res
+    end
+
+    def without_bundler_env
+      original_env = ENV.to_hash
+      ENV.delete_if {|k,v| k =~ /^GEM_|^BUNDLE_/}
+      if ENV.key?('RUBYOPT')
+        ENV['RUBYOPT'] = ENV['RUBYOPT'].split(" ").select {|word| word !~ /bundler/}.join(" ")
+      end
+      yield
+    ensure
+      ENV.replace(original_env.to_hash)
     end
   end
 end
