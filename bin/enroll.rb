@@ -28,8 +28,6 @@ require 'uri'
 
 # Gem dependencies
 require 'json'
-require 'amqp'
-require 'mq'
 require 'yaml'
 require 'right_agent'
 
@@ -243,7 +241,7 @@ module RightScale
     def request_enrollment(timestamp, url, host, port, token_id, token, wait)
       EM.run do
         options = {:host => host, :port => port, :user => url.user, :pass => url.password, :vhost => url.path}
-        broker = HABrokerClient.new(serializer = nil, options)
+        broker = RightAMQP::HABrokerClient.new(serializer = nil, options)
         broker.connection_status(:one_off => wait) do |status|
           if status == :connected
             request = {
@@ -275,7 +273,7 @@ module RightScale
         drain = false
         EM.run do
           options = {:host => host, :port => port, :user => url.user, :pass => url.password, :vhost => url.path}
-          broker = HABrokerClient.new(serializer = nil, options)
+          broker = RightAMQP::HABrokerClient.new(serializer = nil, options)
           EM.add_timer(wait) { shutdown_broker_and_em(broker, true) }
           queue = {:name => predict_queue_name(token_id, token), :options => {:no_declare => true, :durable => true}}
           broker.subscribe(queue) do |b, msg|
