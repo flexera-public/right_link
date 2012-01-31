@@ -118,11 +118,12 @@ module Yum
     ver = Yum::execute("lsb_release  -rs").strip
     arch = Yum::execute("uname -i").strip
 
-    if ver =~ /5\.[01]/
-      # Old CentOS versions 5.0 and 5.1 were not versioned...so we just point to the base of the repo instead.
-      repo_path = "#{ver}/#{opts[:repo_subpath]}/#{arch}"
-    else
-      repo_path = "#{ver}/#{opts[:repo_subpath]}/#{arch}/archive/"+opts[:frozen_date]
+    major_ver = ver.strip.split(".").first
+    repo_path = "#{major_ver}/#{opts[:repo_subpath]}/#{arch}"
+
+    # Old CentOS versions 5.0 and 5.1 were not versioned...so we just point to the base of the repo instead.
+    if !(ver =~ /5\.[01]/)
+      repo_path = repo_path + "/archive/" + opts[:frozen_date]
     end
 
     mirror_list =  opts[:base_urls].map do |bu|
