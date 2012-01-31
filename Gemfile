@@ -1,17 +1,14 @@
 source 'http://s3.amazonaws.com/rightscale_rightlink_gems_dev'
 source :rubygems
 
-gem "rubyforge",             "1.0.4"
-gem "rake",                  "0.8.7"
-gem 'right_support',      '~> 1.2', :git => 'git@github.com:rightscale/right_support.git',
-                          :branch => 'azure_11744_right_amqp'
-gem 'right_amqp',         :git => 'git@github.com:rightscale/right_amqp.git',
-                          :branch => 'master'
-gem 'right_agent',        :git => 'https://github.com/rightscale/right_agent.git',
-                          :branch => 'azure_11744_right_amqp'
-gem "right_scraper",         "3.0.1"
-gem "right_http_connection", "~> 1.3.0"
-gem "right_popen",           "1.0.18"
+gem "rubyforge",               "1.0.4"
+gem "rake",                    "0.8.7"
+gem "right_support",           "~> 1.2", :git => "git://github.com/rightscale/right_support.git"
+gem "right_amqp",              "~> 0.1", :git => "git://github.com/rightscale/right_amqp.git"
+gem "right_agent",             "~> 0.7", :git => "git://github.com/rightscale/right_agent.git"
+gem "right_scraper",           "3.0.1"
+gem "right_http_connection",   "~> 1.3.0"
+gem "right_popen",             "1.0.18"
 
 # We have custom builds of some gems containing fixes and patches that are specific
 # to RightScale. Gems in the "custom" group are published by RightScale to our
@@ -48,10 +45,10 @@ end
 
 group :test do
   gem "ruby-debug"
-  gem "rspec",               "~> 1.3"
-  gem "flexmock",            "~> 0.8"
+  gem "rspec",                 "~> 1.3"
+  gem "flexmock",              "~> 0.8"
   platform :mswin do
-    gem 'win32console',      '~> 1.3.0'
+    gem "win32console",        "~> 1.3.0"
   end
 end
 

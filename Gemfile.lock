@@ -1,23 +1,6 @@
 GIT
-  remote: git@github.com:rightscale/right_amqp.git
-  revision: d44a768805c304c4ac5eabcd51b5fe45b0433419
-  branch: master
-  specs:
-    right_amqp (0.1.0)
-      eventmachine (~> 0.12.10)
-      right_support (~> 1.2)
-
-GIT
-  remote: git@github.com:rightscale/right_support.git
-  revision: 7b34bb976cbb15d51f95ea8fcedeacfdbeba8556
-  branch: azure_11744_right_amqp
-  specs:
-    right_support (1.2.0)
-
-GIT
-  remote: https://github.com/rightscale/right_agent.git
-  revision: 225fa5f20c3a5edaa564b88302efd7695a3cf621
-  branch: azure_11744_right_amqp
+  remote: git://github.com/rightscale/right_agent.git
+  revision: 4739060b4a12ab0e3f7ed22ae5d920c86e5add7d
   specs:
     right_agent (0.7.0)
       eventmachine (~> 0.12.10)
@@ -26,6 +9,20 @@ GIT
       right_amqp (~> 0.1)
       right_popen (~> 1.0.11)
       right_support (~> 1.2)
+
+GIT
+  remote: git://github.com/rightscale/right_amqp.git
+  revision: cab34a508b1fbaaa80ecd9bdfc88560077e139ca
+  specs:
+    right_amqp (0.1.0)
+      eventmachine (~> 0.12.10)
+      right_support (~> 1.2)
+
+GIT
+  remote: git://github.com/rightscale/right_support.git
+  revision: 194586cebd7f164d0b879d3ba785cc6e29c7df33
+  specs:
+    right_support (1.2.0)
 
 GEM
   remote: http://s3.amazonaws.com/rightscale_rightlink_gems_dev/
@@ -174,8 +171,8 @@ DEPENDENCIES
   process_watcher (= 0.4)
   rake (= 0.8.7)
   rest-client (= 1.6.3)
-  right_agent!
-  right_amqp!
+  right_agent (~> 0.7)!
+  right_amqp (~> 0.1)!
   right_http_connection (~> 1.3.0)
   right_popen (= 1.0.18)
   right_scraper (= 3.0.1)
