@@ -5,3 +5,5 @@ tags
 *.swp
 .bundle
 certs/*
+.project
+.loadpath
