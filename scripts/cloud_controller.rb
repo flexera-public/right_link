@@ -57,11 +57,11 @@ module RightScale
 
     # Parse arguments and run
     def control(options)
-
       fail("No action specified on the command line.") unless options[:action]
       name = options[:name]
       parameters = options[:parameters] || []
       only_if = options[:only_if] || false
+      verbose = !(options[:quiet] || false)
 
       action = options[:action].to_sym
       if action == :bootstrap
@@ -71,15 +71,15 @@ module RightScale
         actions = [action]
       end
 
-      cloud = CloudFactory.instance.create(name, :logger => default_logger)
+      cloud = CloudFactory.instance.create(name, :logger => (verbose) ? default_logger : null_logger)
 
       actions.each do |action|
         if cloud.respond_to?(action)
           # Expect most methods to return ActionResult, but a cloud can expose any
           # custom method so we can't assume return type
           result = cloud.send(action, *parameters)
-          $stderr.puts result.error if result.respond_to?(:error) && result.error
-          $stdout.puts result.output if result.respond_to?(:output) && result.output
+          $stderr.puts result.error if verbose && result.respond_to?(:error) && result.error
+          $stdout.puts result.output if verbose && result.respond_to?(:output) && result.output
 
           if result.respond_to?(:exitstatus) && (result.exitstatus != 0)
             raise StandardError, "Action #{action} failed with status #{result.exitstatus}"
@@ -87,7 +87,6 @@ module RightScale
         elsif only_if
           next
         else
-          $stderr.puts "ERROR: Unknown cloud action: #{action}"
           raise ArgumentError, "ERROR: Unknown cloud action: #{action}"
         end
       end
@@ -124,6 +123,10 @@ module RightScale
           options[:parameters] = parameters
         end
 
+        opts.on("-q", "--quiet") do
+          options[:quiet] = true
+        end
+
         opts.on("--help") do
           puts Usage.scan(__FILE__)
           exit 0
@@ -140,6 +143,18 @@ module RightScale
       logger = Logger.new(STDOUT)
       logger.level = Logger::INFO
       logger.formatter = PlainLoggerFormatter.new
+      return logger
+    end
+
+    # logger to supress output
+    def null_logger
+      if RightScale::Platform.windows?
+        null_file = 'NUL'
+      else
+        null_file = '/dev/null'
+      end
+      logger = Logger.new(null_file)
+      logger.level = Logger::FATAL
       return logger
     end
 
