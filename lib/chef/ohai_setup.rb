@@ -21,6 +21,7 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'clouds'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'instance', 'agent_config'))
 
 module RightScale
 
@@ -31,17 +32,17 @@ module RightScale
     CUSTOM_PLUGINS_DIR_PATH = File.normalize_path(File.join(File.dirname(__FILE__), 'plugins'))
 
     def configure_ohai
-      unless Ohai::Config[:plugin_path].include?(CUSTOM_PLUGINS_DIR_PATH)
+      unless ::Ohai::Config[:plugin_path].include?(CUSTOM_PLUGINS_DIR_PATH)
         raise SetupError, "Missing custom Ohai plugins directory: \"#{CUSTOM_PLUGINS_DIR_PATH}\"" unless File.directory?(CUSTOM_PLUGINS_DIR_PATH)
-        Ohai::Config[:plugin_path].unshift(CUSTOM_PLUGINS_DIR_PATH)
+        ::Ohai::Config[:plugin_path].unshift(CUSTOM_PLUGINS_DIR_PATH)
       end
 
       # must set file cache path and ensure it exists otherwise evented run_command will fail
-      Ohai::Config[:file_cache_path] = AgentConfig.cache_dir
-      FileUtils.mkdir_p(Chef::Config[:file_cache_path])
+      ::Ohai::Config[:file_cache_path] = AgentConfig.cache_dir
+      ::FileUtils.mkdir_p(::Ohai::Config[:file_cache_path])
 
-      Ohai::Log.logger = Log
-      Ohai::Config.log_level(Log.level_from_sym(Log.level))
+      ::Ohai::Log.logger = Log
+      ::Ohai::Config.log_level(Log.level_from_sym(Log.level))
     end
 
     module_function :configure_ohai
