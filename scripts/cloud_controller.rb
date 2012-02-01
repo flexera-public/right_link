@@ -78,7 +78,7 @@ module RightScale
           # Expect most methods to return ActionResult, but a cloud can expose any
           # custom method so we can't assume return type
           result = cloud.send(action, *parameters)
-          $stderr.puts result.error if verbose && result.respond_to?(:error) && result.error
+          $stderr.puts result.error if result.respond_to?(:error) && result.error
           $stdout.puts result.output if verbose && result.respond_to?(:output) && result.output
 
           if result.respond_to?(:exitstatus) && (result.exitstatus != 0)
