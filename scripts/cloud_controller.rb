@@ -71,14 +71,14 @@ module RightScale
         actions = [action]
       end
 
-      cloud = CloudFactory.instance.create(name, :logger => (verbose) ? default_logger : null_logger)
+      cloud = CloudFactory.instance.create(name, :logger => default_logger(verbose))
 
       actions.each do |action|
         if cloud.respond_to?(action)
           # Expect most methods to return ActionResult, but a cloud can expose any
           # custom method so we can't assume return type
           result = cloud.send(action, *parameters)
-          $stderr.puts result.error if verbose && result.respond_to?(:error) && result.error
+          $stderr.puts result.error if result.respond_to?(:error) && result.error
           $stdout.puts result.output if verbose && result.respond_to?(:output) && result.output
 
           if result.respond_to?(:exitstatus) && (result.exitstatus != 0)
@@ -139,22 +139,14 @@ module RightScale
     end
 
     # Default logger for printing to console
-    def default_logger
-      logger = Logger.new(STDOUT)
-      logger.level = Logger::INFO
-      logger.formatter = PlainLoggerFormatter.new
-      return logger
-    end
-
-    # logger to supress output
-    def null_logger
-      if RightScale::Platform.windows?
-        null_file = 'NUL'
+    def default_logger(verbose)
+      if verbose
+        logger = Logger.new(STDOUT)
+        logger.level = Logger::INFO
+        logger.formatter = PlainLoggerFormatter.new
       else
-        null_file = '/dev/null'
+        logger = RightScale::Log
       end
-      logger = Logger.new(null_file)
-      logger.level = Logger::FATAL
       return logger
     end
 
