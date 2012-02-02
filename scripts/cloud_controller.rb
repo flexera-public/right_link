@@ -71,7 +71,7 @@ module RightScale
         actions = [action]
       end
 
-      cloud = CloudFactory.instance.create(name, :logger => (verbose) ? default_logger : null_logger)
+      cloud = CloudFactory.instance.create(name, :logger => default_logger(verbose))
 
       actions.each do |action|
         if cloud.respond_to?(action)
@@ -139,22 +139,14 @@ module RightScale
     end
 
     # Default logger for printing to console
-    def default_logger
-      logger = Logger.new(STDOUT)
-      logger.level = Logger::INFO
-      logger.formatter = PlainLoggerFormatter.new
-      return logger
-    end
-
-    # logger to supress output
-    def null_logger
-      if RightScale::Platform.windows?
-        null_file = 'NUL'
+    def default_logger(verbose)
+      if verbose
+        logger = Logger.new(STDOUT)
+        logger.level = Logger::INFO
+        logger.formatter = PlainLoggerFormatter.new
       else
-        null_file = '/dev/null'
+        logger = RightScale::Log
       end
-      logger = Logger.new(null_file)
-      logger.level = Logger::FATAL
       return logger
     end
 
