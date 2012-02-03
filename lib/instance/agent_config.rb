@@ -35,6 +35,11 @@ module RightScale
       RightScale::Platform.filesystem.right_scale_state_dir
     end
 
+    # Path to the file that contains the name of the cloud for this instance
+    def self.cloud_file_path
+      File.normalize_path(File.join(agent_state_dir, 'cloud'))
+    end
+
     # Path to directory containing transient cloud-related state (metadata, userdata, etc)
     def self.cloud_state_dir
       @cloud_state_dir ||= File.join(RightScale::Platform.filesystem.spool_dir, 'cloud')

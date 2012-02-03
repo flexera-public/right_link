@@ -77,7 +77,7 @@ describe Ohai::System, ' plugin cloud' do
     before :each do
       flexmock(@ohai).should_receive(:require_plugin).and_return(true)
 
-      cloud_file_path = File.normalize_path(File.join(RightScale::Platform.filesystem.right_scale_state_dir, 'cloud'))
+      cloud_file_path = RightScale::AgentConfig.cloud_file_path
       flexmock(File).should_receive(:read).with(cloud_file_path).and_return('no_cloud')
       flexmock(File).should_receive(:file?).with(cloud_file_path).and_return(true)
 

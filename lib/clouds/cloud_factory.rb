@@ -109,7 +109,7 @@ module RightScale
     # === Return
     # result(String):: default cloud name or nil
     def default_cloud_name(value = nil)
-      cloud_file_path = File.normalize_path(File.join(RightScale::Platform.filesystem.right_scale_state_dir, 'cloud'))
+      cloud_file_path = RightScale::AgentConfig.cloud_file_path
       if value
         File.open(cloud_file_path, "w") { |f| f.write(value.to_s) }
       else
