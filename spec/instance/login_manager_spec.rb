@@ -141,6 +141,7 @@ describe RightScale::LoginManager do
       flexmock(@mgr).should_receive(:add_user).and_return(nil).by_default
       flexmock(@mgr).should_receive(:manage_group).and_return(true).by_default
       flexmock(@mgr).should_receive(:user_exists?).and_return(false).by_default
+      flexmock(@mgr).should_receive(:uid_exists?).and_return(false).by_default
       # === Mocks end
 
       flexmock(RightScale::InstanceState).should_receive(:login_policy).and_return(nil).by_default

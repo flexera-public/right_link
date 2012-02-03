@@ -27,12 +27,13 @@ require File.join(File.dirname(__FILE__), '..', '..', 'lib', 'clouds', 'metadata
 module RightScale
   module ConfigDriveMetadataSourceSpec
 
-    CONFIG_DRIVE_UUID             = "681B-8C5D"
-    CONFIG_DRIVE_FILESYSTEM       = "vfat"
-    CONFIG_DRIVE_LABEL            = "METADATA"
-    CONFIG_DRIVE_DEVICE           = "xvdh1"
-    CONFIG_DRIVE_MOUNTPOINT       = "/tmp/rl_test/mnt/configdrive"
-    USER_METADATA_JSON            = '["RS_rn_url=amqp:\/\/1234567890@broker1-2.rightscale.com\/right_net&RS_rn_id=1234567890&RS_server=my.rightscale.com&RS_rn_auth=1234567890&RS_api_url=https:\/\/my.rightscale.com\/api\/inst\/ec2_instances\/1234567890&RS_rn_host=:1,broker1-1.rightscale.com:0&RS_version=5.6.5&RS_sketchy=sketchy4-2.rightscale.com&RS_token=1234567890"]'
+    TEMP_DIR                = ::File.join(::RightScale::Platform.filesystem.temp_dir, "ConfigDriveMetadataSourceSpec-96ba62cb36bf46b497ac8b1bbd0080c1")
+    CONFIG_DRIVE_UUID       = "681B-8C5D"
+    CONFIG_DRIVE_FILESYSTEM = "vfat"
+    CONFIG_DRIVE_LABEL      = "METADATA"
+    CONFIG_DRIVE_DEVICE     = "xvdh1"
+    CONFIG_DRIVE_MOUNTPOINT = ::File.join(TEMP_DIR, "mnt/configdrive")
+    USER_METADATA_JSON      = '["RS_rn_url=amqp:\/\/1234567890@broker1-2.rightscale.com\/right_net&RS_rn_id=1234567890&RS_server=my.rightscale.com&RS_rn_auth=1234567890&RS_api_url=https:\/\/my.rightscale.com\/api\/inst\/ec2_instances\/1234567890&RS_rn_host=:1,broker1-1.rightscale.com:0&RS_version=5.6.5&RS_sketchy=sketchy4-2.rightscale.com&RS_token=1234567890"]'
 
     describe RightScale::MetadataSources::ConfigDriveMetadataSource do
 
@@ -45,12 +46,8 @@ module RightScale
       end
 
       def safe_mkdir(dir)
-        if File.directory? dir
-          FileUtils::rm_rf(dir)
-        else
-          FileUtils::mkdir_p(dir)
-        end
-
+        FileUtils::rm_rf(dir) if File.directory?(dir)
+        FileUtils::mkdir_p(dir)
       end
 
       def setup_metadata_provider
@@ -75,7 +72,7 @@ module RightScale
       end
 
       def teardown_metadata_provider
-        FileUtils::rm_rf("/tmp/rl_test")
+        FileUtils::rm_rf(TEMP_DIR)
       end
 
       context :mount_config_drive do

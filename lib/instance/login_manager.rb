@@ -44,8 +44,7 @@ module RightScale
     # val(true|false) whether LoginManager works on this platform
     def supported_by_platform?
       right_platform = RightScale::Platform.linux?
-      right_user = user_exists?('rightscale')
-      right_platform && right_user
+      right_platform && user_exists?('rightscale')  # avoid calling user_exists? on unsupported platform(s)
     end
 
     # Enact the login policy specified in new_policy for this system. The policy becomes
