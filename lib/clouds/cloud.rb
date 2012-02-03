@@ -69,7 +69,7 @@ module RightScale
       # full ohai node in at least one use case.
       @options = Mash.new(options)
       @extended_clouds = []
-      default_option([:metadata_writers, :output_dir_path], File.join(RightScale::Platform.filesystem.spool_dir, 'cloud'))
+      default_option([:metadata_writers, :output_dir_path], RightScale::AgentConfig.cloud_state_dir)
       default_option([:cloud_metadata, :metadata_writers, :file_name_prefix], DEFAULT_CLOUD_METADATA_FILE_PREFIX)
       default_option([:user_metadata, :metadata_writers, :file_name_prefix], DEFAULT_USER_METADATA_FILE_PREFIX)
     end

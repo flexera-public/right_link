@@ -50,7 +50,7 @@ default_option([:cloud_metadata, :metadata_tree_climber, :has_children_override]
 default_option([:user_metadata, :metadata_tree_climber, :root_path], "user_metadata")
 default_option([:user_metadata, :metadata_tree_climber, :has_children_override], lambda{ false })
 default_option([:user_metadata, :metadata_tree_climber, :create_leaf_override], method(:create_user_metadata_leaf))
-default_option([:metadata_source, :user_metadata_source_file_path], File.join(RightScale::Platform.filesystem.spool_dir, name.to_s, 'user-data.txt'))
+default_option([:metadata_source, :user_metadata_source_file_path], File.join(RightScale::AgentConfig.cloud_state_dir, name.to_s, 'user-data.txt'))
 
 # Determines if the current instance is running in the "none" cloud. This is a bit
 # circular, as it simply checks the contents of the cloud-file.
@@ -58,7 +58,7 @@ default_option([:metadata_source, :user_metadata_source_file_path], File.join(Ri
 # === Return
 # true if running on none cloud
 def is_current_cloud?
-  cloud_file = File.join(RightScale::Platform.filesystem.right_scale_state_dir, 'cloud')
+  cloud_file = RightScale::AgentConfig.cloud_file_path
   return !!(File.readable?(cloud_file) && File.read(cloud_file) =~ /none/)
 end
 

@@ -28,6 +28,7 @@ require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', '..', 
 module RightScale
   class ExecutableSequence
     # monkey-patch delays for faster testing
+
     OHAI_RETRY_MIN_DELAY = 0.1
     OHAI_RETRY_MAX_DELAY = 1
   end
@@ -41,6 +42,7 @@ describe RightScale::ExecutableSequence do
 
     it_should_behave_like 'mocks cook'
     it_should_behave_like 'mocks shutdown request proxy'
+    it_should_behave_like 'mocks metadata'
 
     before(:all) do
       flexmock(RightScale::Log).should_receive(:debug)
@@ -79,13 +81,8 @@ describe RightScale::ExecutableSequence do
       logger.should_receive(:info).and_return(true)
       logger.should_receive(:error).and_return(true)
 
-      # mock the cookbook checkout location
-      @cookbooks_path = Dir.mktmpdir
-      flexmock(RightScale::CookState).should_receive(:cookbooks_path).and_return(@cookbooks_path)
-    end
-
-    after(:each) do
-      FileUtils.rm_rf(@cookbooks_path)
+      # reset chef cookbooks path
+      Chef::Config[:cookbook_path] = []
     end
 
     after(:all) do
@@ -132,8 +129,10 @@ describe RightScale::ExecutableSequence do
         attachment.should_receive(:token).at_least.once.and_return(nil)
         attachment.should_receive(:url).at_least.once.and_return("file://#{@attachment_file}")
         @script.should_receive(:attachments).at_least.once.and_return([ attachment ])
-        @auditor.should_receive(:append_error).never
-        run_sequence.should be_true
+        @auditor.should_receive(:append_error).and_return{|a| puts a.inspect }.never
+        result = run_sequence
+        @sequence.failure_message.should == nil
+        result.should be_true
       ensure
         @sequence = nil
       end
@@ -151,7 +150,9 @@ describe RightScale::ExecutableSequence do
       @auditor.should_receive(:append_error)
       @script.should_receive(:attachments).at_least.once.and_return([ attachment ])
       flexmock(RightScale::Log).should_receive(:error)
-      run_sequence.should be_false
+      result = run_sequence
+      @sequence.failure_message.should_not == nil
+      result.should be_false
     end
 
     # Beware that this test will fail if run in an internet service environment that
@@ -195,7 +196,9 @@ describe RightScale::ExecutableSequence do
           end
           mock_ohai
         end
-        run_sequence.should be_true
+        result = run_sequence
+        @sequence.failure_message.should == nil
+        result.should be_true
         mock_ohai.should == { :hostname => 'hostname' }
       ensure
         @sequence = nil
