@@ -402,6 +402,31 @@ shared_examples_for 'mocks shutdown request proxy' do
   end
 end
 
+shared_examples_for 'mocks metadata' do
+  before(:each) do
+    # mock the metadata and user data
+    @output_dir_path = File.join(Dir.tmpdir, 'rs_mock_metadata')
+    FileUtils.rm_rf(@output_dir_path) if File.directory?(@output_dir_path)
+    RightScale::AgentConfig.cloud_state_dir = File.join(@output_dir_path, 'var', 'spool')
+    FileUtils.mkdir_p(File.join(RightScale::AgentConfig.cloud_state_dir, 'none'))
+    FileUtils.touch([File.join(RightScale::AgentConfig.cloud_state_dir, 'user-data.rb'),
+                     File.join(RightScale::AgentConfig.cloud_state_dir, 'none', 'user-data.txt'),
+                     File.join(RightScale::AgentConfig.cloud_state_dir, 'meta-data-cache.rb')])
+
+    mock_state_dir_path = File.join(@output_dir_path, 'etc', 'rightscale.d')
+    mock_cloud_file_path = File.join(mock_state_dir_path, 'cloud')
+    flexmock(RightScale::AgentConfig, :cloud_file_path => mock_cloud_file_path)
+
+    FileUtils.mkdir_p(mock_state_dir_path)
+    File.open(File.join(mock_cloud_file_path), 'w') { |f| f.puts "none" }
+  end
+
+  after(:each) do
+    FileUtils.rm_rf(@output_dir_path) if File.directory?(@output_dir_path)
+    @output_dir_path = nil
+  end
+end
+
 # global spec configuration.
 ::Spec::Runner.configure do |config|
   config.before(:each) { ::RightScale::Log.reset_errors }

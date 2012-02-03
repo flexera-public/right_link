@@ -21,7 +21,7 @@ require 'right_agent'
 require 'right_agent/scripts/usage'
 require 'right_agent/scripts/common_parser'
 
-cloud_dir = File.join(RightScale::Platform.filesystem.spool_dir, 'cloud')
+cloud_dir = RightScale::AgentConfig.cloud_state_dir
 
 begin
   require File.join(cloud_dir, 'meta-data-cache')

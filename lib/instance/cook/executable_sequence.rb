@@ -183,11 +183,11 @@ module RightScale
 
       # Chef paths and run mode
       if CookState.use_cookbooks_path?
-        Chef::Config[:cookbook_path] = CookState.cookbooks_path
+        Chef::Config[:cookbook_path] = [CookState.cookbooks_path].flatten
         @audit.append_info("Using development cookbooks repositories path:\n\t- #{Chef::Config[:cookbook_path].join("\n\t- ")}")
-      else
-        Chef::Config[:cookbook_path] = (@right_scripts_cookbook.empty? ? [] : [@right_scripts_cookbook.repo_dir])
       end
+      Chef::Config[:cookbook_path] << @right_scripts_cookbook.repo_dir unless @right_scripts_cookbook.empty?
+
       Chef::Config[:solo]                 = true
 
       # must set file cache path and ensure it exists otherwise evented run_command will fail
