@@ -126,7 +126,7 @@ if RightScale::Platform.windows?
 
       (logs =~ /Running "echo_from_powershell_script"/).should_not be_nil
       (logs =~ /message from powershell script/).should_not be_nil
-      (logs =~ /Ran powershell\[echo_from_powershell_script\]/).should_not be_nil
+      (logs =~ /powershell\[echo_from_powershell_script\]/).should_not be_nil
 
       (logs =~ /\/encode\/referenced.ps1/).should_not be_nil if is_debug?
       (logs =~ /encode\+again/).should_not be_nil
@@ -139,11 +139,11 @@ if RightScale::Platform.windows?
 
       (logs =~ /Running "echo_from_powershell_script_again"/).should_not be_nil
       (logs =~ /another powershell message/).should_not be_nil
-      (logs =~ /Ran powershell\[echo_from_powershell_script_again\]/).should_not be_nil
+      (logs =~ /powershell\[echo_from_powershell_script_again\]/).should_not be_nil
 
       (logs =~ /Running "echo_from_powershell_script_once_more"/).should_not be_nil
       (logs =~ /another powershell message/).should_not be_nil
-      (logs =~ /Ran powershell\[echo_from_powershell_script_once_more\]/).should_not be_nil
+      (logs =~ /powershell\[echo_from_powershell_script_once_more\]/).should_not be_nil
 
       (logs =~ /\/echo\/_load_current_resource.ps1/).should_not be_nil if is_debug?
       (logs =~ /load current resource for echo/).should_not be_nil
