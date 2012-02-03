@@ -96,6 +96,7 @@ EOF
   it_should_behave_like 'mocks logging'
   it_should_behave_like 'mocks state'
   it_should_behave_like 'mocks shutdown request proxy'
+  it_should_behave_like 'mocks metadata'
 
   def update_mock_shutdown_request(level, immediately = nil)
     @mock_shutdown_request.level = level

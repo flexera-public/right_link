@@ -58,7 +58,7 @@ class Chef
 
         # 1. Setup audit and environment
         begin
-          meta_data = ::File.join(RightScale::AgentConfig.cloud_state_dir, 'meta-data.rb')
+          meta_data = ::File.join(RightScale::AgentConfig.cloud_state_dir, 'meta-data-cache.rb')
           #metadata does not exist on all clouds, hence the conditional
           load(meta_data) if ::File.exists?(meta_data)
         rescue Exception => e
