@@ -1,6 +1,6 @@
 GIT
   remote: git://github.com/rightscale/right_agent.git
-  revision: 0cc16ddd2b2300be599fa7d7a6086d180c7030b5
+  revision: be272df5d3de8ca303d54f191f09c526ac9ca61f
   specs:
     right_agent (0.7.1)
       eventmachine (~> 0.12.10)
@@ -20,7 +20,7 @@ GIT
 
 GIT
   remote: git://github.com/rightscale/right_support.git
-  revision: 194586cebd7f164d0b879d3ba785cc6e29c7df33
+  revision: ea53841a1bf1cd78b8af9de0d97195ba4c3e9897
   specs:
     right_support (1.2.0)
 
@@ -46,7 +46,7 @@ GEM
       rest-client (>= 1.0.4, < 1.7.0)
       treetop (~> 1.4.9)
       uuidtools
-    columnize (0.3.4)
+    columnize (0.3.6)
     erubis (2.6.5)
       abstract (>= 1.0.0)
     eventmachine (0.12.11.6)
