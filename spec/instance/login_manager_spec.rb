@@ -155,7 +155,7 @@ describe RightScale::LoginManager do
         user = generate_user(i == 1 ? 2: 1, "rightscale.com")
         @policy.users << user
         user.public_keys.each do |key|
-          @user_keys << "#{@mgr.get_key_prefix(user.username, user.common_name, "http://example.com/#{user.username}.tgz")} #{key}"
+          @user_keys << "#{@mgr.get_key_prefix(user.username, user.common_name, user.uuid, user.superuser, "http://example.com/#{user.username}.tgz")} #{key}"
         end
       end
     end
@@ -254,6 +254,59 @@ describe RightScale::LoginManager do
             schedule_expiry(policy).should == true
           }
         end
+      end
+    end
+  end
+  
+  describe "#modify_keys_to_use_individual_profiles" do
+    before(:each) do
+      public_key    = "ssh-rsa aaa 1234@rightscale.com"
+      uid           = "1234"
+      profile_data  = "test"
+      @user         = RightScale::LoginUser.new(uid, "rs#{uid}", public_key, "#{uid}@rightscale.com", true, nil, [public_key], profile_data)
+    end
+    context "given profile data" do
+      it 'should return a user\'s profile in the command string' do
+        user = @user
+        @mgr.instance_eval {
+          keys = modify_keys_to_use_individual_profiles([user])
+          keys.kind_of?(Array).should == true
+          keys.size.should == 1
+          keys.first.include?('--profile').should == true
+        }
+        
+        # @User: #<RightScale::LoginUser:0x103622ad8 @common_name="1234@rightscale.com", @public_key="ssh-rsa aaa 1234@rightscale.com", @profile_data="test", @username="rs1234", @uuid="1234", @public_keys=["ssh-rsa aaa 1234@rightscale.com"], @superuser=true>
+        # ["command=\"rs_thunk --username rs1234 --email 1234@rightscale.com --profile test\"  ssh-rsa aaa 1234@rightscale.com"]
+      end
+    end
+  end
+  
+  describe "#get_key_prefix" do
+    before(:each) do
+      @username      = "123"
+      @email         = "#{@username}@rightscale.com"
+      @uuid          = @username.to_i
+      @profile_data  = "test"
+    end
+    context "given username, email and uuid" do
+      it "should return a rs_thunk command line with proper formatting" do
+         key_prefix = @mgr.get_key_prefix(@username, @email, @uuid, false)
+         key_prefix.should include('--username')
+         key_prefix.should include('--email')
+         key_prefix.should include('--uuid')
+         key_prefix.should_not include('--superuser')
+      end
+    end
+    context "given a superuser value of true" do
+      it "should return a rs_thunk command line with proper formatting" do
+        
+        @mgr.get_key_prefix(@username, @email, @uuid, true).should include('--superuser')
+      end
+    end
+    context "given a profile" do
+      it "should return a rs_thunk command line with proper formatting" do
+        
+        @mgr.get_key_prefix(@username, @email, @uuid, false, @profile_data).should include('--profile')
       end
     end
   end

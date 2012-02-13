@@ -56,12 +56,14 @@ module RightScale
       @log = Logger.new(@log_sink)
       RightScale::Log.force_logger(@log)
 
-      username = options.delete(:username)
-      email = options.delete(:email)
-      profile = options.delete(:profile)
-      force = options.delete(:force)
+      username  = options.delete(:username)
+      email     = options.delete(:email)
+      uuid      = options.delete(:uuid)
+      superuser = options.delete(:superuser)
+      profile   = options.delete(:profile)
+      force     = options.delete(:force)
 
-      fail(1) if missing_argument(username, "USERNAME") || missing_argument(email, "EMAIL")
+      fail(1) if missing_argument(username, "USERNAME") || missing_argument(email, "EMAIL") || missing_argument(uuid, "UUID")
 
       #Thunk into user's context
       orig = ENV['SSH2_ORIGINAL_COMMAND'] || ENV['SSH_ORIGINAL_COMMAND']
@@ -81,7 +83,10 @@ module RightScale
       end
 
       client_ip = ENV['SSH_CLIENT'].split(/\s+/).first if ENV.has_key?('SSH_CLIENT')
-
+    
+      # Idempotent if users already exists
+      username = LoginManager.create_user(username, uuid, superuser ? true : false)
+      
       create_audit_entry(email, username, access, orig, client_ip)
       create_profile(username, profile, force) if profile
       Kernel.exec(cmd)
@@ -100,6 +105,14 @@ module RightScale
 
         opts.on('-e', '--email EMAIL') do |email|
           options[:email] = email
+        end
+        
+        opts.on('-i', '--uuid UUID') do |uuid|
+          options[:uuid] = uuid
+        end
+        
+        opts.on('-s', '--superuser') do
+          options[:superuser] = true
         end
 
         opts.on('-p', '--profile DATA') do |data|
