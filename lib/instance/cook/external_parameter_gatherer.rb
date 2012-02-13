@@ -93,6 +93,8 @@ module RightScale
           end
         end
       end
+    rescue Exception => e
+      report_failure('Credential gathering failed', "The following execption occured while gathering credentials", e)
     end
 
     protected
