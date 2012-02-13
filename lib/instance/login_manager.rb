@@ -332,7 +332,7 @@ module RightScale
     def add_user(username, uid)
       uid = Integer(uid)
 
-      %x(useradd -s /bin/bash -u #{uid} -m #{Shellwords.escape(username)})
+      %x(sudo useradd -s /bin/bash -u #{uid} -m #{Shellwords.escape(username)})
 
       case $?.exitstatus
       when 0
@@ -340,6 +340,8 @@ module RightScale
         FileUtils.chmod(0771, home_dir)
 
         RightScale::Log.info "User #{username} created successfully"
+      else
+        raise SystemError, "Failed to create user #{username}"
       end
     end
 
