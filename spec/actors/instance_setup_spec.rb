@@ -87,8 +87,6 @@ class InstanceSetup
         when "/booter/get_repositories" then callback.call @@repos if callback
         when "/booter/get_boot_bundle" then callback.call @@bundle if callback
         when "/booter/get_login_policy" then callback.call @@login_policy if callback
-        when "/mapper/list_agents" then callback.call @@agents if callback
-        when "/state_recorder/record" then callback.call @@factory.success_results if callback
         when "/storage_valet/get_planned_volumes" then callback.call @@results_for_get_planned_volumes.shift.call(*args) if callback
         when "/storage_valet/attach_volume" then callback.call @@results_for_attach_volume.shift.call(*args) if callback
         when "/storage_valet/detach_volume" then callback.call @@results_for_detach_volume.shift.call(*args) if callback
@@ -483,11 +481,11 @@ describe InstanceSetup do
     it 'should strand when get planned volume mappings fails' do
       # cause failure to get.
       results = []
-      results << lambda{ @results_factory.error_results("Simluating unknown call failure.") }
+      results << lambda{ @results_factory.error_results("Simulating unknown call failure.") }
       InstanceSetup.results_for_get_planned_volumes = results
 
       # test.
-      boot_to_stranded_with "Failed to retrieve planned volume mappings: Simluating unknown call failure."
+      boot_to_stranded_with "Failed to retrieve planned volume mappings: Simulating unknown call failure."
 
       # assert all lists were consumed.
       InstanceSetup.assert_all_expectations_met

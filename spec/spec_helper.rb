@@ -86,7 +86,10 @@ module RightScale
 
     # Setup instance state for tests
     # Use different identity to reset list of past scripts
-    def setup_state(identity = '1')
+    # Override mock_instance_state if do not want to mock InstanceState#record_state
+    # but then must be running in EM before setup_state is called and must do own
+    # InstanceState.init
+    def setup_state(identity = '1', mock_instance_state = true)
       cleanup_state
       InstanceState.const_set(:STATE_FILE, state_file_path)
       InstanceState.const_set(:BOOT_LOG_FILE, log_path)
@@ -106,8 +109,9 @@ module RightScale
       @sender.should_receive(:send_retryable_request).and_yield(@results_factory.success_results).by_default
       @sender.should_receive(:send_persistent_request).and_yield(@results_factory.success_results).by_default
       @sender.should_receive(:message_received).by_default
+      flexmock(InstanceState).should_receive(:record_state).and_return(true).by_default if mock_instance_state
       yield if block_given?
-      InstanceState.init(@identity)
+      InstanceState.init(@identity) if mock_instance_state
       CookState.init
     end
 
@@ -183,7 +187,7 @@ module RightScale
     end
 
     # Runs the given block in an EM loop with exception handling to ensure
-    # deferred code is rescued and printed to console properly on error.
+    # deferred code is rescued and printed to console properly on error
     #
     # === Parameters
     # options[:defer](Fixnum):: true to defer (default), false to run once EM starts
@@ -216,8 +220,8 @@ module RightScale
         end
       end
 
-      # reraise with full backtrace for debugging purposes. this assumes the
-      # exception class accepts a single string on construction.
+      # Reraise with full backtrace for debugging purposes
+      # This assumes the exception class accepts a single string on construction
       if last_exception
         message = "#{last_exception.message}\n#{last_exception.backtrace.join("\n")}"
         if last_exception.class == ArgumentError
@@ -325,8 +329,8 @@ module RightScale
   end
 end
 
-# monkey patch to reduce how often ohai is invoked during spec test. we don't
-# need realtime info, so static info should be good enough for testing. this
+# Monkey patch to reduce how often ohai is invoked during spec test. we don't
+# need realtime info, so static info should be good enough for testing. This
 # is important on Windows for speed but also on Ubuntu to work around an ohai
 # issue where multiple invocations of the ohai/plugins/passwd.rb plugin
 # invokes Etc which appears to leak a system resource and cause a segmentation
@@ -347,9 +351,9 @@ EOF
 
       def run_ohai
         unless defined?(@@ohai)
-          # create temporary plugin file for testing; doing this here because
+          # Create temporary plugin file for testing; doing this here because
           # loading ohai takes a long time and we only want to do it once during
-          # testing. there is no guarantee that the test verifying this plugin
+          # testing. There is no guarantee that the test verifying this plugin
           # will actually be run at some point.
           plugin_rb_path = File.join(RightScale::OhaiSetup::CUSTOM_PLUGINS_DIR_PATH, "rightscale_test_plugin.rb")
           File.open(plugin_rb_path, "w") { |f| f.write(TEST_PLUGIN_TEXT) }
