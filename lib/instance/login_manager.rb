@@ -337,7 +337,9 @@ module RightScale
       case $?.exitstatus
       when 0
         home_dir = Etc.getpwnam(username).dir
-        FileUtils.chmod(0771, home_dir)
+        
+        #FileUtils.chmod(0771, home_dir)
+        %x(sudo chmod 0771 #{home_dir}
 
         RightScale::Log.info "User #{username} created successfully"
       else
