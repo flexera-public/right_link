@@ -341,7 +341,7 @@ module RightScale
 
         RightScale::Log.info "User #{username} created successfully"
       else
-        raise SystemError, "Failed to create user #{username}"
+        raise SystemConflict, "Failed to create user #{username}"
       end
     end
 
