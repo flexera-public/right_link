@@ -336,10 +336,10 @@ module RightScale
 
       case $?.exitstatus
       when 0
-        home_dir = Etc.getpwnam(username).dir
+        home_dir = Shellwords.escape(Etc.getpwnam(username).dir)
         
         #FileUtils.chmod(0771, home_dir)
-        %x(sudo chmod 0771 #{home_dir}
+        %x(sudo chmod 0771 #{home_dir})
 
         RightScale::Log.info "User #{username} created successfully"
       else
@@ -382,7 +382,7 @@ module RightScale
 
       groups   = Shellwords.escape(groups.to_a.join(','))
       username = Shellwords.escape(username)
-      output = %x(usermod -G #{groups} #{username})
+      output = %x(sudo usermod -G #{groups} #{username})
 
       case $?.exitstatus
       when 0

@@ -84,7 +84,7 @@ module RightScale
 
       client_ip = ENV['SSH_CLIENT'].split(/\s+/).first if ENV.has_key?('SSH_CLIENT')
     
-      # Idempotent if users already exists
+      # Idempotent if user already exists
       username = LoginManager.create_user(username, uuid, superuser ? true : false)
       
       create_audit_entry(email, username, access, orig, client_ip)
