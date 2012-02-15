@@ -83,20 +83,24 @@ module RightScale
     # Returns prefix command for public key record
     #
     # === Parameters
-    # username(String):: account's username
-    # email(String):: account's email address
-    # data(String):: optional profile_data to be included
+    # username(String)  :: account's username
+    # email(String)     :: account's email address
+    # uuid(String)      :: account's uuid
+    # superuser(Boolean):: designates whether the account has superuser privileges
+    # data(String)      :: optional profile_data to be included
     #
     # === Return
     # prefix(String):: command string
-    def get_key_prefix(username, email, profile_data=nil)
+    def get_key_prefix(username, email, uuid, superuser, profile_data = nil)
       if profile_data
         profile = " --profile #{Shellwords.escape(profile_data).gsub('"', '\\"')}"
       else
         profile = ""
       end
+      
+      superuser = superuser ? " --superuser" : ""
 
-      %Q{command="rs_thunk --username #{username} --email #{email}#{profile}" }
+      %Q{command="rs_thunk --username #{username} --uuid #{uuid}#{superuser} --email #{email}#{profile}" }
     end
 
     protected
@@ -219,10 +223,8 @@ module RightScale
       user_lines = []
 
       new_users.each do |u|
-        username = create_user(u.username, u.uuid, u.superuser)
-
         u.public_keys.each do |k|
-          user_lines << "#{get_key_prefix(username, u.common_name, u.profile_data)} #{k}"
+          user_lines << "#{get_key_prefix(u.username, u.common_name, u.uuid, u.superuser, u.profile_data)} #{k}"
         end
       end
 
@@ -330,14 +332,18 @@ module RightScale
     def add_user(username, uid)
       uid = Integer(uid)
 
-      %x(useradd -s /bin/bash -u #{uid} -m #{Shellwords.escape(username)})
+      %x(sudo useradd -s /bin/bash -u #{uid} -m #{Shellwords.escape(username)})
 
       case $?.exitstatus
       when 0
-        home_dir = Etc.getpwnam(username).dir
-        FileUtils.chmod(0771, home_dir)
+        home_dir = Shellwords.escape(Etc.getpwnam(username).dir)
+        
+        #FileUtils.chmod(0771, home_dir)
+        %x(sudo chmod 0771 #{home_dir})
 
         RightScale::Log.info "User #{username} created successfully"
+      else
+        raise SystemConflict, "Failed to create user #{username}"
       end
     end
 
@@ -376,7 +382,7 @@ module RightScale
 
       groups   = Shellwords.escape(groups.to_a.join(','))
       username = Shellwords.escape(username)
-      output = %x(usermod -G #{groups} #{username})
+      output = %x(sudo usermod -G #{groups} #{username})
 
       case $?.exitstatus
       when 0
