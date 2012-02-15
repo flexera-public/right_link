@@ -42,20 +42,3 @@ describe RightScale::Thunker do
     end
   end
 end
-
-
-
-#
-#module MyGem
-#  describe "CLI" do
-#    context "execute" do
-#
- #     it "should exit cleanly when -h is used" do
-#        argv=["-h"]
- #       out = StringIO.new
- #       lambda { ::MyGem::CLI.execute( out, argv) }.should raise_error SystemExit
- #     end
-#
-#    end
-#  end
-#end
