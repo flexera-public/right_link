@@ -4,7 +4,10 @@ require 'bundler/setup'
 
 # Ruby standard library dependencies
 require 'fileutils'
-
+require 'rake'
+require 'rake/testtask'
+require 'rdoc/task'
+require 'rubygems/package_task'
 # Extra components of gems that were activated above
 require 'spec/rake/spectask'
 
@@ -177,4 +180,33 @@ if windows?
   end
 end
 
+#rake gemspec
+spec = Gem::Specification.new do |s|
+  s.name = 'right_link'
+  s.version = '5.8.0'
+  s.platform = Gem::Platform::RUBY
+  s.description = "RightLink automates servers configuration and monitoring. It uses RabbitMQ as message bus and relies on Chef[2] for configuring. RightLink uses RightPopen[3] to monitor the stdout and stderr streams of scripted processes. Servers running the RightLink agent configures themselves on startup an register with the mapper so that operational recipes and scripts can be run at a later time."
+  s.summary = "RightLink automates servers configuration and monitoring."
+  exclude_folders = 'spec/rails/{doc,lib,log,nbproject,tmp,vendor,test}'
+  exclude_files = FileList['**/*.log'] + FileList[exclude_folders+'/**/*'] + FileList[exclude_folders]
+  s.files = FileList['{generators,lib,tasks,spec}/**/*'] + %w(init/init.rb LICENSE Rakefile README.rdoc) - exclude_files
+  s.require_path = 'lib'
+  s.has_rdoc = false
+  s.test_files = Dir['spec/*_spec.rb']
+  s.author = 'RightScale'
+  s.email = 'support@rightscale.com'
+  s.homepage = 'https://github.com/rightscale/right_link'
+end
 
+desc 'Generate a gemspec file.'
+task :gemspec do
+  File.open("#{spec.name}.gemspec", 'w') do |f|
+    f.write spec.to_ruby
+  end
+end
+
+Gem::PackageTask.new(spec) do |p|
+  p.gem_spec = spec
+  p.need_tar = RUBY_PLATFORM =~ /mswin/ ? false : true
+  p.need_zip = true
+end
