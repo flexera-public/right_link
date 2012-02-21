@@ -29,32 +29,32 @@ module RightScale
   class InstanceState
 
     # States that are recorded in a standard fashion and audited when transitioned to
-    RECORDED_STATES   = %w{ booting operational stranded decommissioning }
+    RECORDED_STATES = %w{ booting operational stranded decommissioning }
 
     # States that cause the system MOTD/banner to indicate that everything is OK
     SUCCESSFUL_STATES = %w{ operational }
 
     # States that cause the system MOTD/banner to indicate that something is wrong
-    FAILED_STATES     = %w{ stranded }
+    FAILED_STATES = %w{ stranded }
 
     # Initial state prior to booting
-    INITIAL_STATE     = 'pending'
+    INITIAL_STATE = 'pending'
 
     # Final state when shutting down that is recorded in a non-standard fashion
-    FINAL_STATE       = 'decommissioned'
+    FINAL_STATE = 'decommissioned'
 
     # Valid internal states
-    STATES            = RECORDED_STATES + FINAL_STATE.to_a
+    STATES = RECORDED_STATES + FINAL_STATE.to_a
 
     # Path to JSON file where current instance state is serialized
-    STATE_DIR         = AgentConfig.agent_state_dir
-    STATE_FILE        = File.join(STATE_DIR, 'state.js')
+    STATE_DIR = AgentConfig.agent_state_dir
+    STATE_FILE = File.join(STATE_DIR, 'state.js')
 
     # Path to JSON file where authorized login users are defined
     LOGIN_POLICY_FILE = File.join(STATE_DIR, 'login_policy.js')
 
     # Path to boot log
-    BOOT_LOG_FILE     = File.join(RightScale::Platform.filesystem.log_dir, 'install')
+    BOOT_LOG_FILE = File.join(RightScale::Platform.filesystem.log_dir, 'install')
 
     # Path to decommission log
     DECOMMISSION_LOG_FILE = File.join(RightScale::Platform.filesystem.log_dir, 'decommission')
@@ -78,22 +78,27 @@ module RightScale
 
     # (String) One of STATES
     def self.value
-      @@value
+      @value
     end
 
     # (String) One of STATES
     def self.last_recorded_value
-      @@last_recorded_value
+      @last_recorded_value
+    end
+
+    # (IdempotentRequest) Current record state request
+    def self.record_request
+      @record_request
     end
 
     # (String) Instance agent identity
     def self.identity
-      @@identity
+      @identity
     end
 
     # (LoginPolicy) The most recently enacted login policy
     def self.login_policy
-      @@login_policy
+      @login_policy
     end
 
     # Queries most recent state of planned volume mappings.
@@ -101,13 +106,13 @@ module RightScale
     # === Return
     # result(Array):: persisted mappings or empty
     def self.planned_volume_state
-      @@planned_volume_state ||= PlannedVolumeState.new
+      @planned_volume_state ||= PlannedVolumeState.new
     end
 
     # (String) Type of decommission currently in progress or nil
     def self.decommission_type
-      if @@value == 'decommissioning'
-        @@decommission_type
+      if @value == 'decommissioning'
+        @decommission_type
       else
         raise RightScale::Exceptions::WrongState.new("Unexpected call to InstanceState.decommission_type for current state #{@value.inspect}")
       end
@@ -126,22 +131,24 @@ module RightScale
     # === Return
     # true:: Always return true
     def self.init(identity, read_only = false)
-      @@identity = identity
-      @@read_only = read_only
-      @@startup_tags = []
-      @@log_level = Logger::INFO
-      @@initial_boot = false
-      @@reboot = false
-      @@resource_uid = nil
-      @@last_recorded_value = nil
-      @@record_retries = 0
-      @@last_communication = 0
-      @@planned_volume_state = nil
-      @@decommission_type = nil
+      @identity = identity
+      @read_only = read_only
+      @startup_tags = []
+      @log_level = Logger::INFO
+      @initial_boot = false
+      @reboot = false
+      @resource_uid = nil
+      @last_recorded_value = nil
+      @record_retries = 0
+      @record_request = nil
+      @record_timer = nil
+      @last_communication = 0
+      @planned_volume_state = nil
+      @decommission_type = nil
 
-      Log.notify(lambda { |l| @@log_level = l }) unless @@read_only
+      Log.notify(lambda { |l| @log_level = l }) unless @read_only
 
-      Sender.instance.message_received { message_received } unless @@read_only
+      Sender.instance.message_received { message_received } unless @read_only
 
       dir = File.dirname(STATE_FILE)
       FileUtils.mkdir_p(dir) unless File.directory?(dir)
@@ -149,7 +156,7 @@ module RightScale
         state = RightScale::JsonUtilities::read_json(STATE_FILE)
         Log.debug("Initializing instance #{identity} with #{state.inspect}")
 
-        @@resource_uid = current_resource_uid
+        @resource_uid = current_resource_uid
 
         # Initial state reconciliation: use recorded state and boot timestamp to determine how we last stopped.
         # There are four basic scenarios to worry about:
@@ -159,16 +166,16 @@ module RightScale
         #  4) decommission/crash -- Agent exited anyway; ID not changed; no reboot; keep old state entirely
         #  5) ec2 restart        -- Agent already ran; agent ID changed; instance ID is the same; transition back to booting
         if state['identity'] && state['identity'] != identity
-          @@last_recorded_value = state['last_recorded_value']
+          @last_recorded_value = state['last_recorded_value']
           self.value = 'booting'
           # if the current resource_uid is the same as the last
           # observed resource_uid, then this is a restart,
           # otherwise this is a bundle
           old_resource_uid = state["last_observed_resource_uid"]
-          if @@resource_uid && @@resource_uid == old_resource_uid
+          if @resource_uid && @resource_uid == old_resource_uid
             # CASE 5 -- identity has changed; ec2 restart
             Log.debug("Restart detected; transitioning state to booting")
-            @@reboot = true
+            @reboot = true
           else
             # CASE 3 -- identity has changed; bundled boot
             Log.debug("Bundle detected; transitioning state to booting")
@@ -176,39 +183,39 @@ module RightScale
         elsif state['reboot']
           # CASE 2 -- rebooting flagged by rightboot script in linux or by shutdown notification in windows
           Log.debug("Reboot detected; transitioning state to booting")
-          @@last_recorded_value = state['last_recorded_value']
+          @last_recorded_value = state['last_recorded_value']
           self.value = 'booting'
-          @@reboot = true
+          @reboot = true
         else
           # CASE 4 -- restart without reboot; continue with retries if recorded state does not match
-          @@value = state['value']
-          @@startup_tags = state['startup_tags']
-          @@log_level = state['log_level']
-          @@last_recorded_value = state['last_recorded_value']
-          @@record_retries = state['record_retries']
-          @@decommission_type = state['decommission_type'] if @@value == 'decommissioning'
-          if @@value != @@last_recorded_value && RECORDED_STATES.include?(@@value) &&
-             @@record_retries < MAX_RECORD_STATE_RETRIES && !@@read_only
+          @value = state['value']
+          @startup_tags = state['startup_tags']
+          @log_level = state['log_level']
+          @last_recorded_value = state['last_recorded_value']
+          @record_retries = state['record_retries']
+          @decommission_type = state['decommission_type'] if @value == 'decommissioning'
+          if @value != @last_recorded_value && RECORDED_STATES.include?(@value) &&
+             @record_retries < MAX_RECORD_STATE_RETRIES && !@read_only
             record_state
           else
-            @@record_retries = 0
+            @record_retries = 0
           end
           update_logger
         end
       else
         # CASE 1 -- state file does not exist; initial boot, create state file
         Log.debug("Initializing instance #{identity} with booting")
-        @@last_recorded_value = INITIAL_STATE
+        @last_recorded_value = INITIAL_STATE
         self.value = 'booting'
-        @@initial_boot = true
+        @initial_boot = true
       end
 
       if File.file?(LOGIN_POLICY_FILE)
-        @@login_policy = RightScale::JsonUtilities::read_json(LOGIN_POLICY_FILE) rescue nil #corrupt file here is not important enough to fail
+        @login_policy = RightScale::JsonUtilities::read_json(LOGIN_POLICY_FILE) rescue nil #corrupt file here is not important enough to fail
       else
-        @@login_policy = nil
+        @login_policy = nil
       end
-      Log.debug("Existing login users: #{@@login_policy.users.length} recorded") if @@login_policy
+      Log.debug("Existing login users: #{@login_policy.users.length} recorded") if @login_policy
 
       #Ensure MOTD is up to date
       update_motd
@@ -228,12 +235,12 @@ module RightScale
     # RightScale::Exceptions::Application:: Cannot update in read-only mode
     # RightScale::Exceptions::Argument:: Invalid new value
     def self.value=(val)
-      raise RightScale::Exceptions::Application, "Not allowed to modify instance state in read-only mode" if @@read_only
+      raise RightScale::Exceptions::Application, "Not allowed to modify instance state in read-only mode" if @read_only
       raise RightScale::Exceptions::Argument, "Invalid instance state #{val.inspect}" unless STATES.include?(val)
-      Log.info("Transitioning state from #{@@value rescue INITIAL_STATE} to #{val}")
-      @@reboot = false if val != :booting
-      @@value = val
-      @@decommission_type = nil unless @@value == 'decommissioning'
+      Log.info("Transitioning state from #{@value rescue INITIAL_STATE} to #{val}")
+      @reboot = false if val != :booting
+      @value = val
+      @decommission_type = nil unless @value == 'decommissioning'
       update_logger
       update_motd
       record_state if RECORDED_STATES.include?(val)
@@ -256,9 +263,9 @@ module RightScale
       unless RightScale::ShutdownRequest::LEVELS.include?(decommission_type)
         raise RightScale::ShutdownRequest::InvalidLevel.new("Unexpected decommission_type: #{decommission_type}")
       end
-      @@decommission_type = decommission_type
+      @decommission_type = decommission_type
       self.value = 'decommissioning'
-      @@decommission_type
+      @decommission_type
     end
 
     # Instance AWS id for EC2 instances
@@ -266,7 +273,7 @@ module RightScale
     # === Return
     # resource_uid(String):: Instance AWS ID on EC2, equivalent on other cloud when available
     def self.resource_uid
-      resource_uid = @@resource_uid
+      resource_uid = @resource_uid
     end
 
     # Is this the initial boot?
@@ -274,7 +281,7 @@ module RightScale
     # === Return
     # res(Boolean):: Whether this is the instance first boot
     def self.initial_boot?
-      res = @@initial_boot
+      res = @initial_boot
     end
 
     # Are we rebooting? (needed for RightScripts)
@@ -282,7 +289,7 @@ module RightScale
     # === Return
     # res(Boolean):: Whether this instance was rebooted
     def self.reboot?
-      res = @@reboot
+      res = @reboot
     end
 
     # Update the time this instance last received a message
@@ -292,8 +299,8 @@ module RightScale
     # true:: Always return true
     def self.message_received
       now = Time.now.to_i
-      if (now - @@last_communication) > LAST_COMMUNICATION_STORAGE_INTERVAL
-        @@last_communication = now
+      if (now - @last_communication) > LAST_COMMUNICATION_STORAGE_INTERVAL
+        @last_communication = now
         store_state
       end
     end
@@ -311,14 +318,14 @@ module RightScale
     # === Return
     # true:: Always return true
     def self.shutdown(user_id, skip_db_update, kind)
-      payload = {:agent_identity => @@identity, :state => FINAL_STATE, :user_id => user_id, :skip_db_update => skip_db_update, :kind => kind}
+      payload = {:agent_identity => @identity, :state => FINAL_STATE, :user_id => user_id, :skip_db_update => skip_db_update, :kind => kind}
       Sender.instance.send_retryable_request("/state_recorder/record", payload) do |r|
         res = OperationResult.from_results(r)
         case kind
         when 'reboot'
           RightScale::Platform.controller.reboot unless res.success?
         when 'terminate', 'stop'
-          Sender.instance.send_push("/registrar/remove", {:agent_identity => @@identity, :created_at => Time.now.to_i})
+          Sender.instance.send_push("/registrar/remove", {:agent_identity => @identity, :created_at => Time.now.to_i})
           RightScale::Platform.controller.shutdown unless res.success?
         else
           Log.error("InstanceState.shutdown() kind was unexpected: #{kind}")
@@ -345,9 +352,9 @@ module RightScale
     # === Raise
     # RightScale::Exceptions::Application:: Cannot update in read-only mode
     def self.startup_tags=(val)
-      raise RightScale::Exceptions::Application, "Not allowed to modify instance state in read-only mode" if @@read_only
-      if @@startup_tags.nil? || @@startup_tags != val
-        @@startup_tags = val
+      raise RightScale::Exceptions::Application, "Not allowed to modify instance state in read-only mode" if @read_only
+      if @startup_tags.nil? || @startup_tags != val
+        @startup_tags = val
         # FIX: storing state on change to ensure the most current set of tags is available to
         #      cook (or other processes that load instance state) when it is launched.  Would
         #      be better to communicate state via other means.
@@ -361,7 +368,7 @@ module RightScale
     # === Return
     # tags(Array):: List of tags retrieved on startup
     def self.startup_tags
-      @@startup_tags
+      @startup_tags
     end
 
     # Log level
@@ -369,7 +376,7 @@ module RightScale
     # === Return
     # log_level(Const):: One of Logger::DEBUG...Logger::FATAL
     def self.log_level
-      @@log_level
+      @log_level
     end
 
     # Callback given observer on all state transitions
@@ -396,7 +403,7 @@ module RightScale
         Log.remove_logger(@current_logger)
         @current_logger = nil
       end
-      if file = log_file(@@value)
+      if file = log_file(@value)
         dir = File.dirname(file)
         FileUtils.mkdir_p(dir) unless File.directory?(dir)
         @current_logger = ::Logger.new(file)
@@ -415,9 +422,9 @@ module RightScale
     # login_users(Array[(LoginUser)]) authorized login users
     #
     def self.login_policy=(login_policy)
-      @@login_policy = login_policy.dup
+      @login_policy = login_policy.dup
       File.open(LOGIN_POLICY_FILE, 'w') do |f|
-        f.write(@@login_policy.to_json)
+        f.write(@login_policy.to_json)
       end
       login_policy
     end
@@ -469,10 +476,10 @@ module RightScale
       FileUtils.rm(motd) rescue nil
 
       etc = File.join(AgentConfig.parent_dir, 'etc')
-      if SUCCESSFUL_STATES.include?(@@value)
+      if SUCCESSFUL_STATES.include?(@value)
         FileUtils.cp(File.join(etc, 'motd-complete'), motd) rescue nil
         system('echo "RightScale installation complete. Details can be found in /var/log/messages" | wall') rescue nil
-      elsif FAILED_STATES.include?(@@value)
+      elsif FAILED_STATES.include?(@value)
         FileUtils.cp(File.join(etc, 'motd-failed'), motd) rescue nil
         system('echo "RightScale installation failed. Please review /var/log/messages" | wall') rescue nil
       else
@@ -489,69 +496,90 @@ module RightScale
     # === Return
     # true:: Always return true
     def self.store_state
-      state_to_store = {'value'                      => @@value,
-                        'identity'                   => @@identity,
+      state_to_store = {'value'                      => @value,
+                        'identity'                   => @identity,
                         'uptime'                     => uptime,
-                        'reboot'                     => @@reboot,
-                        'startup_tags'               => @@startup_tags,
-                        'log_level'                  => @@log_level,
-                        'record_retries'             => @@record_retries,
-                        'last_recorded_value'        => @@last_recorded_value,
-                        'last_communication'         => @@last_communication,
-                        'last_observed_resource_uid' => @@resource_uid}
+                        'reboot'                     => @reboot,
+                        'startup_tags'               => @startup_tags,
+                        'log_level'                  => @log_level,
+                        'record_retries'             => @record_retries,
+                        'last_recorded_value'        => @last_recorded_value,
+                        'last_communication'         => @last_communication,
+                        'last_observed_resource_uid' => @resource_uid}
 
-      # only include deommission_type when decommissioning
-      state_to_store['decommission_type'] = @@decommission_type if @@value == 'decommissioning'
+      # Only include deommission_type when decommissioning
+      state_to_store['decommission_type'] = @decommission_type if @value == 'decommissioning'
 
-      # store
       RightScale::JsonUtilities::write_json(STATE_FILE, state_to_store)
       true
     end
 
     # Record state transition
+    # Cancel any active attempts to record state before doing this one
     # Retry up to MAX_RECORD_STATE_RETRIES times if an error is returned
     # If state has changed during a failed attempt, reset retry counter
     #
     # === Return
     # true:: Always return true
     def self.record_state
-      new_value = @@value
-      payload = {:agent_identity => @@identity, :state => new_value, :from_state => @@last_recorded_value}
-      Sender.instance.send_retryable_request("/state_recorder/record", payload) do |r|
-        res = OperationResult.from_results(r)
-        if res.success?
-          @@last_recorded_value = new_value
-          @@record_retries = 0
-        else
-          error = if res.content.is_a?(Hash) && res.content['recorded_state']
-            # State transitioning from does not match recorded state, so update last recorded value
-            @@last_recorded_value = res.content['recorded_state']
-            res.content['message']
-          else
-            res.content
-          end
-          if @@value != @@last_recorded_value
-            attempts = " after #{@@record_retries + 1} attempts" if @@record_retries >= MAX_RECORD_STATE_RETRIES
-            Log.error("Failed to record state '#{new_value}'#{attempts}: #{error}") unless @@value == FINAL_STATE
-            @@record_retries = 0 if @@value != new_value
-            if RECORDED_STATES.include?(@@value) && @@record_retries < MAX_RECORD_STATE_RETRIES
-              Log.info("Will retry recording state in #{RETRY_RECORD_STATE_DELAY} seconds")
-              EM.add_timer(RETRY_RECORD_STATE_DELAY) do
-                if @@value != @@last_recorded_value
-                  @@record_retries += 1
-                  record_state
-                end
-              end
-            else
-              # Giving up since out of retries or state has changed to a non-recorded value
-              @@record_retries = 0
-            end
-          end
+      # Cancel any running request
+      if @record_request
+        @record_request.cancel("re-request")
+        if @record_timer
+          @record_timer.cancel
+          @record_timer = nil
         end
+      end
+
+      # Create new request
+      new_value = @value
+      payload = {:agent_identity => @identity, :state => new_value, :from_state => @last_recorded_value}
+      @record_request = RightScale::IdempotentRequest.new("/state_recorder/record", payload)
+
+      # Handle success result
+      @record_request.callback do
+        @record_retries = 0
+        @record_request = nil
+        @last_recorded_value = new_value
+
         # Store any change in local state, recorded state, or retry count
         store_state
       end
-      true
+
+      # Handle request failure
+      @record_request.errback do |error|
+        if error.is_a?(Hash) && error['recorded_state']
+          # State transitioning from does not match recorded state, so update last recorded value
+          @last_recorded_value = error['recorded_state']
+          error = error['message']
+        end
+        if error != "re-request" && @value != @last_recorded_value
+          attempts = " after #{@record_retries + 1} attempts" if @record_retries >= MAX_RECORD_STATE_RETRIES
+          Log.error("Failed to record state '#{new_value}'#{attempts}: #{error}") unless @value == FINAL_STATE
+          @record_retries = 0 if @value != new_value
+          if RECORDED_STATES.include?(@value) && @record_retries < MAX_RECORD_STATE_RETRIES
+            Log.info("Will retry recording state in #{RETRY_RECORD_STATE_DELAY} seconds")
+            @record_timer = EM::Timer.new(RETRY_RECORD_STATE_DELAY) do
+              if @value != @last_recorded_value
+                @record_retries += 1
+                @record_request = nil
+                @record_timer = nil
+                record_state
+              end
+            end
+          else
+            # Give up since out of retries or state has changed to a non-recorded value
+            @record_retries = 0
+            @record_request = nil
+          end
+
+          # Store any change in local state, recorded state, or retry count
+          store_state
+        end
+      end
+
+      # Run request to record state with retry until succeeds or fails with error result
+      @record_request.run
     end
 
     #
