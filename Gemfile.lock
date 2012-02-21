@@ -1,8 +1,8 @@
 GIT
   remote: git://github.com/rightscale/right_agent.git
-  revision: be272df5d3de8ca303d54f191f09c526ac9ca61f
+  revision: 28e3ff504ab0aad0735c169ce159d224fc68a336
   specs:
-    right_agent (0.7.1)
+    right_agent (0.8.0)
       eventmachine (~> 0.12.10)
       json (~> 1.4)
       msgpack (= 0.4.4)
@@ -20,7 +20,7 @@ GIT
 
 GIT
   remote: git://github.com/rightscale/right_support.git
-  revision: ea53841a1bf1cd78b8af9de0d97195ba4c3e9897
+  revision: 87949a426e1baac2ef8243a43e1da964e57aeabb
   specs:
     right_support (1.2.0)
 

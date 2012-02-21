@@ -485,7 +485,7 @@ class InstanceSetup
     sequence.callback do
       if patch = sequence.inputs_patch && !patch.empty?
         payload = {:agent_identity => @agent_identity, :patch => patch}
-        send_push('/updater/update_inputs', payload)
+        send_persistent_push('/updater/update_inputs', payload)
       end
       @audit.update_status("boot completed: #{bundle}")
       yield success_result
