@@ -94,11 +94,12 @@ function install_gems() {
 
     if [ "$using_sandbox" == "1" ]
     then
-        echo "Installing gems in release mode (sandbox present; local gem sources only)"
-        bundle_flags="--local"
+        echo "Installing gems in release mode (install to system; local gem sources only)"
+        bundle_flags="--system --local --without=test"
     else
-        echo "Installing gems in development mode (query sources; resolve dependency graph if needed)"
-        bundle_flags=""
+        local bundle_dir="${right_link_root}/bundle"
+        echo "Installing gems in development mode (install to ${bundle_dir}; query gem sources)"
+        bundle_flags="--path $bundle_dir"
     fi
 
     cd $right_link_root
