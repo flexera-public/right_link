@@ -42,6 +42,9 @@ describe RightScale::CloudFactory do
 
   before(:each) do
     @output_dir_path = File.join(RightScale::Platform.filesystem.temp_dir, 'rs_cloud_factory_output')
+    @logger = flexmock('logger')
+    @logged_info = []
+    @logger.should_receive(:info).and_return { |m| @logged_info << m; true }
     FileUtils.rm_rf(@output_dir_path) if File.directory?(@output_dir_path)
   end
 
@@ -51,7 +54,7 @@ describe RightScale::CloudFactory do
   end
 
   it 'should raise exception for unknown cloud' do
-    lambda{ RightScale::CloudFactory.instance.create('bogus') }.should raise_exception RightScale::CloudFactory::UnknownCloud
+    lambda{ RightScale::CloudFactory.instance.create('bogus', :logger => @logger) }.should raise_exception RightScale::CloudFactory::UnknownCloud
   end
 
   it 'should register new clouds with multiple aliases' do
@@ -59,12 +62,17 @@ describe RightScale::CloudFactory do
     RightScale::CloudFactory.instance.register(aliases, File.join(File.dirname(__FILE__), 'clouds', 'macleod.rb'))
     last_cloud = nil
     (aliases + [RightScale::CloudFactorySpec::CLOUD_NAME] * 2).each do |cloud_alias|
-      cloud = RightScale::CloudFactory.instance.create(cloud_alias)
+      cloud = RightScale::CloudFactory.instance.create(cloud_alias, :logger => @logger)
       cloud.class.should == RightScale::Cloud
       cloud.name.should == cloud_alias
       last_cloud.should_not == cloud  # factory always returns new instance
       last_cloud = cloud
     end
+    last_cloud.logger.should == @logger
+    @logged_info.should == ["initialized MacLeod",                        # Highlander
+                            "initialized MacLeod",                        # MacLeod
+                            "initialized MacLeod", "initialized Connor",  # Connor (inherits MacLeod)
+                            "initialized MacLeod", "initialized Connor"]  # Connor (inherits MacLeod)
   end
 
   it 'should create the default cloud when cloud file exists' do
@@ -75,16 +83,16 @@ describe RightScale::CloudFactory do
     flexmock(RightScale::Platform).should_receive(:filesystem).and_return(filesystem)
     filesystem.should_receive(:right_scale_state_dir).and_return(mock_state_dir_path)
     filesystem.should_receive(:spool_dir).and_return(spool_dir)
-    lambda{ RightScale::CloudFactory.instance.create }.should raise_exception RightScale::CloudFactory::UnknownCloud
+    lambda{ RightScale::CloudFactory.instance.create(RightScale::CloudFactory::UNKNOWN_CLOUD_NAME, :logger => @logger) }.should raise_exception RightScale::CloudFactory::UnknownCloud
     FileUtils.mkdir_p(mock_state_dir_path)
     File.open(mock_cloud_file_path, "w") { |f| f.puts(RightScale::CloudFactorySpec::CLOUD_NAME) }
-    cloud = RightScale::CloudFactory.instance.create
+    cloud = RightScale::CloudFactory.instance.create(RightScale::CloudFactory::UNKNOWN_CLOUD_NAME, :logger => @logger)
     cloud.class.should == RightScale::Cloud
     cloud.name.should == RightScale::CloudFactorySpec::CLOUD_NAME
   end
 
   it 'should create clouds that can format and write metadata' do
-    options = { :metadata_writers => { :output_dir_path => @output_dir_path } }
+    options = { :logger => @logger, :metadata_writers => { :output_dir_path => @output_dir_path } }
     cloud = RightScale::CloudFactory.instance.create(RightScale::CloudFactorySpec::CLOUD_NAME, options)
     cloud.write_metadata
     File.directory?(@output_dir_path).should be_true
@@ -104,7 +112,7 @@ describe RightScale::CloudFactory do
   end
 
   it 'should create clouds that can clear their state' do
-    options = { :metadata_writers => { :output_dir_path => @output_dir_path } }
+    options = { :logger => @logger, :metadata_writers => { :output_dir_path => @output_dir_path } }
     cloud = RightScale::CloudFactory.instance.create(RightScale::CloudFactorySpec::CLOUD_NAME, options)
     cloud.write_metadata
     File.directory?(@output_dir_path).should be_true
@@ -116,7 +124,7 @@ describe RightScale::CloudFactory do
     # ensure script can execute (under Linux). note that chmod has no effect
     # in Windows.
     File.chmod(0744, File.join(File.dirname(__FILE__), 'scripts', RightScale::CloudFactorySpec::CLOUD_NAME, 'wait_for_instance_ready.rb'))
-    cloud = RightScale::CloudFactory.instance.create(RightScale::CloudFactorySpec::CLOUD_NAME)
+    cloud = RightScale::CloudFactory.instance.create(RightScale::CloudFactorySpec::CLOUD_NAME, :logger => @logger)
     result = cloud.wait_for_instance_ready
     result.exitstatus.should == 0
     result.output.should == "Simulating wait for something to happen\nSomething happened!\n"

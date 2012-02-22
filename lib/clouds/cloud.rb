@@ -74,6 +74,10 @@ module RightScale
       default_option([:user_metadata, :metadata_writers, :file_name_prefix], DEFAULT_USER_METADATA_FILE_PREFIX)
     end
 
+    # Syntatic sugar for options[:logger], which should always be valid under
+    # normal circumstances.
+    def logger; @options[:logger]; end
+
     # Getter/setter for abbreviation which also sets default formatter options
     # when an abbreviation is set.
     def abbreviation(value = nil)
