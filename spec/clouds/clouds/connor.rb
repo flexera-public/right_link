@@ -37,3 +37,6 @@ METADATA = { CLOUD_METADATA_ROOT => CLOUD_METADATA, USER_METADATA_ROOT => USER_M
 
 # options can be specific to the exact dependency type.
 default_option([:metadata_source, :mock_metadata_source, :mock_metadata], METADATA)
+
+# test logger.
+logger.info("initialized Connor")

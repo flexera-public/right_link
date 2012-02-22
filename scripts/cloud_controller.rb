@@ -63,12 +63,22 @@ module RightScale
       only_if = options[:only_if] || false
       verbose = !(options[:quiet] || false)
 
-      action = options[:action].to_sym
-      if action == :bootstrap
-        actions = [:clear_state, :wait_for_instance_ready, :write_cloud_metadata, :write_user_metadata, :wait_for_eip]
-        only_if = true
-      else
-        actions = [action]
+      # support either single or a comma-delimited list of actions to execute
+      # sequentially (e.g. "--action clear_state,wait_for_instance_ready,write_user_metadata")
+      # (because we need to split bootstrap actions up in Windows case).
+      actions = options[:action].to_s.split(',').inject([]) do |result, action|
+        unless (action = action.strip).empty?
+          action = action.to_sym
+          case action
+            when :bootstrap
+              # bootstrap is shorthand for all standard actions performed on boot
+              result += [:clear_state, :wait_for_instance_ready, :write_cloud_metadata, :write_user_metadata, :wait_for_eip]
+              only_if = true
+            else
+              result << action
+          end
+        end
+        result
       end
 
       cloud = CloudFactory.instance.create(name, :logger => default_logger(verbose))

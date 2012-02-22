@@ -37,3 +37,6 @@ USER_METADATA_ROOT = 'user metadata'
 
 default_option('cloud_metadata/metadata_tree_climber/root_path', CLOUD_METADATA_ROOT)
 default_option('user_metadata/metadata_tree_climber/root_path', USER_METADATA_ROOT)
+
+# test logger.
+logger.info("initialized MacLeod")
