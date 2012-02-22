@@ -296,10 +296,15 @@ module RightScale
       packages = packages.uniq.join(' ')
       @audit.create_new_section("Installing packages: #{packages}")
       success = false
+      output = ""
+      failed_packages = []
       audit_time do
         success = retry_execution('Installation of packages failed, retrying...') do
           if File.executable? '/usr/bin/yum'
-            @audit.append_output(`yum install -y #{packages} 2>&1`)
+            output = `yum install -y #{packages} 2>&1`
+            @audit.append_output(output)
+            output.scan(/No package (.*) available./) { |package| failed_packages << package.first }
+            report_failure("Failed to find packages", "The following packages were not available: #{failed_packages.join(', ')}") unless failed_packages.empty?
           elsif File.executable? '/usr/bin/apt-get'
             ENV['DEBIAN_FRONTEND']="noninteractive"
             @audit.append_output(`apt-get install -y #{packages} 2>&1`)
