@@ -1,8 +1,9 @@
 GIT
   remote: git://github.com/rightscale/right_agent.git
-  revision: 28e3ff504ab0aad0735c169ce159d224fc68a336
+  revision: 30e0f03381f7bc89c91e265ecce001555cb1f198
+  branch: azure_12_2_36882
   specs:
-    right_agent (0.8.0)
+    right_agent (0.8.1)
       eventmachine (~> 0.12.10)
       json (~> 1.4)
       msgpack (= 0.4.4)
