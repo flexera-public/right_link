@@ -1,6 +1,6 @@
 GIT
   remote: git://github.com/rightscale/right_agent.git
-  revision: 30e0f03381f7bc89c91e265ecce001555cb1f198
+  revision: f14cfca21b881986b001d2b86a7fdd0bcf43439d
   branch: azure_12_2_36882
   specs:
     right_agent (0.8.1)
@@ -21,7 +21,7 @@ GIT
 
 GIT
   remote: git://github.com/rightscale/right_support.git
-  revision: 87949a426e1baac2ef8243a43e1da964e57aeabb
+  revision: 5ff1a5e463b0b1fe17c876e466567715d1d3c63a
   specs:
     right_support (1.2.0)
 

@@ -293,26 +293,20 @@ module RightScale
       packages = []
       @scripts.each { |s| packages.push(s.packages) if s.packages && !s.packages.empty? }
       return true if packages.empty?
-      packages = packages.uniq.join(' ')
-      @audit.create_new_section("Installing packages: #{packages}")
-      success = false
-      output = ""
-      failed_packages = []
+      
+      success   = false
+      installer = RightScale::Platform.installer
+      
+      @audit.create_new_section("Installing packages: #{packages.uniq.join(' ')}")
       audit_time do
         success = retry_execution('Installation of packages failed, retrying...') do
-          if File.executable? '/usr/bin/yum'
-            output = `yum install -y #{packages} 2>&1`
-            @audit.append_output(output)
-            output.scan(/No package (.*) available./) { |package| failed_packages << package.first }
-            report_failure("Failed to find packages", "The following packages were not available: #{failed_packages.join(', ')}") unless failed_packages.empty?
-          elsif File.executable? '/usr/bin/apt-get'
-            ENV['DEBIAN_FRONTEND']="noninteractive"
-            @audit.append_output(`apt-get install -y #{packages} 2>&1`)
-          elsif File.executable? '/usr/bin/zypper'
-            @audit.append_output(`zypper --no-gpg-checks -n #{packages} 2>&1`)
+          begin
+            installer.install(packages)
+          rescue Exception => e
+            @audit.append_output(installer.output)
+            report_failure('Failed to install packages', e.message)
           else
-            report_failure('Failed to install packages', 'Cannot find yum nor apt-get nor zypper binary in /usr/bin')
-            return true # Not much more we can do here
+            @audit.append_output(installer.output)
           end
           $?.success?
         end
