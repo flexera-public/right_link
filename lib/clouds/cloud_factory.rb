@@ -50,6 +50,16 @@ module RightScale
       true
     end
 
+    # Resets the global cloud registry (to ensure a clean reload of cloud names).
+    #
+    # === Return
+    # result(Hash):: Hash of cloud names to script paths before reset
+    def reset_registry
+      result = @names_to_script_paths
+      @names_to_script_paths = nil
+      result
+    end
+
     # Gets the path to the script describing a cloud.
     #
     # === Parameters
@@ -79,6 +89,7 @@ module RightScale
     # UnknownCloud:: on error
     def create(cloud_name = UNKNOWN_CLOUD_NAME, options = {})
       raise ArgumentError.new("cloud_name is required") if cloud_name.to_s.empty?
+      raise UnknownCloud.new("No cloud definitions available.") unless @names_to_script_paths
       cloud_name = cloud_name.to_sym
       cloud_name = default_cloud_name if UNKNOWN_CLOUD_NAME == cloud_name
       if UNKNOWN_CLOUD_NAME == cloud_name
@@ -111,6 +122,8 @@ module RightScale
     def default_cloud_name(value = nil)
       cloud_file_path = RightScale::AgentConfig.cloud_file_path
       if value
+        parent_dir = File.dirname(cloud_file_path)
+        FileUtils.mkdir_p(parent_dir) unless File.directory?(parent_dir)
         File.open(cloud_file_path, "w") { |f| f.write(value.to_s) }
       else
         value = File.read(cloud_file_path).strip if File.file?(cloud_file_path)
