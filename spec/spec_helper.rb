@@ -198,9 +198,10 @@ module RightScale
     #
     # === Return
     # always true
-    def run_em_test(options = {:defer => true, :timeout => 5})
-      defer = options[:defer]
-      timeout = options[:timeout]
+    def run_em_test(options = nil)
+      options ||= {}
+      defer = options.has_key?(:defer) ? options[:defer] : true
+      timeout = options[:timeout] || 5
       last_exception = nil
       EM.threadpool_size = 1
       tester = lambda do

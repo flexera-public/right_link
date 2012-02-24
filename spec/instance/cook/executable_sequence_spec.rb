@@ -95,18 +95,10 @@ describe RightScale::ExecutableSequence do
     # Run sequence and print out exceptions
     def run_sequence
       res = nil
-      EM.threadpool_size = 1
-      EM.run do
-        Thread.new do
-          begin
-            @sequence.callback { res = true;  EM.next_tick { EM.stop } }
-            @sequence.errback  { res = false; EM.next_tick { EM.stop } }
-            @sequence.run
-          rescue Exception => e
-            puts RightScale::Log.format("Failed running sequence", e, :trace)
-            EM.next_tick { EM.stop }
-          end
-        end
+      run_em_test(:timeout => 60) do
+        @sequence.callback { res = true;  EM.next_tick { EM.stop } }
+        @sequence.errback  { res = false; EM.next_tick { EM.stop } }
+        @sequence.run
       end
       res
     end
