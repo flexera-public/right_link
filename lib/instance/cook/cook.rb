@@ -90,7 +90,7 @@ module RightScale
     # Determines if the current cook process has the default thread for purposes
     # of concurrency with non-defaulted cooks.
     def has_default_thread?
-      ::RightScale::ExecutableBundle::DEFAULT_THREAD_NAME == @thread_name
+      ::RightScale::AgentConfig.default_thread_name == @thread_name
     end
 
     # Helper method to send a request to one or more targets with no response expected

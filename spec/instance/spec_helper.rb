@@ -31,11 +31,11 @@ shared_examples_for 'mocks cook' do
       attr_accessor :mock_attributes
 
       def initialize
-        @mock_attributes = {:thread_name => ::RightScale::ExecutableBundle::DEFAULT_THREAD_NAME}
+        @mock_attributes = {:thread_name => ::RightScale::AgentConfig.default_thread_name}
       end
 
       def has_default_thread?
-        ::RightScale::ExecutableBundle::DEFAULT_THREAD_NAME == @mock_attributes[:thread_name]
+        ::RightScale::AgentConfig.default_thread_name == @mock_attributes[:thread_name]
       end
 
     end

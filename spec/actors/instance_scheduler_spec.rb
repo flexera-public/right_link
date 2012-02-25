@@ -34,7 +34,7 @@ class ExecutableSequenceMock
   @@last_pid = 100
   def initialize(context, should_fail)
     @context = context
-    @thread_name = context.payload.respond_to?(:thread_name) ? context.payload.thread_name : ::RightScale::ExecutableBundle::DEFAULT_THREAD_NAME
+    @thread_name = context.payload.respond_to?(:thread_name) ? context.payload.thread_name : ::RightScale::AgentConfig.default_thread_name
     @should_fail = should_fail
     @pid = @@last_pid += 4
   end
