@@ -20,9 +20,6 @@ Gem::Specification.new do |s|
             Dir.glob('bin/*.rb') +
             Dir.glob('bin/*.sh') +
             Dir.glob('lib/**/*.rb') +
-            Dir.glob('lib/chef/**/*.rb') +
-            Dir.glob('lib/clouds/**/*.rb') +
-            Dir.glob('lib/repo_conf_generators/**/*.rb') +
             Dir.glob('scripts/*') +
             Dir.glob('lib/instance/cook/*.crt')
 end
