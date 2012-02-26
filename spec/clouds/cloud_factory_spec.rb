@@ -76,15 +76,15 @@ describe RightScale::CloudFactory do
   end
 
   it 'should create the default cloud when cloud file exists' do
-    mock_state_dir_path = File.join(@output_dir_path, 'rightscale.d')
-    mock_cloud_file_path = File.join(mock_state_dir_path, 'cloud')
+    mock_static_state_dir = File.join(@output_dir_path, 'rightscale.d')
+    mock_cloud_file_path = File.join(mock_static_state_dir, 'cloud')
     spool_dir = RightScale::Platform.filesystem.temp_dir
     filesystem = flexmock("filesystem")
     flexmock(RightScale::Platform).should_receive(:filesystem).and_return(filesystem)
-    filesystem.should_receive(:right_scale_state_dir).and_return(mock_state_dir_path)
+    filesystem.should_receive(:right_scale_static_state_dir).and_return(mock_static_state_dir)
     filesystem.should_receive(:spool_dir).and_return(spool_dir)
     lambda{ RightScale::CloudFactory.instance.create(RightScale::CloudFactory::UNKNOWN_CLOUD_NAME, :logger => @logger) }.should raise_exception RightScale::CloudFactory::UnknownCloud
-    FileUtils.mkdir_p(mock_state_dir_path)
+    FileUtils.mkdir_p(mock_static_state_dir)
     File.open(mock_cloud_file_path, "w") { |f| f.puts(RightScale::CloudFactorySpec::CLOUD_NAME) }
     cloud = RightScale::CloudFactory.instance.create(RightScale::CloudFactory::UNKNOWN_CLOUD_NAME, :logger => @logger)
     cloud.class.should == RightScale::Cloud
