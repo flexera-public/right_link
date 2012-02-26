@@ -209,21 +209,23 @@ When the system is terminating, you should allow RightLink to run its decommissi
 
 === Linux Systems
 
-| /var/spool/cloud           | Cloud instance user-data (.sh, .rb, raw formats)
-| /etc/rightcale.d           | Persistent agent state, e.g. state.js, cook.js
-| /etc/right_agent           | Static configuration files generated during enrollment
-| /etc/rightscale.d          | Static "hints" for init scripts: cloud, rightscale-release
-| /var/cache                 | Cookbooks, attachments, temp files
-| /var/run                   | Transient agent state, e.g. pid files
-| /opt/rightscale/right_link | RightLink root dir (program logic & support files)
-| /usr/bin                   | Rightlink public CLI e.g. rs_tag, rs_debug
-| /opt/rightscale/bin        | RightLink private CLI e.g. rnac, rad, cook
-| /opt/rightscale/sandbox    | Sandbox Ruby/RubyGems/monit binaries
+| /etc/rightscale.d                    | Static "hints" for init scripts
+| /etc/rightscale.d/right_link         | Static files that allow RightLink behavior to be customized
+| /var/spool/cloud                     | Cloud-provided metadata & user-data (.sh, .rb, raw formats)
+| /var/lib/rightscale/right_agent      | Persistent config files generated at startup
+| /var/lib/rightscale/right_link       | Persistent RightLink agent state
+| /var/run                             | Transient agent state, e.g. pid files
+| /var/cache                           | Cookbooks, attachments, temp files
+| /opt/rightscale/right_link           | RightLink root dir (program logic & support files)
+| /opt/rightscale/bin                  | RightLink private CLI: rnac, rad, cook, ...
+| /opt/rightscale/sandbox              | sandbox Ruby/RubyGems/monit binaries
+| /usr/bin                             | Rightlink public CLI: rs_tag, rs_debug, ...
 
 === Windows Systems
 
-| COMMON_APPDATA\RightScale\spool        | Cloud instance user-data (.sh, .rb, raw formats)
-| COMMON_APPDATA\RightScale\rightscale.d | Persistent agent state, e.g. state.js, cook.js
-| COMMON_APPDATA\RightScale\RightAgent   | Static configuration files generated during enrollment
-| COMMON_APPDATA\RightScale\rightscale.d | Static "hints"
-| COMMON_APPDATA\RightScale\cache        | Cookbooks, attachments, temp files
+| COMMON_APPDATA\RightScale\rightscale.d            | Static "hints" for system services
+| COMMON_APPDATA\RightScale\rightscale.d\right_link | Static files that allow RightLink behavior to be customized
+| COMMON_APPDATA\RightScale\spool\cloud             | Cloud-provided metadata & user-data (.sh, .rb, raw formats)
+| COMMON_APPDATA\RightScale\RightAgent              | Persistent config files generated at startup
+| COMMON_APPDATA\RightScale\right_link              | Persistent RightLink agent state
+| COMMON_APPDATA\RightScale\cache                   | Cookbooks, attachments, temp files

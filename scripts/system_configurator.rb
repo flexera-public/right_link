@@ -44,7 +44,7 @@ module RightScale
     DSA_KEY = '/etc/ssh/ssh_host_dsa_key'
 
     def self.read_options_file
-      state = RightScale::Platform.filesystem.right_scale_state_dir
+      state = RightScale::Platform.filesystem.right_link_dynamic_state_dir
       options_file     = File.join(state, 'system.js')
       old_options_file = File.join(state, 'sys_configure.js')
 
