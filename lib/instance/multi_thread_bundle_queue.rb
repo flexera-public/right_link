@@ -165,7 +165,7 @@ module RightScale
     # === Return
     # true:: always true
     def push_to_thread_queue(context)
-      thread_name = context.respond_to?(:thread_name) ? context.thread_name : ::RightScale::ExecutableBundle::DEFAULT_THREAD_NAME
+      thread_name = context.respond_to?(:thread_name) ? context.thread_name : ::RightScale::AgentConfig.default_thread_name
       queue = nil
       @mutex.synchronize do
         queue = @thread_name_to_queue[thread_name]

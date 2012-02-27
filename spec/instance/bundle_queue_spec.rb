@@ -136,7 +136,7 @@ describe RightScale::BundleQueue do
           thread_name ||= name_pair.first
           sequence_name = name_pair.last
         else
-          thread_name ||= ::RightScale::ExecutableBundle::DEFAULT_THREAD_NAME
+          thread_name ||= ::RightScale::AgentConfig.default_thread_name
           sequence_name = name_pair.to_s
         end
         names << sequence_name
@@ -186,7 +186,7 @@ describe RightScale::BundleQueue do
       @queue.active?.should be_false
       @queue_closed.should be_false
       @run_sequence_names.empty?.should be_true
-      @required_completion_order.should == { ::RightScale::ExecutableBundle::DEFAULT_THREAD_NAME => ['never run by inactive queue'] }
+      @required_completion_order.should == { ::RightScale::AgentConfig.default_thread_name => ['never run by inactive queue'] }
     end
 
     it 'should run all bundles once active' do
@@ -195,7 +195,7 @@ describe RightScale::BundleQueue do
       sequence_count = 4
       thread_name_count.times do |thread_name_index|
         mock_sequence(:count => sequence_count) do |sequence_index|
-          [0 == thread_name_index ? ::RightScale::ExecutableBundle::DEFAULT_THREAD_NAME : "thread #{thread_name_index}",
+          [0 == thread_name_index ? ::RightScale::AgentConfig.default_thread_name : "thread #{thread_name_index}",
            "sequence ##{sequence_index + 1}"]
         end
       end
@@ -227,7 +227,7 @@ describe RightScale::BundleQueue do
       @queue_closed.should be_true
       @queue.active?.should be_false
       @run_sequence_names.values.flatten.size.should == 1
-      @required_completion_order.should == { ::RightScale::ExecutableBundle::DEFAULT_THREAD_NAME => ['never runs after deactivation'] }
+      @required_completion_order.should == { ::RightScale::AgentConfig.default_thread_name => ['never runs after deactivation'] }
     end
 
     it 'should process the shutdown bundle' do
@@ -236,7 +236,7 @@ describe RightScale::BundleQueue do
       sequence_count = 3
       thread_name_count.times do |thread_name_index|
         mock_sequence(:count => sequence_count) do |sequence_index|
-          [0 == thread_name_index ? ::RightScale::ExecutableBundle::DEFAULT_THREAD_NAME : "thread #{thread_name_index}",
+          [0 == thread_name_index ? ::RightScale::AgentConfig.default_thread_name : "thread #{thread_name_index}",
            "sequence ##{sequence_index + 1}"]
         end
       end
@@ -247,7 +247,7 @@ describe RightScale::BundleQueue do
       mock_sequence { 'ignored due to decommissioning and not a decommission bundle' }
       mock_sequence(:decommission => true) { 'decommission bundle' }
       mock_sequence { 'never runs after decommission closes queue' }
-      @required_completion_order[::RightScale::ExecutableBundle::DEFAULT_THREAD_NAME].delete('ignored due to decommissioning and not a decommission bundle')
+      @required_completion_order[::RightScale::AgentConfig.default_thread_name].delete('ignored due to decommissioning and not a decommission bundle')
 
       shutdown_processed = false
       flexmock(@mock_shutdown_request).
@@ -268,8 +268,8 @@ describe RightScale::BundleQueue do
       shutdown_processed.should be_true
       @queue_closed.should be_true
       @run_sequence_names.values.flatten.size.should == count_before_decommission + 1
-      @run_sequence_names[::RightScale::ExecutableBundle::DEFAULT_THREAD_NAME].last.should == 'decommission bundle'
-      @required_completion_order.should == { ::RightScale::ExecutableBundle::DEFAULT_THREAD_NAME => ['never runs after decommission closes queue'] }
+      @run_sequence_names[::RightScale::AgentConfig.default_thread_name].last.should == 'decommission bundle'
+      @required_completion_order.should == { ::RightScale::AgentConfig.default_thread_name => ['never runs after decommission closes queue'] }
       @threads_started.size.should == (@multi_threaded ? (thread_name_count + 1) : 1)
     end
 
