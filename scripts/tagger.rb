@@ -34,6 +34,7 @@
 #      --format, -f FMT     Output format: json, yaml, text
 #      --verbose, -v        Display debug information
 #      --help:              Display help
+#      --version:           Display version information
 #
 
 require 'rubygems'
@@ -201,6 +202,11 @@ module RightScale
           options[:format] = fmt
         end
       end
+      
+      opts.on_tail('--version') do
+        puts version
+        succeed
+      end
 
       opts.on_tail('--help') do
          puts Usage.scan(__FILE__)
@@ -274,6 +280,15 @@ protected
 
       puts Usage.scan(__FILE__) if options[:print_usage]
       exit(code)
+    end
+    
+    # Version information
+    #
+    # === Return
+    # ver(String):: Version information
+    def version
+      gemspec = eval(File.read(File.join(File.dirname(__FILE__), '..', 'right_link.gemspec')))
+      "rs_tag #{gemspec.version} - RightLink's tagger (c) 2011 RightScale"
     end
 
   end # Tagger
