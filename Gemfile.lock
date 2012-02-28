@@ -1,6 +1,6 @@
 GIT
   remote: git://github.com/rightscale/right_agent.git
-  revision: bfb1904f0ce7504492aaff69899748dc4023dbd7
+  revision: 07b21e31496c1d7e98a67b6a9f64e03d68e930c4
   specs:
     right_agent (0.8.1)
       eventmachine (~> 0.12.10)
@@ -20,7 +20,7 @@ GIT
 
 GIT
   remote: git://github.com/rightscale/right_support.git
-  revision: c0b54cbc0e10f8e63cdd5169a9b1bd9e9282dfc5
+  revision: 332c416ddf6bcbdc4527f7cbdc5e2ce2c43f6458
   specs:
     right_support (1.2.0)
 
