@@ -60,8 +60,14 @@ describe RightScale::ExecutableSequence do
       @script.should_receive(:is_a?).with(RightScale::RightScriptInstantiation).and_return(true)
       @script.should_receive(:is_a?).with(RightScale::RecipeInstantiation).and_return(false)
 
-      @bundle = RightScale::ExecutableBundle.new([ @script ], [], 0, true, [], '', RightScale::DevRepositories.new, nil)
-      @thread_name = RightScale::ExecutableBundle::DEFAULT_THREAD_NAME
+      @bundle = RightScale::PayloadFactory.make_bundle(:executables => [ @script ],
+                                                       :audit_id => 0,
+                                                       :full_converge => true,
+                                                       :cookbooks => [],
+                                                       :repose_servers => '',
+                                                       :dev_cookbooks => RightScale::DevRepositories.new)
+
+      @thread_name = RightScale::AgentConfig.default_thread_name
 
       @auditor = flexmock(RightScale::AuditStub.instance)
       @auditor.should_receive(:create_new_section)
@@ -208,7 +214,7 @@ describe RightScale::ExecutableSequence do
 
       bundle = flexmock('ExecutableBundle')
       bundle.should_receive(:repose_servers).and_return([]).by_default
-      bundle.should_receive(:thread_name).and_return(RightScale::ExecutableBundle::DEFAULT_THREAD_NAME)
+      bundle.should_receive(:thread_name).and_return(RightScale::AgentConfig.default_thread_name)
       bundle.should_ignore_missing
       @sequence = RightScale::ExecutableSequence.new(bundle)
       begin
@@ -258,7 +264,7 @@ describe RightScale::ExecutableSequence do
       bundle = flexmock('ExecutableBundle')
       bundle.should_receive(:repose_servers).and_return([]).by_default
       bundle.should_ignore_missing
-      bundle.should_receive(:thread_name).and_return(RightScale::ExecutableBundle::DEFAULT_THREAD_NAME)
+      bundle.should_receive(:thread_name).and_return(RightScale::AgentConfig.default_thread_name)
       @sequence = RightScale::ExecutableSequence.new(bundle)
     end
 

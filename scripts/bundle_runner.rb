@@ -83,7 +83,7 @@ module RightScale
     # true:: Always return true
     def run(options, &callback)
       fail('Missing identity or name argument', true) unless options[:id] || options[:name]
-      if options[:thread] && (options[:thread] !~ RightScale::ExecutableBundle::VALID_THREAD_NAME)
+      if options[:thread] && (options[:thread] !~ RightScale::AgentConfig.valid_thread_name)
         fail("Invalid thread name #{options[:thread]}", true)
       end
       echo(options)

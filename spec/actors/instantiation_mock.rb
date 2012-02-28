@@ -49,7 +49,7 @@ module RightScale
       sample_script.attachments  = [sample_attach, sample_attach2]
       sample_script2.attachments = [sample_attach2]
 
-      RightScale::ExecutableBundle.new([sample_script, sample_script2], [], 1234)
+      RightScale::PayloadFactory.make_bundle(:executables => [sample_script, sample_script2])
     end
 
     # Generate array of test software repositories
