@@ -64,7 +64,10 @@ module RightScale
       force     = options.delete(:force)
 
       fail(1) if missing_argument(username, "USERNAME") || missing_argument(email, "EMAIL") || missing_argument(uuid, "UUID")
-
+    
+      # Idempotent if user already exists
+      username = LoginManager.create_user(username, uuid, superuser ? true : false)
+      
       #Thunk into user's context
       orig = ENV['SSH2_ORIGINAL_COMMAND'] || ENV['SSH_ORIGINAL_COMMAND']
 
@@ -83,9 +86,6 @@ module RightScale
       end
 
       client_ip = ENV['SSH_CLIENT'].split(/\s+/).first if ENV.has_key?('SSH_CLIENT')
-    
-      # Idempotent if user already exists
-      username = LoginManager.create_user(username, uuid, superuser ? true : false)
       
       create_audit_entry(email, username, access, orig, client_ip)
       create_profile(username, profile, force) if profile
