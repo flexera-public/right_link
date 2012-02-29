@@ -14,6 +14,8 @@
 #      --email,     -e EMAIL        Create audit entry saying "EMAIL logged in as USERNAME"
 #      --profile,   -p DATA         Extra profile data (e.g. a URL to download)
 #      --force,     -f              If profile option was specified - rewrite existing files
+#      --help:                      Display help
+#      --version:                   Display version information
 #
 # === Examples:
 #   Authorize as 'alice' with email address alice@example.com:
@@ -122,6 +124,11 @@ module RightScale
         opts.on('-f', '--force') do
           options[:force] = true
         end
+      end
+      
+      opts.on_tail('--version') do
+        puts version
+        succeed
       end
 
       opts.on_tail('--help') do
@@ -273,6 +280,16 @@ module RightScale
       Log.error("#{e.class.name}: #{e.message} - #{e.backtrace.first}")
       return false
     end
+    
+    # Version information
+    #
+    # === Return
+    # (String):: Version information
+    def version
+      gemspec = eval(File.read(File.join(File.dirname(__FILE__), '..', 'right_link.gemspec')))
+      "rs_thunk #{gemspec.version} - RightLink's thunker (c) 2011 RightScale"
+    end
+    
   end # Thunker
 
 end # RightScale

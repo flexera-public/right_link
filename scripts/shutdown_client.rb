@@ -23,6 +23,7 @@
 #      --deferred, -d     Request deferred shutdown (reboot, stop or terminate) pending finish of any remaining scripts (default).
 #      --verbose, -v      Display debug information
 #      --help:            Display help
+#      --version:         Display version information
 #
 #    No options prints the current RightLink agent log level
 #
@@ -98,6 +99,11 @@ module RightScale
           options[:verbose] = true
         end
       end
+      
+      opts.on_tail('--version') do
+        puts version
+        succeed
+      end
 
       opts.on_tail('--help') do
         puts Usage.scan(__FILE__)
@@ -128,6 +134,15 @@ protected
       puts "** #{msg}" if msg
       puts Usage.scan(__FILE__) if print_usage
       exit(1)
+    end
+    
+    # Version information
+    #
+    # === Return
+    # (String):: Version information
+    def version
+      gemspec = eval(File.read(File.join(File.dirname(__FILE__), '..', 'right_link.gemspec')))
+      "rs_shutdown #{gemspec.version} - RightLink's shutdown client (c) 2011 RightScale"
     end
 
   end # ShutdownClient

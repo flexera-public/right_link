@@ -10,19 +10,19 @@
 # the licensee.
 
 require File.expand_path(File.join(File.dirname(__FILE__), '..', 'spec_helper'))
-require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'scripts', 'tagger'))
+require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'scripts', 'reenroller'))
 
 module RightScale
-  describe Tagger do
+  describe Reenroller do
     context 'version' do
       it 'reports RightLink version from gemspec' do
-        class Tagger
+        class Reenroller
           def test_version
             version
           end
         end
         
-        subject.test_version.should match /rs_tag \d+\.\d+\.?\d* - RightLink's tagger \(c\) 2011 RightScale/
+        subject.test_version.should match /rs_reenroll \d+\.\d+\.?\d* - RightLink's reenroller \(c\) 2011 RightScale/
       end
     end
   end

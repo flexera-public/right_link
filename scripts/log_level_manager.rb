@@ -19,6 +19,7 @@
 #      --log-level, -l LVL  Set log level of RightLink agent
 #      --verbose, -v        Display debug information
 #      --help:              Display help
+#      --version:           Display version information
 #
 #    No options prints the current RightLink agent log level
 #
@@ -58,6 +59,11 @@ module RightScale
 
       end
 
+      opts.on_tail('--version') do
+        puts version
+        succeed
+      end
+      
       opts.on_tail('--help') do
          puts Usage.scan(__FILE__)
          exit
@@ -70,6 +76,17 @@ module RightScale
         exit(1)
       end
       options
+    end
+    
+protected
+
+    # Version information
+    #
+    # === Return
+    # (String):: Version information
+    def version
+      gemspec = eval(File.read(File.join(File.dirname(__FILE__), '..', 'right_link.gemspec')))
+      "rs_log_level #{gemspec.version} - RightLink's log level (c) 2011 RightScale"
     end
 
   end

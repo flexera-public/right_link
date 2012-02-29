@@ -285,7 +285,7 @@ protected
     # Version information
     #
     # === Return
-    # ver(String):: Version information
+    # (String):: Version information
     def version
       gemspec = eval(File.read(File.join(File.dirname(__FILE__), '..', 'right_link.gemspec')))
       "rs_tag #{gemspec.version} - RightLink's tagger (c) 2011 RightScale"
