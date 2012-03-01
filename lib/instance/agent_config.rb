@@ -32,12 +32,14 @@ module RightScale
 
     # Path to directory containing persistent RightLink agent state
     def self.agent_state_dir
-      RightScale::Platform.filesystem.right_scale_state_dir
+      RightScale::Platform.filesystem.right_link_dynamic_state_dir
     end
 
     # Path to the file that contains the name of the cloud for this instance
     def self.cloud_file_path
-      File.normalize_path(File.join(agent_state_dir, 'cloud'))
+      File.normalize_path(File.join(
+        RightScale::Platform.filesystem.right_scale_static_state_dir,
+        'cloud'))
     end
 
     # Path to directory containing transient cloud-related state (metadata, userdata, etc)
