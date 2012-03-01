@@ -30,7 +30,7 @@ module RightScale
     #
     # === Block
     # continuation block
-    def initialize(thread_name = ::RightScale::ExecutableBundle::DEFAULT_THREAD_NAME, &continuation)
+    def initialize(thread_name = ::RightScale::AgentConfig.default_thread_name, &continuation)
       super(&continuation)
       @active = false
       @thread = nil

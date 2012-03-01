@@ -303,6 +303,12 @@ describe RightScale::LoginManager do
         @mgr.get_key_prefix(@username, @email, @uuid, true).should include('--superuser')
       end
     end
+    context "given a superuser value of false" do
+      it "should return a rs_thunk command line with proper formatting" do
+        
+        @mgr.get_key_prefix(@username, @email, @uuid, false).should_not include('--superuser')
+      end
+    end
     context "given a profile" do
       it "should return a rs_thunk command line with proper formatting" do
         

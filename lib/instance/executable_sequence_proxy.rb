@@ -51,7 +51,7 @@ module RightScale
     # context(RightScale::OperationContext):: Bundle to be run and associated audit
     def initialize(context, options = {})
       @context = context
-      @thread_name = context.respond_to?(:thread_name) ? context.thread_name : ::RightScale::ExecutableBundle::DEFAULT_THREAD_NAME
+      @thread_name = context.respond_to?(:thread_name) ? context.thread_name : ::RightScale::AgentConfig.default_thread_name
       @pid_callback = options[:pid_callback]
       AuditCookStub.instance.setup_audit_forwarding(@thread_name, context.audit)
       AuditCookStub.instance.on_close(@thread_name) { @audit_closed = true; check_done }

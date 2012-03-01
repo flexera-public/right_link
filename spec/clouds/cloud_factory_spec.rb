@@ -23,22 +23,19 @@
 require File.join(File.dirname(__FILE__), 'spec_helper')
 
 module RightScale
-
   class CloudFactorySpec
-
     CLOUD_NAME = 'connor'
-
-    # static cloud registration had better just work.
-    GLOB_PATH = File.normalize_path(File.join(File.dirname(__FILE__), 'clouds', '*.rb'))
-    Dir.glob(GLOB_PATH).each do |file_path|
-      CloudFactory.instance.register(File.basename(file_path, '.rb'), file_path)
-    end
-
   end
-
 end
 
 describe RightScale::CloudFactory do
+
+  before(:all) do
+    @old_names_to_script_paths = RightScale::CloudFactory.instance.reset_registry
+    Dir.glob(File.normalize_path(File.join(File.dirname(__FILE__), 'clouds', '*.rb'))).each do |file_path|
+      RightScale::CloudFactory.instance.register(File.basename(file_path, '.rb'), file_path)
+    end
+  end
 
   before(:each) do
     @output_dir_path = File.join(RightScale::Platform.filesystem.temp_dir, 'rs_cloud_factory_output')
@@ -51,6 +48,16 @@ describe RightScale::CloudFactory do
   after(:each) do
     FileUtils.rm_rf(@output_dir_path) if File.directory?(@output_dir_path)
     @output_dir_path = nil
+  end
+
+  after(:all) do
+    # restore old registry, if necessary
+    RightScale::CloudFactory.instance.reset_registry
+    if @old_names_to_script_paths
+      @old_names_to_script_paths.each do |name, file_path|
+        RightScale::CloudFactory.instance.register(name.to_s, file_path) if file_path && File.file?(file_path)
+      end
+    end
   end
 
   it 'should raise exception for unknown cloud' do
@@ -83,6 +90,7 @@ describe RightScale::CloudFactory do
     flexmock(RightScale::Platform).should_receive(:filesystem).and_return(filesystem)
     filesystem.should_receive(:right_scale_static_state_dir).and_return(mock_static_state_dir)
     filesystem.should_receive(:spool_dir).and_return(spool_dir)
+    FileUtils.rm_rf(@output_dir_path) if File.directory?(@output_dir_path)  # ensure rightscale.d is gone before looking for cloud file
     lambda{ RightScale::CloudFactory.instance.create(RightScale::CloudFactory::UNKNOWN_CLOUD_NAME, :logger => @logger) }.should raise_exception RightScale::CloudFactory::UnknownCloud
     FileUtils.mkdir_p(mock_static_state_dir)
     File.open(mock_cloud_file_path, "w") { |f| f.puts(RightScale::CloudFactorySpec::CLOUD_NAME) }

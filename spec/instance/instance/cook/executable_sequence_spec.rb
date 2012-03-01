@@ -66,7 +66,9 @@ module RightScale
         # mock the cookbook checkout location
       flexmock(CookState).should_receive(:cookbooks_path).and_return(@temp_cache_path)
 
-      @bundle = ExecutableBundle.new([], [], 2, nil, [], [])
+      @bundle = RightScale::PayloadFactory.make_bundle(:audit_id              => 2,
+                                                       :cookbooks             => [],
+                                                       :repose_servers        => [])
       @sequence = ExecutableSequence.new(@bundle)
     end
 
@@ -75,7 +77,10 @@ module RightScale
       flexmock(CookState).should_receive(:cookbooks_path).and_return(@temp_cache_path)
       flexmock(ReposeDownloader).should_receive(:discover_repose_servers).with([SERVER]).once
 
-      @bundle = ExecutableBundle.new([], [], 2, nil, [], [SERVER], DevRepositories.new({}), nil)
+      @bundle = RightScale::PayloadFactory.make_bundle(:audit_id              => 2,
+                                                       :cookbooks             => [],
+                                                       :repose_servers        => [SERVER],
+                                                       :dev_cookbooks         => DevRepositories.new({}))
       @sequence = ExecutableSequence.new(@bundle)
     end
 
@@ -134,7 +139,11 @@ module RightScale
                                 "nonexistent cookbook")
         position = CookbookPosition.new("foo/bar", cookbook)
         sequence = CookbookSequence.new(['foo'], [position], ["deadbeef"])
-        @bundle = ExecutableBundle.new([], [], 2, nil, [sequence], [SERVER], DevRepositories.new({}), nil)
+
+        @bundle = RightScale::PayloadFactory.make_bundle(:audit_id        => 2,
+                                                         :cookbooks       => [sequence],
+                                                         :repose_servers  => [SERVER],
+                                                         :dev_cookbooks   => DevRepositories.new({}))
 
         # mock the cookbook checkout location
         flexmock(CookState).should_receive(:cookbooks_path).and_return(@temp_cache_path)
@@ -202,8 +211,10 @@ module RightScale
                                                 "an-etag", "not-a-token")
         instantiation = RightScriptInstantiation.new("a script", "#!/bin/sh\necho foo", {},
                                                      [@attachment], "", 12342, true)
-        @bundle = ExecutableBundle.new([instantiation], [], 2, nil, [],
-                                       [SERVER])
+
+        @bundle = RightScale::PayloadFactory.make_bundle(:executables     => [instantiation],
+                                                         :audit_id        => 2,
+                                                         :repose_servers  => [SERVER])
 
         # mock the cookbook checkout location
         flexmock(CookState).should_receive(:cookbooks_path).and_return(@temp_cache_path)
@@ -297,8 +308,11 @@ module RightScale
                                                 "an-etag", "not-a-token", "a-digest")
         instantiation = RightScriptInstantiation.new("a script", "#!/bin/sh\necho foo", {},
                                                      [@attachment], "", 12342, true)
-        @bundle = ExecutableBundle.new([instantiation], [], 2, nil, [],
-                                       [SERVER])
+
+        @bundle = RightScale::PayloadFactory.make_bundle(:executables     => [instantiation],
+                                                         :audit_id        => 2,
+                                                         :cookbooks       => [],
+                                                         :repose_servers  => [SERVER])
 
         # mock the cookbook checkout location
         flexmock(CookState).should_receive(:cookbooks_path).and_return(@temp_cache_path)
@@ -449,7 +463,10 @@ module RightScale
       end
 
       def simulate_download_repos(cookbooks, dev_cookbooks)
-        @bundle = ExecutableBundle.new([], [], 2, nil, cookbooks, [SERVER], dev_cookbooks)
+        @bundle = RightScale::PayloadFactory.make_bundle(:audit_id        => 2,
+                                                         :cookbooks       => cookbooks,
+                                                         :repose_servers  => [SERVER],
+                                                         :dev_cookbooks   => dev_cookbooks)
 
         flexmock(ReposeDownloader).should_receive(:discover_repose_servers).with([SERVER]).once
         @auditor.should_receive(:append_info).with("Deleting existing cookbooks").once
@@ -510,7 +527,7 @@ module RightScale
                   if cookbook_sequence.hash == dev_repo_sha
                     cookbook_sequence.positions.each do |position|
                       repose_path = File.join(AgentConfig.cookbook_download_dir,
-                                              RightScale::ExecutableBundle::DEFAULT_THREAD_NAME,
+                                              RightScale::AgentConfig.default_thread_name,
                                               cookbook_sequence.hash,
                                               position.position)
                       checkout_path = File.join(repo_base_dir, position.position)
@@ -553,7 +570,7 @@ module RightScale
                 failed_positions = @failure_repos[cookbook_sequence.hash].collect { |position| position.position } if @failure_repos.has_key?(cookbook_sequence.hash)
                 cookbook_sequence.positions.each do |position|
                   local_basedir = File.join(AgentConfig.cookbook_download_dir,
-                                            RightScale::ExecutableBundle::DEFAULT_THREAD_NAME,
+                                            RightScale::AgentConfig.default_thread_name,
                                             cookbook_sequence.hash,
                                             position.position)
                   dev_position = dev_cookbook.positions.detect { |dp| dp.position == position.position }
@@ -576,7 +593,7 @@ module RightScale
                 # no cookbook should be symlink
                 cookbook_sequence.positions.each do |position|
                   local_basedir = File.join(AgentConfig.cookbook_download_dir,
-                                            RightScale::ExecutableBundle::DEFAULT_THREAD_NAME,
+                                            RightScale::AgentConfig.default_thread_name,
                                             cookbook_sequence.hash,
                                             position.position)
                   local_basedir.should exist_on_filesystem

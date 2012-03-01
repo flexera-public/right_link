@@ -99,7 +99,7 @@ module RightScale
 
     context 'given no credentials' do
       it 'succeeds immediately' do
-        @bundle = ExecutableBundle.new([@script, @recipe], [], 1234)
+        @bundle = RightScale::PayloadFactory.make_bundle(:executables => [@script, @recipe])
         @gatherer = ExternalParameterGatherer.new(@bundle, @options)
         result = run(@gatherer)
         @gatherer.failure_title.should be_nil
@@ -112,7 +112,7 @@ module RightScale
       context 'with no targets' do
         it 'sends requests with no target' do
           script, external_inputs = special_script_with_external_inputs(1, nil)
-          @bundle = ExecutableBundle.new([script], [], 1234)
+          @bundle = RightScale::PayloadFactory.make_bundle(:executables => [script])
           @gatherer = ExternalParameterGatherer.new(@bundle, @options)
 
           nil_targets = {:targets=>nil}
@@ -127,7 +127,7 @@ module RightScale
       context 'with targets specified' do
         it 'sends requests to specific targets' do
           script, external_inputs = special_script_with_external_inputs(1, nil)
-          @bundle = ExecutableBundle.new([script], [], 1234)
+          @bundle = RightScale::PayloadFactory.make_bundle(:executables => [script])
           @gatherer = ExternalParameterGatherer.new(@bundle, @options)
 
           one_target = {:targets=>'rs-steward-12345-1111'}
@@ -142,7 +142,7 @@ module RightScale
       context 'when fatal errors occur' do
         it 'fails RightScripts gracefully' do
           script, external_inputs = special_script_with_external_inputs(3)
-          @bundle = ExecutableBundle.new([script], [], 1234)
+          @bundle = RightScale::PayloadFactory.make_bundle(:executables => [script])
           @gatherer = ExternalParameterGatherer.new(@bundle, @options)
 
           nil_targets = {:targets=>nil}
@@ -172,7 +172,7 @@ module RightScale
 
           recipe, external_inputs = special_recipe_with_external_inputs(3)
 
-          @bundle = ExecutableBundle.new([recipe], [], 1234)
+          @bundle = RightScale::PayloadFactory.make_bundle(:executables => [recipe])
           @gatherer = ExternalParameterGatherer.new(@bundle, @options)
 
           [0, 1].each do |j|
@@ -212,7 +212,7 @@ module RightScale
             recipe.external_inputs[p] = cred
           end
 
-          @bundle = ExecutableBundle.new([@script, @recipe], [], 1234)
+          @bundle = RightScale::PayloadFactory.make_bundle(:executables => [@script, @recipe])
           @bundle.executables << script
           @bundle.executables << recipe
 

@@ -32,7 +32,7 @@ describe RightScale::AuditCookStub do
     @thread_names = []
     @forwarded_options = {}
     @thread_count.times do |thread_index|
-      thread_name = (0 == thread_index) ? ::RightScale::ExecutableBundle::DEFAULT_THREAD_NAME : "thread ##{thread_index}"
+      thread_name = (0 == thread_index) ? ::RightScale::AgentConfig.default_thread_name : "thread ##{thread_index}"
       auditor = flexmock("auditor for #{thread_name}")
       @auditors << auditor
       RightScale::AuditCookStub.instance.setup_audit_forwarding(thread_name, auditor)

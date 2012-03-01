@@ -23,12 +23,14 @@ rem # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 setlocal
 
 rem # use dev source if specified. "ruby.exe" will be located as usual.
+
 if "%1" equ "dev" (
-  if exist "%~dps0..\..\..\..\right_link" (
+  if exist "%~dp0..\..\..\..\right_link" (
+    set RS_RIGHT_LINK_FULL_HOME=%~dp0..\..\..\..
     set RS_RIGHT_LINK_HOME=%~dps0..\..\..\..
   )
 )
-call %~dps0LocateSpecSandBox.bat
+call "%~dp0LocateSpecSandBox.bat"
 if %ERRORLEVEL% neq 0 (
   echo Unable to locate sandbox.
   exit /B %ERRORLEVEL%
@@ -58,4 +60,4 @@ set PATH=%PATH%;%RS_RIGHT_LINK_PACKAGE_BIN_WINDOWS%;%RS_RIGHT_LINK_HOME%\right_l
 
 rem # include spec scripts on path
 set PATH=%PATH%;%~dps0.
-start "RightScale SandBox" cmd.exe /k "cd /d %RS_RIGHT_LINK_HOME%"
+start "RightScale SandBox" cmd.exe /k "cd /d "%RS_RIGHT_LINK_FULL_HOME%""

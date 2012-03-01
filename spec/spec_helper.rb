@@ -198,9 +198,10 @@ module RightScale
     #
     # === Return
     # always true
-    def run_em_test(options = {:defer => true, :timeout => 5})
-      defer = options[:defer]
-      timeout = options[:timeout]
+    def run_em_test(options = nil)
+      options ||= {}
+      defer = options.has_key?(:defer) ? options[:defer] : true
+      timeout = options[:timeout] || 5
       last_exception = nil
       EM.threadpool_size = 1
       tester = lambda do
@@ -237,7 +238,6 @@ module RightScale
         end
       end
     end
-
   end # SpecHelper
 
 end # RightScale
@@ -371,6 +371,35 @@ EOF
   end
 rescue LoadError
   #do nothing; if Chef isn't loaded, then no need to monkey patch
+end
+
+module RightScale
+  class PayloadFactory
+    # build a bundle based on the provided named arguments.  Uses common defaults for some params
+    def self.make_bundle(opts={})
+      defaults = {
+        :executables           => [],
+        :cookbook_repositories => [],
+        :audit_id              => 1234,
+        :full_converge         => nil,
+        :cookbooks             => nil,
+        :repose_servers        => nil,
+        :dev_cookbooks         => nil,
+        :thread_name           => RightScale::AgentConfig.default_thread_name
+      }
+
+      bundle_opts = defaults.merge(opts)
+
+      RightScale::ExecutableBundle.new(bundle_opts[:executables],
+                                       bundle_opts[:cookbook_repositories],
+                                       bundle_opts[:audit_id],
+                                       bundle_opts[:full_converge],
+                                       bundle_opts[:cookbooks],
+                                       bundle_opts[:repose_servers],
+                                       bundle_opts[:dev_cookbooks],
+                                       bundle_opts[:thread_name])
+    end
+  end
 end
 
 shared_examples_for 'mocks state' do
