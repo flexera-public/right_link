@@ -8,7 +8,7 @@ gem "right_amqp",              "~> 0.1", :git => "git://github.com/rightscale/ri
 gem "right_agent",             "~> 0.7", :git => "git://github.com/rightscale/right_agent.git"
 gem "right_scraper",           "3.0.1"
 gem "right_http_connection",   "~> 1.3.0"
-gem "right_popen",             "1.0.18"
+gem "right_popen",             "1.0.19"
 
 # We have custom builds of some gems containing fixes and patches that are specific
 # to RightScale. Gems in the "custom" group are published by RightScale to our
