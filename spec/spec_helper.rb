@@ -385,7 +385,7 @@ module RightScale
         :cookbooks             => nil,
         :repose_servers        => nil,
         :dev_cookbooks         => nil,
-        :thread_name           => RightScale::AgentConfig.default_thread_name
+        :thread_name           => nil
       }
 
       bundle_opts = defaults.merge(opts)
