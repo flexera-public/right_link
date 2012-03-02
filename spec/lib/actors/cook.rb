@@ -56,6 +56,21 @@ module RightScale
 
   end
 
+  class << ChefState
+
+    # Use forced location of state file in cook process that was setup in instance
+    # by monkey patched InstanceState in test version of instance_setup.rb
+    alias :original_init :init
+    def init(reset = false)
+      agent_identity = nil
+      File.open(AgentTestConfig.agent_identity_file,"r"){|f| agent_identity = f.gets.chomp }
+      ChefState.const_set(:STATE_FILE, AgentTestConfig.chef_file(agent_identity))
+      ChefState.const_set(:SCRIPTS_FILE, AgentTestConfig.past_scripts_file(agent_identity))
+      original_init
+    end
+
+  end
+
   class ExecutableSequence
 
     # Use forced location of scripts cache and state files in cook process that was setup in instance
