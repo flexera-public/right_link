@@ -81,6 +81,8 @@ module RightScale
     # === Parameter
     # bundle(RightScale::ExecutableBundle):: Bundle to be run
     def initialize(bundle)
+      
+      Log.warning("Encountered a nil thread name unexpectedly, defaulting to '#{RightScale::AgentConfig.default_thread_name}'") unless bundle.thread_name
       bundle.thread_name ||= RightScale::AgentConfig.default_thread_name
       
       unless bundle.thread_name =~ RightScale::AgentConfig.valid_thread_name
