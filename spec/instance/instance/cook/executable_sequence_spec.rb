@@ -61,6 +61,22 @@ module RightScale
       AgentConfig.cache_dir = @old_cache_path
       FileUtils.rm_rf(@temp_cache_path)
     end
+    
+    context :initialize do
+      it 'should set a default thread name if none or nil received' do
+        bundle = RightScale::PayloadFactory.make_bundle()
+        ExecutableSequence.new(bundle)
+        
+        bundle.thread_name.should_not be_nil
+      end
+      
+      it 'should Log if it receives a bundle with a nil thread name' do
+        bundle = RightScale::PayloadFactory.make_bundle()
+        flexmock(Log).should_receive(:warn).once.by_default
+        
+        ExecutableSequence.new(bundle)
+      end
+    end
 
     it 'should start with an empty bundle' do
         # mock the cookbook checkout location
