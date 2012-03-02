@@ -31,7 +31,7 @@ GEM
   specs:
     abstract (1.0.0)
     bunny (0.6.0)
-    chef (0.10.6.3)
+    chef (0.10.6.4)
       bunny (>= 0.6.0)
       erubis
       highline
@@ -151,7 +151,7 @@ PLATFORMS
 DEPENDENCIES
   abstract (= 1.0.0)
   bunny (= 0.6.0)
-  chef (= 0.10.6.3)
+  chef (= 0.10.6.4)
   erubis (= 2.6.5)
   eventmachine (= 0.12.11.6)
   extlib (= 0.9.14)
