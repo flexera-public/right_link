@@ -56,6 +56,10 @@ class AgentTestConfig
     return local_file(agent_identity, '__chef.js')
   end
 
+  def self.past_scripts_file(agent_identity)
+    return local_file(agent_identity, '__past_scripts.js')
+  end
+
   def self.cook_state_file
     return local_file('', '__cook_state.js')
   end

@@ -55,13 +55,7 @@ cmd_opts = CommandRunner.start(CommandConstants::BASE_INSTANCE_AGENT_SOCKET_PORT
   # on Linux systems, where it enables invocation of the rs_* utilities
   # without sudo.
   begin
-    # avoid calling FileUtils.chown on Windows because it raises an exception
-    # which gets caught here but looks ugly in the log. there will never be a
-    # 'rightscale' user on Windows so this is not applicable.
-    # FIX: if we need a utility to restrict file access on Windows (which would
-    # be slightly complex because of how NTFS security works) then it should use
-    # the 'system' account and/or be implemented in Platform.
-    unless ::RightScale::Platform.windows?
+    if RightScale::LoginManager.supported_by_platform? && RightScale::LoginManager.user_exists?('rightscale')
       FileUtils.chown('rightscale', nil, pid_file.cookie_file)
       FileUtils.chmod(0600, pid_file.cookie_file)
     end
