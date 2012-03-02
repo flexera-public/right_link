@@ -81,8 +81,7 @@ module RightScale
     # === Parameter
     # bundle(RightScale::ExecutableBundle):: Bundle to be run
     def initialize(bundle)
-      
-      Log.warning("Encountered a nil thread name unexpectedly, defaulting to '#{RightScale::AgentConfig.default_thread_name}'") unless bundle.thread_name
+      Log.warn("Encountered a nil thread name unexpectedly, defaulting to '#{RightScale::AgentConfig.default_thread_name}'") unless bundle.thread_name
       bundle.thread_name ||= RightScale::AgentConfig.default_thread_name
       
       unless bundle.thread_name =~ RightScale::AgentConfig.valid_thread_name
@@ -378,7 +377,7 @@ module RightScale
         # first, if @download_path is world writable, stop that nonsense right this second.
         unless RightScale::Platform.windows?
           if File.exists?(@download_path) && File.world_writable?(@download_path)
-            Log.warning("Cookbooks download path world writable; fixing.")
+            Log.warn("Cookbooks download path world writable; fixing.")
             File.chmod(0755, @download_path)
           end
         end

@@ -72,7 +72,7 @@ module RightScale
       
       it 'should Log if it receives a bundle with a nil thread name' do
         bundle = RightScale::PayloadFactory.make_bundle()
-        flexmock(Log).should_receive(:warning).once.by_default
+        flexmock(Log).should_receive(:warn).once.by_default
         
         ExecutableSequence.new(bundle)
       end
