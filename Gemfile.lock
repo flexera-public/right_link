@@ -1,7 +1,6 @@
 GIT
   remote: git://github.com/rightscale/right_agent.git
-  revision: 89ef7fa4075a1e6523b704a1688e8ad983f2a8b9
-  branch: azure_32_11600_fhs_compliance
+  revision: bdbfea1297f42cc4802c3c751a50bd9500b3a324
   specs:
     right_agent (0.9.1)
       eventmachine (~> 0.12.10)
@@ -21,7 +20,7 @@ GIT
 
 GIT
   remote: git://github.com/rightscale/right_support.git
-  revision: 332c416ddf6bcbdc4527f7cbdc5e2ce2c43f6458
+  revision: 0751a8c39bcb10956ddbebd9e9b7b9ebc6485db4
   specs:
     right_support (1.2.0)
 
