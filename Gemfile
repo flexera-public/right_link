@@ -10,13 +10,12 @@ gem "right_agent",             "~> 0.7", :git => "git://github.com/rightscale/ri
 gem "right_scraper",           "3.0.1"
 gem "right_http_connection",   "~> 1.3.0"
 gem "right_popen",             "1.0.19"
-
 # We have custom builds of some gems containing fixes and patches that are specific
 # to RightScale. Gems in the "custom" group are published by RightScale to our
 # custom gem repository (http://s3.amazonaws.com/rightscale_rightlink_gems_dev).
 group :custom do
   gem "ohai",                  "0.6.11.1"
-  gem "chef",                  "0.10.6.4"
+  gem "chef",                  "0.10.8.1"
   gem "eventmachine",          "0.12.11.6"
 end
 
