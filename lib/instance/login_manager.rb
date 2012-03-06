@@ -44,7 +44,7 @@ module RightScale
     # val(true|false) whether LoginManager works on this platform
     def supported_by_platform?
       right_platform = RightScale::Platform.linux?
-      right_platform && user_exists?('rightscale')  # avoid calling user_exists? on unsupported platform(s)
+      right_platform && LoginUserManager.user_exists?('rightscale')  # avoid calling user_exists? on unsupported platform(s)
     end
 
     # Enact the login policy specified in new_policy for this system. The policy becomes
@@ -280,164 +280,6 @@ module RightScale
       return true
     end
 
-    # Creates user account
-    #
-    # === Parameters
-    # username(String):: username
-    # uuid(String):: RightScale user's UUID
-    # superuser(Boolean):: flag if user is superuser
-    #
-    # === Return
-    # username(String):: created account's username
-    def create_user(username, uuid, superuser)
-      uid = LoginUserManager.uuid_to_uid(uuid)
-
-      if uid_exists?(uid, ['rightscale'])
-        username = uid_to_username(uid)
-      elsif !uid_exists?(uid)
-        username  = pick_username(username)
-        add_user(username, uid)
-        manage_group('rightscale', :add, username) if group_exists?('rightscale')
-      else
-        raise SystemConflict, "A user with UID #{uid} already exists and is " +
-                              "not managed by RightScale"
-      end
-
-      action = superuser ? :add : :remove
-      manage_group('rightscale_sudo', action, username) if group_exists?('rightscale_sudo')
-
-      username
-    end
-
-    # Fetches username from account's UID.
-    #
-    # === Parameters
-    # uid(String):: linux account UID
-    #
-    # === Return
-    # username(String):: account's username or empty string
-    def uid_to_username(uid)
-      uid = Integer(uid)
-      Etc.getpwuid(uid).name
-    end
-
-    # Binding for adding user's account record to OS
-    #
-    # === Parameters
-    # username(String):: username
-    # uid(String):: account's UID
-    #
-    # === Return
-    # nil
-    def add_user(username, uid)
-      uid = Integer(uid)
-
-      %x(sudo useradd -s /bin/bash -u #{uid} -m #{Shellwords.escape(username)})
-
-      case $?.exitstatus
-      when 0
-        home_dir = Shellwords.escape(Etc.getpwnam(username).dir)
-        
-        #FileUtils.chmod(0771, home_dir)
-        %x(sudo chmod 0771 #{home_dir})
-
-        RightScale::Log.info "User #{username} created successfully"
-      else
-        raise SystemConflict, "Failed to create user #{username}"
-      end
-    end
-
-    # Adds or removes a user from an OS group; does nothing if the user
-    # is already in the correct membership state.
-    #
-    # === Parameters
-    # group(String):: group name
-    # operation(Symbol):: :add or :remove
-    # username(String):: username to add/remove
-    #
-    # === Raise
-    # Raises ArgumentError
-    #
-    # === Return
-    # result(Boolean):: true if user was added/removed; false if
-    #
-    def manage_group(group, operation, username)
-      #Ensure group/user exist; this raises ArgumentError if either does not exist
-      Etc.getgrnam(group)
-      Etc.getpwnam(username)
-
-      groups = Set.new
-      Etc.group { |g| groups << g.name if g.mem.include?(username) }
-
-      case operation
-        when :add
-          return false if groups.include?(group)
-          groups << group
-        when :remove
-          return false unless groups.include?(group)
-          groups.delete(group)
-        else
-          raise ArgumentError, "Unknown operation #{operation}; expected :add or :remove"
-      end
-
-      groups   = Shellwords.escape(groups.to_a.join(','))
-      username = Shellwords.escape(username)
-      output = %x(sudo usermod -G #{groups} #{username})
-
-      case $?.exitstatus
-      when 0
-        RightScale::Log.info "Successfully performed group-#{operation} of #{username} to #{group}"
-        return true
-      else
-        RightScale::Log.error "Failed group-#{operation} of #{username} to #{group}: #{output}"
-        return false
-      end
-    end
-
-    # Checks if user with specified name exists in the system.
-    #
-    # === Parameter
-    # name(String):: username
-    #
-    # === Return
-    # exist_status(Boolean):: true if user exists; otherwise false
-    def user_exists?(name)
-      Etc.getpwnam(name).name == name
-    rescue ArgumentError
-      false
-    end
-
-    # Check if user with specified Unix UID exists in the system, and optionally
-    # whether he belongs to all of the specified groups.
-    #
-    # === Parameters
-    # uid(String):: account's UID
-    #
-    # === Return
-    # exist_status(Boolean):: true if exists;otherwise false
-    def uid_exists?(uid, groups=[])
-      uid = Integer(uid)
-      user_exists = Etc.getpwuid(uid).uid == uid
-      if groups.empty?
-        user_belongs = true
-      else
-        mem = Set.new
-        username = Etc.getpwuid(uid).name
-        Etc.group { |g| mem << g.name if g.mem.include?(username) }
-        user_belongs = groups.all? { |g| mem.include?(g) }
-      end
-
-      user_exists && user_belongs
-    rescue ArgumentError
-      false
-    end
-
-    def group_exists?(name)
-      groups = Set.new
-      Etc.group { |g| groups << g.name }
-      groups.include?(name)
-    end
-
     # Pick a username that does not yet exist on the system. If the given
     # username does not exist, it is returned; else we add a "_1" suffix
     # and continue incrementing the number until we arrive at a username
@@ -452,7 +294,7 @@ module RightScale
       name = username
       blacklist = Set.new
 
-      while user_exists?(name)
+      while LoginUserManager.user_exists?(name)
         blacklist << name
         new_name = LoginUserManager.pick_username(name, blacklist)
 

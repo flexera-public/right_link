@@ -35,9 +35,8 @@ module RightScale
         lambda { subject.run(@options) }.should raise_error SystemExit
       end
       it 'should succeed if required parameters are passed' do
-        flexmock(RightScale::LoginManager).should_receive(:create_user).and_return(@options[:username])
+        flexmock(RightScale::LoginUserManager).should_receive(:create_user).and_return(@options[:username])
         flexmock(subject).should_receive(:create_audit_entry).and_return(true)
-        flexmock(RightScale::LoginManager).should_receive(:create_profile).and_return(true)
         flexmock(Kernel).should_receive(:exec).and_return(true)
         subject.run(@options).should == true
       end

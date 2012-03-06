@@ -29,6 +29,181 @@ module RightScale
       username
     end
 
+    # Creates user account
+    #
+    # === Parameters
+    # username(String):: username
+    # uuid(String):: RightScale user's UUID
+    # superuser(Boolean):: flag if user is superuser
+    #
+    # === Block
+    # If a block is given AND the user needs to be created, yields to the block
+    # with the to-be-created account's username, before creating it. This gives
+    # the caller a chance to provide interactive feedback to the user.
+    #
+    # === Return
+    # username(String):: created account's username
+    def create_user(username, uuid, superuser)
+      uid = LoginUserManager.uuid_to_uid(uuid)
+
+      if uid_exists?(uid, ['rightscale'])
+        username = uid_to_username(uid)
+      elsif !uid_exists?(uid)
+        username  = pick_username(username)
+        yield(username) if block_given?
+        add_user(username, uid)
+        manage_group('rightscale', :add, username) if group_exists?('rightscale')
+      else
+        raise SystemConflict, "A user with UID #{uid} already exists and is " +
+                              "not managed by RightScale"
+      end
+
+      action = superuser ? :add : :remove
+      manage_group('rightscale_sudo', action, username) if group_exists?('rightscale_sudo')
+
+      username
+    end
+
+    # Fetches username from account's UID.
+    #
+      # === Parameters
+    # uid(String):: linux account UID
+    #
+    # === Return
+    # username(String):: account's username or empty string
+    def uid_to_username(uid)
+      uid = Integer(uid)
+      Etc.getpwuid(uid).name
+    end
+
+    # Binding for adding user's account record to OS
+    #
+    # === Parameters
+    # username(String):: username
+    # uid(String):: account's UID
+    #
+    # === Return
+    # nil
+    def add_user(username, uid)
+      uid = Integer(uid)
+
+      %x(sudo useradd -s /bin/bash -u #{uid} -m #{Shellwords.escape(username)})
+
+      case $?.exitstatus
+      when 0
+        home_dir = Shellwords.escape(Etc.getpwnam(username).dir)
+
+        #FileUtils.chmod(0771, home_dir)
+        %x(sudo chmod 0771 #{home_dir})
+
+        RightScale::Log.info "User #{username} created successfully"
+      else
+        raise SystemConflict, "Failed to create user #{username}"
+      end
+    end
+
+    # Adds or removes a user from an OS group; does nothing if the user
+    # is already in the correct membership state.
+    #
+    # === Parameters
+    # group(String):: group name
+    # operation(Symbol):: :add or :remove
+    # username(String):: username to add/remove
+    #
+    # === Raise
+    # Raises ArgumentError
+    #
+    # === Return
+    # result(Boolean):: true if user was added/removed; false if
+    #
+    def manage_group(group, operation, username)
+      #Ensure group/user exist; this raises ArgumentError if either does not exist
+      Etc.getgrnam(group)
+      Etc.getpwnam(username)
+
+      groups = Set.new
+      Etc.group { |g| groups << g.name if g.mem.include?(username) }
+
+      case operation
+        when :add
+          return false if groups.include?(group)
+          groups << group
+        when :remove
+          return false unless groups.include?(group)
+          groups.delete(group)
+        else
+          raise ArgumentError, "Unknown operation #{operation}; expected :add or :remove"
+      end
+
+      groups   = Shellwords.escape(groups.to_a.join(','))
+      username = Shellwords.escape(username)
+      output = %x(sudo usermod -G #{groups} #{username})
+
+      case $?.exitstatus
+      when 0
+        RightScale::Log.info "Successfully performed group-#{operation} of #{username} to #{group}"
+        return true
+      else
+        RightScale::Log.error "Failed group-#{operation} of #{username} to #{group}: #{output}"
+        return false
+      end
+    end
+
+    # Checks if user with specified name exists in the system.
+    #
+    # === Parameter
+    # name(String):: username
+    #
+    # === Return
+    # exist_status(Boolean):: true if user exists; otherwise false
+    def user_exists?(name)
+      Etc.getpwnam(name).name == name
+    rescue ArgumentError
+      false
+    end
+
+    # Check if user with specified Unix UID exists in the system, and optionally
+    # whether he belongs to all of the specified groups.
+    #
+    # === Parameters
+    # uid(String):: account's UID
+    #
+    # === Return
+    # exist_status(Boolean):: true if exists; otherwise false
+    def uid_exists?(uid, groups=[])
+      uid = Integer(uid)
+      user_exists = Etc.getpwuid(uid).uid == uid
+      if groups.empty?
+        user_belongs = true
+      else
+        mem = Set.new
+        username = Etc.getpwuid(uid).name
+        Etc.group { |g| mem << g.name if g.mem.include?(username) }
+        user_belongs = groups.all? { |g| mem.include?(g) }
+      end
+
+      user_exists && user_belongs
+    rescue ArgumentError
+      false
+    end
+
+    # Check if group with specified name exists in the system.
+    #
+    # === Parameters
+    # name(String):: group's name
+    #
+    # === Block
+    # If a block is given, it will be yielded to with various status messages
+    # suitable for display to the user.
+    #
+    # === Return
+    # exist_status(Boolean):: true if exists; otherwise false
+    def group_exists?(name)
+      groups = Set.new
+      Etc.group { |g| groups << g.name }
+      groups.include?(name)
+    end
+
     def setup_profile(username, home_dir, custom_data, force)
       return false if custom_data.nil? || custom_data.empty?
 
@@ -36,20 +211,20 @@ module RightScale
       return false if !force && File.exists?(File.join(home_dir, checksum_path))
 
       t0 = Time.now.to_i
-      STDOUT.puts "Performing profile setup for #{username}..."
+      yield("Performing profile setup for #{username}...") if block_given?
 
       tmpdir = Dir.mktmpdir
       file_path = File.join(tmpdir, File.basename(custom_data))
       if download_files(custom_data, file_path) && extract_files(username, file_path, home_dir)
         save_checksum(username, file_path, checksum_path, home_dir)
         t1 = Time.now.to_i
-        STDOUT.puts "Setup complete (#{t1 - t0} sec)" if t1 - t0 >= 2
+        yield("Setup complete (#{t1 - t0} sec)") if block_given? && (t1 - t0 >= 2)
       end
 
       return true
     rescue Exception => e
-      STDERR.puts "Failed to create profile for #{username}; continuing"
-      STDERR.puts "#{e.class.name}: #{e.message} - #{e.backtrace.first}"
+      yield("Failed to create profile for #{username}; continuing") if block_given?
+      yield("#{e.class.name}: #{e.message} - #{e.backtrace.first}") if block_given?
       Log.error("#{e.class.name}: #{e.message} - #{e.backtrace.first}")
       return false
     ensure
