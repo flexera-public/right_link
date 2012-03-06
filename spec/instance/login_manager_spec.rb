@@ -74,21 +74,59 @@ describe RightScale::LoginManager do
   end
 
   # Generates a LoginUser with specified number of public keys
-  def generate_user(public_keys_count, domain)
+  def generate_user(public_keys_count, domain, populated = nil, fingerprint_offset = nil)
     num = rand(2**32-4097)
     public_keys = []
+    fingerprints = [] if fingerprint_offset
 
-    public_keys_count.times do
+    public_keys_count.times do |i|
       pub = rand(2**32).to_s(32)
-      public_keys << "ssh-rsa #{pub} #{num}@#{domain}"
+      public_keys << ((populated.nil? || populated[i]) ? "ssh-rsa #{pub} #{num}@#{domain}" : nil)
+      fingerprints << "f#{i + fingerprint_offset}" if fingerprint_offset
     end
 
-    RightScale::LoginUser.new("#{num}", "user#{num}", nil, "#{num}@#{domain}", true, nil, public_keys)
+    RightScale::LoginUser.new("#{num}", "user#{num}", nil, "#{num}@#{domain}", true, nil, public_keys, nil, fingerprints)
+  end
+
+  # Generates a LoginPolicy with specified number of users, number of public keys populated,
+  # and whether or not fingerprinted
+  def generate_policy(created_at, users_count, populated = nil, fingerprinted = nil)
+    populated_keys_range ||= (0..users_count + 1)
+    policy = RightScale::LoginPolicy.new(audit_id = 1234, created_at)
+    keys_count = 0
+    users_count.times do |i|
+      count = i == 1 ? 2 : 1
+      offset = fingerprinted ? keys_count : nil
+      policy.users << generate_user(count, "rightscale.com", populated && populated[keys_count..-1], offset)
+      keys_count += count
+    end
+    policy
+  end
+
+  # Create mock for IdempotentRequest
+  def mock_request(args = nil, result = nil, error = nil)
+    request = flexmock("request")
+    if result
+      request.should_receive(:callback).and_yield(result).once
+    else
+      request.should_receive(:callback).once
+    end
+    if error
+      request.should_receive(:errback).and_yield(error).once
+    else
+      request.should_receive(:errback).once
+    end
+    if args
+      flexmock(RightScale::IdempotentRequest).should_receive(:new).with(*args).and_return(request).once
+    else
+      flexmock(RightScale::IdempotentRequest).should_receive(:new).and_return(request).once
+    end
   end
 
   before(:each) do
     flexmock(RightScale::Log).should_receive(:debug).by_default
     @mgr = RightScale::LoginManager.instance
+    @agent_identity = "rs-instance-1-1"
   end
 
   describe "#supported_by_platform" do
@@ -149,13 +187,16 @@ describe RightScale::LoginManager do
       flexmock(RightScale::AgentTagsManager).should_receive("instance.add_tags")
       flexmock(@mgr).should_receive(:schedule_expiry)
 
+      flexmock(RightScale::LoginUser).should_receive(:fingerprint).and_return("f1", "f2", "f3", "f4").by_default
+
       @policy = RightScale::LoginPolicy.new(1234, one_hour_ago)
       @user_keys = []
-      (0...3).each do |i|
-        user = generate_user(i == 1 ? 2: 1, "rightscale.com")
+      3.times do |i|
+        user = generate_user(i == 1 ? 2 : 1, "rightscale.com")
         @policy.users << user
         user.public_keys.each do |key|
-          @user_keys << "#{@mgr.get_key_prefix(user.username, user.common_name, user.uuid, user.superuser, "http://example.com/#{user.username}.tgz")} #{key}"
+          @user_keys << "#{@mgr.get_key_prefix(user.username, user.common_name, user.uuid, user.superuser,
+                                               "http://example.com/#{user.username}.tgz")} #{key}"
         end
       end
     end
@@ -168,7 +209,7 @@ describe RightScale::LoginManager do
         keys.length.should == (@policy.users.size - 1)
       end
 
-      @mgr.update_policy(@policy)
+      @mgr.update_policy(@policy, @agent_identity)
     end
     
     it "should respect the superuser bit" do
@@ -180,7 +221,100 @@ describe RightScale::LoginManager do
       flexmock(@mgr).should_receive(:write_keys_file) do |keys, file, options|
         keys.length.should == @policy.users.size
       end
-      @mgr.update_policy(@policy)
+      @mgr.update_policy(@policy, @agent_identity)
+    end
+  end
+
+  describe "#update_users" do
+    before(:each) do
+      flexmock(RightScale::LoginUser).should_receive(:fingerprint).and_return("f0", "f1", "f2", "f3").by_default
+      @old_policy = generate_policy(one_day_ago, users_count = 2, populated = nil, fingerprinted = true)
+      flexmock(RightScale::InstanceState).should_receive(:login_policy).and_return(@old_policy).by_default
+    end
+
+    it "should retrieve public keys that cannot be found in old policy" do
+      mock_request(["/key_server/retrieve_public_keys", {:agent_identity => @agent_identity, :public_key_fingerprints => ["f3"]}],
+                   {"f3" => "ssh-rsa key3"})
+      policy = generate_policy(one_hour_ago, users_count = 3, populated = [true, false, true, false], fingerprinted = true)
+      user0 = policy.users[0].dup
+      user1 = policy.users[1].dup
+      agent_identity = @agent_identity
+      users, missing = @mgr.instance_eval { update_users(policy.users, agent_identity) }
+      users[0].public_keys.should == user0.public_keys
+      users[1].public_keys.should == [@old_policy.users[1].public_keys[0], user1.public_keys[1]]
+      users[2].public_keys.should == ["ssh-rsa key3"]
+      missing.should == []
+    end
+
+    it "should handle missing old policy" do
+      flexmock(RightScale::InstanceState).should_receive(:login_policy).and_return(nil)
+      mock_request(["/key_server/retrieve_public_keys", {:agent_identity => @agent_identity, :public_key_fingerprints => ["f3"]}],
+                   {"f3" => "ssh-rsa key3"})
+      policy = generate_policy(one_hour_ago, users_count = 3, populated = [true, true, true, false], fingerprinted = true)
+      user0 = policy.users[0].dup
+      user1 = policy.users[1].dup
+      agent_identity = @agent_identity
+      users, missing = @mgr.instance_eval { update_users(policy.users, agent_identity) }
+      users[0].public_keys.should == user0.public_keys
+      users[1].public_keys.should == user1.public_keys
+      users[2].public_keys.should == ["ssh-rsa key3"]
+      missing.should == []
+    end
+
+    it "should return users for which it could not retrieve a public key" do
+      flexmock(RightScale::Log).should_receive(:error).with(/Failed to obtain public key with fingerprint f3 /).once
+      mock_request(["/key_server/retrieve_public_keys", {:agent_identity => @agent_identity, :public_key_fingerprints => ["f3"]}], {})
+      policy = generate_policy(one_hour_ago, users_count = 3, populated = [true, true, true, false], fingerprinted = true)
+      user0 = policy.users[0].dup
+      user1 = policy.users[1].dup
+      user2 = policy.users[2].dup
+      agent_identity = @agent_identity
+      users, missing = @mgr.instance_eval { update_users(policy.users, agent_identity) }
+      users[0].public_keys.should == user0.public_keys
+      users[1].public_keys.should == user1.public_keys
+      users[2].should be_nil
+      missing.should == [user2]
+    end
+
+    it "should log an error if cannot retrieve a public key" do
+      @old_policy = generate_policy(one_day_ago, users_count = 1, populated = nil, fingerprinted = true)
+      flexmock(RightScale::InstanceState).should_receive(:login_policy).and_return(@old_policy)
+      flexmock(RightScale::Log).should_receive(:error).with(/Failed to retrieve public keys for users /).once
+      flexmock(RightScale::Log).should_receive(:error).with(/Failed to obtain public key with fingerprint f[1,3] /).twice
+      mock_request(["/key_server/retrieve_public_keys", {:agent_identity => @agent_identity, :public_key_fingerprints => ["f1", "f3"]}],
+                   nil, "error during retrieval")
+      policy = generate_policy(one_hour_ago, users_count = 3, populated = [true, false, true, false], fingerprinted = true)
+      user0 = policy.users[0].dup
+      user1 = policy.users[1].dup
+      user2 = policy.users[2].dup
+      agent_identity = @agent_identity
+      users, missing = @mgr.instance_eval { update_users(policy.users, agent_identity) }
+      users[0].should == user0
+      users[1].public_keys.should == [user1.public_keys[1]]
+      users[2].should be_nil
+      missing.map { |u| u.username }.should == [user1.username, user2.username]
+    end
+  end
+
+  describe "#describe_policy" do
+    before(:each) do
+      flexmock(RightScale::LoginUser).should_receive(:fingerprint).and_return("f")
+      @policy = generate_policy(one_day_ago, users_count = 4)
+    end
+
+    it "should show number of users and superusers" do
+      policy = @policy
+      @mgr.instance_eval {
+        describe_policy(policy.users, policy.users[2, 1]).should == "4 authorized users (3 normal, 1 superuser).\n"
+      }
+    end
+
+    it "should show number of users missing and" do
+      policy = @policy
+      @mgr.instance_eval {
+        describe_policy(policy.users[0, 3], policy.users[2, 1], policy.users[3, 1]).should ==
+            "3 authorized users (2 normal, 1 superuser).\nPublic key missing for #{policy.users[3].username}.\n"
+      }
     end
   end
 
@@ -202,7 +336,7 @@ describe RightScale::LoginManager do
         flexmock(EventMachine::Timer).should_receive(:new).never
         policy = @policy
         @mgr.instance_eval {
-          schedule_expiry(policy).should == false
+          schedule_expiry(policy, @agent_identity).should == false
         }
       end
     end
@@ -220,7 +354,7 @@ describe RightScale::LoginManager do
         flexmock(EventMachine::Timer).should_receive(:new).with(approximately(86_400), Proc)
         policy = @policy
         @mgr.instance_eval {
-          schedule_expiry(policy).should == true
+          schedule_expiry(policy, @agent_identity).should == true
         }
       end
     end
@@ -237,7 +371,7 @@ describe RightScale::LoginManager do
         flexmock(EventMachine::Timer).should_receive(:new).with(approximately(one_hour), Proc)
         policy = @policy
         @mgr.instance_eval {
-          schedule_expiry(policy).should == true
+          schedule_expiry(policy, @agent_identity).should == true
         }
       end
 
@@ -251,7 +385,7 @@ describe RightScale::LoginManager do
           flexmock(EventMachine::Timer).should_receive(:new).with(approximately(minutes(15)), Proc)
           policy = @policy
           @mgr.instance_eval {
-            schedule_expiry(policy).should == true
+            schedule_expiry(policy, @agent_identity).should == true
           }
         end
       end

@@ -52,11 +52,13 @@ module RightScale
     # the superuser account.
     #
     # === Parameters
-    # new_policy(LoginPolicy) the new login policy
+    # new_policy(LoginPolicy):: New login policy
+    # agent_identity(String):: Serialized instance agent identity
     #
     # === Return
-    # description(String) a human-readable description of the update, suitable for auditing
-    def update_policy(new_policy)
+    # description(String|FalseClass) Human-readable description of the update suitable for auditing, or false
+    #   if not supported by given platform
+    def update_policy(new_policy, agent_identity)
       return false unless supported_by_platform?
 
       # As a sanity check, filter out any expired users. The core should never send us these guys,
@@ -64,6 +66,7 @@ module RightScale
       # as allowing our internal expiry timer to simply call us back when a LoginUser expires.
       # All users are added to RightScale account's authorized keys.
       new_users = new_policy.users.select { |u| (u.expires_at == nil || u.expires_at > Time.now) }
+      new_users, missing = update_users(new_users, agent_identity)
       user_lines = modify_keys_to_use_individual_profiles(new_users)
 
       InstanceState.login_policy = new_policy
@@ -74,10 +77,10 @@ module RightScale
       AgentTagsManager.instance.add_tags(tags)
 
       # Schedule a timer to handle any expiration that is planned to happen in the future
-      schedule_expiry(new_policy)
+      schedule_expiry(new_policy, agent_identity)
 
       # Return a human-readable description of the policy, e.g. for an audit entry
-      return describe_policy(new_users, new_users.select { |u| u.superuser })
+      return describe_policy(new_users, new_users.select { |u| u.superuser }, missing)
     end
 
     # Returns prefix command for public key record
@@ -97,13 +100,85 @@ module RightScale
       else
         profile = ""
       end
-      
+
       superuser = superuser ? " --superuser" : ""
 
       %Q{command="rs_thunk --username #{username} --uuid #{uuid}#{superuser} --email #{email}#{profile}" }
     end
 
     protected
+
+    # For any user with a public key fingerprint but no public key, obtain the public key
+    # from the old policy or by querying RightScale using the fingerprints
+    # Remove a user if no public keys are available for it
+    #
+    # === Parameters
+    # users(Array):: Login users whose public keys are to be populated
+    # agent_identity(String):: Serialized instance agent identity
+    #
+    # === Return
+    # (Array):: Array of updated users followed by array of users with public keys missing
+    def update_users(users, agent_identity)
+      public_keys_cache = {}
+      if old_policy = InstanceState.login_policy
+        public_keys_cache = old_policy.users.inject({}) do |keys, user|
+          user.public_key_fingerprints ||= user.public_keys.map { |key| LoginUser.fingerprint(key) }
+          user.public_keys.zip(user.public_key_fingerprints).each { |(k, f)| keys[f] = k }
+          keys
+        end
+      end
+
+      unless (missing = populate_public_keys(users, public_keys_cache)).empty?
+        payload = {:agent_identity => agent_identity, :public_key_fingerprints => missing.map { |(u, f)| f }}
+        request = RightScale::IdempotentRequest.new("/key_server/retrieve_public_keys", payload)
+
+        request.callback { |public_keys| missing = populate_public_keys(users, public_keys, remove_if_missing = true) }
+
+        request.errback do |error|
+          Log.error("Failed to retrieve public keys for users #{missing.map { |(u, f)| u.username }.uniq.inspect}: #{error}")
+          missing = populate_public_keys(users, {}, remove_if_missing = true)
+        end
+      end
+      [users, missing.map { |(u, f)| u }.uniq]
+    end
+
+    # Populate missing public keys from old public keys using associated fingerprints
+    #
+    # === Parameters
+    # users(Array):: Login users whose public keys are to be updated if nil
+    # public_keys_cache(Hash):: Public keys with fingerprint as key and public key as value
+    # remove_if_missing(Boolean):: Whether to remove user if its public keys cannot be obtained
+    #
+    # === Return
+    # missing(Array):: User and fingerprint for each missing public key
+    def populate_public_keys(users, public_keys_cache, remove_if_missing = false)
+      missing = []
+      users.reject! do |user|
+        reject = false
+        user.public_key_fingerprints ||= user.public_keys.map { |key| LoginUser.fingerprint(key) }
+        public_keys = user.public_keys.zip(user.public_key_fingerprints).inject([]) do |keys, (k, f)|
+          if k ||= public_keys_cache[f]
+            keys << k
+          else
+            if remove_if_missing
+              Log.error("Failed to obtain public key with fingerprint #{f} for user #{user.username}, " +
+                        "removing it from login policy")
+            else
+              keys << k
+            end
+            missing << [user, f]
+          end
+          keys
+        end
+        if public_keys.empty?
+          reject = true
+        else
+          user.public_keys = public_keys
+        end
+        reject
+      end
+      missing
+    end
 
     # Returns array of public keys of specified authorized_keys file
     #
@@ -140,17 +215,18 @@ module RightScale
     # for appending to an audit entry. Contains formatting such as newlines and tabs.
     #
     # === Parameters
-    # users(Array) all LoginUsers
-    # superusers(Array) subset of LoginUsers who are authorized to act as superusers
-    # policy(LoginPolicy) the effective login policy
+    # users(Array):: All LoginUsers
+    # superusers(Array):: Subset of LoginUsers who are authorized to act as superusers
+    # policy(LoginPolicy):: Effective login policy
+    # missing(Array):: Users for which a public key could not be obtained
     #
     # === Return
     # description(String)
-    def describe_policy(users, superusers)
+    def describe_policy(users, superusers, missing = [])
       normal_users = users - superusers
 
-      audit = "#{users.size} authorized users " +
-              "(#{normal_users.size} normal, #{superusers.size} superuser).\n"
+      audit = "#{users.size} authorized users (#{normal_users.size} normal, #{superusers.size} superuser).\n"
+      audit << "Public key missing for #{missing.map { |u| u.username }.join(", ") }.\n" if missing.size > 0
 
       #unless normal_users.empty?
       #  audit += "\nNormal users:\n"
@@ -178,11 +254,12 @@ module RightScale
     # is applied.
     #
     # === Parameters
-    # policy(LoginPolicy) policy for which expiry is to be scheduled
+    # policy(LoginPolicy):: Policy for which expiry is to be scheduled
+    # agent_identity(String):: Serialized instance agent identity
     #
     # === Return
     # scheduled(true|false) true if expiry was scheduled, false otherwise
-    def schedule_expiry(policy)
+    def schedule_expiry(policy, agent_identity)
       if @expiry_timer
         @expiry_timer.cancel
         @expiry_timer = nil
@@ -200,7 +277,7 @@ module RightScale
 
       return false unless delay > 0
       @expiry_timer = EventMachine::Timer.new(delay) do
-        update_policy(policy)
+        update_policy(policy, agent_identity)
       end
 
       return true

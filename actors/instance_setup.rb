@@ -155,7 +155,7 @@ class InstanceSetup
       req.callback do |policy|
         audit = RightScale::AuditProxy.new(policy.audit_id)
         begin
-          audit_content = RightScale::LoginManager.instance.update_policy(policy)
+          audit_content = RightScale::LoginManager.instance.update_policy(policy, @agent_identity)
           if audit_content
             audit.create_new_section('Managed login enabled')
             audit.append_info(audit_content)
