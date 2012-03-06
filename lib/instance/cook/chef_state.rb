@@ -20,6 +20,7 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+require 'encryptor'
 require 'fileutils'
 
 module RightScale
@@ -131,7 +132,7 @@ module RightScale
     def self.save_state
       if Cook.instance.has_default_thread?
         begin
-          js = { 'attributes' => @@attributes }.to_json
+          js = { 'attributes' => @@attributes }.to_json.encrypt(:key => InstanceState.identity)
           FileUtils.touch(STATE_FILE)
           File.chmod(0600, STATE_FILE)
           RightScale::JsonUtilities.write_json(STATE_FILE, js)
@@ -154,10 +155,17 @@ module RightScale
     def self.load_state
       # load the previously saved Chef node attributes, if any.
       if File.file?(STATE_FILE)
-        js = RightScale::JsonUtilities::read_json(STATE_FILE) rescue {}
-        @@attributes = js['attributes'] || {}
+        begin
+          js = RightScale::JsonUtilities::read_json(STATE_FILE).decrypt(:key => InstanceState.identity)
+          @@attributes = js['attributes'] || {}
+          Log.debug("Successfully loaded chef state")
+        rescue Exception => e
+          Log.error("Failed to load chef state", e)
+        end
+      else
+        @@attributes = {}
+        Log.debug("No previous state to load")
       end
-      Log.debug("Initializing chef state with attributes #{@@attributes.inspect}")
 
       # load the list of previously run scripts
       @@past_scripts = RightScale::JsonUtilities::read_json(SCRIPTS_FILE) rescue [] if File.file?(SCRIPTS_FILE)

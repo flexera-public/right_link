@@ -66,9 +66,11 @@ describe RightScale::ChefState do
     RightScale::ChefState.attributes.should == { :one => 'two', :two => 'three' }
   end
 
-  it 'should persist the state' do
+  it 'should state should not be directly readable' do
+    File.exists?(@chef_file).should be_false
     RightScale::ChefState.attributes = { :one => 'two' }
-    JSON.load(IO.read(@chef_file)).should == { 'attributes' => { 'one' => 'two' } }
+    File.exists?(@chef_file).should be_true
+    lambda { JSON.load(IO.read(@chef_file)) }.should raise_exception JSON::ParserError
   end
 
   it 'should not persist the state if cook does not hold the default lock' do
