@@ -21,5 +21,7 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 # Test script, write input to file named 'cook_mock_output'
-File.open(File.join(File.dirname(__FILE__), 'cook_mock_output'), 'w') { |f| f.write gets }
+require 'rubygems'
+require 'encryptor'
+File.open(File.join(File.dirname(__FILE__), 'cook_mock_output'), 'w') { |f| f.write STDIN.gets.chomp.decrypt(:key => ARGV[1]) }
 exit 0

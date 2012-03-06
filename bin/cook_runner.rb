@@ -19,7 +19,9 @@ require File.normalize_path(File.join(BASE_DIR, 'lib', 'instance'))
 require File.normalize_path(File.join(BASE_DIR, 'lib', 'instance', 'cook'))
 
 # Launch it!
-RightScale::Cook.new.run
+cook = RightScale::Cook.new
+options = cook.parse_args
+cook.run(options)
 
 #
 # Copyright (c) 2009-2011 RightScale Inc

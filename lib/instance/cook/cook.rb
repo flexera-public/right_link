@@ -22,6 +22,7 @@
 
 require 'right_agent'
 require 'right_agent/core_payload_types'
+require 'encryptor'
 
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'chef', 'providers'))
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'chef', 'plugins'))
@@ -37,11 +38,54 @@ module RightScale
     class TagError < Exception; end
     class BlockingError < Exception; end
 
+        # Create options hash from command line arguments
+    #
+    # === Return
+    # options(Hash):: Command line options
+    def parse_args
+      options = {}
+
+      opts = OptionParser.new do |opts|
+        opts.on('-i', '--identity') do |identity|
+          options[:identity] = identity
+        end
+      end
+
+      opts.on_tail('--version') do
+        puts version
+        exit
+      end
+
+      opts.on_tail('--help') do
+         RDoc::usage_from_file(__FILE__)
+         exit
+      end
+
+      begin
+        opts.parse!(ARGV)
+      rescue SystemExit => e
+        raise e
+      rescue Exception => e
+        error("#{e}\nUse --help for additional information", nil, abort = true)
+      end
+      options
+    end
+
     # Run bundle given in stdin
-    def run
+    def run(options)
+      # fail if no identity provided
+      if options[:identity].blank?
+        fail("Missing argument", "identity must be provided, cook_runner --help for more information" )
+      end
 
       # 1. Retrieve bundle
-      input = gets.chomp
+      input = ""
+      begin
+        input = gets.chomp.decrypt(:key => options[:identity])
+      rescue Exception => e
+        fail('Invalid bundle', e.message)
+      end
+
       bundle = nil
       fail('Missing bundle', 'No bundle to run') if input.blank?
       bundle = load(input, 'Invalid bundle', :json)

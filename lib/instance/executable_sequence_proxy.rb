@@ -21,6 +21,7 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 require 'right_popen'
+require 'encryptor'
 
 module RightScale
 
@@ -65,7 +66,7 @@ module RightScale
     def run
       @succeeded = true
       platform = RightScale::Platform
-      input_text = "#{JSON.dump(@context.payload)}\n"
+      input_text = "#{JSON.dump(@context.payload)}\n".encrypt(:key => InstanceState.identity)
 
       # update CookState with the latest instance before launching Cook
       CookState.update(InstanceState)
@@ -74,7 +75,7 @@ module RightScale
       # pipes to share the same file/socket id. sending the input on the
       # command line is a temporary workaround.
       if platform.windows?
-        input_path = File.normalize_path(File.join(platform.filesystem.temp_dir, "rs_executable_sequence.txt"))
+        input_path = File.normalize_path(File.join(platform.filesystem.temp_dir, "rs_executable_sequence#{@thread_name}.txt"))
         File.open(input_path, "w") { |f| f.write(input_text) }
         input_text = nil
         cmd_exe_path = File.normalize_path(ENV['ComSpec']).gsub("/", "\\")
@@ -113,7 +114,7 @@ module RightScale
     # === Return
     # path_and_arguments(String):: Cook path plus any arguments properly quoted.
     def cook_path_and_arguments
-      return "\"#{cook_path}\""
+      return "\"#{cook_path}\" -i #{InstanceState.identity}"
     end
 
     # Handle cook standard output, should not get called
