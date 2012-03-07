@@ -423,7 +423,7 @@ class InstanceSetup
           # names of missing inputs are available from RightScripts.
           missing_input_names = []
 
-          e.input_flags.each {|k,v| missing_input_names << k if v == ["unready"]}
+          e.input_flags.each {|k,v| missing_input_names << k if  v.member?("unready")}
           @audit.append_info("Waiting for the following missing inputs which are used by '#{e.nickname}': #{missing_input_names.join(", ")}")
 
           sent_audit = true
