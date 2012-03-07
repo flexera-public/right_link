@@ -86,8 +86,11 @@ module RightScale
     # nil
     def add_user(username, uid)
       uid = Integer(uid)
-
-      %x(sudo useradd -s /bin/bash -u #{uid} -m #{Shellwords.escape(username)})
+      
+      useradd = ['usr/bin/useradd', 'usr/sbin/useradd', 'bin/useradd', 'sbin/useradd'].collect { |key| key if File.executable? key }.first
+      raise SystemConflict, "Failed to find a suitable implementation of 'useradd'." unless useradd
+      
+      %x(sudo #{useradd} -s /bin/bash -u #{uid} -m #{Shellwords.escape(username)})
 
       case $?.exitstatus
       when 0
