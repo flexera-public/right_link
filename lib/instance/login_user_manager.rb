@@ -54,8 +54,8 @@ module RightScale
         add_user(username, uid)
         manage_group('rightscale', :add, username) if group_exists?('rightscale')
       else
-        raise SystemConflict, "A user with UID #{uid} already exists and is " +
-                              "not managed by RightScale"
+        raise RightScale::LoginManager::SystemConflict, "A user with UID #{uid} already exists and is " +
+                                                        "not managed by RightScale"
       end
 
       action = superuser ? :add : :remove
@@ -87,8 +87,9 @@ module RightScale
     def add_user(username, uid)
       uid = Integer(uid)
       
-      useradd = ['usr/bin/useradd', 'usr/sbin/useradd', 'bin/useradd', 'sbin/useradd'].collect { |key| key if File.executable? key }.first
-      raise SystemConflict, "Failed to find a suitable implementation of 'useradd'." unless useradd
+      # Can't use executable? because the rightscale user can't execute useradd without sudo
+      useradd = ['/usr/bin/useradd', '/usr/sbin/useradd', '/bin/useradd', '/sbin/useradd'].select { |key| File.exists? key }.first
+      raise RightScale::LoginManager::SystemConflict, "Failed to find a suitable implementation of 'useradd'." unless useradd
       
       %x(sudo #{useradd} -s /bin/bash -u #{uid} -m #{Shellwords.escape(username)})
 
@@ -101,7 +102,7 @@ module RightScale
 
         RightScale::Log.info "User #{username} created successfully"
       else
-        raise SystemConflict, "Failed to create user #{username}"
+        raise RightScale::LoginManager::SystemConflict, "Failed to create user #{username}"
       end
     end
 
