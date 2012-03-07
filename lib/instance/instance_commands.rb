@@ -355,7 +355,8 @@ module RightScale
         :user_email     => opts[:user_email],
         :detail         => opts[:detail]
       }
-      send_persistent_request('/auditor/create_entry', opts[:conn], payload)
+
+      send_persistent_push('/auditor/create_entry', opts[:conn], payload)
     end
 
     # Update audit summary

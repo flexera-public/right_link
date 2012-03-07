@@ -25,6 +25,8 @@ require File.join(File.dirname(__FILE__), 'spec_helper')
 describe RightScale::LoginManager do
   include RightScale::SpecHelper
 
+  subject { RightScale::LoginManager }
+
   RIGHTSCALE_KEYS_FILE = '/home/rightscale/.ssh/authorized_keys'
   RIGHTSCALE_ACCOUNT_CREDS = {:user=>"rightscale", :group=>"rightscale"}
 
@@ -88,7 +90,7 @@ describe RightScale::LoginManager do
 
   before(:each) do
     flexmock(RightScale::Log).should_receive(:debug).by_default
-    @mgr = RightScale::LoginManager.instance
+    @user_mgr = RightScale::LoginUserManager
   end
 
   describe "#supported_by_platform" do
@@ -98,7 +100,7 @@ describe RightScale::LoginManager do
       end
 
       it "returns false" do
-        @mgr.supported_by_platform?.should be(false)
+        subject.supported_by_platform?.should be(false)
       end
     end
 
@@ -111,21 +113,21 @@ describe RightScale::LoginManager do
 
       context 'and rightscale user exists' do
         before(:each) do
-          flexmock(@mgr).should_receive(:user_exists?).with('rightscale').and_return(true)
+          flexmock(@user_mgr).should_receive(:user_exists?).with('rightscale').and_return(true)
         end
 
         it "returns true" do
-          @mgr.supported_by_platform?.should be(true)
+          subject.supported_by_platform?.should be(true)
         end
       end
 
       context 'and rightscale user does not exist' do
         before(:each) do
-          flexmock(@mgr).should_receive(:user_exists?).with('rightscale').and_return(false)
+          flexmock(@user_mgr).should_receive(:user_exists?).with('rightscale').and_return(false)
         end
 
         it "returns false" do
-          @mgr.supported_by_platform?.should be(false)
+          subject.supported_by_platform?.should be(false)
         end
       end
 
@@ -134,20 +136,20 @@ describe RightScale::LoginManager do
 
   describe "#update_policy" do
     before(:each) do
-      flexmock(@mgr).should_receive(:supported_by_platform?).and_return(true).by_default
+      flexmock(subject).should_receive(:supported_by_platform?).and_return(true).by_default
 
       # === Mocks for OS specific operations
-      flexmock(@mgr).should_receive(:write_keys_file).and_return(true).by_default
-      flexmock(@mgr).should_receive(:add_user).and_return(nil).by_default
-      flexmock(@mgr).should_receive(:manage_group).and_return(true).by_default
-      flexmock(@mgr).should_receive(:user_exists?).and_return(false).by_default
-      flexmock(@mgr).should_receive(:uid_exists?).and_return(false).by_default
+      flexmock(subject).should_receive(:write_keys_file).and_return(true).by_default
+      flexmock(@user_mgr).should_receive(:add_user).and_return(nil).by_default
+      flexmock(@user_mgr).should_receive(:manage_group).and_return(true).by_default
+      flexmock(@user_mgr).should_receive(:user_exists?).and_return(false).by_default
+      flexmock(@user_mgr).should_receive(:uid_exists?).and_return(false).by_default
       # === Mocks end
 
       flexmock(RightScale::InstanceState).should_receive(:login_policy).and_return(nil).by_default
       flexmock(RightScale::InstanceState).should_receive(:login_policy=).by_default
       flexmock(RightScale::AgentTagsManager).should_receive("instance.add_tags")
-      flexmock(@mgr).should_receive(:schedule_expiry)
+      flexmock(subject).should_receive(:schedule_expiry)
 
       @policy = RightScale::LoginPolicy.new(1234, one_hour_ago)
       @user_keys = []
@@ -155,7 +157,7 @@ describe RightScale::LoginManager do
         user = generate_user(i == 1 ? 2: 1, "rightscale.com")
         @policy.users << user
         user.public_keys.each do |key|
-          @user_keys << "#{@mgr.get_key_prefix(user.username, user.common_name, user.uuid, user.superuser, "http://example.com/#{user.username}.tgz")} #{key}"
+          @user_keys << "#{subject.get_key_prefix(user.username, user.common_name, user.uuid, user.superuser, "http://example.com/#{user.username}.tgz")} #{key}"
         end
       end
     end
@@ -163,24 +165,24 @@ describe RightScale::LoginManager do
     it "should not add authorized_keys for expired users" do
       @policy.users[0].expires_at = one_day_ago
 
-      flexmock(@mgr).should_receive(:read_keys_file).and_return([])
-      flexmock(@mgr).should_receive(:write_keys_file) do |keys, file, options|
+      flexmock(subject).should_receive(:read_keys_file).and_return([])
+      flexmock(subject).should_receive(:write_keys_file) do |keys, file, options|
         keys.length.should == (@policy.users.size - 1)
       end
 
-      @mgr.update_policy(@policy)
+      subject.update_policy(@policy)
     end
     
     it "should respect the superuser bit" do
       @policy.users[0].superuser = false
-      flexmock(@mgr).should_receive(:read_keys_file).and_return([])
-      flexmock(@mgr).should_receive(:manage_group).with('rightscale', :remove, @policy.users[0].username).ordered
-      flexmock(@mgr).should_receive(:manage_group).with('rightscale', :add, @policy.users[1].username).ordered
-      flexmock(@mgr).should_receive(:manage_group).with('rightscale', :add, @policy.users[2].username).ordered
-      flexmock(@mgr).should_receive(:write_keys_file) do |keys, file, options|
+      flexmock(subject).should_receive(:read_keys_file).and_return([])
+      flexmock(@user_mgr).should_receive(:manage_group).with('rightscale', :remove, @policy.users[0].username).ordered
+      flexmock(@user_mgr).should_receive(:manage_group).with('rightscale', :add, @policy.users[1].username).ordered
+      flexmock(@user_mgr).should_receive(:manage_group).with('rightscale', :add, @policy.users[2].username).ordered
+      flexmock(subject).should_receive(:write_keys_file) do |keys, file, options|
         keys.length.should == @policy.users.size
       end
-      @mgr.update_policy(@policy)
+      subject.update_policy(@policy)
     end
   end
 
@@ -201,7 +203,7 @@ describe RightScale::LoginManager do
       it 'should not create a timer' do
         flexmock(EventMachine::Timer).should_receive(:new).never
         policy = @policy
-        @mgr.instance_eval {
+        subject.instance_eval {
           schedule_expiry(policy).should == false
         }
       end
@@ -219,7 +221,7 @@ describe RightScale::LoginManager do
       it 'should create a timer for 1 day' do
         flexmock(EventMachine::Timer).should_receive(:new).with(approximately(86_400), Proc)
         policy = @policy
-        @mgr.instance_eval {
+        subject.instance_eval {
           schedule_expiry(policy).should == true
         }
       end
@@ -236,7 +238,7 @@ describe RightScale::LoginManager do
       it 'should create a timer for 1 hour' do
         flexmock(EventMachine::Timer).should_receive(:new).with(approximately(one_hour), Proc)
         policy = @policy
-        @mgr.instance_eval {
+        subject.instance_eval {
           schedule_expiry(policy).should == true
         }
       end
@@ -250,7 +252,7 @@ describe RightScale::LoginManager do
         it 'should create a timer for 15 minutes' do
           flexmock(EventMachine::Timer).should_receive(:new).with(approximately(minutes(15)), Proc)
           policy = @policy
-          @mgr.instance_eval {
+          subject.instance_eval {
             schedule_expiry(policy).should == true
           }
         end
@@ -268,7 +270,7 @@ describe RightScale::LoginManager do
     context "given profile data" do
       it 'should return a user\'s profile in the command string' do
         user = @user
-        @mgr.instance_eval {
+        subject.instance_eval {
           keys = modify_keys_to_use_individual_profiles([user])
           keys.kind_of?(Array).should == true
           keys.size.should == 1
@@ -290,7 +292,7 @@ describe RightScale::LoginManager do
     end
     context "given username, email and uuid" do
       it "should return a rs_thunk command line with proper formatting" do
-         key_prefix = @mgr.get_key_prefix(@username, @email, @uuid, false)
+         key_prefix = subject.get_key_prefix(@username, @email, @uuid, false)
          key_prefix.should include('--username')
          key_prefix.should include('--email')
          key_prefix.should include('--uuid')
@@ -300,19 +302,19 @@ describe RightScale::LoginManager do
     context "given a superuser value of true" do
       it "should return a rs_thunk command line with proper formatting" do
         
-        @mgr.get_key_prefix(@username, @email, @uuid, true).should include('--superuser')
+        subject.get_key_prefix(@username, @email, @uuid, true).should include('--superuser')
       end
     end
     context "given a superuser value of false" do
       it "should return a rs_thunk command line with proper formatting" do
         
-        @mgr.get_key_prefix(@username, @email, @uuid, false).should_not include('--superuser')
+        subject.get_key_prefix(@username, @email, @uuid, false).should_not include('--superuser')
       end
     end
     context "given a profile" do
       it "should return a rs_thunk command line with proper formatting" do
         
-        @mgr.get_key_prefix(@username, @email, @uuid, false, @profile_data).should include('--profile')
+        subject.get_key_prefix(@username, @email, @uuid, false, @profile_data).should include('--profile')
       end
     end
   end

@@ -55,7 +55,7 @@ cmd_opts = CommandRunner.start(CommandConstants::BASE_INSTANCE_AGENT_SOCKET_PORT
   # on Linux systems, where it enables invocation of the rs_* utilities
   # without sudo.
   begin
-    if RightScale::LoginManager.supported_by_platform? && RightScale::LoginManager.user_exists?('rightscale')
+    if RightScale::LoginManager.supported_by_platform?
       FileUtils.chown('rightscale', nil, pid_file.cookie_file)
       FileUtils.chmod(0600, pid_file.cookie_file)
     end
