@@ -143,7 +143,7 @@ module RightScale
       # Can't use executable? because the rightscale user can't execute usermod without sudo
       usermod = ['/usr/bin/usermod', '/usr/sbin/usermod', '/bin/usermod', '/sbin/usermod'].select { |key| File.exists? key }.first
       raise RightScale::LoginManager::SystemConflict, "Failed to find a suitable implementation of 'usermod'." unless usermod
-      output = %x(sudo usermod -G #{groups} #{username})
+      output = %x(sudo #{usermod} -G #{groups} #{username})
 
       case $?.exitstatus
       when 0
