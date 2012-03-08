@@ -54,8 +54,8 @@ module RightScale
         add_user(username, uid)
         manage_group('rightscale', :add, username) if group_exists?('rightscale')
       else
-        raise SystemConflict, "A user with UID #{uid} already exists and is " +
-                              "not managed by RightScale"
+        raise RightScale::LoginManager::SystemConflict, "A user with UID #{uid} already exists and is " +
+                                                        "not managed by RightScale"
       end
 
       action = superuser ? :add : :remove
@@ -86,8 +86,11 @@ module RightScale
     # nil
     def add_user(username, uid)
       uid = Integer(uid)
-
-      %x(sudo useradd -s /bin/bash -u #{uid} -m #{Shellwords.escape(username)})
+      
+      # Can't use executable? because the rightscale user can't execute useradd without sudo
+      useradd = ['/usr/bin/useradd', '/usr/sbin/useradd', '/bin/useradd', '/sbin/useradd'].select { |key| File.exists? key }.first
+      raise RightScale::LoginManager::SystemConflict, "Failed to find a suitable implementation of 'useradd'." unless useradd
+      %x(sudo #{useradd} -s /bin/bash -u #{uid} -m #{Shellwords.escape(username)})
 
       case $?.exitstatus
       when 0
@@ -98,7 +101,7 @@ module RightScale
 
         RightScale::Log.info "User #{username} created successfully"
       else
-        raise SystemConflict, "Failed to create user #{username}"
+        raise RightScale::LoginManager::SystemConflict, "Failed to create user #{username}"
       end
     end
 
@@ -137,7 +140,10 @@ module RightScale
 
       groups   = Shellwords.escape(groups.to_a.join(','))
       username = Shellwords.escape(username)
-      output = %x(sudo usermod -G #{groups} #{username})
+      # Can't use executable? because the rightscale user can't execute usermod without sudo
+      usermod = ['/usr/bin/usermod', '/usr/sbin/usermod', '/bin/usermod', '/sbin/usermod'].select { |key| File.exists? key }.first
+      raise RightScale::LoginManager::SystemConflict, "Failed to find a suitable implementation of 'usermod'." unless usermod
+      output = %x(sudo #{usermod} -G #{groups} #{username})
 
       case $?.exitstatus
       when 0
