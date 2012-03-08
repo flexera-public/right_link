@@ -67,6 +67,8 @@ module RightScale
           :config_drive_uuid              => CONFIG_DRIVE_UUID,
           :config_drive_filesystem        => CONFIG_DRIVE_FILESYSTEM,
           :config_drive_label             => CONFIG_DRIVE_LABEL,
+          :cloud_metadata_root_path       => ::RightScale::Cloud::DEFAULT_CLOUD_METADATA_ROOT_PATH,
+          :user_metadata_root_path        => ::RightScale::Cloud::DEFAULT_USER_METADATA_ROOT_PATH,
           :user_metadata_source_file_path => File.join(CONFIG_DRIVE_MOUNTPOINT, 'userdata')
         })
       end

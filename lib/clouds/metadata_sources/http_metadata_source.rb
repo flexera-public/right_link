@@ -34,7 +34,7 @@ module RightScale
       attr_accessor :host, :port
 
       def initialize(options)
-        raise ArgumentError, "options[:logger] is required" unless @logger = options[:logger]
+        super(options)
         raise ArgumentError, "options[:hosts] is required" unless @hosts = options[:hosts]
         @host, @port = self.class.select_metadata_server(@hosts)
         @connections = {}
@@ -46,7 +46,7 @@ module RightScale
       # path(String):: metadata path
       #
       # === Return
-      # metadata(String):: query result
+      # metadata(String):: query result or empty
       #
       # === Raises
       # QueryFailed:: on any failure to query
@@ -55,24 +55,24 @@ module RightScale
         attempts = 0
         while true
           begin
-            @logger.debug("Querying \"#{http_path}\"...")
+            logger.debug("Querying \"#{http_path}\"...")
             # get.
             result = http_get(http_path)
             if result
-              @logger.debug("Successfully retrieved from: \"#{http_path}\"  Result: #{path} = #{result}")
+              logger.debug("Successfully retrieved from: \"#{http_path}\"  Result: #{path} = #{result}")
               return result
             end
 
             # retry, if allowed.
             attempts += 1
             if snooze(attempts)
-              @logger.info("Retrying \"#{http_path}\"...")
+              logger.info("Retrying \"#{http_path}\"...")
             else
-              @logger.error("Could not retrieve metadata from \"#{http_path}\"; retry limit exceeded.")
+              logger.error("Could not retrieve metadata from \"#{http_path}\"; retry limit exceeded.")
               return ""
             end
           rescue Exception => e
-            @logger.error("Exception occurred while attempting to retrieve metadata from \"#{http_path}\"; Exception:#{e.message}\nTrace:#{e.backtrace.join("\n")}")
+            logger.error("Exception occurred while attempting to retrieve metadata from \"#{http_path}\"; Exception:#{e.message}\nTrace:#{e.backtrace.join("\n")}")
             return ""
           end
         end
@@ -84,7 +84,7 @@ module RightScale
           begin
             connection.finish
           rescue Exception => e
-            @logger.error("Failed to close metadata http connection", e, :trace)
+            logger.error("Failed to close metadata http connection", e, :trace)
           end
         end
         @connections = {}
@@ -148,7 +148,7 @@ module RightScale
       # result(Boolean):: true to continue, false to give up
       def snooze(attempts)
         if attempts >= RETRY_MAX_ATTEMPTS
-          @logger.debug("Exceeded retry limit of #{RETRY_MAX_ATTEMPTS}.")
+          logger.debug("Exceeded retry limit of #{RETRY_MAX_ATTEMPTS}.")
           false
         else
           sleep_exponent = [attempts, RETRY_BACKOFF_MAX].min
@@ -169,11 +169,11 @@ module RightScale
         uri = safe_parse_http_uri(path)
         history = []
         loop do
-          @logger.debug("http_get(#{uri})")
+          logger.debug("http_get(#{uri})")
 
           # keep history of live connections for more efficient redirection.
           host = uri.host
-          connection = @connections[host] ||= Rightscale::HttpConnection.new(:logger => @logger, :exception => QueryFailed)
+          connection = @connections[host] ||= Rightscale::HttpConnection.new(:logger => logger, :exception => QueryFailed)
 
           # prepare request. ensure path not empty due to Net::HTTP limitation.
           #
@@ -187,7 +187,7 @@ module RightScale
           response = connection.request(:protocol => uri.scheme, :server => uri.host, :port => uri.port, :request => request)
           return response.body if response.kind_of?(Net::HTTPSuccess)
           if response.kind_of?(Net::HTTPServerError)
-            @logger.debug("Request failed but can retry; #{response.class.name}")
+            logger.debug("Request failed but can retry; #{response.class.name}")
             return nil
           elsif response.kind_of?(Net::HTTPRedirection)
             # keep history of redirects.
@@ -196,18 +196,18 @@ module RightScale
             uri = safe_parse_http_uri(location)
             if uri.absolute?
               if history.include?(uri.to_s)
-                @logger.error("Circular redirection to #{location.inspect} detected; giving up")
+                logger.error("Circular redirection to #{location.inspect} detected; giving up")
                 return nil
               elsif history.size >= MAX_REDIRECT_HISTORY
-                @logger.error("Unbounded redirection to #{location.inspect} detected; giving up")
+                logger.error("Unbounded redirection to #{location.inspect} detected; giving up")
                 return nil
               else
                 # redirect and continue in loop.
-                @logger.debug("Request redirected to #{location.inspect}: #{response.class.name}")
+                logger.debug("Request redirected to #{location.inspect}: #{response.class.name}")
               end
             else
               # can't redirect without an absolute location.
-              @logger.error("Unable to redirect to metadata server location #{location.inspect}: #{response.class.name}")
+              logger.error("Unable to redirect to metadata server location #{location.inspect}: #{response.class.name}")
               return nil
             end
           else
@@ -219,7 +219,7 @@ module RightScale
             # responses on rare occasions, but the right_http_connection will
             # consider these to be 'bananas' and retry automatically (up to a
             # pre-defined limit).
-            @logger.error("Request for metadata failed: #{response.class.name}")
+            logger.error("Request for metadata failed: #{response.class.name}")
             return ""
           end
         end

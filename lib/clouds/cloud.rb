@@ -31,6 +31,12 @@ module RightScale
     # wildcard used for some 'all kinds' selections.
     WILDCARD = :*
 
+    # default tree-climber root paths for cloud/user metadata. they are basically
+    # placeholders for metadata sources which need to distinguish cloud from user
+    # but otherwise don't use real root paths.
+    DEFAULT_CLOUD_METADATA_ROOT_PATH = "cloud_metadata"
+    DEFAULT_USER_METADATA_ROOT_PATH = "user_metadata"
+
     # default writer output file prefixes are based on EC2 legacy files.
     DEFAULT_CLOUD_METADATA_FILE_PREFIX = 'meta-data'
     DEFAULT_USER_METADATA_FILE_PREFIX = 'user-data'
@@ -69,9 +75,37 @@ module RightScale
       # full ohai node in at least one use case.
       @options = Mash.new(options)
       @extended_clouds = []
+    end
+
+    # Provides final default options after cloud definition(s) have had a chance
+    # to set defaults. defaults are first-come-first-served so none should be
+    # set by initialize() (as was the case in RightLink v5.7)
+    def finalize_default_options
+      # writer defaults.
       default_option([:metadata_writers, :output_dir_path], RightScale::AgentConfig.cloud_state_dir)
       default_option([:cloud_metadata, :metadata_writers, :file_name_prefix], DEFAULT_CLOUD_METADATA_FILE_PREFIX)
       default_option([:user_metadata, :metadata_writers, :file_name_prefix], DEFAULT_USER_METADATA_FILE_PREFIX)
+
+      # metadata roots are referenced by both sources and tree climber, but
+      # legacy RightLink v5.7 behavior was to treat them as separate categories
+      # of options which had to be defaulted separately. for RightLink v5.8+
+      # ensure cloud definitions only need to set metadata roots for sources
+      # which require them.
+      cloud_metadata_root_path = option([:cloud_metadata, :metadata_tree_climber, :root_path]) ||
+                                 option([:metadata_source, :cloud_metadata_root_path]) ||
+                                 option(:cloud_metadata_root_path) ||
+                                 DEFAULT_CLOUD_METADATA_ROOT_PATH
+      default_option([:cloud_metadata, :metadata_tree_climber, :root_path], cloud_metadata_root_path)
+      default_option([:metadata_source, :cloud_metadata_root_path], cloud_metadata_root_path)
+      default_option(:cloud_metadata_root_path, cloud_metadata_root_path)  # uncategorized option, common to all types
+
+      user_metadata_root_path = option([:user_metadata, :metadata_tree_climber, :root_path]) ||
+                                option([:metadata_source, :user_metadata_root_path]) ||
+                                option(:user_metadata_root_path) ||
+                                DEFAULT_USER_METADATA_ROOT_PATH
+      default_option([:user_metadata, :metadata_tree_climber, :root_path], user_metadata_root_path)
+      default_option([:metadata_source, :user_metadata_root_path], user_metadata_root_path)
+      default_option(:user_metadata_root_path, user_metadata_root_path)  # uncategorized option, common to all types
     end
 
     # Syntatic sugar for options[:logger], which should always be valid under
@@ -452,7 +486,7 @@ module RightScale
     def resolve_options(kind, category, type)
       # remove any module reference for type when finding options.
       type = type.to_s.gsub(/^.*\//, '').to_sym
-      options = @options[category] ? @options[category].dup : Mash.new
+      options = @options[category] ? Mash.new(@options[category]) : Mash.new
       options = options.merge(@options[category][type]) if @options[category] && @options[category][type]
       if @options[kind] && @options[kind][category]
         options = options.merge(@options[kind][category])
@@ -462,6 +496,8 @@ module RightScale
       # set special options which should be available to all categories.
       options[:cloud] = self
       options[:logger] ||= @options[:logger]
+      options[:cloud_metadata_root_path] ||= @options[:cloud_metadata_root_path]
+      options[:user_metadata_root_path] ||= @options[:user_metadata_root_path]
 
       return options
     end

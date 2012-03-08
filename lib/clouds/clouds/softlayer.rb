@@ -43,18 +43,26 @@ def create_user_metadata_leaf(tree_climber, data)
   # REVIEW: This can (and will) raise an exception if the data is malformed or empty. I was putting it in a
   # begin/rescue/end block, but there doesn't appear to be a logger in scope to report the problem and exit gracefully.
   #
-  # Also, is it appropriate to be parsing JSON here? Is a specific tree_clibmer for json more appropriate?
-  parsed_data = JSON.parse(data)
+  # Also, is it appropriate to be parsing JSON here? Is a specific tree_climber for json more appropriate?
+  #
+  # REVIEWER:
+  # (1) added an in-scope logger (it was always available as option(:logger)) for RightLink v5.8+
+  # (2) catching and logging an exception here is reasonable; added it.
+  # (3) as far as subclassing goes, the cloud definition methodology allows for overriding a few
+  # methods in the existing code base instead of having to create a custom class hierarchy for each
+  # cloud. either approach is supported, but the override philosophy used here seems simpler
+  # (especially for new cloud providers who haven't seen much ruby up till now).
+  parsed_data = nil
+  begin
+    parsed_data = JSON.parse(data.strip)
+  rescue Exception => e
+    logger.error("#{e.class}: #{e.message}")
+  end
   ::RightScale::CloudUtilities.split_metadata(parsed_data[0], '&', result) unless !parsed_data || parsed_data.length == 0
   result
 end
 
 # defaults.
-default_option([:cloud_metadata, :metadata_tree_climber, :root_path], "cloud_metadata")
-default_option([:cloud_metadata, :metadata_tree_climber, :has_children_override], lambda{ false })
-
-default_option([:user_metadata, :metadata_tree_climber, :root_path], "user_metadata")
-default_option([:user_metadata, :metadata_tree_climber, :has_children_override], lambda{ false })
 default_option([:user_metadata, :metadata_tree_climber, :create_leaf_override], method(:create_user_metadata_leaf))
 default_option([:metadata_source, :user_metadata_source_file_path], File.join(CONFIG_DRIVE_MOUNTPOINT, 'meta.js'))
 

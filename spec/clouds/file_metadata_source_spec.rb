@@ -77,12 +77,23 @@ describe RightScale::MetadataSources::FileMetadataSource do
     FileUtils.mkdir_p(@source_dir_path)
     @cloud_metadata_source_file_path = File.join(@source_dir_path, 'cloud_metadata.dict')
     @user_metadata_source_file_path = File.join(@source_dir_path, 'user_metadata.dict')
+    @logger = flexmock('logger')
+
+    # metadat source
     @metadata_source = ::RightScale::MetadataSources::FileMetadataSource.new(:cloud_metadata_source_file_path => @cloud_metadata_source_file_path,
-                                                                           :user_metadata_source_file_path => @user_metadata_source_file_path)
-    cloud_metadata_tree_climber = ::RightScale::MetadataTreeClimber.new(:root_path => ::RightScale::MetadataSources::FileMetadataSource::DEFAULT_CLOUD_METADATA_ROOT_PATH,
+                                                                             :cloud_metadata_root_path => ::RightScale::Cloud::DEFAULT_CLOUD_METADATA_ROOT_PATH,
+                                                                             :user_metadata_source_file_path => @user_metadata_source_file_path,
+                                                                             :user_metadata_root_path => ::RightScale::Cloud::DEFAULT_USER_METADATA_ROOT_PATH,
+                                                                             :logger => @logger)
+    # tree climbers
+    cloud_metadata_tree_climber = ::RightScale::MetadataTreeClimber.new(:root_path => ::RightScale::Cloud::DEFAULT_CLOUD_METADATA_ROOT_PATH,
+                                                                        :user_metadata_root_path => ::RightScale::Cloud::DEFAULT_USER_METADATA_ROOT_PATH,
+                                                                        :logger => @logger,
                                                                         :has_children_override => lambda{ false },
                                                                         :create_leaf_override => method(:create_user_metadata_leaf))
-    user_metadata_tree_climber = ::RightScale::MetadataTreeClimber.new(:root_path => ::RightScale::MetadataSources::FileMetadataSource::DEFAULT_USER_METADATA_ROOT_PATH,
+    user_metadata_tree_climber = ::RightScale::MetadataTreeClimber.new(:root_path => ::RightScale::Cloud::DEFAULT_USER_METADATA_ROOT_PATH,
+                                                                       :user_metadata_root_path => ::RightScale::Cloud::DEFAULT_USER_METADATA_ROOT_PATH,
+                                                                       :logger => @loggerH,
                                                                        :has_children_override => lambda{ false },
                                                                        :create_leaf_override => method(:create_user_metadata_leaf))
     # cloud metadata

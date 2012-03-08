@@ -28,6 +28,12 @@ module RightScale
     # exceptions.
     class QueryFailed < Exception; end
 
+    attr_reader :logger
+
+    def initialize(options)
+      raise ArgumentError, "options[:logger] is required" unless @logger = options[:logger]
+    end
+
     # Appends a branch name to the given path.
     #
     # === Parameters
@@ -62,7 +68,7 @@ module RightScale
     # path(String):: metadata path
     #
     # === Return
-    # metadata(String):: query result
+    # metadata(String):: query result or empty
     #
     # === Raises
     # QueryFailed:: on any failure to query

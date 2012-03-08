@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2011 RightScale Inc
+# Copyright (c) 2012 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -20,16 +20,19 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+# only Windows (2008 R2+) is known to be supported on WAZ (Linux on WAZ? no way!)
+fail "Windows Azure cloud support is not implemented for this platform." unless platform.windows?
+
 # dependencies.
-metadata_source 'metadata_sources/file_metadata_source'
+metadata_source 'metadata_sources/certificate_metadata_source'
 metadata_writers 'metadata_writers/dictionary_metadata_writer',
                  'metadata_writers/ruby_metadata_writer',
                  'metadata_writers/shell_metadata_writer'
 
-# set abbreviation for non-RS env var generation (not actually used by this cloud)
-abbreviation :none
+# set abbreviation for non-RS env var generation
+abbreviation :waz
 
-# Parses no-cloud user metadata into a hash.
+# Parses azure user metadata into a hash.
 #
 # === Parameters
 # tree_climber(MetadataTreeClimber):: tree climber
@@ -39,38 +42,36 @@ abbreviation :none
 # result(Hash):: Hash-like leaf value
 def create_user_metadata_leaf(tree_climber, data)
   result = tree_climber.create_branch
-  ::RightScale::CloudUtilities.split_metadata(data, "\n", result)
+  ::RightScale::CloudUtilities.split_metadata(data.strip, '&', result)
   result
 end
 
 # defaults.
-default_option([:user_metadata, :metadata_tree_climber, :create_leaf_override], method(:create_user_metadata_leaf))
-default_option([:metadata_source, :user_metadata_source_file_path], File.join(RightScale::AgentConfig.cloud_state_dir, name.to_s, 'user-data.txt'))
+default_option([:metadata_source, :user_metadata_cert_store], "cert:/LocalMachine/My")
+default_option([:metadata_source, :user_metadata_cert_issuer], "O=RightScale, C=US, S=CA, CN=RightScale User Data")
 
-# Determines if the current instance is running in the "none" cloud. This is a bit
-# circular, as it simply checks the contents of the cloud-file.
+default_option([:user_metadata, :metadata_tree_climber, :create_leaf_override], method(:create_user_metadata_leaf))
+
+# Determines if the current instance is running on rackspace.
 #
 # === Return
-# true if running on none cloud
+# true if running on azure
 def is_current_cloud?
-  cloud_file = RightScale::AgentConfig.cloud_file_path
-  return !!(File.readable?(cloud_file) && File.read(cloud_file) =~ /none/)
+  # FIX: the presence of the user data cert isn't sufficient criteria to
+  # determine whether this is an azure instance. is there a mac address we can
+  # check against? in the meantime, just say no.
+  false
 end
 
-# Updates the given node with no-cloud details.
+# Updates the given node with azure details.
 #
 # === Return
 # always true
 def update_details
   details = {}
   if ohai = @options[:ohai_node]
-    if platform.windows?
-      details[:public_ip] = ::RightScale::CloudUtilities.ip_for_windows_interface(ohai, 'public')
-      details[:private_ip] = ::RightScale::CloudUtilities.ip_for_windows_interface(ohai, 'private')
-    else
-      details[:public_ip] = ::RightScale::CloudUtilities.ip_for_interface(ohai, :eth0)
-      details[:private_ip] = ::RightScale::CloudUtilities.ip_for_interface(ohai, :eth1)
-    end
+    details[:public_ip] = ::RightScale::CloudUtilities.ip_for_windows_interface(ohai, 'public')
+    details[:private_ip] = ::RightScale::CloudUtilities.ip_for_windows_interface(ohai, 'private')
   end
   return details
 end

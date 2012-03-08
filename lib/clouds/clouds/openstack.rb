@@ -23,7 +23,7 @@
 # set abbreviation for env var generation to be same as ec2 for scripters.
 abbreviation :ec2
 
-# override metadasta soures.  Using only HTTP source
+# override metadata soures.  Using only HTTP source
 metadata_source 'metadata_sources/http_metadata_source'
 
 # extend EC2 cloud definition.

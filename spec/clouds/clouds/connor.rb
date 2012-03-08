@@ -23,20 +23,35 @@
 # clouds can specialize other clouds by extension.
 extend_cloud :macleod
 
-metadata_source 'metadata_sources/mock_metadata_source'
-metadata_writers 'metadata_writers/dictionary_metadata_writer'
-
 # additionally search for extension scripts (relative to this script).
 extension_script_base_paths '../scripts'
 
 # constants can be declared which are local to the cloud instance (i.e. do not
 # affect the shared Cloud class) and can be inherited when clouds are extended.
 CLOUD_METADATA = {'ABC' => ['easy', 123], 'simple' => "do re mi", 'abc_123' => {'baby' => [:you, :me, :girl] }}
-USER_METADATA = { 'RS_RN_ID' => '12345', 'RS_SERVER' => 'my.rightscale.com' }
+USER_METADATA =<<EOF
+RS_RN_ID=12345
+RS_SERVER=my.rightscale.com
+EOF
 METADATA = { CLOUD_METADATA_ROOT => CLOUD_METADATA, USER_METADATA_ROOT => USER_METADATA }
+
+# Parses mock user metadata into a hash.
+#
+# === Parameters
+# tree_climber(MetadataTreeClimber):: tree climber
+# data(String):: raw data
+#
+# === Return
+# result(Hash):: Hash-like leaf value
+def create_user_metadata_leaf(tree_climber, data)
+  result = tree_climber.create_branch
+  ::RightScale::CloudUtilities.split_metadata(data.strip, "\n", result)
+  result
+end
 
 # options can be specific to the exact dependency type.
 default_option([:metadata_source, :mock_metadata_source, :mock_metadata], METADATA)
+default_option([:user_metadata, :metadata_tree_climber, :create_leaf_override], method(:create_user_metadata_leaf))
 
 # test logger.
 logger.info("initialized Connor")

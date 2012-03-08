@@ -31,7 +31,7 @@ abbreviation :ec2
 # preserve any initial hosts option.
 initial_hosts = option('metadata_source/hosts')
 
-# override metadasta soures.  Using only HTTP source
+# override metadata soures.  Using only HTTP source
 metadata_source 'metadata_sources/http_metadata_source'
 
 # extend EC2 cloud definition.
