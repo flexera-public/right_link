@@ -53,6 +53,7 @@
 #                              agents
 #      --verbose, -v         Display progress information
 #      --help:               Display help
+#      --version:            Display version information
 #
 #    Note: Partially specified option names are accepted if not ambiguous.
 
@@ -201,10 +202,15 @@ module RightScale
         opts.on('-v', '--verbose') do
           options[:verbose] = true
         end
+        
+        opts.on_tail('--version') do
+          puts version
+          succeed
+        end
 
         opts.on_tail('--help') do
-           puts Usage.scan(__FILE__)
-           exit
+          puts Usage.scan(__FILE__)
+          exit
         end
 
       end
@@ -260,6 +266,15 @@ protected
         result[:json]      = options[:json]
       end
       result
+    end
+    
+    # Version information
+    #
+    # === Return
+    # (String):: Version information
+    def version
+      gemspec = eval(File.read(File.join(File.dirname(__FILE__), '..', 'right_link.gemspec')))
+      "rs_run_right_script & rs_run_recipe #{gemspec.version} - RightLink's bundle runner (c) 2011 RightScale"
     end
 
   end # BundleRunner
