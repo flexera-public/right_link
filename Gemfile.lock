@@ -1,7 +1,6 @@
 GIT
   remote: git://github.com/rightscale/right_agent.git
-  revision: 818c3b91ec5262cca4c3ae79e0a857af88b60479
-  branch: azure_12_2_fixes_for_windows
+  revision: 68e1d2ff820e8240367124e082bb4170ba20aa15
   specs:
     right_agent (0.9.3)
       eventmachine (~> 0.12.10)
