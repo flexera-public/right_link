@@ -34,7 +34,7 @@ module RightScale
       attr_accessor :config_drive_label, :config_drive_mountpoint, :config_drive_uuid, :config_drive_filesystem
 
       def initialize(options)
-        raise ArgumentError, "options[:logger] is required" unless @logger = options[:logger]
+        super(options)
 
         @config_drive_mountpoint      = options[:config_drive_mountpoint] || DEFAULT_CONFIG_DRIVE_MOUNTPOINT
         @config_drive_uuid            = options[:config_drive_uuid]
@@ -54,7 +54,7 @@ module RightScale
       # path(String):: metadata path
       #
       # === Return
-      # metadata(String):: query result
+      # metadata(String):: query result or empty
       #
       # === Raises
       # QueryFailed:: on any failure to query

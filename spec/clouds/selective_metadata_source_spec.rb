@@ -72,9 +72,14 @@ describe RightScale::MetadataSources::SelectiveMetadataSource do
     # source is shared between cloud and user metadata providers.
     hosts = [:host => ::RightScale::FetchRunner::FETCH_TEST_SOCKET_ADDRESS, :port => ::RightScale::FetchRunner::FETCH_TEST_SOCKET_PORT]
     @cloud_metadata_root_path = ::RightScale::SelectiveMetadataSourceSpec::CLOUD_METADATA_ROOT.join('/')
-    cloud_metadata_tree_climber = ::RightScale::MetadataTreeClimber.new(:root_path => @cloud_metadata_root_path)
     @user_metadata_root_path = ::RightScale::SelectiveMetadataSourceSpec::USER_METADATA_ROOT.join('/')
+
+    cloud_metadata_tree_climber = ::RightScale::MetadataTreeClimber.new(:root_path => @cloud_metadata_root_path,
+                                                                        :user_metadata_root_path => @user_metadata_root_path,
+                                                                        :logger => @logger)
     user_metadata_tree_climber = ::RightScale::MetadataTreeClimber.new(:root_path => @user_metadata_root_path,
+                                                                       :user_metadata_root_path => @user_metadata_root_path,
+                                                                       :logger => @logger,
                                                                        :has_children_override => lambda{ false } )
     @mock_cloud = flexmock("cloud")
     flexmock(@mock_cloud).
@@ -85,9 +90,10 @@ describe RightScale::MetadataSources::SelectiveMetadataSource do
       should_receive(:create_dependency_type).
       with(:cloud_metadata, :metadata_source, "metadata_sources/file_metadata_source").
       and_return(::RightScale::MetadataSources::FileMetadataSource.new(:cloud_metadata_root_path => cloud_metadata_tree_climber.root_path,
-                                                                      :cloud_metadata_source_file_path => ::RightScale::SelectiveMetadataSourceSpec::CLOUD_METADATA_FILE_PATH,
-                                                                      :user_metadata_root_path => user_metadata_tree_climber.root_path,
-                                                                       :user_metadata_source_file_path => ::RightScale::SelectiveMetadataSourceSpec::USER_METADATA_FILE_PATH))
+                                                                       :cloud_metadata_source_file_path => ::RightScale::SelectiveMetadataSourceSpec::CLOUD_METADATA_FILE_PATH,
+                                                                       :user_metadata_root_path => user_metadata_tree_climber.root_path,
+                                                                       :user_metadata_source_file_path => ::RightScale::SelectiveMetadataSourceSpec::USER_METADATA_FILE_PATH,
+                                                                       :logger => @logger))
 
     # cloud metadata
     @cloud_metadata_provider = ::RightScale::MetadataProvider.new

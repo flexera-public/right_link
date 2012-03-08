@@ -24,7 +24,8 @@ module RightScale
 
   module MetadataSources
 
-    # Provides metadata by reading a dictionary file on disk.
+    # Provides metadata by attempting to get metadata from one or more listed
+    # sources; first responding successfully wins.
     class SelectiveMetadataSource < MetadataSource
 
       attr_accessor :metadata_sources
@@ -114,7 +115,7 @@ module RightScale
         raise last_exception if last_exception
       end
 
-    end  # DictionaryFileMetadataSource
+    end  # SelectiveMetadataSource
 
   end  # MetadataSources
 

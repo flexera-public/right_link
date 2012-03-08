@@ -27,18 +27,15 @@ module RightScale
     # Provides metadata by reading a dictionary file on disk.
     class FileMetadataSource < MetadataSource
 
-      # definitions for querying kinds of metadata by a simple path.
-      DEFAULT_CLOUD_METADATA_ROOT_PATH = "cloud_metadata"
-      DEFAULT_USER_METADATA_ROOT_PATH = "user_metadata"
-
       attr_accessor :cloud_metadata_source_file_path, :user_metadata_source_file_path
 
       def initialize(options)
-        @cloud_metadata_source_file_path = options[:cloud_metadata_source_file_path]
-        @cloud_metadata_root_path = options[:cloud_metadata_root_path] || DEFAULT_CLOUD_METADATA_ROOT_PATH
+        super(options)
+        raise ArgumentError.new("options[:cloud_metadata_root_path] is required") unless @cloud_metadata_root_path = options[:cloud_metadata_root_path]
+        raise ArgumentError.new("options[:user_metadata_root_path] is required") unless @user_metadata_root_path = options[:user_metadata_root_path]
 
+        @cloud_metadata_source_file_path = options[:cloud_metadata_source_file_path]
         @user_metadata_source_file_path = options[:user_metadata_source_file_path]
-        @user_metadata_root_path = options[:user_metadata_root_path] || DEFAULT_USER_METADATA_ROOT_PATH
       end
 
       # Queries for metadata using the given path.
@@ -47,7 +44,7 @@ module RightScale
       # path(String):: metadata path
       #
       # === Return
-      # metadata(String):: query result
+      # metadata(String):: query result or empty
       #
       # === Raises
       # QueryFailed:: on any failure to query
@@ -70,7 +67,7 @@ module RightScale
         true
       end
 
-    end  # DictionaryFileMetadataSource
+    end  # FileMetadataSource
 
   end  # MetadataSources
 

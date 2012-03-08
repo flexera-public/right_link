@@ -44,11 +44,6 @@ def create_user_metadata_leaf(tree_climber, data)
 end
 
 # defaults.
-default_option([:cloud_metadata, :metadata_tree_climber, :root_path], "cloud_metadata")
-default_option([:cloud_metadata, :metadata_tree_climber, :has_children_override], lambda{ false })
-
-default_option([:user_metadata, :metadata_tree_climber, :root_path], "user_metadata")
-default_option([:user_metadata, :metadata_tree_climber, :has_children_override], lambda{ false })
 default_option([:user_metadata, :metadata_tree_climber, :create_leaf_override], method(:create_user_metadata_leaf))
 default_option([:metadata_source, :user_metadata_source_file_path], File.join(RightScale::AgentConfig.cloud_state_dir, name.to_s, 'user-data.txt'))
 

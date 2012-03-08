@@ -38,7 +38,8 @@ module RightScale
     #  metadata tree (defaults to Hash)
     def initialize(options = {})
       # parameters
-      @root_path = options[:root_path] || ''
+      raise ArgumentError.new("options[:root_path] is required") unless @root_path = options[:root_path]
+      raise ArgumentError.new("options[:user_metadata_root_path] is required") unless @user_metadata_root_path = options[:user_metadata_root_path]
       @tree_class = options[:tree_class] || Hash
       @child_name_delimiter = options[:child_name_delimiter] || "\n"
 
@@ -64,7 +65,8 @@ module RightScale
     # result(Boolean):: true if branch, false if leaf
     def has_children?(path, query_result)
       return @has_children_override.call(self, path, query_result) if @has_children_override
-      return '/' == path[-1..-1] || path == @root_path
+      # default behavior for user metadata is flat; currently no known use cases of hierarchical user metadata.
+      return (@user_metadata_root_path != @root_path) && ('/' == path[-1..-1] || path == @root_path)
     end
 
     # Determines if the given raw value contains branch/leaf names and returns
