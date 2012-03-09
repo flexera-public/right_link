@@ -108,6 +108,10 @@ module RightScale
       cloud.instance_eval(text)
       cloud.abbreviation(cloud_name) unless cloud.abbreviation
       extend_cloud_by_scripts(cloud)
+
+      # finalize defaults only after all cloud definitions have been evaluated
+      # by the new cloud object.
+      cloud.finalize_default_options
       return cloud
     end
 

@@ -77,7 +77,7 @@ end
 # result(Hash):: Hash-like leaf value
 def create_user_metadata_leaf(tree_climber, data)
   result = tree_climber.create_branch
-  data.strip!
+  data = data.strip
   if data =~ SHEBANG_REGEX
     ::RightScale::CloudUtilities.split_metadata(data.gsub("\r\n", "\n"), "\n", result)
   else
@@ -92,16 +92,11 @@ default_option([:metadata_source, :metadata_source_types], ['metadata_sources/ht
 default_option([:metadata_source, :select_metadata_override], method(:select_rs_metadata))
 default_option([:metadata_source, :user_metadata_source_file_path], File.join(RightScale::AgentConfig.cloud_state_dir, name.to_s, 'user-data.txt'))
 
-default_option([:cloud_metadata, :metadata_tree_climber, :root_path], 'latest/meta-data')
+default_option(:cloud_metadata_root_path, 'latest/meta-data')
 default_option([:cloud_metadata, :metadata_writers, :ruby_metadata_writer, :generation_command], cloud_metadata_generation_command)
 
-default_option([:user_metadata, :metadata_tree_climber, :root_path], 'latest/user-data')
-default_option([:user_metadata, :metadata_tree_climber, :has_children_override], lambda{ false })
+default_option(:user_metadata_root_path, 'latest/user-data')
 default_option([:user_metadata, :metadata_tree_climber, :create_leaf_override], method(:create_user_metadata_leaf))
-
-# ensure file metadata source uses same root paths as http source.
-default_option([:metadata_source, :cloud_metadata_root_path], option([:cloud_metadata, :metadata_tree_climber, :root_path]))
-default_option([:metadata_source, :user_metadata_root_path], option([:user_metadata, :metadata_tree_climber, :root_path]))
 
 # Determines if the current instance is running on the EC2.
 #

@@ -97,10 +97,16 @@ describe RightScale::MetadataSources::HttpMetadataSource do
       # source is shared between cloud and user metadata providers.
       hosts = [:host => ::RightScale::FetchRunner::FETCH_TEST_SOCKET_ADDRESS, :port => ::RightScale::FetchRunner::FETCH_TEST_SOCKET_PORT]
       @metadata_source = RightScale::MetadataSources::HttpMetadataSource.new(:hosts => hosts, :logger => @logger)
-      cloud_metadata_tree_climber = ::RightScale::MetadataTreeClimber.new(:root_path => ::RightScale::HttpMetadataSourceSpec::METADATA_ROOT.join('/'))
-      user_metadata_tree_climber = ::RightScale::MetadataTreeClimber.new(:root_path => ::RightScale::HttpMetadataSourceSpec::USERDATA_ROOT.join('/'),
-                                                                         :has_children_override => lambda{ false } )
+      cloud_metadata_root_path = ::RightScale::HttpMetadataSourceSpec::METADATA_ROOT.join('/')
+      user_metadata_root_path = ::RightScale::HttpMetadataSourceSpec::USERDATA_ROOT.join('/')
 
+      # tree climbers
+      cloud_metadata_tree_climber = ::RightScale::MetadataTreeClimber.new(:root_path => cloud_metadata_root_path,
+                                                                          :user_metadata_root_path => user_metadata_root_path,
+                                                                          :logger => @logger)
+      user_metadata_tree_climber = ::RightScale::MetadataTreeClimber.new(:root_path => user_metadata_root_path,
+                                                                         :user_metadata_root_path => user_metadata_root_path,
+                                                                         :logger => @logger)
       # raw metadata writer.
       @cloud_raw_metadata_writer = ::RightScale::MetadataWriter.new(:file_name_prefix => ::RightScale::HttpMetadataSourceSpec::METADATA_ROOT.last,
                                                                     :output_dir_path => @output_dir_path)
