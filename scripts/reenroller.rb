@@ -12,6 +12,7 @@
 #    Options:
 #      --verbose, -v     Display debug information
 #      --help:           Display help
+#      --version:        Display version information
 #
 
 require 'rubygems'
@@ -107,6 +108,11 @@ module RightScale
 
       end
 
+      opts.on_tail('--version') do
+        puts version
+        succeed
+      end
+
       opts.on_tail('--help') do
          puts Usage.scan(__FILE__)
          exit
@@ -166,6 +172,15 @@ module RightScale
       Process.getpgid(pid) != -1
     rescue Errno::ESRCH
       false
+    end
+    
+    # Version information
+    #
+    # === Return
+    # (String):: Version information
+    def version
+      gemspec = eval(File.read(File.join(File.dirname(__FILE__), '..', 'right_link.gemspec')))
+      "rs_reenroll #{gemspec.version} - RightLink's reenroller (c) 2011 RightScale"
     end
 
   end # Reenroller

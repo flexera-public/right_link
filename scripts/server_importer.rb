@@ -16,6 +16,7 @@
 #                         RightLink then this option will override that choice.
 #                         If no choice has been made then the default is 'none'.
 #      --help:            Display help
+#      --version:         Display version information
 #
 #    No options prints usage information.
 #
@@ -134,6 +135,11 @@ module RightScale
         end
       end
 
+      opts.on_tail('--version') do
+        puts version
+        succeed
+      end
+      
       opts.on_tail('--help') do
         Usage.scan(__FILE__)
         exit
@@ -167,6 +173,15 @@ protected
       puts "** #{msg}" if msg
       Usage.scan(__FILE__) if print_usage
       exit(1)
+    end
+    
+    # Version information
+    #
+    # === Return
+    # (String):: Version information
+    def version
+      gemspec = eval(File.read(File.join(File.dirname(__FILE__), '..', 'right_link.gemspec')))
+      "rs_connect #{gemspec.version} - RightLink's server importer (c) 2011 RightScale"
     end
 
     private

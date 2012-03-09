@@ -422,19 +422,11 @@ class InstanceSetup
         pending_executables.each do |e|
           # names of missing inputs are available from RightScripts.
           missing_input_names = []
-          if e.is_a?(RightScale::RightScriptInstantiation)
-            e.parameters.each { |key, value| missing_input_names << key unless value }
-          end
-          last_missing_input_names = last_missing_inputs[:executables][e.nickname]
-          if audit_missing_inputs || last_missing_input_names != missing_input_names
-            title = RightScale::RightScriptsCookbook.recipe_title(e.nickname)
-            if missing_input_names.empty?
-              @audit.append_info("Waiting for missing inputs which are used by #{title}.")
-            else
-              @audit.append_info("Waiting for the following missing inputs which are used by #{title}: #{missing_input_names.join(", ")}")
-            end
-            sent_audit = true
-          end
+
+          e.input_flags.each {|k,v| missing_input_names << k if  v.member?("unready")}
+          @audit.append_info("Waiting for the following missing inputs which are used by '#{e.nickname}': #{missing_input_names.join(", ")}")
+
+          sent_audit = true
           missing_inputs_executables[e.nickname] = missing_input_names
         end
 

@@ -14,6 +14,8 @@
 #      --email,     -e EMAIL        Create audit entry saying "EMAIL logged in as USERNAME"
 #      --profile,   -p DATA         Extra profile data (e.g. a URL to download)
 #      --force,     -f              If profile option was specified - rewrite existing files
+#      --help:                      Display help
+#      --version:                   Display version information
 #
 # === Examples:
 #   Authorize as 'alice' with email address alice@example.com:
@@ -33,12 +35,13 @@ require File.join(basedir, 'lib', 'instance')
 module RightScale
 
   class Thunker
-    AUDIT_REQUEST_TIMEOUT = 2 * 60  # synchronous tag requests need a long timeout
+    AUDIT_REQUEST_TIMEOUT = 15 # best-effort auditing, but try not to block user
 
     class ThunkError < Exception
       attr_reader :code
 
       def initialize(msg, code=nil)
+        STDOUT.sync = true #make sure output is speedy
         super(msg)
         @code = code || 1
       end
@@ -64,31 +67,42 @@ module RightScale
       force     = options.delete(:force)
 
       fail(1) if missing_argument(username, "USERNAME") || missing_argument(email, "EMAIL") || missing_argument(uuid, "UUID")
-    
-      # Idempotent if user already exists
-      username = LoginManager.create_user(username, uuid, superuser ? true : false)
-      
-      #Thunk into user's context
+
+      # Fetch some information about the client's intentions and origin
       orig = ENV['SSH2_ORIGINAL_COMMAND'] || ENV['SSH_ORIGINAL_COMMAND']
+      client_ip = ENV['SSH_CLIENT'].split(/\s+/).first if ENV.has_key?('SSH_CLIENT')
+
 
       if orig =~ %r{^[A-Za-z0-9_/]+scp -[ft]}
-        cmd = "sudo -u #{username} #{orig}"
         access = :scp
       elsif orig =~ %r{^[A-Za-z0-9_/]+sftp-server$}
-        cmd = "sudo -u #{username} #{orig}"
         access = :sftp
       elsif orig != nil && !orig.empty?
-        cmd = "sudo -u #{username} #{orig}"
-        access = :ssh_cmd
+        access = :command
       else
-        cmd = "sudo -i -u #{username}"
-        access = :ssh_shell
+        access = :shell
       end
 
-      client_ip = ENV['SSH_CLIENT'].split(/\s+/).first if ENV.has_key?('SSH_CLIENT')
-      
+      # Create user just-in-time; idempotent if user already exists
+      username = LoginUserManager.create_user(username, uuid, superuser ? true : false) do
+        if [:command, :shell].include?(access)
+          puts "Creating your user profile (#{username}) on this machine."
+        end
+      end
+
+      case access
+        when :scp
+          cmd = "sudo -u #{username} #{orig}"
+        when :sftp
+          cmd = "sudo -u #{username} #{orig}"
+        when :command
+          cmd = "sudo -u #{username} #{orig}"
+        when :shell
+          cmd = "sudo -i -u #{username}"
+      end
+
       create_audit_entry(email, username, access, orig, client_ip)
-      create_profile(username, profile, force) if profile
+      create_profile(access, username, profile, force) if profile
       Kernel.exec(cmd)
     end
 
@@ -122,6 +136,11 @@ module RightScale
         opts.on('-f', '--force') do
           options[:force] = true
         end
+      end
+      
+      opts.on_tail('--version') do
+        puts version
+        succeed
       end
 
       opts.on_tail('--help') do
@@ -167,7 +186,7 @@ module RightScale
 
     # Print error on console and exit abnormally
     #
-    # === Parameter
+    # === Parameters
     # msg(String):: Error message, default to nil (no message printed)
     # print_usage(Boolean):: Whether script usage should be printed, default to false
     #
@@ -199,6 +218,20 @@ module RightScale
       exit(code)
     end
 
+    # Create an audit entry to record this user's access. The entry is created
+    # asynchronously and this method never raises exceptions even if the
+    # request fails or times out. Thus, this is "best-effort" auditing and
+    # should not be relied upon!
+    #
+    # === Parameters
+    # email(String):: the user's email address
+    # username(String):: the user's email address
+    # access(Symbol):: mode of access; one of :scp, :sftp, :command or :shell
+    # command(String):: exact command that is being executed via SSH
+    # client_ip(String):: origin IP address
+    #
+    # === Return
+    # Returns true on success, false otherwise
     def create_audit_entry(email, username, access, command, client_ip=nil)
       config_options = AgentConfig.agent_options('instance')
       listen_port = config_options[:listen_port]
@@ -218,18 +251,20 @@ module RightScale
         when :sftp then
           summary  = 'SSH interactive file transfer'
           detail   = "User initiated an SFTP session."
-        when :ssh_cmd
+        when :command
           summary  = 'SSH command'
           detail   = "User invoked an interactive program."
-        when :ssh_shell
+        when :shell
           summary  = 'SSH interactive login'
           detail   = "User connected and invoked a login shell."
       end
 
-      detail += "\n"
       detail += "\nLogin:     #{username}@#{hostname}" if username
       detail += "\nClient IP: #{client_ip}" if client_ip
       detail += "\nCommand:   #{command}" if command
+
+      log_detail = detail.gsub("\n", '; ')
+      Log.info("#{summary} - #{log_detail}")
 
       options = {
         :name => 'audit_create_entry',
@@ -238,16 +273,16 @@ module RightScale
         :detail => detail,
         :category => RightScale::EventCategories::CATEGORY_SECURITY
       }
+      client.send_command(options, false, AUDIT_REQUEST_TIMEOUT)
 
-      client.send_command(options, false, AUDIT_REQUEST_TIMEOUT) do |res|
-        fail(ThunkError.new(res.to_s)) unless res.success?
-      end
+      true
     rescue Exception => e
       Log.error("#{e.class.name}:#{e.message}")
       Log.error(e.backtrace.join("\n"))
-      error = SecurityError.new("Caused by #{e.class.name}: #{e.message}")
-      error.set_backtrace(e.backtrace)
-      fail(error)
+      #error = SecurityError.new("Caused by #{e.class.name}: #{e.message}")
+      #error.set_backtrace(e.backtrace)
+      #fail(error)
+      false
     end
 
     # Downloads an archive from given path; extracts files and moves
@@ -261,18 +296,23 @@ module RightScale
     # === Return
     # extracted(Boolean):: true if profile downloaded and copied; false
     # if profile has been created earlier or error occured
-    def create_profile(username, custom_data, force = false)
+    def create_profile(access, username, custom_data, force = false)
       home_dir = Etc.getpwnam(username).dir
 
-      LoginUserManager.setup_profile(username, home_dir, custom_data, force)
-      return true
-    rescue Exception => e
-      STDERR.puts
-      STDERR.puts "Failed to create profile for #{username}; continuing"
-      STDERR.puts "#{e.class.name}: #{e.message} - #{e.backtrace.first}"
-      Log.error("#{e.class.name}: #{e.message} - #{e.backtrace.first}")
-      return false
+      LoginUserManager.setup_profile(username, home_dir, custom_data, force) do |msg|
+        puts msg if [:command, :shell].include?(access)
+      end
     end
+    
+    # Version information
+    #
+    # === Return
+    # (String):: Version information
+    def version
+      gemspec = eval(File.read(File.join(File.dirname(__FILE__), '..', 'right_link.gemspec')))
+      "rs_thunk #{gemspec.version} - RightLink's thunker (c) 2011 RightScale"
+    end
+    
   end # Thunker
 
 end # RightScale

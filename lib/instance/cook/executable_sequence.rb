@@ -184,20 +184,27 @@ module RightScale
                                            params[:args][:cwd])
       }
 
-      # Chef paths and run mode
+      # Chef run mode is always solo for cook
+      Chef::Config[:solo] = true
+
+      # determine default cookbooks path.  If debugging cookbooks, place the debug pat(s) first, otherwise
+      # clear out the list as it will be filled out with cookbooks needed for this converge as they are downloaded.
       if CookState.use_cookbooks_path?
         Chef::Config[:cookbook_path] = [CookState.cookbooks_path].flatten
         @audit.append_info("Using development cookbooks repositories path:\n\t- #{Chef::Config[:cookbook_path].join("\n\t- ")}")
+      else
+        # reset the cookbook path.  Will be filled out with cookbooks needed for this execution
+        Chef::Config[:cookbook_path] = []
       end
+      # add the rightscript cookbook if there are rightscripts in this converge
       Chef::Config[:cookbook_path] << @right_scripts_cookbook.repo_dir unless @right_scripts_cookbook.empty?
 
-      Chef::Config[:solo]                 = true
-
       # must set file cache path and ensure it exists otherwise evented run_command will fail
-      file_cache_path                     = File.join(AgentConfig.cache_dir, 'chef')
-      Chef::Config[:file_cache_path]      = file_cache_path
-      Chef::Config[:cache_options][:path] = File.join(file_cache_path, 'checksums')
+      file_cache_path                         = File.join(AgentConfig.cache_dir, 'chef')
+      Chef::Config[:file_cache_path]        = file_cache_path
       FileUtils.mkdir_p(Chef::Config[:file_cache_path])
+
+      Chef::Config[:cache_options][:path]   = File.join(file_cache_path, 'checksums')
       FileUtils.mkdir_p(Chef::Config[:cache_options][:path])
 
       # Where backups of chef-managed files should go.  Set to nil to backup to the same directory the file being backed up is in.
@@ -296,21 +303,20 @@ module RightScale
       packages = []
       @scripts.each { |s| packages.push(s.packages) if s.packages && !s.packages.empty? }
       return true if packages.empty?
-      packages = packages.uniq.join(' ')
-      @audit.create_new_section("Installing packages: #{packages}")
-      success = false
+      
+      success   = false
+      installer = RightScale::Platform.installer
+      
+      @audit.create_new_section("Installing packages: #{packages.uniq.join(' ')}")
       audit_time do
         success = retry_execution('Installation of packages failed, retrying...') do
-          if File.executable? '/usr/bin/yum'
-            @audit.append_output(`yum install -y #{packages} 2>&1`)
-          elsif File.executable? '/usr/bin/apt-get'
-            ENV['DEBIAN_FRONTEND']="noninteractive"
-            @audit.append_output(`apt-get install -y #{packages} 2>&1`)
-          elsif File.executable? '/usr/bin/zypper'
-            @audit.append_output(`zypper --no-gpg-checks -n #{packages} 2>&1`)
+          begin
+            installer.install(packages)
+          rescue Exception => e
+            @audit.append_output(installer.output)
+            report_failure('Failed to install packages', e.message)
           else
-            report_failure('Failed to install packages', 'Cannot find yum nor apt-get nor zypper binary in /usr/bin')
-            return true # Not much more we can do here
+            @audit.append_output(installer.output)
           end
           $?.success?
         end
