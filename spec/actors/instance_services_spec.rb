@@ -35,7 +35,8 @@ describe InstanceServices do
 
     @mgr = RightScale::LoginManager.instance
     @policy = RightScale::LoginPolicy.new
-    @services = InstanceServices.new('bogus_agent_id')
+    @agent_identity = "rs-instance-1-1"
+    @services = InstanceServices.new(@agent_identity)
 
     #update_login_policy should audit its execution
     flexmock(@services).should_receive(:send_retryable_request).
@@ -44,7 +45,7 @@ describe InstanceServices do
   end
 
   it 'should update login policy' do
-    flexmock(@mgr).should_receive(:update_policy).with(@policy).and_return(true)
+    flexmock(@mgr).should_receive(:update_policy).with(@policy, @agent_identity).and_return(true)
 
     @services.update_login_policy(@policy)
   end
