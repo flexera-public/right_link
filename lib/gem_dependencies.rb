@@ -21,10 +21,41 @@
 
 require 'rubygems'
 
-# bundler loads any Gemfile in current working directory or else silently uses
-# the empty bundle if none found. ensure it finds our Gemfile in the proper
-# location by temporarily changing working directory. the --gemfile command-line
-# override still applies but may not be supported by our command line parsing.
-Dir.chdir(File.join(File.dirname(__FILE__), '..')) do
-  require 'bundler/setup'
+# N.B. we can't use File#normalize_path yet because gems haven't been activated
+Dir.chdir(File.expand_path(File.join(File.dirname(__FILE__), '..'))) do
+  if File.exist?('Gemfile')
+    # Development mode: activate Bundler gem, then let it setup our RubyGems
+    # environment for us -- but don't have it auto-require any gem files; we
+    # will do that ourselves.
+    require 'bundler'
+    Bundler.setup
+  else
+    # Release mode: use 'bare' RubyGems; assume that all gems were installed
+    # as system gems. Nothing to do here...
+  end
+end
+
+require 'eventmachine'
+
+require 'right_support'
+require 'right_amqp'
+require 'right_agent'
+require 'right_popen'
+require 'right_http_connection'
+require 'right_scraper'
+
+require 'ohai'
+require 'chef'
+
+if RightScale::Platform.windows?
+  require 'win32-api'
+  require 'windows-api'
+  require 'windows-pr'
+  require 'win32-dir'
+  require 'win32-eventlog'
+  require 'ruby-wmi'
+  require 'win32-process'
+  require 'win32-pipe'
+  require 'win32-open3'
+  require 'win32-service'
 end
