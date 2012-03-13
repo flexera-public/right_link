@@ -22,6 +22,6 @@
 
 # Test script, write input to file named 'cook_mock_output'
 require 'rubygems'
-require 'encryptor'
-File.open(File.join(File.dirname(__FILE__), 'cook_mock_output'), 'w') { |f| f.write STDIN.gets.chomp.decrypt(:key => ARGV[1]) }
+
+File.open(File.join(File.dirname(__FILE__), 'cook_mock_output'), 'w') { |f| f.write STDIN.gets.chomp }
 exit 0

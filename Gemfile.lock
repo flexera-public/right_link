@@ -1,15 +1,16 @@
 GIT
   remote: git://github.com/rightscale/right_agent.git
-  revision: 89ef7fa4075a1e6523b704a1688e8ad983f2a8b9
-  branch: azure_32_11600_fhs_compliance
+  revision: e7c7b91c9c13a5610b909eb2c83cefbccf7d49b2
+  branch: azure_12_2_chef_state_enhancements
   specs:
-    right_agent (0.9.1)
+    right_agent (0.9.3)
       eventmachine (~> 0.12.10)
       json (~> 1.4)
       msgpack (= 0.4.4)
+      net-ssh (~> 2.0)
       right_amqp (~> 0.1)
       right_popen (~> 1.0.11)
-      right_support (~> 1.2)
+      right_support (~> 1.3)
 
 GIT
   remote: git://github.com/rightscale/right_amqp.git
@@ -21,9 +22,9 @@ GIT
 
 GIT
   remote: git://github.com/rightscale/right_support.git
-  revision: 332c416ddf6bcbdc4527f7cbdc5e2ce2c43f6458
+  revision: 149274e7fc4f47e6fa05afb55f797623a929586b
   specs:
-    right_support (1.2.0)
+    right_support (1.3.0)
 
 GEM
   remote: http://s3.amazonaws.com/rightscale_rightlink_gems_dev/
@@ -48,7 +49,6 @@ GEM
       treetop (~> 1.4.9)
       uuidtools
     columnize (0.3.6)
-    encryptor (1.1.3)
     erubis (2.6.5)
       abstract (>= 1.0.0)
     eventmachine (0.12.11.6)
@@ -156,7 +156,6 @@ DEPENDENCIES
   abstract (= 1.0.0)
   bunny (= 0.6.0)
   chef (= 0.10.6.4)
-  encryptor (= 1.1.3)
   erubis (= 2.6.5)
   eventmachine (= 0.12.11.6)
   extlib (= 0.9.14)

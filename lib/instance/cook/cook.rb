@@ -22,7 +22,7 @@
 
 require 'right_agent'
 require 'right_agent/core_payload_types'
-require 'encryptor'
+
 
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'chef', 'providers'))
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'chef', 'plugins'))
@@ -38,75 +38,41 @@ module RightScale
     class TagError < Exception; end
     class BlockingError < Exception; end
 
-        # Create options hash from command line arguments
-    #
-    # === Return
-    # options(Hash):: Command line options
-    def parse_args
-      options = {}
-
-      opts = OptionParser.new do |opts|
-        opts.on('-i', '--identity') do |identity|
-          options[:identity] = identity
-        end
-      end
-
-      opts.on_tail('--version') do
-        puts version
-        exit
-      end
-
-      opts.on_tail('--help') do
-         RDoc::usage_from_file(__FILE__)
-         exit
-      end
-
-      begin
-        opts.parse!(ARGV)
-      rescue SystemExit => e
-        raise e
-      rescue Exception => e
-        error("#{e}\nUse --help for additional information", nil, abort = true)
-      end
-      options
-    end
-
     # Run bundle given in stdin
-    def run(options)
-      # fail if no identity provided
-      if options[:identity].blank?
-        fail("Missing argument", "identity must be provided, cook_runner --help for more information" )
-      end
+    def run
+      AgentConfig.root_dir = RightScale::Platform.filesystem.right_link_dir
 
-      # 1. Retrieve bundle
-      input = ""
-      begin
-        input = gets.chomp.decrypt(:key => options[:identity])
-      rescue Exception => e
-        fail('Invalid bundle', e.message)
-      end
-
-      bundle = nil
-      fail('Missing bundle', 'No bundle to run') if input.blank?
-      bundle = load(input, 'Invalid bundle', :json)
-      @thread_name = bundle.thread_name
-
-      # 2. Load configuration settings
+      # 1. Load configuration settings
       options = OptionsBag.load
-      fail('Missing command server listen port') unless options[:listen_port]
-      fail('Missing command cookie') unless options[:cookie]
-      options[:thread_name] = @thread_name
-      @client = CommandClient.new(options[:listen_port], options[:cookie])
-      ShutdownRequestProxy.init(@client)
-
-      # 3. Run bundle
-      @@instance = self
-      success = nil
       agent_id  = options[:identity]
       Log.program_name = 'RightLink'
       Log.log_to_file_only(options[:log_to_file_only])
       Log.init(agent_id, options[:log_path])
       Log.level = CookState.log_level
+      fail('Missing command server listen port') unless options[:listen_port]
+      fail('Missing command cookie') unless options[:cookie]
+      @client = CommandClient.new(options[:listen_port], options[:cookie])
+      ShutdownRequestProxy.init(@client)
+
+      # 2. Retrieve bundle
+      input = gets.chomp
+      begin
+        bundle = RightScale::MessageEncoder.for_agent(agent_id).decode(input)
+      rescue Exception => e
+        fail('Invalid bundle', e.message)
+      end
+
+      fail('Missing bundle', 'No bundle to run') if bundle.nil?
+
+      @thread_name = bundle.thread_name || RightScale::AgentConfig.default_thread_name
+      options[:thread_name] = @thread_name
+
+      # Chef state needs the agent id so it can read and write state
+      ChefState.init(agent_id)
+
+      # 3. Run bundle
+      @@instance = self
+      success = nil
       Log.debug("[cook] Thread name associated with bundle = #{@thread_name}")
       gatherer = ExternalParameterGatherer.new(bundle, options)
       sequence = ExecutableSequence.new(bundle)
@@ -222,27 +188,6 @@ module RightScale
     # Initialize instance variables
     def initialize
       @client = nil
-    end
-
-    # Load serialized content
-    # fail if serialized data is invalid
-    #
-    # === Parameters
-    # data(String):: Serialized content
-    # error_message(String):: Error to be logged/audited in case of failure
-    # format(Symbol):: Serialization format
-    #
-    # === Return
-    # content(String):: Unserialized content
-    def load(data, error_message, format = nil)
-      serializer = Serializer.new(format)
-      content = nil
-      begin
-        content = serializer.load(data)
-      rescue Exception => e
-        fail(error_message, "Failed to load #{serializer.format.to_s} data (#{e}):\n#{data.inspect}")
-      end
-      content
     end
 
     # Report inputs patch to core

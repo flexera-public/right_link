@@ -32,8 +32,10 @@ describe RightScale::ChefState do
     flexmock(RightScale::Log).should_receive(:debug)
   end
 
+  let(:agent_identity) { 'rs-instance-1-1' }
+
   before(:each) do
-    setup_state
+    setup_state(agent_identity)
     @old_chef_file = RightScale::ChefState::STATE_FILE
     @chef_file = File.join(File.dirname(__FILE__), '__chef.js')
     RightScale::ChefState.const_set(:STATE_FILE, @chef_file)
@@ -47,14 +49,14 @@ describe RightScale::ChefState do
   end
 
   it 'should initialize' do
-    RightScale::ChefState.init(true)
+    RightScale::ChefState.init(agent_identity, true)
     RightScale::ChefState.attributes.should == {}
   end
 
   it 'should reset' do
     RightScale::ChefState.attributes = { :one => 'two' }
     RightScale::ChefState.attributes.should == { :one => 'two' }
-    RightScale::ChefState.init(reset=true)
+    RightScale::ChefState.init(agent_identity, true)
     RightScale::ChefState.attributes.should == {}
   end
 
@@ -70,7 +72,9 @@ describe RightScale::ChefState do
     File.exists?(@chef_file).should be_false
     RightScale::ChefState.attributes = { :one => 'two' }
     File.exists?(@chef_file).should be_true
-    lambda { JSON.load(IO.read(@chef_file)) }.should raise_exception JSON::ParserError
+    data = IO.read(@chef_file)
+    (data =~ /one/).should be_false
+    (data =~ /two/).should be_false
   end
 
   it 'should not persist the state if cook does not hold the default lock' do

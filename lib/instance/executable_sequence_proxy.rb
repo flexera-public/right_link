@@ -21,7 +21,6 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 require 'right_popen'
-require 'encryptor'
 
 module RightScale
 
@@ -65,15 +64,16 @@ module RightScale
     # true:: Always return true
     def run
       @succeeded = true
-      platform = RightScale::Platform
-      input_text = "#{JSON.dump(@context.payload)}\n".encrypt(:key => InstanceState.identity)
 
       # update CookState with the latest instance before launching Cook
       CookState.update(InstanceState)
 
+      input_text = "#{MessageEncoder.for_agent(InstanceState.identity).encode(@context.payload)}\n"
+
       # FIX: we have an issue with EM not allowing both sockets and named
       # pipes to share the same file/socket id. sending the input on the
       # command line is a temporary workaround.
+      platform = RightScale::Platform
       if platform.windows?
         input_path = File.normalize_path(File.join(platform.filesystem.temp_dir, "rs_executable_sequence#{@thread_name}.txt"))
         File.open(input_path, "w") { |f| f.write(input_text) }
@@ -114,7 +114,7 @@ module RightScale
     # === Return
     # path_and_arguments(String):: Cook path plus any arguments properly quoted.
     def cook_path_and_arguments
-      return "\"#{cook_path}\" -i #{InstanceState.identity}"
+      return "\"#{cook_path}\""
     end
 
     # Handle cook standard output, should not get called

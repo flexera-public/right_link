@@ -29,7 +29,7 @@ describe RightScale::ExecutableSequenceProxy do
   it_should_behave_like 'mocks cook'
 
   before(:each) do
-    setup_state
+    setup_state('rs-instance-1-1')
     @audit = flexmock('audit')
     @bundle = flexmock('bundle', :thread_name => 'some thread name')
     @bundle.should_receive(:to_json).and_return("[\"some json\"]")
@@ -109,7 +109,9 @@ describe RightScale::ExecutableSequenceProxy do
       @pid.should > 0
       begin
         output = File.read(mock_output)
-        output.should == "#{JSON.dump(@context.payload)}\n"
+        # the spec setup does some weird stuff with the jsonization of the bundle, so we jump though hoops here to match what was
+        # actually sent to the cook utility
+        RightScale::MessageEncoder.for_agent('rs-instance-1-1').decode(output).to_json.should == @bundle.to_json
       ensure
         (File.delete(mock_output) if File.file?(mock_output)) rescue nil
       end
