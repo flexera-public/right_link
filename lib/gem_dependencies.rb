@@ -22,7 +22,8 @@
 require 'rubygems'
 
 # N.B. we can't use File#normalize_path yet because gems haven't been activated
-Dir.chdir(File.expand_path(File.join(File.dirname(__FILE__), '..'))) do
+basedir = File.expand_path(File.join(File.dirname(__FILE__), '..'))
+Dir.chdir(basedir) do
   if File.exist?('Gemfile')
     # Development mode: activate Bundler gem, then let it setup our RubyGems
     # environment for us -- but don't have it auto-require any gem files; we
@@ -35,27 +36,27 @@ Dir.chdir(File.expand_path(File.join(File.dirname(__FILE__), '..'))) do
   end
 end
 
-require 'eventmachine'
+gem 'eventmachine'
 
-require 'right_support'
-require 'right_amqp'
-require 'right_agent'
-require 'right_popen'
-require 'right_http_connection'
-require 'right_scraper'
+gem 'right_support'
+gem 'right_amqp'
+gem 'right_agent'
+gem 'right_popen'
+gem 'right_http_connection'
+gem 'right_scraper'
 
-require 'ohai'
-require 'chef'
+gem 'ohai'
+gem 'chef'
 
 if RightScale::Platform.windows?
-  require 'win32-api'
-  require 'windows-api'
-  require 'windows-pr'
-  require 'win32-dir'
-  require 'win32-eventlog'
-  require 'ruby-wmi'
-  require 'win32-process'
-  require 'win32-pipe'
-  require 'win32-open3'
-  require 'win32-service'
+  gem 'win32-api'
+  gem 'windows-api'
+  gem 'windows-pr'
+  gem 'win32-dir'
+  gem 'win32-eventlog'
+  gem 'ruby-wmi'
+  gem 'win32-process'
+  gem 'win32-pipe'
+  gem 'win32-open3'
+  gem 'win32-service'
 end
