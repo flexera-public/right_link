@@ -326,16 +326,17 @@ module RightScale
     end
 
     # Update the Chef cookbook_path based on the cookbooks in the bundle.
-    # Note: Starting with Chef 0.8, the cookbooks repositories list must be traversed in reverse
-    # order to preserve the semantic of the dashboard (first repo has priority)
-    # Revisit when upgrading to >= 0.9
     #
     # === Return
     # true:: Always return true
     def update_cookbook_path
-      @cookbooks.each do |cookbook_sequence|
+      # both cookbook sequences and paths are listed in same order as
+      # presented in repo UI. per ticket #11771, for chef to execute them in
+      # the order listed, both of these ordered lists need to be inserted in
+      # reverse order.
+      @cookbooks.reverse.each do |cookbook_sequence|
         local_basedir = File.join(@download_path, cookbook_sequence.hash)
-        cookbook_sequence.paths.reverse.each { |path|
+        cookbook_sequence.paths.reverse.each do |path|
           dir = File.expand_path(File.join(local_basedir, path))
           unless Chef::Config[:cookbook_path].include?(dir)
             if File.directory?(dir)
@@ -344,7 +345,7 @@ module RightScale
               RightScale::Log.info("Excluding #{path} from chef cookbooks_path because it was not downloaded")
             end
           end
-        }
+        end
       end
       RightScale::Log.info("Updated cookbook_path to: #{Chef::Config[:cookbook_path].join(", ")}")
       true
