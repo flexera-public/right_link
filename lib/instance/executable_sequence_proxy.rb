@@ -64,17 +64,18 @@ module RightScale
     # true:: Always return true
     def run
       @succeeded = true
-      platform = RightScale::Platform
-      input_text = "#{JSON.dump(@context.payload)}\n"
 
       # update CookState with the latest instance before launching Cook
       CookState.update(InstanceState)
 
+      input_text = "#{MessageEncoder.for_agent(InstanceState.identity).encode(@context.payload)}\n"
+
       # FIX: we have an issue with EM not allowing both sockets and named
       # pipes to share the same file/socket id. sending the input on the
       # command line is a temporary workaround.
+      platform = RightScale::Platform
       if platform.windows?
-        input_path = File.normalize_path(File.join(platform.filesystem.temp_dir, "rs_executable_sequence.txt"))
+        input_path = File.normalize_path(File.join(platform.filesystem.temp_dir, "rs_executable_sequence#{@thread_name}.txt"))
         File.open(input_path, "w") { |f| f.write(input_text) }
         input_text = nil
         cmd_exe_path = File.normalize_path(ENV['ComSpec']).gsub("/", "\\")

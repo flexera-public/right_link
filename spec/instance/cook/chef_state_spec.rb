@@ -32,8 +32,10 @@ describe RightScale::ChefState do
     flexmock(RightScale::Log).should_receive(:debug)
   end
 
+  let(:agent_identity) { 'rs-instance-1-1' }
+
   before(:each) do
-    setup_state
+    setup_state(agent_identity)
     @old_chef_file = RightScale::ChefState::STATE_FILE
     @chef_file = File.join(File.dirname(__FILE__), '__chef.js')
     RightScale::ChefState.const_set(:STATE_FILE, @chef_file)
@@ -47,14 +49,14 @@ describe RightScale::ChefState do
   end
 
   it 'should initialize' do
-    RightScale::ChefState.init(true)
+    RightScale::ChefState.init(agent_identity, true)
     RightScale::ChefState.attributes.should == {}
   end
 
   it 'should reset' do
     RightScale::ChefState.attributes = { :one => 'two' }
     RightScale::ChefState.attributes.should == { :one => 'two' }
-    RightScale::ChefState.init(reset=true)
+    RightScale::ChefState.init(agent_identity, true)
     RightScale::ChefState.attributes.should == {}
   end
 
@@ -66,9 +68,13 @@ describe RightScale::ChefState do
     RightScale::ChefState.attributes.should == { :one => 'two', :two => 'three' }
   end
 
-  it 'should persist the state' do
+  it 'should state should not be directly readable' do
+    File.exists?(@chef_file).should be_false
     RightScale::ChefState.attributes = { :one => 'two' }
-    JSON.load(IO.read(@chef_file)).should == { 'attributes' => { 'one' => 'two' } }
+    File.exists?(@chef_file).should be_true
+    data = IO.read(@chef_file)
+    (data =~ /one/).should be_false
+    (data =~ /two/).should be_false
   end
 
   it 'should not persist the state if cook does not hold the default lock' do
@@ -89,113 +95,5 @@ describe RightScale::ChefState do
     RightScale::ChefState.attributes = { :one => 'two' }
     expected_perms = (RightScale::Platform.windows?) ? 0644 : 0600
     (File.stat(@chef_file).mode & 0777).should == expected_perms
-  end
-
-  it 'should create patch from hashes' do
-    patches.each { |p| RightScale::ChefState.create_patch(p[:left], p[:right]).should == p[:res] }
-  end
-
-  it 'should apply patches' do
-    applied_patches.each { |p| RightScale::ChefState.apply_patch(p[:target], p[:patch]).should == p[:res] }
-  end
-
-  # Test battery for patch creation
-  def patches
-    [ {
-      # Identical
-      :left  => { :one => 1 },
-      :right => { :one => 1 },
-      :res   => { :left_only  => {},
-                  :right_only => {},
-                  :diff       => {} }
-      }, {
-      # Disjoint
-      :left  => { :one => 1 },
-      :right => { :two => 1 },
-      :res   => { :left_only  => { :one => 1},
-                  :right_only => { :two => 1},
-                  :diff       => {} }
-      }, {
-      # Value diff
-      :left  => { :one => 1 },
-      :right => { :one => 2 },
-      :res   => { :left_only  => {},
-                  :right_only => {},
-                  :diff       => { :one => { :left => 1, :right => 2} } }
-      }, {
-      # Recursive disjoint
-      :left  => { :one => { :a => 1, :b => 2 }, :two => 3 },
-      :right => { :one => { :a => 1 }, :two => 3 },
-      :res   => { :left_only  => { :one => { :b => 2 }},
-                  :right_only => {},
-                  :diff       => {} }
-      }, {
-      # Recursive value diff
-      :left  => { :one => { :a => 1, :b => 2 }, :two => 3 },
-      :right => { :one => { :a => 1, :b => 3 }, :two => 3 },
-      :res   => { :left_only  => {},
-                  :right_only => {},
-                  :diff       => { :one => { :b => { :left => 2, :right => 3 }} } }
-      }, {
-      # Recursive disjoint and value diff
-      :left  => { :one => { :a => 1, :b => 2, :c => 3 }, :two => 3, :three => 4 },
-      :right => { :one => { :a => 1, :b => 3, :d => 4 }, :two => 5, :four => 6 },
-      :res   => { :left_only  => { :one => { :c => 3 }, :three => 4 },
-                  :right_only => { :one => { :d => 4 }, :four => 6 },
-                  :diff       => { :one => { :b => { :left => 2, :right => 3 }}, :two => { :left => 3, :right => 5 }} }
-      }
-    ]
-  end
-
-  # Test battery for patch application
-  def applied_patches
-    [
-      {
-        # Empty patch
-        :target => { :one => 1 },
-        :patch  => { :left_only => {}, :right_only => {}, :diff => {} },
-        :res    => { :one => 1}
-      }, {
-        # Disjoint
-        :target => { :one => 1 },
-        :patch  => { :left_only => { :one => 2 }, :right_only => {}, :diff => { :one => { :left => 3, :right => 4 }} },
-        :res    => { :one => 1 }
-      }, {
-        # Removal
-        :target => { :one => 1 },
-        :patch  => { :left_only => { :one => 1 }, :right_only => {}, :diff => {} },
-        :res    => {}
-      }, {
-        # Addition
-        :target => { :one => 1 },
-        :patch  => { :left_only => {}, :right_only => { :two => 2 }, :diff => {} },
-        :res    => { :one => 1, :two => 2 }
-      }, {
-        # Substitution
-        :target => { :one => 1 },
-        :patch  => { :left_only => {}, :right_only => {}, :diff => { :one => { :left => 1, :right => 2} } },
-        :res    => { :one => 2 }
-      }, {
-        # Recursive removal
-        :target => { :one => { :a => 1, :b => 2 } },
-        :patch  => { :left_only => { :one => { :a => 1 }}, :right_only => {}, :diff => {} },
-        :res    => { :one => { :b => 2 } }
-      }, {
-        # Recursive addition
-        :target => { :one => { :a => 1 } },
-        :patch  => { :left_only => {}, :right_only => { :one => { :b => 2 } }, :diff => {} },
-        :res    => { :one => { :a => 1, :b => 2 } }
-      }, {
-        # Recursive substitution
-        :target => { :one => { :a => 1 } },
-        :patch  => { :left_only => {}, :right_only => {}, :diff => { :one => { :a => { :left => 1, :right => 2 }} } },
-        :res    => { :one => { :a => 2 } }
-      }, {
-        # Combined
-        :target => { :one => { :a => 1, :b => 2 } },
-        :patch  => { :left_only => { :one => { :a => 1 } }, :right_only => { :one => { :c => 3 }}, :diff => { :one => { :b => { :left => 2, :right => 3 }} } },
-        :res    => { :one => { :b => 3, :c => 3 } }
-      }
-    ]
   end
 end
