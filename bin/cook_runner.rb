@@ -5,7 +5,7 @@
 #   rs_run_right_script and rs_run_recipe instead.
 #
 
-require File.expand_path(File.join(File.dirname(__FILE__), '..', 'lib', 'activate_bundler'))
+require File.expand_path(File.join(File.dirname(__FILE__), '..', 'lib', 'gem_dependencies'))
 
 require 'right_agent'
 require 'eventmachine'

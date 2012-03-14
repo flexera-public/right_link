@@ -4,11 +4,11 @@ source :rubygems
 gem "rubyforge",               "1.0.4"
 gem "rake",                    "0.8.7"
 gem "right_support",           "~> 1.3"
-gem "right_amqp",              "~> 0.1", :git => "git://github.com/rightscale/right_amqp.git"
-gem "right_agent",             "~> 0.9", :git => "git://github.com/rightscale/right_agent.git"
-gem "right_scraper",           "3.0.1"
-gem "right_http_connection",   "~> 1.3.0"
+gem "right_amqp",              "~> 0.2.0"
+gem "right_agent",             "~> 0.9.3"
 gem "right_popen",             "~> 1.0"
+gem "right_http_connection",   "~> 1.3.0"
+gem "right_scraper",           "3.0.1"
 # We have custom builds of some gems containing fixes and patches that are specific
 # to RightScale. Gems in the "custom" group are published by RightScale to our
 # custom gem repository (http://s3.amazonaws.com/rightscale_rightlink_gems_dev).
@@ -53,7 +53,8 @@ end
 
 # Gems that are transitive dependencies of our direct deps, which we lock
 # for paranoia's sake because we had them version locked in the pre-Gemfile
-# days.
+# days. Eventually we should stop version-locking these and let them 'float'
+# as defined by our direct dependencies, and by Gemfile.lock.
 group :stable do
   gem "stomp",                 "1.1"
   gem "ruby-openid",           "2.1.8"

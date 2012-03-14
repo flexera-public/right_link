@@ -42,69 +42,10 @@ then
   right_scale_root="$PWD"
   popd > /dev/null
 else
-  echo "Cannot infer location of bin dir from $0"
+  echo "Cannot infer location of RightScale/RightLink root dir from '$0'"
   echo "Please invoke this script using its absolute path."
   exit 1
 fi
-
-#
-# Install RightLink gem dependencies
-#
-function install_gems() {
-    echo "Installing RightLink gem dependencies"
-    cd $right_link_root
-
-    if [ -e /opt/rightscale/sandbox/bin/gem ]
-    then
-      # Use RightScale sandbox as our first choice
-      using_sandbox=1
-      gem_bin="/opt/rightscale/sandbox/bin/gem"
-    elif [ -e /etc/profile.d/rvm.sh -a -e /usr/local/rvm/rubies/ruby-1.8.7-p352 ]
-    then
-      # Use RVM, if the Ruby we need is installed
-      source /etc/profile.d/rvm.sh
-      rvm use ruby-1.8.7-p352
-      using_rvm=1
-      gem_bin=`which gem`
-    else
-      # Fallback choice: use the system Ruby
-      using_system_ruby=1
-      gem_bin=`which gem`
-    fi
-
-    if [ -e /opt/rightscale/sandbox/bin/bundle ]
-    then
-      # The RightScale sandbox lives in a fixed location on disk. Use the sandbox
-      # Ruby as our first choice, if it exists.
-      bundle_bin="/opt/rightscale/sandbox/bin/bundle"
-    else
-      # Ensure Bundler is installed, since we're not using the RightScale sandbox.
-      $gem_bin install --no-rdoc --no-ri -v "~> 1.0.18" bundler | logger -st RightScale
-
-      if [ "$using_system_ruby" == "1" -a -e /var/lib/gems/1.8/bin/bundle ]
-      then
-        # Debian systems using the system Ruby package have a very odd location
-        # for gem binaries!
-        bundle_bin="/var/lib/gems/1.8/bin/bundle"
-      else
-        # Generic case; works for RVM, as well as for non-Debian system Ruby
-        bundle_bin=`which bundle`
-      fi
-    fi
-
-    if [ "$using_sandbox" == "1" ]
-    then
-        echo "Installing gems in release mode (install to system; local gem sources only)"
-        bundle_flags="--system --local --without=test"
-    else
-        local bundle_dir="${right_link_root}/bundle"
-        echo "Installing gems in development mode (install to ${bundle_dir}; query gem sources)"
-        bundle_flags="--path $bundle_dir"
-    fi
-
-    cd $right_link_root
-    $bundle_bin install $bundle_flags
-}
 
 #
 # Create stub scripts for public RightLink tools
@@ -221,8 +162,6 @@ EOF
     done
 }
 
-install_gems || exit 1
-echo
 install_public_wrappers || exit 1
 echo
 install_private_wrappers || true

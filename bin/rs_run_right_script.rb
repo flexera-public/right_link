@@ -23,7 +23,7 @@
 #
 # See lib/bundle_runner.rb for additional information.
 
-require File.expand_path(File.join(File.dirname(__FILE__), '..', 'lib', 'activate_bundler'))
+require File.expand_path(File.join(File.dirname(__FILE__), '..', 'lib', 'gem_dependencies'))
 
 $:.push(File.join(File.dirname(__FILE__), '..', 'scripts'))
 require 'bundle_runner'

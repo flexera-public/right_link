@@ -23,7 +23,7 @@
 #
 # See scripts/stats_manager.rb for additional information.
 
-require File.expand_path(File.join(File.dirname(__FILE__), '..', 'lib', 'activate_bundler'))
+require File.expand_path(File.join(File.dirname(__FILE__), '..', 'lib', 'gem_dependencies'))
 
 require 'right_agent/scripts/stats_manager'
 
