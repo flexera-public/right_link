@@ -48,7 +48,8 @@ gem 'right_scraper'
 gem 'ohai'
 gem 'chef'
 
-if RightScale::Platform.windows?
+# Note - can't use RightScale::Platform because gem sources aren't required
+if RUBY_PLATFORM =~ /mswin|mingw/ 
   gem 'win32-api'
   gem 'windows-api'
   gem 'windows-pr'
