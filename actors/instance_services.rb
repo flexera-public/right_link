@@ -40,7 +40,7 @@ class InstanceServices
     
     RightScale::AuditProxy.create(@agent_identity, 'Updating managed login policy') do |audit|
       begin
-        audit_content = RightScale::LoginManager.instance.update_policy(new_policy)
+        audit_content = RightScale::LoginManager.instance.update_policy(new_policy, @agent_identity)
         audit.create_new_section('Managed login policy updated', :category => RightScale::EventCategories::CATEGORY_SECURITY)
         audit.append_info(audit_content)
         status = success_result
