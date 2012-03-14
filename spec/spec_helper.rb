@@ -124,6 +124,8 @@ module RightScale
       flexmock(Certificate).should_receive(:load).with("instance.cert").and_return(certificate)
       flexmock(RsaKeyPair).should_receive(:load).with("instance.key").and_return(key)
 
+      ChefState.init(@identity)
+
       # should yield last in case caller wants to override the defaults
       yield if block_given?
     end
