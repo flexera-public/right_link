@@ -331,9 +331,12 @@ module RightScale
     # true:: Always return true
     def update_cookbook_path
       # both cookbook sequences and paths are listed in same order as
-      # presented in repo UI. per ticket #11771, for chef to execute them in
-      # the order listed, both of these ordered lists need to be inserted in
-      # reverse order.
+      # presented in repo UI. previous to RL v5.7 we received cookbook sequences
+      # in an arbitrary order, but this has been fixed as of the release of v5.8
+      # (we will not change the order for v5.7-).
+      # for chef to execute repos and paths in the order listed, both of these
+      # ordered lists need to be inserted in reverse order because the chef code
+      # replaces cookbook paths as it reads the array from beginning to end.
       @cookbooks.reverse.each do |cookbook_sequence|
         local_basedir = File.join(@download_path, cookbook_sequence.hash)
         cookbook_sequence.paths.reverse.each do |path|
