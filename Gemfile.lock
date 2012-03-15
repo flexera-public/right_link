@@ -20,7 +20,7 @@ GIT
 
 GIT
   remote: git://github.com/rightscale/right_support.git
-  revision: d70f525c445a11e0b669844299ccda8c6a5904fe
+  revision: 3a0039930786df68ba969e33f8013e8abd60546c
   branch: azure_12_3_balancing_fix
   specs:
     right_support (1.3.1)

@@ -27,7 +27,11 @@ module RightScale
   # Class centralizing logic for downloading objects from Repose.
   class ReposeDownloader
     # Select appropriate Repose class to use.  Currently, checks the
-    # HTTPS_PROXY, HTTP_PROXY, http_proxy and ALL_PROXY environment # variables.  def self.select_repose_class proxy_vars = ReposeProxyDownloader::PROXY_ENVIRONMENT_VARIABLES if proxy_vars.any? {|var| ENV.has_key?(var)}
+    # HTTPS_PROXY, HTTP_PROXY, http_proxy and ALL_PROXY environment
+    # variables.
+    def self.select_repose_class
+      proxy_vars = ReposeProxyDownloader::PROXY_ENVIRONMENT_VARIABLES
+      if proxy_vars.any? {|var| ENV.has_key?(var)}
         ReposeProxyDownloader
       else
         ReposeDownloader
@@ -80,10 +84,12 @@ module RightScale
     # === Return
     # true:: always returns true
     def request
+      @failures ||= 0
+      attempts = 0
       balancer.request do |host|
         RightSupport::Net::SSL.with_expected_hostname(@@hostnames_hash[host]) do
           connection = make_connection
-          Log.info("Requesting 'https/#{host}:443/#{@scope}/#{@resource.split('?')[0]}'")
+          Log.info("Requesting 'https:://#{host}:443/#{@scope}/#{@resource.split('?')[0]}'")
           request = Net::HTTP::Get.new("/#{@scope}/#{@resource}")
           request['Cookie'] = "repose_ticket=#{@ticket}"
           request['Host'] = host
