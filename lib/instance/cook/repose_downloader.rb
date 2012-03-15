@@ -27,11 +27,7 @@ module RightScale
   # Class centralizing logic for downloading objects from Repose.
   class ReposeDownloader
     # Select appropriate Repose class to use.  Currently, checks the
-    # HTTPS_PROXY, HTTP_PROXY, http_proxy and ALL_PROXY environment
-    # variables.
-    def self.select_repose_class
-      proxy_vars = ReposeProxyDownloader::PROXY_ENVIRONMENT_VARIABLES
-      if proxy_vars.any? {|var| ENV.has_key?(var)}
+    # HTTPS_PROXY, HTTP_PROXY, http_proxy and ALL_PROXY environment # variables.  def self.select_repose_class proxy_vars = ReposeProxyDownloader::PROXY_ENVIRONMENT_VARIABLES if proxy_vars.any? {|var| ENV.has_key?(var)}
         ReposeProxyDownloader
       else
         ReposeDownloader
@@ -43,7 +39,7 @@ module RightScale
     # retry 10 times maximum
     REPOSE_RETRY_MAX_ATTEMPTS = 10
     # re-resolve parameter for RequestBalancer
-    REPOSE_RESOLVE_TIME = 15
+    REPOSE_RESOLVE_TIMEOUT = 15
 
     # Exception class representing failure to connect to Repose.
     class ReposeConnectionFailure < Exception
@@ -87,20 +83,30 @@ module RightScale
       balancer.request do |host|
         RightSupport::Net::SSL.with_expected_hostname(@@hostnames_hash[host]) do
           connection = make_connection
-          Log.info("Requesting /#{host}/#{@scope}/#{@resource.split('?')[0]}")
+          Log.info("Requesting 'https/#{host}:443/#{@scope}/#{@resource.split('?')[0]}'")
           request = Net::HTTP::Get.new("/#{@scope}/#{@resource}")
           request['Cookie'] = "repose_ticket=#{@ticket}"
           request['Host'] = host
 
           connection.request(:protocol => 'https', :server => host,
                                         :port => '443', :request => request) do |response|
+
             if response.kind_of?(Net::HTTPSuccess)
+              @failures = 0
               yield response
+            elsif response.kind_of?(Net::HTTPServerError) || response.kind_of?(Net::HTTPNotFound)
+              Log.warning("Request failed - #{response.class.name} - retry")
+              unless snooze(attempts)
+                Log.error("Request failed - too many attempts, giving up")
+                raise @exception, [@scope, @resource, @name, "too many attempts"]
+              end
             else
               Log.error("Request failed - #{response.class.name} - give up")
               raise @exception, [@scope, @resource, @name, response]
             end
+
           end
+          attempts += 1
         end
       end
       return true
@@ -181,13 +187,13 @@ module RightScale
     def balancer
       @balancer ||= RightSupport::Net::RequestBalancer.new(@@hostnames,
                       :policy=>RightSupport::Net::Balancing::StickyPolicy,
-                      :resolve => REPOSE_RESOLVE_TIME)
+                      :resolve => REPOSE_RESOLVE_TIMEOUT)
     end
 
     # Set the servers to use for Repose downloads.
     #
     # === Parameters
-    # hostnames(Array):: list of URLs to connect to
+    # hostnames(Array):: list of hostnames to connect to
     # hostnames_hash(Hash):: IP -> hostname reverse lookup hash
     def self.set_servers(hostnames, hostnames_hash)
       @@hostnames = hostnames
