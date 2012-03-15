@@ -87,7 +87,7 @@ module RightScale
       balancer.request do |host|
         RightSupport::Net::SSL.with_expected_hostname(@@hostnames_hash[host]) do
           connection = make_connection
-          Log.info("Requesting /#{@scope}/#{@resource.split('?')[0]}")
+          Log.info("Requesting /#{host}/#{@scope}/#{@resource.split('?')[0]}")
           request = Net::HTTP::Get.new("/#{@scope}/#{@resource}")
           request['Cookie'] = "repose_ticket=#{@ticket}"
           request['Host'] = host
