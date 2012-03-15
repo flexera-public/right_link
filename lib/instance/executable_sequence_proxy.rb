@@ -81,7 +81,7 @@ module RightScale
         cmd_exe_path = File.normalize_path(ENV['ComSpec']).gsub("/", "\\")
         ruby_exe_path = File.normalize_path(AgentConfig.sandbox_ruby_cmd).gsub("/", "\\")
         input_path = input_path.gsub("/", "\\")
-        cmd = "#{cmd_exe_path} /C type #{input_path} | #{ruby_exe_path} #{cook_path_and_arguments}"
+        cmd = "#{cmd_exe_path} /C type \"#{input_path}\" | #{ruby_exe_path} #{cook_path_and_arguments}"
       else
         cmd = "#{AgentConfig.sandbox_ruby_cmd} #{cook_path_and_arguments}"
       end

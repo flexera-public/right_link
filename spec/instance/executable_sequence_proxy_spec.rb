@@ -28,12 +28,14 @@ describe RightScale::ExecutableSequenceProxy do
 
   it_should_behave_like 'mocks cook'
 
+  let(:thread_name) {'some thread name'}
+
   before(:each) do
     setup_state('rs-instance-1-1')
     @audit = flexmock('audit')
-    @bundle = flexmock('bundle', :thread_name => 'some thread name')
+    @bundle = flexmock('bundle', :thread_name => thread_name)
     @bundle.should_receive(:to_json).and_return("[\"some json\"]")
-    @context = flexmock('context', :audit => @audit, :payload => @bundle, :decommission => false, :thread_name => 'some thread name')
+    @context = flexmock('context', :audit => @audit, :payload => @bundle, :decommission => false, :thread_name => thread_name)
     @context.should_receive(:succeeded=)
     @audit.should_receive(:update_status)
     flexmock(RightScale::AuditProxy).should_receive(:new).and_return(@audit)
@@ -55,7 +57,7 @@ describe RightScale::ExecutableSequenceProxy do
     @proxy.instance_variable_get(:@deferred_status).should == nil
     run_em_test { @proxy.run; EM.next_tick { EM.stop } }
     @proxy.instance_variable_get(:@deferred_status).should == :succeeded
-    @proxy.thread_name.should == 'some thread name'
+    @proxy.thread_name.should == thread_name
     @proxy.pid.should == 123
     @proxy.pid.should == @pid
   end
@@ -75,7 +77,7 @@ describe RightScale::ExecutableSequenceProxy do
     cook_util_path = File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'bin', 'cook_runner.rb'))
     expected = "#{File.basename(RightScale::AgentConfig.sandbox_ruby_cmd)} \"#{cook_util_path}\""
     if RightScale::Platform.windows?
-      matcher = Regexp.compile(".*" + Regexp.escape(" /C type ") + ".*" + Regexp.escape("rs_executable_sequence.txt | ") + ".*" + Regexp.escape(expected))
+      matcher = Regexp.compile(".*" + Regexp.escape(" /C type ") + ".*" + Regexp.escape("rs_executable_sequence#{thread_name}.txt\" | ") + ".*" + Regexp.escape(expected))
     else
       matcher = Regexp.compile(".*" + Regexp.escape(expected))
     end
