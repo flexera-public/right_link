@@ -427,7 +427,7 @@ module RightScale
       report_failure("Failed to download cookbook", "Cannot continue due to #{e.class.name}: #{e.message}.")
       Log.debug(Log.format("Failed to download cookbook", e, :trace))
     ensure
-      OpenSSL::SSL::SSLSocket.hostname_override = nil
+      # OpenSSL::SSL::SSLSocket.hostname_override = nil
     end
 
     #

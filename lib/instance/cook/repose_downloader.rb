@@ -23,26 +23,6 @@
 
 require 'right_http_connection'
 
-#TODO TS factor this into its own source file; make it slightly less monkey-patchy (e.g. mixin)
-OpenSSL::SSL::SSLSocket.class_exec {
-
-  alias post_connection_check_without_hack post_connection_check
-
-  # Class variable. Danger! THOU SHALT NOT CAUSE 'openssl/ssl' TO RELOAD
-  # nor shalt thou use this monkey patch in conjunction with Rails
-  # auto-loading or class-reloading mechanisms! You have been warned...
-  @@hostname_override = nil
-
-  def self.hostname_override=(hostname_override)
-    @@hostname_override = hostname_override
-  end
-
-  def post_connection_check(hostname)
-    return post_connection_check_without_hack(@@hostname_override || hostname)
-  end
-
-} unless OpenSSL::SSL::SSLSocket.instance_methods.include?('post_connection_check_without_hack')
-
 module RightScale
   # Class centralizing logic for downloading objects from Repose.
   class ReposeDownloader
@@ -62,6 +42,8 @@ module RightScale
     REPOSE_RETRY_BACKOFF_MAX = 6
     # retry 10 times maximum
     REPOSE_RETRY_MAX_ATTEMPTS = 10
+    # re-resolve parameter for RequestBalancer
+    REPOSE_RESOLVE_TIME = 15
 
     # Exception class representing failure to connect to Repose.
     class ReposeConnectionFailure < Exception
@@ -102,85 +84,26 @@ module RightScale
     # === Return
     # true:: always returns true
     def request
-      @repose_connection ||= next_repose_server
-      cookie = Object.new
-      result = cookie
-      attempts = 0
-
-      while result == cookie
-        Log.info("Requesting /#{@scope}/#{@resource.split('?')[0]}")
-        request = Net::HTTP::Get.new("/#{@scope}/#{@resource}")
-        request['Cookie'] = "repose_ticket=#{@ticket}"
-        request['Host'] = @repose_connection.first
-
-        @repose_connection.last.request(:protocol => 'https', :server => @repose_connection.first,
-                                        :port => '443', :request => request) do |response|
-          if response.kind_of?(Net::HTTPSuccess)
-            @failures = 0
-            yield response
-            result = true
-          elsif response.kind_of?(Net::HTTPServerError) || response.kind_of?(Net::HTTPNotFound)
-            Log.warning("Request failed - #{response.class.name} - retry")
-            if snooze(attempts)
-              @repose_connection = next_repose_server
-            else
-              Log.error("Request failed - too many attempts, giving up")
-              raise @exception, [@scope, @resource, @name, "too many attempts"]
-            end
-          else
-            Log.error("Request failed - #{response.class.name} - give up")
-            raise @exception, [@scope, @resource, @name, response]
-          end
-        end
-        attempts += 1
-      end
-
-      return true
-    end
-
-    # Find the next Repose server in the list. Perform special TLS certificate voodoo to comply
-    # safely with global URL scheme.
-    #
-    # === Raise
-    # @exception:: if a permanent failure happened
-    #
-    # === Return
-    # server(Array):: [ ip address of server, HttpConnection to server ]
-    def next_repose_server
-      attempts = 0
-      loop do
-        ip         = @@ips[ @@index % @@ips.size ]
-        hostname   = @@hostnames[ip]
-        @@index += 1
-        #TODO monkey-patch OpenSSL hostname verification
-        Log.info("Connecting to cookbook server #{ip} (#{hostname})")
-        begin
-          OpenSSL::SSL::SSLSocket.hostname_override = hostname
-
+      balancer.request do |host|
+        RightSupport::Net::SSL.with_expected_hostname(@@hostnames_hash[host]) do
           connection = make_connection
-          health_check = Net::HTTP::Get.new('/')
-          health_check['Host'] = hostname
-          result = connection.request(:server => ip, :port => '443', :protocol => 'https',
-                                      :request => health_check)
-          if result.kind_of?(Net::HTTPSuccess)
-            @failures = 0
-            return [ip, connection]
-          else
-            Log.error("Health check unsuccessful: #{result.class.name}")
-            unless snooze(attempts)
-              Log.error("Can't find any repose servers, giving up")
-              raise @exception, [@scope, @resource, @name, "too many attempts"]
+          Log.info("Requesting /#{@scope}/#{@resource.split('?')[0]}")
+          request = Net::HTTP::Get.new("/#{@scope}/#{@resource}")
+          request['Cookie'] = "repose_ticket=#{@ticket}"
+          request['Host'] = host
+
+          connection.request(:protocol => 'https', :server => host,
+                                        :port => '443', :request => request) do |response|
+            if response.kind_of?(Net::HTTPSuccess)
+              yield response
+            else
+              Log.error("Request failed - #{response.class.name} - give up")
+              raise @exception, [@scope, @resource, @name, response]
             end
           end
-        rescue ReposeConnectionFailure => e
-          Log.error("Connection failed", e)
-          unless snooze(attempts)
-            Log.error("Can't find any repose servers, giving up")
-            raise @exception, [@scope, @resource, @name, "too many attempts"]
-          end
         end
-        attempts += 1
       end
+      return true
     end
 
     # Exponential backoff sleep algorithm.  Returns true if processing
@@ -213,7 +136,6 @@ module RightScale
     # === Return
     # true:: always returns true
     def self.discover_repose_servers(hostnames)
-      ips       = []
       hostnames_hash = {}
       hostnames = [hostnames] unless hostnames.respond_to?(:each)
       hostnames.each do |hostname|
@@ -228,11 +150,10 @@ module RightScale
         #Randomly permute the addrinfos of each hostname to help spread load.
         infos.shuffle.each do |info|
           ip = info[3]
-          ips << ip
           hostnames_hash[ip] = hostname
         end
       end
-      set_servers(ips, hostnames_hash)
+      set_servers(hostnames, hostnames_hash)
 
       true
     end
@@ -256,25 +177,21 @@ module RightScale
                                      :ca_file => get_ca_file)
     end
 
-    # Get the servers that are currently being used for Repose downloads.
-    #
-    # === Return
-    # index(Integer):: Index into ips that is next in the list
-    # ips(Array):: list of IP addresses to connect to
-    # hostnames(Hash):: IP -> hostname reverse lookup hash
-    def self.get_servers
-      [@@index, @@ips, @@hostnames]
+    # Create a single balancer instance to maximize health check's efficiency
+    def balancer
+      @balancer ||= RightSupport::Net::RequestBalancer.new(@@hostnames,
+                      :policy=>RightSupport::Net::Balancing::StickyPolicy,
+                      :resolve => REPOSE_RESOLVE_TIME)
     end
 
     # Set the servers to use for Repose downloads.
     #
     # === Parameters
-    # ips(Array):: list of IP addresses to connect to
-    # hostnames(Hash):: IP -> hostname reverse lookup hash
-    def self.set_servers(ips, hostnames)
-      @@index = 0
-      @@ips = ips
+    # hostnames(Array):: list of URLs to connect to
+    # hostnames_hash(Hash):: IP -> hostname reverse lookup hash
+    def self.set_servers(hostnames, hostnames_hash)
       @@hostnames = hostnames
+      @@hostnames_hash = hostnames_hash
     end
   end
 end

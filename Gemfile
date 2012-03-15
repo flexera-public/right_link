@@ -3,7 +3,7 @@ source :rubygems
 
 gem "rubyforge",               "1.0.4"
 gem "rake",                    "0.8.7"
-gem "right_support",           "~> 1.3"
+gem "right_support",          :git => "git://github.com/rightscale/right_support.git", :branch => "azure_12_3_balancing_fix"
 gem "right_amqp",              "~> 0.1", :git => "git://github.com/rightscale/right_amqp.git"
 gem "right_agent",             "~> 0.9", :git => "git://github.com/rightscale/right_agent.git"
 gem "right_scraper",           "3.0.1"
