@@ -264,7 +264,7 @@ describe RightScale::LoginManager do
     end
 
     it "should return users for which it could not retrieve a public key" do
-      flexmock(RightScale::Log).should_receive(:error).with(/Failed to obtain public key with fingerprint f3 /).once
+      flexmock(RightScale::Log).should_receive(:error).with(/Failed to obtain public key with fingerprint \"f3\" /).once
       mock_request(["/key_server/retrieve_public_keys", {:agent_identity => @agent_identity, :public_key_fingerprints => ["f3"]}], {})
       policy = generate_policy(one_hour_ago, users_count = 3, populated = [true, true, true, false], fingerprinted = true)
       user0 = policy.users[0].dup
@@ -282,7 +282,7 @@ describe RightScale::LoginManager do
       @old_policy = generate_policy(one_day_ago, users_count = 1, populated = nil, fingerprinted = true)
       flexmock(RightScale::InstanceState).should_receive(:login_policy).and_return(@old_policy)
       flexmock(RightScale::Log).should_receive(:error).with(/Failed to retrieve public keys for users /).once
-      flexmock(RightScale::Log).should_receive(:error).with(/Failed to obtain public key with fingerprint f[1,3] /).twice
+      flexmock(RightScale::Log).should_receive(:error).with(/Failed to obtain public key with fingerprint \"f[1,3]\" /).twice
       mock_request(["/key_server/retrieve_public_keys", {:agent_identity => @agent_identity, :public_key_fingerprints => ["f1", "f3"]}],
                    nil, "error during retrieval")
       policy = generate_policy(one_hour_ago, users_count = 3, populated = [true, false, true, false], fingerprinted = true)
@@ -295,6 +295,17 @@ describe RightScale::LoginManager do
       users[1].public_keys.should == [user1.public_keys[1]]
       users[2].should be_nil
       missing.map { |u| u.username }.should == [user1.username, user2.username]
+    end
+
+    it "should log an error if cannot create fingerprint for a public key" do
+      flexmock(RightScale::LoginUser).should_receive(:fingerprint).and_raise(Exception)
+      flexmock(RightScale::Log).should_receive(:error).with(/Failed to create public key fingerprint for user /, Exception).once
+      flexmock(RightScale::Log).should_receive(:error).with(/Failed to obtain public key with fingerprint nil /).once
+      policy = generate_policy(one_hour_ago, users_count = 1, populated = [true], fingerprinted = false)
+      agent_identity = @agent_identity
+      users, missing = subject.instance_eval { update_users(policy.users, agent_identity) }
+      users[0].should be_nil
+      missing.should == []
     end
   end
 
