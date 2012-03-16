@@ -45,10 +45,15 @@ module RightScale
       # 1. Load configuration settings
       options = OptionsBag.load
       agent_id  = options[:identity]
+
       Log.program_name = 'RightLink'
       Log.log_to_file_only(options[:log_to_file_only])
-      Log.init(agent_id, options[:log_path])
       Log.level = CookState.log_level
+      Log.init(agent_id, options[:log_path])
+      # add an additional logger if the agent is set to log to an alternate location (install, operate, decommission, ...)
+      Log.add_logger(::Logger.new(CookState.log_file)) if CookState.log_file
+
+
       fail('Missing command server listen port') unless options[:listen_port]
       fail('Missing command cookie') unless options[:cookie]
       @client = CommandClient.new(options[:listen_port], options[:cookie])
