@@ -122,8 +122,8 @@ module RightScale
       public_keys_cache = {}
       if old_policy = InstanceState.login_policy
         public_keys_cache = old_policy.users.inject({}) do |keys, user|
-          user.public_key_fingerprints ||= user.public_keys.map { |key| LoginUser.fingerprint(key) }
-          user.public_keys.zip(user.public_key_fingerprints).each { |(k, f)| keys[f] = k }
+          user.public_key_fingerprints ||= user.public_keys.map { |key| fingerprint(key, user.username) }
+          user.public_keys.zip(user.public_key_fingerprints).each { |(k, f)| keys[f] = k if f }
           keys
         end
       end
@@ -147,7 +147,8 @@ module RightScale
     # === Parameters
     # users(Array):: Login users whose public keys are to be updated if nil
     # public_keys_cache(Hash):: Public keys with fingerprint as key and public key as value
-    # remove_if_missing(Boolean):: Whether to remove user if its public keys cannot be obtained
+    # remove_if_missing(Boolean):: Whether to remove a user's public key if it cannot be obtained
+    #   and the user itself if none of its public keys can be obtained
     #
     # === Return
     # missing(Array):: User and fingerprint for each missing public key
@@ -155,18 +156,23 @@ module RightScale
       missing = []
       users.reject! do |user|
         reject = false
-        user.public_key_fingerprints ||= user.public_keys.map { |key| LoginUser.fingerprint(key) }
+        user.public_key_fingerprints ||= user.public_keys.map { |key| fingerprint(key, user.username) }
         public_keys = user.public_keys.zip(user.public_key_fingerprints).inject([]) do |keys, (k, f)|
-          if k ||= public_keys_cache[f]
-            keys << k
-          else
-            if remove_if_missing
-              Log.error("Failed to obtain public key with fingerprint #{f} for user #{user.username}, " +
-                        "removing it from login policy")
-            else
+          if f
+            if k ||= public_keys_cache[f]
               keys << k
+            else
+              if remove_if_missing
+                Log.error("Failed to obtain public key with fingerprint #{f.inspect} for user #{user.username}, " +
+                          "removing it from login policy")
+              else
+                keys << k
+              end
+              missing << [user, f]
             end
-            missing << [user, f]
+          else
+            Log.error("Failed to obtain public key with fingerprint #{f.inspect} for user #{user.username}, " +
+                      "removing it from login policy")
           end
           keys
         end
@@ -178,6 +184,21 @@ module RightScale
         reject
       end
       missing
+    end
+
+    # Create fingerprint for public key
+    #
+    # === Parameters
+    # public_key(String):: RSA public key
+    # username(String):: Name of user owning this key
+    #
+    # === Return
+    # (String|nil):: Fingerprint for key, or nil if could not create
+    def fingerprint(public_key, username)
+      LoginUser.fingerprint(public_key)
+    rescue Exception => e
+      Log.error("Failed to create public key fingerprint for user #{username}", e)
+      nil
     end
 
     # Returns array of public keys of specified authorized_keys file
