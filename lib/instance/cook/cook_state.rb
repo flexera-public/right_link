@@ -62,7 +62,7 @@ module RightScale
         if @state.respond_to?(method)
           @state.send(method, *args, &block)
         else
-          super(method, *args, &block)
+          super
         end
       end
 
@@ -263,7 +263,7 @@ module RightScale
         @reboot = state['reboot']
         @log_file = state['log_file'] # nil if not in state loaded from disk
       end
-      truel
+      true
     end
   end
 end
