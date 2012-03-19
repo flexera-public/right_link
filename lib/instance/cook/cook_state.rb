@@ -40,39 +40,73 @@ module RightScale
     STATE_DIR         = RightScale::AgentConfig.agent_state_dir
     STATE_FILE        = File.join(STATE_DIR, 'cook_state.js')
 
+    class << self
+      # Reset class state and load persisted state if any
+      #
+      # === Return
+      # true:: Always return true
+      def init(reset=false)
+        if @state.nil? || reset
+          @state = CookState.new
+        end
+        true
+      end
+
+      private
+      # not sure if method_missing is the best way to go to expose
+      # our state interface as class methods.  If this is not the best
+      # approach, then we should look for another...
+      def method_missing(method, *args, &block)
+        # ensure the state is initialized before calling any methods
+        init unless initialized?
+        if @state.respond_to?(method)
+          @state.send(method, *args, &block)
+        else
+          super
+        end
+      end
+
+      # Was cook state initialized?
+      #
+      # === Return
+      # true:: if logger has been initialized
+      # false:: Otherwise
+      def initialized?
+        defined?(@state) && @state
+      end
+    end
+
     # Reset class state and load persisted state if any
     #
     # === Return
     # true:: Always return true
-    def self.init
-      @@initialized   = false
-      @@downloaded    = false
-      @@reboot        = false
-      @@startup_tags  = []
-      @@log_level     = Logger::INFO
+    def initialize
+      # set some defaults
+      @has_downloaded_cookbooks = false
+      @reboot                   = false
+      @startup_tags             = []
+      @log_level                = Logger::INFO
+      @log_file                 = nil
 
-      if File.file?(STATE_FILE)
-        state = RightScale::JsonUtilities::read_json(STATE_FILE)
-        @@log_level = state['log_level'] || Logger::INFO
-        Log.info("Initializing CookState from  #{STATE_FILE} with #{state.inspect}") if @@log_level == Logger::DEBUG
-
-        @@downloaded = state['has_downloaded_cookbooks']
-        @@startup_tags = state['startup_tags'] || []
-        @@reboot = state['reboot']
-      end
-
-      @@initialized = true
+      # replace defaults with state on disk
+      load_state
 
       true
+    end
+
+    attr_reader :log_level, :log_file, :startup_tags
+    attr_writer :has_downloaded_cookbooks
+
+    def has_downloaded_cookbooks?
+      !!@has_downloaded_cookbooks
     end
 
     # Are we rebooting? (needed for RightScripts)
     #
     # === Return
     # res(Boolean):: Whether this instance was rebooted
-    def self.reboot?
-      init unless initialized?
-      !!@@reboot
+    def reboot?
+      !!@reboot
     end
 
     # Is the instance running in dev mode?
@@ -83,7 +117,7 @@ module RightScale
     # === Return
     # true:: If dev tags are defined on this instance
     # false:: Otherwise
-    def self.dev_mode_enabled?
+    def dev_mode_enabled?
       !!tag_value(DEV_TAG_NAMESPACE)
     end
 
@@ -93,7 +127,7 @@ module RightScale
     # === Return
     # path(Array):: Dev cookbooks repositories path
     # nil:: Use default cookbook download algorithm
-    def self.cookbooks_path
+    def cookbooks_path
       path = tag_value(COOKBOOK_PATH_TAG)
       path.split(/, */) if path
     end
@@ -102,7 +136,7 @@ module RightScale
     #
     # === Return
     # recipe(String):: Name of recipe to break execution of sequence on
-    def self.breakpoint
+    def breakpoint
       recipe = tag_value(BREAKPOINT_TAG)
     end
 
@@ -113,7 +147,7 @@ module RightScale
     # === Return
     # true:: If dev cookbooks repositories path should be used
     # false:: Otherwise
-    def self.use_cookbooks_path?
+    def use_cookbooks_path?
       res = !!(paths = cookbooks_path)
       return false unless res
       paths.each do |path|
@@ -132,38 +166,10 @@ module RightScale
     # === Return
     # true:: If cookbooks should be downloaded
     # false:: Otherwise
-    def self.download_cookbooks?
+    def download_cookbooks?
       # always download unless machine is tagged with a valid cookbooks path or
       # machine is tagged with download once and cookbooks have already been downloaded.
       res = !(use_cookbooks_path? || (has_downloaded_cookbooks? && download_once?))
-    end
-
-    # Whether cookbooks have been downloaded
-    # False if we have never recorded the fact that cookbooks have been downloaded
-    #
-    # === Return
-    # true:: If cookbooks have be downloaded
-    # false:: Otherwise
-    def self.has_downloaded_cookbooks?
-      init unless initialized?
-      !!@@downloaded
-    end
-
-    # Set whether cookbooks have been downloaded
-    #
-    # === Parameters
-    # val(Boolean):: Whether cookbooks have been downloaded
-    #
-    # === Return
-    # true:: If cookbooks have be downloaded
-    # false:: Otherwise
-    def self.has_downloaded_cookbooks=(val)
-      init unless initialized?
-      if @@downloaded.nil? || @@downloaded != val
-        @@downloaded = val
-        save_state
-      end
-      val
     end
 
     # Whether cookbooks should be downloaded only once
@@ -171,7 +177,7 @@ module RightScale
     # === Return
     # true:: If cookbooks should be downloaded only once for this instance
     # false:: Otherwise
-    def self.download_once?
+    def download_once?
       tag_value(DOWNLOAD_ONCE_TAG) == 'true'
     end
 
@@ -179,9 +185,8 @@ module RightScale
     #
     # === Return
     # level(Integer):: one of Logger::INFO ... Logger::FATAL
-    def self.log_level
-      init unless initialized?
-      @@log_level
+    def log_level
+      @log_level
     end
 
     # Re-initialize then merge given state
@@ -191,14 +196,14 @@ module RightScale
     #
     # === Return
     # true:: Always
-    def self.update(state_to_merge)
-      # unconditionally load state from disk
-      init
-
+    def update(state_to_merge)
       # only merge state if state to be merged has values
-      @@startup_tags  = state_to_merge.startup_tags if state_to_merge.respond_to?(:startup_tags)
-      @@reboot        = state_to_merge.reboot?      if state_to_merge.respond_to?(:reboot?)
-      @@log_level     = state_to_merge.log_level    if state_to_merge.respond_to?(:log_level)
+      @startup_tags  = state_to_merge.startup_tags if state_to_merge.respond_to?(:startup_tags)
+      @reboot        = state_to_merge.reboot?      if state_to_merge.respond_to?(:reboot?)
+      @log_level     = state_to_merge.log_level    if state_to_merge.respond_to?(:log_level)
+      if state_to_merge.respond_to?(:log_file) && state_to_merge.respond_to?(:value)
+        @log_file      = state_to_merge.log_file(state_to_merge.value)
+      end
 
       save_state
 
@@ -207,15 +212,6 @@ module RightScale
 
     protected
 
-    # Was cook state initialized?
-    #
-    # === Return
-    # true:: if logger has been initialized
-    # false:: Otherwise
-    def self.initialized?
-      defined?(@@initialized) && @@initialized
-    end
-
     # Extract tag value for tag with given namespace and prefix
     #
     # === Parameters
@@ -223,30 +219,25 @@ module RightScale
     #
     # === Return
     # value(String):: Corresponding tag value
-    def self.tag_value(prefix)
-      init unless initialized?
-      tag = @@startup_tags.detect { |t| t =~ /^#{prefix}/ }
+    def tag_value(prefix)
+      tag = @startup_tags.detect { |t| t =~ /^#{prefix}/ }
       value = tag[prefix.size + 1..-1] if tag
-    end
-
-    # Startup tags accessor.  Ensures startup tags has been initialized
-    #
-    # === Return
-    # value(Array):: All startup tags known to Cook
-    def self.startup_tags
-      init unless initialized?
-      @@startup_tags
     end
 
     # Save dev state to file
     #
     # === Return
     # true:: Always return true
-    def self.save_state
+    def save_state
       # start will al state to be saved
-      state_to_save = {'startup_tags' => startup_tags,
-                       'reboot' => reboot?,
-                       'log_level' => log_level}
+      state_to_save = { 'startup_tags' => startup_tags,
+                      'reboot' => reboot?,
+                      'log_level' => log_level }
+
+      # only save a log file one is defined
+      if log_file
+        state_to_save['log_file'] = log_file
+      end
 
       # only save persist the fact we downloaded cookbooks if we are in dev mode
       if download_once?
@@ -254,6 +245,24 @@ module RightScale
       end
 
       RightScale::JsonUtilities::write_json(RightScale::CookState::STATE_FILE, state_to_save)
+      true
+    end
+
+    # load dev state from disk
+    #
+    # === Return
+    # true:: Always return true
+    def load_state
+      if File.file?(STATE_FILE)
+        state = RightScale::JsonUtilities::read_json(STATE_FILE)
+        @log_level = state['log_level'] || Logger::INFO
+        Log.info("Initializing CookState from  #{STATE_FILE} with #{state.inspect}") if @log_level == Logger::DEBUG
+
+        @has_downloaded_cookbooks = state['has_downloaded_cookbooks']
+        @startup_tags = state['startup_tags'] || []
+        @reboot = state['reboot']
+        @log_file = state['log_file'] # nil if not in state loaded from disk
+      end
       true
     end
   end

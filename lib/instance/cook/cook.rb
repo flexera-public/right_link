@@ -45,10 +45,14 @@ module RightScale
       # 1. Load configuration settings
       options = OptionsBag.load
       agent_id  = options[:identity]
+
       Log.program_name = 'RightLink'
       Log.log_to_file_only(options[:log_to_file_only])
       Log.init(agent_id, options[:log_path])
       Log.level = CookState.log_level
+      # add an additional logger if the agent is set to log to an alternate location (install, operate, decommission, ...)
+      Log.add_logger(::Logger.new(CookState.log_file)) if CookState.log_file
+
       fail('Missing command server listen port') unless options[:listen_port]
       fail('Missing command cookie') unless options[:cookie]
       @client = CommandClient.new(options[:listen_port], options[:cookie])
@@ -256,6 +260,27 @@ module RightScale
       # Need to execute on EM main thread where command client is running
       EM.next_tick { @client.send_command(cmd) { |response| response_queue << response } }
       return response_queue.shift
+    end
+
+    # Load serialized content
+    # fail if serialized data is invalid
+    #
+    # === Parameters
+    # data(String):: Serialized content
+    # error_message(String):: Error to be logged/audited in case of failure
+    # format(Symbol):: Serialization format
+    #
+    # === Return
+    # content(String):: Unserialized content
+    def load(data, error_message, format = nil)
+      serializer = Serializer.new(format)
+      content = nil
+      begin
+        content = serializer.load(data)
+      rescue Exception => e
+        fail(error_message, "Failed to load #{serializer.format.to_s} data (#{e}):\n#{data.inspect}")
+      end
+      content
     end
 
   end

@@ -28,11 +28,11 @@ describe RightScale::CookState do
 
   it_should_behave_like 'mocks cook'
 
-  # monkey patch CookState so we can reset singleton state during the test
+  # monkey patch CookState to simulate situations where state has not been initialized
   module RightScale
     class CookState
       def self.reset
-        @@initialized = false
+        @state = nil
       end
     end
   end
@@ -386,6 +386,7 @@ describe RightScale::CookState do
       RightScale::Log::LEVELS_MAP.each_pair do |log_symbol, log_level|
         it "should be #{log_symbol}" do
           RightScale::JsonUtilities::write_json(RightScale::CookState::STATE_FILE, {"log_level"=>log_level})
+          RightScale::CookState.init(true)
           RightScale::CookState.log_level.should == log_level
         end
       end

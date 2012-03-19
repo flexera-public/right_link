@@ -429,8 +429,6 @@ module RightScale
       login_policy
     end
 
-    protected
-
     # Log file to be used for given instance state
     #
     # === Parameters
@@ -445,6 +443,8 @@ module RightScale
         when 'decommissioning' then DECOMMISSION_LOG_FILE
       end
     end
+
+    protected
 
     # Determine uptime of this system.
     #
