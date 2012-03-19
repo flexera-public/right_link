@@ -104,6 +104,11 @@ describe InstanceScheduler do
       setup_script_execution
     end
 
+    before(:each) do
+      # pre-initialize certificate to prevent EM timeout.
+      ::RightScale::SpecHelper::CertificateInfo.init
+    end
+
     after(:each) do
       # not expecting errors.
       ::RightScale::Log.has_errors?.should be_false
