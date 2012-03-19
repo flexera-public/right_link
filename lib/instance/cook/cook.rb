@@ -262,5 +262,26 @@ module RightScale
       return response_queue.shift
     end
 
+    # Load serialized content
+    # fail if serialized data is invalid
+    #
+    # === Parameters
+    # data(String):: Serialized content
+    # error_message(String):: Error to be logged/audited in case of failure
+    # format(Symbol):: Serialization format
+    #
+    # === Return
+    # content(String):: Unserialized content
+    def load(data, error_message, format = nil)
+      serializer = Serializer.new(format)
+      content = nil
+      begin
+        content = serializer.load(data)
+      rescue Exception => e
+        fail(error_message, "Failed to load #{serializer.format.to_s} data (#{e}):\n#{data.inspect}")
+      end
+      content
+    end
+
   end
 end
