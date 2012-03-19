@@ -53,6 +53,19 @@ module RightScale
       @context = context
       @thread_name = context.respond_to?(:thread_name) ? context.thread_name : ::RightScale::AgentConfig.default_thread_name
       @pid_callback = options[:pid_callback]
+
+      # FIX: thread_name should never be nil from the core in future, but
+      # temporarily we must supply the default thread_name before if nil. in
+      # future we should fail execution when thread_name is reliably present and
+      # for any reason (including nil) does not match
+      # ::RightScale::AgentConfig.valid_thread_name
+      # see also ExecutableSequenceProxy#initialize
+      Log.warn("Encountered a nil thread name unexpectedly, defaulting to '#{RightScale::AgentConfig.default_thread_name}'") unless @thread_name
+      @thread_name ||= RightScale::AgentConfig.default_thread_name
+      unless @thread_name =~ RightScale::AgentConfig.valid_thread_name
+        raise ArgumentError, "Invalid thread name #{@thread_name.inspect}"
+      end
+
       AuditCookStub.instance.setup_audit_forwarding(@thread_name, context.audit)
       AuditCookStub.instance.on_close(@thread_name) { @audit_closed = true; check_done }
     end
