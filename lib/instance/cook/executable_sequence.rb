@@ -81,9 +81,13 @@ module RightScale
     # === Parameter
     # bundle(RightScale::ExecutableBundle):: Bundle to be run
     def initialize(bundle)
+      # FIX: thread_name should never be nil from the core in future, but
+      # temporarily we must supply the default thread_name before if nil. in
+      # future we should fail execution when thread_name is reliably present and
+      # for any reason does not match ::RightScale::AgentConfig.valid_thread_name
+      # see also ExecutableSequenceProxy#initialize
       Log.warn("Encountered a nil thread name unexpectedly, defaulting to '#{RightScale::AgentConfig.default_thread_name}'") unless bundle.thread_name
       bundle.thread_name ||= RightScale::AgentConfig.default_thread_name
-      
       unless bundle.thread_name =~ RightScale::AgentConfig.valid_thread_name
         raise ArgumentError, "Invalid thread name #{bundle.thread_name.inspect}"
       end
