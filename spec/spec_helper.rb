@@ -188,17 +188,36 @@ module RightScale
       FileUtils.rm_rf(AgentConfig.cache_dir)
     end
 
+    # generating the first cert info takes too long (on Windows) and can cause
+    # existing EM tests to timeout, so allow for generating cert once per spec
+    # run and cache it.
+    class CertificateInfo
+      @@certificate = nil
+      @@key = nil
+
+      def self.init
+        unless @@certificate && @@key
+          test_dn = { 'C'  => 'US',
+                      'ST' => 'California',
+                      'L'  => 'Santa Barbara',
+                      'O'  => 'Agent',
+                      'OU' => 'Certification Services',
+                      'CN' => 'Agent test' }
+          dn = DistinguishedName.new(test_dn)
+          @@key = RsaKeyPair.new
+          @@certificate = Certificate.new(@@key, dn, dn)
+        end
+      end
+
+      def self.issue_cert
+        init
+        [@@certificate, @@key]
+      end
+    end
+
     # Create test certificate
     def issue_cert
-      test_dn = { 'C'  => 'US',
-                  'ST' => 'California',
-                  'L'  => 'Santa Barbara',
-                  'O'  => 'Agent',
-                  'OU' => 'Certification Services',
-                  'CN' => 'Agent test' }
-      dn = DistinguishedName.new(test_dn)
-      key = RsaKeyPair.new
-      [ Certificate.new(key, dn, dn), key ]
+      CertificateInfo.issue_cert
     end
 
     # Runs the given block in an EM loop with exception handling to ensure
@@ -331,6 +350,8 @@ end
 
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'instance', 'agent_config'))
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'instance', 'instance_state'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'instance', 'cook', 'chef_state'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'instance', 'cook', 'cook_state'))
 
 module RightScale
   class InstanceState

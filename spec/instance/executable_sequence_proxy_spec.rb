@@ -28,7 +28,7 @@ describe RightScale::ExecutableSequenceProxy do
 
   it_should_behave_like 'mocks cook'
 
-  let(:thread_name) {'some thread name'}
+  let(:thread_name) {'some_thread_name'}
 
   before(:each) do
     setup_state('rs-instance-1-1')
