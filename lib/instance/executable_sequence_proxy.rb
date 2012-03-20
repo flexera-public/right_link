@@ -59,7 +59,7 @@ module RightScale
       # future we should fail execution when thread_name is reliably present and
       # for any reason (including nil) does not match
       # ::RightScale::AgentConfig.valid_thread_name
-      # see also ExecutableSequenceProxy#initialize
+      # see also ExecutableSequence#initialize
       Log.warn("Encountered a nil thread name unexpectedly, defaulting to '#{RightScale::AgentConfig.default_thread_name}'") unless @thread_name
       @thread_name ||= RightScale::AgentConfig.default_thread_name
       unless @thread_name =~ RightScale::AgentConfig.valid_thread_name
