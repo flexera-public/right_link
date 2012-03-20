@@ -86,28 +86,30 @@ module RightScale
     def request
       @failures ||= 0
       attempts = 0
-      balancer.request do |host|
-        RightSupport::Net::SSL.with_expected_hostname(@@hostnames_hash[host]) do
+      balancer.request do |ip|
+        host = @@hostnames_hash[ip]
+        resource = @resource.split('?')[0]
+        RightSupport::Net::SSL.with_expected_hostname(host) do
           connection = make_connection
-          Log.info("Requesting 'https:://#{host}:443/#{@scope}/#{@resource.split('?')[0]}'")
+          Log.info("Requesting 'https://#{ip}:443/#{@scope}/#{resource}' from '#{host}'")
           request = Net::HTTP::Get.new("/#{@scope}/#{@resource}")
           request['Cookie'] = "repose_ticket=#{@ticket}"
-          request['Host'] = host
+          request['Host'] = ip
 
-          connection.request(:protocol => 'https', :server => host,
+          connection.request(:protocol => 'https', :server => ip,
                                         :port => '443', :request => request) do |response|
 
             if response.kind_of?(Net::HTTPSuccess)
               @failures = 0
               yield response
             elsif response.kind_of?(Net::HTTPServerError) || response.kind_of?(Net::HTTPNotFound)
-              Log.warning("Request failed - #{response.class.name} - retry")
+              Log.warning("Request for '#{resource}' failed - #{response.class.name} - retry")
               unless snooze(attempts)
-                Log.error("Request failed - too many attempts, giving up")
-                raise @exception, [@scope, @resource, @name, "too many attempts"]
+                Log.error("Request for '#{resource}' failed - giving up after '#{attempts}' attempts!")
+                raise @exception, [@scope, @resource, @name, "gave up after '#{attempts}' attempts"]
               end
             else
-              Log.error("Request failed - #{response.class.name} - give up")
+              Log.error("Request '#{resource}' failed - #{response.class.name} - give up")
               raise @exception, [@scope, @resource, @name, response]
             end
 
