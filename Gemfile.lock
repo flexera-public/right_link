@@ -1,6 +1,6 @@
 GIT
   remote: git://github.com/rightscale/right_agent.git
-  revision: 3d1a32c2fd623e7177e734f129ed0f93f6bf4f4f
+  revision: cb2c4ebf8072184e599d28c5319079557dd86e99
   branch: azure_12_3_instance_logging
   specs:
     right_agent (0.9.4)
