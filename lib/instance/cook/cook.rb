@@ -49,7 +49,7 @@ module RightScale
       Log.log_to_file_only(options[:log_to_file_only])
       Log.init(agent_id, options[:log_path])
       Log.level = CookState.log_level
-      Log.info("Cook process starting up.")
+      Log.info("[cook] Process starting up with tags: #{CookState.startup_tags.join(', ')}.")
       fail('Missing command server listen port') unless options[:listen_port]
       fail('Missing command cookie') unless options[:cookie]
       @client = CommandClient.new(options[:listen_port], options[:cookie])
@@ -97,7 +97,7 @@ module RightScale
       end
       
     ensure
-      Log.info("Cook process stopping.")
+      Log.info("[cook] Process stopping.")
       exit(1) unless success
     end
 
