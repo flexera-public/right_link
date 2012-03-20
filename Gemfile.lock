@@ -1,6 +1,6 @@
 GIT
   remote: git://github.com/rightscale/right_agent.git
-  revision: cb2c4ebf8072184e599d28c5319079557dd86e99
+  revision: 4bd20acea93191bb89e066ee03ad018bbab5747c
   branch: azure_12_3_instance_logging
   specs:
     right_agent (0.9.4)
@@ -99,7 +99,7 @@ GEM
       libarchive (>= 0.1.1)
       process_watcher (~> 0.3)
       right_aws (>= 2.0)
-    right_support (1.3.0)
+    right_support (1.3.1)
     rspec (1.3.2)
     ruby-debug (0.10.4)
       columnize (>= 0.1)
