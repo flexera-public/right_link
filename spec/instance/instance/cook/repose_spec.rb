@@ -127,7 +127,6 @@ module RightScale
         ugly_response = Net::HTTPInternalServerError.new("1.1", "500", "everything ugly")
         good_response = Net::HTTPSuccess.new("1.1", "200", "everything good")
 
-        response = Net::HTTPForbidden.new("1.1", "403", "everything bad")
         @balancer.iterations = 3
         @connection.should_receive(:request).with(FlexMock.on {|hash|
                                                     hash[:protocol] == "https" &&
