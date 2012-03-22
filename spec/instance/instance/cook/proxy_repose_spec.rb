@@ -22,7 +22,6 @@
 #++
 
 require 'right_agent/core_payload_types'
-
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'spec_helper'))
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', '..', '..', 'lib', 'instance', 'cook'))
 
@@ -124,12 +123,12 @@ module RightScale
     context 'discovering hostnames' do
       it 'should not attempt IP lookup' do
         ReposeProxyDownloader.discover_repose_servers(["a-server", "b-server"])
-        ips = ReposeProxyDownloader.class_eval { class_variable_get(:@@ips) }
         hostnames = ReposeProxyDownloader.class_eval { class_variable_get(:@@hostnames) }
-        ips.should include("a-server")
-        ips.should include("b-server")
-        hostnames["a-server"].should == "a-server"
-        hostnames["b-server"].should == "b-server"
+        hostnames_hash = ReposeProxyDownloader.class_eval { class_variable_get(:@@hostnames_hash) }
+        hostnames.should include("a-server")
+        hostnames.should include("b-server")
+        hostnames_hash["a-server"].should == "a-server"
+        hostnames_hash["b-server"].should == "b-server"
       end
     end
 
