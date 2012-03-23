@@ -25,7 +25,7 @@ module RightScale
   # Extend AgentConfig for instance agents
   AgentConfig.module_eval do
 
-    # Path to RightScale files at base of RightLink
+    # Path to RightScale files in parent directory of right_link
     def self.parent_dir
       File.dirname(File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'right_link')))
     end
