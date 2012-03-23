@@ -39,7 +39,8 @@ module RightScale
     # === Return
     # true:: Always return true
     def run(options)
-      AgentConfig.root_dir = RightScale::Platform.filesystem.right_link_dir
+      AgentConfig.root_dir = File.join(AgentConfig.parent_dir, 'right_link')
+
       if RightScale::Platform.windows?
         cleanup_certificates(options)
         # Write state file to indicate to RightScaleService that it should not

@@ -4,8 +4,9 @@ source :rubygems
 gem "rubyforge",               "1.0.4"
 gem "rake",                    "0.8.7"
 gem "right_support",           "~> 1.3"
-gem "right_amqp",              "~> 0.2.0"
-gem "right_agent",             "~> 0.9.3"
+gem "right_amqp",              "~> 0.2"
+gem "right_agent",             "~> 0.9", :git => 'https://github.com/rightscale/right_agent.git',
+                               :branch => 'master'
 gem "right_popen",             "~> 1.0"
 gem "right_http_connection",   "~> 1.3.0"
 gem "right_scraper",           "3.0.1"

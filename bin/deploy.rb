@@ -84,7 +84,7 @@ module RightScale
       end
 
       cmd_opts = [ 'instance',
-                   '-r', Platform.filesystem.right_link_dir,
+                   '-r', File.join(AgentConfig.parent_dir, 'right_link'),
                    '-i', ENV['RS_RN_ID'],
                    '-t', ENV['RS_RN_AUTH'],
                    '-h', host,
