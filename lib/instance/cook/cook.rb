@@ -40,7 +40,7 @@ module RightScale
 
     # Run bundle given in stdin
     def run
-      AgentConfig.root_dir = RightScale::Platform.filesystem.right_link_dir
+      AgentConfig.root_dir = File.join(AgentConfig.parent_dir, 'right_link')
 
       # 1. Load configuration settings
       options = OptionsBag.load
