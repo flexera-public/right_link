@@ -89,5 +89,11 @@ module RightScale
                                      :fail_if_ca_mismatch => true,
                                      :ca_file => get_ca_file)
     end
+
+    # Create a single balancer instance to maximize health check's efficiency
+    def balancer
+      @balancer ||= RightSupport::Net::RequestBalancer.new(@@hostnames,
+                      :policy=>RightSupport::Net::Balancing::StickyPolicy)
+    end
   end
 end

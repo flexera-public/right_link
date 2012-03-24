@@ -39,6 +39,18 @@ module RightScale
       end
     end
 
+    class TestRequestBalancer
+      attr_accessor :iterations,:ip
+      def initialize(options)
+        @iterations, @ip = options.delete(:iterations), options.delete(:ip)
+      end
+      def request
+        iterations.times do
+          yield ip
+        end
+      end
+    end
+
     before(:all) do
       setup_state
     end
@@ -61,30 +73,37 @@ module RightScale
         flexmock(Socket).should_receive(:getaddrinfo).with(*params).times(20).ordered.and_raise(SocketError, "socket to me!")
         flexmock(Socket).should_receive(:getaddrinfo).with(*params).once.ordered.and_return(result)
         ReposeDownloader.discover_repose_servers(['repose666.rightscale.com'])
-        index, ips, hostnames = ReposeDownloader.instance_eval { self.get_servers }
-        ips.sort.should == ["1.1.1.1", "2.2.2.2"].sort
-        hostnames.should == {"1.1.1.1" => "repose666.rightscale.com",
+        hostnames_hash = ReposeDownloader.class_eval { class_variable_get(:@@hostnames_hash) }
+        hostnames_hash.keys.sort.should == ["1.1.1.1", "2.2.2.2"].sort
+        hostnames_hash.should == {"1.1.1.1" => "repose666.rightscale.com",
                              "2.2.2.2" => "repose666.rightscale.com"}
       end
     end
 
     context :request do
       before(:each) do
+        @hostnames_hash = {'1.1.1.1' => 'repose666.rightscale.com'}
+        @ip = @hostnames_hash.keys.first
+        ReposeDownloader.class_eval { class_variable_set(:@@hostnames_hash, {'1.1.1.1' => 'repose666.rightscale.com'}) }
+        ReposeDownloader.class_eval { class_variable_set(:@@hostnames, ['repose666.rightscale.com']) }
+
         @connection = flexmock(:repose_connection)
-        flexmock(@downloader).should_receive(:next_repose_server).
-          and_return(["a-server", @connection])
+        @balancer   = TestRequestBalancer.new(:iterations => 1, :ip => @ip)
+
+        flexmock(@downloader).should_receive(:make_connection).and_return(@connection)
+        flexmock(@downloader).should_receive(:balancer).and_return(@balancer)
+
 
         @request = Net::HTTP::Get.new("/#{@scope}/#{@resource}")
         @request['Cookie'] = 'repose_ticket=ticket'
-        @request['Host'] = 'a-server'
+        @request['Host'] = @host
       end
 
       it 'should download things that actually exist' do
         response = Net::HTTPSuccess.new("1.1", "200", "everything good")
-
         @connection.should_receive(:request).with(FlexMock.on {|hash|
                                                     hash[:protocol] == "https" &&
-                                                    hash[:server] == "a-server" &&
+                                                    hash[:server] == @ip &&
                                                     hash[:port] == "443" &&
                                                     hash[:request].inspect == @request.inspect
                                                   }, Proc).yields(response).once
@@ -96,7 +115,7 @@ module RightScale
 
         @connection.should_receive(:request).with(FlexMock.on {|hash|
                                                     hash[:protocol] == "https" &&
-                                                    hash[:server] == "a-server" &&
+                                                    hash[:server] == @ip &&
                                                     hash[:port] == "443" &&
                                                     hash[:request].inspect == @request.inspect
                                                   }, Proc).yields(response).once
@@ -108,15 +127,16 @@ module RightScale
         ugly_response = Net::HTTPInternalServerError.new("1.1", "500", "everything ugly")
         good_response = Net::HTTPSuccess.new("1.1", "200", "everything good")
 
+        @balancer.iterations = 3
         @connection.should_receive(:request).with(FlexMock.on {|hash|
                                                     hash[:protocol] == "https" &&
-                                                    hash[:server] == "a-server" &&
+                                                    hash[:server] == @ip &&
                                                     hash[:port] == "443" &&
                                                     hash[:request].inspect == @request.inspect
                                                   }, Proc).
-          yields(bad_response).
-          yields(ugly_response).
-          yields(good_response).times(3)
+        yields(bad_response).
+        yields(ugly_response).
+        yields(good_response).times(3)
         flexmock(@downloader).should_receive(:snooze).with(0).returns(true).once
         flexmock(@downloader).should_receive(:snooze).with(1).returns(true).once
         @downloader.request {|r| r.should === good_response}
@@ -125,17 +145,18 @@ module RightScale
       it 'should eventually stop retrying' do
         bad_response = Net::HTTPNotFound.new("1.1", "404", "everything missing")
 
+        @balancer.iterations = 3
         @connection.should_receive(:request).with(FlexMock.on {|hash|
                                                     hash[:protocol] == "https" &&
-                                                    hash[:server] == "a-server" &&
+                                                    hash[:server] == @ip &&
                                                     hash[:port] == "443" &&
                                                     hash[:request].inspect == @request.inspect
                                                   }, Proc).
-          yields(bad_response).at_least.once
+        yields(bad_response).at_least.once
         flexmock(@downloader).should_receive(:snooze).with(0).returns(true).once
         flexmock(@downloader).should_receive(:snooze).with(1).returns(true).once
         flexmock(@downloader).should_receive(:snooze).with(2).returns(false).once
-        lambda { @downloader.request }.should raise_exception(TestException) {|e| e.reason == "too many attempts"}
+        lambda { @downloader.request }.should raise_exception(TestException) {|e| e.reason == "Request for 'resource' failed - giving up after '2' attempts!"}
       end
     end
   end
