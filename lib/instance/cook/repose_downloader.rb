@@ -88,12 +88,11 @@ module RightScale
       attempts = 0
       balancer.request do |ip|
         host = @@hostnames_hash[ip]
-        resource = @resource.split('?')[0]
+        sanitized_resource = @resource.split('?').first
         RightSupport::Net::SSL.with_expected_hostname(host) do
           connection = make_connection
-          Log.info("Requesting 'https://#{ip}:443/#{@scope}/#{resource}' from '#{host}'")
+          Log.info("Requesting 'https://#{ip}:443/#{@scope}/#{sanitized_resource}' from '#{host}'")
           request = Net::HTTP::Get.new("/#{@scope}/#{@resource}")
-          request['Cookie'] = "repose_ticket=#{@ticket}"
           request['Host'] = ip
 
           connection.request(:protocol => 'https', :server => ip,
@@ -103,13 +102,13 @@ module RightScale
               @failures = 0
               yield response
             elsif response.kind_of?(Net::HTTPServerError) || response.kind_of?(Net::HTTPNotFound)
-              Log.warning("Request for '#{resource}' failed - #{response.class.name} - retry")
+              Log.warning("Request for '#{sanitized_resource}' failed - #{response.class.name} - retry")
               unless snooze(attempts)
-                Log.error("Request for '#{resource}' failed - giving up after '#{attempts}' attempts!")
+                Log.error("Request for '#{sanitized_resource}' failed - giving up after '#{attempts}' attempts!")
                 raise @exception, [@scope, @resource, @name, "gave up after '#{attempts}' attempts"]
               end
             else
-              Log.error("Request '#{resource}' failed - #{response.class.name} - give up")
+              Log.error("Request '#{sanitized_resource}' failed - #{response.class.name} - give up")
               raise @exception, [@scope, @resource, @name, response]
             end
 
