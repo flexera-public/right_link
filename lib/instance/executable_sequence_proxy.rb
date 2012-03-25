@@ -79,7 +79,11 @@ module RightScale
       @succeeded = true
 
       # update CookState with the latest instance before launching Cook
-      CookState.update(InstanceState)
+      RightScale::AgentTagsManager.instance.tags do |tags|
+        current_state = InstanceState.dup
+        current_state.startup_tags = tags
+        CookState.update(InstanceState)
+      end
 
       input_text = "#{MessageEncoder.for_agent(InstanceState.identity).encode(@context.payload)}\n"
 
