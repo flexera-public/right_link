@@ -274,17 +274,6 @@ EOF
       (FileUtils.rm_rf(PowershellProviderSpec::TEST_TEMP_PATH) rescue nil) if File.directory?(PowershellProviderSpec::TEST_TEMP_PATH)
     end
 
-    def log_contains(str_to_match)
-      # remove newlines and spaces
-      expected_message = Regexp.escape(str_to_match.gsub(/\s+/, ""))
-
-      # un-escape the escaped regex strings
-      expected_message.gsub!("\\.\\*", ".*")
-
-      # should contain the expected exception
-      @logger.info_text.gsub(/\s+/, "").should match(expected_message)
-    end
-
     before(:each) do
       RightScale::Log.level = :debug
     end
@@ -448,10 +437,10 @@ At .*:3 char:8
   + FullyQualifiedErrorId : System.IndexOutOfRangeException
 EOF
       # the log should contain the error
-      log_contains(message_format)
+      log_should_contain_text(:info, message_format)
 
       # should not contain output after the exception was thrown
-      (@logger.info_text.gsub(/\s+/, "") =~ /Should never get here/).should be_nil
+      log_should_not_contain_text(:info, 'Should never get here')
     end
 
     it "should fail when a powershell script succeeds with a non-empty error list" do
@@ -470,9 +459,9 @@ At .*:2 char:5
   + FullyQualifiedErrorId : PathNotFound,Microsoft.PowerShell.Commands.SetLocationCommand
 EOF
       stderr_match2 = "WARNING: Script exited successfully but $Error contained 1 error(s)."
-      log_contains(stdout_match)
-      log_contains(stderr_match1)
-      log_contains(stderr_match2)
+      log_should_contain_text(:info, stdout_match)
+      log_should_contain_text(:info, stderr_match1)
+      log_should_contain_text(:info, stderr_match2)
     end
 
     it "should exit chef converge when a powershell script invokes rs_shutdown --reboot --immediately" do

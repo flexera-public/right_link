@@ -59,17 +59,6 @@ EOF
     (FileUtils.rm_rf(RubyBlockProviderSpec::TEST_TEMP_PATH) rescue nil) if File.directory?(RubyBlockProviderSpec::TEST_TEMP_PATH)
   end
 
-  def log_contains(str_to_match)
-    # remove newlines and spaces
-    expected_message = Regexp.escape(str_to_match.gsub(/\s+/, ""))
-
-    # un-escape the escaped regex strings
-    expected_message.gsub!("\\.\\*", ".*")
-
-    # should contain the expected exception
-    @logger.info_text.gsub(/\s+/, "").should match(expected_message)
-  end
-
   it_should_behave_like 'generates cookbook for chef runner'
   it_should_behave_like 'mocks logging'
   it_should_behave_like 'mocks state'
@@ -81,7 +70,8 @@ EOF
         RubyBlockProviderSpec::TEST_COOKBOOKS_PATH,
         'test::log_test_recipe') }
     runner.call.should be_true
-    log_contains('Logged stuff')
+    log_should_be_empty(:error)
+    log_should_contain_text(:info, 'Logged stuff')
   end
 
   it "should log line of recipe execution where exceptions are raised" do
@@ -90,8 +80,8 @@ EOF
         RubyBlockProviderSpec::TEST_COOKBOOKS_PATH,
         'test::explosion_test_recipe') }
     runner.should raise_exception(::RubyBlockProviderSpec::CustomError)
-    log_contains('Prepare to explode...')
-    @logger.error_text.should == ''
+    log_should_be_empty(:error)
+    log_should_contain_text(:info, 'Prepare to explode...')
   end
 
 end
