@@ -78,7 +78,7 @@ shared_examples_for 'mocks logging' do
 
     # should contain the expected exception
     kind = (level.to_s + '_text').to_sym
-    (@logger.send(kind).gsub(/\s+/, '') =~ expected_message).should be_nil
+    @logger.send(kind).gsub(/\s+/, '').should_not match(expected_message)
   end
 
   # Asserts the given logger level has no logged messages.
