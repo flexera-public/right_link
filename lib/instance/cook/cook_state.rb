@@ -209,7 +209,7 @@ module RightScale
       @startup_tags = overrides[:startup_tags] if overrides.has_key?(:startup_tags)
       @reboot       = overrides[:reboot]       if overrides.has_key?(:reboot)
       @log_level    = overrides[:log_level]    if overrides.has_key?(:log_level)
-      @log_file     = overrides[:value]        if overrides.has_key?(:log_file) && overrides.has_key?(:value)
+      @log_file     = overrides[:log_file]     if overrides.has_key?(:log_file)
 
       save_state
 
