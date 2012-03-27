@@ -159,8 +159,6 @@ module RightScale
         state = RightScale::JsonUtilities::read_json(STATE_FILE)
         Log.debug("Initializing instance #{identity} with #{state.inspect}")
 
-        @resource_uid = current_resource_uid
-
         # Initial state reconciliation: use recorded state and boot timestamp to determine how we last stopped.
         # There are four basic scenarios to worry about:
         #  1) first run          -- Agent is starting up for the first time after a fresh install
