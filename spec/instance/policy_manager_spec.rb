@@ -34,6 +34,9 @@ describe RightScale::PolicyManager do
   
   before(:each) do
     @policy_name = "policy_name"
+    mock_audit = flexmock('audit')
+    mock_audit.should_receive(:audit_id).and_return(rand**32)
+    flexmock(RightScale::AuditProxy).should_receive(:create).and_return(mock_audit)
   end
   
   context :success do

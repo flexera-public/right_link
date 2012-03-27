@@ -90,7 +90,6 @@ module RightScale
       self.get_policy(policy_name).count
     end
     
-    
     # Returns the policy associated with the given policy name
     #
     # === Parameters
@@ -99,7 +98,13 @@ module RightScale
     # === Return
     # result(Policy):: Policy object
     def self.get_policy(policy_name)
-      self.policy.has_key?(policy_name) ? self.policy[policy_name] : self.policy[policy_name] = Policy.new(policy_name)
+      policy = self.policy[policy_name] ||= Policy.new(policy_name)
+      unless policy.audit_id
+        RightScale::AuditProxy.create(InstanceState.identity, policy.name) do |audit|
+          policy.audit_id = audit.audit_id
+        end
+      end
+      policy
     end
     
   end
