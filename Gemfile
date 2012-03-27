@@ -13,8 +13,8 @@ gem "right_scraper",           "3.0.1"
 # to RightScale. Gems in the "custom" group are published by RightScale to our
 # custom gem repository (http://s3.amazonaws.com/rightscale_rightlink_gems_dev).
 group :custom do
-  gem "ohai",                  "0.6.11.1"
-  gem "chef",                  "0.10.8.1"
+  gem "ohai",                  "0.6.11.2"
+  gem "chef",                  "0.10.8.2"
   gem "eventmachine",          "0.12.11.6"
 end
 

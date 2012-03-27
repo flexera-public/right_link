@@ -55,11 +55,13 @@ describe Chef::Provider::ExecutableSchedule do
     @resource.weekday('1')
     @resource.instance_eval { @cron_resource.user('testuser') }
     @resource.recipe("testrecipe")
-    flexmock(Chef::Log).should_receive(:info)
   end
+
+  it_should_behave_like 'mocks logging'
 
   it "should be registered with the default platform hash" do
     Chef::Platform.platforms[:default][:executable_schedule].should_not be_nil
+    log_should_be_empty(:error)
   end
 
   it "should create a schedule if one with the same name doesnt exist" do
@@ -81,6 +83,9 @@ describe Chef::Provider::ExecutableSchedule do
       @provider = Chef::Provider::ExecutableSchedule.new(@resource, @run_context)
       @provider.load_current_resource
       [:minute, :hour, :day, :month, :weekday].each { |attr| @provider.current_resource.send(attr).should == @resource.send(attr) }
+      log_should_be_empty(:error)
+      log_should_contain_text(:info, 'added crontab entry')  # from cron provider
+      log_should_contain_text(:info, '1 1 1 1 1 rs_run_recipe -n testrecipe')  # from cron output
     ensure
       `crontab -r`
     end
@@ -106,6 +111,9 @@ describe Chef::Provider::ExecutableSchedule do
       @provider = Chef::Provider::ExecutableSchedule.new(@resource2, @run_context)
       @provider.load_current_resource
       [:minute, :hour, :day, :month, :weekday].each { |attr| @provider.current_resource.send(attr).should == @resource2.send(attr) }
+      log_should_be_empty(:error)
+      log_should_contain_text(:info, 'added crontab entry')  # from cron provider
+      log_should_contain_text(:info, '2 2 2 2 2')  # from cron output
     ensure
       `crontab -r`
     end
@@ -128,6 +136,9 @@ describe Chef::Provider::ExecutableSchedule do
       @provider.current_resource.name.should == @resource.name
       [:minute, :hour, :day, :month, :weekday].each { |attr| @provider.current_resource.send(attr).should == "*" }
       @provider.current_resource.command.should == nil
+      log_should_be_empty(:error)
+      log_should_contain_text(:info, 'deleted crontab entry')  # from cron provider
+      log_should_contain_text(:info, "1 1 1 1 1 rs_run_recipe -n testrecipe")  # from cron output
     ensure
       `crontab -r 2>/dev/null`
     end

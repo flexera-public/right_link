@@ -77,17 +77,6 @@ EOF
     (FileUtils.rm_rf(RsShutdownProviderSpec::TEST_TEMP_PATH) rescue nil) if File.directory?(RsShutdownProviderSpec::TEST_TEMP_PATH)
   end
 
-  def log_contains(str_to_match)
-    # remove newlines and spaces
-    expected_message = Regexp.escape(str_to_match.gsub(/\s+/, ""))
-
-    # un-escape the escaped regex strings
-    expected_message.gsub!("\\.\\*", ".*")
-
-    # should contain the expected exception
-    @logger.info_text.gsub(/\s+/, "").should match(expected_message)
-  end
-
   before(:each) do
     RightScale::Log.level = :debug
   end
