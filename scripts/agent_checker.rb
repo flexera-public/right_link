@@ -182,6 +182,7 @@ module RightScale
 
         # Attach to log used by instance agent
         Log.program_name = 'RightLink'
+        Log.facility = 'user'
         Log.log_to_file_only(@agent[:log_to_file_only])
         Log.init(@agent[:identity], @options[:log_path], :print => true)
         Log.level = :debug if @options[:verbose]
