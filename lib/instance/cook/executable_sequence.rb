@@ -132,13 +132,12 @@ module RightScale
     # result(String):: Thread name of this bundle
     def get_thread_name_from_bundle(bundle) 
       thread_name = nil
-      thread_name = bundle.runlist_policy.thread_name if bundle.respond_to?(:runlist_policy)
+      thread_name = bundle.runlist_policy.thread_name if bundle.respond_to?(:runlist_policy) && bundle.runlist_policy
       Log.warn("Encountered a nil thread name unexpectedly, defaulting to '#{RightScale::AgentConfig.default_thread_name}'") unless thread_name
       thread_name ||= RightScale::AgentConfig.default_thread_name
       unless thread_name =~ RightScale::AgentConfig.valid_thread_name
         raise ArgumentError, "Invalid thread name #{thread_name.inspect}"
       end
-      bundle.runlist_policy.thread_name = thread_name
       thread_name
     end
 

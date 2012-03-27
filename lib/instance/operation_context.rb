@@ -46,7 +46,7 @@ module RightScale
       @payload = payload
       @audit = audit
       @decommission = decommission
-      @thread_name = payload.respond_to?(:runlist_policy) ? payload.runlist_policy.thread_name : ::RightScale::AgentConfig.default_thread_name
+      @thread_name = payload.respond_to?(:runlist_policy) && payload.runlist_policy ? payload.runlist_policy.thread_name : ::RightScale::AgentConfig.default_thread_name
     end
 
   end
