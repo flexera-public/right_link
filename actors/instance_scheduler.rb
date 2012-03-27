@@ -63,7 +63,11 @@ class InstanceScheduler
   # res(RightScale::OperationResult):: Always returns success
   def schedule_bundle(bundle)
     unless bundle.executables.empty?
-      audit = RightScale::AuditProxy.new(bundle.audit_id)
+      if get_policy_name_from_bundle(bundle)
+        audit = RightScale::NullAudit.new(RightScale::PolicyManager.get_policy(bundle.runlist_policy.policy_name).audit_id)
+      else
+        audit = RightScale::AuditProxy.new(bundle.audit_id)
+      end
 
       thread_name = get_thread_name_from_bundle(bundle)
       if thread_name == RightScale::AgentConfig.default_thread_name
@@ -104,6 +108,19 @@ class InstanceScheduler
       raise ArgumentError, "Invalid thread name #{thread_name.inspect}"
     end
     thread_name
+  end
+  
+  # FIX: This code can be removed once the core sends a runlist policy
+  #
+  # === Parameters
+  # bundle(ExecutableBundle):: An executable bundle
+  #
+  # === Return
+  # result(String):: Policy name of this bundle
+  def get_policy_name_from_bundle(bundle)
+    policy_name = nil
+    policy_name ||= bundle.runlist_policy.policy_name if bundle.respond_to?(:runlist_policy) && bundle.runlist_policy
+    policy_name
   end
 
   # Schedules a shutdown by appending it to the bundles queue.

@@ -215,6 +215,7 @@ describe RightScale::ExecutableSequence do
       runlist_policy = flexmock('runlist_policy')
       runlist_policy.should_receive(:thread_name).and_return(RightScale::AgentConfig.default_thread_name)
       runlist_policy.should_receive(:thread_name=).and_return(true)
+      runlist_policy.should_receive(:policy_name).and_return(nil)
 
       bundle = flexmock('ExecutableBundle')
       bundle.should_receive(:repose_servers).and_return([]).by_default
@@ -268,6 +269,7 @@ describe RightScale::ExecutableSequence do
       runlist_policy = flexmock('runlist_policy')
       runlist_policy.should_receive(:thread_name).and_return(RightScale::AgentConfig.default_thread_name)
       runlist_policy.should_receive(:thread_name=).and_return(true)
+      runlist_policy.should_receive(:policy_name).and_return(nil)
       
       bundle = flexmock('ExecutableBundle')
       bundle.should_receive(:repose_servers).and_return([]).by_default

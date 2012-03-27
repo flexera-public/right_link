@@ -91,7 +91,7 @@ module RightScale
       @download_path          = File.join(AgentConfig.cookbook_download_dir, @thread_name)
       @powershell_providers   = nil
       @ohai_retry_delay       = OHAI_RETRY_MIN_DELAY
-      @audit                  = AuditStub.instance
+      @audit                  = get_policy_name_from_bundle(bundle) ? NullAudit : AuditStub.instance
       @logger                 = Log
       @repose_class           = ReposeDownloader.select_repose_class
       @cookbook_repo_retriever= CookbookRepoRetriever.new(CookState.cookbooks_path,
@@ -139,6 +139,19 @@ module RightScale
         raise ArgumentError, "Invalid thread name #{thread_name.inspect}"
       end
       thread_name
+    end
+    
+    # FIX: This code can be removed once the core sends a runlist policy
+    #
+    # === Parameters
+    # bundle(ExecutableBundle):: An executable bundle
+    #
+    # === Return
+    # result(String):: Policy name of this bundle
+    def get_policy_name_from_bundle(bundle)
+      policy_name = nil
+      policy_name ||= bundle.runlist_policy.policy_name if bundle.respond_to?(:runlist_policy) && bundle.runlist_policy
+      policy_name
     end
 
     # Run given executable bundle
