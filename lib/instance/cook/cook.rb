@@ -47,6 +47,7 @@ module RightScale
       agent_id  = options[:identity]
 
       Log.program_name = 'RightLink'
+      Log.facility = 'user'
       Log.log_to_file_only(options[:log_to_file_only])
       Log.init(agent_id, options[:log_path])
       Log.level = CookState.log_level

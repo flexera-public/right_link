@@ -52,6 +52,7 @@ module RightScale
 
     def configure_logging
       Log.program_name = 'RightLink'
+      Log.facility = 'user'
       Log.log_to_file_only(false)
       Log.level = Logger::INFO
       FileUtils.mkdir_p(File.dirname(InstanceState::BOOT_LOG_FILE))
