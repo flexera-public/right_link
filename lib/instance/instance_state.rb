@@ -150,6 +150,9 @@ module RightScale
 
       Sender.instance.message_received { message_received } unless @read_only
 
+      # need to grab the current resource uid whether there is a state file or not.
+      @resource_uid = current_resource_uid
+
       dir = File.dirname(STATE_FILE)
       FileUtils.mkdir_p(dir) unless File.directory?(dir)
       if File.file?(STATE_FILE)
