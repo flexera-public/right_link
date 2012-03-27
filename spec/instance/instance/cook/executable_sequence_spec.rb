@@ -67,7 +67,7 @@ module RightScale
         bundle = RightScale::PayloadFactory.make_bundle()
         ExecutableSequence.new(bundle)
         
-        bundle.thread_name.should_not be_nil
+        bundle.runlist_policy.thread_name.should_not be_nil
       end
       
       it 'should Log if it receives a bundle with a nil thread name' do

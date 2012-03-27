@@ -68,7 +68,7 @@ module RightScale
 
       fail('Missing bundle', 'No bundle to run') if bundle.nil?
 
-      @thread_name = bundle.thread_name || RightScale::AgentConfig.default_thread_name
+      @thread_name = bundle.runlist_policy.thread_name || RightScale::AgentConfig.default_thread_name
       options[:thread_name] = @thread_name
 
       # Chef state needs the agent id so it can read and write state

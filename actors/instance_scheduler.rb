@@ -65,10 +65,10 @@ class InstanceScheduler
     unless bundle.executables.empty?
       audit = RightScale::AuditProxy.new(bundle.audit_id)
 
-      if bundle.thread_name == RightScale::AgentConfig.default_thread_name
+      if bundle.runlist_policy.thread_name == RightScale::AgentConfig.default_thread_name
         on_thread = ''
       else
-        on_thread = " on #{bundle.thread_name}"
+        on_thread = " on #{bundle.runlist_policy.thread_name}"
       end
 
       if @bundle_queue.busy?

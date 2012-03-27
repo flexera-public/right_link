@@ -81,19 +81,8 @@ module RightScale
     # === Parameter
     # bundle(RightScale::ExecutableBundle):: Bundle to be run
     def initialize(bundle)
-      # FIX: thread_name should never be nil from the core in future, but
-      # temporarily we must supply the default thread_name before if nil. in
-      # future we should fail execution when thread_name is reliably present and
-      # for any reason does not match ::RightScale::AgentConfig.valid_thread_name
-      # see also ExecutableSequenceProxy#initialize
-      Log.warn("Encountered a nil thread name unexpectedly, defaulting to '#{RightScale::AgentConfig.default_thread_name}'") unless bundle.thread_name
-      bundle.thread_name ||= RightScale::AgentConfig.default_thread_name
-      unless bundle.thread_name =~ RightScale::AgentConfig.valid_thread_name
-        raise ArgumentError, "Invalid thread name #{bundle.thread_name.inspect}"
-      end
-
       @description            = bundle.to_s
-      @thread_name            = bundle.thread_name
+      @thread_name            = get_thread_name_from_bundle(bundle)
       @right_scripts_cookbook = RightScriptsCookbook.new(@thread_name)
       @scripts                = bundle.executables.select { |e| e.is_a?(RightScriptInstantiation) }
       recipes                 = bundle.executables.map { |e| e.is_a?(RecipeInstantiation) ? e : @right_scripts_cookbook.recipe_from_right_script(e) }
@@ -128,6 +117,29 @@ module RightScale
       # Retrieve node attributes and deep merge in inputs
       @attributes = ChefState.attributes
       RightScale::HashHelper.deep_merge!(@attributes, @inputs)
+    end
+    
+    # FIX: thread_name should never be nil from the core in future, but
+    # temporarily we must supply the default thread_name before if nil. in
+    # future we should fail execution when thread_name is reliably present and
+    # for any reason does not match ::RightScale::AgentConfig.valid_thread_name
+    # see also ExecutableSequenceProxy#initialize
+    #
+    # === Parameters
+    # bundle(ExecutableBundle):: An executable bundle
+    #
+    # === Return
+    # result(String):: Thread name of this bundle
+    def get_thread_name_from_bundle(bundle) 
+      thread_name = nil
+      thread_name = bundle.runlist_policy.thread_name if bundle.respond_to?(:runlist_policy)
+      Log.warn("Encountered a nil thread name unexpectedly, defaulting to '#{RightScale::AgentConfig.default_thread_name}'") unless thread_name
+      thread_name ||= RightScale::AgentConfig.default_thread_name
+      unless thread_name =~ RightScale::AgentConfig.valid_thread_name
+        raise ArgumentError, "Invalid thread name #{thread_name.inspect}"
+      end
+      bundle.runlist_policy.thread_name = thread_name
+      thread_name
     end
 
     # Run given executable bundle
