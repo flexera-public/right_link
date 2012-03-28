@@ -91,7 +91,7 @@ module RightScale
       @download_path          = File.join(AgentConfig.cookbook_download_dir, @thread_name)
       @powershell_providers   = nil
       @ohai_retry_delay       = OHAI_RETRY_MIN_DELAY
-      @audit                  = get_policy_name_from_bundle(bundle) ? NullAudit : AuditStub.instance
+      @audit                  = AuditStub.instance
       @logger                 = Log
       @repose_class           = ReposeDownloader.select_repose_class
       @cookbook_repo_retriever= CookbookRepoRetriever.new(CookState.cookbooks_path,
