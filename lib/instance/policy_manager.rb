@@ -36,7 +36,7 @@ module RightScale
       policy.count = policy.count + 1
       timestamp = Time.now
       if timestamp - policy.audit_timestamp >= policy.audit_period
-        policy.audit.audit.append_info("Policy #{policy.policy_name} has successfully run #{policy.count} times in the last #{policy.audit_period} seconds")
+        policy.audit.audit.append_info("Reconvergence policy '#{policy.policy_name}' has successfully run #{policy.count} times in the last #{policy.audit_period} seconds")
         policy.audit_timestamp = timestamp
         policy.count = 0
       end

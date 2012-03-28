@@ -23,7 +23,7 @@ module RightScale
 
       RightScale::AuditProxy.create(RightScale::InstanceState.identity, "Policy #{policy_name}") do |audit|
         @audit = RightScale::PolicyAudit.new(audit)
-        audit.append_info("First run of policy #{policy_name}")
+        audit.append_info("First run of reconvergence Policy: '#{policy_name}'")
         @audit_timestamp = Time.now
       end
     end
