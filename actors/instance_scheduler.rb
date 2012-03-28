@@ -63,7 +63,7 @@ class InstanceScheduler
   # res(RightScale::OperationResult):: Always returns success
   def schedule_bundle(bundle)
     unless bundle.executables.empty?
-      audit = RightScale::PolicyManager.get_audit_for(bundle) || RightScale::AuditProxy.new(bundle.audit_id)
+      audit = RightScale::PolicyManager.get_audit(bundle) || RightScale::AuditProxy.new(bundle.audit_id)
 
       thread_name = get_thread_name_from_bundle(bundle)
       if thread_name == RightScale::AgentConfig.default_thread_name

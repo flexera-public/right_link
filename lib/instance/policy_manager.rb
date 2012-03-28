@@ -1,132 +1,96 @@
+#--
+# Copyright (c) 2012 RightScale, Inc, All Rights Reserved Worldwide.
 #
-# Copyright (c) 2009-2012 RightScale Inc
-#
-# Permission is hereby granted, free of charge, to any person obtaining
-# a copy of this software and associated documentation files (the
-# "Software"), to deal in the Software without restriction, including
-# without limitation the rights to use, copy, modify, merge, publish,
-# distribute, sublicense, and/or sell copies of the Software, and to
-# permit persons to whom the Software is furnished to do so, subject to
-# the following conditions:
-#
-# The above copyright notice and this permission notice shall be
-# included in all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-# NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
-# LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-# OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
-# WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+# THIS PROGRAM IS CONFIDENTIAL AND PROPRIETARY TO RIGHTSCALE
+# AND CONSTITUTES A VALUABLE TRADE SECRET.  Any unauthorized use,
+# reproduction, modification, or disclosure of this program is
+# strictly prohibited.  Any use of this program by an authorized
+# licensee is strictly subject to the terms and conditions,
+# including confidentiality obligations, set forth in the applicable
+# License Agreement between RightScale, Inc. and
+# the licensee.
+#++
 
 module RightScale
 
   # Manages policies
   class PolicyManager
-    # Hash of policy classes keyed by policy name
+    class << self
+      attr_reader :policy
+    end
+
+    # Policy hash keyed by policy name
     @policy = Hash.new
-    
-    # Signals the successful execution of a recipe with the given policy name
+
+    # Signals the successful execution of a right script or recipe with the given bundle
     #
     # === Parameters
-    # policy_name(String):: name of the policy
+    # bundle(ExecutableBundle):: bundle containing a RunlistPolicy
     #
     # === Return
-    # true:: Always return true
-    def self.success(policy_name)
-      policy = self.get_policy(policy_name)
+    # result(Boolean):: Return false if the bundle fails to provide a valid runlist policy
+    def self.success(bundle)
+      policy = self.get_policy_from_bundle(bundle)
+      return false unless policy
+
       policy.count = policy.count + 1
+      timestamp = Time.now
+      if timestamp - policy.audit_timestamp >= policy.audit_period
+        policy.audit.audit.append_info("Policy #{policy.name} has successfully run #{policy.count} times in the last #{policy.audit_period} seconds")
+        policy.audit_timestamp = timestamp
+      end
       true
     end
-    
-    # Signals the failed execution of a recipe with the given policy name
+
+    # Signals the failed execution of a recipe with the given bundle
     #
     # === Parameters
-    # policy_name(String):: name of the policy
+    # bundle(ExecutableBundle):: bundle containing a RunlistPolicy
     #
     # === Return
-    # true:: Always return true
-    def self.fail(policy_name)
-      self.get_policy(policy_name).count = 0
+    # result(Boolean):: Return false if the bundle fails to provide a valid runlist policy
+    def self.fail(bundle)
+      policy = self.get_policy_from_bundle(bundle)
+      return false unless policy
+      policy.count = 0
       true
     end
 
-    def self.get_audit(bundle)
-
-    end
-
-    def self.reset
-      @policy.clear
-    end
-    private
-
-    # Accessor method for policy hash
-    def self.policy
-      @policy
-    end
-
+    # Returns the audit for the given policy of the bundle
+    #
     # === Parameters
     # bundle(ExecutableBundle):: An executable bundle
     #
     # === Return
-    # result(String):: Policy name of this bundle
-    def get_policy_name_from_bundle(bundle)
-      policy_name = nil
-      policy_name ||= bundle.runlist_policy.policy_name if bundle.respond_to?(:runlist_policy) && bundle.runlist_policy
-      policy_name
+    # result(PolicyAudit):: a PolicyAudit instance that wraps AuditProxy
+    def self.get_audit(bundle)
+      policy = self.get_policy_from_bundle(bundle)
+      policy ? policy.audit : nil
     end
 
-    # Returns the audit ID associated with the given policy
-    #
-    # === Parameters
-    # policy_name(String):: name of the policy
-    #
-    # === Return
-    # result(Integer):: Audit ID associated with this policy
-    def self.audit_id_for(policy_name)
-      self.get_policy(policy_name).audit_id
+    def self.reset
+       @policy.clear
     end
-    
-    # Returns the timestamp of the last audit of a recipe with the given policy name
+
+    private
+
+    # Returns the policy that matches the bundle or creates a new one
     #
     # === Parameters
-    # policy_name(String):: name of the policy
+    # bundle(ExecutableBundle):: An executable bundle
     #
     # === Return
-    # result(Integer):: UNIX Timestamp
-    def self.last_audit_for(policy_name)
-      self.get_policy(policy_name).audit_timestamp
-    end
-    
-    # Returns the number of successful runs of the recipe with the given policy name since the last time it audited
-    #
-    # === Parameters
-    # policy_name(String):: name of the policy
-    #
-    # === Return
-    # result(Integer):: UNIX Timestamp
-    def self.success_count_for(policy_name)
-      self.get_policy(policy_name).count
-    end
-    
-    # Returns the policy associated with the given policy name
-    #
-    # === Parameters
-    # policy_name(String):: name of the policy
-    #
-    # === Return
-    # result(Policy):: Policy object
-    def self.get_policy(policy_name)
-      policy = self.policy[policy_name] ||= Policy.new(policy_name)
-      unless policy.audit_id
-        RightScale::AuditProxy.create(InstanceState.identity, policy.name) do |audit|
-          policy.audit_id = audit.audit_id
-        end
+    # result(Policy):: Policy based on the bundle's RunlistPolicy or nil
+    def self.get_policy_from_bundle(bundle)
+      runlist_policy = bundle.runlist_policy if bundle.respond_to?(:runlist_policy)
+      policy = nil
+      if runlist_policy && runlist_policy.policy_name
+        @policy[runlist_policy.policy_name] ||= Policy.new(runlist_policy.policy_name, runlist_policy.audit_period)
+        policy = @policy[runlist_policy.policy_name]
       end
       policy
     end
-    
+
   end
 
 end

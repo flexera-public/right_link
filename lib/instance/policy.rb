@@ -1,35 +1,31 @@
+#--
+# Copyright (c) 2012 RightScale, Inc, All Rights Reserved Worldwide.
 #
-# Copyright (c) 2009-2012 RightScale Inc
-#
-# Permission is hereby granted, free of charge, to any person obtaining
-# a copy of this software and associated documentation files (the
-# "Software"), to deal in the Software without restriction, including
-# without limitation the rights to use, copy, modify, merge, publish,
-# distribute, sublicense, and/or sell copies of the Software, and to
-# permit persons to whom the Software is furnished to do so, subject to
-# the following conditions:
-#
-# The above copyright notice and this permission notice shall be
-# included in all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-# NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
-# LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-# OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
-# WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+# THIS PROGRAM IS CONFIDENTIAL AND PROPRIETARY TO RIGHTSCALE
+# AND CONSTITUTES A VALUABLE TRADE SECRET.  Any unauthorized use,
+# reproduction, modification, or disclosure of this program is
+# strictly prohibited.  Any use of this program by an authorized
+# licensee is strictly subject to the terms and conditions,
+# including confidentiality obligations, set forth in the applicable
+# License Agreement between RightScale, Inc. and
+# the licensee.
+#++
 
 module RightScale
 
   class Policy
-    attr_accessor :name, :audit_id, :count, :audit_timestamp
+    attr_accessor :policy_name, :audit_period, :audit, :count, :audit_timestamp
     
-    def initialize(name, audit_id = nil, count = 0, audit_timestamp = 0)
-      @name                 = name
-      @audit_id             = audit_id
-      @count                = count
-      @audit_timestamp      = audit_timestamp
+    def initialize(policy_name, audit_period)
+      @policy_name  = policy_name
+      @audit_period = audit_period
+      @count = 0
+
+      RightScale::AuditProxy.create(RightScale::InstanceState.identity, "Policy #{policy_name}") do |audit|
+        @audit = RightScale::PolicyAudit.new(audit)
+        audit.append_info("First run of policy #{policy_name}")
+        @audit_timestamp = Time.now
+      end
     end
   end
   

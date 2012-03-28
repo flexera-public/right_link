@@ -29,11 +29,12 @@ describe RightScale::ExecutableSequenceProxy do
   it_should_behave_like 'mocks cook'
 
   let(:thread_name) {'some_thread_name'}
+  let(:policy_name) {'some_policy_name'}
 
   before(:each) do
     setup_state('rs-instance-1-1')
-    @audit = flexmock('audit')
-    @runlist_policy = flexmock('runlist policy', :thread_name => thread_name)
+    @audit = flexmock('audit', :append_info => true)
+    @runlist_policy = flexmock('runlist policy', :thread_name => thread_name, :policy_name => policy_name, :audit_period => 120)
     @bundle = flexmock('bundle', :runlist_policy => @runlist_policy)
     @bundle.should_receive(:to_json).and_return("[\"some json\"]")
     @context = flexmock('context', :audit => @audit, :payload => @bundle, :decommission => false, :thread_name => thread_name)
