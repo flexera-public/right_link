@@ -169,6 +169,7 @@ describe InstanceSetup do
 
   include RightScale::SpecHelper
 
+  it_should_behave_like 'mocks metadata'
   it_should_behave_like 'mocks shutdown request'
 
   before(:all) do

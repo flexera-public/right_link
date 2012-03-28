@@ -479,8 +479,15 @@ shared_examples_for 'mocks metadata' do
     RightScale::AgentConfig.cloud_state_dir = File.join(@output_dir_path, 'var', 'spool')
     FileUtils.mkdir_p(File.join(RightScale::AgentConfig.cloud_state_dir, 'none'))
     FileUtils.touch([File.join(RightScale::AgentConfig.cloud_state_dir, 'user-data.rb'),
-                     File.join(RightScale::AgentConfig.cloud_state_dir, 'none', 'user-data.txt'),
-                     File.join(RightScale::AgentConfig.cloud_state_dir, 'meta-data-cache.rb')])
+                     File.join(RightScale::AgentConfig.cloud_state_dir, 'none', 'user-data.txt')])
+
+    # need to ensure mocked EC2_INSTANCE_ID is nil when loaded from cache to
+    # avoid breaking specs which expect no initial state. the problem is that
+    # some existing specs load the real cloud metadata cache on the CI machine
+    # and it's hard to ensure that they don't leak into other specs.
+    ::File.open(File.join(RightScale::AgentConfig.cloud_state_dir, 'meta-data-cache.rb'), "w") do |f|
+      f.puts "ENV['EC2_INSTANCE_ID'] = nil"
+    end
 
     mock_state_dir_path = File.join(@output_dir_path, 'etc', 'rightscale.d')
     mock_cloud_file_path = File.join(mock_state_dir_path, 'cloud')

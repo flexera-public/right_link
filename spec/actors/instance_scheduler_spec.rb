@@ -55,6 +55,7 @@ describe InstanceScheduler do
   include RightScale::SpecHelper
 
   it_should_behave_like 'mocks shutdown request'
+  it_should_behave_like 'mocks metadata'
 
   describe 'schedule bundles' do
 
