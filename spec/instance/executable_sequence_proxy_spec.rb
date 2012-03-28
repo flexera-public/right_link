@@ -32,7 +32,7 @@ describe RightScale::ExecutableSequenceProxy do
 
   before(:each) do
     setup_state('rs-instance-1-1')
-    @audit = flexmock('audit')
+    @audit = flexmock('audit', :audit_id=>12345)
     @runlist_policy = flexmock('runlist policy', :thread_name => thread_name)
     @bundle = flexmock('bundle', :runlist_policy => @runlist_policy)
     @bundle.should_receive(:to_json).and_return("[\"some json\"]")
