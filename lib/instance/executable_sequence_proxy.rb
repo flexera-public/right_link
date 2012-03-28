@@ -198,9 +198,11 @@ module RightScale
           @audit_close_timeout = nil
         end
         if !@exit_status.success?
+          RightScale::PolicyManager.fail(@context.payload)
           report_failure("Chef process failure", "Chef process failed #{SubprocessFormatting.reason(@exit_status)}")
         else
           @context.succeeded = true
+          RightScale::PolicyManager.success(@context.payload)
           succeed
         end
       elsif @exit_status

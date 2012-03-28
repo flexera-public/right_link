@@ -27,11 +27,6 @@ module RightScale
     # Hash of policy classes keyed by policy name
     @policy = Hash.new
     
-    # Accessor method for policy hash
-    def self.policy
-      @policy
-    end
-    
     # Signals the successful execution of a recipe with the given policy name
     #
     # === Parameters
@@ -56,7 +51,29 @@ module RightScale
       self.get_policy(policy_name).count = 0
       true
     end
-    
+
+    def self.get_audit_for(bundle)
+
+    end
+
+    private
+
+    # Accessor method for policy hash
+    def self.policy
+      @policy
+    end
+
+    # === Parameters
+    # bundle(ExecutableBundle):: An executable bundle
+    #
+    # === Return
+    # result(String):: Policy name of this bundle
+    def get_policy_name_from_bundle(bundle)
+      policy_name = nil
+      policy_name ||= bundle.runlist_policy.policy_name if bundle.respond_to?(:runlist_policy) && bundle.runlist_policy
+      policy_name
+    end
+
     # Returns the audit ID associated with the given policy
     #
     # === Parameters
