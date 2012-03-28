@@ -31,83 +31,149 @@ Spec::Matchers.define :be_the_same_policy_as do |expected|
 end
 
 describe RightScale::PolicyManager do
-  
+  let(:policy_name) {'foo'}
+  let(:bundle_nil_policy) {flexmock('bundle', :runlist_policy => nil) }
+  let(:bundle) {flexmock('bundle', :runlist_policy => flexmock('rlp', :policy_name => policy_name)) }
+
   before(:each) do
-    @policy_name = "policy_name"
-    mock_audit = flexmock('audit')
-    mock_audit.should_receive(:audit_id).and_return(rand**32)
-    flexmock(RightScale::AuditProxy).should_receive(:create).and_return(mock_audit)
+    flexmock(RightScale::AuditProxy).should_receive(:create).and_return(flexmock('audit', :audit_id => rand**32))
+    RightScale::PolicyManager.reset
   end
   
   context :success do
-    it 'should increment the policy success count' do
-      RightScale::PolicyManager.success(@policy_name)
-      RightScale::PolicyManager.get_policy(@policy_name).count.should == 1
+    context 'when the given bundle is nil' do
+      it 'should return false' do
+        RightScale::PolicyManager.success(nil).should be_false
+      end
     end
-    
-    it 'should return true' do
-      RightScale::PolicyManager.success(@policy_name).should == true
+
+    context 'when the given bundle has a nil runlist policy' do
+      it 'should return false' do
+        RightScale::PolicyManager.success(bundle_nil_policy).should be_false
+      end
     end
-    
+
+    context 'when the given bundle refers to an unknown policy' do
+      it 'should return true' do
+        RightScale::PolicyManager.success(bundle).should be_true
+      end
+      it 'should register the unknown policy' do
+        RightScale::PolicyManager.success(bundle)
+        RightScale::PolicyManager.policy[@policy_name].should_not be_nil
+      end
+    end
+
+    context 'when the given bundle refers to an known policy' do
+      it 'should return true' do
+        RightScale::PolicyManager.success(@bundle).should == true
+      end
+      it 'should increment the policy success count' do
+        RightScale::PolicyManager.success(@bundle)
+        RightScale::PolicyManager.get_policy(@policy_name).count.should == 1
+      end
+
+      it 'should increment the policy success count when success called many times' do
+        RightScale::PolicyManager.success(@bundle)
+        RightScale::PolicyManager.success(@bundle)
+        RightScale::PolicyManager.success(@bundle)
+        RightScale::PolicyManager.get_policy(@bundle).count.should == 3
+      end
+    end
   end
   
   context :fail do
-    it 'should reset the policy success count' do
-      RightScale::PolicyManager.get_policy(@policy_name).count = 1
-      RightScale::PolicyManager.fail(@policy_name)
-      RightScale::PolicyManager.get_policy(@policy_name).count.should == 0
+    context 'when the given bundle is nil' do
+      it 'should return false' do
+        RightScale::PolicyManager.fail(nil).should be_false
+      end
     end
-    
-    it 'should return true' do
-      RightScale::PolicyManager.success(@policy_name).should == true
+
+    context 'when the given bundle has a nil runlist policy' do
+      it 'should return false' do
+        RightScale::PolicyManager.fail(bundle_nil_policy).should be_false
+      end
     end
-  end
-  
-  context :audit_id_for do
-    it 'returns the audit ID for the policy' do
-      audit_id = 1
-      policy = RightScale::PolicyManager.get_policy(@policy_name)
-      policy.audit_id = audit_id
-      
-      RightScale::PolicyManager.audit_id_for(@policy_name).should == audit_id
+
+    context 'when the given bundle refers to an unknown policy' do
+      it 'should return true' do
+        RightScale::PolicyManager.fail(bundle).should be_true
+      end
+      it 'should register the unknown policy' do
+        RightScale::PolicyManager.fail(bundle)
+        RightScale::PolicyManager.policy[@policy_name].should_not be_nil
+      end
     end
-  end
-  
-  context :last_audit_for do
-    it 'returns the timestamp for the last audit for the policy' do
-      audit_timestamp = Time.now
-      policy = RightScale::PolicyManager.get_policy(@policy_name)
-      policy.audit_timestamp = audit_timestamp
-      
-      RightScale::PolicyManager.last_audit_for(@policy_name).should == audit_timestamp
-    end
-  end
-  
-  context :success_count_for do
-    it 'returns the success count for the policy' do
-      count = 5
-      policy = RightScale::PolicyManager.get_policy(@policy_name)
-      policy.count = count
-      
-      RightScale::PolicyManager.success_count_for(@policy_name).should == count
+
+    context 'when the given bundle refers to an known policy' do
+      it 'should return true' do
+        RightScale::PolicyManager.fail(@bundle).should == true
+      end
+      it 'should reset the policy success count' do
+        RightScale::PolicyManager.success(@bundle)
+        RightScale::PolicyManager.success(@bundle)
+        RightScale::PolicyManager.get_policy(@bundle).count.should == 2
+        RightScale::PolicyManager.fail(@bundle)
+        RightScale::PolicyManager.get_policy(@bundle).count.should == 0
+      end
     end
   end
   
+  context :get_audit do
+    context 'when the given bundle is nil' do
+      it 'should return nil' do
+        RightScale::PolicyManager.get_audit(@bundle).should be_nil
+      end
+    end
+
+    context 'when the given bundle has a nil runlist policy' do
+      it 'should return nil' do
+        RightScale::PolicyManager.get_audit(bundle_nil_policy).should be_nil
+      end
+    end
+
+    context 'when the given bundle refers to an unknown policy' do
+      it 'should return a new audit' do
+        RightScale::PolicyManager.policy[@policy_name].should be_nil
+        audit = RightScale::PolicyManager.get_audit(@bundle)
+        RightScale::PolicyManager.get_policy(@bundle).audit.should === audit
+      end
+    end
+
+    context 'when the given bundle refers to an known policy' do
+      it 'should return a new audit' do
+        policy = RightScale::PolicyManager.get_policy(@bundle)
+        RightScale::PolicyManager.get_audit(@bundle).should === policy.audit
+      end
+    end
+  end
+
   context :get_policy do
-    it 'returns a new policy if one does not already exist' do
-      policy_name = "policy_#{rand(5)}"
-      expected_policy = RightScale::Policy.new(policy_name)
-      actual_policy = RightScale::PolicyManager.get_policy(policy_name)
-      
-      actual_policy.should be_the_same_policy_as(expected_policy)
+    context 'when the given bundle is nil' do
+      it 'should return nil' do
+        RightScale::PolicyManager.get_policy(nil).should be_nil
+      end
     end
-    
-    it 'returns a policy if one already exists' do
-      expected_policy = RightScale::PolicyManager.get_policy(@policy_name)
-      expected_policy.audit_id = 5
-      actual_policy = RightScale::PolicyManager.get_policy(@policy_name)
-      
-      actual_policy.should be_the_same_policy_as(expected_policy)
+
+    context 'when the given bundle has a nil runlist policy' do
+      it 'should return nil' do
+        RightScale::PolicyManager.get_policy(bundle_nil_policy).should be_nil
+      end
+    end
+
+    context 'when the given bundle refers to an unknown policy' do
+      it 'should return create a new policy' do
+        RightScale::PolicyManager.policy[@policy_name].should be_nil
+        policy = RightScale::PolicyManager.get_policy(bundle)
+        policy.should_not be_nil
+        RightScale::PolicyManager.policy[@policy_name].should === policy
+      end
+    end
+
+    context 'when the given bundle refers to an known policy' do
+      it 'should return create a new policy' do
+        policy = RightScale::PolicyManager.get_policy(bundle)
+        RightScale::PolicyManager.get_policy(bundle).should === policy
+      end
     end
   end
   

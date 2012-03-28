@@ -52,10 +52,13 @@ module RightScale
       true
     end
 
-    def self.get_audit_for(bundle)
+    def self.get_audit(bundle)
 
     end
 
+    def self.reset
+      @policy.clear
+    end
     private
 
     # Accessor method for policy hash
