@@ -20,7 +20,7 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-CONFIG_DRIVE_MOUNTPOINT = ::RightScale::Platform.windows? ? 'Z' : File.join(RightScale::AgentConfig.cloud_state_dir, name.to_s)
+CONFIG_DRIVE_MOUNTPOINT = ::RightScale::Platform.windows? ? 'Z' : File.join(RightScale::Platform.filesystem.spool_dir, name.to_s)
 
 # dependencies.
 metadata_source 'metadata_sources/config_drive_metadata_source'
