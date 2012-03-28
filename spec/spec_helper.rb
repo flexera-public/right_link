@@ -421,7 +421,7 @@ module RightScale
         :cookbooks             => nil,
         :repose_servers        => nil,
         :dev_cookbooks         => nil,
-        :thread_name           => nil
+        :runlist_policy        => RightScale::RunlistPolicy.new(nil, nil)
       }
 
       bundle_opts = defaults.merge(opts)
@@ -433,7 +433,7 @@ module RightScale
                                        bundle_opts[:cookbooks],
                                        bundle_opts[:repose_servers],
                                        bundle_opts[:dev_cookbooks],
-                                       bundle_opts[:thread_name])
+                                       bundle_opts[:runlist_policy])
     end
   end
 end

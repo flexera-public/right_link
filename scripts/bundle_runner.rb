@@ -44,6 +44,9 @@
 #                              with a letter and can consist only of lower-case
 #                              alphabetic characters, digits, and the underscore
 #                              character.
+#      --policy,              Audits for the executable to be run will be grouped under
+#        -P POLICY        the given policy name.  All detail will be logged on the instance,
+#                              but limited detail will be audited.
 #      --recipient_tags,     Tags for selecting which instances are to receive
 #                              request with the TAG_LIST being quoted if it
 #        -r TAG_LIST           contains spaces
@@ -137,7 +140,19 @@ module RightScale
         using += !using.empty? && options[:json_file] ? " and " : " using "
         using += "options from JSON file #{options[:json_file].inspect}"
       end
-      puts "Requesting to execute the #{type} #{which} #{where}#{using}"
+
+      if options[:thread]
+        thread = " on thread #{options[:thread]}"
+      else
+        thread = ""
+      end
+
+      if options[:policy]
+        policy = " auditing on policy #{options[:policy]}"
+      else
+        policy = ""
+      end
+      puts "Requesting to execute the #{type} #{which} #{where}#{using}#{thread}#{policy}"
       true
     end
 
@@ -145,7 +160,7 @@ module RightScale
     #
     # === Return
     # options(Hash):: Hash of options as defined by the command line
-    def parse_args
+    def parse_args(arguments=ARGV)
       options = { :attributes => {}, :parameters => {}, :scope => :all, :verbose => false }
 
       opts = OptionParser.new do |opts|
@@ -199,6 +214,10 @@ module RightScale
           options[:cfg_dir] = d
         end
 
+        opts.on("-P", "--policy POLICY") do |p|
+          options[:policy] = p
+        end
+
         opts.on('-v', '--verbose') do
           options[:verbose] = true
         end
@@ -216,7 +235,7 @@ module RightScale
       end
 
       begin
-        opts.parse!(ARGV)
+        opts.parse!(arguments)
       rescue Exception => e
         puts e.message + "\nUse --help for additional information"
         exit(1)
@@ -255,6 +274,9 @@ protected
       end
       if options[:thread]
         result[:thread] = options[:thread]
+      end
+      if options[:policy]
+        result[:policy] = options[:policy]
       end
       if options[:bundle_type] == :right_script
         result[:right_script_id] = options[:id] if options[:id]

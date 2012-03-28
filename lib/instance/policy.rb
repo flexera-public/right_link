@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2009-2011 RightScale Inc
+# Copyright (c) 2009-2012 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -22,33 +22,15 @@
 
 module RightScale
 
-  # Context required to run an operation
-  # Includes operation input and associated audit
-  class OperationContext
-
-    # (Object) Payload associated with operation
-    attr_reader :payload
-
-    # (AuditProxy) Associated audit
-    attr_reader :audit
-
-    # (TrueClass|FalseClass) Whether bundle succeeded
-    attr_accessor :succeeded
-
-    # (TrueClass|FalseClass) Whether bundle is a decommission bundle
-    attr_reader :decommission
-
-    # (String) Thread name for context or default
-    attr_reader :thread_name
-
-    # Initialize payload and audit
-    def initialize(payload, audit, decommission=false)
-      @payload = payload
-      @audit = audit
-      @decommission = decommission
-      @thread_name = payload.respond_to?(:runlist_policy) && payload.runlist_policy ? payload.runlist_policy.thread_name : ::RightScale::AgentConfig.default_thread_name
+  class Policy
+    attr_accessor :name, :audit_id, :count, :audit_timestamp
+    
+    def initialize(name, audit_id = nil, count = 0, audit_timestamp = 0)
+      @name                 = name
+      @audit_id             = audit_id
+      @count                = count
+      @audit_timestamp      = audit_timestamp
     end
-
   end
-
+  
 end

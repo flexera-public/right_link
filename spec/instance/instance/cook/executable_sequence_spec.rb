@@ -65,9 +65,9 @@ module RightScale
     context :initialize do
       it 'should set a default thread name if none or nil received' do
         bundle = RightScale::PayloadFactory.make_bundle()
-        ExecutableSequence.new(bundle)
+        executable_sequence = ExecutableSequence.new(bundle)
         
-        bundle.thread_name.should_not be_nil
+        executable_sequence.instance_variable_get(:@thread_name).should_not be_nil
       end
       
       it 'should Log if it receives a bundle with a nil thread name' do
