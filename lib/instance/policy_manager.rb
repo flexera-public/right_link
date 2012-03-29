@@ -21,6 +21,23 @@ module RightScale
     class << self
       attr_reader :policy
 
+      def register(bundle, &block)
+        # need a registering queue
+        # first call, create the audit other calls go on the queue
+        #
+
+        if registering?(bundle)
+          @registrations[bundle] << block
+        else
+          RightScale::AuditProxy.create(RightScale::InstanceState.identity, "Policy #{policy_name}") do |audit|
+            @registrations[bundle].each { |blk| blk.call(audit) }
+          end
+        else
+
+        end
+
+      end
+
       # Signals the successful execution of a right script or recipe with the given bundle
       #
       # === Parameters
