@@ -15,83 +15,71 @@ module RightScale
 
   # Manages policies
   class PolicyManager
-    class << self
-      attr_reader :policy
-    end
-
     # Policy hash keyed by policy name
     @policy = Hash.new
 
-    # Signals the successful execution of a right script or recipe with the given bundle
-    #
-    # === Parameters
-    # bundle(ExecutableBundle):: bundle containing a RunlistPolicy
-    #
-    # === Return
-    # result(Boolean):: Return false if the bundle fails to provide a valid runlist policy
-    def self.success(bundle)
-      policy = self.get_policy_from_bundle(bundle)
-      return false unless policy
+    class << self
+      attr_reader :policy
 
-      policy.count = policy.count + 1
-      timestamp = Time.now
-      if timestamp - policy.audit_timestamp >= policy.audit_period
-        policy.audit.audit.append_info("Reconvergence policy '#{policy.policy_name}' has successfully run #{policy.count} times in the last #{policy.audit_period} seconds")
-        policy.audit_timestamp = timestamp
-        policy.count = 0
+      # Signals the successful execution of a right script or recipe with the given bundle
+      #
+      # === Parameters
+      # bundle(ExecutableBundle):: bundle containing a RunlistPolicy
+      #
+      # === Return
+      # result(Boolean):: Return false if the bundle fails to provide a valid runlist policy
+      def success(bundle)
+        policy = get_policy_from_bundle(bundle)
+        return false unless policy
+        policy.success
+        true
       end
-      true
-    end
 
-    # Signals the failed execution of a recipe with the given bundle
-    #
-    # === Parameters
-    # bundle(ExecutableBundle):: bundle containing a RunlistPolicy
-    #
-    # === Return
-    # result(Boolean):: Return false if the bundle fails to provide a valid runlist policy
-    def self.fail(bundle)
-      policy = self.get_policy_from_bundle(bundle)
-      return false unless policy
-      policy.count = 0
-      true
-    end
-
-    # Returns the audit for the given policy of the bundle
-    #
-    # === Parameters
-    # bundle(ExecutableBundle):: An executable bundle
-    #
-    # === Return
-    # result(PolicyAudit):: a PolicyAudit instance that wraps AuditProxy
-    def self.get_audit(bundle)
-      policy = self.get_policy_from_bundle(bundle)
-      policy ? policy.audit : nil
-    end
-
-    def self.reset
-       @policy.clear
-    end
-
-    private
-
-    # Returns the policy that matches the bundle or creates a new one
-    #
-    # === Parameters
-    # bundle(ExecutableBundle):: An executable bundle
-    #
-    # === Return
-    # result(Policy):: Policy based on the bundle's RunlistPolicy or nil
-    def self.get_policy_from_bundle(bundle)
-      runlist_policy = bundle.runlist_policy if bundle.respond_to?(:runlist_policy)
-      policy = nil
-      if runlist_policy && runlist_policy.policy_name
-        @policy[runlist_policy.policy_name] ||= Policy.new(runlist_policy.policy_name, runlist_policy.audit_period)
-        policy = @policy[runlist_policy.policy_name]
+      # Signals the failed execution of a recipe with the given bundle
+      #
+      # === Parameters
+      # bundle(ExecutableBundle):: bundle containing a RunlistPolicy
+      #
+      # === Return
+      # result(Boolean):: Return false if the bundle fails to provide a valid runlist policy
+      def fail(bundle)
+        policy = get_policy_from_bundle(bundle)
+        return false unless policy
+        policy.fail
+        true
       end
-      policy
-    end
 
+      # Returns the audit for the given policy of the bundle
+      #
+      # === Parameters
+      # bundle(ExecutableBundle):: An executable bundle
+      #
+      # === Return
+      # result(PolicyAudit):: a PolicyAudit instance that wraps AuditProxy
+      def get_audit(bundle)
+        policy = get_policy_from_bundle(bundle)
+        policy ? policy.audit : nil
+      end
+
+      private
+
+      # Returns the policy that matches the bundle or creates a new one
+      #
+      # === Parameters
+      # bundle(ExecutableBundle):: An executable bundle
+      #
+      # === Return
+      # result(Policy):: Policy based on the bundle's RunlistPolicy or nil
+      def get_policy_from_bundle(bundle)
+        runlist_policy = bundle.runlist_policy if bundle.respond_to?(:runlist_policy)
+        policy = nil
+        if runlist_policy && runlist_policy.policy_name
+          @policy[runlist_policy.policy_name] ||= Policy.new(runlist_policy.policy_name, runlist_policy.audit_period)
+          policy = @policy[runlist_policy.policy_name]
+        end
+        policy
+      end
+    end
   end
 
 end

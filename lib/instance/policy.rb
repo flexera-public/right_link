@@ -27,6 +27,20 @@ module RightScale
         @audit_timestamp = Time.now
       end
     end
+
+    def success
+      @count += 1
+      timestamp = Time.now
+      if timestamp - @audit_timestamp >= @audit_period
+        @audit.audit.append_info("Reconvergence policy '#{@policy_name}' has successfully run #{@count} times in the last #{@audit_period} seconds")
+        @audit_timestamp = timestamp
+        @count = 0
+      end
+    end
+
+    def fail
+      @count = 0
+    end
   end
   
 end
