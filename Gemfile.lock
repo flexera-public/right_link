@@ -1,6 +1,6 @@
 GIT
   remote: git://github.com/rightscale/right_agent.git
-  revision: b3ff73a12d44b97a3343bdad7a056da2a1c689f8
+  revision: 6a62c443dd53e2b55fcfa7731cf33964ee7b86be
   branch: azure_12_3_add_policy_name
   specs:
     right_agent (0.9.4)
