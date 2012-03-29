@@ -212,9 +212,14 @@ describe RightScale::ExecutableSequence do
       @cookbooks_path = Dir.mktmpdir
       flexmock(RightScale::CookState).should_receive(:cookbooks_path).and_return(@cookbooks_path)
 
+      runlist_policy = flexmock('runlist_policy')
+      runlist_policy.should_receive(:thread_name).and_return(RightScale::AgentConfig.default_thread_name)
+      runlist_policy.should_receive(:thread_name=).and_return(true)
+      runlist_policy.should_receive(:policy_name).and_return(nil)
+
       bundle = flexmock('ExecutableBundle')
       bundle.should_receive(:repose_servers).and_return([]).by_default
-      bundle.should_receive(:thread_name).and_return(RightScale::AgentConfig.default_thread_name)
+      bundle.should_receive(:runlist_policy).and_return(runlist_policy)
       bundle.should_ignore_missing
       @sequence = RightScale::ExecutableSequence.new(bundle)
       begin
@@ -261,10 +266,15 @@ describe RightScale::ExecutableSequence do
       @cookbooks_path = Dir.mktmpdir
       flexmock(RightScale::CookState).should_receive(:cookbooks_path).and_return(@cookbooks_path)
 
+      runlist_policy = flexmock('runlist_policy')
+      runlist_policy.should_receive(:thread_name).and_return(RightScale::AgentConfig.default_thread_name)
+      runlist_policy.should_receive(:thread_name=).and_return(true)
+      runlist_policy.should_receive(:policy_name).and_return(nil)
+      
       bundle = flexmock('ExecutableBundle')
       bundle.should_receive(:repose_servers).and_return([]).by_default
       bundle.should_ignore_missing
-      bundle.should_receive(:thread_name).and_return(RightScale::AgentConfig.default_thread_name)
+      bundle.should_receive(:runlist_policy).and_return(runlist_policy)
       @sequence = RightScale::ExecutableSequence.new(bundle)
     end
 

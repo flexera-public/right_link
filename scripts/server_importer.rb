@@ -55,7 +55,7 @@ module RightScale
       case options[:action]
         when :attach
           # resolve cloud name.
-          cloud_file  = RightScale::AgentConfig.cloud_state_dir
+          cloud_file = RightScale::AgentConfig.cloud_file_path
           cloud_name = options[:cloud_name]
           if cloud_name.nil? && File.file?(cloud_file)
             cloud_name = File.read(cloud_file).strip
@@ -63,7 +63,7 @@ module RightScale
           cloud_name = 'none' if cloud_name.to_s.empty?
 
           cloud_dir   = File.dirname(cloud_file)
-          output_file = File.join(RightScale::AgentConfig.cloud_state_dir, cloud_name, 'user-data.txt')
+          output_file = File.join(RightScale::Platform.filesystem.spool_dir, cloud_name, 'user-data.txt')
           output_dir  = File.dirname(output_file)
 
           if File.exist?(InstanceState::STATE_FILE) && !options[:force]
@@ -188,6 +188,7 @@ protected
 
     def configure_logging
       Log.program_name = 'RightLink'
+      Log.facility = 'user'
       Log.log_to_file_only(false)
       Log.level = Logger::INFO
       FileUtils.mkdir_p(File.dirname(InstanceState::BOOT_LOG_FILE))

@@ -4,6 +4,6 @@ ruby do
   gemset   'right_link'
 end
 bundler do
-  version     '1.0.21'
+  version     '1.1.1'
   bundle_path File.join(ENV["HOME"], '.rightscale', 'right_link')
 end

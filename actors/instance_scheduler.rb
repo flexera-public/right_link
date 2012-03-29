@@ -63,12 +63,13 @@ class InstanceScheduler
   # res(RightScale::OperationResult):: Always returns success
   def schedule_bundle(bundle)
     unless bundle.executables.empty?
-      audit = RightScale::AuditProxy.new(bundle.audit_id)
+      audit = RightScale::PolicyManager.get_audit_for(bundle) || RightScale::AuditProxy.new(bundle.audit_id)
 
-      if bundle.thread_name == RightScale::AgentConfig.default_thread_name
+      thread_name = get_thread_name_from_bundle(bundle)
+      if thread_name == RightScale::AgentConfig.default_thread_name
         on_thread = ''
       else
-        on_thread = " on #{bundle.thread_name}"
+        on_thread = " on thread #{thread_name}"
       end
 
       if @bundle_queue.busy?
@@ -81,6 +82,28 @@ class InstanceScheduler
       @bundle_queue.push(context)
     end
     res = success_result
+  end
+  
+  # FIX: thread_name should never be nil from the core in future, but
+  # temporarily we must supply the default thread_name before if nil. in
+  # future we should fail execution when thread_name is reliably present and
+  # for any reason does not match ::RightScale::AgentConfig.valid_thread_name
+  # see also ExecutableSequenceProxy#initialize
+  #
+  # === Parameters
+  # bundle(ExecutableBundle):: An executable bundle
+  #
+  # === Return
+  # result(String):: Thread name of this bundle
+  def get_thread_name_from_bundle(bundle) 
+    thread_name = nil
+    thread_name = bundle.runlist_policy.thread_name if bundle.respond_to?(:runlist_policy) && bundle.runlist_policy
+    RightScale::Log.warn("Encountered a nil thread name unexpectedly, defaulting to '#{RightScale::AgentConfig.default_thread_name}'") unless thread_name
+    thread_name ||= RightScale::AgentConfig.default_thread_name
+    unless thread_name =~ RightScale::AgentConfig.valid_thread_name
+      raise ArgumentError, "Invalid thread name #{thread_name.inspect}"
+    end
+    thread_name
   end
 
   # Schedules a shutdown by appending it to the bundles queue.

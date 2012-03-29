@@ -150,13 +150,14 @@ module RightScale
 
       Sender.instance.message_received { message_received } unless @read_only
 
+      # need to grab the current resource uid whether there is a state file or not.
+      @resource_uid = current_resource_uid
+
       dir = File.dirname(STATE_FILE)
       FileUtils.mkdir_p(dir) unless File.directory?(dir)
       if File.file?(STATE_FILE)
         state = RightScale::JsonUtilities::read_json(STATE_FILE)
         Log.debug("Initializing instance #{identity} with #{state.inspect}")
-
-        @resource_uid = current_resource_uid
 
         # Initial state reconciliation: use recorded state and boot timestamp to determine how we last stopped.
         # There are four basic scenarios to worry about:

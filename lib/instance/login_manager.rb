@@ -119,6 +119,8 @@ module RightScale
     # === Return
     # (Array):: Array of updated users followed by array of users with public keys missing
     def update_users(users, agent_identity)
+      # Create cache of public keys from stored instance state
+      # but there won't be any on initial launch
       public_keys_cache = {}
       if old_policy = InstanceState.login_policy
         public_keys_cache = old_policy.users.inject({}) do |keys, user|
@@ -128,6 +130,8 @@ module RightScale
         end
       end
 
+      # See if there are any missing keys and if so, send a request to retrieve them
+      # Then make one more pass to populate any missing keys and reject any that are still not populated
       unless (missing = populate_public_keys(users, public_keys_cache)).empty?
         payload = {:agent_identity => agent_identity, :public_key_fingerprints => missing.map { |(u, f)| f }}
         request = RightScale::IdempotentRequest.new("/key_server/retrieve_public_keys", payload)
@@ -143,6 +147,7 @@ module RightScale
     end
 
     # Populate missing public keys from old public keys using associated fingerprints
+    # Also populate any missing fingerprints where possible
     #
     # === Parameters
     # users(Array):: Login users whose public keys are to be updated if nil
@@ -156,7 +161,15 @@ module RightScale
       missing = []
       users.reject! do |user|
         reject = false
+
+        # Create any missing fingerprints from the public keys so that fingerprints
+        # are as populated as possible
         user.public_key_fingerprints ||= user.public_keys.map { |key| fingerprint(key, user.username) }
+        user.public_key_fingerprints = user.public_keys.zip(user.public_key_fingerprints).map do |(k, f)|
+          f || fingerprint(k, user.username)
+        end
+
+        # Where possible use cache of old public keys to populate any missing ones
         public_keys = user.public_keys.zip(user.public_key_fingerprints).inject([]) do |keys, (k, f)|
           if f
             if k ||= public_keys_cache[f]
@@ -176,6 +189,9 @@ module RightScale
           end
           keys
         end
+
+        # Reject user if none of its public keys could be populated
+        # This will not happen unless remove_if_missing is true
         if public_keys.empty?
           reject = true
         else
@@ -195,7 +211,7 @@ module RightScale
     # === Return
     # (String|nil):: Fingerprint for key, or nil if could not create
     def fingerprint(public_key, username)
-      LoginUser.fingerprint(public_key)
+      LoginUser.fingerprint(public_key) if public_key
     rescue Exception => e
       Log.error("Failed to create public key fingerprint for user #{username}", e)
       nil

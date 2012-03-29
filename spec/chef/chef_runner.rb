@@ -172,9 +172,12 @@ EOF
         }
 
         # must set file cache path and ensure it exists otherwise evented run_command will fail
+        cache_dir_path = File.join(::RightScale::Platform.filesystem.temp_dir, 'chef_runner_1B0C7CAA87E241daB90B75829DD6A833')
+        AgentConfig.cache_dir = cache_dir_path
         file_cache_path = File.join(AgentConfig.cache_dir, 'chef')
         ::Chef::Config[:file_cache_path] = file_cache_path
         ::Chef::Config[:cache_options][:path] = File.join(file_cache_path, 'checksums')
+        FileUtils.rm_rf(::Chef::Config[:file_cache_path])
         FileUtils.mkdir_p(::Chef::Config[:file_cache_path])
         FileUtils.mkdir_p(::Chef::Config[:cache_options][:path])
         
