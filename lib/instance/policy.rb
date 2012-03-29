@@ -16,16 +16,14 @@ module RightScale
   class Policy
     attr_accessor :policy_name, :audit_period, :audit, :count, :audit_timestamp
     
-    def initialize(policy_name, audit_period)
+    def initialize(policy_name, audit_period, audit)
       @policy_name  = policy_name
       @audit_period = audit_period
+      @audit = RightScale::PolicyAudit.new(audit)
       @count = 0
+      @audit_timestamp = Time.now
 
-      RightScale::AuditProxy.create(RightScale::InstanceState.identity, "Policy #{policy_name}") do |audit|
-        @audit = RightScale::PolicyAudit.new(audit)
-        audit.append_info("First run of reconvergence Policy: '#{policy_name}'")
-        @audit_timestamp = Time.now
-      end
+      @audit.audit.append_info("First run of reconvergence Policy: '#{policy_name}'")
     end
 
     def success

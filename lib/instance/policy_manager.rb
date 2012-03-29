@@ -16,26 +16,35 @@ module RightScale
   # Manages policies
   class PolicyManager
     # Policy hash keyed by policy name
-    @policy = Hash.new
+    @policies = Hash.new
+    @registrations = Hash.new
 
     class << self
       attr_reader :policy
 
+      def registered?(bundle)
+        @policies.has_key?(policy_name_from_bundle(bundle))
+      end
+
       def register(bundle, &block)
-        # need a registering queue
-        # first call, create the audit other calls go on the queue
-        #
-
-        if registering?(bundle)
-          @registrations[bundle] << block
-        else
-          RightScale::AuditProxy.create(RightScale::InstanceState.identity, "Policy #{policy_name}") do |audit|
-            @registrations[bundle].each { |blk| blk.call(audit) }
+        runlist_policy = runlist_policy_from_bundle(bundle)
+        if runlist_policy
+          if registering?(runlist_policy.policy_name)
+            # waiting for a new audit to be created, place the block to be called on the list of callbacks
+            @registrations[runlist_policy.policy_name] << block if block
+          else
+            # this is the first registration, add the callback to the list of callbacks to be executed after the audit has been created
+            @registrations[runlist_policy.policy_name] = (block) ? [block] : []
+            # request a new audit
+            RightScale::AuditProxy.create(RightScale::InstanceState.identity, "Policy #{runlist_policy.policy_name}") do |audit|
+              policy = Policy.new(runlist_policy.policy_name, runlist_policy.audit_period, audit)
+              @policies[policy.policy_name] = policy
+              # drain the pending registrations
+              @registrations[policy.policy_name].each { |blk| blk.call(policy.audit) }
+              @registrations.delete(policy.policy_name)
+            end
           end
-        else
-
         end
-
       end
 
       # Signals the successful execution of a right script or recipe with the given bundle
@@ -88,13 +97,28 @@ module RightScale
       # === Return
       # result(Policy):: Policy based on the bundle's RunlistPolicy or nil
       def get_policy_from_bundle(bundle)
-        runlist_policy = bundle.runlist_policy if bundle.respond_to?(:runlist_policy)
-        policy = nil
-        if runlist_policy && runlist_policy.policy_name
-          @policy[runlist_policy.policy_name] ||= Policy.new(runlist_policy.policy_name, runlist_policy.audit_period)
-          policy = @policy[runlist_policy.policy_name]
+        @policies[policy_name_from_bundle(bundle)]
+      end
+
+      def registering?(policy_name)
+        return @registrations.has_key?(policy_name)
+      end
+
+      def policy_name_from_bundle(bundle)
+        runlist_policy = runlist_policy_from_bundle(bundle)
+        if runlist_policy
+          return runlist_policy.policy_name
+        else
+          return nil
         end
-        policy
+      end
+
+      def runlist_policy_from_bundle(bundle)
+        if bundle.respond_to?(:runlist_policy) && bundle.runlist_policy && bundle.runlist_policy.policy_name
+          return bundle.runlist_policy
+        else
+          return nil
+        end
       end
     end
   end

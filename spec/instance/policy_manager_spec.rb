@@ -34,7 +34,7 @@ module RightScale
   class PolicyManager
     class << self
       def reset
-         @policy.clear
+        @policies.clear
       end
       def get_policy(bundle)
         get_policy_from_bundle(bundle)
@@ -75,92 +75,84 @@ describe RightScale::PolicyManager do
     end
   end
 
-  context 'when a policy can be created' do
-    let(:bundle)      {flexmock('bundle', :audit_id => rand**32, :runlist_policy => flexmock('rlp', :policy_name => policy_name, :audit_period => 120)) }
+  let(:bundle)      {flexmock('bundle', :audit_id => rand**32, :runlist_policy => flexmock('rlp', :policy_name => policy_name, :audit_period => 120)) }
+
+  context 'when a policy has not been registered' do
+    it 'success should return false' do
+      RightScale::PolicyManager.success(bundle).should be_false
+    end
+    it 'fail should return false' do
+      RightScale::PolicyManager.fail(bundle).should be_false
+    end
+    it 'get_audit should return nil' do
+      RightScale::PolicyManager.get_audit(bundle).should be_nil
+    end
+  end
+
+  context 'when a policy has been registered' do
     let(:audit_proxy) {flexmock('audit', :audit_id => rand**32)}
 
     before do
       audit_proxy.should_receive(:append_info).once.with("First run of reconvergence Policy: '#{policy_name}'")
       flexmock(RightScale::AuditProxy).should_receive(:create).and_yield(audit_proxy)
+      RightScale::PolicyManager.register(bundle)
     end
 
-    context 'the first time a policy is accessed' do
-      it 'success should return true' do
+    it 'get_audit should return the audit assigned to the existing policy' do
+      RightScale::PolicyManager.get_audit(bundle).should_not be_nil
+    end
+
+    context :success do
+      it 'should return true' do
         RightScale::PolicyManager.success(bundle).should be_true
       end
-      it 'fail should return true' do
-        RightScale::PolicyManager.fail(bundle).should be_true
-      end
-      it 'get_audit should return the audit assigned to the new policy' do
-        RightScale::PolicyManager.policy[policy_name].should be_nil
-        audit = RightScale::PolicyManager.get_audit(bundle)
-        RightScale::PolicyManager.policy[policy_name].audit === audit
-      end
-    end
 
-    context 'the second time a policy is accessed' do
-      let(:existing_policy) { RightScale::PolicyManager.get_policy(bundle) }
-
-      before do
-        # ensure a policy exists for all specs
-        existing_policy
+      it 'should increment the policy count' do
+        RightScale::PolicyManager.success(bundle)
+        RightScale::PolicyManager.success(bundle)
+        RightScale::PolicyManager.success(bundle)
+        RightScale::PolicyManager.get_policy(bundle).count.should == 3
       end
 
-      it 'get_audit should return the audit assigned to the existing policy' do
-        RightScale::PolicyManager.get_audit(bundle).should === existing_policy.audit
+      context 'and the period since last audit has elapsed' do
+        before do
+          # ensure audit count is greater than one to start
+          RightScale::PolicyManager.success(bundle)
+
+          # sleep to ensure timestamps will not match
+          sleep(0.1)
+
+          # update the period so we dont have to wait so long
+          existing_policy = RightScale::PolicyManager.get_policy(bundle)
+          existing_policy.audit_period = Time.now - existing_policy.audit_timestamp
+
+          # success is going to audit now
+          audit_proxy.should_receive(:append_info).once.with(/Reconvergence policy '#{policy_name}' has successfully run .* times in the last .* seconds/)
+        end
+
+        it 'should update the last audit time stamp of the policy' do
+          current_timestamp = RightScale::PolicyManager.get_policy(bundle).audit_timestamp
+          RightScale::PolicyManager.success(bundle)
+          RightScale::PolicyManager.get_policy(bundle).audit_timestamp.should > current_timestamp
+        end
+
+        it 'should reset the count' do
+          RightScale::PolicyManager.get_policy(bundle).count.should == 1
+          RightScale::PolicyManager.success(bundle)
+          RightScale::PolicyManager.get_policy(bundle).count.should == 0
+        end
       end
 
-      context :success do
+      context :fail do
         it 'should return true' do
-          RightScale::PolicyManager.success(bundle).should be_true
+          RightScale::PolicyManager.fail(bundle).should be_true
         end
 
-        it 'should increment the policy count' do
+        it 'should reset the count' do
           RightScale::PolicyManager.success(bundle)
-          RightScale::PolicyManager.success(bundle)
-          RightScale::PolicyManager.success(bundle)
-          RightScale::PolicyManager.policy[policy_name].count.should == 3
-        end
-
-        context 'and the period since last audit has elapsed' do
-          before do
-            # ensure audit count is greater than one to start
-            RightScale::PolicyManager.success(bundle)
-
-            # sleep to ensure timestamps will not match
-            sleep(0.1)
-
-            # update the period so we dont have to wait so long
-            existing_policy.audit_period = Time.now - existing_policy.audit_timestamp
-
-            # success is going to audit now
-            audit_proxy.should_receive(:append_info).once.with(/Reconvergence policy '#{policy_name}' has successfully run .* times in the last .* seconds/)
-          end
-
-          it 'should update the last audit time stamp of the policy' do
-            current_timestamp = existing_policy.audit_timestamp
-            RightScale::PolicyManager.success(bundle)
-            RightScale::PolicyManager.get_policy(bundle).audit_timestamp.should > current_timestamp
-          end
-
-          it 'should reset the count' do
-            RightScale::PolicyManager.get_policy(bundle).count.should == 1
-            RightScale::PolicyManager.success(bundle)
-            RightScale::PolicyManager.get_policy(bundle).count.should == 0
-          end
-        end
-
-        context :fail do
-          it 'should return true' do
-            RightScale::PolicyManager.fail(bundle).should be_true
-          end
-
-          it 'should reset the count' do
-            RightScale::PolicyManager.success(bundle)
-            RightScale::PolicyManager.get_policy(bundle).count.should == 1
-            RightScale::PolicyManager.fail(bundle)
-            RightScale::PolicyManager.get_policy(bundle).count.should == 0
-          end
+          RightScale::PolicyManager.get_policy(bundle).count.should == 1
+          RightScale::PolicyManager.fail(bundle)
+          RightScale::PolicyManager.get_policy(bundle).count.should == 0
         end
       end
     end
