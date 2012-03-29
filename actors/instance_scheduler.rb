@@ -68,8 +68,8 @@ class InstanceScheduler
           policy_audit = RightScale::PolicyManager.get_audit(bundle)
           queue_bundle(bundle, policy_audit)
         else
-          RightScale::PolicyManager.register(bundle) do |policy_audit|
-            queue_bundle(bundle, policy_audit)
+          RightScale::PolicyManager.register(bundle) do |b, policy_audit|
+            queue_bundle(b, policy_audit)
           end
           return success_result
         end

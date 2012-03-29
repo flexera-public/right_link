@@ -40,7 +40,7 @@ module RightScale
               policy = Policy.new(runlist_policy.policy_name, runlist_policy.audit_period, audit)
               @policies[policy.policy_name] = policy
               # drain the pending registrations
-              @registrations[policy.policy_name].each { |blk| blk.call(policy.audit) }
+              @registrations[policy.policy_name].each { |blk| blk.call(bundle, policy.audit) }
               @registrations.delete(policy.policy_name)
             end
           end
