@@ -79,37 +79,43 @@ module RightScale
       @succeeded = true
 
       # update CookState with the latest instance before launching Cook
-      RightScale::AgentTagsManager.instance.tags do |tags|
-        CookState.update(InstanceState, { :startup_tags => tags })
-      end
+      RightScale::AgentTagManager.instance.tags(:timeout=>120) do |tags|
+        # tags could be a String (error message)
+        if tags.is_a?(String)
+          Log.error("Failed to discover tags before running executable sequence: #{tags}")
+        # or something else (success, tag list, hopefully!)
+        else
+          CookState.update(InstanceState, { :startup_tags => tags })
+        end
 
-      input_text = "#{MessageEncoder.for_agent(InstanceState.identity).encode(@context.payload)}\n"
+        input_text = "#{MessageEncoder.for_agent(InstanceState.identity).encode(@context.payload)}\n"
 
-      # FIX: we have an issue with EM not allowing both sockets and named
-      # pipes to share the same file/socket id. sending the input on the
-      # command line is a temporary workaround.
-      platform = RightScale::Platform
-      if platform.windows?
-        input_path = File.normalize_path(File.join(platform.filesystem.temp_dir, "rs_executable_sequence#{@thread_name}.txt"))
-        File.open(input_path, "w") { |f| f.write(input_text) }
-        input_text = nil
-        cmd_exe_path = File.normalize_path(ENV['ComSpec']).gsub("/", "\\")
-        ruby_exe_path = File.normalize_path(AgentConfig.sandbox_ruby_cmd).gsub("/", "\\")
-        input_path = input_path.gsub("/", "\\")
-        cmd = "#{cmd_exe_path} /C type \"#{input_path}\" | #{ruby_exe_path} #{cook_path_and_arguments}"
-      else
-        cmd = "#{AgentConfig.sandbox_ruby_cmd} #{cook_path_and_arguments}"
-      end
+        # FIX: we have an issue with EM not allowing both sockets and named
+        # pipes to share the same file/socket id. sending the input on the
+        # command line is a temporary workaround.
+        platform = RightScale::Platform
+        if platform.windows?
+          input_path = File.normalize_path(File.join(platform.filesystem.temp_dir, "rs_executable_sequence#{@thread_name}.txt"))
+          File.open(input_path, "w") { |f| f.write(input_text) }
+          input_text = nil
+          cmd_exe_path = File.normalize_path(ENV['ComSpec']).gsub("/", "\\")
+          ruby_exe_path = File.normalize_path(AgentConfig.sandbox_ruby_cmd).gsub("/", "\\")
+          input_path = input_path.gsub("/", "\\")
+          cmd = "#{cmd_exe_path} /C type \"#{input_path}\" | #{ruby_exe_path} #{cook_path_and_arguments}"
+        else
+          cmd = "#{AgentConfig.sandbox_ruby_cmd} #{cook_path_and_arguments}"
+        end
 
-      EM.next_tick do
-        RightScale.popen3(:command        => cmd,
-                          :input          => input_text,
-                          :target         => self,
-                          :environment    => { OptionsBag::OPTIONS_ENV => ENV[OptionsBag::OPTIONS_ENV] },
-                          :stdout_handler => :on_read_stdout,
-                          :stderr_handler => :on_read_stderr,
-                          :pid_handler    => :on_pid,
-                          :exit_handler   => :on_exit)
+        EM.next_tick do
+          RightScale.popen3(:command        => cmd,
+                            :input          => input_text,
+                            :target         => self,
+                            :environment    => { OptionsBag::OPTIONS_ENV => ENV[OptionsBag::OPTIONS_ENV] },
+                            :stdout_handler => :on_read_stdout,
+                            :stderr_handler => :on_read_stderr,
+                            :pid_handler    => :on_pid,
+                            :exit_handler   => :on_exit)
+        end
       end
     end
 

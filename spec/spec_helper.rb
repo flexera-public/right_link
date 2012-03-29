@@ -91,7 +91,7 @@ module RightScale
     # InstanceState.init
     def setup_state(identity = '1', mock_instance_state = true)
       cleanup_state
-      flexmock(RightScale::AgentTagsManager.instance).should_receive(:tags).and_yield(['foo'])
+      flexmock(RightScale::AgentTagManager.instance).should_receive(:tags).and_yield(['foo'])
       InstanceState.const_set(:STATE_FILE, state_file_path)
       InstanceState.const_set(:BOOT_LOG_FILE, log_path)
       InstanceState.const_set(:OPERATION_LOG_FILE, log_path)

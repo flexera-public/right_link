@@ -289,7 +289,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def get_tags_command(opts)
-      AgentTagsManager.instance.tags { |tags| CommandIO.instance.reply(opts[:conn], tags) }
+      AgentTagManager.instance.tags { |tags| CommandIO.instance.reply(opts[:conn], tags) }
     end
 
     # Add given tag
@@ -301,7 +301,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def add_tag_command(opts)
-      AgentTagsManager.instance.add_tags(opts[:tag]) do |raw_response|
+      AgentTagManager.instance.add_tags(opts[:tag]) do |raw_response|
         reply = @serializer.dump(raw_response) rescue raw_response
         CommandIO.instance.reply(opts[:conn], reply)
       end
@@ -316,7 +316,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def remove_tag_command(opts)
-      AgentTagsManager.instance.remove_tags(opts[:tag]) do |raw_response|
+      AgentTagManager.instance.remove_tags(opts[:tag]) do |raw_response|
         reply = @serializer.dump(raw_response) rescue raw_response
         CommandIO.instance.reply(opts[:conn], reply)
       end
@@ -331,7 +331,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def query_tags_command(opts)
-      AgentTagsManager.instance.query_tags_raw(opts[:tags], opts[:agent_ids]) do |raw_response|
+      AgentTagManager.instance.query_tags_raw(opts[:tags], opts[:agent_ids]) do |raw_response|
         reply = @serializer.dump(raw_response) rescue raw_response
         CommandIO.instance.reply(opts[:conn], reply)
       end

@@ -186,7 +186,7 @@ describe RightScale::LoginManager do
 
       flexmock(RightScale::InstanceState).should_receive(:login_policy).and_return(nil).by_default
       flexmock(RightScale::InstanceState).should_receive(:login_policy=).by_default
-      flexmock(RightScale::AgentTagsManager).should_receive("instance.add_tags")
+      flexmock(RightScale::AgentTagManager).should_receive("instance.add_tags")
       flexmock(subject).should_receive(:schedule_expiry)
 
       flexmock(RightScale::LoginUser).should_receive(:fingerprint).and_return("f1", "f2", "f3", "f4").by_default
