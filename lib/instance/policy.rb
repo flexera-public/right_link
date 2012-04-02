@@ -17,7 +17,7 @@ module RightScale
     attr_accessor :policy_name, :audit_period, :audit, :count, :audit_timestamp
     
     def initialize(policy_name, audit_period, audit)
-      @policy_name = policy_name
+      @policy_name = policy_name.to_s
       @audit_period = audit_period.to_i
       @audit = RightScale::PolicyAudit.new(audit)
       @count = 0
