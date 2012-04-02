@@ -63,25 +63,40 @@ class InstanceScheduler
   # res(RightScale::OperationResult):: Always returns success
   def schedule_bundle(bundle)
     unless bundle.executables.empty?
-      audit = RightScale::PolicyManager.get_audit_for(bundle) || RightScale::AuditProxy.new(bundle.audit_id)
-
-      thread_name = get_thread_name_from_bundle(bundle)
-      if thread_name == RightScale::AgentConfig.default_thread_name
-        on_thread = ''
+      if bundle.respond_to?(:runlist_policy) && bundle.runlist_policy && bundle.runlist_policy.policy_name
+        if RightScale::PolicyManager.registered?(bundle)
+          policy_audit = RightScale::PolicyManager.get_audit(bundle)
+          queue_bundle(bundle, policy_audit)
+        else
+          RightScale::PolicyManager.register(bundle) do |b, policy_audit|
+            queue_bundle(b, policy_audit)
+          end
+          return success_result
+        end
       else
-        on_thread = " on thread #{thread_name}"
+        audit = RightScale::AuditProxy.new(bundle.audit_id)
+        queue_bundle(bundle, audit)
       end
-
-      if @bundle_queue.busy?
-        audit.update_status("Enqueueing #{bundle.to_s} for execution#{on_thread}")
-      else
-        audit.update_status("Scheduling execution of #{bundle.to_s}#{on_thread}")
-      end
-
-      context = RightScale::OperationContext.new(bundle, audit)
-      @bundle_queue.push(context)
     end
     res = success_result
+  end
+
+  def queue_bundle(bundle, audit)
+    thread_name = get_thread_name_from_bundle(bundle)
+    if thread_name == RightScale::AgentConfig.default_thread_name
+      on_thread = ''
+    else
+      on_thread = " on thread #{thread_name}"
+    end
+
+    if @bundle_queue.busy?
+      audit.update_status("Enqueueing #{bundle.to_s} for execution#{on_thread}")
+    else
+      audit.update_status("Scheduling execution of #{bundle.to_s}#{on_thread}")
+    end
+
+    context = RightScale::OperationContext.new(bundle, audit)
+    @bundle_queue.push(context)
   end
   
   # FIX: thread_name should never be nil from the core in future, but

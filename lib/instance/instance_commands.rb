@@ -120,8 +120,6 @@ module RightScale
     # true:: Always return true
     def run_recipe_command(opts)
       payload = opts[:options] || {}
-      policy = PolicyManager.get_policy(payload[:policy]) if payload[:policy]
-      payload[:audit_id] = policy.audit_id if policy
       target = {}
       target[:tags] = payload.delete(:tags) if payload[:tags]
       target[:scope] = payload.delete(:scope) if payload[:scope]
@@ -144,8 +142,6 @@ module RightScale
     # true:: Always return true
     def run_right_script_command(opts)
       payload = opts[:options] || {}
-      policy = PolicyManager.get_policy(payload[:policy]) if payload[:policy]
-      payload[:audit_id] = policy.audit_id if policy
       target = {}
       target[:tags] = payload.delete(:tags) if payload[:tags]
       target[:scope] = payload.delete(:scope) if payload[:scope]

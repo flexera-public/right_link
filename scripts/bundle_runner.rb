@@ -45,8 +45,10 @@
 #                              alphabetic characters, digits, and the underscore
 #                              character.
 #      --policy,              Audits for the executable to be run will be grouped under
-#        -P POLICY        the given policy name.  All detail will be logged on the instance,
+#        -P POLICY             the given policy name.  All detail will be logged on the instance,
 #                              but limited detail will be audited.
+#      --audit_period        Specifies the period of time that should pass between audits
+#        -a PERIOD_IN_SECONDS
 #      --recipient_tags,     Tags for selecting which instances are to receive
 #                              request with the TAG_LIST being quoted if it
 #        -r TAG_LIST           contains spaces
@@ -218,6 +220,10 @@ module RightScale
           options[:policy] = p
         end
 
+        opts.on("-a", "--audit_period PERIOD_IN_SECONDS") do |a|
+          options[:audit_period] = a
+        end
+
         opts.on('-v', '--verbose') do
           options[:verbose] = true
         end
@@ -277,6 +283,9 @@ protected
       end
       if options[:policy]
         result[:policy] = options[:policy]
+      end
+      if options[:audit_period]
+        result[:audit_period] = options[:audit_period]
       end
       if options[:bundle_type] == :right_script
         result[:right_script_id] = options[:id] if options[:id]
