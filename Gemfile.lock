@@ -1,17 +1,3 @@
-GIT
-  remote: git://github.com/rightscale/right_agent.git
-  revision: 6a62c443dd53e2b55fcfa7731cf33964ee7b86be
-  branch: azure_12_3_add_policy_name
-  specs:
-    right_agent (0.9.4)
-      eventmachine (~> 0.12.10)
-      json (~> 1.4)
-      msgpack (= 0.4.4)
-      net-ssh (~> 2.0)
-      right_amqp (~> 0.1)
-      right_popen (~> 1.0.11)
-      right_support (~> 1.3)
-
 GEM
   remote: http://s3.amazonaws.com/rightscale_rightlink_gems_dev/
   remote: http://rubygems.org/
@@ -82,6 +68,14 @@ GEM
     rbx-require-relative (0.0.5)
     rest-client (1.6.3)
       mime-types (>= 1.16)
+    right_agent (0.9.6)
+      eventmachine (~> 0.12.10)
+      json (~> 1.4)
+      msgpack (= 0.4.4)
+      net-ssh (~> 2.0)
+      right_amqp (~> 0.1)
+      right_popen (~> 1.0.11)
+      right_support (~> 1.3)
     right_amqp (0.2.1)
       eventmachine (~> 0.12.10)
       right_support (~> 1.2)
@@ -163,7 +157,7 @@ DEPENDENCIES
   process_watcher (= 0.4)
   rake (= 0.8.7)
   rest-client (= 1.6.3)
-  right_agent (~> 0.9.3)!
+  right_agent (~> 0.9.3)
   right_amqp (~> 0.2.0)
   right_http_connection (~> 1.3.0)
   right_popen (~> 1.0)
