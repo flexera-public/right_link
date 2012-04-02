@@ -337,30 +337,22 @@ class InstanceSetup
   # === Return
   # true:: Always return true
   def prepare_boot_bundle(&cb)
-    RightScale::AgentTagsManager.instance.tags do |tags|
-      RightScale::InstanceState.startup_tags = tags
-      if tags.empty?
-        @audit.append_info('No tags discovered on startup')
+    payload = {:agent_identity => @agent_identity, :audit_id => @audit.audit_id}
+    req = RightScale::IdempotentRequest.new('/booter/get_boot_bundle', payload)
+
+    req.callback do |bundle|
+      if bundle.executables.any? { |e| !e.ready }
+        retrieve_missing_inputs(bundle) { cb.call(success_result(bundle)) }
       else
-        @audit.append_info("Tags discovered on startup: '#{tags.join("', '")}'")
+        yield success_result(bundle)
       end
-      payload = {:agent_identity => @agent_identity, :audit_id => @audit.audit_id}
-      req = RightScale::IdempotentRequest.new('/booter/get_boot_bundle', payload)
-
-      req.callback do |bundle|
-        if bundle.executables.any? { |e| !e.ready }
-          retrieve_missing_inputs(bundle) { cb.call(success_result(bundle)) }
-        else
-          yield success_result(bundle)
-        end
-      end
-
-      req.errback do |res|
-        yield error_result(RightScale::Log.format('Failed to retrieve boot scripts', res))
-      end
-
-      req.run
     end
+
+    req.errback do |res|
+      yield error_result(RightScale::Log.format('Failed to retrieve boot scripts', res))
+    end
+
+    req.run
   end
 
   # Retrieve missing inputs for recipes and RightScripts stored in

@@ -27,6 +27,9 @@ module RightScale
   # Bundle sequence proxy, create child process to execute bundle
   # Use right_popen gem to control child process asynchronously
   class ExecutableSequenceProxy
+    DEFAULT_OPTIONS = {
+      :tag_query_timeout => 120
+    }
 
     include EM::Deferrable
 
@@ -47,12 +50,18 @@ module RightScale
 
     # Initialize sequence
     #
-    # === Parameter
+    # === Parameters
     # context(RightScale::OperationContext):: Bundle to be run and associated audit
+    #
+    # === Options
+    # :pid_callback(Proc):: proc that will be called, passing self, when the PID of the child process becomes known
+    # :tag_query_timeout(Proc):: default 120 -- how many seconds to wait for the agent tag query to complete, before giving up and continuing
     def initialize(context, options = {})
+      options = DEFAULT_OPTIONS.merge(options)
       @context = context
       @thread_name = get_thread_name_from_context(context)
       @pid_callback = options[:pid_callback]
+      @tag_query_timeout = options[:tag_query_timeout]
 
       AuditCookStub.instance.setup_audit_forwarding(@thread_name, context.audit)
       AuditCookStub.instance.on_close(@thread_name) { @audit_closed = true; check_done }
@@ -88,14 +97,24 @@ module RightScale
     def run
       @succeeded = true
 
+      @context.audit.create_new_section('Querying tags before converge')
+
       # update CookState with the latest instance before launching Cook
-      RightScale::AgentTagManager.instance.tags(:timeout=>120) do |tags|
-        # tags could be a String (error message)
+      RightScale::AgentTagManager.instance.tags(:timeout=>@tag_query_timeout) do |tags|
         if tags.is_a?(String)
-          Log.error("Failed to discover tags before running executable sequence: #{tags}")
-        # or something else (success, tag list, hopefully!)
+          # AgentTagManager could give us a String (error message)
+          Log.error("Failed to query tags before running executable sequence: #{tags}")
+
+          @context.audit.append_error('Could not discover tags due to an error or timeout.')
         else
+          # or, it could give us anything else -- generally an array) -- which indicates success
           CookState.update(InstanceState, { :startup_tags => tags })
+
+          if tags.empty?
+            @context.audit.append_info('No tags discovered.')
+          else
+            @context.audit.append_info("Tags discovered: '#{tags.join("', '")}'")
+          end
         end
 
         input_text = "#{MessageEncoder.for_agent(InstanceState.identity).encode(@context.payload)}\n"

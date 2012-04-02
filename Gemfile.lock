@@ -1,9 +1,9 @@
 GIT
   remote: git://github.com/rightscale/right_agent.git
-  revision: 4ab5fc2de193157f69d66c5469d250ebfd0366c0
+  revision: 1ed61c5a6b523ab1f538d76966791aa7468a7ad3
   branch: azure_12_3_refetch_tags
   specs:
-    right_agent (0.9.5)
+    right_agent (0.9.6)
       eventmachine (~> 0.12.10)
       json (~> 1.4)
       msgpack (= 0.4.4)

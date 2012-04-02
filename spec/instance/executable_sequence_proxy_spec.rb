@@ -32,20 +32,50 @@ describe RightScale::ExecutableSequenceProxy do
 
   before(:each) do
     setup_state('rs-instance-1-1')
+
+    #mock audit entry
     @audit = flexmock('audit', :audit_id=>12345)
+    flexmock(RightScale::AuditProxy).should_receive(:new).and_return(@audit)
+
+    #mock policy and bundle
     @runlist_policy = flexmock('runlist policy', :thread_name => thread_name)
     @bundle = flexmock('bundle', :runlist_policy => @runlist_policy)
     @bundle.should_receive(:to_json).and_return("[\"some json\"]")
     @context = flexmock('context', :audit => @audit, :payload => @bundle, :decommission => false, :thread_name => thread_name)
     @context.should_receive(:succeeded=)
+
+    #mock agent tag manager, with some default expectations to handle happy
+    #path for startup tag query
+    @tag_manager = flexmock('agent tag manager')
+    flexmock(RightScale::AgentTagManager).should_receive(:instance).and_return(@tag_manager)
+    @tag_manager.should_receive(:tags).and_yield([]).by_default
+    @audit.should_receive(:create_new_section).with('Querying tags before converge')
+    @audit.should_receive(:append_info).with('No tags discovered.').by_default
     @audit.should_receive(:update_status)
-    flexmock(RightScale::AuditProxy).should_receive(:new).and_return(@audit)
+
     @pid = nil
     @proxy = RightScale::ExecutableSequenceProxy.new(@context, :pid_callback => lambda { |sequence| @pid = sequence.pid })
   end
 
   after(:each) do
     cleanup_state
+  end
+
+  context 'tag query' do
+    context 'when the instance has tags' do
+      it 'should audit the tags' do
+        @tag_manager.should_receive(:tags).and_yield(['foo', 'bar', 'baz'])
+        @audit.should_receive(:append_info).with("Tags discovered: 'foo, bar, baz'")
+      end
+    end
+
+    context 'when the query fails or times out' do
+      it 'should audit and log the failure' do
+        @tag_manager.should_receive(:tags).and_yield('fall down go boom :(')
+        flexmock(RightScale::Log).should_receive(:error).with(/fall down go boom/)
+        @audit.should_receive(:append_error).with('Could not discover tags due to an error or timeout.')
+      end
+    end
   end
 
   it 'should run a valid command' do
