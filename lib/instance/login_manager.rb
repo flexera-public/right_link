@@ -74,7 +74,7 @@ module RightScale
       write_keys_file(user_lines, RIGHTSCALE_KEYS_FILE, { :user => 'rightscale', :group => 'rightscale' })
 
       tags = [ACTIVE_TAG, RESTRICTED_TAG]
-      AgentTagsManager.instance.add_tags(tags)
+      AgentTagManager.instance.add_tags(tags)
 
       # Schedule a timer to handle any expiration that is planned to happen in the future
       schedule_expiry(new_policy, agent_identity)

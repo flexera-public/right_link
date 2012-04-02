@@ -39,7 +39,7 @@ require File.normalize_path(File.join(BASE_DIR, 'repo_conf_generators'))
 SecureSerializerInitializer.init('instance', @identity)
 
 # Initialize any singletons that have dependencies on non-singletons
-AgentTagsManager.instance.agent = self
+AgentTagManager.instance.agent = self
 
 register setup = InstanceSetup.new(self)
 register scheduler = InstanceScheduler.new(self)
