@@ -27,6 +27,9 @@ module RightScale
   # Bundle sequence proxy, create child process to execute bundle
   # Use right_popen gem to control child process asynchronously
   class ExecutableSequenceProxy
+    DEFAULT_OPTIONS = {
+      :tag_query_timeout => 120
+    }
 
     include EM::Deferrable
 
@@ -47,12 +50,18 @@ module RightScale
 
     # Initialize sequence
     #
-    # === Parameter
+    # === Parameters
     # context(RightScale::OperationContext):: Bundle to be run and associated audit
+    #
+    # === Options
+    # :pid_callback(Proc):: proc that will be called, passing self, when the PID of the child process becomes known
+    # :tag_query_timeout(Proc):: default 120 -- how many seconds to wait for the agent tag query to complete, before giving up and continuing
     def initialize(context, options = {})
+      options = DEFAULT_OPTIONS.merge(options)
       @context = context
       @thread_name = get_thread_name_from_context(context)
       @pid_callback = options[:pid_callback]
+      @tag_query_timeout = options[:tag_query_timeout]
 
       AuditCookStub.instance.setup_audit_forwarding(@thread_name, context.audit)
       AuditCookStub.instance.on_close(@thread_name) { @audit_closed = true; check_done }
@@ -88,36 +97,54 @@ module RightScale
     def run
       @succeeded = true
 
+      @context.audit.create_new_section('Querying tags before converge')
+
       # update CookState with the latest instance before launching Cook
-      CookState.update(InstanceState)
+      RightScale::AgentTagManager.instance.tags(:timeout=>@tag_query_timeout) do |tags|
+        if tags.is_a?(String)
+          # AgentTagManager could give us a String (error message)
+          Log.error("Failed to query tags before running executable sequence: #{tags}")
 
-      input_text = "#{MessageEncoder.for_agent(InstanceState.identity).encode(@context.payload)}\n"
+          @context.audit.append_error('Could not discover tags due to an error or timeout.')
+        else
+          # or, it could give us anything else -- generally an array) -- which indicates success
+          CookState.update(InstanceState, { :startup_tags => tags })
 
-      # FIX: we have an issue with EM not allowing both sockets and named
-      # pipes to share the same file/socket id. sending the input on the
-      # command line is a temporary workaround.
-      platform = RightScale::Platform
-      if platform.windows?
-        input_path = File.normalize_path(File.join(platform.filesystem.temp_dir, "rs_executable_sequence#{@thread_name}.txt"))
-        File.open(input_path, "w") { |f| f.write(input_text) }
-        input_text = nil
-        cmd_exe_path = File.normalize_path(ENV['ComSpec']).gsub("/", "\\")
-        ruby_exe_path = File.normalize_path(AgentConfig.sandbox_ruby_cmd).gsub("/", "\\")
-        input_path = input_path.gsub("/", "\\")
-        cmd = "#{cmd_exe_path} /C type \"#{input_path}\" | #{ruby_exe_path} #{cook_path_and_arguments}"
-      else
-        cmd = "#{AgentConfig.sandbox_ruby_cmd} #{cook_path_and_arguments}"
-      end
+          if tags.empty?
+            @context.audit.append_info('No tags discovered.')
+          else
+            @context.audit.append_info("Tags discovered: '#{tags.join("', '")}'")
+          end
+        end
 
-      EM.next_tick do
-        RightScale.popen3(:command        => cmd,
-                          :input          => input_text,
-                          :target         => self,
-                          :environment    => { OptionsBag::OPTIONS_ENV => ENV[OptionsBag::OPTIONS_ENV] },
-                          :stdout_handler => :on_read_stdout,
-                          :stderr_handler => :on_read_stderr,
-                          :pid_handler    => :on_pid,
-                          :exit_handler   => :on_exit)
+        input_text = "#{MessageEncoder.for_agent(InstanceState.identity).encode(@context.payload)}\n"
+
+        # FIX: we have an issue with EM not allowing both sockets and named
+        # pipes to share the same file/socket id. sending the input on the
+        # command line is a temporary workaround.
+        platform = RightScale::Platform
+        if platform.windows?
+          input_path = File.normalize_path(File.join(platform.filesystem.temp_dir, "rs_executable_sequence#{@thread_name}.txt"))
+          File.open(input_path, "w") { |f| f.write(input_text) }
+          input_text = nil
+          cmd_exe_path = File.normalize_path(ENV['ComSpec']).gsub("/", "\\")
+          ruby_exe_path = File.normalize_path(AgentConfig.sandbox_ruby_cmd).gsub("/", "\\")
+          input_path = input_path.gsub("/", "\\")
+          cmd = "#{cmd_exe_path} /C type \"#{input_path}\" | #{ruby_exe_path} #{cook_path_and_arguments}"
+        else
+          cmd = "#{AgentConfig.sandbox_ruby_cmd} #{cook_path_and_arguments}"
+        end
+
+        EM.next_tick do
+          RightScale.popen3(:command        => cmd,
+                            :input          => input_text,
+                            :target         => self,
+                            :environment    => { OptionsBag::OPTIONS_ENV => ENV[OptionsBag::OPTIONS_ENV] },
+                            :stdout_handler => :on_read_stdout,
+                            :stderr_handler => :on_read_stderr,
+                            :pid_handler    => :on_pid,
+                            :exit_handler   => :on_exit)
+        end
       end
     end
 

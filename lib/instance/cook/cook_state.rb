@@ -193,10 +193,11 @@ module RightScale
     #
     # === Parameters
     # state_to_merge(RightScale::InstanceState):: InstanceState to be passed on to Cook
+    # overrides(Hash):: Hash keyed by state name that will override state_to_merge
     #
     # === Return
     # true:: Always
-    def update(state_to_merge)
+    def update(state_to_merge, overrides = {})
       # only merge state if state to be merged has values
       @startup_tags  = state_to_merge.startup_tags if state_to_merge.respond_to?(:startup_tags)
       @reboot        = state_to_merge.reboot?      if state_to_merge.respond_to?(:reboot?)
@@ -204,6 +205,11 @@ module RightScale
       if state_to_merge.respond_to?(:log_file) && state_to_merge.respond_to?(:value)
         @log_file      = state_to_merge.log_file(state_to_merge.value)
       end
+      
+      @startup_tags = overrides[:startup_tags] if overrides.has_key?(:startup_tags)
+      @reboot       = overrides[:reboot]       if overrides.has_key?(:reboot)
+      @log_level    = overrides[:log_level]    if overrides.has_key?(:log_level)
+      @log_file     = overrides[:log_file]     if overrides.has_key?(:log_file)
 
       save_state
 

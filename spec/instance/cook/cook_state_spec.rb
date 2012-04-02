@@ -323,9 +323,23 @@ describe RightScale::CookState do
         RightScale::CookState.has_downloaded_cookbooks?.should == @default_has_downloaded_cookbooks
       end
     end
+    
+    shared_examples_for 'when the cook state is updated from a given instance state with overrides' do
+      before(:each) do
+        # update cook state, then reset to force loading of new state
+        RightScale::CookState.update(@mock_instance_state, @overrides)
+        RightScale::CookState.reset
+      end
+
+      it 'should override the startup_tags value' do
+        RightScale::CookState.startup_tags.should == @expected_tags
+      end
+    end
 
     before(:each) do
       @mock_instance_state = flexmock('mock instance state', {:log_level => Logger::DEBUG, :reboot? => true, :startup_tags => ['some:machine=value_one', 'rs_agent_dev:download_cookbooks_once=true']})
+      @expected_tags = 'some:machine=foo'
+      @overrides = { :startup_tags => @expected_tags }
     end
 
     context 'when updating and cook state has never been persisted' do
@@ -357,6 +371,10 @@ describe RightScale::CookState do
       end
 
       it_should_behave_like 'when the cook state is updated from a given instance state'
+    end
+    
+    context 'when updating and an overriding hash is provided' do
+      it_should_behave_like 'when the cook state is updated from a given instance state with overrides'
     end
   end
 
