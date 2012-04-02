@@ -220,6 +220,10 @@ module RightScale
           options[:policy] = p
         end
 
+        opts.on("-a", "--audit_period PERIOD_IN_SECONDS") do |a|
+          options[:audit_period] = a
+        end
+
         opts.on('-v', '--verbose') do
           options[:verbose] = true
         end

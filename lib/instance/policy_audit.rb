@@ -46,7 +46,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def create_new_section(title, options={})
-      RightScale::log.info title
+      RightScale::Log.info title
       true
     end
 

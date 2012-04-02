@@ -18,7 +18,7 @@ module RightScale
     
     def initialize(policy_name, audit_period, audit)
       @policy_name = policy_name
-      @audit_period = audit_period
+      @audit_period = audit_period.to_i
       @audit = RightScale::PolicyAudit.new(audit)
       @count = 0
       @audit_timestamp = Time.now
