@@ -52,6 +52,9 @@ describe RightScale::PolicyManager do
   end
 
   context 'when the given bundle is nil' do
+    it 'register' do
+      RightScale::PolicyManager.register(nil).should be_false
+    end
     it 'success should return false' do
       RightScale::PolicyManager.success(nil).should be_false
     end
@@ -64,6 +67,9 @@ describe RightScale::PolicyManager do
   end
 
   context 'when the given bundle has a nil runlist policy' do
+    it 'register' do
+      RightScale::PolicyManager.register(nil).should be_false
+    end
     it 'success should return false' do
       RightScale::PolicyManager.success(bundle_nil_policy).should be_false
     end
@@ -78,6 +84,9 @@ describe RightScale::PolicyManager do
   let(:bundle)      {flexmock('bundle', :audit_id => rand**32, :runlist_policy => flexmock('rlp', :policy_name => policy_name, :audit_period => 120)) }
 
   context 'when a policy has not been registered' do
+    it 'registered? should return false' do
+      RightScale::PolicyManager.registered?(bundle).should be_false
+    end
     it 'success should return false' do
       RightScale::PolicyManager.success(bundle).should be_false
     end
@@ -93,13 +102,17 @@ describe RightScale::PolicyManager do
     let(:audit_proxy) {flexmock('audit', :audit_id => rand**32)}
 
     before do
-      audit_proxy.should_receive(:append_info).once.with("First run of reconvergence Policy: '#{policy_name}'")
+      audit_proxy.should_receive(:append_info).once.with(/First run of Reconvergence Policy '#{policy_name}' at .*/)
       flexmock(RightScale::AuditProxy).should_receive(:create).and_yield(audit_proxy)
       RightScale::PolicyManager.register(bundle)
     end
 
     it 'get_audit should return the audit assigned to the existing policy' do
       RightScale::PolicyManager.get_audit(bundle).should_not be_nil
+    end
+
+    it 'registered? should return true' do
+      RightScale::PolicyManager.registered?(bundle).should be_true
     end
 
     context :success do
@@ -127,7 +140,7 @@ describe RightScale::PolicyManager do
           existing_policy.audit_period = Time.now - existing_policy.audit_timestamp
 
           # success is going to audit now
-          audit_proxy.should_receive(:append_info).once.with(/Reconvergence policy '#{policy_name}' has successfully run .* times in the last .* seconds/)
+          audit_proxy.should_receive(:append_info).once.with(/Reconvergence Policy '#{policy_name}' has run successfully .* times since .*/)
         end
 
         it 'should update the last audit time stamp of the policy' do

@@ -26,6 +26,15 @@ module RightScale
         @policies.has_key?(policy_name_from_bundle(bundle))
       end
 
+      # Registers the bundle with the Manager and calls the passed in block when registration completes
+      # In a multithreaded environment, the
+      #
+      # === Parameters
+      # bundle(ExecutableBundle):: bundle containing a RunlistPolicy
+      # block(Block):: block to execute once registration is complete.  The block will be called with
+      #
+      # === Return
+      # result(Boolean):: Return false if the bundle fails to provide a valid runlist policy
       def register(bundle, &block)
         runlist_policy = runlist_policy_from_bundle(bundle)
         if runlist_policy
@@ -36,7 +45,7 @@ module RightScale
             # this is the first registration, add the callback to the list of callbacks to be executed after the audit has been created
             @registrations[runlist_policy.policy_name] = (block) ? [block] : []
             # request a new audit
-            RightScale::AuditProxy.create(RightScale::InstanceState.identity, "Policy #{runlist_policy.policy_name}") do |audit|
+            RightScale::AuditProxy.create(RightScale::InstanceState.identity, "Reconvergence Policy '#{runlist_policy.policy_name}'") do |audit|
               policy = Policy.new(runlist_policy.policy_name, runlist_policy.audit_period, audit)
               @policies[policy.policy_name] = policy
               # drain the pending registrations
@@ -44,7 +53,9 @@ module RightScale
               @registrations.delete(policy.policy_name)
             end
           end
+          true
         end
+        false
       end
 
       # Signals the successful execution of a right script or recipe with the given bundle

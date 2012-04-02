@@ -17,20 +17,20 @@ module RightScale
     attr_accessor :policy_name, :audit_period, :audit, :count, :audit_timestamp
     
     def initialize(policy_name, audit_period, audit)
-      @policy_name  = policy_name
+      @policy_name = policy_name
       @audit_period = audit_period
       @audit = RightScale::PolicyAudit.new(audit)
       @count = 0
       @audit_timestamp = Time.now
 
-      @audit.audit.append_info("First run of reconvergence Policy: '#{policy_name}'")
+      @audit.audit.append_info("First run of Reconvergence Policy '#{policy_name}' at #{Time.at(@audit_timestamp).to_s}")
     end
 
     def success
       @count += 1
       timestamp = Time.now
       if timestamp - @audit_timestamp >= @audit_period
-        @audit.audit.append_info("Reconvergence policy '#{@policy_name}' has successfully run #{@count} times in the last #{@audit_period} seconds")
+        @audit.audit.append_info("Reconvergence Policy '#{@policy_name}' has run successfully #{@count} time#{@count > 1 ? 's' : ''} since #{Time.at(@audit_timestamp).to_s}")
         @audit_timestamp = timestamp
         @count = 0
       end

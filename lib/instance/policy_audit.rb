@@ -46,6 +46,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def create_new_section(title, options={})
+      RightScale::log.info title
       true
     end
 
@@ -81,6 +82,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def append_output(text)
+      RightScale::Log.info text
       true
     end
 
