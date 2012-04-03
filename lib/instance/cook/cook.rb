@@ -108,10 +108,10 @@ module RightScale
     #
     # === Return
     # result(Hash):: contents of response
-    def query_tags(tags, agent_ids = nil)
+    def query_tags(tags, agent_ids=nil, timeout=120)
       cmd = { :name => :query_tags, :tags => tags }
       cmd[:agent_ids] = agent_ids unless agent_ids.nil? || agent_ids.empty?
-      response = blocking_request(cmd)
+      response = blocking_request(cmd, timeout)
       begin
         result = OperationResult.from_results(load(response, "Unexpected response #{response.inspect}"))
         raise TagError.new("Query tags failed: #{result.content}") unless result.success?
@@ -151,9 +151,9 @@ module RightScale
     #
     # === Return
     # true:: Always return true
-    def remove_tag(tag_name)
+    def remove_tag(tag_name, timeout)
       cmd = { :name => :remove_tag, :tag => tag_name }
-      response = blocking_request(cmd)
+      response = blocking_request(cmd, timeout)
       begin
         result = OperationResult.from_results(load(response, "Unexpected response #{response.inspect}"))
         if result.success?
