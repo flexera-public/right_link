@@ -89,7 +89,7 @@ module RightScale
       begin
         @disposition = nil
 
-        client.send_command(cmd, options[:verbose], TAG_REQUEST_TIMEOUT) do |res|
+        client.send_command(cmd, options[:verbose], options[:timeout] || TAG_REQUEST_TIMEOUT) do |res|
           begin
             case options[:action]
             when :get_tags
@@ -200,6 +200,10 @@ module RightScale
 
         opts.on('-f', '--format FMT') do |fmt|
           options[:format] = fmt
+        end
+
+        opts.on('-t', '--timeout TIMEOUT') do |tmt|
+          options[:timeout] = tmt
         end
       end
       
