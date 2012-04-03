@@ -130,7 +130,8 @@ module RightScale
     # true:: Always return true
     def add_tag(tag_name)
       cmd = { :name => :add_tag, :tag => tag_name }
-      @client.send_command(cmd)
+      # Need to execute on EM main thread where command client is running
+      EM.next_tick { @client.send_command(cmd) }
     end
 
     # Remove given tag from tags exposed by corresponding server
@@ -142,7 +143,8 @@ module RightScale
     # true:: Always return true
     def remove_tag(tag_name)
       cmd = { :name => :remove_tag, :tag => tag_name }
-      @client.send_command(cmd)
+      # Need to execute on EM main thread where command client is running
+      EM.next_tick { @client.send_command(cmd) }
     end
 
     # Access cook instance from anywhere to send requests to core through
