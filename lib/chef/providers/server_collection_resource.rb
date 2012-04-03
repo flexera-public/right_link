@@ -38,6 +38,7 @@ class Chef
         @resource_name = :server_collection
         @action = :load
         @allowed_actions.push(:load)
+        @timeout = 120
       end
 
       # List of agent ids whose tags should be retrieved
@@ -71,6 +72,15 @@ class Chef
           :tags,
           converted_arg,
           :kind_of => [ Array ]
+        )
+      end
+
+      # (Fixnum) Common timeout parameter for command line tools
+      def timeout(arg=nil)
+        set_or_return(
+          :timeout,
+          arg,
+          :kind_of => [ Fixnum ]
         )
       end
 
