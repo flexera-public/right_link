@@ -51,9 +51,11 @@ module RightScale
       Log.log_to_file_only(options[:log_to_file_only])
       Log.init(agent_id, options[:log_path])
       Log.level = CookState.log_level
-      # add an additional logger if the agent is set to log to an alternate location (install, operate, decommission, ...)
+      # add an additional logger if the agent is set to log to an alternate 
+      # location (install, operate, decommission, ...)
       Log.add_logger(::Logger.new(CookState.log_file)) if CookState.log_file
 
+      Log.info("[cook] Process starting up with dev tags: [#{CookState.startup_tags.select { |tag| tag.include?(CookState::DEV_TAG_NAMESPACE)}.join(', ')}]")
       fail('Missing command server listen port') unless options[:listen_port]
       fail('Missing command cookie') unless options[:cookie]
       @client = CommandClient.new(options[:listen_port], options[:cookie])
@@ -100,6 +102,9 @@ module RightScale
           fail('Execution failed', Log.format("Execution failed", e, :trace))
         end
       end
+      
+    ensure
+      Log.info("[cook] Process stopping")
       exit(1) unless success
     end
 
