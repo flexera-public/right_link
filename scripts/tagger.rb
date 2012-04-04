@@ -35,6 +35,7 @@
 #      --verbose, -v        Display debug information
 #      --help:              Display help
 #      --version:           Display version information
+#      --timeout, -t        Custom timeout parameter (default 120 sec)
 #
 
 require 'rubygems'
@@ -206,7 +207,7 @@ module RightScale
           options[:timeout] = tmt
         end
       end
-      
+
       opts.on_tail('--version') do
         puts version
         succeed
@@ -285,7 +286,7 @@ protected
       puts Usage.scan(__FILE__) if options[:print_usage]
       exit(code)
     end
-    
+
     # Version information
     #
     # === Return
