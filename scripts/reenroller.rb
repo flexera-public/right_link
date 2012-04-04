@@ -88,6 +88,10 @@ module RightScale
         res = system("/etc/init.d/rightlink #{action} > /dev/null")
       end
       true
+    rescue Errno::EACCES => e
+      STDERR.puts e.message
+      STDERR.puts "Try elevating privilege (sudo/runas) before invoking this command."
+      exit(2)
     end
 
     # Create options hash from command line arguments
