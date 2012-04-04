@@ -10,16 +10,18 @@
 #    rs_thunk --username USERNAME --email EMAIL [--profile DATA] [--force]
 #
 # === Options:
-#      --username,  -u USERNAME     Authorize as RightScale user with USERNAME
-#      --email,     -e EMAIL        Create audit entry saying "EMAIL logged in as USERNAME"
-#      --profile,   -p DATA         Extra profile data (e.g. a URL to download)
-#      --force,     -f              If profile option was specified - rewrite existing files
-#      --help:                      Display help
-#      --version:                   Display version information
+# --uuid,      -i UUID      Integer UUID for this user, obtained from RightScale
+# --username,  -u USERNAME  Local Unix account name for this user
+# --email,     -e EMAIL     Create audit entry saying "EMAIL logged in as USERNAME"
+# --profile,   -p DATA      Extra profile data (e.g. a URL to download)
+# --superuser, -s           Create account with superuser privilege
+# --force,     -f           If profile option was specified - rewrite existing files
+# --help:                   Display help
+# --version:                Display version information
 #
 # === Examples:
-#   Authorize as 'alice' with email address alice@example.com:
-#     rs_thunk -u alice -e alice@example.com
+#   Authorize as 'alice' with UUID 12345 and email address alice@example.com:
+#     rs_thunk -i 12345 -u alice -e alice@example.com
 #
 require 'rubygems'
 require 'optparse'
@@ -104,6 +106,8 @@ module RightScale
       create_audit_entry(email, username, access, orig, client_ip)
       create_profile(access, username, profile, force) if profile
       Kernel.exec(cmd)
+    rescue Exception => e
+      fail(e)
     end
 
     # Create options hash from command line arguments
@@ -202,6 +206,12 @@ module RightScale
         code = 50
       when Integer
         code = reason
+      when Errno::EACCES
+        STDERR.puts reason.message
+        STDERR.puts "Try elevating privilege (sudo/runas) before invoking this command."
+        code = 2
+      when SystemExit
+        code = 0
       when Exception
         STDOUT.puts "Unexpected #{reason.class.name}: #{reason.message}"
         STDOUT.puts "We apologize for the inconvenience. You may try connecting as root"
@@ -279,9 +289,6 @@ module RightScale
     rescue Exception => e
       Log.error("#{e.class.name}:#{e.message}")
       Log.error(e.backtrace.join("\n"))
-      #error = SecurityError.new("Caused by #{e.class.name}: #{e.message}")
-      #error.set_backtrace(e.backtrace)
-      #fail(error)
       false
     end
 

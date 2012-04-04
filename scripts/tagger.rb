@@ -161,6 +161,8 @@ module RightScale
         else
           fail(@disposition)
       end
+    rescue Exception => e
+      fail(e)
     end
 
     # Create options hash from command line arguments
@@ -261,8 +263,10 @@ protected
     # Print error on console and exit abnormally
     #
     # === Parameter
-    # msg(String):: Error message, default to nil (no message printed)
-    # print_usage(Boolean):: Whether script usage should be printed, default to false
+    # reason(Exception|String|Integer):: Exception, error message or numeric failure code
+    #
+    # === Options
+    # :print_usage(Boolean):: Whether script usage should be printed, default to false
     #
     # === Return
     # R.I.P. does not return
@@ -271,6 +275,10 @@ protected
       when TagError
         STDERR.puts reason.message
         code = reason.code
+      when Errno::EACCES
+        STDERR.puts reason.message
+        STDERR.puts "Try elevating privilege (sudo/runas) before invoking this command."
+        code = 2
       when Exception
         STDERR.puts reason.message
         code = 50

@@ -46,6 +46,10 @@ module RightScale
     def self.run
       controller = CloudController.new
       controller.control(controller.parse_args)
+    rescue Errno::EACCES => e
+      STDERR.puts e.message
+      STDERR.puts "Try elevating privilege (sudo/runas) before invoking this command."
+      exit(2)
     end
 
     # Undecorated formatter to support legacy console output
