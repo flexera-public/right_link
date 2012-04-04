@@ -131,6 +131,10 @@ module RightScale
     def self.run
       c = AgentChecker.new
       c.start(c.parse_args)
+    rescue Errno::EACCES => e
+      STDERR.puts e.message
+      STDERR.puts "Try elevating privilege (sudo/runas) before invoking this command."
+      exit(2)
     end
 
     # Run daemon or run one agent communication check

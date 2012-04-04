@@ -120,6 +120,8 @@ module RightScale
         fail(e.message)
       end
       true
+    rescue Exception => e
+      fail(e)
     end
 
     # Echo what is being requested
@@ -254,15 +256,27 @@ protected
     # Print error on console and exit abnormally
     #
     # === Parameter
-    # msg(String):: Error message, default to nil (no message printed)
+    # reason(String|Exception):: Error message or exception, default to nil (no message printed)
     # print_usage(Boolean):: Whether script usage should be printed, default to false
     #
     # === Return
     # R.I.P. does not return
-    def fail(msg=nil, print_usage=false)
-      puts "** #{msg}" if msg
+    def fail(reason=nil, print_usage=false)
+      case reason
+      when Errno::EACCES
+        STDERR.puts reason.message
+        STDERR.puts "Try elevating privilege (sudo/runas) before invoking this command."
+        code = 2
+      when Exception
+        STDERR.puts "** #{reason.message}"
+        code = 1
+      else
+        STDERR.puts "** #{reason}" if reason
+        code = 1
+      end
+
       puts Usage.scan(__FILE__) if print_usage
-      exit(1)
+      exit(code)
     end
 
     # Map arguments options into forwarder actor compatible options

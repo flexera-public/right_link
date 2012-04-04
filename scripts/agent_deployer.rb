@@ -67,6 +67,10 @@ module RightScale
     def self.run
       d = RightLinkAgentDeployer.new
       d.deploy(d.parse_args)
+    rescue Errno::EACCES => e
+      STDERR.puts e.message
+      STDERR.puts "Try elevating privilege (sudo/runas) before invoking this command."
+      exit(2)
     end
 
     protected

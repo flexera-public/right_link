@@ -37,6 +37,10 @@ module RightScale
     def self.run
       m = RightLinkLogLevelManager.new
       m.manage(m.parse_args)
+    rescue Errno::EACCES => e
+      STDERR.puts e.message
+      STDERR.puts "Try elevating privilege (sudo/runas) before invoking this command."
+      exit(2)
     end
 
     # Create options hash from command line arguments
