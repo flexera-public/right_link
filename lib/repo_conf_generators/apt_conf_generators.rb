@@ -33,6 +33,7 @@ module Apt
             opts = { :repo_filename => "rightscale",
                      :repo_name     => "default",
                      :description   => description,
+                     :codename      => '#{c.downcase}',
                      :base_urls     => base_urls,
                      :frozen_date   => frozen_date,
                      :enabled       => true }
@@ -61,9 +62,12 @@ module Apt
 
       return unless opts[:enabled]
 
+      target = opts[:codename].downcase
       codename = ::RightScale::Platform.codename.downcase
 
-      raise RightScale::PlatformError.new("Unsupported ubuntu release #{codename}") unless SUPPORTED_REPOS.include?(codename)
+      raise RightScale::PlatformError, "Unsupported Ubuntu release #{codename}" unless SUPPORTED_REPOS.include?(codename)
+      raise RightScale::PlatformError, "Wrong release; repo is for #{target}, we are #{codename}" unless target == codename
+
       FileUtils.mkdir_p(Apt::Ubuntu::path_to_sources_list)
 
       if opts[:frozen_date] != 'latest'
