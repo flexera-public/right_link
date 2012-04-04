@@ -40,7 +40,7 @@ class Chef
       # === Return
       # true:: Always return true
       def action_publish
-        RightScale::Cook.instance.add_tag(@new_resource.name)
+        RightScale::Cook.instance.add_tag(@new_resource.name, @new_resource.timeout)
         true
       end
 
@@ -49,7 +49,7 @@ class Chef
       # === Return
       # true:: Always return true
       def action_remove
-        RightScale::Cook.instance.remove_tag(@new_resource.name)
+        RightScale::Cook.instance.remove_tag(@new_resource.name, @new_resource.timeout)
         true
       end
 

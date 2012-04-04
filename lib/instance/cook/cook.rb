@@ -129,10 +129,10 @@ module RightScale
     #
     # === Return
     # result(Hash):: contents of response
-    def query_tags(tags, agent_ids = nil)
+    def query_tags(tags, agent_ids=nil, timeout=120)
       cmd = { :name => :query_tags, :tags => tags }
       cmd[:agent_ids] = agent_ids unless agent_ids.nil? || agent_ids.empty?
-      response = blocking_request(cmd)
+      response = blocking_request(cmd, timeout)
       begin
         result = OperationResult.from_results(load(response, "Unexpected response #{response.inspect}"))
         raise TagError.new("Query tags failed: #{result.content}") unless result.success?
@@ -149,9 +149,9 @@ module RightScale
     #
     # === Return
     # true:: Always return true
-    def add_tag(tag_name)
+    def add_tag(tag_name, timeout)
       cmd = { :name => :add_tag, :tag => tag_name }
-      response = blocking_request(cmd)
+      response = blocking_request(cmd, timeout)
       begin
         result = OperationResult.from_results(load(response, "Unexpected response #{response.inspect}"))
         if result.success?
@@ -172,9 +172,9 @@ module RightScale
     #
     # === Return
     # true:: Always return true
-    def remove_tag(tag_name)
+    def remove_tag(tag_name, timeout)
       cmd = { :name => :remove_tag, :tag => tag_name }
-      response = blocking_request(cmd)
+      response = blocking_request(cmd, timeout)
       begin
         result = OperationResult.from_results(load(response, "Unexpected response #{response.inspect}"))
         if result.success?
@@ -260,12 +260,12 @@ module RightScale
     #
     # === Raise
     # BlockingError:: If request called when on EM main thread
-    def blocking_request(cmd)
+    def blocking_request(cmd, timeout)
       raise BlockingError, "Blocking request not allowed on EM main thread for command #{cmd.inspect}" if EM.reactor_thread?
       # Use a queue to block and wait for response
       response_queue = Queue.new
       # Need to execute on EM main thread where command client is running
-      EM.next_tick { @client.send_command(cmd) { |response| response_queue << response } }
+      EM.next_tick { @client.send_command(cmd, false, timeout) { |response| response_queue << response } }
       return response_queue.shift
     end
 

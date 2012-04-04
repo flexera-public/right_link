@@ -35,6 +35,7 @@
 #      --verbose, -v        Display debug information
 #      --help:              Display help
 #      --version:           Display version information
+#      --timeout, -t        Custom timeout parameter (default 120 sec)
 #
 
 require 'rubygems'
@@ -89,7 +90,7 @@ module RightScale
       begin
         @disposition = nil
 
-        client.send_command(cmd, options[:verbose], TAG_REQUEST_TIMEOUT) do |res|
+        client.send_command(cmd, options[:verbose], options[:timeout] || TAG_REQUEST_TIMEOUT) do |res|
           begin
             case options[:action]
             when :get_tags
@@ -201,8 +202,12 @@ module RightScale
         opts.on('-f', '--format FMT') do |fmt|
           options[:format] = fmt
         end
+
+        opts.on('-t', '--timeout TIMEOUT') do |tmt|
+          options[:timeout] = tmt
+        end
       end
-      
+
       opts.on_tail('--version') do
         puts version
         succeed
@@ -281,7 +286,7 @@ protected
       puts Usage.scan(__FILE__) if options[:print_usage]
       exit(code)
     end
-    
+
     # Version information
     #
     # === Return

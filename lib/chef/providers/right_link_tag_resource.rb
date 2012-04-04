@@ -37,7 +37,17 @@ class Chef
         super(name, run_context)
         @resource_name = :right_link_tag
         @action = :publish
+        @timeout = 120
         @allowed_actions.push(:publish, :remove)
+      end
+
+      # (Fixnum) Common timeout parameter for command line tools
+      def timeout(arg=nil)
+        set_or_return(
+          :timeout,
+          arg,
+          :kind_of => [ Fixnum ]
+        )
       end
 
     end
