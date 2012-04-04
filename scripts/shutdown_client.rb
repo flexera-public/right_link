@@ -135,8 +135,8 @@ protected
     def fail(reason=nil, print_usage=false)
       case reason
       when Errno::EACCES
-        STDERR.puts reason.message
-        STDERR.puts "Try elevating privilege (sudo/runas) before invoking this command."
+        STDERR.puts "** #{reason.message}"
+        STDERR.puts "** Try elevating privilege (sudo/runas) before invoking this command."
         code = 2
       when Exception
         STDERR.puts "** #{reason.message}"
