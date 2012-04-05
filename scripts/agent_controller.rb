@@ -165,6 +165,8 @@ module RightScale
       begin
         @client = CommandClient.new(listen_port, options[:cookie])
         @client.send_command({ :name => command }, verbose = false, timeout = 100) { |r| puts r }
+      rescue SystemExit => e
+        raise e
       rescue Exception => e
         $stderr.puts Log.format("Failed or else time limit was exceeded, confirm that local instance is still running", e, :trace)
         return false

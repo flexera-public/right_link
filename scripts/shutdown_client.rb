@@ -70,7 +70,9 @@ module RightScale
         fail(e.message)
       end
       true
-    rescue Exception =>e
+    rescue SystemExit => e
+      raise e
+    rescue Exception => e
       fail(e)
     end
 
@@ -114,7 +116,9 @@ module RightScale
 
       begin
         opts.parse!(ARGV)
-        raise ArgumentError.new("Missing required shutdown argument") unless options[:level]
+        raise ArgumentError, "Missing required shutdown argument" unless options[:level]
+      rescue SystemExit => e
+        raise e
       rescue Exception => e
         puts e.message + "\nUse --help for additional information"
         exit(1)
