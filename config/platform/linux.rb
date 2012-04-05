@@ -217,7 +217,7 @@ module RightScale
           results = []
           output_text.each do |line|
             volume = {}
-            line_regex = /^([\/a-z0-9]+):(.*)/
+            line_regex = /^([\/a-z0-9_-]+):(.*)/ 
             volmatch = line_regex.match(line)
             raise ParserError.new("Failed to parse volume info from #{line.inspect} using #{line_regex.inspect}") unless volmatch
             volume[:device] = volmatch[1]
