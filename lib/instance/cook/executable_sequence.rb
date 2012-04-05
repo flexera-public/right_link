@@ -164,8 +164,8 @@ module RightScale
       if @run_list.empty?
         # Deliberately avoid auditing anything since we did not run any recipes
         # Still download the cookbooks repos if in dev mode
-        checkout_repos
-        download_repos if CookState.cookbooks_path
+        checkout_cookbook_repos
+        download_cookbooks if CookState.cookbooks_path
         report_success(nil)
       else
         configure_ohai
@@ -173,8 +173,8 @@ module RightScale
         configure_chef
         download_attachments if @ok
         install_packages if @ok
-        checkout_repos if @ok
-        download_repos if @ok
+        checkout_cookbook_repos if @ok
+        download_cookbooks if @ok
         update_cookbook_path if @ok
         setup_powershell_providers if RightScale::Platform.windows?
         check_ohai { |o| converge(o) } if @ok
@@ -386,7 +386,7 @@ module RightScale
     #
     # === Return
     # true:: Always return true
-    def checkout_repos
+    def checkout_cookbook_repos
       return true unless @cookbook_repo_retriever.has_cookbooks?
 
       @audit.create_new_section('Checking out cookbooks for development')
@@ -411,7 +411,7 @@ module RightScale
     #
     # === Return
     # true:: Always return true
-    def download_repos
+    def download_cookbooks
       # first, if @download_path is world writable, stop that nonsense right this second.
       unless RightScale::Platform.windows?
         if File.exists?(@download_path) && File.world_writable?(@download_path)
@@ -448,7 +448,7 @@ module RightScale
                 if File.exists?(cookbook_path)
                   @audit.append_info("Skipping #{position.cookbook.name}, already there")
                 else
-                  prepare_cookbook(cookbook_path, position.cookbook)
+                  download_cookbook(cookbook_path, position.cookbook)
                 end
               end
             end
@@ -466,7 +466,7 @@ module RightScale
     end
 
     #
-    # Download a cookbook from the mirror and extract it to the filesystem.
+    # Download a cookbook from Repose mirror and extract it to the filesystem.
     #
     # === Parameters
     # root_dir(String):: subdir of basedir into which this cookbook goes
@@ -478,7 +478,7 @@ module RightScale
     #
     # === Return
     # true:: always returns true
-    def prepare_cookbook(root_dir, cookbook)
+    def download_cookbook(root_dir, cookbook)
       @audit.append_info("Requesting #{cookbook.name}")
       tarball = Tempfile.new("tarball")
       tarball.binmode

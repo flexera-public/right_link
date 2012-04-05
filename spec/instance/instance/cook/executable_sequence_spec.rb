@@ -179,7 +179,7 @@ module RightScale
         @auditor.should_receive(:append_info).with("").once
         dl.should_receive(:request, Proc).and_yield(response).once
         @sequence = ExecutableSequence.new(@bundle)
-        @sequence.send(:download_repos)
+        @sequence.send(:download_cookbooks)
         @sequence.should be_okay
       end
 
@@ -194,7 +194,7 @@ module RightScale
                                                     ["cookbooks", "a-sha", "nonexistent cookbook",
                                                      "not found"])
         @sequence = ExecutableSequence.new(@bundle)
-        @sequence.send(:download_repos)
+        @sequence.send(:download_cookbooks)
         @sequence.should have_failed("Failed to download cookbook",
                                      "Cannot continue due to RightScale::ExecutableSequence::CookbookDownloadFailure: not found while downloading a-sha.")
       end
@@ -494,9 +494,9 @@ module RightScale
         @auditor.should_receive(:append_info).with(/Duration: \d+\.\d+ seconds/).once
 
         @sequence = ExecutableSequence.new(@bundle)
-        @sequence.send(:checkout_repos)
+        @sequence.send(:checkout_cookbook_repos)
         @sequence.should be_okay
-        @sequence.send(:download_repos)
+        @sequence.send(:download_cookbooks)
         @sequence.should be_okay
       end
 
