@@ -20,6 +20,8 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+require 'thread'
+
 module RightScale
 
   # Provides access to core agents audit operation through helper methods
@@ -51,6 +53,7 @@ module RightScale
       @audit_id = audit_id
       @size = 0
       @buffer = ''
+      @mutex = Mutex.new
     end
 
     # Create a new audit and calls given block back asynchronously with it
@@ -138,9 +141,17 @@ module RightScale
     # === Raise
     # ApplicationError:: If audit id is missing from passed-in options
     def append_output(text)
-      EM.next_tick do
+      @mutex.synchronize do
         @buffer << text
-        if @buffer.size > MAX_AUDIT_SIZE
+      end
+
+      EM.next_tick do
+        buffer_size = nil
+        @mutex.synchronize do
+          buffer_size = @buffer.size
+        end
+
+        if buffer_size > MAX_AUDIT_SIZE
           flush_buffer
         else
           reset_timer
@@ -206,9 +217,17 @@ module RightScale
         @timer.cancel
         @timer = nil
       end
-      unless @buffer.empty?
-        internal_send_audit(:kind => :output, :text => @buffer, :category => EventCategories::NONE)
-        @buffer = ''
+
+      to_send = nil
+      @mutex.synchronize do
+        unless @buffer.empty?
+          to_send = @buffer
+          @buffer = ''
+        end
+      end
+
+      if to_send
+        internal_send_audit(:kind => :output, :text => to_send, :category => EventCategories::NONE)
       end
     end
 
