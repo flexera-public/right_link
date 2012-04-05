@@ -125,6 +125,8 @@ module RightScale
 
       begin
         opts.parse!(ARGV)
+      rescue SystemExit => e
+        raise e
       rescue Exception => e
         puts e.message + "\nUse --help for additional information"
         exit(1)

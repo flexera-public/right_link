@@ -161,6 +161,8 @@ module RightScale
         else
           fail(@disposition)
       end
+    rescue SystemExit => e
+      raise e
     rescue Exception => e
       fail(e)
     end
@@ -222,6 +224,8 @@ module RightScale
 
       begin
         opts.parse!(ARGV)
+      rescue SystemExit => e
+        raise e
       rescue Exception => e
         STDERR.puts e.message + "\nUse rs_tag --help for additional information"
         fail(1)

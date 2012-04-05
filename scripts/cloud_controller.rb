@@ -104,8 +104,8 @@ module RightScale
           raise ArgumentError, "ERROR: Unknown cloud action: #{action}"
         end
       end
-    rescue SystemExit
-      raise
+    rescue SystemExit => e
+      raise e
     rescue Exception => e
       $stderr.puts "ERROR: #{e.message}"
       exit 1

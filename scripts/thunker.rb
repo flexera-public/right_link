@@ -106,6 +106,8 @@ module RightScale
       create_audit_entry(email, username, access, orig, client_ip)
       create_profile(access, username, profile, force) if profile
       Kernel.exec(cmd)
+    rescue SystemExit => e
+      raise e
     rescue Exception => e
       fail(e)
     end
@@ -154,6 +156,8 @@ module RightScale
 
       begin
         opts.parse!(ARGV)
+      rescue SystemExit => e
+        raise e
       rescue Exception => e
         STDERR.puts e.message + "\nUse rs_thunk --help for additional information"
         fail(1)
@@ -201,17 +205,10 @@ module RightScale
       when ThunkError
         STDOUT.puts reason.message
         code = reason.code
-      when String
-        STDOUT.puts reason
-        code = 50
-      when Integer
-        code = reason
       when Errno::EACCES
         STDERR.puts reason.message
         STDERR.puts "Try elevating privilege (sudo/runas) before invoking this command."
         code = 2
-      when SystemExit
-        code = 0
       when Exception
         STDOUT.puts "Unexpected #{reason.class.name}: #{reason.message}"
         STDOUT.puts "We apologize for the inconvenience. You may try connecting as root"
@@ -220,6 +217,11 @@ module RightScale
         STDERR.puts("Debugging information:")
         STDERR.puts(@log_sink.string)
         code = 50
+      when String
+        STDOUT.puts reason
+        code = 50
+      when Integer
+        code = reason
       else
         code = 1
       end

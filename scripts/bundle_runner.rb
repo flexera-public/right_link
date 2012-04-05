@@ -120,6 +120,8 @@ module RightScale
         fail(e.message)
       end
       true
+    rescue SystemExit => e
+      raise e
     rescue Exception => e
       fail(e)
     end
