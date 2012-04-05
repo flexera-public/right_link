@@ -183,6 +183,16 @@ module RightScale
       'RightLink'
     end
 
+    # Determine syslog facility based on options
+    #
+    # === Parameters
+    # options(Hash):: Command line options
+    #
+    # === Return
+    # (String):: 'user'
+    def syslog_facility(options)
+      'user'
+    end
   end # RightLinkAgentController
 
 end # RightScale
