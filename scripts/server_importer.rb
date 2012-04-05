@@ -113,6 +113,8 @@ module RightScale
           puts Usage.scan(__FILE__)
           exit
       end
+    rescue SystemExit => e
+      raise e
     rescue Exception => e
       fail(e)
     end
