@@ -269,6 +269,9 @@ protected
         STDERR.puts "** #{reason.message}"
         STDERR.puts "** Try elevating privilege (sudo/runas) before invoking this command."
         code = 2
+      when Exception
+        STDERR.puts "** #{reason.message}"
+        code = 1
       else
         STDERR.puts "** #{reason}" if reason
         code = 1
