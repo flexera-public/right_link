@@ -387,7 +387,9 @@ module RightScale
     # === Return
     # true:: Always return true
     def checkout_repos
-      @audit.create_new_section('Checking out cookbooks for development') if @cookbook_repo_retriever.has_cookbooks?
+      return true unless @cookbook_repo_retriever.has_cookbooks?
+
+      @audit.create_new_section('Checking out cookbooks for development')
       audit_time do
         # only create a scraper if there are dev cookbooks
         @cookbook_repo_retriever.checkout_cookbook_repos do |state, operation, explanation, exception|
@@ -410,41 +412,44 @@ module RightScale
     # === Return
     # true:: Always return true
     def download_repos
-      @audit.create_new_section('Retrieving cookbooks') unless @cookbooks.empty?
-      audit_time do
-        # first, if @download_path is world writable, stop that nonsense right this second.
-        unless RightScale::Platform.windows?
-          if File.exists?(@download_path) && File.world_writable?(@download_path)
-            Log.warn("Cookbooks download path world writable; fixing.")
-            File.chmod(0755, @download_path)
+      # first, if @download_path is world writable, stop that nonsense right this second.
+      unless RightScale::Platform.windows?
+        if File.exists?(@download_path) && File.world_writable?(@download_path)
+          Log.warn("Cookbooks download path world writable; fixing.")
+          File.chmod(0755, @download_path)
+        end
+      end
+
+      unless CookState.download_once?
+        Log.info("Deleting existing cookbooks")
+        # second, wipe out any preexisting cookbooks in the download path
+        if File.directory?(@download_path)
+          Dir.foreach(@download_path) do |entry|
+            FileUtils.remove_entry_secure(File.join(@download_path, entry)) if entry =~ /\A[[:xdigit:]]+\Z/
           end
         end
+      end
 
-        unless CookState.download_once?
-          @audit.append_info("Deleting existing cookbooks")
-          # second, wipe out any preexisting cookbooks in the download path
-          if File.directory?(@download_path)
-            Dir.foreach(@download_path) do |entry|
-              FileUtils.remove_entry_secure(File.join(@download_path, entry)) if entry =~ /\A[[:xdigit:]]+\Z/
-            end
-          end
-        end
-
-        @cookbooks.each do |cookbook_sequence|
-          cookbook_sequence.positions.each do |position|
-            if @cookbook_repo_retriever.should_be_linked?(cookbook_sequence.hash, position.position)
-              begin
-                @cookbook_repo_retriever.link(cookbook_sequence.hash, position.position)
-              rescue Exception => e
-                ::RightScale::Log.error("Failed to link #{position.cookbook.name} for development", e)
-              end
-            else
-              # download with repose
-              cookbook_path = CookbookPathMapping.repose_path(@download_path, cookbook_sequence.hash, position.position)
-              if File.exists?(cookbook_path)
-                @audit.append_info("Skipping #{position.cookbook.name}, already there")
+      unless @cookbooks.empty?
+        # only create audit output if we're actually going to download something!
+        @audit.create_new_section('Retrieving cookbooks')
+        audit_time do
+          @cookbooks.each do |cookbook_sequence|
+            cookbook_sequence.positions.each do |position|
+              if @cookbook_repo_retriever.should_be_linked?(cookbook_sequence.hash, position.position)
+                begin
+                  @cookbook_repo_retriever.link(cookbook_sequence.hash, position.position)
+                rescue Exception => e
+                  ::RightScale::Log.error("Failed to link #{position.cookbook.name} for development", e)
+                end
               else
-                prepare_cookbook(cookbook_path, position.cookbook)
+                # download with repose
+                cookbook_path = CookbookPathMapping.repose_path(@download_path, cookbook_sequence.hash, position.position)
+                if File.exists?(cookbook_path)
+                  @audit.append_info("Skipping #{position.cookbook.name}, already there")
+                else
+                  prepare_cookbook(cookbook_path, position.cookbook)
+                end
               end
             end
           end
