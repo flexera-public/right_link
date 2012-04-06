@@ -68,7 +68,7 @@ GEM
     rbx-require-relative (0.0.5)
     rest-client (1.6.3)
       mime-types (>= 1.16)
-    right_agent (0.9.8)
+    right_agent (0.9.9)
       eventmachine (~> 0.12.10)
       json (~> 1.4)
       msgpack (= 0.4.4)
