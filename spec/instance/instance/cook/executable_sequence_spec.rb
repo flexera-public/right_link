@@ -374,9 +374,6 @@ module RightScale
     end
 
     context 'cookbook development' do
-      #dev cookbooks do not work on Windows ... for now.....
-      pending unless !::RightScale::Platform.windows? || defined?(::Windows::File::CreateSymbolicLink)
-
       Spec::Matchers.define :be_symlink_to do |path|
         match do |link|
           File.readlink(link) == path
@@ -504,6 +501,9 @@ module RightScale
 
       shared_examples_for 'mocks checkout' do
         before(:each) do
+          #dev cookbooks do not work on Windows ... for now.....
+          pending unless !::RightScale::Platform.windows? || defined?(::Windows::File::CreateSymbolicLink)
+
           # counts the scrapes
           @total_scrape_count = 0
 
@@ -559,6 +559,9 @@ module RightScale
 
       shared_examples_for 'checks out dev repos' do
         before(:each) do
+          #dev cookbooks do not work on Windows ... for now.....
+          pending unless !::RightScale::Platform.windows? || defined?(::Windows::File::CreateSymbolicLink)
+
           simulate_download_repos(@cookbooks, @dev_cookbooks)
         end
 
@@ -679,7 +682,7 @@ module RightScale
         it_should_behave_like 'checks out dev repos'
       end
 
-      context "when checkout of one repo fails" do
+      context 'when checkout of one repo fails' do
         before(:each) do
           sequences = build_cookbook_sequences
           @cookbooks = sequences[:cookbooks]
