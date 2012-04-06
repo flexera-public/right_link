@@ -136,18 +136,18 @@ module RightScale
       end
     end
 
-    context 'with a cookbook specified' do
+    context 'given the bundle contains cookbooks' do
 
       it_should_behave_like 'mocks cook'
 
       before(:each) do
         flexmock(ReposeDownloader).should_receive(:discover_repose_servers).with([SERVER]).once
         @auditor.should_receive(:create_new_section).with("Retrieving cookbooks").once
-        @auditor.should_receive(:append_info).with("Deleting existing cookbooks").once
         @auditor.should_receive(:append_info).with("Requesting nonexistent cookbook").once
 
         # prevent Chef logging reaching the console during spec test.
         logger = flexmock(Log)
+        logger.should_receive(:info).with("Deleting existing cookbooks").once
         logger.should_receive(:info).with(/Connecting to cookbook server/)
         logger.should_receive(:info).with(/Opening new HTTPS connection to/)
 
@@ -165,7 +165,7 @@ module RightScale
         flexmock(CookState).should_receive(:cookbooks_path).and_return(@temp_cache_path)
       end
 
-      it 'should successfully request a cookbook we can access' do
+      it 'should download accessible cookbooks' do
         tarball = File.open(File.join(File.dirname(__FILE__), "demo_tarball.tar")).binmode.read
         dl = flexmock(ReposeDownloader).should_receive(:new).
             with('cookbooks', "4cdae6d5f1bc33d8713b341578b942d42ed5817f", "not-a-token",
@@ -179,11 +179,11 @@ module RightScale
         @auditor.should_receive(:append_info).with("").once
         dl.should_receive(:request, Proc).and_yield(response).once
         @sequence = ExecutableSequence.new(@bundle)
-        @sequence.send(:download_repos)
+        @sequence.send(:download_cookbooks)
         @sequence.should be_okay
       end
 
-      it 'should fail to request a cookbook we can\'t access' do
+      it 'should not download inaccessible cookbooks' do
         @auditor.should_receive(:append_info).with(/Duration: \d+\.\d+ seconds/).never
         dl = flexmock(ReposeDownloader).should_receive(:new).
             with('cookbooks', "4cdae6d5f1bc33d8713b341578b942d42ed5817f", "not-a-token",
@@ -194,27 +194,9 @@ module RightScale
                                                     ["cookbooks", "a-sha", "nonexistent cookbook",
                                                      "not found"])
         @sequence = ExecutableSequence.new(@bundle)
-        @sequence.send(:download_repos)
+        @sequence.send(:download_cookbooks)
         @sequence.should have_failed("Failed to download cookbook",
                                      "Cannot continue due to RightScale::ExecutableSequence::CookbookDownloadFailure: not found while downloading a-sha.")
-      end
-
-      it 'should successfully request a cookbook we can access' do
-        tarball = File.open(File.join(File.dirname(__FILE__), "demo_tarball.tar")).binmode.read
-        dl = flexmock(ReposeDownloader).should_receive(:new).
-            with('cookbooks', "4cdae6d5f1bc33d8713b341578b942d42ed5817f", "not-a-token",
-                 "nonexistent cookbook", ExecutableSequence::CookbookDownloadFailure,
-                 RightScale::Log).once.
-            and_return(flexmock(ReposeDownloader))
-        response = flexmock(Net::HTTPSuccess.new("1.1", "200", "everything good"))
-        response.should_receive(:read_body, Proc).and_yield(tarball).once
-        @auditor.should_receive(:append_info).with("Success; unarchiving cookbook").once
-        @auditor.should_receive(:append_info).with(/Duration: \d+\.\d+ seconds/).once
-        @auditor.should_receive(:append_info).with("").once
-        dl.should_receive(:request, Proc).and_yield(response).once
-        @sequence = ExecutableSequence.new(@bundle)
-        @sequence.send(:download_repos)
-        @sequence.should be_okay
       end
     end
 
@@ -391,8 +373,10 @@ module RightScale
       end
     end
 
-    if !::RightScale::Platform.windows? || defined?(::Windows::File::CreateSymbolicLink)
-      context 'dev_cookbooks' do
+    context 'cookbook development' do
+      #dev cookbooks do not work on Windows ... for now.....
+      pending unless !::RightScale::Platform.windows? || defined?(::Windows::File::CreateSymbolicLink)
+
       Spec::Matchers.define :be_symlink_to do |path|
         match do |link|
           File.readlink(link) == path
@@ -485,7 +469,8 @@ module RightScale
                                                          :dev_cookbooks   => dev_cookbooks)
 
         flexmock(ReposeDownloader).should_receive(:discover_repose_servers).with([SERVER]).once
-        @auditor.should_receive(:append_info).with("Deleting existing cookbooks").once
+
+        flexmock(Log).should_receive(:info).with("Deleting existing cookbooks").once
 
         tarball = File.open(File.join(File.dirname(__FILE__), "demo_tarball.tar")).binmode.read
         dl = flexmock(ReposeDownloader)
@@ -509,9 +494,9 @@ module RightScale
         @auditor.should_receive(:append_info).with(/Duration: \d+\.\d+ seconds/).once
 
         @sequence = ExecutableSequence.new(@bundle)
-        @sequence.send(:checkout_repos)
+        @sequence.send(:checkout_cookbook_repos)
         @sequence.should be_okay
-        @sequence.send(:download_repos)
+        @sequence.send(:download_cookbooks)
         @sequence.should be_okay
       end
 
@@ -557,7 +542,10 @@ module RightScale
             end
             mock_scraper.should_receive(:repo_dir).once.with(RightScale::CookbookRepoRetriever.to_scraper_hash(dev_cookbook)).and_return(repo_base_dir) unless @failure_repos[dev_repo_sha]
           end
-          @auditor.should_receive(:append_info).with(/Duration: \d+\.\d+ seconds/).once
+
+          unless @dev_cookbooks.repositories.nil? || @dev_cookbooks.repositories.empty?
+            @auditor.should_receive(:append_info).with(/Duration: \d+\.\d+ seconds/).once
+          end
         end
 
         after(:each) do
@@ -621,7 +609,7 @@ module RightScale
         end
       end
 
-      context 'debugging no cookbooks' do
+      context 'given no dev cookbooks' do
         before(:each) do
           sequences = build_cookbook_sequences
           @cookbooks = sequences[:cookbooks]
@@ -634,7 +622,7 @@ module RightScale
         it_should_behave_like 'checks out dev repos'
       end
 
-      context 'debugging one cookbook that exists in only one repo' do
+      context 'given one dev cookbook that exists in only one repo' do
         context 'repo contains only one cookbook' do
           before(:each) do
             sequences = build_cookbook_sequences
@@ -663,7 +651,7 @@ module RightScale
         end
       end
 
-      context 'debugging one cookbook that exists in two repos' do
+      context 'given one dev cookbook that exists in two repos' do
         before(:each) do
           sequences = build_cookbook_sequences
           @cookbooks = sequences[:cookbooks]
@@ -676,7 +664,7 @@ module RightScale
         it_should_behave_like 'checks out dev repos'
       end
 
-      context 'debugging multiple cookbooks from multiple repos' do
+      context 'given multiple dev cookbooks from multiple repos' do
         before(:each) do
           sequences = build_cookbook_sequences
           @cookbooks = sequences[:cookbooks]
@@ -708,7 +696,6 @@ module RightScale
         it_should_behave_like 'mocks checkout'
         it_should_behave_like 'checks out dev repos'
       end
-    end
     end
   end
 end
