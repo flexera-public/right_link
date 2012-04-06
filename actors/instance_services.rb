@@ -70,6 +70,4 @@ class InstanceServices
     RightScale::ReenrollManager.reenroll!('--resume')
     true
   end
-
-  def
 end
