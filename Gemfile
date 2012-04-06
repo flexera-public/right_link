@@ -72,5 +72,5 @@ group :stable do
   gem "highline",              "1.6.1"
   gem "uuidtools",             "2.1.2"
   gem "mime-types",            "1.16"
-  gem "rest-client",           "1.6.3"
+  gem "rest-client",           "1.6.7"
 end
