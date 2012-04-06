@@ -421,7 +421,7 @@ protected
           try_communicating(attempt)
           @retry_timer = EM::Timer.new(@options[:retry_interval]) do
             error("Communication attempt #{attempt} timed out after #{elapsed(@options[:retry_interval])}")
-            @agent = agent_options('instance') # Reload in case not using right cookie
+            @agent = AgentConfig.agent_options('instance') # Reload in case not using right cookie
             check_communication(attempt)
           end
         else
