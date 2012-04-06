@@ -67,8 +67,8 @@ module Apt
       target = opts[:codename].downcase
       codename = ::RightScale::Platform.codename.downcase
 
-      raise RightScale::PlatformError, "Unsupported Ubuntu release #{codename}" unless SUPPORTED_REPOS.include?(codename)
-      raise RightScale::PlatformError, "Wrong release; repo is for #{target}, we are #{codename}" unless target == codename
+      raise RightScale::Exceptions::PlatformError, "Unsupported Ubuntu release #{codename}" unless SUPPORTED_REPOS.include?(codename)
+      raise RightScale::Exceptions::PlatformError, "Wrong release; repo is for #{target}, we are #{codename}" unless target == codename
 
       FileUtils.mkdir_p(Apt::Ubuntu::path_to_sources_list)
 

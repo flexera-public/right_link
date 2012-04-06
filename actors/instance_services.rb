@@ -55,7 +55,7 @@ class InstanceServices
     status
   end
 
-  # Update user data with given string, re-enroll once it has been updated
+  # Update user data with given string, re-enroll once it has been updated.
   # This is useful for stopped instances that are re-started using obsolete
   # user data
   #
@@ -71,4 +71,5 @@ class InstanceServices
     true
   end
 
+  def
 end
