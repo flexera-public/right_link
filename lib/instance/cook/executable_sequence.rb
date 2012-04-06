@@ -479,7 +479,10 @@ module RightScale
     # === Return
     # true:: always returns true
     def download_cookbook(root_dir, cookbook)
-      @audit.append_info("Requesting #{cookbook.name}")
+      #audit cookbook name & part of hash (as a disambiguator)
+      name = cookbook.name ; tag  = cookbook.hash[0..4]
+      @audit.append_info("Downloading cookbook '#{name}' (#{tag})")
+
       tarball = Tempfile.new("tarball")
       tarball.binmode
       result = request_cookbook(cookbook) do |response|
