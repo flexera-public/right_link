@@ -1,4 +1,4 @@
-# Copyright (c) 2010-2011 RightScale Inc
+# Copyright (c) 2010-2012 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation directories (the
@@ -50,7 +50,7 @@ describe Chef::Provider::Directory do
         :create_dir_recipe => (
 <<EOF
 directory #{DirectoryProviderSpec::TEST_DIR_PATH.inspect} do
-mode 0644
+mode 0755
 not_if { File.directory?(#{DirectoryProviderSpec::TEST_DIR_PATH.inspect}) }
 end
 
