@@ -143,7 +143,7 @@ module RightScale
       before(:each) do
         flexmock(ReposeDownloader).should_receive(:discover_repose_servers).with([SERVER]).once
         @auditor.should_receive(:create_new_section).with("Retrieving cookbooks").once
-        @auditor.should_receive(:append_info).with("Requesting nonexistent cookbook").once
+        @auditor.should_receive(:append_info).with(/Downloading cookbook 'nonexistent cookbook' \([0-9a-f]+\)/).once
 
         # prevent Chef logging reaching the console during spec test.
         logger = flexmock(Log)
@@ -481,7 +481,7 @@ module RightScale
                   and_return(flexmock(ReposeDownloader))
               response = flexmock(Net::HTTPSuccess.new("1.1", "200", "everything good"))
               response.should_receive(:read_body, Proc).and_yield(tarball).once
-              @auditor.should_receive(:append_info).with("Requesting #{position.cookbook.name}").once
+              @auditor.should_receive(:append_info).with(/Downloading cookbook '#{position.cookbook.name}' \([0-9a-f]+\)/).once
               @auditor.should_receive(:append_info).with("Success; unarchiving cookbook").once
               @auditor.should_receive(:append_info).with("").once
               dl.should_receive(:request, Proc).and_yield(response).once
