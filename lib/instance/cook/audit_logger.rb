@@ -138,8 +138,10 @@ module RightScale
         #
         # Unfortunately the three points of execution on Windows (i.e. RightScriptProvider,
         # PowershellProvider and PowershellProviderBase) all format different
-        # messages so the only consistent portion is from the Chef code.
-        / \(.+ line \d+\) had an error\:\n/
+        # messages so the only consistent portion is from the Chef code. We match against
+        # any error message that contains a backtrace line with one of these these providers.
+        %r{(right_script|powershell)_provider(_base)?\.rb:\d+:in `action_run'}
+
       ]
     }
 
