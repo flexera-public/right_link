@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2009-2011 RightScale Inc
+# Copyright (c) 2009-2012 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -144,7 +144,7 @@ description "Automatically generated repo, do not modify"
     # === Return
     # title(String):: Recipe title to be used in audits
     def self.recipe_title(recipe)
-      title = right_script?(recipe) ? 'RightScript' : 'Chef recipe'
+      title = right_script?(recipe) ? 'RightScript' : 'recipe'
       title = "#{title} < #{recipe} >"
     end
 
