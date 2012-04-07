@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2009-2011 RightScale Inc
+# Copyright (c) 2009-2012 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -482,7 +482,7 @@ class InstanceSetup
     begin
       sequence.run
     rescue Exception => e
-      msg = 'Execution of Chef boot sequence failed'
+      msg = 'Execution of boot sequence failed'
       RightScale::Log.error(msg, e, :trace)
       strand(RightScale::Log.format(msg, e))
     end

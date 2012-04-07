@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2009-2011 RightScale Inc
+# Copyright (c) 2009-2012 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -118,7 +118,7 @@ module RightScale
       @attributes = ChefState.attributes
       RightScale::HashHelper.deep_merge!(@attributes, @inputs)
     end
-    
+
     # FIX: thread_name should never be nil from the core in future, but
     # temporarily we must supply the default thread_name before if nil. in
     # future we should fail execution when thread_name is reliably present and
@@ -130,7 +130,7 @@ module RightScale
     #
     # === Return
     # result(String):: Thread name of this bundle
-    def get_thread_name_from_bundle(bundle) 
+    def get_thread_name_from_bundle(bundle)
       thread_name = nil
       thread_name = bundle.runlist_policy.thread_name if bundle.respond_to?(:runlist_policy) && bundle.runlist_policy
       Log.warn("Encountered a nil thread name unexpectedly, defaulting to '#{RightScale::AgentConfig.default_thread_name}'") unless thread_name
@@ -140,7 +140,7 @@ module RightScale
       end
       thread_name
     end
-    
+
     # FIX: This code can be removed once the core sends a runlist policy
     #
     # === Parameters
@@ -181,7 +181,7 @@ module RightScale
       end
       true
     rescue Exception => e
-      report_failure('Sequence Execution failed', "The following execption occured prior to starting the Chef Process: (#{e.message}) from\n#{e.backtrace.join("\n")}")
+      report_failure('Execution failed', "The following exception was caught while preparing for execution: (#{e.message}) from\n#{e.backtrace.join("\n")}")
     end
 
     protected
@@ -331,10 +331,10 @@ module RightScale
       packages = []
       @scripts.each { |s| packages.push(s.packages) if s.packages && !s.packages.empty? }
       return true if packages.empty?
-      
+
       success   = false
       installer = RightScale::Platform.installer
-      
+
       @audit.create_new_section("Installing packages: #{packages.uniq.join(' ')}")
       audit_time do
         success = retry_execution('Installation of packages failed, retrying...') do
@@ -628,14 +628,14 @@ module RightScale
         # calls exit when appropriate.
         shutdown_request = RightScale::ShutdownRequestProxy.instance
         if shutdown_request.continue?
-          report_failure('Chef converge failed due to rs_shutdown not being called before exit', chef_error(e))
-          Log.debug(Log.format("Chef converge failed", e, :trace))
+          report_failure('Execution failed due to rs_shutdown not being called before exit', chef_error(e))
+          Log.debug(Log.format("Execution failed", e, :trace))
         else
           Log.info("Shutdown requested by script: #{shutdown_request}")
         end
       rescue Exception => e
-        report_failure('Chef converge failed', chef_error(e))
-        Log.debug(Log.format("Chef converge failed", e, :trace))
+        report_failure('Execution failed', chef_error(e))
+        Log.debug(Log.format("Execution failed", e, :trace))
       ensure
         # terminate the powershell providers
         # terminate the providers before the node server as the provider term scripts may still use the node server
@@ -701,7 +701,7 @@ module RightScale
     # msg(String):: Human friendly error message
     def chef_error(e)
       if e.is_a?(::RightScale::Exceptions::Exec)
-        msg = "An external command returned an error during the execution of Chef:\n\n"
+        msg = "An external command returned an error:\n\n"
         msg += e.message
         msg += "\n\nThe command was run from \"#{e.path}\"" if e.path
       elsif e.is_a?(::Chef::Exceptions::ValidationFailed) && (e.message =~ /Option action must be equal to one of:/)
@@ -709,7 +709,7 @@ module RightScale
       elsif e.is_a?(::NoMethodError) && (missing_action_match = /undefined method .action_(\S*)' for #<\S*:\S*>/.match(e.message)) && missing_action_match[1]
         msg = "[chef] recipe references the action <#{missing_action_match[1]}> which is missing an implementation"
       else
-        msg              = "An error occurred during the execution of Chef. The error message was:\n\n"
+        msg              = "The following error was caught during execution:\n\n"
         msg              += e.message
         file, line, meth = e.backtrace[0].scan(/(.*):(\d+):in `(\w+)'/).flatten
         line_number      = line.to_i
