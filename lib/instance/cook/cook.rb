@@ -86,8 +86,8 @@ module RightScale
       sequence = ExecutableSequence.new(bundle)
       EM.threadpool_size = 1
       EM.error_handler do |e|
-        Log.error("Chef process failed", e, :trace)
-        fail('Exception raised during Chef execution', "The following exception was raised during the execution of the Chef process:\n  #{e.message}")
+        Log.error("Execution failed", e, :trace)
+        fail('Exception caught', "The following exception was caught during execution:\n  #{e.message}")
       end
       EM.run do
         begin
@@ -102,7 +102,7 @@ module RightScale
           fail('Execution failed', Log.format("Execution failed", e, :trace))
         end
       end
-      
+
     ensure
       Log.info("[cook] Process stopping")
       exit(1) unless success

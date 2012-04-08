@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2009-2011 RightScale Inc
+# Copyright (c) 2009-2012 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -98,7 +98,7 @@ class InstanceScheduler
     context = RightScale::OperationContext.new(bundle, audit)
     @bundle_queue.push(context)
   end
-  
+
   # FIX: thread_name should never be nil from the core in future, but
   # temporarily we must supply the default thread_name before if nil. in
   # future we should fail execution when thread_name is reliably present and
