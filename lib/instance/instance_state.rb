@@ -236,17 +236,21 @@ module RightScale
     # RightScale::Exceptions::Application:: Cannot update in read-only mode
     # RightScale::Exceptions::Argument:: Invalid new value
     def self.value=(val)
+      previous_val = @value || INITIAL_STATE
       raise RightScale::Exceptions::Application, "Not allowed to modify instance state in read-only mode" if @read_only
       raise RightScale::Exceptions::Argument, "Invalid instance state #{val.inspect}" unless STATES.include?(val)
-      Log.info("Transitioning state from #{@value rescue INITIAL_STATE} to #{val}")
+      Log.info("Transitioning state from #{previous_val} to #{val}")
       @reboot = false if val != :booting
       @value = val
       @decommission_type = nil unless @value == 'decommissioning'
+
       update_logger
       update_motd
+      broadcast_wall unless (previous_val == val)
       record_state if RECORDED_STATES.include?(val)
       store_state
       @observers.each { |o| o.call(val) } if @observers
+
       val
     end
 
@@ -479,12 +483,27 @@ module RightScale
       etc = File.join(AgentConfig.parent_dir, 'etc')
       if SUCCESSFUL_STATES.include?(@value)
         FileUtils.cp(File.join(etc, 'motd-complete'), motd) rescue nil
-        system('echo "RightScale installation complete. Details can be found in /var/log/messages" | wall') rescue nil
       elsif FAILED_STATES.include?(@value)
         FileUtils.cp(File.join(etc, 'motd-failed'), motd) rescue nil
-        system('echo "RightScale installation failed. Please review /var/log/messages" | wall') rescue nil
       else
         FileUtils.cp(File.join(etc, 'motd'), motd) rescue nil
+      end
+
+      return nil
+    end
+
+    # Purely for informational purposes, attempt to wall-broadcast a RightLink
+    # state transition. This should get the attention of anyone who's logged in.
+    #
+    # === Return
+    # nil:: always return nil
+    def broadcast_wall
+      return unless RightScale::Platform.linux?
+
+      if SUCCESSFUL_STATES.include?(@value)
+        system('echo "RightScale installation complete. Details can be found in /var/log/messages" | wall') rescue nil
+      elsif FAILED_STATES.include?(@value)
+        system('echo "RightScale installation failed. Please review /var/log/messages" | wall') rescue nil
       end
 
       return nil
