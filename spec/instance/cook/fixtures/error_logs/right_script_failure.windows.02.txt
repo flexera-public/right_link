@@ -1,0 +1,1 @@
+right_script[TonyS PowerShell Always Fail] (right_scripts_cookbook::TonyS_PowerShell_Always_Fail.ps1 line /ProgramData/RightScale/cache/rightscale/right_scripts/default/right_scripts_cookbook/recipes/TonyS_PowerShell_Always_Fail.ps1.rb) has had an error
