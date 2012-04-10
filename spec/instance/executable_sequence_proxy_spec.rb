@@ -119,7 +119,7 @@ describe RightScale::ExecutableSequenceProxy do
       o[:target].instance_variable_set(:@audit_closed, true)
       o[:target].send(o[:exit_handler], status)
     end
-    @audit.should_receive(:append_error).twice
+    @audit.should_receive(:append_error).once
     @proxy.instance_variable_get(:@deferred_status).should == nil
     run_em_test { @proxy.run; EM.next_tick { EM.stop } }
     @proxy.instance_variable_get(:@deferred_status).should == :failed
