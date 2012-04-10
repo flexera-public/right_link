@@ -14,7 +14,7 @@ gem "right_scraper",           "3.0.1"
 # custom gem repository (http://s3.amazonaws.com/rightscale_rightlink_gems_dev).
 group :custom do
   gem "ohai",                  "0.6.11.3"
-  gem "chef",                  "0.10.8.2"
+  gem "chef",                  "0.10.8.3"
   gem "eventmachine",          "0.12.11.6"
 end
 
@@ -72,5 +72,5 @@ group :stable do
   gem "highline",              "1.6.1"
   gem "uuidtools",             "2.1.2"
   gem "mime-types",            "1.16"
-  gem "rest-client",           "1.6.3"
+  gem "rest-client",           "1.6.7"
 end

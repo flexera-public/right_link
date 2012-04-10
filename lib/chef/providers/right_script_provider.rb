@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2009-2011 RightScale Inc
+# Copyright (c) 2009-2012 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -97,13 +97,20 @@ class Chef
         end
 
         # Add Cloud-Independent Attributes
-        begin
+        if node[:cloud]
           ENV['RS_CLOUD_PROVIDER'] = node[:cloud][:provider]
-          ENV['RS_PUBLIC_IP']      = node[:cloud][:public_ips].first
-          ENV['RS_PRIVATE_IP']     = node[:cloud][:private_ips].first
-        rescue Exception => e
-          ::Chef::Log.info("Could not query Chef node for cloud-independent attributes (#{e.class.name})!")
-          RightScale::Log.error("Failed querying Chef node", e)
+          if node[:cloud][:public_ips].is_a?(Array)
+            ENV['RS_PUBLIC_IP'] = node[:cloud][:public_ips].first
+          else
+            ::Chef::Log.info("Could not retrieve instance public IP")
+          end
+          if node[:cloud][:private_ips].is_a?(Array)
+            ENV['RS_PRIVATE_IP'] = node[:cloud][:private_ips].first
+          else
+            ::Chef::Log.info("Could not retrieve instance private IP")
+          end
+        else
+          ::Chef::Log.info("Could not retrieve cloud information")
         end
 
         # 2. Fork and wait

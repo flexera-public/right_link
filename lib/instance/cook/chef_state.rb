@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2009-2011 RightScale Inc
+# Copyright (c) 2009-2012 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -128,7 +128,8 @@ module RightScale
         new_script
       end
 
-      # Save chef state to file
+      # Save node attributes to file
+      # Note: Attributes are saved only when runlist ran on default thread
       #
       # === Return
       # true:: Always return true
@@ -140,10 +141,8 @@ module RightScale
             write_encoded_data(STATE_FILE, { 'attributes' => @@attributes })
             RightScale::JsonUtilities::write_json(SCRIPTS_FILE, @@past_scripts)
           rescue Exception => e
-            Log.warning("Failed to save Chef state: #{e.message}")
+            Log.warning("Failed to save node attributes: #{e.message}")
           end
-        else
-          Log.warning("Ignoring any changes to Chef state due to running on a non-default thread.")
         end
         true
       end
