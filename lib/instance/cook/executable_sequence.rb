@@ -601,7 +601,7 @@ module RightScale
         ::Chef::Client.clear_notifications
 
         @audit.create_new_section('Converging')
-        @audit.append_info("Run list for thread '#{@thread_name.inspect}' contains #{@run_list.size} items.")
+        @audit.append_info("Run list for thread #{@thread_name.inspect} contains #{@run_list.size} items.")
         @audit.append_info(@run_list.join(', '))
 
         attribs = { 'run_list' => @run_list }
