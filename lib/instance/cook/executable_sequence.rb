@@ -85,7 +85,6 @@ module RightScale
       @thread_name            = get_thread_name_from_bundle(bundle)
       @right_scripts_cookbook = RightScriptsCookbook.new(@thread_name)
       @scripts                = bundle.executables.select { |e| e.is_a?(RightScriptInstantiation) }
-      @recipes                = bundle.executables.select { |e| e.is_a?(RecipeInstantiation) }
       run_list_recipes        = bundle.executables.map { |e| e.is_a?(RecipeInstantiation) ? e : @right_scripts_cookbook.recipe_from_right_script(e) }
       @cookbooks              = bundle.cookbooks
       @downloader             = Downloader.new
@@ -601,11 +600,9 @@ module RightScale
         # from converge (rs_shutdown, etc.).
         ::Chef::Client.clear_notifications
 
-        unless @recipes.empty?
-          @audit.create_new_section('Converging')
-          @audit.append_info("Run list for thread '#{@thread_name.inspect}' contains #{@run_list.size} items.")
-          @audit.append_info(@run_list.join(', '))
-        end
+        @audit.create_new_section('Converging')
+        @audit.append_info("Run list for thread '#{@thread_name.inspect}' contains #{@run_list.size} items.")
+        @audit.append_info(@run_list.join(', '))
 
         attribs = { 'run_list' => @run_list }
         attribs.merge!(@attributes) if @attributes
