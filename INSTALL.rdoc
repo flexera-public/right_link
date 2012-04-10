@@ -209,23 +209,29 @@ When the system is terminating, you should allow RightLink to run its decommissi
 
 === Linux Systems
 
-| /etc/rightscale.d                    | Static "hints" for init scripts
-| /etc/rightscale.d/right_link         | Static files that allow RightLink behavior to be customized
-| /var/spool/cloud                     | Cloud-provided metadata & user-data (.sh, .rb, raw formats)
-| /var/lib/rightscale/right_agent      | Persistent config files generated at startup
-| /var/lib/rightscale/right_link       | Persistent RightLink agent state
-| /var/run                             | Transient agent state, e.g. pid files
-| /var/cache                           | Cookbooks, attachments, temp files
-| /opt/rightscale/right_link           | RightLink root dir (program logic & support files)
-| /opt/rightscale/bin                  | RightLink private CLI: rnac, rad, cook, ...
-| /opt/rightscale/sandbox              | sandbox Ruby/RubyGems/monit binaries
-| /usr/bin                             | Rightlink public CLI: rs_tag, rs_debug, ...
+ /etc/rightscale.d               | Static configuration, incl. "hints" for init scripts
+ /etc/rightscale.d/right_link    | Static files that customize RightLink behavior
+ /var/spool/cloud                | Cloud-provided metadata & user-data
+ /var/lib/rightscale/right_agent | Persistent config files generated at startup
+ /var/lib/rightscale/right_link  | Persistent RightLink agent state
+ /var/run                        | Transient agent state, e.g. pid files
+ /var/cache                      | Cookbooks, attachments, temp files
+ /usr/bin                        | Public CLI: rs_tag, rs_debug, ...
+ /opt/rightscale/bin             | Private CLI: rnac, rad, cook, ...
+ /opt/rightscale/sandbox         | Private sandbox (Ruby, RubyGems, monit, ...)
+ /opt/rightscale/right_link      | Application logic & support files
 
 === Windows Systems
 
-| COMMON_APPDATA\RightScale\rightscale.d            | Static "hints" for system services
-| COMMON_APPDATA\RightScale\rightscale.d\right_link | Static files that allow RightLink behavior to be customized
-| COMMON_APPDATA\RightScale\spool\cloud             | Cloud-provided metadata & user-data (.sh, .rb, raw formats)
-| COMMON_APPDATA\RightScale\RightAgent              | Persistent config files generated at startup
-| COMMON_APPDATA\RightScale\right_link              | Persistent RightLink agent state
-| COMMON_APPDATA\RightScale\cache                   | Cookbooks, attachments, temp files
+Data files -- paths are relative to %COMMON_APPDATA%\RightScale
+
+ rightscale.d            | Static "hints" for system services
+ spool\cloud             | Cloud-provided metadata & user-data (.sh, .rb, raw formats)
+ RightAgent              | Persistent config files generated at startup
+ right_link              | Persistent RightLink agent state
+ cache                   | Cookbooks, attachments, temp files
+
+Program logic -- paths are relative to %ProgramFiles(x86)%
+
+ RightScale\RightLink    | Application logic & support files
+ RightScale\sandbox      | Private sandbox (Ruby, RubyGems, monit, ...)
