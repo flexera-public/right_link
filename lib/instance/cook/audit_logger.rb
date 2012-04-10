@@ -141,8 +141,8 @@ module RightScale
         # There are two flavors of this suppression: one for Linux, one for Windows.
         # This is because Windows-generated RightScript recipes have slightly different
         # naming conventions than Linux-generated.
-        %r{\(right_scripts_cookbook::.* line \d+\)},
-        %r{\(right_scripts_cookbook::.*\.ps1 line .*\.ps1\.rb\)}
+        %r{\(right_scripts_cookbook::.+ line \d+\)},
+        %r{\(right_scripts_cookbook::.+\.ps1 line .+\.ps1\.rb\)}
       ]
     }
 
