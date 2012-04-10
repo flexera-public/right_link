@@ -497,7 +497,7 @@ module RightScale
     #
     # === Return
     # nil:: always return nil
-    def broadcast_wall
+    def self.broadcast_wall
       return unless RightScale::Platform.linux?
 
       if SUCCESSFUL_STATES.include?(@value)
