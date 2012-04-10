@@ -105,7 +105,7 @@ module RightScale
       breakpoint = CookState.breakpoint
       run_list_recipes.each do |recipe|
         if recipe.nickname == breakpoint
-          @audit.append_info("Breakpoint set, running recipes up to < #{breakpoint} >")
+          @audit.append_info("Breakpoint set to < #{breakpoint} >")
           break
         end
         @run_list << recipe.nickname
@@ -600,7 +600,12 @@ module RightScale
         # from converge (rs_shutdown, etc.).
         ::Chef::Client.clear_notifications
 
-        @audit.create_new_section('Converging')
+        if @cookbooks.size > 0
+          @audit.create_new_section('Converging')
+        else
+          @audit.create_new_section('Preparing execution')
+        end
+
         @audit.append_info("Run list for thread #{@thread_name.inspect} contains #{@run_list.size} items.")
         @audit.append_info(@run_list.join(', '))
 
@@ -701,7 +706,7 @@ module RightScale
     # msg(String):: Human friendly error message
     def chef_error(e)
       if e.is_a?(::RightScale::Exceptions::Exec)
-        msg = "An external command returned an error: "
+        msg = "External command error: "
         if match = /RightScale::Exceptions::Exec: (.*)/.match(e.message)
           cmd_output = match[1]
         else
@@ -714,7 +719,7 @@ module RightScale
       elsif e.is_a?(::NoMethodError) && (missing_action_match = /undefined method .action_(\S*)' for #<\S*:\S*>/.match(e.message)) && missing_action_match[1]
         msg = "[chef] recipe references the action <#{missing_action_match[1]}> which is missing an implementation"
       else
-        msg              = "The following error was caught during execution:\n\n"
+        msg              = "Execution error:\n"
         msg              += e.message
         file, line, meth = e.backtrace[0].scan(/(.*):(\d+):in `(\w+)'/).flatten
         line_number      = line.to_i
