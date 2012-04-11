@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2010-11 RightScale Inc
+# Copyright (c) 2010-2012 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -146,21 +146,18 @@ module RightScale
     #
     # === Parameters
     # tag(String):: Tag to be added
+    # timeout(Fixnum):: Number of seconds to wait for agent response
     #
     # === Return
     # true:: Always return true
     def add_tag(tag_name, timeout)
       cmd = { :name => :add_tag, :tag => tag_name }
       response = blocking_request(cmd, timeout)
-      begin
-        result = OperationResult.from_results(load(response, "Unexpected response #{response.inspect}"))
-        if result.success?
-          ::Chef::Log.info("Successfully added tag #{tag_name}")
-        else
-          raise TagError.new("Add tag failed: #{result.content}")
-        end
-      rescue
-        raise TagError.new("Add tag failed: #{response.inspect}")
+      result = OperationResult.from_results(load(response, "Unexpected response #{response.inspect}"))
+      if result.success?
+        ::Chef::Log.info("Successfully added tag #{tag_name}")
+      else
+        raise TagError.new("Add tag failed: #{result.content}")
       end
       true
     end
@@ -169,23 +166,37 @@ module RightScale
     #
     # === Parameters
     # tag(String):: Tag to be removed
+    # timeout(Fixnum):: Number of seconds to wait for agent response
     #
     # === Return
     # true:: Always return true
     def remove_tag(tag_name, timeout)
       cmd = { :name => :remove_tag, :tag => tag_name }
       response = blocking_request(cmd, timeout)
-      begin
-        result = OperationResult.from_results(load(response, "Unexpected response #{response.inspect}"))
-        if result.success?
-          ::Chef::Log.info("Successfully removed tag #{tag_name}")
-        else
-          raise TagError.new("Remove tag failed: #{result.content}")
-        end
-      rescue
-        raise TagError.new("Remove tag failed: #{response.inspect}")
+      result = OperationResult.from_results(load(response, "Unexpected response #{response.inspect}"))
+      if result.success?
+        ::Chef::Log.info("Successfully removed tag #{tag_name}")
+      else
+        raise TagError.new("Remove tag failed: #{result.content}")
       end
       true
+    end
+
+    # Retrieve current instance tags
+    #
+    # === Parameters
+    # timeout(Fixnum):: Number of seconds to wait for agent response
+    def load_tags(timeout)
+      cmd = { :name => :get_tags }
+      response = blocking_request(cmd, timeout)
+      result = OperationResult.from_results(load(response, "Unexpected response #{response.inspect}"))
+      res = result.content
+      if result.success?
+        ::Chef::Log.info("Successfully loaded current tags: '#{res.join("', '")}'")
+      else
+        raise TagError.new("Retrieving current tags failed: #{res}")
+      end
+      res
     end
 
     # Access cook instance from anywhere to send requests to core through
