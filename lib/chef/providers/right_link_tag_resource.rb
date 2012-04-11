@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2009-2011 RightScale Inc
+# Copyright (c) 2009-2012 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -38,7 +38,7 @@ class Chef
         @resource_name = :right_link_tag
         @action = :publish
         @timeout = 120
-        @allowed_actions.push(:publish, :remove)
+        @allowed_actions.push(:publish, :remove, :load)
       end
 
       # (Fixnum) Common timeout parameter for command line tools

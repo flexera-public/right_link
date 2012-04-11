@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2009-2011 RightScale Inc
+# Copyright (c) 2009-2012 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -50,6 +50,16 @@ class Chef
       # true:: Always return true
       def action_remove
         RightScale::Cook.instance.remove_tag(@new_resource.name, @new_resource.timeout)
+        true
+      end
+
+      # Load current tags
+      #
+      # === Return
+      # true:: Always return true
+      def action_load
+        tags = RightScale::Cook.instance.load_tags(@new_resource.timeout)
+        node[:right_link_tags] = tags
         true
       end
 
