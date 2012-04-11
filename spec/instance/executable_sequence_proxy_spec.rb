@@ -47,7 +47,7 @@ describe RightScale::ExecutableSequenceProxy do
     @tag_manager = flexmock('agent tag manager')
     flexmock(RightScale::AgentTagManager).should_receive(:instance).and_return(@tag_manager)
     @tag_manager.should_receive(:tags).and_yield([]).by_default
-    @audit.should_receive(:create_new_section).with('Querying tags before converge')
+    @audit.should_receive(:create_new_section).with('Querying tags')
     @audit.should_receive(:append_info).with('No tags discovered.').by_default
     @audit.should_receive(:update_status)
 
@@ -119,7 +119,7 @@ describe RightScale::ExecutableSequenceProxy do
       o[:target].instance_variable_set(:@audit_closed, true)
       o[:target].send(o[:exit_handler], status)
     end
-    @audit.should_receive(:append_error).twice
+    @audit.should_receive(:append_error).once
     @proxy.instance_variable_get(:@deferred_status).should == nil
     run_em_test { @proxy.run; EM.next_tick { EM.stop } }
     @proxy.instance_variable_get(:@deferred_status).should == :failed

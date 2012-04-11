@@ -97,7 +97,7 @@ module RightScale
     def run
       @succeeded = true
 
-      @context.audit.create_new_section('Querying tags before converge')
+      @context.audit.create_new_section('Querying tags')
 
       # update CookState with the latest instance before launching Cook
       RightScale::AgentTagManager.instance.tags(:timeout=>@tag_query_timeout) do |tags|
@@ -226,7 +226,7 @@ module RightScale
         end
         if !@exit_status.success?
           RightScale::PolicyManager.fail(@context.payload)
-          report_failure("Chef process failure", "Chef process failed #{SubprocessFormatting.reason(@exit_status)}")
+          report_failure("Subprocess #{SubprocessFormatting.reason(@exit_status)}")
         else
           @context.succeeded = true
           RightScale::PolicyManager.success(@context.payload)
@@ -242,13 +242,13 @@ module RightScale
     #
     # === Parameters
     # title(String):: Title used to update audit status
-    # msg(String):: Failure message
+    # msg(String):: Optional, extended failure message
     #
     # === Return
     # true:: Always return true
-    def report_failure(title, msg)
+    def report_failure(title, msg=nil)
       @context.audit.append_error(title, :category => RightScale::EventCategories::CATEGORY_ERROR)
-      @context.audit.append_error(msg)
+      @context.audit.append_error(msg) unless msg.nil?
       @context.succeeded = false
       fail
       true

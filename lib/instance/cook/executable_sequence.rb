@@ -85,7 +85,7 @@ module RightScale
       @thread_name            = get_thread_name_from_bundle(bundle)
       @right_scripts_cookbook = RightScriptsCookbook.new(@thread_name)
       @scripts                = bundle.executables.select { |e| e.is_a?(RightScriptInstantiation) }
-      recipes                 = bundle.executables.map { |e| e.is_a?(RecipeInstantiation) ? e : @right_scripts_cookbook.recipe_from_right_script(e) }
+      run_list_recipes        = bundle.executables.map { |e| e.is_a?(RecipeInstantiation) ? e : @right_scripts_cookbook.recipe_from_right_script(e) }
       @cookbooks              = bundle.cookbooks
       @downloader             = Downloader.new
       @download_path          = File.join(AgentConfig.cookbook_download_dir, @thread_name)
@@ -97,17 +97,15 @@ module RightScale
       @cookbook_repo_retriever= CookbookRepoRetriever.new(CookState.cookbooks_path,
                                                           @download_path,
                                                           bundle.dev_cookbooks)
-
-      #Lookup
       @repose_class.discover_repose_servers(bundle.repose_servers)
 
-      # Initializes run list for this sequence (partial converge support)
+      # Initialize run list for this sequence (partial converge support)
       @run_list  = []
       @inputs    = { }
       breakpoint = CookState.breakpoint
-      recipes.each do |recipe|
+      run_list_recipes.each do |recipe|
         if recipe.nickname == breakpoint
-          @audit.append_info("Breakpoint set, running recipes up to < #{breakpoint} >")
+          @audit.append_info("Breakpoint set to < #{breakpoint} >")
           break
         end
         @run_list << recipe.nickname
@@ -602,8 +600,15 @@ module RightScale
         # from converge (rs_shutdown, etc.).
         ::Chef::Client.clear_notifications
 
-        @audit.create_new_section('Converging')
-        @audit.append_info("Run list for #{@thread_name.inspect} thread: #{@run_list.join(', ')}")
+        if @cookbooks.size > 0
+          @audit.create_new_section('Converging')
+        else
+          @audit.create_new_section('Preparing execution')
+        end
+
+        @audit.append_info("Run list for thread #{@thread_name.inspect} contains #{@run_list.size} items.")
+        @audit.append_info(@run_list.join(', '))
+
         attribs = { 'run_list' => @run_list }
         attribs.merge!(@attributes) if @attributes
         c      = Chef::Client.new(attribs)
@@ -701,15 +706,20 @@ module RightScale
     # msg(String):: Human friendly error message
     def chef_error(e)
       if e.is_a?(::RightScale::Exceptions::Exec)
-        msg = "An external command returned an error:\n\n"
-        msg += e.message
-        msg += "\n\nThe command was run from \"#{e.path}\"" if e.path
+        msg = "External command error: "
+        if match = /RightScale::Exceptions::Exec: (.*)/.match(e.message)
+          cmd_output = match[1]
+        else
+          cmd_output = e.message
+        end
+        msg += cmd_output
+        msg += "\nThe command was run from \"#{e.path}\"" if e.path
       elsif e.is_a?(::Chef::Exceptions::ValidationFailed) && (e.message =~ /Option action must be equal to one of:/)
         msg = "[chef] recipe references an action that does not exist.  #{e.message}"
       elsif e.is_a?(::NoMethodError) && (missing_action_match = /undefined method .action_(\S*)' for #<\S*:\S*>/.match(e.message)) && missing_action_match[1]
         msg = "[chef] recipe references the action <#{missing_action_match[1]}> which is missing an implementation"
       else
-        msg              = "The following error was caught during execution:\n\n"
+        msg              = "Execution error:\n"
         msg              += e.message
         file, line, meth = e.backtrace[0].scan(/(.*):(\d+):in `(\w+)'/).flatten
         line_number      = line.to_i

@@ -1,0 +1,1 @@
+<hidden credential>[TonyS PowerShell Always Fail] (right_scripts_cookbook::TonyS_PowerShell_Always_Fail.ps1 line /ProgramData/RightScale/cache/rightscale/right_scripts/default/right_scripts_cookbook/recipes/TonyS_PowerShell_Always_Fail.ps1.rb) had an error: RightScale::Exceptions::Exec: RightScript < TonyS PowerShell Always Fail > exited with 101

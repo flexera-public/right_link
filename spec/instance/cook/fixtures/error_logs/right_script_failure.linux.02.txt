@@ -1,0 +1,1 @@
+right_script[TonyS Always Fail] (right_scripts_cookbook::TonyS_Always_Fail line 1) has had an error
