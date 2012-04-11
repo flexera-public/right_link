@@ -27,6 +27,7 @@ module RightScale
 
   # Manages instance state
   class InstanceState
+    CONFIG = RightSupport::Config.features('/etc/rightscale.d/right_link/features.yml')   
 
     # States that are recorded in a standard fashion and audited when transitioned to
     RECORDED_STATES = %w{ booting operational stranded decommissioning }
@@ -463,7 +464,7 @@ module RightScale
     # === Return
     # nil:: always return nil
     def self.update_motd()
-      return unless RightScale::Platform.linux?
+      return unless CONFIG['motd']['update'] || RightScale::Platform.linux?
 
       if File.directory?('/etc/update-motd.d')
         #Ubuntu 10.04 and above use a dynamic MOTD update system. In this case we assume

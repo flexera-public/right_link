@@ -27,6 +27,8 @@ class InstanceSetup
   include RightScale::Actor
   include RightScale::OperationResultHelper
   include RightScale::VolumeManagementHelper
+  
+  CONFIG = RightSupport::Config.features('/etc/rightscale.d/right_link/features.yml')  
 
   expose :report_state
 
@@ -209,7 +211,7 @@ class InstanceSetup
 
     req.callback do |res|
       @audit = RightScale::AuditProxy.new(res.audit_id)
-      unless RightScale::Platform.windows? || RightScale::Platform.darwin?
+      if CONFIG['package_repositories']['freeze'] && !RightScale::Platform.windows? && !RightScale::Platform.darwin?
         reps = res.repositories
         audit_content = "Using the following software repositories:\n"
         reps.each { |rep| audit_content += "  - #{rep.to_s}\n" }
