@@ -155,7 +155,7 @@ describe RightScale::LoginManager do
         end
 
         it "returns true" do
-          subject.supported_by_platform?.should be(true)
+          subject.supported_by_platform?.should be_true
         end
       end
 
@@ -165,7 +165,7 @@ describe RightScale::LoginManager do
         end
 
         it "returns false" do
-          subject.supported_by_platform?.should be(false)
+          subject.supported_by_platform?.should be_false
         end
       end
 
