@@ -28,7 +28,14 @@ class InstanceSetup
   include RightScale::OperationResultHelper
   include RightScale::VolumeManagementHelper
   
-  CONFIG = RightSupport::Config.features('/etc/rightscale.d/right_link/features.yml')  
+  CONFIG_YAML_FILE = File.normalize_path(File.join(RightScale::Platform.filesystem.right_link_static_state_dir, 'features.yml'))
+
+  CONFIG=\
+    if File.exists?(CONFIG_YAML_FILE)
+      RightSupport::Config.features(CONFIG_YAML_FILE)  
+    else
+      RightSupport::Config.features({})
+    end
 
   expose :report_state
 
