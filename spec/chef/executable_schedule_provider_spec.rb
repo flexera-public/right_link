@@ -85,7 +85,7 @@ describe Chef::Provider::ExecutableSchedule do
       [:minute, :hour, :day, :month, :weekday].each { |attr| @provider.current_resource.send(attr).should == @resource.send(attr) }
       log_should_be_empty(:error)
       log_should_contain_text(:info, 'added crontab entry')  # from cron provider
-      log_should_contain_text(:info, '1 1 1 1 1 rs_run_recipe -n testrecipe')  # from cron output
+      log_should_contain_text(:debug, '1 1 1 1 1 rs_run_recipe -n testrecipe')  # from cron output
     ensure
       `crontab -r`
     end
@@ -113,7 +113,7 @@ describe Chef::Provider::ExecutableSchedule do
       [:minute, :hour, :day, :month, :weekday].each { |attr| @provider.current_resource.send(attr).should == @resource2.send(attr) }
       log_should_be_empty(:error)
       log_should_contain_text(:info, 'added crontab entry')  # from cron provider
-      log_should_contain_text(:info, '2 2 2 2 2')  # from cron output
+      log_should_contain_text(:debug, '2 2 2 2 2')  # from cron output
     ensure
       `crontab -r`
     end
@@ -138,7 +138,7 @@ describe Chef::Provider::ExecutableSchedule do
       @provider.current_resource.command.should == nil
       log_should_be_empty(:error)
       log_should_contain_text(:info, 'deleted crontab entry')  # from cron provider
-      log_should_contain_text(:info, "1 1 1 1 1 rs_run_recipe -n testrecipe")  # from cron output
+      log_should_contain_text(:debug, "1 1 1 1 1 rs_run_recipe -n testrecipe")  # from cron output
     ensure
       `crontab -r 2>/dev/null`
     end
