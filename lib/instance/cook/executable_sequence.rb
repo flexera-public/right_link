@@ -51,8 +51,12 @@ module RightScale
   class ExecutableSequence
     include EM::Deferrable
 
-    OHAI_RETRY_MIN_DELAY = 20      # Min number of seconds to wait before retrying Ohai to get the hostname
-    OHAI_RETRY_MAX_DELAY = 20 * 60 # Max number of seconds to wait before retrying Ohai to get the hostname
+    # Min number of seconds to wait before retrying Ohai to get the hostname
+    OHAI_RETRY_MIN_DELAY  = 20
+    # Max number of seconds to wait before retrying Ohai to get the hostname
+    OHAI_RETRY_MAX_DELAY  = 20 * 60
+    # Regexp to use when reporting extended information about Chef failures (line-number, etc)
+    BACKTRACE_LINE_REGEXP = /(.+):(\d+):in `(.+)'/
 
     class CookbookDownloadFailure < Exception
       def initialize(tuple)
@@ -721,7 +725,7 @@ module RightScale
       else
         msg              = "Execution error:\n"
         msg              += e.message
-        file, line, meth = e.backtrace[0].scan(/(.*):(\d+):in `(\w+)'/).flatten
+        file, line, meth = e.backtrace[0].scan(BACKTRACE_LINE_REGEXP).flatten
         line_number      = line.to_i
         if file && line && (line_number.to_s == line)
           dir = AgentConfig.cookbook_download_dir
