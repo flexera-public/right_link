@@ -89,6 +89,42 @@ and "rvm use" the appropriate Ruby before invoking any RightLink commands.
 
  rvm use ruby-1.8.7-p352
 
+= PRE-INSTALL CUSTOMIZATIOn
+
+== Feature Control Customization
+
+Before installing RightLink (either as a package or from sources), you can
+selectively disable certain features that may not be compatible with your
+deployment environment.
+
+Feature control is accomplished by creating a special YAML file prior to
+installing the package or running any RightLink init script or program
+logic. The YAML file contains some boolean flags that affect the behavior
+of the init scripts and the agent at runtime.
+
+The following features can all be disabled:
+ * Managed login (aka Server Login Control)
+ * Frozen OS package repositories
+ * Automatic MOTD update on state transitions
+
+To disable one or more of these features, create the following file:
+
+ /etc/rightscale.d/right_link/features.yml
+
+And populate the file thusly, supplying true/false for each feature
+as appropriate.
+
+ motd:
+   update: false
+ package_repositories:
+   freeze: false
+ managed_login:
+   enable: false
+
+All features are assumed to be enabled by default unless this file exists
+and the associated feature is marked as disabled. Therefore, you can omit
+sections for features that should remain enabled.
+
 = INSTALLATION
 
 == One-Time Setup
