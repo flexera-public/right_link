@@ -103,8 +103,8 @@ module RightScale
     end
 
     #
-    alias :original_download_repos :download_repos
-    def download_repos
+    alias :original_download_cookbooks :download_cookbooks
+    def download_cookbooks
       true
     end
   end
