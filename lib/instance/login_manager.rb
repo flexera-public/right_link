@@ -29,6 +29,16 @@ module RightScale
 
     include Singleton
 
+    CONFIG_YAML_FILE = File.normalize_path(File.join(RightScale::Platform.filesystem.right_link_static_state_dir, 'features.yml'))
+
+    CONFIG=\
+      if File.exists?(CONFIG_YAML_FILE)
+        RightSupport::Config.features(CONFIG_YAML_FILE)                           
+      else
+        RightSupport::Config.features({})
+      end
+
+
     RIGHTSCALE_KEYS_FILE    = '/home/rightscale/.ssh/authorized_keys'
     ACTIVE_TAG              = 'rs_login:state=active'
     RESTRICTED_TAG          = 'rs_login:state=restricted'
@@ -44,7 +54,8 @@ module RightScale
     # val(true|false) whether LoginManager works on this platform
     def supported_by_platform?
       right_platform = RightScale::Platform.linux?
-      right_platform && LoginUserManager.user_exists?('rightscale')  # avoid calling user_exists? on unsupported platform(s)
+      # avoid calling user_exists? on unsupported platform(s)
+      right_platform && LoginUserManager.user_exists?('rightscale') && CONFIG['managed_login']['enable']
     end
 
     # Enact the login policy specified in new_policy for this system. The policy becomes
