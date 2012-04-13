@@ -57,7 +57,7 @@ module Yum
 
       ############## INTERNAL FUNCTIONS #######################################################
       def self.abstract_generate(params)
-        return unless Yum::CentOS::is_this_centos?
+        return unless Yum::RightScale::Epel::yum_installed?
 
         epel_version = get_enterprise_linux_version
         puts "found EPEL version: #{epel_version}"
@@ -92,8 +92,12 @@ END
         mirror_list
       end
 
-      def self.is_this_centos?
-        return ::RightScale::Platform.linux? && ::RightScale::Platform.centos?
+      def self.yum_installed?
+        if ::RightScale::Platform.linux? && (::RightScale::Platform.centos? || ::RightScale::Platform.rhel?)
+          true
+        else
+          false
+        end
       end
 
       # Return the enterprise linux version of the running machine...or an exception if it's a non-enterprise version of linux.
@@ -101,7 +105,7 @@ END
       # Note the version is a single (major) number.
       def self.get_enterprise_linux_version
         version=nil
-        if Yum::CentOS::is_this_centos?
+        if Yum::RightScale::Epel::yum_installed?
           version = Yum::execute("lsb_release  -rs").strip.split(".").first
         else
           raise "This doesn't appear to be an Enterprise Linux edition"
@@ -114,9 +118,4 @@ END
 end
 
 # Examples of usage...
-#Yum::CentOS::Base.generate("Centos base description", ["http://a.com/centos","http://b.com/centos"], "20081010")
-#Yum::CentOS::AddOns.generate("Centos addons description", ["http://a.com/centos","http://b.com/centos"], "latest")
-#Yum::CentOS::Updates.generate("Centos updates description", ["http://a.com/centos","http://b.com/centos"], ) # Nil also means not frozen (i.e., equivalent to latest)
-#Yum::CentOS::Extras.generate("Centos extras description", ["http://a.com/centos","http://b.com/centos"], "latest")
-#Yum::CentOS::CentOSPlus.generate("Centos centosplus description", ["http://a.com/centos","http://b.com/centos"], "latest")
-#Yum::Epel.generate("Epel description", ["http://a.com/epel","http://b.com/epel"], "20081010")
+#Yum::RightScale::Epel.generate("Epel description", ["http://a.com/epel","http://b.com/epel"], "20081010")
