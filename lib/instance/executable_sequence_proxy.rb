@@ -108,7 +108,10 @@ module RightScale
           @context.audit.append_error('Could not discover tags due to an error or timeout.')
         else
           # or, it could give us anything else -- generally an array) -- which indicates success
-          CookState.update(InstanceState, { :startup_tags => tags })
+          #This tag query is duplicated in InstanceSetup#initialize, but doing
+          #it here ensures we have fresh tags on every run.
+          InstanceState.startup_tags = tags
+          CookState.update(InstanceState)
 
           if tags.empty?
             @context.audit.append_info('No tags discovered.')

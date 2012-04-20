@@ -54,6 +54,9 @@ class InstanceSetup
   # Tag set on instances that are part of an array
   AUTO_LAUNCH_TAG ='rs_launch:type=auto'
 
+  # How long to wait for tag query before proceeding to boot sequence
+  INITIAL_TAG_QUERY_TIMEOUT = 20
+
   # Boot if and only if instance state is 'booting'
   # Prime timer for shutdown on unsuccessful boot ('suicide' functionality)
   #
@@ -68,7 +71,6 @@ class InstanceSetup
     # Reset log level here even though already initialized in the agent
     # so that InstanceState gets notified of the level in use
     RightScale::Log.level = agent.options[:log_level] if agent.options[:log_level]
-    RightScale::Log.force_debug if RightScale::CookState.dev_mode_enabled?
 
     # Schedule boot sequence, don't run it now so agent is registered first
     if RightScale::InstanceState.value == 'booting'
@@ -102,7 +104,6 @@ class InstanceSetup
         end
       end
     end
-
   end
 
   # Retrieve current instance state
@@ -131,8 +132,9 @@ class InstanceSetup
 
   protected
 
-  # We start off by setting the instance 'r_s_version' in the core site and
-  # then proceed with the actual boot sequence
+  # We start off by setting the instance 'r_s_version' in the core site,
+  # then perform an initial tag query before proceeding with the boot
+  # sequence.
   #
   # === Return
   # true:: Always return true
@@ -144,9 +146,37 @@ class InstanceSetup
     req = RightScale::IdempotentRequest.new('/booter/declare', payload, :retry_on_error => true)
     req.callback do |res|
       RightScale::Sender.instance.start_offline_queue
-      enable_managed_login
+      init_fetch_tags
     end
     req.run
+    true
+  end
+
+  # Perform a one=time initial tag query in order to ensure that InstanceState
+  # and CookState have the fresh possible list of tags. This is advantageous
+  # because the agent's tags can affect the agent and the cook subprocess
+  # in many ways.
+  #
+  # === Return
+  # true:: Always return true
+  def init_fetch_tags
+    RightScale::Log.info "Performing initial-startup tag query"
+    RightScale::AgentTagManager.instance.tags(:timeout=>INITIAL_TAG_QUERY_TIMEOUT) do |tags|
+      if tags.is_a?(String)
+        # AgentTagManager could give us a String (error message)
+        RightScale::Log.error("Failed to query tags during initial startup: #{tags}")
+      else
+        #This tag query is duplicated in ExecutableSequenceProxy#run, but doing
+        #it here ensures we have fresh tags immediately on first startup.
+        RightScale::InstanceState.startup_tags = tags
+        RightScale::CookState.update(RightScale::InstanceState)
+        RightScale::Log.force_debug if RightScale::CookState.dev_mode_enabled?
+        RightScale::Log.info("Tags discovered at initial startup: #{tags.inspect} (dev mode = #{RightScale::CookState.dev_mode_enabled?})")
+      end
+
+      enable_managed_login
+    end
+
     true
   end
 
@@ -323,8 +353,10 @@ class InstanceSetup
           end
           klass.generate("none", repo.base_urls, fz)
         end
+      rescue RightScale::Exceptions::PlatformError => e
+        RightScale::Log.error("Repository configurator #{repo.name} failed - unsuitable for host OS", e)
       rescue Exception => e
-        RightScale::Log.error("Failed to configure repositories", e)
+        RightScale::Log.error("Repository configurator #{repo.name} failed", e)
       end
     end
     if system('which apt-get')
