@@ -25,17 +25,17 @@ require 'right_agent/exceptions'
 module Apt
 
   module Ubuntu
-    SUPPORTED_REPOS = ['hardy', 'intrepid', 'jaunty', 'karmic', 'lucid', 'maverick' ]
+    SUPPORTED_REPOS = ['hardy', 'intrepid', 'jaunty', 'karmic', 'lucid', 'maverick', 'precise']
 
     # The different generate classes will always generate an exception ("string") if there's anything that went wrong. If no exception, things went well.
-    [ 'Hardy', 'Intrepid', 'Jaunty', 'Karmic' , 'Lucid', 'Maverick' ].each do |c|
+    SUPPORTED_REPOS.each do |c|
       module_eval <<-EOS
-        class #{c}
+        class #{c.capitalize}
           def self.generate(description, base_urls, frozen_date="latest")
             opts = { :repo_filename => "rightscale",
                      :repo_name     => "default",
                      :description   => description,
-                     :codename      => '#{c.downcase}',
+                     :codename      => '#{c}',
                      :base_urls     => base_urls,
                      :frozen_date   => frozen_date,
                      :enabled       => true }
