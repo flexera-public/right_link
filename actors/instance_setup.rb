@@ -90,20 +90,6 @@ class InstanceSetup
         EM.next_tick { recover_decommission(user_id = nil, skip_db_update = false, kind) }
       end
     end
-
-    # Setup suicide timer which will cause instance to shutdown if the rs_launch:type=auto tag
-    # is set and the instance has not gotten its boot bundle after SUICIDE_DELAY seconds and this is
-    # the first time this instance boots
-    if RightScale::InstanceState.initial_boot?
-      @suicide_timer = EM::Timer.new(SUICIDE_DELAY) do
-        if RightScale::InstanceState.startup_tags.include?(AUTO_LAUNCH_TAG) && !@got_boot_bundle
-          msg = "Shutting down after having tried to boot for #{SUICIDE_DELAY / 60} minutes"
-          RightScale::Log.error(msg)
-          @audit.append_error(msg, :category => RightScale::EventCategories::CATEGORY_ERROR) if @audit
-          RightScale::Platform.controller.shutdown
-        end
-      end
-    end
   end
 
   # Retrieve current instance state
@@ -166,12 +152,26 @@ class InstanceSetup
         # AgentTagManager could give us a String (error message)
         RightScale::Log.error("Failed to query tags during initial startup: #{tags}")
       else
-        #This tag query is duplicated in ExecutableSequenceProxy#run, but doing
-        #it here ensures we have fresh tags immediately on first startup.
+        #CookState is also updated in ExecutableSequenceProxy#run, but doing
+        #it here ensures that CookState is initially convergent with InstanceState.
         RightScale::InstanceState.startup_tags = tags
         RightScale::CookState.update(RightScale::InstanceState)
         RightScale::Log.force_debug if RightScale::CookState.dev_mode_enabled?
         RightScale::Log.info("Tags discovered at initial startup: #{tags.inspect} (dev mode = #{RightScale::CookState.dev_mode_enabled?})")
+      end
+
+      # Setup suicide timer which will cause instance to shutdown if the rs_launch:type=auto tag
+      # is set and the instance has not gotten its boot bundle after SUICIDE_DELAY seconds and this is
+      # the first time this instance boots
+      if RightScale::InstanceState.initial_boot?
+        @suicide_timer = EM::Timer.new(SUICIDE_DELAY) do
+          if RightScale::InstanceState.startup_tags.include?(AUTO_LAUNCH_TAG) && !@got_boot_bundle
+            msg = "Shutting down after having tried to boot for #{SUICIDE_DELAY / 60} minutes"
+            RightScale::Log.error(msg)
+            @audit.append_error(msg, :category => RightScale::EventCategories::CATEGORY_ERROR) if @audit
+            RightScale::Platform.controller.shutdown
+          end
+        end
       end
 
       enable_managed_login
