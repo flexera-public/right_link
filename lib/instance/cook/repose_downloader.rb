@@ -109,7 +109,9 @@ module RightScale
               end
             else
               Log.error("Request '#{sanitized_resource}' failed - #{response.class.name} - give up")
-              raise @exception, [@scope, @resource, @name, response]
+              response.kind_of?(Net::HTTPForbidden) ?
+                  raise AttachmentForbiddenFailure, [@scope, @resource, @name, response] :
+                  raise @exception, [@scope, @resource, @name, response]
             end
 
           end
