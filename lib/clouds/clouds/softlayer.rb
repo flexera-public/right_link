@@ -20,7 +20,8 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-CONFIG_DRIVE_MOUNTPOINT = ::RightScale::Platform.windows? ? 'C:\\Program Files\\RightScale\\Mount\\Softlayer' : File.join(RightScale::Platform.filesystem.spool_dir, name.to_s)
+CONFIG_DRIVE_MOUNTPOINT = File.join(RightScale::Platform.filesystem.spool_dir, name.to_s) if ::RightScale::Platform.linux?
+CONFIG_DRIVE_MOUNTPOINT = File.join(ENV['ProgramW6432'], 'RightScale', 'Mount', 'Softlayer').gsub('/', '\\') if ::RightScale::Platform.windows?
 
 # dependencies.
 metadata_source 'metadata_sources/config_drive_metadata_source'
