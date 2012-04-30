@@ -20,7 +20,7 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-CONFIG_DRIVE_MOUNTPOINT = ::RightScale::Platform.windows? ? 'Z' : File.join(RightScale::Platform.filesystem.spool_dir, name.to_s)
+CONFIG_DRIVE_MOUNTPOINT = ::RightScale::Platform.windows? ? 'C:\\Program Files\\RightScale\\Mount\\Softlayer' : File.join(RightScale::Platform.filesystem.spool_dir, name.to_s)
 
 # dependencies.
 metadata_source 'metadata_sources/config_drive_metadata_source'
@@ -67,7 +67,7 @@ default_option([:user_metadata, :metadata_tree_climber, :create_leaf_override], 
 default_option([:metadata_source, :user_metadata_source_file_path], File.join(CONFIG_DRIVE_MOUNTPOINT, 'meta.js'))
 
 default_option([:metadata_source, :config_drive_uuid], "681B-8C5D")
-default_option([:metadata_source, :config_drive_filesystem], "vfat")
+default_option([:metadata_source, :config_drive_filesystem], ::RightScale::Platform.windows? ? 'FAT32' : 'vfat')
 default_option([:metadata_source, :config_drive_label], 'METADATA')
 default_option([:metadata_source, :config_drive_mountpoint],  CONFIG_DRIVE_MOUNTPOINT)
 
@@ -79,9 +79,8 @@ def update_details
   details = {}
   if ohai = @options[:ohai_node]
     if platform.windows?
-      # TODO: Solve for windows, this is directly from the Rackspace cloud definition and may (probably will) be different in SL
-      #details[:public_ip] = ::RightScale::CloudUtilities.ip_for_windows_interface(ohai, 'public')
-      #details[:private_ip] = ::RightScale::CloudUtilities.ip_for_windows_interface(ohai, 'private')
+      details[:public_ip] = ::RightScale::CloudUtilities.ip_for_windows_interface(ohai, 'PublicNetwork')
+      details[:private_ip] = ::RightScale::CloudUtilities.ip_for_windows_interface(ohai, 'PrivateNetwork')
     else
       details[:public_ip] = ::RightScale::CloudUtilities.ip_for_interface(ohai, :eth1)
       details[:private_ip] = ::RightScale::CloudUtilities.ip_for_interface(ohai, :eth0)
