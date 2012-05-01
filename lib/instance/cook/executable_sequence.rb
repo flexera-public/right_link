@@ -74,8 +74,6 @@ module RightScale
       end
     end
 
-    class AttachmentForbiddenFailure < AttachmentDownloadFailure; end
-
     # Patch to be applied to inputs stored in core
     attr_accessor :inputs_patch
 
@@ -264,9 +262,9 @@ module RightScale
                   download_using_repose(a, script_file_path)
                   next
                 rescue AttachmentDownloadFailure => e
-                  if e.is_a?(AttachmentForbiddenFailure)
+                  if e.reason.include?('403')
                     @audit.append_info("Repose download failed: #{e.message}." +
-                                       "Often this means the download URL has expired.")
+                                       "Often this means the download URL has expired while waiting for inputs to be satisfied.")
                     report_failure("Failed to download attachment '#{a.file_name}'", e.message)
                   end
                   @audit.append_info("Repose download failed: #{e.message}; " +

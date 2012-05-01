@@ -95,8 +95,7 @@ module RightScale
           request = Net::HTTP::Get.new("/#{@scope}/#{@resource}")
           request['Host'] = ip
 
-          connection.request(:protocol => 'https', :server => ip,
-                                        :port => '443', :request => request) do |response|
+          connection.request(:protocol => 'https', :server => ip, :port => '443', :request => request) do |response|
 
             if response.kind_of?(Net::HTTPSuccess)
               @failures = 0
@@ -109,9 +108,7 @@ module RightScale
               end
             else
               Log.error("Request '#{sanitized_resource}' failed - #{response.class.name} - give up")
-              response.kind_of?(Net::HTTPForbidden) ?
-                  raise AttachmentForbiddenFailure, [@scope, @resource, @name, response] :
-                  raise @exception, [@scope, @resource, @name, response]
+              raise @exception, [@scope, @resource, @name, response]
             end
 
           end
