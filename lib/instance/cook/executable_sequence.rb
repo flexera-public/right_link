@@ -255,29 +255,18 @@ module RightScale
             attach_dir = @right_scripts_cookbook.cache_dir(script)
             script.attachments.each do |a|
               script_file_path = File.join(attach_dir, a.file_name)
-              unless a.token.nil?
-                @audit.update_status("Downloading #{a.file_name} into #{script_file_path} through Repose")
-
-                begin
-                  download_using_repose(a, script_file_path)
-                  next
-                rescue AttachmentDownloadFailure => e
-                  if e.reason.include?('403')
-                    @audit.append_info("Repose download failed: #{e.message}." +
-                                       "Often this means the download URL has expired while waiting for inputs to be satisfied.")
-                    report_failure("Failed to download attachment '#{a.file_name}'", e.message)
-                  end
-                  @audit.append_info("Repose download failed: #{e.message}; " +
-                                         "falling back to direct download")
+              @audit.update_status("Downloading #{a.file_name} into #{script_file_path} through Repose")
+              begin
+                download_using_repose(a, script_file_path)
+                next
+              rescue AttachmentDownloadFailure => e
+                if e.reason.include?('403')
+                  @audit.append_info("Repose download failed: #{e.message}." +
+                                     "Often this means the download URL has expired while waiting for inputs to be satisfied.")
+                  report_failure("Failed to download attachment '#{a.file_name}'", e.message)
                 end
-              end
-
-              @audit.update_status("Downloading #{a.file_name} into #{script_file_path} directly")
-              if @downloader.download(a.url, script_file_path)
-                @audit.append_info(@downloader.details)
-              else
-                report_failure("Failed to download attachment '#{a.file_name}'", @downloader.error)
-                return true
+                @audit.append_info("Repose download failed: #{e.message}; " +
+                                         "falling back to direct download")
               end
             end
           end
