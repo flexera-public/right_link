@@ -4,12 +4,11 @@ source :rubygems
 gem "rubyforge",               "1.0.4"
 gem "rake",                    "0.8.7"
 gem "right_support",           "~> 1.4"
-gem "right_amqp",              "~> 0.2.0"
-gem "right_agent",             :git     => 'git://github.com/rgeyer/right_agent',
-                               :branch  => 'windows_assign_path'
+gem "right_agent",             "~> 0.10"
 gem "right_popen",             "~> 1.0"
-gem "right_http_connection",   "~> 1.3.0"
+gem "right_http_connection",   "~> 1.3"
 gem "right_scraper",           "3.0.1"
+
 # We have custom builds of some gems containing fixes and patches that are specific
 # to RightScale. Gems in the "custom" group are published by RightScale to our
 # custom gem repository (http://s3.amazonaws.com/rightscale_rightlink_gems_dev).
