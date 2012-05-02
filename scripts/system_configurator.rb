@@ -40,8 +40,10 @@ end
 
 module RightScale
   class SystemConfigurator
-    RSA_KEY = '/etc/ssh/ssh_host_rsa_key'
-    DSA_KEY = '/etc/ssh/ssh_host_dsa_key'
+    RSA_KEY    = '/etc/ssh/ssh_host_rsa_key'
+    DSA_KEY    = '/etc/ssh/ssh_host_dsa_key'
+    SUDO_USER  = 'rightscale'
+    SUDO_GROUP = 'rightscale_sudo'
 
     def self.read_options_file
       state = RightScale::Platform.filesystem.right_link_dynamic_state_dir
@@ -198,25 +200,27 @@ module RightScale
 
     def configure_sudoers
       return 0 unless Platform.linux?
-      puts "Configuring /etc/sudoers to ensure rightscale user able to use NOPASSWD priveleges"
+      puts "Configuring /etc/sudoers to ensure rightscale users/groups have sufficient privileges"
 
-      sudo_user  = 'rightscale'
-      sudo_group = 'rightscale_sudo'
-
-      mask = Regexp.new("%?(#{sudo_group}|#{sudo_user}) ALL=NOPASSWD: ALL")
+      masks = [
+        /%?(#{SUDO_GROUP}|#{SUDO_USER}) ALL=(\(ALL\))?NOPASSWD: ALL/,
+        /Defaults:(#{SUDO_GROUP}|#{SUDO_USER}) !requiretty/,
+        /# RightScale/
+      ]
 
       begin
         lines = File.readlines('/etc/sudoers')
         file = File.open("/etc/sudoers", "w")
-        lines.each { |line| file.puts line.strip unless line =~ mask}
-        file.puts("\n")
+        lines.each do |line|
+          line.strip!
+          next if masks.any? { |m| line =~ m }
+          file.puts line
+        end
 
-        file.puts("# The rightscale user may impersonate anyone to run any command (just like root)")
-        file.puts("# Please leave this permission in place, else RightLink may not function!")
-        file.puts("#{sudo_user} ALL=(ALL)NOPASSWD: ALL")
-
-        file.puts("# RightScale dashboard users who are allowed superuser privileges")
-        file.puts("%#{sudo_group} ALL=NOPASSWD: ALL")
+        file.puts("# RightScale: please leave these rules in place, else RightLink may not function")
+        file.puts("#{SUDO_USER} ALL=(ALL)NOPASSWD: ALL")
+        file.puts("%#{SUDO_GROUP} ALL=NOPASSWD: ALL")
+        file.puts("Defaults:#{SUDO_USER} !requiretty")
         file.close
       end
    end

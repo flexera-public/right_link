@@ -92,13 +92,11 @@ module RightScale
         end
       end
 
+      # Note that we always use -i (simulate initial login) flag, which ensures
+      # we chdir to the user's home directory before running any commands.
       case access
-        when :scp
-          cmd = "sudo -u #{username} #{orig}"
-        when :sftp
-          cmd = "sudo -u #{username} #{orig}"
-        when :command
-          cmd = "sudo -u #{username} #{orig}"
+        when :scp, :sftp, :command
+          cmd = "sudo -i -u #{username} #{orig}"
         when :shell
           cmd = "sudo -i -u #{username}"
       end
