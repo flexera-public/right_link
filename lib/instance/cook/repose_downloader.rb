@@ -26,6 +26,10 @@ require 'right_http_connection'
 module RightScale
   # Class centralizing logic for downloading objects from Repose.
   class ReposeDownloader
+    attr_reader :size
+    attr_reader :speed
+    attr_reader :sanitized_resource
+
     # Select appropriate Repose class to use.  Currently, checks the
     # HTTPS_PROXY, HTTP_PROXY, http_proxy and ALL_PROXY environment
     # variables.
@@ -84,38 +88,49 @@ module RightScale
     # === Return
     # true:: always returns true
     def request
-      @failures ||= 0
-      attempts = 0
-      balancer.request do |ip|
-        host = @@hostnames_hash[ip]
-        sanitized_resource = @resource.split('?').first
-        RightSupport::Net::SSL.with_expected_hostname(host) do
-          connection = make_connection
-          Log.info("Requesting 'https://#{ip}:443/#{@scope}/#{sanitized_resource}' from '#{host}'")
-          request = Net::HTTP::Get.new("/#{@scope}/#{@resource}")
-          request['Host'] = ip
-
-          connection.request(:protocol => 'https', :server => ip, :port => '443', :request => request) do |response|
-
-            if response.kind_of?(Net::HTTPSuccess)
-              @failures = 0
-              yield response
-            elsif response.kind_of?(Net::HTTPServerError) || response.kind_of?(Net::HTTPNotFound)
-              Log.warning("Request for '#{sanitized_resource}' failed - #{response.class.name} - retry")
-              unless snooze(attempts)
-                Log.error("Request for '#{sanitized_resource}' failed - giving up after '#{attempts}' attempts!")
-                raise @exception, [@scope, @resource, @name, "gave up after '#{attempts}' attempts"]
-              end
-            else
-              Log.error("Request '#{sanitized_resource}' failed - #{response.class.name} - give up")
-              raise @exception, [@scope, @resource, @name, response]
+      client = RightSupport::Net::HTTPClient.new({:headers => {:user_agent => "RightLink v#{AgentConfig.protocol_version}"}})
+      @sanitized_resource = @resource.split('?').first
+      begin
+        balancer.request do |ip|
+          host = @@hostnames_hash[ip]
+          RightSupport::Net::SSL.with_expected_hostname(host) do
+            Log.info("#{sanitized_resource}' from '#{host}'")
+            t0 = Time.now
+            client.request(:get, "#{@resource}", {:verify_ssl => true, :ssl_ca_file => get_ca_file}) do |response, request, result|
+              @size = response.size
+              @speed = @size / (Time.now - t0)
+              response.return!
             end
-
           end
-          attempts += 1
         end
+      rescue Exception => e
+        Log.error("Request '#{sanitized_resource}' failed - #{e.message} - give up")
+        Log.error("Often this means the download URL has expired while waiting for inputs to be satisfied.") if e.message.include?('403 Forbidden')
+        raise @exception, [@scope, @resource, @name, e.message]
       end
       return true
+    end
+
+    def details
+      "Downloaded #{@sanitized_resource} (#{ scale(@size.to_i).join(' ') }) at #{ scale(@speed.to_i).join(' ') }/s"
+    end
+
+    # Return scale and scaled value from given argument
+    # Scale can be B, KB, MB or GB
+    #
+    # === Return
+    # scaled(Array):: First element is scaled value, second element is scale ('B', 'KB', 'MB' or 'GB')
+    def scale(value)
+      scaled = case value
+                 when 0..1023
+                   [value, 'B']
+                 when 1024..1024**2 - 1
+                   [value / 1024, 'KB']
+                 when 1024^2..1024**3 - 1
+                   [value / 1024**2, 'MB']
+                 else
+                   [value / 1024**3, 'GB']
+               end
     end
 
     # Exponential backoff sleep algorithm.  Returns true if processing
@@ -180,19 +195,11 @@ module RightScale
       ca_file = File.normalize_path(File.join(File.dirname(__FILE__), 'ca-bundle.crt'))
     end
 
-    # Make a Rightscale::HttpConnection for later use.
-    def make_connection
-      Rightscale::HttpConnection.new(:user_agent => "RightLink v#{AgentConfig.protocol_version}",
-                                     :logger => @logger,
-                                     :exception => ReposeConnectionFailure,
-                                     :fail_if_ca_mismatch => true,
-                                     :ca_file => get_ca_file)
-    end
-
     # Create a single balancer instance to maximize health check's efficiency
     def balancer
       @balancer ||= RightSupport::Net::RequestBalancer.new(@@hostnames,
                       :policy=>RightSupport::Net::Balancing::StickyPolicy,
+                      :fatal => RightSupport::Net::RequestBalancer::DEFAULT_FATAL_EXCEPTIONS << RestClient::Forbidden,
                       :resolve => REPOSE_RESOLVE_TIMEOUT)
     end
 

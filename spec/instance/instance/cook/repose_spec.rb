@@ -159,5 +159,9 @@ module RightScale
         lambda { @downloader.request }.should raise_exception(TestException) {|e| e.reason == "Request for 'resource' failed - giving up after '2' attempts!"}
       end
     end
+
+    context :ryan do
+
+    end
   end
 end

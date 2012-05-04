@@ -258,15 +258,10 @@ module RightScale
               @audit.update_status("Downloading #{a.file_name} into #{script_file_path} through Repose")
               begin
                 download_using_repose(a, script_file_path)
-                next
               rescue AttachmentDownloadFailure => e
-                if e.reason.include?('403')
-                  @audit.append_info("Repose download failed: #{e.message}." +
-                                     "Often this means the download URL has expired while waiting for inputs to be satisfied.")
-                  report_failure("Failed to download attachment '#{a.file_name}'", e.message)
-                end
-                @audit.append_info("Repose download failed: #{e.message}; " +
-                                         "falling back to direct download")
+                @audit.append_info("Repose download failed: #{e.message}.")
+                @audit.append_info("Often this means the download URL has expired while waiting for inputs to be satisfied.") if e.message.include?('403 Forbidden')
+                report_failure("Failed to download attachment '#{a.file_name}'", e.message)
               end
             end
           end
@@ -293,14 +288,7 @@ module RightScale
       begin
         attachment_dir = File.dirname(script_file_path)
         FileUtils.mkdir_p(attachment_dir)
-        dl = nil
-        if attachment.digest
-          dl = @repose_class.new('attachments/1', attachment.digest, attachment.token,
-                                 attachment.file_name, AttachmentDownloadFailure, @logger)
-        else
-          dl = @repose_class.new('attachments', attachment.to_hash, attachment.token,
-                                 attachment.file_name, AttachmentDownloadFailure, @logger)
-        end
+        dl = @repose_class.new('attachments/1', attachment.url, attachment.token, attachment.file_name, AttachmentDownloadFailure, @logger)
         tempfile = Tempfile.open('attachment', attachment_dir)
         tempfile.binmode
         dl.request do |response|
@@ -311,6 +299,7 @@ module RightScale
         File.unlink(script_file_path) if File.exists?(script_file_path)
         File.link(tempfile.path, script_file_path)
         tempfile.close!
+        @audit.append_info(@repose_class.details)
         return true
       rescue Exception => e
         tempfile.close! unless tempfile.nil?
