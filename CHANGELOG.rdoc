@@ -4,33 +4,33 @@
 
 === Security and Compliance
 
- * Compliance with the Linux Filesystem Hierarchy Standard (FHS) helps RightLink coexist with host-based IDS
-    * See INSTALL.rdoc for more information on filesystem paths
- * Managed login requires users to login with to their own limited-privilege account, and to execute privileged commands using "sudo"
- * Some features of RightLink can be disabled prior to package install, to facilitate custom image builds for high-security deployment
-   environments
-    * For more information, refer to http://bit.ly/IftBeq or to RightLink's INSTALL.rdoc
+* Compliance with the Linux Filesystem Hierarchy Standard (FHS) helps RightLink coexist with host-based IDS
+  * See INSTALL.rdoc for more information on filesystem paths
+* Managed login requires users to login with to their own limited-privilege account, and to execute privileged commands using "sudo"
+* Some features of RightLink can be disabled prior to package install, to facilitate custom image builds for high-security deployment
+  environments
+  * For more information, refer to http://bit.ly/IftBeq or to RightLink's INSTALL.rdoc
 
 === Automation
 
- * Concurrent recipe/script execution is supported; see the --thread option of rs_run_recipe and rs_run_right_script.
- * Non-error audit output can be suppressed for recipes/scripts that run very frequently; see the --policy and --audit-period
-   options of rs_run_recipe and rs_run_right_script
- * Tag queries accept a timeout option -- both via the rs_tag command-line tool, and the ServerCollection resource
- * The agent queries its own tags before running a sequence of scripts or recipes, helping to ensure that tag-based decisions
-   are made using fresh state. The result of the tag query is audited, to enhance transparency and facilitate debugging.
+* Concurrent recipe/script execution is supported; see the --thread option of rs_run_recipe and rs_run_right_script.
+* Non-error audit output can be suppressed for recipes/scripts that run very frequently; see the --policy and --audit-period
+  options of rs_run_recipe and rs_run_right_script
+* Tag queries accept a timeout option -- both via the rs_tag command-line tool, and the ServerCollection resource
+* The agent queries its own tags before running a sequence of scripts or recipes, helping to ensure that tag-based decisions
+  are made using fresh state. The result of the tag query is audited, to enhance transparency and facilitate debugging.
 
 === Chef
 
- * Chef 0.10.8
- * RightLink features "development mode" for cookbooks, wherein the instance directly checks out cookbooks from their
-   associated Git/Subversion repository and converges using the contents of the repo. Users can edit recipes between runs,
-   and even commit and push their changes upstream after everything is working.
-   * Enable this for selected cookbooks by applying a tag to the server that lists comma-separated dev cookbook names
-   * e.g. rs_agent_dev:dev_cookbooks=cb_1,cb_2,cb_3,...
-   * For more information on cookbook development, refer to http://bit.ly/HHcVhs
- * Most commands invoked by Ohai/Chef are logged with DEBUG severity for easier debugging of troublesome providers/recipes. To change
-   the RightLink log, use the rs_log_level command.
+* Chef 0.10.8
+* RightLink features "development mode" for cookbooks, wherein the instance directly checks out cookbooks from their
+  associated Git/Subversion repository and converges using the contents of the repo. Users can edit recipes between runs,
+  and even commit and push their changes upstream after everything is working.
+  * Enable this for selected cookbooks by applying a tag to the server that lists comma-separated dev cookbook names
+  * e.g. rs_agent_dev:dev_cookbooks=cb_1,cb_2,cb_3,...
+  * For more information on cookbook development, refer to http://bit.ly/HHcVhs
+* Most commands invoked by Ohai/Chef are logged with DEBUG severity for easier debugging of troublesome providers/recipes. To change
+  the RightLink log, use the rs_log_level command.
 
 == Bug Fixes
 
