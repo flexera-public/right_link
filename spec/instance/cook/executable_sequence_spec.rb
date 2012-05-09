@@ -64,7 +64,7 @@ describe RightScale::ExecutableSequence do
                                                        :audit_id => 0,
                                                        :full_converge => true,
                                                        :cookbooks => [],
-                                                       :repose_servers => '',
+                                                       :repose_servers => 'repose9.rightscale.com',
                                                        :dev_cookbooks => RightScale::DevRepositories.new)
 
       @thread_name = RightScale::AgentConfig.default_thread_name

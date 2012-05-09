@@ -91,17 +91,18 @@ module RightScale
       @scripts                = bundle.executables.select { |e| e.is_a?(RightScriptInstantiation) }
       run_list_recipes        = bundle.executables.map { |e| e.is_a?(RecipeInstantiation) ? e : @right_scripts_cookbook.recipe_from_right_script(e) }
       @cookbooks              = bundle.cookbooks
-      @downloader             = Downloader.new
+      @downloader             = AttachmentProxyDownloader::PROXY_ENVIRONMENT_VARIABLES.any? { |var| ENV.has_key?(var) } ?
+                                AttachmentProxyDownloader.new(bundle.repose_servers) :
+                                AttachmentDownloader.new(bundle.repose_servers)
       @download_path          = File.join(AgentConfig.cookbook_download_dir, @thread_name)
       @powershell_providers   = nil
       @ohai_retry_delay       = OHAI_RETRY_MIN_DELAY
       @audit                  = AuditStub.instance
       @logger                 = Log
-      @repose_class           = ReposeDownloader.select_repose_class
       @cookbook_repo_retriever= CookbookRepoRetriever.new(CookState.cookbooks_path,
                                                           @download_path,
                                                           bundle.dev_cookbooks)
-      @repose_class.discover_repose_servers(bundle.repose_servers)
+      #@repose_class.discover_repose_servers(bundle.repose_servers)
 
       # Initialize run list for this sequence (partial converge support)
       @run_list  = []
@@ -257,10 +258,26 @@ module RightScale
               script_file_path = File.join(attach_dir, a.file_name)
               @audit.update_status("Downloading #{a.file_name} into #{script_file_path} through Repose")
               begin
-                download_using_repose(a, script_file_path)
-              rescue AttachmentDownloadFailure => e
+                attachment_dir = File.dirname(script_file_path)
+                FileUtils.mkdir_p(attachment_dir)
+                tempfile = Tempfile.open('attachment', attachment_dir)
+                tempfile.binmode
+                @downloader.download(a.url) do |response|
+                  response.read_body do |chunk|
+                    tempfile << chunk
+                  end
+                end
+                File.unlink(script_file_path) if File.exists?(script_file_path)
+                File.link(tempfile.path, script_file_path)
+                tempfile.close!
+                @audit.append_info(@downloader.details)
+              rescue Exception => e
+                tempfile.close! unless tempfile.nil?
                 @audit.append_info("Repose download failed: #{e.message}.")
-                @audit.append_info("Often this means the download URL has expired while waiting for inputs to be satisfied.") if e.message.include?('403 Forbidden')
+                if e.kind_of?(Downloader::DownloadException) && e.message.include?("Forbidden")
+                  Log.error("Often this means the download authorization has expired while waiting for inputs to be satisfied.")
+                  @audit.append_info("Often this means the download URL has expired while waiting for inputs to be satisfied.")
+                end
                 report_failure("Failed to download attachment '#{a.file_name}'", e.message)
               end
             end
@@ -268,43 +285,6 @@ module RightScale
         end
       end
       true
-    end
-
-    # Download the given attachment using Repose.  Will throw
-    # exceptions in case of failure.
-    #
-    # === Parameters
-    # attachment(RightScale::Attachment):: attachment to download
-    # script_file_path(String):: destination pathname
-    #
-    # === Raise
-    # AttachmentDownloadFailure:: if some permanent failure occurred downloading the attachment
-    # ReposeDownloader::ReposeServerFailure:: if no Repose server could be contacted
-    # SystemCallError:: if the file cannot be created
-    #
-    # === Return
-    # always true
-    def download_using_repose(attachment, script_file_path)
-      begin
-        attachment_dir = File.dirname(script_file_path)
-        FileUtils.mkdir_p(attachment_dir)
-        dl = @repose_class.new('attachments/1', attachment.url, attachment.token, attachment.file_name, AttachmentDownloadFailure, @logger)
-        tempfile = Tempfile.open('attachment', attachment_dir)
-        tempfile.binmode
-        dl.request do |response|
-          response.read_body do |chunk|
-            tempfile << chunk
-          end
-        end
-        File.unlink(script_file_path) if File.exists?(script_file_path)
-        File.link(tempfile.path, script_file_path)
-        tempfile.close!
-        @audit.append_info(@repose_class.details)
-        return true
-      rescue Exception => e
-        tempfile.close! unless tempfile.nil?
-        raise e
-      end
     end
 
     # Install required software packages, update @ok

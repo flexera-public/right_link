@@ -84,14 +84,14 @@ module RightScale
 
       @bundle = RightScale::PayloadFactory.make_bundle(:audit_id              => 2,
                                                        :cookbooks             => [],
-                                                       :repose_servers        => [])
+                                                       :repose_servers        => [SERVER])
       @sequence = ExecutableSequence.new(@bundle)
     end
 
-    it 'should look up repose servers' do
+    it 'should instantiate an AttachmentDownloader' do
         # mock the cookbook checkout location
       flexmock(CookState).should_receive(:cookbooks_path).and_return(@temp_cache_path)
-      flexmock(ReposeDownloader).should_receive(:discover_repose_servers).with([SERVER]).once
+      flexmock(AttachmentDownloader).should_receive(:new).with([SERVER]).once
 
       @bundle = RightScale::PayloadFactory.make_bundle(:audit_id              => 2,
                                                        :cookbooks             => [],
