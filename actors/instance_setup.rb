@@ -354,7 +354,11 @@ class InstanceSetup
           klass.generate("none", repo.base_urls, fz)
         end
       rescue RightScale::Exceptions::PlatformError => e
-        RightScale::Log.error("Repository configurator #{repo.name} failed - unsuitable for host OS", e)
+        # we don't want to use words like error or failed here just because we
+        # rely on exceptions for flow-of-control in repo conf generators because
+        # that leads to tickets being filed. just say "hey buddy, it didn't work
+        # out but it's all okay"
+        RightScale::Log.info("Repository configurator #{repo.name} is not suitable for host OS: #{e.message}")
       rescue Exception => e
         RightScale::Log.error("Repository configurator #{repo.name} failed", e)
       end
