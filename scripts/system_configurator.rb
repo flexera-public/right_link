@@ -4,19 +4,21 @@
 #   This utility performs miscellaneous system configuration tasks.
 #
 # === Examples:
-#   config --action=hostname
-#   config --action=ssh
-#   config --action=proxy
-#   config --action=sudoers
+#   system --action=hostname
+#   system --action=ssh
+#   system --action=proxy
+#   system --action=sudoers
 #
 # === Usage
-#    config --action=<action> [options]
+#    system --action=<action> [options]
 #
 #    Options:
 #      --help:            Display help
 #
 
 require 'optparse'
+require 'socket'
+
 require 'right_agent'
 require 'right_agent/scripts/usage'
 require 'right_agent/scripts/common_parser'
@@ -154,16 +156,21 @@ module RightScale
     def configure_hostname
       return 0 unless Platform.linux?
 
-      hostname    = Socket.gethostname
-      hostname_f  = Socket.gethostbyname(hostname)[0] rescue nil
+      hostname     = Socket.gethostname
+      current_fqdn = valid_current_fqdn
 
-      # If hostname is already fully-qualified, then do nothing
-      if hostname_f && hostname_f.include?('.')
-        puts "Hostname (#{hostname_f.inspect}) is a well-formed and valid FQDN."
+      if current_fqdn == nil
+        # We do not have a valid FQDN; some work is required
+        puts "Hostname (#{current_fqdn.inspect}) looks suspect; changing it"
+        cloud_fqdn, cloud_ip = retrieve_cloud_hostname_and_local_ip
+        set_hostname(cloud_fqdn, cloud_ip)
+
+        # Check if setting the hostname has caused FQDN to work, before
+        # adding a fake entry to /etc/hosts as a last resort
+        add_host_record(cloud_fqdn, cloud_ip) unless valid_current_fqdn
       else
-        puts "Hostname (#{hostname_f.inspect}) looks suspect; changing it"
-        my_fqdn, my_addr = retrieve_cloud_hostname_and_local_ip
-        add_new_host_record(my_fqdn, my_addr)
+        # If hostname is already fully-qualified, then do nothing
+        puts "Hostname (#{current_fqdn.inspect}) is a well-formed and valid FQDN."
       end
     end
 
@@ -221,6 +228,7 @@ module RightScale
         file.puts("#{SUDO_USER} ALL=(ALL)NOPASSWD: ALL")
         file.puts("%#{SUDO_GROUP} ALL=NOPASSWD: ALL")
         file.puts("Defaults:#{SUDO_USER} !requiretty")
+        file.puts("Defaults:#{SUDO_GROUP} !requiretty")
         file.close
       end
    end
@@ -253,13 +261,13 @@ module RightScale
       # hostname and local public IP address
       if Platform.ec2? || Platform.eucalyptus?
         my_fqdn = ENV['EC2_LOCAL_HOSTNAME']
-        my_addr = ENV['EC2_PUBLIC_IPV4']
+        my_addr = ENV['EC2_LOCAL_IPV4']
 
         # Some clouds are buggy and report an IP address as EC2_LOCAL_HOSTNAME.
         # An IP address is not a valid hostname! In this case we must transform
         # it to a valid hostname using the form ip-x-y-z-w where x,y,z,w are
         # the decimal octets of the IP address x.y.z.w
-        if my_fqdn =~ /[0-9.]+/
+        if my_fqdn =~ /^[0-9.]+$/
           components = my_fqdn.split('.')
           my_fqdn = "ip-#{components.join('-')}.internal"
         end
@@ -291,14 +299,27 @@ module RightScale
       [ my_fqdn, my_addr ]
     end
 
-    def add_new_host_record(my_fqdn, my_addr)
+    def valid_current_fqdn
+      hostname_f  = Socket.gethostbyname(Socket.gethostname)[0] rescue nil
+      if hostname_f && hostname_f.include?('.')
+        hostname_f
+      else
+        nil
+      end
+    end
+
+    def set_hostname(my_fqdn, my_addr)
       hostname = my_fqdn.split(".").first
       # Set our hostname to the host portion of the FQDN
       runshell("hostname #{hostname}")
       runshell("echo #{hostname} > /etc/hostname")
       puts "Changed hostname to #{hostname}"
+    end
 
-      mask = Regexp.new(hostname)
+    def add_host_record(my_fqdn, my_addr)
+      hostname = my_fqdn.split('.').first
+      mask = Regexp.new(Regexp.escape(hostname))
+
       begin
         lines = File.readlines('/etc/hosts')
         hosts_file = File.open("/etc/hosts", "w")
