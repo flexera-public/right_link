@@ -59,7 +59,7 @@ module RightScale
     # === Return
     # @return [File]
 
-    def _download(resource, options = {})
+    def _download(resource, options = {}, &block)
       client = get_http_client
       resource = URI::parse(resource)
       raise ArgumentError, "Invalid resource provided.  Resource must be a fully qualified URL" unless resource
@@ -69,7 +69,9 @@ module RightScale
           RightSupport::Net::SSL.with_expected_hostname(ips[endpoint]) do
             logger.info("Requesting '#{sanitized_resource}' from '#{endpoint}'")
             logger.debug("Requesting '#{resource.scheme}://#{endpoint}#{resource.path}?#{resource.query}' from '#{endpoint}'")
-            client.request(:get, "#{resource.scheme}://#{endpoint}#{resource.path}?#{resource.query}", {:verify_ssl => true, :ssl_ca_file => get_ca_file})
+            client.request(:get, "#{resource.scheme}://#{endpoint}#{resource.path}?#{resource.query}", {:verify_ssl => true, :ssl_ca_file => get_ca_file}) do |response, request, result|
+              block.call(response)
+            end
           end
         end
       rescue Exception => e
