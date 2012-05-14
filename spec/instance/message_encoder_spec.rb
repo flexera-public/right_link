@@ -23,10 +23,15 @@
 require File.join(File.dirname(__FILE__), 'spec_helper')
 
 describe RightScale::MessageEncoder do
-  TEXT_DATA = "ABC" * 11
+  include RightScale::SpecHelper
 
-  let(:agent_identity)  { 'rs-instance-1-1' }
-  let(:object_data)   { RightScale::ExecutableBundle.new }
+  let(:agent_identity) { 'rs-instance-1-1' }
+  let(:object_data)    { RightScale::ExecutableBundle.new }
+  let(:raw_data)       { ["ABC" * 11, "DEF" * 5] }
+
+  before do
+    setup_state(agent_identity)
+  end
 
   shared_examples_for 'encoder' do
     it { should respond_to :encode }
@@ -41,35 +46,27 @@ describe RightScale::MessageEncoder do
     end
   end
 
-  context "factory methods" do
-    include RightScale::SpecHelper
-
-    before do
-      setup_state(agent_identity)
-    end
-
-    context "create an encoder from a given token" do
-      subject { RightScale::MessageEncoder.for_agent('foo') }
+  context "secure encoder" do
+    subject { RightScale::MessageEncoder.for_agent(agent_identity) }
+    context "packet data" do
       let(:data) { object_data }
       it_should_behave_like 'encoder'
     end
+    context "raw data" do
+      let(:data) { raw_data }
+      it_should_behave_like 'encoder'
+    end
+  end
 
-    context "create an encoder for the current agent" do
-      subject { RightScale::MessageEncoder.for_current_agent }
+  context "secret encoder" do
+    subject { RightScale::MessageEncoder.for_agent(agent_identity, 'my secret') }
+    context "packet data" do
       let(:data) { object_data }
       it_should_behave_like 'encoder'
     end
-
-    context "equivalent encoders" do
-      let(:token_encoder) { RightScale::MessageEncoder.for_agent(agent_identity) }
-      let(:agent_encoder) { RightScale::MessageEncoder.for_current_agent }
-
-      it 'should reversibly encode text' do
-        token_encoder.decode(agent_encoder.encode(object_data)).should == agent_encoder.decode(token_encoder.encode(object_data))
-      end
-      it 'should reversibly encode an object' do
-        token_encoder.decode(agent_encoder.encode(object_data)).should == agent_encoder.decode(token_encoder.encode(object_data))
-      end
+    context "raw data" do
+      let(:data) { raw_data }
+      it_should_behave_like 'encoder'
     end
   end
 end
