@@ -75,8 +75,11 @@ module RightScale
       @thread_name ||= RightScale::AgentConfig.default_thread_name
       options[:thread_name] = @thread_name
 
-      # Chef state needs the agent id so it can read and write state
-      ChefState.init(agent_id)
+      # Chef state needs the server secret so it can encrypt state on disk.
+      # the secret is the same for all instances of the server (i.e. is still
+      # valid after stop and restart server).
+      server_secret = bundle.server_secret || AgentConfig.default_server_secret
+      ChefState.init(agent_id, server_secret, reset=false)
 
       # 3. Run bundle
       @@instance = self

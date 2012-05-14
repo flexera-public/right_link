@@ -49,14 +49,14 @@ describe RightScale::ChefState do
   end
 
   it 'should initialize' do
-    RightScale::ChefState.init(agent_identity, true)
+    RightScale::ChefState.init(agent_identity, secret='some secret', reset=true)
     RightScale::ChefState.attributes.should == {}
   end
 
   it 'should reset' do
     RightScale::ChefState.attributes = { :one => 'two' }
     RightScale::ChefState.attributes.should == { :one => 'two' }
-    RightScale::ChefState.init(agent_identity, true)
+    RightScale::ChefState.init(agent_identity, secret='some secret', reset=true)
     RightScale::ChefState.attributes.should == {}
   end
 
