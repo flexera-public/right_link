@@ -3,8 +3,10 @@ source :rubygems
 
 gem "rubyforge",               "1.0.4"
 gem "rake",                    "0.8.7"
+gem "encryptor",               "1.1.3"
 gem "right_support",           "~> 1.4"
-gem "right_agent",             "~> 0.10"
+gem "right_agent",             "~> 0.10", :git => 'https://github.com/rightscale/right_agent.git',
+                                          :branch => 'azure_12_5_12508'
 gem "right_popen",             "~> 1.0"
 gem "right_http_connection",   "~> 1.3"
 gem "right_scraper",           "3.0.1"

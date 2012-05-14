@@ -38,14 +38,12 @@ module RightScale
     class << self
       # Load chef state from file
       #
-      # === Parameters
-      # reset(Boolean):: Discard persisted state if true, load it otherwise
-      #
-      # === Return
-      # true:: Always return true
-      def init(agent_id, reset=false)
+      # @param [String] agent_id identity
+      # @param [String] secret for encryption or nil
+      # @param [TrueClass|FalseClass] reset persisted state if true, load it otherwise
+      def init(agent_id, secret, reset)
         return true if initialized? && !reset
-        @@encoder = MessageEncoder.for_agent(agent_id)
+        @@encoder = MessageEncoder.for_agent(agent_id, secret)
         @@attributes = {}
         @@past_scripts = []
         if reset
