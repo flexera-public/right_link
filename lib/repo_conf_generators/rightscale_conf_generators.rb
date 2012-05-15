@@ -119,3 +119,85 @@ end
 
 # Examples of usage...
 #Yum::RightScale::Epel.generate("Epel description", ["http://a.com/epel","http://b.com/epel"], "20081010")
+
+
+module Apt
+
+  module RightScale
+    SUPPORTED_REPOS = ['lucid', 'precise']
+
+    # The different generate classes will always generate an exception ("string") if there's anything that went wrong. If no exception, things went well.
+    SUPPORTED_REPOS.each do |c|
+      module_eval <<-EOS
+        class #{c.capitalize}
+          def self.generate(description, base_urls, frozen_date="latest")
+            opts = { :repo_filename => "rightscale_extra",
+                     :repo_name     => "default",
+                     :description   => description,
+                     :codename      => '#{c}',
+                     :base_urls     => base_urls,
+                     :frozen_date   => frozen_date,
+                     :enabled       => true }
+            opts[:frozen_date] = frozen_date || "latest" # Optional frozen date
+            Apt::RightScale::abstract_generate(opts)
+          end
+        end
+      EOS
+    end
+
+    def self.path_to_sources_list
+      "/etc/apt/sources.list.d"
+    end
+
+    ############## INTERNAL FUNCTIONS #######################################################
+    def self.abstract_generate(params)
+      return unless ::RightScale::Platform.linux? && ::RightScale::Platform.ubuntu?
+
+      opts = { :enabled => true, :frozen_date => "latest"}
+      opts.merge!(params)
+      raise ArgumentError.new("missing parameters to generate file!") unless opts[:repo_filename] &&
+                                                                      opts[:repo_name] &&
+                                                                      opts[:base_urls] &&
+                                                                      opts[:frozen_date] &&
+                                                                      opts[:enabled]
+
+      return unless opts[:enabled]
+
+      target = opts[:codename].downcase
+      codename = ::RightScale::Platform.codename.downcase
+
+      raise ::RightScale::Exceptions::PlatformError, "Unsupported Ubuntu release #{codename}" unless SUPPORTED_REPOS.include?(codename)
+      raise ::RightScale::Exceptions::PlatformError, "Wrong release; repo is for #{target}, we are #{codename}" unless target == codename
+
+      FileUtils.mkdir_p(Apt::RightScale::path_to_sources_list)
+
+      if opts[:frozen_date] != 'latest'
+        x = Date.parse(opts[:frozen_date]).to_s
+        x.gsub!(/-/,"/")
+        opts[:frozen_date] = x
+      end
+
+      mirror_list =  opts[:base_urls].map do |bu|
+        bu +='/' unless bu[-1..-1] == '/' # ensure the base url is terminated with a '/'
+        bu + opts[:frozen_date]
+      end
+      config_body = ""
+      mirror_list.each do |mirror_url|
+        config_body += <<END
+deb #{mirror_url} #{codename} main
+
+END
+      end
+
+      target_filename = "#{Apt::RightScale::path_to_sources_list}/#{opts[:repo_filename]}.sources.list"
+      FileUtils.rm_f(target_filename) if File.exists?(target_filename)
+      File.open(target_filename,'w') { |f| f.write(config_body) }
+      FileUtils.mv("/etc/apt/sources.list", "/etc/apt/sources.list.ORIG") if File.exists?("/etc/apt/sources.list")
+
+      mirror_list
+    end
+  end
+end
+
+# Examples of usage...
+#Apt::RightScale::Lucid.generate("Lucid", [""http://a.com/rightscale_software_ubuntu""], "20081010")
