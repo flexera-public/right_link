@@ -3,6 +3,7 @@ source :rubygems
 
 gem "rubyforge",               "1.0.4"
 gem "rake",                    "0.8.7"
+gem "encryptor",               "1.1.3"
 gem "right_support",           "~> 1.4"
 gem "right_agent",             "~> 0.10"
 gem "right_popen",             "~> 1.0"
