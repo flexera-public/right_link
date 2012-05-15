@@ -94,6 +94,7 @@ module RightScale
       @downloader             = AttachmentProxyDownloader::PROXY_ENVIRONMENT_VARIABLES.any? { |var| ENV.has_key?(var) } ?
                                 AttachmentProxyDownloader.new(bundle.repose_servers) :
                                 AttachmentDownloader.new(bundle.repose_servers)
+      @downloader.logger      = Log
       @download_path          = File.join(AgentConfig.cookbook_download_dir, @thread_name)
       @powershell_providers   = nil
       @ohai_retry_delay       = OHAI_RETRY_MIN_DELAY
@@ -258,21 +259,9 @@ module RightScale
               script_file_path = File.join(attach_dir, a.file_name)
               @audit.update_status("Downloading #{a.file_name} into #{script_file_path} through Repose")
               begin
-                attachment_dir = File.dirname(script_file_path)
-                FileUtils.mkdir_p(attachment_dir)
-                tempfile = Tempfile.open('attachment', attachment_dir)
-                tempfile.binmode
-                @downloader.download(a.url) do |response|
-                  response.read_body do |chunk|
-                    tempfile << chunk
-                  end
-                end
-                File.unlink(script_file_path) if File.exists?(script_file_path)
-                File.link(tempfile.path, script_file_path)
-                tempfile.close!
+                @downloader.download(a.url, script_file_path)
                 @audit.append_info(@downloader.details)
               rescue Exception => e
-                tempfile.close! unless tempfile.nil?
                 @audit.append_info("Repose download failed: #{e.message}.")
                 if e.kind_of?(Downloader::DownloadException) && e.message.include?("Forbidden")
                   Log.error("Often this means the download authorization has expired while waiting for inputs to be satisfied.")
@@ -448,14 +437,7 @@ module RightScale
       name = cookbook.name ; tag  = cookbook.hash[0..4]
       @audit.append_info("Downloading cookbook '#{name}' (#{tag})")
 
-      tarball = Tempfile.new("tarball")
-      tarball.binmode
-      result = request_cookbook(cookbook) do |response|
-        response.read_body do |chunk|
-          tarball << chunk
-        end
-      end
-      tarball.close
+      tarball = @cookbook_downloader.download(cookbook, "tarball")
 
       @audit.append_info("Success; unarchiving cookbook")
 

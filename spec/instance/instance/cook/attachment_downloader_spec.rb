@@ -74,7 +74,7 @@ module RightScale
 
       it 'should download an attachment' do
         http_client = flexmock('http_client')
-        http_client.should_receive(:request).and_yield('bar')
+        http_client.should_receive(:request).and_return('bar')
         flexmock(RightSupport::Net::HTTPClient).should_receive(:new).and_return(http_client)
 
         downloader = AttachmentDownloader.new(hostname)

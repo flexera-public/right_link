@@ -39,19 +39,59 @@ module RightScale
     # (String) Last resource downloaded
     attr_reader :sanitized_resource
 
-    def download(resource, options = {})
+    # Hash of IP Address => Hostname
+    attr_reader :ips
+
+    # Initializes a Downloader with a list of hostnames
+    #
+    # The purpose of this method is to instantiate a Downloader
+    #
+    # === Parameters
+    # @param <[String]> Hostnames to resolve
+    #
+    # === Return
+    # @return [Downloader]
+
+    def initialize(hostnames)
+      raise ArgumentError, "At least one hostname must be provided" if hostnames.empty?
+      hostnames = [hostnames] unless hostnames.respond_to?(:each)
+      @ips = resolve(hostnames)
+    end
+
+    # Wraps the download implementation of the subclass
+    #
+    # The purpose of this method is to perform some generic functionality
+    # around the actual download method call
+    #
+    # === Parameters
+    # @param [String] Resource URI to parse and fetch
+    # @param [String] Destination for fetched resource
+    #
+    # === Return
+    # @return [File] The file that was downloaded
+
+    def download(resource, dest)
       @size = 0
       @speed = 0
       @sanitized_resource = sanitize_resource(resource)
       t0 = Time.now
-      file = _download(resource, options)
+
+      file = _download(resource, dest)
+
       @speed = size / (Time.now - t0)
       return file
     end
 
-    def _download(resource, options = {})
+    # Message summarizing last successful download details
+    #
+    # === Return
+    # @return [String] Message with last downloaded resource, download size and speed
 
+    def details
+      "Downloaded #{@sanitized_resource} (#{ scale(size.to_i).join(' ') }) at #{ scale(speed.to_i).join(' ') }/s"
     end
+
+    protected
 
     # Resolve a list of hostnames to a hash of Hostname => IP Addresses
     #
@@ -86,13 +126,77 @@ module RightScale
       ips
     end
 
-    # Message summarizing last successful download details
+    # Parse Exception message and return it
+    #
+    # The purpose of this method is to parse the message portion of RequestBalancer
+    # Exceptions to determine the actual Exceptions that resulted in all endpoints
+    # failing to return a non-Exception.
+    #
+    # === Parameters
+    # @param [Exception] Exception to parse
+
+    # === Return
+    # @return [String] List of Exceptions
+
+    def parse(e)
+      if e.kind_of?(RightSupport::Net::NoResult)
+        message = e.message.split("Exceptions: ")[1]
+      else
+        message = e.class.name
+      end
+      message
+    end
+
+    # Create and return a RequestBalancer instance
+    #
+    # The purpose of this method is to create a RequestBalancer that will be used
+    # to service all 'download' requests.  Once a valid endpoint is found, the
+    # balancer will 'stick' with it. It will consider a response of '408: RequestTimeout' and
+    # '500: InternalServerError' as retryable exceptions and all other HTTP error codes to
+    # indicate a fatal exception that should abort the load-balanced request
     #
     # === Return
-    # @return [String] Message with last downloaded resource, download size and speed
+    # @return [RightSupport::Net::RequestBalancer]
 
-    def details
-      "Downloaded #{@sanitized_resource} (#{ scale(size.to_i).join(' ') }) at #{ scale(speed.to_i).join(' ') }/s"
+    def balancer
+      @balancer ||= RightSupport::Net::RequestBalancer.new(
+          ips.keys,
+          :policy => RightSupport::Net::Balancing::StickyPolicy,
+          :fatal  => lambda do |e|
+            if RightSupport::Net::RequestBalancer::DEFAULT_FATAL_EXCEPTIONS.any? { |c| e.is_a?(c) }
+              true
+            elsif e.respond_to?(:http_code) && (e.http_code != nil)
+              (e.http_code >= 400 && e.http_code < 500) && (e.http_code != 408 && e.http_code != 500 )
+            else
+              false
+            end
+          end
+      )
+    end
+
+    # Returns a path to a CA file
+    #
+    # The CA bundle is a basically static collection of trusted certs of top-level CAs.
+    # It should be provided by the OS, but because of our cross-platform nature and
+    # the lib we're using, we need to supply our own. We stole curl's.
+    #
+    # === Return
+    # @return [String] Path to a CA file
+
+    def get_ca_file
+      ca_file = File.normalize_path(File.join(File.dirname(__FILE__), 'ca-bundle.crt'))
+    end
+
+    # Instantiates an HTTP Client
+    #
+    # The purpose of this method is to create an HTTP Client that will be used to
+    # make requests in the download method
+    #
+    # === Return
+    # @return [RightSupport::Net::HTTPClient]
+
+    def get_http_client
+      RightSupport::Net::HTTPClient.new({:headers => {:user_agent => "RightLink v#{AgentConfig.protocol_version}"}})
     end
 
     # Return a sanitized value from given argument
@@ -107,7 +211,7 @@ module RightScale
     # @return [String] 'Resource' portion of resource provided
 
     def sanitize_resource(resource)
-      resource.split('?').first
+      URI::split(resource)[5].split("/")[3]
     end
 
     # Return scale and scaled value from given argument
