@@ -23,6 +23,7 @@
 === Chef
 
 * Chef 0.10.8
+* An rs_ohai command is available to invoke Ohai from the command line with all of the RightScale plugins and enhancements.
 * RightLink features "development mode" for cookbooks, wherein the instance directly checks out cookbooks from their
   associated Git/Subversion repository and converges using the contents of the repo. Users can edit recipes between runs,
   and even commit and push their changes upstream after everything is working.
