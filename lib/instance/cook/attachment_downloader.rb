@@ -97,6 +97,21 @@ module RightScale
       end
     end
 
+    # Return a sanitized value from given argument
+    #
+    # The purpose of this method is to return a value that can be securely
+    # displayed in logs and audits
+    #
+    # === Parameters
+    # @param [String] 'Resource' to parse
+    #
+    # === Return
+    # @return [String] 'Resource' portion of resource provided
+
+    def sanitize_resource(resource)
+      URI::split(resource)[5].split("/")[3]
+    end
+
   end
 
 end

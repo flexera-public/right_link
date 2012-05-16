@@ -58,22 +58,6 @@ module RightScale
     # Regexp to use when reporting extended information about Chef failures (line-number, etc)
     BACKTRACE_LINE_REGEXP = /(.+):(\d+):in `(.+)'/
 
-    class CookbookDownloadFailure < Exception
-      def initialize(tuple)
-        scope, resource, name, reason = tuple
-        reason = reason.class.name unless reason.is_a?(String)
-        super("#{reason} while downloading #{resource}")
-      end
-    end
-
-    class AttachmentDownloadFailure < Exception
-      def initialize(tuple)
-        scope, resource, name, reason = tuple
-        reason = reason.class.name unless reason.is_a?(String)
-        super("#{reason} while downloading #{resource}")
-      end
-    end
-
     # Patch to be applied to inputs stored in core
     attr_accessor :inputs_patch
 
@@ -95,6 +79,8 @@ module RightScale
                                 AttachmentProxyDownloader.new(bundle.repose_servers) :
                                 AttachmentDownloader.new(bundle.repose_servers)
       @downloader.logger      = Log
+      @cb_downloader          = CookbookDownloader.new(bundle.repose_servers)
+      @cb_downloader.logger   = Log
       @download_path          = File.join(AgentConfig.cookbook_download_dir, @thread_name)
       @powershell_providers   = nil
       @ohai_retry_delay       = OHAI_RETRY_MIN_DELAY
@@ -260,6 +246,7 @@ module RightScale
               @audit.update_status("Downloading #{a.file_name} into #{script_file_path} through Repose")
               begin
                 @downloader.download(a.url, script_file_path)
+                Log.info(@downloader.details)
                 @audit.append_info(@downloader.details)
               rescue Exception => e
                 @audit.append_info("Repose download failed: #{e.message}.")
@@ -427,7 +414,7 @@ module RightScale
     # cookbook(Cookbook):: cookbook
     #
     # === Raise
-    # Propagates exceptions raised by callees, namely CookbookDownloadFailure
+    # Propagates exceptions raised by callees, namely DownloadFailure
     # and ReposeServerFailure
     #
     # === Return
@@ -437,8 +424,10 @@ module RightScale
       name = cookbook.name ; tag  = cookbook.hash[0..4]
       @audit.append_info("Downloading cookbook '#{name}' (#{tag})")
 
-      tarball = @cookbook_downloader.download(cookbook, "tarball")
+      tarball = @cb_downloader.download("/cookbooks/#{cookbook.hash}", "tarball")
 
+      Log.info(@cookbook_downloader.details)
+      @audit.append_info(@cookbook_downloader.details)
       @audit.append_info("Success; unarchiving cookbook")
 
       # The local basedir is the faux "repository root" into which we extract all related
@@ -466,28 +455,6 @@ module RightScale
       end
       tarball.close(true)
       return true
-    end
-
-    # Request a cookbook from the Repose mirror, performing retry as necessary. Block
-    # until the cookbook has been downloaded, or until permanent failure has been
-    # determined.
-    #
-    # === Parameters
-    # cookbook(RightScale::Cookbook):: the cookbook to download
-    #
-    # === Block
-    # If the request succeeds this method will yield, passing
-    # the HTTP response object as its sole argument.
-    #
-    # === Raise
-    # CookbookDownloadFailure:: if a permanent failure happened
-    # ReposeServerFailure:: if no Repose server could be contacted
-    #
-    # === Return
-    # true:: always returns true
-    def request_cookbook(cookbook, &block)
-      @repose_class.new('cookbooks', cookbook.hash, cookbook.token,
-                        cookbook.name, CookbookDownloadFailure, @logger).request(&block)
     end
 
     # Create Powershell providers from cookbook repos

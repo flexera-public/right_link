@@ -88,7 +88,7 @@ module RightScale
     # @return [String] Message with last downloaded resource, download size and speed
 
     def details
-      "Downloaded #{@sanitized_resource} (#{ scale(size.to_i).join(' ') }) at #{ scale(speed.to_i).join(' ') }/s"
+      "Downloaded '#{@sanitized_resource}' (#{ scale(size.to_i).join(' ') }) at #{ scale(speed.to_i).join(' ') }/s"
     end
 
     protected
@@ -211,7 +211,8 @@ module RightScale
     # @return [String] 'Resource' portion of resource provided
 
     def sanitize_resource(resource)
-      URI::split(resource)[5].split("/")[3]
+      logger.info "[ryan] Resource: #{resource}, #{resource.split('?')}"
+      resource.split('?').first
     end
 
     # Return scale and scaled value from given argument

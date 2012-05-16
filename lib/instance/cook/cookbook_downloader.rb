@@ -54,6 +54,56 @@ module RightScale
       tarball
     end
 
+    # Streams data from a Repose server
+    #
+    # The purpose of this method is to stream the specified specified resource from Repose
+    # If a failure is encountered it will provide proper feedback regarding the nature
+    # of the failure
+    #
+    # === Parameters
+    # @param [String] Resource URI to parse and fetch
+    #
+    # === Block
+    # @yield [] A block is mandatory
+    # @yieldreturn [String] The stream that is being fetched
+
+    def stream(resource)
+      client = get_http_client
+
+      begin
+        balancer.request do |endpoint|
+          RightSupport::Net::SSL.with_expected_hostname(ips[endpoint]) do
+            logger.info("Requesting '#{sanitized_resource}' from '#{endpoint}'")
+            logger.debug("Requesting 'https://#{endpoint}:443#{resource}' from '#{endpoint}'")
+            client.request(:get, "https://#{endpoint}:443#{resource}", {:verify_ssl => OpenSSL::SSL::VERIFY_PEER, :ssl_ca_file => get_ca_file}) do |response, request, result|
+              @size = result.content_length
+              yield response
+            end
+          end
+        end
+      rescue Exception => e
+        message = parse(e)
+        logger.error("Request '#{sanitized_resource}' failed - #{message}")
+        raise ConnectionException, message if message.include?('Errno::ECONNREFUSED') || message.include?('SocketError')
+        raise DownloadException, message
+      end
+    end
+
+    # Return a sanitized value from given argument
+    #
+    # The purpose of this method is to return a value that can be securely
+    # displayed in logs and audits
+    #
+    # === Parameters
+    # @param [String] 'Resource' to parse
+    #
+    # === Return
+    # @return [String] 'Resource' portion of resource provided
+
+    def sanitize_resource(resource)
+      resource.split('?').first.split('/').last
+    end
+
   end
 
 end
