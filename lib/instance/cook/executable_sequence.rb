@@ -248,7 +248,7 @@ module RightScale
                 @audit.append_info(@downloader.details)
               rescue Exception => e
                 @audit.append_info("Repose download failed: #{e.message}.")
-                if e.kind_of?(Downloader::DownloadException) && e.message.include?("Forbidden")
+                if e.kind_of?(ReposeDownloader::DownloadException) && e.message.include?("Forbidden")
                   Log.error("Often this means the download authorization has expired while waiting for inputs to be satisfied.")
                   @audit.append_info("Often this means the download URL has expired while waiting for inputs to be satisfied.")
                 end

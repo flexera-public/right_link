@@ -158,7 +158,8 @@ module RightScale
             logger.debug("Requesting 'https://#{endpoint}:443#{resource}' from '#{endpoint}'")
             client.get("https://#{endpoint}:443#{resource}", {:verify_ssl => OpenSSL::SSL::VERIFY_PEER, :ssl_ca_file => get_ca_file, :headers => {:user_agent => "RightLink v#{AgentConfig.protocol_version}"}}) do |response, request, result|
               @size = result.content_length
-              yield response
+              yield response if response.kind_of?(Net::HTTPSuccess)
+              response.return!(request, result)
             end
           end
         end
