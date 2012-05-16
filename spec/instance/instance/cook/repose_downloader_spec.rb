@@ -24,23 +24,30 @@ require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'spec_hel
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', '..', '..', 'lib', 'instance', 'cook'))
 
 module RightScale
-  describe Downloader do
+  describe ReposeDownloader do
     let(:hostname) { 'repose9.rightscale.com' }
-    subject { Downloader.new }
+    subject { ReposeDownloader.new([hostname]) }
 
     context :resolve do
+
+      class ReposeDownloader
+        def test_resolve(hostname)
+          resolve(hostname)
+        end
+      end
+
       it 'should resolve hostnames into IP addresses' do
         flexmock(Socket).should_receive(:getaddrinfo) \
           .with(hostname, 443, Socket::AF_INET, Socket::SOCK_STREAM, Socket::IPPROTO_TCP) \
           .and_return([["AF_INET", 443, "ec2-174-129-36-231.compute-1.amazonaws.com", "174.129.36.231", 2, 1, 6], ["AF_INET", 443, "ec2-174-129-37-65.compute-1.amazonaws.com", "174.129.37.65", 2, 1, 6]])
 
-        subject.resolve(hostname).should == { "174.129.36.231" => hostname, "174.129.37.65" => hostname }
+        subject.test_resolve(hostname).should == { "174.129.36.231" => hostname, "174.129.37.65" => hostname }
       end
     end
 
     context :download do
       it 'should download' do
-        subject.download('test')
+        subject.download('test', 'destination')
         subject.size.should == 0
         subject.speed.should == 0.0
         subject.sanitized_resource.should == 'test'

@@ -26,6 +26,8 @@ module RightScale
 
   class CookbookDownloader < ReposeDownloader
 
+    protected
+
     # Downloads an attachment from Repose
     #
     # The purpose of this method is to download the specified attachment from Repose

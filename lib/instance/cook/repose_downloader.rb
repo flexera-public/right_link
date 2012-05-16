@@ -101,6 +101,23 @@ module RightScale
 
     protected
 
+    # Downloads an attachment from Repose
+    #
+    # The purpose of this method is to download the specified attachment from Repose
+    # If a failure is encountered it will provide proper feedback regarding the nature
+    # of the failure
+    #
+    # === Parameters
+    # @param [String] Resource URI to parse and fetch
+    # @param [String] Destination for fetched resource
+    #
+    # === Return
+    # @return [File] The file that was downloaded
+
+    def _download(resource, dest)
+
+    end
+
     # Resolve a list of hostnames to a hash of Hostname => IP Addresses
     #
     # The purpose of this method is to lookup all IP addresses per hostname and
@@ -155,7 +172,6 @@ module RightScale
         balancer.request do |endpoint|
           RightSupport::Net::SSL.with_expected_hostname(ips[endpoint]) do
             logger.info("Requesting '#{sanitized_resource}' from '#{endpoint}'")
-            logger.debug("Requesting 'https://#{endpoint}:443#{resource}' from '#{endpoint}'")
             client.get("https://#{endpoint}:443#{resource}", {:verify_ssl => OpenSSL::SSL::VERIFY_PEER, :ssl_ca_file => get_ca_file, :headers => {:user_agent => "RightLink v#{AgentConfig.protocol_version}"}}) do |response, request, result|
               @size = result.content_length
               yield response if response.kind_of?(Net::HTTPSuccess)

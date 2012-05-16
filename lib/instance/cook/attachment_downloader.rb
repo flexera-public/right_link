@@ -26,6 +26,8 @@ module RightScale
 
   class AttachmentDownloader < ReposeDownloader
 
+    protected
+
     # Downloads an attachment from Repose
     #
     # The purpose of this method is to download the specified attachment from Repose
@@ -57,8 +59,6 @@ module RightScale
       end
       tempfile
     end
-
-    protected
 
     def parse_resource(resource)
       resource = URI::parse(resource)
