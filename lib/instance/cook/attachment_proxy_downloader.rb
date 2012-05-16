@@ -54,50 +54,13 @@ module RightScale
 
     protected
 
-    # Streams data from a Repose server
-    #
-    # The purpose of this method is to stream the specified specified resource from Repose
-    # If a failure is encountered it will provide proper feedback regarding the nature
-    # of the failure
-    #
-    # === Parameters
-    # @param [String] Resource URI to parse and fetch
-    #
-    # === Block
-    # @yield [] A block is mandatory
-    # @yieldreturn [String] The stream that is being fetched
-
-    def stream(resource)
-      client = get_http_client
-      resource = URI::parse(resource)
-      raise ArgumentError, "Invalid resource provided.  Resource must be a fully qualified URL" unless resource
-
-      begin
-        balancer.request do |endpoint|
-          RightSupport::Net::SSL.with_expected_hostname(ips[endpoint]) do
-            logger.info("Requesting '#{sanitized_resource}' from '#{endpoint}'")
-            logger.debug("Requesting '#{resource.scheme}://#{endpoint}#{resource.path}?#{resource.query}' from '#{endpoint}'")
-            client.get("#{resource.scheme}://#{endpoint}#{resource.path}?#{resource.query}", {:verify_ssl => OpenSSL::SSL::VERIFY_PEER, :ssl_ca_file => get_ca_file}) do |response, request, result|
-              @size = result.content_length
-              yield response
-            end
-          end
-        end
-      rescue Exception => e
-        message = parse(e)
-        logger.error("Request '#{sanitized_resource}' failed - #{message}")
-        raise ConnectionException, message if message.include?('Errno::ECONNREFUSED') || message.include?('SocketError')
-        raise DownloadException, message
-      end
-    end
-
     # Instantiates an HTTP Client
     #
     # The purpose of this method is to create an HTTP Client that will be used to
     # make requests in the download method
     #
     # === Return
-    # @return [RightSupport::Net::HTTPClient]
+    # @return [RestClient]
 
     def get_http_client
       RestClient.proxy = @proxy.to_s

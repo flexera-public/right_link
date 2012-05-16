@@ -75,15 +75,14 @@ module RightScale
 
     def stream(resource)
       client = get_http_client
-      resource = URI::parse(resource)
-      raise ArgumentError, "Invalid resource provided.  Resource must be a fully qualified URL" unless resource
+      resource = parse_resource(resource)
 
       begin
         balancer.request do |endpoint|
           RightSupport::Net::SSL.with_expected_hostname(ips[endpoint]) do
             logger.info("Requesting '#{sanitized_resource}' from '#{endpoint}'")
-            logger.debug("Requesting '#{resource.scheme}://#{endpoint}#{resource.path}?#{resource.query}' from '#{endpoint}'")
-            client.request(:get, "#{resource.scheme}://#{endpoint}#{resource.path}?#{resource.query}", {:verify_ssl => OpenSSL::SSL::VERIFY_PEER, :ssl_ca_file => get_ca_file}) do |response, request, result|
+            logger.debug("Requesting 'https://#{endpoint}:443#{resource}' from '#{endpoint}'")
+            client.get("https://#{endpoint}:443#{resource}", {:verify_ssl => OpenSSL::SSL::VERIFY_PEER, :ssl_ca_file => get_ca_file, :headers => {:user_agent => "RightLink v#{AgentConfig.protocol_version}"}}) do |response, request, result|
               @size = result.content_length
               yield response
             end
@@ -92,9 +91,15 @@ module RightScale
       rescue Exception => e
         message = parse(e)
         logger.error("Request '#{sanitized_resource}' failed - #{message}")
-        raise ConnectionException, message if message.include?('Errno::ECONNREFUSED') || message.include?('SocketError')
+        raise ConnectionException, message if message.include?('Errno::ECONNREFUSED') || message.include?('Errno::ETIMEDOUT') || message.include?('SocketError')
         raise DownloadException, message
       end
+    end
+
+    def parse_resource(resource)
+      resource = URI::parse(resource)
+      raise ArgumentError, "Invalid resource provided.  Resource must be a fully qualified URL" unless resource
+      "#{resource.path}?#{resource.query}"
     end
 
     # Return a sanitized value from given argument

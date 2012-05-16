@@ -34,14 +34,19 @@ module RightScale
     end
 
     context :get_http_client do
+      let(:proxy) { 'http://username:password@proxy.rightscale.com' }
+
       it 'should use a proxy if a proxy is present' do
         flexmock(Socket).should_receive(:getaddrinfo) \
           .with(hostname, 443, Socket::AF_INET, Socket::SOCK_STREAM, Socket::IPPROTO_TCP) \
           .and_return([["AF_INET", 443, "ec2-174-129-36-231.compute-1.amazonaws.com", "174.129.36.231", 2, 1, 6], ["AF_INET", 443, "ec2-174-129-37-65.compute-1.amazonaws.com", "174.129.37.65", 2, 1, 6]])
 
-        ENV['http_proxy'] = 'http://username:password@proxy.rightscale.com'
+        ENV['http_proxy'] = proxy
         downloader = AttachmentProxyDownloader.new(hostname)
-        downloader.test_get_http_client.inspect
+        client = downloader.test_get_http_client
+
+        client.should == RestClient
+        client.proxy.should == proxy
       end
     end
   end

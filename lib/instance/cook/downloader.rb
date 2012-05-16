@@ -193,10 +193,10 @@ module RightScale
     # make requests in the download method
     #
     # === Return
-    # @return [RightSupport::Net::HTTPClient]
+    # @return [RestClient]
 
     def get_http_client
-      RightSupport::Net::HTTPClient.new({:headers => {:user_agent => "RightLink v#{AgentConfig.protocol_version}"}})
+      RestClient
     end
 
     # Return a sanitized value from given argument
@@ -211,7 +211,6 @@ module RightScale
     # @return [String] 'Resource' portion of resource provided
 
     def sanitize_resource(resource)
-      logger.info "[ryan] Resource: #{resource}, #{resource.split('?')}"
       resource.split('?').first
     end
 
