@@ -24,7 +24,7 @@ require 'uri'
 
 module RightScale
 
-  class AttachmentDownloader < Downloader
+  class AttachmentDownloader < ReposeDownloader
 
     # Downloads an attachment from Repose
     #
