@@ -75,9 +75,7 @@ module RightScale
       @scripts                = bundle.executables.select { |e| e.is_a?(RightScriptInstantiation) }
       run_list_recipes        = bundle.executables.map { |e| e.is_a?(RecipeInstantiation) ? e : @right_scripts_cookbook.recipe_from_right_script(e) }
       @cookbooks              = bundle.cookbooks
-      @downloader             = AttachmentProxyDownloader::PROXY_ENVIRONMENT_VARIABLES.any? { |var| ENV.has_key?(var) } ?
-                                AttachmentProxyDownloader.new(bundle.repose_servers) :
-                                AttachmentDownloader.new(bundle.repose_servers)
+      @downloader             = AttachmentDownloader.new(bundle.repose_servers)
       @downloader.logger      = Log
       @cb_downloader          = CookbookDownloader.new(bundle.repose_servers)
       @cb_downloader.logger   = Log
@@ -426,8 +424,8 @@ module RightScale
 
       tarball = @cb_downloader.download("/cookbooks/#{cookbook.hash}", "tarball")
 
-      Log.info(@cookbook_downloader.details)
-      @audit.append_info(@cookbook_downloader.details)
+      Log.info(@cb_downloader.details)
+      @audit.append_info(@cb_downloader.details)
       @audit.append_info("Success; unarchiving cookbook")
 
       # The local basedir is the faux "repository root" into which we extract all related
