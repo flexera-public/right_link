@@ -20,6 +20,8 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+require 'uri'
+
 module RightScale
 
   # Abstract download capabilities
@@ -174,8 +176,12 @@ module RightScale
             logger.info("Requesting '#{sanitized_resource}' from '#{endpoint}'")
             client.get("https://#{endpoint}:443#{resource}", {:verify_ssl => OpenSSL::SSL::VERIFY_PEER, :ssl_ca_file => get_ca_file, :headers => {:user_agent => "RightLink v#{AgentConfig.protocol_version}"}}) do |response, request, result|
               @size = result.content_length
-              yield response if response.kind_of?(Net::HTTPSuccess)
-              response.return!(request, result)
+              if result.kind_of?(Net::HTTPSuccess)
+                yield response
+              else
+                response.return!(request, result)
+              end
+
             end
           end
         end
