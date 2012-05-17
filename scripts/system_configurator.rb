@@ -171,7 +171,7 @@ module RightScale
       unset_proxy_variables
 
       if ENV['RS_HTTP_PROXY']
-        puts "Configuring HTTP proxy '$RS_HTTP_PROXY'"
+        puts "Configuring HTTP proxy #{ENV['$RS_HTTP_PROXY']}"
 
         # TODO: super hack for open-uri
         # fix it
