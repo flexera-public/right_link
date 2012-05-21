@@ -54,11 +54,6 @@ module RightScale
       tarball
     end
 
-    def parse_resource(resource)
-      raise ArgumentError, "Invalid resource provided.  Resource must be in the form of /<scope>/<resource>" unless resource
-      resource
-    end
-
     # Return a sanitized value from given argument
     #
     # The purpose of this method is to return a value that can be securely

@@ -155,6 +155,22 @@ module RightScale
 
     # Streams data from a Repose server
     #
+    # The purpose of this method is to parse the resource given into the proper resource
+    # format that the ReposeDownloader class is expecting
+    #
+    # === Parameters
+    # @param [String] Resource URI to parse
+    #
+    # === Block
+    # @return [String] The parsed URI
+
+    def parse_resource(resource)
+      raise ArgumentError, "Invalid resource provided.  Resource must be in the form of /<scope>/<resource>" unless resource
+      resource
+    end
+
+    # Streams data from a Repose server
+    #
     # The purpose of this method is to stream the specified specified resource from Repose
     # If a failure is encountered it will provide proper feedback regarding the nature
     # of the failure

@@ -21,32 +21,14 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'spec_helper'))
+RightSupport::Log::Mixin.default_logger = Logger.new(STDOUT)
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', '..', '..', 'lib', 'instance', 'cook'))
 
 module RightScale
-  describe AttachmentProxyDownloader do
-    let(:hostname) { 'repose9.rightscale.com' }
-
-    class AttachmentProxyDownloader
-      def test_get_http_client
-        get_http_client
-      end
-    end
-
-    context :get_http_client do
-      let(:proxy) { 'http://username:password@proxy.rightscale.com' }
-
-      it 'should use a proxy if a proxy is present' do
-        flexmock(Socket).should_receive(:getaddrinfo) \
-          .with(hostname, 443, Socket::AF_INET, Socket::SOCK_STREAM, Socket::IPPROTO_TCP) \
-          .and_return([["AF_INET", 443, "ec2-174-129-36-231.compute-1.amazonaws.com", "174.129.36.231", 2, 1, 6], ["AF_INET", 443, "ec2-174-129-37-65.compute-1.amazonaws.com", "174.129.37.65", 2, 1, 6]])
-
-        ENV['http_proxy'] = proxy
-        downloader = AttachmentProxyDownloader.new(hostname)
-        client = downloader.test_get_http_client
-
-        client.should == RestClient
-        client.proxy.should == proxy
+  describe CookbookDownloader do
+    context :parse_resource do
+      it 'should parse resources correctly' do
+        subject.send(:parse_resource, "https://#{hostname}:443/scope/resource").should == "scope/resource"
       end
     end
   end

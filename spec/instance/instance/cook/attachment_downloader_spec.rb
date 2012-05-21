@@ -27,12 +27,18 @@ require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', '..', '..
 module RightScale
   describe AttachmentDownloader do
     let(:hostname)   { 'repose9.rightscale.com' }
-    let(:resource)   { 'https://repose9.rightscale.com/attachments/1/foo?query=string' }
+    let(:resource)   { 'https://#{hostname}/attachments/1/foo?query=string' }
 
     before(:each) do
       flexmock(Socket).should_receive(:getaddrinfo) \
           .with(hostname, 443, Socket::AF_INET, Socket::SOCK_STREAM, Socket::IPPROTO_TCP) \
           .and_return([["AF_INET", 443, "ec2-174-129-36-231.compute-1.amazonaws.com", "174.129.36.231", 2, 1, 6], ["AF_INET", 443, "ec2-174-129-37-65.compute-1.amazonaws.com", "174.129.37.65", 2, 1, 6]])
+    end
+
+    context :parse_resource do
+      it 'should parse resources correctly' do
+        subject.send(:parse_resource, resource).should == "foo"
+      end
     end
 
     context :download do

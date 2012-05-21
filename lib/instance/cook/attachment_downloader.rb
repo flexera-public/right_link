@@ -60,6 +60,7 @@ module RightScale
       tempfile
     end
 
+
     def parse_resource(resource)
       resource = URI::parse(resource)
       raise ArgumentError, "Invalid resource provided.  Resource must be a fully qualified URL" unless resource
