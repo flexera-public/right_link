@@ -76,47 +76,29 @@ module RightScale
     #
     # === Parameters
     # @param [String] Resource URI to parse and fetch
-    # @param [String] Destination for fetched resource
-    #
-    # === Return
-    # @return [File] The file that was downloaded
-
-    #def download(resource, dest)
-    #  @size = 0
-    #  @speed = 0
-    #  @sanitized_resource = sanitize_resource(resource)
-    #  t0 = Time.now
-
-
-      #@speed = size / (Time.now - t0)
-      #return file
-    #end
-
-    # Streams data from a Repose server
-    #
-    # The purpose of this method is to stream the specified specified resource from Repose
-    # If a failure is encountered it will provide proper feedback regarding the nature
-    # of the failure
-    #
-    # === Parameters
-    # @param [String] Resource URI to parse and fetch
     #
     # === Block
     # @yield [] A block is mandatory
     # @yieldreturn [String] The stream that is being fetched
 
     def download(resource)
-      client = get_http_client
+      client              = get_http_client
+      @size               = 0
+      @speed              = 0
       @sanitized_resource = sanitize_resource(resource)
-      resource = parse_resource(resource)
+      resource            = parse_resource(resource)
 
       begin
         balancer.request do |endpoint|
           RightSupport::Net::SSL.with_expected_hostname(ips[endpoint]) do
             logger.info("Requesting '#{sanitized_resource}' from '#{endpoint}'")
+
+            #RestClient::Request.execute(:method => :get, :url => "https://#{endpoint}:443#{resource}", :verify_ssl => OpenSSL::SSL::VERIFY_PEER, :ssl_ca_file => get_ca_file, :headers => {:user_agent => "RightLink v#{AgentConfig.protocol_version}"}) do |response, request, result|
+            t0 = Time.now
             client.get("https://#{endpoint}:443#{resource}", {:verify_ssl => OpenSSL::SSL::VERIFY_PEER, :ssl_ca_file => get_ca_file, :headers => {:user_agent => "RightLink v#{AgentConfig.protocol_version}"}}) do |response, request, result|
-              @size = result.content_length
               if result.kind_of?(Net::HTTPSuccess)
+                @size = result.content_length
+                @speed = size / (Time.now - t0)
                 yield response
               else
                 response.return!(request, result)

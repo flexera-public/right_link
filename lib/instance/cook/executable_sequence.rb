@@ -432,7 +432,17 @@ module RightScale
       name = cookbook.name ; tag  = cookbook.hash[0..4]
       @audit.append_info("Downloading cookbook '#{name}' (#{tag})")
 
-      tarball = @cb_downloader.download("/cookbooks/#{cookbook.hash}", "tarball")
+      begin
+        tarball = Tempfile.new("tarball")
+        tarball.binmode
+        @cb_downloader.download("/cookbooks/#{cookbook.hash}") do |response|
+          tarball << response
+        end
+        tarball.close
+      rescue Exception => e
+        tarball.close unless tarball.nil?
+        raise e
+      end
 
       Log.info(@cb_downloader.details)
       @audit.append_info(@cb_downloader.details)
