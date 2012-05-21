@@ -73,14 +73,25 @@ module Yum
           bu +='/' unless bu[-1..-1] == '/' # ensure the base url is terminated with a '/'
           bu+repo_path
         end
+        gpgfile="/etc/pki/rpm-gpg/RPM-GPG-KEY-RightScale"
+        if File.exists?(gpgfile)
+          # This file should be installed by the rightimage cookbook
+          # starting with 12H1 (May 2012), but do a check for backwards
+          # compatibility and compatibility with third parties
+          gpgcheck="1"
+          gpgkey="file://#{gpgfile}"
+        else
+          gpgcheck="0"
+          gpgkey=""
+        end
         config_body = <<END
 [#{opts[:repo_name]}]
 name = #{opts[:description]}
 baseurl = #{mirror_list.join("\n ")}
 failovermethod=priority
-gpgcheck=0
+gpgcheck=#{gpgcheck}
 enabled=#{(opts[:enabled] ? 1:0)}
-gpgkey=#{opts[:gpgkey_file]}
+gpgkey=#{gpgkey}
 # set metadata to expire faster then main
 metadata_expire=30
 END
