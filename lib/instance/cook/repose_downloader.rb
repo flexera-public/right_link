@@ -68,41 +68,6 @@ module RightScale
       @proxy = ENV[proxy_var].match(/^[[:alpha:]]+:\/\//) ? URI.parse(ENV[proxy_var]) : URI.parse("http://" + ENV[proxy_var]) if proxy_var
     end
 
-    # Wraps the download implementation of the subclass
-    #
-    # The purpose of this method is to perform some generic functionality
-    # around the actual download method call
-    #
-    # === Parameters
-    # @param [String] Resource URI to parse and fetch
-    # @param [String] Destination for fetched resource
-    #
-    # === Return
-    # @return [File] The file that was downloaded
-
-    def download(resource, dest)
-      @size = 0
-      @speed = 0
-      @sanitized_resource = sanitize_resource(resource)
-      t0 = Time.now
-
-      file = _download(resource, dest)
-
-      @speed = size / (Time.now - t0)
-      return file
-    end
-
-    # Message summarizing last successful download details
-    #
-    # === Return
-    # @return [String] Message with last downloaded resource, download size and speed
-
-    def details
-      "Downloaded '#{@sanitized_resource}' (#{ scale(size.to_i).join(' ') }) at #{ scale(speed.to_i).join(' ') }/s"
-    end
-
-    protected
-
     # Downloads an attachment from Repose
     #
     # The purpose of this method is to download the specified attachment from Repose
@@ -116,9 +81,67 @@ module RightScale
     # === Return
     # @return [File] The file that was downloaded
 
-    def _download(resource, dest)
+    #def download(resource, dest)
+    #  @size = 0
+    #  @speed = 0
+    #  @sanitized_resource = sanitize_resource(resource)
+    #  t0 = Time.now
 
+
+      #@speed = size / (Time.now - t0)
+      #return file
+    #end
+
+    # Streams data from a Repose server
+    #
+    # The purpose of this method is to stream the specified specified resource from Repose
+    # If a failure is encountered it will provide proper feedback regarding the nature
+    # of the failure
+    #
+    # === Parameters
+    # @param [String] Resource URI to parse and fetch
+    #
+    # === Block
+    # @yield [] A block is mandatory
+    # @yieldreturn [String] The stream that is being fetched
+
+    def download(resource)
+      client = get_http_client
+      @sanitized_resource = sanitize_resource(resource)
+      resource = parse_resource(resource)
+
+      begin
+        balancer.request do |endpoint|
+          RightSupport::Net::SSL.with_expected_hostname(ips[endpoint]) do
+            logger.info("Requesting '#{sanitized_resource}' from '#{endpoint}'")
+            client.get("https://#{endpoint}:443#{resource}", {:verify_ssl => OpenSSL::SSL::VERIFY_PEER, :ssl_ca_file => get_ca_file, :headers => {:user_agent => "RightLink v#{AgentConfig.protocol_version}"}}) do |response, request, result|
+              @size = result.content_length
+              if result.kind_of?(Net::HTTPSuccess)
+                yield response
+              else
+                response.return!(request, result)
+              end
+            end
+          end
+        end
+      rescue Exception => e
+        message = parse(e)
+        logger.error("Request '#{sanitized_resource}' failed - #{message}")
+        raise ConnectionException, message if message.include?('Errno::ECONNREFUSED') || message.include?('Errno::ETIMEDOUT') || message.include?('SocketError')
+        raise DownloadException, message
+      end
     end
+
+    # Message summarizing last successful download details
+    #
+    # === Return
+    # @return [String] Message with last downloaded resource, download size and speed
+
+    def details
+      "Downloaded '#{@sanitized_resource}' (#{ scale(size.to_i).join(' ') }) at #{ scale(speed.to_i).join(' ') }/s"
+    end
+
+    protected
 
     # Resolve a list of hostnames to a hash of Hostname => IP Addresses
     #
@@ -153,7 +176,7 @@ module RightScale
       ips
     end
 
-    # Streams data from a Repose server
+    # Parses a resource into a Repose-appropriate format
     #
     # The purpose of this method is to parse the resource given into the proper resource
     # format that the ReposeDownloader class is expecting
@@ -167,46 +190,6 @@ module RightScale
     def parse_resource(resource)
       raise ArgumentError, "Invalid resource provided.  Resource must be in the form of /<scope>/<resource>" unless resource
       resource
-    end
-
-    # Streams data from a Repose server
-    #
-    # The purpose of this method is to stream the specified specified resource from Repose
-    # If a failure is encountered it will provide proper feedback regarding the nature
-    # of the failure
-    #
-    # === Parameters
-    # @param [String] Resource URI to parse and fetch
-    #
-    # === Block
-    # @yield [] A block is mandatory
-    # @yieldreturn [String] The stream that is being fetched
-
-    def stream(resource)
-      client = get_http_client
-      resource = parse_resource(resource)
-
-      begin
-        balancer.request do |endpoint|
-          RightSupport::Net::SSL.with_expected_hostname(ips[endpoint]) do
-            logger.info("Requesting '#{sanitized_resource}' from '#{endpoint}'")
-            client.get("https://#{endpoint}:443#{resource}", {:verify_ssl => OpenSSL::SSL::VERIFY_PEER, :ssl_ca_file => get_ca_file, :headers => {:user_agent => "RightLink v#{AgentConfig.protocol_version}"}}) do |response, request, result|
-              @size = result.content_length
-              if result.kind_of?(Net::HTTPSuccess)
-                yield response
-              else
-                response.return!(request, result)
-              end
-
-            end
-          end
-        end
-      rescue Exception => e
-        message = parse(e)
-        logger.error("Request '#{sanitized_resource}' failed - #{message}")
-        raise ConnectionException, message if message.include?('Errno::ECONNREFUSED') || message.include?('Errno::ETIMEDOUT') || message.include?('SocketError')
-        raise DownloadException, message
-      end
     end
 
     # Parse Exception message and return it
@@ -280,6 +263,7 @@ module RightScale
 
     def get_http_client
       RestClient.proxy = @proxy.to_s if @proxy
+      RestClient.log = logger
       RestClient
     end
 

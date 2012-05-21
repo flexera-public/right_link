@@ -28,39 +28,6 @@ module RightScale
 
     protected
 
-    # Downloads an attachment from Repose
-    #
-    # The purpose of this method is to download the specified attachment from Repose
-    # If a failure is encountered it will provide proper feedback regarding the nature
-    # of the failure
-    #
-    # === Parameters
-    # @param [String] Resource URI to parse and fetch
-    # @param [String] Destination for fetched resource
-    #
-    # === Return
-    # @return [File] The file that was downloaded
-
-    def _download(resource, dest)
-      begin
-        attachment_dir = File.dirname(dest)
-        FileUtils.mkdir_p(attachment_dir)
-        tempfile = Tempfile.open('attachment', attachment_dir)
-        tempfile.binmode
-        stream(resource) do |response|
-          tempfile << response
-        end
-        File.unlink(dest) if File.exists?(dest)
-        File.link(tempfile.path, dest)
-        tempfile.close!
-      rescue Exception => e
-        tempfile.close! unless tempfile.nil?
-        raise e
-      end
-      tempfile
-    end
-
-
     def parse_resource(resource)
       resource = URI::parse(resource)
       raise ArgumentError, "Invalid resource provided.  Resource must be a fully qualified URL" unless resource

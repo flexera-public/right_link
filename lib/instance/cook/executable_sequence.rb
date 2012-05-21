@@ -243,10 +243,20 @@ module RightScale
               script_file_path = File.join(attach_dir, a.file_name)
               @audit.update_status("Downloading #{a.file_name} into #{script_file_path} through Repose")
               begin
-                @downloader.download(a.url, script_file_path)
+                attachment_dir = File.dirname(script_file_path)
+                FileUtils.mkdir_p(attachment_dir)
+                tempfile = Tempfile.open('attachment', attachment_dir)
+                tempfile.binmode
+                @downloader.download(a.url) do |response|
+                  tempfile << response
+                end
+                File.unlink(script_file_path) if File.exists?(script_file_path)
+                File.link(tempfile.path, script_file_path)
+                tempfile.close!
                 Log.info(@downloader.details)
                 @audit.append_info(@downloader.details)
               rescue Exception => e
+                tempfile.close! unless tempfile.nil?
                 @audit.append_info("Repose download failed: #{e.message}.")
                 if e.kind_of?(ReposeDownloader::DownloadException) && e.message.include?("Forbidden")
                   Log.error("Often this means the download authorization has expired while waiting for inputs to be satisfied.")
