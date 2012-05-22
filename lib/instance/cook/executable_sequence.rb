@@ -77,8 +77,6 @@ module RightScale
       @cookbooks              = bundle.cookbooks
       @downloader             = AttachmentDownloader.new(bundle.repose_servers)
       @downloader.logger      = Log
-      @cb_downloader          = CookbookDownloader.new(bundle.repose_servers)
-      @cb_downloader.logger   = Log
       @download_path          = File.join(AgentConfig.cookbook_download_dir, @thread_name)
       @powershell_providers   = nil
       @ohai_retry_delay       = OHAI_RETRY_MIN_DELAY
@@ -435,7 +433,7 @@ module RightScale
       begin
         tarball = Tempfile.new("tarball")
         tarball.binmode
-        @cb_downloader.download("/cookbooks/#{cookbook.hash}") do |response|
+        @downloader.download("/cookbooks/#{cookbook.hash}") do |response|
           tarball << response
         end
         tarball.close
@@ -444,8 +442,8 @@ module RightScale
         raise e
       end
 
-      Log.info(@cb_downloader.details)
-      @audit.append_info(@cb_downloader.details)
+      Log.info(@downloader.details)
+      @audit.append_info(@downloader.details)
       @audit.append_info("Success; unarchiving cookbook")
 
       # The local basedir is the faux "repository root" into which we extract all related

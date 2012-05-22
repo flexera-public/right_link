@@ -93,12 +93,11 @@ module RightScale
           RightSupport::Net::SSL.with_expected_hostname(ips[endpoint]) do
             logger.info("Requesting '#{sanitized_resource}' from '#{endpoint}'")
 
-            #RestClient::Request.execute(:method => :get, :url => "https://#{endpoint}:443#{resource}", :verify_ssl => OpenSSL::SSL::VERIFY_PEER, :ssl_ca_file => get_ca_file, :headers => {:user_agent => "RightLink v#{AgentConfig.protocol_version}"}) do |response, request, result|
             t0 = Time.now
             client.get("https://#{endpoint}:443#{resource}", {:verify_ssl => OpenSSL::SSL::VERIFY_PEER, :ssl_ca_file => get_ca_file, :headers => {:user_agent => "RightLink v#{AgentConfig.protocol_version}"}}) do |response, request, result|
               if result.kind_of?(Net::HTTPSuccess)
                 @size = result.content_length
-                @speed = size / (Time.now - t0)
+                @speed = @size / (Time.now - t0)
                 yield response
               else
                 response.return!(request, result)
@@ -109,7 +108,7 @@ module RightScale
       rescue Exception => e
         message = parse(e)
         logger.error("Request '#{sanitized_resource}' failed - #{message}")
-        raise ConnectionException, message if message.include?('Errno::ECONNREFUSED') || message.include?('Errno::ETIMEDOUT') || message.include?('SocketError')
+        raise ConnectionException, message if message.include?('Errno::ECONNREFUSED') || message.include?('Errno::ETIMEDOUT') || message.include?('SocketError') || message.include?('RestClient::InternalServerError') || message.include?('RestClient::RequestTimeout')
         raise DownloadException, message
       end
     end
@@ -170,8 +169,9 @@ module RightScale
     # @return [String] The parsed URI
 
     def parse_resource(resource)
-      raise ArgumentError, "Invalid resource provided.  Resource must be in the form of /<scope>/<resource>" unless resource
-      resource
+      resource = URI::parse(resource)
+      raise ArgumentError, "Invalid resource provided.  Resource must be a fully qualified URL" unless resource
+      "#{resource.path}?#{resource.query}"
     end
 
     # Parse Exception message and return it
@@ -245,7 +245,6 @@ module RightScale
 
     def get_http_client
       RestClient.proxy = @proxy.to_s if @proxy
-      RestClient.log = logger
       RestClient
     end
 
@@ -261,7 +260,7 @@ module RightScale
     # @return [String] 'Resource' portion of resource provided
 
     def sanitize_resource(resource)
-      resource.split('?').first
+      URI::split(resource)[5].split("/").last
     end
 
     # Return scale and scaled value from given argument

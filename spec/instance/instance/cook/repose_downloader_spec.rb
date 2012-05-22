@@ -23,6 +23,14 @@
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'spec_helper'))
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', '..', '..', 'lib', 'instance', 'cook'))
 
+def mock_response(message, code)
+  res = Net::HTTPInternalServerError.new('1.1', message, code)
+  net_http_res = flexmock("Net HTTP Response")
+  net_http_res.should_receive(:code).and_return(code)
+  response = RestClient::Response.create("#{code}: #{message}", net_http_res, [])
+  flexmock(RestClient).should_receive(:get).and_yield(response, nil, res)
+end
+
 module RightScale
   describe ReposeDownloader do
 
@@ -32,8 +40,36 @@ module RightScale
           .and_return([["AF_INET", 443, "ec2-174-129-36-231.compute-1.amazonaws.com", "174.129.36.231", 2, 1, 6], ["AF_INET", 443, "ec2-174-129-37-65.compute-1.amazonaws.com", "174.129.37.65", 2, 1, 6]])
     end
 
-    let(:hostname) { 'repose9.rightscale.com' }
+    let(:hostname)    { 'repose9.rightscale.com' }
+    let(:attachment)  { "https://#{hostname}:443/attachments/1/98c272b109c592ae4d4670d3279c8df282d6e681?md5=98c272b109c592ae4d4670d3279c8df282d6e681&expiration=1336631701&signature=XPQwxEJnt8%2BWXReZwVLSdJOtK0XNfuEd6K7vA8L%2FivT7L8ATDQyjmnv3%2Flrx%0ARfUrMInl007MhEY35IwPe%2BWfNI2Q8Je7LiN6ShYjVtA%2BfEpbN5tVkUPDNTO3%0A%2Ba%2F9EZJKy4%2Bl1ABBLn0uts65Cwr7zH%2BLZvsFQUctq25T0uY0XpY%3D%0A&signer=my" }
+    let(:cookbook)    { "/cookbooks/98c272b109c592ae4d4670d3279c8df282d6e681?md5=98c272b109c592ae4d4670d3279c8df282d6e681&expiration=1336631701&signature=XPQwxEJnt8%2BWXReZwVLSdJOtK0XNfuEd6K7vA8L%2FivT7L8ATDQyjmnv3%2Flrx%0ARfUrMInl007MhEY35IwPe%2BWfNI2Q8Je7LiN6ShYjVtA%2BfEpbN5tVkUPDNTO3%0A%2Ba%2F9EZJKy4%2Bl1ABBLn0uts65Cwr7zH%2BLZvsFQUctq25T0uY0XpY%3D%0A&signer=my" }
     subject { ReposeDownloader.new([hostname]) }
+
+    shared_examples_for 'ConnectionException' do
+      it 'should fail to download after retrying if a ConnectionException is raised' do
+        if exception
+          flexmock(RestClient).should_receive(:get).and_raise(exception)
+        else
+          mock_response(message, code)
+        end
+
+        flexmock(ReposeDownloader.logger).should_receive(:info).twice
+        flexmock(ReposeDownloader.logger).should_receive(:error).times(4)
+
+        lambda { subject.download(attachment) { |response| response } }.should raise_error(RightScale::ReposeDownloader::ConnectionException)
+      end
+    end
+
+    shared_examples_for 'DownloadException' do
+      it 'should fail to download without retrying if a DownloadException is raised' do
+        mock_response(message, code)
+
+        flexmock(ReposeDownloader.logger).should_receive(:info).once
+        flexmock(ReposeDownloader.logger).should_receive(:error).twice
+
+        lambda { subject.download(attachment) { |response| response } }.should raise_error(RightScale::ReposeDownloader::DownloadException)
+      end
+    end
 
     context :resolve do
       it 'should resolve hostnames into IP addresses' do
@@ -42,8 +78,12 @@ module RightScale
     end
 
     context :parse_resource do
-      it 'should parse resources correctly' do
-        subject.send(:parse_resource, "https://#{hostname}:443/scope/resource").should == "scope/resource"
+      it 'should parse attachments correctly' do
+        subject.send(:parse_resource, attachment).should == "/attachments/1/98c272b109c592ae4d4670d3279c8df282d6e681?md5=98c272b109c592ae4d4670d3279c8df282d6e681&expiration=1336631701&signature=XPQwxEJnt8%2BWXReZwVLSdJOtK0XNfuEd6K7vA8L%2FivT7L8ATDQyjmnv3%2Flrx%0ARfUrMInl007MhEY35IwPe%2BWfNI2Q8Je7LiN6ShYjVtA%2BfEpbN5tVkUPDNTO3%0A%2Ba%2F9EZJKy4%2Bl1ABBLn0uts65Cwr7zH%2BLZvsFQUctq25T0uY0XpY%3D%0A&signer=my"
+      end
+
+      it 'should parse cookbooks correctly' do
+        subject.send(:parse_resource, cookbook).should == "/cookbooks/98c272b109c592ae4d4670d3279c8df282d6e681?md5=98c272b109c592ae4d4670d3279c8df282d6e681&expiration=1336631701&signature=XPQwxEJnt8%2BWXReZwVLSdJOtK0XNfuEd6K7vA8L%2FivT7L8ATDQyjmnv3%2Flrx%0ARfUrMInl007MhEY35IwPe%2BWfNI2Q8Je7LiN6ShYjVtA%2BfEpbN5tVkUPDNTO3%0A%2Ba%2F9EZJKy4%2Bl1ABBLn0uts65Cwr7zH%2BLZvsFQUctq25T0uY0XpY%3D%0A&signer=my"
       end
     end
 
@@ -62,11 +102,65 @@ module RightScale
     end
 
     context :download do
-      it 'should download' do
-        subject.download('test', 'destination')
-        subject.size.should == 0
-        subject.speed.should == 0.0
-        subject.sanitized_resource.should == 'test'
+      it 'should download an attachment' do
+        res = Net::HTTPSuccess.new('1.1', 'bar', 200)
+        flexmock(RestClient).should_receive(:get).and_yield('bar', nil, res)
+        flexmock(res).should_receive(:content_length).and_return(0)
+
+        flexmock(ReposeDownloader.logger).should_receive(:info).once
+        flexmock(ReposeDownloader.logger).should_receive(:error).never
+
+        subject.download(attachment) do |response|
+          response.should == 'bar'
+        end
+      end
+
+      context "403: Forbidden" do
+        let(:message) { "Forbidden" }
+        let(:code)    { 403 }
+
+        it_should_behave_like 'DownloadException'
+      end
+
+      context "404: Resource Not Found" do
+        let(:message) { "Resource Not Found" }
+        let(:code)    { 404 }
+
+        it_should_behave_like 'DownloadException'
+      end
+
+      context "408: Request Timeout" do
+        let(:exception) { nil }
+        let(:message) { "Request Timeout" }
+        let(:code)    { 408 }
+
+        it_should_behave_like 'ConnectionException'
+      end
+
+      context "500: Internal Server Error" do
+        let(:exception) { nil }
+        let(:message)   { "Internal Server Error" }
+        let(:code)      { 500 }
+
+        it_should_behave_like 'ConnectionException'
+      end
+
+      context "Errno::ECONNREFUSED" do
+        let(:exception) { Errno::ECONNREFUSED.new }
+
+        it_should_behave_like 'ConnectionException'
+      end
+
+      context "Errno::ETIMEDOUT" do
+        let(:exception) { Errno::ETIMEDOUT.new }
+
+        it_should_behave_like 'ConnectionException'
+      end
+
+      context "SocketError" do
+        let(:exception) { SocketError.new }
+
+        it_should_behave_like 'ConnectionException'
       end
     end
 
@@ -76,9 +170,14 @@ module RightScale
         subject.send(:parse, e).should == "SocketError"
       end
 
-      it 'should parse RequestBalancer exceptions' do
+      it 'should parse a single RequestBalancer exception' do
         e = RightSupport::Net::NoResult.new('RequestBalancer: No available endpoints from ["174.129.36.231", "174.129.37.65"]! Exceptions: SocketError')
         subject.send(:parse, e).should == "SocketError"
+      end
+
+      it 'should parse multiple RequestBalancer exceptions' do
+        e = RightSupport::Net::NoResult.new('RequestBalancer: No available endpoints from ["174.129.36.231", "174.129.37.65"]! Exceptions: RestClient::InternalServerError, RestClient::ResourceNotFound')
+        subject.send(:parse, e).should == "RestClient::InternalServerError, RestClient::ResourceNotFound"
       end
     end
 
@@ -112,8 +211,12 @@ module RightScale
     end
 
     context :sanitize_resource do
-      it 'should sanitize the resource' do
-        subject.send(:sanitize_resource, 'scope/resource?query_string').should == 'scope/resource'
+      it 'should sanitize attachments' do
+        subject.send(:sanitize_resource, attachment).should == '98c272b109c592ae4d4670d3279c8df282d6e681'
+      end
+
+      it 'should sanitize cookbooks' do
+        subject.send(:sanitize_resource, cookbook).should == '98c272b109c592ae4d4670d3279c8df282d6e681'
       end
     end
 
