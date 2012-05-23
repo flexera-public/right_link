@@ -8,3 +8,4 @@ certs/*
 .project
 .loadpath
 nbproject/
+Gemfile.lock

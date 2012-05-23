@@ -14,9 +14,18 @@ gem "right_scraper",           "3.0.1"
 # to RightScale. Gems in the "custom" group are published by RightScale to our
 # custom gem repository (http://s3.amazonaws.com/rightscale_rightlink_gems_dev).
 group :custom do
-  gem "ohai",                  "0.6.11.3"
-  gem "chef",                  "0.10.8.5"
-  gem "eventmachine",          "0.12.11.6"
+
+  gem 'chef',
+      :git => 'git@github.com:rightscale/chef.git',
+      :branch => 'rightscale-0.10.10'
+  gem 'ohai',
+      :git => 'git@github.com:rightscale/ohai.git',
+      :branch => 'rightscale-0.6.12'
+  gem 'mixlib-shellout',
+      :git => 'git@github.com:rightscale/mixlib-shellout.git',
+      :branch => 'rightscale-1.0.0'
+
+  gem "eventmachine", "0.12.11.6"
 end
 
 # We use some gems on both platforms, but the maintainer of the gem does not publish
@@ -70,7 +79,7 @@ group :stable do
   gem "moneta",                "0.6.0"
   gem "bunny",                 "0.6.0"
   gem "process_watcher",       "0.4"
-  gem "highline",              "1.6.1"
+  gem "highline",              "1.6.9"
   gem "uuidtools",             "2.1.2"
   gem "mime-types",            "1.16"
   gem "rest-client",           "1.6.7"
