@@ -37,10 +37,10 @@ module RightScale
     before(:each) do
       flexmock(Socket).should_receive(:getaddrinfo) \
           .with(hostname, 443, Socket::AF_INET, Socket::SOCK_STREAM, Socket::IPPROTO_TCP) \
-          .and_return([["AF_INET", 443, "ec2-174-129-36-231.compute-1.amazonaws.com", "174.129.36.231", 2, 1, 6], ["AF_INET", 443, "ec2-174-129-37-65.compute-1.amazonaws.com", "174.129.37.65", 2, 1, 6]])
+          .and_return([["AF_INET", 443, "repose-hostname", "1.2.3.4", 2, 1, 6], ["AF_INET", 443, "repose-hostname", "5.6.7.8", 2, 1, 6]])
     end
 
-    let(:hostname)    { 'repose9.rightscale.com' }
+    let(:hostname)    { 'repose-hostname' }
     let(:attachment)  { "https://#{hostname}:443/attachments/1/98c272b109c592ae4d4670d3279c8df282d6e681?md5=98c272b109c592ae4d4670d3279c8df282d6e681&expiration=1336631701&signature=XPQwxEJnt8%2BWXReZwVLSdJOtK0XNfuEd6K7vA8L%2FivT7L8ATDQyjmnv3%2Flrx%0ARfUrMInl007MhEY35IwPe%2BWfNI2Q8Je7LiN6ShYjVtA%2BfEpbN5tVkUPDNTO3%0A%2Ba%2F9EZJKy4%2Bl1ABBLn0uts65Cwr7zH%2BLZvsFQUctq25T0uY0XpY%3D%0A&signer=my" }
     let(:cookbook)    { "/cookbooks/98c272b109c592ae4d4670d3279c8df282d6e681?md5=98c272b109c592ae4d4670d3279c8df282d6e681&expiration=1336631701&signature=XPQwxEJnt8%2BWXReZwVLSdJOtK0XNfuEd6K7vA8L%2FivT7L8ATDQyjmnv3%2Flrx%0ARfUrMInl007MhEY35IwPe%2BWfNI2Q8Je7LiN6ShYjVtA%2BfEpbN5tVkUPDNTO3%0A%2Ba%2F9EZJKy4%2Bl1ABBLn0uts65Cwr7zH%2BLZvsFQUctq25T0uY0XpY%3D%0A&signer=my" }
     subject { ReposeDownloader.new([hostname]) }
@@ -73,7 +73,7 @@ module RightScale
 
     context :resolve do
       it 'should resolve hostnames into IP addresses' do
-        subject.send(:resolve, hostname).should == { "174.129.36.231" => hostname, "174.129.37.65" => hostname }
+        subject.send(:resolve, hostname).should == { "1.2.3.4" => hostname, "5.6.7.8" => hostname }
       end
     end
 

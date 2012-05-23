@@ -75,7 +75,7 @@ module RightScale
       @scripts                = bundle.executables.select { |e| e.is_a?(RightScriptInstantiation) }
       run_list_recipes        = bundle.executables.map { |e| e.is_a?(RecipeInstantiation) ? e : @right_scripts_cookbook.recipe_from_right_script(e) }
       @cookbooks              = bundle.cookbooks
-      @downloader             = AttachmentDownloader.new(bundle.repose_servers)
+      @downloader             = ReposeDownloader.new(bundle.repose_servers)
       @downloader.logger      = Log
       @download_path          = File.join(AgentConfig.cookbook_download_dir, @thread_name)
       @powershell_providers   = nil
@@ -85,7 +85,6 @@ module RightScale
       @cookbook_repo_retriever= CookbookRepoRetriever.new(CookState.cookbooks_path,
                                                           @download_path,
                                                           bundle.dev_cookbooks)
-      #@repose_class.discover_repose_servers(bundle.repose_servers)
 
       # Initialize run list for this sequence (partial converge support)
       @run_list  = []
@@ -251,13 +250,11 @@ module RightScale
                 File.unlink(script_file_path) if File.exists?(script_file_path)
                 File.link(tempfile.path, script_file_path)
                 tempfile.close!
-                Log.info(@downloader.details)
                 @audit.append_info(@downloader.details)
               rescue Exception => e
                 tempfile.close! unless tempfile.nil?
                 @audit.append_info("Repose download failed: #{e.message}.")
                 if e.kind_of?(ReposeDownloader::DownloadException) && e.message.include?("Forbidden")
-                  Log.error("Often this means the download authorization has expired while waiting for inputs to be satisfied.")
                   @audit.append_info("Often this means the download URL has expired while waiting for inputs to be satisfied.")
                 end
                 report_failure("Failed to download attachment '#{a.file_name}'", e.message)
@@ -442,7 +439,6 @@ module RightScale
         raise e
       end
 
-      Log.info(@downloader.details)
       @audit.append_info(@downloader.details)
       @audit.append_info("Success; unarchiving cookbook")
 
