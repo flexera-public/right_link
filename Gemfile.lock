@@ -1,8 +1,9 @@
-GIT
-  remote: git@github.com:rightscale/chef.git
-  revision: 64d7e15a9c067dead98830e0a2a5fd247f8e3f1f
-  branch: rightscale-0.10.10
+GEM
+  remote: http://s3.amazonaws.com/rightscale_rightlink_gems_dev/
+  remote: http://rubygems.org/
   specs:
+    abstract (1.0.0)
+    bunny (0.6.0)
     chef (0.10.10.1)
       bunny (>= 0.6.0)
       erubis
@@ -26,35 +27,6 @@ GIT
       uuidtools
       uuidtools
       yajl-ruby (>= 1.1.0)
-
-GIT
-  remote: git@github.com:rightscale/mixlib-shellout.git
-  revision: 5622d9916396e4150a5b41c2ce9ea752bd22eb76
-  branch: rightscale-1.0.0
-  specs:
-    mixlib-shellout (1.0.0.1)
-      right_popen (~> 1.0, >= 1.0.21)
-
-GIT
-  remote: git@github.com:rightscale/ohai.git
-  revision: 488854e9231ff90ceebc8b7c2222ce46b8f33c88
-  branch: rightscale-0.6.12
-  specs:
-    ohai (0.6.12.1)
-      ipaddress
-      mixlib-cli
-      mixlib-config
-      mixlib-log
-      right_popen (~> 1.0, >= 1.0.21)
-      systemu
-      yajl-ruby
-
-GEM
-  remote: http://s3.amazonaws.com/rightscale_rightlink_gems_dev/
-  remote: http://rubygems.org/
-  specs:
-    abstract (1.0.0)
-    bunny (0.6.0)
     columnize (0.3.6)
     encryptor (1.1.3)
     erubis (2.6.5)
@@ -78,6 +50,8 @@ GEM
     mixlib-cli (1.2.0)
     mixlib-config (1.1.2)
     mixlib-log (1.3.0)
+    mixlib-shellout (1.0.0.1)
+      right_popen (~> 1.0, >= 1.0.21)
     moneta (0.6.0)
     msgpack (0.4.4)
     net-ssh (2.2.2)
@@ -86,6 +60,14 @@ GEM
     net-ssh-multi (1.1)
       net-ssh (>= 2.1.4)
       net-ssh-gateway (>= 0.99.0)
+    ohai (0.6.12.1)
+      ipaddress
+      mixlib-cli
+      mixlib-config
+      mixlib-log
+      right_popen (~> 1.0, >= 1.0.21)
+      systemu
+      yajl-ruby
     polyglot (0.3.3)
     process_watcher (0.4)
     rake (0.8.7)
@@ -137,7 +119,7 @@ PLATFORMS
 DEPENDENCIES
   abstract (= 1.0.0)
   bunny (= 0.6.0)
-  chef!
+  chef (= 0.10.10.1)
   encryptor (= 1.1.3)
   erubis (= 2.6.5)
   eventmachine (= 0.12.11.6)
@@ -151,9 +133,9 @@ DEPENDENCIES
   mixlib-cli (= 1.2.0)
   mixlib-config (= 1.1.2)
   mixlib-log (= 1.3.0)
-  mixlib-shellout!
+  mixlib-shellout (= 1.0.0.1)
   moneta (= 0.6.0)
-  ohai!
+  ohai (= 0.6.12.1)
   process_watcher (= 0.4)
   rake (= 0.8.7)
   rest-client (= 1.6.7)
