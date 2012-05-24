@@ -39,5 +39,4 @@ require File.normalize_path(File.join(COOK_BASE_DIR, 'cookbook_repo_retriever.rb
 require File.normalize_path(File.join(COOK_BASE_DIR, 'executable_sequence.rb'))
 require File.normalize_path(File.join(COOK_BASE_DIR, 'repose_downloader.rb'))
 require File.normalize_path(File.join(COOK_BASE_DIR, 'shutdown_request_proxy.rb'))
-require File.normalize_path(File.join(COOK_BASE_DIR, 'proxy_repose_downloader.rb'))
 require File.normalize_path(File.join(COOK_BASE_DIR, 'hash_helper.rb'))
