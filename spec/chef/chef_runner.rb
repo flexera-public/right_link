@@ -164,12 +164,17 @@ EOF
         # minimal chef configuration.
         ::Chef::Config[:solo] = true
         ::Chef::Config[:cookbook_path] = cookbook_path
-        ::Chef::Config[:custom_exec_exception] = Proc.new { |params|
+
+        # setup logger for mixlib-shellout gem to consume instead of the chef
+        # v0.10.10 behavior of not logging ShellOut calls by default. also setup
+        # command failure exception and callback for legacy reasons.
+        ::Mixlib::ShellOut.default_logger = ::Chef::Log
+        ::Mixlib::ShellOut.command_failure_callback = lambda do |params|
           failure_reason = ::RightScale::SubprocessFormatting.reason(params[:status])
           expected_error_codes = Array(params[:args][:returns]).join(' or ')
-          ::RightScale::Exceptions::Exec.new("\"#{params[:args][:command]}\" #{failure_reason}, expected #{expected_error_codes}.", 
+          ::RightScale::Exceptions::Exec.new("\"#{params[:args][:command]}\" #{failure_reason}, expected #{expected_error_codes}.",
                                              params[:args][:cwd])
-        }
+        end
 
         # must set file cache path and ensure it exists otherwise evented run_command will fail
         cache_dir_path = File.join(::RightScale::Platform.filesystem.temp_dir, 'chef_runner_1B0C7CAA87E241daB90B75829DD6A833')
