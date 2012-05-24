@@ -29,10 +29,10 @@ GIT
 
 GIT
   remote: git@github.com:rightscale/mixlib-shellout.git
-  revision: 016aa26c3e07f69811476a15f352147589e5095d
+  revision: 5622d9916396e4150a5b41c2ce9ea752bd22eb76
   branch: rightscale-1.0.0
   specs:
-    mixlib-shellout (1.0.0)
+    mixlib-shellout (1.0.0.1)
       right_popen (~> 1.0, >= 1.0.21)
 
 GIT
