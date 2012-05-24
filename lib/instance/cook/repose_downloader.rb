@@ -1,9 +1,9 @@
-#--  -*- mode: ruby; encoding: utf-8 -*-
-# Copyright: Copyright (c) 2011 RightScale, Inc.
+#
+# Copyright (c) 2009-2012 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
-# 'Software'), to deal in the Software without restriction, including
+# "Software"), to deal in the Software without restriction, including
 # without limitation the rights to use, copy, modify, merge, publish,
 # distribute, sublicense, and/or sell copies of the Software, and to
 # permit persons to whom the Software is furnished to do so, subject to
@@ -12,199 +12,281 @@
 # The above copyright notice and this permission notice shall be
 # included in all copies or substantial portions of the Software.
 #
-# THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND,
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
 # EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-# IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-# CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-# TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-# SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-#++
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+# NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+# LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+# OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+# WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require 'right_http_connection'
+require 'uri'
 
 module RightScale
-  # Class centralizing logic for downloading objects from Repose.
+
+  # Abstract download capabilities
   class ReposeDownloader
-    # Select appropriate Repose class to use.  Currently, checks the
-    # HTTPS_PROXY, HTTP_PROXY, http_proxy and ALL_PROXY environment
-    # variables.
-    def self.select_repose_class
-      proxy_vars = ReposeProxyDownloader::PROXY_ENVIRONMENT_VARIABLES
-      if proxy_vars.any? {|var| ENV.has_key?(var)}
-        ReposeProxyDownloader
-      else
-        ReposeDownloader
-      end
-    end
 
-    # max wait 64 (2**6) sec between retries
-    REPOSE_RETRY_BACKOFF_MAX = 6
-    # retry 10 times maximum
-    REPOSE_RETRY_MAX_ATTEMPTS = 10
-    # re-resolve parameter for RequestBalancer
-    REPOSE_RESOLVE_TIMEOUT = 15
+    # Environment variables to examine for proxy settings, in order.
+    PROXY_ENVIRONMENT_VARIABLES = ['HTTPS_PROXY', 'HTTP_PROXY', 'http_proxy', 'ALL_PROXY']
 
-    # Exception class representing failure to connect to Repose.
-    class ReposeConnectionFailure < Exception
-    end
+    class ConnectionException < Exception; end
+    class DownloadException < Exception; end
 
-    # Prepare to request a resource from the Repose mirror.
+    include RightSupport::Log::Mixin
+
+    # (Integer) Size in bytes of last successful download (nil if none)
+    attr_reader :size
+
+    # (Integer) Speed in bytes/seconds of last successful download (nil if none)
+    attr_reader :speed
+
+    # (String) Last resource downloaded
+    attr_reader :sanitized_resource
+
+    # Hash of IP Address => Hostname
+    attr_reader :ips
+
+    # Initializes a Downloader with a list of hostnames
+    #
+    # The purpose of this method is to instantiate a Downloader.
+    # It will perform DNS resolution on the hostnames provided
+    # and will configure a proxy if necessary
     #
     # === Parameters
-    # scope(String):: the scope of the resource to request
-    # resource(String):: the name of the resource
-    # ticket(String):: the authorization token for the resource
-    # name(String):: human readable name (for error messages and the like)
-    # exception(Exception):: the exception to throw if we are unable to download the resource.
-    #                        Takes one argument which is an array of four elements
-    #                        [+scope+, +resource+, +name+, +reason+]
-    # logger(Logger):: logger to use
-    def initialize(scope, resource, ticket, name, exception, logger)
-      @scope = scope
-      @resource = resource
-      @ticket = ticket
-      @name = name
-      @exception = exception
-      @logger = logger
-      @failures  = 0
+    # @param <[String]> Hostnames to resolve
+    #
+    # === Return
+    # @return [Downloader]
+
+    def initialize(hostnames)
+      raise ArgumentError, "At least one hostname must be provided" if hostnames.empty?
+      hostnames = [hostnames] unless hostnames.respond_to?(:each)
+      @ips = resolve(hostnames)
+
+      proxy_var = PROXY_ENVIRONMENT_VARIABLES.detect { |v| ENV.has_key?(v) }
+      @proxy = ENV[proxy_var].match(/^[[:alpha:]]+:\/\//) ? URI.parse(ENV[proxy_var]) : URI.parse("http://" + ENV[proxy_var]) if proxy_var
     end
 
-    # Request the resource from the Repose mirror, performing retry as
-    # necessary. Block until the resource has been downloaded, or
-    # until permanent failure has been determined.
+    # Downloads an attachment from Repose
+    #
+    # The purpose of this method is to download the specified attachment from Repose
+    # If a failure is encountered it will provide proper feedback regarding the nature
+    # of the failure
+    #
+    # === Parameters
+    # @param [String] Resource URI to parse and fetch
     #
     # === Block
-    # If the request succeeds this method will yield, passing
-    # the HTTP response object as its sole argument.
-    #
-    # === Raise
-    # @exception:: if a permanent failure happened
-    #
-    # === Return
-    # true:: always returns true
-    def request
-      @failures ||= 0
-      attempts = 0
-      balancer.request do |ip|
-        host = @@hostnames_hash[ip]
-        sanitized_resource = @resource.split('?').first
-        RightSupport::Net::SSL.with_expected_hostname(host) do
-          connection = make_connection
-          Log.info("Requesting 'https://#{ip}:443/#{@scope}/#{sanitized_resource}' from '#{host}'")
-          request = Net::HTTP::Get.new("/#{@scope}/#{@resource}")
-          request['Host'] = ip
+    # @yield [] A block is mandatory
+    # @yieldreturn [String] The stream that is being fetched
 
-          connection.request(:protocol => 'https', :server => ip,
-                                        :port => '443', :request => request) do |response|
+    def download(resource)
+      client              = get_http_client
+      @size               = 0
+      @speed              = 0
+      @sanitized_resource = sanitize_resource(resource)
+      resource            = parse_resource(resource)
 
-            if response.kind_of?(Net::HTTPSuccess)
-              @failures = 0
-              yield response
-            elsif response.kind_of?(Net::HTTPServerError) || response.kind_of?(Net::HTTPNotFound)
-              Log.warning("Request for '#{sanitized_resource}' failed - #{response.class.name} - retry")
-              unless snooze(attempts)
-                Log.error("Request for '#{sanitized_resource}' failed - giving up after '#{attempts}' attempts!")
-                raise @exception, [@scope, @resource, @name, "gave up after '#{attempts}' attempts"]
+      begin
+        balancer.request do |endpoint|
+          RightSupport::Net::SSL.with_expected_hostname(ips[endpoint]) do
+            logger.info("Requesting '#{sanitized_resource}' from '#{endpoint}'")
+
+            t0 = Time.now
+            client.get("https://#{endpoint}:443#{resource}", {:verify_ssl => OpenSSL::SSL::VERIFY_PEER, :ssl_ca_file => get_ca_file, :headers => {:user_agent => "RightLink v#{AgentConfig.protocol_version}"}}) do |response, request, result|
+              if result.kind_of?(Net::HTTPSuccess)
+                @size = result.content_length
+                @speed = @size / (Time.now - t0)
+                yield response
+              else
+                response.return!(request, result)
               end
-            else
-              Log.error("Request '#{sanitized_resource}' failed - #{response.class.name} - give up")
-              raise @exception, [@scope, @resource, @name, response]
             end
-
           end
-          attempts += 1
         end
+      rescue Exception => e
+        message = parse(e)
+        logger.error("Request '#{sanitized_resource}' failed - #{message}")
+        raise ConnectionException, message if message.include?('Errno::ECONNREFUSED') || message.include?('Errno::ETIMEDOUT') || message.include?('SocketError') || message.include?('RestClient::InternalServerError') || message.include?('RestClient::RequestTimeout')
+        raise DownloadException, message
       end
-      return true
     end
 
-    # Exponential backoff sleep algorithm.  Returns true if processing
-    # should continue or false if the maximum number of attempts has
-    # been exceeded.
-    #
-    # === Parameters
-    # attempts(Fixnum):: number of attempts
+    # Message summarizing last successful download details
     #
     # === Return
-    # Boolean:: whether to continue
-    def snooze(attempts)
-      if attempts > REPOSE_RETRY_MAX_ATTEMPTS
-        false
-      else
-        @failures = [@failures + 1, REPOSE_RETRY_BACKOFF_MAX].min
-        sleep (2**@failures)
-        true
-      end
+    # @return [String] Message with last downloaded resource, download size and speed
+
+    def details
+      "Downloaded '#{@sanitized_resource}' (#{ scale(size.to_i).join(' ') }) at #{ scale(speed.to_i).join(' ') }/s"
     end
 
-    # Given a sequence of preferred hostnames, lookup all IP addresses and store
-    # an ordered sequence of IP addresses from which to attempt cookbook download.
-    # Also build a lookup hash that maps IP addresses back to their original hostname
+    protected
+
+    # Resolve a list of hostnames to a hash of Hostname => IP Addresses
+    #
+    # The purpose of this method is to lookup all IP addresses per hostname and
+    # build a lookup hash that maps IP addresses back to their original hostname
     # so we can perform TLS hostname verification.
     #
     # === Parameters
-    # hostnames(Array):: hostnames
+    # @param <[String]> Hostnames to resolve
     #
     # === Return
-    # true:: always returns true
-    def self.discover_repose_servers(hostnames)
-      hostnames_hash = {}
-      hostnames = [hostnames] unless hostnames.respond_to?(:each)
+    # @return [Hash]
+    #   * :key [<String>] a key (IP Address) that accepts a hostname string as it's value
+
+    def resolve(hostnames)
+      ips = {}
       hostnames.each do |hostname|
         infos = nil
         begin
           infos = Socket.getaddrinfo(hostname, 443, Socket::AF_INET, Socket::SOCK_STREAM, Socket::IPPROTO_TCP)
         rescue Exception => e
-          Log.error "Rescued #{e.class.name} resolving Repose hostnames: #{e.message}; retrying"
-          retry
+          logger.error "Failed to resolve hostnames: #{e.class.name}: #{e.message}"
+          raise e
         end
 
-        #Randomly permute the addrinfos of each hostname to help spread load.
+        # Randomly permute the addrinfos of each hostname to help spread load.
         infos.shuffle.each do |info|
           ip = info[3]
-          hostnames_hash[ip] = hostname
+          ips[ip] = hostname
         end
       end
-      set_servers(hostnames, hostnames_hash)
-
-      true
+      ips
     end
 
-    protected
+    # Parses a resource into a Repose-appropriate format
+    #
+    # The purpose of this method is to parse the resource given into the proper resource
+    # format that the ReposeDownloader class is expecting
+    #
+    # === Parameters
+    # @param [String] Resource URI to parse
+    #
+    # === Block
+    # @return [String] The parsed URI
 
-    # Return a path to a CA file.  The CA bundle is a basically static
-    # collection of trusted certs of top-level CAs. It should be
-    # provided by the OS, but because of our cross-platform nature and
+    def parse_resource(resource)
+      resource = URI::parse(resource)
+      raise ArgumentError, "Invalid resource provided.  Resource must be a fully qualified URL" unless resource
+      "#{resource.path}?#{resource.query}"
+    end
+
+    # Parse Exception message and return it
+    #
+    # The purpose of this method is to parse the message portion of RequestBalancer
+    # Exceptions to determine the actual Exceptions that resulted in all endpoints
+    # failing to return a non-Exception.
+    #
+    # === Parameters
+    # @param [Exception] Exception to parse
+
+    # === Return
+    # @return [String] List of Exceptions
+
+    def parse(e)
+      if e.kind_of?(RightSupport::Net::NoResult)
+        message = e.message.split("Exceptions: ")[1]
+      else
+        message = e.class.name
+      end
+      message
+    end
+
+    # Create and return a RequestBalancer instance
+    #
+    # The purpose of this method is to create a RequestBalancer that will be used
+    # to service all 'download' requests.  Once a valid endpoint is found, the
+    # balancer will 'stick' with it. It will consider a response of '408: RequestTimeout' and
+    # '500: InternalServerError' as retryable exceptions and all other HTTP error codes to
+    # indicate a fatal exception that should abort the load-balanced request
+    #
+    # === Return
+    # @return [RightSupport::Net::RequestBalancer]
+
+    def balancer
+      @balancer ||= RightSupport::Net::RequestBalancer.new(
+          ips.keys,
+          :policy => RightSupport::Net::Balancing::StickyPolicy,
+          :fatal  => lambda do |e|
+            if RightSupport::Net::RequestBalancer::DEFAULT_FATAL_EXCEPTIONS.any? { |c| e.is_a?(c) }
+              true
+            elsif e.respond_to?(:http_code) && (e.http_code != nil)
+              (e.http_code >= 400 && e.http_code < 500) && (e.http_code != 408 && e.http_code != 500 )
+            else
+              false
+            end
+          end
+      )
+    end
+
+    # Returns a path to a CA file
+    #
+    # The CA bundle is a basically static collection of trusted certs of top-level CAs.
+    # It should be provided by the OS, but because of our cross-platform nature and
     # the lib we're using, we need to supply our own. We stole curl's.
+    #
+    # === Return
+    # @return [String] Path to a CA file
+
     def get_ca_file
       ca_file = File.normalize_path(File.join(File.dirname(__FILE__), 'ca-bundle.crt'))
     end
 
-    # Make a Rightscale::HttpConnection for later use.
-    def make_connection
-      Rightscale::HttpConnection.new(:user_agent => "RightLink v#{AgentConfig.protocol_version}",
-                                     :logger => @logger,
-                                     :exception => ReposeConnectionFailure,
-                                     :fail_if_ca_mismatch => true,
-                                     :ca_file => get_ca_file)
+    # Instantiates an HTTP Client
+    #
+    # The purpose of this method is to create an HTTP Client that will be used to
+    # make requests in the download method
+    #
+    # === Return
+    # @return [RestClient]
+
+    def get_http_client
+      RestClient.proxy = @proxy.to_s if @proxy
+      RestClient
     end
 
-    # Create a single balancer instance to maximize health check's efficiency
-    def balancer
-      @balancer ||= RightSupport::Net::RequestBalancer.new(@@hostnames,
-                      :policy=>RightSupport::Net::Balancing::StickyPolicy,
-                      :resolve => REPOSE_RESOLVE_TIMEOUT)
-    end
-
-    # Set the servers to use for Repose downloads.
+    # Return a sanitized value from given argument
+    #
+    # The purpose of this method is to return a value that can be securely
+    # displayed in logs and audits
     #
     # === Parameters
-    # hostnames(Array):: list of hostnames to connect to
-    # hostnames_hash(Hash):: IP -> hostname reverse lookup hash
-    def self.set_servers(hostnames, hostnames_hash)
-      @@hostnames = hostnames
-      @@hostnames_hash = hostnames_hash
+    # @param [String] 'Resource' to parse
+    #
+    # === Return
+    # @return [String] 'Resource' portion of resource provided
+
+    def sanitize_resource(resource)
+      URI::split(resource)[5].split("/").last
     end
+
+    # Return scale and scaled value from given argument
+    #
+    # The purpose of this method is to convert bytes to a nicer format for display
+    # Scale can be B, KB, MB or GB
+    #
+    # === Parameters
+    # @param [Integer] Value in bytes
+    #
+    # === Return
+    # @return <[Integer], [String]> First element is scaled value, second element is scale
+
+    def scale(value)
+      case value
+        when 0..1023
+          [value, 'B']
+        when 1024..1024**2 - 1
+          [value / 1024, 'KB']
+        when 1024^2..1024**3 - 1
+          [value / 1024**2, 'MB']
+        else
+          [value / 1024**3, 'GB']
+      end
+    end
+
   end
+
 end

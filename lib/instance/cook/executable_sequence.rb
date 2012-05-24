@@ -58,22 +58,6 @@ module RightScale
     # Regexp to use when reporting extended information about Chef failures (line-number, etc)
     BACKTRACE_LINE_REGEXP = /(.+):(\d+):in `(.+)'/
 
-    class CookbookDownloadFailure < Exception
-      def initialize(tuple)
-        scope, resource, name, reason = tuple
-        reason = reason.class.name unless reason.is_a?(String)
-        super("#{reason} while downloading #{resource}")
-      end
-    end
-
-    class AttachmentDownloadFailure < Exception
-      def initialize(tuple)
-        scope, resource, name, reason = tuple
-        reason = reason.class.name unless reason.is_a?(String)
-        super("#{reason} while downloading #{resource}")
-      end
-    end
-
     # Patch to be applied to inputs stored in core
     attr_accessor :inputs_patch
 
@@ -91,17 +75,16 @@ module RightScale
       @scripts                = bundle.executables.select { |e| e.is_a?(RightScriptInstantiation) }
       run_list_recipes        = bundle.executables.map { |e| e.is_a?(RecipeInstantiation) ? e : @right_scripts_cookbook.recipe_from_right_script(e) }
       @cookbooks              = bundle.cookbooks
-      @downloader             = Downloader.new
+      @downloader             = ReposeDownloader.new(bundle.repose_servers)
+      @downloader.logger      = Log
       @download_path          = File.join(AgentConfig.cookbook_download_dir, @thread_name)
       @powershell_providers   = nil
       @ohai_retry_delay       = OHAI_RETRY_MIN_DELAY
       @audit                  = AuditStub.instance
       @logger                 = Log
-      @repose_class           = ReposeDownloader.select_repose_class
       @cookbook_repo_retriever= CookbookRepoRetriever.new(CookState.cookbooks_path,
                                                           @download_path,
                                                           bundle.dev_cookbooks)
-      @repose_class.discover_repose_servers(bundle.repose_servers)
 
       # Initialize run list for this sequence (partial converge support)
       @run_list  = []
@@ -259,73 +242,32 @@ module RightScale
             attach_dir = @right_scripts_cookbook.cache_dir(script)
             script.attachments.each do |a|
               script_file_path = File.join(attach_dir, a.file_name)
-              unless a.token.nil?
-                @audit.update_status("Downloading #{a.file_name} into #{script_file_path} through Repose")
-
-                begin
-                  download_using_repose(a, script_file_path)
-                  next
-                rescue AttachmentDownloadFailure => e
-                  @audit.append_info("Repose download failed: #{e.message}; " +
-                                         "falling back to direct download")
+              @audit.update_status("Downloading #{a.file_name} into #{script_file_path} through Repose")
+              begin
+                attachment_dir = File.dirname(script_file_path)
+                FileUtils.mkdir_p(attachment_dir)
+                tempfile = Tempfile.open('attachment', attachment_dir)
+                tempfile.binmode
+                @downloader.download(a.url) do |response|
+                  tempfile << response
                 end
-              end
-
-              @audit.update_status("Downloading #{a.file_name} into #{script_file_path} directly")
-              if @downloader.download(a.url, script_file_path)
+                File.unlink(script_file_path) if File.exists?(script_file_path)
+                File.link(tempfile.path, script_file_path)
+                tempfile.close!
                 @audit.append_info(@downloader.details)
-              else
-                report_failure("Failed to download attachment '#{a.file_name}'", @downloader.error)
-                return true
+              rescue Exception => e
+                tempfile.close! unless tempfile.nil?
+                @audit.append_info("Repose download failed: #{e.message}.")
+                if e.kind_of?(ReposeDownloader::DownloadException) && e.message.include?("Forbidden")
+                  @audit.append_info("Often this means the download URL has expired while waiting for inputs to be satisfied.")
+                end
+                report_failure("Failed to download attachment '#{a.file_name}'", e.message)
               end
             end
           end
         end
       end
       true
-    end
-
-    # Download the given attachment using Repose.  Will throw
-    # exceptions in case of failure.
-    #
-    # === Parameters
-    # attachment(RightScale::Attachment):: attachment to download
-    # script_file_path(String):: destination pathname
-    #
-    # === Raise
-    # AttachmentDownloadFailure:: if some permanent failure occurred downloading the attachment
-    # ReposeDownloader::ReposeServerFailure:: if no Repose server could be contacted
-    # SystemCallError:: if the file cannot be created
-    #
-    # === Return
-    # always true
-    def download_using_repose(attachment, script_file_path)
-      begin
-        attachment_dir = File.dirname(script_file_path)
-        FileUtils.mkdir_p(attachment_dir)
-        dl = nil
-        if attachment.digest
-          dl = @repose_class.new('attachments/1', attachment.digest, attachment.token,
-                                 attachment.file_name, AttachmentDownloadFailure, @logger)
-        else
-          dl = @repose_class.new('attachments', attachment.to_hash, attachment.token,
-                                 attachment.file_name, AttachmentDownloadFailure, @logger)
-        end
-        tempfile = Tempfile.open('attachment', attachment_dir)
-        tempfile.binmode
-        dl.request do |response|
-          response.read_body do |chunk|
-            tempfile << chunk
-          end
-        end
-        File.unlink(script_file_path) if File.exists?(script_file_path)
-        File.link(tempfile.path, script_file_path)
-        tempfile.close!
-        return true
-      rescue Exception => e
-        tempfile.close! unless tempfile.nil?
-        raise e
-      end
     end
 
     # Install required software packages, update @ok
@@ -479,7 +421,7 @@ module RightScale
     # cookbook(Cookbook):: cookbook
     #
     # === Raise
-    # Propagates exceptions raised by callees, namely CookbookDownloadFailure
+    # Propagates exceptions raised by callees, namely DownloadFailure
     # and ReposeServerFailure
     #
     # === Return
@@ -489,15 +431,19 @@ module RightScale
       name = cookbook.name ; tag  = cookbook.hash[0..4]
       @audit.append_info("Downloading cookbook '#{name}' (#{tag})")
 
-      tarball = Tempfile.new("tarball")
-      tarball.binmode
-      result = request_cookbook(cookbook) do |response|
-        response.read_body do |chunk|
-          tarball << chunk
+      begin
+        tarball = Tempfile.new("tarball")
+        tarball.binmode
+        @downloader.download("/cookbooks/#{cookbook.hash}") do |response|
+          tarball << response
         end
+        tarball.close
+      rescue Exception => e
+        tarball.close unless tarball.nil?
+        raise e
       end
-      tarball.close
 
+      @audit.append_info(@downloader.details)
       @audit.append_info("Success; unarchiving cookbook")
 
       # The local basedir is the faux "repository root" into which we extract all related
@@ -517,7 +463,7 @@ module RightScale
       Dir.chdir(root_dir) do
         output, status = ProcessWatcher.run('tar', 'xf', tarball.path)
         unless status.success?
-          report_failure("Unknown error: #{SubprocessFormatting.reason(status)}")
+          report_failure("Unknown error", SubprocessFormatting.reason(status))
           return
         else
           @audit.append_info(output)
@@ -525,28 +471,6 @@ module RightScale
       end
       tarball.close(true)
       return true
-    end
-
-    # Request a cookbook from the Repose mirror, performing retry as necessary. Block
-    # until the cookbook has been downloaded, or until permanent failure has been
-    # determined.
-    #
-    # === Parameters
-    # cookbook(RightScale::Cookbook):: the cookbook to download
-    #
-    # === Block
-    # If the request succeeds this method will yield, passing
-    # the HTTP response object as its sole argument.
-    #
-    # === Raise
-    # CookbookDownloadFailure:: if a permanent failure happened
-    # ReposeServerFailure:: if no Repose server could be contacted
-    #
-    # === Return
-    # true:: always returns true
-    def request_cookbook(cookbook, &block)
-      @repose_class.new('cookbooks', cookbook.hash, cookbook.token,
-                        cookbook.name, CookbookDownloadFailure, @logger).request(&block)
     end
 
     # Create Powershell providers from cookbook repos

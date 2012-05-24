@@ -420,7 +420,7 @@ module RightScale
         :audit_id              => 1234,
         :full_converge         => nil,
         :cookbooks             => nil,
-        :repose_servers        => nil,
+        :repose_servers        => ["a-repose-server"],
         :dev_cookbooks         => nil,
         :runlist_policy        => RightScale::RunlistPolicy.new(nil, nil)
       }
