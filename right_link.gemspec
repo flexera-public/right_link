@@ -11,7 +11,7 @@ Gem::Specification.new do |s|
   s.summary     = %q{Reusable foundation code.}
   s.description = %q{A toolkit of useful, reusable foundation code created by RightScale.}
   
-  s.required_rubygems_version = ">= 1.8.7"
+  s.required_rubygems_version = ">= 1.3.7"
   
   s.files = Dir.glob('Gemfile') +
             Dir.glob('Gemfile.lock') +

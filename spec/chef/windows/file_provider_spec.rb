@@ -103,15 +103,14 @@ EOF
       end
 
       it "should fail to create files when owner or group attribute is used on windows" do
-        runner = lambda {
-          RightScale::Test::ChefRunner.run_chef(
-            FileProviderSpec::TEST_COOKBOOKS_PATH,
-            'test::fail_owner_create_file_recipe') }
         result = false
         begin
-          # note that should raise_error() does not handle NoMethodError for some reason.
-          runner.call
-        rescue NoMethodError
+          # note that should raise_error() does not handle NoMethodError for
+          # some reason.
+          RightScale::Test::ChefRunner.run_chef(
+              FileProviderSpec::TEST_COOKBOOKS_PATH,
+              'test::fail_owner_create_file_recipe')
+        rescue NotImplementedError, NoMethodError
           result = true
         end
         result.should == true

@@ -114,15 +114,14 @@ EOF
 
   if RightScale::Platform.windows?
     it "should fail to create directories when owner or group attribute is used on windows" do
-      runner = lambda {
-        RightScale::Test::ChefRunner.run_chef(
-                DirectoryProviderSpec::TEST_COOKBOOKS_PATH,
-                'test::fail_owner_create_dir_recipe') }
       result = false
       begin
-        # note that should raise_error() does not handle NoMethodError for some reason.
-        runner.call
-      rescue NoMethodError
+        # note that should raise_error() does not handle NoMethodError for some
+        # reason.
+        RightScale::Test::ChefRunner.run_chef(
+            DirectoryProviderSpec::TEST_COOKBOOKS_PATH,
+            'test::fail_owner_create_dir_recipe')
+      rescue NotImplementedError, NoMethodError
         result = true
       end
       result.should == true

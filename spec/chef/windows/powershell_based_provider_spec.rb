@@ -359,17 +359,17 @@ EOF
 
     context 'missing resource errors' do
       it "should produce a readable error when powershell action script is not defined" do
-        run_failing_recipe('test_cookbook::missing_action_script', raise_exception(::NoMethodError, /undefined method .action_does_not_exist. for #<TestCookbookErrorNoscript:\S*>/))
+        run_failing_recipe('test_cookbook::missing_action_script', raise_exception(::NameError, /Cannot find a resource for action_does_not_exist/))
         @logger.info_text.gsub("\n", "").should match /\[chef\] Warning! no powershell script exists for the action: does_not_exist/
       end
 
       it "should produce a readable error when multiple powershell action scripts are not defined" do
-        run_failing_recipe('test_cookbook::missing_many_action_scripts', raise_exception(::NoMethodError, /undefined method .action_does_not_exist2. for #<TestCookbookErrorMissingManyScripts:\S*/))
+        run_failing_recipe('test_cookbook::missing_many_action_scripts', raise_exception(::NameError, /Cannot find a resource for action_does_not_exist2/))
         @logger.info_text.gsub("\n", "").should match /\[chef\] Warning! no powershell scripts exist for the following actions: does_not_exist1, does_not_exist2, does_not_exist3/
       end
 
       it "should produce a readable error when lwr action implementation is not defined " do
-        run_failing_recipe('test_cookbook::missing_lwr_resource', raise_exception(::NoMethodError, /undefined method `action_create' for #<Chef::Provider::TestCookbookMysql:\S*>/))
+        run_failing_recipe('test_cookbook::missing_lwr_resource', raise_exception(::NameError, /Cannot find a resource for action_create/))
       end
 
       it "should produce a readable error when an undefined action is used in a recipe" do
