@@ -4,7 +4,7 @@ GEM
   specs:
     abstract (1.0.0)
     bunny (0.6.0)
-    chef (0.10.10.1)
+    chef (0.10.10.2)
       bunny (>= 0.6.0)
       erubis
       erubis
@@ -119,7 +119,7 @@ PLATFORMS
 DEPENDENCIES
   abstract (= 1.0.0)
   bunny (= 0.6.0)
-  chef (= 0.10.10.1)
+  chef (= 0.10.10.2)
   encryptor (= 1.1.3)
   erubis (= 2.6.5)
   eventmachine (= 0.12.11.6)
