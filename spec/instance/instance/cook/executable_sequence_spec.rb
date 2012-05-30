@@ -55,6 +55,11 @@ module RightScale
       # FIX: currently these tests do not need EM, so we mock next_tick so we do not pollute EM.
       # Should we run the entire sequence in em for these tests?
       flexmock(EM).should_receive(:next_tick)
+
+      # For ReposeDownloader
+      flexmock(Socket).should_receive(:getaddrinfo) \
+          .with(SERVER, 443, Socket::AF_INET, Socket::SOCK_STREAM, Socket::IPPROTO_TCP) \
+          .and_return([["AF_INET", 443, "hostname", "1.2.3.4", 2, 1, 6], ["AF_INET", 443, "hostname", "5.6.7.8", 2, 1, 6]])
     end
 
     after(:each) do
@@ -84,14 +89,16 @@ module RightScale
 
       @bundle = RightScale::PayloadFactory.make_bundle(:audit_id              => 2,
                                                        :cookbooks             => [],
-                                                       :repose_servers        => [])
+                                                       :repose_servers        => [SERVER])
       @sequence = ExecutableSequence.new(@bundle)
     end
 
-    it 'should look up repose servers' do
+    it 'should instantiate a ReposeDownloader' do
         # mock the cookbook checkout location
       flexmock(CookState).should_receive(:cookbooks_path).and_return(@temp_cache_path)
-      flexmock(ReposeDownloader).should_receive(:discover_repose_servers).with([SERVER]).once
+      mock_repose_downloader = flexmock('Repose Downloader')
+      mock_repose_downloader.should_receive(:logger=).once.and_return(@logger)
+      flexmock(ReposeDownloader).should_receive(:new).with([SERVER]).once.and_return(mock_repose_downloader)
 
       @bundle = RightScale::PayloadFactory.make_bundle(:audit_id              => 2,
                                                        :cookbooks             => [],
@@ -141,15 +148,14 @@ module RightScale
       it_should_behave_like 'mocks cook'
 
       before(:each) do
-        flexmock(ReposeDownloader).should_receive(:discover_repose_servers).with([SERVER]).once
         @auditor.should_receive(:create_new_section).with("Retrieving cookbooks").once
         @auditor.should_receive(:append_info).with(/Downloading cookbook 'nonexistent cookbook' \([0-9a-f]+\)/).once
 
         # prevent Chef logging reaching the console during spec test.
-        logger = flexmock(Log)
-        logger.should_receive(:info).with("Deleting existing cookbooks").once
-        logger.should_receive(:info).with(/Connecting to cookbook server/)
-        logger.should_receive(:info).with(/Opening new HTTPS connection to/)
+        @logger = flexmock(Log)
+        @logger.should_receive(:info).with("Deleting existing cookbooks").once
+        @logger.should_receive(:info).with(/Connecting to cookbook server/)
+        @logger.should_receive(:info).with(/Opening new HTTPS connection to/)
 
         cookbook = Cookbook.new("4cdae6d5f1bc33d8713b341578b942d42ed5817f", "not-a-token",
                                 "nonexistent cookbook")
@@ -167,139 +173,36 @@ module RightScale
 
       it 'should download accessible cookbooks' do
         tarball = File.open(File.join(File.dirname(__FILE__), "demo_tarball.tar")).binmode.read
-        dl = flexmock(ReposeDownloader).should_receive(:new).
-            with('cookbooks', "4cdae6d5f1bc33d8713b341578b942d42ed5817f", "not-a-token",
-                 "nonexistent cookbook", ExecutableSequence::CookbookDownloadFailure,
-                 RightScale::Log).once.
-            and_return(flexmock(ReposeDownloader))
-        response = flexmock(Net::HTTPSuccess.new("1.1", "200", "everything good"))
-        response.should_receive(:read_body, Proc).and_yield(tarball).once
+        mock_repose_downloader = flexmock('ReposeDownloader')
+        mock_repose_downloader.should_receive(:logger=).once.and_return(@logger)
+        flexmock(ReposeDownloader).should_receive(:new).with([SERVER]).once.and_return(mock_repose_downloader)
         @auditor.should_receive(:append_info).with("Success; unarchiving cookbook").once
         @auditor.should_receive(:append_info).with(/Duration: \d+\.\d+ seconds/).once
+        @auditor.should_receive(:append_info).with(/Downloaded \'.*\' .* at .*/).once
         @auditor.should_receive(:append_info).with("").once
-        dl.should_receive(:request, Proc).and_yield(response).once
+        mock_repose_downloader.should_receive(:download).with('/cookbooks/4cdae6d5f1bc33d8713b341578b942d42ed5817f', Proc).and_yield(tarball).once
+        mock_repose_downloader.should_receive(:details).and_return("Downloaded '4cdae6d5f1bc33d8713b341578b942d42ed5817f' (40K) at 5K/s").once
         @sequence = ExecutableSequence.new(@bundle)
         @sequence.send(:download_cookbooks)
         @sequence.should be_okay
       end
 
       it 'should not download inaccessible cookbooks' do
+        @logger.should_receive(:info).never
+        mock_repose_downloader = flexmock('ReposeDownloader')
+        mock_repose_downloader.should_receive(:logger=).once.and_return(@logger)
+        flexmock(ReposeDownloader).should_receive(:new).with([SERVER]).once.and_return(mock_repose_downloader)
         @auditor.should_receive(:append_info).with(/Duration: \d+\.\d+ seconds/).never
-        dl = flexmock(ReposeDownloader).should_receive(:new).
-            with('cookbooks', "4cdae6d5f1bc33d8713b341578b942d42ed5817f", "not-a-token",
-                 "nonexistent cookbook", ExecutableSequence::CookbookDownloadFailure,
-                 RightScale::Log).once.
-            and_return(flexmock(ReposeDownloader))
-        dl.should_receive(:request, Proc).and_raise(ExecutableSequence::CookbookDownloadFailure,
-                                                    ["cookbooks", "a-sha", "nonexistent cookbook",
-                                                     "not found"])
+        mock_repose_downloader.should_receive(:download).with('/cookbooks/4cdae6d5f1bc33d8713b341578b942d42ed5817f', Proc).and_raise(ReposeDownloader::DownloadException)
         @sequence = ExecutableSequence.new(@bundle)
         @sequence.send(:download_cookbooks)
         @sequence.should have_failed("Failed to download cookbook",
-                                     "Cannot continue due to RightScale::ExecutableSequence::CookbookDownloadFailure: not found while downloading a-sha.")
-      end
-    end
-
-    context 'with an attachment specified' do
-      before(:each) do
-        flexmock(ReposeDownloader).should_receive(:discover_repose_servers).with([SERVER]).once
-        @auditor = flexmock(AuditStub.instance)
-        @auditor.should_receive(:create_new_section).with("Downloading attachments").once
-        @attachment = RightScriptAttachment.new("http://a-url/foo/bar/baz?blah", "baz.tar",
-                                                "an-etag", "not-a-token")
-        instantiation = RightScriptInstantiation.new("a script", "#!/bin/sh\necho foo", {},
-                                                     [@attachment], "", 12342, true)
-
-        @bundle = RightScale::PayloadFactory.make_bundle(:executables     => [instantiation],
-                                                         :audit_id        => 2,
-                                                         :repose_servers  => [SERVER])
-
-        # mock the cookbook checkout location
-        flexmock(CookState).should_receive(:cookbooks_path).and_return(@temp_cache_path)
-      end
-
-      it 'should successfully request an attachment we can access' do
-        dl = flexmock(ReposeDownloader).should_receive(:new).
-            with('attachments', Digest::SHA1.hexdigest("http://a-url/foo/bar/baz\000an-etag"),
-                 "not-a-token", "baz.tar",
-                 ExecutableSequence::AttachmentDownloadFailure,
-                 RightScale::Log).once.
-            and_return(flexmock(ReposeDownloader))
-        response = flexmock(Net::HTTPSuccess.new("1.1", "200", "everything good"))
-        response.should_receive(:read_body, Proc).and_yield("\000" * 200).once
-        dl.should_receive(:request, Proc).and_yield(response).once
-        @auditor.should_receive(:update_status).with(/Downloading baz\.tar into .*/).once
-        @auditor.should_receive(:append_info).with(/Duration: \d+\.\d+ seconds/).once
-        @sequence = ExecutableSequence.new(@bundle)
-        @sequence.send(:download_attachments)
-        @sequence.should be_okay
-      end
-
-      it 'should fall back to manual download if Repose fails' do
-        hash = Digest::SHA1.hexdigest("http://a-url/foo/bar/baz\000an-etag")
-        dl = flexmock(ReposeDownloader).should_receive(:new).
-            with('attachments', hash, "not-a-token", "baz.tar",
-                 ExecutableSequence::AttachmentDownloadFailure,
-                 RightScale::Log).once.
-            and_return(flexmock(ReposeDownloader))
-        dl.should_receive(:request, Proc).
-            and_raise(ExecutableSequence::AttachmentDownloadFailure, ["attachments", hash,
-                                                                      "baz.tar", "spite"]).once
-        manual_dl = flexmock(Downloader).should_receive(:new).once.and_return(flexmock(Downloader))
-        manual_dl.should_receive(:download).with("http://a-url/foo/bar/baz?blah", String).
-            and_return(true)
-        manual_dl.should_receive(:details).with_no_args.and_return("nothing")
-        @auditor.should_receive(:update_status).with(/^Downloading baz\.tar into .* directly$/).once
-        @auditor.should_receive(:update_status).with(/^Downloading baz\.tar into .*$/).once
-        @auditor.should_receive(:append_info).with("Repose download failed: spite while downloading #{hash}; falling back to direct download").once
-        @auditor.should_receive(:append_info).with("nothing").once
-        @auditor.should_receive(:append_info).with(/Duration: \d+\.\d+ seconds/).once
-        @sequence = ExecutableSequence.new(@bundle)
-        @sequence.send(:download_attachments)
-        @sequence.should be_okay
-      end
-
-      it 'should fall back to manual download if no token' do
-        dl = flexmock(ReposeDownloader).should_receive(:new).
-            with('attachments', Digest::SHA1.hexdigest("http://a-url/foo/bar/baz\000an-etag"),
-                 "not-a-token", "baz.tar",
-                 ExecutableSequence::AttachmentDownloadFailure,
-                 RightScale::Log).never
-        manual_dl = flexmock(Downloader).should_receive(:new).once.and_return(flexmock(Downloader))
-        manual_dl.should_receive(:download).with("http://a-url/foo/bar/baz?blah", String).
-            and_return(true)
-        manual_dl.should_receive(:details).with_no_args.and_return("nothing")
-        @attachment.token = nil
-        @auditor.should_receive(:update_status).with(/Downloading baz\.tar into .* directly/).once
-        @auditor.should_receive(:append_info).with("nothing").once
-        @auditor.should_receive(:append_info).with(/Duration: \d+\.\d+ seconds/).once
-        @auditor.should_receive(:update_status).and_return { |string| p string }
-        @sequence = ExecutableSequence.new(@bundle)
-        @sequence.send(:download_attachments)
-        @sequence.should be_okay
-      end
-
-      it 'should fail completely if manual download fails' do
-        dl = flexmock(ReposeDownloader).should_receive(:new).
-            with('attachments', Digest::SHA1.hexdigest("http://a-url/foo/bar/baz\000an-etag"),
-                 "not-a-token", "baz.tar",
-                 ExecutableSequence::AttachmentDownloadFailure,
-                 RightScale::Log).never
-        manual_dl = flexmock(Downloader).should_receive(:new).once.and_return(flexmock(Downloader))
-        manual_dl.should_receive(:download).with("http://a-url/foo/bar/baz?blah", String).
-            and_return(false)
-        manual_dl.should_receive(:error).with_no_args.and_return("spite")
-        @attachment.token = nil
-        @auditor.should_receive(:update_status).with(/Downloading baz\.tar into .* directly/).once
-        @sequence = ExecutableSequence.new(@bundle)
-        @sequence.send(:download_attachments)
-        @sequence.should have_failed("Failed to download attachment 'baz.tar'", "spite")
+                                     "Cannot continue due to RightScale::ReposeDownloader::DownloadException: RightScale::ReposeDownloader::DownloadException.")
       end
     end
 
     context 'with a RightScale hosted attachment specified' do
       before(:each) do
-        flexmock(ReposeDownloader).should_receive(:discover_repose_servers).with([SERVER]).once
         @auditor = flexmock(AuditStub.instance)
         @auditor.should_receive(:create_new_section).with("Downloading attachments").once
         @attachment = RightScriptAttachment.new("http://a-url/foo/bar/baz?blah", "baz.tar",
@@ -317,59 +220,31 @@ module RightScale
       end
 
       it 'should successfully request an attachment we can access' do
-        dl = flexmock(ReposeDownloader).should_receive(:new).
-            with('attachments/1', "a-digest", "not-a-token", "baz.tar",
-                 ExecutableSequence::AttachmentDownloadFailure,
-                 RightScale::Log).once.
-            and_return(flexmock(ReposeDownloader))
-        response = flexmock(Net::HTTPSuccess.new("1.1", "200", "everything good"))
-        response.should_receive(:read_body, Proc).and_yield("\000" * 200).once
-        dl.should_receive(:request, Proc).and_yield(response).once
+        tarball = File.open(File.join(File.dirname(__FILE__), "demo_tarball.tar")).binmode.read
+        mock_repose_downloader = flexmock('ReposeDownloader')
+        mock_repose_downloader.should_receive(:logger=).once.and_return(@logger)
+        flexmock(ReposeDownloader).should_receive(:new).with([SERVER]).once.and_return(mock_repose_downloader)
         @auditor.should_receive(:update_status).with(/Downloading baz\.tar into .*/).once
         @auditor.should_receive(:append_info).with(/Duration: \d+\.\d+ seconds/).once
+        @auditor.should_receive(:append_info).with(/Downloaded \'.*\' .* at .*/).once
+        mock_repose_downloader.should_receive(:download).with('http://a-url/foo/bar/baz?blah', Proc).and_yield(tarball).once
+        mock_repose_downloader.should_receive(:details).and_return("Downloaded '4cdae6d5f1bc33d8713b341578b942d42ed5817f' (40K) at 5K/s").once
         @sequence = ExecutableSequence.new(@bundle)
         @sequence.send(:download_attachments)
         @sequence.should be_okay
       end
 
-      it 'should fall back to manual download if Repose fails' do
-        hash = Digest::SHA1.hexdigest("http://a-url/foo/bar/baz\000an-etag")
-        dl = flexmock(ReposeDownloader).should_receive(:new).
-            with('attachments/1', "a-digest", "not-a-token", "baz.tar",
-                 ExecutableSequence::AttachmentDownloadFailure,
-                 RightScale::Log).once.
-            and_return(flexmock(ReposeDownloader))
-        dl.should_receive(:request, Proc).
-            and_raise(ExecutableSequence::AttachmentDownloadFailure, ["attachments", hash,
-                                                                      "baz.tar", "spite"]).once
-        manual_dl = flexmock(Downloader).should_receive(:new).once.and_return(flexmock(Downloader))
-        manual_dl.should_receive(:download).with("http://a-url/foo/bar/baz?blah", String).
-            and_return(true)
-        manual_dl.should_receive(:details).with_no_args.and_return("nothing")
-        @auditor.should_receive(:update_status).with(/^Downloading baz\.tar into .* directly$/).once
-        @auditor.should_receive(:update_status).with(/^Downloading baz\.tar into .*$/).once
-        @auditor.should_receive(:append_info).with("Repose download failed: spite while downloading #{hash}; falling back to direct download").once
-        @auditor.should_receive(:append_info).with("nothing").once
+      it 'should fail completely if download fails' do
+        mock_repose_downloader = flexmock('ReposeDownloader')
+        mock_repose_downloader.should_receive(:logger=).once.and_return(@logger)
+        flexmock(ReposeDownloader).should_receive(:new).with([SERVER]).once.and_return(mock_repose_downloader)
         @auditor.should_receive(:append_info).with(/Duration: \d+\.\d+ seconds/).once
+        @auditor.should_receive(:update_status).with(/Downloading baz\.tar into .*/).once
+        @auditor.should_receive(:append_info).with("Repose download failed: SocketError.")
+        mock_repose_downloader.should_receive(:download).with('http://a-url/foo/bar/baz?blah', Proc).and_raise(SocketError.new).once
         @sequence = ExecutableSequence.new(@bundle)
         @sequence.send(:download_attachments)
-        @sequence.should be_okay
-      end
-
-      it 'should fail completely if manual download fails' do
-        dl = flexmock(ReposeDownloader).should_receive(:new).
-            with('attachments/1', "a-digest", "not-a-token", "baz.tar",
-                 ExecutableSequence::AttachmentDownloadFailure,
-                 RightScale::Log).never
-        manual_dl = flexmock(Downloader).should_receive(:new).once.and_return(flexmock(Downloader))
-        manual_dl.should_receive(:download).with("http://a-url/foo/bar/baz?blah", String).
-            and_return(false)
-        manual_dl.should_receive(:error).with_no_args.and_return("spite")
-        @attachment.token = nil
-        @auditor.should_receive(:update_status).with(/Downloading baz\.tar into .* directly/).once
-        @sequence = ExecutableSequence.new(@bundle)
-        @sequence.send(:download_attachments)
-        @sequence.should have_failed("Failed to download attachment 'baz.tar'", "spite")
+        @sequence.should have_failed("Failed to download attachment 'baz.tar'", "SocketError")
       end
     end
 
@@ -465,8 +340,6 @@ module RightScale
                                                          :repose_servers  => [SERVER],
                                                          :dev_cookbooks   => dev_cookbooks)
 
-        flexmock(ReposeDownloader).should_receive(:discover_repose_servers).with([SERVER]).once
-
         flexmock(Log).should_receive(:info).with("Deleting existing cookbooks").once
 
         tarball = File.open(File.join(File.dirname(__FILE__), "demo_tarball.tar")).binmode.read
@@ -475,16 +348,16 @@ module RightScale
           sequence.positions.each do |position|
             unless dev_cookbooks.repositories[sequence.hash] &&
                 dev_cookbooks.repositories[sequence.hash].positions.detect { |dp| dp.position == position.position }
-              dl.should_receive(:new).
-                  with('cookbooks', position.cookbook.hash, position.cookbook.token, position.cookbook.name,
-                       ExecutableSequence::CookbookDownloadFailure, RightScale::Log).once.
-                  and_return(flexmock(ReposeDownloader))
-              response = flexmock(Net::HTTPSuccess.new("1.1", "200", "everything good"))
-              response.should_receive(:read_body, Proc).and_yield(tarball).once
-              @auditor.should_receive(:append_info).with(/Downloading cookbook '#{position.cookbook.name}' \([0-9a-f]+\)/).once
+              tarball = File.open(File.join(File.dirname(__FILE__), "demo_tarball.tar")).binmode.read
+              mock_repose_downloader = flexmock('ReposeDownloader')
+              mock_repose_downloader.should_receive(:logger=).and_return(@logger)
+              flexmock(ReposeDownloader).should_receive(:new).with([SERVER]).and_return(mock_repose_downloader)
+              @auditor.should_receive(:append_info).with(/Downloading cookbook \'.*\' \(.*\)/)
               @auditor.should_receive(:append_info).with("Success; unarchiving cookbook").once
+              @auditor.should_receive(:append_info).with(/Downloaded \'.*\' .* at .*/).once
               @auditor.should_receive(:append_info).with("").once
-              dl.should_receive(:request, Proc).and_yield(response).once
+              mock_repose_downloader.should_receive(:download).and_yield(tarball)
+              mock_repose_downloader.should_receive(:details).and_return("Downloaded '4cdae6d5f1bc33d8713b341578b942d42ed5817f' (40K) at 5K/s")
             end
           end
         end

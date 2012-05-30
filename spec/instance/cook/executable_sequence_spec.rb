@@ -64,7 +64,7 @@ describe RightScale::ExecutableSequence do
                                                        :audit_id => 0,
                                                        :full_converge => true,
                                                        :cookbooks => [],
-                                                       :repose_servers => '',
+                                                       :repose_servers => ["hostname"],
                                                        :dev_cookbooks => RightScale::DevRepositories.new)
 
       @thread_name = RightScale::AgentConfig.default_thread_name
@@ -75,17 +75,20 @@ describe RightScale::ExecutableSequence do
       @auditor.should_receive(:append_output)
       @auditor.should_receive(:update_status)
 
-      @connection = flexmock('RightHttpConnection')
-      flexmock(Rightscale::HttpConnection).should_receive(:new).and_return(@connection)
-      flexmock(RightScale::ExecutableSequence).
-          new_instances.should_receive(:find_repose_server).
-          with(@connection).
-          and_return('repose0-0.rightscale.com')
-
       # prevent Chef logging reaching the console during spec test.
       logger = flexmock(RightScale::Log.logger)
       logger.should_receive(:info).and_return(true)
       logger.should_receive(:error).and_return(true)
+
+      # Mock out Actual Repose downloader
+      mock_repose_downloader = flexmock('Repose Downloader')
+      mock_repose_downloader.should_receive(:logger=).once.and_return(logger)
+      mock_repose_downloader.should_receive(:download).and_return("OK")
+      mock_repose_downloader.should_receive(:details).and_return("details")
+      flexmock(RightScale::ReposeDownloader).should_receive(:new).and_return(mock_repose_downloader)
+      flexmock(Socket).should_receive(:getaddrinfo) \
+          .with("hostname", 443, Socket::AF_INET, Socket::SOCK_STREAM, Socket::IPPROTO_TCP) \
+          .and_return([["AF_INET", 443, "hostname", "1.2.3.4", 2, 1, 6], ["AF_INET", 443, "hostname", "5.6.7.8", 2, 1, 6]])
 
       # reset chef cookbooks path
       Chef::Config[:cookbook_path] = []
@@ -124,7 +127,6 @@ describe RightScale::ExecutableSequence do
         flexmock(@sequence).should_receive(:install_packages).and_return(true)
         attachment = flexmock('A1')
         attachment.should_receive(:file_name).at_least.once.and_return('test_download')
-        attachment.should_receive(:token).at_least.once.and_return(nil)
         attachment.should_receive(:url).at_least.once.and_return("file://#{@attachment_file}")
         @script.should_receive(:attachments).at_least.once.and_return([ attachment ])
         @auditor.should_receive(:append_error).and_return{|a| puts a.inspect }.never
@@ -143,7 +145,6 @@ describe RightScale::ExecutableSequence do
       flexmock(@sequence).should_receive(:install_packages).and_return(true)
       attachment = flexmock('A2')
       attachment.should_receive(:file_name).at_least.once.and_return('test_download')
-      attachment.should_receive(:token).at_least.once.and_return(nil)
       attachment.should_receive(:url).at_least.once.and_return("file://#{@attachment_file}")
       @auditor.should_receive(:append_error)
       @script.should_receive(:attachments).at_least.once.and_return([ attachment ])
@@ -161,7 +162,6 @@ describe RightScale::ExecutableSequence do
       @script.should_receive(:source).and_return(format_script_text(0))
       @sequence = RightScale::ExecutableSequence.new(@bundle)
       attachment = flexmock('A3')
-      attachment.should_receive(:token).at_least.once.and_return(nil)
       attachment.should_receive(:url).and_return("http://127.0.0.1:65534")
       attachment.should_receive(:file_name).and_return("<FILENAME>") # to display any error message
       downloader = RightScale::Downloader.new(retry_period=0.1, use_backoff=false)
@@ -208,6 +208,11 @@ describe RightScale::ExecutableSequence do
   context 'Chef error formatting' do
 
     before(:each) do
+      # For ReposeDownloader
+      flexmock(Socket).should_receive(:getaddrinfo) \
+          .with("hostname", 443, Socket::AF_INET, Socket::SOCK_STREAM, Socket::IPPROTO_TCP) \
+          .and_return([["AF_INET", 443, "hostname", "1.2.3.4", 2, 1, 6], ["AF_INET", 443, "hostname", "5.6.7.8", 2, 1, 6]])
+
       # mock the cookbook checkout location
       @cookbooks_path = Dir.mktmpdir
       flexmock(RightScale::CookState).should_receive(:cookbooks_path).and_return(@cookbooks_path)
@@ -218,7 +223,7 @@ describe RightScale::ExecutableSequence do
       runlist_policy.should_receive(:policy_name).and_return(nil)
 
       bundle = flexmock('ExecutableBundle')
-      bundle.should_receive(:repose_servers).and_return([]).by_default
+      bundle.should_receive(:repose_servers).and_return(['hostname']).by_default
       bundle.should_receive(:runlist_policy).and_return(runlist_policy)
       bundle.should_ignore_missing
       @sequence = RightScale::ExecutableSequence.new(bundle)
@@ -262,6 +267,11 @@ describe RightScale::ExecutableSequence do
 
   context 'Specific Chef error formatting' do
     before(:each) do
+      # For ReposeDownloader
+      flexmock(Socket).should_receive(:getaddrinfo) \
+          .with("hostname", 443, Socket::AF_INET, Socket::SOCK_STREAM, Socket::IPPROTO_TCP) \
+          .and_return([["AF_INET", 443, "hostname", "1.2.3.4", 2, 1, 6], ["AF_INET", 443, "hostname", "5.6.7.8", 2, 1, 6]])
+
       # mock the cookbook checkout location
       @cookbooks_path = Dir.mktmpdir
       flexmock(RightScale::CookState).should_receive(:cookbooks_path).and_return(@cookbooks_path)
@@ -272,7 +282,7 @@ describe RightScale::ExecutableSequence do
       runlist_policy.should_receive(:policy_name).and_return(nil)
       
       bundle = flexmock('ExecutableBundle')
-      bundle.should_receive(:repose_servers).and_return([]).by_default
+      bundle.should_receive(:repose_servers).and_return(['hostname']).by_default
       bundle.should_ignore_missing
       bundle.should_receive(:runlist_policy).and_return(runlist_policy)
       @sequence = RightScale::ExecutableSequence.new(bundle)
