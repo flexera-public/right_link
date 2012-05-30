@@ -30,6 +30,8 @@ require_plugin "network"
 begin
   # create the default cloud using ohai for detection, if necessary.
   cloud Mash.new
+  cloud[:public_ips] = Array.new
+  cloud[:private_ips] = Array.new
   options = {:ohai_node => self}
 
   # ensure metadata tree(s) are built using Mash.
@@ -64,11 +66,19 @@ begin
   named_cloud_node.update(cloud_instance.update_details)
 
   # expecting public/private IPs to come from all clouds.
-  cloud[:public_ips]  = [ named_cloud_node[:"public-ipv4"] || named_cloud_node[:"public_ipv4"] || named_cloud_node[:public_ip] ]
-  cloud[:private_ips] = [ named_cloud_node[:"local-ipv4"] || named_cloud_node[:"local_ipv4"] || named_cloud_node[:private_ip] ]
+  public_ip4 = named_cloud_node[:"public-ipv4"] || named_cloud_node[:public_ipv4] || named_cloud_node[:public_ip]
+  private_ip4 = named_cloud_node[:"local-ipv4"] || named_cloud_node[:local_ipv4] || named_cloud_node[:private_ip]
+
+  # support the various cloud node keys found in ohai's cloud plugin.
+  cloud[:public_ipv4] = public_ip4
+  cloud[:public_ips] << public_ip4
+  cloud[:local_ipv4] = private_ip4
+  cloud[:private_ips] << private_ip4
+  cloud[:public_hostname] = named_cloud_node['public_hostname']
+  cloud[:local_hostname] = named_cloud_node['local_hostname']
 
 rescue Exception => e
   # cloud was unresolvable, but not all ohai use cases are cloud instances.
-  ::RightScale::Log.info(::RightScale::Log.format("Cloud was unresolvable", e, :trace))
+  ::RightScale::Log.info(::RightScale::Log.format("Cloud was unresolvable", e, :caller))
   cloud nil
 end

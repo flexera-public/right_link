@@ -34,7 +34,7 @@ module RightScale
     # mac(String):: MAC address to find
     #
     # === Return
-    # (Boolean):: true if there is an interface with the giiven mac address
+    # (Boolean):: true if there is an interface with the given mac address
     def self.has_mac?(ohai, mac)
       !!ohai[:network][:interfaces].values.detect { |iface| !iface[:arp].nil? && iface[:arp].value?(mac) }
     end
