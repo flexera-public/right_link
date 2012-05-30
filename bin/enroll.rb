@@ -191,7 +191,7 @@ module RightScale
 
         dir = AgentConfig.certs_dir
         # Ensure that the cert directory exists
-        FileUtils.mkdir_p dir
+        FileUtils.mkdir_p(dir) unless File.directory?(dir)
 
         # Write the mapper cert, our cert, and our private kjey
         File.open(File.join(dir, 'mapper.cert'), "w") do |f|
