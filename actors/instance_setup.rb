@@ -27,12 +27,12 @@ class InstanceSetup
   include RightScale::Actor
   include RightScale::OperationResultHelper
   include RightScale::VolumeManagementHelper
-  
+
   CONFIG_YAML_FILE = File.normalize_path(File.join(RightScale::Platform.filesystem.right_link_static_state_dir, 'features.yml'))
 
   CONFIG=\
     if File.exists?(CONFIG_YAML_FILE)
-      RightSupport::Config.features(CONFIG_YAML_FILE)  
+      RightSupport::Config.features(CONFIG_YAML_FILE)
     else
       RightSupport::Config.features({})
     end
@@ -156,8 +156,11 @@ class InstanceSetup
         #it here ensures that CookState is initially convergent with InstanceState.
         RightScale::InstanceState.startup_tags = tags
         RightScale::CookState.update(RightScale::InstanceState)
-        RightScale::Log.force_debug if RightScale::CookState.dev_mode_enabled?
-        RightScale::Log.info("Tags discovered at initial startup: #{tags.inspect} (dev mode = #{RightScale::CookState.dev_mode_enabled?})")
+
+        # we are no longer freezing log level for v5.8+
+        tagged_log_level = ::RightScale::CookState.dev_log_level
+        RightScale::Log.level = tagged_log_level if tagged_log_level
+        RightScale::Log.info("Tags discovered at initial startup: #{tags.inspect} (dev mode = #{::RightScale::CookState.dev_mode_enabled?})")
       end
 
       # Setup suicide timer which will cause instance to shutdown if the rs_launch:type=auto tag
