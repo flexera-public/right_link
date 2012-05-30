@@ -33,6 +33,10 @@
 * Most commands invoked by Ohai/Chef are logged with DEBUG severity for easier debugging of troublesome providers/recipes. To change
   the RightLink log, use the rs_log_level command.
 
+== Miscellaneous
+
+* The rs_agent_dev:log_level tag now allows you to specify any level (not just debug). Other agent-dev tags no longer force debug log level. The log level can be changed by other utilities, e.g. the rs_log_level command, even if it has been initially set by the tag.
+
 == Bug Fixes
 
 * The command-line tools now report a meaningful version number (currently 0.3) and will continue to do so with future RightLink releases
@@ -41,4 +45,5 @@
 * The UI's ordering of cookbook repositories is preserved at runtime, for cookbooks that are defined in multiple repos
 * Extraneous Ohai debug output has been squelched from audits and logs
 * RightLink agent startup and shutdown is more reliable under Linux
+
 
