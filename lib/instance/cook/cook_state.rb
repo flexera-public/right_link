@@ -131,10 +131,8 @@ module RightScale
     # level(Token):: developer log level or nil
     def dev_log_level
       if value = tag_value(LOG_LEVEL_TAG)
-        # FIX: we have only documented that DEBUG is supported in the tag, but
-        # we may want to support all log levels.
         value = value.downcase.to_sym
-        value = nil unless :debug == value
+        value = nil unless [:debug, :info, :warn, :error, :fatal].include?(value)
       end
       value
     end
