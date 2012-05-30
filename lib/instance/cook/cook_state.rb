@@ -36,6 +36,9 @@ module RightScale
     # Download once dev tag namespace and prefix
     DOWNLOAD_ONCE_TAG = "#{DEV_TAG_NAMESPACE}download_cookbooks_once"
 
+    # Log level dev tag namespace and prefix
+    LOG_LEVEL_TAG     = "#{DEV_TAG_NAMESPACE}log_level"
+
     # Path to JSON file where dev state is serialized
     STATE_DIR         = RightScale::AgentConfig.agent_state_dir
     STATE_FILE        = File.join(STATE_DIR, 'cook_state.js')
@@ -121,6 +124,19 @@ module RightScale
       !!tag_value(DEV_TAG_NAMESPACE)
     end
 
+    # Determines the developer log level, if any, which forces and supercedes
+    # all other log level configurations.
+    #
+    # === Return
+    # level(Token):: developer log level or nil
+    def dev_log_level
+      if value = tag_value(LOG_LEVEL_TAG)
+        value = value.downcase.to_sym
+        value = nil unless [:debug, :info, :warn, :error, :fatal].include?(value)
+      end
+      value
+    end
+
     # Path to cookbooks repos directory. Cookbooks are downloaded to
     # this location if and only if it doesn't exist.
     #
@@ -199,17 +215,24 @@ module RightScale
     # true:: Always
     def update(state_to_merge, overrides = {})
       # only merge state if state to be merged has values
-      @startup_tags  = state_to_merge.startup_tags if state_to_merge.respond_to?(:startup_tags)
-      @reboot        = state_to_merge.reboot?      if state_to_merge.respond_to?(:reboot?)
-      @log_level     = state_to_merge.log_level    if state_to_merge.respond_to?(:log_level)
+      @startup_tags = state_to_merge.startup_tags if state_to_merge.respond_to?(:startup_tags)
+      @reboot       = state_to_merge.reboot?      if state_to_merge.respond_to?(:reboot?)
+      @log_level    = state_to_merge.log_level    if state_to_merge.respond_to?(:log_level)
       if state_to_merge.respond_to?(:log_file) && state_to_merge.respond_to?(:value)
-        @log_file      = state_to_merge.log_file(state_to_merge.value)
+        @log_file = state_to_merge.log_file(state_to_merge.value)
       end
-      
+
       @startup_tags = overrides[:startup_tags] if overrides.has_key?(:startup_tags)
       @reboot       = overrides[:reboot]       if overrides.has_key?(:reboot)
-      @log_level    = overrides[:log_level]    if overrides.has_key?(:log_level)
       @log_file     = overrides[:log_file]     if overrides.has_key?(:log_file)
+
+      # check the log level again after the startup_tags have been updated or
+      # overridden.
+      if overrides.has_key?(:log_level)
+        @log_level = overrides[:log_level]
+      elsif tagged_log_level = dev_log_level
+        @log_level = tagged_log_level
+      end
 
       save_state
 
