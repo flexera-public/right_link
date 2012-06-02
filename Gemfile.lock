@@ -1,9 +1,50 @@
+GIT
+  remote: git@github.com:rightscale/right_agent.git
+  revision: 5737b8916ece968ff11716b602fd9d98208b8b20
+  branch: azure_12_6_ruby_19_mingw
+  specs:
+    right_agent (0.10.8)
+      eventmachine (>= 0.12.10)
+      json (~> 1.4)
+      msgpack (= 0.4.4)
+      net-ssh (~> 2.0)
+      right_amqp (~> 0.3)
+      right_popen (~> 1.0.11)
+      right_support (~> 1.3)
+
+GIT
+  remote: git@github.com:rightscale/right_amqp.git
+  revision: 61d73538adeb10bfa009884f014dca87e5ba8e92
+  branch: azure_12_6_ruby_19_mingw
+  specs:
+    right_amqp (0.3.0)
+      eventmachine (>= 0.12.10)
+      right_support (~> 1.2)
+
+GIT
+  remote: git@github.com:rightscale/right_scraper.git
+  revision: 28988c9b35bd96ce83a6f639f7cd8007befabac6
+  branch: azure_12_6_ruby_19_mingw
+  specs:
+    right_scraper (3.0.2)
+      git (>= 1.2.5)
+      json (>= 1.4.5)
+      process_watcher (~> 0.3)
+      right_aws (>= 2.0)
+
+GIT
+  remote: https://github.com/eventmachine/eventmachine.git
+  revision: ba8348847b104b35b6d4b258426a95197ec6d34a
+  branch: master
+  specs:
+    eventmachine (1.0.0.beta.4)
+
 GEM
   remote: http://s3.amazonaws.com/rightscale_rightlink_gems_dev/
   remote: http://rubygems.org/
   specs:
     abstract (1.0.0)
-    bunny (0.6.0)
+    bunny (0.7.9)
     chef (0.10.10.2)
       bunny (>= 0.6.0)
       erubis
@@ -27,40 +68,26 @@ GEM
       uuidtools
       uuidtools
       yajl-ruby (>= 1.1.0)
-    columnize (0.3.6)
     encryptor (1.1.3)
-    erubis (2.6.5)
-      abstract (>= 1.0.0)
-    eventmachine (0.12.11.6)
-    eventmachine (0.12.11.6-x86-mswin32)
-    extlib (0.9.14)
+    erubis (2.7.0)
+    extlib (0.9.15)
     flexmock (0.9.0)
     git (1.2.5)
-    highline (1.6.9)
-    hoe (2.3.3)
-      rake (>= 0.8.7)
-      rubyforge (>= 1.0.4)
+    highline (1.6.12)
+    hoe (3.0.6)
+      rake (~> 0.8)
     ipaddress (0.8.0)
-    json (1.4.6)
-    json (1.4.6-x86-mswin32)
-    libarchive (0.1.2)
-    libarchive (0.1.2-x86-mswin32)
-    linecache (0.46)
-      rbx-require-relative (> 0.0.4)
-    linecache (0.46-x86-mswin32)
-      rbx-require-relative (> 0.0.4)
-      rbx-require-relative (> 0.0.4)
-    mime-types (1.16)
-    mixlib-authentication (1.1.2)
+    json (1.6.1)
+    mime-types (1.18)
+    mixlib-authentication (1.1.4)
       mixlib-log
-    mixlib-cli (1.2.0)
+    mixlib-cli (1.2.2)
     mixlib-config (1.1.2)
     mixlib-log (1.3.0)
     mixlib-shellout (1.0.0.1)
       right_popen (~> 1.0, >= 1.0.21)
     moneta (0.6.0)
-    msgpack (0.4.4)
-    msgpack (0.4.4-x86-mswin32)
+    msgpack (0.4.4-x86-mingw32)
     net-ssh (2.2.2)
     net-ssh-gateway (1.1.0)
       net-ssh (>= 1.99.1)
@@ -78,120 +105,89 @@ GEM
     polyglot (0.3.3)
     process_watcher (0.4)
     rake (0.8.7)
-    rbx-require-relative (0.0.9)
     rest-client (1.6.7)
       mime-types (>= 1.16)
-    right_agent (0.10.8)
-      eventmachine (~> 0.12.10)
-      json (~> 1.4)
-      msgpack (= 0.4.4)
-      net-ssh (~> 2.0)
-      right_amqp (~> 0.3)
-      right_popen (~> 1.0.11)
-      right_support (~> 1.3)
-    right_amqp (0.3.0)
-      eventmachine (~> 0.12.10)
-      right_support (~> 1.2)
     right_aws (3.0.4)
       right_http_connection (>= 1.2.5)
     right_http_connection (1.3.0)
     right_popen (1.0.21)
       eventmachine (>= 0.12.11)
-    right_popen (1.0.21-x86-mswin32)
-      eventmachine (>= 0.12.11)
-      win32-process (>= 0.6.1)
-    right_scraper (3.0.1)
-      git (>= 1.2.5)
-      json (>= 1.4.5)
-      libarchive (>= 0.1.1)
-      process_watcher (~> 0.3)
-      right_aws (>= 2.0)
     right_support (1.4.1)
     rspec (1.3.2)
-    ruby-debug (0.10.4)
-      columnize (>= 0.1)
-      ruby-debug-base (~> 0.10.4.0)
-    ruby-debug-base (0.10.4)
-      linecache (>= 0.3)
-    ruby-debug-base (0.10.4-x86-mswin32)
-      linecache (>= 0.3)
     ruby-openid (2.1.8)
-    ruby-wmi (0.2.2)
-      hoe (>= 1.4.0)
+    ruby-wmi (0.4.0)
     rubyforge (1.0.4)
-    stomp (1.1)
-    systemu (2.5.0)
+    stomp (1.2.2)
+    systemu (2.5.1)
     treetop (1.4.10)
       polyglot
       polyglot (>= 0.3.1)
     uuidtools (2.1.2)
-    win32-api (1.4.5-x86-mswin32)
-    win32-dir (0.3.5)
+    win32-api (1.4.8-x86-mingw32)
+    win32-dir (0.3.7)
+      windows-pr (>= 1.0.9)
+    win32-eventlog (0.5.3)
       windows-pr (>= 0.9.3)
-    win32-eventlog (0.5.2)
-      windows-pr (>= 0.9.3)
-    win32-open3 (0.3.2-x86-mswin32)
-    win32-pipe (0.2.1)
+    win32-pipe (0.2.2)
       windows-pr (>= 1.0.6)
-    win32-process (0.6.1)
-      windows-pr (>= 1.0.5)
-    win32-service (0.7.2-x86-mswin32)
+    win32-process (0.6.5)
+      windows-pr (>= 1.1.2)
+    win32-service (0.7.2-x86-mingw32)
       windows-pr (>= 1.0.8)
-    win32console (1.3.2-x86-mswin32)
-    windows-api (0.4.0)
+    win32console (1.3.2-x86-mingw32)
+    windows-api (0.4.1)
       win32-api (>= 1.4.5)
-    windows-pr (1.0.8)
+    windows-pr (1.2.1)
       win32-api (>= 1.4.5)
       windows-api (>= 0.3.0)
-    yajl-ruby (1.1.0)
-    yajl-ruby (1.1.0-x86-mswin32)
+    yajl-ruby (1.1.0-x86-mingw32)
 
 PLATFORMS
-  ruby
-  x86-mswin32
+  x86-mingw32
 
 DEPENDENCIES
-  abstract (= 1.0.0)
-  bunny (= 0.6.0)
+  abstract
+  bunny
   chef (= 0.10.10.2)
   encryptor (= 1.1.3)
-  erubis (= 2.6.5)
-  eventmachine (= 0.12.11.6)
-  extlib (= 0.9.14)
+  erubis
+  eventmachine (= 1.0.0.beta.4)!
+  extlib
   flexmock (~> 0.8)
-  highline (= 1.6.9)
-  hoe (= 2.3.3)
-  json (= 1.4.6)
-  mime-types (= 1.16)
-  mixlib-authentication (= 1.1.2)
-  mixlib-cli (= 1.2.0)
-  mixlib-config (= 1.1.2)
-  mixlib-log (= 1.3.0)
+  highline
+  hoe
+  json
+  mime-types
+  mixlib-authentication
+  mixlib-cli
+  mixlib-config
+  mixlib-log
   mixlib-shellout (= 1.0.0.1)
-  moneta (= 0.6.0)
+  moneta
   ohai (= 0.6.12.1)
-  process_watcher (= 0.4)
+  process_watcher
   rake (= 0.8.7)
-  rest-client (= 1.6.7)
-  right_agent (~> 0.10)
+  rest-client
+  right_agent (~> 0.10)!
+  right_amqp (~> 0.3)!
   right_http_connection (~> 1.3)
   right_popen (~> 1.0)
-  right_scraper (= 3.0.1)
+  right_scraper (= 3.0.2)!
   right_support (~> 1.4)
   rspec (~> 1.3)
   ruby-debug
-  ruby-openid (= 2.1.8)
-  ruby-wmi (= 0.2.2)
+  ruby-debug19
+  ruby-openid
+  ruby-wmi
   rubyforge (= 1.0.4)
-  stomp (= 1.1)
-  uuidtools (= 2.1.2)
-  win32-api (= 1.4.5)
-  win32-dir (= 0.3.5)
-  win32-eventlog (= 0.5.2)
-  win32-open3 (= 0.3.2)
-  win32-pipe (= 0.2.1)
-  win32-process (= 0.6.1)
-  win32-service (= 0.7.2)
-  win32console (~> 1.3.0)
-  windows-api (= 0.4.0)
-  windows-pr (= 1.0.8)
+  stomp
+  uuidtools
+  win32-api
+  win32-dir
+  win32-eventlog
+  win32-pipe
+  win32-process
+  win32-service
+  win32console
+  windows-api
+  windows-pr
