@@ -53,7 +53,7 @@ module RightScale
     FINAL_STATE = 'decommissioned'
 
     # Valid internal states
-    STATES = RECORDED_STATES + FINAL_STATE.to_a
+    STATES = RECORDED_STATES + [FINAL_STATE]
 
     # Path to JSON file where current instance state is serialized
     STATE_DIR = AgentConfig.agent_state_dir
