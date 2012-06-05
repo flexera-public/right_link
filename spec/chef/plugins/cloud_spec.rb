@@ -35,6 +35,8 @@ describe Ohai::System, ' plugin cloud' do
 
     @expected_public_ip = "1.1.1.1"
     @expected_private_ip = "10.252.252.10"
+    @expected_public_hostname = 'my_public_hostname'
+    @expected_local_hostname = 'my_local_hostname'
   end
 
   shared_examples_for 'generic cloud' do
@@ -64,11 +66,21 @@ describe Ohai::System, ' plugin cloud' do
       end
 
       it 'should populate cloud public ip' do
+        @ohai[:cloud][:public_ipv4].should == @expected_public_ip
         @ohai[:cloud][:public_ips].first.should == @expected_public_ip
       end
 
       it 'should populate cloud private ip' do
+        @ohai[:cloud][:local_ipv4].should == @expected_private_ip
         @ohai[:cloud][:private_ips].first.should == @expected_private_ip
+      end
+
+      it 'should populate cloud public hostname' do
+        @ohai[:cloud][:public_hostname].should == @expected_public_hostname
+      end
+
+      it 'should populate cloud local hostname' do
+        @ohai[:cloud][:local_hostname].should == @expected_local_hostname
       end
     end
   end
@@ -92,7 +104,10 @@ describe Ohai::System, ' plugin cloud' do
   context 'on EC2' do
     before(:each) do
       @expected_cloud = 'ec2'
-      @metadata = {:"public-ipv4" => @expected_public_ip, :"local-ipv4" => @expected_private_ip}
+      @metadata = {:"public-ipv4" => @expected_public_ip,
+                   :"local-ipv4" => @expected_private_ip,
+                   'public_hostname' => @expected_public_hostname,
+                   'local_hostname' => @expected_local_hostname}
       @userdata = {}
       @additionaldata = {}
     end
@@ -105,7 +120,10 @@ describe Ohai::System, ' plugin cloud' do
       @expected_cloud = "rackspace"
       @metadata = ""
       @userdata = ""
-      @additionaldata = {:public_ip => @expected_public_ip, :private_ip => @expected_private_ip}
+      @additionaldata = {:public_ip => @expected_public_ip,
+                         :private_ip => @expected_private_ip,
+                         :public_hostname => @expected_public_hostname,
+                         :local_hostname => @expected_local_hostname}
     end
 
     it_should_behave_like 'generic cloud'
@@ -114,7 +132,10 @@ describe Ohai::System, ' plugin cloud' do
   context 'on Eucalyptus' do
     before(:each) do
       @expected_cloud = "eucalyptus"
-      @metadata = {:"public-ipv4" => @expected_public_ip, :"local-ipv4" => @expected_private_ip}
+      @metadata = {:public_ipv4 => @expected_public_ip,
+                   :local_ipv4 => @expected_private_ip,
+                   'public_hostname' => @expected_public_hostname,
+                   'local_hostname' => @expected_local_hostname}
       @userdata = {}
       @additionaldata = {}
     end
@@ -125,7 +146,10 @@ describe Ohai::System, ' plugin cloud' do
   context 'on cloudstack' do
     before(:each) do
       @expected_cloud = "cloudstack"
-      @metadata = {:"public-ipv4" => @expected_public_ip, :"local-ipv4" => @expected_private_ip}
+      @metadata = {:"public-ipv4" => @expected_public_ip,
+                   :"local-ipv4" => @expected_private_ip,
+                   :public_hostname => @expected_public_hostname,
+                   :local_hostname => @expected_local_hostname}
       @userdata = {}
       @additionaldata = {}
     end

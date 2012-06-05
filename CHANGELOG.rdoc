@@ -22,7 +22,8 @@
 
 === Chef
 
-* Chef 0.10.8
+* Chef 0.10.10
+* An rs_ohai command is available to invoke Ohai from the command line with all of the RightScale plugins and enhancements.
 * RightLink features "development mode" for cookbooks, wherein the instance directly checks out cookbooks from their
   associated Git/Subversion repository and converges using the contents of the repo. Users can edit recipes between runs,
   and even commit and push their changes upstream after everything is working.
@@ -32,6 +33,12 @@
 * Most commands invoked by Ohai/Chef are logged with DEBUG severity for easier debugging of troublesome providers/recipes. To change
   the RightLink log, use the rs_log_level command.
 
+== Miscellaneous
+
+* The rs_agent_dev:log_level tag now allows you to specify any level (not just debug). Other agent-dev tags no longer force debug log level.
+  The log level can be changed by other utilities, e.g. the rs_log_level command, even if it has been initially set by the tag. The chef
+  process will re-query it's tags prior to convergence and the rs_log_level tag will take precedence in this case.
+
 == Bug Fixes
 
 * The command-line tools now report a meaningful version number (currently 0.3) and will continue to do so with future RightLink releases
@@ -40,4 +47,5 @@
 * The UI's ordering of cookbook repositories is preserved at runtime, for cookbooks that are defined in multiple repos
 * Extraneous Ohai debug output has been squelched from audits and logs
 * RightLink agent startup and shutdown is more reliable under Linux
+
 
