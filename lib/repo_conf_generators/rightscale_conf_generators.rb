@@ -77,7 +77,7 @@ module Yum
           bu+repo_path
         end
 
-        gpgcheck = "0"
+        gpgcheck = "1"
         unless Yum::RightScale::Epel::rightscale_gpgkey_imported?
           gpgfile = "/etc/pki/rpm-gpg/RPM-GPG-KEY-RightScale"
           if File.exists?(gpgfile)
