@@ -77,18 +77,18 @@ module Yum
           bu+repo_path
         end
 
-
+        gpgcheck = "0"
         unless Yum::RightScale::Epel::rightscale_gpgkey_imported?
           gpgfile = "/etc/pki/rpm-gpg/RPM-GPG-KEY-RightScale"
           if File.exists?(gpgfile)
             # This file should be installed by the rightimage cookbook
             # starting with 12H1 (May 2012)
             gpgkey = "file://#{gpgfile}"
-            gpgcheck = 1
+            gpgcheck = "1"
           else
             gpgfile = File.expand_path("../rightscale_key.pub", __FILE__)
             Yum::execute("rpm --import #{gpgfile}")
-            gpgcheck = 1
+            gpgcheck = "1"
             gpgkey = ""
           end
         end
