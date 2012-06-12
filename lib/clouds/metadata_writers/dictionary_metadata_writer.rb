@@ -26,7 +26,7 @@ module RightScale
 
       protected
 
-      # Write given metadata from a dictionary file.
+      # Read a dictionary file on disk and parse into key/value pairs.
       #
       # === Parameters
       # subpath(Array|String):: subpath or nil
@@ -54,7 +54,7 @@ module RightScale
       # always true
       def write_file(metadata, subpath = nil)
         return super(metadata, subpath) unless metadata.respond_to?(:has_key?)
-        File.open(create_full_path(@file_name_prefix, subpath), "w") do |f|
+        File.open(create_full_path(@file_name_prefix, subpath), "w", DEFAULT_FILE_MODE) do |f|
           metadata.each do |k, v|
             # ensure value is a single line by truncation since most
             # dictionary format parsers expect literal chars on a single line.
