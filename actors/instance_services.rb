@@ -65,9 +65,10 @@ class InstanceServices
   # === Return
   # true:: Always return true
   def update_user_data(new_user_data)
-    RightScale::UserDataWriter.write(new_user_data)
-    RightScale::Log.info('[re-enroll] Re-enrolling after user data update')
-    RightScale::ReenrollManager.reenroll!('--resume')
+    RightScale::Log.error('Received request to update user data; unsupported at this time')
+    raise NotImplementedError, "Cannot update user data in this build of RightLink"
+    #RightScale::Log.info('[re-enroll] Re-enrolling after user data update')
+    #RightScale::ReenrollManager.reenroll!('--resume')
     true
   end
 end
