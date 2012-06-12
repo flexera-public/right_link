@@ -21,6 +21,9 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+require 'fileutils'
+require 'date'
+
 module Yum
   BaseRepositoryDir="/etc/yum.repos.d" unless defined?(BaseRepositoryDir)
 
@@ -73,14 +76,30 @@ module Yum
           bu +='/' unless bu[-1..-1] == '/' # ensure the base url is terminated with a '/'
           bu+repo_path
         end
+
+        gpgcheck = "1"
+        unless Yum::RightScale::Epel::rightscale_gpgkey_imported?
+          gpgfile = "/etc/pki/rpm-gpg/RPM-GPG-KEY-RightScale"
+          if File.exists?(gpgfile)
+            # This file should be installed by the rightimage cookbook
+            # starting with 12H1 (May 2012)
+            gpgkey = "file://#{gpgfile}"
+            gpgcheck = "1"
+          else
+            gpgfile = File.expand_path("../rightscale_key.pub", __FILE__)
+            Yum::execute("rpm --import #{gpgfile}")
+            gpgcheck = "1"
+            gpgkey = ""
+          end
+        end
         config_body = <<END
 [#{opts[:repo_name]}]
 name = #{opts[:description]}
 baseurl = #{mirror_list.join("\n ")}
 failovermethod=priority
-gpgcheck=0
+gpgcheck=#{gpgcheck}
 enabled=#{(opts[:enabled] ? 1:0)}
-gpgkey=#{opts[:gpgkey_file]}
+gpgkey=#{gpgkey}
 # set metadata to expire faster then main
 metadata_expire=30
 END
@@ -100,6 +119,15 @@ END
         end
       end
 
+      def self.rightscale_gpgkey_imported?
+        begin
+          Yum::execute("rpm -qa gpg-pubkey --qf '%{summary}\n' | grep RightScale")
+          true
+        rescue
+          false
+        end
+      end
+
       # Return the enterprise linux version of the running machine...or an exception if it's a non-enterprise version of linux.
       # At this point we will only test for CentOS ... but in the future we can test RHEL, and any other compatible ones
       # Note the version is a single (major) number.
@@ -112,6 +140,7 @@ END
         end
         version
       end
+
     end
 
   end
@@ -120,8 +149,13 @@ end
 # Examples of usage...
 #Yum::RightScale::Epel.generate("Epel description", ["http://a.com/epel","http://b.com/epel"], "20081010")
 
-
 module Apt
+
+  def self.execute(command)
+    res = `#{command}`
+    raise "Error #{RightScale::SubprocessFormatting.reason($?)} executing: `#{command}`: #{res}" unless $? == 0
+    res
+  end
 
   module RightScale
     SUPPORTED_REPOS = ['lucid', 'precise']
@@ -149,6 +183,15 @@ module Apt
       "/etc/apt/sources.list.d"
     end
 
+    def self.rightscale_gpgkey_imported?
+      begin
+        Apt::execute("apt-key list | grep RightScale")
+        true
+      rescue
+        false
+      end
+    end
+
     ############## INTERNAL FUNCTIONS #######################################################
     def self.abstract_generate(params)
       return unless ::RightScale::Platform.linux? && ::RightScale::Platform.ubuntu?
@@ -171,6 +214,7 @@ module Apt
 
       FileUtils.mkdir_p(Apt::RightScale::path_to_sources_list)
 
+
       if opts[:frozen_date] != 'latest'
         x = Date.parse(opts[:frozen_date]).to_s
         x.gsub!(/-/,"/")
@@ -182,6 +226,7 @@ module Apt
         bu + opts[:frozen_date]
       end
       config_body = ""
+
       mirror_list.each do |mirror_url|
         config_body += <<END
 deb #{mirror_url} #{codename} main
@@ -194,10 +239,16 @@ END
       File.open(target_filename,'w') { |f| f.write(config_body) }
       FileUtils.mv("/etc/apt/sources.list", "/etc/apt/sources.list.ORIG") if File.exists?("/etc/apt/sources.list")
 
+      unless Apt::RightScale::rightscale_gpgkey_imported?
+        gpgfile = File.expand_path("../rightscale_key.pub", __FILE__)
+        Apt::execute("apt-key add #{gpgfile}")
+      end
+
       mirror_list
     end
   end
 end
+
 
 # Examples of usage...
 #Apt::RightScale::Lucid.generate("Lucid", [""http://a.com/rightscale_software_ubuntu""], "20081010")
