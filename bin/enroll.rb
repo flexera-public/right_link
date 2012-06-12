@@ -200,8 +200,10 @@ module RightScale
         File.open(File.join(dir, 'instance.cert'), "w") do |f|
           f.write(@result.id_cert)
         end
-        File.open(File.join(dir, 'instance.key'), "w") do |f|
+        instance_key = File.join(dir, 'instance.key')
+        File.open(instance_key, "w") do |f|
           f.write(@result.id_key)
+          FileUtils.chmod(0600, instance_key)
         end
 
         return 0
