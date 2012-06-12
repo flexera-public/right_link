@@ -9,6 +9,7 @@ module RightScale
   # Base implementation for a metadata writer. By default writes a raw
   # metadata format.
   class MetadataWriter
+    DEFAULT_FILE_MODE = 0640
 
     attr_accessor :file_extension, :file_name_prefix, :output_dir_path
 
@@ -146,7 +147,7 @@ module RightScale
     # === Return
     # always true
     def write_file(metadata, subpath)
-      File.open(create_full_path(@file_name_prefix, subpath), "w") { |f| f.write(metadata.to_s) }
+      File.open(create_full_path(@file_name_prefix, subpath), "w", DEFAULT_FILE_MODE) { |f| f.write(metadata.to_s) }
     end
 
   end  # MetadataWriter
