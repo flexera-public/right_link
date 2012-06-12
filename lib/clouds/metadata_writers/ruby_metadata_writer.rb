@@ -49,7 +49,7 @@ module RightScale
         # write the cached file variant if the code-generation command line was passed.
         env_file_naem = @generation_command ? "#{@file_name_prefix}-cache" : @file_name_prefix
         env_file_path = create_full_path(env_file_naem, subpath)
-        File.open(env_file_path, "w") do |f|
+        File.open(env_file_path, "w", DEFAULT_FILE_MODE) do |f|
           f.puts RUBY_HEADER
           metadata.each do |k, v|
             # escape backslashes and single quotes.
@@ -60,7 +60,7 @@ module RightScale
  
         # write the generation command, if given.
         if @generation_command
-          File.open(create_full_path(@file_name_prefix, subpath), "w") do |f|
+          File.open(create_full_path(@file_name_prefix, subpath), "w", DEFAULT_FILE_MODE) do |f|
             f.puts RUBY_HEADER
             f.puts "raise 'ERROR: unable to fetch metadata' unless system(\"#{@generation_command}\")"
             f.puts "require '#{env_file_path}'"

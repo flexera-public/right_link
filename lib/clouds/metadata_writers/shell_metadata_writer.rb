@@ -50,7 +50,7 @@ module RightScale
           # write the cached file variant if the code-generation command line was passed.
           env_file_name = @generation_command ? "#{@file_name_prefix}-cache" : @file_name_prefix
           env_file_path = create_full_path(env_file_name, subpath)
-          File.open(env_file_path, "w") do |f|
+          File.open(env_file_path, "w", DEFAULT_FILE_MODE) do |f|
             f.puts(WINDOWS_SHELL_HEADER)
             metadata.each do |k, v|
               # ensure value is a single line (multiple lines could be interpreted
@@ -63,7 +63,7 @@ module RightScale
 
           # write the generation command, if given.
           if @generation_command
-            File.open(create_full_path(@file_name_prefix, subpath), "w") do |f|
+            File.open(create_full_path(@file_name_prefix, subpath), "w", DEFAULT_FILE_MODE) do |f|
               f.puts(WINDOWS_SHELL_HEADER)
               f.puts(@generation_command)
               f.puts("call \"#{env_file_path}\"")
@@ -92,7 +92,7 @@ module RightScale
           # write the cached file variant if the code-generation command line was passed.
           env_file_name = @generation_command ? "#{@file_name_prefix}-cache" : @file_name_prefix
           env_file_path = create_full_path(env_file_name, subpath)
-          File.open(env_file_path, "w") do |f|
+          File.open(env_file_path, "w", DEFAULT_FILE_MODE) do |f|
             f.puts(LINUX_SHELL_HEADER)
             metadata.each do |k, v|
               # escape backslashes and double quotes.
@@ -103,7 +103,7 @@ module RightScale
 
           # write the generation command, if given.
           if @generation_command
-            File.open(create_full_path(@file_name_prefix, subpath), "w") do |f|
+            File.open(create_full_path(@file_name_prefix, subpath), "w", DEFAULT_FILE_MODE) do |f|
               f.puts(LINUX_SHELL_HEADER)
               f.puts(@generation_command)
               f.puts(". #{env_file_path}")
