@@ -88,7 +88,7 @@ def update_details
       details[:private_ip] = ::RightScale::CloudUtilities.ip_for_windows_interface(ohai, 'Local Area Connection')
     else
       details[:public_ip] = nil  # TODO need to figure out how to query this from Linux instance
-      details[:private_ip] = ::RightScale::CloudUtilities.ip_for_interface(ohai, :eth1)
+      details[:private_ip] = ::RightScale::CloudUtilities.ip_for_interface(ohai, :eth0)
     end
   end
   return details
