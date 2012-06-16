@@ -28,7 +28,6 @@ module RightScale
 
       class ConfigDriveError < Exception; end
 
-      DEFAULT_DEV_DISK_DIR_PATH       = "/dev/disk"
       DEFAULT_CONFIG_DRIVE_MOUNTPOINT = "/mnt/configdrive"
 
       attr_accessor :config_drive_label, :config_drive_mountpoint, :config_drive_uuid, :config_drive_filesystem
@@ -106,7 +105,7 @@ module RightScale
         if ::RightScale::Platform.linux?
           ::RightScale::Platform.volume_manager.mount_volume(device_ary[0], @config_drive_mountpoint)
         elsif ::RightScale::Platform.windows?
-          ::RightScale::Platform.volume_manager.assign_device(device_ary[0][:index], @config_drive_mountpoint)
+          ::RightScale::Platform.volume_manager.assign_device(device_ary[0][:index], @config_drive_mountpoint, {:idempotent => true, :clear_readonly => false})
         end
         return true
       end
