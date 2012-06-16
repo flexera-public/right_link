@@ -44,8 +44,6 @@ module RightScale
         if @config_drive_uuid.nil? & @config_drive_label.nil? & @config_drive_filesystem.nil?
           raise ArgumentError, "at least one of the following is required [options[:config_drive_label], options[:config_drive_filesystem],options[:config_drive_uuid]]"
         end
-
-        super(options)
       end
 
       # Queries for metadata using the given path.
