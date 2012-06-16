@@ -84,11 +84,11 @@ def update_details
   details = {}
   if ohai = @options[:ohai_node]
     if platform.windows?
-      details[:public_ip] = ::RightScale::CloudUtilities.ip_for_windows_interface(ohai, 'public')
-      details[:private_ip] = ::RightScale::CloudUtilities.ip_for_windows_interface(ohai, 'private')
+      details[:public_ip] = nil  # TODO need to figure out how to query this from Windows instance
+      details[:private_ip] = ::RightScale::CloudUtilities.ip_for_windows_interface(ohai, 'Local Area Connection')
     else
-      details[:public_ip] = ::RightScale::CloudUtilities.ip_for_interface(ohai, :eth0)
-      details[:private_ip] = ::RightScale::CloudUtilities.ip_for_interface(ohai, :eth1)
+      details[:public_ip] = nil  # TODO need to figure out how to query this from Linux instance
+      details[:private_ip] = ::RightScale::CloudUtilities.ip_for_interface(ohai, :eth0)
     end
   end
   return details

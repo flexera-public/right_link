@@ -27,13 +27,13 @@ require File.join(File.dirname(__FILE__), '..', '..', 'lib', 'clouds', 'metadata
 module RightScale
   module ConfigDriveMetadataSourceSpec
 
-    TEMP_DIR                = ::File.join(::RightScale::Platform.filesystem.temp_dir, "ConfigDriveMetadataSourceSpec-96ba62cb36bf46b497ac8b1bbd0080c1")
-    CONFIG_DRIVE_UUID       = "681B-8C5D"
-    CONFIG_DRIVE_FILESYSTEM = "vfat"
-    CONFIG_DRIVE_LABEL      = "METADATA"
-    CONFIG_DRIVE_DEVICE     = "xvdh1"
-    CONFIG_DRIVE_MOUNTPOINT = ::File.join(TEMP_DIR, "mnt/configdrive")
-    USER_METADATA_JSON      = '["RS_rn_url=amqp:\/\/1234567890@broker1-2.rightscale.com\/right_net&RS_rn_id=1234567890&RS_server=my.rightscale.com&RS_rn_auth=1234567890&RS_api_url=https:\/\/my.rightscale.com\/api\/inst\/ec2_instances\/1234567890&RS_rn_host=:1,broker1-1.rightscale.com:0&RS_version=5.6.5&RS_sketchy=sketchy4-2.rightscale.com&RS_token=1234567890"]'
+    TEMP_DIR                        = ::File.join(::RightScale::Platform.filesystem.temp_dir, "ConfigDriveMetadataSourceSpec-96ba62cb36bf46b497ac8b1bbd0080c1")
+    CONFIG_DRIVE_UUID               = "681B-8C5D"
+    CONFIG_DRIVE_FILESYSTEM         = "vfat"
+    CONFIG_DRIVE_LABEL              = "METADATA"
+    CONFIG_DRIVE_DEVICE             = "xvdh1"
+    CONFIG_DRIVE_MOUNTPOINT         = ::File.join(TEMP_DIR, "mnt/configdrive")
+    USER_METADATA_JSON              = '["RS_rn_url=amqp:\/\/1234567890@broker1-2.rightscale.com\/right_net&RS_rn_id=1234567890&RS_server=my.rightscale.com&RS_rn_auth=1234567890&RS_api_url=https:\/\/my.rightscale.com\/api\/inst\/ec2_instances\/1234567890&RS_rn_host=:1,broker1-1.rightscale.com:0&RS_version=5.6.5&RS_sketchy=sketchy4-2.rightscale.com&RS_token=1234567890"]'
 
     describe RightScale::MetadataSources::ConfigDriveMetadataSource do
 
@@ -114,7 +114,28 @@ module RightScale
           end
           it 'waits for the config drive to be attached' do
             @volume_manager.should_receive(:assign_device).once.and_return(true)
+            @volume_manager.should_receive(:disks).times(4).and_return([],[],[],[])
             test_mount_config_drive
+          end
+
+          it 'does not bother to online disks if the volume is found' do
+            @volume_manager.should_receive(:volumes).once.and_return([{:index => 0}])
+            @volume_manager.should_receive(:assign_device).once.and_return(true)
+            @user_metadata_source.mount_config_drive
+          end
+
+          it 'checks offline disks one at a time for the desired volume until it is found' do
+            # Simulates two iterations of the loop which looks for the config drive
+            # the first iteration returns one offline disk and no matching volumes.
+            # The second iteration returns two offlined disk (simulating a new disk being attached and discovered)
+            # which then has the requested volume associated with it
+            @volume_manager.should_receive(:volumes).times(5).and_return([],[],[],[],[{:index => 0}])
+            @volume_manager.should_receive(:disks).times(2).and_return([{:index => 1}], [{:index => 1},{:index => 2}])
+            @volume_manager.should_receive(:online_disk).times(3).and_return(true)
+            @volume_manager.should_receive(:offline_disk).times(2).and_return(true)
+            @volume_manager.should_receive(:assign_device).once.and_return(true)
+            flexmock(Kernel).should_receive(:sleep).times(1)
+            @user_metadata_source.mount_config_drive
           end
         end
 
