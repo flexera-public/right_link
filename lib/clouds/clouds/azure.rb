@@ -83,11 +83,13 @@ end
 def update_details
   details = {}
   if ohai = @options[:ohai_node]
+    # FIX: there is currently no instance-facing API (i.e. an API which does not
+    # require management credentials) to provide the instance's public IP address
+    # so a workaround is required in scripting. avoid setting details[:public_ip]
+    # for now.
     if platform.windows?
-      details[:public_ip] = nil  # TODO need to figure out how to query this from Windows instance
       details[:private_ip] = ::RightScale::CloudUtilities.ip_for_windows_interface(ohai, 'Local Area Connection')
     else
-      details[:public_ip] = nil  # TODO need to figure out how to query this from Linux instance
       details[:private_ip] = ::RightScale::CloudUtilities.ip_for_interface(ohai, :eth0)
     end
   end
