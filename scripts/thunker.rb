@@ -86,9 +86,9 @@ module RightScale
       end
 
       # Create user just-in-time; idempotent if user already exists
-      username = LoginUserManager.create_user(username, uuid, superuser ? true : false) do
+      username = LoginUserManager.create_user(username, uuid, superuser ? true : false) do |chosen|
         if [:command, :shell].include?(access)
-          puts "Creating your user profile (#{username}) on this machine."
+          puts "Creating your user profile (#{chosen}) on this machine."
         end
       end
 
