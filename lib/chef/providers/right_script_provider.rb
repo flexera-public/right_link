@@ -99,13 +99,15 @@ class Chef
         # Add Cloud-Independent Attributes
         if node[:cloud]
           ENV['RS_CLOUD_PROVIDER'] = node[:cloud][:provider]
-          if node[:cloud][:public_ips].is_a?(Array)
-            ENV['RS_PUBLIC_IP'] = node[:cloud][:public_ips].first
+          instance_public_ip = node[:cloud][:public_ipv4] || (node[:cloud][:public_ips].is_a?(Array) && node[:cloud][:public_ips].first)
+          if instance_public_ip
+            ENV['RS_PUBLIC_IP'] = instance_public_ip
           else
             ::Chef::Log.info("Could not retrieve instance public IP")
           end
-          if node[:cloud][:private_ips].is_a?(Array)
-            ENV['RS_PRIVATE_IP'] = node[:cloud][:private_ips].first
+          instance_private_ip = node[:cloud][:local_ipv4] || (node[:cloud][:private_ips].is_a?(Array) && node[:cloud][:private_ips].first)
+          if instance_private_ip
+            ENV['RS_PRIVATE_IP'] = instance_private_ip
           else
             ::Chef::Log.info("Could not retrieve instance private IP")
           end
