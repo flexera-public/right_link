@@ -65,15 +65,22 @@ begin
   # cloud may have specific details to insert into ohai node(s).
   named_cloud_node.update(cloud_instance.update_details)
 
-  # expecting public/private IPs to come from all clouds.
+  # expecting public/private IPs to come from all clouds (but only if they
+  # support instance-facing APIs).
   public_ip4 = named_cloud_node[:"public-ipv4"] || named_cloud_node[:public_ipv4] || named_cloud_node[:public_ip]
   private_ip4 = named_cloud_node[:"local-ipv4"] || named_cloud_node[:local_ipv4] || named_cloud_node[:private_ip]
 
   # support the various cloud node keys found in ohai's cloud plugin.
-  cloud[:public_ipv4] = public_ip4
-  cloud[:public_ips] << public_ip4
-  cloud[:local_ipv4] = private_ip4
-  cloud[:private_ips] << private_ip4
+  # note that we avoid setting the value if nil (because we have some workarounds
+  # for clouds without instance-facing APIs).
+  if public_ip4
+    cloud[:public_ipv4] = public_ip4
+    cloud[:public_ips] << public_ip4
+  end
+  if private_ip4
+    cloud[:local_ipv4] = private_ip4
+    cloud[:private_ips] << private_ip4
+  end
   cloud[:public_hostname] = named_cloud_node['public_hostname']
   cloud[:local_hostname] = named_cloud_node['local_hostname']
 
