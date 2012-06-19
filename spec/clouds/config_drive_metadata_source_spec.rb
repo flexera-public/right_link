@@ -85,7 +85,7 @@ module RightScale
 
         it 'raises config_drive_error if no device is found' do
           timeint = Time.now.to_i
-          @volume_manager.should_receive(:volumes => [])
+          @volume_manager.should_receive(:volumes => [], :disks => [])
           flexmock(Time).should_receive(:now).twice.and_return(timeint, timeint + (60*11))
 
           lambda { @user_metadata_source.mount_config_drive }.should raise_error(RightScale::MetadataSources::ConfigDriveMetadataSource::ConfigDriveError)
