@@ -28,7 +28,6 @@ module RightScale
 
       class ConfigDriveError < Exception; end
 
-      DEFAULT_DEV_DISK_DIR_PATH       = "/dev/disk"
       DEFAULT_CONFIG_DRIVE_MOUNTPOINT = "/mnt/configdrive"
 
       attr_accessor :config_drive_label, :config_drive_mountpoint, :config_drive_uuid, :config_drive_filesystem
@@ -36,16 +35,14 @@ module RightScale
       def initialize(options)
         super(options)
 
-        @config_drive_mountpoint      = options[:config_drive_mountpoint] || DEFAULT_CONFIG_DRIVE_MOUNTPOINT
-        @config_drive_uuid            = options[:config_drive_uuid]
-        @config_drive_filesystem      = options[:config_drive_filesystem]
-        @config_drive_label           = options[:config_drive_label]
+        @config_drive_mountpoint        = options[:config_drive_mountpoint] || DEFAULT_CONFIG_DRIVE_MOUNTPOINT
+        @config_drive_uuid              = options[:config_drive_uuid]
+        @config_drive_filesystem        = options[:config_drive_filesystem]
+        @config_drive_label             = options[:config_drive_label]
 
         if @config_drive_uuid.nil? & @config_drive_label.nil? & @config_drive_filesystem.nil?
           raise ArgumentError, "at least one of the following is required [options[:config_drive_label], options[:config_drive_filesystem],options[:config_drive_uuid]]"
         end
-
-        super(options)
       end
 
       # Queries for metadata using the given path.
@@ -93,7 +90,19 @@ module RightScale
         idx       = -1
 
         begin
-          device_ary = ::RightScale::Platform.volume_manager.volumes(conditions)
+          device_ary = []
+          if ::RightScale::Platform.windows?
+            # Check once, in case the metadata drive is onlined already
+            device_ary = ::RightScale::Platform.volume_manager.volumes(conditions)
+            ::RightScale::Platform.volume_manager.disks({:status => "Offline"}).each do |disk|
+              ::RightScale::Platform.volume_manager.online_disk(disk[:index])
+              device_ary = ::RightScale::Platform.volume_manager.volumes(conditions)
+              break if device_ary.length > 0
+              ::RightScale::Platform.volume_manager.offline_disk(disk[:index])
+            end unless device_ary.length > 0
+          else
+            device_ary = ::RightScale::Platform.volume_manager.volumes(conditions)
+          end
           idx = idx + 1 unless idx == 2
           break if (Time.now.to_i - starttime) > timeout || device_ary.length > 0
           @logger.warn("Configuration drive device was not found.  Trying again in #{backoff[idx % backoff.length]} seconds.")
@@ -108,7 +117,7 @@ module RightScale
         if ::RightScale::Platform.linux?
           ::RightScale::Platform.volume_manager.mount_volume(device_ary[0], @config_drive_mountpoint)
         elsif ::RightScale::Platform.windows?
-          ::RightScale::Platform.volume_manager.assign_device(device_ary[0][:index], @config_drive_mountpoint)
+          ::RightScale::Platform.volume_manager.assign_device(device_ary[0][:index], @config_drive_mountpoint, {:idempotent => true, :clear_readonly => false, :remove_all => true})
         end
         return true
       end

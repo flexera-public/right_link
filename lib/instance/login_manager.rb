@@ -404,33 +404,5 @@ module RightScale
       FileUtils.chown_R(chown_params[:user], chown_params[:group], File.dirname(keys_file)) if chown_params
       return true
     end
-
-    # Pick a username that does not yet exist on the system. If the given
-    # username does not exist, it is returned; else we add a "_1" suffix
-    # and continue incrementing the number until we arrive at a username
-    # that does not yet exist.
-    #
-    # === Parameters
-    # username(String):: username
-    #
-    # === Return
-    # username(String):: username with possible postfix
-    def pick_username(username)
-      name = username
-      blacklist = Set.new
-
-      while LoginUserManager.user_exists?(name)
-        blacklist << name
-        new_name = LoginUserManager.pick_username(name, blacklist)
-
-        if blacklist.include?(new_name)
-          raise RangeError, "Misbehaved login policy chose blacklisted name #{new_name}"
-        else
-          name = new_name
-        end
-      end
-
-      name
-    end
   end
 end
