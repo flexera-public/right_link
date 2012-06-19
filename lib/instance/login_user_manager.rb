@@ -39,16 +39,26 @@ module RightScale
       end
     end
 
-    def pick_username(preference, blacklist=nil)
-      if blacklist.nil? || !blacklist.include?(preference)
-        username = preference
-      else
-        i = 1
-        i += 1 while blacklist.include?("#{preference}_#{i}")
-        username = "preference_#{i}"
+    # Pick a username that does not yet exist on the system. If the given
+    # username does not exist, it is returned; else we add a "_1" suffix
+    # and continue incrementing the number until we arrive at a username
+    # that does not yet exist.
+    #
+    # === Parameters
+    # ideal(String):: the user's ideal (chosen) username
+    #
+    # === Return
+    # username(String):: username with possible postfix
+    def pick_username(ideal)
+      name = ideal
+      i = 0
+
+      while user_exists?(name)
+        i += 1
+        name = "#{ideal}_#{i}"
       end
 
-      username
+      name
     end
 
     # Creates user account
