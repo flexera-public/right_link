@@ -25,6 +25,7 @@
 #
 require 'rubygems'
 require 'optparse'
+require 'shellwords'
 require 'right_agent'
 require 'right_agent/scripts/usage'
 require 'right_agent/scripts/common_parser'
@@ -37,17 +38,10 @@ require File.join(basedir, 'lib', 'instance')
 module RightScale
 
   class Thunker
+    SCP_COMMAND  = %r{^[A-Za-z0-9_/]*scp}
+    SFTP_COMMAND = %r{^[A-Za-z0-9_/]*sftp-server}
     AUDIT_REQUEST_TIMEOUT = 15 # best-effort auditing, but try not to block user
-
-    class ThunkError < Exception
-      attr_reader :code
-
-      def initialize(msg, code=nil)
-        STDOUT.sync = true #make sure output is speedy
-        super(msg)
-        @code = code || 1
-      end
-    end
+    MOTD         = '/etc/motd'
 
     # Manage individual user SSH logins
     #
@@ -75,11 +69,11 @@ module RightScale
       client_ip = ENV['SSH_CLIENT'].split(/\s+/).first if ENV.has_key?('SSH_CLIENT')
 
 
-      if orig =~ %r{^[A-Za-z0-9_/]+scp -[ft]}
+      if orig =~ SCP_COMMAND
         access = :scp
-      elsif orig =~ %r{^[A-Za-z0-9_/]+sftp-server$}
+      elsif orig =~ SFTP_COMMAND
         access = :sftp
-      elsif orig != nil && !orig.empty?
+      elsif (orig != nil) && (!orig.empty?)
         access = :command
       else
         access = :shell
@@ -87,23 +81,42 @@ module RightScale
 
       # Create user just-in-time; idempotent if user already exists
       username = LoginUserManager.create_user(username, uuid, superuser ? true : false) do |chosen|
-        if [:command, :shell].include?(access)
+        if :shell == access
           puts "Creating your user profile (#{chosen}) on this machine."
         end
       end
 
-      # Note that we always use -i (simulate initial login) flag, which ensures
-      # we chdir to the user's home directory before running any commands.
-      case access
-        when :scp, :sftp, :command
-          cmd = "sudo -i -u #{username} #{orig}"
-        when :shell
-          cmd = "sudo -i -u #{username}"
-      end
-
       create_audit_entry(email, username, access, orig, client_ip)
       create_profile(access, username, profile, force) if profile
-      Kernel.exec(cmd)
+
+      # Note that we always use -i (simulate initial login) flag, which ensures
+      # we chdir to the user's home directory before running any commands.
+      #
+      # Also note that when execing sudo we use the N-argument form of Kernel.exec,
+      # which does not invoke a shell, but rather directly invokes the command specified
+      # by argv[0] and uses argv[1..N] as the command line. This protects us against shell
+      # escape characters and other badness.
+      #
+      # Unfortunately, this means that file globs and other 'useful' shell escape characters
+      # do not get parsed.
+      #
+      # As a workaround, tell sudo to invoke a shell, which sudo does by calling bash itself. The 'outer'
+      # bash gets the escaped stuff but passes it correctly to the 'inner' bash, which can parse the
+      # command line as a bash command.
+      #
+      # If we switched to Ruby 1.9, we could do the following instead:
+      #   Kernel.exec('sudo', 'u', username, '-s', orig)
+      #     or
+      #   Kernel.exec('sudo', 'u', username, '-i', orig)
+      #
+      # Because N-arg exec under Ruby 1.9 seems to grok complex command lines.
+      case access
+      when :scp, :sftp, :command
+        Kernel.exec('sudo', '-i', '-u', username, '/bin/sh', '-c', orig)
+      when :shell
+        display_motd
+        Kernel.exec('sudo', '-i', '-u', username)
+      end
     rescue SystemExit => e
       raise e
     rescue Exception => e
@@ -200,9 +213,6 @@ module RightScale
     # R.I.P. does not return
     def fail(reason=nil, options={})
       case reason
-      when ThunkError
-        STDOUT.puts reason.message
-        code = reason.code
       when Errno::EACCES
         STDERR.puts reason.message
         STDERR.puts "Try elevating privilege (sudo/runas) before invoking this command."
@@ -221,7 +231,7 @@ module RightScale
       when Integer
         code = reason
       else
-        code = 1
+        code = 50
       end
 
       puts Usage.scan(__FILE__) if options[:print_usage]
@@ -292,7 +302,7 @@ module RightScale
       false
     end
 
-    # Downloads an archive from given path; extracts files and moves
+    # Download an archive from given path; extracts files and moves
     # them to username's home directory.
     #
     # === Parameters
@@ -310,7 +320,16 @@ module RightScale
         puts msg if [:command, :shell].include?(access)
       end
     end
-    
+
+    # Display the Message of the Day if it exists.
+    def display_motd
+      if File.exist?(MOTD)
+        puts File.read(MOTD)
+      end
+    rescue Exception => e
+      # no-op.
+    end
+
     # Version information
     #
     # === Return
