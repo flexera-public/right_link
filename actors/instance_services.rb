@@ -25,7 +25,7 @@ class InstanceServices
   include RightScale::Actor
   include RightScale::OperationResultHelper
 
-  expose :update_login_policy, :update_user_data
+  expose :update_login_policy
 
   def initialize(agent_identity)
     @agent_identity = agent_identity
@@ -53,22 +53,5 @@ class InstanceServices
     end
 
     status
-  end
-
-  # Update user data with given string, re-enroll once it has been updated.
-  # This is useful for stopped instances that are re-started using obsolete
-  # user data
-  #
-  # === Parameters
-  # new_user_data(String):: New query string like user data
-  #
-  # === Return
-  # true:: Always return true
-  def update_user_data(new_user_data)
-    RightScale::Log.error('Received request to update user data; unsupported at this time')
-    raise NotImplementedError, "Cannot update user data in this build of RightLink"
-    #RightScale::Log.info('[re-enroll] Re-enrolling after user data update')
-    #RightScale::ReenrollManager.reenroll!('--resume')
-    true
   end
 end
