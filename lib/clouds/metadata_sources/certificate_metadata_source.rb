@@ -92,7 +92,6 @@ module RightScale
       end
 
       def read_cert_linux(cert_store, cert_issuer)
-        STDOUT.puts "Reading user data."
         begin
           data = File.read(cert_store)
           cert = OpenSSL::X509::Certificate.new(data)
@@ -107,7 +106,6 @@ module RightScale
           raise QueryFailed.new("Failed to retrieve metadata from cert given as \"#{cert_issuer}\" under \"#{cert_store}\"")
         end
 
-        STDOUT.puts "User data saved."
         return result
       end
 
