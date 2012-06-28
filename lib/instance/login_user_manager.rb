@@ -269,6 +269,24 @@ module RightScale
       FileUtils.rm_rf(tmpdir) if tmpdir && File.exists?(tmpdir)
     end
 
+    # Set some of the environment variables that would normally be set if a user
+    # were to login to an interactive shell. This is useful when simulating an
+    # interactive login, e.g. for purposes of running a user-specified command
+    # via SSH.
+    #
+    # === Parameters
+    # username(String):: user's name
+    #
+    # === Return
+    # true:: always returns true
+    def simulate_login(username)
+      info = Etc.getpwnam(username)
+      ENV['USER']  = info.name
+      ENV['HOME']  = info.dir
+      ENV['SHELL'] = info.shell
+      true
+    end
+
     protected
 
     # Downloads a file from specified URL
