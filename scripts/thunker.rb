@@ -89,10 +89,7 @@ module RightScale
       create_audit_entry(email, username, access, orig, client_ip)
       create_profile(access, username, profile, force) if profile
 
-      # Note that we always use -i (simulate initial login) flag, which ensures
-      # we chdir to the user's home directory before running any commands.
-      #
-      # Also note that when execing sudo we use the N-argument form of Kernel.exec,
+      # Note that when execing sudo we use the N-argument form of Kernel.exec,
       # which does not invoke a shell, but rather directly invokes the command specified
       # by argv[0] and uses argv[1..N] as the command line. This protects us against shell
       # escape characters and other badness.
@@ -100,19 +97,18 @@ module RightScale
       # Unfortunately, this means that file globs and other 'useful' shell escape characters
       # do not get parsed.
       #
-      # As a workaround, tell sudo to invoke a shell, which sudo does by calling bash itself. The 'outer'
-      # bash gets the escaped stuff but passes it correctly to the 'inner' bash, which can parse the
-      # command line as a bash command.
+      # As a workaround, for non-interactive access types, we tell sudo to invoke a shell and
+      # use the shell's '-c' argument to specify the command to run. We also use the -H
+      # argument to sudo, which forces it to set HOME to the user's homedir. We attempt to
+      # set some other environment variables to make the user feel more at home, but we
+      # are at the mercy of sudo.
       #
-      # If we switched to Ruby 1.9, we could do the following instead:
-      #   Kernel.exec('sudo', 'u', username, '-s', orig)
-      #     or
-      #   Kernel.exec('sudo', 'u', username, '-i', orig)
-      #
-      # Because N-arg exec under Ruby 1.9 seems to grok complex command lines.
+      # For interactive logins, we don't need to perform any trickiness since our goal is
+      # simply to get the user into a shell, with no command line args to parse.
       case access
       when :scp, :sftp, :command
-        Kernel.exec('sudo', '-i', '-u', username, '/bin/sh', '-c', orig)
+        LoginUserManager.simulate_login(username)
+        Kernel.exec('sudo', '-H', '-u', username, '/bin/sh', '-c', "cd $HOME ; #{orig}")
       when :shell
         display_motd
         Kernel.exec('sudo', '-i', '-u', username)
