@@ -106,6 +106,9 @@ module RightScale
         end
       end
 
+    rescue Exception => e
+      fail('Execution failed', Log.format("Run failed", e, :trace))
+
     ensure
       Log.info("[cook] Process stopping")
       exit(1) unless success
