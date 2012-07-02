@@ -61,12 +61,12 @@ module RightScale
     # Use forced location of state file in cook process that was setup in instance
     # by monkey patched InstanceState in test version of instance_setup.rb
     alias :original_init :init
-    def init(agent_id, reset = false)
+    def init(agent_id, secret, reset = false)
       agent_identity = nil
       File.open(AgentTestConfig.agent_identity_file,"r"){|f| agent_identity = f.gets.chomp }
       ChefState.const_set(:STATE_FILE, AgentTestConfig.chef_file(agent_identity))
       ChefState.const_set(:SCRIPTS_FILE, AgentTestConfig.past_scripts_file(agent_identity))
-      original_init(agent_id, reset)
+      original_init(agent_id, secret, reset)
     end
 
   end
