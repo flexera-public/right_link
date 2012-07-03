@@ -1,3 +1,10 @@
+= RightLink 5.9
+
+== Changes to Existing Functionality
+
+* When freezing the RubyGems repository, RightLink now edits the systemwide RubyGems config file (/etc/gemrc) rather than modifying 
+  root's (~root/.gemrc). This will help ensure more consistent RubyGems behavior across multiple users and Ruby versions.
+
 = RightLink 5.8
 
 == New Features
