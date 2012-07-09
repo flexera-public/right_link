@@ -216,8 +216,10 @@ module RightScale
               popular_address = nil
               vote = 0
               address_to_hosts.each do |address, hosts|
-                vote = hosts.count if hosts.count > vote
-                popular_address = address
+                if hosts.count > vote
+                  vote = hosts.count
+                  popular_address = address
+                end
               end
             end
             if vote >= required_votes
