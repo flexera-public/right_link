@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2011 RightScale Inc
+# Copyright (c) 2012 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -24,7 +24,7 @@
 HOST = 'metadata'
 PORT = 80
 
-abbreviation :google
+abbreviation :gce
 
 # defaults
 metadata_source 'metadata_sources/http_metadata_source'
@@ -68,4 +68,39 @@ def is_current_cloud?
   # See https://developers.google.com/compute/docs/instances#dmi
   `grep Google /sys/firmware/dmi/entries/1-0/raw 2>&1 >/dev/null`
   return $?.success?
+end
+
+# Provides details of the google cloud for inclusion in the cloud node.
+#
+# === Return
+# always true
+def update_details
+  details = {}
+  if ohai = @options[:ohai_node]
+    # the 'network' key from cloud metadata contains a JSONized hash with the
+    # public/private IP details.
+    # example:
+    #  ohai[:google][:network] = "{\"networkInterface\":[{\"network\":\"projects/12345/networks/default\",\"ip\":\"10.11.12.13\",\"accessConfiguration\":[{\"type\":\"ONE_TO_ONE_NAT\",\"externalIp\":\"123.4.5.6\"}]}]}"
+    public_ip = nil
+    private_ip = nil
+    if named_cloud_node = ohai[self.name.to_s.to_sym]
+      begin
+        network_json = named_cloud_node["network"]
+        network_data = JSON.load(network_json)
+        if network_interface = network_data['networkInterface'] && network_data['networkInterface'].first
+          private_ip = network_interface['ip']
+          if access_configuration = network_interface['accessConfiguration'] && network_interface['accessConfiguration'].first
+            public_ip = access_configuration['externalIp']
+          end
+        else
+          logger.warn("No network interfaces found in #{self.name} network metadata")
+        end
+      rescue Exception => e
+        logger.warn("Unable to parse #{self.name} network metadata from #{network_json.inspect}\n#{e.class}: #{e.message}")
+      end
+    end
+    details[:public_ip] = public_ip if public_ip
+    details[:private_ip] = private_ip if private_ip
+  end
+  return details
 end
