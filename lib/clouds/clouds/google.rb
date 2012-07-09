@@ -34,10 +34,6 @@ metadata_writers 'metadata_writers/dictionary_metadata_writer',
 
 default_option([:metadata_source, :hosts], [:host => HOST, :port => PORT])
 
-# root paths
-default_option([:cloud_metadata, :metadata_tree_climber, :root_path], '0.1/meta-data/')
-default_option([:user_metadata, :metadata_tree_climber, :root_path], '0.1/meta-data/attributes/')
-
 # root paths, don't leave off the trailing slashes
 default_option([:cloud_metadata, :metadata_tree_climber, :root_path], '0.1/meta-data/')
 default_option([:user_metadata, :metadata_tree_climber, :root_path], '0.1/meta-data/attributes/')
