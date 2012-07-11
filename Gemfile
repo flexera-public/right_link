@@ -4,8 +4,12 @@ source :rubygems
 gem "rubyforge",               "1.0.4"
 gem "rake",                    "0.8.7"
 gem "encryptor",               "1.1.3"
-gem "right_support",           "~> 1.4"
-gem "right_agent",             "~> 0.10.0"
+gem "right_support",           :git => 'git://github.com/rightscale/right_support.git',
+                               :branch => "azure_12_8_add_hash_tools"
+gem "right_agent",             :git => 'git://github.com/rightscale/right_agent.git',
+                               :branch => "master"
+gem "right_amqp" ,             :git => 'git://github.com/rightscale/right_amqp.git',
+                               :branch => "master"
 gem "right_popen",             "~> 1.0"
 gem "right_http_connection",   "~> 1.3"
 gem "right_scraper",           "3.0.1"

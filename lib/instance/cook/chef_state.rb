@@ -106,7 +106,7 @@ module RightScale
       # === Return
       # true:: Always return true
       def merge_attributes(attribs)
-        self.attributes = RightScale::HashHelper.deep_merge!(attributes, attribs) if attribs
+        self.attributes = ::RightSupport::Data::HashTools.deep_merge!(attributes, attribs) if attribs
         true
       end
 
