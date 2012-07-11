@@ -209,7 +209,7 @@ module RightScale
     def balancer
       @balancer ||= RightSupport::Net::RequestBalancer.new(
           ips.keys,
-          :policy => RightSupport::Net::Balancing::StickyPolicy,
+          :policy => RightSupport::Net::LB::Sticky,
           :fatal  => lambda do |e|
             if RightSupport::Net::RequestBalancer::DEFAULT_FATAL_EXCEPTIONS.any? { |c| e.is_a?(c) }
               true
