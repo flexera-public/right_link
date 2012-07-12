@@ -96,12 +96,12 @@ module RightScale
           break
         end
         @run_list << recipe.nickname
-        RightScale::HashHelper.deep_merge!(@inputs, recipe.attributes)
+        ::RightSupport::Data::HashTools.deep_merge!(@inputs, recipe.attributes)
       end
 
       # Retrieve node attributes and deep merge in inputs
       @attributes = ChefState.attributes
-      RightScale::HashHelper.deep_merge!(@attributes, @inputs)
+      ::RightSupport::Data::HashTools.deep_merge!(@attributes, @inputs)
     end
 
     # FIX: thread_name should never be nil from the core in future, but
@@ -602,7 +602,7 @@ module RightScale
     # true:: Always return true
     def report_success(node)
       ChefState.merge_attributes(node.normal_attrs) if node
-      patch = RightScale::HashHelper.create_patch(@inputs, ChefState.attributes)
+      patch = ::RightSupport::Data::HashTools.deep_create_patch(@inputs, ChefState.attributes)
       # We don't want to send back new attributes (ohai etc.)
       patch[:right_only] = { }
       @inputs_patch      = patch
