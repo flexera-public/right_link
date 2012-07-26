@@ -21,7 +21,7 @@
 
 require 'rubygems'
 
-# N.B. we can't use File#normalize_path yet because gems haven't been activated
+# N.B. we can't use File#normalize_path yet because gems haven't been activated - Windows safety!
 basedir = File.expand_path(File.join(File.dirname(__FILE__), '..'))
 Dir.chdir(basedir) do
   if File.exist?('Gemfile')
@@ -35,6 +35,8 @@ Dir.chdir(basedir) do
     # as system gems. Nothing to do here...
   end
 end
+
+gem 'right_link'
 
 gem 'eventmachine'
 
