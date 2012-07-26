@@ -121,4 +121,4 @@ end
 # The $0 argument is -e in windows because of how we wrap the call to get live
 # console output. we don't need to worry about symlinks in Windows, so always
 # run the deployer on that platform
-RightScale::AgentDeployerRunner.run if (__FILE__ == $0 || RightScale::Platform.windows?)
+RightScale::AgentDeployerRunner.run
