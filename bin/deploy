@@ -84,8 +84,9 @@ module RightScale
         host = "#{url.host}#{host}"
       end
 
+      root_dir = Dir.glob(File.join(AgentConfig.parent_dir, 'right_link-*')).sort.first
       cmd_opts = [ 'instance',
-                   '-r', File.join(AgentConfig.parent_dir, 'right_link'),
+                   '-r', root_dir,
                    '-i', ENV['RS_RN_ID'],
                    '-t', ENV['RS_RN_AUTH'],
                    '-h', host,
