@@ -84,9 +84,12 @@ module RightScale
         host = "#{url.host}#{host}"
       end
 
-      root_dir = Dir.glob(File.join(AgentConfig.parent_dir, 'right_link-*')).sort.first
+      os_root_dir  = '/var/lib/rightscale/right_link'
+      gem_root_dir = Dir.glob(File.join(AgentConfig.parent_dir, 'right_link-*')).sort.first
+
       cmd_opts = [ 'instance',
-                   '-r', root_dir,
+                   '-r', os_root_dir,
+                   '-r', gem_root_dir,
                    '-i', ENV['RS_RN_ID'],
                    '-t', ENV['RS_RN_AUTH'],
                    '-h', host,
