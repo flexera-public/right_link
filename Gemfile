@@ -1,18 +1,17 @@
 source 'http://s3.amazonaws.com/rightscale_rightlink_gems_dev'
 source :rubygems
 
+gemspec
+
 gem "rubyforge",               "1.0.4"
 gem "rake",                    "0.8.7"
-gem "encryptor",               "1.1.3"
+
 gem "right_support",           :git => 'git://github.com/rightscale/right_support.git',
                                :branch => "master"
 gem "right_agent",             :git => 'git://github.com/rightscale/right_agent.git',
                                :branch => "master"
 gem "right_amqp" ,             :git => 'git://github.com/rightscale/right_amqp.git',
                                :branch => "master"
-gem "right_popen",             "~> 1.0"
-gem "right_http_connection",   "~> 1.3"
-gem "right_scraper",           "3.0.1"
 
 # We have custom builds of some gems containing fixes and patches that are specific
 # to RightScale. Gems in the "custom" group are published by RightScale to our
@@ -31,6 +30,9 @@ end
 # DO NOT CHANGE VERSIONS of these gems until you have built a precompiled
 # mswin-platform gem for every one of the gems below AND published it to
 # the rightscale custom gem repository.
+#
+# TODO figure out how to encode these into the gemspec ... very hard to do plat-specific gem dependencies!
+# @see http://stackoverflow.com/questions/4596606/rubygems-how-do-i-add-platform-specific-dependency
 group :not_windows_friendly do
   gem "json",                  "1.4.6"
 
