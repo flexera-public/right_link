@@ -1,4 +1,4 @@
-# Copyright (c) 2009-2011 RightScale, Inc, All Rights Reserved Worldwide.
+# Copyright (c) 2009-2012 RightScale, Inc, All Rights Reserved Worldwide.
 #
 # THIS PROGRAM IS CONFIDENTIAL AND PROPRIETARY TO RIGHTSCALE
 # AND CONSTITUTES A VALUABLE TRADE SECRET.  Any unauthorized use,
@@ -9,21 +9,210 @@
 # License Agreement between RightScale.com, Inc. and
 # the licensee.
 
+require 'tmpdir'
 require File.expand_path(File.join(File.dirname(__FILE__), '..', 'spec_helper'))
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'scripts', 'tagger'))
 
-module RightScale
-  describe Tagger do
-    context 'version' do
-      it 'reports RightLink version from gemspec' do
-        class Tagger
-          def test_version
-            version
-          end
-        end
-        
-        subject.test_version.should match /rs_tag \d+\.\d+\.?\d* - RightLink's tagger \(c\) 2011 RightScale/
-      end
+module RightScale::TaggerSpec
+  RS_INSTANCE_ID_1 = "rs-instance-abcd-123"
+  RS_INSTANCE_ID_2 = "rs-instance-efgh-456"
+
+  DEFAULT_QUERY_RESULT = {
+    RS_INSTANCE_ID_1 => {
+      "tags" => ["foo:bar=baz zab", "rs_login:state=restricted"]
+    },
+    RS_INSTANCE_ID_2 => {
+      "tags" => ["bar:foo=baz zab",
+                 "foo:bar=baz zab",
+                 "rs_login:state=restricted",
+                 "rs_monitoring:state=active",
+                 "x:y=a b c:d=x y"]
+    }
+  }
+end
+
+describe RightScale::Tagger do
+
+  # Substitutes the ARGV values so that command-line parsers can consume a set
+  # of test arguments.
+  #
+  # === Parameters
+  # @param [Array, String] new_argv to assign to ARGV
+  def replace_argv(new_argv)
+    ::Object.send(:remove_const, :ARGV)  # suppress const redefinition warning
+    ::Object.send(:const_set, :ARGV, Array(new_argv))
+  end
+
+  # Runs the tagger and rescues expected exit calls.
+  #
+  # === Parameters
+  # @param [Array, String] argv for command-line parser to consume
+  #
+  # === Return
+  # @return [Fixnum] exit code or zero
+  def run_tagger(argv)
+    replace_argv(argv)
+    subject.run(subject.parse_args)
+    return 0
+  rescue SystemExit => e
+    return e.status
+  end
+
+  before(:all) do
+    # preserve old ARGV for posterity (although it's unlikely that anything
+    # would consume it after startup).
+    @old_argv = ARGV
+  end
+
+  after(:all) do
+    # restore old ARGV
+    replace_argv(@old_argv)
+    @error = nil
+    @output = nil
+  end
+
+  before(:each) do
+    @error = []
+    @output = []
+    flexmock(subject).should_receive(:write_error).and_return { |message| @error << message; true }
+    flexmock(subject).should_receive(:write_output).and_return { |message| @output << message; true }
+  end
+
+  context 'rs_tag --version' do
+    it 'should report RightLink version from gemspec' do
+      run_tagger('--version')
+      @error.should == []
+      @output.join("\n").should match /^rs_tag \d+\.\d+\.?\d* - RightLink's tagger \(c\) 2009-\d+ RightScale$/
     end
   end
-end
+
+  context 'rs_tag --list' do
+    it 'should list known tags on the instance' do
+      listing = ::RightScale::TaggerSpec::DEFAULT_QUERY_RESULT[ ::RightScale::TaggerSpec::RS_INSTANCE_ID_1 ]["tags"]
+      flexmock(subject).should_receive(:send_command).with(
+        { :name => :get_tags },
+        false,
+        nil,
+        Proc).once.and_yield(listing)
+      flexmock(subject).should_receive(:serialize_operation_result).never
+      run_tagger(['-l'])
+      @error.should == []
+      @output.should == [JSON.pretty_generate(listing)]
+    end
+  end
+
+  context 'rs_tag --query' do
+
+    # Runs a successful tagger query and verifies output.
+    #
+    # === Parameters
+    # @param [String] tag_list
+    # @param [Array, String] expected_tags for command client payload
+    # @param [String] format (as json|yaml|text) for query result or nil
+    # @param [String] expected_formatter for query result
+    # @param [Hash] query_result or default
+    def run_successful_query( tag_list,
+                              expected_tags,
+                              format=nil,
+                              expected_formatter=JSON.method(:pretty_generate),
+                              query_result=::RightScale::TaggerSpec::DEFAULT_QUERY_RESULT)
+      expected_cmd = { :name => :query_tags, :tags => Array(expected_tags) }
+      flexmock(subject).
+        should_receive(:send_command).
+        with(expected_cmd, false, nil, Proc).
+        once.
+        and_yield('stuff')
+      flexmock(subject).
+        should_receive(:serialize_operation_result).
+        with('stuff').
+        once.
+        and_return(::RightScale::OperationResult.success(query_result))
+      argv = ['-q', tag_list]
+      argv << '-f' << format if format
+      run_tagger(argv)
+      @error.should == []
+      @output.should == [expected_formatter.call(query_result)]
+    end
+
+    # Formatter for query format=text
+    def text_formatter(query_result)
+      query_result.keys.join(" ")
+    end
+
+    it 'should query instances with given tag in default JSON format' do
+      run_successful_query('foo:bar', 'foo:bar')
+    end
+
+    it 'should query instances with given tag in requested JSON format' do
+      run_successful_query('foo:bar', 'foo:bar', 'json')
+    end
+
+    it 'should query instances with given tag in requested TEXT format' do
+      run_successful_query('foo:bar', 'foo:bar', 'text', method(:text_formatter))
+    end
+
+    it 'should query instances with given tag in requested YAML format' do
+      run_successful_query('foo:bar', 'foo:bar', 'yaml', YAML.method(:dump))
+    end
+
+    it 'should fail to query instances with invalid format' do
+      run_tagger(['-q', 'foo:bar', '-f', 'bogus']).should == 1
+      @error.should == ["Unknown output format bogus\nUse rs_tag --help for additional information"]
+      @output.should == []
+    end
+
+    it 'should query instances with multiple tags delimited by spaces' do
+      run_successful_query('foo:bar bar:foo', ['foo:bar', 'bar:foo'])
+    end
+
+    it 'should query instances with a single tag whose value contains spaces' do
+      run_successful_query('foo:bar=baz zab', 'foo:bar=baz zab')
+    end
+
+    it 'should query instances with a single tag containing ambiguous spaces and equals' do
+      query_result = {
+        ::RightScale::TaggerSpec::RS_INSTANCE_ID_2 =>
+          ::RightScale::TaggerSpec::DEFAULT_QUERY_RESULT[ ::RightScale::TaggerSpec::RS_INSTANCE_ID_2 ]
+      }
+      run_successful_query('x:y=a b c:d=x y',
+                           'x:y=a b c:d=x y',
+                           'yaml',
+                           YAML.method(:dump),
+                           query_result)
+    end
+  end # rs_tag --query
+
+  context 'rs_tag --add' do
+    it 'should add or update a tag on the instance' do
+      expected_cmd = { :name => :add_tag, :tag => 'x:y=z' }
+      flexmock(subject).
+        should_receive(:send_command).
+        with(expected_cmd, false, nil, Proc).
+        once.
+        and_yield('stuff')
+      flexmock(subject).should_receive(:serialize_operation_result).with('stuff').once.and_return(::RightScale::OperationResult.success(true))
+      run_tagger(['-a', 'x:y=z'])
+      @error.should == ["Successfully added tag x:y=z"]
+      @output.should == []
+    end
+  end # rs_tag --add
+
+  context 'rs_tag --remove' do
+    it 'should remove a tag from the instance' do
+      expected_cmd = { :name => :remove_tag, :tag => 'x:y' }
+      flexmock(subject).
+        should_receive(:send_command).
+        with(expected_cmd, false, nil, Proc).
+        once.
+        and_yield('stuff')
+      flexmock(subject).
+        should_receive(:serialize_operation_result).
+        with('stuff').
+        once.
+        and_return(::RightScale::OperationResult.success(true))
+      run_tagger(['-r', 'x:y'])
+      @error.should == ["Successfully removed tag x:y"]
+      @output.should == []
+    end
+  end # rs_tag --remove
+end # RightScale::Tagger
