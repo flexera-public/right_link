@@ -16,7 +16,8 @@ require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'scripts'
 module RightScale::TaggerSpec
   RS_INSTANCE_ID_1 = "rs-instance-abcd-123"
   RS_INSTANCE_ID_2 = "rs-instance-efgh-456"
-  QUERY_RESULT = {
+
+  DEFAULT_QUERY_RESULT = {
     RS_INSTANCE_ID_1 => {
       "tags" => ["foo:bar=baz zab", "rs_login:state=restricted"]
     },
@@ -32,11 +33,23 @@ end
 
 describe RightScale::Tagger do
 
+  # Substitutes the ARGV values so that command-line parsers can consume a set
+  # of test arguments.
+  #
+  # === Parameters
+  # @param [Array, String] new_argv to assign to ARGV
   def replace_argv(new_argv)
     ::Object.send(:remove_const, :ARGV)  # suppress const redefinition warning
     ::Object.send(:const_set, :ARGV, Array(new_argv))
   end
 
+  # Runs the tagger and rescues expected exit calls.
+  #
+  # === Parameters
+  # @param [Array, String] argv for command-line parser to consume
+  #
+  # === Return
+  # @return [Fixnum] exit code or zero
   def run_tagger(argv)
     replace_argv(argv)
     subject.run(subject.parse_args)
@@ -46,11 +59,16 @@ describe RightScale::Tagger do
   end
 
   before(:all) do
+    # preserve old ARGV for posterity (although it's unlikely that anything
+    # would consume it after startup).
     @old_argv = ARGV
   end
 
   after(:all) do
+    # restore old ARGV
     replace_argv(@old_argv)
+    @error = nil
+    @output = nil
   end
 
   before(:each) do
@@ -58,11 +76,6 @@ describe RightScale::Tagger do
     @output = []
     flexmock(subject).should_receive(:write_error).and_return { |message| @error << message; true }
     flexmock(subject).should_receive(:write_output).and_return { |message| @output << message; true }
-  end
-
-  after(:each) do
-    @error = nil
-    @output = nil
   end
 
   context 'rs_tag --version' do
@@ -75,11 +88,11 @@ describe RightScale::Tagger do
 
   context 'rs_tag --list' do
     it 'should list known tags on the instance' do
-      listing = ::RightScale::TaggerSpec::QUERY_RESULT[ ::RightScale::TaggerSpec::RS_INSTANCE_ID_1 ]["tags"]
+      listing = ::RightScale::TaggerSpec::DEFAULT_QUERY_RESULT[ ::RightScale::TaggerSpec::RS_INSTANCE_ID_1 ]["tags"]
       flexmock(subject).should_receive(:send_command).with(
         { :name => :get_tags },
         false,
-        ::RightScale::Tagger::TAG_REQUEST_TIMEOUT,
+        nil,
         Proc).once.and_yield(listing)
       flexmock(subject).should_receive(:serialize_operation_result).never
       run_tagger(['-l'])
@@ -89,118 +102,117 @@ describe RightScale::Tagger do
   end
 
   context 'rs_tag --query' do
-    it 'should query instances with given tag in default JSON format' do
-      flexmock(subject).should_receive(:send_command).with(
-        { :name => :query_tags, :tags => ['foo:bar'] },
-        false,
-        ::RightScale::Tagger::TAG_REQUEST_TIMEOUT,
-        Proc).once.and_yield('stuff')
-      flexmock(subject).should_receive(:serialize_operation_result).with('stuff').once.and_return(::RightScale::OperationResult.success(::RightScale::TaggerSpec::QUERY_RESULT))
-      run_tagger(['-q', 'foo:bar'])
+
+    # Runs a successful tagger query and verifies output.
+    #
+    # === Parameters
+    # @param [String] tag_list
+    # @param [Array, String] expected_tags for command client payload
+    # @param [String] format (as json|yaml|text) for query result or nil
+    # @param [String] expected_formatter for query result
+    # @param [Hash] query_result or default
+    def run_successful_query( tag_list,
+                              expected_tags,
+                              format=nil,
+                              expected_formatter=JSON.method(:pretty_generate),
+                              query_result=::RightScale::TaggerSpec::DEFAULT_QUERY_RESULT)
+      expected_cmd = { :name => :query_tags, :tags => Array(expected_tags) }
+      flexmock(subject).
+        should_receive(:send_command).
+        with(expected_cmd, false, nil, Proc).
+        once.
+        and_yield('stuff')
+      flexmock(subject).
+        should_receive(:serialize_operation_result).
+        with('stuff').
+        once.
+        and_return(::RightScale::OperationResult.success(query_result))
+      argv = ['-q', tag_list]
+      argv << '-f' << format if format
+      run_tagger(argv)
       @error.should == []
-      @output.should == [JSON.pretty_generate(::RightScale::TaggerSpec::QUERY_RESULT)]
+      @output.should == [expected_formatter.call(query_result)]
+    end
+
+    # Formatter for query format=text
+    def text_formatter(query_result)
+      query_result.keys.join(" ")
+    end
+
+    it 'should query instances with given tag in default JSON format' do
+      run_successful_query('foo:bar', 'foo:bar')
     end
 
     it 'should query instances with given tag in requested JSON format' do
-      flexmock(subject).should_receive(:send_command).with(
-        { :name => :query_tags, :tags => ['foo:bar'] },
-        false,
-        ::RightScale::Tagger::TAG_REQUEST_TIMEOUT,
-        Proc).once.and_yield('stuff')
-      flexmock(subject).should_receive(:serialize_operation_result).with('stuff').once.and_return(::RightScale::OperationResult.success(::RightScale::TaggerSpec::QUERY_RESULT))
-      run_tagger(['-q', 'foo:bar', '-f', 'json'])
-      @error.should == []
-      @output.should == [JSON.pretty_generate(::RightScale::TaggerSpec::QUERY_RESULT)]
+      run_successful_query('foo:bar', 'foo:bar', 'json')
     end
 
     it 'should query instances with given tag in requested TEXT format' do
-      flexmock(subject).should_receive(:send_command).with(
-        { :name => :query_tags, :tags => ['foo:bar'] },
-        false,
-        ::RightScale::Tagger::TAG_REQUEST_TIMEOUT,
-        Proc).once.and_yield('stuff')
-      flexmock(subject).should_receive(:serialize_operation_result).with('stuff').once.and_return(::RightScale::OperationResult.success(::RightScale::TaggerSpec::QUERY_RESULT))
-      run_tagger(['-q', 'foo:bar', '-f', 'text'])
-      @error.should == []
-      @output.should == [::RightScale::TaggerSpec::QUERY_RESULT.keys.join(" ")]
+      run_successful_query('foo:bar', 'foo:bar', 'text', method(:text_formatter))
     end
 
     it 'should query instances with given tag in requested YAML format' do
-      flexmock(subject).should_receive(:send_command).with(
-        { :name => :query_tags, :tags => ['foo:bar'] },
-        false,
-        ::RightScale::Tagger::TAG_REQUEST_TIMEOUT,
-        Proc).once.and_yield('stuff')
-      flexmock(subject).should_receive(:serialize_operation_result).with('stuff').once.and_return(::RightScale::OperationResult.success(::RightScale::TaggerSpec::QUERY_RESULT))
-      run_tagger(['-q', 'foo:bar', '-f', 'yaml'])
-      @error.should == []
-      @output.should == [YAML.dump(::RightScale::TaggerSpec::QUERY_RESULT)]
+      run_successful_query('foo:bar', 'foo:bar', 'yaml', YAML.method(:dump))
+    end
+
+    it 'should fail to query instances with invalid format' do
+      run_tagger(['-q', 'foo:bar', '-f', 'bogus']).should == 1
+      @error.should == ["Unknown output format bogus\nUse rs_tag --help for additional information"]
+      @output.should == []
     end
 
     it 'should query instances with multiple tags delimited by spaces' do
-      flexmock(subject).should_receive(:send_command).with(
-        { :name => :query_tags, :tags => ['foo:bar', 'bar:foo'] },
-        false,
-        ::RightScale::Tagger::TAG_REQUEST_TIMEOUT,
-        Proc).once.and_yield('stuff')
-      flexmock(subject).should_receive(:serialize_operation_result).with('stuff').once.and_return(::RightScale::OperationResult.success(::RightScale::TaggerSpec::QUERY_RESULT))
-      run_tagger(['-q', 'foo:bar bar:foo'])
-      @error.should == []
-      @output.should == [JSON.pretty_generate(::RightScale::TaggerSpec::QUERY_RESULT)]
+      run_successful_query('foo:bar bar:foo', ['foo:bar', 'bar:foo'])
     end
 
     it 'should query instances with a single tag whose value contains spaces' do
-      flexmock(subject).should_receive(:send_command).with(
-        { :name => :query_tags, :tags => ['foo:bar=baz zab'] },
-        false,
-        ::RightScale::Tagger::TAG_REQUEST_TIMEOUT,
-        Proc).once.and_yield('stuff')
-      flexmock(subject).should_receive(:serialize_operation_result).with('stuff').once.and_return(::RightScale::OperationResult.success(::RightScale::TaggerSpec::QUERY_RESULT))
-      run_tagger(['-q', 'foo:bar=baz zab'])
-      @error.should == []
-      @output.should == [JSON.pretty_generate(::RightScale::TaggerSpec::QUERY_RESULT)]
+      run_successful_query('foo:bar=baz zab', 'foo:bar=baz zab')
     end
 
     it 'should query instances with a single tag containing ambiguous spaces and equals' do
-      flexmock(subject).should_receive(:send_command).with(
-        { :name => :query_tags, :tags => ['x:y=a b c:d=x y'] },
-        false,
-        ::RightScale::Tagger::TAG_REQUEST_TIMEOUT,
-        Proc).once.and_yield('stuff')
-      query_result = { ::RightScale::TaggerSpec::RS_INSTANCE_ID_2 => ::RightScale::TaggerSpec::QUERY_RESULT[::RightScale::TaggerSpec::RS_INSTANCE_ID_2] }
-      flexmock(subject).should_receive(:serialize_operation_result).with('stuff').once.and_return(::RightScale::OperationResult.success(query_result))
-      run_tagger(['-q', 'x:y=a b c:d=x y'])
-      @error.should == []
-      @output.should == [JSON.pretty_generate(query_result)]
+      query_result = {
+        ::RightScale::TaggerSpec::RS_INSTANCE_ID_2 =>
+          ::RightScale::TaggerSpec::DEFAULT_QUERY_RESULT[ ::RightScale::TaggerSpec::RS_INSTANCE_ID_2 ]
+      }
+      run_successful_query('x:y=a b c:d=x y',
+                           'x:y=a b c:d=x y',
+                           'yaml',
+                           YAML.method(:dump),
+                           query_result)
     end
-  end
+  end # rs_tag --query
 
   context 'rs_tag --add' do
     it 'should add or update a tag on the instance' do
-      flexmock(subject).should_receive(:send_command).with(
-        { :name => :add_tag, :tag => 'x:y=z' },
-        false,
-        ::RightScale::Tagger::TAG_REQUEST_TIMEOUT,
-        Proc).once.and_yield('stuff')
+      expected_cmd = { :name => :add_tag, :tag => 'x:y=z' }
+      flexmock(subject).
+        should_receive(:send_command).
+        with(expected_cmd, false, nil, Proc).
+        once.
+        and_yield('stuff')
       flexmock(subject).should_receive(:serialize_operation_result).with('stuff').once.and_return(::RightScale::OperationResult.success(true))
       run_tagger(['-a', 'x:y=z'])
       @error.should == ["Successfully added tag x:y=z"]
       @output.should == []
     end
-  end
+  end # rs_tag --add
 
   context 'rs_tag --remove' do
     it 'should remove a tag from the instance' do
-      flexmock(subject).should_receive(:send_command).with(
-        { :name => :remove_tag, :tag => 'x:y' },
-        false,
-        ::RightScale::Tagger::TAG_REQUEST_TIMEOUT,
-        Proc).once.and_yield('stuff')
-      flexmock(subject).should_receive(:serialize_operation_result).with('stuff').once.and_return(::RightScale::OperationResult.success(true))
+      expected_cmd = { :name => :remove_tag, :tag => 'x:y' }
+      flexmock(subject).
+        should_receive(:send_command).
+        with(expected_cmd, false, nil, Proc).
+        once.
+        and_yield('stuff')
+      flexmock(subject).
+        should_receive(:serialize_operation_result).
+        with('stuff').
+        once.
+        and_return(::RightScale::OperationResult.success(true))
       run_tagger(['-r', 'x:y'])
       @error.should == ["Successfully removed tag x:y"]
       @output.should == []
     end
-  end
-
-end
+  end # rs_tag --remove
+end # RightScale::Tagger

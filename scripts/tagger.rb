@@ -84,7 +84,7 @@ module RightScale
       cmd[:query] = options[:query] if options[:query]
      begin
         @disposition = nil
-        send_command(cmd, options[:verbose], options[:timeout] || TAG_REQUEST_TIMEOUT) do |res|
+        send_command(cmd, options[:verbose], options[:timeout]) do |res|
           begin
             case options[:action]
             when :get_tags
@@ -166,7 +166,7 @@ module RightScale
     # === Return
     # options(Hash):: Hash of options as defined by the command line
     def parse_args
-      options = { :verbose => false }
+      options = { :verbose => false, :format => :json }
 
       opts = OptionParser.new do |opts|
 
@@ -198,7 +198,16 @@ module RightScale
         end
 
         opts.on('-f', '--format FMT') do |fmt|
-          options[:format] = fmt
+          options[:format] = case fmt
+          when /^jso?n?$/, nil
+            :json
+          when /^ya?ml$/
+            :yaml
+          when /^te?xt$/, /^sh(ell)?/, 'list'
+            :text
+          else
+            raise ArgumentError, "Unknown output format #{fmt}"
+          end
         end
 
         opts.on('-t', '--timeout TIMEOUT') do |tmt|
@@ -228,22 +237,39 @@ module RightScale
     end
 
 protected
+    # Writes to STDOUT (and a placeholder for spec mocking).
+    #
+    # === Parameters
+    # @param [String] message to write
     def write_output(message)
       STDOUT.puts(message)
     end
 
+    # Writes to STDERR (and a placeholder for spec mocking).
+    #
+    # === Parameters
+    # @param [String] message to write
     def write_error(message)
       STDERR.puts(message)
     end
 
-    def send_command(cmd, verbose, timeout)
+    # Creates a command client and sends the given payload.
+    #
+    # === Parameters
+    # @param [Hash] cmd as a payload hash
+    # @param [TrueClass, FalseClass] verbose flag
+    # @param [TrueClass, FalseClass] timeout or nil
+    #
+    # === Block
+    # @yield [response] callback for response
+    # @yieldparam response [Object] response of any type
+    def send_command(cmd, verbose, timeout, &callback)
       config_options = ::RightScale::AgentConfig.agent_options('instance')
       listen_port = config_options[:listen_port]
       raise ::ArgumentError.new('Could not retrieve agent listen port') unless listen_port
       client = ::RightScale::CommandClient.new(listen_port, config_options[:cookie])
-      client.send_command(cmd, options[:verbose], options[:timeout] || TAG_REQUEST_TIMEOUT) do |res|
-        yield res
-      end
+      timeout ||= TAG_REQUEST_TIMEOUT
+      client.send_command(cmd, verbose, timeout, &callback)
       true
     end
 
@@ -282,15 +308,15 @@ protected
     # a String containing the specified output format
     def format_output(result, format)
       case format
-        when /^jso?n?$/, nil
-          JSON.pretty_generate(result)
-        when /^ya?ml$/
-          YAML.dump(result)
-        when /^te?xt$/, /^sh(ell)?/, 'list'
-          result = result.keys if result.respond_to?(:keys)
-          result.join(" ")
-        else
-          raise ArgumentError, "Unknown output format #{format}"
+      when :json
+        JSON.pretty_generate(result)
+      when :yaml
+        YAML.dump(result)
+      when :text
+        result = result.keys if result.respond_to?(:keys)
+        result.join(" ")
+      else
+        raise ArgumentError, "Unknown output format #{format}"
       end
     end
 
