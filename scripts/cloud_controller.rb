@@ -30,7 +30,7 @@
 require 'rubygems'
 require 'json'
 require 'logger'
-require 'optparse'
+require 'trollop'
 require 'fileutils'
 require 'right_agent'
 require 'right_agent/scripts/usage'
@@ -113,43 +113,27 @@ module RightScale
 
     # Parse arguments
     def parse_args
-      options = {:name => CloudFactory::UNKNOWN_CLOUD_NAME}
-      opts = OptionParser.new do |opts|
-
-        opts.on("-a", "--action ACTION") do |action|
-          options[:action] = action
-        end
-
-        opts.on("-n", "--name NAME") do |name|
-          options[:name] = name
-        end
-
-        opts.on("-o", "--only-if") do
-          options[:only_if] = true
-        end
-
-        opts.on("-p", "--parameters PARAMETERS") do |parameters|
-          if parameters.start_with?('[')
-            parameters = JSON.parse(parameters)
-          else
-            parameters = [parameters]
-          end
-          options[:parameters] = parameters
-        end
-
-        opts.on("-q", "--quiet") do
-          options[:quiet] = true
-        end
-
-        opts.on("--help") do
-          puts Usage.scan(__FILE__)
-          exit 0
-        end
-
+      parser = Trollop::Parser.new do
+        opt :name, "", :default => CloudFactory::UNKNOWN_CLOUD_NAME.to_s
+        opt :action, "",  :type => :string
+        opt :only_if
+        opt :parameters, "",:type => :string
+        opt :quiet
       end
-
-      opts.parse(ARGV)
-      options
+      begin
+        options = parser.parse
+        if options[:parameters_given]
+          if options[:parameters].start_with?("[")
+            options[:parameters] = JSON.parse(options[:parameters])
+          else
+            options[:parameters] = [options[:parameters]]
+          end
+        end
+        options
+      rescue Trollop::HelpNeeded
+        puts Usage.scan(__FILE__)
+        exit 0
+      end
     end
 
     # Default logger for printing to console
