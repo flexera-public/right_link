@@ -29,7 +29,7 @@
 #
 
 require 'rubygems'
-require 'optparse'
+require 'trollop'
 require 'right_agent'
 require 'right_agent/scripts/usage'
 require 'right_agent/scripts/common_parser'
@@ -82,41 +82,30 @@ module RightScale
     # options(Hash):: Hash of options as defined by the command line
     def parse_args
       options = { :verbose => false, :status => false, :immediately => false }
-
-      opts = OptionParser.new do |opts|
-        opts.on('-r', '--reboot') do
-          options[:level] = ::RightScale::ShutdownRequest::REBOOT
-        end
-        opts.on('-s', '--stop') do
-          options[:level] = ::RightScale::ShutdownRequest::STOP
-        end
-        opts.on('-t', '--terminate') do
-          options[:level] = ::RightScale::ShutdownRequest::TERMINATE
-        end
-        opts.on('-i', '--immediately') do
-          options[:immediately] = true
-        end
-        opts.on('-d', '--deferred') do
-          options[:immediately] = false
-        end
-        opts.on('-v', '--verbose') do
-          options[:verbose] = true
-        end
-      end
-      
-      opts.on_tail('--version') do
-        puts version
-        succeed
-      end
-
-      opts.on_tail('--help') do
-        puts Usage.scan(__FILE__)
-        exit
+      parser = Trollop::Parser.new do
+        opt :reboot
+        opt :stop
+        opt :terminate
+        opt :immediately
+        opt :deferred
+        opt :verbose
+        version ""
+        conflicts :deferred, :immediately
       end
 
       begin
-        opts.parse!(ARGV)
+        options.merge!(parser.parse)
+        options[:level] = ::RightScale::ShutdownRequest::REBOOT if options[:reboot]
+        options[:level] = ::RightScale::ShutdownRequest::STOP if options[:stop]
+        options[:level] = ::RightScale::ShutdownRequest::TERMINATE if options[:terminate]
+        options[:immediately] = false if options[:deferred]
         raise ArgumentError, "Missing required shutdown argument" unless options[:level]
+      rescue Trollop::VersionNeeded
+        puts version
+        succeed
+      rescue Trollop::HelpNeeded
+        puts Usage.scan(__FILE__)
+        exit
       rescue SystemExit => e
         raise e
       rescue Exception => e
