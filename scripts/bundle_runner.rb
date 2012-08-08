@@ -172,13 +172,13 @@ module RightScale
       parser = Trollop::Parser.new do
         opt :id, "", :type => String, :long => "--identity", :short => "-i"
         opt :name, "", :type => String
-        opt :parameter, "", :type => :strings, :multi => true
+        opt :parameter, "", :type => :string, :multi => true, :short => "-p"
         opt :thread, "", :type => String
         opt :json_file, "", :type => String, :short => "-j", :long => "--json"
         opt :tags, "", :type => String, :short => "-r", :long => "--recipient_tags"
         opt :scope, "", :type => String
         opt :cfg_dir, "", :type => String
-        opt :policy, "", :type => String
+        opt :policy, "", :type => String, :short => "-P"
         opt :audit_period, "", :type => :int, :long => "--audit_period"
         opt :verbose
         version ""
@@ -189,11 +189,12 @@ module RightScale
         options.delete(:name) if options[:id]
         if options[:parameter]
           options.delete(:parameter).each do |p|
-          name, value = p.split('=')
-          if name && value && value.include?(':')
-            options[:parameters][name] = value
-          else
-            fail("Invalid parameter definition '#{p}', should be of the form 'name=type:value'")
+            name, value = p.split('=')
+            if name && value && value.include?(':')
+              options[:parameters][name] = value
+            else
+              fail("Invalid parameter definition '#{p}', should be of the form 'name=type:value'")
+            end
           end
         end
 
