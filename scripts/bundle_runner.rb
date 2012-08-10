@@ -185,7 +185,7 @@ module RightScale
       end
 
       begin 
-        options.merge!(parser.parse)
+        options.merge!(parser.parse(arguments))
         options.delete(:name) if options[:id]
         if options[:parameter]
           options.delete(:parameter).each do |p|
