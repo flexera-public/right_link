@@ -13,6 +13,7 @@ gem "right_amqp" ,             :git => 'git://github.com/rightscale/right_amqp.g
 gem "right_popen",             "~> 1.0"
 gem "right_http_connection",   "~> 1.3"
 gem "right_scraper",           "3.0.1"
+gem "trollop"
 
 # We have custom builds of some gems containing fixes and patches that are specific
 # to RightScale. Gems in the "custom" group are published by RightScale to our

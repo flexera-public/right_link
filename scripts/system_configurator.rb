@@ -16,7 +16,7 @@
 #      --help:            Display help
 #
 
-require 'optparse'
+require 'trollop'
 require 'socket'
 
 require 'right_agent'
@@ -101,28 +101,21 @@ module RightScale
     # === Return
     # options(Hash):: Hash of options as defined by the command line
     def parse_args
-      options = { }
-
-      opts = OptionParser.new do |opts|
-        opts.on('-a', '--action ACTION') do |action|
-          options[:action] = action
-        end
-
-        opts.on_tail('--help') do
-           puts Usage.scan(__FILE__)
-           exit
-        end
+      parser = Trollop::Parser.new do
+        opt :action, "", :type => :string
       end
 
       begin
-        opts.parse!(ARGV)
-      rescue SystemExit => e
-        raise e
-      rescue Exception => e
+        parser.parse
+      rescue Trollop::HelpNeeded
+       puts Usage.scan(__FILE__)
+       exit
+      rescue Trollop::CommandlineError => e
         puts e.message + "\nUse --help for additional information"
         exit(1)
+      rescue SystemExit => e
+        raise e
       end
-      options
     end
 
     def configure_ssh

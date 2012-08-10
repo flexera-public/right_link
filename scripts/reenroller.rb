@@ -16,7 +16,7 @@
 #
 
 require 'rubygems'
-require 'optparse'
+require 'trollop'
 require 'fileutils'
 require 'right_agent'
 require 'right_agent/scripts/usage'
@@ -99,39 +99,24 @@ module RightScale
     # === Return
     # options(Hash):: Hash of options as defined by the command line
     def parse_args
-      options = { :verbose => false }
-
-      opts = OptionParser.new do |opts|
-
-       opts.on('-r', '--resume') do
-          options[:resume] = true
-        end
-
-       opts.on('-v', '--verbose') do
-          options[:verbose] = true
-        end
-
-      end
-
-      opts.on_tail('--version') do
-        puts version
-        succeed
-      end
-
-      opts.on_tail('--help') do
-         puts Usage.scan(__FILE__)
-         exit
+      parser = Trollop::Parser.new do
+        opt :resume
+        opt :verbose
+        version ""
       end
 
       begin
-        opts.parse!(ARGV)
-      rescue SystemExit => e
-        raise e
-      rescue Exception => e
+        parser.parse
+      rescue Trollop::HelpNeeded
+        puts Usage.scan(__FILE__)
+        exit
+      rescue Trollop::VersionNeeded
+        puts version
+        succed
+      rescue Trollop::CommandlineError => e
         puts e.message + "\nUse --help for additional information"
         exit(1)
       end
-      options
     end
 
     protected
