@@ -63,7 +63,7 @@
 #    Note: Partially specified option names are accepted if not ambiguous.
 
 require 'rubygems'
-require 'optparse'
+require 'trollop'
 require 'right_agent'
 require 'right_agent/scripts/usage'
 require 'right_agent/scripts/common_parser'
@@ -169,88 +169,66 @@ module RightScale
     def parse_args(arguments=ARGV)
       options = { :attributes => {}, :parameters => {}, :scope => :all, :verbose => false }
 
-      opts = OptionParser.new do |opts|
+      parser = Trollop::Parser.new do
+        opt :id, "", :type => String, :long => "--identity", :short => "-i"
+        opt :name, "", :type => String
+        opt :parameter, "", :type => :string, :multi => true, :short => "-p"
+        opt :thread, "", :type => String
+        opt :json_file, "", :type => String, :short => "-j", :long => "--json"
+        opt :tags, "", :type => String, :short => "-r", :long => "--recipient_tags"
+        opt :scope, "", :type => String
+        opt :cfg_dir, "", :type => String
+        opt :policy, "", :type => String, :short => "-P"
+        opt :audit_period, "", :type => :int, :long => "--audit_period"
+        opt :verbose
+        version ""
+      end
 
-        opts.on('-i', '--identity ID') do |id|
-          options[:id] = id
-        end
-
-        opts.on('-n', '--name NAME') do |n|
-          options[:name] = n unless options[:id]
-        end
-
-        opts.on('-p', '--parameter PARAM_DEF') do |p|
-          name, value = p.split('=')
-          if name && value && value.include?(':')
-            options[:parameters][name] = value
-          else
-            fail("Invalid parameter definition '#{p}', should be of the form 'name=type:value'")
+      begin 
+        options.merge!(parser.parse(arguments))
+        options.delete(:name) if options[:id]
+        if options[:parameter]
+          options.delete(:parameter).each do |p|
+            name, value = p.split('=')
+            if name && value && value.include?(':')
+              options[:parameters][name] = value
+            else
+              fail("Invalid parameter definition '#{p}', should be of the form 'name=type:value'")
+            end
           end
         end
 
-        opts.on('t', '--thread THREAD') do |p|
-          options[:thread] = p
-        end
-
-        opts.on('-j', '--json JSON_FILE') do |f|
-          fail("Invalid JSON filename '#{f}'") unless File.file?(f)
-          options[:json_file] = f
+        if options[:json_file]
+          fail("Invalid JSON filename '#{options[:json_file]}'") unless File.file?(options[:json_file])
           begin
-            options[:json] = IO.read(f)
+            options[:json] = IO.read(options[:json_file])
           rescue Exception => e
             fail("Invalid JSON content: #{e}")
           end
         end
 
-        opts.on('-r', '--recipient_tags TAG_LIST') do |t|
-          options[:tags] = t.split
-        end
+        options[:tags] = options[:tags].split if options[:tags]
 
-        opts.on('-s', '--scope SCOPE') do |s|
-          if s == 'single'
+        if options[:scope]
+          if options[:scope] == 'single'
             options[:scope] = :any
-          elsif s == 'all'
+          elsif options[:scope] == 'all'
             options[:scope] = :all
           else
-            fail("Invalid scope definition '#{s}', should be either 'single' or 'all'")
+            fail("Invalid scope definition '#{options[:scope]}', should be either 'single' or 'all'")
           end
         end
-
-        opts.on("-c", "--cfg-dir DIR") do |d|
-          options[:cfg_dir] = d
-        end
-
-        opts.on("-P", "--policy POLICY") do |p|
-          options[:policy] = p
-        end
-
-        opts.on("-a", "--audit_period PERIOD_IN_SECONDS") do |a|
-          options[:audit_period] = a
-        end
-
-        opts.on('-v', '--verbose') do
-          options[:verbose] = true
-        end
-        
-        opts.on_tail('--version') do
-          puts version
-          succeed
-        end
-
-        opts.on_tail('--help') do
-          puts Usage.scan(__FILE__)
-          exit
-        end
-
-      end
-
-      begin
-        opts.parse!(arguments)
+        options
+      rescue Trollop::HelpNeeded
+        puts Usage.scan(__FILE__)
+        exit
+      rescue Trollop::VersionNeeded
+        puts version
+        succeed
       rescue Exception => e
         puts e.message + "\nUse --help for additional information"
         exit(1)
       end
-      options
     end
 
 protected

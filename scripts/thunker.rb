@@ -24,7 +24,7 @@
 #     rs_thunk -i 12345 -u alice -e alice@example.com
 #
 require 'rubygems'
-require 'optparse'
+require 'trollop'
 require 'shellwords'
 require 'right_agent'
 require 'right_agent/scripts/usage'
@@ -124,52 +124,30 @@ module RightScale
     # === Return
     # options(Hash):: Hash of options as defined by the command line
     def parse_args
-      options = {}
-      opts = OptionParser.new do |opts|
-        opts.on('-u', '--username USERNAME') do |username|
-          options[:username] = username
-        end
-
-        opts.on('-e', '--email EMAIL') do |email|
-          options[:email] = email
-        end
-        
-        opts.on('-i', '--uuid UUID') do |uuid|
-          options[:uuid] = uuid
-        end
-        
-        opts.on('-s', '--superuser') do
-          options[:superuser] = true
-        end
-
-        opts.on('-p', '--profile DATA') do |data|
-          options[:profile] = data
-        end
-
-        opts.on('-f', '--force') do
-          options[:force] = true
-        end
-      end
-      
-      opts.on_tail('--version') do
-        puts version
-        succeed
-      end
-
-      opts.on_tail('--help') do
-         puts Usage.scan(__FILE__)
-         succeed
+      parser = Trollop::Parser.new do
+       opt :username, "", :type => :string
+       opt :email, "", :type => :string
+       opt :uuid, "", :type => :string, :short => "-i"
+       opt :superuser
+       opt :profile, "", :type => :string
+       opt :force
+       version ""
       end
 
       begin
-        opts.parse!(ARGV)
-      rescue SystemExit => e
-        raise e
-      rescue Exception => e
+        parser.parse
+      rescue Trollop::VersionNeeded
+        puts version
+        succeed
+      rescue Trollop::HelpNeeded
+         puts Usage.scan(__FILE__)
+         succeed
+      rescue Trollop::CommandlineError => e
         STDERR.puts e.message + "\nUse rs_thunk --help for additional information"
         fail(1)
+      rescue SystemExit => e
+        raise e
       end
-      options
     end
 
     protected
