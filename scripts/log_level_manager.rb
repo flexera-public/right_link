@@ -25,6 +25,7 @@
 #
 
 require 'right_agent/scripts/log_level_manager'
+require 'trollop'
 
 module RightScale
 
@@ -50,38 +51,30 @@ module RightScale
     def parse_args
       options = { :agent_name => 'instance', :verbose => false }
 
-      opts = OptionParser.new do |opts|
-
-        opts.on('-l', '--log-level LEVEL') do |l|
-          fail("Invalid log level '#{l}'") unless AgentManager::LEVELS.include?(l.to_sym)
-          options[:level] = l
-        end
-
-        opts.on('-v', '--verbose') do
-          options[:verbose] = true
-        end
-
-      end
-
-      opts.on_tail('--version') do
-        puts version
-        succeed
-      end
-      
-      opts.on_tail('--help') do
-         puts Usage.scan(__FILE__)
-         exit
+      parser = Trollop::Parser.new do
+        opt :level, "", :type => String, :long => "--log-level", :short => "-l"
+        opt :verbose
+        version ""
       end
 
       begin
-        opts.parse!(ARGV)
+        options.merge!(parser.parse)
+        if options[:level]
+          fail("Invalig log level '#{options[:level]}'") unless AgentManager::LEVELS.include?(options[:level].to_sym)
+        end
+        options
+      rescue Trollop::HelpNeeded
+        puts Usage.scan(__FILE__)
+        exit
+      rescue Trollop::VersionNeeded
+        puts version
+        succeed
       rescue SystemExit => e
         raise e
       rescue Exception => e
         puts e.message + "\nUse --help for additional information"
         exit(1)
       end
-      options
     end
     
 protected

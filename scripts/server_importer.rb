@@ -22,7 +22,7 @@
 #
 
 require 'rubygems'
-require 'optparse'
+require 'trollop'
 require 'uri'
 require 'logger'
 require 'net/http'
@@ -124,45 +124,28 @@ module RightScale
     # === Return
     # options(Hash):: Hash of options as defined by the command line
     def parse_args
-      options = { :verbose => false, :status => false, :immediately => false }
+      options = { :verbose => false, :status => false, :immediately => false, :action => :attach}
 
-      opts = OptionParser.new do |opts|
-        opts.on('-a', '--attach URL') do |url|
-          options[:action] = :attach
-          options[:url] = url
-        end
-        opts.on('-f', '--force') do
-          options[:force] = true
-        end
-        opts.on('-c', '--cloud NAME') do |cloud_name|
-          options[:cloud_name] = cloud_name.strip
-        end
-      end
-
-      opts.on_tail('--version') do
-        puts version
-        succeed
-      end
-      
-      opts.on_tail('--help') do
-        Usage.scan(__FILE__)
-        exit
+      parser = Trollop::Parser.new do 
+        opt :url, "", :long => "--attach", :short => "-a", :type => String, :required => true
+        opt :force
+        opt :cloud, "", :type => String
+        version ""
       end
 
       begin
-        opts.parse!(ARGV)
-        options[:action] ||= :attach
-
-        if options[:action] == :attach && !options[:url]
-          raise ArgumentError, "Missing required --attach argument"
-        end
-      rescue SystemExit => e
-        raise e
-      rescue Exception => e
+        options.merge(parser.parse)
+        options
+      rescue Trollop::HelpNeeded
+        puts Usage.scan(__FILE__)
+        exit
+      rescue Trollop::CommandlineError => e
         puts e.message + "\nUse --help for additional information"
         exit(1)
+      rescue Trollop::VersionNeeded
+        puts version
+        succeed
       end
-      options
     end
 
 protected
