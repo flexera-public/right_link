@@ -191,7 +191,7 @@ module RightScale
         end
         if options[:query]
           options[:action] = :query_tags
-          options[:tags] = options.delete(:query).split
+          options[:tags] = parse_tag_list(options.delete(:query))
         end
         options[:format] = case options[:format]
                            when /^jso?n?$/, nil
