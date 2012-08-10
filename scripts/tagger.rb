@@ -39,7 +39,7 @@
 #
 
 require 'rubygems'
-require 'optparse'
+require 'trollop'
 require 'right_agent'
 require 'right_agent/scripts/usage'
 require 'right_agent/scripts/common_parser'
@@ -166,74 +166,56 @@ module RightScale
     # === Return
     # options(Hash):: Hash of options as defined by the command line
     def parse_args
-      options = { :verbose => false, :format => :json }
+      parser = Trollop::Parser.new do
+        opt :list
+        opt :add, "", :type => :string
+        opt :remove, "", :type => :string
+        opt :query, "", :type => :string
+        opt :verbose
+        opt :die, "", :short => "-e"
+        opt :format, "", :type => :string, :default => "json"
+        opt :timeout, "", :type => :int
+        version ""
+      end
 
-      opts = OptionParser.new do |opts|
-
-        opts.on('-l', '--list') do
-          options[:action] = :get_tags
-        end
-
-        opts.on('-a', '--add TAG') do |t|
+      begin 
+        options = parser.parse
+        options[:action] = :get_tags if options.delete(:list)
+        if options[:add]
           options[:action] = :add_tag
-          options[:tag] = t
+          options[:tag] = options.delete(:add)
         end
-
-        opts.on('-r', '--remove TAG') do |t|
+        if options[:remove]
           options[:action] = :remove_tag
-          options[:tag] = t
+          options[:tag] = options.delete(:remove)
         end
-
-        opts.on('-q', '--query TAG_LIST') do |tag_list|
+        if options[:query]
           options[:action] = :query_tags
-          options[:tags] = parse_tag_list(tag_list)
+          options[:tags] = options.delete(:query).split
         end
-
-        opts.on('-v', '--verbose') do
-          options[:verbose] = true
-        end
-
-        opts.on('-e', '--die') do
-          options[:die] = true
-        end
-
-        opts.on('-f', '--format FMT') do |fmt|
-          options[:format] = case fmt
-          when /^jso?n?$/, nil
-            :json
-          when /^ya?ml$/
-            :yaml
-          when /^te?xt$/, /^sh(ell)?/, 'list'
-            :text
-          else
-            raise ArgumentError, "Unknown output format #{fmt}"
-          end
-        end
-
-        opts.on('-t', '--timeout TIMEOUT') do |tmt|
-          options[:timeout] = tmt
-        end
-      end
-
-      opts.on_tail('--version') do
-        write_output(version)
+        options[:format] = case options[:format]
+                           when /^jso?n?$/, nil
+                             :json
+                           when /^ya?ml$/
+                             :yaml
+                           when /^te?xt$/, /^sh(ell)?/, 'list'
+                             :text
+                           else
+                             raise ArgumentError, "Unknown output format #{fmt}"
+                           end
+        options
+      rescue Trollop::VersionNeeded
+        puts version
         succeed
-      end
-
-      opts.on_tail('--help') do
-        write_output(Usage.scan(__FILE__))
+      rescue Trollop::HelpNeeded
+         puts Usage.scan(__FILE__)
          succeed
-      end
-
-      begin
-        opts.parse!(ARGV)
+      rescue Trollop::CommandlineError => e
+        STDERR.puts e.message + "\nUse rs_tag --help for additional information"
+        fail(1)
       rescue SystemExit => e
         raise e
-      rescue Exception => e
-        write_error(e.message + "\nUse rs_tag --help for additional information")
-        fail(1)
       end
-      options
     end
 
 protected
