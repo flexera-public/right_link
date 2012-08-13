@@ -204,6 +204,12 @@ module RightScale
       # Chef run mode is always solo for cook
       Chef::Config[:solo] = true
 
+      # Chef tries to "helpfully" ensure that the Ruby interpreter and gem binary used to invoke
+      # Chef are on the path. This contravenes our intended usage of the RightScale sandbox and
+      # interferes with various gem management operations. For now, turn off path sanity and fall
+      # back to our traditional behavior.
+      Chef::Config[:enforce_path_sanity] = false
+
       # determine default cookbooks path.  If debugging cookbooks, place the debug pat(s) first, otherwise
       # clear out the list as it will be filled out with cookbooks needed for this converge as they are downloaded.
       if CookState.use_cookbooks_path?
