@@ -127,7 +127,7 @@ describe RightScale::LoginManager do
 
   before(:each) do
     flexmock(RightScale::Log).should_receive(:debug).by_default
-    @user_mgr = RightScale::LoginUserManager
+    @user_mgr = RightScale::LoginUserManager.instance
     @agent_identity = "rs-instance-1-1"
   end
 

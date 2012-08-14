@@ -191,7 +191,7 @@ module RightScale
         end
         if options[:query]
           options[:action] = :query_tags
-          options[:tags] = options.delete(:query).split
+          options[:tags] = parse_tag_list(options.delete(:query))
         end
         options[:format] = case options[:format]
                            when /^jso?n?$/, nil
@@ -201,17 +201,17 @@ module RightScale
                            when /^te?xt$/, /^sh(ell)?/, 'list'
                              :text
                            else
-                             raise ArgumentError, "Unknown output format #{fmt}"
+                             raise Trollop::CommandlineError, "Unknown output format #{options[:format]}"
                            end
         options
       rescue Trollop::VersionNeeded
-        puts version
+        write_output(version)
         succeed
       rescue Trollop::HelpNeeded
-         puts Usage.scan(__FILE__)
+         write_output(Usage.scan(__FILE__))
          succeed
       rescue Trollop::CommandlineError => e
-        STDERR.puts e.message + "\nUse rs_tag --help for additional information"
+        write_error(e.message + "\nUse rs_tag --help for additional information")
         fail(1)
       rescue SystemExit => e
         raise e
