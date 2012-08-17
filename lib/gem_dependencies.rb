@@ -19,6 +19,11 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+# RVM pollutes the process environment with garbage that prevents us from activating sandboxed
+# RubyGems correctly. Unpollute the environment, so our built-in RubyGems can setup the variables
+# appropriately for our own usage (and for installation of gems into the sandbox!)
+['GEM_HOME', 'GEM_PATH', 'IRBRC', 'MY_RUBY_HOME'].each { |key| ENV.delete(key) }
+
 require 'rubygems'
 
 # N.B. we can't use File#normalize_path yet because gems haven't been activated
