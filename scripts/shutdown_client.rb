@@ -95,6 +95,7 @@ module RightScale
 
       begin
         options.merge!(parser.parse)
+        puts options
         options[:level] = ::RightScale::ShutdownRequest::REBOOT if options[:reboot]
         options[:level] = ::RightScale::ShutdownRequest::STOP if options[:stop]
         options[:level] = ::RightScale::ShutdownRequest::TERMINATE if options[:terminate]
@@ -150,6 +151,10 @@ protected
     def version
       gemspec = eval(File.read(File.join(File.dirname(__FILE__), '..', 'right_link.gemspec')))
       "rs_shutdown #{gemspec.version} - RightLink's shutdown client (c) 2011 RightScale"
+    end
+
+    def succeed
+      exit(0)
     end
 
   end # ShutdownClient
