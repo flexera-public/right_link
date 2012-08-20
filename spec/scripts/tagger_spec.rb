@@ -33,16 +33,6 @@ end
 
 describe RightScale::Tagger do
 
-  # Substitutes the ARGV values so that command-line parsers can consume a set
-  # of test arguments.
-  #
-  # === Parameters
-  # @param [Array, String] new_argv to assign to ARGV
-  def replace_argv(new_argv)
-    ::Object.send(:remove_const, :ARGV)  # suppress const redefinition warning
-    ::Object.send(:const_set, :ARGV, Array(new_argv))
-  end
-
   # Runs the tagger and rescues expected exit calls.
   #
   # === Parameters
@@ -76,6 +66,78 @@ describe RightScale::Tagger do
     @output = []
     flexmock(subject).should_receive(:write_error).and_return { |message| @error << message; true }
     flexmock(subject).should_receive(:write_output).and_return { |message| @output << message; true }
+  end
+
+  context 'list option' do
+    let(:short_name)    {'-l'}
+    let(:long_name)     {'--list'}
+    let(:key)           {:action}
+    let(:value)         {''}
+    let(:expected_value){:get_tags}
+    it_should_behave_like 'command line argument'
+  end
+
+  context 'add option' do
+    let(:short_name)    {'-a'}
+    let(:long_name)     {'--add'}
+    let(:key)           {:action}
+    let(:value)         {'tag'}
+    let(:expected_value){:add_tag}
+    it_should_behave_like 'command line argument'
+  end
+
+  context 'remove option' do
+    let(:short_name)    {'-r'}
+    let(:long_name)     {'--remove'}
+    let(:key)           {:action}
+    let(:value)         {'tag'}
+    let(:expected_value){:remove_tag}
+    it_should_behave_like 'command line argument'
+  end
+
+  context 'query option' do
+    let(:short_name)    {'-q'}
+    let(:long_name)     {'--query'}
+    let(:key)           {:action}
+    let(:value)         {'tag'}
+    let(:expected_value){:query_tags}
+    it_should_behave_like 'command line argument'
+  end
+
+  context 'verbose option' do
+    let(:short_name)    {'-v'}
+    let(:long_name)     {'--verbose'}
+    let(:key)           {:verbose}
+    let(:value)         {''}
+    let(:expected_value){true}
+    it_should_behave_like 'command line argument'
+  end
+
+  context 'die option' do
+    let(:short_name)    {'-e'}
+    let(:long_name)     {'--die'}
+    let(:key)           {:die}
+    let(:value)         {''}
+    let(:expected_value){true}
+    it_should_behave_like 'command line argument'
+  end
+
+  context 'format option' do
+    let(:short_name)    {'-f'}
+    let(:long_name)     {'--format'}
+    let(:key)           {:format}
+    let(:value)         {'yaml'}
+    let(:expected_value){:yaml}
+    it_should_behave_like 'command line argument'
+  end
+
+  context 'timeout option' do
+    let(:short_name)    {'-t'}
+    let(:long_name)     {'--timeout'}
+    let(:key)           {:timeout}
+    let(:value)         {'100'}
+    let(:expected_value){100}
+    it_should_behave_like 'command line argument'
   end
 
   context 'rs_tag --version' do
