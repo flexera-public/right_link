@@ -39,8 +39,8 @@ module RightScale
       m = RightLinkLogLevelManager.new
       m.manage(m.parse_args)
     rescue Errno::EACCES => e
-      STDERR.puts e.message
-      STDERR.puts "Try elevating privilege (sudo/runas) before invoking this command."
+      write_error(e.message)
+      write_error("Try elevating privilege (sudo/runas) before invoking this command.")
       exit(2)
     end
 
@@ -64,20 +64,35 @@ module RightScale
         end
         options
       rescue Trollop::HelpNeeded
-        puts Usage.scan(__FILE__)
+        write_output(Usage.scan(__FILE__))
         exit
       rescue Trollop::VersionNeeded
-        puts version
+        write_output(version)
         succeed
       rescue SystemExit => e
         raise e
       rescue Exception => e
-        puts e.message + "\nUse --help for additional information"
+        write_output(e.message + "\nUse --help for additional information")
         exit(1)
       end
     end
     
 protected
+    # Writes to STDOUT (and a placeholder for spec mocking).
+    #
+    # === Parameters
+    # @param [String] message to write
+    def write_output(message)
+      STDOUT.puts(message)
+    end
+
+    # Writes to STDERR (and a placeholder for spec mocking).
+    #
+    # === Parameters
+    # @param [String] message to write
+    def write_error(message)
+      STDERR.puts(message)
+    end
 
     # Version information
     #
@@ -86,6 +101,10 @@ protected
     def version
       gemspec = eval(File.read(File.join(File.dirname(__FILE__), '..', 'right_link.gemspec')))
       "rs_log_level #{gemspec.version} - RightLink's log level (c) 2011 RightScale"
+    end
+
+    def succeed
+      exit(0)
     end
 
   end
