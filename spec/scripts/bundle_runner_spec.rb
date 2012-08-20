@@ -20,7 +20,7 @@ module RightScale
       flexmock(CommandClient).should_receive(:new).and_return(client)
       cmd = {:options => forwarder_opts }
       cmd[:name] = bundle_type == :right_script ? 'run_right_script' : 'run_recipe'
-      client.should_receive(:send_command).with ( cmd, verbose, timeout, Proc).once
+      client.should_receive(:send_command).with( cmd, verbose, timeout, Proc).once
       run_bundle_runner(args, bundle_type)
     end
 
