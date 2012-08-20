@@ -14,15 +14,78 @@ require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'scripts'
 
 module RightScale
   describe Reenroller do
-    context 'version' do
+    def run_reenroller(argv)
+      replace_argv(argv)
+      subject.run(subject.parse_args)
+      return 0
+    rescue SystemExit => e
+      return e.status
+    end
+
+    before(:all) do
+      # preserve old ARGV for posterity (although it's unlikely that anything
+      # would consume it after startup).
+      @old_argv = ARGV
+    end
+
+    after(:all) do
+      # restore old ARGV
+      replace_argv(@old_argv)
+      @error = nil
+      @output = nil
+    end
+
+    before(:each) do
+      @error = []
+      @output = []
+      flexmock(subject).should_receive(:puts).and_return { |message| @output << message; true }
+      flexmock(subject).should_receive(:print).and_return { |message| @output << message; true }
+    end
+
+    context 'resume option' do
+      let(:short_name)    {'-r'}
+      let(:long_name)     {'--resume'}
+      let(:key)           {:resume}
+      let(:value)         {''}
+      let(:expected_value){true}
+      it_should_behave_like 'command line argument'
+    end
+
+    context 'verbose option' do
+      let(:short_name)    {'-v'}
+      let(:long_name)     {'--verbose'}
+      let(:key)           {:verbose}
+      let(:value)         {''}
+      let(:expected_value){true}
+      it_should_behave_like 'command line argument'
+    end
+
+    context 'rs_reenroll --version' do
       it 'reports RightLink version from gemspec' do
-        class Reenroller
-          def test_version
-            version
-          end
-        end
-        
-        subject.test_version.should match /rs_reenroll \d+\.\d+\.?\d* - RightLink's reenroller \(c\) 2011 RightScale/
+        run_reenroller('--version')
+        @output.join('\n').should match /rs_reenroll \d+\.\d+\.?\d* - RightLink's reenroller \(c\) 2011 RightScale/
+      end
+    end
+
+    context 'rs_reenroll' do
+      it 'should reenroll' do
+        flexmock(subject).should_receive(:system).with('/opt/rightscale/sandbox/bin/monit -c /opt/rightscale/etc/monitrc stop checker').once
+        flexmock(subject).should_receive(:system).with('/opt/rightscale/sandbox/bin/monit -c /opt/rightscale/etc/monitrc stop instance').once
+        flexmock(subject).should_receive(:system).with('/opt/rightscale/sandbox/bin/monit -c /opt/rightscale/etc/monitrc quit').once
+        flexmock(subject).should_receive(:cleanup_certificates).once
+        flexmock(subject).should_receive(:system).with("/etc/init.d/rightlink start > /dev/null").once
+        run_reenroller([])
+      end
+    end
+
+    context 'rs_reenroll --resume' do
+      it 'should resume' do
+        flexmock(subject).should_receive(:system).with('/opt/rightscale/sandbox/bin/monit -c /opt/rightscale/etc/monitrc stop checker').once
+        flexmock(subject).should_receive(:system).with('/opt/rightscale/sandbox/bin/monit -c /opt/rightscale/etc/monitrc stop instance').once
+        flexmock(subject).should_receive(:system).with('/opt/rightscale/sandbox/bin/monit -c /opt/rightscale/etc/monitrc quit').once
+        flexmock(subject).should_receive(:cleanup_certificates).once
+        flexmock(subject).should_receive(:system).with("/etc/init.d/rightlink resume > /dev/null").once
+        run_reenroller('--resume')
       end
     end
   end
