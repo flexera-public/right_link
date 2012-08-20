@@ -56,7 +56,7 @@ module RightScale
         when :attach
           # resolve cloud name.
           cloud_file = RightScale::AgentConfig.cloud_file_path
-          cloud_name = options[:cloud_name]
+          cloud_name = options[:cloud]
           if cloud_name.nil? && File.file?(cloud_file)
             cloud_name = File.read(cloud_file).strip
           end
@@ -135,7 +135,6 @@ module RightScale
 
       begin
         options.merge(parser.parse)
-        options
       rescue Trollop::HelpNeeded
         puts Usage.scan(__FILE__)
         exit
@@ -281,6 +280,10 @@ protected
       end
 
       return uri
+    end
+
+    def succeed
+      exit(0)
     end
   end
 

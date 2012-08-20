@@ -282,17 +282,17 @@ module RightScale
 
   shared_examples_for 'command line argument' do
     it 'short form' do
-      replace_argv([short_name, value])
+      replace_argv([short_name] | Array(value))
       subject.parse_args[key].should == expected_value
     end
     it 'long form' do
-      replace_argv([long_name, value])
+      replace_argv([long_name] | Array(value))
       subject.parse_args[key] == value
     end
     it 'short and long form should match' do
-      replace_argv([short_name, value])
+      replace_argv([short_name] | Array(value))
       opts = subject.parse_args
-      replace_argv([long_name, value])
+      replace_argv([long_name] | Array(value))
       opts[key].should == subject.parse_args[key]
     end
   end
