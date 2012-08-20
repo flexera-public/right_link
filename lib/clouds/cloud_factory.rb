@@ -20,14 +20,13 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require 'singleton'
 
 module RightScale
 
   # Singleton for registering and instantiating clouds.
   class CloudFactory
 
-    include Singleton
+    include RightSupport::Ruby::EasySingleton
 
     # the unknown cloud is used to automatically detect current instance's cloud
     UNKNOWN_CLOUD_NAME = :unknown
