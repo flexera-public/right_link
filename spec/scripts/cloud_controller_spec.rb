@@ -13,29 +13,8 @@ require File.expand_path(File.join(File.dirname(__FILE__), '..', 'spec_helper'))
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'scripts', 'cloud_controller'))
 
 module RightScale
-  shared_examples_for 'command line argument' do
-    it 'short form' do
-      replace_argv([short_name, value])
-      subject.parse_args[key].should == expected_value
-    end
-    it 'long form' do
-      replace_argv([long_name, value])
-      subject.parse_args[key] == value
-    end
-    it 'short and long form should match' do
-      replace_argv([short_name, value])
-      opts = subject.parse_args
-      replace_argv([long_name, value])
-      opts[key].should == subject.parse_args[key]
-    end
-  end
 
   describe CloudController do
-    def replace_argv(new_argv)
-      ::Object.send(:remove_const, :ARGV)  # suppress const redefinition warning
-      ::Object.send(:const_set, :ARGV, Array(new_argv))
-    end
-
     def run_cloud_controller(args)
       replace_argv(args)
       subject.control(subject.parse_args)

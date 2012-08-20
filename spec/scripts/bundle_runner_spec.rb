@@ -13,20 +13,7 @@ require File.expand_path(File.join(File.dirname(__FILE__), '..', 'spec_helper'))
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'scripts', 'bundle_runner'))
 
 module RightScale
-  shared_examples_for 'command line argument' do
-    it 'short form' do
-      subject.parse_args([short_name, value])[key].should == expected_value
-    end
-    it 'long form' do
-      subject.parse_args([long_name, value])[key] == value
-    end
-    it 'short and long form should match' do
-      subject.parse_args([short_name, value])[key].should == subject.parse_args([long_name, value])[key]
-    end
-  end
-
   describe BundleRunner do
-
     def send_command(args, bundle_type, forwarder_opts,timeout=BundleRunner::DEFAULT_TIMEOUT, verbose=false)
       flexmock(AgentConfig).should_receive(:agent_options).and_return({:listen_port => 123})
       client = flexmock("CommandClient")
@@ -35,11 +22,6 @@ module RightScale
       cmd[:name] = bundle_type == :right_script ? 'run_right_script' : 'run_recipe'
       client.should_receive(:send_command).with ( cmd, verbose, timeout, Proc).once
       run_bundle_runner(args, bundle_type)
-    end
-
-    def replace_argv(new_argv)
-      ::Object.send(:remove_const, :ARGV)  # suppress const redefinition warning
-      ::Object.send(:const_set, :ARGV, Array(new_argv))
     end
 
     def run_bundle_runner(argv, bundle_type)
