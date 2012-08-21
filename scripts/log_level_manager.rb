@@ -37,7 +37,16 @@ module RightScale
     # true:: Always return true
     def self.run
       m = RightLinkLogLevelManager.new
-      m.manage(m.parse_args)
+
+      options = m.parse_args
+      m.manage(options)
+
+      if options[:level] =~ /debug/i && !RightScale::Platform.windows?
+        puts
+        puts "NOTE: RightLink is now logging with syslog severity 'debug', but your system"
+        puts "      log daemon may discard these messages. If debug messages do not appear,"
+        puts "      review your syslog configuration and restart the daemon."
+      end
     rescue Errno::EACCES => e
       STDERR.puts e.message
       STDERR.puts "Try elevating privilege (sudo/runas) before invoking this command."
