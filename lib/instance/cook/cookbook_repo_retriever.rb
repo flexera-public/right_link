@@ -25,6 +25,7 @@ require 'right_scraper'
 module RightScale
   #
   class CookbookRepoRetriever
+    attr_reader :checkout_root
 
     # Maps the given DevRepository to a has that can be consumed by the RightScraper gem
     # TODO: May make sense for  this to a member of the DevRepository class as an instance method.
@@ -67,15 +68,13 @@ module RightScale
     # Initialize...
     #
     # === Parameters
-    # checkout_root (String):: root path to check repos out to
     # repose_root (String):: root of all repose downloaded cookbooks
     # dev_cookbooks (Hash):: collection of repos to be checked out see  RightScale::DevRepositories for hash content
-    def initialize(checkout_root, repose_root, dev_cookbooks)
-      @checkout_root  = checkout_root
+    def initialize(repose_root, dev_cookbooks)
+      @checkout_root  = AgentConfig.dev_cookbook_checkout_dir
       @repose_root    = repose_root
       @dev_cookbooks  = (dev_cookbooks.nil? || dev_cookbooks.repositories.nil?) ? {} : dev_cookbooks.repositories
       @scraper        = RightScraper::Scraper.new(:kind => :cookbook, :basedir => @checkout_root)
-
       @registered_checkouts = {}
     end
 
