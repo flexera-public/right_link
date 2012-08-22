@@ -1,6 +1,8 @@
 # Activate gem dependencies
 require 'rubygems'
 require 'bundler/setup'
+require 'rubygems/package_task'
+require 'rake/clean'
 
 # Ruby standard library dependencies
 require 'fileutils'
@@ -15,6 +17,13 @@ require File.join(RIGHT_LINK_ROOT, 'lib', 'run_shell')
 
 include RunShell
 
+desc "Build right_link gem"
+Gem::PackageTask.new(Gem::Specification.load("right_link.gemspec")) do |package|
+  package.need_zip = true
+  package.need_tar = true
+end
+
+CLEAN.include('pkg')
 
 def windows?
   return !!(RUBY_PLATFORM =~ /mswin/)

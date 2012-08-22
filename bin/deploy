@@ -84,8 +84,12 @@ module RightScale
         host = "#{url.host}#{host}"
       end
 
+      os_root_dir  = '/var/lib/rightscale/right_link'
+      gem_root_dir = Dir.glob(File.join(AgentConfig.parent_dir, 'right_link-*')).sort.first
+
       cmd_opts = [ 'instance',
-                   '-r', File.join(AgentConfig.parent_dir, 'right_link'),
+                   '-r', os_root_dir,
+                   '-r', gem_root_dir,
                    '-i', ENV['RS_RN_ID'],
                    '-t', ENV['RS_RN_AUTH'],
                    '-h', host,
@@ -121,4 +125,4 @@ end
 # The $0 argument is -e in windows because of how we wrap the call to get live
 # console output. we don't need to worry about symlinks in Windows, so always
 # run the deployer on that platform
-RightScale::AgentDeployerRunner.run if (__FILE__ == $0 || RightScale::Platform.windows?)
+RightScale::AgentDeployerRunner.run
