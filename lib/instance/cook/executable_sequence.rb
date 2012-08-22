@@ -82,9 +82,7 @@ module RightScale
       @ohai_retry_delay       = OHAI_RETRY_MIN_DELAY
       @audit                  = AuditStub.instance
       @logger                 = Log
-      @cookbook_repo_retriever= CookbookRepoRetriever.new(CookState.cookbooks_path,
-                                                          @download_path,
-                                                          bundle.dev_cookbooks)
+      @cookbook_repo_retriever= CookbookRepoRetriever.new(@download_path, bundle.dev_cookbooks)
 
       # Initialize run list for this sequence (partial converge support)
       @run_list  = []
@@ -344,6 +342,7 @@ module RightScale
       return true unless @cookbook_repo_retriever.has_cookbooks?
 
       @audit.create_new_section('Checking out cookbooks for development')
+      @audit.append_info("Cookbook repositories will be checked out to #{@cookbook_repo_retriever.checkout_root}")
       audit_time do
         # only create a scraper if there are dev cookbooks
         @cookbook_repo_retriever.checkout_cookbook_repos do |state, operation, explanation, exception|
