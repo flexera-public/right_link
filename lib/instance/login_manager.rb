@@ -241,7 +241,7 @@ module RightScale
             else
               if remove_if_missing
                 Log.error("Failed to obtain public key with fingerprint #{f.inspect} for user #{user.username}, " +
-                              "removing it from login policy")
+                          "removing it from login policy")
               else
                 keys << k
               end
@@ -249,7 +249,7 @@ module RightScale
             end
           else
             Log.error("Failed to obtain public key with fingerprint #{f.inspect} for user #{user.username}, " +
-                          "removing it from login policy")
+                      "removing it from login policy")
           end
           keys
         end
@@ -436,7 +436,6 @@ module RightScale
     # @return [TrueClass] always returns true
     #
     def write_keys_file(keys, keys_file, chown_params = nil)
-      puts "DEBUG: WRITE_KEYS_FILE"
       dir = File.dirname(keys_file)
       FileUtils.mkdir_p(dir)
       FileUtils.chmod(0700, dir)
