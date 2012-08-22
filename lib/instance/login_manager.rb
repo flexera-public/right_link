@@ -33,7 +33,7 @@ module RightScale
 
     CONFIG=\
       if File.exists?(CONFIG_YAML_FILE)
-        RightSupport::Config.features(CONFIG_YAML_FILE)                           
+        RightSupport::Config.features(CONFIG_YAML_FILE)
       else
         RightSupport::Config.features({})
       end
@@ -50,8 +50,10 @@ module RightScale
 
     # Can the login manager function on this platform?
     #
-    # === Return
-    # val(true|false) whether LoginManager works on this platform
+    # == Returns:
+    # @return [TrueClass] if LoginManager works on this platform
+    # @return [FalseClass] if LoginManager does not work on this platform
+    #
     def supported_by_platform?
       right_platform = RightScale::Platform.linux?
       # avoid calling user_exists? on unsupported platform(s)
@@ -62,13 +64,17 @@ module RightScale
     # effective immediately and controls which public keys are trusted for SSH access to
     # the superuser account.
     #
-    # === Parameters
-    # new_policy(LoginPolicy):: New login policy
-    # agent_identity(String):: Serialized instance agent identity
+    # == Parameters:
+    # @param [RightScale::LoginPolicy] New login policy
+    # @param [String] Serialized instance agent identity
     #
-    # === Return
-    # description(String|FalseClass) Human-readable description of the update suitable for auditing, or false
-    #   if not supported by given platform
+    # == Yields:
+    # @yield [String] audit content yielded to the block provided
+    #
+    # == Returns:
+    # @return [TrueClass] if supported by given platform
+    # @return [FalseClass] if not supported by given platform
+    #
     def update_policy(new_policy, agent_identity)
       return false unless supported_by_platform?
 
@@ -77,34 +83,25 @@ module RightScale
       # as allowing our internal expiry timer to simply call us back when a LoginUser expires.
       # All users are added to RightScale account's authorized keys.
       new_users = new_policy.users.select { |u| (u.expires_at == nil || u.expires_at > Time.now) }
-      new_users, missing = update_users(new_users, agent_identity)
-      user_lines = modify_keys_to_use_individual_profiles(new_users)
+      update_users(new_users, agent_identity, new_policy) do |audit_content|
+        yield audit_content
+      end
 
-      InstanceState.login_policy = new_policy
-
-      write_keys_file(user_lines, RIGHTSCALE_KEYS_FILE, { :user => 'rightscale', :group => 'rightscale' })
-
-      tags = [ACTIVE_TAG, RESTRICTED_TAG]
-      AgentTagManager.instance.add_tags(tags)
-
-      # Schedule a timer to handle any expiration that is planned to happen in the future
-      schedule_expiry(new_policy, agent_identity)
-
-      # Return a human-readable description of the policy, e.g. for an audit entry
-      return describe_policy(new_users, new_users.select { |u| u.superuser }, missing)
+      true
     end
 
     # Returns prefix command for public key record
     #
-    # === Parameters
-    # username(String)  :: account's username
-    # email(String)     :: account's email address
-    # uuid(String)      :: account's uuid
-    # superuser(Boolean):: designates whether the account has superuser privileges
-    # data(String)      :: optional profile_data to be included
+    # == Parameters:
+    # @param [String] account's username
+    # @param [String] account's email address
+    # @param [String] account's uuid
+    # @param [Boolean] designates whether the account has superuser privileges
+    # @param [String] optional profile_data to be included
     #
-    # === Return
-    # prefix(String):: command string
+    # == Returns:
+    # @return [String] command string
+    #
     def get_key_prefix(username, email, uuid, superuser, profile_data = nil)
       if profile_data
         profile = " --profile #{Shellwords.escape(profile_data).gsub('"', '\\"')}"
@@ -123,13 +120,18 @@ module RightScale
     # from the old policy or by querying RightScale using the fingerprints
     # Remove a user if no public keys are available for it
     #
-    # === Parameters
-    # users(Array):: Login users whose public keys are to be populated
-    # agent_identity(String):: Serialized instance agent identity
+    # == Parameters:
+    # @param [Array<LoginUsers>] Login users whose public keys are to be populated
+    # @param [String] Serialized instance agent identity
+    # @param [RightScale::LoginPolicy] New login policy
     #
-    # === Return
-    # (Array):: Array of updated users followed by array of users with public keys missing
-    def update_users(users, agent_identity)
+    # == Yields:
+    # @yield [String] audit content yielded to the block provided
+    #
+    # == Returns:
+    # @return [TrueClass] always returns true
+    #
+    def update_users(users, agent_identity, new_policy)
       # Create cache of public keys from stored instance state
       # but there won't be any on initial launch
       public_keys_cache = {}
@@ -147,27 +149,78 @@ module RightScale
         payload = {:agent_identity => agent_identity, :public_key_fingerprints => missing.map { |(u, f)| f }}
         request = RightScale::IdempotentRequest.new("/key_server/retrieve_public_keys", payload)
 
-        request.callback { |public_keys| missing = populate_public_keys(users, public_keys, remove_if_missing = true) }
+        request.callback do |public_keys|
+          missing = populate_public_keys(users, public_keys, remove_if_missing = true)
+          finalize_policy(new_policy, agent_identity, users, missing.map { |(u, f)| u }.uniq) do |audit_content|
+            yield audit_content
+          end
+        end
 
         request.errback do |error|
           Log.error("Failed to retrieve public keys for users #{missing.map { |(u, f)| u.username }.uniq.inspect}: #{error}")
           missing = populate_public_keys(users, {}, remove_if_missing = true)
+          finalize_policy(new_policy, agent_identity, users, missing.map { |(u, f)| u }.uniq) do |audit_content|
+            yield audit_content
+          end
+        end
+
+        request.run
+      else
+        finalize_policy(new_policy, agent_identity, users, missing.map { |(u, f)| u }.uniq) do |audit_content|
+          yield audit_content
         end
       end
-      [users, missing.map { |(u, f)| u }.uniq]
+
+      true
+    end
+
+    # Manipulates the authorized_keys file to match the given login policy
+    # Schedules expiration of users from policy and audits the policy in
+    # a human-readable format
+    #
+    # == Parameters:
+    # @param [RightScale::LoginPolicy] New login policy
+    # @param [String] Serialized instance agent identity
+    # @param [Array<LoginUsers>] Array of updated users
+    # @param [Array<LoginUsers>] Array of users with public keys missing
+    #
+    # == Yields:
+    # @yield [String] audit content yielded to the block provided
+    #
+    # == Returns:
+    # @return [TrueClass] always returns true
+    #
+    def finalize_policy(new_policy, agent_identity, new_users, missing)
+      user_lines = modify_keys_to_use_individual_profiles(new_users)
+
+      InstanceState.login_policy = new_policy
+
+      write_keys_file(user_lines, RIGHTSCALE_KEYS_FILE, { :user => 'rightscale', :group => 'rightscale' })
+
+      tags = [ACTIVE_TAG, RESTRICTED_TAG]
+      AgentTagManager.instance.add_tags(tags)
+
+      # Schedule a timer to handle any expiration that is planned to happen in the future
+      schedule_expiry(new_policy, agent_identity)
+
+      # Yield a human-readable description of the policy, e.g. for an audit entry
+      yield describe_policy(new_users, new_users.select { |u| u.superuser }, missing)
+
+      true
     end
 
     # Populate missing public keys from old public keys using associated fingerprints
     # Also populate any missing fingerprints where possible
     #
-    # === Parameters
-    # users(Array):: Login users whose public keys are to be updated if nil
-    # public_keys_cache(Hash):: Public keys with fingerprint as key and public key as value
-    # remove_if_missing(Boolean):: Whether to remove a user's public key if it cannot be obtained
-    #   and the user itself if none of its public keys can be obtained
+    # == Parameters:
+    # @param [Array<LoginUser>] Login users whose public keys are to be updated if nil
+    # @param [Hash<String, String>] Public keys with fingerprint as key and public key as value
+    # @param [Boolean] Whether to remove a user's public key if it cannot be obtained
+    #           and the user itself if none of its public keys can be obtained
     #
-    # === Return
-    # missing(Array):: User and fingerprint for each missing public key
+    # == Returns:
+    # @return [Array<LoginUser,String] User and fingerprint for each missing public key
+    #
     def populate_public_keys(users, public_keys_cache, remove_if_missing = false)
       missing = []
       users.reject! do |user|
@@ -215,12 +268,14 @@ module RightScale
 
     # Create fingerprint for public key
     #
-    # === Parameters
-    # public_key(String):: RSA public key
-    # username(String):: Name of user owning this key
+    # == Parameters:
+    # @param [String] RSA public key
+    # @param [String] Name of user owning this key
     #
-    # === Return
-    # (String|nil):: Fingerprint for key, or nil if could not create
+    # == Return:
+    # @return [String] Fingerprint for key if it could create it
+    # @return [NilClass] if it could not create it
+    #
     def fingerprint(public_key, username)
       LoginUser.fingerprint(public_key) if public_key
     rescue Exception => e
@@ -230,14 +285,13 @@ module RightScale
 
     # Returns array of public keys of specified authorized_keys file
     #
-    # === Parameters
-    # path(String):: path to authorized_keys file
+    # == Parameters:
+    # @param [String] path to authorized_keys file
     #
-    # === Return
-    # keys(Array[Array]):: array of authorized_key parameters:
-    #   key[0](String):: algorithm
-    #   key[1](String):: public key
-    #   key[2](String):: comment
+    # == Returns:
+    #
+    # @return [Array<Array(String, String, String)>] array of authorized_key parameters: algorith, public key, comment
+    #
     def load_keys(path)
       file_lines = read_keys_file(path)
 
@@ -249,7 +303,7 @@ module RightScale
           #preserve algorithm, key and comments; discard options (the 0th element)
           keys << [ components[1], components[2], components[3] ]
         elsif l =~ COMMENT
-          next 
+          next
         else
           RightScale::Log.error("Malformed (or not SSH2) entry in authorized_keys file: #{l}")
           next
@@ -262,14 +316,15 @@ module RightScale
     # Return a verbose, human-readable description of the login policy, suitable
     # for appending to an audit entry. Contains formatting such as newlines and tabs.
     #
-    # === Parameters
-    # users(Array):: All LoginUsers
-    # superusers(Array):: Subset of LoginUsers who are authorized to act as superusers
-    # policy(LoginPolicy):: Effective login policy
-    # missing(Array):: Users for which a public key could not be obtained
+    # == Parameters:
+    # @param [Array<LoginUser>] All LoginUsers
+    # @param [Array<LoginUser>] Subset of LoginUsers who are authorized to act as superusers
+    # @param [LoginPolicy] Effective login policy
+    # @param [Array<LoginUser>] Users for which a public key could not be obtained
     #
-    # === Return
-    # description(String)
+    # == Returns:
+    # @return [String] description
+    #
     def describe_policy(users, superusers, missing = [])
       normal_users = users - superusers
 
@@ -301,12 +356,14 @@ module RightScale
     # which already knows how to filter out users who are expired at the time the policy
     # is applied.
     #
-    # === Parameters
-    # policy(LoginPolicy):: Policy for which expiry is to be scheduled
-    # agent_identity(String):: Serialized instance agent identity
+    # == Parameters:
+    # @param [LoginPolicy] Policy for which expiry is to be scheduled
+    # @param [String] Serialized instance agent identity
     #
-    # === Return
-    # scheduled(true|false) true if expiry was scheduled, false otherwise
+    # == Returns:
+    # @return [TrueClass] if expiry was scheduled
+    # @return [FalseClass] if expiry was not scheduled
+    #
     def schedule_expiry(policy, agent_identity)
       if @expiry_timer
         @expiry_timer.cancel
@@ -331,19 +388,16 @@ module RightScale
       return true
     end
 
-    ##############################
-    # === Here is the first version of prototype for Managed Login
-    # for RightScale users
-    #
-
+    # Here is the first version of prototype for Managed Login for RightScale users.
     # Creates user accounts and modifies public keys for individual
     # access according to new login policy
     #
-    # === Parameters
-    # new_users(Array(LoginUser)):: array of updated users list
+    # == Parameters:
+    # @param [Array<LoginUser>] array of updated users list
     #
-    # === Return
-    # user_lines(Array(String)):: public key lines of user accounts
+    # == Returns:
+    # @return [Array<String>] public key lines of user accounts
+    #
     def modify_keys_to_use_individual_profiles(new_users)
       user_lines = []
 
@@ -360,11 +414,12 @@ module RightScale
 
     # Reads specified keys file if it exists
     #
-    # === Parameters
-    # path(String):: path to authorized_keys file
+    # == Parameters
+    # @param [String] path to authorized_keys file
     #
-    # === Return
-    # authorized_keys(Array[String]):: list of lines of authorized_keys file
+    # == Return
+    # @return [Array<String>] list of lines of authorized_keys file
+    #
     def read_keys_file(path)
       return [] unless File.exists?(path)
       File.readlines(path).map! { |l| l.chomp.strip }
@@ -372,12 +427,14 @@ module RightScale
 
     # Replace the contents of specified keys file
     #
-    # === Parameters
-    # keys(Array[(String)]):: list of lines that authorized_keys file should contain
-    # keys_file(String):: path to authorized_keys file
-    # chown_params(Hash):: additional parameters for user/group
-    # === Return
-    # true:: always returns true
+    # == Parameters:
+    # @param [Array<String>] list of lines that authorized_keys file should contain
+    # @param [String] path to authorized_keys file
+    # @param [Hash] additional parameters for user/group
+    #
+    # == Returns:
+    # @return [TrueClass] always returns true
+    #
     def write_keys_file(keys, keys_file, chown_params = nil)
       dir = File.dirname(keys_file)
       FileUtils.mkdir_p(dir)
