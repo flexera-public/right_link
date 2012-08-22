@@ -62,9 +62,24 @@ module RightScale
       @cache_dir = dir
     end
 
+    # Path to directory for Ruby source code, e.g. cookbooks
+    def self.source_code_dir
+      @source_code_dir ||= File.join(RightScale::Platform.filesystem.source_code_dir, 'rightscale')
+    end
+
+    # Set path to directory for Ruby source code, e.g. cookbooks
+    def self.source_code_dir=(dir)
+      @source_code_dir = dir
+    end
+
     # Path to downloaded cookbooks directory
     def self.cookbook_download_dir
       @cookbook_download_dir ||= File.join(cache_dir, 'cookbooks')
+    end
+
+    # Path to SCM repository checkouts that contain development cookbooks
+    def self.dev_cookbook_checkout_dir
+      @dev_cookbook_dir ||= File.join(source_code_dir, 'cookbooks')
     end
 
     # Path to RightScript recipes cookbook directory
