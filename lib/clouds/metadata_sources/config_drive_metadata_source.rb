@@ -96,6 +96,8 @@ module RightScale
             device_ary = ::RightScale::Platform.volume_manager.volumes(conditions)
             ::RightScale::Platform.volume_manager.disks({:status => "Offline"}).each do |disk|
               ::RightScale::Platform.volume_manager.online_disk(disk[:index])
+              # Per the interwebs, you cannot run disk part commands back to back without a wait.
+              sleep(15)
               device_ary = ::RightScale::Platform.volume_manager.volumes(conditions)
               break if device_ary.length > 0
               ::RightScale::Platform.volume_manager.offline_disk(disk[:index])
