@@ -123,10 +123,18 @@ module RightScale
       @dev_cookbooks.each_pair do |repo_sha, dev_repo|
         repo = self.class.to_scraper_hash(dev_repo)
 
-        # checkout the repo
-        if @scraper.scrape(repo, &callback)
-          # get the root dir the repo was checked out to
-          repo_dir = @scraper.repo_dir(repo)
+        # get the root dir this repo should be, or was, checked out to
+        repo_dir = @scraper.repo_dir(repo)
+
+        if File.directory?(repo_dir)
+          # repo was already checked out on this machine; leave it alone
+          # synthesize a scraper callback so our progress listener knows what's up
+          if callback
+            @callback.call(:commit, :initialize, "Skipping checkout -- repository already exists in #{repo_dir}", nil)
+          end
+          @registered_checkouts[repo_sha] = repo_dir
+        elsif @scraper.scrape(repo, &callback)
+          # checkout the repo
           @registered_checkouts[repo_sha] = repo_dir
         end
       end
