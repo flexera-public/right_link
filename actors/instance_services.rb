@@ -33,20 +33,27 @@ class InstanceServices
 
   # Always return success, used for troubleshooting
   #
-  # === Return
-  # res(RightScale::OperationResult):: Always returns success
+  # == Parameters:
+  # @param [RightScale::LoginPolicy] new login policy to update the instance with
+  #
+  # == Returns:
+  # @return [RightScale::OperationResult] Always returns success
+  #
   def update_login_policy(new_policy)
     status = nil
     
     RightScale::AuditProxy.create(@agent_identity, 'Updating managed login policy') do |audit|
       begin
-        audit_content = RightScale::LoginManager.instance.update_policy(new_policy, @agent_identity)
-        audit.create_new_section('Managed login policy updated', :category => RightScale::EventCategories::CATEGORY_SECURITY)
-        audit.append_info(audit_content)
+        RightScale::LoginManager.instance.update_policy(new_policy, @agent_identity) do |audit_content|
+          if audit_content
+            audit.create_new_section('Managed login policy updated', :category => RightScale::EventCategories::CATEGORY_SECURITY)
+            audit.append_info(audit_content)
+          end
+        end
         status = success_result
       rescue Exception => e
         audit.create_new_section('Failed to update managed login policy', :category => RightScale::EventCategories::CATEGORY_SECURITY)
-        audit.append_error("Error applying login policy: #{e.message}", :category => RightScale::EventCategories::CATEGORY_ERROR) 
+        audit.append_error("Error applying login policy: #{e.message}", :category => RightScale::EventCategories::CATEGORY_ERROR)
         RightScale::Log.error('Failed to update managed login policy', e, :trace)
         status = error_result("#{e.class.name}: #{e.message}")
       end            
