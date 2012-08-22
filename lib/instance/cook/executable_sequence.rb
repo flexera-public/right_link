@@ -328,6 +328,13 @@ module RightScale
       true
     end
 
+    AUDIT_BEGIN_OPERATIONS = Set.new([:scraping]).freeze unless defined?(AUDIT_BEGIN_OPERATIONS)
+
+    AUDIT_COMMIT_OPERATIONS = Set.new([:initialize,
+                                       :retrieving,
+                                       :reading_cookbook,
+                                       :scraping]).freeze unless defined?(AUDIT_COMMIT_OPERATIONS)
+
     # Checkout repositories for selected cookbooks.  Audit progress and errors, do not fail on checkout error.
     #
     # === Return
@@ -337,16 +344,19 @@ module RightScale
 
       @audit.create_new_section('Checking out cookbooks for development')
       @audit.append_info("Cookbook repositories will be checked out to #{@cookbook_repo_retriever.checkout_root}")
+
       audit_time do
         # only create a scraper if there are dev cookbooks
         @cookbook_repo_retriever.checkout_cookbook_repos do |state, operation, explanation, exception|
           # audit progress
           case state
-            when :begin, :commit
-              @audit.append_info("#{state} #{operation} #{explanation}")
-            when :abort
-              @audit.append_info("Failed #{operation} #{explanation}")
-              Log.info(Log.format("Failed #{operation} #{explanation}", exception, :trace))
+          when :begin
+            @audit.append_info("start #{operation} #{explanation}") if AUDIT_BEGIN_OPERATIONS.include?(operation)
+          when :commit
+            @audit.append_info("finish #{operation} #{explanation}") if AUDIT_COMMIT_OPERATIONS.include?(operation)
+          when :abort
+            @audit.append_error("Failed #{operation} #{explanation}")
+            Log.error(Log.format("Failed #{operation} #{explanation}", exception, :trace))
           end
         end
       end

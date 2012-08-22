@@ -422,7 +422,7 @@ module RightScale
                 true
               end
             end
-            mock_scraper.should_receive(:repo_dir).once.with(RightScale::CookbookRepoRetriever.to_scraper_hash(dev_cookbook)).and_return(repo_base_dir) unless @failure_repos[dev_repo_sha]
+            mock_scraper.should_receive(:repo_dir).once.with(RightScale::CookbookRepoRetriever.to_scraper_hash(dev_cookbook)).and_return(repo_base_dir)
           end
 
           unless @dev_cookbooks.repositories.nil? || @dev_cookbooks.repositories.empty?
@@ -447,8 +447,8 @@ module RightScale
           simulate_download_repos(@cookbooks, @dev_cookbooks)
         end
 
-        context 'when all repos checkout successfully' do
-          it "should scrape #{@expected_scrape_count} repos" do
+        context 'when some repos checkout successfully' do
+          it "should scrape the expected number of repos" do
             @total_scrape_count.should == @expected_scrape_count
           end
 
@@ -564,7 +564,7 @@ module RightScale
         it_should_behave_like 'checks out dev repos'
       end
 
-      context 'when checkout of one repo fails' do
+      context 'given a repo that is not available for checkout' do
         before(:each) do
           sequences = build_cookbook_sequences
           @cookbooks = sequences[:cookbooks]
