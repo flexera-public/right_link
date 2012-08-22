@@ -33,7 +33,7 @@ module RightScale
 
     CONFIG=\
       if File.exists?(CONFIG_YAML_FILE)
-                   RightSupport::Config.features(CONFIG_YAML_FILE)
+        RightSupport::Config.features(CONFIG_YAML_FILE)
       else
         RightSupport::Config.features({})
       end
