@@ -45,7 +45,7 @@ describe InstanceServices do
   end
 
   it 'should update login policy' do
-    flexmock(@mgr).should_receive(:update_policy).with(@policy, @agent_identity).and_return(true)
+    flexmock(@mgr).should_receive(:update_policy).with(@policy, @agent_identity, FlexMock.any).and_return(true)
 
     @services.update_login_policy(@policy)
   end
