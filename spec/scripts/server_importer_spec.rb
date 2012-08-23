@@ -91,12 +91,32 @@ module RightScale
         file = flexmock('file')
         flexmock(File).should_receive(:open).and_return(file)
         file.should_receive(:puts)
-        subject.should_receive(:`).with("/etc/init.d/rightscale start && /etc/init.d/rightlink start").once
-        flexmock($?).should_receive(:success?).and_return(true)
+        if RightScale::Platform.windows?
+          subject.should_receive(:`).with("net start rightscale").once
+          flexmock($?).should_receive(:success?).and_return(true)
+          should_fail = false
+        elsif RightScale::Platform.linux? || RightScale::Platform.darwin?
+          subject.should_receive(:`).with("/etc/init.d/rightscale start && /etc/init.d/rightlink start").once
+          flexmock($?).should_receive(:success?).and_return(true)
+          should_fail = false
+        else
+          subject.should_receive(:`).never
+          should_fail = true
+        end
+
         args = ['-a', url]
         args.push('-f') if force
         args.push('-c', cloud) if cloud
-        run_server_importer(args)
+
+        target = lambda {
+          run_server_importer(args)
+        }
+
+        if should_fail
+          target.should raise_error
+        else
+          target.call
+        end
     end
 
     context 'rs_connect -a url' do

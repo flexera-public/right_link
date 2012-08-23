@@ -42,6 +42,9 @@ module RightScale
     # Exception class to use when the user data doesn't look right
     class MalformedResponse < Exception; end
 
+    # Unsupported architecture or operating system
+    class UnsupportedPlatform < Exception; end
+
     # Run
     #
     # === Parameters
@@ -102,11 +105,11 @@ module RightScale
           if RightScale::Platform.windows?
             puts `net start rightscale`
             exit $?.exitstatus unless $?.success?
-          elsif RightScale::Platform.linux?
+          elsif RightScale::Platform.linux? || RightScale::Platform.darwin?
             puts `/etc/init.d/rightscale start && /etc/init.d/rightlink start`
             exit $?.exitstatus unless $?.success?
           else
-            puts "Starting services is not supported for this platform."
+            raise UnsupportedPlatform, "Starting services is not supported for this platform."
           end
           exit
         else
