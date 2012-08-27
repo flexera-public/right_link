@@ -24,7 +24,7 @@ require 'right_agent'
 require 'right_agent/core_payload_types'
 
 
-require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'chef', 'providers'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'chef', 'right_providers'))
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'chef', 'plugins'))
 
 module RightScale

@@ -23,7 +23,7 @@
 require File.join(File.dirname(__FILE__), 'spec_helper')
 require 'right_scraper'
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'lib', 'chef', 'plugins'))
-require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'lib', 'chef', 'providers'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'lib', 'chef', 'right_providers'))
 
 module RightScale
   class ExecutableSequence
