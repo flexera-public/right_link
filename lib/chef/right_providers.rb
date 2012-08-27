@@ -34,7 +34,7 @@ require 'chef'
 require 'chef/client'
 
 BASE_CHEF_LIB_DIR_PATH = File.normalize_path(File.dirname(__FILE__))
-BASE_CHEF_PROVIDER_DIR_PATH = File.join(BASE_CHEF_LIB_DIR_PATH, 'providers')
+BASE_CHEF_PROVIDER_DIR_PATH = File.join(BASE_CHEF_LIB_DIR_PATH, 'right_providers')
 
 # load (and self-register) all common providers
 pattern = File.join(BASE_CHEF_PROVIDER_DIR_PATH, '*.rb')
