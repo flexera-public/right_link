@@ -130,7 +130,7 @@ module RightScale
           # repo was already checked out on this machine; leave it alone
           # synthesize a scraper callback so our progress listener knows what's up
           if callback
-            @callback.call(:commit, :initialize, "Skipping checkout -- repository already exists in #{repo_dir}", nil)
+            callback.call(:commit, :initialize, "Skipping checkout -- repository already exists in #{repo_dir}", nil)
           end
           @registered_checkouts[repo_sha] = repo_dir
         elsif @scraper.scrape(repo, &callback)
