@@ -67,11 +67,10 @@ module RightScale
       run_agent_checker(args.split)
     end
 
-    def stop(windows=false)
+    def stop()
       pid_file = setup
-      if windows
+      if RightScale::Platform::windows?
         pid_file.should_receive(:read_pid).and_return(:pid => 123, :listen_port => 123, :cookie => 123).once
-        flexmock(RightScale::Platform).should_receive(:windows?).and_return(true)
         client = flexmock("CommandClient")
         flexmock(CommandClient).should_receive(:new).with(123, 123).and_return(client)
         client.should_receive(:send_command).with({:name => :terminate}, verbose = false, timeout = 30, Proc).once
@@ -238,12 +237,6 @@ module RightScale
       end
     end
     
-    context 'rchk --stop (on windows)' do
-      it 'should stop the currently running daemon' do
-        stop(windows=true)
-      end
-    end
-
     context 'rchk --ping' do
       it 'should try communicating' do
         ping
