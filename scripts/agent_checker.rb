@@ -247,9 +247,13 @@ module RightScale
       begin 
         options = parser.parse
         options.delete(:max_attempts) unless options[:max_attempts] > 0
-        options.delete(:time_limit) unless options[:time_limit] and options[:time_limit] > 0
+        if options[:delete]
+          options.delete(:time_limit) unless options[:time_limit] > 0
+        end
         options.delete(:retry_interval) unless options[:retry_interval] > 0
-        options[:monit] = DEFAULT_MONIT_CHECK_INTERVAL unless options[:monit] and options[:monit] > 0
+        if options[:monit]
+          options[:monit] = DEFAULT_MONIT_CHECK_INTERVAL unless options[:monit] > 0
+        end
         options
       rescue Trollop::HelpNeeded
         puts Usage.scan(__FILE__)
