@@ -24,6 +24,7 @@ spec = Gem::Specification.new do |s|
 
   s.add_runtime_dependency('chef', ['>= 0.10.10'])
   s.add_runtime_dependency('encryptor', ['~> 1.1'])
+  s.add_runtime_dependency('trollop')
 
   s.files = Dir.glob('Gemfile') +
             Dir.glob('Gemfile.lock') +
