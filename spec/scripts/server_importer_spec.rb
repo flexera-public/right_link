@@ -135,8 +135,13 @@ module RightScale
     context 'rs_connect -a url -c cloud' do
       it 'should attach this machine to a server and set cloud name to "cloud"' do
         flexmock(RightScale::AgentConfig).should_receive(:cloud_file_path).and_return("cloud_file_path")
+        spool_dir = '/var/spool'
+        if RightScale::Platform::windows?
+          flexmock(File).should_receive(:join).with(Dir::COMMON_APPDATA, 'RightScale', 'spool')\
+                        .and_return(spool_dir)
+        end
         flexmock(File).should_receive(:join)\
-                      .with(RightScale::Platform.filesystem.spool_dir, "cloud", 'user-data.txt')\
+                      .with(spool_dir, "cloud", 'user-data.txt')\
                       .and_return("/var/spool/cloud/user-data.txt")
         do_attach('url', false, "cloud")
       end
