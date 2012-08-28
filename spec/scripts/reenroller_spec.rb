@@ -22,6 +22,25 @@ module RightScale
       return e.status
     end
 
+    def reenroll(resume=false)
+      if RightScale::Platform::windows?
+        flexmock(subject).should_receive(:cleanup_certificates).once
+        flexmock(File).should_receive(:open).with(Reenroller::STATE_FILE, "w", Proc).once
+        flexmock(subject).should_receive(:system).with('net start RightScale')
+      else
+        flexmock(subject).should_receive(:system).with('/opt/rightscale/sandbox/bin/monit -c /opt/rightscale/etc/monitrc stop checker').once
+        flexmock(subject).should_receive(:system).with('/opt/rightscale/sandbox/bin/monit -c /opt/rightscale/etc/monitrc stop instance').once
+        flexmock(subject).should_receive(:system).with('/opt/rightscale/sandbox/bin/monit -c /opt/rightscale/etc/monitrc quit').once
+        flexmock(subject).should_receive(:cleanup_certificates).once
+        if resume
+          flexmock(subject).should_receive(:system).with("/etc/init.d/rightlink resume > /dev/null").once
+        else
+          flexmock(subject).should_receive(:system).with("/etc/init.d/rightlink start > /dev/null").once
+        end
+      end
+      run_reenroller(resume ? '--resume': [])
+    end
+
     before(:all) do
       # preserve old ARGV for posterity (although it's unlikely that anything
       # would consume it after startup).
@@ -69,23 +88,13 @@ module RightScale
 
     context 'rs_reenroll' do
       it 'should reenroll' do
-        flexmock(subject).should_receive(:system).with('/opt/rightscale/sandbox/bin/monit -c /opt/rightscale/etc/monitrc stop checker').once
-        flexmock(subject).should_receive(:system).with('/opt/rightscale/sandbox/bin/monit -c /opt/rightscale/etc/monitrc stop instance').once
-        flexmock(subject).should_receive(:system).with('/opt/rightscale/sandbox/bin/monit -c /opt/rightscale/etc/monitrc quit').once
-        flexmock(subject).should_receive(:cleanup_certificates).once
-        flexmock(subject).should_receive(:system).with("/etc/init.d/rightlink start > /dev/null").once
-        run_reenroller([])
+        reenroll
       end
     end
 
     context 'rs_reenroll --resume' do
       it 'should resume' do
-        flexmock(subject).should_receive(:system).with('/opt/rightscale/sandbox/bin/monit -c /opt/rightscale/etc/monitrc stop checker').once
-        flexmock(subject).should_receive(:system).with('/opt/rightscale/sandbox/bin/monit -c /opt/rightscale/etc/monitrc stop instance').once
-        flexmock(subject).should_receive(:system).with('/opt/rightscale/sandbox/bin/monit -c /opt/rightscale/etc/monitrc quit').once
-        flexmock(subject).should_receive(:cleanup_certificates).once
-        flexmock(subject).should_receive(:system).with("/etc/init.d/rightlink resume > /dev/null").once
-        run_reenroller('--resume')
+        reenroll(resume=true)
       end
     end
   end
