@@ -48,6 +48,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def run(options)
+      fail("Missing required shutdown argument") unless options[:level]
       cmd = {}
       cmd[:name] = :set_shutdown_request
       cmd[:level] = options[:level]
@@ -95,11 +96,11 @@ module RightScale
 
       begin
         options.merge!(parser.parse)
+        puts options
         options[:level] = ::RightScale::ShutdownRequest::REBOOT if options[:reboot]
         options[:level] = ::RightScale::ShutdownRequest::STOP if options[:stop]
         options[:level] = ::RightScale::ShutdownRequest::TERMINATE if options[:terminate]
         options[:immediately] = false if options[:deferred]
-        raise ArgumentError, "Missing required shutdown argument" unless options[:level]
       rescue Trollop::VersionNeeded
         puts version
         succeed
@@ -150,6 +151,10 @@ protected
     def version
       gemspec = eval(File.read(File.join(File.dirname(__FILE__), '..', 'right_link.gemspec')))
       "rs_shutdown #{gemspec.version} - RightLink's shutdown client (c) 2011 RightScale"
+    end
+
+    def succeed
+      exit(0)
     end
 
   end # ShutdownClient
