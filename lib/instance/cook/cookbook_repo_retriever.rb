@@ -133,9 +133,19 @@ module RightScale
             callback.call(:commit, :initialize, "Skipping checkout -- repository already exists in #{repo_dir}", nil)
           end
           @registered_checkouts[repo_sha] = repo_dir
-        elsif @scraper.scrape(repo, &callback)
-          # checkout the repo
-          @registered_checkouts[repo_sha] = repo_dir
+        else
+          # repo wasn't checked out successfully yet; check it out now
+          success = false
+          begin
+            success = @scraper.scrape(repo, &callback)
+          ensure
+            if success
+              @registered_checkouts[repo_sha] = repo_dir
+            else
+              # nuke the repo dir if checkout fails, so we try again next time
+              FileUtils.rm_rf(repo_dir) unless success
+            end
+          end
         end
       end
       true
