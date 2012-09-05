@@ -32,7 +32,7 @@ require 'right_agent'
 
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'lib', 'instance'))
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'lib', 'instance', 'cook'))
-require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'lib', 'chef', 'providers'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'lib', 'chef', 'right_providers'))
 
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'agent_test_config'))
 

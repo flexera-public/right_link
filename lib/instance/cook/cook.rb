@@ -24,7 +24,7 @@ require 'right_agent'
 require 'right_agent/core_payload_types'
 
 
-require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'chef', 'providers'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'chef', 'right_providers'))
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'chef', 'plugins'))
 
 module RightScale
@@ -40,7 +40,7 @@ module RightScale
 
     # Run bundle given in stdin
     def run
-      AgentConfig.root_dir = File.join(AgentConfig.parent_dir, 'right_link')
+      AgentConfig.root_dir = [File.join(AgentConfig.parent_dir, 'right_link'), "/var/lib/rightscale/right_link/"]
 
       # 1. Load configuration settings
       options = OptionsBag.load

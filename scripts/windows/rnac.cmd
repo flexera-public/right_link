@@ -27,4 +27,4 @@ if %ERRORLEVEL% neq 0 (
   exit /B %ERRORLEVEL%
 )
 
-%RS_RUBY_EXE% %RS_RIGHT_LINK_HOME%\right_link\bin\rnac.rb %*
+%RS_RUBY_EXE% %RS_RIGHT_LINK_HOME%\right_link\bin\rnac %*
