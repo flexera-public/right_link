@@ -188,7 +188,9 @@ module RightScale
       end
 
       if @result
-        dir = AgentConfig.certs_dir
+        # Create the standard RightAgent certs_dir so we can write our certs there.
+        certs_dir = File.join(AgentConfig.agent_state_dir, 'certs')
+        FileUtils.mkdir_p(certs_dir) unless File.directory?(certs_dir)
 
         # Write the mapper cert, our cert, and our private kjey
         File.open(File.join(dir, 'mapper.cert'), "w") do |f|
