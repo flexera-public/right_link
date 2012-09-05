@@ -84,8 +84,19 @@ module RightScale
         host = "#{url.host}#{host}"
       end
 
-      os_root_dir  = '/var/lib/rightscale/right_link'
-      gem_root_dir = Dir.glob(File.join(AgentConfig.parent_dir, 'right_link-*')).sort.first
+      # RightLink certs are written at enrollment time, and should live in the
+      # same place they would live for any other RightAgent. Make sure the subdir
+      # exists so the AgentConfig logic will be able to provide #certs_dir without
+      # being given a hint as to which root_dir.
+      os_root_dir  = File.join(RightScale::Platform.right_agent_cfg_dir, 'certs')
+      FileUtils.mkdir_p(dir) unless File.directory?(dir)
+
+      # RightLink actors and the agent init directory are both packaged into the RightLink gem,
+      # as subdirectories of the gem base directory (siblings of 'lib' and 'bin' directories).
+      #
+      # Because this file lives in the gem, we can calculate the gem's base path relative to
+      # the location of this file.
+      gem_root_dir = File.expand_path('../../', __FILE__)
 
       cmd_opts = [ 'instance',
                    '-r', os_root_dir,

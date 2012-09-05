@@ -19,7 +19,7 @@
 #    rad AGENT [options]
 #
 #    options:
-#      --root-dir, -r DIR       Set agent root directory (containing init, actors, and certs subdirectories)
+#      --root-dir, -r DIR       Set agent root directory (containing init, actors, and/or certs subdirectories)
 #      --cfg-dir, -c DIR        Set directory where generated configuration files for all agents are stored
 #      --pid-dir, -z DIR        Set directory containing process id file
 #      --identity, -i ID        Use base id ID to build agent's identity
