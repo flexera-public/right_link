@@ -4,7 +4,6 @@ tags
 .rvmrc
 *.swp
 .bundle
-certs/*
 .project
 .loadpath
 nbproject/
