@@ -82,6 +82,12 @@ module RightScale
       ChefState.init(agent_id, server_secret, reset=false)
 
       # 3. Run bundle
+      if File.exists?("/opt/rightscale/Gemfile")
+        paths = ENV['PATH'].split(":")
+        paths.delete("/usr/bin")
+        paths.insert(0, "/usr/bin")
+        ENV['PATH'] = paths.join(":")
+      end
       @@instance = self
       success = nil
       Log.debug("[cook] Thread name associated with bundle = #{@thread_name}")
