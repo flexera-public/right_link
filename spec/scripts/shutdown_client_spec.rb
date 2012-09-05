@@ -13,36 +13,7 @@ require File.expand_path(File.join(File.dirname(__FILE__), '..', 'spec_helper'))
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'scripts', 'shutdown_client'))
 
 module RightScale
-  shared_examples_for 'command line argument' do
-    it 'short form' do
-      args = [short_name]
-      args << "-s" if aux_option
-      replace_argv(args)
-      subject.parse_args[key].should == true
-    end
-    it 'long form' do
-      args = [long_name]
-      args << "-s" if aux_option
-      replace_argv(args)
-      subject.parse_args[key] == true 
-    end
-    it 'short and long form should match' do
-      args = [short_name]
-      args << "-s" if aux_option
-      replace_argv(args)
-      short = subject.parse_args[key]
-      args = [long_name]
-      args << "-s" if aux_option
-      replace_argv(args)
-      short.should == subject.parse_args[key]
-    end
-  end
-
   describe ShutdownClient do
-    def replace_argv(new_argv)
-      ::Object.send(:remove_const, :ARGV)  # suppress const redefinition warning
-      ::Object.send(:const_set, :ARGV, Array(new_argv))
-    end
 
     def run_shutdown_client(argv)
       replace_argv(argv)
@@ -88,7 +59,8 @@ module RightScale
       let(:short_name)    {'-r'}
       let(:long_name)     {'--reboot'}
       let(:key)           {:reboot}
-      let(:aux_option)    {false}
+      let(:value)         {''}
+      let(:expected_value){true}
       it_should_behave_like 'command line argument'
     end
 
@@ -96,7 +68,8 @@ module RightScale
       let(:short_name)    {'-s'}
       let(:long_name)     {'--stop'}
       let(:key)           {:stop}
-      let(:aux_option)    {false}
+      let(:value)         {''}
+      let(:expected_value){true}
       it_should_behave_like 'command line argument'
     end
 
@@ -104,7 +77,8 @@ module RightScale
       let(:short_name)    {'-t'}
       let(:long_name)     {'--terminate'}
       let(:key)           {:terminate}
-      let(:aux_option)    {false}
+      let(:value)         {''}
+      let(:expected_value){true}
       it_should_behave_like 'command line argument'
     end
 
@@ -112,7 +86,8 @@ module RightScale
       let(:short_name)    {'-i'}
       let(:long_name)     {'--immediately'}
       let(:key)           {:immediately}
-      let(:aux_option)    {true}
+      let(:value)         {''}
+      let(:expected_value){true}
       it_should_behave_like 'command line argument'
     end
 
@@ -120,7 +95,8 @@ module RightScale
       let(:short_name)    {'-d'}
       let(:long_name)     {'--deferred'}
       let(:key)           {:deferred}
-      let(:aux_option)    {true}
+      let(:value)         {''}
+      let(:expected_value){true}
       it_should_behave_like 'command line argument'
     end
 
@@ -128,7 +104,8 @@ module RightScale
       let(:short_name)    {'-v'}
       let(:long_name)     {'--verbose'}
       let(:key)           {:verbose}
-      let(:aux_option)    {true}
+      let(:value)         {''}
+      let(:expected_value){true}
       it_should_behave_like 'command line argument'
     end
 

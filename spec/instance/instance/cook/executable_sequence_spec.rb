@@ -342,8 +342,18 @@ module RightScale
 
         flexmock(Log).should_receive(:info).with("Deleting existing cookbooks").once
 
+        unless dev_cookbooks.nil? || dev_cookbooks.empty?
+          @auditor.should_receive(:create_new_section).with("Checking out cookbooks for development").once
+          @auditor.should_receive(:append_info).with("Cookbook repositories will be checked out to #{RightScale::AgentConfig.dev_cookbook_checkout_dir}").once
+        end
+
         tarball = File.open(File.join(File.dirname(__FILE__), "demo_tarball.tar")).binmode.read
         dl = flexmock(ReposeDownloader)
+
+        unless cookbooks.nil? || cookbooks.empty?
+          @auditor.should_receive(:create_new_section).with("Retrieving cookbooks").once
+        end
+
         cookbooks.each do |sequence|
           sequence.positions.each do |position|
             unless dev_cookbooks.repositories[sequence.hash] &&
@@ -382,12 +392,11 @@ module RightScale
 
           # mock the cookbook checkout location
           @checkout_root_dir = Dir.mktmpdir("executable_sequence_spec")
-          flexmock(CookState).should_receive(:cookbooks_path).once.and_return(@checkout_root_dir)
 
           # mock the scraper so we pretend to checkout cookbooks
           mock_scraper = flexmock("mock scraper for sequence")
           flexmock(::RightScraper::Scraper).
-              should_receive(:new).once.with(:kind => :cookbook, :basedir => @checkout_root_dir).
+              should_receive(:new).once.with(:kind => :cookbook, :basedir => RightScale::AgentConfig.dev_cookbook_checkout_dir).
               and_return(mock_scraper)
           @checkout_paths = {}
           @dev_cookbooks.repositories.each_pair do |dev_repo_sha, dev_cookbook|
@@ -413,7 +422,7 @@ module RightScale
                 true
               end
             end
-            mock_scraper.should_receive(:repo_dir).once.with(RightScale::CookbookRepoRetriever.to_scraper_hash(dev_cookbook)).and_return(repo_base_dir) unless @failure_repos[dev_repo_sha]
+            mock_scraper.should_receive(:repo_dir).once.with(RightScale::CookbookRepoRetriever.to_scraper_hash(dev_cookbook)).and_return(repo_base_dir)
           end
 
           unless @dev_cookbooks.repositories.nil? || @dev_cookbooks.repositories.empty?
@@ -438,8 +447,8 @@ module RightScale
           simulate_download_repos(@cookbooks, @dev_cookbooks)
         end
 
-        context 'when all repos checkout successfully' do
-          it "should scrape #{@expected_scrape_count} repos" do
+        context 'when some repos checkout successfully' do
+          it "should scrape the expected number of repos" do
             @total_scrape_count.should == @expected_scrape_count
           end
 
@@ -555,7 +564,7 @@ module RightScale
         it_should_behave_like 'checks out dev repos'
       end
 
-      context 'when checkout of one repo fails' do
+      context 'given a repo that is not available for checkout' do
         before(:each) do
           sequences = build_cookbook_sequences
           @cookbooks = sequences[:cookbooks]

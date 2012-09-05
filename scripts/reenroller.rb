@@ -112,7 +112,7 @@ module RightScale
         exit
       rescue Trollop::VersionNeeded
         puts version
-        succed
+        exit(0)
       rescue Trollop::CommandlineError => e
         puts e.message + "\nUse --help for additional information"
         exit(1)
