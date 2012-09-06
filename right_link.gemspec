@@ -43,10 +43,18 @@ spec = Gem::Specification.new do |s|
             Dir.glob('init/*') +
             Dir.glob('actors/*.rb') +
             Dir.glob('bin/*') +
-            Dir.glob('lib/**/*.rb') +
+            Dir.glob('ext/Rakefile') +
+            Dir.glob('lib/chef/windows/**/*.cs') +
+            Dir.glob('lib/chef/windows/**/*.csproj') +
+            Dir.glob('lib/chef/windows/bin/*.dll') +
+            Dir.glob('lib/chef/windows/**/*.ps1') +
+            Dir.glob('lib/chef/windows/**/*.sln') +
+            Dir.glob('lib/chef/windows/**/*.txt') +
+            Dir.glob('lib/chef/windows/**/*.xml') +
             Dir.glob('lib/**/*.pub') +
             Dir.glob('scripts/*') +
             Dir.glob('lib/instance/cook/*.crt')
 
   s.executables = Dir.glob('bin/*').map { |f| File.basename(f) }
+  s.extensions = ["ext/Rakefile"]
 end
