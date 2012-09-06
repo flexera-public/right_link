@@ -67,4 +67,16 @@ if RUBY_PLATFORM =~ /mswin|mingw/
   gem 'win32-pipe'
   gem 'win32-open3'
   gem 'win32-service'
+  sep = ';'
+else
+  sep = ':'
 end
+
+# Make sure gem bin directories appear at the end of the path so our wrapper
+# scripts get top billing.
+version = RUBY_VERSION.split('.')[0..1].join('.')
+subdir = /gems[\\\/]#{version}1.8[\\\/]bin/
+paths = ENV['PATH'].split(/[:;]/)
+gem_bin = paths.select { |p| p =~ subdir }
+paths.delete_if { |p| p =~ subdir }
+ENV['PATH'] = (paths + gem_bin).join(sep)

@@ -76,18 +76,12 @@ module RightScale
       options[:thread_name] = @thread_name
 
       # Chef state needs the server secret so it can encrypt state on disk.
-      # the secret is the same for all instances of the server (i.e. is still
+      # The secret is the same for all instances of the server (i.e. is still
       # valid after stop and restart server).
       server_secret = bundle.server_secret || AgentConfig.default_server_secret
       ChefState.init(agent_id, server_secret, reset=false)
 
       # 3. Run bundle
-      if File.exists?("/opt/rightscale/Gemfile")
-        paths = ENV['PATH'].split(":")
-        paths.delete("/usr/bin")
-        paths.insert(0, "/usr/bin")
-        ENV['PATH'] = paths.join(":")
-      end
       @@instance = self
       success = nil
       Log.debug("[cook] Thread name associated with bundle = #{@thread_name}")
