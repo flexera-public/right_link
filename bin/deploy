@@ -119,8 +119,13 @@ module RightScale
         FileUtils.mkdir_p('/opt/rightscale/etc/monit.d')
         cmd_opts << '--monit'
       end
-
-      cmd = Platform.shell.format_executable_command(File.join(Platform.filesystem.private_bin_dir, 'rad'), cmd_opts)
+      
+      rad_path = if Platform.windows? 
+        File.join(Platform.filesystem.right_link_home_dir, "bin") 
+      else
+        Platform.filesystem.private_bin_dir
+      end
+      cmd = Platform.shell.format_executable_command(File.join(rad_path, 'rad'), cmd_opts)
 
       Log.info("Deploying agent with command: #{cmd}")
       exec(cmd)
