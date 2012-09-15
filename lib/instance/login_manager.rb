@@ -27,7 +27,7 @@ module RightScale
   class LoginManager
     class SystemConflict < SecurityError; end
 
-    include Singleton
+    include RightSupport::Ruby::EasySingleton
 
     CONFIG_YAML_FILE = File.normalize_path(File.join(RightScale::Platform.filesystem.right_link_static_state_dir, 'features.yml'))
 
