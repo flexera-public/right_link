@@ -25,7 +25,7 @@ require File.join(File.dirname(__FILE__), 'spec_helper')
 describe RightScale::LoginManager do
   include RightScale::SpecHelper
 
-  subject { RightScale::LoginManager }
+  subject { RightScale::LoginManager.instance }
 
   RIGHTSCALE_KEYS_FILE = '/home/rightscale/.ssh/authorized_keys'
   RIGHTSCALE_ACCOUNT_CREDS = {:user=>"rightscale", :group=>"rightscale"}
@@ -132,7 +132,7 @@ describe RightScale::LoginManager do
     @agent_identity = "rs-instance-1-1"
   end
 
-  describe "#supported_by_platform" do
+  describe "#supported_by_platform?" do
     context "when platform is not Linux" do
       before(:each) do
         flexmock(RightScale::Platform).should_receive(:linux?).and_return(false)
@@ -195,6 +195,7 @@ describe RightScale::LoginManager do
       @policy = RightScale::LoginPolicy.new(1234, one_hour_ago)
       @user_keys = []
       3.times do |i|
+        # The 1th user has two public keys; all other users have one public key
         user = generate_user(i == 1 ? 2 : 1, "rightscale.com")
         @policy.users << user
         user.public_keys.each do |key|
@@ -208,8 +209,9 @@ describe RightScale::LoginManager do
       @policy.users[0].expires_at = one_day_ago
 
       flexmock(subject).should_receive(:read_keys_file).and_return([])
-      flexmock(subject).should_receive(:write_keys_file).with(FlexMock.on { |arg| arg.length.should == (@policy.users.size - 1) }, FlexMock.any, FlexMock.any)
-
+      # Note that we are testing for an arg of length 3, even though keys file should only include 2 users. This is because
+      # one user has two keys (see before-each above).
+      flexmock(subject).should_receive(:write_keys_file).with(FlexMock.on { |arg| arg.length.should == @policy.users.size }, FlexMock.any, FlexMock.any)
       subject.update_policy(@policy, @agent_identity)
     end
     
@@ -219,7 +221,8 @@ describe RightScale::LoginManager do
       flexmock(@user_mgr).should_receive(:manage_group).with('rightscale', :remove, @policy.users[0].username).ordered
       flexmock(@user_mgr).should_receive(:manage_group).with('rightscale', :add, @policy.users[1].username).ordered
       flexmock(@user_mgr).should_receive(:manage_group).with('rightscale', :add, @policy.users[2].username).ordered
-      flexmock(subject).should_receive(:write_keys_file).with(FlexMock.on { |arg| arg.length.should == @policy.users.size }, FlexMock.any, FlexMock.any)
+      # One user has two keys; thus: three users, four keys. The test below is for number of keys, not number of users.
+      flexmock(subject).should_receive(:write_keys_file).with(FlexMock.on { |arg| arg.length.should == @policy.users.size + 1 }, FlexMock.any, FlexMock.any)
       subject.update_policy(@policy, @agent_identity)
     end
   end
@@ -249,7 +252,7 @@ describe RightScale::LoginManager do
       user0 = policy.users[0].dup
       user1 = policy.users[1].dup
 
-      flexmock(RightScale::LoginManager.instance).should_receive(:finalize_policy).with(policy, agent_identity, policy.users, [], FlexMock.any)
+      flexmock(subject).should_receive(:finalize_policy).with(policy, agent_identity, policy.users, [], FlexMock.any)
       mock_request(["/key_server/retrieve_public_keys", {:agent_identity => agent_identity, :public_key_fingerprints => ["f3"]}], {"f3" => ssh_key})
 
       subject.test_update_users(policy.users, agent_identity, policy)
@@ -264,7 +267,7 @@ describe RightScale::LoginManager do
       user0 = policy.users[0].dup
       user1 = policy.users[1].dup
 
-      flexmock(RightScale::LoginManager.instance).should_receive(:finalize_policy).with(policy, agent_identity, policy.users, [], FlexMock.any)
+      flexmock(subject).should_receive(:finalize_policy).with(policy, agent_identity, policy.users, [], FlexMock.any)
       flexmock(RightScale::InstanceState).should_receive(:login_policy).and_return(nil)
       mock_request(["/key_server/retrieve_public_keys", {:agent_identity => agent_identity, :public_key_fingerprints => ["f3"]}], {"f3" => "ssh-rsa key3"})
 
@@ -279,7 +282,7 @@ describe RightScale::LoginManager do
       policy.users[0].public_key_fingerprints[0] = nil
 
       flexmock(RightScale::LoginUser).should_receive(:fingerprint).and_return(fingerprint)
-      flexmock(RightScale::LoginManager.instance).should_receive(:finalize_policy).with(policy, agent_identity, policy.users, [], FlexMock.any)
+      flexmock(subject).should_receive(:finalize_policy).with(policy, agent_identity, policy.users, [], FlexMock.any)
 
       subject.test_update_users(policy.users, agent_identity, policy)
 
@@ -293,7 +296,7 @@ describe RightScale::LoginManager do
       user2 = policy.users[2].dup
 
       flexmock(RightScale::Log).should_receive(:error).with(/Failed to obtain public key with fingerprint \"f3\" /).once
-      flexmock(RightScale::LoginManager.instance).should_receive(:finalize_policy).with(policy, agent_identity, policy.users, [user2], FlexMock.any)
+      flexmock(subject).should_receive(:finalize_policy).with(policy, agent_identity, policy.users, [user2], FlexMock.any)
       mock_request(["/key_server/retrieve_public_keys", {:agent_identity => agent_identity, :public_key_fingerprints => ["f3"]}], {})
 
       subject.test_update_users(policy.users, agent_identity, policy)
@@ -313,7 +316,7 @@ describe RightScale::LoginManager do
       flexmock(RightScale::InstanceState).should_receive(:login_policy).and_return(old_policy)
       flexmock(RightScale::Log).should_receive(:error).with(/Failed to retrieve public keys for users /).once
       flexmock(RightScale::Log).should_receive(:error).with(/Failed to obtain public key with fingerprint \"f[1,3]\" /).twice
-      flexmock(RightScale::LoginManager.instance).should_receive(:finalize_policy).with(policy, agent_identity, policy.users, FlexMock.on { |arg| arg.map { |u| u.username }.should == [user1.username, user2.username] }, FlexMock.any)
+      flexmock(subject).should_receive(:finalize_policy).with(policy, agent_identity, policy.users, FlexMock.on { |arg| arg.map { |u| u.username }.should == [user1.username, user2.username] }, FlexMock.any)
       mock_request(["/key_server/retrieve_public_keys", {:agent_identity => agent_identity, :public_key_fingerprints => ["f1", "f3"]}], nil, "error during retrieval")
 
       subject.test_update_users(policy.users, agent_identity, policy)
