@@ -84,7 +84,7 @@ module RightScale
       # All users are added to RightScale account's authorized keys.
       new_users = new_policy.users.select { |u| (u.expires_at == nil || u.expires_at > Time.now) }
       update_users(new_users, agent_identity, new_policy) do |audit_content|
-        yield audit_content
+        yield audit_content if block_given?
       end
 
       true
