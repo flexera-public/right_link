@@ -20,7 +20,7 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 # RVM pollutes the process environment with garbage that prevents us from activating sandboxed
-# RubyGems correctly. Unpollute the environment, so our built-in RubyGems can setup the variables
+# RubyGems correctly. Unpollute the environment so our built-in RubyGems can setup the variables
 # appropriately for our own usage (and for installation of gems into the sandbox!)
 ['GEM_HOME', 'GEM_PATH', 'IRBRC', 'MY_RUBY_HOME'].each { |key| ENV.delete(key) }
 
@@ -73,9 +73,10 @@ else
 end
 
 # Make sure gem bin directories appear at the end of the path so our wrapper
-# scripts get top billing.
+# scripts (e.g. those installed to /usr/bin) get top billing. Notice we choose
+# regexp patterns that work under both Linux and Windows.
 version = RUBY_VERSION.split('.')[0..1].join('.')
-subdir = /gems[\\\/]#{version}1.8[\\\/]bin/
+subdir = /(ruby|gems)[\\\/]#{version}[\\\/]bin/
 paths = ENV['PATH'].split(/[:;]/)
 gem_bin = paths.select { |p| p =~ subdir }
 paths.delete_if { |p| p =~ subdir }
