@@ -82,9 +82,7 @@ module RightScale
       @ohai_retry_delay       = OHAI_RETRY_MIN_DELAY
       @audit                  = AuditStub.instance
       @logger                 = Log
-      @cookbook_repo_retriever= CookbookRepoRetriever.new(CookState.cookbooks_path,
-                                                          @download_path,
-                                                          bundle.dev_cookbooks)
+      @cookbook_repo_retriever= CookbookRepoRetriever.new(@download_path, bundle.dev_cookbooks)
 
       # Initialize run list for this sequence (partial converge support)
       @run_list  = []
@@ -203,6 +201,12 @@ module RightScale
 
       # Chef run mode is always solo for cook
       Chef::Config[:solo] = true
+
+      # Chef tries to "helpfully" ensure that the Ruby interpreter and gem binary used to invoke
+      # Chef are on the path. This contravenes our intended usage of the RightScale sandbox and
+      # interferes with various gem management operations. For now, turn off path sanity and fall
+      # back to our traditional behavior.
+      Chef::Config[:enforce_path_sanity] = false
 
       # determine default cookbooks path.  If debugging cookbooks, place the debug pat(s) first, otherwise
       # clear out the list as it will be filled out with cookbooks needed for this converge as they are downloaded.
@@ -330,6 +334,13 @@ module RightScale
       true
     end
 
+    AUDIT_BEGIN_OPERATIONS = Set.new([:scraping]).freeze unless defined?(AUDIT_BEGIN_OPERATIONS)
+
+    AUDIT_COMMIT_OPERATIONS = Set.new([:initialize,
+                                       :retrieving,
+                                       :reading_cookbook,
+                                       :scraping]).freeze unless defined?(AUDIT_COMMIT_OPERATIONS)
+
     # Checkout repositories for selected cookbooks.  Audit progress and errors, do not fail on checkout error.
     #
     # === Return
@@ -338,16 +349,20 @@ module RightScale
       return true unless @cookbook_repo_retriever.has_cookbooks?
 
       @audit.create_new_section('Checking out cookbooks for development')
+      @audit.append_info("Cookbook repositories will be checked out to #{@cookbook_repo_retriever.checkout_root}")
+
       audit_time do
         # only create a scraper if there are dev cookbooks
         @cookbook_repo_retriever.checkout_cookbook_repos do |state, operation, explanation, exception|
           # audit progress
           case state
-            when :begin, :commit
-              @audit.append_info("#{state} #{operation} #{explanation}")
-            when :abort
-              @audit.append_info("Failed #{operation} #{explanation}")
-              Log.info(Log.format("Failed #{operation} #{explanation}", exception, :trace))
+          when :begin
+            @audit.append_info("start #{operation} #{explanation}") if AUDIT_BEGIN_OPERATIONS.include?(operation)
+          when :commit
+            @audit.append_info("finish #{operation} #{explanation}") if AUDIT_COMMIT_OPERATIONS.include?(operation)
+          when :abort
+            @audit.append_error("Failed #{operation} #{explanation}")
+            Log.error(Log.format("Failed #{operation} #{explanation}", exception, :trace))
           end
         end
       end

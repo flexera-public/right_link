@@ -167,7 +167,7 @@ module RightScale
     # === Return
     # options(Hash):: Hash of options as defined by the command line
     def parse_args(arguments=ARGV)
-      options = { :attributes => {}, :parameters => {}, :scope => :all, :verbose => false }
+      options = { :attributes => {}, :parameters => {}, :verbose => false }
 
       parser = Trollop::Parser.new do
         opt :id, "", :type => String, :long => "--identity", :short => "-i"
@@ -176,7 +176,7 @@ module RightScale
         opt :thread, "", :type => String
         opt :json_file, "", :type => String, :short => "-j", :long => "--json"
         opt :tags, "", :type => String, :short => "-r", :long => "--recipient_tags"
-        opt :scope, "", :type => String
+        opt :scope, "", :type => String, :default => "all"
         opt :cfg_dir, "", :type => String
         opt :policy, "", :type => String, :short => "-P"
         opt :audit_period, "", :type => :int, :long => "--audit_period"
@@ -300,6 +300,10 @@ protected
     def version
       gemspec = eval(File.read(File.join(File.dirname(__FILE__), '..', 'right_link.gemspec')))
       "rs_run_right_script & rs_run_recipe #{gemspec.version} - RightLink's bundle runner (c) 2011 RightScale"
+    end
+
+    def succeed
+      exit(0)
     end
 
   end # BundleRunner

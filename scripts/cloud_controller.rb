@@ -50,6 +50,11 @@ module RightScale
       STDERR.puts e.message
       STDERR.puts "Try elevating privilege (sudo/runas) before invoking this command."
       exit(2)
+    rescue SystemExit => e
+      raise e
+    rescue Exception => e
+      $stderr.puts "ERROR: #{e.message}"
+      exit 1
     end
 
     # Undecorated formatter to support legacy console output
@@ -104,11 +109,6 @@ module RightScale
           raise ArgumentError, "ERROR: Unknown cloud action: #{action}"
         end
       end
-    rescue SystemExit => e
-      raise e
-    rescue Exception => e
-      $stderr.puts "ERROR: #{e.message}"
-      exit 1
     end
 
     # Parse arguments

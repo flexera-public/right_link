@@ -42,6 +42,9 @@ module RightScale
     # Exception class to use when the user data doesn't look right
     class MalformedResponse < Exception; end
 
+    # Unsupported architecture or operating system
+    class UnsupportedPlatform < Exception; end
+
     # Run
     #
     # === Parameters
@@ -56,7 +59,7 @@ module RightScale
         when :attach
           # resolve cloud name.
           cloud_file = RightScale::AgentConfig.cloud_file_path
-          cloud_name = options[:cloud_name]
+          cloud_name = options[:cloud]
           if cloud_name.nil? && File.file?(cloud_file)
             cloud_name = File.read(cloud_file).strip
           end
@@ -102,11 +105,11 @@ module RightScale
           if RightScale::Platform.windows?
             puts `net start rightscale`
             exit $?.exitstatus unless $?.success?
-          elsif RightScale::Platform.linux?
+          elsif RightScale::Platform.linux? || RightScale::Platform.darwin?
             puts `/etc/init.d/rightscale start && /etc/init.d/rightlink start`
             exit $?.exitstatus unless $?.success?
           else
-            puts "Starting services is not supported for this platform."
+            raise UnsupportedPlatform, "Starting services is not supported for this platform."
           end
           exit
         else
@@ -135,7 +138,6 @@ module RightScale
 
       begin
         options.merge(parser.parse)
-        options
       rescue Trollop::HelpNeeded
         puts Usage.scan(__FILE__)
         exit
@@ -281,6 +283,10 @@ protected
       end
 
       return uri
+    end
+
+    def succeed
+      exit(0)
     end
   end
 

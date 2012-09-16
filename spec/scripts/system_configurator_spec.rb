@@ -25,4 +25,66 @@ describe RightScale::SystemConfigurator do
   context '#configure_ssh' do
     it 'should be tested'
   end
+
+  before(:all) do
+    # preserve old ARGV for posterity (although it's unlikely that anything
+    # would consume it after startup).
+    @old_argv = ARGV
+  end
+
+  after(:all) do
+    # restore old ARGV
+    replace_argv(@old_argv)
+    @error = nil
+    @output = nil
+  end
+
+  before(:each) do
+    @error = []
+    @output = []
+    flexmock(subject).should_receive(:puts).and_return { |message| @output << message; true }
+    flexmock(subject).should_receive(:print).and_return { |message| @output << message; true }
+  end
+
+  def run_system_configurator(args)
+    replace_argv(args)
+    subject.start(subject.parse_args)
+    return 0
+  rescue SystemExit => e
+    return e.status
+  end
+
+  context 'action option' do
+    let(:short_name)    {'--action'}
+    let(:long_name)     {'--action'}
+    let(:key)           {:action}
+    let(:value)         {'hostname'}
+    let(:expected_value){value}
+    it_should_behave_like 'command line argument'
+  end
+
+  context 'system --help' do
+    it 'should show usage info' do
+      usage = Usage.scan(File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'scripts', 'system_configurator.rb')))
+      run_system_configurator('--help')
+      @output.join("\n").should include(usage)
+    end
+  end
+  
+  ["hostname", "ssh", "proxy", "sudoers"].each do |action|
+    context "system --action=#{action}" do
+      it "should configure #{action}" do
+        subject.should_receive("configure_#{action}".to_sym).once
+        run_system_configurator("--action=#{action}")
+      end
+    end
+  end
+
+
+  context "system --action=wrong_action" do
+    it "should fail because of wrong action" do
+      expect {run_system_configurator("--action=wrong_action")}.to raise_error(StandardError)
+    end
+  end
+
 end

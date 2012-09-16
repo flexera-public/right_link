@@ -1,9 +1,9 @@
 GIT
   remote: git://github.com/rightscale/right_agent.git
-  revision: 31a4ab759e1563ab1161a66d5f2a0555450f1e88
+  revision: 5045269650c31b534e9c8589643817d17d641423
   branch: master
   specs:
-    right_agent (0.12.0)
+    right_agent (0.12.4)
       eventmachine (~> 0.12.10)
       json (~> 1.4)
       msgpack (= 0.4.4)
@@ -14,19 +14,19 @@ GIT
 
 GIT
   remote: git://github.com/rightscale/right_amqp.git
-  revision: ed733147ee8a93e31247f47203508bb24b9d60b9
+  revision: eafcb941351fd5b5706dd318e7c10d5ecb7ce646
   branch: master
   specs:
-    right_amqp (0.5.0)
+    right_amqp (0.5.1)
       eventmachine (~> 0.12.10)
       right_support (>= 1.2, < 3.0)
 
 GIT
   remote: git://github.com/rightscale/right_support.git
-  revision: 155e12900c8510b7454c8b71ecb66a46b3fdd996
+  revision: 262564edd546ba3913f8cd7139045ff44967aef4
   branch: master
   specs:
-    right_support (2.3.1)
+    right_support (2.4.0)
 
 GEM
   remote: http://s3.amazonaws.com/rightscale_rightlink_gems_dev/
@@ -119,7 +119,7 @@ GEM
     right_popen (1.0.21-x86-mswin32)
       eventmachine (>= 0.12.11)
       win32-process (>= 0.6.1)
-    right_scraper (3.0.1)
+    right_scraper (3.0.4)
       git (>= 1.2.5)
       json (>= 1.4.5)
       libarchive (>= 0.1.1)
@@ -196,7 +196,7 @@ DEPENDENCIES
   right_amqp!
   right_http_connection (~> 1.3)
   right_popen (~> 1.0)
-  right_scraper (= 3.0.1)
+  right_scraper (~> 3.0)
   right_support!
   rspec (~> 1.3)
   ruby-debug
