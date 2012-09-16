@@ -84,20 +84,11 @@ module RightScale
         host = "#{url.host}#{host}"
       end
 
-      # RightLink certs are written at enrollment time, and live in the
-      # 'certs' subdir of the RightLink agent state dir.
-      os_root_dir  = File.join(AgentConfig.agent_state_dir)
+      root_dirs = AgentConfig.right_link_root_dirs.map { |x| ['-r', x] }.flatten
 
-      # RightLink actors and the agent init directory are both packaged into the RightLink gem,
-      # as subdirectories of the gem base directory (siblings of 'lib' and 'bin' directories).
-      #
-      # Because __FILE__ lives in the gem, we can calculate the gem's base path relative to
-      # our own location.
-      gem_root_dir = File.expand_path('../../', __FILE__)
-
-      cmd_opts = [ 'instance',
-                   '-r', os_root_dir,
-                   '-r', gem_root_dir,
+      cmd_opts = [ 'instance' ] +
+                 root_dirs +
+                 [
                    '-i', ENV['RS_RN_ID'],
                    '-t', ENV['RS_RN_AUTH'],
                    '-h', host,
@@ -105,7 +96,8 @@ module RightScale
                    '-p', url.password,
                    '-v', url.path,
                    '-q',
-                   '-S' ]
+                   '-S'
+                 ]
 
       if ENV['http_proxy']
         cmd_opts << ['--http-proxy', ENV['http_proxy']]

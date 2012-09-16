@@ -30,6 +30,19 @@ module RightScale
       File.dirname(File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'right_link')))
     end
 
+     # @return [Array] an appropriate sequence of root directories for configuring the RightLink agent
+    def self.right_link_root_dirs
+      # RightLink certs are written at enrollment time, and live in the
+      # 'certs' subdir of the RightLink agent state dir.
+      os_root_dir  = File.join(AgentConfig.agent_state_dir)
+
+      # RightLink actors and the agent init directory are both packaged into the RightLink gem,
+      # as subdirectories of the gem base directory (siblings of 'lib' and 'bin' directories).
+      gem_root_dir = Gem.loaded_specs['right_link'].full_gem_path
+
+      [os_root_dir, gem_root_dir]
+    end
+
     # Path to directory containing persistent RightLink agent state
     def self.agent_state_dir
       RightScale::Platform.filesystem.right_link_dynamic_state_dir
