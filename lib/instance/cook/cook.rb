@@ -40,7 +40,7 @@ module RightScale
 
     # Run bundle given in stdin
     def run
-      AgentConfig.root_dir = [File.join(AgentConfig.parent_dir, 'right_link'), "/var/lib/rightscale/right_link/", Platform.filesystem.right_link_dynamic_state_dir]
+      AgentConfig.root_dir = AgentConfig.right_link_root_dirs
 
       # 1. Load configuration settings
       options = OptionsBag.load

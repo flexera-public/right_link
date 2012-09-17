@@ -113,7 +113,7 @@ module RightScale
 
     def create_user(superuser=false, profile_data=nil, force=false)
       subject.should_receive(:fail).and_return { raise }
-      flexmock(LoginUserManager).should_receive(:create_user).with("USER", "123", superuser, Proc).and_return("USER")
+      flexmock(LoginUserManager.instance).should_receive(:create_user).with("USER", "123", superuser, Proc).and_return("USER")
       subject.should_receive(:create_audit_entry).with("EMAIL@EMAIL.COM", "USER", FlexMock.any, FlexMock.any, FlexMock.any)
       subject.should_receive(:create_profile).with(FlexMock.any, "USER", "URL", force) if profile_data
       subject.should_receive(:display_motd)
