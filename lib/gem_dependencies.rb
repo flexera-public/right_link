@@ -70,9 +70,10 @@ Dir.chdir(basedir) do
   end
 end
 
-# Make sure gem bin directories appear at the end of the path so our wrapper
-# scripts (e.g. those installed to /usr/bin) get top billing. Notice we choose
-# regexp patterns that work under both Linux and Windows.
+# Make sure gem bin directories appear at the end of the PATH so our wrapper
+# scripts (e.g. those installed to /usr/bin) get top billing *iff* a bin dir
+# already appears on the PATH. Notice we choose regexp patterns that work under
+# both Linux and Windows.
 sep = (RUBY_PLATFORM =~ /mswin|mingw|dos/) ? ';' : ':'
 version = RUBY_VERSION.split('.')[0..1].join('.')
 subdir = /(ruby|gems)[\\\/]#{version}[\\\/]bin/
