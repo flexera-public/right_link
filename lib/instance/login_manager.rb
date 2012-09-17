@@ -20,14 +20,13 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require 'singleton'
 require 'set'
 
 module RightScale
   class LoginManager
     class SystemConflict < SecurityError; end
 
-    include Singleton
+    include RightSupport::Ruby::EasySingleton
 
     CONFIG_YAML_FILE = File.normalize_path(File.join(RightScale::Platform.filesystem.right_link_static_state_dir, 'features.yml'))
 
@@ -84,7 +83,7 @@ module RightScale
       # All users are added to RightScale account's authorized keys.
       new_users = new_policy.users.select { |u| (u.expires_at == nil || u.expires_at > Time.now) }
       update_users(new_users, agent_identity, new_policy) do |audit_content|
-        yield audit_content
+        yield audit_content if block_given?
       end
 
       true
