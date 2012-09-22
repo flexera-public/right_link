@@ -66,9 +66,10 @@ module RightScale
       @reset_timer.cancel if @reset_timer
       @reset_timer = EM::Timer.new(RESET_DELAY) { reset_votes }
       if @total_votes >= REENROLL_THRESHOLD && !@reenrolling
-        Log.info('[re-enroll] Re-enroll threshold reached, shutting down and re-enrolling')
+        delay = rand(MAXIMUM_REENROLL_DELAY)
+        Log.info("[re-enroll] Re-enroll threshold reached, shutting down and re-enrolling in #{delay} seconds")
         set_reenrolling
-        EM::Timer.new(rand(MAXIMUM_REENROLL_DELAY)) { reenroll! }
+        EM::Timer.new(delay) { reenroll! }
       end
       true
     end
