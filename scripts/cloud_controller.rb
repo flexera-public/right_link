@@ -69,8 +69,8 @@ module RightScale
       fail("No action specified on the command line.") unless options[:action]
       name = options[:name]
       parameters = options[:parameters] || []
-      only_if = options[:only_if] || false
-      verbose = !(options[:quiet] || false)
+      only_if = options[:only_if]
+      verbose = options[:verbose]
 
       # support either single or a comma-delimited list of actions to execute
       # sequentially (e.g. "--action clear_state,wait_for_instance_ready,write_user_metadata")
@@ -118,7 +118,8 @@ module RightScale
         opt :action, "",  :type => :string
         opt :only_if
         opt :parameters, "",:type => :string
-        opt :quiet
+        opt :quiet # note that :quiet is deprecated (use -v instead) because Trollop cannot easily support inverse flags that default to true
+        opt :verbose
       end
       begin
         options = parser.parse

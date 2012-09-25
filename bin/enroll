@@ -188,19 +188,18 @@ module RightScale
       end
 
       if @result
-
-        dir = AgentConfig.certs_dir
-        # Ensure that the cert directory exists
-        FileUtils.mkdir_p(dir) unless File.directory?(dir)
+        # Create the standard RightAgent certs_dir so we can write our certs there.
+        certs_dir = File.join(AgentConfig.agent_state_dir, 'certs')
+        FileUtils.mkdir_p(certs_dir) unless File.directory?(certs_dir)
 
         # Write the mapper cert, our cert, and our private kjey
-        File.open(File.join(dir, 'mapper.cert'), "w") do |f|
+        File.open(File.join(certs_dir, 'mapper.cert'), "w") do |f|
           f.write(@result.mapper_cert)
         end
-        File.open(File.join(dir, 'instance.cert'), "w") do |f|
+        File.open(File.join(certs_dir, 'instance.cert'), "w") do |f|
           f.write(@result.id_cert)
         end
-        instance_key = File.join(dir, 'instance.key')
+        instance_key = File.join(certs_dir, 'instance.key')
         File.open(instance_key, "w") do |f|
           f.write(@result.id_key)
           FileUtils.chmod(0600, instance_key)

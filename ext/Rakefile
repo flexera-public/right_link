@@ -1,0 +1,18 @@
+require 'rubygems'
+require 'rake'
+
+desc "Builds any binaries local to right_link"
+task :default do
+  if RUBY_PLATFORM =~ /mswin|mingw/
+    task = 'build'
+    ms_build_path = "#{ENV['WINDIR']}\\Microsoft.NET\\Framework\\v3.5\\msbuild.exe"
+    right_link_root = ::File.expand_path(::File.join(::File.dirname(__FILE__), '..'))
+    Dir.chdir(File.join(right_link_root, 'lib', 'chef', 'windows', 'ChefNodeCmdlet')) do
+      # Note that we can build C# components using msbuild instead of needing to
+      # have Developer Studio installed
+      build_command = "#{ms_build_path} ChefNodeCmdlet.sln /t:#{task} /p:configuration=Release > ChefNodeCmdlet.build.txt 2>&1"
+      puts "#{build_command}"
+      `#{build_command}`
+    end
+  end
+end
