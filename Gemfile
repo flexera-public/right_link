@@ -9,7 +9,7 @@ gem "encryptor",               "1.1.3"
 gem "trollop",                 "~> 1.16"
 gem "right_support",           "~> 2.3"
 gem "right_agent",             :git => 'git://github.com/rightscale/right_agent.git',
-                               :branch => "master"
+                               :branch => "gemify_right_link"
 gem "right_amqp" ,             :git => 'git://github.com/rightscale/right_amqp.git',
                                :branch => "master"
 gem "right_popen",             "~> 1.0"

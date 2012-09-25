@@ -1,9 +1,9 @@
 GIT
   remote: git://github.com/rightscale/right_agent.git
-  revision: 1022a09167bc0b4ac176c6c385776f549fcbac83
-  branch: master
+  revision: 484f7af81ff56307b73203219502e6f056025298
+  branch: gemify_right_link
   specs:
-    right_agent (0.13.2)
+    right_agent (0.13.4)
       eventmachine (~> 0.12.10)
       json (~> 1.4)
       msgpack (= 0.4.4)
