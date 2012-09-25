@@ -1,6 +1,8 @@
 # Activate gem dependencies
 require 'rubygems'
 require 'bundler/setup'
+require 'rubygems/package_task'
+require 'rake/clean'
 
 # Ruby standard library dependencies
 require 'fileutils'
@@ -15,6 +17,13 @@ require File.join(RIGHT_LINK_ROOT, 'lib', 'run_shell')
 
 include RunShell
 
+desc "Build right_link gem"
+Gem::PackageTask.new(Gem::Specification.load("right_link.gemspec")) do |package|
+  package.need_zip = true
+  package.need_tar = true
+end
+
+CLEAN.include('pkg')
 
 def windows?
   return !!(RUBY_PLATFORM =~ /mswin/)
@@ -148,7 +157,7 @@ task :load_env do
   require 'irb'
   BASE_DIR = File.join(File.dirname(__FILE__), 'lib')
   require File.normalize_path(File.join(BASE_DIR, 'instance'))
-  require File.normalize_path(File.join(BASE_DIR, 'chef', 'providers'))
+  require File.normalize_path(File.join(BASE_DIR, 'chef', 'right_providers'))
   require File.normalize_path(File.join(BASE_DIR, 'chef', 'plugins'))
   require File.normalize_path(File.join(BASE_DIR, 'repo_conf_generators'))
 end

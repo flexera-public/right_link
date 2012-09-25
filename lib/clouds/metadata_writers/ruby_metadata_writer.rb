@@ -47,8 +47,8 @@ module RightScale
         return super(metadata, subpath) unless metadata.respond_to?(:has_key?)
 
         # write the cached file variant if the code-generation command line was passed.
-        env_file_naem = @generation_command ? "#{@file_name_prefix}-cache" : @file_name_prefix
-        env_file_path = create_full_path(env_file_naem, subpath)
+        env_file_name = @generation_command ? "#{@file_name_prefix}-cache" : @file_name_prefix
+        env_file_path = create_full_path(env_file_name, subpath)
         File.open(env_file_path, "w", DEFAULT_FILE_MODE) do |f|
           f.puts RUBY_HEADER
           metadata.each do |k, v|

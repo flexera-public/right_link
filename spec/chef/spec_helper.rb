@@ -25,7 +25,7 @@ require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'lib',
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'lib', 'instance', 'cook'))
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'lib', 'clouds'))
 
-require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'lib', 'chef', 'providers'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'lib', 'chef', 'right_providers'))
 
 shared_examples_for 'generates cookbook for chef runner' do
   before(:all) do
