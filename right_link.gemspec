@@ -16,15 +16,16 @@ spec = Gem::Specification.new do |s|
   
   s.required_rubygems_version = '>= 1.3.7'
 
-  s.add_runtime_dependency('right_agent', ['~> 0.10'])
-  s.add_runtime_dependency('right_scraper', ['~> 3.0'])
-  s.add_runtime_dependency('right_popen', ['~> 1.0'])
-  s.add_runtime_dependency('right_http_connection', ['~> 1.3'])
-  s.add_runtime_dependency('right_support', ['~> 2.0'])
+  s.add_runtime_dependency('right_agent', '~> 0.10')
+  s.add_runtime_dependency('right_scraper', '~> 3.0')
+  s.add_runtime_dependency('right_popen', '~> 1.0')
+  s.add_runtime_dependency('right_http_connection', '~> 1.3')
+  s.add_runtime_dependency('right_support', '~> 2.0')
 
-  s.add_runtime_dependency('chef', ['>= 0.10.10'])
-  s.add_runtime_dependency('encryptor', ['~> 1.1'])
+  s.add_runtime_dependency('chef', '>= 0.10.10')
+  s.add_runtime_dependency('encryptor', '~> 1.1')
   s.add_runtime_dependency('trollop')
+  s.add_runtime_dependency('extlib', '~> 0.9.15')
 
   if s.platform.to_s =~ /mswin|mingw/
     s.add_runtime_dependency('win32-api', '~> 1.4.5')
