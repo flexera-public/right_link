@@ -21,6 +21,15 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 module RightScale
+  if Platform.linux?
+    require File.expand_path(File.join(File.dirname(__FILE__), 'platform', 'linux'))
+  elsif Platform.darwin?
+    require File.expand_path(File.join(File.dirname(__FILE__), 'platform', 'darwin'))
+  elsif Platform.windows?
+    require File.expand_path(File.join(File.dirname(__FILE__), 'platform', 'windows'))
+  else
+    raise PlatformError.new('Unknown platform')
+  end
 
   # Extend AgentConfig for instance agents
   AgentConfig.module_eval do
