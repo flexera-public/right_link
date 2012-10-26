@@ -59,7 +59,6 @@ group :windows do
 end
 
 group :development do
-  gem "rake"
   gem "ruby-debug"
   gem "rspec",                 "~> 1.3"
   gem "flexmock",              "~> 0.8"
