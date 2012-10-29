@@ -80,6 +80,7 @@ module RightScale
       end
 
       # Create user just-in-time; idempotent if user already exists
+      # Note that username == chosen here, they just get used in two different contexts
       username = LoginUserManager.create_user(username, uuid, superuser ? true : false) do |chosen|
         if :shell == access
           puts "Creating your user profile (#{chosen}) on this machine."
@@ -87,6 +88,7 @@ module RightScale
       end
 
       create_audit_entry(email, username, access, orig, client_ip)
+      chown_tty(username)
       create_profile(access, username, profile, force) if profile
 
       # Note that when execing sudo we use the N-argument form of Kernel.exec,
@@ -324,6 +326,23 @@ module RightScale
       end
     rescue Exception => e
       # no-op.
+    end
+
+    # Ensure the user's PTY/TTY will be owned by him once we thunk through to his account.
+    # This helps apps like screen/tmux work better.
+    def chown_tty(username)
+      tty = `tty`.chomp
+      if File.exists?(tty)
+        %x(sudo chown #{Shellwords.escape(username)} #{Shellwords.escape(tty)})
+        raise RuntimeError, "Failed to change ownership of #{tty}" unless $?.success?
+      else
+        raise Errno::ENOENT, "'tty' command did not give a reasonable answer: #{tty}"
+      end
+    rescue Exception => e
+      STDERR.puts "Cannot chown your TTY - #{e.class.name}: #{e.message}"
+      STDERR.puts "Your session will continue, but screen and other terminal-magic apps"
+      STDERR.puts "may not work."
+      STDERR.puts
     end
 
     # Version information
