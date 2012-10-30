@@ -158,7 +158,7 @@ EOF
       def inner_run_chef(cookbook_path, run_list, run_as_server, &block)
         # ensure local drive for cookbook because scripts cannot run from
         # network locations (in windows).
-        platform = RightScale::Platform
+        platform = RightSupport::Platform
         cookbook_path = platform.filesystem.ensure_local_drive_path(cookbook_path, TEMP_DIR_NAME)
 
         # minimal chef configuration.
@@ -177,7 +177,7 @@ EOF
         end
 
         # must set file cache path and ensure it exists otherwise evented run_command will fail
-        cache_dir_path = File.join(::RightScale::Platform.filesystem.temp_dir, 'chef_runner_1B0C7CAA87E241daB90B75829DD6A833')
+        cache_dir_path = File.join(::RightSupport::Platform.filesystem.temp_dir, 'chef_runner_1B0C7CAA87E241daB90B75829DD6A833')
         AgentConfig.cache_dir = cache_dir_path
         file_cache_path = File.join(AgentConfig.cache_dir, 'chef')
         ::Chef::Config[:file_cache_path] = file_cache_path
@@ -251,7 +251,7 @@ EOF
                 EM.stop
               else
                 # kill the chef node provider
-                RightScale::Windows::ChefNodeServer.instance.stop rescue nil if RightScale::Platform.windows?
+                RightScale::Windows::ChefNodeServer.instance.stop rescue nil if RightSupport::Platform.windows?
                 chef_node_server_terminated = true
               end
             end

@@ -122,7 +122,7 @@ module RightScale
         # FIX: we have an issue with EM not allowing both sockets and named
         # pipes to share the same file/socket id. sending the input on the
         # command line is a temporary workaround.
-        platform = RightScale::Platform
+        platform = RightSupport::Platform
         if platform.windows?
           input_path = File.normalize_path(File.join(platform.filesystem.temp_dir, "rs_executable_sequence#{@thread_name}.txt"))
           File.open(input_path, "w") { |f| f.write(input_text) }

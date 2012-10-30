@@ -130,12 +130,12 @@ describe RightScale::CookbookRepoRetriever do
           @retriever.is_checked_out?(@repo_sha).should be_true
         end
 
-        if !::RightScale::Platform.windows? || defined?(::Windows::File::CreateSymbolicLink)
+        if !::RightSupport::Platform.windows? || defined?(::Windows::File::CreateSymbolicLink)
           it 'should be able to link on supported platforms' do
             @retriever.checkout_cookbook_repos.should be_true
             File.exists?(RightScale::CookbookPathMapping.checkout_path(@repo_dir, @position)).should be_true
             @retriever.link(@repo_sha, @position).should be_true
-            if ::RightScale::Platform.windows?
+            if ::RightSupport::Platform.windows?
               File.exists?(RightScale::CookbookPathMapping.repose_path(@expected_repose_root, @repo_sha, @position)).should be_true
             else
               File.readlink(RightScale::CookbookPathMapping.repose_path(@expected_repose_root, @repo_sha, @position)).should == RightScale::CookbookPathMapping.checkout_path(@repo_dir, @position)
@@ -146,11 +146,11 @@ describe RightScale::CookbookRepoRetriever do
         it 'should NOT be able to link on unsupported platforms' do
           # pretend that this platform doesn't support symlinks
           mock_filesystem = flexmock("fake file system")
-          mock_filesystem.should_receive(:create_symlink).and_raise(::RightScale::PlatformNotSupported)
-          flexmock(::RightScale::Platform).should_receive(:filesystem).and_return(mock_filesystem)
+          mock_filesystem.should_receive(:create_symlink).and_raise(::RightSupport::Platform::Unsupported)
+          flexmock(::RightSupport::Platform).should_receive(:filesystem).and_return(mock_filesystem)
 
           @retriever.checkout_cookbook_repos.should be_true
-          lambda { @retriever.link(@repo_sha, @position) }.should raise_exception(::RightScale::PlatformNotSupported)
+          lambda { @retriever.link(@repo_sha, @position) }.should raise_exception(::RightSupport::Platform::Unsupported)
         end
       end
 

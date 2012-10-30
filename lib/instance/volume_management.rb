@@ -178,7 +178,7 @@ module RightScale
     # mapping(Hash):: details of planned volume
     def attach_planned_volume(mapping)
       # preserve the initial list of disks/volumes before attachment for comparison later.
-      vm = RightScale::Platform.volume_manager
+      vm = RightSupport::Platform.volume_manager
       InstanceState.planned_volume_state.disks ||= vm.disks
       InstanceState.planned_volume_state.volumes ||= vm.volumes
 
@@ -227,7 +227,7 @@ module RightScale
       # check for changes in disks.
       last_disks = InstanceState.planned_volume_state.disks
       last_volumes = InstanceState.planned_volume_state.volumes
-      vm = RightScale::Platform.volume_manager
+      vm = RightSupport::Platform.volume_manager
       current_disks = vm.disks
       current_volumes = vm.volumes
 
@@ -404,7 +404,7 @@ module RightScale
     # results(Array):: array of hashes representing merged mappings
     def merge_planned_volume_mappings(last_mappings, current_planned_volumes)
       results = []
-      vm = RightScale::Platform.volume_manager
+      vm = RightSupport::Platform.volume_manager
 
       # merge latest mappings with last mappings, if any.
       current_planned_volumes.each do |planned_volume|

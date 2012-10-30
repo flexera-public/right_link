@@ -35,7 +35,7 @@ Dir[pattern].each do |rb_file|
   require File.normalize_path(rb_file)
 end
 
-if RightScale::Platform.windows?
+if RightSupport::Platform.windows?
 
   DYNAMIC_WINDOWS_CHEF_PROVIDERS_PATH = File.join(BASE_RIGHT_CHEF_LIB_DIR_PATH, 'windows')
   STATIC_WINDOWS_CHEF_PROVIDERS_PATH = File.join(BASE_RIGHT_CHEF_PROVIDER_DIR_PATH, 'windows')

@@ -28,7 +28,7 @@ module RightScale
 
     include RightSupport::Ruby::EasySingleton
 
-    CONFIG_YAML_FILE = File.normalize_path(File.join(RightScale::Platform.filesystem.right_link_static_state_dir, 'features.yml'))
+    CONFIG_YAML_FILE = File.normalize_path(File.join(AgentConfig::right_link_static_state_dir, 'features.yml'))
 
     CONFIG=\
       if File.exists?(CONFIG_YAML_FILE)
@@ -54,7 +54,7 @@ module RightScale
     # @return [FalseClass] if LoginManager does not work on this platform
     #
     def supported_by_platform?
-      right_platform = RightScale::Platform.linux?
+      right_platform = RightSupport::Platform.linux?
       # avoid calling user_exists? on unsupported platform(s)
       right_platform && LoginUserManager.user_exists?('rightscale') && CONFIG['managed_login']['enable']
     end

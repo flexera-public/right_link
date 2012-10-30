@@ -20,7 +20,7 @@ module RightScale
       def initialize(options)
         # defaults
         options = options.dup
-        default_file_extension = RightScale::Platform.windows? ? '.bat' : '.sh'
+        default_file_extension = RightSupport::Platform.windows? ? '.bat' : '.sh'
         options[:file_extension] ||= default_file_extension
         @generation_command = options[:generation_command]
 
@@ -30,7 +30,7 @@ module RightScale
 
       protected
 
-      if RightScale::Platform.windows?
+      if RightSupport::Platform.windows?
 
         WINDOWS_SHELL_HEADER = ['@echo off',
                                 'rem # Warning: this file has been auto-generated',

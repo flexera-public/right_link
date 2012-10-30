@@ -285,7 +285,7 @@ module RightScale
     # === Return
     # result(Boolean):: true if windows
     def platform
-      ::RightScale::Platform
+      ::RightSupport::Platform
     end
 
     # Reads the generated metadata file of the given kind and writer type.
@@ -520,7 +520,7 @@ module RightScale
     # === Return
     # result(ActionResult):: action result
     def execute_script(script_path, *arguments)
-      cmd = ::RightScale::Platform.shell.format_shell_command(script_path, *arguments)
+      cmd = ::RightSupport::Platform.shell.format_shell_command(script_path, *arguments)
       output = `#{cmd}`
       return ActionResult.new(:exitstatus => $?.exitstatus, :output => output)
     rescue Exception => e

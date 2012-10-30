@@ -28,7 +28,7 @@ module RightScale
 
   class Reenroller
 
-    if RightScale::Platform.windows?
+    if RightSupport::Platform.windows?
       # Note we currently only need a reenroller state file under windows.
       STATE_DIR  = AgentConfig.agent_state_dir
       STATE_FILE = File.join(STATE_DIR, 'reenroller_state.js')
@@ -41,7 +41,7 @@ module RightScale
     def run(options)
       AgentConfig.root_dir = AgentConfig.right_link_root_dirs
 
-      if RightScale::Platform.windows?
+      if RightSupport::Platform.windows?
         cleanup_certificates(options)
         # Write state file to indicate to RightScaleService that it should not
         # enter the rebooting state (which is the default behavior when the

@@ -28,7 +28,7 @@ module RightScale
   # Manages instance state
   class InstanceState
 
-    CONFIG_YAML_FILE = File.normalize_path(File.join(RightScale::Platform.filesystem.right_link_static_state_dir, 'features.yml'))
+    CONFIG_YAML_FILE = File.normalize_path(File.join(AgentConfig::right_link_static_state_dir, 'features.yml'))
 
     CONFIG=\
       if File.exists?(CONFIG_YAML_FILE)
@@ -63,10 +63,10 @@ module RightScale
     LOGIN_POLICY_FILE = File.join(STATE_DIR, 'login_policy.js')
 
     # Path to boot log
-    BOOT_LOG_FILE = File.join(RightScale::Platform.filesystem.log_dir, 'install')
+    BOOT_LOG_FILE = File.join(RightSupport::Platform.filesystem.log_dir, 'install')
 
     # Path to decommission log
-    DECOMMISSION_LOG_FILE = File.join(RightScale::Platform.filesystem.log_dir, 'decommission')
+    DECOMMISSION_LOG_FILE = File.join(RightSupport::Platform.filesystem.log_dir, 'decommission')
 
     # Number of seconds to wait for cloud to shutdown instance
     FORCE_SHUTDOWN_DELAY = 180
@@ -337,19 +337,19 @@ module RightScale
         res = OperationResult.from_results(r)
         case kind
         when 'reboot'
-          RightScale::Platform.controller.reboot unless res.success?
+          RightSupport::Platform.controller.reboot unless res.success?
         when 'terminate', 'stop'
           Sender.instance.send_push("/registrar/remove", {:agent_identity => @identity, :created_at => Time.now.to_i})
-          RightScale::Platform.controller.shutdown unless res.success?
+          RightSupport::Platform.controller.shutdown unless res.success?
         else
           Log.error("InstanceState.shutdown() kind was unexpected: #{kind}")
         end
       end
       case kind
       when 'reboot'
-        EM.add_timer(FORCE_SHUTDOWN_DELAY) { RightScale::Platform.controller.reboot }
+        EM.add_timer(FORCE_SHUTDOWN_DELAY) { RightSupport::Platform.controller.reboot }
       when 'terminate', 'stop'
-        EM.add_timer(FORCE_SHUTDOWN_DELAY) { RightScale::Platform.controller.shutdown }
+        EM.add_timer(FORCE_SHUTDOWN_DELAY) { RightSupport::Platform.controller.shutdown }
       else
         Log.error("InstanceState.shutdown() kind was unexpected: #{kind}")
       end
@@ -465,7 +465,7 @@ module RightScale
     # === Return
     # uptime(Float):: Uptime of this system in seconds, or 0.0 if undetermined
     def self.uptime()
-      return RightScale::Platform.shell.uptime
+      return RightSupport::Platform.shell.uptime
     end
 
     # Purely for informational purposes, attempt to update the Unix MOTD file
@@ -476,7 +476,7 @@ module RightScale
     # === Return
     # nil:: always return nil
     def self.update_motd()
-      return unless CONFIG['motd']['update'] || RightScale::Platform.linux?
+      return unless CONFIG['motd']['update'] || RightSupport::Platform.linux?
 
       if File.directory?('/etc/update-motd.d')
         #Ubuntu 10.04 and above use a dynamic MOTD update system. In this case we assume
@@ -507,7 +507,7 @@ module RightScale
     # === Return
     # nil:: always return nil
     def self.broadcast_wall
-      return unless RightScale::Platform.linux?
+      return unless RightSupport::Platform.linux?
 
       if SUCCESSFUL_STATES.include?(@value)
         system('echo "RightScale installation complete. Details can be found in /var/log/messages" | wall') rescue nil

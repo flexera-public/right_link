@@ -91,11 +91,11 @@ module RightScale
         file = flexmock('file')
         flexmock(File).should_receive(:open).and_return(file)
         file.should_receive(:puts)
-        if RightScale::Platform.windows?
+        if RightSupport::Platform.windows?
           subject.should_receive(:`).with("net start rightscale").once
           flexmock($?).should_receive(:success?).and_return(true)
           should_fail = false
-        elsif RightScale::Platform.linux? || RightScale::Platform.darwin?
+        elsif RightSupport::Platform.linux? || RightSupport::Platform.darwin?
           subject.should_receive(:`).with("/etc/init.d/rightscale start && /etc/init.d/rightlink start").once
           flexmock($?).should_receive(:success?).and_return(true)
           should_fail = false
@@ -136,7 +136,7 @@ module RightScale
       it 'should attach this machine to a server and set cloud name to "cloud"' do
         flexmock(RightScale::AgentConfig).should_receive(:cloud_file_path).and_return("cloud_file_path")
         spool_dir = '/var/spool'
-        if RightScale::Platform::windows?
+        if RightSupport::Platform::windows?
           flexmock(File).should_receive(:join).with(Dir::COMMON_APPDATA, 'RightScale', 'spool')\
                         .and_return(spool_dir)
         end

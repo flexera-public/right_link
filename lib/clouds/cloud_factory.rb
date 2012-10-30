@@ -202,7 +202,7 @@ module RightScale
       search_paths = []
       cloud_aliases.each do |cloud_alias|
         # first add default search path for cloud name.
-        search_path = File.join(RightScale::Platform.filesystem.private_bin_dir, cloud_alias)
+        search_path = File.join(AgentConfig.private_bin_dir, cloud_alias)
         if File.directory?(search_path)
           search_paths << search_path
           logger.debug("Added #{search_path.inspect} to search path for extension scripts.")

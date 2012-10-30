@@ -95,7 +95,7 @@ end
     def script_path(nickname)
       base_path = nickname.gsub(/[^0-9a-zA-Z_]/,'_')
       base_path = File.join(@recipes_dir, base_path)
-      candidate_path = RightScale::Platform.shell.format_script_file_name(base_path)
+      candidate_path = RightSupport::Platform.shell.format_script_file_name(base_path)
       i = 1
       path = candidate_path
       path = candidate_path + (i += 1).to_s while File.exists?(path)
@@ -164,7 +164,7 @@ description "Automatically generated repo, do not modify"
 
       # convert to native format for ease of scripting in Windows, etc. the
       # normalized path is normal for Ruby but not necessarily for native FS.
-      return RightScale::Platform.filesystem.pretty_path(path, true)
+      return RightSupport::Platform.filesystem.pretty_path(path, true)
     end
 
     # Is there no RightScript recipe in repo?

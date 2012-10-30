@@ -89,7 +89,7 @@ describe InstanceScheduler do
       @audit = RightScale::AuditProxyMock.new(1)
       @controller = ControllerMock.new
       flexmock(RightScale::AuditProxy).should_receive(:new).and_return(@audit)
-      flexmock(RightScale::Platform).should_receive(:controller).and_return(@controller)
+      flexmock(RightSupport::Platform).should_receive(:controller).and_return(@controller)
       now = Time.at(100000)
       flexmock(Time).should_receive(:now).and_return(now)
       @sender.should_receive(:send_push).with('/registrar/remove', {:agent_identity => @identity,

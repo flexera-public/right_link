@@ -20,8 +20,8 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-CONFIG_DRIVE_MOUNTPOINT = File.join(RightScale::Platform.filesystem.spool_dir, name.to_s) if ::RightScale::Platform.linux?
-CONFIG_DRIVE_MOUNTPOINT = File.join(ENV['ProgramW6432'], 'RightScale', 'Mount', 'Softlayer').gsub('/', '\\') if ::RightScale::Platform.windows?
+CONFIG_DRIVE_MOUNTPOINT = File.join(RightSupport::Platform.filesystem.spool_dir, name.to_s) if ::RightSupport::Platform.linux?
+CONFIG_DRIVE_MOUNTPOINT = File.join(ENV['ProgramW6432'], 'RightScale', 'Mount', 'Softlayer').gsub('/', '\\') if ::RightSupport::Platform.windows?
 
 # dependencies.
 metadata_source 'metadata_sources/config_drive_metadata_source'
@@ -68,7 +68,7 @@ default_option([:user_metadata, :metadata_tree_climber, :create_leaf_override], 
 default_option([:metadata_source, :user_metadata_source_file_path], File.join(CONFIG_DRIVE_MOUNTPOINT, 'meta.js'))
 
 default_option([:metadata_source, :config_drive_uuid], "681B-8C5D")
-default_option([:metadata_source, :config_drive_filesystem], ::RightScale::Platform.windows? ? 'FAT' : 'vfat')
+default_option([:metadata_source, :config_drive_filesystem], ::RightSupport::Platform.windows? ? 'FAT' : 'vfat')
 default_option([:metadata_source, :config_drive_label], 'METADATA')
 default_option([:metadata_source, :config_drive_mountpoint],  CONFIG_DRIVE_MOUNTPOINT)
 

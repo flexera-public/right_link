@@ -166,7 +166,7 @@ module RightScale
         raise ArgumentError.new("Missing directory cannot be linked: #{checkout_path}") unless File.directory?(checkout_path)
         repose_path   = CookbookPathMapping.repose_path(@repose_root, repo_sha, position)
         FileUtils.mkdir_p(File.dirname(repose_path))
-        Platform.filesystem.create_symlink(checkout_path, repose_path)
+        RightSupport::Platform.filesystem.create_symlink(checkout_path, repose_path)
         return true
       end
       false

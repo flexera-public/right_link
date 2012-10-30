@@ -30,7 +30,7 @@ require 'json'
 module RightScale
   module SelectiveMetadataSourceSpec
 
-    TEMP_DIR_PATH = File.join(RightScale::Platform.filesystem.temp_dir, 'selective-metadata-spec-B967A8D4157329C2B4191D73C199BCEF')
+    TEMP_DIR_PATH = File.join(RightSupport::Platform.filesystem.temp_dir, 'selective-metadata-spec-B967A8D4157329C2B4191D73C199BCEF')
     SHEBANG_REGEX = /^#!/
 
     CLOUD_METADATA_ROOT = ['latest', 'meta-data']

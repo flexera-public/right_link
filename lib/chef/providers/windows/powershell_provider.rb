@@ -109,7 +109,7 @@ class Chef
 
       TEMP_DIR_NAME = 'powershell_provider-B6169A26-91B5-4e3e-93AD-F0B4F6EF107E'
       SOURCE_WINDOWS_PATH = ::File.normalize_path(::File.join(::File.dirname(__FILE__), '..', '..', 'windows'))
-      LOCAL_WINDOWS_BIN_PATH = RightScale::Platform.filesystem.ensure_local_drive_path(::File.join(SOURCE_WINDOWS_PATH, 'bin'), TEMP_DIR_NAME)
+      LOCAL_WINDOWS_BIN_PATH = RightSupport::Platform.filesystem.ensure_local_drive_path(::File.join(SOURCE_WINDOWS_PATH, 'bin'), TEMP_DIR_NAME)
       CHEF_NODE_CMDLET_DLL_PATH = ::File.normalize_path(::File.join(LOCAL_WINDOWS_BIN_PATH, 'ChefNodeCmdlet.dll')).gsub("/", "\\")
 
       # Provides a view of the current state objects (instance, chef, ...)
@@ -131,7 +131,7 @@ class Chef
       # == Returns
       # command(String):: command to execute
       def format_command(script_file_path)
-        platform = RightScale::Platform
+        platform = RightSupport::Platform
         shell    = platform.shell
 
         # import ChefNodeCmdlet.dll to allow powershell scripts to call get-ChefNode, etc.

@@ -42,7 +42,7 @@ module RightScale
       @retry_period = retry_period
       @use_backoff = use_backoff
       @max_retry_period = max_retry_period if use_backoff
-      platform = RightScale::Platform
+      platform = RightSupport::Platform
       @found_curl = platform.filesystem.has_executable_in_path('curl')
     end
 
@@ -119,7 +119,7 @@ module RightScale
       #
       # note: ensure we use double-quotes (") to surround arguments on command
       # line because single-quotes (') are literals in windows.
-      platform = RightScale::Platform
+      platform = RightSupport::Platform
       user_opt = username && password ? "--user \"#{username}:#{password}\"" : ""
       dest = platform.filesystem.long_path_to_short_path(dest)
       cmd = "curl --fail --silent --show-error --insecure --location --connect-timeout 300 --max-time 3600 --write-out \"%{http_code} %{size_download} %{speed_download}\" #{user_opt} --output \"#{dest}\" \"#{url}\""

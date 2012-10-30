@@ -23,16 +23,6 @@ require 'right_support'
 require 'right_agent'
 
 module RightScale
-  if Platform.linux?
-    require File.expand_path(File.join(File.dirname(__FILE__), 'platform', 'linux'))
-  elsif Platform.darwin?
-    require File.expand_path(File.join(File.dirname(__FILE__), 'platform', 'darwin'))
-  elsif Platform.windows?
-    require File.expand_path(File.join(File.dirname(__FILE__), 'platform', 'windows'))
-  else
-    raise PlatformError.new('Unknown platform')
-  end
-
   # Extend AgentConfig for instance agents
   AgentConfig.module_eval do
     # Static (time-invariant) state that is specific to RightLink
@@ -41,6 +31,46 @@ module RightScale
         '/etc/rightscale.d/right_link'
       elsif RightSupport::Platform.windows?
         return RightSupport::Platform.filesystem.pretty_path(File.join(Dir::COMMON_APPDATA, 'RightScale', 'rightscale.d', 'right_link'))
+      else
+        raise NotImplementedError, "Unsupported platform"
+      end
+    end
+
+    # Dynamic, persistent runtime state that is specific to RightLink
+    def self.right_link_dynamic_state_dir
+      if RightSupport::Platform::linux? || RightSupport::Platform.darwin?
+        '/var/lib/rightscale/right_link'
+      elsif RightSupport::Platform.windows?
+        return pretty_path(File.join(Dir::COMMON_APPDATA, 'RightScale', 'right_link'))
+      else
+        raise NotImplementedError, "Unsupported platform"
+      end
+    end
+
+    def self.right_link_home_dir
+      unless @right_link_home_dir
+        @right_link_home_dir = ENV['RS_RIGHT_LINK_HOME'] ||
+          File.normalize_path(File.join(company_program_files_dir, 'RightLink'))
+      end
+      @right_link_home_dir
+    end
+
+    # Path to right link configuration and internal usage scripts
+    def self.private_bin_dir
+      if RightSupport::Platform::linux? || RightSupport::Platform.darwin?
+        '/opt/rightscale/bin'
+      elsif RightSupport::Platform.windows?
+        return pretty_path(File.join(right_link_home_dir, 'bin'))
+      else
+        raise NotImplementedError, "Unsupported platform"
+      end
+    end
+
+    def self.sandbox_dir
+      if RightSupport::Platform::linux? || RightSupport::Platform.darwin?
+        '/opt/rightscale/sandbox'
+      elsif RightSupport::Platform.windows?
+        return pretty_path(File.join(right_link_home_dir, 'sandbox'))
       else
         raise NotImplementedError, "Unsupported platform"
       end
@@ -66,19 +96,17 @@ module RightScale
 
     # Path to directory containing persistent RightLink agent state
     def self.agent_state_dir
-      RightScale::Platform.filesystem.right_link_dynamic_state_dir
+      AgentConfig::right_link_dynamic_state_dir
     end
 
     # Path to the file that contains the name of the cloud for this instance
     def self.cloud_file_path
-      File.normalize_path(File.join(
-        RightScale::Platform.filesystem.right_scale_static_state_dir,
-        'cloud'))
+      File.normalize_path(File.join(right_scale_static_state_dir, 'cloud'))
     end
 
     # Path to directory containing transient cloud-related state (metadata, userdata, etc)
     def self.cloud_state_dir
-      @cloud_state_dir ||= File.join(RightScale::Platform.filesystem.spool_dir, 'cloud')
+      @cloud_state_dir ||= File.join(RightSupport::Platform.filesystem.spool_dir, 'cloud')
     end
 
     # Set path to directory containing transient cloud-related state (metadata, userdata, etc)
@@ -88,7 +116,7 @@ module RightScale
 
     # Path to directory for caching instance data
     def self.cache_dir
-      @cache_dir ||= File.join(RightScale::Platform.filesystem.cache_dir, 'rightscale')
+      @cache_dir ||= File.join(RightSupport::Platform.filesystem.cache_dir, 'rightscale')
     end
 
     # Set path to directory for caching instance data
@@ -98,7 +126,7 @@ module RightScale
 
     # Path to directory for Ruby source code, e.g. cookbooks
     def self.source_code_dir
-      @source_code_dir ||= File.join(RightScale::Platform.filesystem.source_code_dir, 'rightscale')
+      @source_code_dir ||= File.join(RightSupport::Platform.filesystem.source_code_dir, 'rightscale')
     end
 
     # Set path to directory for Ruby source code, e.g. cookbooks
@@ -128,7 +156,7 @@ module RightScale
 
     # Path to directory for sandbox if it exists
     def self.sandbox_dir
-      dir = RightScale::Platform.filesystem.sandbox_dir
+      dir = RightSupport::Platform.filesystem.sandbox_dir
       File.directory?(dir) ? dir : nil
     end
 
@@ -137,15 +165,15 @@ module RightScale
       # Allow test environment to specify a non-program files location for tools
       if ENV['RS_RUBY_EXE']
         ENV['RS_RUBY_EXE']
-      elsif RightScale::Platform.windows?
+      elsif RightSupport::Platform.windows?
         if sandbox_dir
-          RightScale::Platform.shell.sandbox_ruby
+          RightSupport::Platform.shell.sandbox_ruby
         else
           'ruby'
         end
       else
-        if sandbox_dir && File.exist?(RightScale::Platform.shell.sandbox_ruby)
-          RightScale::Platform.shell.sandbox_ruby
+        if sandbox_dir && File.exist?(RightSupport::Platform.shell.sandbox_ruby)
+          RightSupport::Platform.shell.sandbox_ruby
         else
           # Development setup
           `which ruby`.chomp
@@ -155,7 +183,7 @@ module RightScale
 
     # Sandbox gem command
     def self.sandbox_gem_cmd
-      if RightScale::Platform.windows?
+      if RightSupport::Platform.windows?
         # Allow test environment to specify a non-program files location for tools
         if ENV['RS_GEM']
           ENV['RS_GEM']
@@ -176,7 +204,7 @@ module RightScale
 
     # Sandbox git command
     def self.sandbox_git_cmd
-      if RightScale::Platform.windows?
+      if RightSupport::Platform.windows?
         # Allow test environment to specify a non-program files location for tools
         if ENV['RS_GIT_EXE']
           ENV['RS_GIT_EXE']

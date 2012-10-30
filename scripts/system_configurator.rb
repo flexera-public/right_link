@@ -48,7 +48,7 @@ module RightScale
     SUDO_GROUP = 'rightscale_sudo'
 
     def read_options_file
-      state = RightScale::Platform.filesystem.right_link_dynamic_state_dir
+      state = AgentConfig::right_link_dynamic_state_dir
       options_file     = File.join(state, 'system.js')
       old_options_file = File.join(state, 'sys_configure.js')
 

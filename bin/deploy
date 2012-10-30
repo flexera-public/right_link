@@ -108,17 +108,17 @@ module RightScale
         cmd_opts << ['--http-no-proxy', ENV['no_proxy']]
       end
 
-      if Platform.linux?
+      if RightSupport::Platform.linux?
         FileUtils.mkdir_p('/opt/rightscale/etc/monit.d')
         cmd_opts << '--monit'
       end
       
-      rad_path = if Platform.windows? 
-        File.join(Platform.filesystem.right_link_home_dir, "bin") 
+      rad_path = if RightSupport::Platform.windows? 
+        File.join(AgentConfig::right_link_home_dir, "bin") 
       else
-        Platform.filesystem.private_bin_dir
+        AgentConfig::private_bin_dir
       end
-      cmd = Platform.shell.format_executable_command(File.join(rad_path, 'rad'), cmd_opts)
+      cmd = RightSupport::Platform.shell.format_executable_command(File.join(rad_path, 'rad'), cmd_opts)
 
       Log.info("Deploying agent with command: #{cmd}")
       exec(cmd)

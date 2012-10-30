@@ -45,7 +45,7 @@ class Chef
     class RightScript < Chef::Resource
 
       # Default directory used to cache RightScript source
-      DEFAULT_CACHE_DIR_ROOT = ::File.join(RightScale::Platform.filesystem.cache_dir, 'rightscale')
+      DEFAULT_CACHE_DIR_ROOT = ::File.join(RightSupport::Platform.filesystem.cache_dir, 'rightscale')
 
       # Initialize RightScript resource with default values
       #

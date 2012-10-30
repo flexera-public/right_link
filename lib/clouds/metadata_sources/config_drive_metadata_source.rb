@@ -80,7 +80,7 @@ module RightScale
         conditions[:label] = @config_drive_label if @config_drive_label
         conditions[:filesystem] = @config_drive_filesystem if @config_drive_filesystem
 
-        if ::RightScale::Platform.linux? && @config_drive_uuid
+        if ::RightSupport::Platform.linux? && @config_drive_uuid
           conditions[:uuid] = @config_drive_uuid
         end
 
@@ -91,19 +91,19 @@ module RightScale
 
         begin
           device_ary = []
-          if ::RightScale::Platform.windows?
+          if ::RightSupport::Platform.windows?
             # Check once, in case the metadata drive is onlined already
-            device_ary = ::RightScale::Platform.volume_manager.volumes(conditions)
-            ::RightScale::Platform.volume_manager.disks({:status => "Offline"}).each do |disk|
-              ::RightScale::Platform.volume_manager.online_disk(disk[:index])
+            device_ary = ::RightSupport::Platform.volume_manager.volumes(conditions)
+            ::RightSupport::Platform.volume_manager.disks({:status => "Offline"}).each do |disk|
+              ::RightSupport::Platform.volume_manager.online_disk(disk[:index])
               # Per the interwebs, you cannot run disk part commands back to back without a wait.
               sleep(15)
-              device_ary = ::RightScale::Platform.volume_manager.volumes(conditions)
+              device_ary = ::RightSupport::Platform.volume_manager.volumes(conditions)
               break if device_ary.length > 0
-              ::RightScale::Platform.volume_manager.offline_disk(disk[:index])
+              ::RightSupport::Platform.volume_manager.offline_disk(disk[:index])
             end unless device_ary.length > 0
           else
-            device_ary = ::RightScale::Platform.volume_manager.volumes(conditions)
+            device_ary = ::RightSupport::Platform.volume_manager.volumes(conditions)
           end
           idx = idx + 1 unless idx == 2
           break if (Time.now.to_i - starttime) > timeout || device_ary.length > 0
@@ -116,10 +116,10 @@ module RightScale
 
         FileUtils.mkdir_p(@config_drive_mountpoint) unless File.directory? @config_drive_mountpoint
 
-        if ::RightScale::Platform.linux?
-          ::RightScale::Platform.volume_manager.mount_volume(device_ary[0], @config_drive_mountpoint)
-        elsif ::RightScale::Platform.windows?
-          ::RightScale::Platform.volume_manager.assign_device(device_ary[0][:index], @config_drive_mountpoint, {:idempotent => true, :clear_readonly => false, :remove_all => true})
+        if ::RightSupport::Platform.linux?
+          ::RightSupport::Platform.volume_manager.mount_volume(device_ary[0], @config_drive_mountpoint)
+        elsif ::RightSupport::Platform.windows?
+          ::RightSupport::Platform.volume_manager.assign_device(device_ary[0][:index], @config_drive_mountpoint, {:idempotent => true, :clear_readonly => false, :remove_all => true})
         end
         return true
       end

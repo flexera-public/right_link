@@ -182,7 +182,7 @@ module RightScale
         end
         @options[:retry_interval] = [@options[:retry_interval], @options[:time_limit]].min
         @options[:max_attempts] = [@options[:max_attempts], @options[:time_limit] / @options[:retry_interval]].min
-        @options[:log_path] ||= RightScale::Platform.filesystem.log_dir
+        @options[:log_path] ||= RightSupport::Platform.filesystem.log_dir
 
         # Attach to log used by instance agent
         Log.program_name = 'RightLink'
@@ -282,7 +282,7 @@ protected
           pid_data = pid_file.read_pid
           if pid_data[:pid]
             info("Stopping checker daemon")
-            if RightScale::Platform.windows?
+            if RightSupport::Platform.windows?
               begin
                 client = CommandClient.new(pid_data[:listen_port], pid_data[:cookie])
                 client.send_command({:name => :terminate}, verbose = @options[:verbose], timeout = 30) do |r|
@@ -302,7 +302,7 @@ protected
         elsif @options[:daemon]
           # Run checker as daemon
           pid_file.check rescue error("Cannot start checker daemon because already running", nil, abort = true)
-          daemonize(checker_identity, @options) unless RightScale::Platform.windows?
+          daemonize(checker_identity, @options) unless RightSupport::Platform.windows?
           pid_file.write
           at_exit { pid_file.remove }
 
@@ -457,11 +457,11 @@ protected
           info("Triggering re-enroll after unsuccessful communication check", to_console = true)
           cmd = "rs_reenroll"
           cmd += " -v" if @options[:verbose]
-          cmd += '&' unless RightScale::Platform.windows?
+          cmd += '&' unless RightSupport::Platform.windows?
           # Windows relies on the command protocol to terminate properly.
           # If rchk terminates itself, then rchk --stop will hang trying
           # to connect to this rchk.
-          terminate unless RightScale::Platform.windows?
+          terminate unless RightSupport::Platform.windows?
           system(cmd)
           # Wait around until rs_reenroll has a chance to stop the checker via monit
           # otherwise monit may restart it

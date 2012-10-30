@@ -201,10 +201,10 @@ describe InstanceSetup do
 
     # always mock volume manager in testing (it can be hazardous to your dev/test machine's health).
     @mock_vm = RightScale::InstanceSetupSpec::MockVolumeManager.new
-    flexmock(RightScale::Platform).should_receive(:volume_manager).and_return(@mock_vm)
+    flexmock(RightSupport::Platform).should_receive(:volume_manager).and_return(@mock_vm)
 
     # default to no planned volumes in Windows case, Linux case will fail if it attempts to get planned volumes.
-    if RightScale::Platform.windows?
+    if RightSupport::Platform.windows?
       InstanceSetup.results_for_get_planned_volumes = [lambda{ @results_factory.success_results([]) }]
     else
       InstanceSetup.results_for_get_planned_volumes = [lambda{ raise "Unexpected call for this platform." }]
@@ -454,7 +454,7 @@ describe InstanceSetup do
     @mock_vm.results_for_assign_device = results
   end
 
-  if RightScale::Platform.windows?
+  if RightSupport::Platform.windows?
     it 'should boot after managing planned volumes' do
       # setup series of responses to mock both core agent api and windows volume management.
       planned_volumes = mock_core_api_get_planned_volumes

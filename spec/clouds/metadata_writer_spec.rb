@@ -46,7 +46,7 @@ end
 describe RightScale::MetadataWriter do
 
   before(:each) do
-    @output_dir_path = File.join(::RightScale::Platform.filesystem.temp_dir, 'rs_metadata_writers_output')
+    @output_dir_path = File.join(::RightSupport::Platform.filesystem.temp_dir, 'rs_metadata_writers_output')
     FileUtils.rm_rf(@output_dir_path) if File.directory?(@output_dir_path)
   end
 
@@ -125,7 +125,7 @@ describe RightScale::MetadataWriter do
     writer.write(::RightScale::MetadataWriterSpec::METADATA)
     File.file?(output_file_path).should be_true
 
-    if ::RightScale::Platform.windows?
+    if ::RightSupport::Platform.windows?
       verify_file_path = File.join(@output_dir_path, 'verify.bat')
       File.open(verify_file_path, "w") do |f|
         f.puts "@echo off"

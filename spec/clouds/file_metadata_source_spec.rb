@@ -72,7 +72,7 @@ describe RightScale::MetadataSources::FileMetadataSource do
   end
 
   def setup_metadata_provider
-    temp_dir = ::RightScale::Platform.filesystem.temp_dir
+    temp_dir = ::RightSupport::Platform.filesystem.temp_dir
     @source_dir_path = File.join(temp_dir, 'rs_file_metadata_sources')
     FileUtils.mkdir_p(@source_dir_path)
     @cloud_metadata_source_file_path = File.join(@source_dir_path, 'cloud_metadata.dict')
