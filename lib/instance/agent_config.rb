@@ -66,16 +66,6 @@ module RightScale
       end
     end
 
-    def self.sandbox_dir
-      if RightSupport::Platform::linux? || RightSupport::Platform.darwin?
-        '/opt/rightscale/sandbox'
-      elsif RightSupport::Platform.windows?
-        return pretty_path(File.join(right_link_home_dir, 'sandbox'))
-      else
-        raise NotImplementedError, "Unsupported platform"
-      end
-    end
-
     # Path to RightScale files in parent directory of right_link
     def self.parent_dir
       File.dirname(File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'right_link')))
