@@ -90,7 +90,7 @@ end
 default_option([:metadata_source, :hosts], [:host => HOST, :port => PORT])
 default_option([:metadata_source, :metadata_source_types], ['metadata_sources/http_metadata_source', 'metadata_sources/file_metadata_source'])
 default_option([:metadata_source, :select_metadata_override], method(:select_rs_metadata))
-default_option([:metadata_source, :user_metadata_source_file_path], File.join(RightScale::Platform.filesystem.spool_dir, name.to_s, 'user-data.txt'))
+default_option([:metadata_source, :user_metadata_source_file_path], File.join(RightSupport::Platform.filesystem.spool_dir, name.to_s, 'user-data.txt'))
 
 default_option(:cloud_metadata_root_path, 'latest/meta-data')
 default_option([:cloud_metadata, :metadata_writers, :ruby_metadata_writer, :generation_command], cloud_metadata_generation_command)

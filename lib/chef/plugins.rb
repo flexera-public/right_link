@@ -52,7 +52,7 @@ module RightScale
     def self.info
       @@info
     end
-    if RightScale::Platform.linux? && File.exists?("/sys/block")
+    if RightSupport::Platform.linux? && File.exists?("/sys/block")
       @@info = Hash.new
       Dir["/sys/block/*"].each do |block_device_dir|
         dir = File.basename(block_device_dir)

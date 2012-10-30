@@ -69,7 +69,7 @@ module RightScale
 
     def stop()
       pid_file = setup
-      if RightScale::Platform::windows?
+      if RightSupport::Platform::windows?
         pid_file.should_receive(:read_pid).and_return(:pid => 123, :listen_port => 123, :cookie => 123).once
         client = flexmock("CommandClient")
         flexmock(CommandClient).should_receive(:new).with(123, 123).and_return(client)

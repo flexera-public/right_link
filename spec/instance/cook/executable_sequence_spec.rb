@@ -48,7 +48,7 @@ describe RightScale::ExecutableSequence do
       flexmock(RightScale::Log).should_receive(:debug)
       @attachment_file = File.normalize_path(File.join(File.dirname(__FILE__), '__test_download__'))
       File.open(@attachment_file, 'w') { |f| f.write('Some attachment content') }
-      platform = RightScale::Platform
+      platform = RightSupport::Platform
       @cache_dir = File.normalize_path(File.join(platform.filesystem.temp_dir, 'executable_sequence_spec'))
       Chef::Resource::RightScript.const_set(:DEFAULT_CACHE_DIR_ROOT, @cache_dir)
     end
@@ -113,7 +113,7 @@ describe RightScale::ExecutableSequence do
     end
 
     def format_script_text(exit_code)
-      platform = RightScale::Platform
+      platform = RightSupport::Platform
       return platform.windows? ?
              "exit #{exit_code}" :
              "#!/bin/sh\nruby -e 'exit(#{exit_code})'"

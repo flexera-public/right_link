@@ -14,7 +14,7 @@ require 'right_agent'
 require 'right_agent/scripts/usage'
 require File.join(File.dirname(__FILE__), '..', 'lib', 'chef', 'ohai_setup')
 require 'ohai/application'
-if RightScale::Platform.windows?
+if RightSupport::Platform.windows?
   require 'ruby-wmi'
 end
 

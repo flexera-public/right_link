@@ -23,7 +23,7 @@
 require File.expand_path(File.join(File.dirname(__FILE__), '..', 'spec_helper'))
 
 # FIX: rake spec should check parent directory name?
-if RightScale::Platform.windows?
+if RightSupport::Platform.windows?
 
   require 'fileutils'
 

@@ -75,7 +75,7 @@ class AgentTestConfig
     # drive without user intervention, so a problem arises when running spec
     # tests from a shared source folder. The quick and dirty solution is to
     # always use the temp directory in testing.
-    base_dir = File.join(RightScale::Platform.filesystem.temp_dir, "right_link_spec")
+    base_dir = File.join(RightSupport::Platform.filesystem.temp_dir, "right_link_spec")
     return File.join(base_dir, "#{agent_identity}#{suffix}")
   end
 

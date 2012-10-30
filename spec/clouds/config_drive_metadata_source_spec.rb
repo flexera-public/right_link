@@ -27,7 +27,7 @@ require File.join(File.dirname(__FILE__), '..', '..', 'lib', 'clouds', 'metadata
 module RightScale
   module ConfigDriveMetadataSourceSpec
 
-    TEMP_DIR                        = ::File.join(::RightScale::Platform.filesystem.temp_dir, "ConfigDriveMetadataSourceSpec-96ba62cb36bf46b497ac8b1bbd0080c1")
+    TEMP_DIR                        = ::File.join(::RightSupport::Platform.filesystem.temp_dir, "ConfigDriveMetadataSourceSpec-96ba62cb36bf46b497ac8b1bbd0080c1")
     CONFIG_DRIVE_UUID               = "681B-8C5D"
     CONFIG_DRIVE_FILESYSTEM         = "vfat"
     CONFIG_DRIVE_LABEL              = "METADATA"
@@ -80,7 +80,7 @@ module RightScale
       context :mount_config_drive do
         before(:each) do
           @volume_manager = flexmock("volume_manager")
-          flexmock(::RightScale::Platform).should_receive(:volume_manager).and_return(@volume_manager)
+          flexmock(::RightSupport::Platform).should_receive(:volume_manager).and_return(@volume_manager)
         end
 
         it 'raises config_drive_error if no device is found' do
@@ -101,7 +101,7 @@ module RightScale
         end
 
         def test_mount_config_drive
-          flexmock(::RightScale::Platform).should_receive(:linux?).and_return(false)
+          flexmock(::RightSupport::Platform).should_receive(:linux?).and_return(false)
           @volume_manager.should_receive(:volumes).times(5).and_return([],[],[],[],[{:device => "/dev/xvdh1"}])
           flexmock(Kernel).should_receive(:sleep).times(4)
           @user_metadata_source.mount_config_drive
@@ -109,8 +109,8 @@ module RightScale
 
         context 'Windows platform' do
           before(:each) do
-            flexmock(::RightScale::Platform).should_receive(:linux?).and_return(false)
-            flexmock(::RightScale::Platform).should_receive(:windows?).and_return(true)
+            flexmock(::RightSupport::Platform).should_receive(:linux?).and_return(false)
+            flexmock(::RightSupport::Platform).should_receive(:windows?).and_return(true)
           end
           it 'waits for the config drive to be attached' do
             @volume_manager.should_receive(:assign_device).once.and_return(true)
@@ -141,8 +141,8 @@ module RightScale
 
         context 'Linux platform' do
           before(:each) do
-            flexmock(::RightScale::Platform).should_receive(:linux?).and_return(true)
-            flexmock(::RightScale::Platform).should_receive(:windows?).and_return(false)
+            flexmock(::RightSupport::Platform).should_receive(:linux?).and_return(true)
+            flexmock(::RightSupport::Platform).should_receive(:windows?).and_return(false)
           end
           it 'waits for the config drive to be attached' do
             @volume_manager.should_receive(:mount_volume).once.and_return(true)

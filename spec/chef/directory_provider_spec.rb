@@ -30,7 +30,7 @@ class DirectoryProviderSpec
   TEST_SUBDIR_PATH = File.join(TEST_DIR_PATH, 'subdir1', 'subdir2')
 
   def self.format_fail_if_dir_exists_script(dir_path)
-    if RightScale::Platform.windows?
+    if RightSupport::Platform.windows?
       "cmd.exe /C \"if exist #{dir_path.gsub("/", "\\").inspect} exit 1\""
     else
       "sh -c \"if [ -d #{dir_path.inspect} ]; then exit 1; fi\""
@@ -112,7 +112,7 @@ EOF
     end
   end
 
-  if RightScale::Platform.windows?
+  if RightSupport::Platform.windows?
     it "should fail to create directories when owner or group attribute is used on windows" do
       result = false
       begin

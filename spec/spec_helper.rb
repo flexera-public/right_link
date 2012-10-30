@@ -57,12 +57,13 @@ require 'fileutils'
 require 'right_agent'
 require 'right_agent/core_payload_types'
 require 'stringio'
+require 'right_support'
 
 # HACK: disable garbage collector (in Windows only?) for spec run as flexmocked
 # types cause segmentation faults when flexmocked objects are gc'd on a thread
 # other than where they were defined and allocated.
 begin
-  GC.disable if ::RightScale::Platform.windows?
+  GC.disable if ::RightSupport::Platform.windows?
 rescue Exception => e
   puts "#{e.class}: #{e.message}", e.backtrace.join("\n")
 end
@@ -87,7 +88,7 @@ module RightScale
 
   module SpecHelper
 
-    RIGHT_LINK_SPEC_HELPER_TEMP_PATH = File.normalize_path(File.join(RightScale::Platform.filesystem.temp_dir, 'right_link_spec_helper'))
+    RIGHT_LINK_SPEC_HELPER_TEMP_PATH = File.normalize_path(File.join(RightSupport::Platform.filesystem.temp_dir, 'right_link_spec_helper'))
 
     # Setup instance state for tests
     # Use different identity to reset list of past scripts

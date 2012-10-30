@@ -23,7 +23,7 @@
 require File.expand_path(File.join(File.dirname(__FILE__), '..', 'spec_helper'))
 
 # FIX: rake spec should check parent directory name?
-if RightScale::Platform.windows?
+if RightSupport::Platform.windows?
 
   require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'chef_runner'))
 
@@ -320,7 +320,7 @@ EOF
     end
 
     it "should run native bitness powershell on all platforms" do
-      platform = RightScale::Platform
+      platform = RightSupport::Platform
       filesystem = platform.filesystem
 
       # expect to run from the System32 directory on all Windows platforms.

@@ -41,7 +41,7 @@ module RightScale
       options = m.parse_args
       m.manage(options)
 
-      if options[:level] =~ /debug/i && !RightScale::Platform.windows?
+      if options[:level] =~ /debug/i && !RightSupport::Platform.windows?
         puts
         puts "NOTE: RightLink is now logging with syslog severity 'debug', but your system"
         puts "      log daemon may discard these messages. If debug messages do not appear,"

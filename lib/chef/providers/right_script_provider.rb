@@ -53,7 +53,7 @@ class Chef
       def action_run
         nickname        = @new_resource.name
         run_started_at  = Time.now
-        platform        = RightScale::Platform
+        platform        = RightSupport::Platform
         current_state   = all_state
 
         # 1. Setup audit and environment
@@ -169,7 +169,7 @@ class Chef
       # == Returns
       # result(Status):: result of running script
       def run_script_file(script_file_path)
-        platform = RightScale::Platform
+        platform = RightSupport::Platform
         shell    = platform.shell
         command  = shell.format_shell_command(script_file_path)
 

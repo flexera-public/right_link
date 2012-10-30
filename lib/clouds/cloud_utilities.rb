@@ -171,7 +171,7 @@ module RightScale
       raise ArgumentError.new("expected_ip is invalid") if expected_ip && !(expected_ip =~ IP_ADDRESS_REGEX)
       unanimous = options[:unanimous] || false
       host_name = options[:host_name] || DEFAULT_WHATS_MY_IP_HOST_NAME
-      logger = options[:logger] || Logger.new(::RightScale::Platform::Shell::NULL_OUTPUT_NAME)
+      logger = options[:logger] || Logger.new(::RightSupport::Platform::Shell::NULL_OUTPUT_NAME)
       timeout = options[:timeout] || DEFAULT_WHATS_MY_IP_TIMEOUT
       retry_delay = options[:retry_delay] || DEFAULT_WHATS_MY_IP_RETRY_DELAY
 

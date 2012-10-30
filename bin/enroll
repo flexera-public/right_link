@@ -337,7 +337,7 @@ module RightScale
         elapsed_since_init_boot = Time.now - started_at
         if options[:die] && TERMINATE_ON_FAILURE_WINDOW.include?(elapsed_since_init_boot)
           Log.error("Shutting down after trying to enroll for #{elapsed_since_init_boot / 60} minutes")
-          RightScale::Platform.controller.shutdown
+          RightSupport::Platform.controller.shutdown
           Kernel.exit(-1)
         end
       end

@@ -105,7 +105,7 @@ describe RightScale::ExecutableSequenceProxy do
     # so it is best to rely on config constants.
     cook_util_path = File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'bin', 'cook_runner'))
     expected = "#{File.basename(RightScale::AgentConfig.sandbox_ruby_cmd)} \"#{cook_util_path}\""
-    if RightScale::Platform.windows?
+    if RightSupport::Platform.windows?
       matcher = Regexp.compile(".*" + Regexp.escape(" /C type ") + ".*" + Regexp.escape("rs_executable_sequence#{thread_name}.txt\" | ") + ".*" + Regexp.escape(expected))
     else
       matcher = Regexp.compile(".*" + Regexp.escape(expected))

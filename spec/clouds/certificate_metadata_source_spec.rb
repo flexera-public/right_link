@@ -32,7 +32,7 @@ module RightScale
   module CertificateMetadataSourceSpec
 
     # Windows changes the ST=CA portion of our issuer name to S=CA at some point.
-    ISSUER_STATE_KEY = ::RightScale::Platform.windows? ? 'S' : 'ST'
+    ISSUER_STATE_KEY = ::RightSupport::Platform.windows? ? 'S' : 'ST'
     CLOUD_METADATA_CERT_ISSUER = "O=RightScale, C=US, #{ISSUER_STATE_KEY}=CA, CN=cloud certificate_metadata_source_spec"
     USER_METADATA_CERT_ISSUER = "O=RightScale, C=US, #{ISSUER_STATE_KEY}=CA, CN=user certificate_metadata_source_spec"
     LOCAL_MACHINE_CERT_STORE = "cert:/LocalMachine/My"
@@ -188,7 +188,7 @@ end
 describe RightScale::MetadataSources::CertificateMetadataSource do
 
   def platform_supported?
-    (::RightScale::Platform.windows? && ::RightScale::Platform.release.split('.')[0].to_i >= 6 ) || ::RightScale::Platform.linux? || ::RightScale::Platform.darwin?
+    (::RightSupport::Platform.windows? && ::RightSupport::Platform.release.split('.')[0].to_i >= 6 ) || ::RightSupport::Platform.linux? || ::RightSupport::Platform.darwin?
   end
 
   before(:each) do
@@ -214,17 +214,17 @@ describe RightScale::MetadataSources::CertificateMetadataSource do
   end
 
   def setup_metadata_provider
-    @test_output_dir = ::File.join(::RightScale::Platform.filesystem.temp_dir, "certificate_metadata_source_spec_F2A81D8149D97AFA8625AECE4A98DA81")
+    @test_output_dir = ::File.join(::RightSupport::Platform.filesystem.temp_dir, "certificate_metadata_source_spec_F2A81D8149D97AFA8625AECE4A98DA81")
     ::FileUtils.mkdir_p(@test_output_dir)
     @logger = flexmock('logger')
 
     @cloud_metadata_cert_issuer = ::RightScale::CertificateMetadataSourceSpec::CLOUD_METADATA_CERT_ISSUER
     @cloud_metadata_cert_file_path = ::File.join(@test_output_dir, 'cloud.cer')
-    @cloud_metadata_cert_store = ::RightScale::Platform.windows? ? ::RightScale::CertificateMetadataSourceSpec::LOCAL_MACHINE_CERT_STORE : @cloud_metadata_cert_file_path
+    @cloud_metadata_cert_store = ::RightSupport::Platform.windows? ? ::RightScale::CertificateMetadataSourceSpec::LOCAL_MACHINE_CERT_STORE : @cloud_metadata_cert_file_path
 
     @user_metadata_cert_issuer = ::RightScale::CertificateMetadataSourceSpec::USER_METADATA_CERT_ISSUER
     @user_metadata_cert_file_path = ::File.join(@test_output_dir, 'user.cer')
-    @user_metadata_cert_store = ::RightScale::Platform.windows? ? ::RightScale::CertificateMetadataSourceSpec::LOCAL_MACHINE_CERT_STORE : @user_metadata_cert_file_path
+    @user_metadata_cert_store = ::RightSupport::Platform.windows? ? ::RightScale::CertificateMetadataSourceSpec::LOCAL_MACHINE_CERT_STORE : @user_metadata_cert_file_path
 
     # metadata source
     @metadata_source = ::RightScale::MetadataSources::CertificateMetadataSource.new(:cloud_metadata_cert_store => @cloud_metadata_cert_store,
@@ -286,7 +286,7 @@ describe RightScale::MetadataSources::CertificateMetadataSource do
   end
 
   def write_cert(subject_text, cert_issuer, output_cert_file_path)
-    if ::RightScale::Platform.windows?
+    if ::RightSupport::Platform.windows?
       write_cert_windows(subject_text, cert_issuer, output_cert_file_path)
     else
       write_cert_linux(subject_text, cert_issuer, output_cert_file_path)
@@ -297,7 +297,7 @@ describe RightScale::MetadataSources::CertificateMetadataSource do
     Dir.mktmpdir do |dir|
       script_file_path = ::File.normalize_path(::File.join(dir, 'write_cert.ps1'))
       ::File.open(script_file_path, "w") { |f| f.write ::RightScale::CertificateMetadataSourceSpec::WRITE_CERT_POWERSHELL_SCRIPT }
-      cmd = ::RightScale::Platform.shell.format_shell_command(script_file_path, subject_text, cert_issuer, output_cert_file_path)
+      cmd = ::RightSupport::Platform.shell.format_shell_command(script_file_path, subject_text, cert_issuer, output_cert_file_path)
       result = `#{cmd}`
       if $?.success?
         message = result.to_s.strip
@@ -333,7 +333,7 @@ describe RightScale::MetadataSources::CertificateMetadataSource do
   end
 
   def clean_cert(cert_file_path)
-    if ::RightScale::Platform.windows?
+    if ::RightSupport::Platform.windows?
       clean_cert_windows(cert_file_path)
     else
       clean_cert_linux(cert_file_path)
@@ -344,7 +344,7 @@ describe RightScale::MetadataSources::CertificateMetadataSource do
     Dir.mktmpdir do |dir|
       script_file_path = ::File.normalize_path(::File.join(dir, 'clean_cert.ps1'))
       ::File.open(script_file_path, "w") { |f| f.write ::RightScale::CertificateMetadataSourceSpec::CLEAN_CERT_POWERSHELL_SCRIPT }
-      cmd = ::RightScale::Platform.shell.format_shell_command(script_file_path, cert_file_path)
+      cmd = ::RightSupport::Platform.shell.format_shell_command(script_file_path, cert_file_path)
       result = `#{cmd}`
       if $?.success?
         FileUtils.rm(cert_file_path)

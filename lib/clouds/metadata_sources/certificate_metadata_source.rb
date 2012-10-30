@@ -84,7 +84,7 @@ module RightScale
       protected
 
       def read_cert(cert_store, cert_issuer)
-        if ::RightScale::Platform.windows?
+        if ::RightSupport::Platform.windows?
           read_cert_windows(cert_store, cert_issuer)
         else
           read_cert_linux(cert_store, cert_issuer)
@@ -181,7 +181,7 @@ EOF
           script_file_path = ::File.normalize_path(::File.join(dir, 'read_cert.ps1'))
           output_file_path = ::File.normalize_path(::File.join(dir, 'output.txt'))
           ::File.open(script_file_path, "w") { |f| f.write READ_CERT_POWERSHELL_SCRIPT }
-          cmd = ::RightScale::Platform.shell.format_shell_command(script_file_path, cert_store, cert_issuer, output_file_path)
+          cmd = ::RightSupport::Platform.shell.format_shell_command(script_file_path, cert_store, cert_issuer, output_file_path)
           result = `#{cmd}`
           if $?.success?
             if ::File.file?(output_file_path)

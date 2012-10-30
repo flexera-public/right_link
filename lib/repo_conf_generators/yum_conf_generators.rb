@@ -148,7 +148,7 @@ END
     end
 
     def self.is_this_centos?
-      return ::RightScale::Platform.linux? && ::RightScale::Platform.centos?
+      return ::RightSupport::Platform.linux? && ::RightSupport::Platform.centos?
     end
 
   end # Module CentOS

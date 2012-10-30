@@ -164,7 +164,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def start_powershell_process
-      platform = RightScale::Platform
+      platform = RightSupport::Platform
       shell    = platform.shell
 
       # Import ChefNodeCmdlet.dll to allow powershell scripts to call get-ChefNode, etc.
@@ -184,7 +184,7 @@ module RightScale
       lines_after_script = []
 
       command = shell.format_powershell_command4(
-              ::RightScale::Platform::Shell::POWERSHELL_V1x0_EXECUTABLE_PATH,
+              ::RightSupport::Platform::Shell::POWERSHELL_V1x0_EXECUTABLE_PATH,
               lines_before_script,
               lines_after_script,
               RUN_LOOP_SCRIPT_PATH)
@@ -230,8 +230,8 @@ module RightScale
 
     TEMP_DIR_NAME = 'powershell_host-82D5D281-5E7C-423A-88C2-69E9B7D3F37E'
     SOURCE_WINDOWS_PATH = ::File.normalize_path(::File.dirname(__FILE__))
-    LOCAL_WINDOWS_BIN_PATH = RightScale::Platform.filesystem.ensure_local_drive_path(::File.join(SOURCE_WINDOWS_PATH, 'bin'), TEMP_DIR_NAME)
-    LOCAL_WINDOWS_SCRIPTS_PATH = RightScale::Platform.filesystem.ensure_local_drive_path(::File.join(SOURCE_WINDOWS_PATH, 'scripts'), TEMP_DIR_NAME)
+    LOCAL_WINDOWS_BIN_PATH = RightSupport::Platform.filesystem.ensure_local_drive_path(::File.join(SOURCE_WINDOWS_PATH, 'bin'), TEMP_DIR_NAME)
+    LOCAL_WINDOWS_SCRIPTS_PATH = RightSupport::Platform.filesystem.ensure_local_drive_path(::File.join(SOURCE_WINDOWS_PATH, 'scripts'), TEMP_DIR_NAME)
     CHEF_NODE_CMDLET_DLL_PATH = ::File.normalize_path(::File.join(LOCAL_WINDOWS_BIN_PATH, 'ChefNodeCmdlet.dll')).gsub("/", "\\")
     RUN_LOOP_SCRIPT_PATH = File.normalize_path(File.join(LOCAL_WINDOWS_SCRIPTS_PATH, 'run_loop.ps1')).gsub("/", "\\")
 

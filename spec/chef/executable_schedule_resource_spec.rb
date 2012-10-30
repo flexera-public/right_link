@@ -22,7 +22,7 @@
 
 require File.join(File.dirname(__FILE__), 'spec_helper')
 
-unless RightScale::Platform.windows?  # FIX: chef's cron isn't portable to windows, do we want to reimplement this provider?
+unless RightSupport::Platform.windows?  # FIX: chef's cron isn't portable to windows, do we want to reimplement this provider?
 
 describe Chef::Resource::ExecutableSchedule do
   

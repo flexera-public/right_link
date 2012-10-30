@@ -23,7 +23,7 @@ module RightScale
     end
 
     def reenroll(resume=false)
-      if RightScale::Platform::windows?
+      if RightSupport::Platform::windows?
         flexmock(subject).should_receive(:cleanup_certificates).once
         flexmock(File).should_receive(:open).with(Reenroller::STATE_FILE, "w", Proc).once
         flexmock(subject).should_receive(:system).with('net start RightScale')

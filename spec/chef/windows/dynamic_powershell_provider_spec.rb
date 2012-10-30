@@ -21,7 +21,7 @@
 
 require File.expand_path(File.join(File.dirname(__FILE__), '..', 'spec_helper'))
 
-if RightScale::Platform.windows?
+if RightSupport::Platform.windows?
 
 CHEF_WINDOWS_BASE_DIR = File.join(File.dirname(__FILE__), '..', '..', '..', 'lib', 'chef', 'windows')
 

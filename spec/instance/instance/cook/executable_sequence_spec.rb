@@ -385,7 +385,7 @@ module RightScale
       shared_examples_for 'mocks checkout' do
         before(:each) do
           #dev cookbooks do not work on Windows ... for now.....
-          pending unless !::RightScale::Platform.windows? || defined?(::Windows::File::CreateSymbolicLink)
+          pending unless !::RightSupport::Platform.windows? || defined?(::Windows::File::CreateSymbolicLink)
 
           # counts the scrapes
           @total_scrape_count = 0
@@ -442,7 +442,7 @@ module RightScale
       shared_examples_for 'checks out dev repos' do
         before(:each) do
           #dev cookbooks do not work on Windows ... for now.....
-          pending unless !::RightScale::Platform.windows? || defined?(::Windows::File::CreateSymbolicLink)
+          pending unless !::RightSupport::Platform.windows? || defined?(::Windows::File::CreateSymbolicLink)
 
           simulate_download_repos(@cookbooks, @dev_cookbooks)
         end
@@ -471,7 +471,7 @@ module RightScale
                     local_basedir.should_not be_symlink
                   else
                     # is a dev cookbook, so should be linked
-                    if Platform.windows?
+                    if RightSupport::Platform.windows?
                       File.exists?(local_basedir).should be_true
                     else
                       local_basedir.should be_symlink_to(@checkout_paths[local_basedir])

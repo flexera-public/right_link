@@ -159,7 +159,7 @@ module RightScale
         checkout_cookbook_repos if @ok
         download_cookbooks if @ok
         update_cookbook_path if @ok
-        setup_powershell_providers if RightScale::Platform.windows?
+        setup_powershell_providers if RightSupport::Platform.windows?
         check_ohai { |o| converge(o) } if @ok
       end
       true
@@ -285,7 +285,7 @@ module RightScale
       return true if packages.empty?
 
       success   = false
-      installer = RightScale::Platform.installer
+      installer = RightSupport::Platform.installer
 
       @audit.create_new_section("Installing packages: #{packages.uniq.join(' ')}")
       audit_time do
@@ -376,7 +376,7 @@ module RightScale
     # true:: Always return true
     def download_cookbooks
       # first, if @download_path is world writable, stop that nonsense right this second.
-      unless RightScale::Platform.windows?
+      unless RightSupport::Platform.windows?
         if File.exists?(@download_path) && File.world_writable?(@download_path)
           Log.warn("Cookbooks download path world writable; fixing.")
           File.chmod(0755, @download_path)
@@ -602,7 +602,7 @@ module RightScale
         end
 
         # kill the chef node provider
-        RightScale::Windows::ChefNodeServer.instance.stop rescue nil if RightScale::Platform.windows?
+        RightScale::Windows::ChefNodeServer.instance.stop rescue nil if RightSupport::Platform.windows?
       end
       report_success(c.node) if @ok
       true

@@ -21,6 +21,7 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'instance', 'volume_management'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'instance', 'agent_config'))
 
 class InstanceSetup
 
@@ -28,7 +29,7 @@ class InstanceSetup
   include RightScale::OperationResultHelper
   include RightScale::VolumeManagementHelper
 
-  CONFIG_YAML_FILE = File.normalize_path(File.join(RightScale::Platform.filesystem.right_link_static_state_dir, 'features.yml'))
+  CONFIG_YAML_FILE = File.normalize_path(File.join(RightScale::AgentConfig.right_link_static_state_dir, 'features.yml'))
 
   CONFIG=\
     if File.exists?(CONFIG_YAML_FILE)
@@ -172,7 +173,7 @@ class InstanceSetup
             msg = "Shutting down after having tried to boot for #{SUICIDE_DELAY / 60} minutes"
             RightScale::Log.error(msg)
             @audit.append_error(msg, :category => RightScale::EventCategories::CATEGORY_ERROR) if @audit
-            RightScale::Platform.controller.shutdown
+            RightSupport::Platform.controller.shutdown
           end
         end
       end
@@ -228,7 +229,7 @@ class InstanceSetup
   def setup_volumes
     # managing planned volumes is currently only needed in Windows and only if
     # this is not a reboot scenario.
-    if !RightScale::Platform.windows? || RightScale::InstanceState.reboot?
+    if !RightSupport::Platform.windows? || RightScale::InstanceState.reboot?
       boot
     else
       RightScale::AuditProxy.create(@agent_identity, 'Planned volume management') do |audit|
@@ -252,7 +253,7 @@ class InstanceSetup
 
     req.callback do |res|
       @audit = RightScale::AuditProxy.new(res.audit_id)
-      if CONFIG['package_repositories']['freeze'] && !RightScale::Platform.windows? && !RightScale::Platform.darwin?
+      if CONFIG['package_repositories']['freeze'] && !RightSupport::Platform.windows? && !RightSupport::Platform.darwin?
         reps = res.repositories
         audit_content = "Using the following software repositories:\n"
         reps.each { |rep| audit_content += "  - #{rep.to_s}\n" }

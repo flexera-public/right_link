@@ -38,7 +38,7 @@ describe RightScale::CloudFactory do
   end
 
   before(:each) do
-    @output_dir_path = File.join(RightScale::Platform.filesystem.temp_dir, 'rs_cloud_factory_output')
+    @output_dir_path = File.join(RightSupport::Platform.filesystem.temp_dir, 'rs_cloud_factory_output')
     @logger = flexmock('logger')
     @logged_info = []
     @logger.should_receive(:info).and_return { |m| @logged_info << m; true }
@@ -87,12 +87,12 @@ describe RightScale::CloudFactory do
     mock_static_state_dir = File.join(@output_dir_path, 'rightscale.d')
     mock_private_bin_dir  = File.join(@output_dir_path, 'bin')
     mock_cloud_file_path  = File.join(mock_static_state_dir, 'cloud')
-    mock_spool_dir        = RightScale::Platform.filesystem.temp_dir
+    mock_spool_dir        = RightSupport::Platform.filesystem.temp_dir
     filesystem = flexmock("filesystem")
-    flexmock(RightScale::Platform).should_receive(:filesystem).and_return(filesystem)
-    filesystem.should_receive(:right_scale_static_state_dir).and_return(mock_static_state_dir)
+    flexmock(RightSupport::Platform).should_receive(:filesystem).and_return(filesystem)
+    flexmock(RightScale::AgentConfig).should_receive(:right_scale_static_state_dir).and_return(mock_static_state_dir)
     filesystem.should_receive(:spool_dir).and_return(mock_spool_dir)
-    filesystem.should_receive(:private_bin_dir).and_return(mock_private_bin_dir)
+    flexmock(RightScale::AgentConfig).should_receive(:private_bin_dir).and_return(mock_private_bin_dir)
     FileUtils.rm_rf(@output_dir_path) if File.directory?(@output_dir_path)  # ensure rightscale.d is gone before looking for cloud file
     lambda{ RightScale::CloudFactory.instance.create(RightScale::CloudFactory::UNKNOWN_CLOUD_NAME, :logger => @logger) }.should raise_exception RightScale::CloudFactory::UnknownCloud
     FileUtils.mkdir_p(mock_static_state_dir)

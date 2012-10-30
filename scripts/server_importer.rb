@@ -66,7 +66,7 @@ module RightScale
           cloud_name = 'none' if cloud_name.to_s.empty?
 
           cloud_dir   = File.dirname(cloud_file)
-          output_file = File.join(RightScale::Platform.filesystem.spool_dir, cloud_name, 'user-data.txt')
+          output_file = File.join(RightSupport::Platform.filesystem.spool_dir, cloud_name, 'user-data.txt')
           output_dir  = File.dirname(output_file)
 
           if File.exist?(InstanceState::STATE_FILE) && !options[:force]
@@ -102,10 +102,10 @@ module RightScale
 
           puts "Done connecting server to RightScale. Will now attempt to start the RightLink services."
           puts "If starting of services fails, you can attempt to start them by rebooting."
-          if RightScale::Platform.windows?
+          if RightSupport::Platform.windows?
             puts `net start rightscale`
             exit $?.exitstatus unless $?.success?
-          elsif RightScale::Platform.linux? || RightScale::Platform.darwin?
+          elsif RightSupport::Platform.linux? || RightSupport::Platform.darwin?
             puts `/etc/init.d/rightscale start && /etc/init.d/rightlink start`
             exit $?.exitstatus unless $?.success?
           else

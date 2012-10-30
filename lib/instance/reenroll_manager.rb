@@ -94,7 +94,7 @@ module RightScale
     # false:: Otherwise
     def self.reenroll!(args=nil)
       cmd = "rs_reenroll #{args}"
-      cmd += '&' unless RightScale::Platform.windows?
+      cmd += '&' unless RightSupport::Platform.windows?
       AMQP.stop { EM.stop } rescue nil
       system(cmd)
     end

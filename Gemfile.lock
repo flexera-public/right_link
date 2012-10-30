@@ -1,18 +1,4 @@
 GIT
-  remote: git://github.com/rightscale/right_agent.git
-  revision: e44ab6a9f97a9130012026ee540d156b1905071f
-  branch: master
-  specs:
-    right_agent (0.13.5)
-      eventmachine (~> 0.12.10)
-      json (~> 1.4)
-      msgpack (= 0.4.4)
-      net-ssh (~> 2.0)
-      right_amqp (~> 0.4)
-      right_popen (~> 1.0.11)
-      right_support (>= 2.4.1, < 3.0)
-
-GIT
   remote: git://github.com/rightscale/right_amqp.git
   revision: 2d2a7e38751f3ce8704ef870cdd906fdda0a4cc8
   branch: master
@@ -22,11 +8,25 @@ GIT
       right_support (>= 1.2, < 3.0)
 
 GIT
-  remote: git://github.com/rightscale/right_support.git
-  revision: 43b2c08299f3b6fb98b1906b03a24482bd3882a7
-  branch: master
+  remote: git@github.com:nobodyzzz/right_agent.git
+  revision: c0bf0b13133bd4aeb1fe17d232edc69617c30c2f
+  branch: aqua_12_12_acu43036_move_platform
   specs:
-    right_support (2.5.2)
+    right_agent (0.14.0)
+      eventmachine (~> 0.12.10)
+      json (~> 1.4)
+      msgpack (= 0.4.4)
+      net-ssh (~> 2.0)
+      right_amqp (~> 0.4)
+      right_popen (~> 1.0.11)
+      right_support (>= 2.4.1, < 3.0)
+
+GIT
+  remote: git@github.com:rightscale/right_support.git
+  revision: 0855ab08034da488109766de97a8a21dbc008a40
+  branch: aqua_12_12_acu43036_move_platform
+  specs:
+    right_support (2.5.5)
 
 PATH
   remote: .
@@ -46,8 +46,7 @@ GEM
   remote: http://s3.amazonaws.com/rightscale_rightlink_gems_dev/
   remote: http://rubygems.org/
   specs:
-    abstract (1.0.0)
-    bunny (0.6.0)
+    bunny (0.8.0)
     chef (0.10.10.3)
       bunny (>= 0.6.0)
       erubis
@@ -73,19 +72,16 @@ GEM
       yajl-ruby (>= 1.1.0)
     columnize (0.3.6)
     encryptor (1.1.3)
-    erubis (2.6.5)
-      abstract (>= 1.0.0)
+    erubis (2.7.0)
     eventmachine (0.12.11.7)
     eventmachine (0.12.11.7-x86-mswin32)
     extlib (0.9.15)
     flexmock (0.9.0)
     git (1.2.5)
-    highline (1.6.9)
-    hoe (2.3.3)
-      rake (>= 0.8.7)
-      rubyforge (>= 1.0.4)
+    highline (1.6.15)
+    hoe (3.1.0)
+      rake (~> 0.8)
     ipaddress (0.8.0)
-    jruby-pageant (1.1.1)
     json (1.4.6)
     json (1.4.6-x86-mswin32)
     libarchive (0.1.2)
@@ -95,19 +91,18 @@ GEM
     linecache (0.46-x86-mswin32)
       rbx-require-relative (> 0.0.4)
       rbx-require-relative (> 0.0.4)
-    mime-types (1.16)
-    mixlib-authentication (1.1.2)
+    mime-types (1.19)
+    mixlib-authentication (1.3.0)
       mixlib-log
-    mixlib-cli (1.2.0)
+    mixlib-cli (1.2.2)
     mixlib-config (1.1.2)
-    mixlib-log (1.3.0)
+    mixlib-log (1.4.1)
     mixlib-shellout (1.0.0.1)
       right_popen (~> 1.0, >= 1.0.21)
     moneta (0.6.0)
     msgpack (0.4.4)
     msgpack (0.4.4-x86-mswin32)
-    net-ssh (2.6.0)
-      jruby-pageant (>= 1.1.1)
+    net-ssh (2.6.1)
     net-ssh-gateway (1.1.0)
       net-ssh (>= 1.99.1)
     net-ssh-multi (1.1)
@@ -123,6 +118,7 @@ GEM
       yajl-ruby
     polyglot (0.3.3)
     process_watcher (0.4)
+    ptools (1.2.2)
     rake (0.8.7)
     rbx-require-relative (0.0.9)
     rest-client (1.6.7)
@@ -153,15 +149,19 @@ GEM
       hoe (>= 1.4.0)
     rubyforge (1.0.4)
     systemu (2.5.2)
-    treetop (1.4.10)
+    test-unit (2.5.2)
+    treetop (1.4.12)
       polyglot
       polyglot (>= 0.3.1)
-    trollop (2.0)
-    uuidtools (2.1.2)
+    trollop (1.16.2)
+    uuidtools (2.1.3)
     win32-api (1.4.5-x86-mswin32)
     win32-dir (0.3.5)
+      test-unit (>= 2.0.3)
       windows-pr (>= 0.9.3)
     win32-eventlog (0.5.2)
+      ptools (>= 1.1.6)
+      test-unit (>= 2.0.3)
       windows-pr (>= 0.9.3)
     win32-open3 (0.3.2-x86-mswin32)
     win32-pipe (0.2.1)
@@ -185,20 +185,25 @@ PLATFORMS
 
 DEPENDENCIES
   chef (= 0.10.10.3)
+  encryptor (= 1.1.3)
   eventmachine (= 0.12.11.7)
   flexmock (~> 0.8)
   json (= 1.4.6)
   mixlib-shellout (= 1.0.0.1)
   ohai (= 0.6.12.1)
-  rake
+  rake (= 0.8.7)
   right_agent!
   right_amqp!
+  right_http_connection (~> 1.3)
   right_link!
+  right_popen (~> 1.0)
+  right_scraper (~> 3.0)
   right_support!
   rspec (~> 1.3)
   ruby-debug
   ruby-wmi (= 0.2.2)
   rubyforge (= 1.0.4)
+  trollop (~> 1.16)
   win32-api (= 1.4.5)
   win32-dir (= 0.3.5)
   win32-eventlog (= 0.5.2)

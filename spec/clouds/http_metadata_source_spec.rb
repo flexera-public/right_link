@@ -81,7 +81,7 @@ describe RightScale::MetadataSources::HttpMetadataSource do
     before(:each) do
       @runner = ::RightScale::FetchRunner.new
       @logger = @runner.setup_log
-      @output_dir_path = File.join(::RightScale::Platform.filesystem.temp_dir, 'rs_raw_metadata_writer_output')
+      @output_dir_path = File.join(::RightSupport::Platform.filesystem.temp_dir, 'rs_raw_metadata_writer_output')
       setup_metadata_provider
     end
 

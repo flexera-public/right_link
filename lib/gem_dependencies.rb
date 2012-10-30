@@ -54,7 +54,7 @@ Dir.chdir(basedir) do
     gem 'ohai'
     gem 'chef'
 
-    # Note: can't use RightScale::Platform because gem sources aren't loaded
+    # Note: can't use RightSupport::Platform because gem sources aren't loaded
     if RUBY_PLATFORM =~ /mswin|mingw/
       gem 'win32-api'
       gem 'windows-api'
