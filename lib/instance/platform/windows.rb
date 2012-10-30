@@ -2,11 +2,6 @@ module RightScale
   # Windows specific implementation
   class Platform
     class Filesystem
-      # Static (time-invariant) state that is specific to RightLink
-      def right_link_static_state_dir
-        return pretty_path(File.join(Dir::COMMON_APPDATA, 'RightScale', 'rightscale.d', 'right_link'))
-      end
-
       # Dynamic, persistent runtime state that is specific to RightLink
       def right_link_dynamic_state_dir
         return pretty_path(File.join(Dir::COMMON_APPDATA, 'RightScale', 'right_link'))

@@ -29,7 +29,7 @@ class InstanceSetup
   include RightScale::OperationResultHelper
   include RightScale::VolumeManagementHelper
 
-  CONFIG_YAML_FILE = File.normalize_path(File.join(RightScale::Platform.filesystem.right_link_static_state_dir, 'features.yml'))
+  CONFIG_YAML_FILE = File.normalize_path(File.join(RightScale::AgentConfig.right_link_static_state_dir, 'features.yml'))
 
   CONFIG=\
     if File.exists?(CONFIG_YAML_FILE)
