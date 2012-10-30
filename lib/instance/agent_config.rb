@@ -35,6 +35,16 @@ module RightScale
 
   # Extend AgentConfig for instance agents
   AgentConfig.module_eval do
+    # Static (time-invariant) state that is specific to RightLink
+    def self.right_link_static_state_dir
+      if RightSupport::Platform.linux? || RightSupport::Platform.darwin?
+        '/etc/rightscale.d/right_link'
+      elsif RightSupport::Platform.windows?
+        return RightSupport::Platform.filesystem.pretty_path(File.join(Dir::COMMON_APPDATA, 'RightScale', 'rightscale.d', 'right_link'))
+      else
+        raise NotImplementedError, "Unsupported platform"
+      end
+    end
 
     # Path to RightScale files in parent directory of right_link
     def self.parent_dir
