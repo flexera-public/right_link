@@ -1,9 +1,9 @@
 GIT
   remote: git://github.com/rightscale/right_agent.git
-  revision: e44ab6a9f97a9130012026ee540d156b1905071f
+  revision: c83384d3603e27cbc3a9a82fb70fcacaa2dd495d
   branch: master
   specs:
-    right_agent (0.13.5)
+    right_agent (0.14.0)
       eventmachine (~> 0.12.10)
       json (~> 1.4)
       msgpack (= 0.4.4)
@@ -85,7 +85,6 @@ GEM
       rake (>= 0.8.7)
       rubyforge (>= 1.0.4)
     ipaddress (0.8.0)
-    jruby-pageant (1.1.1)
     json (1.4.6)
     json (1.4.6-x86-mswin32)
     libarchive (0.1.2)
@@ -106,8 +105,7 @@ GEM
     moneta (0.6.0)
     msgpack (0.4.4)
     msgpack (0.4.4-x86-mswin32)
-    net-ssh (2.6.0)
-      jruby-pageant (>= 1.1.1)
+    net-ssh (2.6.1)
     net-ssh-gateway (1.1.0)
       net-ssh (>= 1.99.1)
     net-ssh-multi (1.1)
