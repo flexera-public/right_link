@@ -18,7 +18,7 @@ group :custom do
   gem 'chef',            "0.10.10.3"
   gem 'ohai',            "0.6.12.1"
   gem 'mixlib-shellout', "1.0.0.1"
-  gem "eventmachine",    "0.12.11.7"
+  gem "eventmachine",    "1.0.0.2"
 end
 
 # We use some gems on both platforms, but the maintainer of the gem does not publish
