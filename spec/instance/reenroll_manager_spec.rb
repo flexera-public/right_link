@@ -25,13 +25,16 @@ require File.join(File.dirname(__FILE__), 'spec_helper')
 describe RightScale::ReenrollManager do
 
   def clean_reenroll_manager
-    timer = RightScale::ReenrollManager.instance_variable_get(:@reset_timer)
-    timer.cancel if timer
     RightScale::ReenrollManager.instance_variable_set(:@total_votes, nil)
     RightScale::ReenrollManager.instance_variable_set(:@reenrolling, nil)
     RightScale::ReenrollManager.instance_variable_set(:@reset_timer, nil)
     RightScale::ReenrollManager.instance_variable_set(:@reenrolling, nil)
     flexmock(RightScale::ReenrollManager).should_receive(:reenroll!).and_return(true)
+  end
+
+  def cancel_timer
+    timer = RightScale::ReenrollManager.instance_variable_get(:@reset_timer)
+    timer.cancel if timer
   end
 
   before(:each) do
@@ -46,6 +49,7 @@ describe RightScale::ReenrollManager do
     EM.run do
       RightScale::ReenrollManager.vote
       RightScale::ReenrollManager.instance_variable_get(:@total_votes).should == 1
+      cancel_timer
       EM.stop
     end
   end
@@ -56,6 +60,7 @@ describe RightScale::ReenrollManager do
       RightScale::ReenrollManager.instance_variable_get(:@total_votes).should == 1
       RightScale::ReenrollManager.reset_votes
       RightScale::ReenrollManager.instance_variable_get(:@total_votes).should == 0
+      cancel_timer
       EM.stop
     end
   end
@@ -64,6 +69,7 @@ describe RightScale::ReenrollManager do
     EM.run do
       RightScale::ReenrollManager::REENROLL_THRESHOLD.times { RightScale::ReenrollManager.vote }
       RightScale::ReenrollManager.vote
+      cancel_timer
       EM.stop
     end
     RightScale::ReenrollManager.instance_variable_get(:@reenrolling).should be_true
@@ -78,6 +84,7 @@ describe RightScale::ReenrollManager do
         RightScale::ReenrollManager.instance_variable_get(:@total_votes).should == RightScale::ReenrollManager::REENROLL_THRESHOLD
         EM.add_timer(0.5) do
           RightScale::ReenrollManager.instance_variable_get(:@total_votes).should == 0
+          cancel_timer
           EM.stop
         end
       end
