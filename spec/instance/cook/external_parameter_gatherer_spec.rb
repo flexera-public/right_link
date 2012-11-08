@@ -21,7 +21,7 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #++
 
-require 'spec_helper'
+require File.expand_path(File.join(File.dirname(__FILE__), 'spec_helper'))
 
 require 'tmpdir'
 require 'right_agent/core_payload_types'
