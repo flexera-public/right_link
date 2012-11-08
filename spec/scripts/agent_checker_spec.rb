@@ -24,16 +24,20 @@ module RightScale
       return e.status
     end
 
-    def setup(hide_exception=false)
+    def setup(hide_exception=false, retries=0)
       subject.should_receive(:error).and_return { raise } unless hide_exception
       subject.should_receive(:setup_traps).once
       agent = { :identity => "test", :pid_dir => "/tmp", :listen_port => 123, :cookie => 123}
-      flexmock(AgentConfig).should_receive(:agent_options).with('instance').and_return(agent).once
+      flexmock(AgentConfig).should_receive(:agent_state_dir).and_return('/no/such/directory')
+      flexmock(AgentConfig).should_receive(:agent_options).with('instance').and_return(agent).times(retries + 1)
       flexmock(Log).should_receive(:program_name=)
       flexmock(Log).should_receive(:facility=)
       flexmock(Log).should_receive(:log_to_file_only)
       flexmock(Log).should_receive(:init)
       flexmock(Log).should_receive(:level=)
+      one_shot_timer = flexmock('timer')
+      one_shot_timer.should_receive(:cancel).and_return(true)
+      flexmock(EM).should_receive(:add_timer).with(Fixnum, Proc).and_return { |interval, callback| callback.call; one_shot_timer }
       flexmock(EM).should_receive(:error_handler)
       flexmock(EM).should_receive(:run).with(Proc).and_return { |block| block.call }.once
       pid_file = flexmock("PidFile")
@@ -250,16 +254,17 @@ module RightScale
     end
 
     context 'rchk --ping --attempts 5' do
-      it 'should perform 5 attempts' do
-        setup(hide_exception=true)
+      it 'should make requested number of attempts' do
+        attempts = 5
+        setup(hide_exception=true, attempts)
         client = flexmock("CommandClient")
         flexmock(CommandClient).should_receive(:new).with(123, 123).and_return(client)
         client.should_receive(:send_command)\
-              .times(5)\
+              .times(attempts)\
               .with({:name => "check_connectivity"}, false, AgentChecker::COMMAND_IO_TIMEOUT, Proc)\
               .and_return { raise Exception, "test" }
         subject.should_receive(:reenroll!).once
-        run_agent_checker('--ping --attempts 5'.split)
+        run_agent_checker("--ping --attempts #{attempts}".split)
       end
     end
   end
