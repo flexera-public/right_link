@@ -25,7 +25,7 @@ require 'right_agent/exceptions'
 module Apt
 
   module Ubuntu
-    SUPPORTED_REPOS = ['hardy', 'intrepid', 'jaunty', 'karmic', 'lucid', 'maverick', 'precise']
+    SUPPORTED_REPOS = ['hardy', 'intrepid', 'jaunty', 'karmic', 'lucid', 'maverick', 'precise', 'quantal']
 
     # The different generate classes will always generate an exception ("string") if there's anything that went wrong. If no exception, things went well.
     SUPPORTED_REPOS.each do |c|
