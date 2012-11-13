@@ -62,7 +62,7 @@ require 'stringio'
 # EmTestRunner (see below). if EM is used outside of EmTestRunner then this
 # check has no effect.
 module EventMachine
-  @old_em_stop = self.method :stop
+  @old_em_stop = self.method(:stop) unless @old_em_stop
   def self.stop
     RightScale::SpecHelper::EmTestRunner.assert_em_test_not_running
     @old_em_stop.call
