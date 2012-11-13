@@ -84,7 +84,7 @@ describe RightScale::ExecutableSequenceProxy do
       o[:target].send(o[:exit_handler], status)
     end
     @proxy.instance_variable_get(:@deferred_status).should == nil
-    run_em_test { @proxy.run; EM.next_tick { EM.stop } }
+    run_em_test { @proxy.run; stop_em_test }
     @proxy.instance_variable_get(:@deferred_status).should == :succeeded
     @proxy.thread_name.should == thread_name
     @proxy.pid.should == 123
@@ -99,7 +99,7 @@ describe RightScale::ExecutableSequenceProxy do
       o[:target].instance_variable_set(:@audit_closed, true)
       o[:target].send(o[:exit_handler], status)
     end
-    run_em_test { @proxy.run; EM.next_tick { EM.stop } }
+    run_em_test { @proxy.run; stop_em_test }
 
     # note that normalize_path makes it tricky to guess at full command string
     # so it is best to rely on config constants.
@@ -121,7 +121,7 @@ describe RightScale::ExecutableSequenceProxy do
     end
     @audit.should_receive(:append_error).once
     @proxy.instance_variable_get(:@deferred_status).should == nil
-    run_em_test { @proxy.run; EM.next_tick { EM.stop } }
+    run_em_test { @proxy.run; stop_em_test }
     @proxy.instance_variable_get(:@deferred_status).should == :failed
   end
 
@@ -133,8 +133,8 @@ describe RightScale::ExecutableSequenceProxy do
       File.delete(mock_output) if File.exists?(mock_output)
       flexmock(@proxy).instance_variable_set(:@audit_closed, true)
       flexmock(@proxy).should_receive(:cook_path).and_return(File.join(File.dirname(__FILE__), 'cook_mock.rb'))
-      flexmock(@proxy).should_receive(:succeed).and_return { |*args| EM.stop }
-      flexmock(@proxy).should_receive(:report_failure).and_return { |*args| puts args.inspect; EM.stop }
+      flexmock(@proxy).should_receive(:succeed).and_return { |*args| stop_em_test }
+      flexmock(@proxy).should_receive(:report_failure).and_return { |*args| puts args.inspect; stop_em_test }
       run_em_test { @proxy.run }
       @pid.should_not be_nil
       @pid.should > 0

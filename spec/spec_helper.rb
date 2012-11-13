@@ -58,6 +58,17 @@ require 'right_agent'
 require 'right_agent/core_payload_types'
 require 'stringio'
 
+# monkey-patch EM for to ensure EM.stop is only called via proper channels in
+# EmTestRunner (see below). if EM is used outside of EmTestRunner then this
+# check has no effect.
+module EventMachine
+  @old_em_stop = self.method(:stop) unless @old_em_stop
+  def self.stop
+    RightScale::SpecHelper::EmTestRunner.assert_em_test_not_running
+    @old_em_stop.call
+  end
+end
+
 # HACK: disable garbage collector (in Windows only?) for spec run as flexmocked
 # types cause segmentation faults when flexmocked objects are gc'd on a thread
 # other than where they were defined and allocated.
@@ -226,6 +237,113 @@ module RightScale
       CertificateInfo.issue_cert
     end
 
+    # container for EM test state.
+    class EmTestRunner
+
+      # timeout exception
+      class RunEmTestTimeout < Exception; end
+
+      def self.run(options, &callback)
+        options ||= {}
+        fail "Callback is required" unless callback
+        defer = options.has_key?(:defer) ? options[:defer] : true
+        timeout = options[:timeout] || 5
+        EM.threadpool_size = 1
+        @last_exception = nil
+        @em_test_block_running = false
+        @em_test_stopping = false
+        @em_test_stopped = false
+        tester = lambda { do_test(&callback) }
+        EM.run do
+          @em_test_block_running = true
+          EM.add_timer(timeout) do
+            begin
+              raise RunEmTestTimeout.new("rum_em_test timed out after #{timeout} seconds")
+            rescue Exception => e
+              @last_exception = e
+            end
+            # assume test block is deadlocked; reset the running flag to allow
+            # EM.stop to interrupt the test block (on deferred thread).
+            @em_test_block_running = false
+            stop
+          end
+          if defer
+            EM.defer(&tester)
+          else
+            tester.call
+          end
+        end
+
+        # require tester to call stop properly (i.e. call stop_em_test)
+        assert_em_test_not_running
+        raise "Test was still stopping after EM block" unless @em_test_stopping
+        raise "Test was not stopped after EM block" unless @em_test_stopped
+
+        # Reraise with full backtrace for debugging purposes
+        # This assumes the exception class accepts a single string on construction
+        if @last_exception
+          message = "#{@last_exception.message}\n#{@last_exception.backtrace.join("\n")}"
+          if @last_exception.class == ArgumentError
+            raise ArgumentError, message
+          else
+            begin
+              raise @last_exception.class, message
+            rescue ArgumentError
+              # exception class does not support single string construction.
+              message = "#{@last_exception.class}: #{message}"
+              raise message
+            end
+          end
+        end
+        true
+      ensure
+        # reset
+        @em_test_block_running = false
+        @em_test_stopping = false
+        @em_test_stopped = false
+      end
+
+      # stops EM in a thread-safe manner.
+      def self.stop
+        unless @em_test_stopping
+          @em_test_stopping = true
+          EM.next_tick { inner_stop }
+        end
+        true
+      end
+
+      # checks that proper stop mechanism is called by all tests.
+      def self.assert_em_test_not_running
+        raise "Test block is still running; call stop_em_test instead of EM.stop" if @em_test_block_running
+      end
+
+      private
+
+      # invokes EM tests in a thread-safe manner.
+      def self.do_test(&callback)
+        callback.call
+      rescue Exception => e
+        @last_exception = e unless @last_exception
+      ensure
+        @em_test_block_running = false
+      end
+
+      def self.inner_stop
+        EM.next_tick do
+          # wait for tester callback to return before attempting to stop EM. the
+          # issue is that deferred callbacks are still being handled by EM and
+          # will raise exceptions on the defer thread if EM is stopped before
+          # the deferred block returns.
+          if @em_test_block_running
+            inner_stop
+          elsif !@em_test_stopped
+            @em_test_stopped = true
+            EM.stop
+          end
+        end
+      end
+    end # EmTestRunner
+
     # Runs the given block in an EM loop with exception handling to ensure
     # deferred code is rescued and printed to console properly on error
     #
@@ -238,46 +356,16 @@ module RightScale
     #
     # === Return
     # always true
-    def run_em_test(options = nil)
-      options ||= {}
-      defer = options.has_key?(:defer) ? options[:defer] : true
-      timeout = options[:timeout] || 5
-      last_exception = nil
-      EM.threadpool_size = 1
-      tester = lambda do
-        begin
-          yield
-        rescue Exception => e
-          last_exception = e
-          EM.stop
-        end
-      end
-      EM.run do
-        EM.add_timer(timeout) { EM.stop; raise 'timeout' }
-        if defer
-          EM.defer(&tester)
-        else
-          tester.call
-        end
-      end
-
-      # Reraise with full backtrace for debugging purposes
-      # This assumes the exception class accepts a single string on construction
-      if last_exception
-        message = "#{last_exception.message}\n#{last_exception.backtrace.join("\n")}"
-        if last_exception.class == ArgumentError
-          raise ArgumentError, message
-        else
-          begin
-            raise last_exception.class, message
-          rescue ArgumentError
-            # exception class does not support single string construction.
-            message = "#{last_exception.class}: #{message}"
-            raise message
-          end
-        end
-      end
+    def run_em_test(options = nil, &callback)
+      EmTestRunner.run(options, &callback)
     end
+
+    # stops EM test safely by ensuring EM.stop is only called once on the main
+    # thread after the test block (usually deferred) has returned.
+    def stop_em_test
+      EmTestRunner.stop
+    end
+
   end # SpecHelper
 
   shared_examples_for 'command line argument' do

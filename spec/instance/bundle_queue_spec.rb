@@ -181,7 +181,7 @@ describe RightScale::BundleQueue do
       # ensure inactive queue doesn't leak bundle queue stuff to EM
       run_em_test do
         @queue.push(@contexts.shift)
-        EM.add_timer(0.2) { EM.stop }
+        EM.add_timer(0.2) { stop_em_test }
       end
       @queue.active?.should be_false
       @queue_closed.should be_false
@@ -280,7 +280,7 @@ describe RightScale::BundleQueue do
     it_should_behave_like 'a bundle queue'
 
     before(:each) do
-      @queue = RightScale::SingleThreadBundleQueue.new { @queue_closed = true; EM.stop }
+      @queue = RightScale::SingleThreadBundleQueue.new { @queue_closed = true; stop_em_test }
       sequences = @sequences
       flexmock(@queue).should_receive(:create_sequence).and_return { |context| sequences[context.thread_name][context.sequence_name] }
     end
@@ -292,7 +292,7 @@ describe RightScale::BundleQueue do
     it_should_behave_like 'a bundle queue'
 
     before(:each) do
-      @queue = RightScale::MultiThreadBundleQueue.new { @queue_closed = true; EM.stop }
+      @queue = RightScale::MultiThreadBundleQueue.new { @queue_closed = true; stop_em_test }
       sequences = @sequences
       flexmock(@queue).should_receive(:create_thread_queue).with(String, Proc).and_return do |thread_name, continuation|
         thread_queue = RightScale::SingleThreadBundleQueue.new(thread_name, &continuation)
