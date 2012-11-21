@@ -26,17 +26,31 @@ require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'spec_hel
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', '..', '..', 'lib', 'instance', 'cook'))
 
 describe RightScale::CookbookRepoRetriever do
+  before(:all) do
+    @temp_dir = Dir.mktmpdir('cookbook_repo_retriever_spec')
+    @expected_repose_root = File.join(@temp_dir,"repose_root")
+    @expected_checkout_root = File.join(@temp_dir, 'checkout_root')
+  end
+
+  before(:each) do
+    flexmock(RightScale::AgentConfig).should_receive(:dev_cookbook_checkout_dir).and_return(@expected_checkout_root)
+  end
+
+  after(:all) do
+    FileUtils.rm_rf(@temp_dir) rescue nil  # tidy up
+  end
+
   context :has_cookbooks? do
     it 'when initialized with dev cookbooks, should be true' do
-      RightScale::CookbookRepoRetriever.new(nil, nil, RightScale::DevRepositories.new({'sha-1' => RightScale::DevRepository.new})).has_cookbooks?.should be_true
+      RightScale::CookbookRepoRetriever.new(@expected_repose_root, RightScale::DevRepositories.new({'sha-1' => RightScale::DevRepository.new})).has_cookbooks?.should be_true
     end
 
     it 'when initialized with empty dev cookbooks, should be false' do
-      RightScale::CookbookRepoRetriever.new(nil, nil, RightScale::DevRepositories.new({})).has_cookbooks?.should be_false
+      RightScale::CookbookRepoRetriever.new(@expected_repose_root, RightScale::DevRepositories.new({})).has_cookbooks?.should be_false
     end
 
     it 'when initialized with nil dev cookbooks, should be false' do
-      RightScale::CookbookRepoRetriever.new(nil, nil, nil).has_cookbooks?.should be_false
+      RightScale::CookbookRepoRetriever.new(@expected_repose_root, nil).has_cookbooks?.should be_false
     end
   end
 
@@ -47,7 +61,7 @@ describe RightScale::CookbookRepoRetriever do
         @position = 'cookbooks/cookbook'
         @repo = RightScale::DevRepository.new
         @repo.positions = [flexmock("cookbook position", :position => @position, :cookbook => nil)]
-        @retriever = RightScale::CookbookRepoRetriever.new(nil, nil, RightScale::DevRepositories.new({@repo_sha => @repo}))
+        @retriever = RightScale::CookbookRepoRetriever.new(@expected_repose_root, RightScale::DevRepositories.new({@repo_sha => @repo}))
       end
 
       it 'repo matches and position matches should be true' do
@@ -64,12 +78,12 @@ describe RightScale::CookbookRepoRetriever do
     end
 
     it 'when initialized with empty dev cookbooks, should be false' do
-      retriever = RightScale::CookbookRepoRetriever.new(nil, nil, RightScale::DevRepositories.new({}))
+      retriever = RightScale::CookbookRepoRetriever.new(@expected_repose_root, RightScale::DevRepositories.new({}))
       retriever.should_be_linked?(@repo_sha, @position).should be_false
     end
 
     it 'when initialized with nil dev cookbooks, should be false' do
-      retriever = RightScale::CookbookRepoRetriever.new(nil, nil, nil)
+      retriever = RightScale::CookbookRepoRetriever.new(@expected_repose_root, nil)
       retriever.should_be_linked?(@repo_sha, @position).should be_false
     end
   end
@@ -78,27 +92,37 @@ describe RightScale::CookbookRepoRetriever do
     context 'when initialized with dev cookbooks' do
       context 'and scrape succeeds' do
         before(:each) do
-          @expected_checkout_root = File.join(Dir.mktmpdir,"my/checkout/path")
-          @expected_repose_root = File.join(Dir.mktmpdir,"repose_root")
-
           FileUtils.rm_rf(@expected_checkout_root) rescue nil
           FileUtils.rm_rf(@expected_repose_root)  rescue nil
 
+          @repo_sha = 'sha-1'
+          @repo_dir = File.join(@expected_checkout_root, @repo_sha)
+          @position = 'cookbooks/cookbook'
+
           mock_scraper = flexmock("Mock RightScraper")
-          mock_scraper.should_receive(:scrape).once.and_return(true)
-          mock_scraper.should_receive(:repo_dir).once.and_return(@expected_checkout_root)
+          mock_scraper.should_receive(:scrape).once.and_return do
+            FileUtils.mkdir_p(RightScale::CookbookPathMapping.checkout_path(@repo_dir, @position))
+            true
+          end
           flexmock(RightScraper::Scraper).should_receive(:new).and_return(mock_scraper)
 
-          @repo_sha = 'sha-1'
           @repo = RightScale::DevRepository.new
+          @repo.url = 'git://fake_git_url'
           @repo.positions = [flexmock("cookbook position", :position => @position, :cookbook => nil)]
-          @position = 'cookbooks/cookbook'
-          @retriever = RightScale::CookbookRepoRetriever.new(@expected_checkout_root, @expected_repose_root, RightScale::DevRepositories.new({@repo_sha => @repo}))
+          @retriever = RightScale::CookbookRepoRetriever.new(@expected_repose_root, RightScale::DevRepositories.new({@repo_sha => @repo}))
+
+          mock_scraper.should_receive(:repo_dir).with(RightScale::CookbookRepoRetriever.to_scraper_hash(@repo)).once.and_return(@repo_dir)
         end
 
         after(:each) do
           FileUtils.rm_rf(@expected_checkout_root) rescue nil
           FileUtils.rm_rf(@expected_repose_root)  rescue nil
+        end
+
+        context 'when a repo has already been checked out' do
+          it 'should skip checkout' do
+            pending
+          end
         end
 
         it 'should check out repos' do
@@ -108,28 +132,22 @@ describe RightScale::CookbookRepoRetriever do
 
         if !::RightScale::Platform.windows? || defined?(::Windows::File::CreateSymbolicLink)
           it 'should be able to link on supported platforms' do
-            # pretend to checkout
-            FileUtils.mkdir_p(RightScale::CookbookPathMapping.checkout_path(@expected_checkout_root, @position))
-
             @retriever.checkout_cookbook_repos.should be_true
+            File.exists?(RightScale::CookbookPathMapping.checkout_path(@repo_dir, @position)).should be_true
             @retriever.link(@repo_sha, @position).should be_true
             if ::RightScale::Platform.windows?
               File.exists?(RightScale::CookbookPathMapping.repose_path(@expected_repose_root, @repo_sha, @position)).should be_true
-              File.exists?(RightScale::CookbookPathMapping.checkout_path(@expected_checkout_root, @position)).should be_true
             else
-              File.readlink(RightScale::CookbookPathMapping.repose_path(@expected_repose_root, @repo_sha, @position)).should == RightScale::CookbookPathMapping.checkout_path(@expected_checkout_root, @position)
+              File.readlink(RightScale::CookbookPathMapping.repose_path(@expected_repose_root, @repo_sha, @position)).should == RightScale::CookbookPathMapping.checkout_path(@repo_dir, @position)
             end
           end
         end
 
         it 'should NOT be able to link on unsupported platforms' do
-          # pretend to thorw
+          # pretend that this platform doesn't support symlinks
           mock_filesystem = flexmock("fake file system")
           mock_filesystem.should_receive(:create_symlink).and_raise(::RightScale::PlatformNotSupported)
           flexmock(::RightScale::Platform).should_receive(:filesystem).and_return(mock_filesystem)
-
-          # pretend to checkout
-          FileUtils.mkdir_p(RightScale::CookbookPathMapping.checkout_path(@expected_checkout_root, @position))
 
           @retriever.checkout_cookbook_repos.should be_true
           lambda { @retriever.link(@repo_sha, @position) }.should raise_exception(::RightScale::PlatformNotSupported)
@@ -138,16 +156,23 @@ describe RightScale::CookbookRepoRetriever do
 
       context 'and scrape fails' do
         before(:each) do
-          mock_scraper = flexmock("Mock RightScraper")
-          mock_scraper.should_receive(:scrape).once.and_return(false)
-          mock_scraper.should_receive(:repo_dir).never
-          flexmock(RightScraper::Scraper).should_receive(:new).and_return(mock_scraper)
+          FileUtils.rm_rf(@expected_checkout_root) rescue nil
+          FileUtils.rm_rf(@expected_repose_root)  rescue nil
 
           @repo_sha = 'sha-1'
+          @repo_dir = File.join(@expected_checkout_root, @repo_sha)
+
+          mock_scraper = flexmock("Mock RightScraper")
+          mock_scraper.should_receive(:scrape).once.and_return(false)
+          flexmock(RightScraper::Scraper).should_receive(:new).and_return(mock_scraper)
+
           @repo = RightScale::DevRepository.new
+          @repo.url = 'git://fake_git_url'
           @repo.positions = [flexmock("cookbook position", :position => @position, :cookbook => nil)]
           @position = 'cookbooks/cookbook'
-          @retriever = RightScale::CookbookRepoRetriever.new(nil, nil, RightScale::DevRepositories.new({@repo_sha => @repo}))
+          @retriever = RightScale::CookbookRepoRetriever.new(@expected_repose_root, RightScale::DevRepositories.new({@repo_sha => @repo}))
+
+          mock_scraper.should_receive(:repo_dir).with(RightScale::CookbookRepoRetriever.to_scraper_hash(@repo)).once.and_return(@repo_dir)
         end
 
         it 'should NOT scrape' do
@@ -176,11 +201,12 @@ describe RightScale::CookbookRepoRetriever do
           @dev_repos.each_pair do |repo_sha, dev_repo|
             scraper_repo = RightScale::CookbookRepoRetriever.to_scraper_hash(dev_repo)
             mock_scraper.should_receive(:scrape).once.with(scraper_repo).and_return(repo_sha == @fail_sha)
-            mock_scraper.should_receive(:repo_dir).times((repo_sha == @fail_sha) ? 1 : 0)
+            repo_dir = File.join(@expected_checkout_root, repo_sha)
+            mock_scraper.should_receive(:repo_dir).with(RightScale::CookbookRepoRetriever.to_scraper_hash(dev_repo)).once.and_return(repo_dir)
           end
           flexmock(RightScraper::Scraper).should_receive(:new).and_return(mock_scraper)
 
-          @retriever = RightScale::CookbookRepoRetriever.new(nil, nil, RightScale::DevRepositories.new(@dev_repos))
+          @retriever = RightScale::CookbookRepoRetriever.new(@expected_repose_root, RightScale::DevRepositories.new(@dev_repos))
         end
 
         it 'should NOT scrape' do
@@ -199,7 +225,7 @@ describe RightScale::CookbookRepoRetriever do
       flexmock(RightScraper::Scraper).new_instances.should_receive(:scrape).never
       flexmock(RightScraper::Scraper).new_instances.should_receive(:repo_dir).never
 
-      retriever = RightScale::CookbookRepoRetriever.new(nil, nil, RightScale::DevRepositories.new({}))
+      retriever = RightScale::CookbookRepoRetriever.new(@expected_repose_root, RightScale::DevRepositories.new({}))
       retriever.checkout_cookbook_repos { raise "Should not be called" }
     end
 
@@ -207,7 +233,7 @@ describe RightScale::CookbookRepoRetriever do
       flexmock(RightScraper::Scraper).new_instances.should_receive(:scrape).never
       flexmock(RightScraper::Scraper).new_instances.should_receive(:repo_dir).never
 
-      retriever = RightScale::CookbookRepoRetriever.new(nil, nil, nil)
+      retriever = RightScale::CookbookRepoRetriever.new(@expected_repose_root, nil)
       retriever.checkout_cookbook_repos { raise "Should not be called" }
     end
   end

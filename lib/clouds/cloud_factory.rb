@@ -20,14 +20,13 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require 'singleton'
 
 module RightScale
 
   # Singleton for registering and instantiating clouds.
   class CloudFactory
 
-    include Singleton
+    include RightSupport::Ruby::EasySingleton
 
     # the unknown cloud is used to automatically detect current instance's cloud
     UNKNOWN_CLOUD_NAME = :unknown
@@ -79,16 +78,17 @@ module RightScale
     # Factory method for dynamic metadata types.
     #
     # === Parameters
-    # cloud(String):: a registered_type cloud name or UNKNOWN_CLOUD_NAME
-    # options(Hash):: options for creation or empty
+    # cloud(String):: a registered_type cloud name
+    # options(Hash):: options for creation
     #
     # === Return
     # result(Object):: new instance of registered_type metadata type
     #
     # === Raise
     # UnknownCloud:: on error
-    def create(cloud_name = UNKNOWN_CLOUD_NAME, options = {})
+    def create(cloud_name, options)
       raise ArgumentError.new("cloud_name is required") if cloud_name.to_s.empty?
+      raise ArgumentError.new("options[:logger] is required") unless logger = options[:logger]
       raise UnknownCloud.new("No cloud definitions available.") unless @names_to_script_paths
       cloud_name = cloud_name.to_sym
       cloud_name = default_cloud_name if UNKNOWN_CLOUD_NAME == cloud_name
@@ -107,7 +107,7 @@ module RightScale
       text = File.read(cloud_script_path)
       cloud.instance_eval(text)
       cloud.abbreviation(cloud_name) unless cloud.abbreviation
-      extend_cloud_by_scripts(cloud)
+      extend_cloud_by_scripts(cloud, logger)
 
       # finalize defaults only after all cloud definitions have been evaluated
       # by the new cloud object.
@@ -189,7 +189,11 @@ module RightScale
     # behavior on a given instance. It may also be better to run some complex
     # operation in a child process instead of in the process which is loading
     # the cloud object.
-    def extend_cloud_by_scripts(cloud)
+    #
+    # === Parameters
+    # @param [String] cloud as a registered_type or UNKNOWN_CLOUD_NAME
+    # @param [Logger] logger
+    def extend_cloud_by_scripts(cloud, logger)
       # search for script directories based first on any clouds which were
       # extended by the cloud and then by the exact cloud name.
       cloud_name = cloud.name.to_s
@@ -198,13 +202,23 @@ module RightScale
       search_paths = []
       cloud_aliases.each do |cloud_alias|
         # first add default search path for cloud name.
-        search_path = File.join(AgentConfig.parent_dir, 'bin', cloud_alias)
-        search_paths << search_path if File.directory?(search_path)
+        search_path = File.join(RightScale::Platform.filesystem.private_bin_dir, cloud_alias)
+        if File.directory?(search_path)
+          search_paths << search_path
+          logger.debug("Added #{search_path.inspect} to search path for extension scripts.")
+        else
+          logger.debug("Optional extension script dir #{search_path.inspect} does not exist.")
+        end
 
         # custom paths are last in order to supercede any preceeding extensions.
         cloud.extension_script_base_paths.each do |base_path|
           search_path = File.join(base_path, cloud_alias)
-          search_paths << search_path if File.directory?(search_path)
+          if File.directory?(search_path)
+            search_paths << search_path
+            logger.debug("Added #{search_path.inspect} to search path for extension scripts.")
+          else
+            logger.debug("Optional extension script dir #{search_path.inspect} does not exist.")
+          end
         end
       end
 
@@ -219,6 +233,7 @@ module RightScale
           # ignore any script names which contain strange characters (like
           # semicolon) for security reasons.
           if script_name =~ /^[_A-Za-z][_A-Za-z0-9]*$/
+            logger.debug("Extending #{cloud_name} from #{script_path.inspect}")
             eval_me = <<EOF
 def #{script_name}(*arguments)
   return execute_script(\"#{script_path}\", *arguments)

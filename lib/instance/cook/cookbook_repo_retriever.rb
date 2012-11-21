@@ -25,6 +25,7 @@ require 'right_scraper'
 module RightScale
   #
   class CookbookRepoRetriever
+    attr_reader :checkout_root
 
     # Maps the given DevRepository to a has that can be consumed by the RightScraper gem
     # TODO: May make sense for  this to a member of the DevRepository class as an instance method.
@@ -67,15 +68,13 @@ module RightScale
     # Initialize...
     #
     # === Parameters
-    # checkout_root (String):: root path to check repos out to
     # repose_root (String):: root of all repose downloaded cookbooks
     # dev_cookbooks (Hash):: collection of repos to be checked out see  RightScale::DevRepositories for hash content
-    def initialize(checkout_root, repose_root, dev_cookbooks)
-      @checkout_root  = checkout_root
+    def initialize(repose_root, dev_cookbooks)
+      @checkout_root  = AgentConfig.dev_cookbook_checkout_dir
       @repose_root    = repose_root
       @dev_cookbooks  = (dev_cookbooks.nil? || dev_cookbooks.repositories.nil?) ? {} : dev_cookbooks.repositories
       @scraper        = RightScraper::Scraper.new(:kind => :cookbook, :basedir => @checkout_root)
-
       @registered_checkouts = {}
     end
 
@@ -124,11 +123,29 @@ module RightScale
       @dev_cookbooks.each_pair do |repo_sha, dev_repo|
         repo = self.class.to_scraper_hash(dev_repo)
 
-        # checkout the repo
-        if @scraper.scrape(repo, &callback)
-          # get the root dir the repo was checked out to
-          repo_dir = @scraper.repo_dir(repo)
+        # get the root dir this repo should be, or was, checked out to
+        repo_dir = @scraper.repo_dir(repo)
+
+        if File.directory?(repo_dir)
+          # repo was already checked out on this machine; leave it alone
+          # synthesize a scraper callback so our progress listener knows what's up
+          if callback
+            callback.call(:commit, :initialize, "Skipping checkout -- repository already exists in #{repo_dir}", nil)
+          end
           @registered_checkouts[repo_sha] = repo_dir
+        else
+          # repo wasn't checked out successfully yet; check it out now
+          success = false
+          begin
+            success = @scraper.scrape(repo, &callback)
+          ensure
+            if success
+              @registered_checkouts[repo_sha] = repo_dir
+            else
+              # nuke the repo dir if checkout fails, so we try again next time
+              FileUtils.rm_rf(repo_dir) unless success
+            end
+          end
         end
       end
       true
@@ -146,6 +163,7 @@ module RightScale
       # symlink to the checked out cookbook only if it was actually checked out
       if repo_dir = @registered_checkouts[repo_sha]
         checkout_path = CookbookPathMapping.checkout_path(repo_dir, position)
+        raise ArgumentError.new("Missing directory cannot be linked: #{checkout_path}") unless File.directory?(checkout_path)
         repose_path   = CookbookPathMapping.repose_path(@repose_root, repo_sha, position)
         FileUtils.mkdir_p(File.dirname(repose_path))
         Platform.filesystem.create_symlink(checkout_path, repose_path)

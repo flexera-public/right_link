@@ -37,7 +37,7 @@
 
 require 'rubygems'
 require 'eventmachine'
-require 'optparse'
+require 'trollop'
 require 'right_agent'
 require 'right_agent/scripts/usage'
 require 'right_agent/scripts/common_parser'
@@ -231,71 +231,39 @@ module RightScale
     # === Return
     # options(Hash):: Command line options
     def parse_args
-      options = {
-        :max_attempts   => DEFAULT_MAX_ATTEMPTS,
-        :retry_interval => DEFAULT_RETRY_INTERVAL,
-        :verbose        => false
-      }
-
-      opts = OptionParser.new do |opts|
-
-        opts.on('-t', '--time-limit SEC') do |sec|
-          options[:time_limit] = sec.to_i if sec.to_i > 0
-        end
-
-        opts.on('-a', '--attempts N') do |n|
-          options[:max_attempts] = n.to_i if n.to_i > 0
-        end
-
-        opts.on('-r', '--retry-interval SEC') do |sec|
-          options[:retry_interval] = sec.to_i if sec.to_i > 0
-        end
-
-        opts.on('--start') do
-          options[:daemon] = true
-        end
-
-        opts.on('--stop') do
-          options[:stop] = true
-        end
-
-        opts.on('--monit [SEC]') do |sec|
-          options[:monit] = (sec && sec.to_i > 0) ? sec.to_i : DEFAULT_MONIT_CHECK_INTERVAL
-        end
-
-        opts.on('-p', '--ping') do
-          options[:ping] = true
-        end
-
-        opts.on('-v', '--verbose') do
-          options[:verbose] = true
-        end
-
-        # This option is only for test purposes
-        opts.on('--state-path PATH') do |path|
-          options[:state_path] = path
-        end
-
+      parser = Trollop::Parser.new do
+        opt :max_attempts, "", :default => DEFAULT_MAX_ATTEMPTS, :long => "--attempts", :short => "-a"
+        opt :retry_interval, "", :default => DEFAULT_RETRY_INTERVAL
+        opt :time_limit, "", :type => :int
+        opt :daemon, "", :long => "--start"
+        opt :stop
+        opt :monit, "", :type => :int
+        opt :ping
+        opt :verbose
+        opt :state_path, "", :type => String
+        version ""
       end
-
-      opts.on_tail('--version') do
+      
+      begin 
+        options = parser.parse
+        options.delete(:max_attempts) unless options[:max_attempts] > 0
+        if options[:delete]
+          options.delete(:time_limit) unless options[:time_limit] > 0
+        end
+        options.delete(:retry_interval) unless options[:retry_interval] > 0
+        if options[:monit]
+          options[:monit] = DEFAULT_MONIT_CHECK_INTERVAL unless options[:monit] > 0
+        end
+        options
+      rescue Trollop::HelpNeeded
+        puts Usage.scan(__FILE__)
+        exit
+      rescue Trollop::CommandlineError => e
+        error("#{e}\nUse --help for additional information", nil, abort = true)
+      rescue Trollop::VersionNeeded
         puts version
         exit
       end
-
-      opts.on_tail('--help') do
-         RDoc::usage_from_file(__FILE__)
-         exit
-      end
-
-      begin
-        opts.parse!(ARGV)
-      rescue SystemExit => e
-        raise e
-      rescue Exception => e
-        error("#{e}\nUse --help for additional information", nil, abort = true)
-      end
-      options
     end
 
 protected

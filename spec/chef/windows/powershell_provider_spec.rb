@@ -68,7 +68,6 @@ powershell 'test::set_env_var_recipe' do
   source_text =
 <<EOPS
   [Environment]::SetEnvironmentVariable("ps_provider_spec_machine", "ps provider spec test value", "Machine")
-  [Environment]::SetEnvironmentVariable("ps_provider_spec_user", "ps provider spec test value", "User")
 EOPS
   source source_text
 end
@@ -82,14 +81,8 @@ powershell 'test::check_env_var_recipe' do
     Write-Error "ps_provider_spec_machine env was not set"
     exit 100
   }
-  if ("$env:ps_provider_spec_user" -eq "")
-  {
-    Write-Error "ps_provider_spec_user env was not set"
-    exit 101
-  }
-  Write-Output "ps_provider_spec_machine and ps_provider_spec_user were set as expected"
+  Write-Output "ps_provider_spec_machine was set as expected"
   [Environment]::SetEnvironmentVariable("ps_provider_spec_machine", "", "Machine")
-  [Environment]::SetEnvironmentVariable("ps_provider_spec_user", "", "User")
 EOPS
   source source_text
 end
@@ -259,7 +252,7 @@ powershell 'test::uncaught_errors_recipe' do
   source_text =
 <<EOPS
   write-output \\\"Line 1\\\"
-  cd c:\\\\a_folder_which_does_not_exist
+  Set-Location c:\\\\a_folder_which_does_not_exist
   write-output \\\"Line 3\\\"
 EOPS
   source source_text
@@ -431,8 +424,9 @@ EOF
       runner.should raise_exception(RightScale::Exceptions::Exec)
       message_format = <<-EOF
 System.IndexOutOfRangeException
-At .*:3 char:8
-  + Throw <<<<  [System.IndexOutOfRangeException]
+At .*:3 char:.*
+  + Throw .* [System.IndexOutOfRangeException]
+.*
   + CategoryInfo          : OperationStopped: (System.IndexOutOfRangeException:RuntimeType) [], RuntimeException
   + FullyQualifiedErrorId : System.IndexOutOfRangeException
 EOF
@@ -453,8 +447,9 @@ EOF
       stdout_match = "Line 1.*Line 3"
       stderr_match1 = <<-EOF
 Set-Location : Cannot find path 'C:\\a_folder_which_does_not_exist' because it does not exist.
-At .*:2 char:5
-  + cd <<<<  c:\\a_folder_which_does_not_exist
+At .*:2 char:.*
+  + Set-Location .* c:\\a_folder_which_does_not_exist
+.*
   + CategoryInfo          : ObjectNotFound: (C:\\a_folder_which_does_not_exist:String) [Set-Location], ItemNotFoundException
   + FullyQualifiedErrorId : PathNotFound,Microsoft.PowerShell.Commands.SetLocationCommand
 EOF

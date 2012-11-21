@@ -22,7 +22,7 @@
 
 module RightScale
   class LoginUserManager
-    include Singleton
+    include RightSupport::Ruby::EasySingleton
 
     PROFILE_CHECKSUM = "profile.md5"
 
@@ -128,7 +128,6 @@ module RightScale
       when 0
         home_dir = Shellwords.escape(Etc.getpwnam(username).dir)
 
-        #FileUtils.chmod(0771, home_dir)
         %x(sudo chmod 0771 #{home_dir})
 
         RightScale::Log.info "User #{username} created successfully"

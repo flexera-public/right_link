@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2009-2011 RightScale Inc
+# Copyright (c) 2012 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -20,6 +20,8 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require File.expand_path(File.join(File.dirname(__FILE__), '..', 'spec_helper'))
-require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'lib', 'instance'))
-require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'lib', 'chef', 'right_providers'))
+# set abbreviation for env var generation to be same as legacy Rackspace for scripters.
+abbreviation :rax
+
+# extend legacy Rackspace cloud definition. currently there are no differences aside from name.
+extend_cloud :rackspace

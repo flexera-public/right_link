@@ -76,7 +76,7 @@ else
 EOF
         ), 'uncaught_right_script_error.ps1' => (<<EOF
 write-output \"Line 1\"
-cd c:\\a_folder_which_does_not_exist
+Set-Location c:\\a_folder_which_does_not_exist
 write-output \"Line 3\"
 EOF
         )
@@ -128,22 +128,15 @@ EOF
       message_format = <<-EOF
 Line 1
 Set-Location : Cannot find path 'C:\\a_folder_which_does_not_exist' because it does not exist.
-At .*:2 char:3
-  + cd <<<<  c:\\a_folder_which_does_not_exist
+At .*:2 char:.*
+  + Set-Location .* c:\\a_folder_which_does_not_exist
+.*
   + CategoryInfo          : ObjectNotFound: (C:\\a_folder_which_does_not_exist:String) [Set-Location], ItemNotFoundException
   + FullyQualifiedErrorId : PathNotFound,Microsoft.PowerShell.Commands.SetLocationCommand
 Line 3
 WARNING: Script exited successfully but $Error contained 1 error(s).
 EOF
-      # remove newlines and spaces
-      expected_message = Regexp.escape(message_format.gsub(/\s+/, ""))
-
-      # un-escape the escaped regex strings
-      expected_message.gsub!("\\.\\*", ".*")
-      logs = @logger.info_text.gsub(/\s+/, "")
-
-      # should contain the expected exception
-      logs.should match(expected_message)
+      log_should_contain_text(:info, message_format)
     end
 
     it "should exit chef converge when a right script invokes rs_shutdown --reboot --immediately" do

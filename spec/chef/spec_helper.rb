@@ -25,7 +25,7 @@ require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'lib',
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'lib', 'instance', 'cook'))
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'lib', 'clouds'))
 
-require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'lib', 'chef', 'providers'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'lib', 'chef', 'right_providers'))
 
 shared_examples_for 'generates cookbook for chef runner' do
   before(:all) do
@@ -49,7 +49,7 @@ shared_examples_for 'mocks logging' do
   #
   # === Returns
   # result(true|false):: true if found text
-  def log_should_contain_text(level, str_to_match)
+  def log_should_contain_text(level, str_to_match, invert_should=false)
     # remove newlines and spaces to handle any line-wrapping weirdness (in Windows), etc.
     expected_message = Regexp.escape(str_to_match.gsub(/\s+/, ''))
 
@@ -58,7 +58,13 @@ shared_examples_for 'mocks logging' do
 
     # should contain the expected exception
     kind = (level.to_s + '_text').to_sym
-    @logger.send(kind).gsub(/\s+/, '').should match(expected_message)
+    logged_output = @logger.send(kind)
+    actual_message = logged_output.gsub(/\s+/, '')
+    if invert_should
+      actual_message.should_not match(expected_message)
+    else
+      actual_message.should match(expected_message)
+    end
   end
 
   # Asserts that the given text does not appear somewhere in the log for the given level.
@@ -70,15 +76,7 @@ shared_examples_for 'mocks logging' do
   # === Returns
   # result(true|false):: true if found text
   def log_should_not_contain_text(level, str_to_match)
-    # remove newlines and spaces to handle any line-wrapping weirdness (in Windows), etc.
-    expected_message = Regexp.escape(str_to_match.gsub(/\s+/, ''))
-
-    # un-escape the escaped regex strings
-    expected_message.gsub!("\\.\\*", ".*")
-
-    # should contain the expected exception
-    kind = (level.to_s + '_text').to_sym
-    @logger.send(kind).gsub(/\s+/, '').should_not match(expected_message)
+    log_should_contain_text(level, str_to_match, invert_should=true)
   end
 
   # Asserts the given logger level has no logged messages.

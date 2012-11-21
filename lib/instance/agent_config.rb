@@ -30,6 +30,19 @@ module RightScale
       File.dirname(File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'right_link')))
     end
 
+     # @return [Array] an appropriate sequence of root directories for configuring the RightLink agent
+    def self.right_link_root_dirs
+      # RightLink certs are written at enrollment time, and live in the
+      # 'certs' subdir of the RightLink agent state dir.
+      os_root_dir  = File.join(AgentConfig.agent_state_dir)
+
+      # RightLink actors and the agent init directory are both packaged into the RightLink gem,
+      # as subdirectories of the gem base directory (siblings of 'lib' and 'bin' directories).
+      gem_root_dir = Gem.loaded_specs['right_link'].full_gem_path
+
+      [os_root_dir, gem_root_dir]
+    end
+
     # Path to directory containing persistent RightLink agent state
     def self.agent_state_dir
       RightScale::Platform.filesystem.right_link_dynamic_state_dir
@@ -62,9 +75,24 @@ module RightScale
       @cache_dir = dir
     end
 
+    # Path to directory for Ruby source code, e.g. cookbooks
+    def self.source_code_dir
+      @source_code_dir ||= File.join(RightScale::Platform.filesystem.source_code_dir, 'rightscale')
+    end
+
+    # Set path to directory for Ruby source code, e.g. cookbooks
+    def self.source_code_dir=(dir)
+      @source_code_dir = dir
+    end
+
     # Path to downloaded cookbooks directory
     def self.cookbook_download_dir
       @cookbook_download_dir ||= File.join(cache_dir, 'cookbooks')
+    end
+
+    # Path to SCM repository checkouts that contain development cookbooks
+    def self.dev_cookbook_checkout_dir
+      @dev_cookbook_dir ||= File.join(source_code_dir, 'cookbooks')
     end
 
     # Path to RightScript recipes cookbook directory
