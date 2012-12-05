@@ -55,7 +55,6 @@ module RightScale
 
         flexmock(ReposeDownloader.logger).should_receive(:info).twice
         flexmock(ReposeDownloader.logger).should_receive(:error).times(4)
-
         lambda { subject.download(attachment) { |response| response } }.should raise_error(RightScale::ReposeDownloader::ConnectionException)
       end
     end
@@ -66,7 +65,6 @@ module RightScale
 
         flexmock(ReposeDownloader.logger).should_receive(:info).once
         flexmock(ReposeDownloader.logger).should_receive(:error).twice
-
         lambda { subject.download(attachment) { |response| response } }.should raise_error(RightScale::ReposeDownloader::DownloadException)
       end
     end
@@ -164,20 +162,30 @@ module RightScale
       end
     end
 
-    context :parse do
+    context :parse_exception_message do
       it 'should parse exceptions' do
         e = SocketError.new
-        subject.send(:parse, e).should == "SocketError"
+        subject.send(:parse_exception_message, e).should == ["SocketError"]
       end
 
       it 'should parse a single RequestBalancer exception' do
-        e = RightSupport::Net::NoResult.new('RequestBalancer: No available endpoints from ["174.129.36.231", "174.129.37.65"]! Exceptions: SocketError')
-        subject.send(:parse, e).should == "SocketError"
+        details = {
+          "174.129.36.231" => [SocketError.new],
+          "174.129.37.65"  => [SocketError.new],
+        }
+        message = 'RequestBalancer: No available endpoints from ["174.129.36.231", "174.129.37.65"]! Exceptions: SocketError'
+        e = RightSupport::Net::NoResult.new(message, details)
+        subject.send(:parse_exception_message, e).should == ["SocketError"]
       end
 
       it 'should parse multiple RequestBalancer exceptions' do
-        e = RightSupport::Net::NoResult.new('RequestBalancer: No available endpoints from ["174.129.36.231", "174.129.37.65"]! Exceptions: RestClient::InternalServerError, RestClient::ResourceNotFound')
-        subject.send(:parse, e).should == "RestClient::InternalServerError, RestClient::ResourceNotFound"
+        message = 'RequestBalancer: No available endpoints from ["174.129.36.231", "174.129.37.65"]! Exceptions: RestClient::InternalServerError, RestClient::ResourceNotFound'
+        details = {
+          "174.129.36.231" => [RestClient::InternalServerError.new],
+          "174.129.37.65"  => [RestClient::ResourceNotFound.new],
+        }
+        e = RightSupport::Net::NoResult.new(message, details)
+        subject.send(:parse_exception_message, e).sort.should == ["RestClient::InternalServerError", "RestClient::ResourceNotFound"]
       end
     end
 
