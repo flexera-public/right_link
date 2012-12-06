@@ -40,11 +40,10 @@ module RightScale
 
     # Run bundle given in stdin
     def run
-      AgentConfig.root_dir = AgentConfig.right_link_root_dirs
-
       # 1. Load configuration settings
       options = OptionsBag.load
       agent_id  = options[:identity]
+      AgentConfig.root_dir = options[:root_dir]
 
       Log.program_name = 'RightLink'
       Log.facility = 'user'
