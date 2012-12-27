@@ -40,9 +40,7 @@ spec = Gem::Specification.new do |s|
     s.add_runtime_dependency('win32-service', '~> 0.7.2')
   end
 
-  s.files = Dir.glob('Gemfile') +
-            Dir.glob('Gemfile.lock') +
-            Dir.glob('init/*') +
+  s.files = Dir.glob('init/*') +
             Dir.glob('actors/*.rb') +
             Dir.glob('bin/*') +
             Dir.glob('ext/Rakefile') +
@@ -54,6 +52,7 @@ spec = Gem::Specification.new do |s|
             Dir.glob('lib/chef/windows/**/*.txt') +
             Dir.glob('lib/chef/windows/**/*.xml') +
             Dir.glob('lib/**/*.pub') +
+            Dir.glob('lib/**/*.rb') +
             Dir.glob('scripts/*') +
             Dir.glob('lib/instance/cook/*.crt')
 
