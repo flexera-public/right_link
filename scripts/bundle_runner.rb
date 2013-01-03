@@ -86,7 +86,8 @@ module RightScale
     # reply sent back by the agent
     #
     # === Return
-    # true:: Always return true
+    # true:: If everything went smoothly
+    # false:: If something terrible happened
     def run(options, &callback)
       fail('Missing identity or name argument', true) unless options[:id] || options[:name]
       if options[:thread] && (options[:thread] !~ RightScale::AgentConfig.valid_thread_name)
@@ -102,6 +103,7 @@ module RightScale
       command_serializer = Serializer.new
       client = CommandClient.new(listen_port, config_options[:cookie])
 
+      exit_code = true
       callback ||= lambda do |r|
         response = OperationResult.from_results(command_serializer.load(r)) rescue nil
         if r == 'OK'
@@ -110,6 +112,7 @@ module RightScale
           puts "Request processed successfully"
         else
           puts "Failed to process request: #{(response.respond_to?(:content) && response.content) || '<unknown error>'}"
+          exit_code = false
         end
       end
 
@@ -119,7 +122,7 @@ module RightScale
       rescue Exception => e
         fail(e.message)
       end
-      true
+      exit_code
     rescue SystemExit => e
       raise e
     rescue Exception => e
@@ -184,7 +187,7 @@ module RightScale
         version ""
       end
 
-      begin 
+      begin
         options.merge!(parser.parse(arguments))
         options.delete(:name) if options[:id]
         if options[:parameter]
@@ -292,7 +295,7 @@ protected
       end
       result
     end
-    
+
     # Version information
     #
     # === Return
