@@ -20,10 +20,10 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require File.join(File.dirname(__FILE__), 'spec_helper')
-require File.join(File.dirname(__FILE__), '..', '..', 'actors', 'instance_scheduler')
-require File.join(File.dirname(__FILE__), 'audit_proxy_mock')
-require File.join(File.dirname(__FILE__), 'instantiation_mock')
+require File.expand_path(File.join(File.dirname(__FILE__), 'spec_helper'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'actors', 'instance_scheduler'))
+require File.normalize_path(File.join(File.dirname(__FILE__), 'audit_proxy_mock'))
+require File.normalize_path(File.join(File.dirname(__FILE__), 'instantiation_mock'))
 
 # Since callback and errback take blocks ExecutableSequence cannot be mocked
 # easily using pure flexmock so define a mock class explicitely instead

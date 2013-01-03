@@ -163,6 +163,7 @@ module RightScale
       # symlink to the checked out cookbook only if it was actually checked out
       if repo_dir = @registered_checkouts[repo_sha]
         checkout_path = CookbookPathMapping.checkout_path(repo_dir, position)
+        raise ArgumentError.new("Missing directory cannot be linked: #{checkout_path}") unless File.directory?(checkout_path)
         repose_path   = CookbookPathMapping.repose_path(@repose_root, repo_sha, position)
         FileUtils.mkdir_p(File.dirname(repose_path))
         Platform.filesystem.create_symlink(checkout_path, repose_path)

@@ -22,7 +22,7 @@
 
 module RightScale
   class LoginUserManager
-    include Singleton
+    include RightSupport::Ruby::EasySingleton
 
     PROFILE_CHECKSUM = "profile.md5"
 

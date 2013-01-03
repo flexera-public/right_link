@@ -16,7 +16,7 @@
 #      --help:            Display help
 #
 
-require 'optparse'
+require 'trollop'
 require 'socket'
 
 require 'right_agent'
@@ -47,7 +47,7 @@ module RightScale
     SUDO_USER  = 'rightscale'
     SUDO_GROUP = 'rightscale_sudo'
 
-    def self.read_options_file
+    def read_options_file
       state = RightScale::Platform.filesystem.right_link_dynamic_state_dir
       options_file     = File.join(state, 'system.js')
       old_options_file = File.join(state, 'sys_configure.js')
@@ -63,12 +63,18 @@ module RightScale
 
     def self.run
       configurator = SystemConfigurator.new
-      options = configurator.parse_args
+      configurator.start(configurator.parse_args)
+    rescue SystemExit => e
+      raise e
+    rescue Exception => e
+      fail(e)
+    end
 
+    def start(options)
       if (json = read_options_file)
         options.merge(JSON.load(json))
       else
-        all_actions  = configurator.methods.select { |m| m =~ /^configure_/ }.map { |m| m[10..-1] }
+        all_actions  = methods.select { |m| m =~ /^configure_/ }.map { |m| m[10..-1] }
         options.merge({'actions_enabled' => all_actions})
       end
 
@@ -84,9 +90,9 @@ module RightScale
 
       actions.each do |action|
         method_name = "configure_#{action}".to_sym
-        if action && configurator.respond_to?(method_name)
+        if action && respond_to?(method_name)
           puts "Configuring #{action}"
-          configurator.__send__(method_name)
+          __send__(method_name)
         else
           raise StandardError, "Unknown action #{action}"
         end
@@ -95,34 +101,26 @@ module RightScale
       return 0
     end
 
-
     # Create options hash from command line arguments
     #
     # === Return
     # options(Hash):: Hash of options as defined by the command line
     def parse_args
-      options = { }
-
-      opts = OptionParser.new do |opts|
-        opts.on('-a', '--action ACTION') do |action|
-          options[:action] = action
-        end
-
-        opts.on_tail('--help') do
-           puts Usage.scan(__FILE__)
-           exit
-        end
+      parser = Trollop::Parser.new do
+        opt :action, "", :type => :string
       end
 
       begin
-        opts.parse!(ARGV)
-      rescue SystemExit => e
-        raise e
-      rescue Exception => e
+        parser.parse
+      rescue Trollop::HelpNeeded
+       puts Usage.scan(__FILE__)
+       exit
+      rescue Trollop::CommandlineError => e
         puts e.message + "\nUse --help for additional information"
         exit(1)
+      rescue SystemExit => e
+        raise e
       end
-      options
     end
 
     def configure_ssh

@@ -1,5 +1,5 @@
 # === Synopsis:
-#   RightScale Tagger (rs_tag) - (c) 2011 RightScale Inc
+#   RightScale Tagger (rs_tag) - (c) 2009-2012 RightScale Inc
 #
 #   Tagger allows listing, adding and removing tags on the current instance and
 #   querying for all instances with a given set of tags
@@ -39,7 +39,7 @@
 #
 
 require 'rubygems'
-require 'optparse'
+require 'trollop'
 require 'right_agent'
 require 'right_agent/scripts/usage'
 require 'right_agent/scripts/common_parser'
@@ -75,22 +75,16 @@ module RightScale
       RightScale::Log.force_logger(log)
 
       unless options.include?(:action)
-        STDERR.puts "Missing argument, rs_tag --help for additional information"
+        write_error("Missing argument, rs_tag --help for additional information")
         fail(1)
       end
       cmd = { :name => options[:action] }
       cmd[:tag] = options[:tag] if options[:tag]
       cmd[:tags] = options[:tags] if options[:tags]
       cmd[:query] = options[:query] if options[:query]
-      config_options = AgentConfig.agent_options('instance')
-      listen_port = config_options[:listen_port]
-      raise ArgumentError.new('Could not retrieve agent listen port') unless listen_port
-      command_serializer = Serializer.new
-      client = CommandClient.new(listen_port, config_options[:cookie])
-      begin
+     begin
         @disposition = nil
-
-        client.send_command(cmd, options[:verbose], options[:timeout] || TAG_REQUEST_TIMEOUT) do |res|
+        send_command(cmd, options[:verbose], options[:timeout]) do |res|
           begin
             case options[:action]
             when :get_tags
@@ -99,51 +93,51 @@ module RightScale
                 if options[:die]
                   raise TagError.new('No server tags found', 44)
                 else
-                  puts format_output([], options[:format])
+                  write_output(format_output([], options[:format]))
                   @disposition = 0
                 end
               else
-                puts format_output(res, options[:format])
+                write_output(format_output(res, options[:format]))
                 @disposition = 0
               end
             when :query_tags
-              r = OperationResult.from_results(command_serializer.load(res))
+              r = serialize_operation_result(res)
               raise TagError.new("Query tags failed: #{r.inspect}", 46) unless r.kind_of?(OperationResult)
               if r.success?
                 if r.content.empty?
                   if options[:die]
                     raise TagError.new("No servers with tags #{options[:tags].inspect}", 44)
                   else
-                    puts format_output({}, options[:format])
+                    write_output(format_output({}, options[:format]))
                     @disposition = 0
                   end
                 else
-                  puts format_output(r.content, options[:format])
+                  write_output(format_output(r.content, options[:format]))
                   @disposition = 0
                 end
               else
                 raise TagError.new("Query tags failed: #{r.content}", 53)
               end
             when :add_tag
-              r = OperationResult.from_results(command_serializer.load(res))
+              r = serialize_operation_result(res)
               raise TagError.new("Add tag failed: #{r.inspect}", 47) unless r.kind_of?(OperationResult)
               if r.success?
-                STDERR.puts "Successfully added tag #{options[:tag]}"
+                write_error("Successfully added tag #{options[:tag]}")
                 @disposition = 0
               else
                 raise TagError.new("Add tag failed: #{r.content}", 54)
               end
             when :remove_tag
-              r = OperationResult.from_results(command_serializer.load(res))
+              r = serialize_operation_result(res)
               raise TagError.new("Remove tag failed: #{r.inspect}", 48) unless r.kind_of?(OperationResult)
               if r.success?
-                STDERR.puts "Successfully removed tag #{options[:tag]}"
+                write_error("Successfully removed tag #{options[:tag]}")
                 @disposition = 0
               else
                 raise TagError.new("Remove tag failed: #{r.content}", 55)
               end
             else
-              STDERR.puts res
+              write_error(res)
               @disposition = 0
             end
           rescue Exception => e
@@ -172,68 +166,120 @@ module RightScale
     # === Return
     # options(Hash):: Hash of options as defined by the command line
     def parse_args
-      options = { :verbose => false }
+      parser = Trollop::Parser.new do
+        opt :list
+        opt :add, "", :type => :string
+        opt :remove, "", :type => :string
+        opt :query, "", :type => :string
+        opt :verbose
+        opt :die, "", :short => "-e"
+        opt :format, "", :type => :string, :default => "json"
+        opt :timeout, "", :type => :int
+        version ""
+      end
 
-      opts = OptionParser.new do |opts|
-
-        opts.on('-l', '--list') do
-          options[:action] = :get_tags
-        end
-
-        opts.on('-a', '--add TAG') do |t|
+      begin 
+        options = parser.parse
+        options[:action] = :get_tags if options.delete(:list)
+        if options[:add]
           options[:action] = :add_tag
-          options[:tag] = t
+          options[:tag] = options.delete(:add)
         end
-
-        opts.on('-r', '--remove TAG') do |t|
+        if options[:remove]
           options[:action] = :remove_tag
-          options[:tag] = t
+          options[:tag] = options.delete(:remove)
         end
-
-        opts.on('-q', '--query TAG_LIST') do |t|
+        if options[:query]
           options[:action] = :query_tags
-          options[:tags] = t.split
+          options[:tags] = parse_tag_list(options.delete(:query))
         end
-
-        opts.on('-v', '--verbose') do
-          options[:verbose] = true
-        end
-
-        opts.on('-e', '--die') do
-          options[:die] = true
-        end
-
-        opts.on('-f', '--format FMT') do |fmt|
-          options[:format] = fmt
-        end
-
-        opts.on('-t', '--timeout TIMEOUT') do |tmt|
-          options[:timeout] = tmt
-        end
-      end
-
-      opts.on_tail('--version') do
-        puts version
+        options[:format] = case options[:format]
+                           when /^jso?n?$/, nil
+                             :json
+                           when /^ya?ml$/
+                             :yaml
+                           when /^te?xt$/, /^sh(ell)?/, 'list'
+                             :text
+                           else
+                             raise Trollop::CommandlineError, "Unknown output format #{options[:format]}"
+                           end
+        options
+      rescue Trollop::VersionNeeded
+        write_output(version)
         succeed
-      end
-
-      opts.on_tail('--help') do
-         puts Usage.scan(__FILE__)
+      rescue Trollop::HelpNeeded
+         write_output(Usage.scan(__FILE__))
          succeed
-      end
-
-      begin
-        opts.parse!(ARGV)
+      rescue Trollop::CommandlineError => e
+        write_error(e.message + "\nUse rs_tag --help for additional information")
+        fail(1)
       rescue SystemExit => e
         raise e
-      rescue Exception => e
-        STDERR.puts e.message + "\nUse rs_tag --help for additional information"
-        fail(1)
       end
-      options
     end
 
 protected
+    # Writes to STDOUT (and a placeholder for spec mocking).
+    #
+    # === Parameters
+    # @param [String] message to write
+    def write_output(message)
+      STDOUT.puts(message)
+    end
+
+    # Writes to STDERR (and a placeholder for spec mocking).
+    #
+    # === Parameters
+    # @param [String] message to write
+    def write_error(message)
+      STDERR.puts(message)
+    end
+
+    # Creates a command client and sends the given payload.
+    #
+    # === Parameters
+    # @param [Hash] cmd as a payload hash
+    # @param [TrueClass, FalseClass] verbose flag
+    # @param [TrueClass, FalseClass] timeout or nil
+    #
+    # === Block
+    # @yield [response] callback for response
+    # @yieldparam response [Object] response of any type
+    def send_command(cmd, verbose, timeout, &callback)
+      config_options = ::RightScale::AgentConfig.agent_options('instance')
+      listen_port = config_options[:listen_port]
+      raise ::ArgumentError.new('Could not retrieve agent listen port') unless listen_port
+      client = ::RightScale::CommandClient.new(listen_port, config_options[:cookie])
+      timeout ||= TAG_REQUEST_TIMEOUT
+      client.send_command(cmd, verbose, timeout, &callback)
+      true
+    end
+
+    def serialize_operation_result(res)
+      command_serializer = ::RightScale::Serializer.new
+      ::RightScale::OperationResult.from_results(command_serializer.load(res))
+    end
+
+    # Splits the TAG_LIST parameter on space unless an equals is present in
+    # order to support both the "x:y a:b" and the "x:y=a b c" (tag value
+    # contains space(s)) cases. the "x:y=a b c:d=x y" case is ambiguous and will
+    # be interpreted as follows:
+    #   namespace=x, name=y, value=a b c:d=x y
+    #
+    # === Parameters
+    # @param [String] tag_list to parse
+    #
+    # === Return
+    # @return [Array] tags to query
+    def parse_tag_list(tag_list)
+      tag_list = tag_list.to_s
+      if tag_list.index('=')
+        [tag_list.strip]
+      else
+        tag_list.split
+      end
+    end
+
     # Format output for display to user
     #
     # === Parameter
@@ -244,15 +290,15 @@ protected
     # a String containing the specified output format
     def format_output(result, format)
       case format
-        when /^jso?n?$/, nil
-          JSON.pretty_generate(result)
-        when /^ya?ml$/
-          YAML.dump(result)
-        when /^te?xt$/, /^sh(ell)?/, 'list'
-          result = result.keys if result.respond_to?(:keys)
-          result.join(" ")
-        else
-          raise ArgumentError, "Unknown output format #{format}"
+      when :json
+        JSON.pretty_generate(result)
+      when :yaml
+        YAML.dump(result)
+      when :text
+        result = result.keys if result.respond_to?(:keys)
+        result.join(" ")
+      else
+        raise ArgumentError, "Unknown output format #{format}"
       end
     end
 
@@ -277,17 +323,17 @@ protected
     def fail(reason=nil, options={})
       case reason
       when TagError
-        STDERR.puts reason.message
+        write_error(reason.message)
         code = reason.code
       when Errno::EACCES
-        STDERR.puts reason.message
-        STDERR.puts "Try elevating privilege (sudo/runas) before invoking this command."
+        write_error(reason.message)
+        write_error("Try elevating privilege (sudo/runas) before invoking this command.")
         code = 2
       when Exception
-        STDERR.puts reason.message
+        write_error(reason.message)
         code = 50
       when String
-        STDERR.puts reason
+        write_error(reason)
         code = 50
       when Integer
         code = reason
@@ -295,7 +341,7 @@ protected
         code = 1
       end
 
-      puts Usage.scan(__FILE__) if options[:print_usage]
+      write_output(Usage.scan(__FILE__)) if options[:print_usage]
       exit(code)
     end
 
@@ -305,7 +351,7 @@ protected
     # (String):: Version information
     def version
       gemspec = eval(File.read(File.join(File.dirname(__FILE__), '..', 'right_link.gemspec')))
-      "rs_tag #{gemspec.version} - RightLink's tagger (c) 2011 RightScale"
+      "rs_tag #{gemspec.version} - RightLink's tagger (c) 2009-2012 RightScale"
     end
 
   end # Tagger

@@ -84,16 +84,21 @@ module RightScale
         host = "#{url.host}#{host}"
       end
 
-      cmd_opts = [ 'instance',
-                   '-r', File.join(AgentConfig.parent_dir, 'right_link'),
+      root_dirs = AgentConfig.right_link_root_dirs.map { |x| ['-r', x] }.flatten
+
+      cmd_opts = [ 'instance' ] +
+                 root_dirs +
+                 [
                    '-i', ENV['RS_RN_ID'],
                    '-t', ENV['RS_RN_AUTH'],
                    '-h', host,
                    '-u', url.user,
                    '-p', url.password,
                    '-v', url.path,
+                   '-b', 60,
                    '-q',
-                   '-S' ]
+                   '-S'
+                 ]
 
       if ENV['http_proxy']
         cmd_opts << ['--http-proxy', ENV['http_proxy']]
@@ -107,8 +112,13 @@ module RightScale
         FileUtils.mkdir_p('/opt/rightscale/etc/monit.d')
         cmd_opts << '--monit'
       end
-
-      cmd = Platform.shell.format_executable_command(File.join(Platform.filesystem.private_bin_dir, 'rad'), cmd_opts)
+      
+      rad_path = if Platform.windows? 
+        File.join(Platform.filesystem.right_link_home_dir, "bin") 
+      else
+        Platform.filesystem.private_bin_dir
+      end
+      cmd = Platform.shell.format_executable_command(File.join(rad_path, 'rad'), cmd_opts)
 
       Log.info("Deploying agent with command: #{cmd}")
       exec(cmd)
@@ -121,4 +131,4 @@ end
 # The $0 argument is -e in windows because of how we wrap the call to get live
 # console output. we don't need to worry about symlinks in Windows, so always
 # run the deployer on that platform
-RightScale::AgentDeployerRunner.run if (__FILE__ == $0 || RightScale::Platform.windows?)
+RightScale::AgentDeployerRunner.run

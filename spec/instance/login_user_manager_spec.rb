@@ -25,42 +25,43 @@ require File.join(File.dirname(__FILE__), 'spec_helper')
 describe RightScale::LoginUserManager do
   include RightScale::SpecHelper
 
+  subject { RightScale::LoginUserManager.instance }
+
   before(:each) do
     flexmock(RightScale::Log).should_receive(:debug).by_default
-    @mgr = RightScale::LoginUserManager.instance
   end
 
   context :pick_username do
     context "given a name is taken" do
       before(:each) do
-        flexmock(@mgr).should_receive(:user_exists?).with('joe').and_return(true)
+        flexmock(subject).should_receive(:user_exists?).with('joe').and_return(true)
       end
 
       it 'picks the best alternative' do
-        flexmock(@mgr).should_receive(:user_exists?).with('joe_1').and_return(false)
+        flexmock(subject).should_receive(:user_exists?).with('joe_1').and_return(false)
 
-        @mgr.pick_username('joe').should == 'joe_1'
+        subject.pick_username('joe').should == 'joe_1'
       end
 
       it 'picks any available alternative' do
         @n = 1
         3.times do
-          flexmock(@mgr).should_receive(:user_exists?).with("joe_#{@n}").and_return(true)
+          flexmock(subject).should_receive(:user_exists?).with("joe_#{@n}").and_return(true)
           @n += 1
         end
-        flexmock(@mgr).should_receive(:user_exists?).with("joe_#{@n}").and_return(false)
+        flexmock(subject).should_receive(:user_exists?).with("joe_#{@n}").and_return(false)
 
-        @mgr.pick_username('joe').should == "joe_#{@n}"
+        subject.pick_username('joe').should == "joe_#{@n}"
       end
     end
 
     context "given a username does not exist" do
       before(:each) do
-        flexmock(@mgr).should_receive(:user_exists?).with('joe').and_return(false)
+        flexmock(subject).should_receive(:user_exists?).with('joe').and_return(false)
       end
 
       it 'picks the ideal name' do
-        @mgr.pick_username('joe').should == 'joe'
+        subject.pick_username('joe').should == 'joe'
       end
     end
   end

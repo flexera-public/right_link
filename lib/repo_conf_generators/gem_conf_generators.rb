@@ -23,8 +23,15 @@
 
 module Gems
 
-  def self.execute(command)
-    res = `#{command}`
+  # Wrapper for the 'gem' command that ensures the systemwide config file is used.
+  #
+  #
+  # @param [String] command the gem command to run
+  # @param [optional, Array] *parameters glob of additional command-line parameters to pass to the RubyGems command
+  # @example gem('sources', '--list')
+  # @example gem('sources', '--add', 'http://awesome-gems.com')
+  def self.gem(command, *parameters)
+    res = `gem --config-file /etc/gemrc #{command} #{parameters.join(' ')}`
     raise "Error #{RightScale::SubprocessFormatting.reason($?)} executing: `#{command}`: #{res}" unless $? == 0
     res
   end
@@ -35,8 +42,9 @@ module Gems
     def self.generate(description, base_urls, frozen_date="latest")
 
       #1 - get the current sources
-      initial_sources= Gems::execute("gem sources").split("\n")
+      initial_sources= Gems.gem('sources', '--list').split("\n")
       initial_sources.reject!{|s| s =~ /^\*\*\*/ || s.chomp == "" } # Discard the message (starting with ***) and empty lines returned by gem sources
+
       #2- Add our sources
       repo_path = "archive/"+ (frozen_date || "latest")
       mirror_list =  base_urls.map do |bu|
@@ -47,7 +55,7 @@ module Gems
       mirror_list.map do |m|
         begin
           puts "Adding gem source: #{m}"
-          Gems::execute("gem sources -a #{m}")
+          Gems.gem('sources', '--add', m)
         rescue Exception => e
           puts "Error Adding gem source #{m}: #{e}\n...continuing with others..."
         end
@@ -57,7 +65,7 @@ module Gems
       sources_to_delete.map do |m|
         begin
           puts "Removing stale gem source: #{m}"
-          Gems::execute("gem sources -r #{m}")
+          Gems.gem('sources', '--remove', m)
         rescue Exception => e
           puts "Error Adding gem source #{m}: #{e}\n...continuing with others..."
         end

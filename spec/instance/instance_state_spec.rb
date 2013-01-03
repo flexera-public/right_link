@@ -27,6 +27,10 @@ describe RightScale::InstanceState do
   include RightScale::SpecHelper
 
   before(:each) do
+    # Avoid actually updating MOTD or performing wall broadcasts
+    flexmock(RightScale::InstanceState).should_receive(:update_motd).and_return(nil)
+    flexmock(RightScale::InstanceState).should_receive(:broadcast_wall).and_return(nil)
+
     flexmock(RightScale::Log).should_receive(:debug)
     setup_state(identity = '1', mock_instance_state = false) do
       @user_id = 123

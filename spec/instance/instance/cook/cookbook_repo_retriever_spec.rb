@@ -36,6 +36,10 @@ describe RightScale::CookbookRepoRetriever do
     flexmock(RightScale::AgentConfig).should_receive(:dev_cookbook_checkout_dir).and_return(@expected_checkout_root)
   end
 
+  after(:all) do
+    FileUtils.rm_rf(@temp_dir) rescue nil  # tidy up
+  end
+
   context :has_cookbooks? do
     it 'when initialized with dev cookbooks, should be true' do
       RightScale::CookbookRepoRetriever.new(@expected_repose_root, RightScale::DevRepositories.new({'sha-1' => RightScale::DevRepository.new})).has_cookbooks?.should be_true
@@ -93,15 +97,18 @@ describe RightScale::CookbookRepoRetriever do
 
           @repo_sha = 'sha-1'
           @repo_dir = File.join(@expected_checkout_root, @repo_sha)
+          @position = 'cookbooks/cookbook'
 
           mock_scraper = flexmock("Mock RightScraper")
-          mock_scraper.should_receive(:scrape).once.and_return(true)
+          mock_scraper.should_receive(:scrape).once.and_return do
+            FileUtils.mkdir_p(RightScale::CookbookPathMapping.checkout_path(@repo_dir, @position))
+            true
+          end
           flexmock(RightScraper::Scraper).should_receive(:new).and_return(mock_scraper)
 
           @repo = RightScale::DevRepository.new
           @repo.url = 'git://fake_git_url'
           @repo.positions = [flexmock("cookbook position", :position => @position, :cookbook => nil)]
-          @position = 'cookbooks/cookbook'
           @retriever = RightScale::CookbookRepoRetriever.new(@expected_repose_root, RightScale::DevRepositories.new({@repo_sha => @repo}))
 
           mock_scraper.should_receive(:repo_dir).with(RightScale::CookbookRepoRetriever.to_scraper_hash(@repo)).once.and_return(@repo_dir)
@@ -126,10 +133,10 @@ describe RightScale::CookbookRepoRetriever do
         if !::RightScale::Platform.windows? || defined?(::Windows::File::CreateSymbolicLink)
           it 'should be able to link on supported platforms' do
             @retriever.checkout_cookbook_repos.should be_true
+            File.exists?(RightScale::CookbookPathMapping.checkout_path(@repo_dir, @position)).should be_true
             @retriever.link(@repo_sha, @position).should be_true
             if ::RightScale::Platform.windows?
               File.exists?(RightScale::CookbookPathMapping.repose_path(@expected_repose_root, @repo_sha, @position)).should be_true
-              File.exists?(RightScale::CookbookPathMapping.checkout_path(@repo_dir, @position)).should be_true
             else
               File.readlink(RightScale::CookbookPathMapping.repose_path(@expected_repose_root, @repo_sha, @position)).should == RightScale::CookbookPathMapping.checkout_path(@repo_dir, @position)
             end

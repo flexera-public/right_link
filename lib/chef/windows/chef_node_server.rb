@@ -23,7 +23,6 @@ require 'rubygems'
 require File.normalize_path(File.join(File.dirname(__FILE__), 'pipe_server'))
 require 'json'
 require 'set'
-require 'singleton'
 
 module RightScale
 
@@ -36,7 +35,7 @@ module RightScale
     # have circular references.
     class ChefNodeServer
 
-      include Singleton
+      include RightSupport::Ruby::EasySingleton
 
       CHEF_NODE_PIPE_NAME = 'chef_node_D1D6B540-5125-4c00-8ABF-412417774DD5'
       COMMAND_KEY = "Command"

@@ -68,7 +68,6 @@ powershell 'test::set_env_var_recipe' do
   source_text =
 <<EOPS
   [Environment]::SetEnvironmentVariable("ps_provider_spec_machine", "ps provider spec test value", "Machine")
-  [Environment]::SetEnvironmentVariable("ps_provider_spec_user", "ps provider spec test value", "User")
 EOPS
   source source_text
 end
@@ -82,14 +81,8 @@ powershell 'test::check_env_var_recipe' do
     Write-Error "ps_provider_spec_machine env was not set"
     exit 100
   }
-  if ("$env:ps_provider_spec_user" -eq "")
-  {
-    Write-Error "ps_provider_spec_user env was not set"
-    exit 101
-  }
-  Write-Output "ps_provider_spec_machine and ps_provider_spec_user were set as expected"
+  Write-Output "ps_provider_spec_machine was set as expected"
   [Environment]::SetEnvironmentVariable("ps_provider_spec_machine", "", "Machine")
-  [Environment]::SetEnvironmentVariable("ps_provider_spec_user", "", "User")
 EOPS
   source source_text
 end

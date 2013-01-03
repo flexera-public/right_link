@@ -20,14 +20,12 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require 'singleton'
-
 module RightScale
 
   # Provides access to RightLink agent audit methods
   class AuditStub
 
-    include Singleton
+    include RightSupport::Ruby::EasySingleton
 
     # Initialize command protocol, call prior to calling any instance method
     #

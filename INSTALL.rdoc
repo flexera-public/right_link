@@ -218,7 +218,7 @@ and relaunching.
 
 === Configure RightLink Agent
  
- bin/enroll --root-dir /opt/rightscale/right_link --url $RS_RN_URL --host $RS_RN_HOST --id $RS_RN_ID --token $RS_RN_AUTH
+ bin/enroll --root-dir /var/lib/rightscale/right_link --url $RS_RN_URL --host $RS_RN_HOST --id $RS_RN_ID --token $RS_RN_AUTH
  bin/deploy
  
 === Launch RightLink Agent
@@ -255,7 +255,6 @@ When the system is terminating, you should allow RightLink to run its decommissi
  /usr/bin                        | Public CLI: rs_tag, rs_debug, ...
  /opt/rightscale/bin             | Private CLI: rnac, rad, cook, ...
  /opt/rightscale/sandbox         | Private sandbox (Ruby, RubyGems, monit, ...)
- /opt/rightscale/right_link      | Application logic & support files
 
 === Windows Systems
 
