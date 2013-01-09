@@ -35,12 +35,18 @@ require 'thread'
 module RightScale 
 
   class AgentWatcher
-    class AgentRunning < Exception; end
-    class AgentStopped < Exception; end
     class AlreadyWatched < Exception; end
     class UnknownAgent < Exception; end
 
-    DEFAULT_FREQUENCY_CHECK = 5
+    # Some Time calculation constants
+    # ===
+    SECOND = 1
+    MINUTE = 60 * SECOND
+    HOUR = 60 * MINUTE
+    DAY = 24 * HOUR
+    # ===
+
+    DEFAULT_FREQUENCY_CHECK = 5 * SECOND
 
     def initialize(logger, pid_dir=nil)
       @logger = logger
@@ -48,19 +54,19 @@ module RightScale
       @running = false
       @stopped_list = {}
       @watched_list = {}
-      @watch_list_lock = Mutex.new
-      @watch_list_signal = ConditionVariable.new
+      @watch_list_lock = Monitor.new
     end
 
     def log_info(s)
-      @logger.call(s)
+      @logger.call("AgentWatcher: #{s}")
     end
 
     def kill_agent(identity, signal='SIGKILL')
       @watch_list_lock.synchronize do
-        raise UnknownAgent("#{id} is not a known agent.") unless @watched_list.has_key?
-        raise AgentStopped unless agent_running?(identity)
-        Process.kill(signal, @watched_list[identity][:pid].read_pid[:pid])
+        raise UnknownAgent("#{identity} is not a known agent.") unless @watched_list.has_key?(identity)
+        agent = @watched_list.delete(identity)
+        Process.kill(signal, agent[:pid].read_pid[:pid])
+        @stopped_list[identity] = agent
       end
     end
 
@@ -70,6 +76,7 @@ module RightScale
     end
 
     def start_watching()
+      return if @running
       # This logic is implemented with a priority queue of "next check" times:
       #
       # This allows us not to have to start a bunch of timers and do time
@@ -78,11 +85,11 @@ module RightScale
 
       # Initialize all agents
       @watch_list_lock.synchronize {
-        @watched_list.each { |k, v| v[:next_check] = v[:freq] }
+        @watched_list.each { |k, v| v[:next_check] = 0 }
       }
 
       log_info("Starting the AgentWatcher.")
-      @thread ||= Thread.new do
+      @agent_watcher_thread = Thread.new do
         @running = true
         while @running
           next_check = 0
@@ -92,8 +99,10 @@ module RightScale
           # start to have large amounts of agents assigned, rather than incur the
           # overhead of discovering the next smallest number every iteration. -brs
           @watch_list_lock.synchronize do
-            # No use doing anything till we have something to work on
-            @watch_list_signal.wait(@watch_list_lock) until @watched_list.size > 0 or not @running
+            # No use doing anything till we have something to work on, I would have
+            # rather used a ConditionVariable here, but they are not compatible with
+            # Monitor objects, and I need reentrance.
+            sleep DEFAULT_FREQUENCY_CHECK until @watched_list.size > 0 or not @running
 
             # Check all processes in the list with a next check time of zero
             # replacing the next check time with their frequency.
@@ -122,22 +131,21 @@ module RightScale
           # Sleep for the next check time
           next_check -= sleep(next_check) while (next_check > 0 and @running)
         end
+        log_info("Shutting down.")
       end
     end
 
     def start_agent(identity)
       @watch_list_lock.synchronize {
-        raise UnknownAgent("#{id} is not a known stopped agent.") unless @stopped_list.has_key?
-        raise AgentRunning if agent_running?(identity)
+        raise UnknownAgent("#{identity} is not a known stopped agent.") unless @stopped_list.has_key?(identity)
         agent = @stopped_list.delete(identity)
         agent[:pid].remove
-        if system("#{agent[:exec]} --start")
-          log_info("Successfully started the #{identity} agent.")
-          agent[:next_check] = agent[:freq]
-          @watched_list[identity] = agent
-        else
-          @stopped_list[identity] = agent
-        end
+        system("#{agent[:exec]} #{agent[:start_opts]}")
+        log_info("Successfully started the #{identity} agent.")
+        # Give us some time to come up before the next check...should be good in
+        # 60 seconds I would think.
+        agent[:next_check] = MINUTE
+        @watched_list[identity] = agent
       }
     end
 
@@ -145,18 +153,17 @@ module RightScale
       return unless @running
       log_info("Stopping the AgentWatcher.")
       @running = false
-      @watch_list_signal.signal
-      @thread.join
-      @thread = nil
+      @agent_watcher_thread.terminate
+      @agent_watcher_thread.join
+      @agent_watcher_thread = nil
       log_info("AgentWatcher Stopped.")
     end
 
     def stop_agent(identity)
       @watch_list_lock.synchronize {
-        raise UnknownAgent("#{id} is not a known agent.") unless @watched_list.has_key?
-        raise AgentStopped if agent_running?(identity)
+        raise UnknownAgent("#{identity} is not a known agent.") unless @watched_list.has_key?(identity)
         agent = @watched_list.delete(identity)
-        if system("#{agent[:exec]} --stop")
+        if system("#{agent[:exec]} #{agent[:stop_opts]}")
           log_info("Successfully stopped the #{identity} agent.")
           agent[:pid].remove
         end
@@ -164,42 +171,56 @@ module RightScale
       }
     end
 
-    def watch_agent(identity, exec, freq=DEFAULT_FREQUENCY_CHECK)
+    def watch_agent(identity, exec, start_opts, stop_opts, freq=DEFAULT_FREQUENCY_CHECK)
       # Make things simple for now and require a resolution of 1 second
       # for the frequency check.
-      raise BadFrequency unless (freq > 1)
+      raise BadFrequency.new unless (freq > 1)
 
       # Protect the watch list from the thread monitoring the agents
       @watch_list_lock.synchronize {
         unless @watched_list.has_key?(identity)
-          # If we were given a block, use that for state change, otherwise
-          # we'll just use the logging facility of our self
-          action = (block_given? && Proc.new) || Proc.new do |id, state, mesg|
-            log_info("#{id} has changed to [#{state.to_s}]: and nothing has been done about it.")
+
+          # If we were given a block, use that for state change, otherwise restart
+          action = (block_given? && Proc.new) || Proc.new do |identity, state, mesg|
+            if state == :stopped
+              log_info("#{identity} has stopped, restarting now.")
+              self.start_agent(identity)
+            end
           end
+
           @watched_list[identity] = {
             :action=>action,
             :exec=>exec,
+            :start_opts=>start_opts,
+            :stop_opts=>stop_opts,
             :freq=>freq,
             :pid=>PidFile.new(identity,@pid_dir),
           }
-          @watch_list_signal.signal
         else
-          raise AlreadyWatched.new("The agent [#{id}] is already being watched by us.")
+          raise AlreadyWatched.new("The agent [#{identity}] is already being watched by us.")
         end
       }
     end
 
+    private
+
     def agent_running?(identity)
       # The check method really tells us if the agent ISN'T running
       # and throws an exception if it is...poorly named I know
-      @watch_list_lock.synchronize { not @watched_list[identity][:pid].check rescue true }
+      @watch_list_lock.synchronize do
+        begin
+          @watched_list[identity][:pid].check
+          false
+        rescue PidFile::AlreadyRunning
+          true
+        end
+      end
     end
 
     def check_agent(identity)
-      log_info("AgentWatcher is checkin in on the #{identity} agent.")
       @watch_list_lock.synchronize do
-        unless agent_running?(identity)
+        test_agent = agent_running?(identity)
+        unless test_agent
           agent = @watched_list.delete(identity)
           @stopped_list[identity] = agent
           agent[:action].call(identity, :stopped, "The #{identity} agent does not appear to be running!")
