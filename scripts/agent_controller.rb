@@ -78,6 +78,8 @@
 require 'rubygems'
 require 'right_agent/scripts/agent_controller'
 
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'instance', 'agent_watcher'))
+
 module RightScale
 
   class RightLinkAgentController < AgentController
@@ -172,6 +174,23 @@ module RightScale
         return false
       end
       true
+    end
+
+    # Start agent
+    #
+    # === Parameters
+    # agent_name(String):: Agent name
+    # agent_class(Agent):: Agent class
+    #
+    # === Return
+    # true:: Always return true
+    def start_agent(agent_name, agent_class = Agent)
+      agent_watcher = AgentWatcher.new( lambda { |s| Log.info(s) }, @options[:pid_dir] )
+      agent_watcher.watch_agent("#{@options[:identity]}-rchk", '/opt/rightscale/bin/rchk', '--start', '--stop')
+      @options[:ready_callback] = Proc.new { agent_watcher.start_watching() }
+
+      super
+      agent_watcher.stop_watching()
     end
 
     # Determine syslog program name based on options
