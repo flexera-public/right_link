@@ -1,4 +1,4 @@
-#!/opt/rightscale/sandbox/bin/ruby
+#
 # Copyright (c) 2010 by RightScale Inc., all rights reserved
 #
 # Write given user data to files in /var/spool/ec2 in text, shell and ruby 
