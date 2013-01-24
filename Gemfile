@@ -6,7 +6,8 @@ gem "rake",                    "0.8.7"
 gem "encryptor",               "1.1.3"
 gem "iconv"
 gem "right_support",           "~> 1.4"
-gem "right_agent",             "~> 0.10.0"
+gem 'right_agent',             :git => 'git://github.com/kbockmanrs/right_agent.git',
+    :branch => 'freebsd'
 gem "right_popen",             "~> 1.0"
 gem "right_http_connection",   "~> 1.3"
 gem "right_scraper",           "3.0.1"
