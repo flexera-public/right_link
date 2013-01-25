@@ -122,6 +122,7 @@ module RightScale
       uid = Integer(uid)
      
       if RightScale::Platform.freebsd?
+        # Username must be the first argument for BSD and last argument for Linux
         %x(sudo /usr/sbin/pw useradd #{Shellwords.escape(username)} -s /bin/bash -u #{uid} -m)
       else
         # Can't use executable? because the rightscale user can't execute useradd without sudo
@@ -178,10 +179,16 @@ module RightScale
 
       groups   = Shellwords.escape(groups.to_a.join(','))
       username = Shellwords.escape(username)
-      # Can't use executable? because the rightscale user can't execute usermod without sudo
-      usermod = ['/usr/bin/usermod', '/usr/sbin/usermod', '/bin/usermod', '/sbin/usermod'].select { |key| File.exists? key }.first
-      raise RightScale::LoginManager::SystemConflict, "Failed to find a suitable implementation of 'usermod'." unless usermod
-      output = %x(sudo #{usermod} -G #{groups} #{username})
+
+      if RightScale::Platform.freebsd?
+        # Username must be the first argument for BSD and last argument for Linux
+        output = %x(sudo /usr/sbin/pw usermod #{username} -G #{groups})
+      else
+        # Can't use executable? because the rightscale user can't execute usermod without sudo
+        usermod = ['/usr/bin/usermod', '/usr/sbin/usermod', '/bin/usermod', '/sbin/usermod'].select { |key| File.exists? key }.first
+        raise RightScale::LoginManager::SystemConflict, "Failed to find a suitable implementation of 'usermod'." unless usermod
+        output = %x(sudo #{usermod} -G #{groups} #{username})
+      end
 
       case $?.exitstatus
       when 0
