@@ -80,7 +80,7 @@ module RightScale
         conditions[:label] = @config_drive_label if @config_drive_label
         conditions[:filesystem] = @config_drive_filesystem if @config_drive_filesystem
 
-        if ::RightScale::Platform.linux? && @config_drive_uuid
+        if (::RightScale::Platform.linux? || ::RightScale::Platform.freebsd?) && @config_drive_uuid
           conditions[:uuid] = @config_drive_uuid
         end
 
@@ -114,7 +114,7 @@ module RightScale
 
         FileUtils.mkdir_p(@config_drive_mountpoint) unless File.directory? @config_drive_mountpoint
 
-        if ::RightScale::Platform.linux?
+        if ::RightScale::Platform.linux? || ::RightScale::Platform.freebsd? 
           ::RightScale::Platform.volume_manager.mount_volume(device_ary[0], @config_drive_mountpoint)
         elsif ::RightScale::Platform.windows?
           ::RightScale::Platform.volume_manager.assign_device(device_ary[0][:index], @config_drive_mountpoint, {:idempotent => true, :clear_readonly => false, :remove_all => true})

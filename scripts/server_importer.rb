@@ -102,6 +102,9 @@ module RightScale
           if RightScale::Platform.windows?
             puts `net start rightscale`
             exit $?.exitstatus unless $?.success?
+          elsif RightScale::Platform.freebsd?
+            puts `/etc/rc.d/rightscale start && /etc/rc.d/rightlink start`
+            exit $?.exitstatus unless $?.success?
           elsif RightScale::Platform.linux?
             puts `/etc/init.d/rightscale start && /etc/init.d/rightlink start`
             exit $?.exitstatus unless $?.success?

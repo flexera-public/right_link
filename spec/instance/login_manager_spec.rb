@@ -135,6 +135,7 @@ describe RightScale::LoginManager do
     context "when platform is not Linux" do
       before(:each) do
         flexmock(RightScale::Platform).should_receive(:linux?).and_return(false)
+        flexmock(RightScale::Platform).should_receive(:freebsd?).and_return(false)
       end
 
       it "returns false" do
@@ -145,6 +146,7 @@ describe RightScale::LoginManager do
     context "when platform is Linux" do
       before(:each) do
         flexmock(RightScale::Platform).should_receive(:linux?).and_return(true)
+        flexmock(RightScale::Platform).should_receive(:freebsd?).and_return(false)
         flexmock(RightScale::Platform).should_receive(:darwin?).and_return(false)
         flexmock(RightScale::Platform).should_receive(:windows?).and_return(false)
       end
