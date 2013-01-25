@@ -20,6 +20,8 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+require 'right_agent'
+
 module RightScale
   class LoginUserManager
     include Singleton
@@ -118,11 +120,15 @@ module RightScale
     # nil
     def add_user(username, uid)
       uid = Integer(uid)
-      
-      # Can't use executable? because the rightscale user can't execute useradd without sudo
-      useradd = ['/usr/bin/useradd', '/usr/sbin/useradd', '/bin/useradd', '/sbin/useradd'].select { |key| File.exists? key }.first
-      raise RightScale::LoginManager::SystemConflict, "Failed to find a suitable implementation of 'useradd'." unless useradd
-      %x(sudo #{useradd} -s /bin/bash -u #{uid} -m #{Shellwords.escape(username)})
+     
+      if RightScale::Platform.freebsd?
+        %x(sudo /usr/sbin/pw useradd #{Shellwords.escape(username)} -s /bin/bash -u #{uid} -m)
+      else
+        # Can't use executable? because the rightscale user can't execute useradd without sudo
+        useradd = ['/usr/bin/useradd', '/usr/sbin/useradd', '/bin/useradd', '/sbin/useradd'].select { |key| File.exists? key }.first
+        raise RightScale::LoginManager::SystemConflict, "Failed to find a suitable implementation of 'useradd'." unless useradd
+        %x(sudo #{useradd} -s /bin/bash -u #{uid} -m #{Shellwords.escape(username)})
+      end
 
       case $?.exitstatus
       when 0
