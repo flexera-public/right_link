@@ -87,7 +87,7 @@ describe Chef::Provider::ExecutableSchedule do
       log_should_contain_text(:info, 'added crontab entry')  # from cron provider
       log_should_contain_text(:debug, '1 1 1 1 1 rs_run_recipe -n testrecipe')  # from cron output
     ensure
-      `crontab -r`
+      `echo y | crontab -r`
     end
   end
 
@@ -115,7 +115,7 @@ describe Chef::Provider::ExecutableSchedule do
       log_should_contain_text(:info, 'added crontab entry')  # from cron provider
       log_should_contain_text(:debug, '2 2 2 2 2')  # from cron output
     ensure
-      `crontab -r`
+      `echo y | crontab -r`
     end
   end
 
@@ -140,7 +140,7 @@ describe Chef::Provider::ExecutableSchedule do
       log_should_contain_text(:info, 'deleted crontab entry')  # from cron provider
       log_should_contain_text(:debug, "1 1 1 1 1 rs_run_recipe -n testrecipe")  # from cron output
     ensure
-      `crontab -r 2>/dev/null`
+      `echo y | crontab -r 2>/dev/null`
     end
   end
 
