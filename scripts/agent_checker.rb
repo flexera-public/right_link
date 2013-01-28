@@ -203,11 +203,15 @@ module RightScale
           end
         end
 
+        # note that our Windows service monitors rnac and rchk processes
+        # externally and restarts them if they die, so no need to roll our
+        # own cross-monitoring on that platform.
+        use_agent_watcher = !RightScale::Platform.windows?
         EM.run do
           check
-          setup_agent_watcher
+          setup_agent_watcher if use_agent_watcher
         end
-        stop_agent_watcher
+        stop_agent_watcher if use_agent_watcher
 
       rescue SystemExit => e
         raise e
