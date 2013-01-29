@@ -4,12 +4,9 @@ source :rubygems
 gemspec
 
 # Fresh off the assembly line
-gem 'right_support',           :git => 'git://github.com/rightscale/right_support.git',
-    :branch => 'master'
-gem 'right_agent',             :git => 'git://github.com/rightscale/right_agent.git',
-    :branch => 'master'
-gem 'right_amqp' ,             :git => 'git://github.com/rightscale/right_amqp.git',
-    :branch => 'master'
+gem 'right_support', '~> 2.0'
+gem 'right_agent',   '~> 0.14'
+gem 'right_amqp',    '~> 0.6'
 
 # We have custom builds of some gems containing fixes and patches that are specific
 # to RightScale. Gems in the "custom" group are published by RightScale to our
