@@ -8,3 +8,4 @@ tags
 .loadpath
 nbproject/
 pkg/
+vendor/
