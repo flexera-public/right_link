@@ -42,9 +42,10 @@ module RightScale
       flexmock(EM).should_receive(:error_handler)
       flexmock(EM).should_receive(:run).with(Proc).and_return { |block| block.call }.once
       pid_file = flexmock("PidFile")
-      pid_file_agent = flexmock("PidFile")
+      use_agent_watcher = !RightScale::Platform.windows?
+      pid_file_agent = use_agent_watcher ? flexmock("PidFile") : nil
       flexmock(PidFile).should_receive(:new).with("test-rchk", "/tmp").and_return(pid_file).once
-      flexmock(PidFile).should_receive(:new).with("test", "/tmp").and_return(pid_file_agent).once
+      flexmock(PidFile).should_receive(:new).with("test", "/tmp").and_return(pid_file_agent).once if pid_file_agent
 
       [pid_file, pid_file_agent]
     end
@@ -61,7 +62,7 @@ module RightScale
       pid_file_agent.should_receive(:check).and_return {
         raise PidFile::AlreadyRunning if agent_running
         false
-      }
+      } if pid_file_agent
 
       flexmock(CommandRunner).should_receive(:start)
       flexmock(EM).should_receive(:add_periodic_timer)\
@@ -86,7 +87,7 @@ module RightScale
         client.should_receive(:send_command).with({:name => :terminate}, verbose = false, timeout = 30, Proc).once
       else
         pid_file.should_receive(:read_pid).and_return(:pid => 123).once
-        pid_file_agent.should_receive(:check).and_return(false)
+        pid_file_agent.should_receive(:check).and_return(false) if pid_file_agent
         flexmock(Process).should_receive(:kill).with('TERM', 123).once
         subject.should_receive(:terminate)
       end
