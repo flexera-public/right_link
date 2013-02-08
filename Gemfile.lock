@@ -1,12 +1,12 @@
 GIT
   remote: git://github.com/rightscale/right_agent.git
-  revision: 2ff982d1dad6184c738145bf816f299b24a0dd96
+  revision: fa809de7a4fd6c7cf6ce6fa90c003c1763e3ea62
   branch: master
   specs:
-    right_agent (0.14.0)
+    right_agent (0.14.2)
       eventmachine (>= 0.12.10, < 2.0)
       json (~> 1.4)
-      msgpack (= 0.4.4)
+      msgpack (~> 0.5)
       net-ssh (~> 2.0)
       right_amqp (~> 0.4)
       right_popen (~> 1.0.11)
@@ -14,19 +14,19 @@ GIT
 
 GIT
   remote: git://github.com/rightscale/right_amqp.git
-  revision: e34b6aa4cfdc0013df736bacd27d84f756338108
+  revision: 84fd7546ea350a1ad72913ff1badb717769ad402
   branch: master
   specs:
-    right_amqp (0.5.3)
+    right_amqp (0.6.0)
       eventmachine (>= 0.12.10, < 2.0)
       right_support (>= 1.2, < 3.0)
 
 GIT
   remote: git://github.com/rightscale/right_support.git
-  revision: 7b03b7a43d7ac7242de6ec0650a1694305eda5e8
+  revision: 35987e233a01a6d23afb05359f6b9307595243fa
   branch: master
   specs:
-    right_support (2.5.5)
+    right_support (2.6.17)
 
 PATH
   remote: .
@@ -88,7 +88,6 @@ GEM
     json (1.4.6)
     json (1.4.6-x86-mswin32)
     libarchive (0.1.2)
-    libarchive (0.1.2-x86-mswin32)
     linecache (0.46)
       rbx-require-relative (> 0.0.4)
     linecache (0.46-x86-mswin32)
@@ -103,9 +102,8 @@ GEM
     mixlib-shellout (1.0.0.1)
       right_popen (~> 1.0, >= 1.0.21)
     moneta (0.6.0)
-    msgpack (0.4.4)
-    msgpack (0.4.4-x86-mswin32)
-    net-ssh (2.6.1)
+    msgpack (0.5.2)
+    net-ssh (2.6.5)
     net-ssh-gateway (1.1.0)
       net-ssh (>= 1.99.1)
     net-ssh-multi (1.1)
