@@ -1,6 +1,6 @@
 GIT
   remote: git://github.com/kbockmanrs/right_agent.git
-  revision: 6f88dafac5e94b16029984941dcfccd6a97667de
+  revision: d12f05812a5f98cbf346c9781dba52022bf036d9
   branch: freebsd
   specs:
     right_agent (0.10.12)
