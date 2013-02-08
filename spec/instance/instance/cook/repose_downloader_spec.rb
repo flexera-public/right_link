@@ -167,17 +167,18 @@ module RightScale
     context :parse do
       it 'should parse exceptions' do
         e = SocketError.new
-        subject.send(:parse, e).should == "SocketError"
+        subject.send(:parse, e).should == ["SocketError"]
       end
 
       it 'should parse a single RequestBalancer exception' do
-        e = RightSupport::Net::NoResult.new('RequestBalancer: No available endpoints from ["174.129.36.231", "174.129.37.65"]! Exceptions: SocketError')
-        subject.send(:parse, e).should == "SocketError"
+        e = RightSupport::Net::NoResult.new("Request failed after 2 tries to 1 endpoint: ('174.129.36.231' => [SocketError])")
+        subject.send(:parse, e).should == ["SocketError"]
       end
 
       it 'should parse multiple RequestBalancer exceptions' do
-        e = RightSupport::Net::NoResult.new('RequestBalancer: No available endpoints from ["174.129.36.231", "174.129.37.65"]! Exceptions: RestClient::InternalServerError, RestClient::ResourceNotFound')
-        subject.send(:parse, e).should == "RestClient::InternalServerError, RestClient::ResourceNotFound"
+        e = RightSupport::Net::NoResult.new("Request failed after 2 tries to 2 endpoints: ('174.129.36.231' => [SocketError], " +
+                                            "'174.129.37.65' => [RestClient::InternalServerError, RestClient::ResourceNotFound])")
+        subject.send(:parse, e).should == ["SocketError", "RestClient::InternalServerError", "RestClient::ResourceNotFound"]
       end
     end
 
