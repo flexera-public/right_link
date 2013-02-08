@@ -30,6 +30,10 @@ module RightScale
     # Environment variables to examine for proxy settings, in order.
     PROXY_ENVIRONMENT_VARIABLES = ['HTTPS_PROXY', 'HTTP_PROXY', 'http_proxy', 'ALL_PROXY']
 
+    # Class names of exceptions to be re-raised as a ConnectionException
+    CONNECTION_EXCEPTIONS = ['Errno::ECONNREFUSED', 'Errno::ETIMEDOUT', 'SocketError',
+                             'RestClient::InternalServerError', 'RestClient::RequestTimeout']
+
     class ConnectionException < Exception; end
     class DownloadException < Exception; end
 
@@ -106,9 +110,10 @@ module RightScale
           end
         end
       rescue Exception => e
-        message = parse(e)
+        list = parse(e)
+        message = list.join(", ")
         logger.error("Request '#{sanitized_resource}' failed - #{message}")
-        raise ConnectionException, message if message.include?('Errno::ECONNREFUSED') || message.include?('Errno::ETIMEDOUT') || message.include?('SocketError') || message.include?('RestClient::InternalServerError') || message.include?('RestClient::RequestTimeout')
+        raise ConnectionException, message unless (list & CONNECTION_EXCEPTIONS).empty?
         raise DownloadException, message
       end
     end
@@ -182,17 +187,18 @@ module RightScale
     #
     # === Parameters
     # @param [Exception] Exception to parse
-
+    #
     # === Return
-    # @return [String] List of Exceptions
+    # @return [Array] List of exception class names
 
     def parse(e)
       if e.kind_of?(RightSupport::Net::NoResult)
-        message = e.message.split("Exceptions: ")[1]
+        # Expected format of exception message: "... endpoints: ('<ip address>' => <exception class name array>, ...)""
+        i = 0
+        e.message.split(/\[|\]/).select {((i += 1) % 2) == 0 }.map { |s| s.split(/,\s*/) }.flatten
       else
-        message = e.class.name
+        [e.class.name]
       end
-      message
     end
 
     # Create and return a RequestBalancer instance
