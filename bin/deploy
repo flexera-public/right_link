@@ -44,7 +44,6 @@ module RightScale
     def deploy
       configure_logging
       read_userdata
-      cleanup_old_state
       invoke_rad
     end
 
@@ -64,16 +63,6 @@ module RightScale
       dir  = AgentConfig.cloud_state_dir
       file = File.join(dir, 'user-data.rb')
       load file
-    end
-
-    def cleanup_old_state
-      # On Linux systems, we need to nuke monit config files generated for
-      # old instance agents. On Windows this is a no-op (the dir glob
-      # returns an empty list).
-      # TODO: Since we aren't using monit anymore, should we be good
-      # citizens and remove this directory entirely? -szmyd
-      old_monit_conf = Dir['/opt/rightscale/etc/monit.d/*.conf']
-      old_monit_conf.each { |file| File.unlink(file) }
     end
 
     def invoke_rad
