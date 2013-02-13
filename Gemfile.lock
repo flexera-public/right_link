@@ -74,6 +74,7 @@ GEM
       right_popen (~> 1.0, >= 1.0.21)
     moneta (0.6.0)
     msgpack (0.4.4)
+    msgpack (0.4.4-x86-mswin32)
     net-ssh (2.6.1)
     net-ssh-gateway (1.1.0)
       net-ssh (>= 1.99.1)
