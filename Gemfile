@@ -1,15 +1,19 @@
 source 'http://s3.amazonaws.com/rightscale_rightlink_gems_dev'
-source :rubygems
+source 'https://rubygems.org'
 
 gemspec
 
 # Fresh off the assembly line
-gem 'right_support',           :git => 'git://github.com/rightscale/right_support.git',
-    :branch => 'teal_13_02_acu73023_mingw_193_discovery'
-gem 'right_agent',             :git => 'git://github.com/rightscale/right_agent.git',
-    :branch => 'teal_13_02_acu73023_mingw_193_discovery'
-gem 'right_amqp' ,             :git => 'git://github.com/rightscale/right_amqp.git',
-    :branch => 'teal_13_02_acu73023_mingw_193_discovery'
+gem 'right_support',   :git => 'git://github.com/rightscale/right_support.git',
+                       :branch => 'teal_13_02_acu73023_mingw_193_discovery'
+gem 'right_agent',     :git => 'git://github.com/rightscale/right_agent.git',
+                       :branch => 'teal_13_02_acu73023_mingw_193_discovery'
+gem 'right_amqp' ,     :git => 'git://github.com/rightscale/right_amqp.git',
+                       :branch => 'teal_13_02_acu73023_mingw_193_discovery'
+gem 'right_scraper',   :git => 'git://github.com/rightscale/right_scraper.git',
+                       :branch => "teal_13_02_acu73023_mingw_193_discovery"
+gem 'process_watcher', :git => 'git@github.com:rightscale/process_watcher.git',
+                       :branch => "master"
 
 # We have custom builds of some gems containing fixes and patches that are specific
 # to RightScale. Gems in the "custom" group are published by RightScale to our
@@ -24,15 +28,15 @@ end
 gem "json"
 
 platform :mingw do
-  gem "win32-api"
-  gem "windows-api"
-  gem "windows-pr"
-  gem "win32-dir"
-  gem "win32-eventlog"
-  gem "ruby-wmi"
-  gem "win32-process"
-  gem "win32-pipe"
-  gem "win32-service"
+  gem "win32-api",      "~> 1.4.5"
+  gem "windows-api",    "~> 0.4.0"
+  gem "windows-pr",     "~> 1.0"
+  gem "win32-dir",      "~> 0.3.5"
+  gem "win32-eventlog", "~> 0.5.2"
+  gem "ruby-wmi",       "~> 0.4.0"
+  gem "win32-process",  "~> 0.6.1"
+  gem "win32-pipe",     "~> 0.2.1"
+  gem "win32-service",  "~> 0.7.2"
 end
 
 group :development do
