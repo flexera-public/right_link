@@ -124,7 +124,7 @@ module RightScale
     end
 
     def configure_ssh
-      return 0 unless Platform.linux?
+      return 0 unless (Platform.linux? || Platform.freebsd?)
 
       puts "Freshening SSH host keys to ensure they are unique to this instance..."
 
@@ -152,7 +152,7 @@ module RightScale
     end
 
     def configure_hostname
-      return 0 unless Platform.linux?
+      return 0 unless (Platform.linux? || Platform.freebsd?)
 
       hostname     = Socket.gethostname
       current_fqdn = valid_current_fqdn
@@ -173,7 +173,7 @@ module RightScale
     end
 
     def configure_proxy
-      return 0 unless Platform.linux?
+      return 0 unless (Platform.linux? || Platform.freebsd?)
 
       unset_proxy_variables
 
@@ -204,8 +204,14 @@ module RightScale
     end
 
     def configure_sudoers
-      return 0 unless Platform.linux?
-      puts "Configuring /etc/sudoers to ensure rightscale users/groups have sufficient privileges"
+      return 0 unless (Platform.linux? || Platform.freebsd?)
+      if Platform.freebsd?
+        sudoers_config = "/usr/local/etc/sudoers"
+      else
+        sudoers_config = "/etc/sudoers"
+      end
+
+      puts "Configuring #{sudoers_config} to ensure rightscale users/groups have sufficient privileges"
 
       masks = [
         /%?(#{SUDO_GROUP}|#{SUDO_USER}) ALL=(\(ALL\))?NOPASSWD: ALL/,
@@ -214,8 +220,8 @@ module RightScale
       ]
 
       begin
-        lines = File.readlines('/etc/sudoers')
-        file = File.open("/etc/sudoers", "w")
+        lines = File.readlines(sudoers_config)
+        file = File.open(sudoers_config, "w")
         lines.each do |line|
           line.strip!
           next if masks.any? { |m| line =~ m }

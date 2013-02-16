@@ -108,7 +108,7 @@ module RightScale
         cmd_opts << ['--http-no-proxy', ENV['no_proxy']]
       end
 
-      if Platform.linux?
+      if Platform.linux? || Platform.freebsd?
         FileUtils.mkdir_p('/opt/rightscale/etc/monit.d')
         cmd_opts << '--monit'
       end

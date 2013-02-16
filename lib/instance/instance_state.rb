@@ -507,7 +507,7 @@ module RightScale
     # === Return
     # nil:: always return nil
     def self.broadcast_wall
-      return unless RightScale::Platform.linux?
+      return unless (RightScale::Platform.linux? || RightScale::Platform.freebsd?)
 
       if SUCCESSFUL_STATES.include?(@value)
         system('echo "RightScale installation complete. Details can be found in /var/log/messages" | wall') rescue nil

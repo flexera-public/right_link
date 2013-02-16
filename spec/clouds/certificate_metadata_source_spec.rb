@@ -188,7 +188,7 @@ end
 describe RightScale::MetadataSources::CertificateMetadataSource do
 
   def platform_supported?
-    (::RightScale::Platform.windows? && ::RightScale::Platform.release.split('.')[0].to_i >= 6 ) || ::RightScale::Platform.linux? || ::RightScale::Platform.darwin?
+    (::RightScale::Platform.windows? && ::RightScale::Platform.release.split('.')[0].to_i >= 6 ) || ::RightScale::Platform.linux? || ::RightScale::Platform.darwin? || ::RightScale::Platform.freebsd?
   end
 
   before(:each) do
