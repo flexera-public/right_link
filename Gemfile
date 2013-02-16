@@ -4,6 +4,7 @@ source :rubygems
 gemspec
 
 # Fresh off the assembly line
+gem "iconv"
 gem 'right_support',           :git => 'git://github.com/rightscale/right_support.git',
     :branch => 'master'
 gem 'right_agent',             :git => 'git://github.com/kbockmanrs/right_agent.git',

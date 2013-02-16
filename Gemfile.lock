@@ -186,6 +186,7 @@ DEPENDENCIES
   chef (= 0.10.10.3)
   eventmachine (= 1.0.0.2)
   flexmock (~> 0.8)
+  iconv
   json (= 1.4.6)
   mixlib-shellout (= 1.0.0.1)
   ohai (= 0.6.12.1)
