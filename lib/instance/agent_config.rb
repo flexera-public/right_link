@@ -20,6 +20,8 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+require 'rbconfig'
+
 module RightScale
 
   # Extend AgentConfig for instance agents
@@ -106,46 +108,33 @@ module RightScale
     end
 
     # Path to directory for sandbox if it exists
-    def self.sandbox_dir
-      dir = RightScale::Platform.filesystem.sandbox_dir
-      File.directory?(dir) ? dir : nil
+    def self.ruby_dir
+      ( ENV['RS_RUBY_EXE'] && File.dirname(ENV['RS_RUBY_EXE']) ) ||
+        Config::CONFIG["bindir"]
     end
 
-    # Sandbox ruby command
-    def self.sandbox_ruby_cmd
+    # Ruby command
+    def self.ruby_cmd
       # Allow test environment to specify a non-program files location for tools
-      if ENV['RS_RUBY_EXE']
-        ENV['RS_RUBY_EXE']
-      elsif RightScale::Platform.windows?
-        if sandbox_dir
-          RightScale::Platform.shell.sandbox_ruby
-        else
-          'ruby'
-        end
-      else
-        if sandbox_dir && File.exist?(RightScale::Platform.shell.sandbox_ruby)
-          RightScale::Platform.shell.sandbox_ruby
-        else
-          # Development setup
-          `which ruby`.chomp
-        end
-      end
+      ENV['RS_RUBY_EXE'] ||
+        File.join( ruby_dir,
+                   Config::CONFIG["RUBY_INSTALL_NAME"] + Config::CONFIG["EXEEXT"] )
     end
 
     # Sandbox gem command
-    def self.sandbox_gem_cmd
+    def self.gem_cmd
       if RightScale::Platform.windows?
         # Allow test environment to specify a non-program files location for tools
         if ENV['RS_GEM']
           ENV['RS_GEM']
-        elsif dir = sandbox_dir
-          "\"#{sandbox_ruby_cmd}\" \"#{File.join(dir, 'Ruby', 'bin', 'gem.exe')}\""
+        elsif dir = ruby_dir
+          "\"#{ruby_cmd}\" \"#{File.join(dir, 'gem.exe')}\""
         else
           'gem'
         end
       else
-        if dir = sandbox_dir
-          File.join(dir, 'bin', 'gem')
+        if dir = ruby_dir
+          File.join(dir, 'gem')
         else
           # Development setup
           `which gem`.chomp
@@ -154,19 +143,19 @@ module RightScale
     end
 
     # Sandbox git command
-    def self.sandbox_git_cmd
+    def self.git_cmd
       if RightScale::Platform.windows?
         # Allow test environment to specify a non-program files location for tools
         if ENV['RS_GIT_EXE']
           ENV['RS_GIT_EXE']
-        elsif dir = sandbox_dir
-          File.join(dir, 'bin', 'windows', 'git.cmd')
+        elsif dir = ruby_dir
+          File.normalize_path(File.join(dir, '..', '..', 'bin', 'windows', 'git.cmd'))
         else
           'git'
         end
       else
-        if dir = sandbox_dir
-          File.join(dir, 'bin', 'git')
+        if dir = ruby_dir
+          File.join(dir, 'git')
         else
           # Development setup
           `which git`.chomp

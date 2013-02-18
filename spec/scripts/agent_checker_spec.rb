@@ -18,6 +18,7 @@ module RightScale
     def run_agent_checker(args)
       replace_argv(args)
       opts = subject.parse_args
+      subject.should_receive(:stop_agent_watcher)
       subject.start(opts)
       return 0
     rescue SystemExit => e
@@ -41,27 +42,33 @@ module RightScale
       flexmock(EM).should_receive(:error_handler)
       flexmock(EM).should_receive(:run).with(Proc).and_return { |block| block.call }.once
       pid_file = flexmock("PidFile")
+      use_agent_watcher = !RightScale::Platform.windows?
+      pid_file_agent = use_agent_watcher ? flexmock("PidFile") : nil
       flexmock(PidFile).should_receive(:new).with("test-rchk", "/tmp").and_return(pid_file).once
-      pid_file
+      flexmock(PidFile).should_receive(:new).with("test", "/tmp").and_return(pid_file_agent).once if pid_file_agent
+
+      [pid_file, pid_file_agent]
     end
 
     def start(options={}, additional_args=nil)
-      pid_file = setup
-      time_limit = if options[:monit]
-                     [options[:monit], options[:time_limit] || AgentChecker::DEFAULT_TIME_LIMIT].min
-                   else
-                     options[:time_limit] || AgentChecker::DEFAULT_TIME_LIMIT
-                   end
+      pid_file, pid_file_agent = setup
+      time_limit = options[:time_limit] || AgentChecker::DEFAULT_TIME_LIMIT
       pid_file.should_receive(:check)
       subject.should_receive(:daemonize)
       pid_file.should_receive(:write)
       pid_file.should_receive(:remove)
+
+      agent_running = options[:start_agent] ? false : true
+      pid_file_agent.should_receive(:check).and_return {
+        raise PidFile::AlreadyRunning if agent_running
+        false
+      } if pid_file_agent
+
       flexmock(CommandRunner).should_receive(:start)
       flexmock(EM).should_receive(:add_periodic_timer)\
                   .once\
                   .with(time_limit, Proc)\
                   .and_return { |time_limit, block| block.call}
-      subject.should_receive(:check_monit) if options[:monit]
       client = flexmock("CommandClient")
       flexmock(CommandClient).should_receive(:new).with(123, 123).and_return(client)
       client.should_receive(:send_command).with({:name => "check_connectivity"}, false, AgentChecker::COMMAND_IO_TIMEOUT, Proc)
@@ -72,7 +79,7 @@ module RightScale
     end
 
     def stop()
-      pid_file = setup
+      pid_file, pid_file_agent = setup
       if RightScale::Platform::windows?
         pid_file.should_receive(:read_pid).and_return(:pid => 123, :listen_port => 123, :cookie => 123).once
         client = flexmock("CommandClient")
@@ -80,6 +87,7 @@ module RightScale
         client.should_receive(:send_command).with({:name => :terminate}, verbose = false, timeout = 30, Proc).once
       else
         pid_file.should_receive(:read_pid).and_return(:pid => 123).once
+        pid_file_agent.should_receive(:check).and_return(false) if pid_file_agent
         flexmock(Process).should_receive(:kill).with('TERM', 123).once
         subject.should_receive(:terminate)
       end
@@ -160,15 +168,6 @@ module RightScale
       it_should_behave_like 'command line argument'
     end
 
-    context 'monit option' do
-      let(:short_name)    {'--monit'}
-      let(:long_name)     {'--monit'}
-      let(:key)           {:monit}
-      let(:value)         {'100'}
-      let(:expected_value){100}
-      it_should_behave_like 'command line argument'
-    end
-
     context 'ping option' do
       let(:short_name)    {'-p'}
       let(:long_name)     {'--ping'}
@@ -217,9 +216,9 @@ module RightScale
       end
     end
 
-    context 'rchk --start --monit 300' do
-      it 'it should run a daemon process and also monitor monit' do
-        start({ :monit => 300 }, "--monit 300")
+    context 'rchk --start' do
+      it 'it should run a daemon process and also start the agent' do
+        start({ :start_agent => true })
       end
     end
 

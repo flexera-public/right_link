@@ -185,9 +185,8 @@ RightLink knows about the following values of RS_CLOUD:
 
 == On-Boot Commands
 
-Under Linux these are accomplished with init scripts, optionally using monit
-for robustness. Under Windows, a system service spawns the agent process and
-monitors its health.
+Under Linux these are accomplished with init scripts. Under Windows, a system
+service spawns the agent process and monitors its health.
 
 CAUTION: if your instance is attached to the RightScale dashboard, running
 the commands below will cause it to begin running boot scripts! This is not
@@ -254,7 +253,7 @@ When the system is terminating, you should allow RightLink to run its decommissi
  /var/cache                      | Cookbooks, attachments, temp files
  /usr/bin                        | Public CLI: rs_tag, rs_debug, ...
  /opt/rightscale/bin             | Private CLI: rnac, rad, cook, ...
- /opt/rightscale/sandbox         | Private sandbox (Ruby, RubyGems, monit, ...)
+ /opt/rightscale/sandbox         | Private sandbox (Ruby, RubyGems, ...)
 
 === Windows Systems
 
@@ -269,4 +268,4 @@ Data files -- paths are relative to %COMMON_APPDATA%\RightScale
 Program logic -- paths are relative to %ProgramFiles(x86)%
 
  RightScale\RightLink    | Application logic & support files
- RightScale\sandbox      | Private sandbox (Ruby, RubyGems, monit, ...)
+ RightScale\sandbox      | Private sandbox (Ruby, RubyGems, ...)

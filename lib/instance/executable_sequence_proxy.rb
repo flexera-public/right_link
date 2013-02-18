@@ -128,11 +128,11 @@ module RightScale
           File.open(input_path, "w") { |f| f.write(input_text) }
           input_text = nil
           cmd_exe_path = File.normalize_path(ENV['ComSpec']).gsub("/", "\\")
-          ruby_exe_path = File.normalize_path(AgentConfig.sandbox_ruby_cmd).gsub("/", "\\")
+          ruby_exe_path = File.normalize_path(AgentConfig.ruby_cmd).gsub("/", "\\")
           input_path = input_path.gsub("/", "\\")
           cmd = "#{cmd_exe_path} /C type \"#{input_path}\" | #{ruby_exe_path} #{cook_path_and_arguments}"
         else
-          cmd = "#{AgentConfig.sandbox_ruby_cmd} #{cook_path_and_arguments}"
+          cmd = "#{AgentConfig.ruby_cmd} #{cook_path_and_arguments}"
         end
 
         EM.next_tick do

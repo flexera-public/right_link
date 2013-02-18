@@ -521,6 +521,10 @@ module RightScale
     # result(ActionResult):: action result
     def execute_script(script_path, *arguments)
       cmd = ::RightScale::Platform.shell.format_shell_command(script_path, *arguments)
+
+      # If we are running a ruby script, use our own interpreter
+      cmd = "#{RightScale::AgentConfig.ruby_cmd} #{cmd}" if File.extname(script_path) == '.rb'
+
       output = `#{cmd}`
       return ActionResult.new(:exitstatus => $?.exitstatus, :output => output)
     rescue Exception => e
