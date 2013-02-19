@@ -106,7 +106,7 @@ module RightScale
           end
         end
       rescue Exception => e
-        message = parse(e)
+        message = parse_exception_message(e)
         logger.error("Request '#{sanitized_resource}' failed - #{message}")
         raise ConnectionException, message if message.include?('Errno::ECONNREFUSED') || message.include?('Errno::ETIMEDOUT') || message.include?('SocketError') || message.include?('RestClient::InternalServerError') || message.include?('RestClient::RequestTimeout')
         raise DownloadException, message
@@ -184,15 +184,20 @@ module RightScale
     # @param [Exception] Exception to parse
 
     # === Return
-    # @return [String] List of Exceptions
+    # @return [Array] result as a list of exception class names
 
-    def parse(e)
+    def parse_exception_message(e)
+      result = nil
       if e.kind_of?(RightSupport::Net::NoResult)
-        message = e.message.split("Exceptions: ")[1]
-      else
-        message = e.class.name
+        if e.respond_to?(:details)  # right_support v2.6+
+          # details is a map of host IP to an array of HTTP exceptions
+          details = e.details
+          result = details.values.flatten.map { |http_error| http_error.class.name }.uniq
+        else
+          result = e.message.split("Exceptions: ")[1]
+        end
       end
-      message
+      result || [e.class.name]
     end
 
     # Create and return a RequestBalancer instance
