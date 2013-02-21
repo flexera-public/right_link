@@ -30,6 +30,9 @@ module RightScale
     # Environment variables to examine for proxy settings, in order.
     PROXY_ENVIRONMENT_VARIABLES = ['HTTPS_PROXY', 'HTTP_PROXY', 'http_proxy', 'ALL_PROXY']
 
+    # Default number of retries
+    DEFAULT_RETRY = 5
+
     class ConnectionException < Exception; end
     class DownloadException < Exception; end
 
@@ -208,17 +211,18 @@ module RightScale
 
     def balancer
       @balancer ||= RightSupport::Net::RequestBalancer.new(
-          ips.keys,
-          :policy => RightSupport::Net::Balancing::StickyPolicy,
-          :fatal  => lambda do |e|
-            if RightSupport::Net::RequestBalancer::DEFAULT_FATAL_EXCEPTIONS.any? { |c| e.is_a?(c) }
-              true
-            elsif e.respond_to?(:http_code) && (e.http_code != nil)
-              (e.http_code >= 400 && e.http_code < 500) && (e.http_code != 408 && e.http_code != 500 )
-            else
-              false
-            end
+        ips.keys,
+        :policy => RightSupport::Net::Balancing::StickyPolicy,
+        :retry  => DEFAULT_RETRY,
+        :fatal  => lambda do |e|
+          if RightSupport::Net::RequestBalancer::DEFAULT_FATAL_EXCEPTIONS.any? { |c| e.is_a?(c) }
+            true
+          elsif e.respond_to?(:http_code) && (e.http_code != nil)
+            (e.http_code >= 400 && e.http_code < 500) && (e.http_code != 408 && e.http_code != 500 )
+          else
+            false
           end
+        end
       )
     end
 

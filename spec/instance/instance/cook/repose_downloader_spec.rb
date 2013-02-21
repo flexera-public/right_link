@@ -53,8 +53,8 @@ module RightScale
           mock_response(message, code)
         end
 
-        flexmock(ReposeDownloader.logger).should_receive(:info).twice
-        flexmock(ReposeDownloader.logger).should_receive(:error).times(4)
+        flexmock(ReposeDownloader.logger).should_receive(:info).times(ReposeDownloader::DEFAULT_RETRY)
+        flexmock(ReposeDownloader.logger).should_receive(:error).times(ReposeDownloader::DEFAULT_RETRY + 2)
 
         lambda { subject.download(attachment) { |response| response } }.should raise_error(RightScale::ReposeDownloader::ConnectionException)
       end
@@ -182,8 +182,15 @@ module RightScale
     end
 
     context :balancer do
+      let(:balancer) { subject.send(:balancer) }
+
       it 'should return a RequestBalancer' do
-        subject.send(:balancer).should be_a(RightSupport::Net::RequestBalancer)
+        balancer.should be_a(RightSupport::Net::RequestBalancer)
+      end
+
+      it 'should retry 5 times' do
+        balancer.inspect
+        balancer.instance_eval('@options[:retry]').should == 5
       end
     end
 
