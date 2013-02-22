@@ -102,7 +102,7 @@ module RightScale
 
             attempts += 1
             t0 = Time.now
-            client.get("https://#{endpoint}:443#{resource}", {:timeout => calculate_timeout(attempts), :verify_ssl => OpenSSL::SSL::VERIFY_PEER, :ssl_ca_file => get_ca_file, :headers => {:user_agent => "RightLink v#{AgentConfig.protocol_version}"}}) do |response, request, result|
+            client.execute(:method => :get, :url => "https://#{endpoint}:443#{resource}", :timeout => calculate_timeout(attempts), :verify_ssl => OpenSSL::SSL::VERIFY_PEER, :ssl_ca_file => get_ca_file, :headers => {:user_agent => "RightLink v#{AgentConfig.protocol_version}"}) do |response, request, result|
               if result.kind_of?(Net::HTTPSuccess)
                 @size = result.content_length
                 @speed = @size / (Time.now - t0)
@@ -242,7 +242,7 @@ module RightScale
     #
     def calculate_timeout(attempts)
       timeout_exponent = [attempts, RETRY_BACKOFF_MAX].min
-      (2 ** timeout_exponent)
+      (2 ** timeout_exponent) * 60
     end
 
     # Returns a path to a CA file
@@ -269,6 +269,7 @@ module RightScale
     def get_http_client
       RestClient.proxy = @proxy.to_s if @proxy
       RestClient
+      RestClient::Request
     end
 
     # Return a sanitized value from given argument
