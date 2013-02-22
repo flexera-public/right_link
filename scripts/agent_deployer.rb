@@ -137,7 +137,7 @@ check process #{agent_name}
       cfg = <<-EOF
 check process checker
   with pidfile \"#{pid_file}\"
-  start program \"/opt/rightscale/bin/rchk --start --monit\"
+  start program \"/opt/rightscale/bin/rchk --start\"
   stop program \"/opt/rightscale/bin/rchk --stop\"
   mode manual
       EOF
