@@ -38,6 +38,8 @@ module RightScale
       flexmock(Socket).should_receive(:getaddrinfo) \
           .with(hostname, 443, Socket::AF_INET, Socket::SOCK_STREAM, Socket::IPPROTO_TCP) \
           .and_return([["AF_INET", 443, "repose-hostname", "1.2.3.4", 2, 1, 6], ["AF_INET", 443, "repose-hostname", "5.6.7.8", 2, 1, 6]])
+
+      ReposeDownloader::RETRY_DELAY_FACTOR = 1/10
     end
 
     let(:hostname)    { 'repose-hostname' }
@@ -53,8 +55,8 @@ module RightScale
           mock_response(message, code)
         end
 
-        flexmock(ReposeDownloader.logger).should_receive(:info).times(ReposeDownloader::DEFAULT_RETRY)
-        flexmock(ReposeDownloader.logger).should_receive(:error).times(ReposeDownloader::DEFAULT_RETRY + 2)
+        flexmock(ReposeDownloader.logger).should_receive(:info).times(ReposeDownloader::RETRY_MAX_ATTEMPTS)
+        flexmock(ReposeDownloader.logger).should_receive(:error).times(ReposeDownloader::RETRY_MAX_ATTEMPTS + 2)
 
         lambda { subject.download(attachment) { |response| response } }.should raise_error(RightScale::ReposeDownloader::ConnectionException)
       end
@@ -191,6 +193,16 @@ module RightScale
       it 'should retry 5 times' do
         balancer.inspect
         balancer.instance_eval('@options[:retry]').should == 5
+      end
+    end
+
+    context :snooze do
+      it 'should return true if the number of attempts has not been exceeded' do
+        subject.send(:snooze, ReposeDownloader::RETRY_MAX_ATTEMPTS - 1).should == true
+      end
+
+      it 'should return false if the number of attempts has been met or exceeded' do
+        subject.send(:snooze, ReposeDownloader::RETRY_MAX_ATTEMPTS).should == false
       end
     end
 

@@ -30,8 +30,14 @@ module RightScale
     # Environment variables to examine for proxy settings, in order.
     PROXY_ENVIRONMENT_VARIABLES = ['HTTPS_PROXY', 'HTTP_PROXY', 'http_proxy', 'ALL_PROXY']
 
-    # Default number of retries
-    DEFAULT_RETRY = 5
+    # max wait 8 (2**3) sec between retries
+    RETRY_BACKOFF_MAX = 3
+
+    # retry 5 times maximum
+    RETRY_MAX_ATTEMPTS = 5
+
+    # retry factor (which can be monkey-patched for quicker testing of retries)
+    RETRY_DELAY_FACTOR = 1
 
     class ConnectionException < Exception; end
     class DownloadException < Exception; end
@@ -90,11 +96,16 @@ module RightScale
       @speed              = 0
       @sanitized_resource = sanitize_resource(resource)
       resource            = parse_resource(resource)
+      attempts            = 0
 
       begin
         balancer.request do |endpoint|
           RightSupport::Net::SSL.with_expected_hostname(ips[endpoint]) do
             logger.info("Requesting '#{sanitized_resource}' from '#{endpoint}'")
+
+            # Sleep an incremental time per retry
+            snooze(attempts) if attempts > 0
+            attempts += 1
 
             t0 = Time.now
             client.get("https://#{endpoint}:443#{resource}", {:verify_ssl => OpenSSL::SSL::VERIFY_PEER, :ssl_ca_file => get_ca_file, :headers => {:user_agent => "RightLink v#{AgentConfig.protocol_version}"}}) do |response, request, result|
@@ -213,7 +224,7 @@ module RightScale
       @balancer ||= RightSupport::Net::RequestBalancer.new(
         ips.keys,
         :policy => RightSupport::Net::Balancing::StickyPolicy,
-        :retry  => DEFAULT_RETRY,
+        :retry  => RETRY_MAX_ATTEMPTS,
         :fatal  => lambda do |e|
           if RightSupport::Net::RequestBalancer::DEFAULT_FATAL_EXCEPTIONS.any? { |c| e.is_a?(c) }
             true
@@ -224,6 +235,27 @@ module RightScale
           end
         end
       )
+    end
+
+    # Exponential backoff sleep algorithm.  Returns true if processing
+    # should continue or false if the maximum number of attempts has
+    # been exceeded.
+    #
+    # === Parameters
+    # @param [String] Number of attempts
+    #
+    # === Return
+    # @return [TrueClass | FalseClass] True to continue, False to give up
+    #
+    def snooze(attempts)
+      if attempts >= RETRY_MAX_ATTEMPTS
+        logger.debug("Exceeded retry limit of #{RETRY_MAX_ATTEMPTS}.")
+        false
+      else
+        sleep_exponent = [attempts, RETRY_BACKOFF_MAX].min
+        sleep RETRY_DELAY_FACTOR * (2 ** sleep_exponent)
+        true
+      end
     end
 
     # Returns a path to a CA file
