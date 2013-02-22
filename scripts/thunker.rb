@@ -331,18 +331,15 @@ module RightScale
     # Ensure the user's PTY/TTY will be owned by him once we thunk through to his account.
     # This helps apps like screen/tmux work better.
     def chown_tty(username)
-      tty = `tty`.chomp
+      tty = `tty 2> /dev/null`.chomp
+      @log.error("'tty' command failed") unless $?.success?
+
       if File.exists?(tty)
         %x(sudo chown #{Shellwords.escape(username)} #{Shellwords.escape(tty)})
         raise RuntimeError, "Failed to change ownership of #{tty}" unless $?.success?
-      else
-        raise Errno::ENOENT, "'tty' command did not give a reasonable answer: #{tty}"
+        else
+          @log.error("'tty' command did not give a reasonable answer: #{tty}")
       end
-    rescue Exception => e
-      STDERR.puts "Cannot chown your TTY - #{e.class.name}: #{e.message}"
-      STDERR.puts "Your session will continue, but screen and other terminal-magic apps"
-      STDERR.puts "may not work."
-      STDERR.puts
     end
 
     # Version information
