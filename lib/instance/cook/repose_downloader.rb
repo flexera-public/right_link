@@ -30,14 +30,11 @@ module RightScale
     # Environment variables to examine for proxy settings, in order.
     PROXY_ENVIRONMENT_VARIABLES = ['HTTPS_PROXY', 'HTTP_PROXY', 'http_proxy', 'ALL_PROXY']
 
-    # max wait 8 (2**3) sec between retries
+    # max timeout 8 (2**3) min for each retry
     RETRY_BACKOFF_MAX = 3
 
     # retry 5 times maximum
     RETRY_MAX_ATTEMPTS = 5
-
-    # retry factor (which can be monkey-patched for quicker testing of retries)
-    RETRY_DELAY_FACTOR = 1
 
     class ConnectionException < Exception; end
     class DownloadException < Exception; end
@@ -67,7 +64,7 @@ module RightScale
     #
     # === Return
     # @return [Downloader]
-
+    #
     def initialize(hostnames)
       raise ArgumentError, "At least one hostname must be provided" if hostnames.empty?
       hostnames = [hostnames] unless hostnames.respond_to?(:each)
@@ -89,7 +86,7 @@ module RightScale
     # === Block
     # @yield [] A block is mandatory
     # @yieldreturn [String] The stream that is being fetched
-
+    #
     def download(resource)
       client              = get_http_client
       @size               = 0
@@ -103,12 +100,9 @@ module RightScale
           RightSupport::Net::SSL.with_expected_hostname(ips[endpoint]) do
             logger.info("Requesting '#{sanitized_resource}' from '#{endpoint}'")
 
-            # Sleep an incremental time per retry
-            snooze(attempts) if attempts > 0
             attempts += 1
-
             t0 = Time.now
-            client.get("https://#{endpoint}:443#{resource}", {:verify_ssl => OpenSSL::SSL::VERIFY_PEER, :ssl_ca_file => get_ca_file, :headers => {:user_agent => "RightLink v#{AgentConfig.protocol_version}"}}) do |response, request, result|
+            client.get("https://#{endpoint}:443#{resource}", {:timeout => calculate_timeout(attempts), :verify_ssl => OpenSSL::SSL::VERIFY_PEER, :ssl_ca_file => get_ca_file, :headers => {:user_agent => "RightLink v#{AgentConfig.protocol_version}"}}) do |response, request, result|
               if result.kind_of?(Net::HTTPSuccess)
                 @size = result.content_length
                 @speed = @size / (Time.now - t0)
@@ -131,7 +125,7 @@ module RightScale
     #
     # === Return
     # @return [String] Message with last downloaded resource, download size and speed
-
+    #
     def details
       "Downloaded '#{@sanitized_resource}' (#{ scale(size.to_i).join(' ') }) at #{ scale(speed.to_i).join(' ') }/s"
     end
@@ -150,7 +144,7 @@ module RightScale
     # === Return
     # @return [Hash]
     #   * :key [<String>] a key (IP Address) that accepts a hostname string as it's value
-
+    #
     def resolve(hostnames)
       ips = {}
       hostnames.each do |hostname|
@@ -181,7 +175,7 @@ module RightScale
     #
     # === Block
     # @return [String] The parsed URI
-
+    #
     def parse_resource(resource)
       resource = URI::parse(resource)
       raise ArgumentError, "Invalid resource provided.  Resource must be a fully qualified URL" unless resource
@@ -199,7 +193,7 @@ module RightScale
 
     # === Return
     # @return [String] List of Exceptions
-
+    #
     def parse(e)
       if e.kind_of?(RightSupport::Net::NoResult)
         message = e.message.split("Exceptions: ")[1]
@@ -219,7 +213,7 @@ module RightScale
     #
     # === Return
     # @return [RightSupport::Net::RequestBalancer]
-
+    #
     def balancer
       @balancer ||= RightSupport::Net::RequestBalancer.new(
         ips.keys,
@@ -237,25 +231,18 @@ module RightScale
       )
     end
 
-    # Exponential backoff sleep algorithm.  Returns true if processing
-    # should continue or false if the maximum number of attempts has
-    # been exceeded.
+    # Exponential incremental timeout algorithm.  Returns the amount of 
+    # of time to wait for the next iteration
     #
     # === Parameters
     # @param [String] Number of attempts
     #
     # === Return
-    # @return [TrueClass | FalseClass] True to continue, False to give up
+    # @return [Integer] Timeout to use for next iteration
     #
-    def snooze(attempts)
-      if attempts >= RETRY_MAX_ATTEMPTS
-        logger.debug("Exceeded retry limit of #{RETRY_MAX_ATTEMPTS}.")
-        false
-      else
-        sleep_exponent = [attempts, RETRY_BACKOFF_MAX].min
-        sleep RETRY_DELAY_FACTOR * (2 ** sleep_exponent)
-        true
-      end
+    def calculate_timeout(attempts)
+      timeout_exponent = [attempts, RETRY_BACKOFF_MAX].min
+      (2 ** timeout_exponent)
     end
 
     # Returns a path to a CA file
@@ -266,7 +253,7 @@ module RightScale
     #
     # === Return
     # @return [String] Path to a CA file
-
+    #
     def get_ca_file
       ca_file = File.normalize_path(File.join(File.dirname(__FILE__), 'ca-bundle.crt'))
     end
@@ -278,7 +265,7 @@ module RightScale
     #
     # === Return
     # @return [RestClient]
-
+    #
     def get_http_client
       RestClient.proxy = @proxy.to_s if @proxy
       RestClient
@@ -294,7 +281,7 @@ module RightScale
     #
     # === Return
     # @return [String] 'Resource' portion of resource provided
-
+    #
     def sanitize_resource(resource)
       URI::split(resource)[5].split("/").last
     end
@@ -309,7 +296,7 @@ module RightScale
     #
     # === Return
     # @return <[Integer], [String]> First element is scaled value, second element is scale
-
+    #
     def scale(value)
       case value
         when 0..1023

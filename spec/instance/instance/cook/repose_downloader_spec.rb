@@ -38,8 +38,6 @@ module RightScale
       flexmock(Socket).should_receive(:getaddrinfo) \
           .with(hostname, 443, Socket::AF_INET, Socket::SOCK_STREAM, Socket::IPPROTO_TCP) \
           .and_return([["AF_INET", 443, "repose-hostname", "1.2.3.4", 2, 1, 6], ["AF_INET", 443, "repose-hostname", "5.6.7.8", 2, 1, 6]])
-
-      ReposeDownloader::RETRY_DELAY_FACTOR = 1/10
     end
 
     let(:hostname)    { 'repose-hostname' }
@@ -196,13 +194,20 @@ module RightScale
       end
     end
 
-    context :snooze do
-      it 'should return true if the number of attempts has not been exceeded' do
-        subject.send(:snooze, ReposeDownloader::RETRY_MAX_ATTEMPTS - 1).should == true
+    context :calculate_timeout do
+      it 'should return a doubly increasing timeout' do
+        previous_timeout = 1
+
+        (1..3).each do |i|
+          timeout = subject.send(:calculate_timeout, i)
+          timeout.should == previous_timeout * 2
+
+          previous_timeout = timeout
+        end
       end
 
-      it 'should return false if the number of attempts has been met or exceeded' do
-        subject.send(:snooze, ReposeDownloader::RETRY_MAX_ATTEMPTS).should == false
+      it 'should never return a timeout greater than RETRY_BACKOFF_MAX' do
+        subject.send(:calculate_timeout, ReposeDownloader::RETRY_MAX_ATTEMPTS).should == 2**ReposeDownloader::RETRY_BACKOFF_MAX
       end
     end
 
