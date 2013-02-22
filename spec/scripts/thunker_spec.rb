@@ -43,6 +43,7 @@ module RightScale
         flexmock(subject).should_receive(:create_audit_entry).and_return(true)
         flexmock(RightScale::LoginUserManager).should_receive(:create_profile).and_return(true)
         flexmock(Kernel).should_receive(:exec).and_return(true)
+        flexmock(subject).should_receive(:chown_tty).and_return(true)
         subject.run(@options).should == true
       end
     end
