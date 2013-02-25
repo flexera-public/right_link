@@ -30,7 +30,7 @@ module RightScale
     # Environment variables to examine for proxy settings, in order.
     PROXY_ENVIRONMENT_VARIABLES = ['HTTPS_PROXY', 'HTTP_PROXY', 'http_proxy', 'ALL_PROXY']
 
-    # max timeout 8 (2**3) min for each retry
+    # max timeout 8 (2**3) minutes for each retry
     RETRY_BACKOFF_MAX = 3
 
     # retry 5 times maximum
@@ -102,6 +102,10 @@ module RightScale
 
             attempts += 1
             t0 = Time.now
+
+            # Previously we accessed RestClient directly and used it's wrapper method to instantiate 
+            # a RestClient::Request object.  This wrapper was not passing all options down the stack
+            # so now we invoke the RestClient::Request object directly, passing it our desired options
             client.execute(:method => :get, :url => "https://#{endpoint}:443#{resource}", :timeout => calculate_timeout(attempts), :verify_ssl => OpenSSL::SSL::VERIFY_PEER, :ssl_ca_file => get_ca_file, :headers => {:user_agent => "RightLink v#{AgentConfig.protocol_version}"}) do |response, request, result|
               if result.kind_of?(Net::HTTPSuccess)
                 @size = result.content_length
