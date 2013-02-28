@@ -14,7 +14,7 @@ PATH
 
 GEM
   remote: http://s3.amazonaws.com/rightscale_rightlink_gems_dev/
-  remote: http://rubygems.org/
+  remote: https://rubygems.org/
   specs:
     abstract (1.0.0)
     bunny (0.6.0)
