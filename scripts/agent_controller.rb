@@ -78,6 +78,8 @@
 require 'rubygems'
 require 'right_agent/scripts/agent_controller'
 
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'instance', 'agent_watcher'))
+
 module RightScale
 
   class RightLinkAgentController < AgentController
@@ -172,6 +174,29 @@ module RightScale
         return false
       end
       true
+    end
+
+    # Start agent
+    #
+    # === Parameters
+    # agent_name(String):: Agent name
+    # agent_class(Agent):: Agent class
+    #
+    # === Return
+    # true:: Always return true
+    def start_agent(agent_name, agent_class = Agent)
+      # note that our Windows service monitors rnac and rchk processes
+      # externally and restarts them if they die, so no need to roll our
+      # own cross-monitoring on that platform.
+      use_agent_watcher = !RightScale::Platform.windows?
+      agent_watcher     = nil
+      if use_agent_watcher
+        agent_watcher = AgentWatcher.new( lambda { |s| Log.info(s) }, @options[:pid_dir] )
+        agent_watcher.watch_agent("#{@options[:identity]}-rchk", '/opt/rightscale/bin/rchk', '--start', '--stop')
+        @options[:ready_callback] = Proc.new { agent_watcher.start_watching() }
+      end
+      super
+      agent_watcher.stop_watching if use_agent_watcher
     end
 
     # Determine syslog program name based on options

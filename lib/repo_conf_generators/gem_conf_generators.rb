@@ -1,4 +1,4 @@
-#!/opt/rightscale/sandbox/bin/ruby
+#
 #
 # Copyright (c) 2009-2011 RightScale Inc
 #
