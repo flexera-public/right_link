@@ -180,7 +180,7 @@ module RightScale
         end
 
         opts.on('-p', '--parameter PARAM_DEF') do |p|
-          name, value = p.split('=')
+          name, value = p.split('=',2)
           if name && value && value.include?(':')
             options[:parameters][name] = value
           else
