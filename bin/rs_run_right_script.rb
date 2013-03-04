@@ -31,5 +31,4 @@ require 'bundle_runner'
 r = RightScale::BundleRunner.new
 opts = r.parse_args
 opts[:bundle_type] = :right_script
-r.run(opts)
-
+exit r.run(opts)
