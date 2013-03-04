@@ -53,31 +53,31 @@ describe RightScale::AuditStub do
 
   it 'should update status' do
     cmd = { :name => :audit_update_status, :content => @text, :options => {}, :cookie => @cookie, :thread_name => @thread_name }
-    @audit_connection.should_receive(:send_data).with(cmd).once.and_return { EM.stop; true }
+    @audit_connection.should_receive(:send_data).with(cmd).once.and_return { stop_em_test }
     run_em_test { @auditor.update_status(@text) }
   end
 
   it 'should create new section' do
     cmd = { :name => :audit_create_new_section, :content => @text, :options => {}, :cookie => @cookie, :thread_name => @thread_name }
-    @audit_connection.should_receive(:send_data).with(cmd).once.and_return { EM.stop; true }
+    @audit_connection.should_receive(:send_data).with(cmd).once.and_return { stop_em_test }
     run_em_test { @auditor.create_new_section(@text) }
   end
 
   it 'should append output' do
     cmd = { :name => :audit_append_output, :content => @text, :options => {}, :cookie => @cookie, :thread_name => @thread_name }
-    @audit_connection.should_receive(:send_data).with(cmd).once.and_return { EM.stop; true }
+    @audit_connection.should_receive(:send_data).with(cmd).once.and_return { stop_em_test }
     run_em_test { @auditor.append_output(@text) }
   end
 
   it 'should append info' do
     cmd = { :name => :audit_append_info, :content => @text, :options => {}, :cookie => @cookie, :thread_name => @thread_name }
-    @audit_connection.should_receive(:send_data).with(cmd).once.and_return { EM.stop; true }
+    @audit_connection.should_receive(:send_data).with(cmd).once.and_return { stop_em_test }
     run_em_test { @auditor.append_info(@text) }
   end
 
   it 'should append error' do
     cmd = { :name => :audit_append_error, :content => @text, :options => {}, :cookie => @cookie, :thread_name => @thread_name }
-    @audit_connection.should_receive(:send_data).with(cmd).once.and_return { EM.stop; true }
+    @audit_connection.should_receive(:send_data).with(cmd).once.and_return { stop_em_test }
     run_em_test { @auditor.append_error(@text) }
   end
 
@@ -86,7 +86,7 @@ describe RightScale::AuditStub do
     @audit_connection.should_receive(:send_data).with(cmd).once.and_return(true)
     @audit_connection.should_receive(:close_connection).once.and_return(true)
     stopped = false
-    run_em_test { @auditor.stop { stopped = true; EM.stop } }
+    run_em_test { @auditor.stop { stopped = true; stop_em_test } }
     stopped.should be_true
   end
 

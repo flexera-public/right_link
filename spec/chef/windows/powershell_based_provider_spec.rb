@@ -237,24 +237,18 @@ if RightScale::Platform.windows?
 
         message_format = <<-EOF
 Get-Item : Cannot find path '.*foo' because it does not exist.
-At .*fail_with_stop_error_action.ps1:2 char:9
-+ Get-Item <<<<  "foo" -ea Stop
+At .*fail_with_stop_error_action.ps1:2 char:.*
++ Get-Item .* "foo" -ea Stop
+.*
     + CategoryInfo          : ObjectNotFound: (.*foo:String) [Get-Item], ItemNotFoundException
     + FullyQualifiedErrorId : PathNotFound,Microsoft.PowerShell.Commands.GetItemCommand
     +
     + Script error near:
     + 1:    $testvar = 1
-    + 2:    Get-Item  <<<< "foo" -ea Stop
+    + 2:    G.*et-Item .* "foo" -ea Stop
     + 3:    exit
 EOF
-        # replace newlines and spaces
-        expected_message = Regexp.escape(message_format.gsub(/\s+/, ""))
-
-        # un-escape the escaped regex strings
-        expected_message.gsub!("\\.\\*", ".*")
-
-        # find the log message
-        errors.should match(expected_message)
+        log_should_contain_text(:error, message_format)
       end
 
       it "should produce a readable powershell error when script explicitly throws an exception" do
@@ -270,24 +264,18 @@ EOF
 
         message_format = <<-EOF
 explicitly throwing
-At .*fail_with_explicit_throw.ps1:2 char:6
-+ throw <<<<  "explicitly throwing"
+At .*fail_with_explicit_throw.ps1:2 char:.*
++ throw .* "explicitly throwing"
+.*
     + CategoryInfo          : OperationStopped: (explicitly throwing:String) [], RuntimeException
     + FullyQualifiedErrorId : explicitly throwing
     +
     + Script error near:
     + 1:        $testvar = 1
-    + 2:        throw <<<< "explicitly throwing"
+    + 2:        t.*hrow .* "explicitly throwing"
     + 3:        exit
 EOF
-        # replace newlines and spaces
-        expected_message = Regexp.escape(message_format.gsub(/\s+/, ""))
-
-        # un-escape the escaped regex strings
-        expected_message.gsub!("\\.\\*", ".*")
-
-        # find the log message
-        errors.should match(expected_message)
+        log_should_contain_text(:error, message_format)
       end
 
       it "should produce a readable powershell error when script invokes a bogus cmdlet" do
@@ -302,26 +290,20 @@ EOF
         errors.should match("Unexpected exit code from action. Expected 0 but returned 1.  Script".gsub(/\s+/, ""))
 
         message_format = <<-EOF
-The term 'bogus_cmdlet_name' is not recognized as the name of a cmdlet, function, script file, or operable program. Che
-ck the spelling of the name, or if a path was included, verify that the path is correct and try again.
-At .*fail_with_bogus_cmdlet.ps1:2 char:18
-+ bogus_cmdlet_name <<<<  1 "abc"
+The term 'bogus_cmdlet_name' is not recognized as the name of a cmdlet, function, script file, or operable program.
+Check the spelling of the name, or if a path was included, verify that the path is correct and try again.
+At .*fail_with_bogus_cmdlet.ps1:2 char:.*
++ bogus_cmdlet_name .* 1 "abc"
+.*
     + CategoryInfo          : ObjectNotFound: (bogus_cmdlet_name:String) [], CommandNotFoundException
     + FullyQualifiedErrorId : CommandNotFoundException
     +
     + Script error near:
     + 1:        $testvar = 1
-    + 2:        bogus_cmdlet_name <<<< 1 "abc"
+    + 2:        b.*ogus_cmdlet_name .* 1 "abc"
     + 3:        exit
 EOF
-        # replace newlines and spaces
-        expected_message = Regexp.escape(message_format.gsub(/\s+/, ""))
-
-        # un-escape the escaped regex strings
-        expected_message.gsub!("\\.\\*", ".*")
-
-        # find the log message
-        errors.should match(expected_message)
+        log_should_contain_text(:error, message_format)
       end
 
       it "should produce a readable powershell error when a cmdlet is piped with inputs missing" do
@@ -336,24 +318,18 @@ EOF
 
         message_format = <<-EOF
 ConvertTo-SecureString : Input string was not in a correct format.
-At .*fail_with_missing_piped_input.ps1:3 char:75
-+ $securePassword = write-output $plainTextPassword | ConvertTo-SecureString <<<<
+At .*fail_with_missing_piped_input.ps1:3 char:.*
++ $securePassword = write-output $plainTextPassword | ConvertTo-SecureString
+.*
     + CategoryInfo          : NotSpecified: (:) [ConvertTo-SecureString], FormatException
     + FullyQualifiedErrorId : System.FormatException,Microsoft.PowerShell.Commands.ConvertToSecureStringCommand
     +
     + Script error near:
     + 1:        # note that there are intentionally not enough arguments for ConvertTo-SecureString
     + 2:        $plainTextPassword = 'Secret123!'
-    + 3:        $securePassword = write-output $plainTextPassword | ConvertTo-SecureString <<<<
+    + 3:        $securePassword = write-output $plainTextPassword | C.*onvertTo-SecureString
 EOF
-        # replace newlines and spaces
-        expected_message = Regexp.escape(message_format.gsub(/\s+/, ""))
-
-        # un-escape the escaped regex strings
-        expected_message.gsub!("\\.\\*", ".*")
-
-        # find the log message
-        errors.should match(expected_message)
+        log_should_contain_text(:error, message_format)
       end
   end
 

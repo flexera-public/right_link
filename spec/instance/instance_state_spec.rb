@@ -64,7 +64,7 @@ describe RightScale::InstanceState do
       RightScale::InstanceState.init(@identity)
       RightScale::InstanceState.value.should == 'booting'
       RightScale::InstanceState.identity.should == @identity
-      EM.stop
+      stop_em_test
     end
   end
 
@@ -83,7 +83,7 @@ describe RightScale::InstanceState do
           RightScale::InstanceState.identity.should == @identity
           RightScale::InstanceState.value.should == 'booting'
           RightScale::InstanceState.reboot?.should be_false
-          EM.stop
+          stop_em_test
         end
       end
 
@@ -116,7 +116,7 @@ describe RightScale::InstanceState do
           RightScale::InstanceState.init(@identity)
 
           RightScale::InstanceState.value.should == 'decommissioned'
-          EM.stop
+          stop_em_test
         end
       end
 
@@ -133,7 +133,7 @@ describe RightScale::InstanceState do
           RightScale::InstanceState.init(@identity)
 
           RightScale::InstanceState.value.should == 'operational'
-          EM.stop
+          stop_em_test
         end
       end
 
@@ -150,7 +150,7 @@ describe RightScale::InstanceState do
           RightScale::InstanceState.init(@identity, read_only = true)
 
           RightScale::InstanceState.value.should == 'operational'
-          EM.stop
+          stop_em_test
         end
       end
 
@@ -168,7 +168,7 @@ describe RightScale::InstanceState do
           RightScale::InstanceState.identity.should == @identity
           RightScale::InstanceState.value.should == 'booting'
           RightScale::InstanceState.reboot?.should be_true
-          EM.stop
+          stop_em_test
         end
       end
 
@@ -182,7 +182,7 @@ describe RightScale::InstanceState do
 
           RightScale::InstanceState.identity.should == '2'
           RightScale::InstanceState.value.should == 'booting'
-          EM.stop
+          stop_em_test
         end
       end
 
@@ -205,7 +205,7 @@ describe RightScale::InstanceState do
         RightScale::InstanceState.init(@identity)
         RightScale::InstanceState.value.should == "decommissioning"
         RightScale::InstanceState.decommission_type.should == nil
-        EM.stop
+        stop_em_test
       end
     end
 
@@ -220,7 +220,7 @@ describe RightScale::InstanceState do
         RightScale::InstanceState.value = "decommissioning"
         RightScale::InstanceState.value.should == "decommissioning"
         RightScale::InstanceState.decommission_type.should == nil
-        EM.stop
+        stop_em_test
       end
     end
 
@@ -241,7 +241,7 @@ describe RightScale::InstanceState do
         RightScale::InstanceState.value.should == "decommissioning"
         RightScale::InstanceState.last_recorded_value.should == "decommissioning"
         RightScale::InstanceState.decommission_type.should == RightScale::ShutdownRequest::REBOOT
-        EM.stop
+        stop_em_test
       end
     end
 
@@ -250,7 +250,7 @@ describe RightScale::InstanceState do
         @sender.should_receive(:send_retryable_request).never
         RightScale::InstanceState.value = "decommissioned"
         RightScale::InstanceState.value.should == "decommissioned"
-        EM.stop
+        stop_em_test
       end
     end
 
@@ -263,7 +263,7 @@ describe RightScale::InstanceState do
         RightScale::InstanceState.value = "operational"
         RightScale::InstanceState.value.should == "operational"
         RightScale::InstanceState.last_recorded_value.should == "operational"
-        EM.stop
+        stop_em_test
       end
     end
 
@@ -278,7 +278,7 @@ describe RightScale::InstanceState do
         RightScale::InstanceState.value = "operational"
         RightScale::InstanceState.value.should == "operational"
         RightScale::InstanceState.last_recorded_value.should == "booting"
-        EM.stop
+        stop_em_test
       end
     end
 
@@ -293,7 +293,7 @@ describe RightScale::InstanceState do
         RightScale::InstanceState.value = "operational"
         RightScale::InstanceState.value.should == "operational"
         RightScale::InstanceState.last_recorded_value.should == "pending"
-        EM.stop
+        stop_em_test
       end
     end
 
@@ -311,7 +311,7 @@ describe RightScale::InstanceState do
         RightScale::InstanceState.value = "operational"
         RightScale::InstanceState.value.should == "operational"
         RightScale::InstanceState.last_recorded_value.should == "pending"
-        EM.stop
+        stop_em_test
       end
     end
 
@@ -325,7 +325,7 @@ describe RightScale::InstanceState do
         RightScale::InstanceState.value = "operational"
         RightScale::InstanceState.value.should == "operational"
         RightScale::InstanceState.last_recorded_value.should == "operational"
-        EM.stop
+        stop_em_test
       end
     end
 
@@ -346,7 +346,7 @@ describe RightScale::InstanceState do
         RightScale::InstanceState.value = "decommissioning"
         RightScale::InstanceState.value.should == "decommissioning"
         RightScale::InstanceState.last_recorded_value.should == "decommissioning"
-        EM.stop
+        stop_em_test
       end
     end
 
@@ -356,7 +356,7 @@ describe RightScale::InstanceState do
         lambda do
           RightScale::InstanceState.value = "stopped"
         end.should raise_error(RightScale::Exceptions::Argument)
-        EM.stop
+        stop_em_test
       end
     end
 
@@ -367,7 +367,7 @@ describe RightScale::InstanceState do
         lambda do
           RightScale::InstanceState.value = "stopped"
         end.should raise_error(RightScale::Exceptions::Application)
-        EM.stop
+        stop_em_test
       end
     end
 
@@ -383,7 +383,7 @@ describe RightScale::InstanceState do
         RightScale::InstanceState.value = "decommissioning"
         @sender.should_receive(:send_retryable_request).with(*@decommissioned_args).once
         RightScale::InstanceState.shutdown(@user_id, false, 'terminate')
-        EM.stop
+        stop_em_test
       end
     end
 
@@ -397,7 +397,7 @@ describe RightScale::InstanceState do
         RightScale::InstanceState.value = "decommissioning"
         @sender.should_receive(:send_push).with('/registrar/remove', {:agent_identity => '1', :created_at => now.to_i}).once
         RightScale::InstanceState.shutdown(@user_id, false, 'terminate')
-        EM.stop
+        stop_em_test
       end
     end
 
@@ -409,7 +409,7 @@ describe RightScale::InstanceState do
       flexmock(RightScale::InstanceState).should_receive(:store_state).once
       RightScale::InstanceState.message_received
       RightScale::InstanceState.message_received
-      EM.stop
+      stop_em_test
     end
   end
 
@@ -419,7 +419,7 @@ describe RightScale::InstanceState do
       RightScale::InstanceState.startup_tags = [ 'a_tag', 'another_tag' ]
       RightScale::InstanceState.init(@identity)
       RightScale::InstanceState.startup_tags.should == [ 'a_tag', 'another_tag' ]
-      EM.stop
+      stop_em_test
     end
   end
 
