@@ -105,8 +105,8 @@ describe RightScale::ExecutableSequence do
     def run_sequence
       res = nil
       run_em_test(:timeout => 60) do
-        @sequence.callback { res = true;  EM.next_tick { EM.stop } }
-        @sequence.errback  { res = false; EM.next_tick { EM.stop } }
+        @sequence.callback { res = true;  stop_em_test }
+        @sequence.errback  { res = false; stop_em_test }
         @sequence.run
       end
       res
