@@ -189,7 +189,7 @@ module RightScale
         options.delete(:name) if options[:id]
         if options[:parameter]
           options.delete(:parameter).each do |p|
-            name, value = p.split('=')
+            name, value = p.split('=', 2)
             if name && value && value.include?(':')
               options[:parameters][name] = value
             else
