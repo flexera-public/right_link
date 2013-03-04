@@ -8,3 +8,5 @@ tags
 .loadpath
 nbproject/
 pkg/
+*.cert
+*.key
