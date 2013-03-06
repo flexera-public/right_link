@@ -117,6 +117,7 @@ module RightScale
       subject.should_receive(:create_audit_entry).with("EMAIL@EMAIL.COM", "USER", FlexMock.any, FlexMock.any, FlexMock.any)
       subject.should_receive(:create_profile).with(FlexMock.any, "USER", "URL", force) if profile_data
       subject.should_receive(:display_motd)
+      flexmock(subject).should_receive(:chown_tty).and_return(true)
       flexmock(Kernel).should_receive(:exec).with('sudo', '-i', '-u', "USER")
       args = '--username USER --uuid 123 --email EMAIL@EMAIL.COM'.split
       args.push('-s') if superuser
@@ -128,12 +129,6 @@ module RightScale
     context 'rs_thunk --username USER --uuid 123 --email EMAIL@EMAIL.COM' do
       it 'should create account' do
         create_user
-      end
-    end
-
-    context 'rs_thunk --username USER --uuid 123 --email EMAIL@EMAIL.COM -s' do
-      it 'should create account with superuser privilege' do
-        create_user(true)
       end
     end
 
