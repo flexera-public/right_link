@@ -6,6 +6,7 @@ tags
 .bundle
 .project
 .loadpath
+.ruby-version
 nbproject/
 pkg/
 vendor/
