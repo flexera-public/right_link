@@ -30,6 +30,10 @@ module RightScale
     # Environment variables to examine for proxy settings, in order.
     PROXY_ENVIRONMENT_VARIABLES = ['HTTPS_PROXY', 'HTTP_PROXY', 'http_proxy', 'ALL_PROXY']
 
+    # Class names of exceptions to be re-raised as a ConnectionException
+    CONNECTION_EXCEPTIONS = ['Errno::ECONNREFUSED', 'Errno::ETIMEDOUT', 'SocketError',
+                             'RestClient::InternalServerError', 'RestClient::RequestTimeout']
+
     class ConnectionException < Exception; end
     class DownloadException < Exception; end
 
@@ -106,9 +110,10 @@ module RightScale
           end
         end
       rescue Exception => e
-        message = parse_exception_message(e)
+        list = parse_exception_message(e)
+        message = list.join(", ")
         logger.error("Request '#{sanitized_resource}' failed - #{message}")
-        raise ConnectionException, message if message.include?('Errno::ECONNREFUSED') || message.include?('Errno::ETIMEDOUT') || message.include?('SocketError') || message.include?('RestClient::InternalServerError') || message.include?('RestClient::RequestTimeout')
+        raise ConnectionException, message unless (list & CONNECTION_EXCEPTIONS).empty?
         raise DownloadException, message
       end
     end
@@ -182,22 +187,19 @@ module RightScale
     #
     # === Parameters
     # @param [Exception] Exception to parse
-
+    #
     # === Return
-    # @return [Array] result as a list of exception class names
+    # @return [Array] List of exception class names
 
     def parse_exception_message(e)
       result = nil
       if e.kind_of?(RightSupport::Net::NoResult)
-        if e.respond_to?(:details)  # right_support v2.6+
-          # details is a map of host IP to an array of HTTP exceptions
-          details = e.details
-          result = details.values.flatten.map { |http_error| http_error.class.name }.uniq
-        else
-          result = e.message.split("Exceptions: ")[1]
-        end
+        # Expected format of exception message: "... endpoints: ('<ip address>' => <exception class name array>, ...)""
+        i = 0
+        e.message.split(/\[|\]/).select {((i += 1) % 2) == 0 }.map { |s| s.split(/,\s*/) }.flatten
+      else
+        [e.class.name]
       end
-      result || [e.class.name]
     end
 
     # Create and return a RequestBalancer instance
