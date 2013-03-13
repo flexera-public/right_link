@@ -16,6 +16,8 @@ documentation.
 Use the built-in issues tracker (https://github.com/rightscale/right_link/issues)
 to report issues.
 
+Maintained by the RightScale Teal Team
+
 == Interface
 
 The RightLink agent exposes actors and methods used to schedule the execution
