@@ -442,23 +442,25 @@ module RightScale
     # === Return
     # true:: always returns true
     def download_cookbook(root_dir, cookbook)
-      #audit cookbook name & part of hash (as a disambiguator)
-      name = cookbook.name ; tag  = cookbook.hash[0..4]
-      @audit.append_info("Downloading cookbook '#{name}' (#{tag})")
-
       begin
-        tarball = Tempfile.new("tarball")
-        tarball.binmode
-        @downloader.download("/cookbooks/#{cookbook.hash}") do |response|
-          tarball << response
+        cache_dir = File.join(AgentConfig.cache_dir, "rightscale", "right_link", "cookbooks")
+        FileUtils.mkdir_p(cache_dir)
+        tarball = File.new(File.join(cache_dir, "#{cookbook.hash}.tar"), "ab")
+        if tarball.stat.size == 0
+          #audit cookbook name & part of hash (as a disambiguator)
+          name = cookbook.name ; tag  = cookbook.hash[0..4]
+          @audit.append_info("Downloading cookbook '#{name}' (#{tag})")
+          @downloader.download("/cookbooks/#{cookbook.hash}") do |response|
+            tarball << response
+          end
+          @audit.append_info(@downloader.details)
         end
         tarball.close
       rescue Exception => e
-        tarball.close unless tarball.nil?
+        File.unlink(tarball.path) unless tarball.nil?
         raise e
       end
 
-      @audit.append_info(@downloader.details)
       @audit.append_info("Success; unarchiving cookbook")
 
       # The local basedir is the faux "repository root" into which we extract all related
@@ -484,7 +486,6 @@ module RightScale
           @audit.append_info(output)
         end
       end
-      tarball.close(true)
       return true
     end
 
