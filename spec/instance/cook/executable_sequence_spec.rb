@@ -81,11 +81,11 @@ describe RightScale::ExecutableSequence do
       logger.should_receive(:error).and_return(true)
 
       # Mock out Actual Repose downloader
-      mock_repose_downloader = flexmock('Repose Downloader')
-      mock_repose_downloader.should_receive(:logger=).once.and_return(logger)
-      mock_repose_downloader.should_receive(:download).and_return("OK")
-      mock_repose_downloader.should_receive(:details).and_return("details")
-      flexmock(RightScale::ReposeDownloader).should_receive(:new).and_return(mock_repose_downloader)
+      @mock_repose_downloader = flexmock('Repose Downloader')
+      @mock_repose_downloader.should_receive(:logger=).once.and_return(logger)
+      @mock_repose_downloader.should_receive(:download).and_return("OK")
+      @mock_repose_downloader.should_receive(:details).and_return("details")
+      flexmock(RightScale::ReposeDownloader).should_receive(:new).and_return(@mock_repose_downloader)
       flexmock(Socket).should_receive(:getaddrinfo) \
           .with("hostname", 443, Socket::AF_INET, Socket::SOCK_STREAM, Socket::IPPROTO_TCP) \
           .and_return([["AF_INET", 443, "hostname", "1.2.3.4", 2, 1, 6], ["AF_INET", 443, "hostname", "5.6.7.8", 2, 1, 6]])
@@ -117,6 +117,55 @@ describe RightScale::ExecutableSequence do
       return platform.windows? ?
              "exit #{exit_code}" :
              "#!/bin/sh\nruby -e 'exit(#{exit_code})'"
+    end
+
+    def cookbook_download_test_env(file_size=0)
+      @script.should_receive(:packages).and_return(nil)
+      @script.should_receive(:source).and_return(format_script_text(0))
+      @sequence = RightScale::ExecutableSequence.new(@bundle)
+      cache_dir = File.join("/tmp", "right_link_spec_helper", 'cache', "right_link", "cookbooks")
+      cookbook = flexmock(:hash => "85520db875d938ca4c5e9b984e95eed3", :name => "Cookbook")
+      file = flexmock('File')
+      file.should_receive(:stat).and_return(flexmock(:size => file_size))
+      file.should_receive(:close)
+      file.should_receive(:path).and_return(File.join(cache_dir, "85520db875d938ca4c5e9b984e95eed3.tar"))
+      flexmock(FileUtils).should_receive(:mkdir_p).with(cache_dir)
+      flexmock(FileUtils).should_receive(:mkdir_p).with("tmp").and_return { Dir.mkdir("tmp") unless File.directory?("tmp") }
+      flexmock(File).should_receive(:new).with(File.join(cache_dir, "85520db875d938ca4c5e9b984e95eed3.tar"), "ab").and_return(file)
+      cookbook
+    end
+
+    it 'should cache downloaded cookbooks' do
+      begin
+        cookbook = cookbook_download_test_env
+        @sequence.send(:download_cookbook, "tmp", cookbook)
+        run_sequence
+      ensure
+        @sequence = nil
+      end
+    end
+
+    it 'should not download cookbook if it has already been downloaded' do
+      begin
+        cookbook = cookbook_download_test_env(123)
+        @mock_repose_downloader.should_receive(:download).never
+        @sequence.send(:download_cookbook, "tmp", cookbook)
+        run_sequence
+      ensure
+        @sequence = nil
+      end
+    end
+
+    it 'should delete cookbook file from hash if any exception occured during downloading' do
+      begin
+        cookbook = cookbook_download_test_env
+        @mock_repose_downloader.should_receive(:download).and_raise(Exception)
+        flexmock(File).should_receive(:unlink)
+        @sequence.send(:download_cookbook, "tmp", cookbook)
+        run_sequence
+      ensure
+        @sequence = nil
+      end
     end
 
     it 'should report success' do
