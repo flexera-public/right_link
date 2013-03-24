@@ -442,22 +442,23 @@ module RightScale
     # === Return
     # true:: always returns true
     def download_cookbook(root_dir, cookbook)
+      cache_dir = File.join(AgentConfig.cache_dir, "right_link", "cookbooks")
+      cookbook_tarball = File.join(cache_dir, "#{cookbook.hash[0..31]}.tar")
       begin
-        cache_dir = File.join(AgentConfig.cache_dir, "right_link", "cookbooks")
         FileUtils.mkdir_p(cache_dir)
-        tarball = File.new(File.join(cache_dir, "#{cookbook.hash[0..31]}.tar"), "ab")
-        if tarball.stat.size == 0
-          #audit cookbook name & part of hash (as a disambiguator)
-          name = cookbook.name ; tag  = cookbook.hash[0..4]
-          @audit.append_info("Downloading cookbook '#{name}' (#{tag})")
-          @downloader.download("/cookbooks/#{cookbook.hash}") do |response|
-            tarball << response
+        File.open(cookbook_tarball, "ab") do |tarball|
+          if tarball.stat.size == 0
+            #audit cookbook name & part of hash (as a disambiguator)
+            name = cookbook.name ; tag  = cookbook.hash[0..4]
+            @audit.append_info("Downloading cookbook '#{name}' (#{tag})")
+            @downloader.download("/cookbooks/#{cookbook.hash}") do |response|
+              tarball << response
+            end
+            @audit.append_info(@downloader.details)
           end
-          @audit.append_info(@downloader.details)
         end
-        tarball.close
       rescue Exception => e
-        File.unlink(tarball.path) unless tarball.nil?
+        File.unlink(cookbook_tarball) if File.exists?(cookbook_tarball)
         raise e
       end
 
@@ -478,7 +479,7 @@ module RightScale
       FileUtils.mkdir_p(root_dir)
 
       Dir.chdir(root_dir) do
-        output, status = ProcessWatcher.run('tar', 'xf', tarball.path)
+        output, status = ProcessWatcher.run('tar', 'xf', cookbook_tarball)
         unless status.success?
           report_failure("Unknown error", SubprocessFormatting.reason(status))
           return
