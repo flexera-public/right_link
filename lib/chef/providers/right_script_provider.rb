@@ -52,7 +52,7 @@ class Chef
       # RightScale::Exceptions::Exec:: Invalid process exit status
       def action_run
         nickname        = @new_resource.name
-        display_version = @new_resource.display_version
+        display_version = @new_resource.display_version || ''
         run_started_at  = Time.now
         platform        = RightScale::Platform
         current_state   = all_state
