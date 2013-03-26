@@ -32,7 +32,10 @@ describe RightScale::RightScriptsCookbook do
                                       attachments=[],
                                       packages=[],
                                       id=42,
-                                      ready=true)
+                                      ready=true,
+                                      external_inputs={},
+                                      input_flags={},
+                                      display_version='Rev 15')
     @old_cache_path = RightScale::AgentConfig.cache_dir
     @temp_cache_path = File.join(File.dirname(__FILE__), 'test_cb')
     RightScale::AgentConfig.cache_dir = @temp_cache_path
@@ -62,6 +65,7 @@ describe RightScale::RightScriptsCookbook do
     regexp += "^  #{Regexp.escape("parameters(node[\"#{@script.nickname}\"][\"parameters\"])")}\n"
     regexp += "^  cache_dir +'#{Regexp.escape(@cookbook.cache_dir(@script))}'\n"
     regexp += "^  source_file +'#{recipe_path}'\n"
+    regexp += "^  display_version +'#{@script.display_version}'\n"
     regexp += "^end"
     recipe_content.should =~ /#{regexp}/
   end

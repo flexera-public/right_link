@@ -1,9 +1,9 @@
 GIT
   remote: git://github.com/rightscale/right_agent.git
-  revision: fa809de7a4fd6c7cf6ce6fa90c003c1763e3ea62
-  branch: master
+  revision: c71db108f4528aedf0a9eba73189d9567933a08d
+  branch: teal_13_04_acu83513_add_display_version_to_right_script_instantiation
   specs:
-    right_agent (0.14.2)
+    right_agent (0.14.3)
       eventmachine (>= 0.12.10, < 2.0)
       json (~> 1.4)
       msgpack (~> 0.5)
@@ -14,7 +14,7 @@ GIT
 
 GIT
   remote: git://github.com/rightscale/right_amqp.git
-  revision: 84fd7546ea350a1ad72913ff1badb717769ad402
+  revision: 54e2ecca3cb1c27abf151bd9e15623ded8a1625a
   branch: master
   specs:
     right_amqp (0.6.0)
@@ -23,7 +23,7 @@ GIT
 
 GIT
   remote: git://github.com/rightscale/right_support.git
-  revision: 35987e233a01a6d23afb05359f6b9307595243fa
+  revision: a1a23d8174c7fc6f9a7bfb7b126a28097ed47673
   branch: master
   specs:
     right_support (2.6.17)
@@ -103,8 +103,8 @@ GEM
     mixlib-shellout (1.0.0.1)
       right_popen (~> 1.0, >= 1.0.21)
     moneta (0.6.0)
-    msgpack (0.5.2)
-    net-ssh (2.6.5)
+    msgpack (0.5.4)
+    net-ssh (2.6.6)
     net-ssh-gateway (1.1.0)
       net-ssh (>= 1.99.1)
     net-ssh-multi (1.1)

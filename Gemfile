@@ -7,7 +7,7 @@ gemspec
 gem 'right_support',           :git => 'git://github.com/rightscale/right_support.git',
     :branch => 'master'
 gem 'right_agent',             :git => 'git://github.com/rightscale/right_agent.git',
-    :branch => 'master'
+    :branch => 'teal_13_04_acu83513_add_display_version_to_right_script_instantiation'
 gem 'right_amqp' ,             :git => 'git://github.com/rightscale/right_amqp.git',
     :branch => 'master'
 

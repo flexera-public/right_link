@@ -123,6 +123,7 @@ describe RightScale::ExecutableSequence do
       begin
         @script.should_receive(:packages).and_return(nil)
         @script.should_receive(:source).and_return(format_script_text(0))
+        @script.should_receive(:display_version).and_return('HEAD')
         @sequence = RightScale::ExecutableSequence.new(@bundle)
         flexmock(@sequence).should_receive(:install_packages).and_return(true)
         attachment = flexmock('A1')
@@ -141,6 +142,7 @@ describe RightScale::ExecutableSequence do
     it 'should audit failures' do
       @script.should_receive(:packages).and_return(nil)
       @script.should_receive(:source).and_return(format_script_text(1))
+      @script.should_receive(:display_version).and_return('Rev 1')
       @sequence = RightScale::ExecutableSequence.new(@bundle)
       flexmock(@sequence).should_receive(:install_packages).and_return(true)
       attachment = flexmock('A2')
@@ -160,6 +162,7 @@ describe RightScale::ExecutableSequence do
     it 'should report invalid attachments' do
       @script.should_receive(:packages).and_return(nil)
       @script.should_receive(:source).and_return(format_script_text(0))
+      @script.should_receive(:display_version).and_return('HEAD')
       @sequence = RightScale::ExecutableSequence.new(@bundle)
       attachment = flexmock('A3')
       attachment.should_receive(:url).and_return("http://127.0.0.1:65534")
@@ -179,6 +182,7 @@ describe RightScale::ExecutableSequence do
       begin
         @script.should_receive(:packages).and_return(nil)
         @script.should_receive(:source).and_return(format_script_text(0))
+        @script.should_receive(:display_version).and_return('HEAD')
         @sequence = RightScale::ExecutableSequence.new(@bundle)
         flexmock(@sequence).should_receive(:install_packages).and_return(true)
         @script.should_receive(:attachments).at_least.once.and_return([])

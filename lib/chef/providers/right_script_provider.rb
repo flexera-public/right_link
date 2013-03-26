@@ -52,6 +52,7 @@ class Chef
       # RightScale::Exceptions::Exec:: Invalid process exit status
       def action_run
         nickname        = @new_resource.name
+        display_version = @new_resource.display_version
         run_started_at  = Time.now
         platform        = RightScale::Platform
         current_state   = all_state
@@ -117,7 +118,11 @@ class Chef
 
         # 2. Fork and wait
         # Bit of a hack here just so we can create a new audit section each time a RightScript is run
-        Chef::Log.logger.create_new_section("RightScript: '#{nickname}'")
+        name_and_version = display_version.empty? ?
+          "'#{nickname}'" :
+          "'#{nickname}' #{display_version}"
+
+        Chef::Log.logger.create_new_section("RightScript: #{name_and_version}")
 
         status = run_script_file(@new_resource.source_file)
         duration = Time.now - run_started_at
@@ -143,7 +148,8 @@ class Chef
           # recipes finish or another script escalates to an immediate shutdown.
           exit 0 if RightScale::ShutdownRequestProxy.instance.immediately?
         else
-          raise RightScale::Exceptions::Exec, "RightScript < #{nickname} > #{RightScale::SubprocessFormatting.reason(status)}"
+          raise RightScale::Exceptions::Exec,
+                "RightScript < #{name_and_version} > #{RightScale::SubprocessFormatting.reason(status)}"
         end
 
         true
