@@ -1,6 +1,6 @@
 GIT
   remote: git://github.com/rightscale/right_agent.git
-  revision: 9090691e4cb7a53bd424a2ee71fa21318c047152
+  revision: 0997f56da35a3328274515aa7e2e2f118ffaf32b
   branch: teal_13_04_acu83513_add_display_version_to_right_script_instantiation
   specs:
     right_agent (0.14.3)
