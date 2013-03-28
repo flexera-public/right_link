@@ -60,8 +60,8 @@ describe RightScale::ExecutableSequence do
         :nickname => '__TestScript',
         :parameters => {},
         :ready => true,
-        :display_version => 'HEAD',
-        :title => "'__TestScript' HEAD")
+        :display_version => '[HEAD]',
+        :title => "'__TestScript' [HEAD]")
       @script.should_receive(:is_a?).with(RightScale::RightScriptInstantiation).and_return(true)
       @script.should_receive(:is_a?).with(RightScale::RecipeInstantiation).and_return(false)
 
