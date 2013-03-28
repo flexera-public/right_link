@@ -117,9 +117,8 @@ module RightScale
     def self.ruby_cmd
       # Allow test environment to specify a non-program files location for tools
       ENV['RS_RUBY_EXE'] ||
-        (ruby_dir ?
-         ::File.join(ruby_dir, Config::CONFIG["RUBY_INSTALL_NAME"] + Config::CONFIG["EXEEXT"] ) :
-         `which ruby`.chomp)
+        File.join( ruby_dir,
+                   Config::CONFIG["RUBY_INSTALL_NAME"] + Config::CONFIG["EXEEXT"] )
     end
 
     # Sandbox gem command
