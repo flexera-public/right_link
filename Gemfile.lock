@@ -44,7 +44,7 @@ PATH
 
 GEM
   remote: http://s3.amazonaws.com/rightscale_rightlink_gems_dev/
-  remote: http://rubygems.org/
+  remote: https://rubygems.org/
   specs:
     abstract (1.0.0)
     bunny (0.6.0)
@@ -206,10 +206,10 @@ DEPENDENCIES
   process_watcher (= 0.4)
   rake
   rest-client (= 1.6.7)
-  right_agent!
-  right_amqp!
+  right_agent (~> 0.14)!
+  right_amqp (~> 0.6)!
   right_link!
-  right_support!
+  right_support (~> 2.0)!
   rspec (~> 1.3)
   ruby-debug
   ruby-openid (= 2.1.8)

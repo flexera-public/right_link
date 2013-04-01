@@ -1,14 +1,17 @@
 source 'http://s3.amazonaws.com/rightscale_rightlink_gems_dev'
-source :rubygems
+source 'https://rubygems.org' 
 
 gemspec
 
 # Fresh off the assembly line
-gem 'right_support',           :git => 'git://github.com/rightscale/right_support.git',
+gem 'right_support', '~> 2.0',
+    :git => 'git://github.com/rightscale/right_support.git',
     :branch => 'master'
-gem 'right_agent',             :git => 'git://github.com/rightscale/right_agent.git',
+gem 'right_agent', '~> 0.14',
+    :git => 'git://github.com/rightscale/right_agent.git',
     :branch => 'teal_13_04_acu83513_add_display_version_to_right_script_instantiation'
-gem 'right_amqp' ,             :git => 'git://github.com/rightscale/right_amqp.git',
+gem 'right_amqp', '~> 0.6',
+    :git => 'git://github.com/rightscale/right_amqp.git',
     :branch => 'master'
 
 # We have custom builds of some gems containing fixes and patches that are specific
