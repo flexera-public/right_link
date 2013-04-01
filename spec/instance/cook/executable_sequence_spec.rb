@@ -56,7 +56,12 @@ describe RightScale::ExecutableSequence do
     before(:each) do
       setup_state
       setup_script_execution
-      @script = flexmock(:nickname => '__TestScript', :parameters => {}, :ready => true)
+      @script = flexmock(
+        :nickname => '__TestScript',
+        :parameters => {},
+        :ready => true,
+        :display_version => '[HEAD]',
+        :title => "'__TestScript' [HEAD]")
       @script.should_receive(:is_a?).with(RightScale::RightScriptInstantiation).and_return(true)
       @script.should_receive(:is_a?).with(RightScale::RecipeInstantiation).and_return(false)
 
