@@ -28,7 +28,7 @@ def mock_response(message, code)
   net_http_res = flexmock("Net HTTP Response")
   net_http_res.should_receive(:code).and_return(code)
   response = RestClient::Response.create("#{code}: #{message}", net_http_res, [])
-  flexmock(RestClient).should_receive(:get).and_yield(response, nil, res)
+  flexmock(RestClient::Request).should_receive(:execute).and_yield(response, nil, res)
 end
 
 module RightScale
@@ -48,13 +48,13 @@ module RightScale
     shared_examples_for 'ConnectionException' do
       it 'should fail to download after retrying if a ConnectionException is raised' do
         if exception
-          flexmock(RestClient).should_receive(:get).and_raise(exception)
+          flexmock(RestClient::Request).should_receive(:execute).and_raise(exception)
         else
           mock_response(message, code)
         end
 
-        flexmock(ReposeDownloader.logger).should_receive(:info).twice
-        flexmock(ReposeDownloader.logger).should_receive(:error).times(4)
+        flexmock(ReposeDownloader.logger).should_receive(:info).times(ReposeDownloader::RETRY_MAX_ATTEMPTS)
+        flexmock(ReposeDownloader.logger).should_receive(:error).times(ReposeDownloader::RETRY_MAX_ATTEMPTS + 2)
 
         lambda { subject.download(attachment) { |response| response } }.should raise_error(RightScale::ReposeDownloader::ConnectionException)
       end
@@ -104,8 +104,11 @@ module RightScale
     context :download do
       it 'should download an attachment' do
         res = Net::HTTPSuccess.new('1.1', 'bar', 200)
-        flexmock(RestClient).should_receive(:get).and_yield('bar', nil, res)
+        flexmock(RestClient::Request).should_receive(:execute).and_yield('bar', nil, res)
         flexmock(res).should_receive(:content_length).and_return(0)
+
+        # Speed up this test
+        flexmock(subject).should_receive(:calculate_timeout).and_return(0)
 
         flexmock(ReposeDownloader.logger).should_receive(:info).once
         flexmock(ReposeDownloader.logger).should_receive(:error).never
@@ -164,26 +167,51 @@ module RightScale
       end
     end
 
-    context :parse do
+    context :parse_exception_message do
       it 'should parse exceptions' do
         e = SocketError.new
-        subject.send(:parse, e).should == "SocketError"
+        subject.send(:parse_exception_message, e).should == ["SocketError"]
       end
 
       it 'should parse a single RequestBalancer exception' do
-        e = RightSupport::Net::NoResult.new('RequestBalancer: No available endpoints from ["174.129.36.231", "174.129.37.65"]! Exceptions: SocketError')
-        subject.send(:parse, e).should == "SocketError"
+        e = RightSupport::Net::NoResult.new("Request failed after 2 tries to 1 endpoint: ('174.129.36.231' => [SocketError])")
+        subject.send(:parse_exception_message, e).should == ["SocketError"]
       end
 
       it 'should parse multiple RequestBalancer exceptions' do
-        e = RightSupport::Net::NoResult.new('RequestBalancer: No available endpoints from ["174.129.36.231", "174.129.37.65"]! Exceptions: RestClient::InternalServerError, RestClient::ResourceNotFound')
-        subject.send(:parse, e).should == "RestClient::InternalServerError, RestClient::ResourceNotFound"
+        e = RightSupport::Net::NoResult.new("Request failed after 2 tries to 2 endpoints: ('174.129.36.231' => [SocketError], " +
+                                            "'174.129.37.65' => [RestClient::InternalServerError, RestClient::ResourceNotFound])")
+        subject.send(:parse_exception_message, e).should == ["SocketError", "RestClient::InternalServerError", "RestClient::ResourceNotFound"]
       end
     end
 
     context :balancer do
+      let(:balancer) { subject.send(:balancer) }
+
       it 'should return a RequestBalancer' do
-        subject.send(:balancer).should be_a(RightSupport::Net::RequestBalancer)
+        balancer.should be_a(RightSupport::Net::RequestBalancer)
+      end
+
+      it 'should retry 5 times' do
+        balancer.inspect
+        balancer.instance_eval('@options[:retry]').should == 5
+      end
+    end
+
+    context :calculate_timeout do
+      it 'should return a doubly increasing timeout' do
+        previous_timeout = 60
+
+        (1..3).each do |i|
+          timeout = subject.send(:calculate_timeout, i)
+          timeout.should == previous_timeout * 2
+
+          previous_timeout = timeout
+        end
+      end
+
+      it 'should never return a timeout greater than RETRY_BACKOFF_MAX' do
+        subject.send(:calculate_timeout, ReposeDownloader::RETRY_MAX_ATTEMPTS).should == (2**ReposeDownloader::RETRY_BACKOFF_MAX) * 60
       end
     end
 
@@ -198,15 +226,15 @@ module RightScale
 
       it 'should return an instance of RestClient with no proxy if one is not specified' do
         client = subject.send(:get_http_client)
-        client.should == RestClient
-        client.proxy.should be_nil
+        client.should == RestClient::Request
+        RestClient.proxy.should be_nil
       end
 
       it 'should return an instance of RestClient with a proxy if one is specified' do
         ENV['HTTPS_PROXY'] = proxy
         client = subject.send(:get_http_client)
-        client.should == RestClient
-        client.proxy.should == proxy
+        client.should == RestClient::Request
+        RestClient.proxy.should == proxy
       end
     end
 

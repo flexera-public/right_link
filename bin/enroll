@@ -63,7 +63,13 @@ module RightScale
 
       parser = OptionParser.new do |cli|
         cli.on('--root-dir DIR') do |d|
-          options[:root_dir] = d
+          # Allow for more than one
+          if options[:root_dir]
+            options[:root_dir] = [options[:root_dir]] unless options[:root_dir].is_a?(Array)
+            options[:root_dir] << d
+          else
+            options[:root_dir] = d
+          end
         end
         cli.on('-u', '--url URL') do |url|
           options[:url] = url
@@ -72,7 +78,7 @@ module RightScale
           options[:host] = host
         end
         cli.on('-p', '--port PORT') do |port|
-          # only used for testing
+          # Only used for testing
           options[:port] = port
         end
         cli.on('-i', '--id ID') do |id|
@@ -189,7 +195,7 @@ module RightScale
 
       if @result
         # Create the standard RightAgent certs_dir so we can write our certs there.
-        certs_dir = File.join(AgentConfig.agent_state_dir, 'certs')
+        certs_dir = AgentConfig.certs_dir
         FileUtils.mkdir_p(certs_dir) unless File.directory?(certs_dir)
 
         # Write the mapper cert, our cert, and our private kjey

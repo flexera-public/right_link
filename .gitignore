@@ -10,3 +10,5 @@ tags
 nbproject/
 pkg/
 vendor/
+*.cert
+*.key
