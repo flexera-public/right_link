@@ -72,6 +72,7 @@ right_script '#{script.nickname.gsub("'", "\\\\'")}' do
   parameters(node["#{script.nickname}"]["parameters"])
   cache_dir  '#{cache_dir(script)}'
   source_file '#{path}'
+  display_version '#{script.display_version.to_s.strip.gsub("'", "\\\\'")}'
 end
       EOS
       File.open(path, 'w') { |f| f.puts script.source }
