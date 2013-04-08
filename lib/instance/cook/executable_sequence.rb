@@ -459,7 +459,7 @@ module RightScale
         end
       rescue Exception => e
         File.unlink(cookbook_tarball) if File.exists?(cookbook_tarball)
-        raise e
+        raise
       end
 
       @audit.append_info("Success; unarchiving cookbook")
