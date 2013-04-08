@@ -1,8 +1,10 @@
-def abbreviation *args; end
-def option *args; true; end
-def default_option *args; end
-def metadata_source *args; end
-def extend_cloud *args; end
+self.instance_eval do
+  def abbreviation *args; end
+  def option *args; true; end
+  def default_option *args; end
+  def metadata_source *args; end
+  def extend_cloud *args; end
+end
 
 require File.join(File.dirname(__FILE__), '..', 'spec_helper')
 require File.join(File.dirname(__FILE__), '..', '..', '..', 'lib', 'clouds', 'clouds', 'cloudstack')
