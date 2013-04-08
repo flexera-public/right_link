@@ -39,22 +39,20 @@ def dhcp_lease_provider
       sleep 10
     end
   else
-    leases_file = %w{/var/lib/dhcp/dhclient.eth0.leases /var/lib/dhcp3/dhclient.eth0.leases /var/lib/dhclient/dhclient-eth0.leases /var/lib/dhclient-eth0.leases}.find{|dhcpconfig| File.exist?(dhcpconfig)}
+    leases_file = %w{/var/lib/dhcp/dhclient.eth0.leases /var/lib/dhcp3/dhclient.eth0.leases /var/lib/dhclient/dhclient-eth0.leases /var/lib/dhclient-eth0.leases /var/lib/dhcpcd/dhcpcd-eth0.info}.find{|dhcpconfig| File.exist?(dhcpconfig)}
     unless leases_file.nil?
       lease_file_content = File.read(leases_file)
+
+      dhcp_lease_provider_ip = lease_file_content[/DHCPSID='(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'/, 1]
+      return dhcp_lease_provider_ip unless dhcp_lease_provider_ip.nil?
 
       # leases are appended to the lease file, so to get the appropriate dhcp lease provider, we must grab
       # the info from the last lease entry.
       #
       # reverse the content and reverse the regex to find the dhcp lease provider from the last lease entry
       lease_file_content.reverse!
-      provider_line = lease_file_content[/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}) reifitnedi-revres-pchd/, 1]
-      dhcp_lease_provider_ip = provider_line.reverse unless provider_line.nil?
-
-      # only create the mash if the lease provider was found
-      unless provider_line.nil?
-        return dhcp_lease_provider_ip
-      end
+      dhcp_lease_provider_ip = lease_file_content[/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}) reifitnedi-revres-pchd/, 1]
+      return dhcp_lease_provider_ip.reverse unless dhcp_lease_provider_ip.nil?
     end
   end
 
