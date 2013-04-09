@@ -443,7 +443,7 @@ module RightScale
     # true:: always returns true
     def download_cookbook(root_dir, cookbook)
       cache_dir = File.join(AgentConfig.cache_dir, "right_link", "cookbooks")
-      cookbook_tarball = File.join(cache_dir, "#{cookbook.hash[0..31]}.tar")
+      cookbook_tarball = File.join(cache_dir, "#{cookbook.hash.split('?').first}.tar")
       begin
         FileUtils.mkdir_p(cache_dir)
         File.open(cookbook_tarball, "ab") do |tarball|
