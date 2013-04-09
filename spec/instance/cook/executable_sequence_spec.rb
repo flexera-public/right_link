@@ -131,7 +131,7 @@ describe RightScale::ExecutableSequence do
       file.should_receive(:path).and_return(File.join(cache_dir, "85520db875d938ca4c5e9b984e95eed3.tar"))
       flexmock(FileUtils).should_receive(:mkdir_p).with(cache_dir)
       flexmock(FileUtils).should_receive(:mkdir_p).with("tmp").and_return { Dir.mkdir("tmp") unless File.directory?("tmp") }
-      flexmock(File).should_receive(:new).with(File.join(cache_dir, "85520db875d938ca4c5e9b984e95eed3.tar"), "ab").and_return(file)
+      flexmock(File).should_receive(:open).with(File.join(cache_dir, "85520db875d938ca4c5e9b984e95eed3.tar"), "ab", Proc).and_yield(file)
       cookbook
     end
 
