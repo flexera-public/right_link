@@ -536,6 +536,13 @@ module RightScale
       return ohai
     end
 
+    # http://wiki.opscode.com/display/chef/User+Environment+PATH+Sanity
+    def sanitize_path
+      sanitized_path = "/usr/local/bin:/usr/local/sbin:/bin:/sbin:/usr/bin:/usr/sbin".split(":")
+      sanitized_path += ENV['PATH'].split(File::PATH_SEPARATOR)
+      ENV['PATH'] = sanitized_path.uniq.join(File::PATH_SEPARATOR)
+    end
+
     # Chef converge
     #
     # === Parameters
@@ -566,6 +573,7 @@ module RightScale
           # Ensure that Ruby subprocesses invoked by Chef do not inherit our
           # RubyGems/Bundler environment.
           without_bundler_env do
+            sanitize_path
             c.run
           end
         end
