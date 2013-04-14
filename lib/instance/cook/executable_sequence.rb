@@ -43,6 +43,21 @@ class File
   end
 end
 
+# Monkey path Chef's path sanity mixin to not include Ruby bin dir and gem bin dir  to PATH.
+class Chef
+  module Mixin
+    module PathSanity
+      def ruby_bindir
+        nil
+      end
+
+      def gem_bindir
+        nil
+      end
+    end
+  end
+end
+
 module RightScale
   # Bundle sequence, includes installing dependent packages,
   # downloading attachments and running scripts in given bundle.
@@ -201,12 +216,6 @@ module RightScale
 
       # Chef run mode is always solo for cook
       Chef::Config[:solo] = true
-
-      # Chef tries to "helpfully" ensure that the Ruby interpreter and gem binary used to invoke
-      # Chef are on the path. This contravenes our intended usage of the RightScale sandbox and
-      # interferes with various gem management operations. For now, turn off path sanity and fall
-      # back to our traditional behavior.
-      Chef::Config[:enforce_path_sanity] = false
 
       # determine default cookbooks path.  If debugging cookbooks, place the debug pat(s) first, otherwise
       # clear out the list as it will be filled out with cookbooks needed for this converge as they are downloaded.
@@ -536,13 +545,6 @@ module RightScale
       return ohai
     end
 
-    # http://wiki.opscode.com/display/chef/User+Environment+PATH+Sanity
-    def sanitize_path
-      sanitized_path = "/usr/local/bin:/usr/local/sbin:/bin:/sbin:/usr/bin:/usr/sbin".split(":")
-      sanitized_path += ENV['PATH'].split(File::PATH_SEPARATOR)
-      ENV['PATH'] = sanitized_path.uniq.join(File::PATH_SEPARATOR)
-    end
-
     # Chef converge
     #
     # === Parameters
@@ -573,7 +575,6 @@ module RightScale
           # Ensure that Ruby subprocesses invoked by Chef do not inherit our
           # RubyGems/Bundler environment.
           without_bundler_env do
-            sanitize_path
             c.run
           end
         end
