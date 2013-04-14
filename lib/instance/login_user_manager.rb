@@ -96,10 +96,10 @@ module RightScale
         add_user(username, uid)
         modify_group('rightscale', :add, username)
 
-        # NB it is SUPER IMPORTANT to pass force=true here. Due to an oddity in Ruby's Etc
+        # NB it is SUPER IMPORTANT to pass :force=>true here. Due to an oddity in Ruby's Etc
         # extension, a user who has recently been added, won't seem to be a member of
         # any groups until the SECOND time we enumerate his group membership.
-        manage_user(uuid, superuser, force=true)
+        manage_user(uuid, superuser, :force=>true)
       else
         raise RightScale::LoginManager::SystemConflict, "A user with UID #{uid} already exists and is " +
                                                         "not managed by RightScale"
@@ -117,15 +117,21 @@ module RightScale
     # superuser(Boolean):: whether the user should have sudo privileges
     # force(Boolean):: if true, performs group management even if the user does NOT belong to 'rightscale'
     #
+    # === Options
+    # :force:: if true, then the user will be updated even if they do not belong to the RightScale group
+    # :disable:: if true, then the user will be prevented from logging in
+    #
     # === Return
     # username(String):: if the user exists, returns his actual username
     # false:: if the user does not exist
-    def manage_user(uuid, superuser, force=false)
-      uid = LoginUserManager.uuid_to_uid(uuid)
+    def manage_user(uuid, superuser, options={})
+      uid      = LoginUserManager.uuid_to_uid(uuid)
       username = uid_to_username(uid)
+      force    = options[:force] || false
+      disable  = options[:disable] || false
 
       if ( force && uid_exists?(uid) ) || uid_exists?(uid, ['rightscale'])
-        modify_user(username)
+        modify_user(username, disable)
         action = superuser ? :add : :remove
         modify_group('rightscale_sudo', action, username) if group_exists?('rightscale_sudo')
 
@@ -161,15 +167,11 @@ module RightScale
     #
     # === Return
     # true:: always returns true
-    def add_user(username, uid, expired_at=nil, shell=nil)
+    def add_user(username, uid, shell=nil)
       uid = Integer(uid)
       shell ||= DEFAULT_SHELLS.detect { |sh| File.exists?(sh) }
 
       useradd = find_sbin('useradd')
-
-      unless expired_at.nil?
-        dash_e = "-e #{expired_at.strftime("%Y-%m-%d")}"
-      end
 
       unless shell.nil?
         dash_s = "-s #{Shellwords.escape(shell)}"
@@ -196,33 +198,33 @@ module RightScale
     # === Parameters
     # username(String):: username
     # uid(String):: account's UID
-    # expired_at(Time):: account's expiration date; default nil
+    # locked(true,false):: if true, prevent the user from logging in
     # shell(String):: account's login shell; default nil (use systemwide default)
     #
     # === Return
     # true:: always returns true
-    def modify_user(username, expired_at=nil, shell=nil)
+    def modify_user(username, locked=false, shell=nil)
       shell ||= DEFAULT_SHELLS.detect { |sh| File.exists?(sh) }
 
       usermod = find_sbin('usermod')
 
-      unless expired_at.nil?
-        dash_e = "-e #{expired_at.strftime("%Y-%m-%d")}"
+      if locked
+        dash_e = "-e 1 -L"
+      else
+        dash_e = "-e 99999 -U"
       end
 
       unless shell.nil?
         dash_s = "-s #{Shellwords.escape(shell)}"
       end
 
-      if (dash_e || dash_s) #only bother to call usermod if we gotta do sump'n
-        result = sudo("#{usermod} #{dash_e} #{dash_s} #{Shellwords.escape(username)}")
+      result = sudo("#{usermod} #{dash_e} #{dash_s} #{Shellwords.escape(username)}")
 
-        case result.exitstatus
-        when 0
-          RightScale::Log.info "User #{username} modified successfully"
-        else
-          RightScale::Log.error "Failed to modify user #{username}"
-        end
+      case result.exitstatus
+      when 0
+        RightScale::Log.info "User #{username} modified successfully"
+      else
+        RightScale::Log.error "Failed to modify user #{username}"
       end
 
       true
