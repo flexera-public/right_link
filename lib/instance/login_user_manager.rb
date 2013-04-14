@@ -177,7 +177,7 @@ module RightScale
         dash_s = "-s #{Shellwords.escape(shell)}"
       end
 
-      result = sudo("#{useradd} #{dash_e} #{dash_s} -u #{uid} -m #{Shellwords.escape(username)}")
+      result = sudo("#{useradd} #{dash_s} -u #{uid} -m #{Shellwords.escape(username)}")
 
       case result.exitstatus
       when 0
@@ -185,7 +185,7 @@ module RightScale
 
         sudo("chmod 0771 #{Shellwords.escape(home_dir)}")
 
-        RightScale::Log.info "User #{username} created successfully"
+        RightScale::Log.info "LoginUserManager created #{username} successfully"
       else
         raise RightScale::LoginManager::SystemConflict, "Failed to create user #{username}"
       end
@@ -209,7 +209,9 @@ module RightScale
       usermod = find_sbin('usermod')
 
       if locked
-        dash_e = "-e 1 -L"
+        # the man page claims that "1" works here, but testing proves that it doesn't.
+        # use 1970 instead.
+        dash_e = "-e 1970-01-01 -L"
       else
         dash_e = "-e 99999 -U"
       end
@@ -222,7 +224,7 @@ module RightScale
 
       case result.exitstatus
       when 0
-        RightScale::Log.info "User #{username} modified successfully"
+        RightScale::Log.info "LoginUserManager modified #{username} successfully"
       else
         RightScale::Log.error "Failed to modify user #{username}"
       end

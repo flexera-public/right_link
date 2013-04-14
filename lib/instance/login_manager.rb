@@ -431,12 +431,21 @@ module RightScale
       removed = previous.keys - current.keys
       stayed  = current.keys & previous.keys
 
-      (removed + added + stayed).each do |k|
+      removed.each do |k|
+        begin
+          user = current[k] || previous[k]
+          LoginUserManager.manage_user(user.uuid, user.superuser, :disable => true)
+        rescue Exception => e
+          RightScale::Log.error "Failed to disable user '#{user.uuid}': #{e}" unless e.is_a?(ArgumentError)
+        end
+      end
+
+      (added + stayed).each do |k|
         begin
           user = current[k] || previous[k]
           LoginUserManager.manage_user(user.uuid, user.superuser)
         rescue Exception => e
-          RightScale::Log.error "Failed to manage user '#{user.uuid}': #{e}" unless e.is_a?(ArgumentError)
+          RightScale::Log.error "Failed to manage existing user '#{user.uuid}': #{e}" unless e.is_a?(ArgumentError)
         end
       end
     rescue Exception => e
