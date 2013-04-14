@@ -30,6 +30,13 @@ module RightScale
     MAX_UID  = 2**32 - 1
     MAX_UUID = MAX_UID - MIN_UID
 
+    # List of directories that commonly contain user and group management utilities
+    SBIN_PATHS = ['/usr/bin', '/usr/sbin', '/bin', '/sbin']
+
+    # List of viable default shells. Useful because Ubuntu's adduser seems to require a -s parameter.
+    DEFAULT_SHELLS = ['/bin/bash', '/usr/bin/bash', '/bin/sh', '/usr/bin/sh', '/bin/dash', '/bin/tcsh']
+
+    # Map a universally-unique integer RightScale user ID to a locally-unique Unix UID.
     def uuid_to_uid(uuid)
       uuid = Integer(uuid)
       if uuid >= 0 && uuid <= MAX_UUID
@@ -61,12 +68,12 @@ module RightScale
       name
     end
 
-    # Creates user account
+    # Ensure that a given user exists and that his group membership is correct.
     #
     # === Parameters
-    # username(String):: username
+    # username(String):: preferred username of RightScale user
     # uuid(String):: RightScale user's UUID
-    # superuser(Boolean):: flag if user is superuser
+    # superuser(Boolean):: whether the user should have sudo privileges
     #
     # === Block
     # If a block is given AND the user needs to be created, yields to the block
@@ -74,7 +81,10 @@ module RightScale
     # the caller a chance to provide interactive feedback to the user.
     #
     # === Return
-    # username(String):: created account's username
+    # username(String):: user's actual username (may vary from preferred username)
+    #
+    # === Raise
+    # (LoginManager::SystemConflict):: if an existing non-RightScale-managed UID prevents us from creating a user
     def create_user(username, uuid, superuser)
       uid = LoginUserManager.uuid_to_uid(uuid)
 
@@ -84,16 +94,45 @@ module RightScale
         username  = pick_username(username)
         yield(username) if block_given?
         add_user(username, uid)
-        manage_group('rightscale', :add, username) if group_exists?('rightscale')
+        modify_group('rightscale', :add, username)
+
+        # NB it is SUPER IMPORTANT to pass force=true here. Due to an oddity in Ruby's Etc
+        # extension, a user who has recently been added, won't seem to be a member of
+        # any groups until the SECOND time we enumerate his group membership.
+        manage_user(uuid, superuser, force=true)
       else
         raise RightScale::LoginManager::SystemConflict, "A user with UID #{uid} already exists and is " +
                                                         "not managed by RightScale"
       end
 
-      action = superuser ? :add : :remove
-      manage_group('rightscale_sudo', action, username) if group_exists?('rightscale_sudo')
-
       username
+    end
+
+    # If the given user exists and is RightScale-managed, then ensure his login information and
+    # group membership are correct. If force == true, then management tasks are performed
+    # irrespective of the user's group membership status.
+    #
+    # === Parameters
+    # uuid(String):: RightScale user's UUID
+    # superuser(Boolean):: whether the user should have sudo privileges
+    # force(Boolean):: if true, performs group management even if the user does NOT belong to 'rightscale'
+    #
+    # === Return
+    # username(String):: if the user exists, returns his actual username
+    # false:: if the user does not exist
+    def manage_user(uuid, superuser, force=false)
+      uid = LoginUserManager.uuid_to_uid(uuid)
+      username = uid_to_username(uid)
+
+      if ( force && uid_exists?(uid) ) || uid_exists?(uid, ['rightscale'])
+        modify_user(username)
+        action = superuser ? :add : :remove
+        modify_group('rightscale_sudo', action, username) if group_exists?('rightscale_sudo')
+
+        username
+      else
+        false
+      end
     end
 
     # Fetches username from account's UID.
@@ -108,32 +147,85 @@ module RightScale
       Etc.getpwuid(uid).name
     end
 
-    # Binding for adding user's account record to OS
+    # Create a Unix user with the "useradd" command.
     #
     # === Parameters
     # username(String):: username
     # uid(String):: account's UID
+    # expired_at(Time):: account's expiration date; default nil
+    # shell(String):: account's login shell; default nil (use systemwide default)
+    #
+    #
+    # === Raise
+    # (RightScale::LoginManager::SystemConflict):: if the user could not be created for some reason
     #
     # === Return
-    # nil
-    def add_user(username, uid)
+    # true:: always returns true
+    def add_user(username, uid, expired_at=nil, shell=nil)
       uid = Integer(uid)
-      
-      # Can't use executable? because the rightscale user can't execute useradd without sudo
-      useradd = ['/usr/bin/useradd', '/usr/sbin/useradd', '/bin/useradd', '/sbin/useradd'].select { |key| File.exists? key }.first
-      raise RightScale::LoginManager::SystemConflict, "Failed to find a suitable implementation of 'useradd'." unless useradd
-      %x(sudo #{useradd} -s /bin/bash -u #{uid} -m #{Shellwords.escape(username)})
+      shell ||= DEFAULT_SHELLS.detect { |sh| File.exists?(sh) }
 
-      case $?.exitstatus
+      useradd = find_sbin('useradd')
+
+      unless expired_at.nil?
+        dash_e = "-e #{expired_at.strftime("%Y-%m-%d")}"
+      end
+
+      unless shell.nil?
+        dash_s = "-s #{Shellwords.escape(shell)}"
+      end
+
+      result = sudo("#{useradd} #{dash_e} #{dash_s} -u #{uid} -m #{Shellwords.escape(username)}")
+
+      case result.exitstatus
       when 0
         home_dir = Shellwords.escape(Etc.getpwnam(username).dir)
 
-        %x(sudo chmod 0771 #{home_dir})
+        sudo("chmod 0771 #{Shellwords.escape(home_dir)}")
 
         RightScale::Log.info "User #{username} created successfully"
       else
         raise RightScale::LoginManager::SystemConflict, "Failed to create user #{username}"
       end
+
+      true
+    end
+
+    # Modify a user with the "usermod" command.
+    #
+    # === Parameters
+    # username(String):: username
+    # uid(String):: account's UID
+    # expired_at(Time):: account's expiration date; default nil
+    # shell(String):: account's login shell; default nil (use systemwide default)
+    #
+    # === Return
+    # true:: always returns true
+    def modify_user(username, expired_at=nil, shell=nil)
+      shell ||= DEFAULT_SHELLS.detect { |sh| File.exists?(sh) }
+
+      usermod = find_sbin('usermod')
+
+      unless expired_at.nil?
+        dash_e = "-e #{expired_at.strftime("%Y-%m-%d")}"
+      end
+
+      unless shell.nil?
+        dash_s = "-s #{Shellwords.escape(shell)}"
+      end
+
+      if (dash_e || dash_s) #only bother to call usermod if we gotta do sump'n
+        result = sudo("#{usermod} #{dash_e} #{dash_s} #{Shellwords.escape(username)}")
+
+        case result.exitstatus
+        when 0
+          RightScale::Log.info "User #{username} modified successfully"
+        else
+          RightScale::Log.error "Failed to modify user #{username}"
+        end
+      end
+
+      true
     end
 
     # Adds or removes a user from an OS group; does nothing if the user
@@ -150,7 +242,7 @@ module RightScale
     # === Return
     # result(Boolean):: true if user was added/removed; false if
     #
-    def manage_group(group, operation, username)
+    def modify_group(group, operation, username)
       #Ensure group/user exist; this raises ArgumentError if either does not exist
       Etc.getgrnam(group)
       Etc.getpwnam(username)
@@ -171,17 +263,17 @@ module RightScale
 
       groups   = Shellwords.escape(groups.to_a.join(','))
       username = Shellwords.escape(username)
-      # Can't use executable? because the rightscale user can't execute usermod without sudo
-      usermod = ['/usr/bin/usermod', '/usr/sbin/usermod', '/bin/usermod', '/sbin/usermod'].select { |key| File.exists? key }.first
-      raise RightScale::LoginManager::SystemConflict, "Failed to find a suitable implementation of 'usermod'." unless usermod
-      output = %x(sudo #{usermod} -G #{groups} #{username})
 
-      case $?.exitstatus
+      usermod = find_sbin('usermod')
+
+      result = sudo("#{usermod} -G #{groups} #{username}")
+
+      case result.exitstatus
       when 0
         RightScale::Log.info "Successfully performed group-#{operation} of #{username} to #{group}"
         return true
       else
-        RightScale::Log.error "Failed group-#{operation} of #{username} to #{group}: #{output}"
+        RightScale::Log.error "Failed group-#{operation} of #{username} to #{group}"
         return false
       end
     end
@@ -288,6 +380,46 @@ module RightScale
 
     protected
 
+    # Run a command as root, jumping through a sudo gate if necessary.
+    #
+    # === Parameters
+    # cmd(String):: the command to execute
+    #
+    # === Return
+    # exitstatus(Process::Status):: the exitstatus of the process
+    def sudo(cmd)
+      cmd = "sudo #{cmd}" unless  Process.euid == 0
+
+      RightScale::Log.info("LoginUserManager command: #{cmd}")
+      output = %x(#{cmd})
+      result = $?
+      RightScale::Log.info("LoginUserManager result: #{$?.exitstatus}; output: #{cmd}")
+
+      result
+    end
+
+    # Search through some directories to find the location of a binary. Necessary because different
+    # Linux distributions put their user-management utilities in slightly different places.
+    #
+    # === Parameters
+    # cmd(String):: name of command to search for, e.g. 'usermod'
+    #
+    # === Return
+    # path(String):: the absolute path to the command
+    #
+    # === Raise
+    # (LoginManager::SystemConflict):: if the command can't be found
+    #
+    def find_sbin(cmd)
+      path = SBIN_PATHS.detect do |dir|
+        File.exists?(File.join(dir, cmd))
+      end
+
+      raise RightScale::LoginManager::SystemConflict, "Failed to find a suitable implementation of '#{cmd}'." unless path
+
+      File.join(path, cmd)
+    end
+
     # Downloads a file from specified URL
     #
     # === Parameters
@@ -325,18 +457,19 @@ module RightScale
 
       case filename
       when /(?:\.tar\.bz2|\.tbz)$/
-        %x(sudo tar jxf #{escaped_filename} -C #{destination_path})
+        result = sudo("tar jxf #{escaped_filename} -C #{destination_path}")
       when /(?:\.tar\.gz|\.tgz)$/
-        %x(sudo tar zxf #{escaped_filename} -C #{destination_path})
+        result = sudo("tar zxf #{escaped_filename} -C #{destination_path}")
       when /\.zip$/
-        %x(sudo unzip -o #{escaped_filename} -d #{destination_path})
+        result = sudo("unzip -o #{escaped_filename} -d #{destination_path}")
       else
         raise ArgumentError, "Don't know how to extract #{filename}'"
       end
-      extracted = $?.success?
 
+      extracted = result.success?
       chowned = change_owner(username, username, destination_path)
-      return extracted && chowned
+
+      extracted && chowned
     end
 
     # Calculates MD5 checksum for specified file and saves it
@@ -360,7 +493,7 @@ module RightScale
       File.open(temp_path, "w") { |f| f.write(checksum) }
 
       change_owner(username, username, temp_dir)
-      %x(sudo mv #{temp_dir} #{destination})
+      sudo("mv #{temp_dir} #{destination}")
     rescue Exception => e
       STDERR.puts "Failed to save checksum for #{username} profile"
       STDERR.puts "#{e.class.name}: #{e.message} - #{e.backtrace.first}"
@@ -377,9 +510,9 @@ module RightScale
     # === Return
     # chowned(Boolean):: true if owner changed successfully
     def change_owner(username, group, path)
-      %x(sudo chown -R #{Shellwords.escape(username)}:#{Shellwords.escape(group)} #{path})
+      result = sudo("chown -R #{Shellwords.escape(username)}:#{Shellwords.escape(group)} #{path}")
 
-      $?.success?
+      result.success?
     end
   end
 end
