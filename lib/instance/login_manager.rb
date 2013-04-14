@@ -82,8 +82,9 @@ module RightScale
       # but by filtering here additionally we prevent race conditions and handle boundary conditions, as well
       # as allowing our internal expiry timer to simply call us back when a LoginUser expires.
       # All users are added to RightScale account's authorized keys.
-      new_users = new_policy.users.select { |u| (u.expires_at == nil || u.expires_at > Time.now) }
-      update_users(new_users, agent_identity, new_policy) do |audit_content|
+      new_policy_users = new_policy.users.select { |u| (u.expires_at == nil || u.expires_at > Time.now) }
+
+      update_users(new_policy_users, agent_identity, new_policy) do |audit_content|
         yield audit_content if block_given?
       end
 
@@ -190,8 +191,10 @@ module RightScale
     # == Returns:
     # @return [TrueClass] always returns true
     #
-    def finalize_policy(new_policy, agent_identity, new_users, missing)
-      user_lines = modify_keys_to_use_individual_profiles(new_users)
+    def finalize_policy(new_policy, agent_identity, new_policy_users, missing)
+      manage_existing_users(new_policy_users)
+
+      user_lines = modify_keys_to_use_individual_profiles(new_policy_users)
 
       InstanceState.login_policy = new_policy
 
@@ -204,7 +207,7 @@ module RightScale
       schedule_expiry(new_policy, agent_identity)
 
       # Yield a human-readable description of the policy, e.g. for an audit entry
-      yield describe_policy(new_users, new_users.select { |u| u.superuser }, missing)
+      yield describe_policy(new_policy_users, new_policy_users.select { |u| u.superuser }, missing)
 
       true
     end
@@ -408,6 +411,45 @@ module RightScale
       end
 
       return user_lines.sort
+    end
+
+    # @TODO docs
+    def manage_existing_users(new_policy_users)
+      previous = {}
+      if InstanceState.login_policy
+        InstanceState.login_policy.users.each do |user|
+          previous[user.uuid] = user
+        end
+      end
+
+      current = {}
+      new_policy_users.each do |user|
+        current[user.uuid] = user
+      end
+
+      added   = current.keys - previous.keys
+      removed = previous.keys - current.keys
+      stayed  = current.keys & previous.keys
+
+      removed.each do |k|
+        begin
+          user = current[k] || previous[k]
+          LoginUserManager.manage_user(user.uuid, user.superuser, :disable => true)
+        rescue Exception => e
+          RightScale::Log.error "Failed to disable user '#{user.uuid}': #{e}" unless e.is_a?(ArgumentError)
+        end
+      end
+
+      (added + stayed).each do |k|
+        begin
+          user = current[k] || previous[k]
+          LoginUserManager.manage_user(user.uuid, user.superuser)
+        rescue Exception => e
+          RightScale::Log.error "Failed to manage existing user '#{user.uuid}': #{e}" unless e.is_a?(ArgumentError)
+        end
+      end
+    rescue Exception => e
+      RightScale::Log.error "Failed to manage existing users: #{e}"
     end
 
     # === OS specific methods
