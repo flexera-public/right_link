@@ -43,21 +43,6 @@ class File
   end
 end
 
-# Monkey path Chef's path sanity mixin to not include Ruby bin dir and gem bin dir  to PATH.
-class Chef
-  module Mixin
-    module PathSanity
-      def ruby_bindir
-        nil
-      end
-
-      def gem_bindir
-        nil
-      end
-    end
-  end
-end
-
 module RightScale
   # Bundle sequence, includes installing dependent packages,
   # downloading attachments and running scripts in given bundle.
