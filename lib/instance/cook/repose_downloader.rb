@@ -158,11 +158,17 @@ module RightScale
       ips = {}
       hostnames.each do |hostname|
         infos = nil
+        attempts = RETRY_MAX_ATTEMPTS
         begin
           infos = Socket.getaddrinfo(hostname, 443, Socket::AF_INET, Socket::SOCK_STREAM, Socket::IPPROTO_TCP)
         rescue Exception => e
-          logger.error "Failed to resolve hostnames: #{e.class.name}: #{e.message}"
-          raise e
+          if attempts > 0
+            attempts -= 1
+            retry
+          else
+            logger.error "Failed to resolve hostnames: #{e.class.name}: #{e.message}"
+            raise e
+          end
         end
 
         # Randomly permute the addrinfos of each hostname to help spread load.
