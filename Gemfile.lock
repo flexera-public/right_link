@@ -22,7 +22,7 @@ GIT
 
 GIT
   remote: git://github.com/rightscale/right_popen.git
-  revision: 0a821b892841e552bb27a37e198a6d4a6102e21f
+  revision: c7bc548f8ea125e4045169c118ea58e6722d4cc8
   branch: teal_13_05_acu81706_incorporate_process_watcher_as_popen3_sync
   specs:
     right_popen (1.1.1)
@@ -41,7 +41,7 @@ GIT
 
 GIT
   remote: git://github.com/rightscale/right_support.git
-  revision: f209f459b965d5b082ae5872578bf61d7a124611
+  revision: ece9a03c035bf2191da8557def7c9d281b5572b1
   branch: master
   specs:
     right_support (2.7.0)
