@@ -43,9 +43,7 @@ class Chef
         true
       end
 
-      # Actually run Powershell
-      # Rely on RightScale::popen3 to spawn process and receive both standard and error outputs.
-      # Synchronize with EM thread so that execution is synchronous even though RightScale::popen3 is asynchronous.
+      # runs the PowerShell script in a child process.
       #
       # === Return
       # true:: Always return true

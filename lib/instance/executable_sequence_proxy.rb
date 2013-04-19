@@ -119,9 +119,9 @@ module RightScale
 
         input_text = "#{MessageEncoder.for_agent(InstanceState.identity).encode(@context.payload)}\n"
 
-        # FIX: we have an issue with EM not allowing both sockets and named
-        # pipes to share the same file/socket id. sending the input on the
-        # command line is a temporary workaround.
+        # TEAL FIX: we have an issue with the Windows EM implementation not
+        # allowing both sockets and named pipes to share the same file/socket
+        # id. sending the input on the command line is a temporary workaround.
         platform = RightScale::Platform
         if platform.windows?
           input_path = File.normalize_path(File.join(platform.filesystem.temp_dir, "rs_executable_sequence#{@thread_name}.txt"))
@@ -144,14 +144,15 @@ module RightScale
         end
 
         EM.next_tick do
-          RightScale.popen3(:command        => cmd,
-                            :input          => input_text,
-                            :target         => self,
-                            :environment    => { OptionsBag::OPTIONS_ENV => ENV[OptionsBag::OPTIONS_ENV] },
-                            :stdout_handler => :on_read_stdout,
-                            :stderr_handler => :on_read_stderr,
-                            :pid_handler    => :on_pid,
-                            :exit_handler   => :on_exit)
+          RightScale::RightPopen.popen3_async(
+            cmd,
+            :input          => input_text,
+            :target         => self,
+            :environment    => { OptionsBag::OPTIONS_ENV => ENV[OptionsBag::OPTIONS_ENV] },
+            :stdout_handler => :on_read_stdout,
+            :stderr_handler => :on_read_stderr,
+            :pid_handler    => :on_pid,
+            :exit_handler   => :on_exit)
         end
       end
     end

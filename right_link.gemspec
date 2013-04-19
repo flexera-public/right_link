@@ -17,8 +17,8 @@ spec = Gem::Specification.new do |s|
   s.required_rubygems_version = '>= 1.3.7'
 
   s.add_runtime_dependency('right_agent', '~> 0.10')
-  s.add_runtime_dependency('right_scraper', '~> 3.0')
-  s.add_runtime_dependency('right_popen', '~> 1.0')
+  s.add_runtime_dependency('right_scraper', '~> 3.2')
+  s.add_runtime_dependency('right_popen', '~> 1.1')
   s.add_runtime_dependency('right_http_connection', '~> 1.3')
   s.add_runtime_dependency('right_support', '~> 2.0')
 

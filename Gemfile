@@ -4,15 +4,24 @@ source 'https://rubygems.org'
 gemspec
 
 # Fresh off the assembly line
-gem 'right_support', '~> 2.0',
+gem 'right_support', '~> 2.7',
     :git => 'git://github.com/rightscale/right_support.git',
     :branch => 'master'
 gem 'right_agent', '~> 0.14',
     :git => 'git://github.com/rightscale/right_agent.git',
-    :branch => 'master'
+    :branch => 'teal_13_05_acu81706_incorporate_process_watcher_as_popen3_sync'
 gem 'right_amqp', '~> 0.6',
     :git => 'git://github.com/rightscale/right_amqp.git',
     :branch => 'master'
+gem 'right_scraper', '~> 3.2',
+    :git => 'git://github.com/rightscale/right_scraper.git',
+    :branch => 'teal_13_05_acu81706_incorporate_process_watcher_as_popen3_sync'
+gem 'right_popen', '~> 1.1',
+    :git => 'git://github.com/rightscale/right_popen.git',
+    :branch => 'teal_13_05_acu81706_incorporate_process_watcher_as_popen3_sync'
+gem 'mixlib-shellout', '~> 1.0.0.2',
+    :git => 'git@github.com:rightscale/mixlib-shellout.git',
+    :branch => 'teal_13_05_acu81706_incorporate_process_watcher_as_popen3_sync'
 
 # We have custom builds of some gems containing fixes and patches that are specific
 # to RightScale. Gems in the "custom" group are published by RightScale to our
@@ -20,7 +29,7 @@ gem 'right_amqp', '~> 0.6',
 group :custom do
   gem 'chef',            "0.10.10.3"
   gem 'ohai',            "0.6.12.1"
-  gem 'mixlib-shellout', "1.0.0.1"
+  # gem 'mixlib-shellout', "1.0.0.2"  # restore this ref after gem is built from source and uploaded
   gem "eventmachine",    "1.0.0.2"
 end
 
@@ -82,7 +91,6 @@ group :stable do
   gem "hoe",                   "2.3.3"
   gem "moneta",                "0.6.0"
   gem "bunny",                 "0.6.0"
-  gem "process_watcher",       "0.4"
   gem "highline",              "1.6.9"
   gem "uuidtools",             "2.1.2"
   gem "mime-types",            "1.16"
