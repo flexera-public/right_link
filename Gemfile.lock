@@ -85,10 +85,10 @@ GIT
 
 GIT
   remote: git@github.com:rightscale/ohai.git
-  revision: f2d5d83649196f41be50d4aed3da58309b14e884
+  revision: 102c1725841eaebf8754122be694cc7b83bfa71b
   branch: teal_13_05_acu81706_incorporate_process_watcher_as_popen3_sync
   specs:
-    ohai (0.6.12.2)
+    ohai (0.6.12.3)
       eventmachine (>= 1.0.0)
       ipaddress
       mixlib-cli
@@ -202,7 +202,7 @@ DEPENDENCIES
   mixlib-shellout (~> 1.0.0.2)!
   moneta (= 0.6.0)
   msgpack (= 0.4.4)
-  ohai (= 0.6.12.2)!
+  ohai (= 0.6.12.3)!
   rake
   rest-client (= 1.6.7)
   right_agent (~> 0.14)!

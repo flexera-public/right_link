@@ -28,7 +28,7 @@ group :custom do
       :git => 'git@github.com:rightscale/chef.git',
       :branch => 'teal_13_05_acu81706_incorporate_process_watcher_as_popen3_sync'
 
-  gem 'ohai',            '0.6.12.2',
+  gem 'ohai',            '0.6.12.3',
       :git => 'git@github.com:rightscale/ohai.git',
       :branch => 'teal_13_05_acu81706_incorporate_process_watcher_as_popen3_sync'
 
