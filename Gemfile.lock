@@ -22,7 +22,7 @@ GIT
 
 GIT
   remote: git://github.com/rightscale/right_popen.git
-  revision: d6e4327fa29a60f0358fcdac64919cbb526c6811
+  revision: 7a618cb7512747c4311c796cf8519564545b9050
   branch: teal_13_05_acu81706_incorporate_process_watcher_as_popen3_sync
   specs:
     right_popen (1.1.1)
@@ -47,35 +47,11 @@ GIT
     right_support (2.7.0)
 
 GIT
-  remote: git@github.com:rightscale/mixlib-shellout.git
-  revision: 453c9e39dca8a8b2ff8b77723f9164f06010b2d2
+  remote: git@github.com:rightscale/chef.git
+  revision: 96b081aa721fa1139d7507252c9613de6bff59aa
   branch: teal_13_05_acu81706_incorporate_process_watcher_as_popen3_sync
   specs:
-    mixlib-shellout (1.0.0.2)
-      right_popen (~> 1.1)
-
-PATH
-  remote: .
-  specs:
-    right_link (5.9.0)
-      chef (>= 0.10.10)
-      encryptor (~> 1.1)
-      extlib (~> 0.9.15)
-      right_agent (~> 0.10)
-      right_http_connection (~> 1.3)
-      right_popen (~> 1.1)
-      right_scraper (~> 3.2)
-      right_support (~> 2.0)
-      trollop
-
-GEM
-  remote: http://s3.amazonaws.com/rightscale_rightlink_gems_dev/
-  remote: https://rubygems.org/
-  specs:
-    abstract (1.0.0)
-    blackwinter-git (1.2.7)
-    bunny (0.6.0)
-    chef (0.10.10.3)
+    chef (0.10.10.4)
       bunny (>= 0.6.0)
       erubis
       erubis
@@ -98,12 +74,57 @@ GEM
       uuidtools
       uuidtools
       yajl-ruby (>= 1.1.0)
+
+GIT
+  remote: git@github.com:rightscale/mixlib-shellout.git
+  revision: 2d1fa567bc002f40d1382c5da661e9a7f35cf190
+  branch: teal_13_05_acu81706_incorporate_process_watcher_as_popen3_sync
+  specs:
+    mixlib-shellout (1.0.0.2)
+      right_popen (~> 1.1)
+
+GIT
+  remote: git@github.com:rightscale/ohai.git
+  revision: f2d5d83649196f41be50d4aed3da58309b14e884
+  branch: teal_13_05_acu81706_incorporate_process_watcher_as_popen3_sync
+  specs:
+    ohai (0.6.12.2)
+      eventmachine (>= 1.0.0)
+      ipaddress
+      mixlib-cli
+      mixlib-config
+      mixlib-log
+      right_popen (~> 1.1)
+      systemu
+      yajl-ruby
+
+PATH
+  remote: .
+  specs:
+    right_link (5.9.0)
+      chef (>= 0.10.10)
+      encryptor (~> 1.1)
+      extlib (~> 0.9.15)
+      right_agent (~> 0.10)
+      right_http_connection (~> 1.3)
+      right_popen (~> 1.1)
+      right_scraper (~> 3.2)
+      right_support (~> 2.0)
+      trollop
+
+GEM
+  remote: http://s3.amazonaws.com/rightscale_rightlink_gems_dev/
+  remote: https://rubygems.org/
+  specs:
+    abstract (1.0.0)
+    archive-tar-minitar (0.5.2)
+    blackwinter-git (1.2.7)
+    bunny (0.6.0)
     columnize (0.3.6)
     encryptor (1.1.3)
     erubis (2.6.5)
       abstract (>= 1.0.0)
     eventmachine (1.0.0.2)
-    eventmachine (1.0.0.2-x86-mswin32)
     extlib (0.9.15)
     flexmock (0.9.0)
     highline (1.6.9)
@@ -112,13 +133,13 @@ GEM
       rubyforge (>= 1.0.4)
     ipaddress (0.8.0)
     json (1.4.6)
-    json (1.4.6-x86-mswin32)
     linecache (0.46)
       rbx-require-relative (> 0.0.4)
-    linecache (0.46-x86-mswin32)
-      rbx-require-relative (> 0.0.4)
-      rbx-require-relative (> 0.0.4)
     mime-types (1.16)
+      archive-tar-minitar (~> 0.5)
+      hoe (>= 1.8.3)
+      nokogiri (~> 1.2)
+      rcov (~> 0.8)
     mixlib-authentication (1.1.2)
       mixlib-log
     mixlib-cli (1.2.0)
@@ -126,24 +147,17 @@ GEM
     mixlib-log (1.3.0)
     moneta (0.6.0)
     msgpack (0.4.4)
-    msgpack (0.4.4-x86-mswin32)
-    net-ssh (2.6.6)
-    net-ssh-gateway (1.1.0)
-      net-ssh (>= 1.99.1)
+    net-ssh (2.6.7)
+    net-ssh-gateway (1.2.0)
+      net-ssh (>= 2.6.5)
     net-ssh-multi (1.1)
       net-ssh (>= 2.1.4)
       net-ssh-gateway (>= 0.99.0)
-    ohai (0.6.12.1)
-      ipaddress
-      mixlib-cli
-      mixlib-config
-      mixlib-log
-      right_popen (~> 1.0, >= 1.0.21)
-      systemu
-      yajl-ruby
+    nokogiri (1.5.9)
     polyglot (0.3.3)
-    rake (0.8.7)
+    rake (10.0.4)
     rbx-require-relative (0.0.9)
+    rcov (0.9.11)
     rest-client (1.6.7)
       mime-types (>= 1.16)
     right_aws (3.0.5)
@@ -155,50 +169,26 @@ GEM
       ruby-debug-base (~> 0.10.4.0)
     ruby-debug-base (0.10.4)
       linecache (>= 0.3)
-    ruby-debug-base (0.10.4-x86-mswin32)
-      linecache (>= 0.3)
     ruby-openid (2.1.8)
-    ruby-wmi (0.2.2)
-      hoe (>= 1.4.0)
     rubyforge (1.0.4)
     stomp (1.1)
     systemu (2.5.2)
-    treetop (1.4.10)
+    treetop (1.4.12)
       polyglot
       polyglot (>= 0.3.1)
     trollop (2.0)
     uuidtools (2.1.2)
-    win32-api (1.4.5-x86-mswin32)
-    win32-dir (0.3.5)
-      windows-pr (>= 0.9.3)
-    win32-eventlog (0.5.2)
-      windows-pr (>= 0.9.3)
-    win32-open3 (0.3.2-x86-mswin32)
-    win32-pipe (0.2.1)
-      windows-pr (>= 1.0.6)
-    win32-process (0.6.1)
-      windows-pr (>= 1.0.5)
-    win32-service (0.7.2-x86-mswin32)
-      windows-pr (>= 1.0.8)
-    win32console (1.3.2-x86-mswin32)
-    windows-api (0.4.0)
-      win32-api (>= 1.4.5)
-    windows-pr (1.0.8)
-      win32-api (>= 1.4.5)
-      windows-api (>= 0.3.0)
     yajl-ruby (1.1.0)
-    yajl-ruby (1.1.0-x86-mswin32)
 
 PLATFORMS
   ruby
-  x86-mswin32
 
 DEPENDENCIES
   abstract (= 1.0.0)
   bunny (= 0.6.0)
-  chef (= 0.10.10.3)
+  chef (~> 0.10.10.4)!
   erubis (= 2.6.5)
-  eventmachine (= 1.0.0.2)
+  eventmachine (~> 1.0.0.2)
   extlib (= 0.9.15)
   flexmock (~> 0.8)
   highline (= 1.6.9)
@@ -212,7 +202,7 @@ DEPENDENCIES
   mixlib-shellout (~> 1.0.0.2)!
   moneta (= 0.6.0)
   msgpack (= 0.4.4)
-  ohai (= 0.6.12.1)
+  ohai (= 0.6.12.2)!
   rake
   rest-client (= 1.6.7)
   right_agent (~> 0.14)!

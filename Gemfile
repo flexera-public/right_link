@@ -19,18 +19,24 @@ gem 'right_scraper', '~> 3.2',
 gem 'right_popen', '~> 1.1',
     :git => 'git://github.com/rightscale/right_popen.git',
     :branch => 'teal_13_05_acu81706_incorporate_process_watcher_as_popen3_sync'
-gem 'mixlib-shellout', '~> 1.0.0.2',
-    :git => 'git@github.com:rightscale/mixlib-shellout.git',
-    :branch => 'teal_13_05_acu81706_incorporate_process_watcher_as_popen3_sync'
 
 # We have custom builds of some gems containing fixes and patches that are specific
 # to RightScale. Gems in the "custom" group are published by RightScale to our
 # custom gem repository (http://s3.amazonaws.com/rightscale_rightlink_gems_dev).
 group :custom do
-  gem 'chef',            "0.10.10.3"
-  gem 'ohai',            "0.6.12.1"
-  # gem 'mixlib-shellout', "1.0.0.2"  # restore this ref after gem is built from source and uploaded
-  gem "eventmachine",    "1.0.0.2"
+  gem 'chef',            '~> 0.10.10.4',
+      :git => 'git@github.com:rightscale/chef.git',
+      :branch => 'teal_13_05_acu81706_incorporate_process_watcher_as_popen3_sync'
+
+  gem 'ohai',            '0.6.12.2',
+      :git => 'git@github.com:rightscale/ohai.git',
+      :branch => 'teal_13_05_acu81706_incorporate_process_watcher_as_popen3_sync'
+
+  gem 'mixlib-shellout', '~> 1.0.0.2',
+      :git => 'git@github.com:rightscale/mixlib-shellout.git',
+      :branch => 'teal_13_05_acu81706_incorporate_process_watcher_as_popen3_sync'
+
+  gem "eventmachine",    '~> 1.0.0.2'
 end
 
 # We use some gems on both platforms, but the maintainer of the gem does not publish
@@ -41,7 +47,7 @@ end
 # mswin-platform gem for every one of the gems below AND published it to
 # the rightscale custom gem repository.
 group :not_windows_friendly do
-  gem "json",                  "1.4.6"
+  gem 'json', '1.4.6'
 end
 
 # These dependencies are included in the gemspec via a dirty hack. We declare them
