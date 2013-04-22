@@ -157,7 +157,7 @@ GEM
     polyglot (0.3.3)
     rake (0.8.7)
     rbx-require-relative (0.0.9)
-    rcov (0.9.11)
+    rcov (0.8.1.2.0)
     rest-client (1.6.7)
       mime-types (>= 1.16)
     right_aws (3.0.5)
@@ -204,6 +204,7 @@ DEPENDENCIES
   msgpack (= 0.4.4)
   ohai (= 0.6.12.3)!
   rake (= 0.8.7)
+  rcov (~> 0.8.1)
   rest-client (= 1.6.7)
   right_agent (~> 0.14)!
   right_amqp (~> 0.6)!

@@ -47,7 +47,6 @@ end
 # mswin-platform gem for every one of the gems below AND published it to
 # the rightscale custom gem repository.
 group :not_windows_friendly do
-  gem 'rake', '0.8.7'
   gem 'json', '1.4.6'
 end
 
@@ -71,6 +70,8 @@ group :windows do
 end
 
 group :development do
+  gem 'rake', '0.8.7'
+  gem 'rcov', '~> 0.8.1'
   gem "ruby-debug"
   gem "rspec",                 "~> 1.3"
   gem "flexmock",              "~> 0.8"
