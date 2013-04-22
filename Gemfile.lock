@@ -155,7 +155,7 @@ GEM
       net-ssh-gateway (>= 0.99.0)
     nokogiri (1.5.9)
     polyglot (0.3.3)
-    rake (10.0.4)
+    rake (0.8.7)
     rbx-require-relative (0.0.9)
     rcov (0.9.11)
     rest-client (1.6.7)
@@ -203,7 +203,7 @@ DEPENDENCIES
   moneta (= 0.6.0)
   msgpack (= 0.4.4)
   ohai (= 0.6.12.3)!
-  rake
+  rake (= 0.8.7)
   rest-client (= 1.6.7)
   right_agent (~> 0.14)!
   right_amqp (~> 0.6)!
