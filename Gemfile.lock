@@ -22,7 +22,7 @@ GIT
 
 GIT
   remote: git://github.com/rightscale/right_popen.git
-  revision: 7a618cb7512747c4311c796cf8519564545b9050
+  revision: b8df20c8ab3bfe10550ce41cca1b2cd319f54758
   branch: teal_13_05_acu81706_incorporate_process_watcher_as_popen3_sync
   specs:
     right_popen (1.1.1)
@@ -77,7 +77,7 @@ GIT
 
 GIT
   remote: git@github.com:rightscale/mixlib-shellout.git
-  revision: 2d1fa567bc002f40d1382c5da661e9a7f35cf190
+  revision: 7c1ee514feefa073be2df42f73e5f322e14e9774
   branch: teal_13_05_acu81706_incorporate_process_watcher_as_popen3_sync
   specs:
     mixlib-shellout (1.0.0.2)
