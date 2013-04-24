@@ -7,7 +7,6 @@
 #   system --action=hostname
 #   system --action=ssh
 #   system --action=proxy
-#   system --action=sudoers
 #
 # === Usage
 #    system --action=<action> [options]
@@ -202,34 +201,6 @@ module RightScale
          puts "Proxy settings not found in userdata; continuing without."
       end
     end
-
-    def configure_sudoers
-      return 0 unless Platform.linux?
-      puts "Configuring /etc/sudoers to ensure rightscale users/groups have sufficient privileges"
-
-      masks = [
-        /%?(#{SUDO_GROUP}|#{SUDO_USER}) ALL=(\(ALL\))?NOPASSWD: ALL/,
-        /Defaults:(#{SUDO_GROUP}|#{SUDO_USER}) !requiretty/,
-        /# RightScale/
-      ]
-
-      begin
-        lines = File.readlines('/etc/sudoers')
-        file = File.open("/etc/sudoers", "w")
-        lines.each do |line|
-          line.strip!
-          next if masks.any? { |m| line =~ m }
-          file.puts line
-        end
-
-        file.puts("# RightScale: please leave these rules in place, else RightLink may not function")
-        file.puts("#{SUDO_USER} ALL=(ALL)NOPASSWD: ALL")
-        file.puts("%#{SUDO_GROUP} ALL=NOPASSWD: ALL")
-        file.puts("Defaults:#{SUDO_USER} !requiretty")
-        file.puts("Defaults:#{SUDO_GROUP} !requiretty")
-        file.close
-      end
-   end
 
     protected
 

@@ -128,11 +128,19 @@ module RightScale
           File.open(input_path, "w") { |f| f.write(input_text) }
           input_text = nil
           cmd_exe_path = File.normalize_path(ENV['ComSpec']).gsub("/", "\\")
-          ruby_exe_path = File.normalize_path(AgentConfig.sandbox_ruby_cmd).gsub("/", "\\")
+          ruby_exe_path = File.normalize_path(AgentConfig.ruby_cmd).gsub("/", "\\")
           input_path = input_path.gsub("/", "\\")
           cmd = "#{cmd_exe_path} /C type \"#{input_path}\" | #{ruby_exe_path} #{cook_path_and_arguments}"
         else
-          cmd = "#{AgentConfig.sandbox_ruby_cmd} #{cook_path_and_arguments}"
+          # WARNING - always ensure cmd is a String, never an Array of command parts.
+          #
+          # right_popen handles single-String arguments using "sh -c #{cmd}" which ensures
+          # we are invoked through a shell which will parse shell config files and ensure that
+          # changes to system PATH, etc are freshened on every converge.
+          #
+          # If we pass cmd as an Array, right_popen uses the Array form of exec without an
+          # intermediate shell, and system config changes will not be picked up.
+          cmd = "#{AgentConfig.ruby_cmd} #{cook_path_and_arguments}"
         end
 
         EM.next_tick do

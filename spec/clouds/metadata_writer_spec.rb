@@ -111,7 +111,7 @@ describe RightScale::MetadataWriter do
       end
       f.puts "exit 0"
     end
-    interpreter = File.normalize_path(RightScale::AgentConfig.sandbox_ruby_cmd)
+    interpreter = File.normalize_path(RightScale::AgentConfig.ruby_cmd)
     output = `#{interpreter} #{verify_file_path}`
     $?.success?.should be_true
     output.strip.should == ::RightScale::MetadataWriterSpec::GENERATION_COMMAND_OUTPUT

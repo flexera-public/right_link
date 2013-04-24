@@ -1,19 +1,18 @@
 source 'http://s3.amazonaws.com/rightscale_rightlink_gems_dev'
-source 'https://rubygems.org'
+source 'https://rubygems.org' 
 
 gemspec
 
 # Fresh off the assembly line
-gem 'right_support',   :git => 'git://github.com/rightscale/right_support.git',
-                       :branch => 'teal_13_02_acu73023_mingw_193_discovery'
-gem 'right_agent',     :git => 'git://github.com/rightscale/right_agent.git',
-                       :branch => 'teal_13_02_acu73023_mingw_193_discovery'
-gem 'right_amqp' ,     :git => 'git://github.com/rightscale/right_amqp.git',
-                       :branch => 'teal_13_02_acu73023_mingw_193_discovery'
-gem 'right_scraper',   :git => 'git://github.com/rightscale/right_scraper.git',
-                       :branch => "teal_13_02_acu73023_mingw_193_discovery"
-gem 'process_watcher', :git => 'git@github.com:rightscale/process_watcher.git',
-                       :branch => "master"
+gem 'right_support', '~> 2.0',
+    :git => 'git://github.com/rightscale/right_support.git',
+    :branch => 'master'
+gem 'right_agent', '~> 0.14',
+    :git => 'git://github.com/rightscale/right_agent.git',
+    :branch => 'master'
+gem 'right_amqp', '~> 0.6',
+    :git => 'git://github.com/rightscale/right_amqp.git',
+    :branch => 'master'
 
 # We have custom builds of some gems containing fixes and patches that are specific
 # to RightScale. Gems in the "custom" group are published by RightScale to our
@@ -47,4 +46,29 @@ group :development do
   gem "ruby-debug",   :platforms => :mri_18
   gem "ruby-debug19", :platforms => :mri_19
   gem "win32console", :platforms => [:mswin, :mingw]
+end
+
+# Gems that are transitive dependencies of our direct deps, which we lock
+# for paranoia's sake because we had them version locked in the pre-Gemfile
+# days. Eventually we should stop version-locking these and let them 'float'
+# as defined by our direct dependencies, and by Gemfile.lock.
+group :stable do
+  gem "stomp",                 "1.1"
+  gem "ruby-openid",           "2.1.8"
+  gem "abstract",              "1.0.0"
+  gem "erubis",                "2.6.5"
+  gem "extlib",                "0.9.15"
+  gem "mixlib-authentication", "1.1.2"
+  gem "mixlib-cli",            "1.2.0"
+  gem "mixlib-config",         "1.1.2"
+  gem "mixlib-log",            "1.3.0"
+  gem "hoe",                   "2.3.3"
+  gem "moneta",                "0.6.0"
+  gem "bunny",                 "0.6.0"
+  gem "process_watcher",       "0.4"
+  gem "highline",              "1.6.9"
+  gem "uuidtools",             "2.1.2"
+  gem "mime-types",            "1.16"
+  gem "rest-client",           "1.6.7"
+  gem "msgpack",               "0.4.4"
 end

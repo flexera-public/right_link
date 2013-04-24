@@ -202,12 +202,6 @@ module RightScale
       # Chef run mode is always solo for cook
       Chef::Config[:solo] = true
 
-      # Chef tries to "helpfully" ensure that the Ruby interpreter and gem binary used to invoke
-      # Chef are on the path. This contravenes our intended usage of the RightScale sandbox and
-      # interferes with various gem management operations. For now, turn off path sanity and fall
-      # back to our traditional behavior.
-      Chef::Config[:enforce_path_sanity] = false
-
       # determine default cookbooks path.  If debugging cookbooks, place the debug pat(s) first, otherwise
       # clear out the list as it will be filled out with cookbooks needed for this converge as they are downloaded.
       if CookState.use_cookbooks_path?
@@ -442,23 +436,26 @@ module RightScale
     # === Return
     # true:: always returns true
     def download_cookbook(root_dir, cookbook)
-      #audit cookbook name & part of hash (as a disambiguator)
-      name = cookbook.name ; tag  = cookbook.hash[0..4]
-      @audit.append_info("Downloading cookbook '#{name}' (#{tag})")
-
+      cache_dir = File.join(AgentConfig.cache_dir, "right_link", "cookbooks")
+      cookbook_tarball = File.join(cache_dir, "#{cookbook.hash.split('?').first}.tar")
       begin
-        tarball = Tempfile.new("tarball")
-        tarball.binmode
-        @downloader.download("/cookbooks/#{cookbook.hash}") do |response|
-          tarball << response
+        FileUtils.mkdir_p(cache_dir)
+        File.open(cookbook_tarball, "ab") do |tarball|
+          if tarball.stat.size == 0
+            #audit cookbook name & part of hash (as a disambiguator)
+            name = cookbook.name ; tag  = cookbook.hash[0..4]
+            @audit.append_info("Downloading cookbook '#{name}' (#{tag})")
+            @downloader.download("/cookbooks/#{cookbook.hash}") do |response|
+              tarball << response
+            end
+            @audit.append_info(@downloader.details)
+          end
         end
-        tarball.close
       rescue Exception => e
-        tarball.close unless tarball.nil?
-        raise e
+        File.unlink(cookbook_tarball) if File.exists?(cookbook_tarball)
+        raise
       end
 
-      @audit.append_info(@downloader.details)
       @audit.append_info("Success; unarchiving cookbook")
 
       # The local basedir is the faux "repository root" into which we extract all related
@@ -476,7 +473,7 @@ module RightScale
       FileUtils.mkdir_p(root_dir)
 
       Dir.chdir(root_dir) do
-        output, status = ProcessWatcher.run('tar', 'xf', tarball.path)
+        output, status = ProcessWatcher.run('tar', 'xf', cookbook_tarball)
         unless status.success?
           report_failure("Unknown error", SubprocessFormatting.reason(status))
           return
@@ -484,7 +481,6 @@ module RightScale
           @audit.append_info(output)
         end
       end
-      tarball.close(true)
       return true
     end
 

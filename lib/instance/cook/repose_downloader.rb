@@ -30,6 +30,16 @@ module RightScale
     # Environment variables to examine for proxy settings, in order.
     PROXY_ENVIRONMENT_VARIABLES = ['HTTPS_PROXY', 'HTTP_PROXY', 'http_proxy', 'ALL_PROXY']
 
+    # Class names of exceptions to be re-raised as a ConnectionException
+    CONNECTION_EXCEPTIONS = ['Errno::ECONNREFUSED', 'Errno::ETIMEDOUT', 'SocketError',
+                             'RestClient::InternalServerError', 'RestClient::RequestTimeout']
+
+    # max timeout 8 (2**3) minutes for each retry
+    RETRY_BACKOFF_MAX = 3
+
+    # retry 5 times maximum
+    RETRY_MAX_ATTEMPTS = 5
+
     class ConnectionException < Exception; end
     class DownloadException < Exception; end
 
@@ -58,7 +68,7 @@ module RightScale
     #
     # === Return
     # @return [Downloader]
-
+    #
     def initialize(hostnames)
       raise ArgumentError, "At least one hostname must be provided" if hostnames.empty?
       hostnames = [hostnames] unless hostnames.respond_to?(:each)
@@ -80,21 +90,27 @@ module RightScale
     # === Block
     # @yield [] A block is mandatory
     # @yieldreturn [String] The stream that is being fetched
-
+    #
     def download(resource)
       client              = get_http_client
       @size               = 0
       @speed              = 0
       @sanitized_resource = sanitize_resource(resource)
       resource            = parse_resource(resource)
+      attempts            = 0
 
       begin
         balancer.request do |endpoint|
           RightSupport::Net::SSL.with_expected_hostname(ips[endpoint]) do
             logger.info("Requesting '#{sanitized_resource}' from '#{endpoint}'")
 
+            attempts += 1
             t0 = Time.now
-            client.get("https://#{endpoint}:443#{resource}", {:verify_ssl => OpenSSL::SSL::VERIFY_PEER, :ssl_ca_file => get_ca_file, :headers => {:user_agent => "RightLink v#{AgentConfig.protocol_version}"}}) do |response, request, result|
+
+            # Previously we accessed RestClient directly and used it's wrapper method to instantiate 
+            # a RestClient::Request object.  This wrapper was not passing all options down the stack
+            # so now we invoke the RestClient::Request object directly, passing it our desired options
+            client.execute(:method => :get, :url => "https://#{endpoint}:443#{resource}", :timeout => calculate_timeout(attempts), :verify_ssl => OpenSSL::SSL::VERIFY_PEER, :ssl_ca_file => get_ca_file, :headers => {:user_agent => "RightLink v#{AgentConfig.protocol_version}"}) do |response, request, result|
               if result.kind_of?(Net::HTTPSuccess)
                 @size = result.content_length
                 @speed = @size / (Time.now - t0)
@@ -106,9 +122,10 @@ module RightScale
           end
         end
       rescue Exception => e
-        message = parse(e)
+        list = parse_exception_message(e)
+        message = list.join(", ")
         logger.error("Request '#{sanitized_resource}' failed - #{message}")
-        raise ConnectionException, message if message.include?('Errno::ECONNREFUSED') || message.include?('Errno::ETIMEDOUT') || message.include?('SocketError') || message.include?('RestClient::InternalServerError') || message.include?('RestClient::RequestTimeout')
+        raise ConnectionException, message unless (list & CONNECTION_EXCEPTIONS).empty?
         raise DownloadException, message
       end
     end
@@ -117,7 +134,7 @@ module RightScale
     #
     # === Return
     # @return [String] Message with last downloaded resource, download size and speed
-
+    #
     def details
       "Downloaded '#{@sanitized_resource}' (#{ scale(size.to_i).join(' ') }) at #{ scale(speed.to_i).join(' ') }/s"
     end
@@ -136,16 +153,22 @@ module RightScale
     # === Return
     # @return [Hash]
     #   * :key [<String>] a key (IP Address) that accepts a hostname string as it's value
-
+    #
     def resolve(hostnames)
       ips = {}
       hostnames.each do |hostname|
         infos = nil
+        attempts = RETRY_MAX_ATTEMPTS
         begin
           infos = Socket.getaddrinfo(hostname, 443, Socket::AF_INET, Socket::SOCK_STREAM, Socket::IPPROTO_TCP)
         rescue Exception => e
-          logger.error "Failed to resolve hostnames: #{e.class.name}: #{e.message}"
-          raise e
+          if attempts > 0
+            attempts -= 1
+            retry
+          else
+            logger.error "Failed to resolve hostnames: #{e.class.name}: #{e.message}"
+            raise e
+          end
         end
 
         # Randomly permute the addrinfos of each hostname to help spread load.
@@ -167,7 +190,7 @@ module RightScale
     #
     # === Block
     # @return [String] The parsed URI
-
+    #
     def parse_resource(resource)
       resource = URI::parse(resource)
       raise ArgumentError, "Invalid resource provided.  Resource must be a fully qualified URL" unless resource
@@ -182,17 +205,18 @@ module RightScale
     #
     # === Parameters
     # @param [Exception] Exception to parse
-
+    #
     # === Return
-    # @return [String] List of Exceptions
+    # @return [Array] List of exception class names
 
-    def parse(e)
+    def parse_exception_message(e)
       if e.kind_of?(RightSupport::Net::NoResult)
-        message = e.message.split("Exceptions: ")[1]
+        # Expected format of exception message: "... endpoints: ('<ip address>' => <exception class name array>, ...)""
+        i = 0
+        e.message.split(/\[|\]/).select {((i += 1) % 2) == 0 }.map { |s| s.split(/,\s*/) }.flatten
       else
-        message = e.class.name
+        [e.class.name]
       end
-      message
     end
 
     # Create and return a RequestBalancer instance
@@ -205,21 +229,36 @@ module RightScale
     #
     # === Return
     # @return [RightSupport::Net::RequestBalancer]
-
+    #
     def balancer
       @balancer ||= RightSupport::Net::RequestBalancer.new(
-          ips.keys,
-          :policy => RightSupport::Net::LB::Sticky,
-          :fatal  => lambda do |e|
-            if RightSupport::Net::RequestBalancer::DEFAULT_FATAL_EXCEPTIONS.any? { |c| e.is_a?(c) }
-              true
-            elsif e.respond_to?(:http_code) && (e.http_code != nil)
-              (e.http_code >= 400 && e.http_code < 500) && (e.http_code != 408 && e.http_code != 500 )
-            else
-              false
-            end
+        ips.keys,
+        :policy => RightSupport::Net::LB::Sticky,
+        :retry  => RETRY_MAX_ATTEMPTS,
+        :fatal  => lambda do |e|
+          if RightSupport::Net::RequestBalancer::DEFAULT_FATAL_EXCEPTIONS.any? { |c| e.is_a?(c) }
+            true
+          elsif e.respond_to?(:http_code) && (e.http_code != nil)
+            (e.http_code >= 400 && e.http_code < 500) && (e.http_code != 408 && e.http_code != 500 )
+          else
+            false
           end
+        end
       )
+    end
+
+    # Exponential incremental timeout algorithm.  Returns the amount of 
+    # of time to wait for the next iteration
+    #
+    # === Parameters
+    # @param [String] Number of attempts
+    #
+    # === Return
+    # @return [Integer] Timeout to use for next iteration
+    #
+    def calculate_timeout(attempts)
+      timeout_exponent = [attempts, RETRY_BACKOFF_MAX].min
+      (2 ** timeout_exponent) * 60
     end
 
     # Returns a path to a CA file
@@ -230,7 +269,7 @@ module RightScale
     #
     # === Return
     # @return [String] Path to a CA file
-
+    #
     def get_ca_file
       ca_file = File.normalize_path(File.join(File.dirname(__FILE__), 'ca-bundle.crt'))
     end
@@ -242,10 +281,11 @@ module RightScale
     #
     # === Return
     # @return [RestClient]
-
+    #
     def get_http_client
       RestClient.proxy = @proxy.to_s if @proxy
       RestClient
+      RestClient::Request
     end
 
     # Return a sanitized value from given argument
@@ -258,7 +298,7 @@ module RightScale
     #
     # === Return
     # @return [String] 'Resource' portion of resource provided
-
+    #
     def sanitize_resource(resource)
       URI::split(resource)[5].split("/").last
     end
@@ -273,7 +313,7 @@ module RightScale
     #
     # === Return
     # @return <[Integer], [String]> First element is scaled value, second element is scale
-
+    #
     def scale(value)
       case value
         when 0..1023

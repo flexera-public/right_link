@@ -58,6 +58,7 @@ class Chef
         @resource_name = :right_script
         @cache_dir = ::File.join(DEFAULT_CACHE_DIR_ROOT, RightScale::AgentIdentity.generate)
         @parameters = {}
+        @display_version = nil
         @action = :run
         @allowed_actions.push(:run)
       end
@@ -86,6 +87,15 @@ class Chef
           :parameters,
           arg,
           :kind_of => [ Hash ]
+        )
+      end
+
+      # (String) Displayable version for RightScript (revision, etc.) or nil
+      def display_version(arg=nil)
+        set_or_return(
+          :display_version,
+          arg,
+          :kind_of => [ String ]
         )
       end
 

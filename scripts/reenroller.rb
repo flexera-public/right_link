@@ -55,29 +55,20 @@ module RightScale
         print 'Stopping RightLink daemon...' if options[:verbose]
         pid_file = AgentConfig.pid_file('instance')
         pid = pid_file ? pid_file.read_pid[:pid] : nil
-        system('/opt/rightscale/sandbox/bin/monit -c /opt/rightscale/etc/monitrc stop checker')
-        system('/opt/rightscale/sandbox/bin/monit -c /opt/rightscale/etc/monitrc stop instance')
+        system('/opt/rightscale/bin/rchk --stop')
         # Wait for agent process to terminate
         retries = 0
-        while process_running?(pid) && retries < 20
+        while process_running?(pid) && retries < 40
           sleep(0.5)
           retries += 1
           print '.' if options[:verbose]
         end
         puts to_ok(!process_running?(pid)) if options[:verbose]
-        # Kill it if it's still alive after ~ 10 sec
+        # Kill it if it's still alive after ~ 20 sec
         if process_running?(pid)
           print 'Forcing RightLink daemon to exit...' if options[:verbose]
           res = Process.kill('KILL', pid) rescue nil
           puts to_ok(res) if options[:verbose]
-        end
-        # Now stop monit so it doesn't get in the way
-        system('/opt/rightscale/sandbox/bin/monit -c /opt/rightscale/etc/monitrc quit')
-        pid_file = '/opt/rightscale/var/run/monit.pid'
-        pid = File.exist?(pid_file) ? IO.read(pid_file).to_i : nil
-        while pid && process_running?(pid) do
-          puts 'Waiting for monit to exit...' if options[:verbose]
-          sleep(1)
         end
         cleanup_certificates(options)
 
