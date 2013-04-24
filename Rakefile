@@ -8,7 +8,11 @@ require 'rake/clean'
 require 'fileutils'
 
 # Extra components of gems that were activated above
-require 'spec/rake/spectask'
+begin
+  require 'spec/rake/spectask'
+rescue ::LoadError => e
+  warn "Test gems are not installed so test tasks will not work properly: #{e.message}"
+end
 
 # Project-specific dependencies
 RIGHT_LINK_ROOT = File.dirname(__FILE__)
