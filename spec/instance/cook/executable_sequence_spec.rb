@@ -160,6 +160,10 @@ describe RightScale::ExecutableSequence do
       end
 
       it 'should delete cookbook file from hash if any exception occured during downloading' do
+        # ensure expected tar file is gone (in case of spurious failure to
+        # delete the temp dir in Windows).
+        ::File.unlink(expected_tar_file) if ::File.file?(expected_tar_file)
+        ::File.exists?(expected_tar_file).should be_false
         @mock_repose_downloader.should_receive(:download).once.and_raise(::NotImplementedError)
         expect { sequence.send(:download_cookbook, root_dir, cookbook) }.to raise_error(::NotImplementedError)
         ::File.exists?(expected_tar_file).should be_false
