@@ -22,6 +22,8 @@
 
 require File.join(File.dirname(__FILE__), 'spec_helper')
 require 'right_scraper'
+require 'tmpdir'
+require 'fileutils'
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'lib', 'chef', 'plugins'))
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'lib', 'chef', 'right_providers'))
 
@@ -44,16 +46,25 @@ describe RightScale::ExecutableSequence do
     it_should_behave_like 'mocks shutdown request proxy'
     it_should_behave_like 'mocks metadata'
 
+    def format_script_text(exit_code)
+      platform = RightScale::Platform
+      return platform.windows? ?
+             "exit #{exit_code}" :
+             "#!/bin/sh\nruby -e 'exit(#{exit_code})'"
+    end
+
     before(:all) do
       flexmock(RightScale::Log).should_receive(:debug)
-      @attachment_file = File.normalize_path(File.join(File.dirname(__FILE__), '__test_download__'))
-      File.open(@attachment_file, 'w') { |f| f.write('Some attachment content') }
-      platform = RightScale::Platform
-      @cache_dir = File.normalize_path(File.join(platform.filesystem.temp_dir, 'executable_sequence_spec'))
+      @attachment_file = ::File.normalize_path(File.join(File.dirname(__FILE__), 'fixtures', 'rightscripts', 'test_attachment.txt'))
+      @cookbook_tarball_path = ::File.expand_path(::File.join(::File.dirname(__FILE__), 'fixtures', 'chef', 'right_link_test.tar'))
+      @temp_dir = ::File.join(::Dir.tmpdir, 'executable_sequence_spec_4d07b63a50fd3f688378fad0b93d97ea')
+      @cache_dir = File.normalize_path(File.join(@temp_dir, 'cache'))
       Chef::Resource::RightScript.const_set(:DEFAULT_CACHE_DIR_ROOT, @cache_dir)
     end
 
     before(:each) do
+      FileUtils.mkdir_p(@cache_dir)
+
       setup_state
       setup_script_execution
       @script = flexmock(
@@ -88,7 +99,7 @@ describe RightScale::ExecutableSequence do
       # Mock out Actual Repose downloader
       @mock_repose_downloader = flexmock('Repose Downloader')
       @mock_repose_downloader.should_receive(:logger=).once.and_return(logger)
-      @mock_repose_downloader.should_receive(:download).and_return("OK")
+      @mock_repose_downloader.should_receive(:download).and_return("OK").by_default
       @mock_repose_downloader.should_receive(:details).and_return("details")
       flexmock(RightScale::ReposeDownloader).should_receive(:new).and_return(@mock_repose_downloader)
       flexmock(Socket).should_receive(:getaddrinfo) \
@@ -99,164 +110,164 @@ describe RightScale::ExecutableSequence do
       Chef::Config[:cookbook_path] = []
     end
 
+    after(:each) do
+      FileUtils.rm_rf(@temp_dir) rescue nil if @temp_dir
+    end
+
     after(:all) do
       cleanup_state
       cleanup_script_execution
-      FileUtils.rm(@attachment_file) if @attachment_file
-      FileUtils.rm_rf(@cache_dir) if @cache_dir
     end
 
-    # Run sequence and print out exceptions
-    def run_sequence
-      res = nil
-      run_em_test(:timeout => 60) do
-        @sequence.callback { res = true;  stop_em_test }
-        @sequence.errback  { res = false; stop_em_test }
-        @sequence.run
-      end
-      res
-    end
+    context 'with a cookbook to download' do
 
-    def format_script_text(exit_code)
-      platform = RightScale::Platform
-      return platform.windows? ?
-             "exit #{exit_code}" :
-             "#!/bin/sh\nruby -e 'exit(#{exit_code})'"
-    end
+      let(:root_dir) { ::File.join(@temp_dir, 'untarred') }
+      let(:sequence) { ::RightScale::ExecutableSequence.new(@bundle) }
+      let(:cookbook_hash) { '85520db875d938ca4c5e9b984e95eed3' }
+      let(:cookbook) { flexmock(:hash => cookbook_hash, :name => "Cookbook") }
+      let(:expected_tar_dir) { ::File.join(@cache_dir, 'right_link', 'cookbooks') }
+      let(:expected_tar_file) { ::File.join(expected_tar_dir, "#{cookbook_hash}.tar") }
 
-    def cookbook_download_test_env(file_size=0)
-      @script.should_receive(:packages).and_return(nil)
-      @script.should_receive(:source).and_return(format_script_text(0))
-      @sequence = RightScale::ExecutableSequence.new(@bundle)
-      cache_dir = File.join("/tmp", "right_link_spec_helper", 'cache', "right_link", "cookbooks")
-      cookbook = flexmock(:hash => "85520db875d938ca4c5e9b984e95eed3", :name => "Cookbook")
-      file = flexmock('File')
-      file.should_receive(:stat).and_return(flexmock(:size => file_size))
-      file.should_receive(:close)
-      file.should_receive(:path).and_return(File.join(cache_dir, "85520db875d938ca4c5e9b984e95eed3.tar"))
-      flexmock(FileUtils).should_receive(:mkdir_p).with(cache_dir)
-      flexmock(FileUtils).should_receive(:mkdir_p).with("tmp").and_return { Dir.mkdir("tmp") unless File.directory?("tmp") }
-      flexmock(File).should_receive(:open).with(File.join(cache_dir, "85520db875d938ca4c5e9b984e95eed3.tar"), "ab", Proc).and_yield(file)
-      cookbook
-    end
-
-    it 'should cache downloaded cookbooks' do
-      begin
-        cookbook = cookbook_download_test_env
-        @sequence.send(:download_cookbook, "tmp", cookbook)
-        run_sequence
-      ensure
-        @sequence = nil
-      end
-    end
-
-    it 'should not download cookbook if it has already been downloaded' do
-      begin
-        cookbook = cookbook_download_test_env(123)
-        @mock_repose_downloader.should_receive(:download).never
-        @sequence.send(:download_cookbook, "tmp", cookbook)
-        run_sequence
-      ensure
-        @sequence = nil
-      end
-    end
-
-    it 'should delete cookbook file from hash if any exception occured during downloading' do
-      begin
-        cookbook = cookbook_download_test_env
-        @mock_repose_downloader.should_receive(:download).and_raise(Exception)
-        flexmock(File).should_receive(:unlink)
-        @sequence.send(:download_cookbook, "tmp", cookbook)
-        run_sequence
-      ensure
-        @sequence = nil
-      end
-    end
-
-    it 'should report success' do
-      begin
+      before(:each) do
         @script.should_receive(:packages).and_return(nil)
         @script.should_receive(:source).and_return(format_script_text(0))
+        flexmock(::RightScale::AgentConfig).should_receive(:cache_dir).and_return(@cache_dir)
+      end
+
+      after(:each) do
+        ::FileUtils.rm_rf(root_dir) if File.directory?(root_dir)
+      end
+
+      it 'should cache downloaded cookbooks' do
+        @mock_repose_downloader.
+          should_receive(:download).
+          once.
+          with("/cookbooks/#{cookbook_hash}", Proc).
+          and_yield(::File.open(@cookbook_tarball_path, 'rb')  {|f| f.read })
+        sequence.send(:download_cookbook, root_dir, cookbook)
+        ::File.exists?(expected_tar_file).should be_true
+        ::File.directory?(::File.join(root_dir, 'cookbooks')).should be_true
+      end
+
+      it 'should not download cookbook if it has already been downloaded' do
+        ::FileUtils.mkdir_p(expected_tar_dir)
+        ::FileUtils.cp(@cookbook_tarball_path, expected_tar_file)
+        ::File.file?(expected_tar_file).should be_true
+        @mock_repose_downloader.should_receive(:download).never
+        sequence.send(:download_cookbook, root_dir, cookbook)
+        ::File.exists?(expected_tar_file).should be_true
+        ::File.directory?(::File.join(root_dir, 'cookbooks')).should be_true
+      end
+
+      it 'should delete cookbook file from hash if any exception occured during downloading' do
+        # ensure expected tar file is gone (in case of spurious failure to
+        # delete the temp dir in Windows).
+        ::File.unlink(expected_tar_file) if ::File.file?(expected_tar_file)
+        ::File.exists?(expected_tar_file).should be_false
+        @mock_repose_downloader.should_receive(:download).once.and_raise(::NotImplementedError)
+        expect { sequence.send(:download_cookbook, root_dir, cookbook) }.to raise_error(::NotImplementedError)
+        ::File.exists?(expected_tar_file).should be_false
+        ::File.exists?(root_dir).should be_false
+      end
+    end
+
+    context 'with a runnable sequence containing a rightscript' do
+
+      # Run sequence and print out exceptions
+      def run_sequence
+        res = nil
+        run_em_test(:timeout => 60) do
+          @sequence.callback { res = true;  stop_em_test }
+          @sequence.errback  { res = false; stop_em_test }
+          @sequence.run
+        end
+        res
+      end
+
+      it 'should report success' do
+        begin
+          @script.should_receive(:packages).and_return(nil)
+          @script.should_receive(:source).and_return(format_script_text(0))
+          @sequence = RightScale::ExecutableSequence.new(@bundle)
+          flexmock(@sequence).should_receive(:install_packages).and_return(true)
+          attachment = flexmock('A1')
+          attachment.should_receive(:file_name).at_least.once.and_return('test_download')
+          attachment.should_receive(:url).at_least.once.and_return("file://#{@attachment_file}")
+          @script.should_receive(:attachments).at_least.once.and_return([ attachment ])
+          @auditor.should_receive(:append_error).and_return{|a| puts a.inspect }.never
+          result = run_sequence
+          @sequence.failure_message.should == nil
+          result.should be_true
+        ensure
+          @sequence = nil
+        end
+      end
+
+      it 'should audit failures' do
+        @script.should_receive(:packages).and_return(nil)
+        @script.should_receive(:source).and_return(format_script_text(1))
         @sequence = RightScale::ExecutableSequence.new(@bundle)
         flexmock(@sequence).should_receive(:install_packages).and_return(true)
-        attachment = flexmock('A1')
+        attachment = flexmock('A2')
         attachment.should_receive(:file_name).at_least.once.and_return('test_download')
         attachment.should_receive(:url).at_least.once.and_return("file://#{@attachment_file}")
+        @auditor.should_receive(:append_error)
         @script.should_receive(:attachments).at_least.once.and_return([ attachment ])
-        @auditor.should_receive(:append_error).and_return{|a| puts a.inspect }.never
+        flexmock(RightScale::Log).should_receive(:error)
         result = run_sequence
-        @sequence.failure_message.should == nil
-        result.should be_true
-      ensure
-        @sequence = nil
+        @sequence.failure_message.should_not == nil
+        result.should be_false
       end
-    end
 
-    it 'should audit failures' do
-      @script.should_receive(:packages).and_return(nil)
-      @script.should_receive(:source).and_return(format_script_text(1))
-      @sequence = RightScale::ExecutableSequence.new(@bundle)
-      flexmock(@sequence).should_receive(:install_packages).and_return(true)
-      attachment = flexmock('A2')
-      attachment.should_receive(:file_name).at_least.once.and_return('test_download')
-      attachment.should_receive(:url).at_least.once.and_return("file://#{@attachment_file}")
-      @auditor.should_receive(:append_error)
-      @script.should_receive(:attachments).at_least.once.and_return([ attachment ])
-      flexmock(RightScale::Log).should_receive(:error)
-      result = run_sequence
-      @sequence.failure_message.should_not == nil
-      result.should be_false
-    end
-
-    # Beware that this test will fail if run in an internet service environment that
-    # redirects 404's to one of their pages. If `curl http://thisurldoesnotexist.wrong`
-    # gives back html code, that is likely the cause of this test failing.
-    it 'should report invalid attachments' do
-      @script.should_receive(:packages).and_return(nil)
-      @script.should_receive(:source).and_return(format_script_text(0))
-      @sequence = RightScale::ExecutableSequence.new(@bundle)
-      attachment = flexmock('A3')
-      attachment.should_receive(:url).and_return("http://127.0.0.1:65534")
-      attachment.should_receive(:file_name).and_return("<FILENAME>") # to display any error message
-      downloader = RightScale::Downloader.new(retry_period=0.1, use_backoff=false)
-      @sequence.instance_variable_set(:@downloader, downloader)
-      @script.should_receive(:attachments).at_least.once.and_return([ attachment ])
-      @auditor.should_receive(:append_error)
-      @sequence.failure_title.should be_nil
-      @sequence.failure_message.should be_nil
-      run_sequence.should be_false
-      @sequence.failure_title.should_not be_nil
-      @sequence.failure_message.should_not be_nil
-    end
-
-    it 'should retry if ohai is not ready' do
-      begin
+      # Beware that this test will fail if run in an internet service environment that
+      # redirects 404's to one of their pages. If `curl http://thisurldoesnotexist.wrong`
+      # gives back html code, that is likely the cause of this test failing.
+      it 'should report invalid attachments' do
         @script.should_receive(:packages).and_return(nil)
         @script.should_receive(:source).and_return(format_script_text(0))
         @sequence = RightScale::ExecutableSequence.new(@bundle)
-        flexmock(@sequence).should_receive(:install_packages).and_return(true)
-        @script.should_receive(:attachments).at_least.once.and_return([])
-        @auditor.should_receive(:append_error).never
+        attachment = flexmock('A3')
+        attachment.should_receive(:url).and_return("http://127.0.0.1:65534")
+        attachment.should_receive(:file_name).and_return("<FILENAME>") # to display any error message
+        downloader = RightScale::Downloader.new(retry_period=0.1, use_backoff=false)
+        @sequence.instance_variable_set(:@downloader, downloader)
+        @script.should_receive(:attachments).at_least.once.and_return([ attachment ])
+        @auditor.should_receive(:append_error)
+        @sequence.failure_title.should be_nil
+        @sequence.failure_message.should be_nil
+        run_sequence.should be_false
+        @sequence.failure_title.should_not be_nil
+        @sequence.failure_message.should_not be_nil
+      end
 
-        # force check_ohai to retry.
-        mock_ohai = nil
-        flexmock(@sequence).should_receive(:create_ohai).twice.and_return do
-          if mock_ohai
-            mock_ohai[:hostname] = 'hostname'
-          else
-            mock_ohai = {}
+      it 'should retry if ohai is not ready' do
+        begin
+          @script.should_receive(:packages).and_return(nil)
+          @script.should_receive(:source).and_return(format_script_text(0))
+          @sequence = RightScale::ExecutableSequence.new(@bundle)
+          flexmock(@sequence).should_receive(:install_packages).and_return(true)
+          @script.should_receive(:attachments).at_least.once.and_return([])
+          @auditor.should_receive(:append_error).never
+
+          # force check_ohai to retry.
+          mock_ohai = nil
+          flexmock(@sequence).should_receive(:create_ohai).twice.and_return do
+            if mock_ohai
+              mock_ohai[:hostname] = 'hostname'
+            else
+              mock_ohai = {}
+            end
+            mock_ohai
           end
-          mock_ohai
+          result = run_sequence
+          @sequence.failure_message.should == nil
+          result.should be_true
+          mock_ohai.should == { :hostname => 'hostname' }
+        ensure
+          @sequence = nil
         end
-        result = run_sequence
-        @sequence.failure_message.should == nil
-        result.should be_true
-        mock_ohai.should == { :hostname => 'hostname' }
-      ensure
-        @sequence = nil
       end
     end
-
   end
 
   context 'Chef error formatting' do
