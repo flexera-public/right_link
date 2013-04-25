@@ -184,20 +184,20 @@ module RightScale
       lines_after_script = []
 
       command = shell.format_powershell_command4(
-              ::RightScale::Platform::Shell::POWERSHELL_V1x0_EXECUTABLE_PATH,
-              lines_before_script,
-              lines_after_script,
-              RUN_LOOP_SCRIPT_PATH)
+        ::RightScale::Platform::Shell::POWERSHELL_V1x0_EXECUTABLE_PATH,
+        lines_before_script,
+        lines_after_script,
+        RUN_LOOP_SCRIPT_PATH)
 
       Log.debug(format_log_message("Starting powershell process for host #{command}"))
 
-      RightScale.popen3(:command        => command,
-                        :environment    => nil,
-                        :target         => self,
-                        :stdout_handler => :on_read_output,
-                        :stderr_handler => :on_read_output,
-                        :exit_handler   => :on_exit,
-                        :temp_dir       => AgentConfig.cache_dir)
+      ::RightScale::RightPopen.popen3_async(
+        command,
+        :environment    => nil,
+        :target         => self,
+        :stdout_handler => :on_read_output,
+        :stderr_handler => :on_read_output,
+        :exit_handler   => :on_exit)
 
       return true
     end

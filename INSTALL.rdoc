@@ -40,7 +40,7 @@ page on our {support wiki}[http://support.rightscale.com/12-Guides/Windows_User_
 Install the C toolchain and related libraries, plus some additional libs
 required for RightLink,
 
- yum install -y gcc-c++ patch readline readline-devel zlib zlib-devel libyaml-devel libffi-devel openssl-devel make bzip2 iconv-devel libarchive-devel
+ yum install -y gcc-c++ patch readline readline-devel zlib zlib-devel libyaml-devel libffi-devel openssl-devel make bzip2 iconv-devel
 
 CentOS does not have a suitable prepackaged Ruby. To run RightLink, you
 can install RVM and use it to satisfy the Ruby dependency.
@@ -53,7 +53,7 @@ required for RightLink.
  apt-get update
  # may need libreadline5 (not 6), on older systems. Ditto with libreadline5-dev
  apt-get install -y build-essential gcc g++ bison openssl libreadline6 zlib1g vim autoconf libxml2 libffi
- apt-get install -y libssl-dev libarchive-dev libreadline-dev zlib1g-dev libyaml-dev libffi-dev libxml2-dev
+ apt-get install -y libssl-dev libreadline-dev zlib1g-dev libyaml-dev libffi-dev libxml2-dev
  apt-get install -y git-core perl sed curl dnsutils
 
 === System Ruby (Optional)

@@ -191,7 +191,10 @@ describe InstanceSetup do
     #Don't bother to do anything with managed login; this is a unit test of instance setup!
     flexmock(@mgr).should_receive(:supported_by_platform?).and_return(false)
     status = flexmock('status', :success? => true)
-    flexmock(RightScale).should_receive(:popen3).and_return { |o| o[:target].send(o[:exit_handler], status) }
+    flexmock(RightScale::RightPopen).should_receive(:popen3_async).and_return do |cmd, o|
+      o[:target].send(o[:exit_handler], status)
+      true
+    end
     setup_state
     @sender.should_receive(:initialize_offline_queue)
     @sender.should_receive(:start_offline_queue)

@@ -78,10 +78,11 @@ describe RightScale::ExecutableSequenceProxy do
 
   it 'should run a valid command' do
     status = flexmock('status', :success? => true)
-    flexmock(RightScale).should_receive(:popen3).and_return do |o|
+    flexmock(RightScale::RightPopen).should_receive(:popen3_async).and_return do |cmd, o|
       o[:target].instance_variable_set(:@audit_closed, true)
       o[:target].send(o[:pid_handler], 123)
       o[:target].send(o[:exit_handler], status)
+      true
     end
     @proxy.instance_variable_get(:@deferred_status).should == nil
     run_em_test { @proxy.run; stop_em_test }
@@ -94,10 +95,10 @@ describe RightScale::ExecutableSequenceProxy do
   it 'should find the cook utility' do
     status = flexmock('status', :success? => true)
     cmd = nil
-    flexmock(RightScale).should_receive(:popen3).and_return do |o|
-      cmd = o[:command]
+    flexmock(RightScale::RightPopen).should_receive(:popen3_async).and_return do |cmd, o|
       o[:target].instance_variable_set(:@audit_closed, true)
       o[:target].send(o[:exit_handler], status)
+      true
     end
     run_em_test { @proxy.run; stop_em_test }
 
@@ -115,9 +116,10 @@ describe RightScale::ExecutableSequenceProxy do
 
   it 'should report failures when cook fails' do
     status = flexmock('status', :success? => false, :exitstatus => 1)
-    flexmock(RightScale).should_receive(:popen3).and_return do |o|
+    flexmock(RightScale::RightPopen).should_receive(:popen3_async).and_return do |cmd, o|
       o[:target].instance_variable_set(:@audit_closed, true)
       o[:target].send(o[:exit_handler], status)
+      true
     end
     @audit.should_receive(:append_error).once
     @proxy.instance_variable_get(:@deferred_status).should == nil
@@ -125,7 +127,7 @@ describe RightScale::ExecutableSequenceProxy do
     @proxy.instance_variable_get(:@deferred_status).should == :failed
   end
 
-  context 'when running popen3' do
+  context 'when actually running popen3_async' do
 
     it 'should call the cook utility' do
 
