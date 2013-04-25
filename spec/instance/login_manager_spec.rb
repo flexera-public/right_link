@@ -180,7 +180,7 @@ describe RightScale::LoginManager do
       # === Mocks for OS specific operations
       flexmock(subject).should_receive(:write_keys_file).and_return(true).by_default
       flexmock(@user_mgr).should_receive(:add_user).and_return(nil).by_default
-      flexmock(@user_mgr).should_receive(:manage_group).and_return(true).by_default
+      flexmock(@user_mgr).should_receive(:modify_group).and_return(true).by_default
       flexmock(@user_mgr).should_receive(:user_exists?).and_return(false).by_default
       flexmock(@user_mgr).should_receive(:uid_exists?).and_return(false).by_default
       # === Mocks end
@@ -218,11 +218,10 @@ describe RightScale::LoginManager do
     it "should respect the superuser bit" do
       @policy.users[0].superuser = false
       flexmock(subject).should_receive(:read_keys_file).and_return([])
-      flexmock(@user_mgr).should_receive(:manage_group).with('rightscale', :remove, @policy.users[0].username).ordered
-      flexmock(@user_mgr).should_receive(:manage_group).with('rightscale', :add, @policy.users[1].username).ordered
-      flexmock(@user_mgr).should_receive(:manage_group).with('rightscale', :add, @policy.users[2].username).ordered
-      # One user has two keys; thus: three users, four keys. The test below is for number of keys, not number of users.
-      flexmock(subject).should_receive(:write_keys_file).with(FlexMock.on { |arg| arg.length.should == @policy.users.size + 1 }, FlexMock.any, FlexMock.any)
+      flexmock(@user_mgr).should_receive(:modify_group).with('rightscale', :remove, @policy.users[0].username).ordered
+      flexmock(@user_mgr).should_receive(:modify_group).with('rightscale', :add, @policy.users[1].username).ordered
+      flexmock(@user_mgr).should_receive(:modify_group).with('rightscale', :add, @policy.users[2].username).ordered
+      flexmock(subject).should_receive(:write_keys_file).with(FlexMock.on { |arg| arg.length.should == @policy.users.size }, FlexMock.any, FlexMock.any)
       subject.update_policy(@policy, @agent_identity)
     end
   end
