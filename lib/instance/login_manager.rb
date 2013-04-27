@@ -42,6 +42,9 @@ module RightScale
     ACTIVE_TAG              = 'rs_login:state=active'
     RESTRICTED_TAG          = 'rs_login:state=restricted'
     COMMENT                 = /^\s*#/
+    SSH_DEFAULT_KEYS        = [ File.join(RightScale::Platform.filesystem.ssh_cfg_dir, 'ssh_host_rsa_key'),
+                                File.join(RightScale::Platform.filesystem.ssh_cfg_dir, 'ssh_host_dsa_key'),
+                                File.join(RightScale::Platform.filesystem.ssh_cfg_dir, 'ssh_host_ecdsa_key') ]
 
     def initialize
       require 'etc'
@@ -112,6 +115,27 @@ module RightScale
       superuser = superuser ? " --superuser" : ""
 
       %Q{command="rs_thunk --username #{username} --uuid #{uuid}#{superuser} --email #{email}#{profile}" }
+    end
+
+    # Returns current SSH host keys
+    #
+    # == Returns:
+    # @return [Array<String>] Base64 encoded SSH public keys
+    def get_ssh_host_keys()
+      # Try to read the sshd_config file first
+      keys = File.readlines(
+        File.join(RightScale::Platform.filesystem.ssh_cfg_dir, 'sshd_config')).map do |l|
+          key = nil
+          /^\s*HostKey\s+([^ ].*)/.match(l) { key = m.captures[0] }
+          key
+        end.compact
+
+      # If the config file was empty, try these defaults
+      keys = keys.empty? ? SSH_DEFAULT_KEYS : keys
+
+      # Assume the public keys are just the public keys with '.pub' extended and
+      # read in each existing key.
+      keys.map { |k| k="#{k}.pub"; File.exists?(k) ? File.read(k) : nil }.compact
     end
 
     protected
