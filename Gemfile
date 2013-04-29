@@ -24,10 +24,10 @@ gem 'right_popen', '~> 1.1',
 # to RightScale. Gems in the "custom" group are published by RightScale to our
 # custom gem repository (http://s3.amazonaws.com/rightscale_rightlink_gems_dev).
 group :custom do
-  gem 'chef',            '~> 0.10.10.4'
+  gem 'chef',            '0.10.10.4'
   gem 'ohai',            '0.6.12.3'
-  gem 'mixlib-shellout', '~> 1.0.0.2'
-  gem "eventmachine",    '~> 1.0.0.2'
+  gem 'mixlib-shellout', '1.0.0.2'
+  gem "eventmachine",    '1.0.0.3'
 end
 
 # We use some gems on both platforms, but the maintainer of the gem does not publish
