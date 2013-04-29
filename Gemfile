@@ -4,7 +4,7 @@ source 'https://rubygems.org'
 gemspec
 
 # Fresh off the assembly line
-gem 'right_support', '~> 2.0',
+gem 'right_support', '~> 2.7',
     :git => 'git://github.com/rightscale/right_support.git',
     :branch => 'master'
 gem 'right_agent', '~> 0.14',
@@ -13,15 +13,21 @@ gem 'right_agent', '~> 0.14',
 gem 'right_amqp', '~> 0.6',
     :git => 'git://github.com/rightscale/right_amqp.git',
     :branch => 'master'
+gem 'right_scraper', '~> 3.2',
+    :git => 'git://github.com/rightscale/right_scraper.git',
+    :branch => 'master'
+gem 'right_popen', '~> 1.1',
+    :git => 'git://github.com/rightscale/right_popen.git',
+    :branch => 'master'
 
 # We have custom builds of some gems containing fixes and patches that are specific
 # to RightScale. Gems in the "custom" group are published by RightScale to our
 # custom gem repository (http://s3.amazonaws.com/rightscale_rightlink_gems_dev).
 group :custom do
-  gem 'chef',            "0.10.10.3"
-  gem 'ohai',            "0.6.12.1"
-  gem 'mixlib-shellout', "1.0.0.1"
-  gem "eventmachine",    "1.0.0.2"
+  gem 'chef',            '~> 0.10.10.4'
+  gem 'ohai',            '0.6.12.3'
+  gem 'mixlib-shellout', '~> 1.0.0.2'
+  gem "eventmachine",    '~> 1.0.0.2'
 end
 
 # We use some gems on both platforms, but the maintainer of the gem does not publish
@@ -32,7 +38,7 @@ end
 # mswin-platform gem for every one of the gems below AND published it to
 # the rightscale custom gem repository.
 group :not_windows_friendly do
-  gem "json",                  "1.4.6"
+  gem 'json', '1.4.6'
 end
 
 # These dependencies are included in the gemspec via a dirty hack. We declare them
@@ -55,7 +61,8 @@ group :windows do
 end
 
 group :development do
-  gem "rake"
+  gem 'rake', '0.8.7'
+  gem 'rcov', '~> 0.8.1'
   gem "ruby-debug"
   gem "rspec",                 "~> 1.3"
   gem "flexmock",              "~> 0.8"
@@ -82,7 +89,6 @@ group :stable do
   gem "hoe",                   "2.3.3"
   gem "moneta",                "0.6.0"
   gem "bunny",                 "0.6.0"
-  gem "process_watcher",       "0.4"
   gem "highline",              "1.6.9"
   gem "uuidtools",             "2.1.2"
   gem "mime-types",            "1.16"

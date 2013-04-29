@@ -21,7 +21,7 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 require 'right_http_connection'
-require 'process_watcher'
+require 'right_popen'
 require 'socket'
 require 'tempfile'
 require 'fileutils'
@@ -471,14 +471,15 @@ module RightScale
       # as well as accommodate "naughty" cookbooks that side-load data from the filesystem
       # using relative paths to other cookbooks.
       FileUtils.mkdir_p(root_dir)
-
       Dir.chdir(root_dir) do
-        output, status = ProcessWatcher.run('tar', 'xf', cookbook_tarball)
-        unless status.success?
-          report_failure("Unknown error", SubprocessFormatting.reason(status))
-          return
-        else
-          @audit.append_info(output)
+        # note that Windows uses a "tar.cmd" file which is found via the PATH
+        # used by the command interpreter.
+        cmd = "tar xf #{cookbook_tarball.inspect} 2>&1"
+        Log.debug(cmd)
+        output = `#{cmd}`
+        @audit.append_info(output)
+        unless $?.success?
+          report_failure("Unknown error", SubprocessFormatting.reason($?))
         end
       end
       return true
