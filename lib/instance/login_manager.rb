@@ -77,13 +77,7 @@ module RightScale
     def update_policy(new_policy, agent_identity)
       return false unless supported_by_platform?
 
-      # As a sanity check, filter out any expired users. The core should never send us these guys,
-      # but by filtering here additionally we prevent race conditions and handle boundary conditions, as well
-      # as allowing our internal expiry timer to simply call us back when a LoginUser expires.
-      # All users are added to RightScale account's authorized keys.
-      new_policy_users = new_policy.users.select { |u| (u.expires_at == nil || u.expires_at > Time.now) }
-
-      update_users(new_policy_users, agent_identity, new_policy) do |audit_content|
+      update_users(new_policy.users, agent_identity, new_policy) do |audit_content|
         yield audit_content if block_given?
       end
 
@@ -193,7 +187,7 @@ module RightScale
     def finalize_policy(new_policy, agent_identity, new_policy_users, missing)
       manage_existing_users(new_policy_users)
 
-      user_lines = modify_keys_to_use_individual_profiles(new_policy_users)
+      user_lines = login_users_to_authorized_keys(new_policy_users)
 
       InstanceState.login_policy = new_policy
 
@@ -372,7 +366,9 @@ module RightScale
         @expiry_timer = nil
       end
 
-      next_expiry = policy.users.map { |u| u.expires_at }.compact.min
+      # Find the next expiry time that is in the future
+      now = Time.now
+      next_expiry = policy.users.map { |u| u.expires_at }.compact.select { |t| t > now }.min
       return false unless next_expiry
       delay = next_expiry.to_i - Time.now.to_i + 1
 
@@ -390,9 +386,9 @@ module RightScale
       return true
     end
 
-    # Here is the first version of prototype for Managed Login for RightScale users.
-    # Creates user accounts and modifies public keys for individual
-    # access according to new login policy
+    # Given a list of LoginUsers, compute an authorized_keys file that encompasses all
+    # of the users and has a suitable options field that invokes rs_thunk with the right
+    # command-line params for that user. Omit any users who are expired.
     #
     # == Parameters:
     # @param [Array<LoginUser>] array of updated users list
@@ -400,12 +396,16 @@ module RightScale
     # == Returns:
     # @return [Array<String>] public key lines of user accounts
     #
-    def modify_keys_to_use_individual_profiles(new_users)
+    def login_users_to_authorized_keys(new_users)
+      now = Time.now
+
       user_lines = []
 
       new_users.each do |u|
-        u.public_keys.each do |k|
-          user_lines << "#{get_key_prefix(u.username, u.common_name, u.uuid, u.superuser, u.profile_data)} #{k}"
+        if u.expires_at.nil? || u.expires_at > now
+          u.public_keys.each do |k|
+            user_lines << "#{get_key_prefix(u.username, u.common_name, u.uuid, u.superuser, u.profile_data)} #{k}"
+          end
         end
       end
 
@@ -414,6 +414,8 @@ module RightScale
 
     # @TODO docs
     def manage_existing_users(new_policy_users)
+      now = Time.now
+
       previous = {}
       if InstanceState.login_policy
         InstanceState.login_policy.users.each do |user|
@@ -442,7 +444,8 @@ module RightScale
       (added + stayed).each do |k|
         begin
           user = current[k] || previous[k]
-          LoginUserManager.manage_user(user.uuid, user.superuser)
+          disable = !!(user.expires_at) && (now >= user.expires_at)
+          LoginUserManager.manage_user(user.uuid, user.superuser, :disable => disable)
         rescue Exception => e
           RightScale::Log.error "Failed to manage existing user '#{user.uuid}': #{e}" unless e.is_a?(ArgumentError)
         end
