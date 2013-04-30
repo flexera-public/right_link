@@ -73,7 +73,7 @@ end
 # types cause segmentation faults when flexmocked objects are gc'd on a thread
 # other than where they were defined and allocated.
 begin
-  GC.disable if ::RightScale::Platform.windows?
+  GC.disable
 rescue Exception => e
   puts "#{e.class}: #{e.message}", e.backtrace.join("\n")
 end

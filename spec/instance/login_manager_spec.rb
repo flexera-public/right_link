@@ -205,23 +205,34 @@ describe RightScale::LoginManager do
       end
     end
 
-    it "should not add authorized_keys for expired users" do
+    it "should remove authorized_keys and disable accounts of expired users" do
       @policy.users[0].expires_at = one_day_ago
 
       flexmock(subject).should_receive(:read_keys_file).and_return([])
+      @policy.users.each_with_index do |u, i|
+        case i
+        when 0
+          flexmock(@user_mgr).should_receive(:manage_user).with(u.uuid, u.superuser, :disable => true).once
+        else
+          flexmock(@user_mgr).should_receive(:manage_user).with(u.uuid, u.superuser, :disable => false).once
+        end
+      end
       # Note that we are testing for an arg of length 3, even though keys file should only include 2 users. This is because
       # one user has two keys (see before-each above).
-      flexmock(subject).should_receive(:write_keys_file).with(FlexMock.on { |arg| arg.length.should == @policy.users.size }, FlexMock.any, FlexMock.any)
+      flexmock(subject).should_receive(:write_keys_file).with(FlexMock.on { |arg| arg.length.should == 3 }, FlexMock.any, FlexMock.any)
       subject.update_policy(@policy, @agent_identity)
     end
     
     it "should respect the superuser bit" do
       @policy.users[0].superuser = false
+
       flexmock(subject).should_receive(:read_keys_file).and_return([])
-      flexmock(@user_mgr).should_receive(:modify_group).with('rightscale', :remove, @policy.users[0].username).ordered
-      flexmock(@user_mgr).should_receive(:modify_group).with('rightscale', :add, @policy.users[1].username).ordered
-      flexmock(@user_mgr).should_receive(:modify_group).with('rightscale', :add, @policy.users[2].username).ordered
-      flexmock(subject).should_receive(:write_keys_file).with(FlexMock.on { |arg| arg.length.should == @policy.users.size }, FlexMock.any, FlexMock.any)
+      @policy.users.each_with_index do |u, i|
+        flexmock(@user_mgr).should_receive(:manage_user).with(u.uuid, u.superuser, :disable => false).once
+      end
+      # Note that we are testing for an arg of length 4, even though keys file should only include 3 users. This is because
+      # one user has two keys (see before-each above).
+      flexmock(subject).should_receive(:write_keys_file).with(FlexMock.on { |arg| arg.length.should == 4 }, FlexMock.any, FlexMock.any)
       subject.update_policy(@policy, @agent_identity)
     end
   end
@@ -327,7 +338,6 @@ describe RightScale::LoginManager do
   end
 
   describe "#fingerprint" do
-
     it "should log an error if cannot create fingerprint for a public key" do
       flexmock(RightScale::LoginUser).should_receive(:fingerprint).and_raise(Exception)
       flexmock(RightScale::Log).should_receive(:error).with(/Failed to create public key fingerprint for user /, Exception).once
@@ -339,7 +349,6 @@ describe RightScale::LoginManager do
       flexmock(RightScale::Log).should_receive(:error).with(/Failed to create public key fingerprint for user /, Exception).never
       subject.instance_eval { fingerprint(nil, "user4162400349") }.should be_nil
     end
-
   end
 
   describe "#describe_policy" do
@@ -438,25 +447,37 @@ describe RightScale::LoginManager do
     end
   end
   
-  describe "#modify_keys_to_use_individual_profiles" do
-    before(:each) do
-      public_key    = "ssh-rsa aaa 1234@rightscale.com"
-      uid           = "1234"
-      profile_data  = "test"
-      @user         = RightScale::LoginUser.new(uid, "rs#{uid}", public_key, "#{uid}@rightscale.com", true, nil, [public_key], profile_data)
-    end
+  describe "#login_users_to_authorized_keys" do
+    let(:public_key) { "ssh-rsa aaa 1234@rightscale.com" }
+    let(:uid) { "1234" }
+    let(:profile_data) { "test" }
+
     context "given profile data" do
+      let(:user) do
+        RightScale::LoginUser.new(uid, "rs#{uid}", public_key, "#{uid}@rightscale.com", true, nil, [public_key], profile_data)
+      end
+
       it 'should return a user\'s profile in the command string' do
-        user = @user
-        subject.instance_eval {
-          keys = modify_keys_to_use_individual_profiles([user])
-          keys.kind_of?(Array).should == true
-          keys.size.should == 1
-          keys.first.include?('--profile').should == true
-        }
-        
-        # @User: #<RightScale::LoginUser:0x103622ad8 @common_name="1234@rightscale.com", @public_key="ssh-rsa aaa 1234@rightscale.com", @profile_data="test", @username="rs1234", @uuid="1234", @public_keys=["ssh-rsa aaa 1234@rightscale.com"], @superuser=true>
-        # ["command=\"rs_thunk --username rs1234 --email 1234@rightscale.com --profile test\"  ssh-rsa aaa 1234@rightscale.com"]
+        # Protected method call; use __send__
+        keys = subject.__send__(:login_users_to_authorized_keys, [user])
+
+        keys.should be_a(Array)
+        keys.size.should == 1
+        keys.first.include?('--profile').should == true
+      end
+    end
+
+    context "when a user is expired" do
+      let(:user) do
+        RightScale::LoginUser.new(uid, "rs#{uid}", public_key, "#{uid}@rightscale.com", true, one_day_ago, [public_key], profile_data)
+      end
+
+      it "should omit that user's keys from the result" do
+        # Protected method call; use __send__
+        keys = subject.__send__(:login_users_to_authorized_keys, [user])
+
+        keys.should be_a(Array)
+        keys.should be_empty
       end
     end
   end
