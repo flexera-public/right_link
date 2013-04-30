@@ -506,7 +506,9 @@ EOF
           begin
             RightScale::OhaiSetup.configure_ohai
             @@ohai = Ohai::System.new
+            puts '*** Initializing ohai once ***'  # heads-up to the dev who is wondering why specs run so slow at first
             @@ohai.all_plugins
+            puts '*** Finished ohai ***'
           ensure
             File.delete(plugin_rb_path) rescue nil
           end
