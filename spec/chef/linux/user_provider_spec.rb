@@ -273,6 +273,8 @@ EOF
             uid = nil
             mock_run_with_status(options, cmd.include?(user_name) ? 0 : 301)
           when 'bash'
+            options[:user].should == user_name
+            options[:group].should == group_name
             old_umask = ::File.umask(options[:umask])
             exit_code = nil
             begin
