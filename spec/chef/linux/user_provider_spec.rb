@@ -21,10 +21,7 @@
 
 require File.expand_path(File.join(File.dirname(__FILE__), '..', 'spec_helper'))
 
-if ::RightScale::Platform.windows?
-  raise ::NotImplementedError,
-        'This file must not be included when running rake spec in Windows'
-end
+unless RightScale::Platform.windows?
 
 require 'chef'
 require 'etc'
@@ -328,3 +325,5 @@ EOF
   end
 
 end
+
+end # unless windows
