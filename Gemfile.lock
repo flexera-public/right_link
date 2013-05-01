@@ -39,6 +39,21 @@ GIT
   specs:
     right_support (2.7.0)
 
+GIT
+  remote: git@github.com:rightscale/ohai.git
+  revision: bb492fee437bbfe28d8503fac209027f3862e219
+  branch: teal_13_06_acu92260_merge_ruby_plugin_change_to_master
+  specs:
+    ohai (0.6.12.4)
+      eventmachine (>= 1.0.0)
+      ipaddress
+      mixlib-cli
+      mixlib-config
+      mixlib-log
+      right_popen (~> 1.1)
+      systemu
+      yajl-ruby
+
 PATH
   remote: .
   specs:
@@ -120,15 +135,6 @@ GEM
       net-ssh (>= 2.1.4)
       net-ssh-gateway (>= 0.99.0)
     nokogiri (1.5.9)
-    ohai (0.6.12.3)
-      eventmachine (>= 1.0.0)
-      ipaddress
-      mixlib-cli
-      mixlib-config
-      mixlib-log
-      right_popen (~> 1.1)
-      systemu
-      yajl-ruby
     polyglot (0.3.3)
     rake (0.8.7)
     rbx-require-relative (0.0.9)
@@ -178,7 +184,7 @@ DEPENDENCIES
   mixlib-shellout (= 1.0.0.2)
   moneta (= 0.6.0)
   msgpack (= 0.4.4)
-  ohai (= 0.6.12.3)
+  ohai (= 0.6.12.4)!
   rake (= 0.8.7)
   rcov (~> 0.8.1)
   rest-client (= 1.6.7)
