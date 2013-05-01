@@ -41,8 +41,8 @@ end
 
 module RightScale
   class SystemConfigurator
-    RSA_KEY    = '/etc/ssh/ssh_host_rsa_key'
-    DSA_KEY    = '/etc/ssh/ssh_host_dsa_key'
+    RSA_KEY    = File.join(RightScale::Platform.filesystem.ssh_cfg_dir, 'ssh_host_rsa_key')
+    DSA_KEY    = File.join(RightScale::Platform.filesystem.ssh_cfg_dir, 'ssh_host_dsa_key')
     SUDO_USER  = 'rightscale'
     SUDO_GROUP = 'rightscale_sudo'
 

@@ -1,9 +1,9 @@
 GIT
   remote: git://github.com/rightscale/right_agent.git
-  revision: 21a7bc63434544e0c50617b0161fdd1748618f5f
+  revision: f5684da9c98386ada784d3f1d1cde9ca0c9fa151
   branch: master
   specs:
-    right_agent (0.14.4)
+    right_agent (0.14.5)
       eventmachine (>= 0.12.10, < 2.0)
       json (~> 1.4)
       msgpack (>= 0.4.4, < 0.6)
@@ -13,7 +13,7 @@ GIT
 
 GIT
   remote: git://github.com/rightscale/right_amqp.git
-  revision: 54e2ecca3cb1c27abf151bd9e15623ded8a1625a
+  revision: 0196973ea15ea766390b1dacfe0ff9e5d64b8e85
   branch: master
   specs:
     right_amqp (0.6.0)
@@ -34,7 +34,7 @@ GIT
 
 GIT
   remote: git://github.com/rightscale/right_support.git
-  revision: ece9a03c035bf2191da8557def7c9d281b5572b1
+  revision: 59247a90473c35bc1a3e1f2a319ceaf8b7f3262e
   branch: master
   specs:
     right_support (2.7.0)
