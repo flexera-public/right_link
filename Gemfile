@@ -24,7 +24,9 @@ gem 'right_popen', '~> 1.1'
 group :custom do
   gem 'chef',            '0.10.10.4'
   gem 'ohai',            '0.6.12.3'
-  gem 'mixlib-shellout', '1.0.0.2'
+  gem 'mixlib-shellout', '1.0.0.3',
+      :git => 'git@github.com:rightscale/mixlib-shellout.git',
+      :branch => 'teal_13_06_acu91125_marshal_params_to_right_popen'
   gem "eventmachine",    '1.0.0.3'
 end
 
