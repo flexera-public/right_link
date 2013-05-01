@@ -120,7 +120,7 @@ GEM
       net-ssh (>= 2.1.4)
       net-ssh-gateway (>= 0.99.0)
     nokogiri (1.5.9)
-    ohai (0.6.12.3)
+    ohai (0.6.12.4)
       eventmachine (>= 1.0.0)
       ipaddress
       mixlib-cli
@@ -178,7 +178,7 @@ DEPENDENCIES
   mixlib-shellout (= 1.0.0.2)
   moneta (= 0.6.0)
   msgpack (= 0.4.4)
-  ohai (= 0.6.12.3)
+  ohai (= 0.6.12.4)
   rake (= 0.8.7)
   rcov (~> 0.8.1)
   rest-client (= 1.6.7)
