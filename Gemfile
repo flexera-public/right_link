@@ -9,7 +9,7 @@ gem 'right_support', '~> 2.0',
     :branch => 'master'
 gem 'right_agent', '~> 0.14',
     :git => 'git://github.com/rightscale/right_agent.git',
-    :branch => 'teal_13_06_acu92026_ssh_host_key_retrieval'
+    :branch => 'master'
 gem 'right_amqp', '~> 0.6',
     :git => 'git://github.com/rightscale/right_amqp.git',
     :branch => 'master'
