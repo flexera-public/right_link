@@ -1,6 +1,6 @@
 GIT
   remote: git://github.com/rightscale/right_agent.git
-  revision: f5684da9c98386ada784d3f1d1cde9ca0c9fa151
+  revision: 64a048b746cd072b175bc4779d14e88b910fac02
   branch: master
   specs:
     right_agent (0.14.5)
@@ -58,7 +58,6 @@ GEM
   remote: https://rubygems.org/
   specs:
     abstract (1.0.0)
-    archive-tar-minitar (0.5.2)
     blackwinter-git (1.2.7)
     bunny (0.6.0)
     chef (0.10.10.4)
@@ -100,10 +99,6 @@ GEM
     linecache (0.46)
       rbx-require-relative (> 0.0.4)
     mime-types (1.16)
-      archive-tar-minitar (~> 0.5)
-      hoe (>= 1.8.3)
-      nokogiri (~> 1.2)
-      rcov (~> 0.8)
     mixlib-authentication (1.1.2)
       mixlib-log
     mixlib-cli (1.2.0)
@@ -119,7 +114,6 @@ GEM
     net-ssh-multi (1.1)
       net-ssh (>= 2.1.4)
       net-ssh-gateway (>= 0.99.0)
-    nokogiri (1.5.9)
     ohai (0.6.12.4)
       eventmachine (>= 1.0.0)
       ipaddress
