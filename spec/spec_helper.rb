@@ -623,7 +623,7 @@ end
     # ensure all tests clean up their EM resources
     queue = EM.instance_variable_get(:@next_tick_queue)
     was_empty = (queue.nil? || queue.empty?)
-    queue.clear
+    queue.clear rescue nil if queue
     was_empty.should be_true
   end
 end
