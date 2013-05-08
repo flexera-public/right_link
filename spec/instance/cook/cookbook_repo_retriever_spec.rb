@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2011 RightScale Inc
+# Copyright (c) 2011-2013 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -22,8 +22,8 @@
 
 require 'fileutils'
 
-require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'spec_helper'))
-require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', '..', '..', 'lib', 'instance', 'cook'))
+require File.expand_path(File.join(File.dirname(__FILE__), '..', 'spec_helper'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'lib', 'instance', 'cook'))
 
 describe RightScale::CookbookRepoRetriever do
   before(:all) do
