@@ -108,9 +108,19 @@ module RightScale
     # === Returns
     # true if the given repo is checekd out
     def is_checked_out?(repo_sha)
-      !@registered_checkouts[repo_sha].nil?
+      !!repo_dir_for(repo_sha)
     end
 
+    # Checkout directory for given repository hash.
+    #
+    # === Parameters
+    # @param [String] repo_sha for lookup
+    #
+    # === Return
+    # @return [String] checked-out directory or nil
+    def repo_dir_for(repo_sha)
+      @registered_checkouts[repo_sha]
+    end
 
     # Checkout the given repo and link each dev cookbook to it's matching repose path
     #
