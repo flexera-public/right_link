@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2009-2011 RightScale Inc
+# Copyright (c) 2009-2013 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -154,6 +154,11 @@ module RightScale
             else
               # nuke the repo dir if checkout fails, so we try again next time
               FileUtils.rm_rf(repo_dir) unless success
+
+              # scraper logger is an odd duck, so just transfer any errors to
+              # the normal logger.
+              @scraper.errors.each { |e| ::RightScale::Log.error(e) }
+              ::RightScale::Log.error("Failed to checkout from #{repo[:url].inspect}")
             end
           end
         end

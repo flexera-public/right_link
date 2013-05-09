@@ -181,6 +181,7 @@ describe RightScale::CookbookRepoRetriever do
 
           mock_scraper = flexmock("Mock RightScraper")
           mock_scraper.should_receive(:scrape).once.and_return(false)
+          mock_scraper.should_receive(:errors).and_return(['that is a fake url'])
           flexmock(RightScraper::Scraper).should_receive(:new).and_return(mock_scraper)
 
           @repo = RightScale::DevRepository.new
@@ -221,6 +222,7 @@ describe RightScale::CookbookRepoRetriever do
             repo_dir = File.join(@expected_checkout_root, repo_sha)
             mock_scraper.should_receive(:repo_dir).with(described_class.to_scraper_hash(dev_repo)).once.and_return(repo_dir)
           end
+          mock_scraper.should_receive(:errors).and_return(['what is that smell?'])
           flexmock(RightScraper::Scraper).should_receive(:new).and_return(mock_scraper)
 
           @retriever = described_class.new(@expected_repose_root, RightScale::DevRepositories.new(@dev_repos))
