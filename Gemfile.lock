@@ -22,10 +22,10 @@ GIT
 
 GIT
   remote: git://github.com/rightscale/right_scraper.git
-  revision: 27fac0f8654bae765bdedb3574745f7e97389310
+  revision: 95fad65537725c6369e7a991d3e3e6e271f149cc
   branch: master
   specs:
-    right_scraper (3.2.1)
+    right_scraper (3.2.2)
       blackwinter-git (~> 1.2.7)
       json (~> 1.4)
       right_aws (>= 2.0)
