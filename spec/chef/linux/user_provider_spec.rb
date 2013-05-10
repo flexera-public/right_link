@@ -180,9 +180,15 @@ EOF
     it 'should run script as current user' do
       # run script for current user name.
       run_chef('test::run_script_as_current_user_recipe')
-      result = ::File.read(output_file).strip.split("\n")
-      result[0].should == user_name
-      result[1].split(' ').should include(user_name)
+      expected_user = user_name
+      expected_groups = `groups`.chomp.split(' ')
+
+      actual = ::File.read(output_file).strip.split("\n")
+      actual_user = actual[0]
+      actual_groups = actual[1].split(' ')
+
+      actual_user.should == expected_user
+      actual_groups.should == expected_groups
       assert_output_file_stat
 
       # run script for current uid.
