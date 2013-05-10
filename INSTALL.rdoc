@@ -16,8 +16,9 @@ functionality at runtime:
 == Supported Configurations
 
 RightLink is regularly tested on the following Linux distributions:
-* CentOS - 5.6, 5.8
-* Ubuntu - 8.04, 10.04, 10.10, 11.04, 12.04
+* CentOS - 6.4
+* RedHat Enterprise Linux (RHEL) - 6.4
+* Ubuntu - 12.04
 
 It has been known to work on the following with little or no modification:
 * Debian
@@ -35,15 +36,15 @@ Windows variants, installation and configuration are not yet covered in this
 document. For information on the RightLink Windows MSI, see the documentation
 page on our {support wiki}[http://support.rightscale.com/12-Guides/Windows_User_Guide]
 
-== CentOS Systems
+== CentOS and RHEL Systems
 
 Install the C toolchain and related libraries, plus some additional libs
 required for RightLink,
 
  yum install -y autoconf bison byacc flex gcc ncurses db4-devel glibc-devel libarchive-devel openssl-devel ncurses-devel
 
-CentOS does not have a suitable prepackaged Ruby. To run RightLink, you
-can install RVM and use it to satisfy the Ruby dependency.
+Older releases of CentOS (before 6.x) ship with a Ruby VM that is too old. To run RightLink, you
+can build Ruby from source and install it under a different prefix such as /opt/rightscale/sandbox.
 
 == Ubuntu Systems
 
@@ -57,38 +58,8 @@ required for RightLink.
  # apt-get install -y libssl-dev libreadline-dev zlib1g-dev libyaml-dev libffi-dev libxml2-dev
  # apt-get install -y git-core perl sed curl dnsutils
 
-=== System Ruby (Optional)
-
-On Ubuntu, you have the choice of using RVM (see instructions below) or
-installing a system Ruby interpreter. RVM is recommended, but it is
-possible to run against the system Ruby interpreter provided it's recent
-enough.
-
-On Ubuntu < 10.04.3, it is necessary to fetch the newer packages from an Ubuntu
-mirror. You can download them from EasyNews (as in the example below), or
-get them from a mirror {close to you}[http://packages.ubuntu.com/natty/all/rubygems1.8/download]
-
- apt-get install -y ruby1.8 ">=1.8.7"
- apt-get install -y ruby1.8-dev g++ libreadline-ruby1.8 rubygems1.8 irb1.8 rdoc1.8
-
- wget http://mirrors.easynews.com/linux/ubuntu//pool/universe/libg/libgems-ruby/rubygems1.8_1.3.7-2_all.deb
- dpkg -i rubygems1.8_1.3.7-2.deb
- apt-get -f install
-
-== All Linux Systems
-
-Ruby Version Manager (RVM) is a set of shell scripts that allows you to build
-and install multiple Ruby interpreters side by side.
-
-*NOTE* - If you create init scripts for RightLink, they should source rvm.sh
-and "rvm use" the appropriate Ruby before invoking any RightLink commands.
-
- bash < <(curl -sk https://rvm.beginrescueend.com/install/rvm)
- source /etc/profile.d/rvm.sh
-
- rvm install ruby-1.8.7-p371
-
- rvm use ruby-1.8.7-p370
+Newer releases of Ubuntu (11.04 and above) ship with a Ruby 1.9 VM that is too new. To run RightLink, you
+can build Ruby from source and install it under a different prefix such as /opt/rightscale/sandbox.
 
 = PRE-INSTALL CUSTOMIZATION
 
@@ -140,8 +111,18 @@ _before_ bundling.
  bundle exec rake gem
  gem install pkg/right_link-5.9.0.gem
  
-On Unix systems, CLI tools are created in /usr/bin. By convention, they
-begin with the prefix "rs_" e.g. rs_tag or rs_run_recipe.
+The RubyGems installer will create a number of executable binaries in
+your RubyGems bindir. These binaries control the operation of RightLink
+and allow you and your scripts to interact with the management agent.
+
+On Unix systems, the CLI binaries are normally created in /usr/bin, but
+it depends on how your Ruby interpreter was installed and packaged. You
+can determine the location of your RubyGems bindir by running:
+
+ gem env
+
+By convention, most RightLink tools begin with the prefix "rs_" e.g.
+rs_tag or rs_run_recipe.
 
 = INTEGRATING WITH THE SYSTEM
 
@@ -167,9 +148,11 @@ running any of the commands below. RS_CLOUD is your "hint" to RightLink.
 RightLink knows about the following values of RS_CLOUD:
 * ec2
 * rackspace
+* rackspace-ng
 * eucalyptus
 * cloudstack
 * openstack
+* softlayer
 
 == On-Boot Commands
 
