@@ -3,7 +3,7 @@
 RightLink is a Ruby application that runs as a daemon. It depends on the
 following system components/packages, which must be installed before you
 can proceed with RightLink installation.
-* Ruby >= 1.8.7 p370 or better -- older versions have GC issues!
+* Ruby >= 1.8.7 p371 or better -- older versions have GC issues!
 * RubyGems >= 1.8.25
 * C/C++ toolchain (needed to install various gems)
 
@@ -86,7 +86,7 @@ and "rvm use" the appropriate Ruby before invoking any RightLink commands.
  bash < <(curl -sk https://rvm.beginrescueend.com/install/rvm)
  source /etc/profile.d/rvm.sh
 
- rvm install ruby-1.8.7-p370
+ rvm install ruby-1.8.7-p371
 
  rvm use ruby-1.8.7-p370
 
