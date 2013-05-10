@@ -24,7 +24,7 @@ gem 'right_popen', '~> 1.1'
 group :custom do
   gem 'chef',            '0.10.10.4'
   gem 'ohai',            '0.6.12.4'
-  gem 'mixlib-shellout', '1.0.0.2'
+  gem 'mixlib-shellout', '1.0.0.3'
   gem "eventmachine",    '1.0.0.3'
 end
 
