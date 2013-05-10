@@ -177,27 +177,21 @@ EOF
     let(:user_name)  { ::UserProviderSpec::CURRENT_USER_NAME }
     let(:umask)      { ::UserProviderSpec::OWNER_ONLY_UMASK }
 
-    it 'should run script as current user' do
-      # run script for current user name.
-      run_chef('test::run_script_as_current_user_recipe')
-      expected_user = user_name
-      expected_groups = `groups`.chomp.split(' ')
+    [:user, :uid].each do |kind|
+      it "should run script as current #{kind}" do
+        run_chef("test::run_script_as_current_#{kind}_recipe")
+        expected_user = user_name
+        expected_groups = `groups`.chomp.split(' ')
 
-      actual = ::File.read(output_file).strip.split("\n")
-      actual_user = actual[0]
-      actual_groups = actual[1].split(' ')
+        actual = ::File.read(output_file).strip.split("\n")
+        actual_user = actual[0]
+        actual_groups = actual[1].split(' ')
 
-      actual_user.should == expected_user
-      actual_groups.should == expected_groups
-      assert_output_file_stat
-
-      # run script for current uid.
-      ::File.unlink(output_file)
-      run_chef('test::run_script_as_current_uid_recipe')
-      result = ::File.read(output_file).strip.split("\n")
-      result[0].should == user_name
-      result[1].split(' ').should include(user_name)
-      assert_output_file_stat
+        actual_user.should == expected_user
+        actual_groups.should == expected_groups
+        assert_output_file_stat
+        ::File.unlink(output_file)
+      end
     end
   end
 
