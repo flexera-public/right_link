@@ -16,7 +16,9 @@ gem 'right_amqp', '~> 0.6',
 gem 'right_scraper', '~> 3.2',
     :git => 'git://github.com/rightscale/right_scraper.git',
     :branch => 'master'
-gem 'right_popen', '~> 1.1'
+gem 'right_popen', '~> 1.1',
+    :git => 'git@github.com:rightscale/right_popen.git',
+    :branch => 'teal_13_06_acu92260_fixes_for_broken_ci'
 
 # We have custom builds of some gems containing fixes and patches that are specific
 # to RightScale. Gems in the "custom" group are published by RightScale to our

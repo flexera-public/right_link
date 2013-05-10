@@ -69,15 +69,6 @@ module EventMachine
   end
 end
 
-# HACK: disable garbage collector (in Windows only?) for spec run as flexmocked
-# types cause segmentation faults when flexmocked objects are gc'd on a thread
-# other than where they were defined and allocated.
-begin
-  GC.disable
-rescue Exception => e
-  puts "#{e.class}: #{e.message}", e.backtrace.join("\n")
-end
-
 require File.join(File.dirname(__FILE__), 'results_mock')
 
 config = Spec::Runner.configuration
@@ -615,10 +606,24 @@ end
 
 # global spec configuration.
 ::Spec::Runner.configure do |config|
-  config.before(:each) { ::RightScale::Log.reset_errors }
+  config.before(:all) do
+    # HACK: disable garbage collector for spec run as flexmocked
+    # types cause segmentation faults when flexmocked objects are gc'd on a thread
+    # other than where they were defined and allocated.
+    begin
+      GC.disable
+    rescue Exception => e
+      puts "#{e.class}: #{e.message}", e.backtrace.join("\n")
+    end
+  end
+  config.before(:each) do
+    ::RightScale::Log.reset_errors
+  end
   config.after(:each) do
     # ensure all tests clean up their EM resources
     queue = EM.instance_variable_get(:@next_tick_queue)
-    (queue.nil? || queue.empty?).should be_true
+    was_empty = (queue.nil? || queue.empty?)
+    queue.clear rescue nil if queue
+    was_empty.should be_true
   end
 end
