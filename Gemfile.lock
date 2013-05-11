@@ -95,6 +95,7 @@ GEM
     hoe (2.3.3)
       rake (>= 0.8.7)
       rubyforge (>= 1.0.4)
+    iconv (0.1)
     ipaddress (0.8.0)
     json (1.4.6)
     json (1.4.6-x86-mswin32)
@@ -201,6 +202,7 @@ DEPENDENCIES
   flexmock (~> 0.8)
   highline (= 1.6.9)
   hoe (= 2.3.3)
+  iconv
   json (= 1.4.6)
   mime-types (= 1.16)
   mixlib-authentication (= 1.1.2)

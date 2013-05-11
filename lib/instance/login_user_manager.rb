@@ -20,6 +20,8 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+require 'right_agent'
+
 module RightScale
   class LoginUserManager
     include RightSupport::Ruby::EasySingleton
@@ -170,6 +172,16 @@ module RightScale
     def add_user(username, uid, shell=nil)
       uid = Integer(uid)
       shell ||= DEFAULT_SHELLS.detect { |sh| File.exists?(sh) }
+
+      if RightScale::Platform.freebsd?
+        # Username must be the first argument for BSD and last argument for Linux
+        %x(sudo /usr/sbin/pw useradd #{Shellwords.escape(username)} -s /bin/bash -u #{uid} -m)
+      else
+        # Can't use executable? because the rightscale user can't execute useradd without sudo
+        useradd = ['/usr/bin/useradd', '/usr/sbin/useradd', '/bin/useradd', '/sbin/useradd'].select { |key| File.exists? key }.first
+        raise RightScale::LoginManager::SystemConflict, "Failed to find a suitable implementation of 'useradd'." unless useradd
+        %x(sudo #{useradd} -s /bin/bash -u #{uid} -m #{Shellwords.escape(username)})
+      end
 
       useradd = find_sbin('useradd')
 

@@ -123,7 +123,7 @@ module RightScale
     end
 
     def configure_ssh
-      return 0 unless Platform.linux?
+      return 0 unless (Platform.linux? || Platform.freebsd?)
 
       puts "Freshening SSH host keys to ensure they are unique to this instance..."
 
@@ -151,7 +151,7 @@ module RightScale
     end
 
     def configure_hostname
-      return 0 unless Platform.linux?
+      return 0 unless (Platform.linux? || Platform.freebsd?)
 
       hostname     = Socket.gethostname
       current_fqdn = valid_current_fqdn
@@ -172,7 +172,7 @@ module RightScale
     end
 
     def configure_proxy
-      return 0 unless Platform.linux?
+      return 0 unless (Platform.linux? || Platform.freebsd?)
 
       unset_proxy_variables
 

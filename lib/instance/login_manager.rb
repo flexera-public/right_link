@@ -1,6 +1,4 @@
 #
-# Copyright (c) 2009-2011 RightScale Inc
-#
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
 # "Software"), to deal in the Software without restriction, including
@@ -57,7 +55,7 @@ module RightScale
     # @return [FalseClass] if LoginManager does not work on this platform
     #
     def supported_by_platform?
-      right_platform = RightScale::Platform.linux?
+      right_platform = RightScale::Platform.linux? || RightScale::Platform.freebsd?
       # avoid calling user_exists? on unsupported platform(s)
       right_platform && LoginUserManager.user_exists?('rightscale') && CONFIG['managed_login']['enable']
     end
