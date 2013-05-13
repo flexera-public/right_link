@@ -1,9 +1,9 @@
 GIT
   remote: git://github.com/rightscale/right_agent.git
-  revision: 659e9800f7d59c3113e1249d07bd44b057b29d23
+  revision: 3baf912d8d87745dfe6e97004af87516f2a3b66b
   branch: teal_13_06_acu93139_print_powershell_error_list
   specs:
-    right_agent (0.15.0)
+    right_agent (0.15.1)
       eventmachine (>= 0.12.10, < 2.0)
       json (~> 1.4)
       msgpack (>= 0.4.4, < 0.6)
