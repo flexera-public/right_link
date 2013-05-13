@@ -31,6 +31,12 @@ module RightScale
     # case of a tree of metadata.
     class HttpMetadataSource < MetadataSource
 
+      # We get back an exception for when there is no route to the host in the
+      # HTTP get request. This could be because DHCP is being slow, so disguinsh
+      POSIX_NO_ROUTE_MSG = 'No route to host'
+      WIN_NO_ROUTE_MSG = 'A socket operation was attempted to an unreachable network.'
+      NETERR_NO_ROUTE_REGEX = /.*temporarily unavailable: \((#{POSIX_NO_ROUTE_MSG}|#{WIN_NO_ROUTE_MSG}) - connect\(2\)\)/
+
       attr_accessor :host, :port
 
       def initialize(options)
@@ -53,6 +59,7 @@ module RightScale
       def query(path)
         http_path = "http://#{@host}:#{@port}/#{path}"
         attempts = 0
+        noroute_cnt = 0
         while true
           begin
             logger.debug("Querying \"#{http_path}\"...")
@@ -73,7 +80,13 @@ module RightScale
             end
           rescue Exception => e
             logger.error("Exception occurred while attempting to retrieve metadata from \"#{http_path}\"; Exception:#{e.message}\nTrace:#{e.backtrace.join("\n")}")
-            return ""
+            if NETERR_NO_ROUTE_REGEX.match(e.to_s) && (noroute_cnt+=1) < RETRY_NOROUTE_MAX_ATTEMPTS
+              # It makes more sense to just sleep 2 every time
+              # for this error instead of using the backoff alg.
+              sleep RETRY_NOROUTE_DELAY
+            else
+              return ""
+            end
           end
         end
       end
@@ -130,6 +143,12 @@ module RightScale
 
       # retry 10 times maximum
       RETRY_MAX_ATTEMPTS = 10
+
+      # retry 1800 times (about an hour at 2 second intervals)
+      # for no route retries
+      RETRY_NOROUTE_DELAY = 2
+      RETRY_NOROUTE_MAX_TOTAL_TIME = 3600 # 60 * 60 (1 Hour)
+      RETRY_NOROUTE_MAX_ATTEMPTS = RETRY_NOROUTE_MAX_TOTAL_TIME / RETRY_NOROUTE_DELAY
 
       # retry factor (which can be monkey-patched for quicker testing of retries)
       RETRY_DELAY_FACTOR = 1
