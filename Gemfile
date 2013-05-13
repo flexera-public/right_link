@@ -7,9 +7,9 @@ gemspec
 gem 'right_support', '~> 2.7',
     :git => 'git://github.com/rightscale/right_support.git',
     :branch => 'master'
-gem 'right_agent', '~> 0.14',
+gem 'right_agent', '~> 0.15',
     :git => 'git://github.com/rightscale/right_agent.git',
-    :branch => 'master'
+    :branch => 'teal_13_06_acu93139_print_powershell_error_list'
 gem 'right_amqp', '~> 0.6',
     :git => 'git://github.com/rightscale/right_amqp.git',
     :branch => 'master'
