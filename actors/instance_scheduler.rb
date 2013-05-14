@@ -177,7 +177,10 @@ class InstanceScheduler
   # === Return
   # (RightScale::OperationResult):: Status value, either success or error with message
   def schedule_decommission(options)
-    return error_result('Instance is already decommissioning') if RightScale::InstanceState.value == 'decommissioning'
+    case RightScale::InstanceState.value
+    when 'decommissioning', 'decommissioned'
+      return error_result('Instance is already decommissioning')
+    end
     options = RightScale::SerializationHelper.symbolize_keys(options)
     bundle = options[:bundle]
     audit = RightScale::AuditProxy.new(bundle.audit_id)

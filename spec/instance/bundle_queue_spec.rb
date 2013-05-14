@@ -51,7 +51,9 @@ module RightScale
     end
 
     class MockContext
-      attr_reader :audit, :payload, :decommission, :succeeded, :thread_name, :sequence_name
+      attr_reader :audit, :payload, :succeeded, :thread_name, :sequence_name
+
+      def decommission?; @decommission; end
 
       def initialize(audit, payload, decommission, succeeded, thread_name, sequence_name)
         @audit = audit

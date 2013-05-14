@@ -138,7 +138,7 @@ module RightScale
             # push shutdown and wait for FINAL_BUNDLE
             push_to_thread_queue(SHUTDOWN_BUNDLE)
           end
-        elsif false == context.decommission && ShutdownRequest.instance.immediately?
+        elsif !context.decommission? && ShutdownRequest.instance.immediately?
           # immediate shutdown pre-empts any futher attempts to run operational
           # scripts but still allows the decommission bundle to run.
           context.audit.update_status("Skipped bundle due to immediate shutdown: #{context.payload}")

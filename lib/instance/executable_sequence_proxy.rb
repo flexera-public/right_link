@@ -144,11 +144,25 @@ module RightScale
         end
 
         EM.next_tick do
+          # prepare env vars for child process.
+          environment = {
+            ::RightScale::OptionsBag::OPTIONS_ENV =>
+              ::ENV[::RightScale::OptionsBag::OPTIONS_ENV]
+          }
+          if @context.decommission?
+            # a little sanity check
+            if ::RightScale::ShutdownRequest.instance.continue?
+              raise ::ArgumentError, 'Unexpected decommission level'
+            end
+            environment['RS_DECOM_REASON'] = ::RightScale::ShutdownRequest.instance.level
+          end
+
+          # spawn
           RightScale::RightPopen.popen3_async(
             cmd,
             :input          => input_text,
             :target         => self,
-            :environment    => { OptionsBag::OPTIONS_ENV => ENV[OptionsBag::OPTIONS_ENV] },
+            :environment    => environment,
             :stdout_handler => :on_read_stdout,
             :stderr_handler => :on_read_stderr,
             :pid_handler    => :on_pid,
