@@ -1,9 +1,9 @@
 GIT
   remote: git://github.com/rightscale/right_agent.git
-  revision: 64a048b746cd072b175bc4779d14e88b910fac02
+  revision: 1f43fa43af58fce1977f15ada4c4c31341369664
   branch: master
   specs:
-    right_agent (0.14.5)
+    right_agent (0.15.1)
       eventmachine (>= 0.12.10, < 2.0)
       json (~> 1.4)
       msgpack (>= 0.4.4, < 0.6)
@@ -214,7 +214,7 @@ DEPENDENCIES
   rake (= 0.8.7)
   rcov (~> 0.8.1)
   rest-client (= 1.6.7)
-  right_agent (~> 0.14)!
+  right_agent (~> 0.15)!
   right_amqp (~> 0.6)!
   right_link!
   right_popen (~> 1.1)

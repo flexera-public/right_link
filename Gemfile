@@ -7,7 +7,7 @@ gemspec
 gem 'right_support', '~> 2.7',
     :git => 'git://github.com/rightscale/right_support.git',
     :branch => 'master'
-gem 'right_agent', '~> 0.14',
+gem 'right_agent', '~> 0.15',
     :git => 'git://github.com/rightscale/right_agent.git',
     :branch => 'master'
 gem 'right_amqp', '~> 0.6',
