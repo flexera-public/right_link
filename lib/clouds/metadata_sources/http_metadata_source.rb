@@ -80,7 +80,7 @@ module RightScale
             end
           rescue Exception => e
             logger.error("Exception occurred while attempting to retrieve metadata from \"#{http_path}\"; Exception:#{e.message}\nTrace:#{e.backtrace.join("\n")}")
-            if NETERR_NO_ROUTE_REGEX.match(e.to_s) && (noroute_cnt+=1) < RETRY_NOROUTE_MAX_ATTEMPTS
+            if (noroute_cnt+=1) <= RETRY_NOROUTE_MAX_ATTEMPTS && NETERR_NO_ROUTE_REGEX.match(e.to_s)
               # It makes more sense to just sleep 2 every time
               # for this error instead of using the backoff alg.
               sleep RETRY_NOROUTE_DELAY

@@ -301,14 +301,14 @@ describe RightScale::MetadataSources::HttpMetadataSource do
 
       context "POSIX" do
         it "should retry #{::RightScale::MetadataSources::HttpMetadataSource::RETRY_NOROUTE_MAX_ATTEMPTS} times" do
-          @mock_http_connection.should_receive(:request).times(::RightScale::MetadataSources::HttpMetadataSource::RETRY_NOROUTE_MAX_ATTEMPTS).
+          @mock_http_connection.should_receive(:request).times(::RightScale::MetadataSources::HttpMetadataSource::RETRY_NOROUTE_MAX_ATTEMPTS + 1).
             and_raise(Exception.new("15.20.20.1 temporarily unavailable: (No route to host - connect(2))"))
           @http_metadata_source.query("a").should == ""
         end
       end
       context "Windows" do
         it "should retry #{::RightScale::MetadataSources::HttpMetadataSource::RETRY_NOROUTE_MAX_ATTEMPTS} times" do
-          @mock_http_connection.should_receive(:request).times(::RightScale::MetadataSources::HttpMetadataSource::RETRY_NOROUTE_MAX_ATTEMPTS).
+          @mock_http_connection.should_receive(:request).times(::RightScale::MetadataSources::HttpMetadataSource::RETRY_NOROUTE_MAX_ATTEMPTS + 1).
             and_raise(Exception.new("15.20.20.1 temporarily unavailable: (A socket operation was attempted to an unreachable network. - connect(2))"))
           @http_metadata_source.query("a").should == ""
         end
