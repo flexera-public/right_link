@@ -55,10 +55,11 @@ describe RightScale::ExecutableSequenceProxy do
 
   let(:context) do
     result = flexmock('context',
-                      :audit         => audit,
-                      :payload       => bundle,
-                      :decommission? => decommission?,
-                      :thread_name   => thread_name)
+                      :audit             => audit,
+                      :payload           => bundle,
+                      :decommission?     => !!decommission_type,
+                      :decommission_type => decommission_type,
+                      :thread_name       => thread_name)
     result.should_receive(:succeeded=)
     result
   end
@@ -128,7 +129,7 @@ describe RightScale::ExecutableSequenceProxy do
   end
 
   context 'with a boot or operational context' do
-    let(:decommission?) { false }
+    let(:decommission_type) { nil }
 
     it 'should run a valid command' do
       assert_succeeded(::RightScale::OptionsBag::OPTIONS_ENV => nil)
@@ -193,17 +194,23 @@ describe RightScale::ExecutableSequenceProxy do
     end
   end
 
-  context 'with a decommission context' do
-    let(:decommission?) { true }
+  context 'with a decommission context and known type' do
+    let(:decommission_type) { ::RightScale::ShutdownRequest::STOP }
 
     it 'should run a valid command' do
-      shutdown_instance = flexmock('shutdown instance')
-      flexmock(::RightScale::ShutdownRequest).should_receive(:instance).and_return(shutdown_instance)
-      shutdown_instance.should_receive(:continue?).and_return(false).once
-      shutdown_instance.should_receive(:level).and_return(::RightScale::ShutdownRequest::STOP).once
       assert_succeeded(
         ::RightScale::OptionsBag::OPTIONS_ENV => nil,
-        'RS_DECOM_REASON' => ::RightScale::ShutdownRequest::STOP)
+        'RS_DECOM_REASON'                     => decommission_type)
+    end
+  end
+
+  context 'with a decommission context and unknown type' do
+    let(:decommission_type) { 'unknown' }
+
+    it 'should run a valid command' do
+      assert_succeeded(
+        ::RightScale::OptionsBag::OPTIONS_ENV => nil,
+        'RS_DECOM_REASON'                     => decommission_type)
     end
   end
 end

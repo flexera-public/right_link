@@ -3,7 +3,10 @@
 == New Features
 
 * The RS_DECOM_REASON environment variable is set during decommission script/recipe execution to indicate the reason why decommission
-  is running. This variable will have one of the following values: 'reboot', 'shutdown', 'terminate'
+  is running. This variable will have one of the following values: 'reboot', 'stop', 'terminate' or 'unknown'
+  The value will be 'reboot', 'stop' or 'terminate' when decommissioning through the RightScale dashboard or when using the
+  rs_shutdown command. The 'unknown' value may be seen when the rightlink service is decommissioned (not stopped) from the console or
+  else the instance is shutdown or rebooted without using the rs_shutdown command.
 
 == Changes to Existing Functionality
 
