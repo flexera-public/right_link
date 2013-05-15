@@ -28,31 +28,61 @@ describe RightScale::ExecutableSequenceProxy do
 
   it_should_behave_like 'mocks cook'
 
-  let(:thread_name) {'some_thread_name'}
-  let(:policy_name) {'some_policy_name'}
+  let(:thread_name)   {'some_thread_name'}
+  let(:policy_name)   {'some_policy_name'}
+  let(:pid_container) { [] }
+
+  let(:runlist_policy) do
+    flexmock('runlist policy',
+             :thread_name => thread_name,
+             :policy_name => policy_name,
+             :audit_period => 120)
+  end
+
+  let(:bundle) do
+    result = flexmock('bundle', :runlist_policy => @runlist_policy)
+    result.should_receive(:to_json).and_return("[\"some json\"]")
+    result
+  end
+
+  let(:audit) do
+    result = flexmock('audit', :append_info => true)
+    result.should_receive(:create_new_section).with('Querying tags')
+    result.should_receive(:append_info).with('No tags discovered.').by_default
+    result.should_receive(:update_status)
+    result
+  end
+
+  let(:context) do
+    result = flexmock('context',
+                      :audit         => audit,
+                      :payload       => bundle,
+                      :decommission? => decommission?,
+                      :thread_name   => thread_name)
+    result.should_receive(:succeeded=)
+    result
+  end
+
+  let(:tag_manager) do
+    result = flexmock('agent tag manager')
+    result.should_receive(:tags).and_yield([]).by_default
+    result
+  end
+
+  subject do
+    pids = pid_container
+    described_class.new(
+      context, :pid_callback => lambda { |sequence| pids << sequence.pid })
+  end
 
   before(:each) do
     setup_state('rs-instance-1-1')
 
-    #create a mock executable bundle & corresponding objects
-    @audit = flexmock('audit', :append_info => true)
-    @runlist_policy = flexmock('runlist policy', :thread_name => thread_name, :policy_name => policy_name, :audit_period => 120)
-    @bundle = flexmock('bundle', :runlist_policy => @runlist_policy)
-    @bundle.should_receive(:to_json).and_return("[\"some json\"]")
-    @context = flexmock('context', :audit => @audit, :payload => @bundle, :decommission => false, :thread_name => thread_name)
-    @context.should_receive(:succeeded=)
-
-    #mock agent tag manager, with some default expectations to handle happy
-    #path for startup tag query
-    @tag_manager = flexmock('agent tag manager')
-    flexmock(RightScale::AgentTagManager).should_receive(:instance).and_return(@tag_manager)
-    @tag_manager.should_receive(:tags).and_yield([]).by_default
-    @audit.should_receive(:create_new_section).with('Querying tags')
-    @audit.should_receive(:append_info).with('No tags discovered.').by_default
-    @audit.should_receive(:update_status)
-
-    @pid = nil
-    @proxy = RightScale::ExecutableSequenceProxy.new(@context, :pid_callback => lambda { |sequence| @pid = sequence.pid })
+    # mock agent tag manager, with some default expectations to handle happy
+    # path for startup tag query
+    flexmock(::RightScale::AgentTagManager).
+      should_receive(:instance).
+      and_return(tag_manager)
   end
 
   after(:each) do
@@ -61,95 +91,119 @@ describe RightScale::ExecutableSequenceProxy do
 
   context 'tag query' do
     context 'when the instance has tags' do
+      let(:tags) { %w{foo bar baz} }
+
       it 'should audit the tags' do
-        @tag_manager.should_receive(:tags).and_yield(['foo', 'bar', 'baz'])
-        @audit.should_receive(:append_info).with("Tags discovered: 'foo, bar, baz'")
+        tag_manager.should_receive(:tags).and_yield(tags)
+        audit.should_receive(:append_info).with("Tags discovered: '#{tags.join(', ')}'")
       end
     end
 
     context 'when the query fails or times out' do
       it 'should audit and log the failure' do
-        @tag_manager.should_receive(:tags).and_yield('fall down go boom :(')
+        tag_manager.should_receive(:tags).and_yield('fall down go boom :(')
         flexmock(RightScale::Log).should_receive(:error).with(/fall down go boom/)
-        @audit.should_receive(:append_error).with('Could not discover tags due to an error or timeout.')
+        audit.should_receive(:append_error).with('Could not discover tags due to an error or timeout.')
       end
     end
   end
 
-  it 'should run a valid command' do
+  def assert_succeeded(expected_environment)
     status = flexmock('status', :success? => true)
-    flexmock(RightScale::RightPopen).should_receive(:popen3_async).and_return do |cmd, o|
+    actual_environment = nil
+    flexmock(::RightScale::RightPopen).should_receive(:popen3_async).and_return do |cmd, o|
+      actual_environment = o[:environment]
       o[:target].instance_variable_set(:@audit_closed, true)
       o[:target].send(o[:pid_handler], 123)
       o[:target].send(o[:exit_handler], status)
       true
     end
-    @proxy.instance_variable_get(:@deferred_status).should == nil
-    run_em_test { @proxy.run; stop_em_test }
-    @proxy.instance_variable_get(:@deferred_status).should == :succeeded
-    @proxy.thread_name.should == thread_name
-    @proxy.pid.should == 123
-    @proxy.pid.should == @pid
+    subject.instance_variable_get(:@deferred_status).should == nil
+    run_em_test { subject.run; stop_em_test }
+    subject.instance_variable_get(:@deferred_status).should == :succeeded
+    subject.thread_name.should == thread_name
+    subject.pid.should == 123
+    subject.pid.should == pid_container.first
+    actual_environment.should == expected_environment
   end
 
-  it 'should find the cook utility' do
-    status = flexmock('status', :success? => true)
-    cmd = nil
-    flexmock(RightScale::RightPopen).should_receive(:popen3_async).and_return do |cmd, o|
-      o[:target].instance_variable_set(:@audit_closed, true)
-      o[:target].send(o[:exit_handler], status)
-      true
+  context 'with a boot or operational context' do
+    let(:decommission?) { false }
+
+    it 'should run a valid command' do
+      assert_succeeded(::RightScale::OptionsBag::OPTIONS_ENV => nil)
     end
-    run_em_test { @proxy.run; stop_em_test }
 
-    # note that normalize_path makes it tricky to guess at full command string
-    # so it is best to rely on config constants.
-    cook_util_path = File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'bin', 'cook_runner'))
-    expected = "#{File.basename(RightScale::AgentConfig.ruby_cmd)} \"#{cook_util_path}\""
-    if RightScale::Platform.windows?
-      matcher = Regexp.compile(".*" + Regexp.escape(" /C type ") + ".*" + Regexp.escape("rs_executable_sequence#{thread_name}.txt\" | ") + ".*" + Regexp.escape(expected))
-    else
-      matcher = Regexp.compile(".*" + Regexp.escape(expected))
-    end
-    cmd.should match matcher
-  end
-
-  it 'should report failures when cook fails' do
-    status = flexmock('status', :success? => false, :exitstatus => 1)
-    flexmock(RightScale::RightPopen).should_receive(:popen3_async).and_return do |cmd, o|
-      o[:target].instance_variable_set(:@audit_closed, true)
-      o[:target].send(o[:exit_handler], status)
-      true
-    end
-    @audit.should_receive(:append_error).once
-    @proxy.instance_variable_get(:@deferred_status).should == nil
-    run_em_test { @proxy.run; stop_em_test }
-    @proxy.instance_variable_get(:@deferred_status).should == :failed
-  end
-
-  context 'when actually running popen3_async' do
-
-    it 'should call the cook utility' do
-
-      mock_output = File.join(File.dirname(__FILE__), 'cook_mock_output')
-      File.delete(mock_output) if File.exists?(mock_output)
-      flexmock(@proxy).instance_variable_set(:@audit_closed, true)
-      flexmock(@proxy).should_receive(:cook_path).and_return(File.join(File.dirname(__FILE__), 'cook_mock.rb'))
-      flexmock(@proxy).should_receive(:succeed).and_return { |*args| stop_em_test }
-      flexmock(@proxy).should_receive(:report_failure).and_return { |*args| puts args.inspect; stop_em_test }
-      run_em_test { @proxy.run }
-      @pid.should_not be_nil
-      @pid.should > 0
-      begin
-        output = File.read(mock_output)
-        # the spec setup does some weird stuff with the jsonization of the bundle, so we jump though hoops here to match what was
-        # actually sent to the cook utility
-        RightScale::MessageEncoder.for_agent('rs-instance-1-1').decode(output).to_json.should == @bundle.to_json
-      ensure
-        (File.delete(mock_output) if File.file?(mock_output)) rescue nil
+    it 'should find the cook utility' do
+      status = flexmock('status', :success? => true)
+      cmd = nil
+      flexmock(RightScale::RightPopen).should_receive(:popen3_async).and_return do |cmd, o|
+        o[:target].instance_variable_set(:@audit_closed, true)
+        o[:target].send(o[:exit_handler], status)
+        true
       end
+      run_em_test { subject.run; stop_em_test }
+
+      # note that normalize_path makes it tricky to guess at full command string
+      # so it is best to rely on config constants.
+      cook_util_path = File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'bin', 'cook_runner'))
+      expected = "#{File.basename(RightScale::AgentConfig.ruby_cmd)} \"#{cook_util_path}\""
+      if RightScale::Platform.windows?
+        matcher = Regexp.compile(".*" + Regexp.escape(" /C type ") + ".*" + Regexp.escape("rs_executable_sequence#{thread_name}.txt\" | ") + ".*" + Regexp.escape(expected))
+      else
+        matcher = Regexp.compile(".*" + Regexp.escape(expected))
+      end
+      cmd.should match matcher
     end
 
+    it 'should report failures when cook fails' do
+      status = flexmock('status', :success? => false, :exitstatus => 1)
+      flexmock(RightScale::RightPopen).should_receive(:popen3_async).and_return do |cmd, o|
+        o[:target].instance_variable_set(:@audit_closed, true)
+        o[:target].send(o[:exit_handler], status)
+        true
+      end
+      audit.should_receive(:append_error).once
+      subject.instance_variable_get(:@deferred_status).should == nil
+      run_em_test { subject.run; stop_em_test }
+      subject.instance_variable_get(:@deferred_status).should == :failed
+    end
+
+    context 'when actually running popen3_async' do
+      it 'should call the cook utility' do
+        mock_output = File.join(File.dirname(__FILE__), 'cook_mock_output')
+        File.delete(mock_output) if File.exists?(mock_output)
+        flexmock(subject).instance_variable_set(:@audit_closed, true)
+        flexmock(subject).should_receive(:cook_path).and_return(File.join(File.dirname(__FILE__), 'cook_mock.rb'))
+        flexmock(subject).should_receive(:succeed).and_return { |*args| stop_em_test }
+        flexmock(subject).should_receive(:report_failure).and_return { |*args| puts args.inspect; stop_em_test }
+        run_em_test { subject.run }
+        pid_container.should_not be_empty
+        pid_container.first.should > 0
+        begin
+          output = File.read(mock_output)
+          # the spec setup does some weird stuff with the jsonization of the bundle, so we jump though hoops here to match what was
+          # actually sent to the cook utility
+          RightScale::MessageEncoder.for_agent('rs-instance-1-1').decode(output).to_json.should == bundle.to_json
+        ensure
+          (File.delete(mock_output) if File.file?(mock_output)) rescue nil
+        end
+      end
+
+    end
   end
 
+  context 'with a decommission context' do
+    let(:decommission?) { true }
+
+    it 'should run a valid command' do
+      shutdown_instance = flexmock('shutdown instance')
+      flexmock(::RightScale::ShutdownRequest).should_receive(:instance).and_return(shutdown_instance)
+      shutdown_instance.should_receive(:continue?).and_return(false).once
+      shutdown_instance.should_receive(:level).and_return(::RightScale::ShutdownRequest::STOP).once
+      assert_succeeded(
+        ::RightScale::OptionsBag::OPTIONS_ENV => nil,
+        'RS_DECOM_REASON' => ::RightScale::ShutdownRequest::STOP)
+    end
+  end
 end

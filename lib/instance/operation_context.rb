@@ -26,26 +26,28 @@ module RightScale
   # Includes operation input and associated audit
   class OperationContext
 
-    # (Object) Payload associated with operation
+    # @return [Object] payload associated with operation
     attr_reader :payload
 
-    # (AuditProxy) Associated audit
+    # @return [RightScale::AuditProxy] audit for execution
     attr_reader :audit
 
-    # (TrueClass|FalseClass) Whether bundle succeeded
+    # @return [TrueClass|FalseClass] true if bundle succeeded
     attr_accessor :succeeded
 
-    # (TrueClass|FalseClass) Whether bundle is a decommission bundle
-    attr_reader :decommission
+    # @return [TrueClass|FalseClass] true if a decommission bundle
+    def decommission?; @decommission; end
 
-    # (String) Thread name for context or default
+    # @return [String] thread name for context or default thread name
     attr_reader :thread_name
 
-    # Initialize payload and audit
+    # @param [Object] payload of any kind (but usually executable bundle)
+    # @param [RightScale::AuditProxy] audit for execution
+    # @param [TrueClass|FalseClass] decommission flag that is true if a decommission bundle or false for boot/operational bundles
     def initialize(payload, audit, decommission=false)
       @payload = payload
       @audit = audit
-      @decommission = decommission
+      @decommission = !!decommission
       @thread_name = payload.respond_to?(:runlist_policy) && payload.runlist_policy ? payload.runlist_policy.thread_name : ::RightScale::AgentConfig.default_thread_name
     end
 

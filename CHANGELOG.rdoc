@@ -1,5 +1,10 @@
 = RightLink 5.9
 
+== New Features
+
+* The RS_DECOM_REASON environment variable is set during decommission script/recipe execution to indicate the reason why decommission
+  is running. This variable will have one of the following values: 'reboot', 'shutdown', 'terminate'
+
 == Changes to Existing Functionality
 
 * When freezing the RubyGems repository, RightLink now edits the systemwide RubyGems config file (/etc/gemrc) rather than modifying 
