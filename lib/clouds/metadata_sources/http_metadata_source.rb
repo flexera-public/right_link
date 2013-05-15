@@ -42,6 +42,7 @@ module RightScale
       def initialize(options)
         super(options)
         raise ArgumentError, "options[:hosts] is required" unless @hosts = options[:hosts]
+        @netwait_max_attempts = (options[:metadata_netwait_timeout] || 0) / RETRY_NOROUTE_DELAY
         @host, @port = self.class.select_metadata_server(@hosts)
         @connections = {}
       end
@@ -80,7 +81,7 @@ module RightScale
             end
           rescue Exception => e
             logger.error("Exception occurred while attempting to retrieve metadata from \"#{http_path}\"; Exception:#{e.message}\nTrace:#{e.backtrace.join("\n")}")
-            if NETERR_NO_ROUTE_REGEX.match(e.to_s) && (noroute_cnt+=1) < RETRY_NOROUTE_MAX_ATTEMPTS
+            if NETERR_NO_ROUTE_REGEX.match(e.to_s) && (noroute_cnt+=1) < @netwait_max_attempts
               # It makes more sense to just sleep 2 every time
               # for this error instead of using the backoff alg.
               sleep RETRY_NOROUTE_DELAY
@@ -147,8 +148,6 @@ module RightScale
       # retry 1800 times (about an hour at 2 second intervals)
       # for no route retries
       RETRY_NOROUTE_DELAY = 2
-      RETRY_NOROUTE_MAX_TOTAL_TIME = 3600 # 60 * 60 (1 Hour)
-      RETRY_NOROUTE_MAX_ATTEMPTS = RETRY_NOROUTE_MAX_TOTAL_TIME / RETRY_NOROUTE_DELAY
 
       # retry factor (which can be monkey-patched for quicker testing of retries)
       RETRY_DELAY_FACTOR = 1
