@@ -296,15 +296,15 @@ describe RightScale::MetadataSources::HttpMetadataSource do
 
     context "when no route is available" do
       context "POSIX" do
-        it "should try 2 times" do
-          @mock_http_connection.should_receive(:request).times(2).
+        it "should retry 2 times" do
+          @mock_http_connection.should_receive(:request).times(3).
             and_raise(Exception.new("15.20.20.1 temporarily unavailable: (No route to host - connect(2))"))
           @http_metadata_source.query("a").should == ""
         end
       end
       context "Windows" do
-        it "should try 2 times" do
-          @mock_http_connection.should_receive(:request).times(2).
+        it "should retry 2 times" do
+          @mock_http_connection.should_receive(:request).times(3).
             and_raise(Exception.new("15.20.20.1 temporarily unavailable: (A socket operation was attempted to an unreachable network. - connect(2))"))
           @http_metadata_source.query("a").should == ""
         end
