@@ -145,16 +145,24 @@ describe InstanceScheduler do
       end
     end
 
+    context 'without a decommission level' do
+      it 'should *not* transition to decommissioned state nor shutdown after decommissioning from rnac' do
+        run_em_test do
+          before_each
+          flexmock(RightScale::ExecutableSequenceProxy).should_receive(:new).and_return(@sequence_success)
+          @sender.should_receive(:send_retryable_request).
+                  with('/booter/get_decommission_bundle', {:agent_identity => @agent.identity}, Proc).
+                  and_yield({ '1' => RightScale::OperationResult.success(@bundle) })
+          @sender.should_receive(:send_retryable_request).with(*@decommissioning_args).and_yield(@record_success).once
+          @sender.should_receive(:send_retryable_request).with(*@decommissioned_args).never
+          flexmock(@audit).should_receive(:append_error).never
+          flexmock(@controller).should_receive(:shutdown).never
+          @scheduler.run_decommission { stop_em_test }
+        end
+      end
+    end
+
     context 'with a decommission level' do
-      before(:each) do
-        @old_decommission_level = ::RightScale::ShutdownRequest.instance.level
-        ::RightScale::ShutdownRequest.instance.level = decommission_level
-      end
-
-      after(:each) do
-        ::RightScale::ShutdownRequest.instance.level = @old_decommission_level
-      end
-
       it 'should decommission' do
         run_em_test do
           before_each
@@ -191,21 +199,6 @@ describe InstanceScheduler do
           res = @scheduler.schedule_decommission(:bundle => @bundle, :user_id => @user_id, :kind => decommission_level)
           res.success?.should be_false
           stop_em_test
-        end
-      end
-
-      it 'should *not* transition to decommissioned state nor shutdown after decommissioning from rnac' do
-        run_em_test do
-          before_each
-          flexmock(RightScale::ExecutableSequenceProxy).should_receive(:new).and_return(@sequence_success)
-          @sender.should_receive(:send_retryable_request).
-                  with('/booter/get_decommission_bundle', {:agent_identity => @agent.identity}, Proc).
-                  and_yield({ '1' => RightScale::OperationResult.success(@bundle) })
-          @sender.should_receive(:send_retryable_request).with(*@decommissioning_args).and_yield(@record_success).once
-          @sender.should_receive(:send_retryable_request).with(*@decommissioned_args).never
-          flexmock(@audit).should_receive(:append_error).never
-          flexmock(@controller).should_receive(:shutdown).never
-          @scheduler.run_decommission { stop_em_test }
         end
       end
 

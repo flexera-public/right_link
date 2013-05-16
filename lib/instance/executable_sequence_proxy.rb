@@ -150,11 +150,7 @@ module RightScale
               ::ENV[::RightScale::OptionsBag::OPTIONS_ENV]
           }
           if @context.decommission?
-            # a little sanity check
-            if ::RightScale::ShutdownRequest.instance.continue?
-              raise ::ArgumentError, 'Unexpected decommission level'
-            end
-            environment['RS_DECOM_REASON'] = ::RightScale::ShutdownRequest.instance.level
+            environment['RS_DECOM_REASON'] = @context.decommission_type
           end
 
           # spawn
