@@ -64,7 +64,6 @@ module RightScale
       def query(path)
         http_path = "http://#{@host}:#{@port}/#{path}"
         attempts = 0
-        noroute_cnt = 0
         while true
           begin
             logger.debug("Querying \"#{http_path}\"...")
@@ -85,13 +84,7 @@ module RightScale
             end
           rescue Exception => e
             logger.error("Exception occurred while attempting to retrieve metadata from \"#{http_path}\"; Exception:#{e.message}\nTrace:#{e.backtrace.join("\n")}")
-            if (noroute_cnt+=1) <= @netwait_max_attempts && NETERR_NO_ROUTE_REGEX.match(e.to_s)
-              # It makes more sense to just sleep 2 every time
-              # for this error instead of using the backoff alg.
-              sleep RETRY_NOROUTE_DELAY
-            else
-              return ""
-            end
+            return ""
           end
         end
       end
@@ -190,6 +183,7 @@ module RightScale
       def http_get(path, keep_alive = true)
         uri = safe_parse_http_uri(path)
         history = []
+        noroute_cnt = 0
         loop do
           logger.debug("http_get(#{uri})")
 
@@ -205,8 +199,24 @@ module RightScale
           request = Net::HTTP::Get.new(uri.path)
           request['Connection'] = keep_alive ? 'keep-alive' : 'close'
 
-          # get.
-          response = connection.request(:protocol => uri.scheme, :server => uri.host, :port => uri.port, :request => request)
+          begin
+            # get.
+            response = connection.request(:protocol => uri.scheme, :server => uri.host, :port => uri.port, :request => request)
+          rescue Exception => e
+            if (noroute_cnt+=1) <= @netwait_max_attempts && NETERR_NO_ROUTE_REGEX.match(e.message)
+              logger.debug("Retryable network error, got exception: #{e.inspect}")
+              # It makes more sense to just sleep 2 every time
+              # for this error instead of using the backoff alg.
+              sleep RETRY_NOROUTE_DELAY
+
+              # Need to reset the connection, otherwise we'll use a stale socket.
+              @connections[host] = nil
+              next
+            else
+              raise e
+            end
+          end
+
           return response.body if response.kind_of?(Net::HTTPSuccess)
           if response.kind_of?(Net::HTTPServerError)
             logger.debug("Request failed but can retry; #{response.class.name}")
