@@ -32,10 +32,14 @@ module RightScale
     class HttpMetadataSource < MetadataSource
 
       # We get back an exception for when there is no route to the host in the
-      # HTTP get request. This could be because DHCP is being slow, so disguinsh
-      POSIX_NO_ROUTE_MSG = 'No route to host'
-      WIN_NO_ROUTE_MSG = 'A socket operation was attempted to an unreachable network.'
-      NETERR_NO_ROUTE_REGEX = /.*temporarily unavailable: \((#{POSIX_NO_ROUTE_MSG}|#{WIN_NO_ROUTE_MSG}) - connect\(2\)\)/
+      # HTTP get request. This could be because DHCP is being slow, so distinguish
+      NETERR_NO_ROUTE_MESSAGES = [
+        'No route to host',
+        'A socket operation was attempted to an unreachable network.',
+        'An established connection was aborted by the software in your host machine.',
+      ]
+
+      NETERR_NO_ROUTE_REGEX = /.*temporarily unavailable: \((#{NETERR_NO_ROUTE_MESSAGES.join('|')}) - connect\(2\)\)/
 
       attr_accessor :host, :port
 
