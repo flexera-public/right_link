@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2009-2012 RightScale Inc
+# Copyright (c) 2009-2013 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -20,8 +20,8 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'spec_helper'))
-require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', '..', '..', 'lib', 'instance', 'cook'))
+require File.expand_path(File.join(File.dirname(__FILE__), '..', 'spec_helper'))
+require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'lib', 'instance', 'cook'))
 
 def mock_response(message, code)
   res = Net::HTTPInternalServerError.new('1.1', message, code)
@@ -104,7 +104,7 @@ module RightScale
     context :download do
       it 'should download an attachment' do
         res = Net::HTTPSuccess.new('1.1', 'bar', 200)
-        flexmock(RestClient::Request).should_receive(:execute).and_yield('bar', nil, res)
+        flexmock(::RestClient::Request).should_receive(:execute).and_yield('bar', nil, res)
         flexmock(res).should_receive(:content_length).and_return(0)
 
         # Speed up this test

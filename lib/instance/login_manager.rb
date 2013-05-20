@@ -42,6 +42,9 @@ module RightScale
     ACTIVE_TAG              = 'rs_login:state=active'
     RESTRICTED_TAG          = 'rs_login:state=restricted'
     COMMENT                 = /^\s*#/
+    SSH_DEFAULT_KEYS        = [ File.join(RightScale::Platform.filesystem.ssh_cfg_dir, 'ssh_host_rsa_key'),
+                                File.join(RightScale::Platform.filesystem.ssh_cfg_dir, 'ssh_host_dsa_key'),
+                                File.join(RightScale::Platform.filesystem.ssh_cfg_dir, 'ssh_host_ecdsa_key') ]
 
     def initialize
       require 'etc'
@@ -77,12 +80,7 @@ module RightScale
     def update_policy(new_policy, agent_identity)
       return false unless supported_by_platform?
 
-      # As a sanity check, filter out any expired users. The core should never send us these guys,
-      # but by filtering here additionally we prevent race conditions and handle boundary conditions, as well
-      # as allowing our internal expiry timer to simply call us back when a LoginUser expires.
-      # All users are added to RightScale account's authorized keys.
-      new_users = new_policy.users.select { |u| (u.expires_at == nil || u.expires_at > Time.now) }
-      update_users(new_users, agent_identity, new_policy) do |audit_content|
+      update_users(new_policy.users, agent_identity, new_policy) do |audit_content|
         yield audit_content if block_given?
       end
 
@@ -111,6 +109,27 @@ module RightScale
       superuser = superuser ? " --superuser" : ""
 
       %Q{command="rs_thunk --username #{username} --uuid #{uuid}#{superuser} --email #{email}#{profile}" }
+    end
+
+    # Returns current SSH host keys
+    #
+    # == Returns:
+    # @return [Array<String>] Base64 encoded SSH public keys
+    def get_ssh_host_keys()
+      # Try to read the sshd_config file first
+      keys = File.readlines(
+        File.join(RightScale::Platform.filesystem.ssh_cfg_dir, 'sshd_config')).map do |l|
+          key = nil
+          /^\s*HostKey\s+([^ ].*)/.match(l) { key = m.captures[0] }
+          key
+        end.compact
+
+      # If the config file was empty, try these defaults
+      keys = keys.empty? ? SSH_DEFAULT_KEYS : keys
+
+      # Assume the public keys are just the public keys with '.pub' extended and
+      # read in each existing key.
+      keys.map { |k| k="#{k}.pub"; File.exists?(k) ? File.read(k) : nil }.compact
     end
 
     protected
@@ -189,8 +208,10 @@ module RightScale
     # == Returns:
     # @return [TrueClass] always returns true
     #
-    def finalize_policy(new_policy, agent_identity, new_users, missing)
-      user_lines = modify_keys_to_use_individual_profiles(new_users)
+    def finalize_policy(new_policy, agent_identity, new_policy_users, missing)
+      manage_existing_users(new_policy_users)
+
+      user_lines = login_users_to_authorized_keys(new_policy_users)
 
       InstanceState.login_policy = new_policy
 
@@ -203,7 +224,7 @@ module RightScale
       schedule_expiry(new_policy, agent_identity)
 
       # Yield a human-readable description of the policy, e.g. for an audit entry
-      yield describe_policy(new_users, new_users.select { |u| u.superuser }, missing)
+      yield describe_policy(new_policy_users, new_policy_users.select { |u| u.superuser }, missing)
 
       true
     end
@@ -369,7 +390,9 @@ module RightScale
         @expiry_timer = nil
       end
 
-      next_expiry = policy.users.map { |u| u.expires_at }.compact.min
+      # Find the next expiry time that is in the future
+      now = Time.now
+      next_expiry = policy.users.map { |u| u.expires_at }.compact.select { |t| t > now }.min
       return false unless next_expiry
       delay = next_expiry.to_i - Time.now.to_i + 1
 
@@ -387,9 +410,9 @@ module RightScale
       return true
     end
 
-    # Here is the first version of prototype for Managed Login for RightScale users.
-    # Creates user accounts and modifies public keys for individual
-    # access according to new login policy
+    # Given a list of LoginUsers, compute an authorized_keys file that encompasses all
+    # of the users and has a suitable options field that invokes rs_thunk with the right
+    # command-line params for that user. Omit any users who are expired.
     #
     # == Parameters:
     # @param [Array<LoginUser>] array of updated users list
@@ -397,16 +420,62 @@ module RightScale
     # == Returns:
     # @return [Array<String>] public key lines of user accounts
     #
-    def modify_keys_to_use_individual_profiles(new_users)
+    def login_users_to_authorized_keys(new_users)
+      now = Time.now
+
       user_lines = []
 
       new_users.each do |u|
-        u.public_keys.each do |k|
-          user_lines << "#{get_key_prefix(u.username, u.common_name, u.uuid, u.superuser, u.profile_data)} #{k}"
+        if u.expires_at.nil? || u.expires_at > now
+          u.public_keys.each do |k|
+            user_lines << "#{get_key_prefix(u.username, u.common_name, u.uuid, u.superuser, u.profile_data)} #{k}"
+          end
         end
       end
 
       return user_lines.sort
+    end
+
+    # @TODO docs
+    def manage_existing_users(new_policy_users)
+      now = Time.now
+
+      previous = {}
+      if InstanceState.login_policy
+        InstanceState.login_policy.users.each do |user|
+          previous[user.uuid] = user
+        end
+      end
+
+      current = {}
+      new_policy_users.each do |user|
+        current[user.uuid] = user
+      end
+
+      added   = current.keys - previous.keys
+      removed = previous.keys - current.keys
+      stayed  = current.keys & previous.keys
+
+      removed.each do |k|
+        begin
+          user = current[k] || previous[k]
+          LoginUserManager.manage_user(user.uuid, user.superuser, :disable => true)
+        rescue Exception => e
+          RightScale::Log.error "Failed to disable user '#{user.uuid}': #{e}" unless e.is_a?(ArgumentError)
+        end
+      end
+
+      (added + stayed).each do |k|
+        begin
+          user = current[k] || previous[k]
+          disable = !!(user.expires_at) && (now >= user.expires_at)
+          LoginUserManager.manage_user(user.uuid, user.superuser, :disable => disable)
+        rescue Exception => e
+          RightScale::Log.error "Failed to manage existing user '#{user.uuid}': #{e}" unless e.is_a?(ArgumentError)
+        end
+      end
+    rescue Exception => e
+      RightScale::Log.error "Failed to manage existing users: #{e}"
     end
 
     # === OS specific methods

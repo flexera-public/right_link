@@ -453,7 +453,7 @@ At .*:2 char:.*
   + CategoryInfo          : ObjectNotFound: (C:\\a_folder_which_does_not_exist:String) [Set-Location], ItemNotFoundException
   + FullyQualifiedErrorId : PathNotFound,Microsoft.PowerShell.Commands.SetLocationCommand
 EOF
-      stderr_match2 = "WARNING: Script exited successfully but $Error contained 1 error(s)."
+      stderr_match2 = "Script exited successfully but $Error contained 1 error(s):"
       log_should_contain_text(:info, stdout_match)
       log_should_contain_text(:info, stderr_match1)
       log_should_contain_text(:info, stderr_match2)

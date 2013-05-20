@@ -52,7 +52,7 @@ if RightScale::Platform.windows?
     before(:each) do
       flexmock(RightScale::Windows::PowershellPipeServer).new_instances.should_receive(:start).and_return(true)
       flexmock(RightScale::Windows::PowershellPipeServer).new_instances.should_receive(:stop).and_return(true)
-      flexmock(RightScale).should_receive(:popen3).and_return(true)
+      flexmock(RightScale::RightPopen).should_receive(:popen3_async).and_return(true)
 
       init_test
     end
