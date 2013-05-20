@@ -97,7 +97,9 @@ class Chef
 
       # (String) recipe id for the schedule
       def recipe_id(arg=nil)
-        if Integer(arg) < 0 then raise RangeError end
+        raise ArgumentError if arg.is_a? Symbol
+        if arg.to_i < 0 then raise RangeError end
+        raise ArgumentError if arg && arg.to_i == 0
         if arg.is_a?(Integer)
           converted_arg = arg.to_s
         else
@@ -125,7 +127,9 @@ class Chef
 
       # (String) RightScript's id for the schedule
       def right_script_id(arg=nil)
-        if Integer(arg) < 0 then raise RangeError end
+        raise ArgumentError if arg.is_a? Symbol
+        if arg.to_i < 0 then raise RangeError end
+        raise ArgumentError if arg && arg.to_i == 0
         if arg.is_a?(Integer)
           converted_arg = arg.to_s
         else
