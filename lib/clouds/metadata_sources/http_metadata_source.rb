@@ -34,7 +34,14 @@ module RightScale
       # We get back an exception for when there is no route to the host in the
       # HTTP get request. This could be because DHCP is being slow, so distinguish
       NETERR_NO_ROUTE_MESSAGES = [
+        # POSIX error strings
         'No route to host',
+        'Network is down',
+        'Network is unreachable',
+        'Software caused connection abort',
+
+        # Win32 error strings
+        'A socket operation was attempted to an unreachable host.',
         'A socket operation was attempted to an unreachable network.',
         'An established connection was aborted by the software in your host machine.',
       ]
