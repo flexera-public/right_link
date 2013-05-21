@@ -120,7 +120,7 @@ module RightScale
       keys = File.readlines(
         File.join(RightScale::Platform.filesystem.ssh_cfg_dir, 'sshd_config')).map do |l|
           key = nil
-          /^\s*HostKey\s+([^ ].*)/.match(l) { key = m.captures[0] }
+          /^\s*HostKey\s+([^ ].*)/.match(l) { |m| key = m.captures[0] }
           key
         end.compact
 
