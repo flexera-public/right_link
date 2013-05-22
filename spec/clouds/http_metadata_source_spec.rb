@@ -69,7 +69,7 @@ module RightScale
 
     class HttpMetadataSource
       # monkey patch for quicker testing of retries.
-      RETRY_DELAY_FACTOR = 0.01
+      RETRY_DELAY_FACTOR = 0
     end
 
   end
@@ -254,7 +254,7 @@ describe RightScale::MetadataSources::HttpMetadataSource do
       flexmock(Net::HTTP::Get).should_receive(:new).and_return(@mock_request)
       flexmock(::RightScale::MetadataSources::HttpMetadataSource).should_receive(:select_metadata_server).and_return([@host, @port])
       flexmock(::RightScale::MetadataSources::HttpMetadataSource).new_instances.should_receive(:safe_parse_http_uri).and_return(@mock_uri)
-      @http_metadata_source = ::RightScale::MetadataSources::HttpMetadataSource.new(:logger=>@logger, :hosts=>[:host=>@host, :port=>@port], :metadata_netwait_timeout=>4)
+      @http_metadata_source = ::RightScale::MetadataSources::HttpMetadataSource.new(:logger=>@logger, :hosts=>[:host=>@host, :port=>@port])
     end
 
     context "when 400 class response from metadata server" do
@@ -294,17 +294,17 @@ describe RightScale::MetadataSources::HttpMetadataSource do
       end
     end
 
-    context "when no route is available" do
+    context "when and exception is thrown" do
       context "POSIX" do
-        it "should retry 2 times" do
-          @mock_http_connection.should_receive(:request).times(3).
+        it "should retry #{::RightScale::MetadataSources::HttpMetadataSource::RETRY_MAX_ATTEMPTS} times" do
+          @mock_http_connection.should_receive(:request).times(::RightScale::MetadataSources::HttpMetadataSource::RETRY_MAX_ATTEMPTS).
             and_raise(Exception.new("15.20.20.1 temporarily unavailable: (No route to host - connect(2))"))
           @http_metadata_source.query("a").should == ""
         end
       end
       context "Windows" do
-        it "should retry 2 times" do
-          @mock_http_connection.should_receive(:request).times(3).
+        it "should retry #{::RightScale::MetadataSources::HttpMetadataSource::RETRY_MAX_ATTEMPTS} times" do
+          @mock_http_connection.should_receive(:request).times(::RightScale::MetadataSources::HttpMetadataSource::RETRY_MAX_ATTEMPTS).
             and_raise(Exception.new("15.20.20.1 temporarily unavailable: (A socket operation was attempted to an unreachable network. - connect(2))"))
           @http_metadata_source.query("a").should == ""
         end
