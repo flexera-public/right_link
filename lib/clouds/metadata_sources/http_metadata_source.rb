@@ -31,6 +31,16 @@ module RightScale
     # case of a tree of metadata.
     class HttpMetadataSource < MetadataSource
 
+      # We get back an exception for when there is no route to the host in the
+      # HTTP get request. This could be because DHCP is being slow, so distinguish
+      NETERR_NO_ROUTE_MESSAGES = [
+        'No route to host',
+        'A socket operation was attempted to an unreachable network.',
+        'An established connection was aborted by the software in your host machine.',
+      ]
+
+      NETERR_NO_ROUTE_REGEX = /.*temporarily unavailable: \((#{NETERR_NO_ROUTE_MESSAGES.join('|')}) - connect\(2\)\)/
+
       attr_accessor :host, :port
 
       def initialize(options)
@@ -131,6 +141,12 @@ module RightScale
       # retry 10 times maximum
       RETRY_MAX_ATTEMPTS = 10
 
+      # retry 1800 times (about an hour at 2 second intervals)
+      # for no route retries
+      RETRY_NOROUTE_DELAY = 2
+      RETRY_NOROUTE_MAX_TOTAL_TIME = 3600 # 60 * 60 (1 Hour)
+      RETRY_NOROUTE_MAX_ATTEMPTS = RETRY_NOROUTE_MAX_TOTAL_TIME / RETRY_NOROUTE_DELAY
+
       # retry factor (which can be monkey-patched for quicker testing of retries)
       RETRY_DELAY_FACTOR = 1
 
@@ -168,6 +184,7 @@ module RightScale
       def http_get(path, keep_alive = true)
         uri = safe_parse_http_uri(path)
         history = []
+        noroute_cnt = 0
         loop do
           logger.debug("http_get(#{uri})")
 
@@ -183,8 +200,24 @@ module RightScale
           request = Net::HTTP::Get.new(uri.path)
           request['Connection'] = keep_alive ? 'keep-alive' : 'close'
 
-          # get.
-          response = connection.request(:protocol => uri.scheme, :server => uri.host, :port => uri.port, :request => request)
+          begin
+            # get.
+            response = connection.request(:protocol => uri.scheme, :server => uri.host, :port => uri.port, :request => request)
+          rescue Exception => e
+            if (noroute_cnt+=1) <= RETRY_NOROUTE_MAX_ATTEMPTS && NETERR_NO_ROUTE_REGEX.match(e.message)
+              logger.debug("Retryable network error, got exception: #{e.inspect}")
+              # It makes more sense to just sleep 2 every time
+              # for this error instead of using the backoff alg.
+              sleep RETRY_NOROUTE_DELAY
+
+              # Need to reset the connection, otherwise we'll use a stale socket.
+              @connections[host] = nil
+              next
+            else
+              raise e
+            end
+          end
+
           return response.body if response.kind_of?(Net::HTTPSuccess)
           if response.kind_of?(Net::HTTPServerError)
             logger.debug("Request failed but can retry; #{response.class.name}")
