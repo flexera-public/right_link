@@ -95,11 +95,14 @@ class Chef
         @cron_resource.command "rs_run_recipe -n #{arg}" if arg
       end
 
+      def check_id(id)
+        raise ArgumentError unless id.is_a?(Integer) || id.is_a?(String)
+        raise RangeError if Integer(id) < 0
+      end
+
       # (String) recipe id for the schedule
       def recipe_id(arg=nil)
-        raise ArgumentError if arg.is_a? Symbol
-        if arg.to_i < 0 then raise RangeError end
-        raise ArgumentError if arg && arg.to_i == 0
+        check_id(arg) if arg
         if arg.is_a?(Integer)
           converted_arg = arg.to_s
         else
@@ -127,9 +130,7 @@ class Chef
 
       # (String) RightScript's id for the schedule
       def right_script_id(arg=nil)
-        raise ArgumentError if arg.is_a? Symbol
-        if arg.to_i < 0 then raise RangeError end
-        raise ArgumentError if arg && arg.to_i == 0
+        check_id(arg) if arg
         if arg.is_a?(Integer)
           converted_arg = arg.to_s
         else
