@@ -110,7 +110,7 @@ module RightScale
     # Path to directory for sandbox if it exists
     def self.ruby_dir
       ( ENV['RS_RUBY_EXE'] && File.dirname(ENV['RS_RUBY_EXE']) ) ||
-        Config::CONFIG["bindir"]
+        RbConfig::CONFIG["bindir"]
     end
 
     # Ruby command
@@ -118,7 +118,7 @@ module RightScale
       # Allow test environment to specify a non-program files location for tools
       ENV['RS_RUBY_EXE'] ||
         File.join( ruby_dir,
-                   Config::CONFIG["RUBY_INSTALL_NAME"] + Config::CONFIG["EXEEXT"] )
+                   RbConfig::CONFIG["RUBY_INSTALL_NAME"] + RbConfig::CONFIG["EXEEXT"] )
     end
 
     # Sandbox gem command
