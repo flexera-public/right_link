@@ -52,7 +52,7 @@ module RightScale
       # QueryFailed:: on any failure to query
       def query(path)
         http_path = "http://#{@host}:#{@port}/#{path}"
-        attempts = 0
+        attempts = 1
         while true
           begin
             logger.debug("Querying \"#{http_path}\"...")
@@ -64,7 +64,6 @@ module RightScale
             end
 
             # retry, if allowed.
-            attempts += 1
             if snooze(attempts)
               logger.info("Retrying \"#{http_path}\"...")
             else
@@ -72,9 +71,13 @@ module RightScale
               return ""
             end
           rescue Exception => e
-            logger.error("Exception occurred while attempting to retrieve metadata from \"#{http_path}\"; Exception:#{e.message}\nTrace:#{e.backtrace.join("\n")}")
-            return ""
+            logger.error("Exception occurred while attempting to retrieve metadata from \"#{http_path}\"; Exception:#{e.message}")
+            unless snooze(attempts)
+              logger.error("race:#{e.backtrace.join("\n")}")
+              return ""
+            end
           end
+          attempts += 1
         end
       end
 
@@ -125,19 +128,24 @@ module RightScale
 
       protected
 
-      # max wait 64 (2**6) sec between retries
-      RETRY_BACKOFF_MAX = 6
+      # Some time definitions
+      SECOND = 1
+      MINUTE = 60 * SECOND
+      HOUR = 60 * MINUTE
 
-      # retry 10 times maximum
-      RETRY_MAX_ATTEMPTS = 10
+      # Time to yield before retries
+      RETRY_DELAY = 2 * SECOND
+      RETRY_DELAY_FACTOR = 0
 
-      # retry factor (which can be monkey-patched for quicker testing of retries)
-      RETRY_DELAY_FACTOR = 1
+      # Total amount of time to retry
+      RETRY_MAX_TOTAL_TIME = 1 * HOUR
+
+      RETRY_MAX_ATTEMPTS = RETRY_MAX_TOTAL_TIME / RETRY_DELAY
 
       # ensures we are not infinitely redirected.
       MAX_REDIRECT_HISTORY = 16
 
-      # Exponential backoff sleep algorithm.  Returns true if processing
+      # Simple sleep algorithm.  Returns true if processing
       # should continue or false if the maximum number of attempts has
       # been exceeded.
       #
@@ -151,8 +159,7 @@ module RightScale
           logger.debug("Exceeded retry limit of #{RETRY_MAX_ATTEMPTS}.")
           false
         else
-          sleep_exponent = [attempts, RETRY_BACKOFF_MAX].min
-          sleep RETRY_DELAY_FACTOR * (2 ** sleep_exponent)
+          sleep (RETRY_DELAY * RETRY_DELAY_FACTOR)
           true
         end
       end
@@ -183,7 +190,6 @@ module RightScale
           request = Net::HTTP::Get.new(uri.path)
           request['Connection'] = keep_alive ? 'keep-alive' : 'close'
 
-          # get.
           response = connection.request(:protocol => uri.scheme, :server => uri.host, :port => uri.port, :request => request)
           return response.body if response.kind_of?(Net::HTTPSuccess)
           if response.kind_of?(Net::HTTPServerError)
