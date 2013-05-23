@@ -1,3 +1,4 @@
+# coding: utf-8
 # Copyright (c) 2013 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
@@ -21,7 +22,7 @@
 
 require File.expand_path(File.join(File.dirname(__FILE__), '..', 'spec_helper'))
 
-unless RightScale::Platform.windows?
+unless RightScale::Platform.windows? || RightScale::Platform.darwin?
 
 require 'chef'
 require 'etc'

@@ -338,7 +338,7 @@ describe RightScale::CookState do
 
     before(:each) do
       @mock_instance_state = flexmock('mock instance state', {:log_level => Logger::DEBUG, :reboot? => true, :startup_tags => ['some:machine=value_one', 'rs_agent_dev:download_cookbooks_once=true']})
-      @expected_tags = 'some:machine=foo'
+      @expected_tags = ['some:machine=foo']
       @overrides = { :startup_tags => @expected_tags }
     end
 
