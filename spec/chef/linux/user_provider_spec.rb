@@ -22,7 +22,7 @@
 
 require File.expand_path(File.join(File.dirname(__FILE__), '..', 'spec_helper'))
 
-unless RightScale::Platform.windows?
+unless RightScale::Platform.windows? || RightScale::Platform.darwin?
 
 require 'chef'
 require 'etc'
