@@ -4,6 +4,16 @@
 
 === Cloud Support
 
+== Bug Fixes
+
+* Hardened metadata retrieval for Windows on Openstack to overcome DHCP-lease race conditions
+
+= 5.8.12
+
+== New Features
+
+=== Cloud Support
+
 * Rackspace Open Cloud
 
 == Bug Fixes
