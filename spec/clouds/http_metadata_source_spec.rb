@@ -281,16 +281,33 @@ describe RightScale::MetadataSources::HttpMetadataSource do
         @response = flexmock('Net::HTTPResponse')
         @response.should_receive(:kind_of?).with(Net::HTTPSuccess).and_return(false)
         @response.should_receive(:kind_of?).with(Net::HTTPServerError).and_return(true)
-        @mock_http_connection.should_receive(:request).times(::RightScale::MetadataSources::HttpMetadataSource::RETRY_MAX_ATTEMPTS).and_return(@response)
+        @mock_http_connection.should_receive(:request).times(@http_metadata_source.max_retry_attempts).and_return(@response)
       end
-      it "should retry #{::RightScale::MetadataSources::HttpMetadataSource::RETRY_MAX_ATTEMPTS} times" do
+      it "should retry the appropriate number of times" do
          pending "TODO"
       end
-      it "should return empty value after #{::RightScale::MetadataSources::HttpMetadataSource::RETRY_MAX_ATTEMPTS} failed attempts" do
+      it "should return empty value after failed attempts" do
         @http_metadata_source.query("a").should == ""
       end
       it "should not stop checking for metadata" do
         pending "TODO"
+      end
+    end
+
+    context "when and exception is thrown" do
+      context "POSIX" do
+        it "should retry the appropriate number of times" do
+          @mock_http_connection.should_receive(:request).times(@http_metadata_source.max_retry_attempts).
+            and_raise(Exception.new("15.20.20.1 temporarily unavailable: (No route to host - connect(2))"))
+          @http_metadata_source.query("a").should == ""
+        end
+      end
+      context "Windows" do
+        it "should retry the appropriate times" do
+          @mock_http_connection.should_receive(:request).times(@http_metadata_source.max_retry_attempts).
+            and_raise(Exception.new("15.20.20.1 temporarily unavailable: (A socket operation was attempted to an unreachable network. - connect(2))"))
+          @http_metadata_source.query("a").should == ""
+        end
       end
     end
   end
