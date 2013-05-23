@@ -26,5 +26,8 @@ abbreviation :ec2
 # override metadata soures.  Using only HTTP source
 metadata_source 'metadata_sources/http_metadata_source'
 
+# Override the default not to wait for the network and routing tables
+default_option([:metadata_source, :metadata_total_wait], 3600)
+
 # extend EC2 cloud definition.
 extend_cloud :ec2
