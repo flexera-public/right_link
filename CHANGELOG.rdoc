@@ -39,8 +39,28 @@
 * SuSE metadata query on CloudStack has been fixed
 
 = RightLink 5.8
+= 5.8.13
 
 == New Features
+
+=== Cloud Support
+
+* Rackspace Open Cloud
+
+== Bug Fixes
+
+* Managed login always displays MOTD, works with older versions of sudo, 
+* Cookbook download is more reliable in fail-and-retry scenarios
+
+= 5.8.8
+
+== New Features
+
+=== Cloud Support
+
+* Google Compute Engine
+* Windows Azure
+* SoftLayer
 
 === Security and Compliance
 
