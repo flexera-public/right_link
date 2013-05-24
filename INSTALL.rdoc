@@ -46,6 +46,21 @@ We cannot provide support for customers who employ nightly builds, but
 they are a good way to experiment with the latest RightLink features, and
 to explore upcoming enhancements and changes.
 
+As of May 2013, we produce nightlies for the following distributions and
+releases:
+* RHEL 6 (also compatible with CentOS 6)
+* Ubuntu 12.04
+
+And the following cloud types:
+* azure
+* cloudstack
+* ec2
+* google
+* openstack
+* rackspace (Rackspace Classic)
+* rackspace-ng (Rackspace OpenCloud)
+* softlayer
+
 After installing the RightLink package, you can bundle an image and use
 it to create your own MultiCoudImage.
 
@@ -58,9 +73,6 @@ running the boot scripts for the associated ServerTemplate.
 For RedHat-based systems, we publish nightly builds to a yum repository.
 The repository follows an EPEL-like layout and supports multiple distributions
 and releases.
-
-As of May 2013, we produce nightlies for the following:
-  * RHEL 6 (also compatible with CentOS 6)
 
 To install nightly RPMs, first create a yum source.
 
@@ -80,9 +92,6 @@ the cloud type your instance is running on:
 
 For Debian-derived systems, we publish nightly builds to an apt repository.
 The repository is automatic (supports multiple distributions and releases).
-
-As of May 2013, we produce nightlies for the following:
- * Ubuntu 12.04
 
 To install nightly DEBs, first create an apt source, ensuring that you specify
 the right architecture and release code name. For instance, on an amd64
