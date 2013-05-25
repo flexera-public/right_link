@@ -24,27 +24,23 @@ RightImages are available for several distributions/versions of Linux and
 for Windows. They are the best choice for someone who wants a known-good
 starting point to build their own ServerTemplates.
 
-To obtain RightImages and start using them, please consult our
-{support site}[http://support.rightscale.com/12-Guides/RightScale_101/06-Advanced_Concepts/RightImages].
+Obtain a RightImage:
+http://support.rightscale.com/12-Guides/RightScale_101/06-Advanced_Concepts/RightImages
 
-== Install a Release-Quality RightLink Package
+== Create a RightScale-Enabled Image
 
 RightScale provides pre-built, supported RightLink packages in several
 formats (RPM, DEB, MSI) that are compatible with multiple Linux distributions
 and versions.
 
-TODO - provide install instructions for RL 5.9 once an officially-supported
-build is released.
+Create a RightImage:
+http://support.rightscale.com/12-Guides/RightLink/02-RightLink_5.9
 
 == Install an Early-Access RightLink Package
 
 For the adventurous, RightScale provides access to nightly builds of RightLink
 that are produced from the master branch. These packages undergo automated
-regression testing after they are built, and are generally quite stable.
-
-We cannot provide support for customers who employ nightly builds, but
-they are a good way to experiment with the latest RightLink features, and
-to explore upcoming enhancements and changes.
+regression, but we cannot provide support for nightly builds. 
 
 As of May 2013, we produce nightlies for the following distributions and
 releases:
