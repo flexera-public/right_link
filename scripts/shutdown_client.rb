@@ -96,7 +96,6 @@ module RightScale
 
       begin
         options.merge!(parser.parse)
-        puts options
         options[:level] = ::RightScale::ShutdownRequest::REBOOT if options[:reboot]
         options[:level] = ::RightScale::ShutdownRequest::STOP if options[:stop]
         options[:level] = ::RightScale::ShutdownRequest::TERMINATE if options[:terminate]
