@@ -74,6 +74,7 @@ module RightScale
       raise ArgumentError, "At least one hostname must be provided" if hostnames.empty?
       hostnames = [hostnames] unless hostnames.respond_to?(:each)
       @ips = resolve(hostnames)
+      @hostnames = hostnames
 
       proxy_var = PROXY_ENVIRONMENT_VARIABLES.detect { |v| ENV.has_key?(v) }
       @proxy = ENV[proxy_var].match(/^[[:alpha:]]+:\/\//) ? URI.parse(ENV[proxy_var]) : URI.parse("http://" + ENV[proxy_var]) if proxy_var
@@ -220,6 +221,20 @@ module RightScale
       end
     end
 
+    # Ordres ips by hostnames
+    #
+    # The purpose of this method is to sort ips of hostnames so it tries all IPs of hostname 1, 
+    # then all IPs of hostname 2, etc
+    #
+    # == Return
+    # @return [Array] array of ips ordered by hostnames
+    #
+    def hostnames_ips
+      @hostnames.map do |hostname|
+        ips.reject { |ip, host| host != hostname }.keys
+      end.flatten
+    end
+
     # Create and return a RequestBalancer instance
     #
     # The purpose of this method is to create a RequestBalancer that will be used
@@ -233,7 +248,7 @@ module RightScale
     #
     def balancer
       @balancer ||= RightSupport::Net::RequestBalancer.new(
-        ips.keys,
+        hostnames_ips,
         :policy => RightSupport::Net::LB::Sticky,
         :retry  => RETRY_MAX_ATTEMPTS,
         :fatal  => lambda do |e|
