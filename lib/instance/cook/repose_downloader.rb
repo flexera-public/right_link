@@ -231,6 +231,7 @@ module RightScale
     #
     def hostnames_ips
       @hostnames.map do |hostname|
+        # TODO change to Hash#select once we switch to 1.9
         ips.reject { |ip, host| host != hostname }.keys
       end.flatten
     end
