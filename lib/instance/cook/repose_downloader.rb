@@ -221,7 +221,7 @@ module RightScale
       end
     end
 
-    # Ordres ips by hostnames
+    # Orders ips by hostnames
     #
     # The purpose of this method is to sort ips of hostnames so it tries all IPs of hostname 1, 
     # then all IPs of hostname 2, etc
