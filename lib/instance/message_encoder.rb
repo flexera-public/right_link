@@ -109,8 +109,8 @@ module RightScale
           agent_type = 'instance'
           cert = Certificate.load(AgentConfig.certs_file("#{agent_type}.cert"))
           key = RsaKeyPair.load(AgentConfig.certs_file("#{agent_type}.key"))
-          store = StaticCertificateStore.new(cert, cert)
-          SecureSerializer.new(Serializer.new, agent_id, cert, key, store)
+          store = StaticCertificateStore.new(cert, key, cert, cert)
+          SecureSerializer.new(Serializer.new, agent_id, store)
         end
       end
     end

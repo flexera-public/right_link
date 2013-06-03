@@ -1,11 +1,11 @@
 GIT
   remote: git://github.com/rightscale/right_agent.git
-  revision: d50161cb4b7de098a0c1a1949eabb8fc359d615e
-  branch: master
+  revision: 829d7d02017bc95d363f98067cfd30f37e33f060
+  branch: teal_13_7_acu91204_broker_proxy
   specs:
-    right_agent (0.15.2)
+    right_agent (0.16.0)
       eventmachine (>= 0.12.10, < 2.0)
-      json (~> 1.4)
+      json (>= 1.4, <= 1.7.6)
       msgpack (>= 0.4.4, < 0.6)
       net-ssh (~> 2.0)
       right_amqp (~> 0.4)
@@ -13,8 +13,8 @@ GIT
 
 GIT
   remote: git://github.com/rightscale/right_amqp.git
-  revision: 0196973ea15ea766390b1dacfe0ff9e5d64b8e85
-  branch: master
+  revision: 312186be6f9df1db9d4250b2d9f2a7f075158f4b
+  branch: teal_13_7_acu91204_broker_proxy
   specs:
     right_amqp (0.6.0)
       eventmachine (>= 0.12.10, < 2.0)
@@ -34,10 +34,10 @@ GIT
 
 GIT
   remote: git://github.com/rightscale/right_support.git
-  revision: 59247a90473c35bc1a3e1f2a319ceaf8b7f3262e
+  revision: 56eb2a106f64873b6c20a436c75efa80c004d9ec
   branch: master
   specs:
-    right_support (2.7.0)
+    right_support (2.7.1)
 
 PATH
   remote: .
