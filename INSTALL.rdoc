@@ -1,3 +1,113 @@
+= DISCLAIMER & WARNING
+
+This guide demonstrates how to build the RightLink gem, install it into any
+Ruby interpreter, and integrate it with Linux. This is an advanced procedure
+that is intended for people who want to modify or contribute to the RightLink
+software itself.
+
+Due to the large number of variables between different OS distributions and
+Ruby versions, RightScale cannot support RightLink when it is installed in
+this fashion. If your goal is to use RightLink to deploy and manage cloud
+servers, then your goals are better accomplished by one of the following
+options:
+
+== Use a RightScale-Published Machine Image
+
+A RightImage™ is a base machine image, published by RightScale, that can be
+used to launch instances in cloud infrastructures.  RightImages are unique
+from other cloud-based machine images because they are specifically designed
+for optimum communication with the RightScale platform. RightImages are
+Each of RightScale's published ServerTemplates was tested and published with
+one or more RightImages.
+
+RightImages are available for several distributions/versions of Linux and
+for Windows. They are the best choice for someone who wants a known-good
+starting point to build their own ServerTemplates.
+
+Obtain a RightImage:
+http://support.rightscale.com/12-Guides/RightScale_101/06-Advanced_Concepts/RightImages
+
+== Create a RightScale-Enabled Image
+
+RightScale provides pre-built, supported RightLink packages in several
+formats (RPM, DEB, MSI) that are compatible with multiple Linux distributions
+and versions.
+
+Create a RightImage:
+http://support.rightscale.com/12-Guides/RightLink/02-RightLink_5.9
+
+== Install an Early-Access RightLink Package
+
+For the adventurous, RightScale provides access to nightly builds of RightLink
+that are produced from the master branch. These packages undergo automated
+regression, but we cannot provide support for nightly builds. 
+
+As of May 2013, we produce nightlies for the following distributions and
+releases:
+* RHEL 6 (also compatible with CentOS 6)
+* Ubuntu 12.04
+
+And the following cloud types:
+* azure
+* cloudstack
+* ec2
+* google
+* openstack
+* rackspace (Rackspace Classic)
+* rackspace-ng (Rackspace OpenCloud)
+* softlayer
+
+After installing the RightLink package, you can bundle an image and use
+it to create your own MultiCoudImage.
+
+Alternatively, if you install to an instance that was launched as a server
+via the RightScale dashboard, you can reboot the instance to proceed with
+running the boot scripts for the associated ServerTemplate.
+
+=== Nightly RPMs
+
+For RedHat-based systems, we publish nightly builds to a yum repository.
+The repository follows an EPEL-like layout and supports multiple distributions
+and releases.
+
+To install nightly RPMs, first create a yum source.
+
+  cat > /etc/yum.repos.d/RightLink-development.repo <<EOF
+  [rightlink]
+  name=RightLink
+  baseurl=https://rightlink-integration.s3.amazonaws.com/nightly/yum/1/el/$releasever/$basearch/
+  gpgcheck=0
+  EOF
+
+Next install the base RightLink package, plus a cloud support package for
+the cloud type your instance is running on:
+
+  yum install -y rightlink rightlink-cloud-ec2
+
+=== Nightly DEBs
+
+For Debian-derived systems, we publish nightly builds to an apt repository.
+The repository is automatic (supports multiple distributions and releases).
+
+To install nightly DEBs, first create an apt source, ensuring that you specify
+the right architecture and release code name. For instance, on an amd64
+system that is running Ubuntu 12.04 (precise):
+
+  cat > /etc/apt/sources.list.d/rightlink.sources.list <<EOF
+  deb [arch=amd64] https://rightlink-integration.s3.amazonaws.com/nightly/apt precise main
+  deb-src [arch=amd64] https://rightlink-integration.s3.amazonaws.com/nightly/apt precise main
+  EOF
+
+Next install the base RightLink package, plus a cloud support package for the
+cloud type your instance is running on:
+
+  apt-get update
+  apt-get install rightlink rightlink-cloud-ec2
+
+=== Nightly MSIs
+
+TODO - provide install instructions for nightly MSIs once we begin producing them
+
 = PREREQUISITES
 
 RightLink is a Ruby application that runs as a daemon. It depends on the
