@@ -9,10 +9,10 @@ gem 'right_support', '~> 2.7',
     :branch => 'master'
 gem 'right_agent', '~> 0.15',
     :git => 'git://github.com/rightscale/right_agent.git',
-    :branch => 'teal_13_7_acu91204_broker_proxy'
+    :branch => 'master'
 gem 'right_amqp', '~> 0.6',
     :git => 'git://github.com/rightscale/right_amqp.git',
-    :branch => 'teal_13_7_acu91204_broker_proxy'
+    :branch => 'master'
 gem 'right_scraper', '~> 3.2',
     :git => 'git://github.com/rightscale/right_scraper.git',
     :branch => 'master'
