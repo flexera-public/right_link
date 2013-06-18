@@ -179,16 +179,7 @@ module RightScale
 
       result = sudo("#{useradd} #{dash_s} -u #{uid} -m #{Shellwords.escape(username)}")
 
-      case result.exitstatus
-      when 0
-        home_dir = Shellwords.escape(Etc.getpwnam(username).dir)
-
-        sudo("chmod 0771 #{Shellwords.escape(home_dir)}")
-
-        RightScale::Log.info "LoginUserManager created #{username} successfully"
-      else
-        raise RightScale::LoginManager::SystemConflict, "Failed to create user #{username}"
-      end
+      raise RightScale::LoginManager::SystemConflict, "Failed to create user #{username}" unless result.success?
 
       true
     end
