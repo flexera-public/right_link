@@ -177,11 +177,19 @@ class InstanceScheduler
   # === Return
   # (RightScale::OperationResult):: Status value, either success or error with message
   def schedule_decommission(options)
-    return error_result('Instance is already decommissioning') if RightScale::InstanceState.value == 'decommissioning'
+    case RightScale::InstanceState.value
+    when 'decommissioning', 'decommissioned'
+      return error_result('Instance is already decommissioning')
+    end
     options = RightScale::SerializationHelper.symbolize_keys(options)
     bundle = options[:bundle]
+    decommission_type = options[:kind]
     audit = RightScale::AuditProxy.new(bundle.audit_id)
-    context = RightScale::OperationContext.new(bundle, audit, decommission=true)
+
+    # see note below for reason why decommission_type would be nil.
+    context = RightScale::OperationContext.new(
+      bundle, audit,
+      :decommission_type => decommission_type || 'unknown')
 
     # This is the tricky bit: only set a post decommission callback if there wasn't one already set
     # by 'run_decommission'. This default callback will shutdown the instance for soft-termination.
@@ -194,12 +202,12 @@ class InstanceScheduler
         msg = "Failed to decommission in less than #{SHUTDOWN_DELAY / 60} minutes, forcing shutdown"
         audit.append_error(msg, :category => RightScale::EventCategories::CATEGORY_ERROR)
         RightScale::InstanceState.value = 'decommissioned'
-        RightScale::InstanceState.shutdown(options[:user_id], options[:skip_db_update], options[:kind])
+        RightScale::InstanceState.shutdown(options[:user_id], options[:skip_db_update], decommission_type)
       end
       @bundle_queue_closed_callback = make_decommission_callback do
         @shutdown_timeout.cancel if @shutdown_timeout
         @shutdown_timeout = nil
-        RightScale::InstanceState.shutdown(options[:user_id], options[:skip_db_update], options[:kind])
+        RightScale::InstanceState.shutdown(options[:user_id], options[:skip_db_update], decommission_type)
       end
     end
 
@@ -216,8 +224,8 @@ class InstanceScheduler
     # shuts down the instance manually (without using rs_shutdown, etc.).
     # more specifically, it happens when "rnac --decommission" is invoked
     # either directly or indirectly (on Linux by runlevel 0|6 script).
-    if options[:kind]
-      RightScale::InstanceState.decommission_type = options[:kind]
+    if decommission_type
+      RightScale::InstanceState.decommission_type = decommission_type
     else
       RightScale::InstanceState.value = 'decommissioning'
     end

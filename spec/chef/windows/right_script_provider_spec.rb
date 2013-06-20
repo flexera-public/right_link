@@ -134,7 +134,13 @@ At .*:2 char:.*
   + CategoryInfo          : ObjectNotFound: (C:\\a_folder_which_does_not_exist:String) [Set-Location], ItemNotFoundException
   + FullyQualifiedErrorId : PathNotFound,Microsoft.PowerShell.Commands.SetLocationCommand
 Line 3
-WARNING: Script exited successfully but $Error contained 1 error(s).
+Script exited successfully but $Error contained 1 error(s):
+Set-Location : Cannot find path 'C:\\a_folder_which_does_not_exist' because it does not exist.
+At .*:2 char:.*
+  + Set-Location .* c:\\a_folder_which_does_not_exist
+.*
+  + CategoryInfo          : ObjectNotFound: (C:\\a_folder_which_does_not_exist:String) [Set-Location], ItemNotFoundException
+  + FullyQualifiedErrorId : PathNotFound,Microsoft.PowerShell.Commands.SetLocationCommand
 EOF
       log_should_contain_text(:info, message_format)
     end

@@ -7,7 +7,6 @@
 #   system --action=hostname
 #   system --action=ssh
 #   system --action=proxy
-#   system --action=sudoers
 #
 # === Usage
 #    system --action=<action> [options]
@@ -42,8 +41,8 @@ end
 
 module RightScale
   class SystemConfigurator
-    RSA_KEY    = '/etc/ssh/ssh_host_rsa_key'
-    DSA_KEY    = '/etc/ssh/ssh_host_dsa_key'
+    RSA_KEY    = File.join(RightScale::Platform.filesystem.ssh_cfg_dir, 'ssh_host_rsa_key')
+    DSA_KEY    = File.join(RightScale::Platform.filesystem.ssh_cfg_dir, 'ssh_host_dsa_key')
     SUDO_USER  = 'rightscale'
     SUDO_GROUP = 'rightscale_sudo'
 
@@ -202,34 +201,6 @@ module RightScale
          puts "Proxy settings not found in userdata; continuing without."
       end
     end
-
-    def configure_sudoers
-      return 0 unless Platform.linux?
-      puts "Configuring /etc/sudoers to ensure rightscale users/groups have sufficient privileges"
-
-      masks = [
-        /%?(#{SUDO_GROUP}|#{SUDO_USER}) ALL=(\(ALL\))?NOPASSWD: ALL/,
-        /Defaults:(#{SUDO_GROUP}|#{SUDO_USER}) !requiretty/,
-        /# RightScale/
-      ]
-
-      begin
-        lines = File.readlines('/etc/sudoers')
-        file = File.open("/etc/sudoers", "w")
-        lines.each do |line|
-          line.strip!
-          next if masks.any? { |m| line =~ m }
-          file.puts line
-        end
-
-        file.puts("# RightScale: please leave these rules in place, else RightLink may not function")
-        file.puts("#{SUDO_USER} ALL=(ALL)NOPASSWD: ALL")
-        file.puts("%#{SUDO_GROUP} ALL=NOPASSWD: ALL")
-        file.puts("Defaults:#{SUDO_USER} !requiretty")
-        file.puts("Defaults:#{SUDO_GROUP} !requiretty")
-        file.close
-      end
-   end
 
     protected
 

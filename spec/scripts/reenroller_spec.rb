@@ -29,9 +29,7 @@ module RightScale
         flexmock(subject).should_receive(:system).with('net start RightScale')
       else
         flexmock(subject).should_receive(:process_running?).and_return(false)
-        flexmock(subject).should_receive(:system).with('/opt/rightscale/sandbox/bin/monit -c /opt/rightscale/etc/monitrc stop checker').once
-        flexmock(subject).should_receive(:system).with('/opt/rightscale/sandbox/bin/monit -c /opt/rightscale/etc/monitrc stop instance').once
-        flexmock(subject).should_receive(:system).with('/opt/rightscale/sandbox/bin/monit -c /opt/rightscale/etc/monitrc quit').once
+        flexmock(subject).should_receive(:system).with('/opt/rightscale/bin/rchk --stop').once
         flexmock(subject).should_receive(:cleanup_certificates).once
         if resume
           flexmock(subject).should_receive(:system).with("/etc/init.d/rightlink resume > /dev/null").once

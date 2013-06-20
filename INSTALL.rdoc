@@ -1,10 +1,120 @@
+= DISCLAIMER & WARNING
+
+This guide demonstrates how to build the RightLink gem, install it into any
+Ruby interpreter, and integrate it with Linux. This is an advanced procedure
+that is intended for people who want to modify or contribute to the RightLink
+software itself.
+
+Due to the large number of variables between different OS distributions and
+Ruby versions, RightScale cannot support RightLink when it is installed in
+this fashion. If your goal is to use RightLink to deploy and manage cloud
+servers, then your goals are better accomplished by one of the following
+options:
+
+== Use a RightScale-Published Machine Image
+
+A RightImage™ is a base machine image, published by RightScale, that can be
+used to launch instances in cloud infrastructures.  RightImages are unique
+from other cloud-based machine images because they are specifically designed
+for optimum communication with the RightScale platform. RightImages are
+Each of RightScale's published ServerTemplates was tested and published with
+one or more RightImages.
+
+RightImages are available for several distributions/versions of Linux and
+for Windows. They are the best choice for someone who wants a known-good
+starting point to build their own ServerTemplates.
+
+Obtain a RightImage:
+http://support.rightscale.com/12-Guides/RightScale_101/06-Advanced_Concepts/RightImages
+
+== Create a RightScale-Enabled Image
+
+RightScale provides pre-built, supported RightLink packages in several
+formats (RPM, DEB, MSI) that are compatible with multiple Linux distributions
+and versions.
+
+Create a RightImage:
+http://support.rightscale.com/12-Guides/RightLink/02-RightLink_5.9
+
+== Install an Early-Access RightLink Package
+
+For the adventurous, RightScale provides access to nightly builds of RightLink
+that are produced from the master branch. These packages undergo automated
+regression, but we cannot provide support for nightly builds. 
+
+As of May 2013, we produce nightlies for the following distributions and
+releases:
+* RHEL 6 (also compatible with CentOS 6)
+* Ubuntu 12.04
+
+And the following cloud types:
+* azure
+* cloudstack
+* ec2
+* google
+* openstack
+* rackspace (Rackspace Classic)
+* rackspace-ng (Rackspace OpenCloud)
+* softlayer
+
+After installing the RightLink package, you can bundle an image and use
+it to create your own MultiCoudImage.
+
+Alternatively, if you install to an instance that was launched as a server
+via the RightScale dashboard, you can reboot the instance to proceed with
+running the boot scripts for the associated ServerTemplate.
+
+=== Nightly RPMs
+
+For RedHat-based systems, we publish nightly builds to a yum repository.
+The repository follows an EPEL-like layout and supports multiple distributions
+and releases.
+
+To install nightly RPMs, first create a yum source.
+
+  cat > /etc/yum.repos.d/RightLink-development.repo <<EOF
+  [rightlink]
+  name=RightLink
+  baseurl=https://rightlink-integration.s3.amazonaws.com/nightly/yum/1/el/$releasever/$basearch/
+  gpgcheck=0
+  EOF
+
+Next install the base RightLink package, plus a cloud support package for
+the cloud type your instance is running on:
+
+  yum install -y rightlink rightlink-cloud-ec2
+
+=== Nightly DEBs
+
+For Debian-derived systems, we publish nightly builds to an apt repository.
+The repository is automatic (supports multiple distributions and releases).
+
+To install nightly DEBs, first create an apt source, ensuring that you specify
+the right architecture and release code name. For instance, on an amd64
+system that is running Ubuntu 12.04 (precise):
+
+  cat > /etc/apt/sources.list.d/rightlink.sources.list <<EOF
+  deb [arch=amd64] https://rightlink-integration.s3.amazonaws.com/nightly/apt precise main
+  deb-src [arch=amd64] https://rightlink-integration.s3.amazonaws.com/nightly/apt precise main
+  EOF
+
+Next install the base RightLink package, plus a cloud support package for the
+cloud type your instance is running on:
+
+  apt-get update
+  apt-get install rightlink rightlink-cloud-ec2
+
+=== Nightly MSIs
+
+TODO - provide install instructions for nightly MSIs once we begin producing them
+
 = PREREQUISITES
 
 RightLink is a Ruby application that runs as a daemon. It depends on the
 following system components/packages, which must be installed before you
 can proceed with RightLink installation.
-* Ruby >= 1.8.7 p334 or better -- older versions have GC issues!
-* RubyGems >= 1.3.7
+* Ruby >= 1.8.7 p371 or better -- older versions have GC issues!
+* RubyGems >= 1.8.25
 * C/C++ toolchain (needed to install various gems)
 
 Several auxiliary packages are recommended in order to obtain full RightLink
@@ -16,8 +126,9 @@ functionality at runtime:
 == Supported Configurations
 
 RightLink is regularly tested on the following Linux distributions:
-* CentOS - 5.4, 5.6
-* Ubuntu - 8.04, 10.04, 10.10, 11.04
+* CentOS - 6.4
+* RedHat Enterprise Linux (RHEL) - 6.4
+* Ubuntu - 12.04
 
 It has been known to work on the following with little or no modification:
 * Debian
@@ -35,15 +146,15 @@ Windows variants, installation and configuration are not yet covered in this
 document. For information on the RightLink Windows MSI, see the documentation
 page on our {support wiki}[http://support.rightscale.com/12-Guides/Windows_User_Guide]
 
-== CentOS Systems
+== CentOS and RHEL Systems
 
 Install the C toolchain and related libraries, plus some additional libs
 required for RightLink,
 
- yum install -y gcc-c++ patch readline readline-devel zlib zlib-devel libyaml-devel libffi-devel openssl-devel make bzip2 iconv-devel libarchive-devel
+ yum install -y autoconf bison byacc flex gcc ncurses db4-devel glibc-devel libarchive-devel openssl-devel ncurses-devel
 
-CentOS does not have a suitable prepackaged Ruby. To run RightLink, you
-can install RVM and use it to satisfy the Ruby dependency.
+Older releases of CentOS (before 6.x) ship with a Ruby VM that is too old. To run RightLink, you
+can build Ruby from source and install it under a different prefix such as /opt/rightscale/sandbox.
 
 == Ubuntu Systems
 
@@ -52,44 +163,15 @@ required for RightLink.
 
  apt-get update
  # may need libreadline5 (not 6), on older systems. Ditto with libreadline5-dev
- apt-get install -y build-essential gcc g++ bison openssl libreadline6 zlib1g vim autoconf libxml2 libffi
- apt-get install -y libssl-dev libarchive-dev libreadline-dev zlib1g-dev libyaml-dev libffi-dev libxml2-dev
- apt-get install -y git-core perl sed curl dnsutils
+ apt-get install -y libssl-dev libarchive-dev libreadline-dev autoconf flex bison
+ # apt-get install -y build-essential gcc g++ bison openssl libreadline6 zlib1g vim autoconf libxml2 libffi
+ # apt-get install -y libssl-dev libreadline-dev zlib1g-dev libyaml-dev libffi-dev libxml2-dev
+ # apt-get install -y git-core perl sed curl dnsutils
 
-=== System Ruby (Optional)
+Newer releases of Ubuntu (11.04 and above) ship with a Ruby 1.9 VM that is too new. To run RightLink, you
+can build Ruby from source and install it under a different prefix such as /opt/rightscale/sandbox.
 
-On Ubuntu, you have the choice of using RVM (see instructions below) or
-installing a system Ruby interpreter. RVM is recommended, but it is
-possible to run against the system Ruby interpreter provided it's recent
-enough.
-
-On Ubuntu < 10.04.3, it is necessary to fetch the newer packages from an Ubuntu
-mirror. You can download them from EasyNews (as in the example below), or
-get them from a mirror {close to you}[http://packages.ubuntu.com/natty/all/rubygems1.8/download]
-
- apt-get install -y ruby1.8 ">=1.8.7"
- apt-get install -y ruby1.8-dev g++ libreadline-ruby1.8 rubygems1.8 irb1.8 rdoc1.8
-
- wget http://mirrors.easynews.com/linux/ubuntu//pool/universe/libg/libgems-ruby/rubygems1.8_1.3.7-2_all.deb
- dpkg -i rubygems1.8_1.3.7-2.deb
- apt-get -f install
-
-== All Linux Systems
-
-Ruby Version Manager (RVM) is a set of shell scripts that allows you to build
-and install multiple Ruby interpreters side by side.
-
-*NOTE* - If you create init scripts for RightLink, they should source rvm.sh
-and "rvm use" the appropriate Ruby before invoking any RightLink commands.
-
- bash < <(curl -sk https://rvm.beginrescueend.com/install/rvm)
- source /etc/profile.d/rvm.sh
-
- rvm install ruby-1.8.7-p352
-
- rvm use ruby-1.8.7-p352
-
-= PRE-INSTALL CUSTOMIZATIOn
+= PRE-INSTALL CUSTOMIZATION
 
 == Feature Control Customization
 
@@ -133,27 +215,24 @@ If you are packaging RightLink, run these commands as a post-install step
 for your package. If you are bundling a cloud image, run these commands
 _before_ bundling.
 
-=== Fetch RightLink Source
-
- mkdir -p /opt/rightscale
- cd /opt/rightscale
  git clone git://github.com/rightscale/right_link.git
- 
-Clone the RightLink source repository from GitHub. By cloning it into
-/opt/rightscale, you will be able to run RightLink directly out of the source
-repository with no intermediate packaging or install steps.
-
-=== Run Setup Script
-
  cd right_link
- bin/setup.sh
+ bundle install
+ bundle exec rake gem
+ gem install pkg/right_link-5.9.0.gem
+ 
+The RubyGems installer will create a number of executable binaries in
+your RubyGems bindir. These binaries control the operation of RightLink
+and allow you and your scripts to interact with the management agent.
 
-The source distribution contains setup.sh, which installs some necessary
-RubyGems and also copies some RightLink command-line tools into suitable
-system directories so they can be invoked by users and scripts.
+On Unix systems, the CLI binaries are normally created in /usr/bin, but
+it depends on how your Ruby interpreter was installed and packaged. You
+can determine the location of your RubyGems bindir by running:
 
-On Unix systems, CLI tools are created in /usr/bin. By convention, they
-begin with the prefix "rs_" e.g. rs_tag or rs_run_recipe.
+ gem env
+
+By convention, most RightLink tools begin with the prefix "rs_" e.g.
+rs_tag or rs_run_recipe.
 
 = INTEGRATING WITH THE SYSTEM
 
@@ -179,15 +258,16 @@ running any of the commands below. RS_CLOUD is your "hint" to RightLink.
 RightLink knows about the following values of RS_CLOUD:
 * ec2
 * rackspace
+* rackspace-ng
 * eucalyptus
 * cloudstack
 * openstack
+* softlayer
 
 == On-Boot Commands
 
-Under Linux these are accomplished with init scripts, optionally using monit
-for robustness. Under Windows, a system service spawns the agent process and
-monitors its health.
+Under Linux these are accomplished with init scripts. Under Windows, a system
+service spawns the agent process and monitors its health.
 
 CAUTION: if your instance is attached to the RightScale dashboard, running
 the commands below will cause it to begin running boot scripts! This is not
@@ -254,7 +334,7 @@ When the system is terminating, you should allow RightLink to run its decommissi
  /var/cache                      | Cookbooks, attachments, temp files
  /usr/bin                        | Public CLI: rs_tag, rs_debug, ...
  /opt/rightscale/bin             | Private CLI: rnac, rad, cook, ...
- /opt/rightscale/sandbox         | Private sandbox (Ruby, RubyGems, monit, ...)
+ /opt/rightscale/sandbox         | Private sandbox (Ruby, RubyGems, ...)
 
 === Windows Systems
 
@@ -269,4 +349,4 @@ Data files -- paths are relative to %COMMON_APPDATA%\RightScale
 Program logic -- paths are relative to %ProgramFiles(x86)%
 
  RightScale\RightLink    | Application logic & support files
- RightScale\sandbox      | Private sandbox (Ruby, RubyGems, monit, ...)
+ RightScale\sandbox      | Private sandbox (Ruby, RubyGems, ...)

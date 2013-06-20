@@ -4,10 +4,7 @@
 #   Checks the agent to see if it is actively communicating with RightNet and if not
 #   triggers it to re-enroll and exits.
 #
-#   Alternatively runs as a daemon and performs this communication check periodically,
-#   as well as optionally monitoring monit. Normally it is run as a daemon under monit
-#   control, since it relies on monit to restart it if it triggers an agent re-enroll
-#   or encounters fatal internal checker errors.
+#   Alternatively runs as a daemon and performs this communication check periodically.
 #
 # === Usage
 #    rchk
@@ -23,11 +20,7 @@
 #      --start                   Run as a daemon process that checks agent communication after the
 #                                configured time limit and repeatedly thereafter on that interval
 #                                (the checker does an immediate one-time check if --start is not specified)
-#      --stop                    Stop the currently running daemon started with --start and then exit
-#                                (normally this is only used via monit, e.g., 'monit stop checker',
-#                                otherwise the --stop request may be undone by monit restarting the checker)
-#      --monit [SEC]             If running as a daemon, also monitor monit on a SEC second polling
-#                                interval if monit is configured, SEC ignored if less than 1
+#      --stop                    Stop the currently running daemon started with --start and then exit)
 #      --ping, -p                Try communicating now regardless of whether have communicated within
 #                                the configured time limit, does not apply if running as a daemon
 #      --verbose, -v             Display debug information
@@ -42,6 +35,7 @@ require 'right_agent'
 require 'right_agent/scripts/usage'
 require 'right_agent/scripts/common_parser'
 
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'instance', 'agent_watcher'))
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'instance', 'agent_config'))
 
 module RightScale
@@ -92,37 +86,26 @@ module RightScale
 
     VERSION = [0, 1]
 
+    # Time constants
+    MINUTE = 60
+    HOUR = 60 * MINUTE
+    DAY = 24 * HOUR
+
     # Default minimum seconds since last communication for instance to be considered connected
     # Only used if --time-limit not specified and :ping_interval option not specified for agent
-    DEFAULT_TIME_LIMIT = 12 * 60 * 60
+    DEFAULT_TIME_LIMIT = 12 * HOUR
 
     # Multiplier of agent's mapper ping interval to get daemon's last communication time limit
     PING_INTERVAL_MULTIPLIER = 3
 
     # Default maximum number of seconds between checks for recent communication if first check fails
-    DEFAULT_RETRY_INTERVAL = 5 * 60
+    DEFAULT_RETRY_INTERVAL = 5 * MINUTE
 
     # Default maximum number of attempts to check communication before trigger re-enroll
     DEFAULT_MAX_ATTEMPTS = 3
 
     # Maximum number of seconds to wait for a CommandIO response from the instance agent
-    COMMAND_IO_TIMEOUT = 2 * 60
-
-    # Monit files
-    MONIT = "/opt/rightscale/sandbox/bin/monit"
-    MONIT_CONFIG = "/opt/rightscale/etc/monitrc"
-    MONIT_PID_FILE = "/opt/rightscale/var/run/monit.pid"
-
-    # default number of seconds between monit checks
-    DEFAULT_MONIT_CHECK_INTERVAL = 5 * 60
-
-    # Maximum number of repeated monit monitoring failures before disable monitoring monit
-    MAX_MONITORING_FAILURES = 10
-
-    # Time constants
-    MINUTE = 60
-    HOUR = 60 * MINUTE
-    DAY = 24 * HOUR
+    COMMAND_IO_TIMEOUT = 2 * MINUTE
 
     # Create and run checker
     #
@@ -137,11 +120,28 @@ module RightScale
       exit(2)
     end
 
+    # Create AgentWatcher to monitor agent processes
+    #
+    # === Return
+    # nil
+    def setup_agent_watcher()
+      @agent_watcher ||= AgentWatcher.new( lambda { |s| self.info(s) }, @agent[:pid_dir] )
+      @agent_watcher.watch_agent(@agent[:identity], '/opt/rightscale/bin/rnac', '--start instance', '--stop instance')
+      @agent_watcher.start_watching()
+    end
+
+    # Stop AgentWatcher from monitoring agent processes
+    #
+    # === Return
+    # nil
+    def stop_agent_watcher()
+      @agent_watcher.stop_agent(@agent[:identity])
+      @agent_watcher.stop_watching()
+    end
+
     # Run daemon or run one agent communication check
     # If running as a daemon, store pid in same location as agent except suffix the
-    # agent identity with '-rchk' (per monit setup in agent deployer)
-    # Assuming that if running as daemon, monit is monitoring this daemon and
-    # thus okay to abort in certain failure situations and let monit restart
+    # agent identity with '-rchk'.
     #
     # === Parameters
     # options(Hash):: Run options
@@ -154,7 +154,6 @@ module RightScale
     #   :daemon(Boolean):: Whether to run as a daemon rather than do a one-time communication check
     #   :log_path(String):: Log file directory, defaults to one used by agent
     #   :stop(Boolean):: Whether to stop the currently running daemon and then exit
-    #   :monit(String|nil):: Directory containing monit configuration, which is to be monitored
     #   :ping(Boolean):: Try communicating now regardless of whether have communicated within
     #     the configured time limit, ignored if :daemon true
     #   :verbose(Boolean):: Whether to display debug information
@@ -204,9 +203,15 @@ module RightScale
           end
         end
 
-        EM.run { check }
-
-        info("Checker exiting") if @options[:daemon]
+        # note that our Windows service monitors rnac and rchk processes
+        # externally and restarts them if they die, so no need to roll our
+        # own cross-monitoring on that platform.
+        use_agent_watcher = !RightScale::Platform.windows?
+        EM.run do
+          check
+          setup_agent_watcher if use_agent_watcher
+        end
+        stop_agent_watcher if use_agent_watcher
 
       rescue SystemExit => e
         raise e
@@ -237,7 +242,6 @@ module RightScale
         opt :time_limit, "", :type => :int
         opt :daemon, "", :long => "--start"
         opt :stop
-        opt :monit, "", :type => :int
         opt :ping
         opt :verbose
         opt :state_path, "", :type => String
@@ -251,9 +255,6 @@ module RightScale
           options.delete(:time_limit) unless options[:time_limit] > 0
         end
         options.delete(:retry_interval) unless options[:retry_interval] > 0
-        if options[:monit]
-          options[:monit] = DEFAULT_MONIT_CHECK_INTERVAL unless options[:monit] > 0
-        end
         options
       rescue Trollop::HelpNeeded
         puts Usage.scan(__FILE__)
@@ -313,21 +314,14 @@ protected
           log_options = @options.inject([]) { |t, (k, v)| t << "-  #{k}: #{v}" }
           log_options.each { |l| info(l, to_console = false, no_check = true) }
 
-          check_interval, check_modulo = if @options[:monit]
-            [[@options[:monit], @options[:time_limit]].min, [@options[:time_limit] / @options[:monit], 1].max]
-          else
-            [@options[:time_limit], 1]
-          end
-
-          info("Starting checker daemon with #{elapsed(check_interval)} polling " +
+          info("Starting checker daemon with #{elapsed(@options[:time_limit])} polling " +
                "and #{elapsed(@options[:time_limit])} last communication limit")
 
           iteration = 0
-          EM.add_periodic_timer(check_interval) do
+          EM.add_periodic_timer(@options[:time_limit]) do
             iteration += 1
             debug("Checker iteration #{iteration}")
-            check_monit if @options[:monit]
-            check_communication(0) if iteration.modulo(check_modulo) == 0
+            check_communication(0)
           end
         else
           # Perform one check
@@ -339,33 +333,6 @@ protected
         error("Internal checker failure", e, abort = true)
       end
       true
-    end
-
-    # Check whether monit is running and restart it if not
-    # Do not start monit if it has never run, as indicated by missing pid file
-    # Disable monit monitoring if exceed maximum repeated failures
-    #
-    # === Return
-    # true:: Always return true
-    def check_monit
-      begin
-        pid = File.read(MONIT_PID_FILE).to_i if File.file?(MONIT_PID_FILE)
-        debug("Checking monit with pid #{pid.inspect}")
-        if pid && !process_running?(pid)
-          error("Monit not running, restarting it now")
-          if system("#{MONIT} -c #{MONIT_CONFIG}")
-            info("Successfully restarted monit")
-          end
-        end
-        @monitoring_failures = 0
-      rescue Exception => e
-        @monitoring_failures = (@monitoring_failures || 0) + 1
-        error("Failed monitoring monit", e, abort = false)
-        if @monitoring_failures > MAX_MONITORING_FAILURES
-          info("Disabling monitoring of monit after #{@monitoring_failures} repeated failures")
-          @options[:monit] = false
-        end
-      end
     end
 
     # Check communication, repeatedly if necessary
@@ -463,8 +430,8 @@ protected
           # to connect to this rchk.
           terminate unless RightScale::Platform.windows?
           system(cmd)
-          # Wait around until rs_reenroll has a chance to stop the checker via monit
-          # otherwise monit may restart it
+          # Wait around until rs_reenroll has a chance to stop the checker
+          # otherwise we may restart it
           sleep(5)
         rescue Exception => e
           error("Failed re-enroll after unsuccessful communication check", e, abort = true)
@@ -472,20 +439,6 @@ protected
         @reenrolling = false
       end
       true
-    end
-
-    # Checks whether process with given pid is running
-    #
-    # === Parameters
-    # pid(Fixnum):: Process id to be checked
-    #
-    # === Return
-    # (Boolean):: true if process is running, otherwise false
-    def process_running?(pid)
-      return false unless pid
-      Process.getpgid(pid) != -1
-    rescue Errno::ESRCH
-      false
     end
 
     # Setup signal traps

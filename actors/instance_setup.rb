@@ -192,7 +192,10 @@ class InstanceSetup
     if !RightScale::LoginManager.instance.supported_by_platform?
       setup_volumes
     else
-      req = RightScale::IdempotentRequest.new('/booter/get_login_policy', {:agent_identity => @agent_identity})
+      ssh_host_keys = RightScale::LoginManager.instance.get_ssh_host_keys
+      req = RightScale::IdempotentRequest.new('/booter/get_login_policy',
+                                              { :agent_identity => @agent_identity,
+                                                :ssh_host_keys=>ssh_host_keys })
 
       req.callback do |policy|
         audit = RightScale::AuditProxy.new(policy.audit_id)

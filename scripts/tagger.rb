@@ -17,7 +17,7 @@
 #     rs_tag --remove a_tag
 #     rs_tag -r a_tag
 #
-#   Retrieve all instances with all of the tags in a set:
+#   Retrieve all instances with any of the tags in a set:
 #     rs_tag --query "a_tag b_tag"
 #     rs_tag -q "a_tag b_tag"
 #

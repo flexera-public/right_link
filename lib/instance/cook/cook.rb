@@ -40,11 +40,10 @@ module RightScale
 
     # Run bundle given in stdin
     def run
-      AgentConfig.root_dir = AgentConfig.right_link_root_dirs
-
       # 1. Load configuration settings
       options = OptionsBag.load
       agent_id  = options[:identity]
+      AgentConfig.root_dir = options[:root_dir]
 
       Log.program_name = 'RightLink'
       Log.facility = 'user'
@@ -194,14 +193,10 @@ module RightScale
     # timeout(Fixnum):: Number of seconds to wait for agent response
     def load_tags(timeout)
       cmd = { :name => :get_tags }
-      response = blocking_request(cmd, timeout)
-      result = OperationResult.from_results(load(response, "Unexpected response #{response.inspect}"))
-      res = result.content
-      if result.success?
-        ::Chef::Log.info("Successfully loaded current tags: '#{res.join("', '")}'")
-      else
-        raise TagError.new("Retrieving current tags failed: #{res}")
-      end
+      res = blocking_request(cmd, timeout)
+      raise TagError.new("Retrieving current tags failed: #{res.inspect}") unless res.kind_of?(Array)
+
+      ::Chef::Log.info("Successfully loaded current tags: '#{res.join("', '")}'")
       res
     end
 

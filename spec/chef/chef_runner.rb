@@ -160,6 +160,9 @@ EOF
         # network locations (in windows).
         platform = RightScale::Platform
         cookbook_path = platform.filesystem.ensure_local_drive_path(cookbook_path, TEMP_DIR_NAME)
+        unless ::File.directory?(cookbook_path)
+          raise ArgumentError, "Missing cookbook directory: #{cookbook_path.inspect}"
+        end
 
         # minimal chef configuration.
         ::Chef::Config[:solo] = true

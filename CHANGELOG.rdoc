@@ -1,13 +1,76 @@
 = RightLink 5.9
 
+== New Features
+
+* The RS_DECOM_REASON environment variable is set during decommission script/recipe execution to indicate the reason why decommission
+  is running. This variable will have one of the following values: 'reboot', 'stop', 'terminate' or 'unknown'
+  The value will be 'reboot', 'stop' or 'terminate' when decommissioning through the RightScale dashboard or when using the
+  rs_shutdown command. The 'unknown' value may be seen when the rightlink service is decommissioned (not stopped) from the console or
+  else the instance is shutdown or rebooted without using the rs_shutdown command.
+* RightLink is distributed as a modular "tree" of packages, making it easy to install just what you need
+* Improved package hygiene, e.g. clean uninstall and minimal post-install filesystem tampering
+* Ability to distinguish between sudo (server_login + server_superuser) and normal (server_login) users
+* Cookbook contents are cached on the instance, significantly improving reconverge speed
+
 == Changes to Existing Functionality
 
-* When freezing the RubyGems repository, RightLink now edits the systemwide RubyGems config file (/etc/gemrc) rather than modifying 
-  root's (~root/.gemrc). This will help ensure more consistent RubyGems behavior across multiple users and Ruby versions.
+* Disable users' accounts if they lose login privileges, in addition to removing trust in their key
+* Respect /etc/sudoers.d when configuring sudo
+* Minimize sudo privileges of rightscale user
+* Freeze RubyGems by editing the systemwide RubyGems config file (/etc/gemrc) rather than modifying
+  root's (~root/.gemrc). This helps ensure more consistent RubyGems behavior across multiple users and Ruby versions.
+* Support frozen repositories for Ubuntu 12.04-12.10 (precise, quantal)
+* Update sandbox Ruby to 1.8.7p371
+* Remove OpenSSL from the sandbox; link against system OpenSSL to inherit OS security patches
+* Remove monit from the sandbox (RightLink no longer relies on it)
+* PowerShell/Chef process spawning has been improved under Windows
+
+== Bug Fixes
+
+* pty ownership is assigned correct to enable screen/tmux sessions as "rightscale@<host>"
+* Chef "script" resource now honors the user, group and umask attributes
+* Chef "right_link_tag" resource no longer crashes on "load" action
+* Exit codes for rs_run_recipe and rs_run_right_script accurately reflect failure/success
+* rs_run_right_script can deal with parameters that contain "="
+* Network failures during cookbook/attachment download are handled gracefully
+* MOTD no longer refers to obsolete files
+* Output of "rs_tag --help" has been improved
+* AMQP broker reconnect reliability improved for certain corner cases
+* SuSE metadata query on CloudStack has been fixed
 
 = RightLink 5.8
+= 5.8.13
 
 == New Features
+
+=== Cloud Support
+
+== Bug Fixes
+
+* Hardened metadata retrieval for Windows on Openstack to overcome DHCP-lease race conditions
+
+= 5.8.12
+
+== New Features
+
+=== Cloud Support
+
+* Rackspace Open Cloud
+
+== Bug Fixes
+
+* Managed login always displays MOTD, works with older versions of sudo, 
+* Cookbook download is more reliable in fail-and-retry scenarios
+
+= 5.8.8
+
+== New Features
+
+=== Cloud Support
+
+* Google Compute Engine
+* Windows Azure
+* SoftLayer
 
 === Security and Compliance
 
@@ -54,5 +117,3 @@
 * The UI's ordering of cookbook repositories is preserved at runtime, for cookbooks that are defined in multiple repos
 * Extraneous Ohai debug output has been squelched from audits and logs
 * RightLink agent startup and shutdown is more reliable under Linux
-
-

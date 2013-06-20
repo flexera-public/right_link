@@ -71,7 +71,7 @@ describe RightScale::SystemConfigurator do
     end
   end
   
-  ["hostname", "ssh", "proxy", "sudoers"].each do |action|
+  ["hostname", "ssh", "proxy" ].each do |action|
     context "system --action=#{action}" do
       it "should configure #{action}" do
         subject.should_receive("configure_#{action}".to_sym).once

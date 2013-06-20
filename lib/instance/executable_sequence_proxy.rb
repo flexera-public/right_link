@@ -119,31 +119,50 @@ module RightScale
 
         input_text = "#{MessageEncoder.for_agent(InstanceState.identity).encode(@context.payload)}\n"
 
-        # FIX: we have an issue with EM not allowing both sockets and named
-        # pipes to share the same file/socket id. sending the input on the
-        # command line is a temporary workaround.
+        # TEAL FIX: we have an issue with the Windows EM implementation not
+        # allowing both sockets and named pipes to share the same file/socket
+        # id. sending the input on the command line is a temporary workaround.
         platform = RightScale::Platform
         if platform.windows?
           input_path = File.normalize_path(File.join(platform.filesystem.temp_dir, "rs_executable_sequence#{@thread_name}.txt"))
           File.open(input_path, "w") { |f| f.write(input_text) }
           input_text = nil
           cmd_exe_path = File.normalize_path(ENV['ComSpec']).gsub("/", "\\")
-          ruby_exe_path = File.normalize_path(AgentConfig.sandbox_ruby_cmd).gsub("/", "\\")
+          ruby_exe_path = File.normalize_path(AgentConfig.ruby_cmd).gsub("/", "\\")
           input_path = input_path.gsub("/", "\\")
           cmd = "#{cmd_exe_path} /C type \"#{input_path}\" | #{ruby_exe_path} #{cook_path_and_arguments}"
         else
-          cmd = "#{AgentConfig.sandbox_ruby_cmd} #{cook_path_and_arguments}"
+          # WARNING - always ensure cmd is a String, never an Array of command parts.
+          #
+          # right_popen handles single-String arguments using "sh -c #{cmd}" which ensures
+          # we are invoked through a shell which will parse shell config files and ensure that
+          # changes to system PATH, etc are freshened on every converge.
+          #
+          # If we pass cmd as an Array, right_popen uses the Array form of exec without an
+          # intermediate shell, and system config changes will not be picked up.
+          cmd = "#{AgentConfig.ruby_cmd} #{cook_path_and_arguments}"
         end
 
         EM.next_tick do
-          RightScale.popen3(:command        => cmd,
-                            :input          => input_text,
-                            :target         => self,
-                            :environment    => { OptionsBag::OPTIONS_ENV => ENV[OptionsBag::OPTIONS_ENV] },
-                            :stdout_handler => :on_read_stdout,
-                            :stderr_handler => :on_read_stderr,
-                            :pid_handler    => :on_pid,
-                            :exit_handler   => :on_exit)
+          # prepare env vars for child process.
+          environment = {
+            ::RightScale::OptionsBag::OPTIONS_ENV =>
+              ::ENV[::RightScale::OptionsBag::OPTIONS_ENV]
+          }
+          if @context.decommission?
+            environment['RS_DECOM_REASON'] = @context.decommission_type
+          end
+
+          # spawn
+          RightScale::RightPopen.popen3_async(
+            cmd,
+            :input          => input_text,
+            :target         => self,
+            :environment    => environment,
+            :stdout_handler => :on_read_stdout,
+            :stderr_handler => :on_read_stderr,
+            :pid_handler    => :on_pid,
+            :exit_handler   => :on_exit)
         end
       end
     end

@@ -51,12 +51,15 @@ module RightScale
     end
 
     class MockContext
-      attr_reader :audit, :payload, :decommission, :succeeded, :thread_name, :sequence_name
+      attr_reader :audit, :payload, :succeeded, :thread_name, :sequence_name
+      attr_reader :decommission_type
 
-      def initialize(audit, payload, decommission, succeeded, thread_name, sequence_name)
+      def decommission?; !!@decommission_type; end
+
+      def initialize(audit, payload, decommission_type, succeeded, thread_name, sequence_name)
         @audit = audit
         @payload = payload
-        @decommission = decommission
+        @decommission_type = decommission_type
         @succeeded = succeeded
         @thread_name = thread_name
         @sequence_name = sequence_name
@@ -128,7 +131,7 @@ describe RightScale::BundleQueue do
     def mock_sequence(options = { :count => 1, :decommission => false })
       names = []
       count = options[:count] || 1
-      decommission = options[:decommission] || false
+      decommission_type = options[:decommission] ? 'stop' : nil
       thread_name = nil
       count.times do |sequence_index|
         name_pair = yield(sequence_index)  # require thread_name, sequence_name from caller
@@ -142,7 +145,7 @@ describe RightScale::BundleQueue do
         names << sequence_name
         sequence_callback = nil
         bundle = ::RightScale::BundleQueueSpec::MockBundle.new(sequence_name, thread_name)
-        context = ::RightScale::BundleQueueSpec::MockContext.new(@audit, bundle, decommission, true, thread_name, sequence_name)
+        context = ::RightScale::BundleQueueSpec::MockContext.new(@audit, bundle, decommission_type, true, thread_name, sequence_name)
         @contexts << context
         sequence = ::RightScale::BundleQueueSpec::MockSequence.new(context) do |sequence|
           @mutex.synchronize do

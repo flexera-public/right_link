@@ -48,7 +48,6 @@
 #      --grace-timeout SEC      Set number of seconds before graceful termination times out
 #      --[no-]dup-check         Set whether to check for and reject duplicate requests, .e.g., due to retries
 #      --options, -o KEY=VAL    Set options that act as final override for any persisted configuration settings
-#      --monit, -m              Generate monit configuration file
 #      --test                   Build test deployment using default test settings
 #      --quiet, -Q              Do not produce output
 #      --help                   Display help
@@ -109,6 +108,9 @@ module RightScale
     end
 
     # Setup agent monitoring
+    # NOTE: Defunct, keep here to overwrite AgentDeployer's
+    # version of this method just in case someone still passes
+    # in the --monit flag.
     #
     # === Parameters
     # options(Hash):: Command line options
@@ -116,47 +118,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def monitor(options)
-      # Create monit file for running instance agent
-      agent_name = options[:agent_name]
-      identity = options[:identity]
-      pid_file = PidFile.new(identity)
-      cfg = <<-EOF
-check process #{agent_name}
-  with pidfile \"#{pid_file}\"
-  start program \"/opt/rightscale/bin/rnac --start #{agent_name}\"
-  stop program \"/opt/rightscale/bin/rnac --stop #{agent_name}\"
-  mode manual
-      EOF
-      cfg_file = setup_monit(identity, options[:agent_name], cfg)
-      puts "  - agent monit config: #{cfg_file}" unless options[:quiet]
-
-      # Create monit file for running checker daemon to monitor monit and periodically check
-      # whether the agent is communicating okay and if not, to trigger a re-enroll
-      identity = "#{options[:identity]}-rchk"
-      pid_file = PidFile.new(identity)
-      cfg = <<-EOF
-check process checker
-  with pidfile \"#{pid_file}\"
-  start program \"/opt/rightscale/bin/rchk --start --monit\"
-  stop program \"/opt/rightscale/bin/rchk --stop\"
-  mode manual
-      EOF
-      cfg_file = setup_monit(identity, options[:agent_name], cfg)
-      puts "  - agent checker monit config: #{cfg_file}" unless options[:quiet]
       true
-    end
-
-    # Setup monit configuration
-    def setup_monit(identity, name, cfg)
-      cfg_file = if File.exists?('/opt/rightscale/etc/monit.d')
-        File.join('/opt/rightscale/etc/monit.d', "#{identity}.conf")
-      else
-        File.join(AgentConfig.cfg_dir, name, "#{identity}.conf")
-      end
-      File.open(cfg_file, 'w') { |f| f.puts(cfg) }
-      # monit requires strict perms on this file
-      File.chmod(0600, cfg_file) # monit requires strict perms on this file
-      cfg_file
     end
 
   end # RightLinkAgentDeployer
