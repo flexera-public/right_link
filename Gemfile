@@ -23,7 +23,7 @@ gem 'right_popen', '~> 1.1'
 # to RightScale. Gems in the 'custom' group are published by RightScale to our
 # custom gem repository (http://s3.amazonaws.com/rightscale_rightlink_gems_dev).
 group :custom do
-  gem 'chef',            '0.10.10.5'
+  gem 'chef',            '0.10.10.6'
   gem 'ohai',            '0.6.12.4'
   gem 'mixlib-shellout', '1.0.0.3'
   gem 'eventmachine',    '1.0.0.3'

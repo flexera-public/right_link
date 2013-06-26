@@ -61,7 +61,7 @@ GEM
     abstract (1.0.0)
     blackwinter-git (1.2.7)
     bunny (0.6.0)
-    chef (0.10.10.5)
+    chef (0.10.10.6)
       bunny (>= 0.6.0)
       erubis
       erubis
@@ -196,7 +196,7 @@ PLATFORMS
 DEPENDENCIES
   abstract (= 1.0.0)
   bunny (= 0.6.0)
-  chef (= 0.10.10.5)
+  chef (= 0.10.10.6)
   erubis (= 2.6.5)
   eventmachine (= 1.0.0.3)
   extlib (= 0.9.15)
