@@ -60,7 +60,7 @@ GEM
     abstract (1.0.0)
     blackwinter-git (1.2.7)
     bunny (0.6.0)
-    chef (0.10.10.4)
+    chef (0.10.10.6)
       bunny (>= 0.6.0)
       erubis
       erubis
@@ -132,6 +132,7 @@ GEM
     polyglot (0.3.3)
     ptools (1.2.2)
     rake (0.8.7)
+    rb-readline (0.5.0)
     rbx-require-relative (0.0.9)
     rcov (0.8.1.2.0)
     rcov (0.8.1.2.0-x86-mswin32)
@@ -158,7 +159,7 @@ GEM
     stomp (1.1)
     systemu (2.5.2)
     test-unit (2.5.4)
-    treetop (1.4.12)
+    treetop (1.4.14)
       polyglot
       polyglot (>= 0.3.1)
     trollop (2.0)
@@ -194,7 +195,7 @@ PLATFORMS
 DEPENDENCIES
   abstract (= 1.0.0)
   bunny (= 0.6.0)
-  chef (= 0.10.10.4)
+  chef (= 0.10.10.6)
   erubis (= 2.6.5)
   eventmachine (= 1.0.0.3)
   extlib (= 0.9.15)
@@ -212,6 +213,7 @@ DEPENDENCIES
   msgpack (= 0.4.4)
   ohai (= 0.6.12.4)
   rake (= 0.8.7)
+  rb-readline (~> 0.5.0)
   rcov (~> 0.8.1)
   rest-client (= 1.6.7)
   right_agent (~> 0.15)!
