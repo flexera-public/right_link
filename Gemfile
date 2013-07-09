@@ -15,7 +15,7 @@ gem 'right_amqp', '~> 0.6',
     :branch => 'master'
 gem 'right_scraper', '~> 3.2',
     :git => 'git://github.com/rightscale/right_scraper.git',
-    :branch => 'master'
+    :branch => 'teal_13_08_acu107715_fix_git_retriever_load_failure'
 gem 'right_popen', '~> 1.1'
 
 # We have custom builds of some gems containing fixes and patches that are specific

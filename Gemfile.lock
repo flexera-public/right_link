@@ -22,10 +22,10 @@ GIT
 
 GIT
   remote: git://github.com/rightscale/right_scraper.git
-  revision: 95fad65537725c6369e7a991d3e3e6e271f149cc
-  branch: master
+  revision: 70845b5323014f34730b945341055f955aa35f67
+  branch: teal_13_08_acu107715_fix_git_retriever_load_failure
   specs:
-    right_scraper (3.2.2)
+    right_scraper (3.2.3)
       blackwinter-git (~> 1.2.7)
       json (~> 1.4)
       right_aws (>= 2.0)
@@ -138,9 +138,9 @@ GEM
     rcov (0.8.1.2.0-x86-mswin32)
     rest-client (1.6.7)
       mime-types (>= 1.16)
-    right_aws (3.0.5)
+    right_aws (3.1.0)
       right_http_connection (>= 1.2.5)
-    right_http_connection (1.3.0)
+    right_http_connection (1.4.0)
     right_popen (1.1.2)
     right_popen (1.1.2-x86-mswin32)
       win32-process (>= 0.6.1)
