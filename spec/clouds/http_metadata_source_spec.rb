@@ -70,6 +70,7 @@ module RightScale
     class HttpMetadataSource
       # monkey patch for quicker testing of retries.
       RETRY_DELAY_FACTOR = 0.01
+      RETRY_MAX_ATTEMPTS = 10
     end
 
   end
