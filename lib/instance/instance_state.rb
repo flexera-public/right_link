@@ -510,9 +510,9 @@ module RightScale
       return unless RightScale::Platform.linux?
 
       if SUCCESSFUL_STATES.include?(@value)
-        system('echo "RightScale installation complete. Details can be found in /var/log/messages" | wall') rescue nil
+        system('echo "RightScale installation complete. Details can be found in system logs." | wall') rescue nil
       elsif FAILED_STATES.include?(@value)
-        system('echo "RightScale installation failed. Please review /var/log/messages" | wall') rescue nil
+        system('echo "RightScale installation failed. Please review system logs." | wall') rescue nil
       end
 
       return nil
