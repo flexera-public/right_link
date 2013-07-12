@@ -40,7 +40,8 @@ spec = Gem::Specification.new do |s|
     s.add_runtime_dependency('win32-service', '~> 0.7.2')
   end
 
-  s.files = Dir.glob('init/*') +
+  s.files = ['CHANGELOG.rdoc', 'INSTALL.rdoc', 'LICENSE', 'README.rdoc'] +
+            Dir.glob('init/*') +
             Dir.glob('actors/*.rb') +
             Dir.glob('bin/*') +
             Dir.glob('ext/Rakefile') +
