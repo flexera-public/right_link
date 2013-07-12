@@ -42,7 +42,7 @@ GIT
 PATH
   remote: .
   specs:
-    right_link (5.9.0)
+    right_link (5.9.1)
       chef (>= 0.10.10)
       encryptor (~> 1.1)
       extlib (~> 0.9.15)
