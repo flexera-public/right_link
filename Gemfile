@@ -22,9 +22,15 @@ gem 'right_popen', '~> 1.1'
 # to RightScale. Gems in the 'custom' group are published by RightScale to our
 # custom gem repository (http://s3.amazonaws.com/rightscale_rightlink_gems_dev).
 group :custom do
-  gem 'chef',            '0.10.10.6'
-  gem 'ohai',            '0.6.12.4'
-  gem 'mixlib-shellout', '1.0.0.3'
+  gem 'chef', '~> 10.26.0',
+              :git => 'git@github.com:rightscale/chef.git',
+              :branch => 'ivory_13_08_acu108269_rightscale-10.26.0'
+  gem 'ohai', '~> 6.16.0',
+              :git => 'git@github.com:rightscale/ohai.git',
+              :branch => 'ivory_13_08_acu108269_rightscale-6.16.0'
+  gem 'mixlib-shellout', '~> 1.1.0',
+                        :git => 'git@github.com:rightscale/mixlib-shellout.git',
+                        :branch => 'ivory_13_08_acu108269_rightscale-1.1.0'
   gem 'eventmachine',    '1.0.0.3'
 end
 
@@ -88,7 +94,6 @@ group :stable do
   gem 'abstract',              '1.0.0'
   gem 'erubis',                '2.6.5'
   gem 'extlib',                '0.9.15'
-  gem 'mixlib-authentication', '1.1.2'
   gem 'mixlib-cli',            '1.2.0'
   gem 'mixlib-config',         '1.1.2'
   gem 'mixlib-log',            '1.3.0'
@@ -101,3 +106,5 @@ group :stable do
   gem 'rest-client',           '1.6.7'
   gem 'msgpack',               '0.4.4'
 end
+
+gem 'mixlib-authentication', ">= 1.3.0"

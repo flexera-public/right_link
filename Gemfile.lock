@@ -39,6 +39,59 @@ GIT
   specs:
     right_support (2.7.1)
 
+GIT
+  remote: git@github.com:rightscale/chef.git
+  revision: e41108d3b0daff2d3cecc3951d6d3162623c6f1c
+  branch: ivory_13_08_acu108269_rightscale-10.26.0
+  specs:
+    chef (10.26.0)
+      bunny (>= 0.6.0, < 0.8.0)
+      erubis
+      erubis
+      highline
+      highline (>= 1.6.9)
+      json (>= 1.4.4, <= 1.7.7)
+      mixlib-authentication (>= 1.3.0)
+      mixlib-cli (>= 1.1.0)
+      mixlib-config (>= 1.1.2)
+      mixlib-log (>= 1.3.0)
+      mixlib-shellout
+      moneta
+      moneta
+      net-ssh (~> 2.2)
+      net-ssh-multi (~> 1.1.0)
+      ohai (>= 0.6.0)
+      rest-client (>= 1.0.4, < 1.7.0)
+      right_popen (~> 1.0, >= 1.0.21)
+      treetop (~> 1.4.9)
+      uuidtools
+      uuidtools
+      yajl-ruby (~> 1.1)
+
+GIT
+  remote: git@github.com:rightscale/mixlib-shellout.git
+  revision: 8ec41053ea8e5a7ce038213ec1b2e3494947ac4b
+  branch: ivory_13_08_acu108269_rightscale-1.1.0
+  specs:
+    mixlib-shellout (1.1.0)
+      right_popen (~> 1.1)
+
+GIT
+  remote: git@github.com:rightscale/ohai.git
+  revision: 5d8a4c742e94556d6bb524a2a08f2aa1eaf06547
+  branch: ivory_13_08_acu108269_rightscale-6.16.0
+  specs:
+    ohai (6.16.0)
+      eventmachine (>= 1.0.0)
+      ipaddress
+      mixlib-cli
+      mixlib-config
+      mixlib-log
+      mixlib-shellout
+      right_popen (~> 1.1)
+      systemu
+      yajl-ruby
+
 PATH
   remote: .
   specs:
@@ -60,29 +113,6 @@ GEM
     abstract (1.0.0)
     blackwinter-git (1.2.7)
     bunny (0.6.0)
-    chef (0.10.10.6)
-      bunny (>= 0.6.0)
-      erubis
-      erubis
-      highline
-      highline (>= 1.6.9)
-      json (>= 1.4.4, <= 1.6.1)
-      mixlib-authentication (>= 1.1.0)
-      mixlib-cli (>= 1.1.0)
-      mixlib-config (>= 1.1.2)
-      mixlib-log (>= 1.3.0)
-      mixlib-shellout (~> 1.0.0.rc)
-      moneta
-      moneta
-      net-ssh (~> 2.2)
-      net-ssh-multi (~> 1.1.0)
-      ohai (>= 0.6.0)
-      rest-client (>= 1.0.4, < 1.7.0)
-      right_popen (~> 1.0, >= 1.0.21)
-      treetop (~> 1.4.9)
-      uuidtools
-      uuidtools
-      yajl-ruby (>= 1.1.0)
     columnize (0.3.6)
     encryptor (1.1.3)
     erubis (2.6.5)
@@ -104,13 +134,11 @@ GEM
       rbx-require-relative (> 0.0.4)
       rbx-require-relative (> 0.0.4)
     mime-types (1.16)
-    mixlib-authentication (1.1.2)
+    mixlib-authentication (1.3.0)
       mixlib-log
     mixlib-cli (1.2.0)
     mixlib-config (1.1.2)
     mixlib-log (1.3.0)
-    mixlib-shellout (1.0.0.3)
-      right_popen (~> 1.1)
     moneta (0.6.0)
     msgpack (0.4.4)
     msgpack (0.4.4-x86-mswin32)
@@ -120,15 +148,6 @@ GEM
     net-ssh-multi (1.1)
       net-ssh (>= 2.1.4)
       net-ssh-gateway (>= 0.99.0)
-    ohai (0.6.12.4)
-      eventmachine (>= 1.0.0)
-      ipaddress
-      mixlib-cli
-      mixlib-config
-      mixlib-log
-      right_popen (~> 1.1)
-      systemu
-      yajl-ruby
     polyglot (0.3.3)
     ptools (1.2.2)
     rake (0.8.7)
@@ -195,7 +214,7 @@ PLATFORMS
 DEPENDENCIES
   abstract (= 1.0.0)
   bunny (= 0.6.0)
-  chef (= 0.10.10.6)
+  chef (~> 10.26.0)!
   erubis (= 2.6.5)
   eventmachine (= 1.0.0.3)
   extlib (= 0.9.15)
@@ -204,14 +223,14 @@ DEPENDENCIES
   hoe (= 2.3.3)
   json (= 1.4.6)
   mime-types (= 1.16)
-  mixlib-authentication (= 1.1.2)
+  mixlib-authentication (>= 1.3.0)
   mixlib-cli (= 1.2.0)
   mixlib-config (= 1.1.2)
   mixlib-log (= 1.3.0)
-  mixlib-shellout (= 1.0.0.3)
+  mixlib-shellout (~> 1.1.0)!
   moneta (= 0.6.0)
   msgpack (= 0.4.4)
-  ohai (= 0.6.12.4)
+  ohai (~> 6.16.0)!
   rake (= 0.8.7)
   rb-readline (~> 0.5.0)
   rcov (~> 0.8.1)
