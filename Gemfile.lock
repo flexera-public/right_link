@@ -39,6 +39,21 @@ GIT
   specs:
     right_support (2.7.1)
 
+GIT
+  remote: git@github.com:rightscale/ohai.git
+  revision: 1df6c4f513a3bdb6e2cd463a3265b36e1400f6a7
+  branch: teal_13_09_acu109463_fix_invalid_command_execution
+  specs:
+    ohai (0.6.12.5)
+      eventmachine (>= 1.0.0)
+      ipaddress
+      mixlib-cli
+      mixlib-config
+      mixlib-log
+      right_popen (~> 1.1)
+      systemu
+      yajl-ruby
+
 PATH
   remote: .
   specs:
@@ -120,15 +135,6 @@ GEM
     net-ssh-multi (1.1)
       net-ssh (>= 2.1.4)
       net-ssh-gateway (>= 0.99.0)
-    ohai (0.6.12.4)
-      eventmachine (>= 1.0.0)
-      ipaddress
-      mixlib-cli
-      mixlib-config
-      mixlib-log
-      right_popen (~> 1.1)
-      systemu
-      yajl-ruby
     polyglot (0.3.3)
     ptools (1.2.2)
     rake (0.8.7)
@@ -211,7 +217,7 @@ DEPENDENCIES
   mixlib-shellout (= 1.0.0.3)
   moneta (= 0.6.0)
   msgpack (= 0.4.4)
-  ohai (= 0.6.12.4)
+  ohai (= 0.6.12.5)!
   rake (= 0.8.7)
   rb-readline (~> 0.5.0)
   rcov (~> 0.8.1)

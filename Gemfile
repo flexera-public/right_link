@@ -23,7 +23,9 @@ gem 'right_popen', '~> 1.1'
 # custom gem repository (http://s3.amazonaws.com/rightscale_rightlink_gems_dev).
 group :custom do
   gem 'chef',            '0.10.10.6'
-  gem 'ohai',            '0.6.12.4'
+  gem 'ohai',            '0.6.12.5',
+      :git => 'git@github.com:rightscale/ohai.git',
+      :branch => 'teal_13_09_acu109463_fix_invalid_command_execution'
   gem 'mixlib-shellout', '1.0.0.3'
   gem 'eventmachine',    '1.0.0.3'
 end
