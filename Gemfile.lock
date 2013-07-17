@@ -40,42 +40,11 @@ GIT
     right_support (2.7.1)
 
 GIT
-  remote: git@github.com:rightscale/ohai.git
-  revision: 1df6c4f513a3bdb6e2cd463a3265b36e1400f6a7
-  branch: teal_13_09_acu109463_fix_invalid_command_execution
+  remote: git@github.com:rightscale/chef.git
+  revision: 1cd7379a917e5b5e84d97f888b36e5daa7f8e52e
+  branch: teal_13_09_acu109463_remove_redundant_path_sanity
   specs:
-    ohai (0.6.12.5)
-      eventmachine (>= 1.0.0)
-      ipaddress
-      mixlib-cli
-      mixlib-config
-      mixlib-log
-      right_popen (~> 1.1)
-      systemu
-      yajl-ruby
-
-PATH
-  remote: .
-  specs:
-    right_link (5.9.0)
-      chef (>= 0.10.10)
-      encryptor (~> 1.1)
-      extlib (~> 0.9.15)
-      right_agent (~> 0.10)
-      right_http_connection (~> 1.3)
-      right_popen (~> 1.1)
-      right_scraper (~> 3.2)
-      right_support (~> 2.0)
-      trollop
-
-GEM
-  remote: http://s3.amazonaws.com/rightscale_rightlink_gems_dev/
-  remote: https://rubygems.org/
-  specs:
-    abstract (1.0.0)
-    blackwinter-git (1.2.7)
-    bunny (0.6.0)
-    chef (0.10.10.6)
+    chef (0.10.10.7)
       bunny (>= 0.6.0)
       erubis
       erubis
@@ -98,6 +67,58 @@ GEM
       uuidtools
       uuidtools
       yajl-ruby (>= 1.1.0)
+
+GIT
+  remote: git@github.com:rightscale/mixlib-shellout.git
+  revision: ecea2cd9f2b8c3e6a961f8d06044dbebdc44a07d
+  branch: teal_13_09_acu109463_fix_invalid_command_execution
+  specs:
+    mixlib-shellout (1.0.0.4)
+      right_popen (~> 1.1)
+
+GIT
+  remote: git@github.com:rightscale/ohai.git
+  revision: 1df6c4f513a3bdb6e2cd463a3265b36e1400f6a7
+  branch: teal_13_09_acu109463_fix_invalid_command_execution
+  specs:
+    ohai (0.6.12.5)
+      eventmachine (>= 1.0.0)
+      ipaddress
+      mixlib-cli
+      mixlib-config
+      mixlib-log
+      right_popen (~> 1.1)
+      systemu
+      yajl-ruby
+
+GIT
+  remote: git@github.com:rightscale/right_popen.git
+  revision: 5831ae1d4b6aa78b6c459a2a3865a18e20c4cb2a
+  branch: teal_13_09_acu109463_yet_another_chdir_fix
+  specs:
+    right_popen (1.1.3)
+
+PATH
+  remote: .
+  specs:
+    right_link (5.9.0)
+      chef (>= 0.10.10)
+      encryptor (~> 1.1)
+      extlib (~> 0.9.15)
+      right_agent (~> 0.10)
+      right_http_connection (~> 1.3)
+      right_popen (~> 1.1)
+      right_scraper (~> 3.2)
+      right_support (~> 2.0)
+      trollop
+
+GEM
+  remote: http://s3.amazonaws.com/rightscale_rightlink_gems_dev/
+  remote: https://rubygems.org/
+  specs:
+    abstract (1.0.0)
+    blackwinter-git (1.2.7)
+    bunny (0.6.0)
     columnize (0.3.6)
     encryptor (1.1.3)
     erubis (2.6.5)
@@ -124,8 +145,6 @@ GEM
     mixlib-cli (1.2.0)
     mixlib-config (1.1.2)
     mixlib-log (1.3.0)
-    mixlib-shellout (1.0.0.3)
-      right_popen (~> 1.1)
     moneta (0.6.0)
     msgpack (0.4.4)
     msgpack (0.4.4-x86-mswin32)
@@ -147,9 +166,6 @@ GEM
     right_aws (3.1.0)
       right_http_connection (>= 1.2.5)
     right_http_connection (1.4.0)
-    right_popen (1.1.2)
-    right_popen (1.1.2-x86-mswin32)
-      win32-process (>= 0.6.1)
     rspec (1.3.2)
     ruby-debug (0.10.4)
       columnize (>= 0.1)
@@ -201,7 +217,7 @@ PLATFORMS
 DEPENDENCIES
   abstract (= 1.0.0)
   bunny (= 0.6.0)
-  chef (= 0.10.10.6)
+  chef (= 0.10.10.7)!
   erubis (= 2.6.5)
   eventmachine (= 1.0.0.3)
   extlib (= 0.9.15)
@@ -214,7 +230,7 @@ DEPENDENCIES
   mixlib-cli (= 1.2.0)
   mixlib-config (= 1.1.2)
   mixlib-log (= 1.3.0)
-  mixlib-shellout (= 1.0.0.3)
+  mixlib-shellout (= 1.0.0.4)!
   moneta (= 0.6.0)
   msgpack (= 0.4.4)
   ohai (= 0.6.12.5)!
@@ -225,7 +241,7 @@ DEPENDENCIES
   right_agent (~> 0.15)!
   right_amqp (~> 0.6)!
   right_link!
-  right_popen (~> 1.1)
+  right_popen (~> 1.1)!
   right_scraper (~> 3.2)!
   right_support (~> 2.7)!
   rspec (~> 1.3)
