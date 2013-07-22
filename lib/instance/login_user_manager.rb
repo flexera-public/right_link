@@ -153,6 +153,13 @@ module RightScale
       Etc.getpwuid(uid).name
     end
 
+
+    def random_password
+      letters =  [('a'..'z'),('A'..'Z')].map{|i| i.to_a}.flatten
+      password = (0..32).map{ letters[rand(letters.length)] }.join
+      password.crypt("rightscale")
+    end
+
     # Create a Unix user with the "useradd" command.
     #
     # === Parameters
@@ -177,7 +184,7 @@ module RightScale
         dash_s = "-s #{Shellwords.escape(shell)}"
       end
 
-      result = sudo("#{useradd} #{dash_s} -u #{uid} -m #{Shellwords.escape(username)}")
+      result = sudo("#{useradd} #{dash_s} -u #{uid} -p #{random_password} -m #{Shellwords.escape(username)}")
 
       case result.exitstatus
       when 0
