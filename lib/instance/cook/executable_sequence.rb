@@ -50,6 +50,7 @@ module RightScale
   # Runs in separate (runner) process.
   class ExecutableSequence
     include EM::Deferrable
+    include Chef::Mixin::PathSanity
 
     # Min number of seconds to wait before retrying Ohai to get the hostname
     OHAI_RETRY_MIN_DELAY  = 20
@@ -160,6 +161,12 @@ module RightScale
         download_cookbooks if @ok
         update_cookbook_path if @ok
         setup_powershell_providers if RightScale::Platform.windows?
+
+        # note that chef normally enforces path sanity before executing ohai in
+        # the client run method. we create ohai before client run and some ohai
+        # plugins behave badly when there is no ruby on the PATH. we need to do
+        # a pre-emptive path sanity here before we start ohai and chef.
+        enforce_path_sanity
         check_ohai { |o| converge(o) } if @ok
       end
       true
@@ -761,5 +768,6 @@ module RightScale
     ensure
       ENV.replace(original_env.to_hash)
     end
+
   end
 end
