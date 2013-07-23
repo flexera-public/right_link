@@ -4,27 +4,19 @@ source 'https://rubygems.org'
 gemspec
 
 # Fresh off the assembly line
-gem 'right_support', '~> 2.7',
-    :git => 'git://github.com/rightscale/right_support.git',
-    :branch => 'master'
-gem 'right_agent', '~> 0.15',
-    :git => 'git://github.com/rightscale/right_agent.git',
-    :branch => 'master'
-gem 'right_amqp', '~> 0.6',
-    :git => 'git://github.com/rightscale/right_amqp.git',
-    :branch => 'master'
-gem 'right_scraper', '~> 3.2',
-    :git => 'git://github.com/rightscale/right_scraper.git',
-    :branch => 'master'
+gem 'right_support', '~> 2.7'
+gem 'right_agent', '~> 0.16'
+gem 'right_amqp', '~> 0.6'
+gem 'right_scraper', '~> 3.2'
 gem 'right_popen', '~> 1.1'
 
 # We have custom builds of some gems containing fixes and patches that are specific
 # to RightScale. Gems in the 'custom' group are published by RightScale to our
 # custom gem repository (http://s3.amazonaws.com/rightscale_rightlink_gems_dev).
 group :custom do
-  gem 'chef',            '0.10.10.6'
-  gem 'ohai',            '0.6.12.4'
-  gem 'mixlib-shellout', '1.0.0.3'
+  gem 'chef',            '0.10.10.7'
+  gem 'ohai',            '0.6.12.5'
+  gem 'mixlib-shellout', '1.0.0.4'
   gem 'eventmachine',    '1.0.0.3'
 end
 
@@ -88,10 +80,6 @@ group :stable do
   gem 'abstract',              '1.0.0'
   gem 'erubis',                '2.6.5'
   gem 'extlib',                '0.9.15'
-  gem 'mixlib-authentication', '1.1.2'
-  gem 'mixlib-cli',            '1.2.0'
-  gem 'mixlib-config',         '1.1.2'
-  gem 'mixlib-log',            '1.3.0'
   gem 'hoe',                   '2.3.3'
   gem 'moneta',                '0.6.0'
   gem 'bunny',                 '0.6.0'
