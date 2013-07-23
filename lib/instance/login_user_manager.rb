@@ -157,7 +157,7 @@ module RightScale
     def random_password
       letters =  [('a'..'z'),('A'..'Z')].map{|i| i.to_a}.flatten
       password = (0..32).map{ letters[rand(letters.length)] }.join
-      password.crypt("rightscale")
+      Shellwords.escape(password.crypt("rightscale"))
     end
 
     # Create a Unix user with the "useradd" command.
