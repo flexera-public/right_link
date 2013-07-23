@@ -4,7 +4,7 @@ require 'rubygems'
 
 spec = Gem::Specification.new do |s|
   s.name        = 'right_link'
-  s.version     = '5.9.0'
+  s.version     = '5.9.1'
   s.platform    = Gem::Platform::RUBY
   
   s.authors     = ['RightScale']
@@ -40,7 +40,8 @@ spec = Gem::Specification.new do |s|
     s.add_runtime_dependency('win32-service', '~> 0.7.2')
   end
 
-  s.files = Dir.glob('init/*') +
+  s.files = ['CHANGELOG.rdoc', 'INSTALL.rdoc', 'LICENSE', 'README.rdoc'] +
+            Dir.glob('init/*') +
             Dir.glob('actors/*.rb') +
             Dir.glob('bin/*') +
             Dir.glob('ext/Rakefile') +
