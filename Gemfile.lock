@@ -1,9 +1,9 @@
 GIT
   remote: git://github.com/rightscale/right_agent.git
-  revision: 640f022bd4b0bf8703ee8b83e20526f812d35666
+  revision: d8eda3c6d7658aa2d1e57d107b990b90168d8e00
   branch: master
   specs:
-    right_agent (0.16.0)
+    right_agent (0.16.2)
       eventmachine (>= 0.12.10, < 2.0)
       json (>= 1.4, <= 1.7.6)
       msgpack (>= 0.4.4, < 0.6)
@@ -13,7 +13,7 @@ GIT
 
 GIT
   remote: git://github.com/rightscale/right_amqp.git
-  revision: e394b77979af3b930bba95cfd71499210e489521
+  revision: b7f4aa3f371fea3a6efdc9d30578e7992dab1801
   branch: master
   specs:
     right_amqp (0.6.0)
@@ -114,7 +114,7 @@ GEM
     moneta (0.6.0)
     msgpack (0.4.4)
     msgpack (0.4.4-x86-mswin32)
-    net-ssh (2.6.7)
+    net-ssh (2.6.8)
     net-ssh-gateway (1.2.0)
       net-ssh (>= 2.6.5)
     net-ssh-multi (1.1)
