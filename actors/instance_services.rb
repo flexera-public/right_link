@@ -71,8 +71,8 @@ class InstanceServices
   #
   def reboot(payload)
     audit = RightScale::AuditProxy.new(payload["audit_id"])
-    audit.create_new_section('Instance soft-reboot')
-    audit.append_info('Send soft-reboot command on instance')
+    audit.create_new_section('RightLink: Reboot')
+    audit.append_info('RightLink: Reboot')
     RightScale::Platform.controller.reboot
     success_result
   end
