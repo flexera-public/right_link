@@ -86,9 +86,9 @@ the cloud type your instance is running on:
 
   yum install -y rightlink-cloud-ec2
 
-==== SLES
+==== SUSE
 
-For RedHat-based systems, we publish nightly builds to a yum repository.
+For SUSE-based systems, we publish nightly builds to a yum repository.
 The repository follows an EPEL-like layout and supports multiple distributions
 and releases.
 
