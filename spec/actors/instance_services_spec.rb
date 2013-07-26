@@ -27,8 +27,7 @@ describe InstanceServices do
 
   include RightScale::SpecHelper
 
-  context 'AuditProxy' do
-
+  context '#update_login_policy' do
     before(:each) do
       @audit_proxy = flexmock('AuditProxy')
       flexmock(RightScale::AuditProxy).should_receive(:create).and_yield(@audit_proxy)
@@ -46,35 +45,31 @@ describe InstanceServices do
               and_yield(RightScale::ResultsMock.new.success_results('bogus_content'))
     end
 
-    it 'should update login policy' do
+    it 'updates the login policy' do
       flexmock(@mgr).should_receive(:update_policy).with(@policy, @agent_identity, FlexMock.any).and_return(true)
 
       @services.update_login_policy(@policy)
     end
 
-    it 'should audit failures when they occur' do
+    it 'audits failures when they occur' do
       error = "I'm sorry Dave, I can't do that."
       @audit_proxy.should_receive(:append_error).with(/#{error}/, Hash)
       flexmock(@mgr).should_receive(:update_policy).with(@policy).and_raise(Exception.new(error))
     end
-
   end
 
-  context 'Reboot' do
+  context '#reboot' do
     before(:each) do
       @controller = flexmock('Controller', {:reboot => true} )
-      @audit_proxy = flexmock('AuditProxy', {:create_new_section => true, :append_info => true})
 
       @agent_identity = "rs-instance-1-1"
       @services = InstanceServices.new(@agent_identity)
     end
 
-    it 'reboot an instance and append text to provided audit entry' do
+    it 'reboots the instance' do
       flexmock(RightScale::Platform).should_receive(:controller).and_return( @controller )
-      flexmock(RightScale::AuditProxy).should_receive(:new).with(12345).and_return(@audit_proxy)
-      @services.reboot( { 'audit_id' => 12345 } )
+      @services.reboot(nil)
     end
-
   end
 
 end
