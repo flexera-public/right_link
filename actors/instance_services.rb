@@ -65,14 +65,9 @@ class InstanceServices
 
   # Reboot the instance using local (OS) facility.
   #
-  # @params [Hash] audit_id Audit entry id for use with this execution
-  #
   # @return [RightScale::OperationResult] Always returns success
   #
-  def reboot(payload)
-    audit = RightScale::AuditProxy.new(payload["audit_id"])
-    audit.create_new_section('RightLink: Reboot')
-    audit.append_info('RightLink: Reboot')
+  def reboot(_)
     RightScale::Platform.controller.reboot
     success_result
   end
