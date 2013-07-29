@@ -109,12 +109,12 @@ module RightScale
             attempts += 1
             t0 = Time.now
 
-            # Previously we accessed RestClient directly and used it's wrapper method to instantiate 
+            # Previously we accessed RestClient directly and used it's wrapper method to instantiate
             # a RestClient::Request object.  This wrapper was not passing all options down the stack
             # so now we invoke the RestClient::Request object directly, passing it our desired options
-            client.execute(:method => :get, :url => "https://#{endpoint}:443#{resource}", :timeout => calculate_timeout(attempts), :verify_ssl => OpenSSL::SSL::VERIFY_PEER, :ssl_ca_file => get_ca_file, :headers => {:user_agent => "RightLink v#{AgentConfig.protocol_version}"}) do |response, request, result|
+            client.execute(:method => :get, :url => "https://#{endpoint}:443#{resource}", :timeout => calculate_timeout(attempts), :verify_ssl => OpenSSL::SSL::VERIFY_PEER, :ssl_ca_file => get_ca_file, :headers => {:user_agent => "RightLink v#{AgentConfig.protocol_version}", :x_rightlink_version => RightLink::VERSION }) do |response, request, result|
               if result.kind_of?(Net::HTTPSuccess)
-                @size = result.content_length
+                @size = result.content_length || response.size || 0
                 @speed = @size / (Time.now - t0)
                 yield response
               else
@@ -223,7 +223,7 @@ module RightScale
 
     # Orders ips by hostnames
     #
-    # The purpose of this method is to sort ips of hostnames so it tries all IPs of hostname 1, 
+    # The purpose of this method is to sort ips of hostnames so it tries all IPs of hostname 1,
     # then all IPs of hostname 2, etc
     #
     # == Return
@@ -264,7 +264,7 @@ module RightScale
       )
     end
 
-    # Exponential incremental timeout algorithm.  Returns the amount of 
+    # Exponential incremental timeout algorithm.  Returns the amount of
     # of time to wait for the next iteration
     #
     # === Parameters
