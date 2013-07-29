@@ -191,6 +191,8 @@ module RightScale
         home_dir = Shellwords.escape(Etc.getpwnam(username).dir)
 
         sudo("chmod 0771 #{Shellwords.escape(home_dir)}")
+        # Locking account to prevent warning os SUSE(it complains on unlocking non-locked account)
+        modify_user(username, true, shell)
 
         RightScale::Log.info "LoginUserManager created #{username} successfully"
       else
