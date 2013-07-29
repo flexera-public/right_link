@@ -94,7 +94,7 @@ and releases.
 
 To install nightly RPMs, first create a zypper source.
 
-  zypper af -G -f https://rightlink-integration.s3.amazonaws.com/nightly/yum/1/suse/$releasever/$basearch/
+  zypper ar -G -f https://rightlink-integration.s3.amazonaws.com/nightly/yum/1/suse/$releasever/$basearch/
 
 Next install RightLink cloud support package for
 the cloud type your instance is running on:
