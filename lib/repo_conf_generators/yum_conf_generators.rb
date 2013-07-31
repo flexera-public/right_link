@@ -31,7 +31,7 @@ module Yum
   end
 
   module CentOS #########################################################################
-    RPM_GPG_KEY_CentOS5="file:///etc/pki/rpm-gpg/RPM-GPG-KEY-CentOS-5"
+    RPM_GPG_KEY_CentOS="file:///etc/pki/rpm-gpg/RPM-GPG-KEY-CentOS-"
 
     # The different generate classes will always generate an exception ("string") if there's anything that went wrong. If no exception, things went well.
     class Base
@@ -111,16 +111,17 @@ module Yum
     ############## INTERNAL FUNCTIONS #######################################################
     def self.abstract_generate(params)
     return unless Yum::CentOS::is_this_centos?
-    opts = { :enabled => true, :gpgkey_file => RPM_GPG_KEY_CentOS5, :frozen_date => "latest"}
-    opts.merge!(params)
-    raise "missing parameters to generate file!" unless opts[:repo_filename] && opts[:repo_name] && opts[:repo_subpath] &&
-                                                        opts[:base_urls] && opts[:frozen_date] && opts[:enabled] && opts[:gpgkey_file]
+
     ver = Yum::execute("lsb_release  -rs").strip
     arch = Yum::execute("uname -i").strip
 
     major_ver = ver.strip.split(".").first
     repo_path = "#{major_ver}/#{opts[:repo_subpath]}/#{arch}"
 
+    opts = { :enabled => true, :gpgkey_file => RPM_GPG_KEY_CentOS + major_ver, :frozen_date => "latest"}
+    opts.merge!(params)
+    raise "missing parameters to generate file!" unless opts[:repo_filename] && opts[:repo_name] && opts[:repo_subpath] &&
+                                                        opts[:base_urls] && opts[:frozen_date] && opts[:enabled] && opts[:gpgkey_file]
     # Old CentOS versions 5.0 and 5.1 were not versioned...so we just point to the base of the repo instead.
     if !(ver =~ /5\.[01]/)
       repo_path = repo_path + "/archive/" + opts[:frozen_date]
@@ -154,7 +155,7 @@ END
   end # Module CentOS
 
   module Epel #####################################################################
-    RPM_GPG_KEY_EPEL="file:///etc/pki/rpm-gpg/RPM-GPG-KEY-EPEL"
+    RPM_GPG_KEY_EPEL="file:///etc/pki/rpm-gpg/RPM-GPG-KEY-EPEL-"
     def self.generate(description, base_urls, frozen_date = "latest")
       opts = {:repo_filename => "Epel",
         :repo_name => "epel",
@@ -171,7 +172,7 @@ END
 
     epel_version = get_enterprise_linux_version
     puts "found EPEL version: #{epel_version}"
-    opts = { :enabled => true, :gpgkey_file => RPM_GPG_KEY_EPEL, :frozen_date => "latest"}
+    opts = { :enabled => true, :gpgkey_file => RPM_GPG_KEY_EPEL + epel_version.to_s, :frozen_date => "latest"}
     opts.merge!(params)
     raise "missing parameters to generate file!" unless opts[:repo_filename] && opts[:repo_name] &&
                                                         opts[:base_urls] && opts[:frozen_date] && opts[:enabled] && opts[:gpgkey_file]
