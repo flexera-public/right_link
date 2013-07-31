@@ -68,6 +68,7 @@ class InstanceServices
   # @return [RightScale::OperationResult] Always returns success
   #
   def reboot(_)
+    RightScale::Log.info('Initiate reboot using local (OS) facility')
     RightScale::Platform.controller.reboot
     success_result
   end
