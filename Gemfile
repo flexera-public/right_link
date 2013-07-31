@@ -4,18 +4,10 @@ source 'https://rubygems.org'
 gemspec
 
 # Fresh off the assembly line
-gem 'right_support', '~> 2.7',
-    :git => 'git://github.com/rightscale/right_support.git',
-    :branch => 'master'
-gem 'right_agent', '~> 0.15',
-    :git => 'git://github.com/rightscale/right_agent.git',
-    :branch => 'master'
-gem 'right_amqp', '~> 0.6',
-    :git => 'git://github.com/rightscale/right_amqp.git',
-    :branch => 'master'
-gem 'right_scraper', '~> 3.2',
-    :git => 'git://github.com/rightscale/right_scraper.git',
-    :branch => 'master'
+gem 'right_support', '~> 2.7'
+gem 'right_agent', '~> 0.16'
+gem 'right_amqp', '~> 0.6'
+gem 'right_scraper', '~> 3.2'
 gem 'right_popen', '~> 1.1'
 
 # We have custom builds of some gems containing fixes and patches that are specific
