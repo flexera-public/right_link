@@ -66,6 +66,8 @@ running the boot scripts for the associated ServerTemplate.
 
 === Nightly RPMs
 
+==== RedHat
+
 For RedHat-based systems, we publish nightly builds to a yum repository.
 The repository follows an EPEL-like layout and supports multiple distributions
 and releases.
@@ -79,10 +81,26 @@ To install nightly RPMs, first create a yum source.
   gpgcheck=0
   EOF
 
-Next install the base RightLink package, plus a cloud support package for
+Next install RightLink cloud support package for
 the cloud type your instance is running on:
 
-  yum install -y rightlink rightlink-cloud-ec2
+  yum install -y rightlink-cloud-ec2
+
+==== SUSE
+
+For SUSE-based systems, we publish nightly builds to a yum repository.
+The repository follows an EPEL-like layout and supports multiple distributions
+and releases.
+
+To install nightly RPMs, first create a zypper source.
+
+  zypper ar -G -f https://rightlink-integration.s3.amazonaws.com/nightly/yum/1/suse/$releasever/$basearch/
+
+Next install RightLink cloud support package for
+the cloud type your instance is running on:
+
+  zypper --non-interactive install rightlink-cloud-ec2
+
 
 === Nightly DEBs
 
@@ -98,11 +116,11 @@ system that is running Ubuntu 12.04 (precise):
   deb-src [arch=amd64] https://rightlink-integration.s3.amazonaws.com/nightly/apt precise main
   EOF
 
-Next install the base RightLink package, plus a cloud support package for the
+Next install RightLink cloud support package for the
 cloud type your instance is running on:
 
   apt-get update
-  apt-get install rightlink rightlink-cloud-ec2
+  apt-get install rightlink-cloud-ec2
 
 === Nightly MSIs
 
