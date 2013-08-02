@@ -100,15 +100,15 @@ class InstanceSetup
     success_result(RightScale::InstanceState.value)
   end
 
-  # Handle disconnected notification from broker, enter offline mode
+  # Handle connection status notification from broker to adjust offline mode
   #
   # === Parameters
-  # status(Symbol):: Connection status, one of :connected or :disconnected
+  # status(Symbol):: Connection status, one of :connected, :disconnected, or :failed
   #
   # === Return
   # true:: Always return true
   def connection_status(status)
-    if status == :disconnected
+    if [:disconnected, :failed].include?(status)
       RightScale::Sender.instance.enable_offline_mode
     else
       RightScale::Sender.instance.disable_offline_mode

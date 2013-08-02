@@ -707,4 +707,27 @@ describe InstanceSetup do
     boot_to_decommissioned
   end
 
+  context "connection_status" do
+    before(:each) do
+      @sender = flexmock("sender", :message_received => true)
+    end
+
+    it 'should go offline when broker becomes disconnected' do
+      boot_to_operational
+      flexmock(RightScale::Sender).should_receive(:instance).and_return(@sender)
+      @sender.should_receive(:enable_offline_mode).once
+      @setup.connection_status(:disconnected)
+      @sender.should_receive(:disable_offline_mode).once
+      @setup.connection_status(:connected)
+    end
+
+    it 'should go offline when broker connection fails' do
+      boot_to_operational
+      flexmock(RightScale::Sender).should_receive(:instance).and_return(@sender)
+      @sender.should_receive(:enable_offline_mode).once
+      @setup.connection_status(:failed)
+      @sender.should_receive(:disable_offline_mode).once
+      @setup.connection_status(:connected)
+    end
+  end
 end
