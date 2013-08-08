@@ -1,5 +1,7 @@
 = 5.9.1 (RightLink 5.9 beta 2)
 
+Released 2013-08-07.
+
 == New Features
 
 * Rebooting the machine with "rs_shutdown --reboot" will now use OS' facility for rebooting the
@@ -20,6 +22,8 @@
   "/RPM-GPG-KEY-CentOS-5"
 
 = 5.9.0 (RightLink 5.9 beta 1)
+
+Released 2013-07-13.
 
 == New Features
 
