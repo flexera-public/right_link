@@ -25,12 +25,13 @@ class InstanceServices
   include RightScale::Actor
   include RightScale::OperationResultHelper
 
-  expose :update_login_policy
+  expose :update_login_policy, :reboot
 
   def initialize(agent_identity)
     @agent_identity = agent_identity
   end
 
+  # Apply a new SSH login policy to the instance.
   # Always return success, used for troubleshooting
   #
   # == Parameters:
@@ -41,7 +42,7 @@ class InstanceServices
   #
   def update_login_policy(new_policy)
     status = nil
-    
+
     RightScale::AuditProxy.create(@agent_identity, 'Updating managed login policy') do |audit|
       begin
         RightScale::LoginManager.instance.update_policy(new_policy, @agent_identity) do |audit_content|
@@ -56,9 +57,19 @@ class InstanceServices
         audit.append_error("Error applying login policy: #{e.message}", :category => RightScale::EventCategories::CATEGORY_ERROR)
         RightScale::Log.error('Failed to update managed login policy', e, :trace)
         status = error_result("#{e.class.name}: #{e.message}")
-      end            
+      end
     end
 
     status
+  end
+
+  # Reboot the instance using local (OS) facility.
+  #
+  # @return [RightScale::OperationResult] Always returns success
+  #
+  def reboot(_)
+    RightScale::Log.info('Initiate reboot using local (OS) facility')
+    RightScale::Platform.controller.reboot
+    success_result
   end
 end

@@ -27,32 +27,49 @@ describe InstanceServices do
 
   include RightScale::SpecHelper
 
-  before(:each) do
-    @audit_proxy = flexmock('AuditProxy')
-    flexmock(RightScale::AuditProxy).should_receive(:create).and_yield(@audit_proxy)
-    @audit_proxy.should_receive(:create_new_section).by_default
-    @audit_proxy.should_receive(:append_info).by_default
+  context '#update_login_policy' do
+    before(:each) do
+      @audit_proxy = flexmock('AuditProxy')
+      flexmock(RightScale::AuditProxy).should_receive(:create).and_yield(@audit_proxy)
+      @audit_proxy.should_receive(:create_new_section).by_default
+      @audit_proxy.should_receive(:append_info).by_default
 
-    @mgr = RightScale::LoginManager.instance
-    @policy = RightScale::LoginPolicy.new
-    @agent_identity = "rs-instance-1-1"
-    @services = InstanceServices.new(@agent_identity)
+      @mgr = RightScale::LoginManager.instance
+      @policy = RightScale::LoginPolicy.new
+      @agent_identity = "rs-instance-1-1"
+      @services = InstanceServices.new(@agent_identity)
 
-    #update_login_policy should audit its execution
-    flexmock(@services).should_receive(:send_retryable_request).
-            with('/auditor/create_entry', Hash, Proc).
-            and_yield(RightScale::ResultsMock.new.success_results('bogus_content'))
+      #update_login_policy should audit its execution
+      flexmock(@services).should_receive(:send_retryable_request).
+              with('/auditor/create_entry', Hash, Proc).
+              and_yield(RightScale::ResultsMock.new.success_results('bogus_content'))
+    end
+
+    it 'updates the login policy' do
+      flexmock(@mgr).should_receive(:update_policy).with(@policy, @agent_identity, FlexMock.any).and_return(true)
+
+      @services.update_login_policy(@policy)
+    end
+
+    it 'audits failures when they occur' do
+      error = "I'm sorry Dave, I can't do that."
+      @audit_proxy.should_receive(:append_error).with(/#{error}/, Hash)
+      flexmock(@mgr).should_receive(:update_policy).with(@policy).and_raise(Exception.new(error))
+    end
   end
 
-  it 'should update login policy' do
-    flexmock(@mgr).should_receive(:update_policy).with(@policy, @agent_identity, FlexMock.any).and_return(true)
+  context '#reboot' do
+    before(:each) do
+      @controller = flexmock('Controller', {:reboot => true} )
 
-    @services.update_login_policy(@policy)
+      @agent_identity = "rs-instance-1-1"
+      @services = InstanceServices.new(@agent_identity)
+    end
+
+    it 'reboots the instance' do
+      flexmock(RightScale::Platform).should_receive(:controller).and_return( @controller )
+      @services.reboot(nil)
+    end
   end
 
-  it 'should audit failures when they occur' do
-    error = "I'm sorry Dave, I can't do that."
-    @audit_proxy.should_receive(:append_error).with(/#{error}/, Hash)
-    flexmock(@mgr).should_receive(:update_policy).with(@policy).and_raise(Exception.new(error))
-  end
 end
