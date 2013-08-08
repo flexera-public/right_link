@@ -1,4 +1,25 @@
-= RightLink 5.9
+= 5.9.1 (RightLink 5.9 beta 2)
+
+== New Features
+
+* Rebooting the machine with "rs_shutdown --reboot" will now use OS' facility for rebooting the
+  machine rather than invoking the cloud's API to reboot. This works around VM state loss when
+  the hypervisor/image isn't properly generating/handling ACPI restart events.
+
+== Changes to Existing Functionality
+
+* Add AMQP connection lifecycle callbacks to ensure that the instance recovers from from AMQP
+  connection failures much more rapidly.
+
+* Assign random password to users that are created during SSH login, ensuring that the RightLink
+  agent can reliably lock and unlock their accounts when role evolution occurs.
+
+== Bug Fixes
+
+* Repository freezing under CentOS 6 uses the proper public key file name, instead of hardcoding
+  "/RPM-GPG-KEY-CentOS-5"
+
+= 5.9.0 (RightLink 5.9 beta 1)
 
 == New Features
 
@@ -38,8 +59,7 @@
 * AMQP broker reconnect reliability improved for certain corner cases
 * SuSE metadata query on CloudStack has been fixed
 
-= RightLink 5.8
-= 5.8.13
+= 5.8.13 (General Availability release in conjunction with ServerTemplates v13.4)
 
 == New Features
 
@@ -49,7 +69,7 @@
 
 * Hardened metadata retrieval for Windows on Openstack to overcome DHCP-lease race conditions
 
-= 5.8.12
+= 5.8.12 (Limited-availability release)
 
 == New Features
 
@@ -62,7 +82,7 @@
 * Managed login always displays MOTD, works with older versions of sudo, 
 * Cookbook download is more reliable in fail-and-retry scenarios
 
-= 5.8.8
+= 5.8.8 (General Availability release in conjunction with ServerTemplates v12.11 LTS)
 
 == New Features
 
