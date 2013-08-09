@@ -4,7 +4,7 @@ require 'rubygems'
 
 spec = Gem::Specification.new do |s|
   s.name        = 'right_link'
-  s.version     = '5.9.1'
+  s.version     = '5.9.2'
   s.platform    = Gem::Platform::RUBY
   
   s.authors     = ['RightScale']
