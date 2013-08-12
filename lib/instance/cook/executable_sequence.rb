@@ -561,6 +561,7 @@ module RightScale
         if CookState.dev_log_level
           log_desc << " (overridden by #{CookState::LOG_LEVEL_TAG}=#{CookState.dev_log_level})"
         end
+        log_desc << '.'
         @audit.append_info(log_desc)
 
         @audit.append_info("Run list for thread #{@thread_name.inspect} contains #{@run_list.size} items.")
