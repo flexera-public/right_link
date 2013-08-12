@@ -1,19 +1,21 @@
 # -*- mode: ruby; encoding: utf-8 -*-
-
+lib = File.expand_path('../lib', __FILE__)
+$LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
+require 'right_link/version'
 require 'rubygems'
 
 spec = Gem::Specification.new do |s|
   s.name        = 'right_link'
-  s.version     = '5.9.2'
+  s.version     = RightLink::VERSION
   s.platform    = Gem::Platform::RUBY
-  
+
   s.authors     = ['RightScale']
   s.email       = 'support@rightscale.com'
   s.homepage    = 'https://github.com/rightscale/right_link'
 
   s.summary     = %q{RightScale management agent.}
   s.description = %q{A daemon that connects systems to the RightScale cloud management platform.}
-  
+
   s.required_rubygems_version = '>= 1.3.7'
 
   s.add_runtime_dependency('right_agent', '~> 0.10')
