@@ -557,6 +557,8 @@ module RightScale
           @audit.create_new_section('Preparing execution')
         end
 
+        @audit.append_info("Log level: #{[:debug, :info, :warn, :error, :fatal][CookState.log_level.to_i]}")
+        @audit.append_info("Dev log level: #{ CookState.dev_log_level || 'nil'  }")
         @audit.append_info("Run list for thread #{@thread_name.inspect} contains #{@run_list.size} items.")
         @audit.append_info(@run_list.join(', '))
 
