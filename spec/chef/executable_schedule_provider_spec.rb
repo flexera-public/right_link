@@ -46,7 +46,8 @@ describe Chef::Provider::ExecutableSchedule do
   before(:each) do
     @node = flexmock('Chef::Node')
     @node.should_ignore_missing
-    @run_context = Chef::RunContext.new(@node, {})
+    @events = Chef::EventDispatch::Dispatcher.new
+    @run_context = Chef::RunContext.new(@node, {}, @events)
     @resource = Chef::Resource::ExecutableSchedule.new('my_schedule', @run_context)
     @resource.minute('1')
     @resource.hour('1')
