@@ -98,6 +98,7 @@ group :stable do
   gem 'mime-types',            '1.16'
   gem 'rest-client',           '1.6.7'
   gem 'msgpack',               '0.4.4'
+  gem 'systemu',               '2.2.0'
 end
 
 gem 'mixlib-authentication', ">= 1.3.0"

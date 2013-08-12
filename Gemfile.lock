@@ -1,6 +1,6 @@
 GIT
   remote: git@github.com:rightscale/chef.git
-  revision: 3e045cca19322097cc21df6480f5cc27bee37ed4
+  revision: ecec89ec3ce09bdb320727c3e739c543bb6ae934
   branch: ivory_13_08_acu108269_rightscale-10.26.0
   specs:
     chef (10.26.0.1)
@@ -47,7 +47,7 @@ GIT
       mixlib-config
       mixlib-log
       right_popen (~> 1.1)
-      systemu
+      systemu (~> 2.2.0)
       yajl-ruby
 
 PATH
@@ -107,6 +107,7 @@ GEM
       net-ssh (>= 2.1.4)
       net-ssh-gateway (>= 0.99.0)
     nokogiri (1.5.9)
+    nokogiri (1.5.9-x86-mswin32)
     polyglot (0.3.3)
     ptools (1.2.2)
     rake (0.8.7)
@@ -152,7 +153,7 @@ GEM
       hoe (>= 1.4.0)
     rubyforge (1.0.4)
     stomp (1.1)
-    systemu (2.5.2)
+    systemu (2.2.0)
     test-unit (2.5.4)
     treetop (1.4.14)
       polyglot
@@ -224,6 +225,7 @@ DEPENDENCIES
   ruby-wmi (= 0.2.2)
   rubyforge (= 1.0.4)
   stomp (= 1.1)
+  systemu (= 2.2.0)
   uuidtools (= 2.1.2)
   win32-api (= 1.4.5)
   win32-dir (= 0.3.5)
