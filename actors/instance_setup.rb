@@ -160,7 +160,7 @@ class InstanceSetup
         # we are no longer freezing log level for v5.8+
         tagged_log_level = ::RightScale::CookState.dev_log_level
         RightScale::Log.level = tagged_log_level if tagged_log_level
-        RightScale::Log.info("Tags discovered at initial startup: #{tags.inspect} (dev mode = #{::RightScale::CookState.dev_mode_enabled?})")
+        RightScale::Log.info("Tags discovered at initial startup: #{tags.inspect}")
       end
 
       # Setup suicide timer which will cause instance to shutdown if the rs_launch:type=auto tag
