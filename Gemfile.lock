@@ -1,15 +1,3 @@
-GIT
-  remote: https://github.com/rightscale/right_scraper.git
-  revision: d40ed04f9c82b9664e088e5c5f4b6f1308c9d63e
-  branch: ivory_13_09_acu113740_fix_dev_cookbook_tag
-  specs:
-    right_scraper (3.2.4)
-      blackwinter-git (~> 1.2.7)
-      json (~> 1.4)
-      right_aws (>= 2.0)
-      right_popen (~> 1.1.1)
-      right_support (~> 2.6)
-
 PATH
   remote: .
   specs:
@@ -125,6 +113,12 @@ GEM
     right_popen (1.1.3)
     right_popen (1.1.3-x86-mswin32)
       win32-process (>= 0.6.1)
+    right_scraper (3.2.4)
+      blackwinter-git (~> 1.2.7)
+      json (~> 1.4)
+      right_aws (>= 2.0)
+      right_popen (~> 1.1.1)
+      right_support (~> 2.6)
     right_support (2.7.0)
     rspec (1.3.2)
     ruby-debug (0.10.4)
@@ -198,7 +192,7 @@ DEPENDENCIES
   right_amqp (~> 0.7)
   right_link!
   right_popen (~> 1.1)
-  right_scraper!
+  right_scraper (~> 3.2)
   right_support (~> 2.7)
   rspec (~> 1.3)
   ruby-debug

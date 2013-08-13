@@ -7,8 +7,7 @@ gemspec
 gem 'right_support', '~> 2.7'
 gem 'right_agent', '~> 0.17'
 gem 'right_amqp', '~> 0.7'
-gem 'right_scraper', :git => 'https://github.com/rightscale/right_scraper.git',
-                     :branch => 'ivory_13_09_acu113740_fix_dev_cookbook_tag'
+gem 'right_scraper', '~> 3.2'
 gem 'right_popen', '~> 1.1'
 
 # We have custom builds of some gems containing fixes and patches that are specific
