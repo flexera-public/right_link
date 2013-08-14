@@ -1,5 +1,5 @@
 # === Synopsis:
-#   RightScale Log Level Manager (rs_log_level) - (c) 2009-2011 RightScale Inc
+#   RightScale Log Level Manager (rs_log_level) - (c) 2009-2013 RightScale Inc
 #
 #   Log level manager allows setting and retrieving the RightLink agent
 #   log level.
@@ -16,7 +16,8 @@
 #    rs_set_log_level [--log-level, -l debug|info|warn|error|fatal]
 #
 #    Options:
-#      --log-level, -l LVL  Set log level of RightLink agent
+#      --log-level, -l LVL  Set log level(for Chef/RightScript by default)
+#      --agent              Set/get log level of RightLink agent
 #      --verbose, -v        Display debug information
 #      --help:              Display help
 #      --version:           Display version information
@@ -26,10 +27,13 @@
 
 require 'right_agent/scripts/log_level_manager'
 require 'trollop'
+require File.expand_path(File.join(File.dirname(__FILE__), 'command_helper'))
+require File.expand_path(File.join(File.dirname(__FILE__), 'tagger'))
 
 module RightScale
 
   class RightLinkLogLevelManager < LogLevelManager
+    LOG_LEVEL_TAG = "rs_agent_dev:log_level"
 
     # Convenience wrapper for creating and running log level manager
     #
@@ -53,6 +57,25 @@ module RightScale
       exit(2)
     end
 
+    def manage(options)
+      return super(options) if options[:agent]
+      cmd = options[:level] ? { :name => :add_tag,  } : { :name => :get_tags }
+      cmd[:tag] = "#{LOG_LEVEL_TAG}=#{options[:level]}" if options[:level]
+      res = CommandHelper.send_command(cmd, options[:verbose], Tagger::TAG_REQUEST_TIMEOUT)
+      case cmd[:name]
+      when :get_tags
+        fail("Getting log level failed: #{res.inspect}") unless res.kind_of?(Array)
+        log_level_tag = res.detect { |tag| tag.start_with?(LOG_LEVEL_TAG) }
+        level = log_level_tag ? log_level_tag.split("=").last : CommandHelper.send_command({ :name => 'get_log_level' }, options[:verbose], 5)
+        write_output("Chef/RightScript log level: #{level.to_s.upcase}")
+      when :add_tag
+        r = CommandHelper.serialize_operation_result(res)
+        fail("Setting log level failed: #{r.inspect}") unless r.kind_of?(OperationResult)
+        fail("Setting log level failed: #{r.content}") unless r.success?
+        write_output("Successfully set log level to #{options[:level]}")
+      end
+    end
+
     # Create options hash from command line arguments
     #
     # === Return
@@ -62,6 +85,7 @@ module RightScale
 
       parser = Trollop::Parser.new do
         opt :level, "", :type => String, :long => "--log-level", :short => "-l"
+        opt :agent
         opt :verbose
         version ""
       end
@@ -87,6 +111,7 @@ module RightScale
     end
     
 protected
+
     # Writes to STDOUT (and a placeholder for spec mocking).
     #
     # === Parameters
