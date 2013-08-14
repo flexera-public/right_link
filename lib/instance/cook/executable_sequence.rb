@@ -563,6 +563,7 @@ module RightScale
         end
         log_desc << '.'
         @audit.append_info(log_desc)
+        @audit.append_info('The download once flag is set.') if CookState.download_once?
 
         @audit.append_info("Run list for thread #{@thread_name.inspect} contains #{@run_list.size} items.")
         @audit.append_info(@run_list.join(', '))
