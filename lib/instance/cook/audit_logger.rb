@@ -104,6 +104,7 @@ module RightScale
       case severity
       when Logger::DEBUG
         Log.debug(message)
+        AuditStub.instance.append_output(msg)
       when Logger::INFO, Logger::WARN, Logger::UNKNOWN
         AuditStub.instance.append_output(msg)
       when Logger::ERROR

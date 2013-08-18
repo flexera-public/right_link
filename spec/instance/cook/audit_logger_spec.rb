@@ -53,7 +53,8 @@ describe RightScale::AuditLogger do
   end
 
   it 'should log debug text' do
-    flexmock(RightScale::Log).should_receive(:debug).once
+    flexmock(RightScale::Log).should_receive(:debug)
+    @auditor.should_receive(:append_output)
     @logger.debug
   end
 
