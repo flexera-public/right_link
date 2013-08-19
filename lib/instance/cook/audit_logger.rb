@@ -102,10 +102,7 @@ module RightScale
       return true if is_filtered?(severity, message)
       msg = format_message(format_severity(severity), Time.now, progname, message)
       case severity
-      when Logger::DEBUG
-        Log.debug(message)
-        AuditStub.instance.append_output(msg)
-      when Logger::INFO, Logger::WARN, Logger::UNKNOWN
+      when Logger::INFO, Logger::WARN, Logger::UNKNOWN, Logger::DEBUG
         AuditStub.instance.append_output(msg)
       when Logger::ERROR
         AuditStub.instance.append_error(msg)
