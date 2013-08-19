@@ -27,11 +27,11 @@ module RightScale
       raise ::ArgumentError.new('Could not retrieve agent listen port') unless listen_port
       client = ::RightScale::CommandClient.new(listen_port, config_options[:cookie])
       result = nil
-      callback = Proc.new do |res|
+      block = Proc.new do |res|
         result = res
         yield res if block_given?
       end
-      client.send_command(cmd, verbose, timeout, &callback)
+      client.send_command(cmd, verbose, timeout, &block)
       result
     end
 
