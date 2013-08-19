@@ -1,7 +1,7 @@
 # === Synopsis:
 #   RightScale Log Level Manager (rs_log_level) - (c) 2009-2013 RightScale Inc
 #
-#   Log level manager allows setting and retrieving the RightLink agent
+#   Log level manager allows setting and retrieving the RightLink agent and Chef/RightScript
 #   log level.
 #
 # === Examples:
@@ -22,7 +22,7 @@
 #      --help:              Display help
 #      --version:           Display version information
 #
-#    No options prints the current RightLink agent log level
+#    No options prints the current Chef/RightScript log level
 #
 
 require 'right_agent/scripts/log_level_manager'
