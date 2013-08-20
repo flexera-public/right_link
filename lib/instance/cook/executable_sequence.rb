@@ -557,6 +557,14 @@ module RightScale
           @audit.create_new_section('Preparing execution')
         end
 
+        log_desc = "Log level is #{Log.level_to_sym(CookState.log_level)}"
+        if CookState.dev_log_level
+          log_desc << " (overridden by #{CookState::LOG_LEVEL_TAG}=#{CookState.dev_log_level})"
+        end
+        log_desc << '.'
+        @audit.append_info(log_desc)
+        @audit.append_info('The download once flag is set.') if CookState.download_once?
+
         @audit.append_info("Run list for thread #{@thread_name.inspect} contains #{@run_list.size} items.")
         @audit.append_info(@run_list.join(', '))
 
