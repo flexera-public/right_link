@@ -14,9 +14,9 @@ gem 'right_popen', '~> 1.1'
 # to RightScale. Gems in the 'custom' group are published by RightScale to our
 # custom gem repository (http://s3.amazonaws.com/rightscale_rightlink_gems_dev).
 group :custom do
-  gem 'chef',            '0.10.10.7'
-  gem 'ohai',            '0.6.12.5'
-  gem 'mixlib-shellout', '1.0.0.4'
+  gem 'chef', '10.26.0.1'
+  gem 'ohai', '6.16.0.1'
+  gem 'mixlib-shellout', '1.1.0.1'
   gem 'eventmachine',    '1.0.0.3'
 end
 
@@ -28,7 +28,8 @@ end
 # mswin-platform gem for every one of the gems below AND published it to
 # the rightscale custom gem repository.
 group :not_windows_friendly do
-  gem 'json', '1.4.6'
+  gem 'json',     '1.4.6'
+  gem 'nokogiri', '1.5.9'
 end
 
 # These dependencies are included in the gemspec via a dirty hack. We declare them
@@ -80,6 +81,9 @@ group :stable do
   gem 'abstract',              '1.0.0'
   gem 'erubis',                '2.6.5'
   gem 'extlib',                '0.9.15'
+  gem 'mixlib-cli',            '1.2.0'
+  gem 'mixlib-config',         '1.1.2'
+  gem 'mixlib-log',            '1.3.0'
   gem 'hoe',                   '2.3.3'
   gem 'moneta',                '0.6.0'
   gem 'bunny',                 '0.6.0'
@@ -88,4 +92,7 @@ group :stable do
   gem 'mime-types',            '1.16'
   gem 'rest-client',           '1.6.7'
   gem 'msgpack',               '0.4.4'
+  gem 'systemu',               '2.2.0'
 end
+
+gem 'mixlib-authentication', ">= 1.3.0"
