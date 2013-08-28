@@ -62,10 +62,10 @@ module RightScale
         STDERR.puts "Try elevating privilege (sudo/runas) before invoking this command."
         code = 2
       when Exception
-        write_error(reason.message)
+        STDERR.puts reason.message
         code = reason.respond_to(:code) ? reason.code : 50
       when String
-        write_error(reason)
+        STDERR.puts reason
         code = 50
       when Integer
         code = reason
