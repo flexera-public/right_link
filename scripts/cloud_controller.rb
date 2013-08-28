@@ -1,5 +1,5 @@
 # === Synopsis:
-#   RightScale Cloud Controller (cloud) - Copyright (c) 2011 by RightScale Inc
+#   RightScale Cloud Controller (cloud) - Copyright (c) 2013 by RightScale Inc
 #
 #   cloud is a command line tool which invokes cloud-specific actions
 #

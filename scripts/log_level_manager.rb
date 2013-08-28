@@ -121,7 +121,7 @@ protected
     # === Return
     # (String):: Version information
     def version
-      "rs_log_level #{right_link_version} - RightLink's log level (c) 2011 RightScale"
+      "rs_log_level #{right_link_version} - RightLink's log level (c) 2013 RightScale"
     end
 
     def usage

@@ -1,5 +1,5 @@
 # === Synopsis:
-#   RightScale Tagger (rs_tag) - (c) 2009-2012 RightScale Inc
+#   RightScale Tagger (rs_tag) - (c) 2009-2013 RightScale Inc
 #
 #   Tagger allows listing, adding and removing tags on the current instance and
 #   querying for all instances with a given set of tags
@@ -275,7 +275,7 @@ protected
     # === Return
     # (String):: Version information
     def version
-      "rs_tag #{right_link_version} - RightLink's tagger (c) 2009-2012 RightScale"
+      "rs_tag #{right_link_version} - RightLink's tagger (c) 2009-2013 RightScale"
     end
 
     def usage

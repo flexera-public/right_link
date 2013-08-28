@@ -1,5 +1,5 @@
 # === Synopsis:
-#   RightScale System Configuration Utility (system) - (c) 2011 RightScale Inc
+#   RightScale System Configuration Utility (system) - (c) 2013 RightScale Inc
 #
 #   This utility performs miscellaneous system configuration tasks.
 #

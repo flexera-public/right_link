@@ -1,5 +1,5 @@
 # === Synopsis:
-#   RightScale Ohai Runner - Copyright (c) 2012 by RightScale Inc
+#   RightScale Ohai Runner - Copyright (c) 2013 by RightScale Inc
 #
 #   runs Ohai in the RightScale environment
 #

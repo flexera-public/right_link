@@ -1,5 +1,5 @@
 # === Synopsis:
-#   RightScale Agent Checker (rchk) - (c) 2010-2011 RightScale Inc
+#   RightScale Agent Checker (rchk) - (c) 2010-2013 RightScale Inc
 #
 #   Checks the agent to see if it is actively communicating with RightNet and if not
 #   triggers it to re-enroll and exits.
@@ -532,7 +532,7 @@ protected
     # === Return
     # ver(String):: Version information
     def version
-      ver = "rchk #{VERSION.join('.')} - RightScale Agent Checker (c) 2010 RightScale"
+      ver = "rchk #{VERSION.join('.')} - RightScale Agent Checker (c) 2013 RightScale"
     end
 
     def usage
