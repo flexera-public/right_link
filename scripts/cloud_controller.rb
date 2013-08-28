@@ -121,7 +121,7 @@ module RightScale
         opt :quiet # note that :quiet is deprecated (use -v instead) because Trollop cannot easily support inverse flags that default to true
         opt :verbose
       end
-      begin
+      parse do
         options = parser.parse
         if options[:parameters_given]
           if options[:parameters].start_with?("[")
@@ -131,10 +131,11 @@ module RightScale
           end
         end
         options
-      rescue Trollop::HelpNeeded
-        puts Usage.scan(__FILE__)
-        exit 0
       end
+    end
+
+    def usage
+      Usage.scan(__FILE__)
     end
 
     # Default logger for printing to console

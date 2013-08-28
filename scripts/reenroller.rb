@@ -21,12 +21,14 @@ require 'fileutils'
 require 'right_agent'
 require 'right_agent/scripts/usage'
 require 'right_agent/scripts/common_parser'
+require File.expand_path(File.join(File.dirname(__FILE__), 'command_helper'))
 
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'instance', 'agent_config'))
 
 module RightScale
 
   class Reenroller
+    include CommandHelper
 
     if RightScale::Platform.windows?
       # Note we currently only need a reenroller state file under windows.
@@ -96,17 +98,8 @@ module RightScale
         version ""
       end
 
-      begin
+      parse do
         parser.parse
-      rescue Trollop::HelpNeeded
-        puts Usage.scan(__FILE__)
-        exit
-      rescue Trollop::VersionNeeded
-        puts version
-        exit(0)
-      rescue Trollop::CommandlineError => e
-        puts e.message + "\nUse --help for additional information"
-        exit(1)
       end
     end
 
@@ -162,8 +155,11 @@ module RightScale
     # === Return
     # (String):: Version information
     def version
-      gemspec = eval(File.read(File.join(File.dirname(__FILE__), '..', 'right_link.gemspec')))
-      "rs_reenroll #{gemspec.version} - RightLink's reenroller (c) 2011 RightScale"
+      "rs_reenroll #{right_link_version} - RightLink's reenroller (c) 2011 RightScale"
+    end
+
+    def usage
+      Usage.scan(__FILE__)
     end
 
   end # Reenroller

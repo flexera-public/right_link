@@ -79,10 +79,12 @@ require 'rubygems'
 require 'right_agent/scripts/agent_controller'
 
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'instance', 'agent_watcher'))
+require File.expand_path(File.join(File.dirname(__FILE__), 'command_helper'))
 
 module RightScale
 
   class RightLinkAgentController < AgentController
+    include CommandHelper
 
     # Create and run controller
     #
@@ -157,16 +159,9 @@ module RightScale
     # === Return
     # (Boolean):: true if command executed successfully, otherwise false
     def run_command(message, command)
-      options = AgentConfig.agent_options(@options[:agent_name])
-      listen_port = options[:listen_port]
-      unless listen_port
-        $stderr.puts "Could not retrieve listen port for agent #{@options[:identity]}"
-        return false
-      end
       puts message
       begin
-        @client = CommandClient.new(listen_port, options[:cookie])
-        @client.send_command({ :name => command }, verbose = false, timeout = 100) { |r| puts r }
+        send_command({ :name => command }, verbose = false, timeout = 100) { |r| puts r }
       rescue SystemExit => e
         raise e
       rescue Exception => e

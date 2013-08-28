@@ -68,10 +68,12 @@ require 'right_agent'
 require 'right_agent/scripts/usage'
 require 'right_agent/scripts/common_parser'
 require 'right_agent/core_payload_types'
+require File.expand_path(File.join(File.dirname(__FILE__), 'command_helper'))
 
 module RightScale
 
   class BundleRunner
+    include CommandHelper
 
     # Default number of seconds to wait for command response
     DEFAULT_TIMEOUT = 20
@@ -97,15 +99,10 @@ module RightScale
       cmd = { :options => to_forwarder_options(options) }
       cmd[:name] = options[:bundle_type] == :right_script ? 'run_right_script' : 'run_recipe'
       AgentConfig.cfg_dir = options[:cfg_dir]
-      config_options = AgentConfig.agent_options('instance')
-      listen_port = config_options[:listen_port]
-      fail('Could not retrieve listen port', false) unless listen_port
-      command_serializer = Serializer.new
-      client = CommandClient.new(listen_port, config_options[:cookie])
 
       exit_code = true 
       callback ||= lambda do |r|
-        response = OperationResult.from_results(command_serializer.load(r)) rescue nil
+        response = serialize_operation_result(r) rescue nil
         if r == 'OK'
           puts "Request sent successfully"
         elsif response.respond_to?(:success?) && response.success?
@@ -117,8 +114,9 @@ module RightScale
       end
 
       begin
+        check_privileges
         timeout = options[:timeout] || DEFAULT_TIMEOUT
-        client.send_command(cmd, options[:verbose], timeout) { |r| callback.call(r) }
+        send_command(cmd, options[:verbose], timeout) { |r| callback.call(r) }
       rescue Exception => e
         fail(e.message)
       end
@@ -187,7 +185,7 @@ module RightScale
         version ""
       end
 
-      begin 
+      parse do
         options.merge!(parser.parse(arguments))
         options.delete(:name) if options[:id]
         if options[:parameter]
@@ -222,46 +220,10 @@ module RightScale
           end
         end
         options
-      rescue Trollop::HelpNeeded
-        puts Usage.scan(__FILE__)
-        exit
-      rescue Trollop::VersionNeeded
-        puts version
-        succeed
-      rescue Exception => e
-        puts e.message + "\nUse --help for additional information"
-        exit(1)
       end
     end
 
 protected
-
-    # Print error on console and exit abnormally
-    #
-    # === Parameter
-    # reason(String|Exception):: Error message or exception, default to nil (no message printed)
-    # print_usage(Boolean):: Whether script usage should be printed, default to false
-    #
-    # === Return
-    # R.I.P. does not return
-    def fail(reason=nil, print_usage=false)
-      case reason
-      when Errno::EACCES
-        STDERR.puts "** #{reason.message}"
-        STDERR.puts "** Try elevating privilege (sudo/runas) before invoking this command."
-        code = 2
-      when Exception
-        STDERR.puts "** #{reason.message}"
-        code = 1
-      else
-        STDERR.puts "** #{reason}" if reason
-        code = 1
-      end
-
-      puts Usage.scan(__FILE__) if print_usage
-      exit(code)
-    end
-
     # Map arguments options into forwarder actor compatible options
     #
     # === Parameters
@@ -301,12 +263,11 @@ protected
     # === Return
     # (String):: Version information
     def version
-      gemspec = eval(File.read(File.join(File.dirname(__FILE__), '..', 'right_link.gemspec')))
-      "rs_run_right_script & rs_run_recipe #{gemspec.version} - RightLink's bundle runner (c) 2011 RightScale"
+      "rs_run_right_script & rs_run_recipe #{right_link_version} - RightLink's bundle runner (c) 2011 RightScale"
     end
 
-    def succeed
-      exit(0)
+    def usage
+      Usage.scan(__FILE__)
     end
 
   end # BundleRunner
