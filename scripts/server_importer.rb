@@ -37,6 +37,7 @@ require File.expand_path(File.join(File.dirname(__FILE__), 'command_helper'))
 module RightScale
 
   class ServerImporter
+    include CommandHelper
     # Exception class to use as a token that something went wrong with an HTTP query
     class QueryFailed < Exception; end
 
