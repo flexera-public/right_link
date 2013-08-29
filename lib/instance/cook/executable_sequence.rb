@@ -25,6 +25,7 @@ require 'right_popen'
 require 'socket'
 require 'tempfile'
 require 'fileutils'
+require 'json'
 
 # The daemonize method of AR clashes with the daemonize Chef attribute, we don't need that method so undef it
 undef :daemonize if methods.include?('daemonize')
@@ -235,6 +236,65 @@ module RightScale
       true
     end
 
+    #
+    # Read messages from children's pipes and then wait for echo subprocess.
+    #
+    # === Parameters
+    # downloads(Hash):: Contains pipe, pid and name of each subprocess
+    #                   {
+    #                     url_or_path => {
+    #                                       'pipe' => pipe,
+    #                                       'pid'  => pid,
+    #                                       'name' => file_or_cookbook_name
+    #                                    }
+    #                   }
+    #
+    # === Return
+    # true:: always returns true
+    def get_messages_and_wait_pids(downloads)
+      pids = []
+      pids_collected = false
+      while downloads.size > 0 do # read results from all sub processes
+        downloads.each do |url, child_process|
+          pids.push(child_process['pid']) unless pids_collected
+          message_size = ''
+          begin # read nonblock
+            message_size = child_process['pipe'].read_nonblock(8)
+          rescue Errno::EAGAIN
+            begin # if pipe is empty and sub process is still alive then try later
+              Process.waitpid(child_process['pid'], Process::WNOHANG)
+              next
+            rescue Exception => e # Audit error if pipe is empty and sub process is dead
+              report_failure("Failed to get information about downloading attachment '#{url}': child process stoped without messages", e.message)
+            end
+          rescue Exception => e # Audit error if something is wrong
+            report_failure("Failed to get information about downloading attachment '#{url}': cannot read pipe", e.message)
+          end
+          messages = child_process['pipe'].read(message_size.unpack('Q')[0])
+          JSON.parse(messages).each do |message|
+            if message['error']
+              report_failure(message['message'], message['error'])
+            elsif message['log.debug']
+              Log.debug(message['log.debug'])
+            else
+              @audit.append_info("#{message['message']} (#{child_process['name']})")
+            end
+          end
+          downloads.delete(url)
+          child_process['pipe'].close
+        end
+        sleep(1)
+        pids_collected = true
+      end
+      pids.each do |pid|
+        begin
+          Process.waitpid(pid)
+        rescue Errno::ECHILD
+          # It is OK. Do nothing.
+        end
+      end
+    end
+
     # Download attachments, update @ok
     #
     # === Return
@@ -243,33 +303,45 @@ module RightScale
       unless @scripts.all? { |s| s.attachments.empty? }
         @audit.create_new_section('Downloading attachments')
         audit_time do
+          downloads = {}
           @scripts.each do |script|
             attach_dir = @right_scripts_cookbook.cache_dir(script)
             script.attachments.each do |a|
               script_file_path = File.join(attach_dir, a.file_name)
               @audit.update_status("Downloading #{a.file_name} into #{script_file_path} through Repose")
-              begin
-                attachment_dir = File.dirname(script_file_path)
-                FileUtils.mkdir_p(attachment_dir)
-                tempfile = Tempfile.open('attachment', attachment_dir)
-                tempfile.binmode
-                @downloader.download(a.url) do |response|
-                  tempfile << response
+              read_pipe, write_pipe = IO.pipe
+              pid = fork do
+                read_pipe.close
+                begin
+                  attachment_dir = File.dirname(script_file_path)
+                  FileUtils.mkdir_p(attachment_dir)
+                  tempfile = Tempfile.open('attachment', attachment_dir)
+                  tempfile.binmode
+                  @downloader.download(a.url) do |response|
+                    tempfile << response
+                  end
+                  File.unlink(script_file_path) if File.exists?(script_file_path)
+                  File.link(tempfile.path, script_file_path)
+                  tempfile.close!
+                  message = [{'message' => @downloader.details.to_s}].to_json
+                  write_pipe.write("#{[message.size].pack('Q')}#{message}")
+                rescue Exception => e
+                  tempfile.close! unless tempfile.nil?
+                  message = [{'message' => "Repose download failed: #{e.message}."}]
+                  if e.kind_of?(ReposeDownloader::DownloadException) && e.message.include?("Forbidden")
+                    message.push({'message' => "Often this means the download URL has expired while waiting for inputs to be satisfied."})
+                  end
+                  message.push({'message' => "Failed to download attachment '#{a.file_name}'", 'error' => e.message})
+                  message = message.to_json
+                  write_pipe.write("#{[message.size].pack('Q')}#{message}")
                 end
-                File.unlink(script_file_path) if File.exists?(script_file_path)
-                File.link(tempfile.path, script_file_path)
-                tempfile.close!
-                @audit.append_info(@downloader.details)
-              rescue Exception => e
-                tempfile.close! unless tempfile.nil?
-                @audit.append_info("Repose download failed: #{e.message}.")
-                if e.kind_of?(ReposeDownloader::DownloadException) && e.message.include?("Forbidden")
-                  @audit.append_info("Often this means the download URL has expired while waiting for inputs to be satisfied.")
-                end
-                report_failure("Failed to download attachment '#{a.file_name}'", e.message)
+                exit!(0)
               end
+              write_pipe.close
+              downloads[a.url.to_s] = {'pipe' => read_pipe, 'pid' => pid, 'name' => a.file_name}
             end
           end
+          get_messages_and_wait_pids(downloads)
         end
       end
       true
@@ -398,6 +470,7 @@ module RightScale
         # only create audit output if we're actually going to download something!
         @audit.create_new_section('Retrieving cookbooks')
         audit_time do
+          downloads = {}
           @cookbooks.each do |cookbook_sequence|
             cookbook_sequence.positions.each do |position|
               if @cookbook_repo_retriever.should_be_linked?(cookbook_sequence.hash, position.position)
@@ -412,11 +485,21 @@ module RightScale
                 if File.exists?(cookbook_path)
                   @audit.append_info("Skipping #{position.cookbook.name}, already there")
                 else
-                  download_cookbook(cookbook_path, position.cookbook)
+                  read_pipe, write_pipe = IO.pipe
+                  pid = fork do
+                    read_pipe.close
+                    message = download_cookbook(cookbook_path, position.cookbook)
+                    message = message.to_json
+                    write_pipe.write("#{[message.size].pack('Q')}#{message}")
+                    exit!(0)
+                  end
+                  write_pipe.close
+                  downloads[position.cookbook.name] = {'pipe' => read_pipe, 'pid' => pid, 'name' => position.cookbook.name}
                 end
               end
             end
           end
+          get_messages_and_wait_pids(downloads)
         end
       end
 
@@ -445,17 +528,18 @@ module RightScale
     def download_cookbook(root_dir, cookbook)
       cache_dir = File.join(AgentConfig.cache_dir, "right_link", "cookbooks")
       cookbook_tarball = File.join(cache_dir, "#{cookbook.hash.split('?').first}.tar")
+      message = []
       begin
         FileUtils.mkdir_p(cache_dir)
         File.open(cookbook_tarball, "ab") do |tarball|
           if tarball.stat.size == 0
             #audit cookbook name & part of hash (as a disambiguator)
             name = cookbook.name ; tag  = cookbook.hash[0..4]
-            @audit.append_info("Downloading cookbook '#{name}' (#{tag})")
+            message.push({'message' => "Downloading cookbook '#{name}' (#{tag})"})
             @downloader.download("/cookbooks/#{cookbook.hash}") do |response|
               tarball << response
             end
-            @audit.append_info(@downloader.details)
+            message.push({'message' => @downloader.details})
           end
         end
       rescue Exception => e
@@ -463,7 +547,7 @@ module RightScale
         raise
       end
 
-      @audit.append_info("Success; unarchiving cookbook")
+      message.push({'message' => "Success; unarchiving cookbook"})
 
       # The local basedir is the faux "repository root" into which we extract all related
       # cookbooks in that set, "related" meaning a set of cookbooks that originally came
@@ -482,14 +566,14 @@ module RightScale
         # note that Windows uses a "tar.cmd" file which is found via the PATH
         # used by the command interpreter.
         cmd = "tar xf #{cookbook_tarball.inspect} 2>&1"
-        Log.debug(cmd)
+        message.push({'log.debug' => cmd})
         output = `#{cmd}`
-        @audit.append_info(output)
+        message.push({'message' => output})
         unless $?.success?
-          report_failure("Unknown error", SubprocessFormatting.reason($?))
+          message.push({'message' => "Unknown error", 'error' => SubprocessFormatting.reason($?)})
         end
       end
-      return true
+      return message
     end
 
     # Create Powershell providers from cookbook repos
