@@ -94,6 +94,7 @@ module RightScale
       EM.run do
         begin
           AuditStub.instance.init(options)
+          check_for_missing_inputs(bundle)
           gatherer.callback { EM.defer { sequence.run } }
           gatherer.errback { success = false; report_failure(gatherer) }
           sequence.callback { success = true; send_inputs_patch(sequence) }
@@ -111,6 +112,17 @@ module RightScale
     ensure
       Log.info("[cook] Process stopping")
       exit(1) unless success
+    end
+
+    def check_for_missing_inputs(bundle)
+      pending_executables = bundle.executables.select { |e| !e.ready }
+      unless pending_executables.empty?
+        pending_executables.each do |e|
+          missing_input_names = e.input_flags.collect {|k,v| k if v.member?("unready")}.compact
+          AuditStub.instance.append_info("Following inputs used by '#{e.nickname} are missing': #{missing_input_names.join(", ")}")
+        end
+        fail("Execution failed", "Missing inputs")
+      end
     end
 
     # Determines if the current cook process has the default thread for purposes
