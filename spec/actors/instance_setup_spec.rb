@@ -707,4 +707,43 @@ describe InstanceSetup do
     boot_to_decommissioned
   end
 
+  context "connection_status" do
+    before(:each) do
+      @sender = flexmock("sender", :message_received => true)
+      @reenroller = flexmock(RightScale::ReenrollManager)
+    end
+
+    it 'should go online when become connected to a broker' do
+      boot_to_operational
+      flexmock(RightScale::Sender).should_receive(:instance).and_return(@sender)
+      @sender.should_receive(:disable_offline_mode).once
+      @setup.connection_status(:connected)
+    end
+
+    it 'should go offline when become disconnected from all brokers' do
+      boot_to_operational
+      flexmock(RightScale::Sender).should_receive(:instance).and_return(@sender)
+      @sender.should_receive(:enable_offline_mode).once
+      @setup.connection_status(:disconnected)
+    end
+
+    it 'should re-enroll when all broker connections fail' do
+      boot_to_operational
+      flexmock(RightScale::Sender).should_receive(:instance).and_return(@sender)
+      flexmock(RightScale::Log).should_receive(:error).with("All broker connections have failed").once
+      @sender.should_receive(:enable_offline_mode).never
+      @reenroller.should_receive(:vote).times(3)
+      @setup.connection_status(:failed)
+    end
+
+    it 'should log error if status change is unrecognized' do
+      boot_to_operational
+      flexmock(RightScale::Sender).should_receive(:instance).and_return(@sender)
+      flexmock(RightScale::Log).should_receive(:error).with("Unrecognized broker connection status: bogus_status").once
+      @sender.should_receive(:enable_offline_mode).never
+      @sender.should_receive(:disable_offline_mode).never
+      @reenroller.should_receive(:vote).never
+      @setup.connection_status(:bogus_status)
+    end
+  end
 end

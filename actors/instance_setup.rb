@@ -100,18 +100,27 @@ class InstanceSetup
     success_result(RightScale::InstanceState.value)
   end
 
-  # Handle disconnected notification from broker, enter offline mode
+  # Handle connection status notification from broker to adjust offline mode
+  # or to re-enroll if all connections have failed
   #
   # === Parameters
-  # status(Symbol):: Connection status, one of :connected or :disconnected
+  # status(Symbol):: Connection status, one of :connected, :disconnected, or :failed
   #
   # === Return
   # true:: Always return true
   def connection_status(status)
-    if status == :disconnected
-      RightScale::Sender.instance.enable_offline_mode
-    else
+    case status
+    when :connected
       RightScale::Sender.instance.disable_offline_mode
+    when :disconnected
+      RightScale::Sender.instance.enable_offline_mode
+    when :failed
+      RightScale::Log.error("All broker connections have failed")
+      RightScale::ReenrollManager.vote
+      RightScale::ReenrollManager.vote
+      RightScale::ReenrollManager.vote
+    else
+      RightScale::Log.error("Unrecognized broker connection status: #{status}")
     end
     true
   end
@@ -160,7 +169,7 @@ class InstanceSetup
         # we are no longer freezing log level for v5.8+
         tagged_log_level = ::RightScale::CookState.dev_log_level
         RightScale::Log.level = tagged_log_level if tagged_log_level
-        RightScale::Log.info("Tags discovered at initial startup: #{tags.inspect} (dev mode = #{::RightScale::CookState.dev_mode_enabled?})")
+        RightScale::Log.info("Tags discovered at initial startup: #{tags.inspect}")
       end
 
       # Setup suicide timer which will cause instance to shutdown if the rs_launch:type=auto tag

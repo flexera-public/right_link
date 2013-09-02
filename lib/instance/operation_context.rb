@@ -36,18 +36,22 @@ module RightScale
     attr_accessor :succeeded
 
     # @return [TrueClass|FalseClass] true if a decommission bundle
-    def decommission?; @decommission; end
+    def decommission?; !!@decommission_type; end
+
+    # @return [String] decommission_type or nil
+    attr_reader :decommission_type
 
     # @return [String] thread name for context or default thread name
     attr_reader :thread_name
 
     # @param [Object] payload of any kind (but usually executable bundle)
     # @param [RightScale::AuditProxy] audit for execution
-    # @param [TrueClass|FalseClass] decommission flag that is true if a decommission bundle or false for boot/operational bundles
-    def initialize(payload, audit, decommission=false)
+    # @param [Hash] options for context
+    # @option options [String] :decommission_type for decommission bundle
+    def initialize(payload, audit, options={})
       @payload = payload
       @audit = audit
-      @decommission = !!decommission
+      @decommission_type = options[:decommission_type]
       @thread_name = payload.respond_to?(:runlist_policy) && payload.runlist_policy ? payload.runlist_policy.thread_name : ::RightScale::AgentConfig.default_thread_name
     end
 

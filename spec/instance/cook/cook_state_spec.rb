@@ -55,10 +55,6 @@ describe RightScale::CookState do
         RightScale::JsonUtilities::write_json(RightScale::CookState::STATE_FILE, current_state.merge({"startup_tags"=>['rs_agent_dev:download_cookbooks_once=true']}))
       end
 
-      it 'dev state should be enabled' do
-        RightScale::CookState.dev_mode_enabled?.should be_true
-      end
-
       context 'before cookbooks are downloaded' do
         it 'should download cookbooks' do
           RightScale::CookState.download_cookbooks?.should == @should_initially_download_cookbooks
@@ -181,10 +177,6 @@ describe RightScale::CookState do
       before(:each) do
         RightScale::JsonUtilities::write_json(RightScale::CookState::STATE_FILE, {"startup_tags"=>['some_tag', 'some:machine=tag']})
       end
-
-      it 'dev state should not be enabled' do
-        RightScale::CookState.dev_mode_enabled?.should be_false
-      end
     end
 
     context 'when the instance has a coobook_path tag' do
@@ -195,10 +187,6 @@ describe RightScale::CookState do
       context 'but cookbook path does not exist' do
         before(:each) do
           flexmock(File).should_receive(:directory?).with('some_path').and_return(false)
-        end
-
-        it 'dev state should be enabled' do
-          RightScale::CookState.dev_mode_enabled?.should be_true
         end
 
         it 'should not use the dev cookbooks' do
@@ -224,10 +212,6 @@ describe RightScale::CookState do
             flexmock(Dir).should_receive(:entries).with('some_path').and_return('non_empty')
           end
 
-          it 'dev state should be enabled' do
-            RightScale::CookState.dev_mode_enabled?.should be_true
-          end
-
           it 'should use the dev cookbooks' do
             RightScale::CookState.use_cookbooks_path?.should be_true
           end
@@ -244,10 +228,6 @@ describe RightScale::CookState do
         context 'but cookbook directory is empty' do
           before(:each) do
             flexmock(Dir).should_receive(:entries).with('some_path').and_return(['.', '..'])
-          end
-
-          it 'dev state should be enabled' do
-            RightScale::CookState.dev_mode_enabled?.should be_true
           end
 
           it 'should not use the dev cookbooks' do
@@ -271,10 +251,6 @@ describe RightScale::CookState do
         RightScale::JsonUtilities::write_json(RightScale::CookState::STATE_FILE, {"startup_tags"=>['rs_agent_dev:break_point=some_recipe']})
       end
 
-      it 'dev state should be enabled' do
-        RightScale::CookState.dev_mode_enabled?.should be_true
-      end
-
       it 'should have a breakpoint' do
         RightScale::CookState.breakpoint.should == 'some_recipe'
       end
@@ -283,10 +259,6 @@ describe RightScale::CookState do
     context 'when the instance has at least one dev tag' do
       before(:each) do
         RightScale::JsonUtilities::write_json(RightScale::CookState::STATE_FILE, {"startup_tags"=>['some:machine=tag', 'rs_agent_dev:break_point=some_recipe']})
-      end
-
-      it 'dev state should be enabled' do
-        RightScale::CookState.dev_mode_enabled?.should be_true
       end
     end
   end

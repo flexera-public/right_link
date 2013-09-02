@@ -140,6 +140,7 @@ module RightScale
         it_should_behave_like 'ConnectionException'
       end
 
+
       context "500: Internal Server Error" do
         let(:exception) { nil }
         let(:message)   { "Internal Server Error" }
@@ -195,6 +196,26 @@ module RightScale
       it 'should retry 5 times' do
         balancer.inspect
         balancer.instance_eval('@options[:retry]').should == 5
+      end
+
+      it 'should try all IPs of hostname 1, then all IPs of hostname 2, etc' do
+        hostnames = ["hostname1", "hostname2"]
+        ips = { "1.1.1.1" => "hostname2",
+          "2.2.2.2" => "hostname1",
+          "3.3.3.3" => "hostname2",
+          "4.4.4.4" => "hostname1"
+        }
+        ordered_hosts = ["hostname1", "hostname1", "hostname2", "hostname2"]
+
+        subject.instance_variable_set(:@hostnames, hostnames)
+        subject.instance_variable_set(:@ips, ips)
+
+        balancer.request do |endpoint|
+          if ordered_hosts.length > 0
+            ips[endpoint].should == ordered_hosts.shift
+            Net::HTTPInternalServerError.new('1.1', 'RequestTimeout', '408').value
+          end
+        end
       end
     end
 

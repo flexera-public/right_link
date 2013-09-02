@@ -74,6 +74,7 @@ module RightScale
       raise ArgumentError, "At least one hostname must be provided" if hostnames.empty?
       hostnames = [hostnames] unless hostnames.respond_to?(:each)
       @ips = resolve(hostnames)
+      @hostnames = hostnames
 
       proxy_var = PROXY_ENVIRONMENT_VARIABLES.detect { |v| ENV.has_key?(v) }
       @proxy = ENV[proxy_var].match(/^[[:alpha:]]+:\/\//) ? URI.parse(ENV[proxy_var]) : URI.parse("http://" + ENV[proxy_var]) if proxy_var
@@ -108,12 +109,12 @@ module RightScale
             attempts += 1
             t0 = Time.now
 
-            # Previously we accessed RestClient directly and used it's wrapper method to instantiate 
+            # Previously we accessed RestClient directly and used it's wrapper method to instantiate
             # a RestClient::Request object.  This wrapper was not passing all options down the stack
             # so now we invoke the RestClient::Request object directly, passing it our desired options
-            client.execute(:method => :get, :url => "https://#{endpoint}:443#{resource}", :timeout => calculate_timeout(attempts), :verify_ssl => OpenSSL::SSL::VERIFY_PEER, :ssl_ca_file => get_ca_file, :headers => {:user_agent => "RightLink v#{AgentConfig.protocol_version}"}) do |response, request, result|
+            client.execute(:method => :get, :url => "https://#{endpoint}:443#{resource}", :timeout => calculate_timeout(attempts), :verify_ssl => OpenSSL::SSL::VERIFY_PEER, :ssl_ca_file => get_ca_file, :headers => {:user_agent => "RightLink v#{AgentConfig.protocol_version}", 'X-RightLink-Version' => RightLink::VERSION }) do |response, request, result|
               if result.kind_of?(Net::HTTPSuccess)
-                @size = result.content_length
+                @size = result.content_length || response.size || 0
                 @speed = @size / (Time.now - t0)
                 yield response
               else
@@ -220,6 +221,21 @@ module RightScale
       end
     end
 
+    # Orders ips by hostnames
+    #
+    # The purpose of this method is to sort ips of hostnames so it tries all IPs of hostname 1,
+    # then all IPs of hostname 2, etc
+    #
+    # == Return
+    # @return [Array] array of ips ordered by hostnames
+    #
+    def hostnames_ips
+      @hostnames.map do |hostname|
+        # TODO change to Hash#select once we switch to 1.9
+        ips.reject { |ip, host| host != hostname }.keys
+      end.flatten
+    end
+
     # Create and return a RequestBalancer instance
     #
     # The purpose of this method is to create a RequestBalancer that will be used
@@ -233,7 +249,7 @@ module RightScale
     #
     def balancer
       @balancer ||= RightSupport::Net::RequestBalancer.new(
-        ips.keys,
+        hostnames_ips,
         :policy => RightSupport::Net::LB::Sticky,
         :retry  => RETRY_MAX_ATTEMPTS,
         :fatal  => lambda do |e|
@@ -248,7 +264,7 @@ module RightScale
       )
     end
 
-    # Exponential incremental timeout algorithm.  Returns the amount of 
+    # Exponential incremental timeout algorithm.  Returns the amount of
     # of time to wait for the next iteration
     #
     # === Parameters

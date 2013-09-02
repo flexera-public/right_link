@@ -70,6 +70,7 @@ module RightScale
     class HttpMetadataSource
       # monkey patch for quicker testing of retries.
       RETRY_DELAY_FACTOR = 0.01
+      RETRY_MAX_ATTEMPTS = 10
     end
 
   end
@@ -291,6 +292,23 @@ describe RightScale::MetadataSources::HttpMetadataSource do
       end
       it "should not stop checking for metadata" do
         pending "TODO"
+      end
+    end
+
+    context "when an exception is thrown" do
+      context "POSIX" do
+        it "should retry #{::RightScale::MetadataSources::HttpMetadataSource::RETRY_MAX_ATTEMPTS} times" do
+          @mock_http_connection.should_receive(:request).times(::RightScale::MetadataSources::HttpMetadataSource::RETRY_MAX_ATTEMPTS).
+            and_raise(Exception.new("15.20.20.1 temporarily unavailable: (No route to host - connect(2))"))
+          @http_metadata_source.query("a").should == ""
+        end
+      end
+      context "Windows" do
+        it "should retry #{::RightScale::MetadataSources::HttpMetadataSource::RETRY_MAX_ATTEMPTS} times" do
+          @mock_http_connection.should_receive(:request).times(::RightScale::MetadataSources::HttpMetadataSource::RETRY_MAX_ATTEMPTS).
+            and_raise(Exception.new("15.20.20.1 temporarily unavailable: (A socket operation was attempted to an unreachable network. - connect(2))"))
+          @http_metadata_source.query("a").should == ""
+        end
       end
     end
   end
