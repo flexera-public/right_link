@@ -1,4 +1,4 @@
-source 'http://s3.amazonaws.com/rightscale_rightlink_gems_dev'
+
 source 'https://rubygems.org' 
 
 gemspec
@@ -28,39 +28,31 @@ end
 # mswin-platform gem for every one of the gems below AND published it to
 # the rightscale custom gem repository.
 group :not_windows_friendly do
-  gem 'json',     '1.4.6'
+  gem 'json'
   gem 'nokogiri', '1.5.9'
-end
-
-# These dependencies are included in the gemspec via a dirty hack. We declare them
-# here out of a sense of guilt, and in order to ensure that Bundler plays well with
-# others on both platforms.
-# @see http://stackoverflow.com/questions/4596606/rubygems-how-do-i-add-platform-specific-dependency
-group :windows do
-  platform :mswin do
-    gem 'win32-api',           '1.4.5'
-    gem 'windows-api',         '0.4.0'
-    gem 'windows-pr',          '1.0.8'
-    gem 'win32-dir',           '0.3.5'
-    gem 'win32-eventlog',      '0.5.2'
-    gem 'ruby-wmi',            '0.2.2'
-    gem 'win32-process',       '0.6.1'
-    gem 'win32-pipe',          '0.2.1'
-    gem 'win32-open3',         '0.3.2'
-    gem 'win32-service',       '0.7.2'
+  platform :mingw do
+    gem 'win32-api'
+    gem 'windows-api'
+    gem 'windows-pr'
+    gem 'win32-dir'
+    gem 'win32-eventlog'
+    gem 'ruby-wmi'
+    gem 'win32-process'
+    gem 'win32-pipe'
+    gem 'win32-open3'
+    gem 'win32-service'
   end
 end
 
 group :development do
-  gem 'rake', '0.8.7'
-  gem 'rcov', '~> 0.8.1'
-  gem 'ruby-debug'
-  gem 'rspec',                 '~> 1.3'
-  gem 'flexmock',              '~> 0.8'
-  gem 'rubyforge',               '1.0.4'
-  platform :mswin do
-    gem 'win32console',        '~> 1.3.0'
-  end
+  gem 'rake',               '0.8.7'
+  gem 'rspec',              '~> 1.3'
+  gem 'flexmock',           '~> 0.8'
+  gem 'rubyforge',          '1.0.4'
+  gem 'rcov', '~> 0.8.1',   :platforms => :mri_18
+  gem 'ruby-debug',         :platforms => :mri_18
+  gem 'ruby-debug19',       :platforms => :mri_19
+  gem 'win32console',       :platforms => [:mswin, :mingw]
 end
 
 # Gems that are not dependencies of RightLink, but which are useful to
