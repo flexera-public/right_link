@@ -1,4 +1,4 @@
-
+source 'http://s3.amazonaws.com/rightscale_rightlink_gems_dev'
 source 'https://rubygems.org' 
 
 gemspec
