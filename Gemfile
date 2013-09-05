@@ -28,7 +28,7 @@ end
 # mswin-platform gem for every one of the gems below AND published it to
 # the rightscale custom gem repository.
 group :not_windows_friendly do
-  gem 'json'
+  gem 'json', '1.4.6'
   platform :mingw do
     gem 'win32-api'
     gem 'windows-api'
