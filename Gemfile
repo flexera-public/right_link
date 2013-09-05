@@ -1,5 +1,5 @@
 source 'http://s3.amazonaws.com/rightscale_rightlink_gems_dev'
-source 'https://rubygems.org' 
+source 'https://rubygems.org'
 
 gemspec
 
@@ -29,7 +29,7 @@ end
 # the rightscale custom gem repository.
 group :not_windows_friendly do
   gem 'json',     '1.4.6'
-  gem 'nokogiri', '1.5.9'
+  #gem 'nokogiri', '1.5.9'
 end
 
 # These dependencies are included in the gemspec via a dirty hack. We declare them
