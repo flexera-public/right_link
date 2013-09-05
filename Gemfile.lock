@@ -79,8 +79,6 @@ GEM
     net-ssh-multi (1.1)
       net-ssh (>= 2.1.4)
       net-ssh-gateway (>= 0.99.0)
-    nokogiri (1.5.9)
-    nokogiri (1.5.9-x86-mswin32)
     ohai (6.16.0.1)
       eventmachine (>= 1.0.0)
       ipaddress
@@ -189,7 +187,6 @@ DEPENDENCIES
   mixlib-shellout (= 1.1.0.1)
   moneta (= 0.6.0)
   msgpack (= 0.4.4)
-  nokogiri (= 1.5.9)
   ohai (= 6.16.0.1)
   rake (= 0.8.7)
   rb-readline (~> 0.5.0)
