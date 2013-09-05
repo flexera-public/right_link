@@ -190,7 +190,12 @@ module RightScale
     # === Return
     # level(Integer):: one of Logger::INFO ... Logger::FATAL
     def log_level
-      @log_level
+      case @log_level
+      when Symbol, String
+        Log.level_from_sym(@log_level.to_sym)
+      else
+        @log_level
+      end
     end
 
     # Re-initialize then merge given state

@@ -1,6 +1,6 @@
 module RightScale
-  class CommandHelper
-    def self.have_sufficient_privileges
+  module CommandHelper
+    def check_privileges
       config_options = ::RightScale::AgentConfig.agent_options('instance')
       pid_dir = config_options[:pid_dir]
       identity = config_options[:identity]
@@ -9,7 +9,7 @@ module RightScale
       File.open(cookie_file, "r") { |f| f.close }
       true
     rescue Errno::EACCES => e
-      false
+      fail(e)
     end
     # Creates a command client and sends the given payload.
     #
@@ -21,7 +21,7 @@ module RightScale
     # === Block
     # @yield [response] callback for response
     # @yieldparam response [Object] response of any type
-    def self.send_command(cmd, verbose, timeout)
+    def send_command(cmd, verbose, timeout=20)
       config_options = ::RightScale::AgentConfig.agent_options('instance')
       listen_port = config_options[:listen_port]
       raise ::ArgumentError.new('Could not retrieve agent listen port') unless listen_port
@@ -35,9 +35,67 @@ module RightScale
       result
     end
 
-    def self.serialize_operation_result(res)
+    def serialize_operation_result(res)
       command_serializer = ::RightScale::Serializer.new
       ::RightScale::OperationResult.from_results(command_serializer.load(res))
+    end
+
+    # Exit with success.
+    #
+    # === Return
+    # R.I.P. does not return
+    def succeed
+      exit(0)
+    end
+
+    # Print error on console and exit abnormally
+    #
+    # === Parameter
+    # reason(Exception|String|Integer):: Exception, error message or numeric failure code
+    #
+    # === Return
+    # R.I.P. does not return
+    def fail(reason=nil)
+      case reason
+      when Errno::EACCES
+        STDERR.puts reason.message
+        STDERR.puts "Try elevating privilege (sudo/runas) before invoking this command."
+        code = 2
+      when Exception
+        STDERR.puts reason.message
+        code = reason.respond_to(:code) ? reason.code : 50
+      when String
+        STDERR.puts reason
+        code = 50
+      when Integer
+        code = reason
+      else
+        code = 1
+      end
+
+      exit(code)
+    end
+
+    def parse
+      begin
+        yield
+      rescue Trollop::VersionNeeded
+        STDOUT.puts(version)
+        succeed
+      rescue Trollop::HelpNeeded
+        STDOUT.puts(usage)
+        succeed
+      rescue Trollop::CommandlineError => e
+        puts e.message + "\nUse --help for additional information"
+        fail
+      rescue SystemExit => e
+        raise e
+      end
+    end
+
+    def right_link_version
+      gemspec = eval(File.read(File.join(File.dirname(__FILE__), '..', 'right_link.gemspec')))
+      gemspec.version
     end
   end
 end

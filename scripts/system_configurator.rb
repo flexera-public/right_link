@@ -1,5 +1,5 @@
 # === Synopsis:
-#   RightScale System Configuration Utility (system) - (c) 2011 RightScale Inc
+#   RightScale System Configuration Utility (system) - (c) 2013 RightScale Inc
 #
 #   This utility performs miscellaneous system configuration tasks.
 #
@@ -24,6 +24,7 @@ require 'right_agent/scripts/common_parser'
 
 # RightLink dependencies
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'instance', 'agent_config'))
+require File.expand_path(File.join(File.dirname(__FILE__), 'command_helper'))
 
 cloud_dir = RightScale::AgentConfig.cloud_state_dir
 
@@ -41,6 +42,7 @@ end
 
 module RightScale
   class SystemConfigurator
+    include CommandHelper
     RSA_KEY    = File.join(RightScale::Platform.filesystem.ssh_cfg_dir, 'ssh_host_rsa_key')
     DSA_KEY    = File.join(RightScale::Platform.filesystem.ssh_cfg_dir, 'ssh_host_dsa_key')
     SUDO_USER  = 'rightscale'
@@ -109,16 +111,8 @@ module RightScale
         opt :action, "", :type => :string
       end
 
-      begin
+      parse do
         parser.parse
-      rescue Trollop::HelpNeeded
-       puts Usage.scan(__FILE__)
-       exit
-      rescue Trollop::CommandlineError => e
-        puts e.message + "\nUse --help for additional information"
-        exit(1)
-      rescue SystemExit => e
-        raise e
       end
     end
 

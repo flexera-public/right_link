@@ -1,5 +1,5 @@
 # === Synopsis:
-#   RightScale Tagger (rs_tag) - (c) 2009-2012 RightScale Inc
+#   RightScale Tagger (rs_tag) - (c) 2009-2013 RightScale Inc
 #
 #   Tagger allows listing, adding and removing tags on the current instance and
 #   querying for all instances with a given set of tags
@@ -43,10 +43,12 @@ require 'trollop'
 require 'right_agent'
 require 'right_agent/scripts/usage'
 require 'right_agent/scripts/common_parser'
+require File.expand_path(File.join(File.dirname(__FILE__), 'command_helper'))
 
 module RightScale
 
   class Tagger
+    include CommandHelper
 
     TAG_REQUEST_TIMEOUT = 2 * 60  # synchronous tag requests need a long timeout
 
@@ -59,6 +61,79 @@ module RightScale
       end
     end
 
+    def get_tags(res, options)
+      raise TagError.new("List current server tags failed: #{res.inspect}", 45) unless res.kind_of?(Array)
+      if res.empty?
+        if options[:die]
+          raise TagError.new('No server tags found', 44)
+        else
+          write_output(format_output([], options[:format]))
+        end
+      else
+        write_output(format_output(res, options[:format]))
+      end
+    end
+
+    def query_tags(res, options)
+      r = serialize_operation_result(res)
+      raise TagError.new("Query tags failed: #{r.inspect}", 46) unless r.kind_of?(OperationResult)
+      if r.success?
+        if r.content.empty?
+          if options[:die]
+            raise TagError.new("No servers with tags #{options[:tags].inspect}", 44)
+          else
+            write_output(format_output({}, options[:format]))
+          end
+        else
+          write_output(format_output(r.content, options[:format]))
+        end
+      else
+        raise TagError.new("Query tags failed: #{r.content}", 53)
+      end
+    end
+
+    def add_tag(res, options)
+      r = serialize_operation_result(res)
+      raise TagError.new("Add tag failed: #{r.inspect}", 47) unless r.kind_of?(OperationResult)
+      if r.success?
+        write_error("Successfully added tag #{options[:tag]}")
+      else
+        raise TagError.new("Add tag failed: #{r.content}", 54)
+      end
+    end
+
+    def remove_tag(res, options)
+      r = serialize_operation_result(res)
+      raise TagError.new("Remove tag failed: #{r.inspect}", 48) unless r.kind_of?(OperationResult)
+      if r.success?
+        write_error("Successfully removed tag #{options[:tag]}")
+      else
+        raise TagError.new("Remove tag failed: #{r.content}", 55)
+      end
+    end
+
+    def build_cmd(options)
+      cmd = { :name => options[:action] }
+      cmd[:tag] = options[:tag] if options[:tag]
+      cmd[:tags] = options[:tags] if options[:tags]
+      cmd[:query] = options[:query] if options[:query]
+      cmd
+    end
+
+    def set_logger(options)
+      if options[:verbose]
+        log = Logger.new(STDERR)
+      else
+        log = Logger.new(StringIO.new)
+      end
+      RightScale::Log.force_logger(log)
+    end
+
+    def missing_argument
+      write_error("Missing argument, rs_tag --help for additional information")
+      fail(1)
+    end
+
     # Manage instance tags
     #
     # === Parameters
@@ -67,93 +142,22 @@ module RightScale
     # === Return
     # true:: Always return true
     def run(options)
-      if options[:verbose]
-        log = Logger.new(STDERR)
-      else
-        log = Logger.new(StringIO.new)
-      end
-      RightScale::Log.force_logger(log)
-
-      unless options.include?(:action)
-        write_error("Missing argument, rs_tag --help for additional information")
-        fail(1)
-      end
-      cmd = { :name => options[:action] }
-      cmd[:tag] = options[:tag] if options[:tag]
-      cmd[:tags] = options[:tags] if options[:tags]
-      cmd[:query] = options[:query] if options[:query]
-     begin
-        @disposition = nil
-        send_command(cmd, options[:verbose], options[:timeout]) do |res|
-          begin
-            case options[:action]
-            when :get_tags
-              raise TagError.new("List current server tags failed: #{res.inspect}", 45) unless res.kind_of?(Array)
-              if res.empty?
-                if options[:die]
-                  raise TagError.new('No server tags found', 44)
-                else
-                  write_output(format_output([], options[:format]))
-                  @disposition = 0
-                end
-              else
-                write_output(format_output(res, options[:format]))
-                @disposition = 0
-              end
-            when :query_tags
-              r = serialize_operation_result(res)
-              raise TagError.new("Query tags failed: #{r.inspect}", 46) unless r.kind_of?(OperationResult)
-              if r.success?
-                if r.content.empty?
-                  if options[:die]
-                    raise TagError.new("No servers with tags #{options[:tags].inspect}", 44)
-                  else
-                    write_output(format_output({}, options[:format]))
-                    @disposition = 0
-                  end
-                else
-                  write_output(format_output(r.content, options[:format]))
-                  @disposition = 0
-                end
-              else
-                raise TagError.new("Query tags failed: #{r.content}", 53)
-              end
-            when :add_tag
-              r = serialize_operation_result(res)
-              raise TagError.new("Add tag failed: #{r.inspect}", 47) unless r.kind_of?(OperationResult)
-              if r.success?
-                write_error("Successfully added tag #{options[:tag]}")
-                @disposition = 0
-              else
-                raise TagError.new("Add tag failed: #{r.content}", 54)
-              end
-            when :remove_tag
-              r = serialize_operation_result(res)
-              raise TagError.new("Remove tag failed: #{r.inspect}", 48) unless r.kind_of?(OperationResult)
-              if r.success?
-                write_error("Successfully removed tag #{options[:tag]}")
-                @disposition = 0
-              else
-                raise TagError.new("Remove tag failed: #{r.content}", 55)
-              end
-            else
-              write_error(res)
-              @disposition = 0
-            end
-          rescue Exception => e
-            @disposition = e
-          end
-        end
-      rescue Exception => e
-        @disposition = e
-      end
-
-      Thread.pass while @disposition.nil?
-      case @disposition
-        when 0
-          succeed
+      check_privileges
+      set_logger(options)
+      missing_argument unless options.include?(:action)
+      send_command(build_cmd(options), options[:verbose], options[:timeout]) do |res|
+        case options[:action]
+        when :get_tags
+          get_tags(res, options)
+        when :query_tags
+          query_tags(res, options)
+        when :add_tag
+          add_tag(res, options)
+        when :remove_tag
+          remove_tag(res, options)
         else
-          fail(@disposition)
+          write_error(res)
+        end
       end
     rescue SystemExit => e
       raise e
@@ -174,11 +178,11 @@ module RightScale
         opt :verbose
         opt :die, "", :short => "-e"
         opt :format, "", :type => :string, :default => "json"
-        opt :timeout, "", :type => :int
+        opt :timeout, "", :type => :int, :default => TAG_REQUEST_TIMEOUT
         version ""
       end
 
-      begin 
+      parse do
         options = parser.parse
         options[:action] = :get_tags if options.delete(:list)
         if options[:add]
@@ -204,17 +208,6 @@ module RightScale
                              raise Trollop::CommandlineError, "Unknown output format #{options[:format]}"
                            end
         options
-      rescue Trollop::VersionNeeded
-        write_output(version)
-        succeed
-      rescue Trollop::HelpNeeded
-         write_output(Usage.scan(__FILE__))
-         succeed
-      rescue Trollop::CommandlineError => e
-        write_error(e.message + "\nUse rs_tag --help for additional information")
-        fail(1)
-      rescue SystemExit => e
-        raise e
       end
     end
 
@@ -233,31 +226,6 @@ protected
     # @param [String] message to write
     def write_error(message)
       STDERR.puts(message)
-    end
-
-    # Creates a command client and sends the given payload.
-    #
-    # === Parameters
-    # @param [Hash] cmd as a payload hash
-    # @param [TrueClass, FalseClass] verbose flag
-    # @param [TrueClass, FalseClass] timeout or nil
-    #
-    # === Block
-    # @yield [response] callback for response
-    # @yieldparam response [Object] response of any type
-    def send_command(cmd, verbose, timeout, &callback)
-      config_options = ::RightScale::AgentConfig.agent_options('instance')
-      listen_port = config_options[:listen_port]
-      raise ::ArgumentError.new('Could not retrieve agent listen port') unless listen_port
-      client = ::RightScale::CommandClient.new(listen_port, config_options[:cookie])
-      timeout ||= TAG_REQUEST_TIMEOUT
-      client.send_command(cmd, verbose, timeout, &callback)
-      true
-    end
-
-    def serialize_operation_result(res)
-      command_serializer = ::RightScale::Serializer.new
-      ::RightScale::OperationResult.from_results(command_serializer.load(res))
     end
 
     # Splits the TAG_LIST parameter on space unless an equals is present in
@@ -302,56 +270,16 @@ protected
       end
     end
 
-    # Exit with success.
-    #
-    # === Return
-    # R.I.P. does not return
-    def succeed
-      exit(0)
-    end
-
-    # Print error on console and exit abnormally
-    #
-    # === Parameter
-    # reason(Exception|String|Integer):: Exception, error message or numeric failure code
-    #
-    # === Options
-    # :print_usage(Boolean):: Whether script usage should be printed, default to false
-    #
-    # === Return
-    # R.I.P. does not return
-    def fail(reason=nil, options={})
-      case reason
-      when TagError
-        write_error(reason.message)
-        code = reason.code
-      when Errno::EACCES
-        write_error(reason.message)
-        write_error("Try elevating privilege (sudo/runas) before invoking this command.")
-        code = 2
-      when Exception
-        write_error(reason.message)
-        code = 50
-      when String
-        write_error(reason)
-        code = 50
-      when Integer
-        code = reason
-      else
-        code = 1
-      end
-
-      write_output(Usage.scan(__FILE__)) if options[:print_usage]
-      exit(code)
-    end
-
     # Version information
     #
     # === Return
     # (String):: Version information
     def version
-      gemspec = eval(File.read(File.join(File.dirname(__FILE__), '..', 'right_link.gemspec')))
-      "rs_tag #{gemspec.version} - RightLink's tagger (c) 2009-2012 RightScale"
+      "rs_tag #{right_link_version} - RightLink's tagger (c) 2009-2013 RightScale"
+    end
+
+    def usage
+      Usage.scan(__FILE__)
     end
 
   end # Tagger

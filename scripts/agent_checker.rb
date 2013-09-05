@@ -1,5 +1,5 @@
 # === Synopsis:
-#   RightScale Agent Checker (rchk) - (c) 2010-2011 RightScale Inc
+#   RightScale Agent Checker (rchk) - (c) 2010-2013 RightScale Inc
 #
 #   Checks the agent to see if it is actively communicating with RightNet and if not
 #   triggers it to re-enroll and exits.
@@ -37,6 +37,7 @@ require 'right_agent/scripts/common_parser'
 
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'instance', 'agent_watcher'))
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'instance', 'agent_config'))
+require File.expand_path(File.join(File.dirname(__FILE__), 'command_helper'))
 
 module RightScale
 
@@ -81,7 +82,7 @@ module RightScale
   end # AgentCheckerCommands
 
   class AgentChecker
-
+    include CommandHelper
     include DaemonizeHelper
 
     VERSION = [0, 1]
@@ -163,7 +164,6 @@ module RightScale
     def start(options)
       begin
         setup_traps
-        @command_serializer = Serializer.new
         @state_serializer = Serializer.new(:json)
 
         # Retrieve instance agent configuration options
@@ -248,7 +248,7 @@ module RightScale
         version ""
       end
       
-      begin 
+      parse do
         options = parser.parse
         options.delete(:max_attempts) unless options[:max_attempts] > 0
         if options[:delete]
@@ -256,16 +256,9 @@ module RightScale
         end
         options.delete(:retry_interval) unless options[:retry_interval] > 0
         options
-      rescue Trollop::HelpNeeded
-        puts Usage.scan(__FILE__)
-        exit
-      rescue Trollop::CommandlineError => e
-        error("#{e}\nUse --help for additional information", nil, abort = true)
-      rescue Trollop::VersionNeeded
-        puts version
-        exit
       end
     end
+
 
 protected
 
@@ -285,8 +278,7 @@ protected
             info("Stopping checker daemon")
             if RightScale::Platform.windows?
               begin
-                client = CommandClient.new(pid_data[:listen_port], pid_data[:cookie])
-                client.send_command({:name => :terminate}, verbose = @options[:verbose], timeout = 30) do |r|
+                send_command({:name => :terminate}, verbose = @options[:verbose], timeout = 30) do |r|
                   info(r)
                   terminate
                 end
@@ -391,11 +383,9 @@ protected
     # true:: Always return true
     def try_communicating(attempt)
       begin
-        listen_port = @agent[:listen_port]
-        client = CommandClient.new(listen_port, @agent[:cookie])
-        client.send_command({:name => "check_connectivity"}, @options[:verbose], COMMAND_IO_TIMEOUT) do |r|
+        send_command({:name => "check_connectivity"}, @options[:verbose], COMMAND_IO_TIMEOUT) do |r|
           @command_io_failures = 0
-          res = OperationResult.from_results(@command_serializer.load(r)) rescue nil
+          res = serialize_operation_result(r) rescue nil
           if res && res.success?
             info("Successful agent communication" + (attempt > 1 ? " on attempt #{attempt}" : ""))
             @retry_timer.cancel if @retry_timer
@@ -542,7 +532,11 @@ protected
     # === Return
     # ver(String):: Version information
     def version
-      ver = "rchk #{VERSION.join('.')} - RightScale Agent Checker (c) 2010 RightScale"
+      ver = "rchk #{VERSION.join('.')} - RightScale Agent Checker (c) 2013 RightScale"
+    end
+
+    def usage
+      Usage.scan(__FILE__)
     end
 
   end # AgentChecker

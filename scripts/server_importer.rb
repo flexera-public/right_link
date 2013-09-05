@@ -1,5 +1,5 @@
 # === Synopsis:
-#   RightScale Server Import Utility (rs_connect) - (c) 2011 RightScale Inc
+#   RightScale Server Import Utility (rs_connect) - (c) 2013 RightScale Inc
 #
 #   This utility allows an arbitrary virtual or physical machine to be
 #   managed by the RightScale dashboard.
@@ -32,10 +32,12 @@ require 'right_agent/scripts/usage'
 require 'right_agent/scripts/common_parser'
 require 'right_http_connection'
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'instance'))
+require File.expand_path(File.join(File.dirname(__FILE__), 'command_helper'))
 
 module RightScale
 
   class ServerImporter
+    include CommandHelper
     # Exception class to use as a token that something went wrong with an HTTP query
     class QueryFailed < Exception; end
 
@@ -136,55 +138,22 @@ module RightScale
         version ""
       end
 
-      begin
+      parse do
         options.merge(parser.parse)
-      rescue Trollop::HelpNeeded
-        puts Usage.scan(__FILE__)
-        exit
-      rescue Trollop::CommandlineError => e
-        puts e.message + "\nUse --help for additional information"
-        exit(1)
-      rescue Trollop::VersionNeeded
-        puts version
-        succeed
       end
     end
 
 protected
-
-    # Print error on console and exit abnormally
-    #
-    # === Parameter
-    # reason(String|Exception):: Error message or exception, default to nil (no message printed)
-    # print_usage(Boolean):: Whether script usage should be printed, default to false
-    #
-    # === Return
-    # R.I.P. does not return
-    def fail(reason=nil, print_usage=false)
-      case reason
-      when Errno::EACCES
-        STDERR.puts reason.message
-        STDERR.puts "Try elevating privilege (sudo/runas) before invoking this command."
-        code = 2
-      when Exception
-        STDERR.puts "** #{reason.message}"
-        code = 1
-      else
-        STDERR.puts "** #{reason}" if reason
-        code = 1
-      end
-
-      puts Usage.scan(__FILE__) if print_usage
-      exit(code)
-    end
-    
     # Version information
     #
     # === Return
     # (String):: Version information
     def version
-      gemspec = eval(File.read(File.join(File.dirname(__FILE__), '..', 'right_link.gemspec')))
-      "rs_connect #{gemspec.version} - RightLink's server importer (c) 2011 RightScale"
+      "rs_connect #{right_link_version} - RightLink's server importer (c) 2013 RightScale"
+    end
+
+    def usage
+      Usage.scan(__FILE__)
     end
 
     private
@@ -285,9 +254,6 @@ protected
       return uri
     end
 
-    def succeed
-      exit(0)
-    end
   end
 
 end
