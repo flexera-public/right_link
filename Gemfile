@@ -29,7 +29,6 @@ end
 # the rightscale custom gem repository.
 group :not_windows_friendly do
   gem 'json'
-  gem 'nokogiri', '1.5.9'
   platform :mingw do
     gem 'win32-api'
     gem 'windows-api'
