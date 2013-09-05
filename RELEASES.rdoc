@@ -1,3 +1,36 @@
+= 5.9.2 (RightLink 5.9 beta 3)
+
+Released 2013-09-06.
+
+== New Features
+
+* RightLink's log level can now be controlled by a tag, "rs_agent_dev:log_level". The rs_log_level
+  command is now an interface for getting or setting this tag.
+* The log-level tag and command no longer apply to the RightLink agent, only to Chef and RightScript
+  execution. To set the RightLink agent's log level explicitly, use the "--agent" option of
+  rs_log_level.
+* When running on a RedHat-derived distro, RightLink installs public keys for EPEL signed packages
+  at boot.
+
+== Changes to Existing Functionality
+
+* When installing RightLink, the recommended technique is to install _only_ the appropriate
+  cloud-support package for the cloud in which RightLink will run. The other RightLink packages
+  will be installed as dependencies. For instance, to install RightLink on an EC2 instance:
+     apt-get install rightlink-cloud-ec2
+* The cloud-support packages for Rackspace clouds have been renamed to avoid confusion. The
+  package for Rackspace Classic is suffixed with "rackspace-first-gen". The support package for
+  Rackspace OpenCloud is suffixed with "rackspace-open-cloud".
+
+== Bug Fixes
+
+* RightLink now looks in the proper directory (/var/spool/rackspace) for cloud-injected
+  userdata when running on Rackspace OpenCloud.
+* RightLink now requires a modern version of sudo (we rely on the #includedir directive)
+* Included SUSE vendor-support tags in our rpmspec to prevent warnings from zypper
+* RightLink DEBs are now signed
+* Init scripts have more accurate LSB metadata, preventing warnings from init-updaters
+
 = 5.9.1 (RightLink 5.9 beta 2)
 
 Released 2013-08-07.
@@ -27,11 +60,13 @@ Released 2013-07-13.
 
 == New Features
 
-* The RS_DECOM_REASON environment variable is set during decommission script/recipe execution to indicate the reason why decommission
-  is running. This variable will have one of the following values: 'reboot', 'stop', 'terminate' or 'unknown'
-  The value will be 'reboot', 'stop' or 'terminate' when decommissioning through the RightScale dashboard or when using the
-  rs_shutdown command. The 'unknown' value may be seen when the rightlink service is decommissioned (not stopped) from the console or
-  else the instance is shutdown or rebooted without using the rs_shutdown command.
+* The RS_DECOM_REASON environment variable is set during decommission script/recipe execution to
+  indicate the reason why decommission is running. This variable will have one of the following
+  values: 'reboot', 'stop', 'terminate' or 'unknown'. The value will be 'reboot', 'stop' or
+  'terminate' when decommissioning through the RightScale dashboard or when using the rs_shutdown
+  command. The 'unknown' value may be seen when the rightlink service is decommissioned (not
+  stopped) from the console or else the instance is shutdown or rebooted without using the
+  rs_shutdown command.
 * RightLink is distributed as a modular "tree" of packages, making it easy to install just what you need
 * Improved package hygiene, e.g. clean uninstall and minimal post-install filesystem tampering
 * Ability to distinguish between sudo (server_login + server_superuser) and normal (server_login) users
