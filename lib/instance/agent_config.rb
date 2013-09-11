@@ -29,7 +29,7 @@ module RightScale
 
     # Path to RightScale files in parent directory of right_link
     def self.parent_dir
-      File.dirname(File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'right_link')))
+      '/opt/rightscale'
     end
 
      # @return [Array] an appropriate sequence of root directories for configuring the RightLink agent
