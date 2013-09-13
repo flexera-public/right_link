@@ -1,3 +1,7 @@
+lib = File.expand_path('../lib', __FILE__)
+$LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
+require 'right_link/version'
+
 module RightScale
   module CommandHelper
     def check_privileges
@@ -63,7 +67,7 @@ module RightScale
         code = 2
       when Exception
         STDERR.puts reason.message
-        code = reason.respond_to(:code) ? reason.code : 50
+        code = reason.respond_to?(:code) ? reason.code : 50
       when String
         STDERR.puts reason
         code = 50
@@ -94,8 +98,7 @@ module RightScale
     end
 
     def right_link_version
-      gemspec = eval(File.read(File.join(File.dirname(__FILE__), '..', 'right_link.gemspec')))
-      gemspec.version
+      RightLink::VERSION
     end
   end
 end

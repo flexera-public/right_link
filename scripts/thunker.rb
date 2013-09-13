@@ -54,10 +54,10 @@ module RightScale
     # === Return
     # true:: Always return true
     def run(options)
-      check_privileges
       @log_sink = StringIO.new
       @log = Logger.new(@log_sink)
       RightScale::Log.force_logger(@log)
+      check_privileges
 
       username  = options.delete(:username)
       email     = options.delete(:email)
@@ -307,7 +307,7 @@ module RightScale
     def usage
       Usage.scan(__FILE__)
     end
-    
+
   end # Thunker
 
 end # RightScale
