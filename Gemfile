@@ -48,10 +48,10 @@ group :development do
   gem 'rspec',              '~> 1.3'
   gem 'flexmock',           '~> 0.8'
   gem 'rubyforge',          '1.0.4'
-  gem 'rcov', '~> 0.8.1',   :platforms => :mri_18
-  gem 'ruby-debug',         :platforms => :mri_18
-  gem 'ruby-debug19',       :platforms => :mri_19
-  gem 'win32console',       :platforms => [:mswin, :mingw]
+  gem 'rcov', '~> 0.8.1',     :platforms => :mri_18
+  gem 'ruby-debug',           :platforms => :mri_18
+  gem 'debugger', '~> 1.6.1', :platforms => :mri_19
+  gem 'win32console',         :platforms => [:mswin, :mingw]
 end
 
 # Gems that are not dependencies of RightLink, but which are useful to
