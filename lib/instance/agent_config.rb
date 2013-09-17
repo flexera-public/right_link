@@ -29,7 +29,7 @@ module RightScale
 
     # Path to RightScale files in parent directory of right_link
     def self.parent_dir
-      '/opt/rightscale'
+      RightScale::Platform.windows? ? RightScale::Platform.filesystem.right_link_home_dir : '/opt/rightscale'
     end
 
      # @return [Array] an appropriate sequence of root directories for configuring the RightLink agent
