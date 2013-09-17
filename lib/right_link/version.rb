@@ -1,4 +1,4 @@
 module RightLink
-  VERSION = "5.9.2"
+  VERSION = "6.0.0"
 end
 

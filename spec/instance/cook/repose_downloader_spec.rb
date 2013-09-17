@@ -73,7 +73,7 @@ module RightScale
 
     context :resolve do
       it 'should resolve hostnames into IP addresses' do
-        subject.send(:resolve, hostname).should == { "1.2.3.4" => hostname, "5.6.7.8" => hostname }
+        subject.send(:resolve, [hostname]).should == { "1.2.3.4" => hostname, "5.6.7.8" => hostname }
       end
     end
 

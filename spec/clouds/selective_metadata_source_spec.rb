@@ -80,7 +80,7 @@ describe RightScale::MetadataSources::SelectiveMetadataSource do
     user_metadata_tree_climber = ::RightScale::MetadataTreeClimber.new(:root_path => @user_metadata_root_path,
                                                                        :user_metadata_root_path => @user_metadata_root_path,
                                                                        :logger => @logger,
-                                                                       :has_children_override => lambda{ false } )
+                                                                       :has_children_override => lambda{ |x, y, z| false } )
     @mock_cloud = flexmock("cloud")
     flexmock(@mock_cloud).
       should_receive(:create_dependency_type).

@@ -89,12 +89,12 @@ describe RightScale::MetadataSources::FileMetadataSource do
     cloud_metadata_tree_climber = ::RightScale::MetadataTreeClimber.new(:root_path => ::RightScale::Cloud::DEFAULT_CLOUD_METADATA_ROOT_PATH,
                                                                         :user_metadata_root_path => ::RightScale::Cloud::DEFAULT_USER_METADATA_ROOT_PATH,
                                                                         :logger => @logger,
-                                                                        :has_children_override => lambda{ false },
+                                                                        :has_children_override => lambda{ |x, y, z| false },
                                                                         :create_leaf_override => method(:create_user_metadata_leaf))
     user_metadata_tree_climber = ::RightScale::MetadataTreeClimber.new(:root_path => ::RightScale::Cloud::DEFAULT_USER_METADATA_ROOT_PATH,
                                                                        :user_metadata_root_path => ::RightScale::Cloud::DEFAULT_USER_METADATA_ROOT_PATH,
                                                                        :logger => @loggerH,
-                                                                       :has_children_override => lambda{ false },
+                                                                       :has_children_override => lambda{ |x, y, z| false },
                                                                        :create_leaf_override => method(:create_user_metadata_leaf))
     # cloud metadata
     @cloud_metadata_provider = ::RightScale::MetadataProvider.new

@@ -44,7 +44,7 @@ begin
 
 rescue LoadError => e
   # Make sure we're dealing with a legitimate missing-file LoadError
-  raise e unless e.message =~ /^no such file to load/
+  raise e unless e.message =~ /^no such file to load|^cannot load such file/
 end
 
 # The daemonize method of AR clashes with the daemonize Chef attribute, we don't need that method so undef it
@@ -67,6 +67,27 @@ module EventMachine
     RightScale::SpecHelper::EmTestRunner.assert_em_test_not_running
     @old_em_stop.call
   end
+end
+
+# HACK: dump a stack trace if anything attempts to fork in Windows (on a thread,
+# etc.) so that we can have a clue who the miscreant is.
+if ::RightScale::Platform.windows?
+  module Kernel
+    def self.fork
+      message = "Cannot fork() in Windows, dude."
+      STDERR.puts message, caller.join("\n")
+      raise message
+    end
+  end
+end
+
+# HACK: disable garbage collector (in Windows only?) for spec run as flexmocked
+# types cause segmentation faults when flexmocked objects are gc'd on a thread
+# other than where they were defined and allocated.
+begin
+  GC.disable if ::RightScale::Platform.windows?
+rescue Exception => e
+  STDERR.puts "#{e.class}: #{e.message}", e.backtrace.join("\n")
 end
 
 require File.join(File.dirname(__FILE__), 'results_mock')
