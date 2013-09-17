@@ -766,7 +766,7 @@ describe RightScale::ExecutableSequence do
           # mock the scraper so we pretend to checkout cookbooks
           mock_scraper = flexmock("mock scraper for sequence")
           mock_scraper.should_receive(:errors).and_return(['vaya con Dios'])
-          flexmock(::RightScraper::Scraper).
+          flexmock(::RightScraper::Main).
             should_receive(:new).
             once.
             with(:kind => :cookbook, :basedir => ::RightScale::AgentConfig.dev_cookbook_checkout_dir).

@@ -7,17 +7,29 @@ gemspec
 gem 'right_support', '~> 2.7'
 gem 'right_agent', '~> 0.17'
 gem 'right_amqp', '~> 0.7'
-gem 'right_scraper', '~> 3.2'
-gem 'right_popen', '~> 1.1'
+
+gem 'right_popen', '~> 2.0'
+gem 'right_git',
+    :git => "git@github.com:rightscale/right_git.git",
+    :branch => "master"
+gem 'right_scraper', '~> 4.0',
+    :git => "git@github.com:rightscale/right_scraper.git",
+    :branch => "teal_13_13_acu115916_right_git"
 
 # We have custom builds of some gems containing fixes and patches that are specific
 # to RightScale. Gems in the 'custom' group are published by RightScale to our
 # custom gem repository (http://s3.amazonaws.com/rightscale_rightlink_gems_dev).
 group :custom do
-  gem 'chef', '10.26.0.1'
-  gem 'ohai', '6.16.0.1'
-  gem 'mixlib-shellout', '1.1.0.1'
-  gem 'eventmachine',    '1.0.0.3'
+  gem 'chef', '10.26.0.2',
+      :git => "git@github.com:rightscale/chef.git",
+      :branch => "teal_13_13_acu115916_right_popen"
+  gem 'ohai', '6.16.0.2',
+      :git => "git@github.com:rightscale/ohai.git",
+      :branch => "teal_13_13_acu115916_right_popen"
+  gem 'mixlib-shellout', '1.1.0.2',
+      :git => "git@github.com:rightscale/mixlib-shellout.git",
+      :branch => "teal_13_13_acu115916_right_popen"
+  gem 'eventmachine', '1.0.0.3'
 end
 
 # We use some gems on both platforms, but the maintainer of the gem does not publish
