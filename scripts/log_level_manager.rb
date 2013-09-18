@@ -17,7 +17,7 @@
 #
 #    Options:
 #      --log-level, -l LVL  Set log level(for Chef/RightScript by default)
-#      --agent              Set/get log level of RightLink agent
+#      --agent, -a          Set/get log level of RightLink agent
 #      --verbose, -v        Display debug information
 #      --help:              Display help
 #      --version:           Display version information
@@ -97,7 +97,7 @@ module RightScale
         options
       end
     end
-    
+
 protected
 
     # Writes to STDOUT (and a placeholder for spec mocking).

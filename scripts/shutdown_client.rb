@@ -25,7 +25,6 @@
 #      --help:            Display help
 #      --version:         Display version information
 #
-#    No options prints the current RightLink agent log level
 #
 
 require 'rubygems'

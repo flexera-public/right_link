@@ -54,10 +54,10 @@ module RightScale
     # === Return
     # true:: Always return true
     def run(options)
-      check_privileges
       @log_sink = StringIO.new
       @log = Logger.new(@log_sink)
       RightScale::Log.force_logger(@log)
+      check_privileges
 
       username  = options.delete(:username)
       email     = options.delete(:email)
@@ -174,13 +174,19 @@ module RightScale
     # R.I.P. does not return
     def fail(reason=nil, options={})
       case reason
+      when Errno::EACCES
+        STDERR.puts reason.message
+        STDERR.puts "Try elevating privilege (sudo/runas) before invoking this command."
+        code = 2
       when Exception
         STDOUT.puts "Unexpected #{reason.class.name}: #{reason.message}"
         STDOUT.puts "We apologize for the inconvenience. You may try connecting as root"
         STDOUT.puts "to work around this problem, if you have sufficient privilege."
-        STDERR.puts
-        STDERR.puts("Debugging information:")
-        STDERR.puts(@log_sink.string)
+        unless @log_sink.string.empty?
+          STDERR.puts
+          STDERR.puts("Debugging information:")
+          STDERR.puts(@log_sink.string)
+        end
         code = 50
       when String
         STDOUT.puts reason
@@ -307,7 +313,7 @@ module RightScale
     def usage
       Usage.scan(__FILE__)
     end
-    
+
   end # Thunker
 
 end # RightScale

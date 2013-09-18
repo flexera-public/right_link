@@ -1,3 +1,8 @@
+lib = File.expand_path('../lib', __FILE__)
+$LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
+require 'right_link/version'
+require 'right_agent/scripts/usage'
+
 module RightScale
   module CommandHelper
     def check_privileges
@@ -55,7 +60,7 @@ module RightScale
     #
     # === Return
     # R.I.P. does not return
-    def fail(reason=nil)
+    def fail(reason=nil, print_usage=false)
       case reason
       when Errno::EACCES
         STDERR.puts reason.message
@@ -63,7 +68,7 @@ module RightScale
         code = 2
       when Exception
         STDERR.puts reason.message
-        code = reason.respond_to(:code) ? reason.code : 50
+        code = reason.respond_to?(:code) ? reason.code : 50
       when String
         STDERR.puts reason
         code = 50
@@ -73,6 +78,7 @@ module RightScale
         code = 1
       end
 
+      puts usage if print_usage
       exit(code)
     end
 
@@ -94,8 +100,7 @@ module RightScale
     end
 
     def right_link_version
-      gemspec = eval(File.read(File.join(File.dirname(__FILE__), '..', 'right_link.gemspec')))
-      gemspec.version
+      RightLink::VERSION
     end
   end
 end
