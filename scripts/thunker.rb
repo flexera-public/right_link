@@ -182,9 +182,11 @@ module RightScale
         STDOUT.puts "Unexpected #{reason.class.name}: #{reason.message}"
         STDOUT.puts "We apologize for the inconvenience. You may try connecting as root"
         STDOUT.puts "to work around this problem, if you have sufficient privilege."
-        STDERR.puts
-        STDERR.puts("Debugging information:")
-        STDERR.puts(@log_sink.string)
+        unless @log_sink.string.empty?
+          STDERR.puts
+          STDERR.puts("Debugging information:")
+          STDERR.puts(@log_sink.string)
+        end
         code = 50
       when String
         STDOUT.puts reason
