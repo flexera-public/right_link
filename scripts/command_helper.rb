@@ -1,6 +1,7 @@
 lib = File.expand_path('../lib', __FILE__)
 $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
 require 'right_link/version'
+require 'right_agent/scripts/usage'
 
 module RightScale
   module CommandHelper
@@ -59,7 +60,7 @@ module RightScale
     #
     # === Return
     # R.I.P. does not return
-    def fail(reason=nil)
+    def fail(reason=nil, print_usage=false)
       case reason
       when Errno::EACCES
         STDERR.puts reason.message
@@ -77,6 +78,7 @@ module RightScale
         code = 1
       end
 
+      puts usage if print_usage
       exit(code)
     end
 
