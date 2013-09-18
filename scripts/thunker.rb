@@ -174,6 +174,10 @@ module RightScale
     # R.I.P. does not return
     def fail(reason=nil, options={})
       case reason
+      when Errno::EACCES
+        STDERR.puts reason.message
+        STDERR.puts "Try elevating privilege (sudo/runas) before invoking this command."
+        code = 2
       when Exception
         STDOUT.puts "Unexpected #{reason.class.name}: #{reason.message}"
         STDOUT.puts "We apologize for the inconvenience. You may try connecting as root"
