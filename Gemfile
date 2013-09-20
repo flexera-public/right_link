@@ -4,7 +4,8 @@ source 'https://rubygems.org'
 gemspec
 
 # Fresh off the assembly line
-gem 'right_support', '~> 2.7'
+gem 'right_support', :git => 'git@github.com:rightscale/right_support.git',
+                     :branch => 'ivory_13_13_acu91100_unset_fix'
 gem 'right_agent', '~> 0.17'
 gem 'right_amqp', '~> 0.7'
 gem 'right_scraper', '~> 3.2'
