@@ -1,5 +1,5 @@
 source 'http://s3.amazonaws.com/rightscale_rightlink_gems_dev'
-source 'https://rubygems.org' 
+source 'https://rubygems.org'
 
 gemspec
 
@@ -27,8 +27,7 @@ end
 # DO NOT CHANGE VERSIONS of these gems until you have built a precompiled
 # mswin-platform gem for every one of the gems below AND published it to
 # the rightscale custom gem repository.
-group :not_windows_friendly do
-  gem 'json', '1.4.6'
+group :windows do
   platform :mingw do
     gem 'win32-api'
     gem 'windows-api'
@@ -51,7 +50,6 @@ group :development do
   gem 'rcov', '~> 0.8.1',     :platforms => :mri_18
   gem 'ruby-debug',           :platforms => :mri_18
   gem 'debugger', '~> 1.6.1', :platforms => :mri_19
-  gem 'win32console',         :platforms => [:mswin, :mingw]
 end
 
 # Gems that are not dependencies of RightLink, but which are useful to

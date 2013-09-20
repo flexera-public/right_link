@@ -147,7 +147,6 @@ DEPENDENCIES
   flexmock (~> 0.8)
   highline (= 1.6.9)
   hoe (= 2.3.3)
-  json (= 1.4.6)
   mime-types (= 1.16)
   mixlib-authentication (>= 1.3.0)
   mixlib-cli (= 1.2.0)
@@ -182,6 +181,5 @@ DEPENDENCIES
   win32-pipe
   win32-process
   win32-service
-  win32console
   windows-api
   windows-pr
