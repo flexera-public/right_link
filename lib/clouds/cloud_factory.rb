@@ -43,9 +43,16 @@ module RightScale
     # === Return
     # always true
     def register(cloud_names, cloud_script_path)
-      # relies on each to split on newlines for strings and otherwise do each for collections.
       cloud_script_path = File.normalize_path(cloud_script_path)
-      cloud_names.each { |cloud_name| registered_type(cloud_name, cloud_script_path) }
+      # relies on each to split on newlines for strings and otherwise do each for collections.
+      # note that in ruby 1.9.x strings don't repond to :each
+      if cloud_names.respond_to?(:lines)
+        cloud_names.lines { |cloud_name| registered_type(cloud_name, cloud_script_path) }
+      elsif cloud_names.respond_to?(:each)
+        cloud_names.each { |cloud_name| registered_type(cloud_name, cloud_script_path) }
+      else
+        registered_type(cloud_names.to_s, cloud_script_path)
+      end
       true
     end
 

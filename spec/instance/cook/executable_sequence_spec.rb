@@ -78,7 +78,8 @@ describe RightScale::ExecutableSequence do
         :parameters => {},
         :ready => true,
         :display_version => '[HEAD]',
-        :title => "'__TestScript' [HEAD]")
+        :title => "'__TestScript' [HEAD]",
+        :id => 1)
       @script.should_receive(:is_a?).with(RightScale::RightScriptInstantiation).and_return(true)
       @script.should_receive(:is_a?).with(RightScale::RecipeInstantiation).and_return(false)
 
@@ -546,6 +547,7 @@ describe RightScale::ExecutableSequence do
         mock_repose_downloader = flexmock('ReposeDownloader')
         mock_repose_downloader.should_receive(:logger=).once.and_return(@logger)
         flexmock(::RightScale::ReposeDownloader).should_receive(:new).with([repose_hostname]).once.and_return(mock_repose_downloader)
+        flexmock(File).should_receive(:exists?).and_return(false)
         @auditor.should_receive(:append_info).with(/Duration: \d+\.\d+ seconds/).never
         mock_repose_downloader.
           should_receive(:download).

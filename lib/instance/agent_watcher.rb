@@ -32,7 +32,7 @@ require 'rubygems'
 require 'right_agent/pid_file'
 require 'thread'
 
-module RightScale 
+module RightScale
 
   class AgentWatcher
     class AlreadyWatched < Exception; end
@@ -63,7 +63,7 @@ module RightScale
 
     def kill_agent(identity, signal='SIGKILL')
       @watch_list_lock.synchronize do
-        raise UnknownAgent("#{identity} is not a known agent.") unless @watched_list.has_key?(identity)
+        raise UnknownAgent, "#{identity} is not a known agent." unless @watched_list.has_key?(identity)
         agent = @watched_list.delete(identity)
         Process.kill(signal, agent[:pid].read_pid[:pid])
         @stopped_list[identity] = agent
@@ -106,9 +106,10 @@ module RightScale
 
             # Check all processes in the list with a next check time of zero
             # replacing the next check time with their frequency.
-            @watched_list.each do |k,v|
+            # Duplicating because @watched_list can be modified(if we need to restart agent) and Ruby 1.9.3 doesn't allow it
+            @watched_list.dup.each do |k,v|
               if v[:next_check] <= 0
-                v[:next_check] = v[:freq]
+                @watched_list[k][:next_check] = v[:freq]
                 check_agent(k)
               end
             end
@@ -119,7 +120,7 @@ module RightScale
             end
 
             # Subtract this from all the elements before we sleep
-            @watched_list.each do |k,v| 
+            @watched_list.each do |k,v|
               v[:next_check] -= next_check
             end
           end
@@ -137,7 +138,7 @@ module RightScale
 
     def start_agent(identity)
       @watch_list_lock.synchronize {
-        raise UnknownAgent("#{identity} is not a known stopped agent.") unless @stopped_list.has_key?(identity)
+        raise UnknownAgent, "#{identity} is not a known stopped agent." unless @stopped_list.has_key?(identity)
         agent = @stopped_list.delete(identity)
         agent[:pid].remove
         system("#{agent[:exec]} #{agent[:start_opts]}")
@@ -161,7 +162,7 @@ module RightScale
 
     def stop_agent(identity)
       @watch_list_lock.synchronize {
-        raise UnknownAgent("#{identity} is not a known agent.") unless @watched_list.has_key?(identity)
+        raise UnknownAgent, "#{identity} is not a known agent." unless @watched_list.has_key?(identity)
         agent = @watched_list.delete(identity)
         if system("#{agent[:exec]} #{agent[:stop_opts]}")
           log_info("Successfully stopped the #{identity} agent.")

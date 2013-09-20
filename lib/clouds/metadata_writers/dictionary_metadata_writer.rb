@@ -37,7 +37,7 @@ module RightScale
         result = {}
         path = full_path(@file_name_prefix, subpath)
         contents = File.file?(path) ? File.read(path) : ''
-        contents.each do |line|
+        contents.each_line do |line|
           match = line.chomp.match(/^(.+)=(.*)$/)
           result[match[1]] = match[2]
         end

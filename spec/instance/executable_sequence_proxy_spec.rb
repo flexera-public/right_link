@@ -137,8 +137,9 @@ describe RightScale::ExecutableSequenceProxy do
 
     it 'should find the cook utility' do
       status = flexmock('status', :success? => true)
-      cmd = nil
+      cmd_ = nil
       flexmock(RightScale::RightPopen).should_receive(:popen3_async).and_return do |cmd, o|
+        cmd_ = cmd
         o[:target].instance_variable_set(:@audit_closed, true)
         o[:target].send(o[:exit_handler], status)
         true
@@ -154,7 +155,7 @@ describe RightScale::ExecutableSequenceProxy do
       else
         matcher = Regexp.compile(".*" + Regexp.escape(expected))
       end
-      cmd.should match matcher
+      cmd_.should match matcher
     end
 
     it 'should report failures when cook fails' do

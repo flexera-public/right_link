@@ -29,7 +29,7 @@ module RightScale
 
     # Path to RightScale files in parent directory of right_link
     def self.parent_dir
-      File.dirname(File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'right_link')))
+      RightScale::Platform.windows? ? RightScale::Platform.filesystem.right_link_home_dir : '/opt/rightscale'
     end
 
      # @return [Array] an appropriate sequence of root directories for configuring the RightLink agent
@@ -110,7 +110,7 @@ module RightScale
     # Path to directory for sandbox if it exists
     def self.ruby_dir
       ( ENV['RS_RUBY_EXE'] && File.dirname(ENV['RS_RUBY_EXE']) ) ||
-        Config::CONFIG["bindir"]
+        RbConfig::CONFIG["bindir"]
     end
 
     # Ruby command
@@ -118,7 +118,7 @@ module RightScale
       # Allow test environment to specify a non-program files location for tools
       ENV['RS_RUBY_EXE'] ||
         File.join( ruby_dir,
-                   Config::CONFIG["RUBY_INSTALL_NAME"] + Config::CONFIG["EXEEXT"] )
+                   RbConfig::CONFIG["RUBY_INSTALL_NAME"] + RbConfig::CONFIG["EXEEXT"] )
     end
 
     # Sandbox gem command
