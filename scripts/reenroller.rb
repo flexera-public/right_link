@@ -41,6 +41,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def run(options)
+      check_privileges
       AgentConfig.root_dir = AgentConfig.right_link_root_dirs
 
       if RightScale::Platform.windows?
@@ -81,10 +82,6 @@ module RightScale
         res = system("/etc/init.d/rightlink #{action} > /dev/null")
       end
       true
-    rescue Errno::EACCES => e
-      STDERR.puts e.message
-      STDERR.puts "Try elevating privilege (sudo/runas) before invoking this command."
-      exit(2)
     end
 
     # Create options hash from command line arguments
@@ -149,7 +146,7 @@ module RightScale
     rescue Errno::ESRCH
       false
     end
-    
+
     # Version information
     #
     # === Return
