@@ -1,3 +1,15 @@
+= Unreleased Changes
+
+== New Features
+
+== Changes to Existing Functionality
+
+* RightLink changes the audit summary when waiting for missing inputs on boot. It also strands if 
+  inputs are still missing after 45 minutes. ("Missing" means inputs that are set to a value that
+  cannot yet be computed, such as the IP address of a non-running server.)
+
+== Bug Fixes
+
 = 5.9.2 (RightLink 5.9 beta 3)
 
 Released 2013-09-06.
