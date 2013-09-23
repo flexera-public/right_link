@@ -82,14 +82,11 @@ module RightScale
       # Create user just-in-time; idempotent if user already exists
       # Note that username == chosen here, they just get used in two different contexts
       username = LoginUserManager.create_user(username, uuid, superuser ? true : false) do |chosen|
-        if :shell == access
-          puts "Creating your user profile (#{chosen}) on this machine."
-        end
+          puts "Creating your user profile (#{chosen}) on this machine." if (:shell == access)
       end
 
       create_audit_entry(email, username, access, orig, client_ip)
       chown_tty(username)
-      create_profile(access, username, profile, force) if profile
 
       # Note that when execing sudo we use the N-argument form of Kernel.exec,
       # which does not invoke a shell, but rather directly invokes the command specified
@@ -276,25 +273,6 @@ module RightScale
       Log.error("#{e.class.name}:#{e.message}")
       Log.error(e.backtrace.join("\n"))
       false
-    end
-
-    # Download an archive from given path; extracts files and moves
-    # them to username's home directory.
-    #
-    # === Parameters
-    # username(String):: account's username
-    # custom_data(String):: custom data, e.g. personal tarball URL
-    # force(Boolean):: rewrite existing files if true; otherwise skip them
-    #
-    # === Return
-    # extracted(Boolean):: true if profile downloaded and copied; false
-    # if profile has been created earlier or error occured
-    def create_profile(access, username, custom_data, force = false)
-      home_dir = Etc.getpwnam(username).dir
-
-      LoginUserManager.setup_profile(username, home_dir, custom_data, force) do |msg|
-        puts msg if [:command, :shell].include?(access)
-      end
     end
 
     # Display the Message of the Day if it exists.

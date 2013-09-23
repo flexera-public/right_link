@@ -115,7 +115,6 @@ module RightScale
       subject.should_receive(:fail).and_return { raise }
       flexmock(LoginUserManager.instance).should_receive(:create_user).with("USER", "123", superuser, Proc).and_return("USER")
       subject.should_receive(:create_audit_entry).with("EMAIL@EMAIL.COM", "USER", FlexMock.any, FlexMock.any, FlexMock.any)
-      subject.should_receive(:create_profile).with(FlexMock.any, "USER", "URL", force) if profile_data
       subject.should_receive(:display_motd)
       flexmock(subject).should_receive(:chown_tty).and_return(true)
       flexmock(Kernel).should_receive(:exec).with('sudo', '-i', '-u', "USER")
