@@ -226,7 +226,7 @@ module RightScale
     context 'rs_run_right_script --version' do
       it 'reports RightLink version from gemspec' do
         run_bundle_runner('--version', :right_script)
-        @output.join('\n').should match /rs_run_right_script & rs_run_recipe \d+\.\d+\.?\d* - RightLink's bundle runner \(c\) 201\d RightScale/
+        @output.join('\n').should match /rs_run_right_script & rs_run_recipe \d+\.\d+\.?\d* - RightLink's bundle runner \(c\) \d+ RightScale/
       end
     end
 

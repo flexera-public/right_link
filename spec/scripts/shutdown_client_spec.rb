@@ -113,7 +113,7 @@ module RightScale
     context 'rs_shutdown --version' do
       it 'should reports RightLink version from gemspec' do
         run_shutdown_client('--version')
-        @output.join('\n').should match /rs_shutdown \d+\.\d+\.?\d* - RightLink's shutdown client \(c\) 201\d RightScale/
+        @output.join('\n').should match /rs_shutdown \d+\.\d+\.?\d* - RightLink's shutdown client \(c\) \d+ RightScale/
       end
     end
 

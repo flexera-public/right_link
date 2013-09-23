@@ -102,7 +102,7 @@ module RightScale
     context 'rs_thunk --version' do
       it 'should reports RightLink version from gemspec' do
         run_thunker('--version')
-        @output.join("\n").should match /rs_thunk \d+\.\d+\.?\d* - RightLink's thunker \(c\) 201\d RightScale/
+        @output.join("\n").should match /rs_thunk \d+\.\d+\.?\d* - RightLink's thunker \(c\) \d+ RightScale/
       end
     end
 

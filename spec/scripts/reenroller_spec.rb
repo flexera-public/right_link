@@ -82,7 +82,7 @@ module RightScale
     context 'rs_reenroll --version' do
       it 'reports RightLink version from gemspec' do
         run_reenroller('--version')
-        @output.join('\n').should match /rs_reenroll \d+\.\d+\.?\d* - RightLink's reenroller \(c\) 201\d RightScale/
+        @output.join('\n').should match /rs_reenroll \d+\.\d+\.?\d* - RightLink's reenroller \(c\) \d+ RightScale/
       end
     end
 

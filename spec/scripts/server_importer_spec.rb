@@ -72,7 +72,7 @@ module RightScale
     context 'rs_connect --version' do
       it 'should reports RightLink version from gemspec' do
         run_server_importer('--version')
-        @output.join('\n').should match /rs_connect \d+\.\d+\.?\d* - RightLink's server importer \(c\) 201\d RightScale/
+        @output.join('\n').should match /rs_connect \d+\.\d+\.?\d* - RightLink's server importer \(c\) \d+ RightScale/
       end
     end
 

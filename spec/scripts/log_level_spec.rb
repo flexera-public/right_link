@@ -66,7 +66,7 @@ module RightScale
     context 'rs_log_level --version' do
       it 'should report RightLink version from gemspec' do
         run_log_level_manager('--version')
-        @output.join("\n").should match /rs_log_level \d+\.\d+\.?\d* - RightLink's log level \(c\) 201\d RightScale/
+        @output.join("\n").should match /rs_log_level \d+\.\d+\.?\d* - RightLink's log level \(c\) \d+ RightScale/
       end
     end
 

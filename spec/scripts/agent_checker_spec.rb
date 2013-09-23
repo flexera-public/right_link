@@ -192,7 +192,7 @@ module RightScale
     context 'rchk --version' do
       it 'should reports RightLink version from gemspec' do
         run_agent_checker('--version')
-        @output.join("\n").should match /rchk \d+\.\d+\.?\d* - RightScale Agent Checker \(c\) 201\d RightScale/
+        @output.join("\n").should match /rchk \d+\.\d+\.?\d* - RightScale Agent Checker \(c\) \d+ RightScale/
       end
     end
 
