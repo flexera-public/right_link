@@ -38,7 +38,8 @@ module RightScale
     before(:each) do
       @output = []
       flexmock(subject).should_receive(:puts).and_return { |message| @output << message; true }
-      flexmock(subject).should_receive(:print).and_return { |message| @output << message; true }
+      flexmock(STDOUT).should_receive(:puts).and_return { |message| @output << message; true }
+      flexmock(STDOUT).should_receive(:print).and_return { |message| @output << message; true }
     end
 
     context 'attach option' do
@@ -71,7 +72,7 @@ module RightScale
     context 'rs_connect --version' do
       it 'should reports RightLink version from gemspec' do
         run_server_importer('--version')
-        @output.join('\n').should match /rs_connect \d+\.\d+\.?\d* - RightLink's server importer \(c\) 2011 RightScale/
+        @output.join('\n').should match /rs_connect \d+\.\d+\.?\d* - RightLink's server importer \(c\) \d+ RightScale/
       end
     end
 
@@ -79,24 +80,24 @@ module RightScale
       it 'should show usage info' do
         usage = Usage.scan(File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'scripts', 'server_importer.rb')))
         run_server_importer('--help')
-        @output.join('\n').should include(usage) 
+        @output.join('\n').should include(usage)
       end
     end
 
     def do_attach(url, force=false, cloud=nil)
-        subject.should_receive(:fail).and_return { raise }
-        subject.should_receive(:configure_logging)
-        subject.should_receive(:http_get).with(url, false).and_return("RS_rn_id")
+        flexmock(subject).should_receive(:fail).and_return { raise }
+        flexmock(subject).should_receive(:configure_logging)
+        flexmock(subject).should_receive(:http_get).with(url, false).and_return("RS_rn_id")
         flexmock(FileUtils).should_receive(:mkdir_p)
         file = flexmock('file')
         flexmock(File).should_receive(:open).and_return(file)
         file.should_receive(:puts)
         if RightScale::Platform.windows?
-          subject.should_receive(:`).with("net start rightscale").once
+          flexmock(subject).should_receive(:`).with("net start rightscale").once
           flexmock($?).should_receive(:success?).and_return(true)
           should_fail = false
         elsif RightScale::Platform.linux? || RightScale::Platform.darwin?
-          subject.should_receive(:`).with("/etc/init.d/rightscale start && /etc/init.d/rightlink start").once
+          flexmock(subject).should_receive(:`).with("/etc/init.d/rightscale start && /etc/init.d/rightlink start").once
           flexmock($?).should_receive(:success?).and_return(true)
           should_fail = false
         else

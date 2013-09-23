@@ -42,6 +42,7 @@ describe RightScale::Tagger do
   # @return [Fixnum] exit code or zero
   def run_tagger(argv)
     replace_argv(argv)
+    flexmock(subject).should_receive(:check_privileges).and_return(true)
     subject.run(subject.parse_args)
     return 0
   rescue SystemExit => e
@@ -66,6 +67,8 @@ describe RightScale::Tagger do
     @output = []
     flexmock(subject).should_receive(:write_error).and_return { |message| @error << message; true }
     flexmock(subject).should_receive(:write_output).and_return { |message| @output << message; true }
+    flexmock(STDERR).should_receive(:puts).and_return { |message| @error << message; true }
+    flexmock(STDOUT).should_receive(:puts).and_return { |message| @output << message; true }
   end
 
   context 'list option' do
@@ -154,7 +157,7 @@ describe RightScale::Tagger do
       flexmock(subject).should_receive(:send_command).with(
         { :name => :get_tags },
         false,
-        nil,
+        120,
         Proc).once.and_yield(listing)
       flexmock(subject).should_receive(:serialize_operation_result).never
       run_tagger(['-l'])
@@ -181,7 +184,7 @@ describe RightScale::Tagger do
       expected_cmd = { :name => :query_tags, :tags => Array(expected_tags) }
       flexmock(subject).
         should_receive(:send_command).
-        with(expected_cmd, false, nil, Proc).
+        with(expected_cmd, false, 120, Proc).
         once.
         and_yield('stuff')
       flexmock(subject).
@@ -219,7 +222,7 @@ describe RightScale::Tagger do
 
     it 'should fail to query instances with invalid format' do
       run_tagger(['-q', 'foo:bar', '-f', 'bogus']).should == 1
-      @error.should == ["Unknown output format bogus\nUse rs_tag --help for additional information"]
+      @error.should == ["Unknown output format bogus\nUse --help for additional information"]
       @output.should == []
     end
 
@@ -249,7 +252,7 @@ describe RightScale::Tagger do
       expected_cmd = { :name => :add_tag, :tag => 'x:y=z' }
       flexmock(subject).
         should_receive(:send_command).
-        with(expected_cmd, false, nil, Proc).
+        with(expected_cmd, false, 120,Proc).
         once.
         and_yield('stuff')
       flexmock(subject).should_receive(:serialize_operation_result).with('stuff').once.and_return(::RightScale::OperationResult.success(true))
@@ -264,7 +267,7 @@ describe RightScale::Tagger do
       expected_cmd = { :name => :remove_tag, :tag => 'x:y' }
       flexmock(subject).
         should_receive(:send_command).
-        with(expected_cmd, false, nil, Proc).
+        with(expected_cmd, false, 120, Proc).
         once.
         and_yield('stuff')
       flexmock(subject).
