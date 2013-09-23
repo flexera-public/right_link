@@ -26,8 +26,8 @@ module RightScale
     end
 
     def setup(hide_exception=false, retries=0)
-      subject.should_receive(:error).and_return { raise } unless hide_exception
-      subject.should_receive(:setup_traps).once
+      flexmock(subject).should_receive(:error).and_return { raise } unless hide_exception
+      flexmock(subject).should_receive(:setup_traps).once
       agent = { :identity => "test", :pid_dir => "/tmp", :listen_port => 123, :cookie => 123}
       flexmock(AgentConfig).should_receive(:agent_state_dir).and_return('/no/such/directory')
       flexmock(AgentConfig).should_receive(:agent_options).with('instance').and_return(agent).times(retries + 1)
@@ -69,9 +69,7 @@ module RightScale
                   .once\
                   .with(time_limit, Proc)\
                   .and_return { |time_limit, block| block.call}
-      client = flexmock("CommandClient")
-      flexmock(CommandClient).should_receive(:new).with(123, 123).and_return(client)
-      client.should_receive(:send_command).with({:name => "check_connectivity"}, false, AgentChecker::COMMAND_IO_TIMEOUT, Proc)
+      flexmock(subject).should_receive(:send_command).with({:name => "check_connectivity"}, false, AgentChecker::COMMAND_IO_TIMEOUT, Proc)
       flexmock(EM::Timer).should_receive(:new).with(options[:retry_interval] || AgentChecker::DEFAULT_RETRY_INTERVAL, Proc)
       args = "--start"
       args = "#{args} #{additional_args}" if additional_args
@@ -82,9 +80,7 @@ module RightScale
       pid_file, pid_file_agent = setup
       if RightScale::Platform::windows?
         pid_file.should_receive(:read_pid).and_return(:pid => 123, :listen_port => 123, :cookie => 123).once
-        client = flexmock("CommandClient")
-        flexmock(CommandClient).should_receive(:new).with(123, 123).and_return(client)
-        client.should_receive(:send_command).with({:name => :terminate}, verbose = false, timeout = 30, Proc).once
+        flexmock(subject).should_receive(:send_command).with({:name => :terminate}, verbose = false, timeout = 30, Proc).once
       else
         pid_file.should_receive(:read_pid).and_return(:pid => 123).once
         pid_file_agent.should_receive(:check).and_return(false) if pid_file_agent
@@ -96,9 +92,7 @@ module RightScale
 
     def ping(verbose=false)
       setup
-      client = flexmock("CommandClient")
-      flexmock(CommandClient).should_receive(:new).with(123, 123).and_return(client)
-      client.should_receive(:send_command).with({:name => "check_connectivity"}, verbose, AgentChecker::COMMAND_IO_TIMEOUT, Proc).once
+      flexmock(subject).should_receive(:send_command).with({:name => "check_connectivity"}, verbose, AgentChecker::COMMAND_IO_TIMEOUT, Proc).once
       flexmock(EM::Timer).should_receive(:new)
       args = ['--ping']
       args.push('-v') if verbose
@@ -119,8 +113,8 @@ module RightScale
 
     before(:each) do
       @output = []
-      flexmock(subject).should_receive(:puts).and_return { |message| @output << message; true }
-      flexmock(subject).should_receive(:print).and_return { |message| @output << message; true }
+      flexmock(STDOUT).should_receive(:puts).and_return { |message| @output << message; true }
+      flexmock(STDOUT).should_receive(:print).and_return { |message| @output << message; true }
     end
 
     context 'attempts option' do
@@ -198,7 +192,7 @@ module RightScale
     context 'rchk --version' do
       it 'should reports RightLink version from gemspec' do
         run_agent_checker('--version')
-        @output.join("\n").should match /rchk \d+\.\d+\.?\d* - RightScale Agent Checker \(c\) 2010 RightScale/
+        @output.join("\n").should match /rchk \d+\.\d+\.?\d* - RightScale Agent Checker \(c\) 201\d RightScale/
       end
     end
 
@@ -239,7 +233,7 @@ module RightScale
         stop
       end
     end
-    
+
     context 'rchk --ping' do
       it 'should try communicating' do
         ping
@@ -256,9 +250,7 @@ module RightScale
       it 'should make requested number of attempts' do
         attempts = 5
         setup(hide_exception=true, attempts)
-        client = flexmock("CommandClient")
-        flexmock(CommandClient).should_receive(:new).with(123, 123).and_return(client)
-        client.should_receive(:send_command)\
+        flexmock(subject).should_receive(:send_command)\
               .times(attempts)\
               .with({:name => "check_connectivity"}, false, AgentChecker::COMMAND_IO_TIMEOUT, Proc)\
               .and_return { raise Exception, "test" }

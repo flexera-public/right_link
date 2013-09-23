@@ -92,7 +92,7 @@ module RightScale
         STDOUT.puts(usage)
         succeed
       rescue Trollop::CommandlineError => e
-        puts e.message + "\nUse --help for additional information"
+        STDERR.puts e.message + "\nUse --help for additional information"
         fail
       rescue SystemExit => e
         raise e

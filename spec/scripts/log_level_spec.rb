@@ -16,6 +16,7 @@ module RightScale
   describe RightLinkLogLevelManager do
     def run_log_level_manager(argv)
       replace_argv(argv)
+      flexmock(subject).should_receive(:check_privileges).and_return(true)
       subject.manage(subject.parse_args)
       return 0
     rescue SystemExit => e
@@ -40,6 +41,8 @@ module RightScale
       @output = []
       flexmock(subject).should_receive(:write_error).and_return { |message| @error << message; true }
       flexmock(subject).should_receive(:write_output).and_return { |message| @output << message; true }
+      flexmock(STDERR).should_receive(:puts).and_return { |message| @error << message; true }
+      flexmock(STDOUT).should_receive(:puts).and_return { |message| @output << message; true }
     end
 
     context 'log-level option' do
@@ -63,7 +66,7 @@ module RightScale
     context 'rs_log_level --version' do
       it 'should report RightLink version from gemspec' do
         run_log_level_manager('--version')
-        @output.join("\n").should match /rs_log_level \d+\.\d+\.?\d* - RightLink's log level \(c\) 2011 RightScale/
+        @output.join("\n").should match /rs_log_level \d+\.\d+\.?\d* - RightLink's log level \(c\) 201\d RightScale/
       end
     end
 
@@ -101,7 +104,7 @@ module RightScale
 
     context 'rs_log_level' do
       it 'should prints the current log level' do
-        flexmock(CommandHelper).should_receive(:send_command).with(
+        flexmock(subject).should_receive(:send_command).with(
           { :name => :get_tags },
           false,
           Tagger::TAG_REQUEST_TIMEOUT
@@ -110,12 +113,12 @@ module RightScale
       end
 
       it 'should request agent log level if Chef/RightScript log level is not specified' do
-        flexmock(CommandHelper).should_receive(:send_command).with(
+        flexmock(subject).should_receive(:send_command).with(
           { :name => :get_tags },
           false,
           Tagger::TAG_REQUEST_TIMEOUT
         ).and_return([])
-        flexmock(CommandHelper).should_receive(:send_command).with(
+        flexmock(subject).should_receive(:send_command).with(
           { :name => 'get_log_level'},
           false,
           5
@@ -128,7 +131,7 @@ module RightScale
       context "rs_log_level -l #{level}" do
         it "should change log level to #{level}" do
           result = ::RightScale::Serializer.new.dump(::RightScale::OperationResult.new(0))
-          flexmock(CommandHelper).should_receive(:send_command).with(
+          flexmock(subject).should_receive(:send_command).with(
             { :name => :add_tag, :tag => "#{RightLinkLogLevelManager::LOG_LEVEL_TAG}=#{level}" },
             false,
             Tagger::TAG_REQUEST_TIMEOUT

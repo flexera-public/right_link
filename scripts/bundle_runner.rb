@@ -100,7 +100,7 @@ module RightScale
       cmd[:name] = options[:bundle_type] == :right_script ? 'run_right_script' : 'run_recipe'
       AgentConfig.cfg_dir = options[:cfg_dir]
 
-      exit_code = true 
+      exit_code = true
       callback ||= lambda do |r|
         response = serialize_operation_result(r) rescue nil
         if r == 'OK'
@@ -120,7 +120,7 @@ module RightScale
       rescue Exception => e
         fail(e.message)
       end
-      exit_code 
+      exit_code
     rescue SystemExit => e
       raise e
     rescue Exception => e
@@ -257,7 +257,7 @@ protected
       end
       result
     end
-    
+
     # Version information
     #
     # === Return
