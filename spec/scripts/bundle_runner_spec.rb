@@ -16,11 +16,9 @@ module RightScale
   describe BundleRunner do
     def send_command(args, bundle_type, forwarder_opts,timeout=BundleRunner::DEFAULT_TIMEOUT, verbose=false)
       flexmock(AgentConfig).should_receive(:agent_options).and_return({:listen_port => 123})
-      client = flexmock("CommandClient")
-      flexmock(CommandClient).should_receive(:new).and_return(client)
       cmd = {:options => forwarder_opts }
       cmd[:name] = bundle_type == :right_script ? 'run_right_script' : 'run_recipe'
-      client.should_receive(:send_command).with( cmd, verbose, timeout, Proc).once
+      flexmock(subject).should_receive(:send_command).with( cmd, verbose, timeout, Proc).once
       run_bundle_runner(args, bundle_type)
     end
 
@@ -28,6 +26,7 @@ module RightScale
       replace_argv(argv)
       opts = subject.parse_args
       opts[:bundle_type] = bundle_type
+      flexmock(subject).should_receive(:check_privileges).and_return(true)
       subject.run(opts)
       return 0
     rescue SystemExit => e
@@ -50,8 +49,8 @@ module RightScale
     before(:each) do
       @error = []
       @output = []
-      flexmock(subject).should_receive(:puts).and_return { |message| @output << message; true }
-      flexmock(subject).should_receive(:print).and_return { |message| @output << message; true }
+      flexmock(STDOUT).should_receive(:puts).and_return { |message| @output << message; true }
+      flexmock(STDOUT).should_receive(:print).and_return { |message| @output << message; true }
     end
 
       context 'identity option' do
@@ -184,7 +183,7 @@ module RightScale
 
         it 'should fail given any value other than "single" or "all"' do
           flexmock(subject).should_receive(:fail).with("Invalid scope definition 'foo', should be either 'single' or 'all'")
-          subject.parse_args([short_name, 'foo']) 
+          subject.parse_args([short_name, 'foo'])
         end
       end
 
@@ -227,7 +226,7 @@ module RightScale
     context 'rs_run_right_script --version' do
       it 'reports RightLink version from gemspec' do
         run_bundle_runner('--version', :right_script)
-        @output.join('\n').should match /rs_run_right_script & rs_run_recipe \d+\.\d+\.?\d* - RightLink's bundle runner \(c\) 2011 RightScale/
+        @output.join('\n').should match /rs_run_right_script & rs_run_recipe \d+\.\d+\.?\d* - RightLink's bundle runner \(c\) \d+ RightScale/
       end
     end
 
@@ -271,8 +270,8 @@ module RightScale
     context 'rs_run_right_script -i 14 -p APPLICATION=text:Mephisto' do
       it 'should run RightScript with id 14 and override input \'APPLICATION\' with value \'Mephisto\'' do
         send_command('-i 14 -p APPLICATION=text:Mephisto'.split, :right_script, {
-          :right_script_id => "14", 
-          :arguments => { "APPLICATION" => "text:Mephisto" } 
+          :right_script_id => "14",
+          :arguments => { "APPLICATION" => "text:Mephisto" }
         })
       end
     end

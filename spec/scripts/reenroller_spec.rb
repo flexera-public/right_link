@@ -16,6 +16,7 @@ module RightScale
   describe Reenroller do
     def run_reenroller(argv)
       replace_argv(argv)
+      flexmock(subject).should_receive(:check_privileges).and_return(true)
       subject.run(subject.parse_args)
       return 0
     rescue SystemExit => e
@@ -56,8 +57,8 @@ module RightScale
     before(:each) do
       @error = []
       @output = []
-      flexmock(subject).should_receive(:puts).and_return { |message| @output << message; true }
-      flexmock(subject).should_receive(:print).and_return { |message| @output << message; true }
+      flexmock(STDOUT).should_receive(:puts).and_return { |message| @output << message; true }
+      flexmock(STDOUT).should_receive(:print).and_return { |message| @output << message; true }
     end
 
     context 'resume option' do
@@ -81,7 +82,7 @@ module RightScale
     context 'rs_reenroll --version' do
       it 'reports RightLink version from gemspec' do
         run_reenroller('--version')
-        @output.join('\n').should match /rs_reenroll \d+\.\d+\.?\d* - RightLink's reenroller \(c\) 2011 RightScale/
+        @output.join('\n').should match /rs_reenroll \d+\.\d+\.?\d* - RightLink's reenroller \(c\) \d+ RightScale/
       end
     end
 
