@@ -1,12 +1,84 @@
-= RightLink 5.9
+= Unreleased Changes
 
 == New Features
 
-* The RS_DECOM_REASON environment variable is set during decommission script/recipe execution to indicate the reason why decommission
-  is running. This variable will have one of the following values: 'reboot', 'stop', 'terminate' or 'unknown'
-  The value will be 'reboot', 'stop' or 'terminate' when decommissioning through the RightScale dashboard or when using the
-  rs_shutdown command. The 'unknown' value may be seen when the rightlink service is decommissioned (not stopped) from the console or
-  else the instance is shutdown or rebooted without using the rs_shutdown command.
+== Changes to Existing Functionality
+
+* RightLink changes the audit summary when waiting for missing inputs on boot. It also strands if 
+  inputs are still missing after 45 minutes. ("Missing" means inputs that are set to a value that
+  cannot yet be computed, such as the IP address of a non-running server.)
+
+== Bug Fixes
+
+= 5.9.2 (RightLink 5.9 beta 3)
+
+Released 2013-09-06.
+
+== New Features
+
+* RightLink's log level can now be controlled by a tag, "rs_agent_dev:log_level". The rs_log_level
+  command is now an interface for getting or setting this tag.
+* The log-level tag and command no longer apply to the RightLink agent, only to Chef and RightScript
+  execution. To set the RightLink agent's log level explicitly, use the "--agent" option of
+  rs_log_level.
+* When running on a RedHat-derived distro, RightLink installs public keys for EPEL signed packages
+  at boot.
+
+== Changes to Existing Functionality
+
+* When installing RightLink, the recommended technique is to install _only_ the appropriate
+  cloud-support package for the cloud in which RightLink will run. The other RightLink packages
+  will be installed as dependencies. For instance, to install RightLink on an EC2 instance:
+     apt-get install rightlink-cloud-ec2
+* The cloud-support packages for Rackspace clouds have been renamed to avoid confusion. The
+  package for Rackspace Classic is suffixed with "rackspace-first-gen". The support package for
+  Rackspace OpenCloud is suffixed with "rackspace-open-cloud".
+
+== Bug Fixes
+
+* RightLink now looks in the proper directory (/var/spool/rackspace) for cloud-injected
+  userdata when running on Rackspace OpenCloud.
+* RightLink now requires a modern version of sudo (we rely on the #includedir directive)
+* Included SUSE vendor-support tags in our rpmspec to prevent warnings from zypper
+* RightLink DEBs are now signed
+* Init scripts have more accurate LSB metadata, preventing warnings from init-updaters
+
+= 5.9.1 (RightLink 5.9 beta 2)
+
+Released 2013-08-07.
+
+== New Features
+
+* Rebooting the machine with "rs_shutdown --reboot" will now use OS' facility for rebooting the
+  machine rather than invoking the cloud's API to reboot. This works around VM state loss when
+  the hypervisor/image isn't properly generating/handling ACPI restart events.
+
+== Changes to Existing Functionality
+
+* Add AMQP connection lifecycle callbacks to ensure that the instance recovers from from AMQP
+  connection failures much more rapidly.
+
+* Assign random password to users that are created during SSH login, ensuring that the RightLink
+  agent can reliably lock and unlock their accounts when role evolution occurs.
+
+== Bug Fixes
+
+* Repository freezing under CentOS 6 uses the proper public key file name, instead of hardcoding
+  "/RPM-GPG-KEY-CentOS-5"
+
+= 5.9.0 (RightLink 5.9 beta 1)
+
+Released 2013-07-13.
+
+== New Features
+
+* The RS_DECOM_REASON environment variable is set during decommission script/recipe execution to
+  indicate the reason why decommission is running. This variable will have one of the following
+  values: 'reboot', 'stop', 'terminate' or 'unknown'. The value will be 'reboot', 'stop' or
+  'terminate' when decommissioning through the RightScale dashboard or when using the rs_shutdown
+  command. The 'unknown' value may be seen when the rightlink service is decommissioned (not
+  stopped) from the console or else the instance is shutdown or rebooted without using the
+  rs_shutdown command.
 * RightLink is distributed as a modular "tree" of packages, making it easy to install just what you need
 * Improved package hygiene, e.g. clean uninstall and minimal post-install filesystem tampering
 * Ability to distinguish between sudo (server_login + server_superuser) and normal (server_login) users
@@ -38,8 +110,7 @@
 * AMQP broker reconnect reliability improved for certain corner cases
 * SuSE metadata query on CloudStack has been fixed
 
-= RightLink 5.8
-= 5.8.13
+= 5.8.13 (General Availability release in conjunction with ServerTemplates v13.4)
 
 == New Features
 
@@ -49,7 +120,7 @@
 
 * Hardened metadata retrieval for Windows on Openstack to overcome DHCP-lease race conditions
 
-= 5.8.12
+= 5.8.12 (Limited-availability release)
 
 == New Features
 
@@ -62,7 +133,7 @@
 * Managed login always displays MOTD, works with older versions of sudo, 
 * Cookbook download is more reliable in fail-and-retry scenarios
 
-= 5.8.8
+= 5.8.8 (General Availability release in conjunction with ServerTemplates v12.11 LTS)
 
 == New Features
 

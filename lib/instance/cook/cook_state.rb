@@ -112,18 +112,6 @@ module RightScale
       !!@reboot
     end
 
-    # Is the instance running in dev mode?
-    # dev mode tweaks the behavior of the RightLink agent to help
-    # the development of Chef recipes.
-    # In dev mode, the log level is always debug.
-    #
-    # === Return
-    # true:: If dev tags are defined on this instance
-    # false:: Otherwise
-    def dev_mode_enabled?
-      !!tag_value(DEV_TAG_NAMESPACE)
-    end
-
     # Determines the developer log level, if any, which forces and supercedes
     # all other log level configurations.
     #
@@ -202,7 +190,12 @@ module RightScale
     # === Return
     # level(Integer):: one of Logger::INFO ... Logger::FATAL
     def log_level
-      @log_level
+      case @log_level
+      when Symbol, String
+        Log.level_from_sym(@log_level.to_sym)
+      else
+        @log_level
+      end
     end
 
     # Re-initialize then merge given state

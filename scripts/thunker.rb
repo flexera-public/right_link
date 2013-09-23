@@ -1,5 +1,5 @@
 # === Synopsis:
-#   RightScale Thunker (rs_thunk) - (c) 2011 RightScale Inc
+#   RightScale Thunker (rs_thunk) - (c) 2013 RightScale Inc
 #
 #   Thunker allows you to manage custom SSH logins for non root users. It uses the rightscale
 #   user and group RightScale to give privileges for authorization, managing the instance
@@ -31,6 +31,7 @@ require 'right_agent/scripts/usage'
 require 'right_agent/scripts/common_parser'
 require 'right_agent/core_payload_types'
 require 'right_support/net'
+require File.expand_path(File.join(File.dirname(__FILE__), 'command_helper'))
 
 basedir = File.expand_path('../..', __FILE__)
 require File.join(basedir, 'lib', 'instance')
@@ -38,6 +39,8 @@ require File.join(basedir, 'lib', 'instance')
 module RightScale
 
   class Thunker
+    include CommandHelper
+
     SCP_COMMAND  = %r{^[A-Za-z0-9_/]*scp}
     SFTP_COMMAND = %r{^[A-Za-z0-9_/]*sftp-server}
     AUDIT_REQUEST_TIMEOUT = 15 # best-effort auditing, but try not to block user
@@ -54,6 +57,7 @@ module RightScale
       @log_sink = StringIO.new
       @log = Logger.new(@log_sink)
       RightScale::Log.force_logger(@log)
+      check_privileges
 
       username  = options.delete(:username)
       email     = options.delete(:email)
@@ -133,19 +137,8 @@ module RightScale
        version ""
       end
 
-      begin
+      parse do
         parser.parse
-      rescue Trollop::VersionNeeded
-        puts version
-        succeed
-      rescue Trollop::HelpNeeded
-         puts Usage.scan(__FILE__)
-         succeed
-      rescue Trollop::CommandlineError => e
-        STDERR.puts e.message + "\nUse rs_thunk --help for additional information"
-        fail(1)
-      rescue SystemExit => e
-        raise e
       end
     end
 
@@ -168,14 +161,6 @@ module RightScale
       return false
     end
 
-    # Exit with success.
-    #
-    # === Return
-    # R.I.P. does not return
-    def succeed
-      exit(0)
-    end
-
     # Print error on console and exit abnormally
     #
     # === Parameters
@@ -194,9 +179,11 @@ module RightScale
         STDOUT.puts "Unexpected #{reason.class.name}: #{reason.message}"
         STDOUT.puts "We apologize for the inconvenience. You may try connecting as root"
         STDOUT.puts "to work around this problem, if you have sufficient privilege."
-        STDERR.puts
-        STDERR.puts("Debugging information:")
-        STDERR.puts(@log_sink.string)
+        unless @log_sink.string.empty?
+          STDERR.puts
+          STDERR.puts("Debugging information:")
+          STDERR.puts(@log_sink.string)
+        end
         code = 50
       when String
         STDOUT.puts reason
@@ -226,11 +213,6 @@ module RightScale
     # === Return
     # Returns true on success, false otherwise
     def create_audit_entry(email, username, access, command, client_ip=nil)
-      config_options = AgentConfig.agent_options('instance')
-      listen_port = config_options[:listen_port]
-      raise ArgumentError.new('Could not retrieve agent listen port') unless listen_port
-      client = CommandClient.new(listen_port, config_options[:cookie])
-
       begin
         hostname = `hostname`.strip
       rescue Exception => e
@@ -266,7 +248,7 @@ module RightScale
         :detail => detail,
         :category => RightScale::EventCategories::CATEGORY_SECURITY
       }
-      client.send_command(options, false, AUDIT_REQUEST_TIMEOUT)
+      send_command(options, false, AUDIT_REQUEST_TIMEOUT)
 
       true
     rescue Exception => e
@@ -303,10 +285,13 @@ module RightScale
     # === Return
     # (String):: Version information
     def version
-      gemspec = eval(File.read(File.join(File.dirname(__FILE__), '..', 'right_link.gemspec')))
-      "rs_thunk #{gemspec.version} - RightLink's thunker (c) 2011 RightScale"
+      "rs_thunk #{right_link_version} - RightLink's thunker (c) 2013 RightScale"
     end
-    
+
+    def usage
+      Usage.scan(__FILE__)
+    end
+
   end # Thunker
 
 end # RightScale

@@ -17,6 +17,7 @@ module RightScale
 
     def run_shutdown_client(argv)
       replace_argv(argv)
+      flexmock(subject).should_receive(:check_privileges).and_return(true)
       subject.run(subject.parse_args)
       return 0
     rescue SystemExit => e
@@ -25,9 +26,7 @@ module RightScale
 
     def send_command(args, level, immediate=false)
       flexmock(AgentConfig).should_receive(:agent_options).and_return({:listen_port => 123})
-      client = flexmock("CommandClient")
-      flexmock(CommandClient).should_receive(:new).and_return(client)
-      client.should_receive(:send_command).with({
+      flexmock(subject).should_receive(:send_command).with({
         :name => :set_shutdown_request,
         :level => level,
         :immediately => immediate
@@ -51,8 +50,10 @@ module RightScale
     before(:each) do
       @error = []
       @output = []
-      flexmock(subject).should_receive(:puts).and_return { |message| @output << message; true }
-      flexmock(subject).should_receive(:print).and_return { |message| @output << message; true }
+      [subject, STDOUT, STDERR].each do |subj|
+        flexmock(subj).should_receive(:puts).and_return { |message| @output << message; true }
+        flexmock(subj).should_receive(:print).and_return { |message| @output << message; true }
+      end
     end
 
     context 'reboot option' do
@@ -112,7 +113,7 @@ module RightScale
     context 'rs_shutdown --version' do
       it 'should reports RightLink version from gemspec' do
         run_shutdown_client('--version')
-        @output.join('\n').should match /rs_shutdown \d+\.\d+\.?\d* - RightLink's shutdown client \(c\) 2011 RightScale/
+        @output.join('\n').should match /rs_shutdown \d+\.\d+\.?\d* - RightLink's shutdown client \(c\) 201\d RightScale/
       end
     end
 

@@ -1,5 +1,5 @@
 # === Synopsis:
-#   RightScale System Shutdown Utility (rs_shutdown) - (c) 2011 RightScale Inc
+#   RightScale System Shutdown Utility (rs_shutdown) - (c) 2013 RightScale Inc
 #
 #   This utility allows the given system to be shutdown or rebooted.
 #
@@ -25,7 +25,6 @@
 #      --help:            Display help
 #      --version:         Display version information
 #
-#    No options prints the current RightLink agent log level
 #
 
 require 'rubygems'
@@ -35,10 +34,12 @@ require 'right_agent/scripts/usage'
 require 'right_agent/scripts/common_parser'
 
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'instance', 'shutdown_request'))
+require File.expand_path(File.join(File.dirname(__FILE__), 'command_helper'))
 
 module RightScale
 
   class ShutdownClient
+    include CommandHelper
 
     # Run
     #
@@ -48,17 +49,14 @@ module RightScale
     # === Return
     # true:: Always return true
     def run(options)
+      check_privileges
       fail("Missing required shutdown argument") unless options[:level]
       cmd = {}
       cmd[:name] = :set_shutdown_request
       cmd[:level] = options[:level]
       cmd[:immediately] = options[:immediately]
-      config_options = AgentConfig.agent_options('instance')
-      listen_port = config_options[:listen_port]
-      fail('Could not retrieve agent listen port') unless listen_port
-      client = CommandClient.new(listen_port, config_options[:cookie])
       begin
-        client.send_command(cmd, options[:verbose]) do |response|
+        send_command(cmd, options[:verbose]) do |response|
           if response[:error]
             fail("Failed #{cmd.inspect} with #{response[:error]}")
           else
@@ -94,66 +92,27 @@ module RightScale
         conflicts :deferred, :immediately
       end
 
-      begin
+      parse do
         options.merge!(parser.parse)
         options[:level] = ::RightScale::ShutdownRequest::REBOOT if options[:reboot]
         options[:level] = ::RightScale::ShutdownRequest::STOP if options[:stop]
         options[:level] = ::RightScale::ShutdownRequest::TERMINATE if options[:terminate]
         options[:immediately] = false if options[:deferred]
-      rescue Trollop::VersionNeeded
-        puts version
-        succeed
-      rescue Trollop::HelpNeeded
-        puts Usage.scan(__FILE__)
-        exit
-      rescue SystemExit => e
-        raise e
-      rescue Exception => e
-        puts e.message + "\nUse --help for additional information"
-        exit(1)
       end
       options
     end
 
 protected
-
-    # Print error on console and exit abnormally
-    #
-    # === Parameter
-    # reason(String|Exception):: Error message or exception, default to nil (no message printed)
-    # print_usage(Boolean):: Whether script usage should be printed, default to false
-    #
-    # === Return
-    # R.I.P. does not return
-    def fail(reason=nil, print_usage=false)
-      case reason
-      when Errno::EACCES
-        STDERR.puts "** #{reason.message}"
-        STDERR.puts "** Try elevating privilege (sudo/runas) before invoking this command."
-        code = 2
-      when Exception
-        STDERR.puts "** #{reason.message}"
-        code = 1
-      else
-        STDERR.puts "** #{reason}" if reason
-        code = 1
-      end
-
-      puts Usage.scan(__FILE__) if print_usage
-      exit(code)
-    end
-    
     # Version information
     #
     # === Return
     # (String):: Version information
     def version
-      gemspec = eval(File.read(File.join(File.dirname(__FILE__), '..', 'right_link.gemspec')))
-      "rs_shutdown #{gemspec.version} - RightLink's shutdown client (c) 2011 RightScale"
+      "rs_shutdown #{right_link_version} - RightLink's shutdown client (c) 2013 RightScale"
     end
 
-    def succeed
-      exit(0)
+    def usage
+      Usage.scan(__FILE__)
     end
 
   end # ShutdownClient

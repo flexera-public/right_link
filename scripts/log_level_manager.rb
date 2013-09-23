@@ -1,7 +1,7 @@
 # === Synopsis:
-#   RightScale Log Level Manager (rs_log_level) - (c) 2009-2011 RightScale Inc
+#   RightScale Log Level Manager (rs_log_level) - (c) 2009-2013 RightScale Inc
 #
-#   Log level manager allows setting and retrieving the RightLink agent
+#   Log level manager allows setting and retrieving the RightLink agent and Chef/RightScript
 #   log level.
 #
 # === Examples:
@@ -16,20 +16,26 @@
 #    rs_set_log_level [--log-level, -l debug|info|warn|error|fatal]
 #
 #    Options:
-#      --log-level, -l LVL  Set log level of RightLink agent
+#      --log-level, -l LVL  Set log level(for Chef/RightScript by default)
+#      --agent, -a          Set/get log level of RightLink agent
 #      --verbose, -v        Display debug information
 #      --help:              Display help
 #      --version:           Display version information
 #
-#    No options prints the current RightLink agent log level
+#    No options prints the current Chef/RightScript log level
 #
 
 require 'right_agent/scripts/log_level_manager'
 require 'trollop'
+require File.expand_path(File.join(File.dirname(__FILE__), 'command_helper'))
+require File.expand_path(File.join(File.dirname(__FILE__), 'tagger'))
 
 module RightScale
 
   class RightLinkLogLevelManager < LogLevelManager
+    include CommandHelper
+
+    LOG_LEVEL_TAG = "rs_agent_dev:log_level"
 
     # Convenience wrapper for creating and running log level manager
     #
@@ -39,6 +45,7 @@ module RightScale
       m = RightLinkLogLevelManager.new
 
       options = m.parse_args
+      m.check_privileges
       m.manage(options)
 
       if options[:level] =~ /debug/i && !RightScale::Platform.windows?
@@ -47,10 +54,25 @@ module RightScale
         puts "      log daemon may discard these messages. If debug messages do not appear,"
         puts "      review your syslog configuration and restart the daemon."
       end
-    rescue Errno::EACCES => e
-      write_error(e.message)
-      write_error("Try elevating privilege (sudo/runas) before invoking this command.")
-      exit(2)
+    end
+
+    def manage(options)
+      return super(options) if options[:agent]
+      cmd = options[:level] ? { :name => :add_tag,  } : { :name => :get_tags }
+      cmd[:tag] = "#{LOG_LEVEL_TAG}=#{options[:level]}" if options[:level]
+      res = send_command(cmd, options[:verbose], Tagger::TAG_REQUEST_TIMEOUT)
+      case cmd[:name]
+      when :get_tags
+        fail("Getting log level failed: #{res.inspect}") unless res.kind_of?(Array)
+        log_level_tag = res.detect { |tag| tag.start_with?(LOG_LEVEL_TAG) }
+        level = log_level_tag ? log_level_tag.split("=").last : send_command({ :name => 'get_log_level' }, options[:verbose], 5)
+        write_output("Chef/RightScript log level: #{level.to_s.upcase}")
+      when :add_tag
+        r = serialize_operation_result(res)
+        fail("Setting log level failed: #{r.inspect}") unless r.kind_of?(OperationResult)
+        fail("Setting log level failed: #{r.content}") unless r.success?
+        write_output("Successfully set log level to #{options[:level]}")
+      end
     end
 
     # Create options hash from command line arguments
@@ -62,31 +84,22 @@ module RightScale
 
       parser = Trollop::Parser.new do
         opt :level, "", :type => String, :long => "--log-level", :short => "-l"
+        opt :agent
         opt :verbose
         version ""
       end
 
-      begin
+      parse do
         options.merge!(parser.parse)
         if options[:level]
           fail("Invalig log level '#{options[:level]}'") unless AgentManager::LEVELS.include?(options[:level].to_sym)
         end
         options
-      rescue Trollop::HelpNeeded
-        write_output(Usage.scan(__FILE__))
-        exit
-      rescue Trollop::VersionNeeded
-        write_output(version)
-        succeed
-      rescue SystemExit => e
-        raise e
-      rescue Exception => e
-        write_output(e.message + "\nUse --help for additional information")
-        exit(1)
       end
     end
-    
+
 protected
+
     # Writes to STDOUT (and a placeholder for spec mocking).
     #
     # === Parameters
@@ -99,7 +112,7 @@ protected
     #
     # === Parameters
     # @param [String] message to write
-    def write_error(message)
+    def self.write_error(message)
       STDERR.puts(message)
     end
 
@@ -108,12 +121,11 @@ protected
     # === Return
     # (String):: Version information
     def version
-      gemspec = eval(File.read(File.join(File.dirname(__FILE__), '..', 'right_link.gemspec')))
-      "rs_log_level #{gemspec.version} - RightLink's log level (c) 2011 RightScale"
+      "rs_log_level #{right_link_version} - RightLink's log level (c) 2013 RightScale"
     end
 
-    def succeed
-      exit(0)
+    def usage
+      Usage.scan(__FILE__)
     end
 
   end

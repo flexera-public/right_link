@@ -51,6 +51,9 @@ class InstanceSetup
   # Maximum time between nag audits for missing inputs.
   MISSING_INPUT_AUDIT_DELAY_SECS = 2 * 60
 
+  # Maximum time that instances will wait for missing inputs before stranding
+  MISSING_INPUT_TIMEOUT = 45 * 60
+
   # Tag set on instances that are part of an array
   AUTO_LAUNCH_TAG ='rs_launch:type=auto'
 
@@ -100,18 +103,27 @@ class InstanceSetup
     success_result(RightScale::InstanceState.value)
   end
 
-  # Handle disconnected notification from broker, enter offline mode
+  # Handle connection status notification from broker to adjust offline mode
+  # or to re-enroll if all connections have failed
   #
   # === Parameters
-  # status(Symbol):: Connection status, one of :connected or :disconnected
+  # status(Symbol):: Connection status, one of :connected, :disconnected, or :failed
   #
   # === Return
   # true:: Always return true
   def connection_status(status)
-    if status == :disconnected
-      RightScale::Sender.instance.enable_offline_mode
-    else
+    case status
+    when :connected
       RightScale::Sender.instance.disable_offline_mode
+    when :disconnected
+      RightScale::Sender.instance.enable_offline_mode
+    when :failed
+      RightScale::Log.error("All broker connections have failed")
+      RightScale::ReenrollManager.vote
+      RightScale::ReenrollManager.vote
+      RightScale::ReenrollManager.vote
+    else
+      RightScale::Log.error("Unrecognized broker connection status: #{status}")
     end
     true
   end
@@ -160,7 +172,7 @@ class InstanceSetup
         # we are no longer freezing log level for v5.8+
         tagged_log_level = ::RightScale::CookState.dev_log_level
         RightScale::Log.level = tagged_log_level if tagged_log_level
-        RightScale::Log.info("Tags discovered at initial startup: #{tags.inspect} (dev mode = #{::RightScale::CookState.dev_mode_enabled?})")
+        RightScale::Log.info("Tags discovered at initial startup: #{tags.inspect}")
       end
 
       # Setup suicide timer which will cause instance to shutdown if the rs_launch:type=auto tag
@@ -394,6 +406,7 @@ class InstanceSetup
 
     req.callback do |bundle|
       if bundle.executables.any? { |e| !e.ready }
+        @audit.create_new_section("Waiting for missing inputs")
         retrieve_missing_inputs(bundle) { cb.call(success_result(bundle)) }
       else
         yield success_result(bundle)
@@ -452,7 +465,7 @@ class InstanceSetup
         yield
       else
         # keep state to provide fewer but more meaningful audits.
-        last_missing_inputs ||= {}
+        last_missing_inputs ||= {:started_at => Time.now}
         last_missing_inputs[:executables] ||= {}
 
         # don't need to audit on each attempt to resolve missing inputs, but nag
@@ -468,9 +481,11 @@ class InstanceSetup
           missing_input_names = []
 
           e.input_flags.each {|k,v| missing_input_names << k if  v.member?("unready")}
-          @audit.append_info("Waiting for the following missing inputs which are used by '#{e.nickname}': #{missing_input_names.join(", ")}")
+          if audit_missing_inputs
+            @audit.append_info("Waiting for the following missing inputs which are used by '#{e.nickname}': #{missing_input_names.join(", ")}")
+            sent_audit = true
+          end
 
-          sent_audit = true
           missing_inputs_executables[e.nickname] = missing_input_names
         end
 
@@ -479,14 +494,17 @@ class InstanceSetup
           unless missing_inputs_executables[nickname]
             title = RightScale::RightScriptsCookbook.recipe_title(nickname)
             @audit.append_info("The inputs used by #{title} which had been missing have now been resolved.")
-            sent_audit = true
           end
         end
         last_missing_inputs[:executables] = missing_inputs_executables
         last_missing_inputs[:last_audit_time] = Time.now if sent_audit
 
-        # schedule retry to retrieve missing inputs.
-        EM.add_timer(MISSING_INPUT_RETRY_DELAY_SECS) { retrieve_missing_inputs(bundle, last_missing_inputs, &cb) }
+        if Time.now - last_missing_inputs[:started_at] < MISSING_INPUT_TIMEOUT
+          # schedule retry to retrieve missing inputs.
+          EM.add_timer(MISSING_INPUT_RETRY_DELAY_SECS) { retrieve_missing_inputs(bundle, last_missing_inputs, &cb) }
+        else
+          strand("Failed to retrieve missing inputs after #{MISSING_INPUT_TIMEOUT / 60} minutes")
+        end
       end
     end
 

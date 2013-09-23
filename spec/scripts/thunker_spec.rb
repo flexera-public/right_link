@@ -16,6 +16,7 @@ module RightScale
   describe Thunker do
     def run_thunker(argv)
       replace_argv(argv)
+      flexmock(subject).should_receive(:check_privileges).and_return(true)
       opts = subject.parse_args
       subject.run(opts)
       return 0
@@ -39,8 +40,10 @@ module RightScale
     before(:each) do
       @error = []
       @output = []
-      flexmock(subject).should_receive(:puts).and_return { |message| @output << message; true }
-      flexmock(subject).should_receive(:print).and_return { |message| @output << message; true }
+      [subject, STDOUT, STDERR].each do |subj|
+        flexmock(subj).should_receive(:puts).and_return { |message| @output << message; true }
+        flexmock(subj).should_receive(:print).and_return { |message| @output << message; true }
+      end
     end
     context 'uuid option' do
       let(:short_name)    {'-i'}
@@ -99,13 +102,13 @@ module RightScale
     context 'rs_thunk --version' do
       it 'should reports RightLink version from gemspec' do
         run_thunker('--version')
-        @output.join("\n").should match /rs_thunk \d+\.\d+\.?\d* - RightLink's thunker \(c\) 2011 RightScale/
+        @output.join("\n").should match /rs_thunk \d+\.\d+\.?\d* - RightLink's thunker \(c\) 201\d RightScale/
       end
     end
 
     context 'rs_thunk --help' do
       it 'should show usage info' do
-        usage = Usage.scan(File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'scripts', 'thunker.rb'))) 
+        usage = Usage.scan(File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'scripts', 'thunker.rb')))
         run_thunker('--help')
         @output.join("\n").should include(usage)
       end

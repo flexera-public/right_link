@@ -153,6 +153,13 @@ module RightScale
       Etc.getpwuid(uid).name
     end
 
+
+    def random_password
+      letters =  [('a'..'z'),('A'..'Z')].map{|i| i.to_a}.flatten
+      password = (0..32).map{ letters[rand(letters.length)] }.join
+      Shellwords.escape(password.crypt("rightscale"))
+    end
+
     # Create a Unix user with the "useradd" command.
     #
     # === Parameters
@@ -177,9 +184,20 @@ module RightScale
         dash_s = "-s #{Shellwords.escape(shell)}"
       end
 
-      result = sudo("#{useradd} #{dash_s} -u #{uid} -m #{Shellwords.escape(username)}")
+      result = sudo("#{useradd} #{dash_s} -u #{uid} -p #{random_password} -m #{Shellwords.escape(username)}")
 
-      raise RightScale::LoginManager::SystemConflict, "Failed to create user #{username}" unless result.success?
+      case result.exitstatus
+      when 0
+        home_dir = Shellwords.escape(Etc.getpwnam(username).dir)
+
+        sudo("chmod 0771 #{Shellwords.escape(home_dir)}")
+        # Locking account to prevent warning os SUSE(it complains on unlocking non-locked account)
+        modify_user(username, true, shell)
+
+        RightScale::Log.info "LoginUserManager created #{username} successfully"
+      else
+        raise RightScale::LoginManager::SystemConflict, "Failed to create user #{username}"
+      end
 
       true
     end
