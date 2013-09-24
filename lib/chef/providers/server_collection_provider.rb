@@ -46,13 +46,13 @@ class Chef
       # === Return
       # true:: Always return true
       def action_load
-        node[:server_collection] ||= {}
-        node[:server_collection][@new_resource.name] = {}
+        node.set[:server_collection] ||= {}
+        node.set[:server_collection][@new_resource.name] = {}
         return unless @new_resource.tags && !@new_resource.tags.empty?
 
         result = RightScale::Cook.instance.query_tags(@new_resource.tags, @new_resource.agent_ids, @new_resource.timeout)
         collection = result.inject({}) { |res, (k, v)| res[k] = v['tags']; res }
-        node[:server_collection][@new_resource.name] = collection
+        node.set[:server_collection][@new_resource.name] = collection
         true
       end
 
