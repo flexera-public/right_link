@@ -42,8 +42,8 @@ describe RightScale::SystemConfigurator do
   before(:each) do
     @error = []
     @output = []
-    flexmock(subject).should_receive(:puts).and_return { |message| @output << message; true }
-    flexmock(subject).should_receive(:print).and_return { |message| @output << message; true }
+    flexmock(STDOUT).should_receive(:puts).and_return { |message| @output << message; true }
+    flexmock(STDOUT).should_receive(:print).and_return { |message| @output << message; true }
   end
 
   def run_system_configurator(args)
@@ -70,11 +70,11 @@ describe RightScale::SystemConfigurator do
       @output.join("\n").should include(usage)
     end
   end
-  
+
   ["hostname", "ssh", "proxy" ].each do |action|
     context "system --action=#{action}" do
       it "should configure #{action}" do
-        subject.should_receive("configure_#{action}".to_sym).once
+        flexmock(subject).should_receive("configure_#{action}".to_sym).once
         run_system_configurator("--action=#{action}")
       end
     end
