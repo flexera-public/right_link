@@ -23,7 +23,7 @@ servers   = ARGV
 
 class FakeLogger
 
-  def initialize
+  def initialize()
     @messages = []
   end
 
@@ -86,7 +86,6 @@ begin
     downloader.logger.append_info(downloader.details)
   end
 rescue Exception => e
-  raise e ################################################################
   File.unlink(file) if File.exists?(file)
   downloader.logger.append_info("Repose download failed: #{e.message}.")
   if e.kind_of?(RightScale::ReposeDownloader::DownloadException) && e.message.include?("Forbidden")
