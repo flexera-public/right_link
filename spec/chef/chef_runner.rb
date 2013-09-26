@@ -185,10 +185,11 @@ EOF
         file_cache_path = File.join(AgentConfig.cache_dir, 'chef')
         ::Chef::Config[:file_cache_path] = file_cache_path
         ::Chef::Config[:cache_options][:path] = File.join(file_cache_path, 'checksums')
+        ::Chef::Config[:client_fork] = false
         FileUtils.rm_rf(::Chef::Config[:file_cache_path])
         FileUtils.mkdir_p(::Chef::Config[:file_cache_path])
         FileUtils.mkdir_p(::Chef::Config[:cache_options][:path])
-        
+
         # Where backups of chef-managed files should go.  Set to nil to backup to the same directory the file being backed up is in.
         ::Chef::Config[:file_backup_path] = nil
 
