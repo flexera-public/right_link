@@ -14,9 +14,9 @@ gem 'right_popen', '~> 1.1'
 # to RightScale. Gems in the 'custom' group are published by RightScale to our
 # custom gem repository (http://s3.amazonaws.com/rightscale_rightlink_gems_dev).
 group :custom do
-  gem 'chef', '10.26.0.1'
-  gem 'ohai', '6.16.0.1'
-  gem 'mixlib-shellout', '1.1.0.1'
+  gem 'chef', '11.6.0.0'
+  gem 'ohai', '6.18.0.1'
+  gem 'mixlib-shellout', '1.2.0.0'
   gem 'eventmachine',    '1.0.0.3'
 end
 
@@ -59,29 +59,21 @@ group :runtime_extras do
   gem 'rb-readline',           '~> 0.5.0'
 end
 
-# Gems that are transitive dependencies of our direct deps, which we lock
-# for paranoia's sake because we had them version locked in the pre-Gemfile
-# days. Eventually we should stop version-locking these and let them 'float'
-# as defined by our direct dependencies, and by Gemfile.lock.
-# TODO - RightLink 6.0 - unlock these and let them float
-group :stable do
-  gem 'stomp',                 '1.1'
-  gem 'ruby-openid',           '2.1.8'
-  gem 'abstract',              '1.0.0'
-  gem 'erubis',                '2.6.5'
-  gem 'extlib',                '0.9.15'
-  gem 'mixlib-cli',            '1.2.0'
-  gem 'mixlib-config',         '1.1.2'
-  gem 'mixlib-log',            '1.3.0'
-  gem 'hoe',                   '2.3.3'
-  gem 'moneta',                '0.6.0'
-  gem 'bunny',                 '0.6.0'
-  gem 'highline',              '1.6.9'
-  gem 'uuidtools',             '2.1.2'
-  gem 'mime-types',            '1.16'
-  gem 'rest-client',           '1.6.7'
-  gem 'msgpack',               '0.4.4'
-  gem 'systemu',               '2.2.0'
-end
-
+gem 'stomp'
+gem 'ruby-openid'
+gem 'abstract'
+gem 'erubis'
+gem 'extlib'
+gem 'mixlib-cli'
+gem 'mixlib-config'
+gem 'mixlib-log'
+gem 'hoe'
+gem 'moneta'
+gem 'bunny'
+gem 'highline'
+gem 'uuidtools'
+gem 'mime-types'
+gem 'rest-client'
+gem 'msgpack'
+gem 'systemu'
 gem 'mixlib-authentication', ">= 1.3.0"

@@ -17,29 +17,26 @@ GEM
   remote: https://rubygems.org/
   specs:
     abstract (1.0.0)
+    amq-protocol (1.8.0)
     blackwinter-git (1.2.7)
-    bunny (0.6.0)
-    chef (10.26.0.1)
-      bunny (>= 0.6.0, < 0.8.0)
-      erubis
+    bunny (0.10.7)
+      amq-protocol (>= 1.6.0)
+    chef (11.6.0.0)
       erubis
       highline
       highline (>= 1.6.9)
-      json (>= 1.4.4, <= 1.7.7)
+      json (>= 1.4.4, <= 1.7.6)
       mixlib-authentication (>= 1.3.0)
-      mixlib-cli (>= 1.1.0)
+      mixlib-cli (~> 1.3.0)
       mixlib-config (>= 1.1.2)
       mixlib-log (>= 1.3.0)
       mixlib-shellout
       moneta
-      moneta
-      net-ssh (~> 2.2)
+      net-ssh (~> 2.6)
       net-ssh-multi (~> 1.1.0)
       ohai (>= 0.6.0)
       rest-client (>= 1.0.4, < 1.7.0)
       right_popen (~> 1.0, >= 1.0.21)
-      treetop (~> 1.4.9)
-      uuidtools
       uuidtools
       yajl-ruby (~> 1.1)
     columnize (0.3.6)
@@ -50,36 +47,35 @@ GEM
     debugger-linecache (1.2.0)
     debugger-ruby_core_source (1.2.3)
     encryptor (1.1.3)
-    erubis (2.6.5)
-      abstract (>= 1.0.0)
+    erubis (2.7.0)
     eventmachine (1.0.0.3)
     extlib (0.9.15)
     flexmock (0.9.0)
-    highline (1.6.9)
+    highline (1.6.19)
     hoe (2.3.3)
       rake (>= 0.8.7)
       rubyforge (>= 1.0.4)
     ipaddress (0.8.0)
-    json (1.4.6)
+    json (1.7.6)
     linecache (0.46)
       rbx-require-relative (> 0.0.4)
-    mime-types (1.16)
+    mime-types (1.25)
     mixlib-authentication (1.3.0)
       mixlib-log
-    mixlib-cli (1.2.0)
+    mixlib-cli (1.3.0)
     mixlib-config (1.1.2)
-    mixlib-log (1.3.0)
-    mixlib-shellout (1.1.0.1)
+    mixlib-log (1.6.0)
+    mixlib-shellout (1.2.0.0)
       right_popen (~> 1.1)
-    moneta (0.6.0)
+    moneta (0.7.19)
     msgpack (0.4.4)
-    net-ssh (2.6.8)
+    net-ssh (2.7.0)
     net-ssh-gateway (1.2.0)
       net-ssh (>= 2.6.5)
     net-ssh-multi (1.1)
       net-ssh (>= 2.1.4)
       net-ssh-gateway (>= 0.99.0)
-    ohai (6.16.0.1)
+    ohai (6.18.0.1)
       eventmachine (>= 1.0.0)
       ipaddress
       mixlib-cli
@@ -88,7 +84,6 @@ GEM
       right_popen (~> 1.1)
       systemu
       yajl-ruby
-    polyglot (0.3.3)
     rake (0.8.7)
     rb-readline (0.5.0)
     rbx-require-relative (0.0.9)
@@ -125,41 +120,38 @@ GEM
     ruby-openid (2.1.8)
     rubyforge (1.0.4)
     stomp (1.1)
-    systemu (2.2.0)
-    treetop (1.4.15)
-      polyglot
-      polyglot (>= 0.3.1)
+    systemu (2.5.2)
     trollop (2.0)
-    uuidtools (2.1.2)
+    uuidtools (2.1.4)
     yajl-ruby (1.1.0)
 
 PLATFORMS
   ruby
 
 DEPENDENCIES
-  abstract (= 1.0.0)
-  bunny (= 0.6.0)
-  chef (= 10.26.0.1)
+  abstract
+  bunny
+  chef (= 11.6.0.0)
   debugger (~> 1.6.1)
-  erubis (= 2.6.5)
+  erubis
   eventmachine (= 1.0.0.3)
-  extlib (= 0.9.15)
+  extlib
   flexmock (~> 0.8)
-  highline (= 1.6.9)
-  hoe (= 2.3.3)
-  mime-types (= 1.16)
+  highline
+  hoe
+  mime-types
   mixlib-authentication (>= 1.3.0)
-  mixlib-cli (= 1.2.0)
-  mixlib-config (= 1.1.2)
-  mixlib-log (= 1.3.0)
-  mixlib-shellout (= 1.1.0.1)
-  moneta (= 0.6.0)
-  msgpack (= 0.4.4)
-  ohai (= 6.16.0.1)
+  mixlib-cli
+  mixlib-config
+  mixlib-log
+  mixlib-shellout (= 1.2.0.0)
+  moneta
+  msgpack
+  ohai (= 6.18.0.1)
   rake (= 0.8.7)
   rb-readline (~> 0.5.0)
   rcov (~> 0.8.1)
-  rest-client (= 1.6.7)
+  rest-client
   right_agent (~> 0.17)
   right_amqp (~> 0.7)
   right_link!
@@ -168,12 +160,12 @@ DEPENDENCIES
   right_support (~> 2.7)
   rspec (~> 1.3)
   ruby-debug
-  ruby-openid (= 2.1.8)
+  ruby-openid
   ruby-wmi
   rubyforge (= 1.0.4)
-  stomp (= 1.1)
-  systemu (= 2.2.0)
-  uuidtools (= 2.1.2)
+  stomp
+  systemu
+  uuidtools
   win32-api
   win32-dir
   win32-eventlog
