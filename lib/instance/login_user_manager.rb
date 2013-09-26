@@ -190,7 +190,6 @@ module RightScale
       when 0
         home_dir = Shellwords.escape(Etc.getpwnam(username).dir)
 
-        sudo("chmod 0771 #{Shellwords.escape(home_dir)}")
         # Locking account to prevent warning os SUSE(it complains on unlocking non-locked account)
         modify_user(username, true, shell)
 
