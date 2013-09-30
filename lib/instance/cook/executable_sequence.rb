@@ -237,6 +237,10 @@ module RightScale
       # EM seems not to play well with forking
       Chef::Config[:client_fork] = false
 
+      # Chef 11+ allow concurrent execution of the recipes in different theads,
+      # by setting different lockfile per thread.
+      Chef::Config[:lockfile] = File.join(Chef::Config[:file_cache_path], "chef-client-#{@thread_name}-running.pid")
+
       true
     end
 
