@@ -182,7 +182,7 @@ describe RightScale::CookbookRepoRetriever do
           mock_scraper = flexmock("Mock RightScraper")
           mock_scraper.should_receive(:scrape).once.and_return(false)
           mock_scraper.should_receive(:errors).and_return(['that is a fake url'])
-          flexmock(RightScraper::Scraper).should_receive(:new).and_return(mock_scraper)
+          flexmock(RightScraper::Main).should_receive(:new).and_return(mock_scraper)
 
           @repo = RightScale::DevRepository.new
           @repo.url = 'git://fake_git_url'
@@ -223,7 +223,7 @@ describe RightScale::CookbookRepoRetriever do
             mock_scraper.should_receive(:repo_dir).with(described_class.to_scraper_hash(dev_repo)).once.and_return(repo_dir)
           end
           mock_scraper.should_receive(:errors).and_return(['what is that smell?'])
-          flexmock(RightScraper::Scraper).should_receive(:new).and_return(mock_scraper)
+          flexmock(RightScraper::Main).should_receive(:new).and_return(mock_scraper)
 
           @retriever = described_class.new(@expected_repose_root, RightScale::DevRepositories.new(@dev_repos))
         end
@@ -241,16 +241,16 @@ describe RightScale::CookbookRepoRetriever do
     end
 
     it 'when initialized with empty dev cookbooks, should not scrape' do
-      flexmock(RightScraper::Scraper).new_instances.should_receive(:scrape).never
-      flexmock(RightScraper::Scraper).new_instances.should_receive(:repo_dir).never
+      flexmock(RightScraper::Main).new_instances.should_receive(:scrape).never
+      flexmock(RightScraper::Main).new_instances.should_receive(:repo_dir).never
 
       retriever = described_class.new(@expected_repose_root, RightScale::DevRepositories.new({}))
       retriever.checkout_cookbook_repos { raise "Should not be called" }
     end
 
     it 'when initialized with nil dev cookbooks, should not scrape' do
-      flexmock(RightScraper::Scraper).new_instances.should_receive(:scrape).never
-      flexmock(RightScraper::Scraper).new_instances.should_receive(:repo_dir).never
+      flexmock(RightScraper::Main).new_instances.should_receive(:scrape).never
+      flexmock(RightScraper::Main).new_instances.should_receive(:repo_dir).never
 
       retriever = described_class.new(@expected_repose_root, nil)
       retriever.checkout_cookbook_repos { raise "Should not be called" }
