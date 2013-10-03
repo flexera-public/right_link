@@ -1,4 +1,8 @@
 module RightLink
-  VERSION = "5.9.2"
+  module_function
+
+  def version
+    Gem.loaded_specs['right_link'].version.to_s
+  end
 end
 
