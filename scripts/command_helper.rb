@@ -100,7 +100,7 @@ module RightScale
     end
 
     def right_link_version
-      RightLink::VERSION
+      RightLink.version
     end
   end
 end

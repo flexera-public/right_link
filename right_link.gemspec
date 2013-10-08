@@ -1,12 +1,8 @@
 # -*- mode: ruby; encoding: utf-8 -*-
-lib = File.expand_path('../lib', __FILE__)
-$LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
-require 'right_link/version'
-require 'rubygems'
 
 spec = Gem::Specification.new do |s|
   s.name        = 'right_link'
-  s.version     = RightLink::VERSION
+  s.version     = '5.9.2'
   s.platform    = Gem::Platform::RUBY
 
   s.authors     = ['RightScale']
