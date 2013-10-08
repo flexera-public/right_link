@@ -74,7 +74,7 @@ module RightScale
       @checkout_root  = AgentConfig.dev_cookbook_checkout_dir
       @repose_root    = repose_root
       @dev_cookbooks  = (dev_cookbooks.nil? || dev_cookbooks.repositories.nil?) ? {} : dev_cookbooks.repositories
-      @scraper        = RightScraper::Scraper.new(:kind => :cookbook, :basedir => @checkout_root)
+      @scraper        = RightScraper::Main.new(:kind => :cookbook, :basedir => @checkout_root)
       @registered_checkouts = {}
     end
 

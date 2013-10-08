@@ -7,17 +7,19 @@ gemspec
 gem 'right_support', '~> 2.7'
 gem 'right_agent', '~> 0.17'
 gem 'right_amqp', '~> 0.7'
-gem 'right_scraper', '~> 3.2'
-gem 'right_popen', '~> 1.1'
+
+gem 'right_popen', '~> 2.0'
+gem 'right_git'
+gem 'right_scraper', '~> 4.0'
 
 # We have custom builds of some gems containing fixes and patches that are specific
 # to RightScale. Gems in the 'custom' group are published by RightScale to our
 # custom gem repository (http://s3.amazonaws.com/rightscale_rightlink_gems_dev).
 group :custom do
-  gem 'chef', '11.6.0.0'
-  gem 'ohai', '6.18.0.1'
-  gem 'mixlib-shellout', '1.2.0.0'
-  gem 'eventmachine',    '1.0.0.3'
+  gem 'chef', '11.6.0.2'
+  gem 'ohai', '6.18.0.2'
+  gem 'mixlib-shellout', '1.2.0.2'
+  gem 'eventmachine', '1.0.0.3'
 end
 
 # We use some gems on both platforms, but the maintainer of the gem does not publish
@@ -60,21 +62,4 @@ group :runtime_extras do
   gem 'rb-readline',           '~> 0.5.0'
 end
 
-gem 'stomp'
-gem 'ruby-openid'
-gem 'abstract'
-gem 'erubis'
-gem 'extlib'
-gem 'mixlib-cli'
-gem 'mixlib-config'
-gem 'mixlib-log'
-gem 'hoe'
-gem 'moneta'
-gem 'bunny'
-gem 'highline'
-gem 'uuidtools'
-gem 'mime-types'
-gem 'rest-client'
-gem 'msgpack'
-gem 'systemu'
 gem 'mixlib-authentication', ">= 1.3.0"

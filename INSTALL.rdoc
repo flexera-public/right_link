@@ -1,50 +1,24 @@
-= DISCLAIMER & WARNING
+= HOW TO GET RIGHTLINK
 
-This guide demonstrates how to build the RightLink gem, install it into any
-Ruby interpreter, and integrate it with Linux. This is an advanced procedure
-that is intended for people who want to modify or contribute to the RightLink
-software itself.
+== Stable Packages
 
-Due to the large number of variables between different OS distributions and
-Ruby versions, RightScale cannot support RightLink when it is installed in
-this fashion. If your goal is to use RightLink to deploy and manage cloud
-servers, then your goals are better accomplished by one of the following
-options:
+The latest stable release of RightLink is 5.8.8. You can download the DEB,
+RPM or MSI by visiting the following URL in your Web browser and navigating
+to the appropriate subdir for your OS:
 
-== Use a RightScale-Published Machine Image
+http://mirror.rightscale.com/rightlink/
 
-A RightImage™ is a base machine image, published by RightScale, that can be
-used to launch instances in cloud infrastructures.  RightImages are unique
-from other cloud-based machine images because they are specifically designed
-for optimum communication with the RightScale platform. RightImages are
-Each of RightScale's published ServerTemplates was tested and published with
-one or more RightImages.
+(TODO: provide information on 5.9 stable packages once they are released.)
 
-RightImages are available for several distributions/versions of Linux and
-for Windows. They are the best choice for someone who wants a known-good
-starting point to build their own ServerTemplates.
+== Beta Packages
 
-Obtain a RightImage:
-http://support.rightscale.com/12-Guides/RightScale_101/06-Advanced_Concepts/RightImages
+Beginning with RightLink 5.9, we host our packages in apt and yum repositories
+for ease of installation.
 
-== Create a RightScale-Enabled Image
-
-RightScale provides pre-built, supported RightLink packages in several
-formats (RPM, DEB, MSI) that are compatible with multiple Linux distributions
-and versions.
-
-Create a RightImage:
-http://support.rightscale.com/12-Guides/RightLink/02-RightLink_5.9
-
-== Install an Early-Access RightLink Package
-
-For the adventurous, RightScale provides access to nightly builds of RightLink
-that are produced from the master branch. These packages undergo automated
-regression, but we cannot provide support for nightly builds. 
-
-As of May 2013, we produce nightlies for the following distributions and
+As of October 2013, we produce beta builds for the following distributions and
 releases:
 * RHEL 6 (also compatible with CentOS 6)
+* SUSE 11
 * Ubuntu 12.04
 
 And the following cloud types:
@@ -53,318 +27,84 @@ And the following cloud types:
 * ec2
 * google
 * openstack
-* rackspace (Rackspace Classic)
-* rackspace-ng (Rackspace OpenCloud)
+* rackspace-first-gen (Rackspace Classic)
+* rackspace-open-cloud
 * softlayer
 
-After installing the RightLink package, you can bundle an image and use
-it to create your own MultiCoudImage.
+For all Unix-based systems, RightLink is distributed as a base package plus one
+or more extension packages to provide support for various cloud types. Install
+the extension package that is appropriate for your cloud type, and the OS will
+take care of installing all of its dependencies including the base package.
 
-Alternatively, if you install to an instance that was launched as a server
-via the RightScale dashboard, you can reboot the instance to proceed with
-running the boot scripts for the associated ServerTemplate.
+For Windows systems, RightLink is distributed as an all-in-one MSI with a
+graphical installer that allows you to choose the cloud type.
 
-=== Nightly RPMs
+Regardless of OS, after installing the RightLink package, you can bundle an
+image and use it to create your own MultiCoudImage for use with RightScale.
 
-==== RedHat
+=== RHEL/CentOS installation
 
-For RedHat-based systems, we publish nightly builds to a yum repository.
-The repository follows an EPEL-like layout and supports multiple distributions
-and releases.
+For RedHat-based systems, we publish and maintain a yum repository. The repository
+follows an EPEL-like layout and supports multiple distributions and releases.
 
-To install nightly RPMs, first create a yum source.
+First, create a yum source.
 
   cat > /etc/yum.repos.d/RightLink-development.repo <<EOF
   [rightlink]
   name=RightLink
-  baseurl=https://rightlink-integration.s3.amazonaws.com/nightly/yum/1/el/$releasever/$basearch/
+  baseurl=https://rightlink-staging.s3.amazonaws.com/yum/1/el/$releasever/$basearch/
   gpgcheck=0
   EOF
 
-Next install RightLink cloud support package for
+Next, install RightLink cloud support package for
 the cloud type your instance is running on:
 
   yum install -y rightlink-cloud-ec2
 
-==== SUSE
+You can now bundle your image and boot RightScale servers with it.
 
-For SUSE-based systems, we publish nightly builds to a yum repository.
-The repository follows an EPEL-like layout and supports multiple distributions
-and releases.
+=== SUSE installation
 
-To install nightly RPMs, first create a zypper source.
+For SUSE-based systems, we maintain a zypper repository. The repository follows
+an EPEL-like layout and supports multiple distributions and releases.
 
-  zypper ar -G -f https://rightlink-integration.s3.amazonaws.com/nightly/yum/1/suse/$releasever/$basearch/
+First, create a zypper source.
 
-Next install RightLink cloud support package for
+  zypper ar -G -f https://rightlink-staging.s3.amazonaws.com/zypp/1/suse/$releasever/$basearch/
+
+Next, install RightLink cloud support package for
 the cloud type your instance is running on:
 
   zypper --non-interactive install rightlink-cloud-ec2
 
+You can now bundle your image and boot RightScale servers with it.
 
-=== Nightly DEBs
+=== Ubuntu installation
 
-For Debian-derived systems, we publish nightly builds to an apt repository.
-The repository is automatic (supports multiple distributions and releases).
+For Debian-derived systems, maintain an automatic, pooled apt repository.
 
-To install nightly DEBs, first create an apt source, ensuring that you specify
-the right architecture and release code name. For instance, on an amd64
-system that is running Ubuntu 12.04 (precise):
+First, create an apt source, ensuring that you specify the right architecture
+and release code name. For instance, on an amd64 system that is running
+Ubuntu 12.04 (precise):
 
   cat > /etc/apt/sources.list.d/rightlink.sources.list <<EOF
-  deb [arch=amd64] https://rightlink-integration.s3.amazonaws.com/nightly/apt precise main
-  deb-src [arch=amd64] https://rightlink-integration.s3.amazonaws.com/nightly/apt precise main
+  deb [arch=amd64] https://rightlink-staging.s3.amazonaws.com/nightly/apt precise main
+  deb-src [arch=amd64] https://rightlink-staging.s3.amazonaws.com/nightly/apt precise main
   EOF
 
-Next install RightLink cloud support package for the
-cloud type your instance is running on:
+Next, install RightLink cloud support package for the cloud type your instance is running on:
 
   apt-get update
   apt-get install rightlink-cloud-ec2
 
-=== Nightly MSIs
+=== Windows Installation
 
-TODO - provide install instructions for nightly MSIs once we begin producing them
+For Windows systems, we publish MSIs to Amazon S3; find the file that is suitable for your CPU
+architecture and download it with your Web browser:
 
-= PREREQUISITES
+  https://rightlink-staging.s3.amazonaws.com/windows/RightLink-5.9.2-1-i386.msi
 
-RightLink is a Ruby application that runs as a daemon. It depends on the
-following system components/packages, which must be installed before you
-can proceed with RightLink installation.
-* Ruby >= 1.8.7 p371 or better -- older versions have GC issues!
-* RubyGems >= 1.8.25
-* C/C++ toolchain (needed to install various gems)
+  https://rightlink-staging.s3.amazonaws.com/windows/RightLink-5.9.2-1-x64.msi
 
-Several auxiliary packages are recommended in order to obtain full RightLink
-functionality at runtime:
-* git and Subversion clients (facilitates Chef recipe development)
-* curl (for download of RightScript attachments)
-* dig, sed and perl (used by some cloud-specific config logic)
+Next, run the installer to complete installation.
 
-== Supported Configurations
-
-RightLink is regularly tested on the following Linux distributions:
-* CentOS - 6.4
-* RedHat Enterprise Linux (RHEL) - 6.4
-* Ubuntu - 12.04
-
-It has been known to work on the following with little or no modification:
-* Debian
-* RedHat Enterprise Linux
-* SuSE Linux
-
-And on the following kinds of cloud:
-* Amazon Web Services (AWS)
-* Rackspace Cloud Servers
-* Eucalyptus
-* CloudStack
-
-Although RightLink is Windows-compatible and is regularly released for
-Windows variants, installation and configuration are not yet covered in this
-document. For information on the RightLink Windows MSI, see the documentation
-page on our {support wiki}[http://support.rightscale.com/12-Guides/Windows_User_Guide]
-
-== CentOS and RHEL Systems
-
-Install the C toolchain and related libraries, plus some additional libs
-required for RightLink,
-
- yum install -y autoconf bison byacc flex gcc ncurses db4-devel glibc-devel libarchive-devel openssl-devel ncurses-devel
-
-Older releases of CentOS (before 6.x) ship with a Ruby VM that is too old. To run RightLink, you
-can build Ruby from source and install it under a different prefix such as /opt/rightscale/sandbox.
-
-== Ubuntu Systems
-
-Install the C toolchain and related libraries, plus some additional libs
-required for RightLink.
-
- apt-get update
- # may need libreadline5 (not 6), on older systems. Ditto with libreadline5-dev
- apt-get install -y libssl-dev libarchive-dev libreadline-dev autoconf flex bison
- # apt-get install -y build-essential gcc g++ bison openssl libreadline6 zlib1g vim autoconf libxml2 libffi
- # apt-get install -y libssl-dev libreadline-dev zlib1g-dev libyaml-dev libffi-dev libxml2-dev
- # apt-get install -y git-core perl sed curl dnsutils
-
-Newer releases of Ubuntu (11.04 and above) ship with a Ruby 1.9 VM that is too new. To run RightLink, you
-can build Ruby from source and install it under a different prefix such as /opt/rightscale/sandbox.
-
-= PRE-INSTALL CUSTOMIZATION
-
-== Feature Control Customization
-
-Before installing RightLink (either as a package or from sources), you can
-selectively disable certain features that may not be compatible with your
-deployment environment.
-
-Feature control is accomplished by creating a special YAML file prior to
-installing the package or running any RightLink init script or program
-logic. The YAML file contains some boolean flags that affect the behavior
-of the init scripts and the agent at runtime.
-
-The following features can all be disabled:
- * Managed login (aka Server Login Control)
- * Frozen OS package repositories
- * Automatic MOTD update on state transitions
-
-To disable one or more of these features, create the following file:
-
- /etc/rightscale.d/right_link/features.yml
-
-And populate the file thusly, supplying true/false for each feature
-as appropriate.
-
- motd:
-   update: false
- package_repositories:
-   freeze: false
- managed_login:
-   enable: false
-
-All features are assumed to be enabled by default unless this file exists
-and the associated feature is marked as disabled. Therefore, you can omit
-sections for features that should remain enabled.
-
-= INSTALLATION
-
-== One-Time Setup
-
-If you are packaging RightLink, run these commands as a post-install step
-for your package. If you are bundling a cloud image, run these commands
-_before_ bundling.
-
- git clone git://github.com/rightscale/right_link.git
- cd right_link
- bundle install
- bundle exec rake gem
- gem install pkg/right_link-5.9.0.gem
- 
-The RubyGems installer will create a number of executable binaries in
-your RubyGems bindir. These binaries control the operation of RightLink
-and allow you and your scripts to interact with the management agent.
-
-On Unix systems, the CLI binaries are normally created in /usr/bin, but
-it depends on how your Ruby interpreter was installed and packaged. You
-can determine the location of your RubyGems bindir by running:
-
- gem env
-
-By convention, most RightLink tools begin with the prefix "rs_" e.g.
-rs_tag or rs_run_recipe.
-
-= INTEGRATING WITH THE SYSTEM
-
-== Multi-Cloud Support
-
- export RS_CLOUD=ec2 # or another cloud type, see below...
- mkdir -p /etc/rightscale.d
- echo "$RS_CLOUD" > /etc/rightscale.d/cloud
-
-RightLink supports many virtualization engines, cloud APIs and other facets
-of cloud technology. Due to lack of standardization, there is no reliable
-way for RightLink to auto-detect the cloud type in which it is running.
-
-We have taken the pragmatic approach and require the user to give RightLink a
-hint about its runtime environment. RightLink must know its cloud type in
-order to retrieve launch settings and runtime metadata that are crucial to
-successful operation.
-
-In the commands below, we refer to an environment variable RS_CLOUD. You
-should set RS_CLOUD to the cloud type under which RightLink is running, before
-running any of the commands below. RS_CLOUD is your "hint" to RightLink.
-
-RightLink knows about the following values of RS_CLOUD:
-* ec2
-* rackspace
-* rackspace-ng
-* eucalyptus
-* cloudstack
-* openstack
-* softlayer
-
-== On-Boot Commands
-
-Under Linux these are accomplished with init scripts. Under Windows, a system
-service spawns the agent process and monitors its health.
-
-CAUTION: if your instance is attached to the RightScale dashboard, running
-the commands below will cause it to begin running boot scripts! This is not
-harmful, but if your intent is to bundle a "pristine" image, you probably
-want to put the following commands into an init script and test by bundling
-and relaunching.
-
- #The commands below use relative paths for readability
- cd /opt/rightscale
- 
- # Fetch metadata from cloud and make it available in the shell environment
- bin/cloud --name $RS_CLOUD --action bootstrap > /dev/null
- . /var/spool/cloud/user-data.sh
- 
-=== Determine Boot State
-
- # TODO - check_for_rightscale
-
- # TODO - rightboot init script (detect reboot & tweak state)
-
- # TODO - check_boot_state, update_boot_state 
-
-=== Run Fix-It Tasks
-
- # TODO - UNDOCUMENTED - bin/system --action ssh
- # TODO - UNDOCUMENTED - bin/system --action hostname
- # TODO - UNDOCUMENTED - bin/system --action proxy
-
-=== Configure RightLink Agent
- 
- bin/enroll --root-dir /var/lib/rightscale/right_link --url $RS_RN_URL --host $RS_RN_HOST --id $RS_RN_ID --token $RS_RN_AUTH
- bin/deploy
- 
-=== Launch RightLink Agent
-
- # Start the RightLink agent
- bin/rnac --start instance
-
- # Start the agent watchdog process
- bin/rchk --start
-
-At this point, your instance should be booting and sending audit entries back to the RightScale dashboard.
-Navigate to this server and verify that it's booting cleanly.
-
-== On-Shutdown Commands
-
-When the system is terminating, you should allow RightLink to run its decommission scripts.
-
- #The commands below use relative paths for readability
- cd /opt/rightscale
- 
- bin/rnac --decommission
-
-== Filesystem Locations
-
-=== Linux Systems
-
- /etc/rightscale.d               | Static configuration, incl. "hints" for init scripts
- /etc/rightscale.d/right_link    | Static files that customize RightLink behavior
- /var/spool/cloud                | Cloud-provided metadata & user-data
- /var/lib/rightscale/right_agent | Persistent config files generated at startup
- /var/lib/rightscale/right_link  | Persistent RightLink agent state
- /var/run                        | Transient agent state, e.g. pid files
- /var/cache                      | Cookbooks, attachments, temp files
- /usr/bin                        | Public CLI: rs_tag, rs_debug, ...
- /opt/rightscale/bin             | Private CLI: rnac, rad, cook, ...
- /opt/rightscale/sandbox         | Private sandbox (Ruby, RubyGems, ...)
-
-=== Windows Systems
-
-Data files -- paths are relative to %COMMON_APPDATA%\RightScale
-
- rightscale.d            | Static "hints" for system services
- spool\cloud             | Cloud-provided metadata & user-data (.sh, .rb, raw formats)
- RightAgent              | Persistent config files generated at startup
- right_link              | Persistent RightLink agent state
- cache                   | Cookbooks, attachments, temp files
-
-Program logic -- paths are relative to %ProgramFiles(x86)%
-
- RightScale\RightLink    | Application logic & support files
- RightScale\sandbox      | Private sandbox (Ruby, RubyGems, ...)
