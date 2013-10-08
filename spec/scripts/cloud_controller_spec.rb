@@ -51,7 +51,7 @@ module RightScale
       @error = []
       @output = []
       flexmock(subject).should_receive(:puts).and_return { |message| @output << message; true }
-      flexmock($stdout).should_receive(:puts).and_return { |message| @output << message; true }
+      flexmock(STDOUT).should_receive(:puts).and_return { |message| @output << message; true }
       flexmock(subject).should_receive(:print).and_return { |message| @output << message; true }
     end
 
