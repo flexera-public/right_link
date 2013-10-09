@@ -92,6 +92,8 @@ module RightScale
       create_audit_entry(email, username, access, orig, client_ip)
       chown_tty(username)
 
+      LoginUserManager.setup_profile(username, profile)
+
       # Note that when execing sudo we use the N-argument form of Kernel.exec,
       # which does not invoke a shell, but rather directly invokes the command specified
       # by argv[0] and uses argv[1..N] as the command line. This protects us against shell

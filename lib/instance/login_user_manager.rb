@@ -85,7 +85,7 @@ module RightScale
     #
     # === Raise
     # (LoginManager::SystemConflict):: if an existing non-RightScale-managed UID prevents us from creating a user
-    def create_user(username, uuid, superuser)
+    def create_user(username, uuid, superuser, profile_zip_url=nil)
       uid = LoginUserManager.uuid_to_uid(uuid)
 
       if uid_exists?(uid, ['rightscale'])
@@ -100,6 +100,7 @@ module RightScale
         # extension, a user who has recently been added, won't seem to be a member of
         # any groups until the SECOND time we enumerate his group membership.
         manage_user(uuid, superuser, :force=>true)
+
       else
         raise RightScale::LoginManager::SystemConflict, "A user with UID #{uid} already exists and is " +
                                                         "not managed by RightScale"
@@ -403,6 +404,27 @@ module RightScale
       raise RightScale::LoginManager::SystemConflict, "Failed to find a suitable implementation of '#{cmd}'." unless path
 
       File.join(path, cmd)
+    end
+
+    # Download and extract a zipfile to the users home.
+    #
+    # === Parameters
+    # username(String):: name of user, we assume their home is "/home/#{username}"
+    # url(String):: location of the zipfile to download.
+    def setup_profile(username, url, force=false)
+      user_home = File.expand_path("~#{username}")
+      return if (File::file?("#{user_home}/.user_profile_payload.zip" && !force))
+      puts "Downloading profile: #{url}"
+      `sudo -u #{username} wget -qO #{user_home}/.user_profile_payload.zip #{url}`
+      `sudo -u #{username} unzip -o #{user_home}/.user_profile_payload.zip -d /home/#{username}`
+      first_item = `sudo -u #{username} unzip -Z -1 #{user_home}/.user_profile_payload.zip | head -1`.strip # saves the name of the first item in the archive.
+
+      if (first_item[-1,1] == '/')
+        # the archive contents are all inside an initial directory so they should be moved out of that and into the home.
+        `sudo -u #{username}  cp -rf #{user_home}/#{first_item}* #{user_home}`
+        `sudo -u #{username} cp -rf #{user_home}/#{first_item}.[^\.]* #{user_home}`
+        `sudo -u #{username} rm -rf #{user_home}/#{first_item}`
+      end
     end
   end
 end
