@@ -32,10 +32,10 @@ module RightScale
 
     CONFIG=\
       if File.exists?(CONFIG_YAML_FILE)
-        RightSupport::Config.features(CONFIG_YAML_FILE)                           
+        RightSupport::Config.features(CONFIG_YAML_FILE)
       else
         RightSupport::Config.features({})
-      end    
+      end
 
     # States that are recorded in a standard fashion and audited when transitioned to
     RECORDED_STATES = %w{ booting operational stranded decommissioning }
@@ -270,7 +270,7 @@ module RightScale
     #
     # === Return
     # result(String):: new decommission type
-    # 
+    #
     # === Raise
     # RightScale::Exceptions::Application:: Cannot update in read-only mod
     def self.decommission_type=(decommission_type)
@@ -510,9 +510,9 @@ module RightScale
       return unless RightScale::Platform.linux?
 
       if SUCCESSFUL_STATES.include?(@value)
-        system('echo "RightScale installation complete. Details can be found in system logs." | wall') rescue nil
+        system('echo "RightScale installation complete. Details can be found in system logs." | wall > /dev/null 2>&1') rescue nil
       elsif FAILED_STATES.include?(@value)
-        system('echo "RightScale installation failed. Please review system logs." | wall') rescue nil
+        system('echo "RightScale installation failed. Please review system logs." | wall > /dev/null 2>&1') rescue nil
       end
 
       return nil
