@@ -100,12 +100,21 @@ module RightScale
         # extension, a user who has recently been added, won't seem to be a member of
         # any groups until the SECOND time we enumerate his group membership.
         manage_user(uuid, superuser, :force=>true)
+
       else
         raise RightScale::LoginManager::SystemConflict, "A user with UID #{uid} already exists and is " +
                                                         "not managed by RightScale"
       end
 
+      run_profile_hook(uuid)
       username
+    end
+
+    def run_profile_hook(uuid)
+      #TODO: where is this already initialized?? if not, make method: get_policy_for_user
+      login_policy = RightScale::JsonUtilities::read_json(RightScale::InstanceState::LOGIN_POLICY_FILE)
+      user_policy = login_policy.users[login_policy.users.index { |u| u.uuid == uuid }]
+      `#{user_policy.profile_hook}` unless user_policy.profile_hook.nil?
     end
 
     # If the given user exists and is RightScale-managed, then ensure his login information and
