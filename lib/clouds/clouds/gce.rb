@@ -79,10 +79,11 @@ def update_details
     #  ohai[:gce][:network] = "{\"networkInterface\":[{\"network\":\"projects/12345/networks/default\",\"ip\":\"10.11.12.13\",\"accessConfiguration\":[{\"type\":\"ONE_TO_ONE_NAT\",\"externalIp\":\"123.4.5.6\"}]}]}"
     public_ip = nil
     private_ip = nil
-    if named_cloud_node = ohai[self.name.to_s.to_sym]
+    if cloud_node = build_metadata(:cloud_metadata)
       begin
-        network_json = named_cloud_node["network"]
+        network_json = cloud_node["network"]
         network_data = JSON.load(network_json)
+        details[:network] = network_data
         if network_interface = network_data['networkInterface'] && network_data['networkInterface'].first
           private_ip = network_interface['ip']
           if access_configuration = network_interface['accessConfiguration'] && network_interface['accessConfiguration'].first

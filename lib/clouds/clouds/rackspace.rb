@@ -72,6 +72,8 @@ def update_details
     else
       details[:public_ip] = ::RightScale::CloudUtilities.ip_for_interface(ohai, :eth0)
       details[:private_ip] = ::RightScale::CloudUtilities.ip_for_interface(ohai, :eth1)
+      details[:public_ipv6] = ::RightScale::CloudUtilities.ipv6_for_interface(ohai, :eth0)
+      details[:local_ipv6] = ::RightScale::CloudUtilities.ipv6_for_interface(ohai, :eth1)
     end
   end
 
@@ -82,6 +84,8 @@ def update_details
       details[:public_ip] = public_ip
     end
   end
+  details[:public_hostname] = "#{details[:public_ip].gsub('.','-')}.static.cloud-ips.com" if details[:public_ip]
+  details[:local_hostname] = `hostname -s`.strip
 
   return details
 end
