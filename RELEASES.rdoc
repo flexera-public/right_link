@@ -12,7 +12,7 @@ Released 2013-10-17
 
 == Bug Fixes
 
-* RightLink set correct permissions on user's home dir (using OS defaults)
+* RightLink sets correct permissions on users' home directories (using OS defaults)
   for users that have been created on login.
 * RightLink CLI tools will no longer crash when executed without arguments.
 * RightLink will no longer give a warning about missing tty name when boot scripts complete.
