@@ -9,20 +9,16 @@ gem 'right_agent', '~> 0.17'
 gem 'right_amqp', '~> 0.7'
 
 gem 'right_popen', '~> 2.0'
-gem 'right_git',
-    :git => "git@github.com:rightscale/right_git.git",
-    :branch => "master"
-gem 'right_scraper', '~> 4.0',
-    :git => "git@github.com:rightscale/right_scraper.git",
-    :branch => "master"
+gem 'right_git'
+gem 'right_scraper', '~> 4.0'
 
 # We have custom builds of some gems containing fixes and patches that are specific
 # to RightScale. Gems in the 'custom' group are published by RightScale to our
 # custom gem repository (http://s3.amazonaws.com/rightscale_rightlink_gems_dev).
 group :custom do
-  gem 'chef', '10.26.0.2'
-  gem 'ohai', '6.16.0.2'
-  gem 'mixlib-shellout', '1.1.0.2'
+  gem 'chef', '11.6.0.2'
+  gem 'ohai', '6.18.0.2'
+  gem 'mixlib-shellout', '1.2.0.2'
   gem 'eventmachine', '1.0.0.3'
 end
 
@@ -34,6 +30,7 @@ end
 # mswin-platform gem for every one of the gems below AND published it to
 # the rightscale custom gem repository.
 group :windows do
+  gem 'json', '1.4.6'
   platform :mingw do
     gem 'win32-api'
     gem 'windows-api'
@@ -63,32 +60,6 @@ end
 # with more OSes or provide debugging functionality.
 group :runtime_extras do
   gem 'rb-readline',           '~> 0.5.0'
-end
-
-# Gems that are transitive dependencies of our direct deps, which we lock
-# for paranoia's sake because we had them version locked in the pre-Gemfile
-# days. Eventually we should stop version-locking these and let them 'float'
-# as defined by our direct dependencies, and by Gemfile.lock.
-# TODO - RightLink 6.0 - unlock these and let them float
-group :stable do
-  gem 'json',                  '1.7.6'
-  gem 'stomp',                 '1.1'
-  gem 'ruby-openid',           '2.1.8'
-  gem 'abstract',              '1.0.0'
-  gem 'erubis',                '2.6.5'
-  gem 'extlib',                '0.9.15'
-  gem 'mixlib-cli',            '1.2.0'
-  gem 'mixlib-config',         '1.1.2'
-  gem 'mixlib-log',            '1.3.0'
-  gem 'hoe',                   '2.3.3'
-  gem 'moneta',                '0.6.0'
-  gem 'bunny',                 '0.6.0'
-  gem 'highline',              '1.6.9'
-  gem 'uuidtools',             '2.1.2'
-  gem 'mime-types',            '1.16'
-  gem 'rest-client',           '1.6.7'
-  gem 'msgpack',               '0.4.4'
-  gem 'systemu',               '2.2.0'
 end
 
 gem 'mixlib-authentication', ">= 1.3.0"
