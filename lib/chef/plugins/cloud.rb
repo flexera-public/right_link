@@ -109,7 +109,6 @@ begin
     cloud[:public_hostname] = cloud_node['public_hostname']
     cloud[:local_ipv4] = cloud_node['local_ipv4']
     cloud[:local_hostname] = cloud_node['local_hostname']
-    cloud[:provider] = cloud_node['provider']
   when "azure"
     cloud[:vm_name] = cloud_node["vm_name"]
     cloud[:public_ips] << cloud_node['public_ip']
