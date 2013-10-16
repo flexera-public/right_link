@@ -14,7 +14,8 @@ Released 2013-10-17
 
 * RightLink set correct permissions on user's home dir (using OS defaults)
   for users that have been created on login.
-* Fix RightLink CLI tools not to crush on executing without arguments.
+* RightLink CLI tools will no longer crash when executed without arguments.
+* RightLink will no longer warning about missing tty name for some ioctl devices.
 
 = 5.9.2 (RightLink 5.9 beta 3)
 
