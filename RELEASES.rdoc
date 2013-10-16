@@ -1,14 +1,21 @@
-= Unreleased Changes
+= 5.9.3 (RightLink 5.9 release candidate 1)
+
+Released 2013-10-17
 
 == New Features
 
 == Changes to Existing Functionality
 
-* RightLink changes the audit summary when waiting for missing inputs on boot. It also strands if 
+* RightLink changes the audit summary when waiting for missing inputs on boot. It also strands if
   inputs are still missing after 45 minutes. ("Missing" means inputs that are set to a value that
   cannot yet be computed, such as the IP address of a non-running server.)
 
 == Bug Fixes
+
+* RightLink sets correct permissions on users' home directories (using OS defaults)
+  for users that have been created on login.
+* RightLink CLI tools will no longer crash when executed without arguments.
+* RightLink will no longer give a warning about missing tty name when boot scripts complete.
 
 = 5.9.2 (RightLink 5.9 beta 3)
 
@@ -130,7 +137,7 @@ Released 2013-07-13.
 
 == Bug Fixes
 
-* Managed login always displays MOTD, works with older versions of sudo, 
+* Managed login always displays MOTD, works with older versions of sudo,
 * Cookbook download is more reliable in fail-and-retry scenarios
 
 = 5.8.8 (General Availability release in conjunction with ServerTemplates v12.11 LTS)
