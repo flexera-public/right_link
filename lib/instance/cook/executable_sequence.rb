@@ -232,6 +232,15 @@ module RightScale
       # Where backups of chef-managed files should go.  Set to nil to backup to the same directory the file being backed up is in.
       Chef::Config[:file_backup_path] = nil
 
+      # Chef 11+ defaults client_fork to true which cause Chef::Client to fork
+      # This create problems with right_popen - right_popen expects to be used inside running EM reactor
+      # EM seems not to play well with forking
+      Chef::Config[:client_fork] = false
+
+      # Chef 11+ allow concurrent execution of the recipes in different theads,
+      # by setting different lockfile per thread.
+      Chef::Config[:lockfile] = File.join(Chef::Config[:file_cache_path], "chef-client-#{@thread_name}-running.pid")
+
       true
     end
 
