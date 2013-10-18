@@ -48,7 +48,7 @@ module RightScale
                    "operational"
                  when 'stranded'
                    "stranded"
-                 when 'decommissioning'
+                 when 'decommissioning', 'decommissioned'
                    decom_reason = "unknown"
                    decom_reason = state['decommission_type'] if RightScale::ShutdownRequest::LEVELS.include?(state['decommission_type'])
                    "shutting-down:#{decom_reason}"
