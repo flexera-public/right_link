@@ -120,7 +120,7 @@ module RightScale
 
     # (String) Type of decommission currently in progress or nil
     def self.decommission_type
-      if @value == 'decommissioning'
+      if @value == 'decommissioning' || @value == 'decommissioned'
         @decommission_type
       else
         raise RightScale::Exceptions::WrongState.new("Unexpected call to InstanceState.decommission_type for current state #{@value.inspect}")
@@ -203,7 +203,7 @@ module RightScale
           @log_level = state['log_level']
           @last_recorded_value = state['last_recorded_value']
           @record_retries = state['record_retries']
-          @decommission_type = state['decommission_type'] if @value == 'decommissioning'
+          @decommission_type = state['decommission_type'] if (@value == 'decommissioning' || @value == 'decommissioned')
           if @value != @last_recorded_value && RECORDED_STATES.include?(@value) &&
              @record_retries < MAX_RECORD_STATE_RETRIES && !@read_only
             record_state
@@ -251,7 +251,7 @@ module RightScale
       Log.info("Transitioning state from #{previous_val} to #{val}")
       @reboot = false if val != :booting
       @value = val
-      @decommission_type = nil unless @value == 'decommissioning'
+      @decommission_type = nil unless (@value == 'decommissioning' || @value == 'decommissioned')
 
       update_logger
       update_motd
@@ -537,7 +537,7 @@ module RightScale
                         'last_observed_resource_uid' => @resource_uid}
 
       # Only include deommission_type when decommissioning
-      state_to_store['decommission_type'] = @decommission_type if @value == 'decommissioning'
+      state_to_store['decommission_type'] = @decommission_type if (@value == 'decommissioning' || @value == 'decommissioned')
 
       RightScale::JsonUtilities::write_json(STATE_FILE, state_to_store)
       true
