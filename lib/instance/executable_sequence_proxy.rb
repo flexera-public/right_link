@@ -149,9 +149,6 @@ module RightScale
             ::RightScale::OptionsBag::OPTIONS_ENV =>
               ::ENV[::RightScale::OptionsBag::OPTIONS_ENV]
           }
-          if @context.decommission?
-            environment['RS_DECOM_REASON'] = @context.decommission_type
-          end
 
           # spawn
           RightScale::RightPopen.popen3_async(
