@@ -46,6 +46,8 @@ module RightScale
                    "booting#{state['reboot'] ? ':reboot' : ''}"
                  when 'operational'
                    "operational"
+                 when 'stranded'
+                   "stranded"
                  when 'decommissioning'
                    decom_reason = "unknown"
                    decom_reason = state['decommission_type'] if RightScale::ShutdownRequest::LEVELS.include?(state['decommission_type'])
