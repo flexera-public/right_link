@@ -29,6 +29,9 @@ module RightScale
 
     # Path to RightScale files in parent directory of right_link
     def self.parent_dir
+      # NOTE:
+      # RightScale is missing right_link home dir for Linux Platform
+      # will be fixed for v6.0, - ticket #16947
       RightScale::Platform.windows? ? RightScale::Platform.filesystem.right_link_home_dir : '/opt/rightscale'
     end
 
