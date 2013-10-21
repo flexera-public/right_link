@@ -59,7 +59,7 @@ class Chef
       # true:: Always return true
       def action_load
         tags = RightScale::Cook.instance.load_tags(@new_resource.timeout)
-        node[:right_link_tags] = tags
+        node.set[:right_link_tags] = tags
         true
       end
 

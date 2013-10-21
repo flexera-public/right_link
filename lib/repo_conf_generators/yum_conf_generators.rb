@@ -116,10 +116,11 @@ module Yum
     arch = Yum::execute("uname -i").strip
 
     major_ver = ver.strip.split(".").first
-    repo_path = "#{major_ver}/#{opts[:repo_subpath]}/#{arch}"
 
     opts = { :enabled => true, :gpgkey_file => RPM_GPG_KEY_CentOS + major_ver, :frozen_date => "latest"}
     opts.merge!(params)
+    repo_path = "#{major_ver}/#{opts[:repo_subpath]}/#{arch}"
+
     raise "missing parameters to generate file!" unless opts[:repo_filename] && opts[:repo_name] && opts[:repo_subpath] &&
                                                         opts[:base_urls] && opts[:frozen_date] && opts[:enabled] && opts[:gpgkey_file]
     # Old CentOS versions 5.0 and 5.1 were not versioned...so we just point to the base of the repo instead.
