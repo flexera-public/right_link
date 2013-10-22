@@ -21,10 +21,10 @@ def create_run_state_example(run_state, instance_state, decommission_type=nil, r
     example_title += " and InstanceState.decommission_type #{decommission}"
   end
   it example_title do
-    state = { 'value' => instance_state }
-    state['reboot'] = reboot unless reboot.nil?
-    state['decommission_type'] = decommission_type unless decommission_type.nil?
-    flexmock(RightScale::JsonUtilities).should_receive(:read_json).with(RightScale::InstanceState::STATE_FILE).and_return(state)
+    flexmock(RightScale::InstanceState).should_receive(:init).and_return(true)
+    flexmock(RightScale::InstanceState).should_receive(:value).and_return(instance_state)
+    flexmock(RightScale::InstanceState).should_receive(:reboot).and_return(reboot) unless reboot.nil?
+    flexmock(RightScale::InstanceState).should_receive(:decommission_type).and_return(decommission_type) unless decommission_type.nil?
     run_state_controller("--type=run")
     @output.join('\n').should include run_state
   end
@@ -92,7 +92,8 @@ module RightScale
 
     context 'rs_state --type=agent' do
       it 'should repot agent state (InstanceState.value)' do
-        flexmock(RightScale::JsonUtilities).should_receive(:read_json).with(InstanceState::STATE_FILE).and_return({'value' => "AGENT_STATE"})
+        flexmock(InstanceState).should_receive(:init).and_return(true)
+        flexmock(InstanceState).should_receive(:value).and_return("AGENT_STATE")
         run_state_controller("--type=agent")
         @output.join("\n").should include "AGENT_STATE"
       end

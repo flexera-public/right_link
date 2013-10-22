@@ -38,23 +38,23 @@ module RightScale
     end
 
     def control(options)
-      state = RightScale::JsonUtilities::read_json(InstanceState::STATE_FILE)
+      InstanceState.init(nil, true)
       result = case options[:type]
                when 'run'
-                 case state['value']
+                 case InstanceState.value
                  when 'booting'
-                   "booting#{state['reboot'] ? ':reboot' : ''}"
+                   "booting#{InstanceState.reboot ? ':reboot' : ''}"
                  when 'operational'
                    "operational"
                  when 'stranded'
                    "stranded"
                  when 'decommissioning', 'decommissioned'
                    decom_reason = "unknown"
-                   decom_reason = state['decommission_type'] if RightScale::ShutdownRequest::LEVELS.include?(state['decommission_type'])
+                   decom_reason = InstanceState.decommission_type if ShutdownRequest::LEVELS.include?(InstanceState.decommission_type)
                    "shutting-down:#{decom_reason}"
                  end
                when 'agent'
-                 state['value']
+                 InstanceState.value
                end
       fail("Failed to get #{options[:type]} state") unless result
       puts result

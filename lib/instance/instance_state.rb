@@ -175,7 +175,7 @@ module RightScale
         #  3) bundled boot       -- Agent already ran; agent ID changed: transition back to booting
         #  4) decommission/crash -- Agent exited anyway; ID not changed; no reboot; keep old state entirely
         #  5) ec2 restart        -- Agent already ran; agent ID changed; instance ID is the same; transition back to booting
-        if state['identity'] && state['identity'] != identity
+        if state['identity'] && state['identity'] != identity && !@read_only
           @last_recorded_value = state['last_recorded_value']
           self.value = 'booting'
           # if the current resource_uid is the same as the last
@@ -190,7 +190,7 @@ module RightScale
             # CASE 3 -- identity has changed; bundled boot
             Log.debug("Bundle detected; transitioning state to booting")
           end
-        elsif state['reboot']
+        elsif state['reboot'] && !@read_only
           # CASE 2 -- rebooting flagged by rightboot script in linux or by shutdown notification in windows
           Log.debug("Reboot detected; transitioning state to booting")
           @last_recorded_value = state['last_recorded_value']
