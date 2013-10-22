@@ -23,7 +23,7 @@ def create_run_state_example(run_state, instance_state, decommission_type=nil, r
   it example_title do
     flexmock(RightScale::InstanceState).should_receive(:init).and_return(true)
     flexmock(RightScale::InstanceState).should_receive(:value).and_return(instance_state)
-    flexmock(RightScale::InstanceState).should_receive(:reboot).and_return(reboot) unless reboot.nil?
+    flexmock(RightScale::InstanceState).should_receive(:reboot?).and_return(reboot) unless reboot.nil?
     flexmock(RightScale::InstanceState).should_receive(:decommission_type).and_return(decommission_type) unless decommission_type.nil?
     run_state_controller("--type=run")
     @output.join('\n').should include run_state

@@ -46,7 +46,7 @@ module RightScale
                when 'run'
                  case InstanceState.value
                  when 'booting'
-                   "booting#{InstanceState.reboot ? ':reboot' : ''}"
+                   "booting#{InstanceState.reboot? ? ':reboot' : ''}"
                  when 'operational'
                    "operational"
                  when 'stranded'
