@@ -46,44 +46,90 @@ begin
   # create the cloud instance
   cloud_instance = ::RightScale::CloudFactory.instance.create(::RightScale::CloudFactory::UNKNOWN_CLOUD_NAME, options)
 
-  cloud[:provider] = cloud_instance.name
+  cloud[:provider] = cloud_instance.name.to_s
 
-  # create node using cloud name.
-  provides cloud_instance.name.to_s
-
-  named_cloud_node = @data[cloud_instance.name.to_s.to_sym] = Mash.new
+  cloud_node = Mash.new
   cloud_metadata = cloud_instance.build_metadata(:cloud_metadata)
   if cloud_metadata.kind_of?(::Hash)
-    named_cloud_node.update(cloud_metadata)
+    cloud_node.update(cloud_metadata)
   elsif cloud_metadata != nil
-    named_cloud_node.update({:metadata => cloud_metadata})
+    cloud_node.update({:metadata => cloud_metadata})
   end
 
-  # user metadata appears as a node of cloud metadata for legacy support.
-  named_cloud_node[:userdata] = cloud_instance.build_metadata(:user_metadata)
-
   # cloud may have specific details to insert into ohai node(s).
-  named_cloud_node.update(cloud_instance.update_details)
+  cloud_node.update(cloud_instance.update_details)
 
   # expecting public/private IPs to come from all clouds (but only if they
   # support instance-facing APIs).
-  public_ip4 = named_cloud_node[:"public-ipv4"] || named_cloud_node[:public_ipv4] || named_cloud_node[:public_ip]
-  private_ip4 = named_cloud_node[:"local-ipv4"] || named_cloud_node[:local_ipv4] || named_cloud_node[:private_ip]
+  public_ip4 = cloud_node[:"public-ipv4"] || cloud_node[:public_ipv4] || cloud_node[:public_ip]
+  private_ip4 = cloud_node[:"local-ipv4"] || cloud_node[:local_ipv4] || cloud_node[:private_ip]
 
-  # support the various cloud node keys found in ohai's cloud plugin.
-  # note that we avoid setting the value if nil (because we have some workarounds
-  # for clouds without instance-facing APIs).
-  if public_ip4
+
+  case cloud[:provider]
+  when "ec2"
+    cloud[:public_ips] << cloud_node['public_ipv4']
+    cloud[:private_ips] << cloud_node['local_ipv4']
+    cloud[:public_ipv4] = cloud_node['public_ipv4']
+    cloud[:public_hostname] = cloud_node['public_hostname']
+    cloud[:local_ipv4] = cloud_node['local_ipv4']
+    cloud[:local_hostname] = cloud_node['local_hostname']
+  when "rackspace"
+    cloud[:public_ips] << public_ip4 if public_ip4
+    cloud[:private_ips] << private_ip4 if private_ip4
     cloud[:public_ipv4] = public_ip4
-    cloud[:public_ips] << public_ip4
-  end
-  if private_ip4
+    cloud[:public_ipv6] = cloud_node['public_ipv6']
+    cloud[:public_hostname] = cloud_node['public_hostname']
     cloud[:local_ipv4] = private_ip4
-    cloud[:private_ips] << private_ip4
-  end
-  cloud[:public_hostname] = named_cloud_node['public_hostname']
-  cloud[:local_hostname] = named_cloud_node['local_hostname']
+    cloud[:local_ipv6] = cloud_node['local_ipv6']
+    cloud[:local_hostname] = cloud_node['local_hostname']
+  when "gce"
+    cloud[:public_ipv4] = []
+    cloud[:local_ipv4] = []
 
+    public_ips = cloud_node['network']["networkInterface"].collect do |interface|
+      if interface.has_key?('accessConfiguration')
+        interface['accessConfiguration'].collect{|ac| ac['externalIp']}
+      end
+    end.flatten.compact
+
+    private_ips = cloud_node['network']["networkInterface"].collect do |interface|
+      interface['ip']
+    end.compact
+
+    cloud[:public_ips] += public_ips
+    cloud[:private_ips] += private_ips
+    cloud[:public_ipv4] +=  public_ips
+    cloud[:public_hostname] = nil
+    cloud[:local_ipv4] += private_ips
+    cloud[:local_hostname] = cloud_node['hostname']
+  when "openstack"
+    cloud[:public_ips] << cloud_node['public_ipv4']
+    cloud[:private_ips] << cloud_node['local_ipv4']
+    cloud[:public_ipv4] = cloud_node['public_ipv4']
+    cloud[:public_hostname] = cloud_node['public_hostname']
+    cloud[:local_ipv4] = cloud_node['local_ipv4']
+    cloud[:local_hostname] = cloud_node['local_hostname']
+  when "azure"
+    cloud[:vm_name] = cloud_node["vm_name"]
+    cloud[:public_ips] << cloud_node['public_ip']
+    cloud[:public_fqdn] = cloud_node['public_fqdn']
+    cloud[:public_ssh_port] = cloud_node['public_ssh_port'] if cloud_node['public_ssh_port']
+    cloud[:public_winrm_port] = cloud_node['public_winrm_port'] if cloud_node['public_winrm_port']
+  else
+    # support the various cloud node keys found in ohai's cloud plugin.
+    # note that we avoid setting the value if nil (because we have some workarounds
+    # for clouds without instance-facing APIs).
+    if public_ip4
+      cloud[:public_ipv4] = public_ip4
+      cloud[:public_ips] << public_ip4
+    end
+    if private_ip4
+      cloud[:local_ipv4] = private_ip4
+      cloud[:private_ips] << private_ip4
+    end
+    cloud[:public_hostname] = cloud_node['public_hostname']
+    cloud[:local_hostname] = cloud_node['local_hostname']
+  end
 rescue Exception => e
   # cloud was unresolvable, but not all ohai use cases are cloud instances.
   ::RightScale::Log.info(::RightScale::Log.format("Cloud was unresolvable", e, :caller))

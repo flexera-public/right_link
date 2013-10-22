@@ -104,8 +104,8 @@ describe Ohai::System, ' plugin cloud' do
   context 'on EC2' do
     before(:each) do
       @expected_cloud = 'ec2'
-      @metadata = {:"public-ipv4" => @expected_public_ip,
-                   :"local-ipv4" => @expected_private_ip,
+      @metadata = {'public_ipv4' => @expected_public_ip,
+                   'local_ipv4' => @expected_private_ip,
                    'public_hostname' => @expected_public_hostname,
                    'local_hostname' => @expected_local_hostname}
       @userdata = {}

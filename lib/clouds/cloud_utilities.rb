@@ -89,19 +89,24 @@ module RightScale
     #
     # === Return
     # address(String|nil):: ip address associated with the given interface, nil if interface could not be found
-    def self.ip_for_interface(ohai, interface)
+    def self.ip_for_interface(ohai, interface, family='inet')
       address = nil
       if ohai[:network] != nil &&
          ohai[:network][:interfaces] != nil &&
          ohai[:network][:interfaces][interface] != nil &&
          ohai[:network][:interfaces][interface][:addresses] != nil
 
-        addresses = ohai[:network][:interfaces][interface][:addresses].find { |key, item| item['family'] == 'inet' }
+        addresses = ohai[:network][:interfaces][interface][:addresses].find { |key, item| item['family'] == family }
         address = addresses.first unless addresses.nil?
       end
 
       address
     end
+
+    def self.ipv6_for_interface(ohai, interface)
+      ip_for_interface(ohai, interface, 'inet6')
+    end
+
 
     # Finds the first ip address that matches a given connection type (private|public)
     #
