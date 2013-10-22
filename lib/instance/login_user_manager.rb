@@ -106,15 +106,32 @@ module RightScale
                                                         "not managed by RightScale"
       end
 
-      run_profile_hook(uuid)
+      run_profile_hook(username, uuid)
       username
     end
 
-    def run_profile_hook(uuid)
-      #TODO: where is this already initialized?? if not, make method: get_policy_for_user
-      login_policy = RightScale::JsonUtilities::read_json(RightScale::InstanceState::LOGIN_POLICY_FILE)
-      user_policy = login_policy.users[login_policy.users.index { |u| u.uuid == uuid }]
-      `#{user_policy.profile_hook}` unless user_policy.profile_hook.nil?
+    # Run users profile customization script.
+    def run_profile_hook(username, uuid)
+      begin
+        script_name = ".rs_profile.sh"
+
+        #TODO: where is this already initialized?? if not, make method: get_policy_for_user
+        login_policy = RightScale::JsonUtilities::read_json(RightScale::InstanceState::LOGIN_POLICY_FILE)
+        user_policy = login_policy.users[login_policy.users.index { |u| u.uuid == uuid }]
+        unless user_policy.profile_hook.nil?
+          #puts "Running User Profile Script..."
+          user_home = File.expand_path("~#{username}");
+          #puts "user_home: #{user_home}"
+
+          File.open("/tmp/#{script_name}", 'w') { |f| f.write(user_policy.profile_hook) }
+          `sudo mv /tmp/#{script_name} #{user_home}/`
+          `sudo chown #{username} #{user_home}/#{script_name}`
+          `sudo chmod 700  #{user_home}/#{script_name}`
+          `sudo -u #{username} bash -c "cd ~ && bash #{script_name}"`
+        end
+      rescue
+        puts "Error Running Profile Hook!"
+      end
     end
 
     # If the given user exists and is RightScale-managed, then ensure his login information and
