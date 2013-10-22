@@ -198,9 +198,7 @@ describe RightScale::ExecutableSequenceProxy do
     let(:decommission_type) { ::RightScale::ShutdownRequest::STOP }
 
     it 'should run a valid command' do
-      assert_succeeded(
-        ::RightScale::OptionsBag::OPTIONS_ENV => nil,
-        'RS_DECOM_REASON'                     => decommission_type)
+      assert_succeeded(::RightScale::OptionsBag::OPTIONS_ENV => nil)
     end
   end
 
@@ -208,9 +206,7 @@ describe RightScale::ExecutableSequenceProxy do
     let(:decommission_type) { 'unknown' }
 
     it 'should run a valid command' do
-      assert_succeeded(
-        ::RightScale::OptionsBag::OPTIONS_ENV => nil,
-        'RS_DECOM_REASON'                     => decommission_type)
+      assert_succeeded(::RightScale::OptionsBag::OPTIONS_ENV => nil)
     end
   end
 end

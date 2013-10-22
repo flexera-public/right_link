@@ -3,12 +3,15 @@
 Released 2013-10-17
 
 == New Features
+ * rs_state utility that lets users interrogate the run-state (rs_state --type run) or
+   agent state (rs_state --type agent)
 
 == Changes to Existing Functionality
 
 * RightLink changes the audit summary when waiting for missing inputs on boot. It also strands if
   inputs are still missing after 45 minutes. ("Missing" means inputs that are set to a value that
   cannot yet be computed, such as the IP address of a non-running server.)
+* RS_DECOM_REASON is not populated anymore
 
 == Bug Fixes
 
