@@ -199,6 +199,7 @@ module RightScale
         else
           # CASE 4 -- restart without reboot; continue with retries if recorded state does not match
           @value = state['value']
+          @reboot = state['reboot']
           @startup_tags = state['startup_tags']
           @log_level = state['log_level']
           @last_recorded_value = state['last_recorded_value']
