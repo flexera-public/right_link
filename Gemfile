@@ -11,6 +11,7 @@ gem 'right_amqp', '~> 0.7'
 gem 'right_popen', '~> 2.0'
 gem 'right_git'
 gem 'right_scraper', '~> 4.0'
+gem 'rake', '0.8.7'
 
 # We have custom builds of some gems containing fixes and patches that are specific
 # to RightScale. Gems in the 'custom' group are published by RightScale to our
@@ -46,7 +47,6 @@ group :windows do
 end
 
 group :development do
-  gem 'rake',               '0.8.7'
   gem 'rspec',              '~> 1.3'
   gem 'flexmock',           '~> 0.8'
   gem 'rubyforge',          '1.0.4'
