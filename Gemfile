@@ -11,7 +11,6 @@ gem 'right_amqp', '~> 0.7'
 gem 'right_popen', '~> 2.0'
 gem 'right_git'
 gem 'right_scraper', '~> 4.0'
-gem 'rake', '0.8.7'
 
 # We have custom builds of some gems containing fixes and patches that are specific
 # to RightScale. Gems in the 'custom' group are published by RightScale to our
@@ -44,6 +43,12 @@ group :windows do
     gem 'win32-open3'
     gem 'win32-service'
   end
+end
+
+group :build do
+  # This is work around for right_link package building with ruby 1.8 installed
+  # while right_link gem is running on ruby 1.9
+  gem 'rake', '0.8.7'
 end
 
 group :development do
