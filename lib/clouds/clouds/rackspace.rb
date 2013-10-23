@@ -74,5 +74,14 @@ def update_details
       details[:private_ip] = ::RightScale::CloudUtilities.ip_for_interface(ohai, :eth1)
     end
   end
+
+  # rack_connect (and managed?) instances may not have network interfaces for
+  # public ip, so attempt the "what's my ip?" method in these cases.
+  unless details[:public_ip]
+    if public_ip = ::RightScale::CloudUtilities.query_whats_my_ip(:logger=>logger)
+      details[:public_ip] = public_ip
+    end
+  end
+
   return details
 end
