@@ -45,8 +45,13 @@ group :windows do
   end
 end
 
+group :build do
+  # This is work around for right_link package building with ruby 1.8 installed
+  # while right_link gem is running on ruby 1.9
+  gem 'rake', '0.8.7'
+end
+
 group :development do
-  gem 'rake',               '0.8.7'
   gem 'rspec',              '~> 1.3'
   gem 'flexmock',           '~> 0.8'
   gem 'rubyforge',          '1.0.4'
