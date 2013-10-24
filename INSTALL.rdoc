@@ -10,16 +10,18 @@ http://mirror.rightscale.com/rightlink/
 
 (TODO: provide information on 5.9 stable packages once they are released.)
 
-== Beta Packages
+== Release Candidates Packages
 
-Beginning with RightLink 5.9, we host our packages in apt and yum repositories
+Beginning with RightLink 5.9, we host our packages in apt, yum, zypp and windows repositories
 for ease of installation.
 
-As of October 2013, we produce beta builds for the following distributions and
+As of November 2013, we produce release candidates builds for the following distributions and
 releases:
 * RHEL 6 (also compatible with CentOS 6)
 * SUSE 11
 * Ubuntu 12.04
+* Ubuntu 13.04
+# Windows Server 2008/2012
 
 And the following cloud types:
 * azure
@@ -27,8 +29,7 @@ And the following cloud types:
 * ec2
 * google
 * openstack
-* rackspace-first-gen (Rackspace Classic)
-* rackspace-open-cloud
+* rackspace (OpenCloud)
 * softlayer
 
 For all Unix-based systems, RightLink is distributed as a base package plus one
@@ -47,13 +48,19 @@ image and use it to create your own MultiCoudImage for use with RightScale.
 For RedHat-based systems, we publish and maintain a yum repository. The repository
 follows an EPEL-like layout and supports multiple distributions and releases.
 
-First, create a yum source.
+First, import RightScale public key:
+
+  # Pre-import the rightscale public key
+  rpm --import http://s3.amazonaws.com/rightscale_key_pub/rightscale_key.pub
+
+ Create a yum source.
 
   cat > /etc/yum.repos.d/RightLink-development.repo <<EOF
   [rightlink]
   name=RightLink
   baseurl=https://rightlink-staging.s3.amazonaws.com/yum/1/el/$releasever/$basearch/
-  gpgcheck=0
+  gpgcheck=1
+  gpgkey=http://s3.amazonaws.com/rightscale_key_pub/rightscale_key.pub
   EOF
 
 Next, install RightLink cloud support package for
@@ -68,7 +75,12 @@ You can now bundle your image and boot RightScale servers with it.
 For SUSE-based systems, we maintain a zypper repository. The repository follows
 an EPEL-like layout and supports multiple distributions and releases.
 
-First, create a zypper source.
+First, import RightScale public key:
+
+  # Pre-import the rightscale public key
+  rpm --import http://s3.amazonaws.com/rightscale_key_pub/rightscale_key.pub
+
+Create a zypper source.
 
   zypper ar -G -f https://rightlink-staging.s3.amazonaws.com/zypp/1/suse/$releasever/$basearch/
 
@@ -83,14 +95,26 @@ You can now bundle your image and boot RightScale servers with it.
 
 For Debian-derived systems, maintain an automatic, pooled apt repository.
 
-First, create an apt source, ensuring that you specify the right architecture
-and release code name. For instance, on an amd64 system that is running
-Ubuntu 12.04 (precise):
+First, import RightScale public key:
 
+  # Import RightScale public key
+  curl http://s3.amazonaws.com/rightscale_key_pub/rightscale_key.pub | apt-key add -
+
+Create an apt source, ensuring that you specify the right architecture
+and release code name. For instance, on an amd64 system that is running:
+
+  # Ubuntu 12.04 (precise)
   cat > /etc/apt/sources.list.d/rightlink.sources.list <<EOF
-  deb [arch=amd64] https://rightlink-staging.s3.amazonaws.com/nightly/apt precise main
-  deb-src [arch=amd64] https://rightlink-staging.s3.amazonaws.com/nightly/apt precise main
+  deb [arch=amd64] https://rightlink-staging.s3.amazonaws.com/apt precise main
+  deb-src [arch=amd64] https://rightlink-staging.s3.amazonaws.com/apt precise main
   EOF
+
+  # Ubuntu 13.04 (raring)
+  cat > /etc/apt/sources.list.d/rightlink.sources.list <<EOF
+  deb [arch=amd64] https://rightlink-staging.s3.amazonaws.com/apt raring main
+  deb-src [arch=amd64] https://rightlink-staging.s3.amazonaws.com/apt raring main
+  EOF
+
 
 Next, install RightLink cloud support package for the cloud type your instance is running on:
 
@@ -102,9 +126,9 @@ Next, install RightLink cloud support package for the cloud type your instance i
 For Windows systems, we publish MSIs to Amazon S3; find the file that is suitable for your CPU
 architecture and download it with your Web browser:
 
-  https://rightlink-staging.s3.amazonaws.com/windows/RightLink-5.9.2-1-i386.msi
+  https://rightlink-staging.s3.amazonaws.com/windows/RightLink-5.9.3-2-i386.msi
 
-  https://rightlink-staging.s3.amazonaws.com/windows/RightLink-5.9.2-1-x64.msi
+  https://rightlink-staging.s3.amazonaws.com/windows/RightLink-5.9.3-2-x64.msi
 
 Next, run the installer to complete installation.
 
