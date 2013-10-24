@@ -12,6 +12,8 @@ Released 2013-10-17
   inputs are still missing after 45 minutes. ("Missing" means inputs that are set to a value that
   cannot yet be computed, such as the IP address of a non-running server.)
 * RS_DECOM_REASON is not populated anymore
+* Remove cloud-support package for Rackspace Classic cloud suffixed as "rackspace-first-gen".
+* The cloud-support package for Rackspace OpenCloud is suffixed with "rackspace".
 
 == Bug Fixes
 
