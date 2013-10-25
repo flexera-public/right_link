@@ -10,6 +10,15 @@ to monitor the stdout and stderr streams of scripted processes. Servers running
 the RightLink agent configures themselves on startup an register with the 
 mapper so that operational recipes and scripts can be run at a later time.
 
+Supported cloud types:
+* azure
+* cloudstack
+* ec2
+* google
+* openstack
+* rackspace (Open Cloud)
+* softlayer
+
 Refer to the wiki (https://github.com/rightscale/right_link/wikis) for up-to-date
 documentation.
 
@@ -82,7 +91,7 @@ See INSTALL.rdoc for more information
 
 <b>RightLink</b>
 
-Copyright:: Copyright (c) 2009-2011 RightScale, Inc.
+Copyright:: Copyright (c) 2009-2013 RightScale, Inc.
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the

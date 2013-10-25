@@ -48,14 +48,16 @@ image and use it to create your own MultiCoudImage for use with RightScale.
 For RedHat-based systems, we publish and maintain a yum repository. The repository
 follows an EPEL-like layout and supports multiple distributions and releases.
 
+*Note:* 64-bit is only supported.
+
 First, import RightScale public key:
 
   # Pre-import the rightscale public key
   rpm --import http://s3.amazonaws.com/rightscale_key_pub/rightscale_key.pub
 
- Create a yum source.
+Create a yum source:
 
-  cat > /etc/yum.repos.d/RightLink-development.repo <<EOF
+  cat > /etc/yum.repos.d/RightLink-staging.repo <<EOF
   [rightlink]
   name=RightLink
   baseurl=https://rightlink-staging.s3.amazonaws.com/yum/1/el/$releasever/$basearch/
@@ -64,7 +66,7 @@ First, import RightScale public key:
   EOF
 
 Next, install RightLink cloud support package for
-the cloud type your instance is running on:
+the cloud type your instance is running on. Example for Amazon EC2:
 
   yum install -y rightlink-cloud-ec2
 
@@ -75,17 +77,25 @@ You can now bundle your image and boot RightScale servers with it.
 For SUSE-based systems, we maintain a zypper repository. The repository follows
 an EPEL-like layout and supports multiple distributions and releases.
 
+*Note:* 64-bit is only supported.
+
 First, import RightScale public key:
 
   # Pre-import the rightscale public key
   rpm --import http://s3.amazonaws.com/rightscale_key_pub/rightscale_key.pub
 
-Create a zypper source.
+Create a zypper source:
 
-  zypper ar -G -f https://rightlink-staging.s3.amazonaws.com/zypp/1/suse/$releasever/$basearch/
+  cat > /etc/zypp/repos.d/RightLink-staging.repo <<EOF
+  [rightlink]
+  name=RightLink
+  baseurl=https://rightlink-staging.s3.amazonaws.com/zypp/1/suse/11/x86_64/
+  gpgcheck=1
+  gpgkey=http://s3.amazonaws.com/rightscale_key_pub/rightscale_key.pub
+  EOF
 
 Next, install RightLink cloud support package for
-the cloud type your instance is running on:
+the cloud type your instance is running on. Example for Amazon EC2:
 
   zypper --non-interactive install rightlink-cloud-ec2
 
@@ -94,6 +104,8 @@ You can now bundle your image and boot RightScale servers with it.
 === Ubuntu installation
 
 For Debian-derived systems, maintain an automatic, pooled apt repository.
+
+*Note:* 64-bit is only supported.
 
 First, import RightScale public key:
 
@@ -116,7 +128,7 @@ and release code name. For instance, on an amd64 system that is running:
   EOF
 
 
-Next, install RightLink cloud support package for the cloud type your instance is running on:
+Next, install RightLink cloud support package for the cloud type your instance is running on. Example for Amazon EC2:
 
   apt-get update
   apt-get install rightlink-cloud-ec2
@@ -130,5 +142,5 @@ architecture and download it with your Web browser:
 
   https://rightlink-staging.s3.amazonaws.com/windows/RightLink-5.9.3-2-x64.msi
 
-Next, run the installer to complete installation.
+Next, run the installer to complete installation. Do not forget to choose the appropriate cloud type during installing.
 
