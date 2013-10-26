@@ -106,31 +106,32 @@ module RightScale
                                                         "not managed by RightScale"
       end
 
-      run_profile_hook(username, uuid)
+      run_login_script(username, uuid)
       username
     end
 
     # Run users profile customization script.
-    def run_profile_hook(username, uuid)
+    def run_login_script(username, uuid)
       begin
-        script_name = ".rs_profile.sh"
+        script_name = ".rs_login_script.sh"
 
+        #TODO: confirm linux os??
         #TODO: where is this already initialized?? if not, make method: get_policy_for_user
         login_policy = RightScale::JsonUtilities::read_json(RightScale::InstanceState::LOGIN_POLICY_FILE)
         user_policy = login_policy.users[login_policy.users.index { |u| u.uuid == uuid }]
-        unless user_policy.profile_hook.nil?
+        unless user_policy.linux_login_script.nil?
           #puts "Running User Profile Script..."
           user_home = File.expand_path("~#{username}");
           #puts "user_home: #{user_home}"
 
-          File.open("/tmp/#{script_name}", 'w') { |f| f.write(user_policy.profile_hook) }
+          File.open("/tmp/#{script_name}", 'w') { |f| f.write(user_policy.linux_login_script) }
           `sudo mv /tmp/#{script_name} #{user_home}/`
           `sudo chown #{username} #{user_home}/#{script_name}`
           `sudo chmod 700  #{user_home}/#{script_name}`
           `sudo -u #{username} bash -c "cd ~ && bash #{script_name}"`
         end
-      rescue
-        puts "Error Running Profile Hook!"
+      rescue Exception => e
+        puts "Error Running User Login Script: #{e}"
       end
     end
 
