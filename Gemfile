@@ -5,9 +5,12 @@ gemspec
 
 # Fresh off the assembly line
 gem 'right_support', '~> 2.7'
-gem 'right_agent', '~> 0.17'
-gem 'right_amqp', '~> 0.7'
 
+gem 'right_agent', '~> 1.0',
+                   :git => 'https://github.com/rightscale/right_agent.git',
+                   :branch => 'teal_13_15_acu125100_support_mingw'
+
+gem 'right_amqp', '~> 0.7'
 gem 'right_popen', '~> 2.0'
 gem 'right_git'
 gem 'right_scraper', '~> 4.0'
@@ -19,7 +22,7 @@ group :custom do
   gem 'chef', '11.6.0.2'
   gem 'ohai', '6.18.0.2'
   gem 'mixlib-shellout', '1.2.0.2'
-  gem 'eventmachine', '1.0.0.3'
+  gem 'eventmachine', '~> 1.0.0.4'
 end
 
 # We use some gems on both platforms, but the maintainer of the gem does not publish
@@ -30,7 +33,6 @@ end
 # mswin-platform gem for every one of the gems below AND published it to
 # the rightscale custom gem repository.
 group :windows do
-  gem 'json', '1.4.6'
   platform :mingw do
     gem 'win32-api'
     gem 'windows-api'
