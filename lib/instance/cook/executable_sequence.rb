@@ -32,6 +32,7 @@ undef :daemonize if methods.include?('daemonize')
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'chef', 'ohai_setup'))
 require File.normalize_path(File.join(File.dirname(__FILE__), 'cookbook_path_mapping'))
 require File.normalize_path(File.join(File.dirname(__FILE__), 'cookbook_repo_retriever'))
+require File.normalize_path(File.join(File.dirname(__FILE__), 'concurrent_repose_downloader'))
 
 class File
   class << self
@@ -76,12 +77,12 @@ module RightScale
       @scripts                = bundle.executables.select { |e| e.is_a?(RightScriptInstantiation) }
       run_list_recipes        = bundle.executables.map { |e| e.is_a?(RecipeInstantiation) ? e : @right_scripts_cookbook.recipe_from_right_script(e) }
       @cookbooks              = bundle.cookbooks
-      @downloader             = ReposeDownloader.new(bundle.repose_servers)
+      @audit                  = AuditStub.instance
+      @downloader             = ConcurrentReposeDownloader.new(bundle.repose_servers, @audit)
       @downloader.logger      = Log
       @download_path          = File.join(AgentConfig.cookbook_download_dir, @thread_name)
       @powershell_providers   = nil
       @ohai_retry_delay       = OHAI_RETRY_MIN_DELAY
-      @audit                  = AuditStub.instance
       @logger                 = Log
       @cookbook_repo_retriever= CookbookRepoRetriever.new(@download_path, bundle.dev_cookbooks)
 
@@ -249,39 +250,26 @@ module RightScale
     # === Return
     # true:: Always return true
     def download_attachments
-      unless @scripts.all? { |s| s.attachments.empty? }
-        @audit.create_new_section('Downloading attachments')
-        audit_time do
-          @scripts.each do |script|
-            attach_dir = @right_scripts_cookbook.cache_dir(script)
-            script.attachments.each do |a|
-              script_file_path = File.join(attach_dir, a.file_name)
-              @audit.update_status("Downloading #{a.file_name} into #{script_file_path} through Repose")
-              begin
-                attachment_dir = File.dirname(script_file_path)
-                FileUtils.mkdir_p(attachment_dir)
-                tempfile = Tempfile.open('attachment', attachment_dir)
-                tempfile.binmode
-                @downloader.download(a.url) do |response|
-                  tempfile << response
-                end
-                File.unlink(script_file_path) if File.exists?(script_file_path)
-                File.link(tempfile.path, script_file_path)
-                tempfile.close!
-                @audit.append_info(@downloader.details)
-              rescue Exception => e
-                tempfile.close! unless tempfile.nil?
-                @audit.append_info("Repose download failed: #{e.message}.")
-                if e.kind_of?(ReposeDownloader::DownloadException) && e.message.include?("Forbidden")
-                  @audit.append_info("Often this means the download URL has expired while waiting for inputs to be satisfied.")
-                end
-                report_failure("Failed to download attachment '#{a.file_name}'", e.message)
-              end
-            end
+      return true if @scripts.all? { |s| s.attachments.empty? }
+      @audit.create_new_section('Downloading attachments')
+      audit_time do
+        @scripts.each do |script|
+          attach_dir = @right_scripts_cookbook.cache_dir(script)
+          script.attachments.each do |a|
+            script_file_path = File.join(attach_dir, a.file_name)
+            @audit.update_status("Downloading #{a.file_name} into #{script_file_path} through Repose")
+            @downloader.download(a.url, script_file_path)
           end
         end
+        report_failure("Failed to download attachment(s)", "") unless @downloader.join
       end
       true
+    rescue ConcurrentDownloadException => e
+      @audit.append_info("Repose download failed: #{e.message}.")
+      if e.exception_class == "ReposeDownloader::DownloadException" && e.message.include?("Forbidden")
+        @audit.append_info("Often this means the download URL has expired while waiting for inputs to be satisfied.")
+      end
+      report_failure("Failed to download attachment '#{e.file_name}'", e.message)
     end
 
     # Install required software packages, update @ok
@@ -426,6 +414,15 @@ module RightScale
               end
             end
           end
+          report_failure("Failed to download cookbook(s)", nil) unless @downloader.join
+          @cookbooks.each do |cookbook_sequence|
+            cookbook_sequence.positions.each do |position|
+              cookbook_path = CookbookPathMapping.repose_path(@download_path, cookbook_sequence.hash, position.position)
+              next if @cookbook_repo_retriever.should_be_linked?(cookbook_sequence.hash, position.position)
+              next if File.exists?(cookbook_path)
+              unpack_cookbook(cookbook_path, position.cookbook)
+            end
+          end
         end
       end
 
@@ -434,46 +431,22 @@ module RightScale
 
       true
     rescue Exception => e
-      report_failure("Failed to download cookbook", "Cannot continue due to #{e.class.name}: #{e.message}.")
+      exception_class = e.is_a?(ConcurrentDownloadException) ? e.exception_class : e.class.name
+      report_failure("Failed to download cookbook", "Cannot continue due to #{exception_class}: #{e.message}.")
       Log.debug(Log.format("Failed to download cookbook", e, :trace))
     end
 
-    #
-    # Download a cookbook from Repose mirror and extract it to the filesystem.
+    # Extract cookbook to the filesystem.
     #
     # === Parameters
     # root_dir(String):: subdir of basedir into which this cookbook goes
     # cookbook(Cookbook):: cookbook
     #
-    # === Raise
-    # Propagates exceptions raised by callees, namely DownloadFailure
-    # and ReposeServerFailure
-    #
     # === Return
     # true:: always returns true
-    def download_cookbook(root_dir, cookbook)
+    def unpack_cookbook(root_dir, cookbook)
       cache_dir = File.join(AgentConfig.cache_dir, "right_link", "cookbooks")
       cookbook_tarball = File.join(cache_dir, "#{cookbook.hash.split('?').first}.tar")
-      begin
-        FileUtils.mkdir_p(cache_dir)
-        File.open(cookbook_tarball, "ab") do |tarball|
-          if tarball.stat.size == 0
-            #audit cookbook name & part of hash (as a disambiguator)
-            name = cookbook.name ; tag  = cookbook.hash[0..4]
-            @audit.append_info("Downloading cookbook '#{name}' (#{tag})")
-            @downloader.download("/cookbooks/#{cookbook.hash}") do |response|
-              tarball << response
-            end
-            @audit.append_info(@downloader.details)
-          end
-        end
-      rescue Exception => e
-        File.unlink(cookbook_tarball) if File.exists?(cookbook_tarball)
-        raise
-      end
-
-      @audit.append_info("Success; unarchiving cookbook")
-
       # The local basedir is the faux "repository root" into which we extract all related
       # cookbooks in that set, "related" meaning a set of cookbooks that originally came
       # from the same Chef cookbooks repository as observed by the scraper.
@@ -498,7 +471,38 @@ module RightScale
           report_failure("Unknown error", SubprocessFormatting.reason($?))
         end
       end
-      return true
+      true
+    end
+
+    #
+    # Download a cookbook from Repose mirror
+    #
+    # === Parameters
+    # root_dir(String):: subdir of basedir into which this cookbook goes
+    # cookbook(Cookbook):: cookbook
+    #
+    # === Raise
+    # Propagates exceptions raised by callees, namely DownloadFailure
+    # and ReposeServerFailure
+    #
+    # === Return
+    # true:: always returns true
+    def download_cookbook(root_dir, cookbook)
+      cache_dir = File.join(AgentConfig.cache_dir, "right_link", "cookbooks")
+      cookbook_tarball = File.join(cache_dir, "#{cookbook.hash.split('?').first}.tar")
+      begin
+        FileUtils.mkdir_p(cache_dir)
+        unless File.exists?(cookbook_tarball)
+          #audit cookbook name & part of hash (as a disambiguator)
+          name = cookbook.name ; tag  = cookbook.hash[0..4]
+          @audit.append_info("Downloading cookbook '#{name}' (#{tag})")
+          @downloader.download("/cookbooks/#{cookbook.hash}", cookbook_tarball)
+        end
+      rescue Exception => e
+        File.unlink(cookbook_tarball) if File.exists?(cookbook_tarball)
+        raise
+      end
+      true
     end
 
     # Create Powershell providers from cookbook repos
