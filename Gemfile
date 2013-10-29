@@ -34,15 +34,14 @@ end
 # the rightscale custom gem repository.
 group :windows do
   platform :mingw do
-    gem 'win32-api'
-    gem 'windows-api'
-    gem 'windows-pr'
+    # the FFI guys don't seem to release native mingw builds at the same time as
+    # non-native gems, which makes bundle install hang; choose a pre-built gem.
+    gem 'ffi', '1.9.0'
     gem 'win32-dir'
     gem 'win32-eventlog'
     gem 'ruby-wmi'
     gem 'win32-process'
     gem 'win32-pipe'
-    gem 'win32-open3'
     gem 'win32-service'
   end
 end
@@ -60,6 +59,10 @@ group :development do
   gem 'rcov', '~> 0.8.1',     :platforms => :mri_18
   gem 'ruby-debug',           :platforms => :mri_18
   gem 'debugger', '~> 1.6.1', :platforms => :mri_19
+
+  platform :mingw do
+    gem 'win32console'
+  end
 end
 
 # Gems that are not dependencies of RightLink, but which are useful to
