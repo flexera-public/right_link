@@ -508,15 +508,15 @@ module RightScale
     # === Return
     # nil:: always return nil
     def self.broadcast_wall
-      return unless RightScale::Platform.linux?
+      # linux only, don't broadcast during rspec runs because it is very annoying.
+      return if !RightScale::Platform.linux? || defined?(::Spec) || defined?(::RSpec)
 
       if SUCCESSFUL_STATES.include?(@value)
         system('echo "RightScale installation complete. Details can be found in system logs." | wall > /dev/null 2>&1') rescue nil
       elsif FAILED_STATES.include?(@value)
         system('echo "RightScale installation failed. Please review system logs." | wall > /dev/null 2>&1') rescue nil
       end
-
-      return nil
+      nil
     end
 
     private
