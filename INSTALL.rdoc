@@ -70,6 +70,8 @@ the cloud type your instance is running on. Example for Amazon EC2:
 
   yum install -y rightlink-cloud-ec2
 
+*Note:* Before installing the RightLink package be sure that time of the server is synchronized with the time clocks over a network. Otherwise, you can use Network Time Protocol (NTP) for synchronizing.
+
 You can now bundle your image and boot RightScale servers with it.
 
 === SUSE installation
@@ -98,6 +100,8 @@ Next, install RightLink cloud support package for
 the cloud type your instance is running on. Example for Amazon EC2:
 
   zypper --non-interactive install rightlink-cloud-ec2
+
+*Note:* Before installing the RightLink package be sure that time of the server is synchronized with the time clocks over a network. Otherwise, you can use Network Time Protocol (NTP) for synchronizing.
 
 You can now bundle your image and boot RightScale servers with it.
 
@@ -133,6 +137,10 @@ Next, install RightLink cloud support package for the cloud type your instance i
   apt-get update
   apt-get install rightlink-cloud-ec2
 
+*Note:* Before installing the RightLink package be sure that time of the server is synchronized with the time clocks over a network. Otherwise, you can use Network Time Protocol (NTP) for synchronizing.
+
+You can now bundle your image and boot RightScale server with it.
+
 === Windows Installation
 
 For Windows systems, we publish MSIs to Amazon S3; find the file that is suitable for your CPU
@@ -141,6 +149,9 @@ architecture and download it with your Web browser:
   https://rightlink-staging.s3.amazonaws.com/windows/RightLink-5.9.3-2-i386.msi
 
   https://rightlink-staging.s3.amazonaws.com/windows/RightLink-5.9.3-2-x64.msi
+
+
+*Note:* Before installing the RightLink package be sure that time of the server is synchronized with the time clocks over a network.
 
 Next, run the installer to complete installation. Do not forget to choose the appropriate cloud type during installing.
 
