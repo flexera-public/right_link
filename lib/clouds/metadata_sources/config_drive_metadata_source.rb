@@ -20,7 +20,7 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require File.normalize_path(File.expand_path('../file_metadata_source', __FILE__))
+require File.normalize_path('../file_metadata_source', __FILE__)
 
 module RightScale
   module MetadataSources

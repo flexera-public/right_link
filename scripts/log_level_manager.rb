@@ -27,8 +27,8 @@
 
 require 'right_agent/scripts/log_level_manager'
 require 'trollop'
-require File.expand_path(File.join(File.dirname(__FILE__), 'command_helper'))
-require File.expand_path(File.join(File.dirname(__FILE__), 'tagger'))
+require File.normalize_path(File.join(File.dirname(__FILE__), 'command_helper'))
+require File.normalize_path(File.join(File.dirname(__FILE__), 'tagger'))
 
 module RightScale
 

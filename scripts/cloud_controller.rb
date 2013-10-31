@@ -35,9 +35,9 @@ require 'fileutils'
 require 'right_agent'
 require 'right_agent/scripts/usage'
 
-require File.expand_path(File.join(File.dirname(__FILE__), '..', 'lib', 'instance', 'agent_config'))
-require File.expand_path(File.join(File.dirname(__FILE__), '..', 'lib', 'clouds', 'register_clouds'))
-require File.expand_path(File.join(File.dirname(__FILE__), 'command_helper'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'instance', 'agent_config'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'clouds', 'register_clouds'))
+require File.normalize_path(File.join(File.dirname(__FILE__), 'command_helper'))
 
 module RightScale
 

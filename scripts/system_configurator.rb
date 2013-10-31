@@ -24,7 +24,7 @@ require 'right_agent/scripts/common_parser'
 
 # RightLink dependencies
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'instance', 'agent_config'))
-require File.expand_path(File.join(File.dirname(__FILE__), 'command_helper'))
+require File.normalize_path(File.join(File.dirname(__FILE__), 'command_helper'))
 
 cloud_dir = RightScale::AgentConfig.cloud_state_dir
 
