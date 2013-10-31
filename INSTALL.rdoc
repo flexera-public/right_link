@@ -10,7 +10,7 @@ http://mirror.rightscale.com/rightlink/
 
 (TODO: provide information on 5.9 stable packages once they are released.)
 
-== Release Candidates Packages
+== Beta Packages
 
 Beginning with RightLink 5.9, we host our packages in apt, yum, zypp and windows repositories
 for ease of installation.
@@ -21,7 +21,7 @@ releases:
 * SUSE 11
 * Ubuntu 12.04
 * Ubuntu 13.04
-# Windows Server 2008/2012
+* Windows Server 2008/2012
 
 And the following cloud types:
 * azure
@@ -43,7 +43,7 @@ graphical installer that allows you to choose the cloud type.
 Regardless of OS, after installing the RightLink package, you can bundle an
 image and use it to create your own MultiCoudImage for use with RightScale.
 
-=== RHEL/CentOS installation
+=== RHEL/CentOS 6 installation
 
 For RedHat-based systems, we publish and maintain a yum repository. The repository
 follows an EPEL-like layout and supports multiple distributions and releases.
@@ -60,7 +60,7 @@ Create a yum source:
   cat > /etc/yum.repos.d/RightLink-staging.repo <<EOF
   [rightlink]
   name=RightLink
-  baseurl=https://rightlink-staging.s3.amazonaws.com/yum/1/el/$releasever/$basearch/
+  baseurl=https://rightlink-staging.s3.amazonaws.com/yum/1/el/6/$basearch/
   gpgcheck=1
   gpgkey=http://s3.amazonaws.com/rightscale_key_pub/rightscale_key.pub
   EOF
@@ -70,7 +70,7 @@ the cloud type your instance is running on. Example for Amazon EC2:
 
   yum install -y rightlink-cloud-ec2
 
-*Note:* Before installing the RightLink package be sure that time of the server is synchronized with the time clocks over a network. Otherwise, you can use Network Time Protocol (NTP) for synchronizing.
+*Note:* Before installing the RightLink package be sure that time of the server is correct. We highly recommend the use of Network Time Protocol (NTP) for synchronizing time on your servers.
 
 You can now bundle your image and boot RightScale servers with it.
 
@@ -101,7 +101,7 @@ the cloud type your instance is running on. Example for Amazon EC2:
 
   zypper --non-interactive install rightlink-cloud-ec2
 
-*Note:* Before installing the RightLink package be sure that time of the server is synchronized with the time clocks over a network. Otherwise, you can use Network Time Protocol (NTP) for synchronizing.
+*Note:* Before installing the RightLink package be sure that time of the server is correct. We highly recommend the use of Network Time Protocol (NTP) for synchronizing time on your servers.
 
 You can now bundle your image and boot RightScale servers with it.
 
@@ -137,9 +137,9 @@ Next, install RightLink cloud support package for the cloud type your instance i
   apt-get update
   apt-get install rightlink-cloud-ec2
 
-*Note:* Before installing the RightLink package be sure that time of the server is synchronized with the time clocks over a network. Otherwise, you can use Network Time Protocol (NTP) for synchronizing.
+*Note:* Before installing the RightLink package be sure that time of the server is correct. We highly recommend the use of Network Time Protocol (NTP) for synchronizing time on your servers.
 
-You can now bundle your image and boot RightScale server with it.
+You can now bundle your image and boot RightScale servers with it.
 
 === Windows Installation
 
