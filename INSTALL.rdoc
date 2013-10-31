@@ -151,7 +151,7 @@ architecture and download it with your Web browser:
   https://rightlink-staging.s3.amazonaws.com/windows/RightLink-5.9.3-2-x64.msi
 
 
-*Note:* Before installing the RightLink package be sure that time of the server is synchronized with the time clocks over a network.
+*Note:* Before installing the RightLink package be sure that time of the server is correct. We highly recommend the use of Network Time Protocol (NTP) for synchronizing time on your servers.
 
 Next, run the installer to complete installation. Do not forget to choose the appropriate cloud type during installing.
 
