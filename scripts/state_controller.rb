@@ -24,6 +24,7 @@
 #
 require 'trollop'
 require 'right_agent'
+require 'right_support'
 require File.expand_path(File.join(File.dirname(__FILE__), 'command_helper'))
 require File.expand_path(File.join(File.dirname(__FILE__), '..', 'lib', 'instance', 'json_utilities'))
 require File.expand_path(File.join(File.dirname(__FILE__), '..', 'lib', 'instance', 'agent_config'))
@@ -41,6 +42,7 @@ module RightScale
     end
 
     def control(options)
+      Log.force_logger(RightSupport::Log::NullLogger.new)
       InstanceState.init(nil, true)
       result = case options[:type]
                when 'run'
