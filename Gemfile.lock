@@ -1,10 +1,11 @@
 GIT
   remote: https://github.com/rightscale/right_agent.git
-  revision: bc72220be18128d17b968c93deff358ad15c197d
-  branch: teal_13_15_acu125100_support_mingw
+  revision: 73fd8615b2135ed8ebdd3a6ff48020656626aa16
+  branch: master
   specs:
     right_agent (1.0.1)
       eventmachine (>= 0.12.10, < 2.0)
+      ffi
       json (~> 1.4)
       msgpack (>= 0.4.4, < 0.6)
       net-ssh (~> 2.0)
@@ -60,6 +61,7 @@ GEM
     eventmachine (1.0.0.4)
     eventmachine (1.0.0.4-x86-mingw32)
     extlib (0.9.16)
+    ffi (1.9.0)
     ffi (1.9.0-x86-mingw32)
     flexmock (0.9.0)
     highline (1.6.19)
