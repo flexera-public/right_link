@@ -21,6 +21,7 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'instance', 'volume_management'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'right_link', 'version'))
 
 class InstanceSetup
 
@@ -139,9 +140,9 @@ class InstanceSetup
   def init_boot
     RightScale::Sender.instance.initialize_offline_queue
     payload = {:agent_identity     => @agent_identity,
-               :right_link_version => RightLink.version,
-               :r_s_version        => RightScale::AgentConfig.protocol_version,
-               :resource_uid       => RightScale::InstanceState.resource_uid}
+               :right_link_version => ::RightLink.version,
+               :r_s_version        => ::RightScale::AgentConfig.protocol_version,
+               :resource_uid       => ::RightScale::InstanceState.resource_uid}
     req = RightScale::IdempotentRequest.new('/booter/declare', payload, :retry_on_error => true)
     req.callback do |res|
       RightScale::Sender.instance.start_offline_queue

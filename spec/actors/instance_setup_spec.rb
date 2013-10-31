@@ -20,11 +20,11 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require File.join(File.dirname(__FILE__), 'spec_helper')
-require File.join(File.dirname(__FILE__), '..', '..', 'actors', 'instance_setup')
-require File.join(File.dirname(__FILE__), 'audit_proxy_mock')
-require File.join(File.dirname(__FILE__), 'instantiation_mock')
-require File.join(File.dirname(__FILE__), '..', 'results_mock')
+require File.expand_path(File.join(File.dirname(__FILE__), 'spec_helper'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'actors', 'instance_setup'))
+require File.normalize_path(File.join(File.dirname(__FILE__), 'audit_proxy_mock'))
+require File.normalize_path(File.join(File.dirname(__FILE__), 'instantiation_mock'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'results_mock'))
 require 'right_popen'
 
 module RightScale
@@ -208,9 +208,9 @@ describe InstanceSetup do
 
     # default to no planned volumes in Windows case, Linux case will fail if it attempts to get planned volumes.
     if RightScale::Platform.windows?
-      InstanceSetup.results_for_get_planned_volumes = [lambda{ @results_factory.success_results([]) }]
+      InstanceSetup.results_for_get_planned_volumes = [lambda{ |*args| @results_factory.success_results([]) }]
     else
-      InstanceSetup.results_for_get_planned_volumes = [lambda{ raise "Unexpected call for this platform." }]
+      InstanceSetup.results_for_get_planned_volumes = [lambda{ |*args| raise "Unexpected call for this platform." }]
     end
 
     # prevent Chef logging reaching the console during spec test.
@@ -369,14 +369,14 @@ describe InstanceSetup do
     results << [planned_volumes[0]]                       # before attaching second volume
     results << [planned_volumes[0], planned_volumes[1]]   # after attaching second volume
     results << [planned_volumes[0], planned_volumes[1]]   # final evaluation before proceeding to boot
-    InstanceSetup.results_for_get_planned_volumes = results.map { |result| lambda{ |payload| handle_get_planned_volume_mappings(payload, @agent_identity.to_s, result) } }
+    InstanceSetup.results_for_get_planned_volumes = results.map { |result| lambda{ |*args| handle_get_planned_volume_mappings(args, @agent_identity.to_s, result) } }
     planned_volumes
   end
 
   def mock_core_api_attach_volume(planned_volumes)
     results = []
     planned_volumes.each do |planned_volume|
-      results << lambda{ |payload| handle_attach_volume(payload, @agent_identity.to_s, planned_volume) }
+      results << lambda{ |*args| handle_attach_volume(args, @agent_identity.to_s, planned_volume) }
     end
     InstanceSetup.results_for_attach_volume = results
   end
@@ -384,7 +384,7 @@ describe InstanceSetup do
   def mock_core_api_detach_volume(planned_volumes)
     results = []
     planned_volumes.each do |planned_volume|
-      results << lambda{ |payload| handle_detach_volume(payload, @agent_identity.to_s, planned_volume) }
+      results << lambda{ |*args| handle_detach_volume(args, @agent_identity.to_s, planned_volume) }
     end
     InstanceSetup.results_for_detach_volume = results
   end
@@ -481,7 +481,7 @@ describe InstanceSetup do
     it 'should strand when get planned volume mappings fails' do
       # cause failure to get.
       results = []
-      results << lambda{ @results_factory.error_results("Simulating unknown call failure.") }
+      results << lambda{ |*args| @results_factory.error_results("Simulating unknown call failure.") }
       InstanceSetup.results_for_get_planned_volumes = results
 
       # test.
@@ -505,7 +505,7 @@ describe InstanceSetup do
       # stop all planned volume activity.
       results = []
       total_detach_retries = planned_volumes.size * RightScale::VolumeManagement::MAX_VOLUME_ATTEMPTS
-      total_detach_retries.times { results << lambda{ @results_factory.error_results("Simulating failure to detach volume.") } }
+      total_detach_retries.times { results << lambda{ |*args| @results_factory.error_results("Simulating failure to detach volume.") } }
       InstanceSetup.results_for_detach_volume = results
 
       # test.
@@ -530,7 +530,7 @@ describe InstanceSetup do
       RightScale::VolumeManagement::MAX_VOLUME_ATTEMPTS.times { results << InstanceSetup.results_for_get_planned_volumes[1] }
       InstanceSetup.results_for_get_planned_volumes = results
       results = []
-      RightScale::VolumeManagement::MAX_VOLUME_ATTEMPTS.times { results << lambda { @results_factory.error_results("Simulating failure to attach volume.") } }
+      RightScale::VolumeManagement::MAX_VOLUME_ATTEMPTS.times { results << lambda { |*args| @results_factory.error_results("Simulating failure to attach volume.") } }
       InstanceSetup.results_for_attach_volume = results
 
       # test.
@@ -545,7 +545,7 @@ describe InstanceSetup do
     it 'should strand when list disks fails' do
       planned_volumes = mock_core_api_get_planned_volumes
       mock_core_api_detach_volume(planned_volumes)
-      @mock_vm.results_for_disks = [lambda{ raise "Simulating vm disks error." }]
+      @mock_vm.results_for_disks = [lambda{ |*args| raise "Simulating vm disks error." }]
 
       # tweak mocks to only give the first two planned volume mappings responses.
       InstanceSetup.results_for_get_planned_volumes = InstanceSetup.results_for_get_planned_volumes[0, 2]
@@ -562,7 +562,7 @@ describe InstanceSetup do
       planned_volumes = mock_core_api_get_planned_volumes
       mock_core_api_detach_volume(planned_volumes)
       @mock_vm.results_for_disks = [lambda{[]}]     # ignored
-      @mock_vm.results_for_volumes = [lambda{ raise "Simulating vm volumes error." }]
+      @mock_vm.results_for_volumes = [lambda{ |*args| raise "Simulating vm volumes error." }]
 
       # tweak mocks to only give the first two planned volume mappings responses.
       InstanceSetup.results_for_get_planned_volumes = InstanceSetup.results_for_get_planned_volumes[0, 2]
@@ -581,7 +581,7 @@ describe InstanceSetup do
       mock_core_api_attach_volume(planned_volumes)
       mock_vm_disks
       mock_vm_volumes
-      @mock_vm.results_for_partitions = [lambda{ raise "Simulating vm partitions error." }]
+      @mock_vm.results_for_partitions = [lambda{ |*args| raise "Simulating vm partitions error." }]
 
       # tweak mocks to only give the results leading to first call to partitions.
       InstanceSetup.results_for_get_planned_volumes = InstanceSetup.results_for_get_planned_volumes[0, 3]
@@ -604,7 +604,7 @@ describe InstanceSetup do
       disks = mock_vm_disks
       mock_vm_volumes
       mock_vm_partitions(disks)
-      @mock_vm.results_for_format_disk = [lambda{ raise "Simulating vm format disk error." }]
+      @mock_vm.results_for_format_disk = [lambda{ |*args| raise "Simulating vm format disk error." }]
 
       # tweak mocks to only give the results leading to call to format disk.
       InstanceSetup.results_for_get_planned_volumes = InstanceSetup.results_for_get_planned_volumes[0, 3]
@@ -629,7 +629,7 @@ describe InstanceSetup do
       volumes = mock_vm_volumes
       mock_vm_partitions(disks)
       mock_vm_format_disk(planned_volumes, disks, volumes)
-      @mock_vm.results_for_online_disk = [lambda{ raise "Simulating vm online disk error." }]
+      @mock_vm.results_for_online_disk = [lambda{ |*args| raise "Simulating vm online disk error." }]
 
       # tweak mocks to only give the results leading to call to format disk.
       InstanceSetup.results_for_get_planned_volumes = InstanceSetup.results_for_get_planned_volumes[0, 5]
@@ -652,7 +652,7 @@ describe InstanceSetup do
       mock_vm_partitions(disks)
       mock_vm_format_disk(planned_volumes, disks, volumes)
       mock_vm_online_disk(disks, volumes)
-      @mock_vm.results_for_assign_device = [lambda{ raise "Simulating vm assign device error." }]
+      @mock_vm.results_for_assign_device = [lambda { |*args| raise "Simulating vm assign device error." }]
 
       # tweak mocks to only give the results leading to call to format disk.
       InstanceSetup.results_for_get_planned_volumes = InstanceSetup.results_for_get_planned_volumes[0, 5]
