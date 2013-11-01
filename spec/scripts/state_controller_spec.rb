@@ -21,6 +21,7 @@ def create_run_state_example(run_state, instance_state, decommission_type=nil, r
     example_title += " and InstanceState.decommission_type #{decommission}"
   end
   it example_title do
+    flexmock(subject).should_receive(:silence_stdout).and_yield
     flexmock(RightScale::InstanceState).should_receive(:init).and_return(true)
     flexmock(RightScale::InstanceState).should_receive(:value).and_return(instance_state)
     flexmock(RightScale::InstanceState).should_receive(:reboot?).and_return(reboot) unless reboot.nil?
@@ -92,6 +93,7 @@ module RightScale
 
     context 'rs_state --type=agent' do
       it 'should repot agent state (InstanceState.value)' do
+        flexmock(subject).should_receive(:silence_stdout).and_yield
         flexmock(InstanceState).should_receive(:init).and_return(true)
         flexmock(InstanceState).should_receive(:value).and_return("AGENT_STATE")
         run_state_controller("--type=agent")

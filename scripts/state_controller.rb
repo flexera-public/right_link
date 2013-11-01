@@ -24,7 +24,6 @@
 #
 require 'trollop'
 require 'right_agent'
-require 'right_support'
 require File.expand_path(File.join(File.dirname(__FILE__), 'command_helper'))
 require File.expand_path(File.join(File.dirname(__FILE__), '..', 'lib', 'instance', 'json_utilities'))
 require File.expand_path(File.join(File.dirname(__FILE__), '..', 'lib', 'instance', 'agent_config'))
@@ -41,9 +40,17 @@ module RightScale
       m.control(m.parse_args)
     end
 
+    def silence_stdout
+      save_stdout = STDOUT.dup
+      STDOUT.reopen(RUBY_PLATFORM =~ /mswin/ ? 'NUL:' : '/dev/null')
+      STDOUT.sync = true
+      yield
+    ensure
+      STDOUT.reopen(save_stdout)
+    end
+
     def control(options)
-      Log.force_logger(RightSupport::Log::NullLogger.new)
-      InstanceState.init(nil, true)
+      silence_stdout { InstanceState.init(nil, true) } # RightScale::Log will log to STDOUT if no log file is provided
       result = case options[:type]
                when 'run'
                  case InstanceState.value
