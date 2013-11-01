@@ -33,15 +33,35 @@ end
 # mswin-platform gem for every one of the gems below AND published it to
 # the rightscale custom gem repository.
 group :windows do
-  platform :mingw do
+  platform :mswin, :mingw do
     # the FFI guys don't seem to release native mingw builds at the same time as
     # non-native gems, which makes bundle install hang; choose a pre-built gem.
     gem 'ffi', '1.9.0'
+
+    # the ruby-wmi guys introduced a method_missing bug in v0.4.0 that causes
+    # WMI properties which have underscore (_) in their name to fail a query for
+    # value due to camelizing what is already a camelized property name.
+    #
+    # Example:
+    #  require 'rubygems'
+    #  require 'ruby-wmi'
+    #  os = WMI::Win32_OperatingSystem.find(:first)
+    #  os.send('DataExecutionPrevention_Available')
+    #  => NoMethodError: unknown property or method: `DataExecutionPreventionAvailable'
+    #
+    # the workaround for chef was use a fork called rdp-ruby-wmi.
+    gem 'rdp-ruby-wmi'
+
     gem 'win32-dir'
-    gem 'win32-eventlog'
-    gem 'ruby-wmi'
     gem 'win32-process'
     gem 'win32-pipe'
+
+    # additional dependencies from chef.
+    gem 'windows-api'
+    gem 'windows-pr'
+    gem 'win32-api'
+    gem 'win32-event'
+    gem 'win32-mutex'
     gem 'win32-service'
   end
 end
@@ -53,23 +73,20 @@ group :build do
 end
 
 group :development do
-  gem 'rspec',              '~> 1.3'
-  gem 'flexmock',           '~> 0.8'
-  gem 'rubyforge',          '1.0.4'
+  gem 'rspec', '~> 1.3'
+  gem 'flexmock', '~> 0.9'
+  gem 'rubyforge', '1.0.4'
   gem 'rcov', '~> 0.8.1',     :platforms => :mri_18
   gem 'ruby-debug',           :platforms => :mri_18
   gem 'debugger', '~> 1.6.1', :platforms => :mri_19
-
-  platform :mingw do
-    gem 'win32console'
-  end
+  gem 'win32console',         :platforms => [:mswin, :mingw]
 end
 
 # Gems that are not dependencies of RightLink, but which are useful to
 # include in the sandbox at runtime because they enhance compatibility
 # with more OSes or provide debugging functionality.
 group :runtime_extras do
-  gem 'rb-readline',           '~> 0.5.0'
+  gem 'rb-readline', '~> 0.5.0'
 end
 
 gem 'mixlib-authentication', ">= 1.3.0"

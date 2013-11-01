@@ -98,6 +98,7 @@ GEM
     rb-readline (0.5.0)
     rbx-require-relative (0.0.9)
     rcov (0.8.1.2.0)
+    rdp-ruby-wmi (0.3.1)
     rest-client (1.6.7)
       mime-types (>= 1.16)
     right_amqp (0.7.0)
@@ -122,7 +123,6 @@ GEM
       ruby-debug-base (~> 0.10.4.0)
     ruby-debug-base (0.10.4)
       linecache (>= 0.3)
-    ruby-wmi (0.4.0)
     rubyforge (1.0.4)
     systemu (2.5.2)
     trollop (2.0)
@@ -130,8 +130,12 @@ GEM
     win32-api (1.5.0-x86-mingw32)
     win32-dir (0.4.6)
       ffi (>= 1.0.0)
-    win32-eventlog (0.5.3)
-      windows-pr (>= 0.9.3)
+    win32-event (0.6.1)
+      win32-ipc (>= 0.6.0)
+    win32-ipc (0.6.1)
+      ffi
+    win32-mutex (0.4.2)
+      win32-ipc (>= 0.6.0)
     win32-pipe (0.3.3)
       ffi
     win32-process (0.7.4)
@@ -156,13 +160,14 @@ DEPENDENCIES
   debugger (~> 1.6.1)
   eventmachine (~> 1.0.0.4)
   ffi (= 1.9.0)
-  flexmock (~> 0.8)
+  flexmock (~> 0.9)
   mixlib-authentication (>= 1.3.0)
   mixlib-shellout (= 1.2.0.2)
   ohai (= 6.18.0.2)
   rake (= 0.8.7)
   rb-readline (~> 0.5.0)
   rcov (~> 0.8.1)
+  rdp-ruby-wmi
   right_agent (~> 1.0)!
   right_amqp (~> 0.7)
   right_git
@@ -172,11 +177,14 @@ DEPENDENCIES
   right_support (~> 2.7)
   rspec (~> 1.3)
   ruby-debug
-  ruby-wmi
   rubyforge (= 1.0.4)
+  win32-api
   win32-dir
-  win32-eventlog
+  win32-event
+  win32-mutex
   win32-pipe
   win32-process
   win32-service
   win32console
+  windows-api
+  windows-pr
