@@ -57,6 +57,8 @@ require 'fileutils'
 require 'right_agent'
 require 'right_agent/core_payload_types'
 require 'stringio'
+require 'tmpdir'
+require 'yajl'
 
 # monkey-patch EM for to ensure EM.stop is only called via proper channels in
 # EmTestRunner (see below). if EM is used outside of EmTestRunner then this
@@ -515,12 +517,33 @@ EOF
           # will actually be run at some point.
           plugin_rb_path = File.join(RightScale::OhaiSetup::CUSTOM_PLUGINS_DIR_PATH, "rightscale_test_plugin.rb")
           File.open(plugin_rb_path, "w") { |f| f.write(TEST_PLUGIN_TEXT) }
+
+          cached_ohai_dir = ::File.join(::Dir.tmpdir, 'right_link_spec_helper_ohai-1f6e42e63c54ab3890f6da750c8c4a37')
+          ::FileUtils.mkdir_p(cached_ohai_dir)
+          cached_ohai_json_path = ::File.normalize_path('ohai.json', cached_ohai_dir)
           begin
             RightScale::OhaiSetup.configure_ohai
             @@ohai = Ohai::System.new
-            puts '*** Initializing ohai once ***'  # heads-up to the dev who is wondering why specs run so slow at first
-            @@ohai.all_plugins
-            puts '*** Finished ohai ***'
+
+            # use cached json if available for repeated dev testing, maximum age
+            # 4 hours to avoid issues on CI.
+            ohai_cache_timeout_secs = 4 * 60 * 60
+            if (::File.file?(cached_ohai_json_path) &&
+              ((::Time.now - ::File.stat(cached_ohai_json_path).mtime) < ohai_cache_timeout_secs))
+              puts "Using cached ohai from #{cached_ohai_json_path.inspect}"
+              ohai_hash = ::Yajl::Parser.new.parse(File.read(cached_ohai_json_path))
+              ohai_hash.each { |k, v| @@ohai[k] = v }
+            else
+              # print a heads-up to the dev who is wondering why specs run so
+              # slow at first.
+              puts '*** Initializing ohai once ***'
+              @@ohai.all_plugins
+              puts '*** Finished ohai ***'
+              puts "Writing cached ohai result to #{cached_ohai_json_path.inspect}"
+              ::File.open(cached_ohai_json_path, 'w') do |f|
+                f.puts @@ohai.json_pretty_print
+              end
+            end
           ensure
             File.delete(plugin_rb_path) rescue nil
           end
