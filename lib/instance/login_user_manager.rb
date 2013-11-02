@@ -115,14 +115,12 @@ module RightScale
       begin
         script_name = ".rs_login_script.sh"
 
-        #TODO: confirm linux os??
         #TODO: where is this already initialized?? if not, make method: get_policy_for_user
         login_policy = RightScale::JsonUtilities::read_json(RightScale::InstanceState::LOGIN_POLICY_FILE)
         user_policy = login_policy.users[login_policy.users.index { |u| u.uuid == uuid }]
-        unless user_policy.linux_login_script.nil?
-          #puts "Running User Profile Script..."
+
+        unless user_policy.linux_login_script.empty?
           user_home = File.expand_path("~#{username}");
-          #puts "user_home: #{user_home}"
 
           File.open("/tmp/#{script_name}", 'w') { |f| f.write(user_policy.linux_login_script) }
           `sudo mv /tmp/#{script_name} #{user_home}/`
