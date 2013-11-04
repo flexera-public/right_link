@@ -34,9 +34,6 @@ end
 # the rightscale custom gem repository.
 group :windows do
   platform :mswin, :mingw do
-    # the FFI guys don't seem to release native mingw builds at the same time as
-    # non-native gems, which makes bundle install hang; choose a pre-built gem.
-    gem 'ffi', '1.9.0'
 
     # the ruby-wmi guys introduced a method_missing bug in v0.4.0 that causes
     # WMI properties which have underscore (_) in their name to fail a query for
@@ -52,17 +49,24 @@ group :windows do
     # the workaround for chef was use a fork called rdp-ruby-wmi.
     gem 'rdp-ruby-wmi'
 
-    gem 'win32-dir'
-    gem 'win32-process'
+    # specific to right_link.
+    # gem 'win32-dir'
+    # gem 'win32-process'
     gem 'win32-pipe'
 
-    # additional dependencies from chef.
-    gem 'windows-api'
-    gem 'windows-pr'
-    gem 'win32-api'
-    gem 'win32-event'
-    gem 'win32-mutex'
-    gem 'win32-service'
+    # chef-locked gems.
+    # TEAL FIX: need to make a custom mingw chef gem that has these locks so
+    # that we don't have to specify them here.
+    gem 'ffi', '= 1.3.1'
+    gem 'windows-api', '= 0.4.2'
+    gem 'windows-pr', '= 1.2.2'
+    gem 'win32-api', '= 1.4.8'
+    gem 'win32-dir', '= 0.4.5'
+    gem 'win32-event', '= 0.6.1'
+    gem 'win32-mutex', '= 0.4.1'
+    gem 'win32-process', '= 0.7.3'
+    gem 'win32-service', '= 0.8.2'
+    gem 'win32-mmap', '= 0.4.0'
   end
 end
 
