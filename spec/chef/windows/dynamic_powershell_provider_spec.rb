@@ -44,8 +44,8 @@ describe RightScale::DynamicPowershellProvider do
     Object.const_defined?('TestMod').should be_true
     TestMod.const_defined?('TestSubMod').should be_true
     TestMod::TestSubMod.const_defined?('TestProvider').should be_true
-    (TestMod::TestSubMod::TestProvider.instance_methods - RightScale::PowershellProviderBase.instance_methods).should == [ 'test1' ]
-    (TestMod::TestSubMod::TestProvider.methods - RightScale::PowershellProviderBase.methods).sort.should == [ 'init1' ]
+    (TestMod::TestSubMod::TestProvider.instance_methods - RightScale::PowershellProviderBase.instance_methods).map(&:to_s).should == %w[test1]
+    (TestMod::TestSubMod::TestProvider.methods - RightScale::PowershellProviderBase.methods).map(&:to_s).sort.should == %w[init1]
   end
 
   it 'should undefine methods of previously created Powershell providers' do
@@ -60,13 +60,13 @@ describe RightScale::DynamicPowershellProvider do
     Object.const_defined?('TestMod').should be_true
     TestMod.const_defined?('TestSubMod').should be_true
     TestMod::TestSubMod.const_defined?('TestProvider').should be_true
-    (TestMod::TestSubMod::TestProvider.instance_methods - RightScale::PowershellProviderBase.instance_methods).should == [ 'test2' ]
+    (TestMod::TestSubMod::TestProvider.instance_methods - RightScale::PowershellProviderBase.instance_methods).map(&:to_s).should == %w[test2]
   end
 
   describe 'given valid action scripts' do
 
     before(:each) do
-      @cookbooks_dir = File.join(File.dirname(__FILE__), '__cookbooks_dir')
+      @cookbooks_dir = File.join(::Dir.tmpdir, 'dynamic_powershell_provider_spec-c91f9f99a1ffe8fb9a2117ce91bda7e5')
       @scripts_dir = File.join(@cookbooks_dir, 'cookbook', 'powershell_providers', 'scripts')
       FileUtils.mkdir_p(@scripts_dir)
       @init_script = File.normalize_path(File.join(@scripts_dir, '_init.ps1'))
@@ -95,11 +95,11 @@ describe RightScale::DynamicPowershellProvider do
       @provider.generate_providers(@cookbooks_dir)
       Object.const_defined?(:CookbookScripts).should be_true
       Object.const_defined?(:Cookbook2Scripts).should be_true
-      @provider.providers.map(&:to_s).sort.should == [ 'Cookbook2Scripts', 'CookbookScripts' ]
-      (CookbookScripts.instance_methods - RightScale::PowershellProviderBase.instance_methods + [ 'load_current_resource' ]).sort.should == @instance_methods
-      (CookbookScripts.methods - Chef::Provider.methods).sort.should == [ 'init', 'run_script', 'terminate']
+      @provider.providers.map(&:to_s).sort.should == %w[Cookbook2Scripts CookbookScripts]
+      (CookbookScripts.instance_methods - RightScale::PowershellProviderBase.instance_methods + %w[load_current_resource]).map(&:to_s).sort.should == @instance_methods
+      (CookbookScripts.methods - Chef::Provider.methods).map(&:to_s).sort.should == %w[init run_script terminate]
       (Cookbook2Scripts.instance_methods - RightScale::PowershellProviderBase.instance_methods).sort.should == @instance_methods2
-      (Cookbook2Scripts.methods - Chef::Provider.methods).sort.should == [ 'init', 'run_script', 'terminate']
+      (Cookbook2Scripts.methods - Chef::Provider.methods).map(&:to_s).sort.should == %w[init run_script terminate]
       host_mock = flexmock('PowershellHost')
       flexmock(RightScale::PowershellHost).should_receive(:new).and_return(host_mock)
       host_mock.should_receive(:active).and_return(true)
@@ -111,9 +111,9 @@ describe RightScale::DynamicPowershellProvider do
       host_mock.should_receive(:run).once.with(@term_script).ordered
       host_mock.should_receive(:terminate).once.ordered
 
-      Chef::Resource.const_set("CookbookScripts", Class.new(Chef::Resource))
-      resource = flexmock('Resource', :cookbook_name=>'cookbook', :name=>'foo')
-      cb = CookbookScripts.new(resource, flexmock(:node=>nil))
+      Chef::Resource.const_set('CookbookScripts', Class.new(Chef::Resource))
+      resource = flexmock('Resource', :cookbook_name => 'cookbook', :name => 'foo')
+      cb = CookbookScripts.new(resource, flexmock(:node => nil))
       cb.load_current_resource
       cb.action_action1
       cb.action_action2
