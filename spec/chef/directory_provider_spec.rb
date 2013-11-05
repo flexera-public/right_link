@@ -1,4 +1,4 @@
-# Copyright (c) 2010-2012 RightScale Inc
+# Copyright (c) 2010-2013 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation directories (the
@@ -50,40 +50,40 @@ describe Chef::Provider::Directory do
         :create_dir_recipe => (
 <<EOF
 directory #{::DirectoryProviderSpec::TEST_DIR_PATH.inspect} do
-mode 0755
-not_if { ::File.directory?(#{::DirectoryProviderSpec::TEST_DIR_PATH.inspect}) }
+  mode 0755
+  not_if { ::File.directory?(#{::DirectoryProviderSpec::TEST_DIR_PATH.inspect}) }
 end
 
 directory #{::DirectoryProviderSpec::TEST_SUBDIR_PATH.inspect} do
-recursive true
+  recursive true
 end
 EOF
         ),
         :succeed_owner_create_dir_recipe => (
 <<EOF
 directory #{::DirectoryProviderSpec::TEST_SUBDIR_PATH.inspect} do
-owner "Administrator"
-group "Power Users"
-rights :read, "Everyone"
-rights :full_control, "Administrators"
-rights :full_control, "Power Users"
-inherits true
-recursive true
-only_if #{::DirectoryProviderSpec::FAIL_IF_TEST_SUBDIR_EXISTS_SCRIPT.inspect}
+  owner "Administrator"
+  group "Power Users"
+  rights :read, "Everyone"
+  rights :full_control, "Administrators"
+  rights :full_control, "Power Users"
+  inherits true
+  recursive true
+  only_if #{::DirectoryProviderSpec::FAIL_IF_TEST_SUBDIR_EXISTS_SCRIPT.inspect}
 end
 EOF
         ),
         :delete_dir_recipe => (
 <<EOF
 directory #{::DirectoryProviderSpec::TEST_SUBDIR_PATH.inspect} do
-only_if { ::File.directory?(#{::DirectoryProviderSpec::TEST_SUBDIR_PATH.inspect}) }
-action :delete
+  only_if { ::File.directory?(#{::DirectoryProviderSpec::TEST_SUBDIR_PATH.inspect}) }
+  action :delete
 end
 
 directory #{::DirectoryProviderSpec::TEST_DIR_PATH.inspect} do
-not_if #{::DirectoryProviderSpec::FAIL_IF_TEST_DIR_EXISTS_SCRIPT.inspect}
-recursive true
-action :delete
+  not_if #{::DirectoryProviderSpec::FAIL_IF_TEST_DIR_EXISTS_SCRIPT.inspect}
+  recursive true
+  action :delete
 end
 EOF
         )
@@ -93,7 +93,7 @@ EOF
 
   def cleanup
     if ::File.directory?(::DirectoryProviderSpec::TEST_TEMP_PATH)
-      (::FileUtils.rm_rf(::DirectoryProviderSpec::TEST_TEMP_PATH) rescue nil)
+      ::FileUtils.rm_rf(::DirectoryProviderSpec::TEST_TEMP_PATH) rescue nil
     end
   end
 
@@ -109,7 +109,7 @@ EOF
   it_should_behave_like 'mocks logging'
 
   it 'should create directories' do
-    1.times do
+    2.times do
       ::RightScale::Test::ChefRunner.run_chef(
         ::DirectoryProviderSpec::TEST_COOKBOOKS_PATH,
         'test::create_dir_recipe').should be_true
@@ -124,6 +124,7 @@ EOF
           ::DirectoryProviderSpec::TEST_COOKBOOKS_PATH,
             'test::succeed_owner_create_dir_recipe').should be_true
         ::File.directory?(::DirectoryProviderSpec::TEST_SUBDIR_PATH).should be_true
+        # TEAL FIX figure a way to independently verify security on directory.
       end
     end
   end

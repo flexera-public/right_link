@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2010-2011 RightScale Inc
+# Copyright (c) 2010-2013 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -54,9 +54,10 @@ module RightScale
       # cookbooks_path(String):: path to created cookbooks directory
       def create_cookbook(base_path, recipes, cookbook_name = 'test', data_files = nil)
         cookbooks_path = get_cookbooks_path(base_path)
-        cookbook_path = File.join(cookbooks_path, cookbook_name)
-        recipes_path = File.join(cookbook_path, 'recipes')
-        FileUtils.mkdir_p(recipes_path)
+        ::FileUtils.mkdir_p(cookbooks_path)
+        cookbook_path = ::File.normalize_path(cookbook_name, cookbooks_path)
+        recipes_path = ::File.join(cookbook_path, 'recipes')
+        ::FileUtils.mkdir_p(recipes_path)
         metadata_text =
 <<EOF
 maintainer "RightScale, Inc."
@@ -134,6 +135,11 @@ EOF
         inner_run_chef(cookbook_path, run_list, true, &block)
       end
 
+      # @return [String] backup path for chef tests that do backups
+      def backup_path
+        ::File.join(::Dir.tmpdir, 'chef_runner_file_backup_path-b2ce23dbae2c2cd186519c7cf7e9c7e5')
+      end
+
       protected
 
       TEMP_DIR_NAME = "chef-runner-FF628CD5-9D48-46ff-BC11-D9DE3CC2215A"
@@ -193,8 +199,10 @@ EOF
         FileUtils.mkdir_p(::Chef::Config[:file_cache_path])
         FileUtils.mkdir_p(::Chef::Config[:cache_options][:path])
 
-        # Where backups of chef-managed files should go.  Set to nil to backup to the same directory the file being backed up is in.
-        ::Chef::Config[:file_backup_path] = nil
+        # specify a backup path for tests that backup files only because we
+        # sometimes run specs from a network drive and the default backup path
+        # is the empty root (/), which works great on Linux but not on Windows.
+        ::Chef::Config[:file_backup_path] = backup_path
 
         # prepare to run solo chef.
         run_list = [ run_list ] unless run_list.kind_of?(Array)
