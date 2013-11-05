@@ -91,12 +91,14 @@ GEM
       right_popen (~> 2.0)
     moneta (0.6.0)
     msgpack (0.4.4)
+    net-http-persistent (2.8)
     net-ssh (2.7.0)
     net-ssh-gateway (1.2.0)
       net-ssh (>= 2.6.5)
     net-ssh-multi (1.1)
       net-ssh (>= 2.1.4)
       net-ssh-gateway (>= 0.99.0)
+    netrc (0.7.7)
     ohai (6.16.0.2)
       eventmachine (>= 1.0.0)
       ipaddress
@@ -168,6 +170,8 @@ DEPENDENCIES
   mixlib-shellout (= 1.1.0.2)
   moneta (= 0.6.0)
   msgpack (= 0.4.4)
+  net-http-persistent (= 2.8)
+  netrc
   ohai (= 6.16.0.2)
   rake (= 0.8.7)
   rb-readline (~> 0.5.0)

@@ -87,6 +87,8 @@ group :stable do
   gem 'uuidtools',             '2.1.2'
   gem 'mime-types',            '1.16'
   gem 'rest-client',           '1.6.7'
+  gem 'net-http-persistent',   '2.8'
+  gem 'netrc'
   gem 'msgpack',               '0.4.4'
   gem 'systemu',               '2.2.0'
 end
