@@ -26,7 +26,7 @@ describe RightScale::RightScriptsCookbook do
 
   before(:each) do
     # Note: source below shouldn't include regexp symbols for test to work
-    @script = RightScale::RightScriptInstantiation.new(nickname='RightScript nickname',
+    @script = RightScale::RightScriptInstantiation.new(nickname="RightScript's nickname",
                                       source="Some script with\nnew lines\nmore than one",
                                       parameters={ :first => 'one', :second => 'two' },
                                       attachments=[],
