@@ -61,11 +61,11 @@ describe RightScale::RightScriptsCookbook do
     recipes_dir = @cookbook.instance_variable_get(:@recipes_dir)
     recipe_path = File.join(recipes_dir, recipe_from_script(@script.nickname, @cookbook))
     recipe_content = IO.read("#{recipe_path}.rb")
-    regexp = "^right_script '#{@script.nickname}' do\n"
-    regexp += "^  #{Regexp.escape("parameters(node[\"#{@script.nickname}\"][\"parameters\"])")}\n"
+    regexp = "^right_script #{@script.nickname.inspect} do\n"
+    regexp += "^  #{Regexp.escape("parameters(node[#{@script.nickname.inspect}][\"parameters\"])")}\n"
     regexp += "^  cache_dir +'#{Regexp.escape(@cookbook.cache_dir(@script))}'\n"
     regexp += "^  source_file +'#{recipe_path}'\n"
-    regexp += "^  display_version +'#{Regexp.escape(@script.display_version)}'\n"
+    regexp += "^  display_version +#{Regexp.escape(@script.display_version.to_s.strip.inspect)}\n"
     regexp += "^end"
     recipe_content.should =~ /#{regexp}/
   end
