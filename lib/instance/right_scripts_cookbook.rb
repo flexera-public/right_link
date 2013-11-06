@@ -68,11 +68,11 @@ module RightScale
       recipe_name = File.basename(path)
       @recipes[recipe_name] = script.nickname
       recipe_content = <<-EOS
-right_script '#{script.nickname.gsub("'", "\\\\'")}' do
-  parameters(node["#{script.nickname}"]["parameters"])
+right_script #{script.nickname.inspect} do
+  parameters(node[#{script.nickname.inspect}]["parameters"])
   cache_dir  '#{cache_dir(script)}'
   source_file '#{path}'
-  display_version '#{script.display_version.to_s.strip.gsub("'", "\\\\'")}'
+  display_version #{script.display_version.to_s.strip.inspect}
 end
       EOS
       File.open(path, 'w') { |f| f.puts script.source }
