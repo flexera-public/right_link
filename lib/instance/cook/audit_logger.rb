@@ -172,12 +172,19 @@ class Chef
   module Formatters
     class Base
       def display_error(description)
-        last_output_log_level = output.output_log_level
-        output.output_log_level = :error
-        puts("")
-        description.display(output)
-      ensure
-        output.output_log_level = last_output_log_level
+        section = description.sections && description.sections.first
+        if section && section.keys.include?('SystemExit')
+          # ignored due to rs_shutdown provider behavior
+        else
+          last_output_log_level = output.output_log_level
+          begin
+            output.output_log_level = :error
+            puts("")
+            description.display(output)
+          ensure
+            output.output_log_level = last_output_log_level
+          end
+        end
       end
     end # Base
 
