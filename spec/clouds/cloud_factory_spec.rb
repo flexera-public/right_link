@@ -20,7 +20,7 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require File.join(File.dirname(__FILE__), 'spec_helper')
+require ::File.expand_path('../spec_helper', __FILE__)
 
 module RightScale
   class CloudFactorySpec
@@ -93,6 +93,7 @@ describe RightScale::CloudFactory do
     filesystem.should_receive(:right_scale_static_state_dir).and_return(mock_static_state_dir)
     filesystem.should_receive(:spool_dir).and_return(mock_spool_dir)
     filesystem.should_receive(:private_bin_dir).and_return(mock_private_bin_dir)
+    filesystem.should_receive(:long_path_to_short_path).and_return { |p| p }
     FileUtils.rm_rf(@output_dir_path) if File.directory?(@output_dir_path)  # ensure rightscale.d is gone before looking for cloud file
     lambda{ RightScale::CloudFactory.instance.create(RightScale::CloudFactory::UNKNOWN_CLOUD_NAME, :logger => @logger) }.should raise_exception RightScale::CloudFactory::UnknownCloud
     FileUtils.mkdir_p(mock_static_state_dir)
