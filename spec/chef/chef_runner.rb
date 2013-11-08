@@ -185,9 +185,6 @@ EOF
                                              params[:args][:cwd])
         end
 
-        # defeat chef logging to console during spec runs.
-        ::Chef::Config.add_formatter(:null) if ::Chef::Config.formatters.empty?
-
         # must set file cache path and ensure it exists otherwise evented run_command will fail
         cache_dir_path = File.join(::RightScale::Platform.filesystem.temp_dir, 'chef_runner_1B0C7CAA87E241daB90B75829DD6A833')
         AgentConfig.cache_dir = cache_dir_path
