@@ -364,7 +364,7 @@ module RightScale
         end
 
         # insert node value.
-        node_by_path = set_node_by_path_statement(path)
+        node_by_path = hash.respond_to?(:normal) ? set_node_by_path_statement(path) : get_node_by_path_statement(path)
         instance_eval "#{node_by_path} = node_value"
 
         true

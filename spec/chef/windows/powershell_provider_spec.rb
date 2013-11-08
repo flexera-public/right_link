@@ -89,7 +89,7 @@ end
 EOF
           ), :get_chef_node_recipe => (<<EOF
 powershell 'test::get_chef_node_recipe' do
-  node[:powershell_provider_spec] = {:get_chef_node_recipe => 'get_chef_node_recipe_test_value'}
+  node.normal[:powershell_provider_spec] = {:get_chef_node_recipe => 'get_chef_node_recipe_test_value'}
   source \"get-chefnode powershell_provider_spec,get_chef_node_recipe\"
 end
 EOF
