@@ -55,10 +55,6 @@ if RightScale::Platform.windows?
     end
 
     it "should accept vaild parameters" do
-      # FIX: use of Chef::Node::Attribute is deprecated but still supported for now.
-      # (normal, default, override, automatic, state=[])
-      @resource.parameters Chef::Node::Attribute.new({"TEST_X" => "x", "TEST_Y" => "y"}, nil, nil, nil)
-
       @resource.parameters("TEST_X" => "x", "TEST_Y" => "y")
       lambda { @resource.parameters 123 }.should raise_error(TypeError)
     end
