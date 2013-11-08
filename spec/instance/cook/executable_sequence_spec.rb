@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2009-2011 RightScale Inc
+# Copyright (c) 2009-2013 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -20,7 +20,7 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require File.join(File.dirname(__FILE__), 'spec_helper')
+require File.expand_path('../spec_helper', __FILE__)
 require 'right_agent/core_payload_types'
 require 'right_scraper'
 require 'tmpdir'
@@ -510,7 +510,7 @@ describe RightScale::ExecutableSequence do
           "4cdae6d5f1bc33d8713b341578b942d42ed5817f", "not-a-token",
           "nonexistent cookbook")
         position = ::RightScale::CookbookPosition.new("foo/bar", cookbook)
-        sequence = ::RightScale::CookbookSequence.new(['foo'], [position], ["deadbeef"])
+        sequence = ::RightScale::CookbookSequence.new(['foo'], [position], 'deadbeef')
 
         @bundle = RightScale::PayloadFactory.make_bundle(:audit_id       => 2,
                                                          :cookbooks      => [sequence],
