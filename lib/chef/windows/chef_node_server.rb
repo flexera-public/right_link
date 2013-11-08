@@ -330,7 +330,7 @@ module RightScale
         # special case for the empty path element
         return hash if (1 == path.length && path[0].to_s.length == 0)
 
-        node_by_path = node_by_path_statement(path)
+        node_by_path = get_node_by_path_statement(path)
         result = instance_eval node_by_path
         Log.debug("#{node_by_path} = #{result.inspect[0,64]}") if Log.debug?
         return result
@@ -358,13 +358,13 @@ module RightScale
           parent_path << element
           parent_node = get_node_value_from_hash(parent_path, hash)
           if parent_node.nil? || false == parent_node.respond_to?(:has_key?)
-            node_by_path = node_by_path_statement(parent_path)
+            node_by_path = set_node_by_path_statement(parent_path)
             instance_eval "#{node_by_path} = {}"
           end
         end
 
         # insert node value.
-        node_by_path = node_by_path_statement(path)
+        node_by_path = set_node_by_path_statement(path)
         instance_eval "#{node_by_path} = node_value"
 
         true
@@ -372,10 +372,23 @@ module RightScale
 
       # Generates an evaluatable statement for querying Chef node by path.
       #
-      # === Parameters
-      # path(Array):: array containing path elements.
-      def node_by_path_statement(path)
+      # @param [Array] path as array containing path elements
+      #
+      # @return [String] node query statement
+      def get_node_by_path_statement(path)
         return "hash[\"#{path.join('"]["')}\"]"
+      end
+
+      # Generates an evaluatable statement for setting Chef node by path with
+      # 'normal' precedence.
+      #
+      # @see http://docs.opscode.com/essentials_cookbook_attribute_files.html
+      #
+      # @param [Array] path as array containing path elements
+      #
+      # @return [String] node set statement
+      def set_node_by_path_statement(path)
+        return "hash.normal[\"#{path.join('"]["')}\"]"
       end
 
       # Nnormalizes the given node value to produce simple containers, hashes
