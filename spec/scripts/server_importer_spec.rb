@@ -9,11 +9,15 @@
 # License Agreement between RightScale.com, Inc. and
 # the licensee.
 
-require File.expand_path(File.join(File.dirname(__FILE__), '..', 'spec_helper'))
-require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'scripts', 'server_importer'))
+require File.expand_path('../../spec_helper', __FILE__)
+require File.normalize_path('../../../scripts/server_importer', __FILE__)
+
+require 'tmpdir'
 
 module RightScale
   describe ServerImporter do
+
+    let(:spec_dir) { ::File.normalize_path('server_importer_spec-bbed84063c434283a8d3f74fbb280c22', ::Dir.tmpdir) }
 
     def run_server_importer(args)
       replace_argv(args)
@@ -27,12 +31,22 @@ module RightScale
       # preserve old ARGV for posterity (although it's unlikely that anything
       # would consume it after startup).
       @old_argv = ARGV
+
+      # ensure the $? object is defined for case of running this spec standalone
+      if ::RightScale::Platform.windows?
+        `cmd.exe /C exit 0`
+      else
+        `sh -c exit 0`
+      end
     end
 
     after(:all) do
       # restore old ARGV
       replace_argv(@old_argv)
       @output = nil
+      if ::File.directory?(spec_dir)
+        ::FileUtils.rm_rf(spec_dir) rescue nil
+      end
     end
 
     before(:each) do
@@ -85,39 +99,39 @@ module RightScale
     end
 
     def do_attach(url, force=false, cloud=nil)
-        flexmock(subject).should_receive(:fail).and_return { raise }
-        flexmock(subject).should_receive(:configure_logging)
-        flexmock(subject).should_receive(:http_get).with(url, false).and_return("RS_rn_id")
-        flexmock(FileUtils).should_receive(:mkdir_p)
-        file = flexmock('file')
-        flexmock(File).should_receive(:open).and_return(file)
-        file.should_receive(:puts)
-        if RightScale::Platform.windows?
-          flexmock(subject).should_receive(:`).with("net start rightscale").once
-          flexmock($?).should_receive(:success?).and_return(true)
-          should_fail = false
-        elsif RightScale::Platform.linux? || RightScale::Platform.darwin?
-          flexmock(subject).should_receive(:`).with("/etc/init.d/rightscale start && /etc/init.d/rightlink start").once
-          flexmock($?).should_receive(:success?).and_return(true)
-          should_fail = false
-        else
-          subject.should_receive(:`).never
-          should_fail = true
-        end
+      flexmock(subject).should_receive(:fail).and_return { raise }
+      flexmock(subject).should_receive(:configure_logging)
+      flexmock(subject).should_receive(:http_get).with(url, false).and_return("RS_rn_id")
 
-        args = ['-a', url]
-        args.push('-f') if force
-        args.push('-c', cloud) if cloud
+      fs = RightScale::Platform.filesystem
+      flexmock(fs).should_receive(:spool_dir).and_return(::File.join(spec_dir, 'spool'))
 
-        target = lambda {
-          run_server_importer(args)
-        }
+      if RightScale::Platform.windows?
+        flexmock(subject).should_receive(:`).with("net start rightscale").once
+        flexmock($?).should_receive(:success?).and_return(true)
+        should_fail = false
+      elsif RightScale::Platform.linux? || RightScale::Platform.darwin?
+        flexmock(subject).should_receive(:`).with("/etc/init.d/rightscale start && /etc/init.d/rightlink start").once
+        flexmock($?).should_receive(:success?).and_return(true)
+        should_fail = false
+      else
+        subject.should_receive(:`).never
+        should_fail = true
+      end
 
-        if should_fail
-          target.should raise_error
-        else
-          target.call
-        end
+      args = ['-a', url]
+      args.push('-f') if force
+      args.push('-c', cloud) if cloud
+
+      target = lambda {
+        run_server_importer(args)
+      }
+
+      if should_fail
+        target.should raise_error
+      else
+        target.call
+      end
     end
 
     context 'rs_connect -a url' do
@@ -134,17 +148,12 @@ module RightScale
     end
 
     context 'rs_connect -a url -c cloud' do
-      it 'should attach this machine to a server and set cloud name to "cloud"' do
-        flexmock(RightScale::AgentConfig).should_receive(:cloud_file_path).and_return("cloud_file_path")
-        spool_dir = '/var/spool'
-        if RightScale::Platform::windows?
-          flexmock(File).should_receive(:join).with(Dir::COMMON_APPDATA, 'RightScale', 'spool')\
-                        .and_return(spool_dir)
-        end
-        flexmock(File).should_receive(:join)\
-                      .with(spool_dir, "cloud", 'user-data.txt')\
-                      .and_return("/var/spool/cloud/user-data.txt")
-        do_attach('url', false, "cloud")
+      let(:cloud_name) { 'some-cloud' }
+
+      it 'should attach this machine to a server and set cloud name' do
+        flexmock(RightScale::AgentConfig).should_receive(:cloud_file_path).and_return(::File.join(spec_dir, 'spool', 'cloud'))
+        do_attach('url', false, cloud_name)
+        ::File.read(RightScale::AgentConfig.cloud_file_path).strip.should == cloud_name
       end
     end
 
