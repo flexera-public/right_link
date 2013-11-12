@@ -689,14 +689,17 @@ end
 # this also ensures that the needed tools are referenced properly.
 if ::RightScale::Platform.windows?
   ['RS_CURL_EXE', 'RS_RIGHT_RUN_EXE'].each do |name|
-    if (path = ::ENV[name]) && !path.empty? && ::File.file?(path)
-      # copy the entire directory containing the executable (with needed .DLLs).
-      dir_name = ::File.basename(path)[0..-(::File.extname(path).length + 1)].downcase
-      temp_dir_name = ::File.join(::RightScale::SpecHelper::RIGHT_LINK_SPEC_HELPER_TEMP_DIR_NAME, 'bin', dir_name)
-      local_bin_dir = ::RightScale::Platform.filesystem.ensure_local_drive_path(::File.dirname(path), temp_dir_name)
-      ::ENV[name] = ::File.normalize_path(::File.join(local_bin_dir, ::File.basename(path))).gsub("/", "\\")
-    else
-      fail "Missing or invalid tool env var for Windows: #{name}"
+    # ignored unless explicitly set by dev environment.
+    if path = ::ENV[name]
+      if !path.empty? && ::File.file?(path)
+        # copy the entire directory containing the executable (with needed .DLLs).
+        dir_name = ::File.basename(path)[0..-(::File.extname(path).length + 1)].downcase
+        temp_dir_name = ::File.join(::RightScale::SpecHelper::RIGHT_LINK_SPEC_HELPER_TEMP_DIR_NAME, 'bin', dir_name)
+        local_bin_dir = ::RightScale::Platform.filesystem.ensure_local_drive_path(::File.dirname(path), temp_dir_name)
+        ::ENV[name] = ::File.normalize_path(::File.join(local_bin_dir, ::File.basename(path))).gsub("/", "\\")
+      else
+        fail "Missing or invalid tool env var for Windows: #{name}"
+      end
     end
   end
 end
