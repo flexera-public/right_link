@@ -231,7 +231,7 @@ describe RightScale::Tagger do
     end
 
     it 'should query instances with a single tag whose value contains spaces' do
-      run_successful_query('foo:bar=baz zab', 'foo:bar=baz zab')
+      run_successful_query('foo:bar=baz zab', ['foo:bar=baz','zab'])
     end
 
     it 'should query instances with a single tag containing ambiguous spaces and equals' do
@@ -240,7 +240,7 @@ describe RightScale::Tagger do
           ::RightScale::TaggerSpec::DEFAULT_QUERY_RESULT[ ::RightScale::TaggerSpec::RS_INSTANCE_ID_2 ]
       }
       run_successful_query('x:y=a b c:d=x y',
-                           'x:y=a b c:d=x y',
+                           ['x:y=a', 'b', 'c:d=x', 'y'],
                            'yaml',
                            YAML.method(:dump),
                            query_result)
