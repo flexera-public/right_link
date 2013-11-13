@@ -171,12 +171,12 @@ describe RightScale::Tagger do
     # Runs a successful tagger query and verifies output.
     #
     # === Parameters
-    # @param [String] tag_list
+    # @param [Array] tags
     # @param [Array, String] expected_tags for command client payload
     # @param [String] format (as json|yaml|text) for query result or nil
     # @param [String] expected_formatter for query result
     # @param [Hash] query_result or default
-    def run_successful_query( tag_list,
+    def run_successful_query( tags,
                               expected_tags,
                               format=nil,
                               expected_formatter=JSON.method(:pretty_generate),
@@ -192,7 +192,7 @@ describe RightScale::Tagger do
         with('stuff').
         once.
         and_return(::RightScale::OperationResult.success(query_result))
-      argv = ['-q', tag_list]
+      argv = ['-q'] + tags
       argv << '-f' << format if format
       run_tagger(argv)
       @error.should == []
@@ -205,19 +205,19 @@ describe RightScale::Tagger do
     end
 
     it 'should query instances with given tag in default JSON format' do
-      run_successful_query('foo:bar', 'foo:bar')
+      run_successful_query(['foo:bar'], 'foo:bar')
     end
 
     it 'should query instances with given tag in requested JSON format' do
-      run_successful_query('foo:bar', 'foo:bar', 'json')
+      run_successful_query(['foo:bar'], 'foo:bar', 'json')
     end
 
     it 'should query instances with given tag in requested TEXT format' do
-      run_successful_query('foo:bar', 'foo:bar', 'text', method(:text_formatter))
+      run_successful_query(['foo:bar'], 'foo:bar', 'text', method(:text_formatter))
     end
 
     it 'should query instances with given tag in requested YAML format' do
-      run_successful_query('foo:bar', 'foo:bar', 'yaml', YAML.method(:dump))
+      run_successful_query(['foo:bar'], 'foo:bar', 'yaml', YAML.method(:dump))
     end
 
     it 'should fail to query instances with invalid format' do
@@ -227,11 +227,11 @@ describe RightScale::Tagger do
     end
 
     it 'should query instances with multiple tags delimited by spaces' do
-      run_successful_query('foo:bar bar:foo', ['foo:bar', 'bar:foo'])
+      run_successful_query(['foo:bar','bar:foo'], ['foo:bar', 'bar:foo'])
     end
 
     it 'should query instances with a single tag whose value contains spaces' do
-      run_successful_query('foo:bar=baz zab', 'foo:bar=baz zab')
+      run_successful_query(['foo:bar=baz zab'], 'foo:bar=baz zab')
     end
 
     it 'should query instances with a single tag containing ambiguous spaces and equals' do
@@ -239,7 +239,7 @@ describe RightScale::Tagger do
         ::RightScale::TaggerSpec::RS_INSTANCE_ID_2 =>
           ::RightScale::TaggerSpec::DEFAULT_QUERY_RESULT[ ::RightScale::TaggerSpec::RS_INSTANCE_ID_2 ]
       }
-      run_successful_query('x:y=a b c:d=x y',
+      run_successful_query(['x:y=a b c:d=x y'],
                            'x:y=a b c:d=x y',
                            'yaml',
                            YAML.method(:dump),

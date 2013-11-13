@@ -2,7 +2,7 @@
 #   RightScale Tagger (rs_tag) - (c) 2009-2013 RightScale Inc
 #
 #   Tagger allows listing, adding and removing tags on the current instance and
-#   querying for all instances with a given set of tags
+#   querying for instances with a given set of tags
 #
 # === Examples:
 #   Retrieve all tags:
@@ -17,19 +17,19 @@
 #     rs_tag --remove a_tag
 #     rs_tag -r a_tag
 #
-#   Retrieve all instances with any of the tags in a set:
-#     rs_tag --query "a_tag b_tag"
-#     rs_tag -q "a_tag b_tag"
+#   Retrieve instances with any of the tags in a set each tag is a separate argument:
+#     rs_tag --query "a_tag" "b:machine=tag" "c_tag with space"
+#     rs_tag -q "a_tag" "b:machine=tag" "c_tag with space"
 #
 # === Usage
-#    rs_tag (--list, -l | --add, -a TAG | --remove, -r TAG | --query, -q TAG_LIST)
+#    rs_tag (--list, -l | --add, -a TAG | --remove, -r TAG | --query, -q TAG[s])
 #
 #    Options:
 #      --list, -l           List current server tags
 #      --add, -a TAG        Add tag named TAG
 #      --remove, -r TAG     Remove tag named TAG
-#      --query, -q TAG_LIST Query for all instances that have any of the tags in TAG_LIST
-#                           with the TAG_LIST being quoted if it contains spaces
+#      --query, -q TAG[s]   Query for instances that have any of the TAG[s]
+#                           with TAG being quoted if it contains spaces in it's value
 #      --die, -e            Exit with error if query/list fails
 #      --format, -f FMT     Output format: json, yaml, text
 #      --verbose, -v        Display debug information
@@ -174,7 +174,7 @@ module RightScale
         opt :list
         opt :add, "", :type => :string
         opt :remove, "", :type => :string
-        opt :query, "", :type => :string
+        opt :query, "", :type => :strings
         opt :verbose
         opt :die, "", :short => "-e"
         opt :format, "", :type => :string, :default => "json"
@@ -195,7 +195,7 @@ module RightScale
         end
         if options[:query]
           options[:action] = :query_tags
-          options[:tags] = parse_tag_list(options.delete(:query))
+          options[:tags] = options.delete(:query).map { |tag| tag.strip }
         end
         options[:format] = case options[:format]
                            when /^jso?n?$/, nil
@@ -226,26 +226,6 @@ protected
     # @param [String] message to write
     def write_error(message)
       STDERR.puts(message)
-    end
-
-    # Splits the TAG_LIST parameter on space unless an equals is present in
-    # order to support both the "x:y a:b" and the "x:y=a b c" (tag value
-    # contains space(s)) cases. the "x:y=a b c:d=x y" case is ambiguous and will
-    # be interpreted as follows:
-    #   namespace=x, name=y, value=a b c:d=x y
-    #
-    # === Parameters
-    # @param [String] tag_list to parse
-    #
-    # === Return
-    # @return [Array] tags to query
-    def parse_tag_list(tag_list)
-      tag_list = tag_list.to_s
-      if tag_list.index('=')
-        [tag_list.strip]
-      else
-        tag_list.split
-      end
     end
 
     # Format output for display to user
