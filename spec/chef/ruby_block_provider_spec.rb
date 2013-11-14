@@ -80,7 +80,9 @@ EOF
         RubyBlockProviderSpec::TEST_COOKBOOKS_PATH,
         'test::explosion_test_recipe') }
     runner.should raise_exception(::RubyBlockProviderSpec::CustomError)
-    log_should_be_empty(:error)
+    # Chef v11+ sends all errors raised during recipe execution to the
+    # chef formatters for display.
+    log_should_contain_text(:error, 'Something went horribly wrong!')
     log_should_contain_text(:info, 'Prepare to explode...')
   end
 

@@ -3,6 +3,7 @@ require 'rubygems'
 require 'bundler/setup'
 require 'rubygems/package_task'
 require 'rake/clean'
+require 'right_agent/minimal'
 
 # Ruby standard library dependencies
 require 'fileutils'
@@ -17,10 +18,6 @@ end
 # Project-specific dependencies
 RIGHT_LINK_ROOT = File.dirname(__FILE__)
 
-require File.join(RIGHT_LINK_ROOT, 'lib', 'run_shell')
-
-include RunShell
-
 desc "Build right_link gem"
 Gem::PackageTask.new(Gem::Specification.load("right_link.gemspec")) do |package|
   package.need_zip = true
@@ -28,10 +25,6 @@ Gem::PackageTask.new(Gem::Specification.load("right_link.gemspec")) do |package|
 end
 
 CLEAN.include('pkg')
-
-def windows?
-  return !!(RUBY_PLATFORM =~ /mswin/)
-end
 
 # Allows for debugging of order of spec files by reading a specific ordering of
 # files from a text file, if present. all too frequently, success or failure
@@ -119,7 +112,7 @@ if defined?(Spec)
   end
 
   desc "Run unit tests"
-  if windows?
+  if ::RightScale::Platform.windows?
     task :units => [:clean, :build, :spec]
   else
     task :units => :spec
@@ -137,7 +130,7 @@ namespace :git do
     right_link_hooks.each do |hook|
       hook_name = hook.split("/").last.sub(".rb","")
       hook_path = File.join(git_hooks, hook_name)
-      if windows?
+      if ::RightScale::Platform.windows?
         FileUtils.cp(hook, hook_path)
       else
         File.unlink hook_path if File.exists? hook_path
@@ -167,7 +160,7 @@ task :load_env do
 end
 
 # Currently only need to build for Windows
-if windows?
+if ::RightScale::Platform.windows?
   def do_chef_node_cmdlet_task(task)
     ms_build_path = "#{ENV['WINDIR']}\\Microsoft.NET\\Framework\\v3.5\\msbuild.exe"
     Dir.chdir(File.join(RIGHT_LINK_ROOT, 'lib', 'chef', 'windows', 'ChefNodeCmdlet')) do
@@ -189,5 +182,3 @@ if windows?
     do_chef_node_cmdlet_task(:build)
   end
 end
-
-

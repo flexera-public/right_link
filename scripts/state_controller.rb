@@ -24,11 +24,11 @@
 #
 require 'trollop'
 require 'right_agent'
-require File.expand_path(File.join(File.dirname(__FILE__), 'command_helper'))
-require File.expand_path(File.join(File.dirname(__FILE__), '..', 'lib', 'instance', 'json_utilities'))
-require File.expand_path(File.join(File.dirname(__FILE__), '..', 'lib', 'instance', 'agent_config'))
-require File.expand_path(File.join(File.dirname(__FILE__), '..', 'lib', 'instance', 'instance_state'))
-require File.expand_path(File.join(File.dirname(__FILE__), '..', 'lib', 'instance', 'shutdown_request'))
+require File.normalize_path(File.join(File.dirname(__FILE__), 'command_helper'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'instance', 'json_utilities'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'instance', 'agent_config'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'instance', 'instance_state'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'instance', 'shutdown_request'))
 
 module RightScale
 

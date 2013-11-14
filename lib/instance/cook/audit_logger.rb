@@ -21,6 +21,8 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 require 'logger'
+require 'chef'
+require 'chef/formatters/base'
 
 module RightScale
 
@@ -157,7 +159,88 @@ module RightScale
       end
       return false
     end
+  end # AuditLogger
+end # RightScale
 
-  end
+# TEAL HACK we have to monkey-patch Chef's Formatter & Outputter classes because
+# they exist as a channel containing important debugging information which is
+# separate from the original (easily understandable) Chef::Log. the Outputter
+# lacks log level but the Formatter knows when it is displaying an error. the
+# point of the new formatting appears to be to print colors when running chef at
+# the console but this is no good reason for them to ignore standard log levels.
+class Chef
+  module Formatters
+    class Base
+      def display_error(description)
+        section = description.sections && description.sections.first
+        if section && section.keys.include?('SystemExit')
+          # ignored due to rs_shutdown provider behavior
+        else
+          last_output_log_level = output.output_log_level
+          begin
+            output.output_log_level = :error
+            puts("")
+            description.display(output)
+          ensure
+            output.output_log_level = last_output_log_level
+          end
+        end
+      end
+    end # Base
 
-end
+    # chef defaults to using null formatter (without an outputter due to our
+    # custom chef chef gem) when STDOUT.tty? == false so supress all but error-
+    # level logging when null formatter is used.
+    class NullFormatter
+      attr_accessor :output_log_level
+
+      def default_output_log_level
+        :debug
+      end
+
+      def color(*args)
+        write_to_log(args.first)
+      end
+
+      def print(*args)
+        write_to_log(args.first)
+      end
+
+      def puts(*args)
+        write_to_log(args.first)
+      end
+
+      private
+
+      def write_to_log(string)
+        ::Chef::Log.method(output_log_level || default_output_log_level).call(string)
+      end
+    end # NullFormatter
+
+    class Outputter
+      attr_accessor :output_log_level
+
+      def default_output_log_level
+        :info
+      end
+
+      def color(*args)
+        write_to_log(args.first)
+      end
+
+      def print(*args)
+        write_to_log(args.first)
+      end
+
+      def puts(*args)
+        write_to_log(args.first)
+      end
+
+      private
+
+      def write_to_log(string)
+        ::Chef::Log.method(output_log_level || default_output_log_level).call(string)
+      end
+    end # Outputter
+  end # Formatters
+end # Chef

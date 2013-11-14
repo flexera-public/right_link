@@ -163,11 +163,11 @@ describe RightScale::CookbookRepoRetriever do
         it 'should NOT be able to link on unsupported platforms' do
           # pretend that this platform doesn't support symlinks
           mock_filesystem = flexmock("fake file system")
-          mock_filesystem.should_receive(:create_symlink).and_raise(::RightScale::PlatformNotSupported)
+          mock_filesystem.should_receive(:create_symlink).and_raise(::RightScale::Exceptions::PlatformError)
           flexmock(::RightScale::Platform).should_receive(:filesystem).and_return(mock_filesystem)
 
           @retriever.checkout_cookbook_repos.should be_true
-          lambda { @retriever.link(@repo_sha, @position) }.should raise_exception(::RightScale::PlatformNotSupported)
+          lambda { @retriever.link(@repo_sha, @position) }.should raise_exception(::RightScale::Exceptions::PlatformError)
         end
       end
 

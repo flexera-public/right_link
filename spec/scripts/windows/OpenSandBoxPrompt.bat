@@ -55,7 +55,7 @@ if exist "%RS_RIGHT_LINK_HOME%\right_link_package\instance\bin\windows" (
 ) else (
   set RS_RIGHT_LINK_PACKAGE_BIN_WINDOWS=%RS_RIGHT_LINK_HOME%\bin\windows
 )
-set PATH=%PATH%;%RS_RIGHT_LINK_PACKAGE_BIN_WINDOWS%;%RS_RIGHT_LINK_HOME%\right_link\scripts\windows
+set PATH=%PATH%;%RS_RIGHT_LINK_PACKAGE_BIN_WINDOWS%
 
 
 rem # include spec scripts on path

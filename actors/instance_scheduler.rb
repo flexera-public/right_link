@@ -272,18 +272,7 @@ class InstanceScheduler
   # === Return
   # true: always true
   def terminate
-    # close must abandon any executing bundles and yield in timely fashion.
-    if @bundle_queue.active?
-      # set (or override if already decommissioning) bundle queue closed
-      # callback. we intentionally abandon any decommission bundle if an
-      # explicit terminate request is received (so calling code should wait for
-      # decommission to finish before calling terminate).
-      @bundle_queue_closed_callback = lambda { inner_terminate }
-      @bundle_queue.clear
-      @bundle_queue.close
-    else
-      inner_terminate
-    end
+    close_bundle_queue { inner_terminate }
     true
   end
 
@@ -292,6 +281,25 @@ class InstanceScheduler
   # Factory method for a new bundles queue.
   def self.create_bundle_queue(&block)
     return RightScale::MultiThreadBundleQueue.new(&block)
+  end
+
+  # Closes the bundle queue, if necessary, and then invokes the given callback.
+  # Convenient for testing to ensure (threaded) bundle queue closes regardless
+  # of whether terminate was called during test.
+  def close_bundle_queue(&callback)
+    # close must abandon any executing bundles and yield in timely fashion.
+    if @bundle_queue.active?
+      # set (or override if already decommissioning) bundle queue closed
+      # callback. we intentionally abandon any decommission bundle if an
+      # explicit terminate request is received (so calling code should wait for
+      # decommission to finish before calling terminate).
+      @bundle_queue_closed_callback = callback
+      @bundle_queue.clear
+      @bundle_queue.close
+    else
+      callback.call
+    end
+    true
   end
 
   # Prefixes the transition to 'decommissioned' state before callback.

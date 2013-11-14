@@ -116,7 +116,7 @@ EOF
         RsShutdownProviderSpec::TEST_COOKBOOKS_PATH,
         'test::reboot_immediately_recipe') }
     runner.should raise_exception(RightScale::Test::ChefRunner::MockSystemExit)
-    @logger.error_text.should == ""
+    @logger.error_text.should == ""  # SystemExit should be squelched in audits
   end
 
   it "should stop deferred" do
@@ -142,7 +142,7 @@ EOF
         RsShutdownProviderSpec::TEST_COOKBOOKS_PATH,
         'test::stop_immediately_recipe') }
     runner.should raise_exception(RightScale::Test::ChefRunner::MockSystemExit)
-    @logger.error_text.should == ""
+    @logger.error_text.should == ""  # SystemExit should be squelched in audits
   end
 
   it "should terminate deferred" do
@@ -168,20 +168,22 @@ EOF
         RsShutdownProviderSpec::TEST_COOKBOOKS_PATH,
         'test::terminate_immediately_recipe') }
     runner.should raise_exception(RightScale::Test::ChefRunner::MockSystemExit)
-    @logger.error_text.should == ""
+    @logger.error_text.should == ""  # SystemExit should be squelched in audits
   end
 
   it "should fail converge if failed to schedule shutdown" do
     flexmock(::RightScale::ShutdownRequestProxy).
       should_receive(:submit).
       with(:level => ::RightScale::ShutdownRequest::TERMINATE, :immediately => true).
-      and_raise(::RightScale::ShutdownRequest::InvalidLevel, "mock invalid level exception")
+      and_raise(::RightScale::ShutdownRequest::InvalidLevel, 'mock invalid level exception')
     runner = lambda {
       RightScale::Test::ChefRunner.run_chef(
         RsShutdownProviderSpec::TEST_COOKBOOKS_PATH,
         'test::terminate_immediately_recipe') }
     runner.should raise_exception(::RightScale::ShutdownRequest::InvalidLevel)
-    @logger.error_text.should == ""  # chef apparently doesn't log exceptions, it just re-raises them after running handlers
+    # Chef v11+ sends all errors raised during recipe execution to the
+    # chef formatters for display.
+    @logger.error_text.should include 'mock invalid level exception'
   end
 
 end

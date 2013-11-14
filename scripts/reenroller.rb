@@ -21,7 +21,7 @@ require 'fileutils'
 require 'right_agent'
 require 'right_agent/scripts/usage'
 require 'right_agent/scripts/common_parser'
-require File.expand_path(File.join(File.dirname(__FILE__), 'command_helper'))
+require File.normalize_path(File.join(File.dirname(__FILE__), 'command_helper'))
 
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'instance', 'agent_config'))
 

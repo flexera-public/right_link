@@ -65,7 +65,7 @@ class Chef
         # reasons in Linux.
         curl_options = '-S -s --retry 7 -k -o - -g -f'
         dns_made_easy_url = 'https://www.dnsmadeeasy.com/servlet/updateip'
-        if !!(RUBY_PLATFORM =~ /mswin/)
+        if ::RightScale::Platform.windows?
           res = `curl #{curl_options} \"#{dns_made_easy_url}?#{query}\"`
         else
           res = `curl #{curl_options} '#{dns_made_easy_url}?#{query}'`

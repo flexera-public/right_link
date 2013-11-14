@@ -60,11 +60,9 @@ Dir.chdir(basedir) do
       gem 'windows-api'
       gem 'windows-pr'
       gem 'win32-dir'
-      gem 'win32-eventlog'
-      gem 'ruby-wmi'
+      gem 'rdp-ruby-wmi'
       gem 'win32-process'
       gem 'win32-pipe'
-      gem 'win32-open3'
       gem 'win32-service'
     end
   end
@@ -74,7 +72,7 @@ end
 # scripts (e.g. those installed to /usr/bin) get top billing *iff* a bin dir
 # already appears on the PATH. Notice we choose regexp patterns that work under
 # both Linux and Windows.
-sep = (RUBY_PLATFORM =~ /mswin|mingw|dos/) ? ';' : ':'
+sep = (RUBY_PLATFORM =~ /mswin|mingw/) ? ';' : ':'
 version = RUBY_VERSION.split('.')[0..1].join('.')
 subdir = /(ruby|gems)[\\\/]#{version}[\\\/]bin/
 paths = ENV['PATH'].split(sep)

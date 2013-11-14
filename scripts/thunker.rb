@@ -31,7 +31,7 @@ require 'right_agent/scripts/usage'
 require 'right_agent/scripts/common_parser'
 require 'right_agent/core_payload_types'
 require 'right_support/net'
-require File.expand_path(File.join(File.dirname(__FILE__), 'command_helper'))
+require File.normalize_path(File.join(File.dirname(__FILE__), 'command_helper'))
 
 basedir = File.expand_path('../..', __FILE__)
 require File.join(basedir, 'lib', 'instance')

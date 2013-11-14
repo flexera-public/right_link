@@ -20,7 +20,7 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require File.join(File.dirname(__FILE__), 'spec_helper')
+require ::File.expand_path('../spec_helper', __FILE__)
 
 describe RightScale::ReenrollManager do
 
@@ -50,7 +50,7 @@ describe RightScale::ReenrollManager do
       RightScale::ReenrollManager.vote
       RightScale::ReenrollManager.instance_variable_get(:@total_votes).should == 1
       cancel_timer
-      EM.stop
+      EM.next_tick { EM.stop }
     end
   end
 
@@ -61,7 +61,7 @@ describe RightScale::ReenrollManager do
       RightScale::ReenrollManager.reset_votes
       RightScale::ReenrollManager.instance_variable_get(:@total_votes).should == 0
       cancel_timer
-      EM.stop
+      EM.next_tick { EM.stop }
     end
   end
 
@@ -70,7 +70,7 @@ describe RightScale::ReenrollManager do
       RightScale::ReenrollManager::REENROLL_THRESHOLD.times { RightScale::ReenrollManager.vote }
       RightScale::ReenrollManager.vote
       cancel_timer
-      EM.stop
+      EM.next_tick { EM.stop }
     end
     RightScale::ReenrollManager.instance_variable_get(:@reenrolling).should be_true
   end
@@ -85,7 +85,7 @@ describe RightScale::ReenrollManager do
         EM.add_timer(0.5) do
           RightScale::ReenrollManager.instance_variable_get(:@total_votes).should == 0
           cancel_timer
-          EM.stop
+          EM.next_tick { EM.stop }
         end
       end
     ensure

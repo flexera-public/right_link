@@ -84,13 +84,6 @@ class Chef
       def parameters(arg=nil)
         return environment if arg.nil?
 
-        # FIX: support Windows alpha demo-style parameters for now. document
-        # that they are deprecated and to use a simple hash. this method of
-        # parameter passing may be deprecated altogether in future.
-        if arg.kind_of?(Chef::Node::Attribute)
-          arg = arg.attribute
-        end
-
         # parameters is really a duplication of the environment hash from
         # the ExecuteResource, so merge the two hashes, if necessary. it seems
         # valid to continue to distinguish symantically between parameters and
