@@ -1,5 +1,5 @@
 # === Synopsis:
-#   RightScale Chef Cook (cook) - (c) 2010-11 RightScale Inc
+#   RightScale Chef Cook (cook) - (c) 2010-13 RightScale Inc
 #
 #   This utility is meant to be used internally by RightLink, use
 #   rs_run_right_script and rs_run_recipe instead.
