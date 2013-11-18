@@ -272,6 +272,7 @@ module RightScale
               rescue Exception => e
                 tempfile.close! unless tempfile.nil?
                 @audit.append_info("Repose download failed: #{e.message}.")
+                Log.error("Repose download failed: #{e.message} #{e.backtrace.inspect}.", e)
                 if e.kind_of?(ReposeDownloader::DownloadException) && e.message.include?("Forbidden")
                   @audit.append_info("Often this means the download URL has expired while waiting for inputs to be satisfied.")
                 end
