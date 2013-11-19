@@ -45,9 +45,9 @@ if "%1" neq "dev" goto :AfterRuby
 
 set PATH=%PATH%;%RS_RUBY_HOME%\bin
 set RS_DEV_HOME=%RS_RIGHT_LINK_HOME%\..\..
-set RS_CURL_EXE=%RS_DEV_HOME%\windows_sandbox_build\utilities\shell\bin\curl.exe
-set RS_TAR_RB=%RS_DEV_HOME%\windows_sandbox_build\utilities\shell\script\tar.rb
-set RS_RIGHT_RUN_EXE=%RS_DEV_HOME%\win32_sandbox_service\RightRun\bin\Release\RightRun.exe
+set RS_CURL_EXE=c:\tools\shell\bin\curl.exe
+set RS_TAR_RB=c:\tools\shell\script\tar.rb
+set RS_RIGHT_RUN_EXE=%RS_DEV_HOME%\right_link_package\instance\win32_sandbox_service\RightRun\bin\Release\RightRun.exe
 
 :AfterRuby
 if exist "%RS_RIGHT_LINK_HOME%\right_link_package\instance\bin\windows" (
