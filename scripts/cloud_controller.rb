@@ -76,7 +76,7 @@ module RightScale
           case action
             when :bootstrap
               # bootstrap is shorthand for all standard actions performed on boot
-              result += [:clear_state, :wait_for_instance_ready, :write_cloud_metadata, :write_user_metadata, :wait_for_eip]
+              result += [:clear_state, :wait_for_instance_ready, :write_cloud_metadata, :write_user_metadata, :update_details, :wait_for_eip]
               only_if = true
             else
               result << action
