@@ -2,7 +2,7 @@
 
 spec = Gem::Specification.new do |s|
   s.name        = 'right_link'
-  s.version     = '5.9.3'
+  s.version     = '5.9.4'
   s.platform    = Gem::Platform::RUBY
 
   s.authors     = ['RightScale']
