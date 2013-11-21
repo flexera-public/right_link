@@ -9,7 +9,7 @@ Released 2013-11-20
 == Bug Fixes
 
 * Redundant rs_state output when executed.
-* Fix right_link failed to run Rightscript that contains single or double quote.
+* Fix RightLink failure to run RightScripts that contain a single or double quote.
 
 = 5.9.3 (RightLink 5.9 release candidate 1)
 
