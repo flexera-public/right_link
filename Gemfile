@@ -5,11 +5,7 @@ gemspec
 
 # Fresh off the assembly line
 gem 'right_support', '~> 2.7'
-
-gem 'right_agent', '~> 1.0',
-                   :git => 'https://github.com/rightscale/right_agent.git',
-                   :branch => 'teal_13_17_acu134044_support_mingw'
-
+gem 'right_agent', '~> 1.0.3'
 gem 'right_amqp', '~> 0.7'
 gem 'right_popen', '~> 2.0'
 gem 'right_git'
@@ -21,7 +17,7 @@ gem 'right_scraper', '~> 4.0',
 # to RightScale. Gems in the 'custom' group are published by RightScale to our
 # custom gem repository (http://s3.amazonaws.com/rightscale_rightlink_gems_dev).
 group :custom do
-  gem 'chef', '11.6.0.2'
+  gem 'chef', '11.6.0.3'
   gem 'ohai', '6.18.0.2'
   gem 'mixlib-shellout', '1.2.0.2'
   gem 'eventmachine', '~> 1.0.0.4'
@@ -36,39 +32,11 @@ end
 # the rightscale custom gem repository.
 group :windows do
   platform :mswin, :mingw do
-
-    # the ruby-wmi guys introduced a method_missing bug in v0.4.0 that causes
-    # WMI properties which have underscore (_) in their name to fail a query for
-    # value due to camelizing what is already a camelized property name.
-    #
-    # Example:
-    #  require 'rubygems'
-    #  require 'ruby-wmi'
-    #  os = WMI::Win32_OperatingSystem.find(:first)
-    #  os.send('DataExecutionPrevention_Available')
-    #  => NoMethodError: unknown property or method: `DataExecutionPreventionAvailable'
-    #
-    # the workaround for chef was use a fork called rdp-ruby-wmi.
-    gem 'rdp-ruby-wmi'
-
-    # specific to right_link.
-    # gem 'win32-dir'
-    # gem 'win32-process'
+    # specific to right_link. chef has additional dependencies that should be
+    # resolved by bundle installing on mingw.
+    gem 'win32-dir'
+    gem 'win32-process'
     gem 'win32-pipe'
-
-    # chef-locked gems.
-    # TEAL FIX: need to make a custom mingw chef gem that has these locks so
-    # that we don't have to specify them here.
-    gem 'ffi', '= 1.3.1'
-    gem 'windows-api', '= 0.4.2'
-    gem 'windows-pr', '= 1.2.2'
-    gem 'win32-api', '= 1.4.8'
-    gem 'win32-dir', '= 0.4.5'
-    gem 'win32-event', '= 0.6.1'
-    gem 'win32-mutex', '= 0.4.1'
-    gem 'win32-process', '= 0.7.3'
-    gem 'win32-service', '= 0.8.2'
-    gem 'win32-mmap', '= 0.4.0'
   end
 end
 
