@@ -26,7 +26,7 @@ CONFIG_DRIVE_MOUNTPOINT = "/mnt/metadata" unless ::RightScale::Platform.windows?
 CONFIG_DRIVE_MOUNTPOINT = "a:\\" if ::RightScale::Platform.windows?
 
 # dependencies.
-metadata_source 'metadata_sources/file_metadata_source'
+metadata_source  'metadata_sources/config_drive_metadata_source'
 metadata_writers 'metadata_writers/dictionary_metadata_writer',
                  'metadata_writers/ruby_metadata_writer',
                  'metadata_writers/shell_metadata_writer'
@@ -61,6 +61,12 @@ default_option([:metadata_source, :cloud_metadata_source_file_path], File.join(C
 default_option([:cloud_metadata, :metadata_tree_climber, :create_leaf_override], method(:create_user_metadata_leaf))
 # vscale cloud_metadata is flat, so paths will never have children -- always return false
 default_option([:cloud_metadata, :metadata_tree_climber, :has_children_override], method(:cloud_metadata_is_flat))
+
+
+default_option([:metadata_source, :config_drive_uuid], "681B-8C5D")
+default_option([:metadata_source, :config_drive_filesystem], ::RightScale::Platform.windows? ? 'FAT' : 'vfat')
+default_option([:metadata_source, :config_drive_label], 'METADATA')
+default_option([:metadata_source, :config_drive_mountpoint],  CONFIG_DRIVE_MOUNTPOINT)
 
 
 # Determines if the current instance is running on vsoup.
