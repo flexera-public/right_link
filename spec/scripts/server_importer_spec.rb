@@ -19,6 +19,8 @@ module RightScale
 
     let(:spec_dir) { ::File.normalize_path('server_importer_spec-bbed84063c434283a8d3f74fbb280c22', ::Dir.tmpdir) }
 
+    it_should_behave_like 'mocks metadata'
+
     def run_server_importer(args)
       replace_argv(args)
       subject.run(subject.parse_args)

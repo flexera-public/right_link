@@ -1,3 +1,26 @@
+= 5.9.5 (RightLink 5.9 release candidate 3)
+
+Released 2013-11-27
+
+== Bug Fixes
+
+* Added ruby as a package dependency.
+* Removed unnecessary warning about rightscale user during package install.
+* Fixed regression in patching mechanism.
+
+= 5.9.4 (RightLink 5.9 release candidate 2)
+
+Released 2013-11-20
+
+== Changes to Existing Functionality
+
+* Revert rs_tag query TAG_LIST param to split tags by space. No spaces allowed in a tag.
+
+== Bug Fixes
+
+* Redundant rs_state output when executed.
+* Fix RightLink failure to run RightScripts that contain a single or double quote.
+
 = 5.9.3 (RightLink 5.9 release candidate 1)
 
 Released 2013-10-17
