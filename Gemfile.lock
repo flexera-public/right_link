@@ -1,6 +1,13 @@
 GIT
+  remote: git@github.com:rightscale/right_git.git
+  revision: b5754efb8195b1bf30fe83f3eb263d6b0480d59b
+  branch: teal_13_17_acu134044_support_mingw
+  specs:
+    right_git (0.0.2)
+
+GIT
   remote: https://github.com/rightscale/right_scraper.git
-  revision: 2f235da2cf2da3ee121f10343729fcb9e1c9cb66
+  revision: a65ea020819ceb005ed24c4d2fb4e8c433e1f428
   branch: teal_13_17_acu134044_support_mingw
   specs:
     right_scraper (4.0.3)
@@ -152,7 +159,6 @@ GEM
       right_support (>= 1.2, < 3.0)
     right_aws (3.1.0)
       right_http_connection (>= 1.2.5)
-    right_git (0.0.1)
     right_http_connection (1.4.0)
     right_popen (2.0.2)
     right_popen (2.0.2-x86-mingw32)
@@ -213,7 +219,7 @@ DEPENDENCIES
   rcov (~> 0.8.1)
   right_agent (~> 1.0.3)
   right_amqp (~> 0.7)
-  right_git
+  right_git!
   right_link!
   right_popen (~> 2.0)
   right_scraper (~> 4.0)!
