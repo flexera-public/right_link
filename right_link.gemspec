@@ -27,16 +27,9 @@ spec = Gem::Specification.new do |s|
   s.add_runtime_dependency('extlib', '~> 0.9.15')
 
   if s.platform.to_s =~ /mswin|mingw/
-    s.add_runtime_dependency('win32-api', '~> 1.4.5')
-    s.add_runtime_dependency('windows-api', '~> 0.4.0')
-    s.add_runtime_dependency('windows-pr', '~> 1.0.8')
-    s.add_runtime_dependency('win32-dir', '~> 0.3.5')
-    s.add_runtime_dependency('win32-eventlog', '~> 0.5.2')
-    s.add_runtime_dependency('ruby-wmi', '~> 0.2.2')
-    s.add_runtime_dependency('win32-process', '~> 0.6.1')
-    s.add_runtime_dependency('win32-pipe', '~> 0.2.1')
-    s.add_runtime_dependency('win32-open3', '~> 0.3.2')
-    s.add_runtime_dependency('win32-service', '~> 0.7.2')
+    s.add_runtime_dependency('win32-dir')
+    s.add_runtime_dependency('win32-process')
+    s.add_runtime_dependency('win32-pipe')
   end
 
   s.files = ['RELEASES.rdoc', 'INSTALL.rdoc', 'LICENSE', 'README.rdoc'] +
