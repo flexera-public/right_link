@@ -8,13 +8,11 @@ gem 'right_support', '~> 2.7'
 gem 'right_agent', '~> 1.0.3'
 gem 'right_amqp', '~> 0.7'
 gem 'right_popen', '~> 2.0'
-
-gem 'right_git', :git => 'git@github.com:rightscale/right_git.git',
-                 :branch => 'teal_13_17_acu134044_support_mingw'
+gem 'right_git'
 
 gem 'right_scraper', '~> 4.0',
                      :git => 'https://github.com/rightscale/right_scraper.git',
-                     :branch => 'teal_13_17_acu134044_support_mingw'
+                     :branch => 'master'
 
 # We have custom builds of some gems containing fixes and patches that are specific
 # to RightScale. Gems in the 'custom' group are published by RightScale to our
@@ -26,17 +24,11 @@ group :custom do
   gem 'eventmachine', '~> 1.0.0.4'
 end
 
-# We use some gems on both platforms, but the maintainer of the gem does not publish
-# his own builds of the gem. We must do it for him. Therefore we cannot upgrade these
-# gems without doing work on our side.
-#
-# DO NOT CHANGE VERSIONS of these gems until you have built a precompiled
-# mswin-platform gem for every one of the gems below AND published it to
-# the rightscale custom gem repository.
+# we are now using mingw so the need to carefully lock Windows gems has been
+# alleviated. chef has its own strict set of Windows gem dependencies but the
+# following are specific to right_link.
 group :windows do
   platform :mswin, :mingw do
-    # specific to right_link. chef has additional dependencies that should be
-    # resolved by bundle installing on mingw.
     gem 'win32-dir'
     gem 'win32-process'
     gem 'win32-pipe'
