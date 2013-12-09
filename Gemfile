@@ -96,3 +96,4 @@ group :stable do
 end
 
 gem 'mixlib-authentication', ">= 1.3.0"
+gem 'ip'
