@@ -34,6 +34,15 @@ metadata_writers 'metadata_writers/dictionary_metadata_writer',
 # set abbreviation for non-RS env var generation
 abbreviation :vs
 
+# converts CIDR to ip/netmask
+#
+def cidr_to_netmask(cidr_range)
+  cidr = IP::CIDR.new(cidr_range)
+  return cidr.ip.ip_address, cidr.long_netmask.ip_address
+end
+
+
+
 # Parses vsoup user metadata into a hash.
 #
 # === Parameters
@@ -85,12 +94,13 @@ def update_details
 
   load_metadata
 
+  # configure static IP (if specified in metadata)
+  device = ENV['RS_STATIC_IP0_DEVICE']
+  device ||= platform.windows? ? "Local Area Connection" : "eth0"
+  static_ip = add_static_ip(device)
+
   if platform.windows?
     # setting administrator password setting (not yet supported)
-
-    # configure static IP (not supported yet)
-
-    # add routes for nat server (not supported yet)
 
     # report new network interface configuration to ohai
     if ohai = @options[:ohai_node]
@@ -102,14 +112,8 @@ def update_details
     public_key = get_public_ssh_key_from_metadata()
     update_authorized_keys(public_key)
 
-    # configure static IP (if specified in metadata)
-    device = ENV['RS_STATIC_IP0_DEVICE']
-    device ||= "eth0"
-    static_ip = add_static_ip(device)
-
     # report new network interface configuration to ohai
     if ohai = @options[:ohai_node]
-
       # Pick up all IPs detected by ohai
       n = 0
       while (ip = ::RightScale::CloudUtilities.ip_for_interface(ohai, "eth#{n}")) != nil
@@ -119,24 +123,22 @@ def update_details
         details["#{type}s".to_sym] << ip # but append all to the list
         n += 1
       end
-
-      # Override with statically assigned IP (if specified)
-      if static_ip
-        if is_private_ipv4(static_ip)
-          details[:private_ip] ||= static_ip
-          details[:private_ips] << static_ip
-        else
-          details[:public_ip] ||= static_ip
-          details[:public_ips] << static_ip
-        end
-      end
     end
-
-    # add routes for nat server
-    # this needs to be done after our IPs are configured
-    add_static_routes_for_network
-
   end
+
+  # Override with statically assigned IP (if specified)
+  if static_ip
+    if is_private_ipv4(static_ip)
+      details[:private_ip] ||= static_ip
+      details[:private_ips] << static_ip
+    else
+      details[:public_ip] ||= static_ip
+      details[:public_ips] << static_ip
+    end
+  end
+  # add routes for nat server
+  # this needs to be done after our IPs are configured
+  add_static_routes_for_network
 
   return details
 end
@@ -220,7 +222,7 @@ def add_static_routes_for_network
     if nat_server
       parse_array(ENV['RS_NAT_RANGES']).each do |network|
         network_route_add(network, nat_server)
-        update_route_file(network, nat_server)
+        update_route_file(network, nat_server) unless platform.windows?
       end
     end
   rescue Exception => e
@@ -251,14 +253,20 @@ def network_route_add(network, nat_server_ip)
     logger.info "Route already exists to #{route_str}"
     return true
   end
-  logger.info "Adding route to network #{route_str}"
-  begin
-    runshell("ip route add #{route_str}")
-  rescue Exception => e
-    logger.error "Unable to set a route #{route_str}. Check network settings."
-    # XXX: for some reason network_route_exists? allowing mutple routes
-    # to be set.  For now, don't fail if route already exists.
-    throw e unless e.message.include?("NETLINK answers: File exists")
+
+  if platform.windows?
+    network, mask = cidr_to_netmask(network)
+    runshell("route -p ADD #{network} MASK #{mask} #{nat_server_ip}")
+  else
+    logger.info "Adding route to network #{route_str}"
+    begin
+      runshell("ip route add #{route_str}")
+    rescue Exception => e
+      logger.error "Unable to set a route #{route_str}. Check network settings."
+      # XXX: for some reason network_route_exists? allowing mutple routes
+      # to be set.  For now, don't fail if route already exists.
+      throw e unless e.message.include?("NETLINK answers: File exists")
+    end
   end
   true
 end
@@ -306,7 +314,13 @@ end
 # result(Boolean):: true if route exists, else false
 def network_route_exists?(network, nat_server_ip)
   routes = routes_show()
-  matchdata = routes.match(/#{network}.*via.*#{nat_server_ip}/)
+  route_regex = if platform.windows?
+                  network, mask = cidr_to_netmask(network)
+                  /#{network}.*#{mask}.*#{nat_server_ip}/
+                else
+                  /#{network}.*via.*#{nat_server_ip}/
+                end
+  matchdata = routes.match(route_regex)
   matchdata != nil
 end
 
@@ -315,7 +329,7 @@ end
 # === Return
 # result(String):: results from route query
 def routes_show
-  runshell("ip route show")
+  runshell(platform.windows? ? "route print" : "ip route show")
 end
 
 #
@@ -345,8 +359,8 @@ def add_static_ip(device)
       raise "FATAL: RS_STATIC_IP0_NAMESERVERS not defined ; Cannot configure static IP address" unless nameservers_string
       # configure DNS
       nameservers = parse_array(nameservers_string)
-      nameservers.each do |nameserver|
-        nameserver_add(nameserver)
+      nameservers.each_with_index do |nameserver, index|
+        nameserver_add(nameserver, index + 1, device)
       end
       # configure network adaptor
       ip = configure_network_adaptor(device, ipaddr, netmask, gateway, nameservers)
@@ -373,13 +387,18 @@ def configure_network_adaptor(device, ip, netmask, gateway, nameservers)
     raise "ERROR: invalid gateway IP address: '#{gateway}'" unless valid_ipv4?(gateway)
   end
 
-  # Setup static IP without restarting network
-  logger.info "Updating in memory network configuration for #{device}"
-  runshell("ifconfig #{device} #{ip} netmask #{netmask}")
-  add_gateway_route(gateway) if gateway
+  if platform.windows?
+    cmd = "netsh interface ip set address name=\"#{device}\" source=static addr=#{ip} mask=#{netmask} gateway="
+    cmd += gateway ? "#{gateway} gwmetric=1" : "none"
+    runshell(cmd)
+  else
+    # Setup static IP without restarting network
+    logger.info "Updating in memory network configuration for #{device}"
+    runshell("ifconfig #{device} #{ip} netmask #{netmask}")
+    add_gateway_route(gateway) if gateway
 
-  # Also write to config file
-  config_data = <<-EOH
+    # Also write to config file
+    config_data = <<-EOH
 # File managed by RightScale
 # DO NOT EDIT
 DEVICE=#{device}
@@ -392,8 +411,9 @@ USERCTL=no
 DNS1=#{nameservers[0]}
 DNS2=#{nameservers[1]}
 PEERDNS=yes
-  EOH
-  write_adaptor_config(device, config_data)
+EOH
+write_adaptor_config(device, config_data)
+  end
 
   # return the IP address assigned
   ip
@@ -428,15 +448,20 @@ end
 #
 # === Return
 # result(True):: Always returns true
-def nameserver_add(nameserver_ip)
+def nameserver_add(nameserver_ip, index=nil,device=nil)
   raise "ERROR: invalid nameserver IP address of #{nameserver}" unless valid_ipv4?(nameserver_ip)
-  config_file="/etc/resolv.conf"
-  if nameserver_exists?(nameserver_ip)
-    logger.info "Nameserver #{nameserver_ip} already exists in #{config_file}"
+  if nameserver_exists?(nameserver_ip, device)
+    logger.info "Nameserver #{nameserver_ip} already exists"
     return true
   end
-  logger.info "Added nameserver #{nameserver_ip} to #{config_file}"
-  File.open(config_file, "a") {|f| f.write("nameserver #{nameserver_ip}\n") }
+
+  if platform.windows?
+    runshell("netsh interface ip add dns \"#{device}\" #{nameserver_ip} index=#{index}")
+  else
+    config_file="/etc/resolv.conf"
+    logger.info "Added nameserver #{nameserver_ip} to #{config_file}"
+    File.open(config_file, "a") {|f| f.write("nameserver #{nameserver_ip}\n") }
+  end
   true
 end
 
@@ -447,8 +472,8 @@ end
 #
 # === Return
 # result(Boolean):: true if route exists, else false
-def nameserver_exists?(nameserver_ip)
-  nameservers = namservers_show()
+def nameserver_exists?(nameserver_ip, device=nil)
+  nameservers = namservers_show(device)
   matchdata = nameservers.match(/#{nameserver_ip}/)
   matchdata != nil
 end
@@ -457,12 +482,16 @@ end
 #
 # === Return
 # result(String):: results from nameserver query
-def namservers_show
+def namservers_show(device=nil)
   contents = ""
+  if platform.windows?
+    contents = runshell("netsh interface ip show dns \"#{device}\"")
+  else
   begin
     File.open("/etc/resolv.conf", "r") { |f| contents = f.read() }
   rescue
     logger.warn "Unable to open /etc/resolv.conf. It will be created"
+  end
   end
   contents
 end
@@ -560,7 +589,7 @@ end
 # result(String):: output from the command
 def runshell(command)
   logger.info "+ #{command}"
-  output = `#{command} < /dev/null 2>&1`
+  output = `#{command} < #{platform.windows? ? "NUL" : "/dev/null"} 2>&1`
   raise StandardError, "Command failure: #{output}" unless $?.success?
   output
 end

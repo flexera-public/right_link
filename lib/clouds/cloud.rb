@@ -22,6 +22,7 @@
 
 require 'rubygems'
 require 'extlib'
+require 'ip'
 
 module RightScale
 
