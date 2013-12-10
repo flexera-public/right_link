@@ -2,21 +2,9 @@
 
 == Stable Packages
 
-The latest stable release of RightLink is 5.8.8. You can download the DEB,
-RPM or MSI by visiting the following URL in your Web browser and navigating
-to the appropriate subdir for your OS:
+As of December 2013, the stable release of RightLink is v5.9.
 
-http://mirror.rightscale.com/rightlink/
-
-(TODO: provide information on 5.9 stable packages once they are released.)
-
-== Beta Packages
-
-Beginning with RightLink 5.9, we host our packages in apt, yum, zypp and windows repositories
-for ease of installation.
-
-As of November 2013, we produce release candidates builds for the following distributions and
-releases:
+It is available for the following operating systems (64-bit binaries only):
 * RHEL 6 (also compatible with CentOS 6)
 * SUSE 11
 * Ubuntu 12.04
@@ -31,6 +19,16 @@ And the following cloud types:
 * openstack
 * rackspace (OpenCloud)
 * softlayer
+
+To learn how to install stable RightLink, refer to our support site:
+
+http://support.rightscale.com/12-Guides/RightLink/02-RightLink_5.9/Install_RightLink
+
+== Beta Packages
+
+Assuming that you continued reading this document, you are probably interested in
+trying RightLink beta or pre-release software. The following instructions serve as
+a beta install guide and will be kept up to date as new beta builds are released.
 
 For all Unix-based systems, RightLink is distributed as a base package plus one
 or more extension packages to provide support for various cloud types. Install
@@ -48,7 +46,7 @@ image and use it to create your own MultiCoudImage for use with RightScale.
 For RedHat-based systems, we publish and maintain a yum repository. The repository
 follows an EPEL-like layout and supports multiple distributions and releases.
 
-*Note:* 64-bit is only supported.
+*Note:* only 64-bit binaries are supported.
 
 First, import RightScale public key:
 
@@ -60,7 +58,7 @@ Create a yum source:
   cat > /etc/yum.repos.d/RightLink-staging.repo <<EOF
   [rightlink]
   name=RightLink
-  baseurl=https://rightlink-staging.s3.amazonaws.com/yum/1/el/6/$basearch/
+  baseurl=https://rightlink-beta.test.rightscale.com/yum/1/el/6/$basearch/
   gpgcheck=1
   gpgkey=http://s3.amazonaws.com/rightscale_key_pub/rightscale_key.pub
   EOF
@@ -79,7 +77,7 @@ You can now bundle your image and boot RightScale servers with it.
 For SUSE-based systems, we maintain a zypper repository. The repository follows
 an EPEL-like layout and supports multiple distributions and releases.
 
-*Note:* 64-bit is only supported.
+*Note:* only 64-bit binaries are supported.
 
 First, import RightScale public key:
 
@@ -91,7 +89,7 @@ Create a zypper source:
   cat > /etc/zypp/repos.d/RightLink-staging.repo <<EOF
   [rightlink]
   name=RightLink
-  baseurl=https://rightlink-staging.s3.amazonaws.com/zypp/1/suse/11/x86_64/
+  baseurl=https://rightlink-beta.test.rightscale.com/zypp/1/suse/11/x86_64/
   gpgcheck=1
   gpgkey=http://s3.amazonaws.com/rightscale_key_pub/rightscale_key.pub
   EOF
@@ -109,7 +107,7 @@ You can now bundle your image and boot RightScale servers with it.
 
 For Debian-derived systems, maintain an automatic, pooled apt repository.
 
-*Note:* 64-bit is only supported.
+*Note:* only 64-bit binaries are supported.
 
 First, import RightScale public key:
 
@@ -121,14 +119,14 @@ and release code name. For instance, on an amd64 system that is running:
 
   # Ubuntu 12.04 (precise)
   cat > /etc/apt/sources.list.d/rightlink.sources.list <<EOF
-  deb [arch=amd64] https://rightlink-staging.s3.amazonaws.com/apt precise main
-  deb-src [arch=amd64] https://rightlink-staging.s3.amazonaws.com/apt precise main
+  deb [arch=amd64] https://rightlink-beta.test.rightscale.com/apt precise main
+  deb-src [arch=amd64] https://rightlink-beta.test.rightscale.com/apt precise main
   EOF
 
   # Ubuntu 13.04 (raring)
   cat > /etc/apt/sources.list.d/rightlink.sources.list <<EOF
-  deb [arch=amd64] https://rightlink-staging.s3.amazonaws.com/apt raring main
-  deb-src [arch=amd64] https://rightlink-staging.s3.amazonaws.com/apt raring main
+  deb [arch=amd64] https://rightlink-beta.test.rightscale.com/apt raring main
+  deb-src [arch=amd64] https://rightlink-beta.test.rightscale.com/apt raring main
   EOF
 
 
@@ -141,15 +139,12 @@ Next, install RightLink cloud support package for the cloud type your instance i
 
 You can now bundle your image and boot RightScale servers with it.
 
-=== Windows Installation
+=== Windows installation
 
 For Windows systems, we publish MSIs to Amazon S3; find the file that is suitable for your CPU
 architecture and download it with your Web browser:
 
-  https://rightlink-staging.s3.amazonaws.com/windows/RightLink-5.9.3-2-i386.msi
-
-  https://rightlink-staging.s3.amazonaws.com/windows/RightLink-5.9.3-2-x64.msi
-
+  https://rightlink-beta.test.rightscale.com/msi/index.html
 
 *Note:* Before installing the RightLink package be sure that time of the server is correct. We highly recommend the use of Network Time Protocol (NTP) for synchronizing time on your servers.
 
