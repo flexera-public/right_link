@@ -89,13 +89,18 @@ def write_cloud_metadata
   result
 end
 
+def shell_escape_if_necessary(word)
+  return word if word.match(/^".*"$/) || word.match(/^\S+$/)
+  word.inspect
+end
+
 def configure_network
   load_metadata
 
   # configure static IP (if specified in metadata)
   device = ENV['RS_STATIC_IP0_DEVICE']
   device ||= platform.windows? ? "Local Area Connection" : "eth0"
-  static_ip = add_static_ip(device)
+  static_ip = add_static_ip(shell_escape_if_necessary(device))
   if platform.windows?
     # setting administrator password setting (not yet supported)
   else
