@@ -323,7 +323,7 @@ EOF
 
     describe "update_details" do
       it "does a bunch of stuff" do
-        flexmock(subject).should_receive(:load_metadata).times(1)
+        flexmock(subject).should_receive(:load_metadata).at_least.once
         flexmock(subject).should_receive(:get_public_ssh_key_from_metadata).and_return("somekey").times(1)
         flexmock(subject).should_receive(:update_authorized_keys).with("somekey").times(1)
         flexmock(subject).should_receive(:add_static_routes_for_network).times(1)

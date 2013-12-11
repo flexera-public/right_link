@@ -80,6 +80,34 @@ def is_current_cloud?
   return true
 end
 
+def write_cloud_metadata
+  result = write_metadata(:cloud_metadata)
+  # TODO: this is a dirty hack for Windows to avoid recompiling service DLL for
+  #       vScale PoC network config features.  This functionality will be moved to
+  #       system_configurator at some point and should then be removed
+  configure_network if platform.windows?
+  result
+end
+
+def configure_network
+  load_metadata
+
+  # configure static IP (if specified in metadata)
+  device = ENV['RS_STATIC_IP0_DEVICE']
+  device ||= platform.windows? ? "Local Area Connection" : "eth0"
+  static_ip = add_static_ip(device)
+  if platform.windows?
+    # setting administrator password setting (not yet supported)
+  else
+    # update authorized_keys file from metadata
+    public_key = get_public_ssh_key_from_metadata()
+    update_authorized_keys(public_key)
+  end
+  # add routes for nat server
+  # this needs to be done after our IPs are configured
+  add_static_routes_for_network
+end
+
 # Updates the given node with cloud metadata details.
 #
 # We also do a bunch of VM configuration here.
@@ -93,25 +121,15 @@ def update_details
   details[:private_ips] = Array.new
 
   load_metadata
-
-  # configure static IP (if specified in metadata)
-  device = ENV['RS_STATIC_IP0_DEVICE']
-  device ||= platform.windows? ? "Local Area Connection" : "eth0"
-  static_ip = add_static_ip(device)
+  configure_network
 
   if platform.windows?
-    # setting administrator password setting (not yet supported)
-
     # report new network interface configuration to ohai
     if ohai = @options[:ohai_node]
       details[:public_ipv4] = ::RightScale::CloudUtilities.ip_for_windows_interface(ohai, 'Local Area Connection')
       details[:local_ipv4] = ::RightScale::CloudUtilities.ip_for_windows_interface(ohai, 'Local Area Connection 2')
     end
   else
-    # update authorized_keys file from metadata
-    public_key = get_public_ssh_key_from_metadata()
-    update_authorized_keys(public_key)
-
     # report new network interface configuration to ohai
     if ohai = @options[:ohai_node]
       # Pick up all IPs detected by ohai
@@ -127,6 +145,7 @@ def update_details
   end
 
   # Override with statically assigned IP (if specified)
+  static_ip = ENV['RS_STATIC_IP0_ADDR']
   if static_ip
     if is_private_ipv4(static_ip)
       details[:private_ip] ||= static_ip
@@ -136,11 +155,8 @@ def update_details
       details[:public_ips] << static_ip
     end
   end
-  # add routes for nat server
-  # this needs to be done after our IPs are configured
-  add_static_routes_for_network
 
-  return details
+  details
 end
 
 #
@@ -388,7 +404,7 @@ def configure_network_adaptor(device, ip, netmask, gateway, nameservers)
   end
 
   if platform.windows?
-    cmd = "netsh interface ip set address name=\"#{device}\" source=static addr=#{ip} mask=#{netmask} gateway="
+    cmd = "netsh interface ip set address name=#{device} source=static addr=#{ip} mask=#{netmask} gateway="
     cmd += gateway ? "#{gateway} gwmetric=1" : "none"
     runshell(cmd)
   else
@@ -456,7 +472,7 @@ def nameserver_add(nameserver_ip, index=nil,device=nil)
   end
 
   if platform.windows?
-    runshell("netsh interface ip add dns \"#{device}\" #{nameserver_ip} index=#{index}")
+    runshell("netsh interface ip add dns #{device} #{nameserver_ip} index=#{index}")
   else
     config_file="/etc/resolv.conf"
     logger.info "Added nameserver #{nameserver_ip} to #{config_file}"
@@ -485,7 +501,7 @@ end
 def namservers_show(device=nil)
   contents = ""
   if platform.windows?
-    contents = runshell("netsh interface ip show dns \"#{device}\"")
+    contents = runshell("netsh interface ip show dns #{device}")
   else
   begin
     File.open("/etc/resolv.conf", "r") { |f| contents = f.read() }
