@@ -47,6 +47,11 @@ class VscaleSpec < RightScale::Cloud
     def debug(message, e=nil)
       (@logged[:debug] ||= []) << message
     end
+
+    def error(message, e=nil)
+      puts "ERROR: #{message}"
+      (@logged[:error] ||= []) << message
+    end
   end
 
   attr_reader :platform, :logger
@@ -333,6 +338,111 @@ EOF
     end
 
 
+  end
+  context 'on Windows' do
+    let(:platform) { flexmock(:platform, :windows? => true) }
+
+    subject { ::VscaleSpec.new(platform) }
+
+    describe "Static IP configuration" do
+
+      let(:device) { "Local Area Connection" }
+      let(:ip) { "1.2.3.4" }
+      let(:gateway) { "1.2.3.1" }
+      let(:netmask) { "255.255.255.0" }
+      let(:nameservers_string) { "8.8.8.8, 8.8.4.4" }
+      let(:nameservers) { [ "8.8.8.8", "8.8.4.4"] }
+
+      # TODO: does not verify actuall commands
+      it "adds a namserver" do
+        flexmock(subject).should_receive(:runshell).with("netsh interface ip add dns #{device.inspect} #{nameservers[0]} index=1")
+        flexmock(subject).should_receive(:nameserver_exists?).and_return(false)
+        subject.nameserver_add(nameservers[0], 1, device.inspect)
+      end
+
+
+      # TODO: does not verify actuall commands
+      it "sets a static IP" do
+        cmd = "netsh interface ip set address name=#{device} source=static addr=#{ip} mask=#{netmask} gateway="
+        cmd += gateway ? "#{gateway} gwmetric=1" : "none"
+        flexmock(subject).should_receive(:runshell).with(cmd)
+        subject.configure_network_adaptor(device, ip, netmask, gateway, nameservers)
+      end
+
+      # TODO: does not verify actuall commands
+      it "adds a static IP config for eth0" do
+        ENV['RS_STATIC_IP0_ADDR'] = ip
+        ENV['RS_STATIC_IP0_NETMASK'] = netmask
+        ENV['RS_STATIC_IP0_NAMESERVERS'] = nameservers_string
+
+        flexmock(subject).should_receive(:nameserver_add).times(2)
+        flexmock(subject).should_receive(:configure_network_adaptor).times(1)
+        subject.add_static_ip(device)
+      end
+
+      # TODO: does not verify actuall commands
+      it "supports optional RS_STATIC_IP0_GATEWAY value" do
+        ENV['RS_STATIC_IP0_ADDR'] = ip
+        ENV['RS_STATIC_IP0_NETMASK'] = netmask
+        ENV['RS_STATIC_IP0_NAMESERVERS'] = nameservers_string
+
+        # optional
+        ENV['RS_STATIC_IP0_GATEWAY'] = gateway
+        cmd = "netsh interface ip set address name=#{device.inspect} source=static addr=#{ip} mask=#{netmask} gateway="
+        cmd += gateway ? "#{gateway} gwmetric=1" : "none"
+
+        flexmock(subject).should_receive(:nameserver_add).times(2)
+        flexmock(subject).should_receive(:runshell).with(cmd)
+        subject.add_static_ip(device.inspect)
+      end
+
+      # TODO: does not verify actuall commands
+      it "supports optional RS_STATIC_IP0_DEVICE value" do
+        ENV['RS_STATIC_IP0_ADDR'] = ip
+        ENV['RS_STATIC_IP0_NETMASK'] = netmask
+        ENV['RS_STATIC_IP0_NAMESERVERS'] = nameservers_string
+        ENV['RS_STATIC_IP0_GATEWAY'] = nil # clear gateway from previous test
+
+        # optional
+        device = "Local Area Connection 2"
+        ENV['RS_STATIC_IP0_DEVICE'] = device
+        cmd = "netsh interface ip set address name=#{device.inspect} source=static addr=#{ip} mask=#{netmask} gateway=none"
+        flexmock(subject).should_receive(:nameserver_add).times(2)
+        flexmock(subject).should_receive(:runshell).with(cmd)
+        subject.add_static_ip(device.inspect)
+      end
+
+    end
+
+    describe 'NAT routing' do
+      let(:nat_server_ip) { "10.37.128.195" }
+      let(:nat_ranges_string) { "1.2.4.0/24, 1.2.5.0/24, 1.2.6.0/24" }
+      let(:nat_ranges) { ["1.2.4.0/24", "1.2.5.0/24", "1.2.6.0/24"] }
+      let(:network_cidr) { "8.8.8.0/24" }
+
+      # TODO: does not verify actuall commands
+      it "appends network route" do
+        network, mask = subject.cidr_to_netmask(network_cidr)
+
+        flexmock(subject).should_receive(:network_route_exists?).and_return(false)
+        cmd = "route -p ADD #{network} MASK #{mask} #{nat_server_ip}"
+        flexmock(subject).should_receive(:runshell).with(cmd)
+
+        subject.network_route_add(network_cidr, nat_server_ip)
+      end
+
+      # TODO: does not verify actuall commands
+      it "appends all static routes" do
+        ENV['RS_NAT_ADDRESS'] = nat_server_ip
+        ENV['RS_NAT_RANGES'] = nat_ranges_string
+
+        # network route add
+        flexmock(subject).should_receive(:network_route_exists?).and_return(false)
+        cmd = /route -p ADD \d+.\d+.\d+.\d+ MASK \d+.\d+.\d+.\d+ #{nat_server_ip}/
+        flexmock(subject).should_receive(:runshell).with(cmd).times(nat_ranges.length)
+        subject.add_static_routes_for_network
+      end
+    end
   end
 end
 
