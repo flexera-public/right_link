@@ -133,8 +133,10 @@ def update_details
   if platform.windows?
     # report new network interface configuration to ohai
     if ohai = @options[:ohai_node]
-      details[:public_ipv4] = ::RightScale::CloudUtilities.ip_for_windows_interface(ohai, 'Local Area Connection')
-      details[:local_ipv4] = ::RightScale::CloudUtilities.ip_for_windows_interface(ohai, 'Local Area Connection 2')
+      ['Local Area Connection', 'Local Area Connection 2'].each do |device|
+        ip = ::RightScale::CloudUtilities.ip_for_windows_interface(ohai, device)
+        details[is_private_ipv4(ip) ? :local_ipv4 : :public_ipv4] = ip
+      end
     end
   else
     # report new network interface configuration to ohai
