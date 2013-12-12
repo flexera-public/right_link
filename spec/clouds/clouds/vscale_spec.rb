@@ -47,6 +47,11 @@ class VscaleSpec < RightScale::Cloud
     def debug(message, e=nil)
       (@logged[:debug] ||= []) << message
     end
+
+    def error(message, e=nil)
+      puts "ERROR: #{message}"
+      (@logged[:error] ||= []) << message
+    end
   end
 
   attr_reader :platform, :logger
@@ -253,13 +258,13 @@ EOF
         subject.nameserver_exists?(nameservers[0]).should == true
       end
 
-      it "updates resolv.conf if needed" do
+      it "doesn't update resolv.conf if not needed" do
         flexmock(subject).should_receive(:nameserver_exists?).and_return(true)
         flexmock(File).should_receive(:open).times(0)
         subject.nameserver_add("8.8.8.8")
       end
 
-      it "doesn't update resolv.conf if not needed" do
+      it "updates resolv.conf if needed" do
         flexmock(subject).should_receive(:nameserver_exists?).and_return(false)
         flexmock(File).should_receive(:open).times(1)
         subject.nameserver_add("8.8.8.8")
@@ -326,6 +331,105 @@ EOF
         flexmock(subject).should_receive(:load_metadata).times(1)
         flexmock(subject).should_receive(:get_public_ssh_key_from_metadata).and_return("somekey").times(1)
         flexmock(subject).should_receive(:update_authorized_keys).with("somekey").times(1)
+        flexmock(subject).should_receive(:add_static_routes_for_network).times(1)
+        flexmock(subject).should_receive(:add_static_ip).times(1)
+        subject.update_details
+      end
+    end
+  end
+
+  context 'on Windows' do
+    let(:platform) { flexmock(:platform, :windows? => true) }
+
+    subject { ::VscaleSpec.new(platform) }
+
+    describe "Static IP configuration" do
+
+      let(:device) { "Local Area Connection" }
+      let(:ip) { "1.2.3.4" }
+      let(:gateway) { "1.2.3.1" }
+      let(:netmask) { "255.255.255.0" }
+      let(:nameservers_string) { "8.8.8.8, 8.8.4.4" }
+      let(:nameservers) { [ "8.8.8.8", "8.8.4.4"] }
+
+      def test_nameserver_cmd(nameserver, device, index)
+        data = "netsh interface ipv4 set dnsserver name='#{device}' addr=#{nameserver} validate=no"
+        data << " source=static register=primary" if index == 0
+        data << " " if index > 0
+        data
+      end
+
+      # TODO: does not verify actuall commands
+      it "adds a primary namserver" do
+        cmd =
+        flexmock(subject).should_receive(:runcmd).with("").times(1)
+        subject.nameserver_add_windows(nameservers[0], device, 0)
+        subject.logger.logged[:info].should == ["Added nameserver #{nameservers[0]} for #{device} as primary"]
+      end
+
+      # TODO: does not verify actuall commands
+      it "adds a secondary namserver" do
+        flexmock(subject).should_receive(:runcmd).times(1)
+        subject.nameserver_add_windows("8.8.8.8", device, 1)
+        subject.logger.logged[:info].should == ["Added nameserver #{nameservers[0]} for #{device} as secondary with index=1"]
+      end
+
+      # TODO: does not verify actuall commands
+      it "sets a static IP" do
+        flexmock(subject).should_receive(:runcmd).times(1)#.with("ifconfig #{device} #{ip} netmask #{netmask}").times(1)
+        subject.configure_network_adaptor_windows(device, ip, netmask, gateway, nameservers)
+      end
+
+      # TODO: does not verify actuall commands
+      it "adds a static IP config for eth0" do
+        ENV['RS_STATIC_IP0_ADDR'] = ip
+        ENV['RS_STATIC_IP0_NETMASK'] = netmask
+        ENV['RS_STATIC_IP0_NAMESERVERS'] = nameservers_string
+
+        flexmock(::RightScale::Platform).should_receive(:windows?).and_return(true)
+        flexmock(subject).should_receive(:nameserver_add_windows).times(2)
+        flexmock(subject).should_receive(:configure_network_adaptor_windows).times(1)
+        subject.add_static_ip(device)
+      end
+
+      # TODO: does not verify actuall commands
+      it "supports optional RS_STATIC_IP0_GATEWAY value" do
+        ENV['RS_STATIC_IP0_ADDR'] = ip
+        ENV['RS_STATIC_IP0_NETMASK'] = netmask
+        ENV['RS_STATIC_IP0_NAMESERVERS'] = nameservers_string
+
+        # optional
+        ENV['RS_STATIC_IP0_GATEWAY'] = gateway
+
+        flexmock(::RightScale::Platform).should_receive(:windows?).and_return(true)
+        flexmock(subject).should_receive(:nameserver_add_windows).times(2)
+        flexmock(subject).should_receive(:runcmd)
+        subject.add_static_ip(device)
+      end
+
+      # TODO: does not verify actuall commands
+      it "supports optional RS_STATIC_IP0_DEVICE value" do
+        ENV['RS_STATIC_IP0_ADDR'] = ip
+        ENV['RS_STATIC_IP0_NETMASK'] = netmask
+        ENV['RS_STATIC_IP0_NAMESERVERS'] = nameservers_string
+        ENV['RS_STATIC_IP0_GATEWAY'] = nil # clear gateway from previous test
+
+        # optional
+        device = "Local Area Connection 2"
+        ENV['RS_STATIC_IP0_DEVICE'] = device
+        # eth_config_data = test_eth_config_data(device, ip, nil, netmask, nameservers)
+        #
+        flexmock(::RightScale::Platform).should_receive(:windows?).and_return(true)
+        flexmock(subject).should_receive(:nameserver_add_windows).times(2)
+        flexmock(subject).should_receive(:runcmd)
+        subject.add_static_ip(device)
+      end
+
+    end
+
+    describe "update_details" do
+      it "does a bunch of stuff" do
+        flexmock(subject).should_receive(:load_metadata)
         flexmock(subject).should_receive(:add_static_routes_for_network).times(1)
         flexmock(subject).should_receive(:add_static_ip).times(1)
         subject.update_details

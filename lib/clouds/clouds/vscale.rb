@@ -19,8 +19,9 @@
 # LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+require 'ipaddr'
 
-VSCALE_DEFINITION_VERSION = 0.2
+VSCALE_DEFINITION_VERSION = "0.2.windows"
 
 CONFIG_DRIVE_MOUNTPOINT = "/mnt/metadata" unless ::RightScale::Platform.windows?
 CONFIG_DRIVE_MOUNTPOINT = "a:\\" if ::RightScale::Platform.windows?
@@ -88,9 +89,15 @@ def update_details
   if platform.windows?
     # setting administrator password setting (not yet supported)
 
-    # configure static IP (not supported yet)
+    # configure static IP (if specified in metadata)
+    device = ENV['RS_STATIC_IP0_DEVICE']
+    device ||= "Local Area Connection"
+    is_valid = (device =~ /^Local Area Connection\s*[0-9]*$/) == nil ? false : true
+    raise "ERROR: invalid rs_static_ip0_device specified. must be 'Local Area Connection', 'Local Area Connection 2', etc." unless is_valid
+    static_ip = add_static_ip(device)
 
     # add routes for nat server (not supported yet)
+    add_static_routes_for_network
 
     # report new network interface configuration to ohai
     if ohai = @options[:ohai_node]
@@ -219,8 +226,12 @@ def add_static_routes_for_network
     nat_server = ENV['RS_NAT_ADDRESS']
     if nat_server
       parse_array(ENV['RS_NAT_RANGES']).each do |network|
-        network_route_add(network, nat_server)
-        update_route_file(network, nat_server)
+        if ::RightScale::Platform.windows?
+          network_route_add_windows(network, nat_server)
+        else
+          network_route_add(network, nat_server)
+          update_route_file(network, nat_server)
+        end
       end
     end
   rescue Exception => e
@@ -261,6 +272,37 @@ def network_route_add(network, nat_server_ip)
     throw e unless e.message.include?("NETLINK answers: File exists")
   end
   true
+end
+
+def network_route_add_windows(network, nat_server_ip)
+  raise "ERROR: invalid nat_server_ip : '#{nat_server_ip}'" unless valid_ipv4?(nat_server_ip)
+  raise "ERROR: invalid CIDR network : '#{network}'" unless valid_ipv4_cidr?(network)
+
+  ip, netmask = cidr_to_netmask(network)
+  route_str = "#{ip} mask #{netmask} #{nat_server_ip}"
+  logger.info "Adding route to network #{route_str}"
+  begin
+    runcmd("route add #{route_str}")
+  rescue Exception => e
+    logger.error "Unable to set a route #{route_str}. Check network settings."
+    throw e
+  end
+  true
+end
+
+# converts CIDR to ip/netmask
+#
+# This is a little hacktastic since it parses the results from the inspect string
+# which is not really a solid interface to be pulling things from.
+#
+# The right way to do this would be to do the calculations ourself.
+#
+def cidr_to_netmask(cidr_range)
+  ipaddr = IPAddr.new(cidr_range)
+  ip = ipaddr.to_s
+  ipaddr.inspect.match(/^#<IPAddr:.+\/(.*)>$/)  # capture netmask from inspect string
+  netmask = $1
+  return ip, netmask
 end
 
 # Persist network route to file
@@ -345,11 +387,19 @@ def add_static_ip(device)
       raise "FATAL: RS_STATIC_IP0_NAMESERVERS not defined ; Cannot configure static IP address" unless nameservers_string
       # configure DNS
       nameservers = parse_array(nameservers_string)
-      nameservers.each do |nameserver|
-        nameserver_add(nameserver)
+      nameservers.each_with_index do |nameserver, index|
+        if ::RightScale::Platform.windows?
+          nameserver_add_windows(nameserver, device, index)
+        else
+          nameserver_add(nameserver)
+        end
       end
       # configure network adaptor
-      ip = configure_network_adaptor(device, ipaddr, netmask, gateway, nameservers)
+      if ::RightScale::Platform.windows?
+        ip = configure_network_adaptor_windows(device, ipaddr, netmask, gateway, nameservers)
+      else
+        ip = configure_network_adaptor(device, ipaddr, netmask, gateway, nameservers)
+      end
     end
   rescue Exception => e
     logger.error "Detected an error while configuring static IP"
@@ -399,6 +449,30 @@ PEERDNS=yes
   ip
 end
 
+# NOTE: not idempotent -- it will always all ifconfig and write config file
+def configure_network_adaptor_windows(device, ip, netmask, gateway, nameservers)
+  raise "ERROR: 'nameserver' parameter must be an array" unless nameservers.is_a?(Array)
+  raise "ERROR: invalid IP address: '#{nameserver}'" unless valid_ipv4?(ip)
+  raise "ERROR: invalid netmask: '#{netmask}'" unless valid_ipv4?(netmask)
+  nameservers.each do |nameserver|
+    raise "ERROR: invalid nameserver: '#{nameserver}'" unless valid_ipv4?(nameserver)
+  end
+
+  # gateway is optional
+  if gateway
+    raise "ERROR: invalid gateway IP address: '#{gateway}'" unless valid_ipv4?(gateway)
+  end
+
+  # Setup static IP without restarting network
+  logger.info "Updating in memory network configuration for #{device}"
+  cmd = "netsh interface ipv4 set address name='#{device}' source=static addr=#{ip} mask=#{netmask}"
+  cmd << "  gateway=#{gateway}" if gateway
+  runcmd(cmd)
+
+  # return the IP address assigned
+  ip
+end
+
 def add_gateway_route(gateway)
   begin
     # this will throw an exception, if the gateway IP is unreachable.
@@ -435,8 +509,32 @@ def nameserver_add(nameserver_ip)
     logger.info "Nameserver #{nameserver_ip} already exists in #{config_file}"
     return true
   end
-  logger.info "Added nameserver #{nameserver_ip} to #{config_file}"
   File.open(config_file, "a") {|f| f.write("nameserver #{nameserver_ip}\n") }
+  true
+end
+
+def nameserver_add_windows(nameserver_ip, device = nil, index = 0)
+  raise "ERROR: invalid nameserver IP address of #{nameserver}" unless valid_ipv4?(nameserver_ip)
+
+  # XXX: don't add nameserver if already configured.
+  #
+  # config_file="/etc/resolv.conf"
+  #   if nameserver_exists?(nameserver_ip)
+  #     logger.info "Nameserver #{nameserver_ip} already exists in #{config_file}"
+  #     return true
+  #   end
+
+  cmd = "netsh interface ipv4 set dnsserver name='#{device}' addr=#{nameserver_ip} validate=no"
+  message = "Added nameserver #{nameserver_ip} for #{device}"
+  if index == 0
+    cmd << " source=static register=primary"
+    message << " as primary"
+  else
+    cmd << " index=#{index}"
+    message << " as secondary with index=#{index}"
+  end
+  logger.info message
+  runcmd(cmd)
   true
 end
 
@@ -561,6 +659,20 @@ end
 def runshell(command)
   logger.info "+ #{command}"
   output = `#{command} < /dev/null 2>&1`
+  raise StandardError, "Command failure: #{output}" unless $?.success?
+  output
+end
+
+# Run a Windows console command
+#
+# === Raise
+# StandardError:: if command fails
+#
+# === Return
+# result(String):: output from the command
+def runcmd(command)
+  logger.info "+ #{command}"
+  output = `cmd.exe /C #{command}`
   raise StandardError, "Command failure: #{output}" unless $?.success?
   output
 end

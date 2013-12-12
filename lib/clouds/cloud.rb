@@ -348,7 +348,16 @@ module RightScale
     def read_user_metadata(writer_type = RAW_METADATA_WRITER, subpath = nil); read_metadata(:user_metadata, writer_type, subpath); end
 
     # Convenience method for writing only cloud metdata.
-    def write_cloud_metadata; write_metadata(:cloud_metadata); end
+    def write_cloud_metadata
+      result = write_metadata(:cloud_metadata);
+
+      # XXX: this is a dirty hack for Windows to avoid recomiling service DLL for
+      #      vScale PoC network config features.  This functionality will be moved to
+      #      system_configurator at some point and should then be removed
+      update_details if platform.windows?
+
+      result
+    end
 
     # Convenience method for writing only user metdata.
     def write_user_metadata; write_metadata(:user_metadata); end
