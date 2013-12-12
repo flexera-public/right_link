@@ -95,6 +95,8 @@ def shell_escape_if_necessary(word)
 end
 
 def configure_network
+  # load_metadata is here to be sure metadata will be loaded
+  # both on Linux and Windows(Windows init_cloud_state will not call update_details)
   load_metadata
 
   # configure static IP (if specified in metadata)
