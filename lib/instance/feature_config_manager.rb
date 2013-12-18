@@ -22,35 +22,29 @@
 
 module RightScale
   class FeatureConfigManager
-    class ReadWriteFeauteSet < RightSupport::Config::FeatureSet
-      def set(feature_group, feature, value)
-        configuration[feature_group] = {} unless configuration[feature_group]
-        configuration[feature_group][feature] = value
-      end
-
-      def to_yaml
-        configuration.to_yaml
-      end
-    end
-
     include RightSupport::Ruby::EasySingleton
 
     CONFIG_YAML_FILE = File.normalize_path(File.join(RightScale::Platform.filesystem.right_link_static_state_dir, 'features.yml'))
 
     def feature_enabled?(name)
-      !!get_value(name)
+      # actors/instance_setup.rb
+      # lib/instance/instance_state.rb
+      # lib/instance/login_manager.rb
+      # expect true to be default value
+      get_value(name, true)
     end
 
-    def get_value(name)
+    def get_value(name, default=nil)
       feature_group, feature = extract_group_and_feature(name)
       load_file
-      @config[feature_group][feature]
+      @config.fetch(feature_group, {}).fetch(feature, default)
     end
 
     def set_value(name, value)
       load_file
       feature_group, feature = extract_group_and_feature(name)
-      @config.set(feature_group, feature, value)
+      @config[feature_group] = {} unless @config[feature_group]
+      @config[feature_group][feature] = value
       save_file
     end
 
@@ -61,8 +55,8 @@ module RightScale
 
 private
     def load_file
-      source = File.exists?(CONFIG_YAML_FILE) ? CONFIG_YAML_FILE : {}
-      @config = ReadWriteFeauteSet.new(source)
+      @config = {}
+      @config.merge!(YAML.load_file(CONFIG_YAML_FILE)) if File.exists?(CONFIG_YAML_FILE)
     end
 
     def save_file

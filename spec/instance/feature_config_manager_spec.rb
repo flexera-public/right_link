@@ -36,9 +36,9 @@ module RightScale
         subject.get_value("motd_update").should == test_data["motd"]["update"]
       end
 
-      it "should return default true if values doesn't exist" do
+      it "should return nil if values doesn't exist" do
         flexmock(File).should_receive(:exists?).with(FeatureConfigManager::CONFIG_YAML_FILE).and_return(false)
-        subject.get_value("motd_update").should == true
+        subject.get_value("motd_update").should be_nil
       end
     end
     context "#set_value" do

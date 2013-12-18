@@ -27,7 +27,7 @@ class InstanceScheduler
 
   expose :schedule_bundle, :execute, :schedule_decommission
 
-  SHUTDOWN_DELAY = 180 # Number of seconds to wait for decommission scripts to finish before forcing shutdown
+  DEFAULT_SHUTDOWN_DELAY = 180 # Number of seconds to wait for decommission scripts to finish before forcing shutdown
 
   # Setup signal traps for running decommission scripts
   # Start worker thread for processing executable bundles
@@ -110,7 +110,7 @@ class InstanceScheduler
   #
   # === Return
   # result(String):: Thread name of this bundle
-  def get_thread_name_from_bundle(bundle) 
+  def get_thread_name_from_bundle(bundle)
     thread_name = nil
     thread_name = bundle.runlist_policy.thread_name if bundle.respond_to?(:runlist_policy) && bundle.runlist_policy
     RightScale::Log.warn("Encountered a nil thread name unexpectedly, defaulting to '#{RightScale::AgentConfig.default_thread_name}'") unless thread_name
@@ -197,9 +197,10 @@ class InstanceScheduler
     # 'terminate' will *not* shutdown the machine. This is so that when running the decommission
     # sequence as part of a non-soft termination we don't call shutdown.
     unless @bundle_queue_closed_callback
-      @shutdown_timeout = EM::Timer.new(SHUTDOWN_DELAY) do
+      decommission_timeout = RightScale::FeatureConfigManager.get_value('decommission_timeout', DEFAULT_SHUTDOWN_DELAY)
+      @shutdown_timeout = EM::Timer.new(decommission_timeout) do
         @shutdown_timeout = nil
-        msg = "Failed to decommission in less than #{SHUTDOWN_DELAY / 60} minutes, forcing shutdown"
+        msg = "Failed to decommission in less than #{decommission_timeout / 60} minutes, forcing shutdown"
         audit.append_error(msg, :category => RightScale::EventCategories::CATEGORY_ERROR)
         RightScale::InstanceState.value = 'decommissioned'
         RightScale::InstanceState.shutdown(options[:user_id], options[:skip_db_update], decommission_type)
