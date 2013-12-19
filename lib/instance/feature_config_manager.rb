@@ -60,6 +60,7 @@ private
     end
 
     def save_file
+      FileUtils.mkdir_p(File.dirname(CONFIG_YAML_FILE))
       File.open(CONFIG_YAML_FILE, "w") { |config| config.write(@config.to_yaml) }
     end
 
