@@ -354,10 +354,19 @@ EOF
       let(:nameservers) { [ "8.8.8.8", "8.8.4.4"] }
 
       # TODO: does not verify actuall commands
-      it "adds a namserver" do
-        flexmock(subject).should_receive(:runshell).with("netsh interface ip add dns #{device.inspect} #{nameservers[0]} index=1")
+      it "sets a primary namserver" do
+        cmd = "netsh interface ipv4 set dnsserver name=#{device.inspect} source=static addr=#{nameservers[0]} register=primary validate=no"
+        flexmock(subject).should_receive(:runshell).with(cmd)
         flexmock(subject).should_receive(:nameserver_exists?).and_return(false)
         subject.nameserver_add(nameservers[0], 1, device.inspect)
+      end
+
+      # TODO: does not verify actuall commands
+      it "adds a secondary namserver" do
+        cmd = "netsh interface ipv4 add dnsserver name=#{device.inspect} addr=#{nameservers[1]} index=2 validate=no"
+        flexmock(subject).should_receive(:runshell).with(cmd)
+        flexmock(subject).should_receive(:nameserver_exists?).and_return(false)
+        subject.nameserver_add(nameservers[1], 2, device.inspect)
       end
 
 
@@ -370,7 +379,7 @@ EOF
       end
 
       # TODO: does not verify actuall commands
-      it "adds a static IP config for eth0" do
+      it "adds a static IP config for Local Area Connection" do
         ENV['RS_STATIC_IP0_ADDR'] = ip
         ENV['RS_STATIC_IP0_NETMASK'] = netmask
         ENV['RS_STATIC_IP0_NAMESERVERS'] = nameservers_string

@@ -481,7 +481,10 @@ def nameserver_add(nameserver_ip, index=nil,device=nil)
   end
 
   if platform.windows?
-    runshell("netsh interface ip add dns #{device} #{nameserver_ip} index=#{index}")
+    cmd = "netsh interface ipv4 add dnsserver name=#{device} addr=#{nameserver_ip} index=#{index} validate=no"
+    primary = (index == 1)
+    cmd = "netsh interface ipv4 set dnsserver name=#{device} source=static addr=#{nameserver_ip} register=primary validate=no" if primary
+    runshell(cmd)
   else
     config_file="/etc/resolv.conf"
     logger.info "Added nameserver #{nameserver_ip} to #{config_file}"
