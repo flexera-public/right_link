@@ -12,7 +12,7 @@ gem 'right_git'
 
 gem 'right_scraper', '~> 4.0',
                      :git => 'https://github.com/rightscale/right_scraper.git',
-                     :branch => 'master'
+                     :branch => 'teal_13_20_acu145367_republish_self_referential_gem'
 
 # We have custom builds of some gems containing fixes and patches that are specific
 # to RightScale. Gems in the 'custom' group are published by RightScale to our
