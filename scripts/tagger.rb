@@ -197,16 +197,7 @@ module RightScale
           options[:action] = :query_tags
           options[:tags] = options.delete(:query).map { |tag| tag.strip }
         end
-        options[:format] = case options[:format]
-                           when /^jso?n?$/, nil
-                             :json
-                           when /^ya?ml$/
-                             :yaml
-                           when /^te?xt$/, /^sh(ell)?/, 'list'
-                             :text
-                           else
-                             raise Trollop::CommandlineError, "Unknown output format #{options[:format]}"
-                           end
+        options[:format] = parse_format(options[:format])
         options
       end
     end

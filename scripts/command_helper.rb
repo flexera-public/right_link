@@ -97,6 +97,19 @@ module RightScale
       end
     end
 
+    def parse_format(format)
+      case format
+      when /^jso?n?$/, nil
+        :json
+      when /^ya?ml$/
+        :yaml
+      when /^te?xt$/, /^sh(ell)?/, 'list'
+        :text
+      else
+        raise Trollop::CommandlineError, "Unknown output format #{format}"
+      end
+    end
+
     def right_link_version
       RightLink.version
     end

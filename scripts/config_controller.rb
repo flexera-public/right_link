@@ -18,6 +18,7 @@
 #
 #    Options:
 #     --list, -l                Lists all supported feature configurations and their values (if any).
+#     --format, -f FMT          Output format for list operation(json, yaml, text)
 #     --set, -s <name> <value>  Set feature name to specified value. name must be in supported feature list.
 #                               Supported features: managed_login_enable, package_repositories_freeze,
 #                                                   motd_update, decommission_timeout
@@ -52,15 +53,18 @@ module RightScale
       when :set
         FeatureConfigManager.set_value(options[:feature], options[:value]);
       when :list
-        puts FeatureConfigManager.list.to_yaml
+        puts format_output(FeatureConfigManager.list, options[:format])
       end
     end
 
     def parse_args
       parser = Trollop::Parser.new do
         opt :list, ""
+        opt :format, "", :type => :string, :default => "text"
         opt :set, "", :type => :string
         opt :get, "", :type => :string
+        conflicts :format, :set
+        conflicts :format, :get
         version ""
       end
       parse do
@@ -75,7 +79,8 @@ module RightScale
         {
           :action   => action,
           :feature  => feature,
-          :value    => prepare_value(value)
+          :value    => prepare_value(value),
+          :format   => parse_format(options[:format])
         }
       end
     end
@@ -96,6 +101,21 @@ module RightScale
     def valid_value?(feature, value)
       test_regex = feature == 'decommission_timeout' ? /^\d+$/ : /^(on|off|true|false)$/
       value =~ test_regex
+    end
+
+    def format_output(data, format)
+      case format
+      when :json
+        JSON.pretty_generate(data)
+      when :yaml
+        YAML.dump(data)
+      when :text
+        data.map do |group_name, group|
+          group.map { |feature, value| "#{group_name}_#{feature}=#{value}" }
+        end.flatten.join("\n")
+      else
+        raise ArgumentError, "Unknown output format #{format}"
+      end
     end
 
     def usage

@@ -54,6 +54,15 @@ module RightScale
       it_should_behave_like 'command line argument'
     end
 
+    context 'format option' do
+      let(:short_name)      {'-f'}
+      let(:long_name)       {'--format'}
+      let(:key)             {:format}
+      let(:value)           {['json', '--list']}
+      let(:expected_value)  {:json}
+      it_should_behave_like 'command line argument'
+    end
+
     context 'set option' do
       let(:short_name)      {'-s'}
       let(:long_name)       {'--set'}
@@ -122,6 +131,7 @@ module RightScale
     context 'rs_config --set decommission_timeout 200' do
       it 'shout set specifed feature to provided value' do
         flexmock(File).should_receive(:exists?).with(@config_yaml_file).and_return(true)
+        flexmock(FileUtils).should_receive(:mkdir_p).with(File.dirname(@config_yaml_file)).and_return(true)
         flexmock(File).should_receive(:open).with(@config_yaml_file, "w", Proc).and_return(true)
         flexmock(YAML).should_receive(:load_file).and_return(@test_data)
         value = 200
