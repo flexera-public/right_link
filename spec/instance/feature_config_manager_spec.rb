@@ -44,6 +44,7 @@ module RightScale
     context "#set_value" do
       it "should set value and store it in features.yml" do
         flexmock(File).should_receive(:exists?).with(FeatureConfigManager::CONFIG_YAML_FILE).and_return(true)
+        flexmock(FileUtils).should_receive(:mkdir_p).with(File.dirname(FeatureConfigManager::CONFIG_YAML_FILE)).and_return(true)
         flexmock(File).should_receive(:open).with(FeatureConfigManager::CONFIG_YAML_FILE, "w", Proc).and_return(true)
         flexmock(YAML).should_receive(:load_file).and_return(test_data)
         subject.set_value("motd_update", false)

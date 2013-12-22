@@ -107,7 +107,7 @@ module RightScale
       it 'should list all features with values from config file' do
         flexmock(File).should_receive(:exists?).with(@config_yaml_file).and_return(true)
         flexmock(YAML).should_receive(:load_file).and_return(@test_data)
-        run_config_controller('--list')
+        run_config_controller(['--list', '--format', 'yaml'])
         @output.join('\n').should include @test_data.to_yaml
       end
     end
