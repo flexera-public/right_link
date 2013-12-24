@@ -35,11 +35,18 @@ require 'trollop'
 require 'right_agent'
 require File.normalize_path(File.join(File.dirname(__FILE__), 'command_helper'))
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'instance', 'feature_config_manager'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'actors', 'instance_scheduler'))
 
 module RightScale
   class RightLinkConfigController
     include CommandHelper
     SUPPORTED_FEATURES = %w[ managed_login_enable package_repositories_freeze motd_update decommission_timeout ]
+    DEFAULTS = {
+        "managed_login" => { "enable"=> true },
+        "package_repositories" => { "freeze" => true},
+        "motd" => { "update" => true},
+        "decommission" => { "timeout" => InstanceScheduler::DEFAULT_SHUTDOWN_DELAY }
+    }
 
     def self.run
       c = RightLinkConfigController.new
@@ -53,7 +60,7 @@ module RightScale
       when :set
         FeatureConfigManager.set_value(options[:feature], options[:value]);
       when :list
-        puts format_output(FeatureConfigManager.list, options[:format])
+        puts format_output(DEFAULTS.merge(FeatureConfigManager.list), options[:format])
       end
     end
 
