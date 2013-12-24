@@ -42,7 +42,7 @@ module RightScale
 
     def silence_stdout
       save_stdout = STDOUT.dup
-      STDOUT.reopen(RUBY_PLATFORM =~ /mswin/ ? 'NUL:' : '/dev/null')
+      STDOUT.reopen(RUBY_PLATFORM =~ /mswin|mingw/ ? 'NUL:' : '/dev/null')
       STDOUT.sync = true
       yield
     ensure
