@@ -9,6 +9,7 @@ gem 'right_agent', '~> 1.0.3'
 gem 'right_amqp', '~> 0.7'
 gem 'right_popen', '~> 2.0'
 gem 'right_git'
+gem 'mime-types', '< 2.0'
 
 gem 'right_scraper', '~> 4.0',
                      :git => 'https://github.com/rightscale/right_scraper.git',
