@@ -361,25 +361,18 @@ end
 def add_static_ips
   # configure static IP (if specified in metadata)
   static_ips = ENV.collect { |k,v | v if k =~ /RS_STATIC_IP\d_ADDR/ }.compact
-  static_ips.length.times do |n_ip|
+  static_ips.map { |ip| ip =~ /RS_STATIC_IP(\d)_ADDR/; $1.to_i}.each do |n_ip|
     add_static_ip(n_ip)
   end
 end
 
-def os_default_net_devices
-  if platform.windows?
-    (1..10).map { |i| "Local Area Connection #{i}".sub(/ 1$/, "") }
-  else
-    (0..9).map { |i| "eth#{i}" }
-  end
+def os_net_devices
+  @net_devices ||= if platform.windows?
+                     (1..10).map { |i| "Local Area Connection #{i}".sub(/ 1$/, "") }
+                   else
+                     (0..9).map { |i| "eth#{i}" }
+                   end
 end
-
-def default_devices
-  static_ip_devices = ENV.collect { |k,v | v if k =~ /RS_STATIC_IP\d_DEVICE/ }.compact
-  @default_devices ||= os_default_net_devices.delete_if { |dev| static_ip_devices.include?(dev) }
-end
-
-
 
 # Configures a single network adapter with a static IP address
 #
@@ -390,7 +383,7 @@ def add_static_ip(n_ip=0)
   # optional
   nameservers_string = ENV["RS_STATIC_IP#{n_ip}_NAMESERVERS"]
   gateway = ENV["RS_STATIC_IP#{n_ip}_GATEWAY"]
-  device = shell_escape_if_necessary(ENV["RS_STATIC_IP#{n_ip}_DEVICE"] || default_devices.shift)
+  device = shell_escape_if_necessary(os_net_devices[n_ip])
 
   if ipaddr
     logger.info "Setting up static IP address #{ipaddr} for #{device}"

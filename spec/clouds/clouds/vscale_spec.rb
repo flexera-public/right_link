@@ -311,22 +311,6 @@ EOF
         subject.add_static_ips
       end
 
-      it "supports optional RS_STATIC_IP0_DEVICE value" do
-        ENV['RS_STATIC_IP0_ADDR'] = ip
-        ENV['RS_STATIC_IP0_NETMASK'] = netmask
-        ENV['RS_STATIC_IP0_NAMESERVERS'] = nameservers_string
-
-        # optional
-        device = "eth1"
-        ENV['RS_STATIC_IP0_DEVICE'] = device
-        eth_config_data = test_eth_config_data(device, ip, nil, netmask, nameservers)
-
-        flexmock(subject).should_receive(:nameserver_add).times(2)
-        flexmock(subject).should_receive(:runshell).with("ifconfig #{device} #{ip} netmask #{netmask}").times(1)
-        flexmock(subject).should_receive(:write_adaptor_config).with(device, eth_config_data)
-        subject.add_static_ips
-      end
-
       it "supports adding static IP on multiple devices" do
         ifconfig_cmds = []
         eth_configs = []
@@ -413,25 +397,9 @@ EOF
         subject.add_static_ips
       end
 
-      # TODO: does not verify actuall commands
-      it "supports optional RS_STATIC_IP0_DEVICE value" do
-        ENV['RS_STATIC_IP0_ADDR'] = ip
-        ENV['RS_STATIC_IP0_NETMASK'] = netmask
-        ENV['RS_STATIC_IP0_NAMESERVERS'] = nameservers_string
-        ENV['RS_STATIC_IP0_GATEWAY'] = nil # clear gateway from previous test
-
-        # optional
-        device = "Local Area Connection 2"
-        ENV['RS_STATIC_IP0_DEVICE'] = device
-        cmd = "netsh interface ip set address name=#{device.inspect} source=static addr=#{ip} mask=#{netmask} gateway=none"
-        flexmock(subject).should_receive(:nameserver_add).times(2)
-        flexmock(subject).should_receive(:runshell).with(cmd)
-        subject.add_static_ips
-      end
-
       it "supports adding static IP on multiple devices" do
         netsh_cmds = []
-        subject.os_default_net_devices.each_with_index do |device, i|
+        subject.os_net_devices.each_with_index do |device, i|
           ENV["RS_STATIC_IP#{i}_ADDR"] = ip
           ENV["RS_STATIC_IP#{i}_NETMASK"] = netmask
           ENV["RS_STATIC_IP#{i}_NAMESERVERS"] = nameservers_string
