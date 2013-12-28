@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2011 RightScale Inc
+# Copyright (c) 2013 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -99,10 +99,7 @@ def configure_network
   # both on Linux and Windows(Windows init_cloud_state will not call update_details)
   load_metadata
 
-  # configure static IP (if specified in metadata)
-  device = ENV['RS_STATIC_IP0_DEVICE']
-  device ||= platform.windows? ? "Local Area Connection" : "eth0"
-  static_ip = add_static_ip(shell_escape_if_necessary(device))
+  add_static_ips
   if platform.windows?
     # setting administrator password setting (not yet supported)
   else
@@ -154,8 +151,8 @@ def update_details
   end
 
   # Override with statically assigned IP (if specified)
-  static_ip = ENV['RS_STATIC_IP0_ADDR']
-  if static_ip
+  static_ips = ENV.collect { |k,v | v if k =~ /RS_STATIC_IP\d_ADDR/ }.compact
+  static_ips.each do |static_ip|
     if is_private_ipv4(static_ip)
       details[:private_ip] ||= static_ip
       details[:private_ips] << static_ip
@@ -361,41 +358,49 @@ end
 # Static IP Support
 #
 
+def add_static_ips
+  # configure static IP (if specified in metadata)
+  static_ips = ENV.collect { |k,v | v if k =~ /RS_STATIC_IP\d_ADDR/ }.compact
+  static_ips.map { |ip| ip =~ /RS_STATIC_IP(\d)_ADDR/; $1.to_i}.each do |n_ip|
+    add_static_ip(n_ip)
+  end
+end
+
+def os_net_devices
+  @net_devices ||= if platform.windows?
+                     (1..10).map { |i| "Local Area Connection #{i}".sub(/ 1$/, "") }
+                   else
+                     (0..9).map { |i| "eth#{i}" }
+                   end
+end
+
 # Configures a single network adapter with a static IP address
 #
-# no-op if 'RS_STATIC_IP0_ADDR' is not defined in metadata
-#
-# === Return
-# result(String):: the static ip address assigned. nil if nothing assigned
-def add_static_ip(device)
-  ip = nil
-  begin
-    # required metadata values
-    ipaddr = ENV['RS_STATIC_IP0_ADDR']
-    netmask = ENV['RS_STATIC_IP0_NETMASK']
-    # optional
-    nameservers_string = ENV['RS_STATIC_IP0_NAMESERVERS']
-    gateway = ENV['RS_STATIC_IP0_GATEWAY']
+def add_static_ip(n_ip=0)
+  # required metadata values
+  ipaddr = ENV["RS_STATIC_IP#{n_ip}_ADDR"]
+  netmask = ENV["RS_STATIC_IP#{n_ip}_NETMASK"]
+  # optional
+  nameservers_string = ENV["RS_STATIC_IP#{n_ip}_NAMESERVERS"]
+  gateway = ENV["RS_STATIC_IP#{n_ip}_GATEWAY"]
+  device = shell_escape_if_necessary(os_net_devices[n_ip])
 
-    if ipaddr
-      logger.info "Setting up static IP address #{ipaddr} for #{device}"
-      logger.debug "Netmask: '#{netmask}' ; gateway: '#{gateway}' ; nameservers: '#{nameservers_string.inspect}'"
-      raise "FATAL: RS_STATIC_IP0_NETMASK not defined ; Cannot configure static IP address" unless netmask
-      raise "FATAL: RS_STATIC_IP0_NAMESERVERS not defined ; Cannot configure static IP address" unless nameservers_string
-      # configure DNS
-      nameservers = parse_array(nameservers_string)
-      nameservers.each_with_index do |nameserver, index|
-        nameserver_add(nameserver, index + 1, device)
-      end
-      # configure network adaptor
-      ip = configure_network_adaptor(device, ipaddr, netmask, gateway, nameservers)
+  if ipaddr
+    logger.info "Setting up static IP address #{ipaddr} for #{device}"
+    logger.debug "Netmask: '#{netmask}' ; gateway: '#{gateway}' ; nameservers: '#{nameservers_string.inspect}'"
+    raise "FATAL: RS_STATIC_IP#{n_ip}_NETMASK not defined ; Cannot configure static IP address" unless netmask
+    raise "FATAL: RS_STATIC_IP#{n_ip}_NAMESERVERS not defined ; Cannot configure static IP address" unless nameservers_string
+    # configure DNS
+    nameservers = parse_array(nameservers_string)
+    nameservers.each_with_index do |nameserver, index|
+      nameserver_add(nameserver, index + 1, device)
     end
-  rescue Exception => e
-    logger.error "Detected an error while configuring static IP"
-    raise e
+    # configure network adaptor
+    ip = configure_network_adaptor(device, ipaddr, netmask, gateway, nameservers)
   end
-
-  ip
+rescue Exception => e
+  logger.error "Detected an error while configuring static IP"
+  raise e
 end
 
 # NOTE: not idempotent -- it will always all ifconfig and write config file

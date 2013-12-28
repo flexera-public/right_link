@@ -71,6 +71,7 @@ class VscaleSpec < RightScale::Cloud
 end
 
 describe 'update_details' do
+  include FlexMock::ArgumentTypes
 
   context 'on Linux' do
     let(:platform) { flexmock(:platform, :windows? => false) }
@@ -212,6 +213,9 @@ EOH
     end
 
     describe "Static IP configuration" do
+      before(:each) do
+        ENV.delete_if { |k,v| k.start_with?("RS_STATIC_IP") }
+      end
 
       def test_eth_config_data(device, ip, gateway, netmask, nameservers)
         data=<<EOF
@@ -288,7 +292,7 @@ EOF
         flexmock(subject).should_receive(:runshell).with("route add default gw #{gateway}").times(0)
         flexmock(subject).should_receive(:network_route_exists?).and_return(false).times(0)
         flexmock(subject).should_receive(:write_adaptor_config).with(device, eth_config_data)
-        subject.add_static_ip(device)
+        subject.add_static_ips
       end
 
       it "supports optional RS_STATIC_IP0_GATEWAY value" do
@@ -304,24 +308,25 @@ EOF
         flexmock(subject).should_receive(:runshell).with("route add default gw #{gateway}").times(1)
         flexmock(subject).should_receive(:network_route_exists?).and_return(false).times(1)
         flexmock(subject).should_receive(:write_adaptor_config).with(device, eth_config_data_w_gateway)
-        subject.add_static_ip(device)
+        subject.add_static_ips
       end
 
-      it "supports optional RS_STATIC_IP0_DEVICE value" do
-        ENV['RS_STATIC_IP0_ADDR'] = ip
-        ENV['RS_STATIC_IP0_NETMASK'] = netmask
-        ENV['RS_STATIC_IP0_NAMESERVERS'] = nameservers_string
-        ENV['RS_STATIC_IP0_GATEWAY'] = nil # clear gateway from previous test
-
-        # optional
-        device = "eth1"
-        ENV['RS_STATIC_IP0_DEVICE'] = device
-        eth_config_data = test_eth_config_data(device, ip, nil, netmask, nameservers)
-
-        flexmock(subject).should_receive(:nameserver_add).times(2)
-        flexmock(subject).should_receive(:runshell).with("ifconfig #{device} #{ip} netmask #{netmask}").times(1)
-        flexmock(subject).should_receive(:write_adaptor_config).with(device, eth_config_data)
-        subject.add_static_ip(device)
+      it "supports adding static IP on multiple devices" do
+        ifconfig_cmds = []
+        eth_configs = []
+        10.times do |i|
+          ENV["RS_STATIC_IP#{i}_ADDR"] = ip
+          ENV["RS_STATIC_IP#{i}_NETMASK"] = netmask
+          ENV["RS_STATIC_IP#{i}_NAMESERVERS"] = nameservers_string
+          ifconfig_cmds << "ifconfig eth#{i} #{ip} netmask #{netmask}"
+          eth_configs <<  test_eth_config_data("eth#{i}", ip, nil, netmask, nameservers)
+        end
+        flexmock(subject).should_receive(:nameserver_add).times(2*10)
+        flexmock(subject).should_receive(:runshell).with(on { |cmd| ifconfig_cmds.include?(cmd) }).times(10)
+        flexmock(subject).should_receive(:runshell).with("route add default gw #{gateway}").times(0)
+        flexmock(subject).should_receive(:network_route_exists?).and_return(false).times(0)
+        flexmock(subject).should_receive(:write_adaptor_config).with(/eth\d/, on { |cfg| eth_configs.include?(cfg) })
+        subject.add_static_ips
       end
 
     end
@@ -332,7 +337,7 @@ EOF
         flexmock(subject).should_receive(:get_public_ssh_key_from_metadata).and_return("somekey").times(1)
         flexmock(subject).should_receive(:update_authorized_keys).with("somekey").times(1)
         flexmock(subject).should_receive(:add_static_routes_for_network).times(1)
-        flexmock(subject).should_receive(:add_static_ip).times(1)
+        flexmock(subject).should_receive(:add_static_ips).times(1)
         subject.update_details
       end
     end
@@ -345,6 +350,9 @@ EOF
     subject { ::VscaleSpec.new(platform) }
 
     describe "Static IP configuration" do
+      before(:each) do
+        ENV.delete_if { |k,v| k.start_with?("RS_STATIC_IP") }
+      end
 
       let(:device) { "Local Area Connection" }
       let(:ip) { "1.2.3.4" }
@@ -360,24 +368,17 @@ EOF
         subject.nameserver_add(nameservers[0], 1, device.inspect)
       end
 
-
       # TODO: does not verify actuall commands
-      it "sets a static IP" do
-        cmd = "netsh interface ip set address name=#{device} source=static addr=#{ip} mask=#{netmask} gateway="
-        cmd += gateway ? "#{gateway} gwmetric=1" : "none"
-        flexmock(subject).should_receive(:runshell).with(cmd)
-        subject.configure_network_adaptor(device, ip, netmask, gateway, nameservers)
-      end
-
-      # TODO: does not verify actuall commands
-      it "adds a static IP config for eth0" do
+      it "adds a static IP config for Local Area Network" do
+        cmd = "netsh interface ip set address name=#{device} source=static addr=#{ip} mask=#{netmask} gateway=none"
         ENV['RS_STATIC_IP0_ADDR'] = ip
         ENV['RS_STATIC_IP0_NETMASK'] = netmask
         ENV['RS_STATIC_IP0_NAMESERVERS'] = nameservers_string
 
         flexmock(subject).should_receive(:nameserver_add).times(2)
         flexmock(subject).should_receive(:configure_network_adaptor).times(1)
-        subject.add_static_ip(device)
+        flexmock(subject).should_receive(:runshell).with(cmd)
+        subject.add_static_ips
       end
 
       # TODO: does not verify actuall commands
@@ -393,23 +394,21 @@ EOF
 
         flexmock(subject).should_receive(:nameserver_add).times(2)
         flexmock(subject).should_receive(:runshell).with(cmd)
-        subject.add_static_ip(device.inspect)
+        subject.add_static_ips
       end
 
-      # TODO: does not verify actuall commands
-      it "supports optional RS_STATIC_IP0_DEVICE value" do
-        ENV['RS_STATIC_IP0_ADDR'] = ip
-        ENV['RS_STATIC_IP0_NETMASK'] = netmask
-        ENV['RS_STATIC_IP0_NAMESERVERS'] = nameservers_string
-        ENV['RS_STATIC_IP0_GATEWAY'] = nil # clear gateway from previous test
-
-        # optional
-        device = "Local Area Connection 2"
-        ENV['RS_STATIC_IP0_DEVICE'] = device
-        cmd = "netsh interface ip set address name=#{device.inspect} source=static addr=#{ip} mask=#{netmask} gateway=none"
-        flexmock(subject).should_receive(:nameserver_add).times(2)
-        flexmock(subject).should_receive(:runshell).with(cmd)
-        subject.add_static_ip(device.inspect)
+      it "supports adding static IP on multiple devices" do
+        netsh_cmds = []
+        subject.os_net_devices.each_with_index do |device, i|
+          ENV["RS_STATIC_IP#{i}_ADDR"] = ip
+          ENV["RS_STATIC_IP#{i}_NETMASK"] = netmask
+          ENV["RS_STATIC_IP#{i}_NAMESERVERS"] = nameservers_string
+          cmd = "netsh interface ip set address name=#{device.inspect} source=static addr=#{ip} mask=#{netmask} gateway=none"
+          netsh_cmds << cmd
+        end
+        flexmock(subject).should_receive(:nameserver_add).times(2*10)
+        flexmock(subject).should_receive(:runshell).with(on { |cmd| netsh_cmds.include?(cmd) }).times(10)
+        subject.add_static_ips
       end
 
     end
