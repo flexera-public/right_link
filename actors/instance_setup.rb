@@ -21,6 +21,7 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'instance', 'volume_management'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'instance', 'feature_config_manager'))
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'right_link', 'version'))
 
 class InstanceSetup
@@ -28,15 +29,6 @@ class InstanceSetup
   include RightScale::Actor
   include RightScale::OperationResultHelper
   include RightScale::VolumeManagementHelper
-
-  CONFIG_YAML_FILE = File.normalize_path(File.join(RightScale::Platform.filesystem.right_link_static_state_dir, 'features.yml'))
-
-  CONFIG=\
-    if File.exists?(CONFIG_YAML_FILE)
-      RightSupport::Config.features(CONFIG_YAML_FILE)
-    else
-      RightSupport::Config.features({})
-    end
 
   expose :report_state
 
@@ -269,7 +261,7 @@ class InstanceSetup
 
     req.callback do |res|
       @audit = RightScale::AuditProxy.new(res.audit_id)
-      if CONFIG['package_repositories']['freeze'] && !RightScale::Platform.windows? && !RightScale::Platform.darwin?
+      if RightScale::FeatureConfigManager.feature_enabled?('package_repositories_freeze') && !RightScale::Platform.windows? && !RightScale::Platform.darwin?
         reps = res.repositories
         audit_content = "Using the following software repositories:\n"
         reps.each { |rep| audit_content += "  - #{rep.to_s}\n" }
