@@ -382,13 +382,13 @@ def add_static_ip(device)
       logger.debug "Netmask: '#{netmask}' ; gateway: '#{gateway}' ; nameservers: '#{nameservers_string.inspect}'"
       raise "FATAL: RS_STATIC_IP0_NETMASK not defined ; Cannot configure static IP address" unless netmask
       raise "FATAL: RS_STATIC_IP0_NAMESERVERS not defined ; Cannot configure static IP address" unless nameservers_string
-      # configure DNS
       nameservers = parse_array(nameservers_string)
+      # configure network adaptor
+      ip = configure_network_adaptor(device, ipaddr, netmask, gateway, nameservers)
+      # configure DNS
       nameservers.each_with_index do |nameserver, index|
         nameserver_add(nameserver, index + 1, device)
       end
-      # configure network adaptor
-      ip = configure_network_adaptor(device, ipaddr, netmask, gateway, nameservers)
     end
   rescue Exception => e
     logger.error "Detected an error while configuring static IP"
