@@ -52,11 +52,12 @@ default_option([:metadata_source, :user_metadata_source_file_path], File.join(Ri
 # === Return
 # true if running on rackspace
 def is_current_cloud?
-  if ohai = @options[:ohai_node]
-    return true if ::RightScale::CloudUtilities.has_mac?(ohai, "00:00:0c:07:ac:01")
-    return ohai[:kernel] && ohai[:kernel][:release].to_s.split('-').last.eql?("rscloud")
+  return if !platform.windows?
+    `xenstore-ls vm-data/provider_data &> /dev/null`
+    $?.success?
+  else
+    false
   end
-  false
 end
 
 # Updates the given node with cloudstack details.
@@ -65,27 +66,10 @@ end
 # always true
 def update_details
   details = {}
-  if ohai = @options[:ohai_node]
-    if platform.windows?
-      details[:public_ip] = ::RightScale::CloudUtilities.ip_for_windows_interface(ohai, 'public')
-      details[:private_ip] = ::RightScale::CloudUtilities.ip_for_windows_interface(ohai, 'private')
-    else
-      details[:public_ip] = ::RightScale::CloudUtilities.ip_for_interface(ohai, :eth0)
-      details[:private_ip] = ::RightScale::CloudUtilities.ip_for_interface(ohai, :eth1)
-      details[:public_ipv6] = ::RightScale::CloudUtilities.ipv6_for_interface(ohai, :eth0)
-      details[:local_ipv6] = ::RightScale::CloudUtilities.ipv6_for_interface(ohai, :eth1)
-    end
-  end
-
   # rack_connect (and managed?) instances may not have network interfaces for
   # public ip, so attempt the "what's my ip?" method in these cases.
-  unless details[:public_ip]
-    if public_ip = ::RightScale::CloudUtilities.query_whats_my_ip(:logger=>logger)
-      details[:public_ip] = public_ip
-    end
+  if public_ip = ::RightScale::CloudUtilities.query_whats_my_ip(:logger=>logger)
+    details[:public_ip] = public_ip
   end
-  details[:public_hostname] = "#{details[:public_ip].gsub('.','-')}.static.cloud-ips.com" if details[:public_ip]
-  details[:local_hostname] = `hostname -s`.strip
-
   return details
 end

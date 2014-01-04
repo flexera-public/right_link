@@ -56,21 +56,3 @@ def is_current_cloud?
   cloud_file = RightScale::AgentConfig.cloud_file_path
   return !!(File.readable?(cloud_file) && File.read(cloud_file) =~ /none/)
 end
-
-# Updates the given node with no-cloud details.
-#
-# === Return
-# always true
-def update_details
-  details = {}
-  if ohai = @options[:ohai_node]
-    if platform.windows?
-      details[:public_ip] = ::RightScale::CloudUtilities.ip_for_windows_interface(ohai, 'public')
-      details[:private_ip] = ::RightScale::CloudUtilities.ip_for_windows_interface(ohai, 'private')
-    else
-      details[:public_ip] = ::RightScale::CloudUtilities.ip_for_interface(ohai, :eth0)
-      details[:private_ip] = ::RightScale::CloudUtilities.ip_for_interface(ohai, :eth1)
-    end
-  end
-  return details
-end

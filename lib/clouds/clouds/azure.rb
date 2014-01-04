@@ -82,25 +82,11 @@ end
 # always true
 def update_details
   details = {}
-  if ohai = @options[:ohai_node]
-    # FIX: there is currently no instance-facing API (i.e. an API which does not
-    # require management credentials) to provide the instance's public IP address
-    # so a workaround is required until the instance-facing API is available.
-    if public_ip = ::RightScale::CloudUtilities.query_whats_my_ip(:logger=>logger)
-      details[:public_ip] = public_ip
-    end
-    if platform.windows?
-      interface_names = ['Local Area Connection', # Windows Server 2008 R2
-                         'Ethernet']              # Windows Server 2012+ (?)
-      interface_names.each do |interface_name|
-        if ip = ::RightScale::CloudUtilities.ip_for_windows_interface(ohai, interface_name)
-          details[:private_ip] = ip
-          break
-        end
-      end
-    else
-      details[:private_ip] = ::RightScale::CloudUtilities.ip_for_interface(ohai, :eth0)
-    end
+  # FIX: there is currently no instance-facing API (i.e. an API which does not
+  # require management credentials) to provide the instance's public IP address
+  # so a workaround is required until the instance-facing API is available.
+  if public_ip = ::RightScale::CloudUtilities.query_whats_my_ip(:logger=>logger)
+    details[:public_ip] = public_ip
   end
   return details
 end

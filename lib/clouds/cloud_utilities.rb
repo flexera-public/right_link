@@ -33,18 +33,6 @@ module RightScale
     DEFAULT_WHATS_MY_IP_TIMEOUT = 10 * 60
     DEFAULT_WHATS_MY_IP_RETRY_DELAY = 5
 
-    # Does an interface have the given mac address?
-    #
-    # === Parameters
-    # ohai(Mash):: ohai state
-    # mac(String):: MAC address to find
-    #
-    # === Return
-    # (Boolean):: true if there is an interface with the given mac address
-    def self.has_mac?(ohai, mac)
-      !!ohai[:network][:interfaces].values.detect { |iface| !iface[:arp].nil? && iface[:arp].value?(mac) }
-    end
-
     # Attempt to connect to the given address on the given port as a quick verification
     # that the metadata service is available.
     #
@@ -79,62 +67,6 @@ module RightScale
       end
 
       connected
-    end
-
-    # Finds the first ip address for a given interface in the ohai mash
-    #
-    # === Parameters
-    # ohai(Mash):: ohai state
-    # interface(Symbol):: symbol of the interface (:eth0, :eth1, ...)
-    #
-    # === Return
-    # address(String|nil):: ip address associated with the given interface, nil if interface could not be found
-    def self.ip_for_interface(ohai, interface, family='inet')
-      address = nil
-      if ohai[:network] != nil &&
-         ohai[:network][:interfaces] != nil &&
-         ohai[:network][:interfaces][interface] != nil &&
-         ohai[:network][:interfaces][interface][:addresses] != nil
-
-        addresses = ohai[:network][:interfaces][interface][:addresses].find { |key, item| item['family'] == family }
-        address = addresses.first unless addresses.nil?
-      end
-
-      address
-    end
-
-    def self.ipv6_for_interface(ohai, interface)
-      ip_for_interface(ohai, interface, 'inet6')
-    end
-
-
-    # Finds the first ip address that matches a given connection type (private|public)
-    #
-    # === Parameters
-    # ohai(Mash):: ohai state
-    # connection_type(Symbol):: either 'public' or 'private'
-    #
-    # === Return
-    # address(String|nil):: ip address associated with the given interface, nil if interface could not be found
-    def self.ip_for_windows_interface(ohai, connection_type)
-      address = nil
-
-      # find the right interface
-      if ohai[:network] != nil &&
-         ohai[:network][:interfaces] != nil
-        interface = ohai[:network][:interfaces].values.find do |item|
-          !(item.nil? || item[:instance].nil?) && item[:instance][:net_connection_id] == connection_type
-        end
-
-        # grab the ip if there is one
-        if interface != nil &&
-           interface["configuration"] != nil &&
-           interface["configuration"]["ip_address"] != nil
-          address = interface["configuration"]["ip_address"].first
-        end
-      end
-
-      address
     end
 
     # Splits data on the given splitter character and merges to the given hash.
