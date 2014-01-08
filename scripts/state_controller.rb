@@ -40,8 +40,17 @@ module RightScale
       m.control(m.parse_args)
     end
 
+    def silence_stdout
+      save_stdout = STDOUT.dup
+      STDOUT.reopen(RUBY_PLATFORM =~ /mswin|mingw/ ? 'NUL:' : '/dev/null')
+      STDOUT.sync = true
+      yield
+    ensure
+      STDOUT.reopen(save_stdout)
+    end
+
     def control(options)
-      InstanceState.init(nil, true)
+      silence_stdout { InstanceState.init(nil, true) } # RightScale::Log will log to STDOUT if no log file is provided
       result = case options[:type]
                when 'run'
                  case InstanceState.value
