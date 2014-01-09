@@ -112,7 +112,7 @@ describe RightScale::ShutdownRequest do
     processed = false
     sent_request = false
     @sender.
-      should_receive(:send_persistent_request).
+      should_receive(:send_request).
       with("/forwarder/shutdown", {:kind => RightScale::ShutdownRequest::REBOOT, :agent_identity => @identity}, Proc).
       and_yield(@results_factory.success_results).
       and_return { sent_request = true }

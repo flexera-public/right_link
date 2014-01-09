@@ -105,7 +105,7 @@ describe RightScale::LoginManager do
     policy
   end
 
-  # Create mock for IdempotentRequest
+  # Create mock for RetryableRequest
   def mock_request(args = nil, result = nil, error = nil)
     request = flexmock("request")
     if result
@@ -119,9 +119,9 @@ describe RightScale::LoginManager do
       request.should_receive(:errback).once
     end
     if args
-      flexmock(RightScale::IdempotentRequest).should_receive(:new).with(*args).and_return(request).once
+      flexmock(RightScale::RetryableRequest).should_receive(:new).with(*args).and_return(request).once
     else
-      flexmock(RightScale::IdempotentRequest).should_receive(:new).and_return(request).once
+      flexmock(RightScale::RetryableRequest).should_receive(:new).and_return(request).once
     end
     request.should_receive(:run).once
   end

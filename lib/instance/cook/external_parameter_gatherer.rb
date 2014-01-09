@@ -88,36 +88,38 @@ module RightScale
           options = {
             :targets => location.targets
           }
-          self.send_idempotent_request('/vault/read_documents', payload, options) do |data|
+          self.send_retryable_request('/vault/read_documents', payload, options) do |data|
             handle_response(exe, name, location, data)
           end
         end
       end
     rescue Exception => e
-      report_failure('Credential gathering failed', "The following execption occured while gathering credentials", e)
+      report_failure('Credential gathering failed', "The following execption occurred while gathering credentials", e)
     end
 
     protected
 
-    # Handle a RightNet response to our idempotent request. Could be success, failure or unexpected.
+    # Handle a RightNet response to our retryable request. Could be success, failure or unexpected.
     def handle_response(exe, name, location, response)
       result = @serializer.load(response)
 
       if result.success?
-        #Since we only ask for one credential at a time, we can do this...
-        secure_document = result.content.first
-        if secure_document.envelope_mime_type.nil?
-          @executables_inputs[exe][name] = secure_document
-          @audit.append_info("Got #{name} of '#{exe.nickname}'; #{count_remaining} remain.")
-          if done?
-            @audit.append_info("All credential values have been retrieved and processed.")
-            report_success
+        if  result.content
+          # Since we only ask for one credential at a time, we can do this...
+          secure_document = result.content.first
+          if secure_document.envelope_mime_type.nil?
+            @executables_inputs[exe][name] = secure_document
+            @audit.append_info("Got #{name} of '#{exe.nickname}'; #{count_remaining} remain.")
+            if done?
+              @audit.append_info("All credential values have been retrieved and processed.")
+              report_success
+            end
+          else
+            # The call succeeded but we can't process the credential value
+            msg = "The #{name} input of '#{exe.nickname}' was retrieved from the external source, but its type " +
+                  "(#{secure_document.envelope_mime_type}) is incompatible with this version of RightLink."
+            report_failure('Cannot process credential', msg)
           end
-        else
-          # The call succeeded but we can't process the credential value
-          msg = "The #{name} input of '#{exe.nickname}' was retrieved from the external source, but its type " +
-                "(#{secure_document.envelope_mime_type}) is incompatible with this version of RightLink."
-          report_failure('Cannot process credential', msg)
         end
       else # We got a result, but it was a failure...
         msg = "Could not retrieve the value of the #{name} input of '#{exe.nickname}' " +
@@ -162,7 +164,7 @@ module RightScale
 
     # Report a failure by setting some attributes that our caller will query, then updating our Deferrable
     # disposition so our caller gets notified via errback.
-    def report_failure(title, message, exception=nil)
+    def report_failure(title, message, exception = nil)
       if exception
         Log.error("ExternalParameterGatherer failed due to " +
                   "#{exception.class.name}: #{exception.message} (#{exception.backtrace.first})")
@@ -173,14 +175,14 @@ module RightScale
       EM.next_tick { fail }
     end
 
-    # Use the command protocol to send an idempotent request. This class cannot reuse Cook's
+    # Use the command protocol to send a retryable request. This class cannot reuse Cook's
     # implementation of the command-proto request wrappers because we must gather credentials
     # concurrently for performance reasons. The easiest way to do this is simply to open a
     # new command proto socket for every distinct request we make.
-    def send_idempotent_request(operation, payload, options={}, &callback)
+    def send_retryable_request(operation, payload, options = {}, &callback)
       connection = EM.connect('127.0.0.1', @listen_port, AgentConnection, @cookie, @thread_name, callback)
       EM.next_tick do
-        connection.send_command(:name => :send_idempotent_request, :type => operation,
+        connection.send_command(:name => :send_retryable_request, :type => operation,
                                 :payload => payload, :options => options)
       end
     end

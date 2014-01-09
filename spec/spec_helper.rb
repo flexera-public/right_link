@@ -24,7 +24,7 @@ ENV['RS_RUBY_EXE'] = ENV['RS_RUBY_EXE'] || `which ruby`.chomp
 
 require 'rubygems'
 
-# Mappers and agents use the JSON gem, which -- if used in a project that also uses ActiveRecord --
+# RightAgents use the JSON gem, which -- if used in a project that also uses ActiveRecord --
 # MUST be loaded after ActiveRecord in order to ensure that a monkey patch is correctly applied
 # We tentatively try to load AR here in case RightLink specs are ever executed in a context where
 # ActiveRecord is also loaded
@@ -141,9 +141,8 @@ module RightScale
       RightScale.module_eval("Sender = Sender") unless defined?(::RightScale::Sender)
       @sender.should_receive(:identity).and_return(@identity).by_default
       @sender.should_receive(:send_push).by_default
-      @sender.should_receive(:send_persistent_push).by_default
-      @sender.should_receive(:send_retryable_request).and_yield(@results_factory.success_results).by_default
-      @sender.should_receive(:send_persistent_request).and_yield(@results_factory.success_results).by_default
+      @sender.should_receive(:send_push).by_default
+      @sender.should_receive(:send_request).and_yield(@results_factory.success_results).by_default
       @sender.should_receive(:message_received).by_default
       flexmock(InstanceState).should_receive(:record_state).and_return(true).by_default if mock_instance_state
 
@@ -438,6 +437,7 @@ module RightScale
   end
 end
 
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'right_link', 'version'))
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'instance', 'agent_config'))
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'instance', 'instance_state'))
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'instance', 'cook', 'chef_state'))

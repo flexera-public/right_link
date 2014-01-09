@@ -108,7 +108,7 @@ module RightScale
         elsif response.respond_to?(:success?) && response.success?
           puts "Request processed successfully"
         else
-          puts "Failed to process request: #{(response.respond_to?(:content) && response.content) || '<unknown error>'}"
+          puts "Failed to process request (#{(response.respond_to?(:content) && response.content) || '<unknown error>'})"
           exit_code = false
         end
       end

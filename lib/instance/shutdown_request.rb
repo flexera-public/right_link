@@ -165,7 +165,7 @@ module RightScale
 
         # request shutdown (kind indicated by operation and/or payload).
         audit.append_info("Shutdown requested: #{self}")
-        sender.send_persistent_request(operation, payload) do |r|
+        sender.send_request(operation, payload) do |r|
           res = OperationResult.from_results(r)
           if res.success?
             @shutdown_scheduled = true

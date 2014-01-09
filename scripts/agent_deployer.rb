@@ -42,7 +42,7 @@
 #      --retry-interval SEC     Set number of seconds before initial request retry, increases exponentially
 #      --check-interval SEC     Set number of seconds between failed connection checks, increases exponentially
 #      --ping-interval SEC      Set minimum number of seconds since last message receipt for the agent
-#                               to ping the mapper to check connectivity, 0 means disable ping
+#                               to ping the RightNet router to check connectivity, 0 means disable ping
 #      --reconnect-interval SEC Set number of seconds between broker reconnect attempts
 #      --offline-queueing, -q   Enable queuing of requests when lose broker connectivity
 #      --grace-timeout SEC      Set number of seconds before graceful termination times out
@@ -105,20 +105,6 @@ module RightScale
       cfg = super(options, cfg)
       cfg[:offline_queueing] = options[:offline_queueing]
       cfg
-    end
-
-    # Setup agent monitoring
-    # NOTE: Defunct, keep here to overwrite AgentDeployer's
-    # version of this method just in case someone still passes
-    # in the --monit flag.
-    #
-    # === Parameters
-    # options(Hash):: Command line options
-    #
-    # === Return
-    # true:: Always return true
-    def monitor(options)
-      true
     end
 
   end # RightLinkAgentDeployer

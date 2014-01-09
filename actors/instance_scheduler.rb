@@ -149,7 +149,7 @@ class InstanceScheduler
     payload[:agent_identity] = @agent_identity
 
     forwarder = lambda do |type|
-      send_retryable_request("/forwarder/schedule_#{type}", payload) do |r|
+      send_request("/forwarder/schedule_#{type}", payload) do |r|
         r = result_from(r)
         RightScale::Log.error("Failed executing #{type} for #{payload.inspect}", r.content) unless r.success?
       end
@@ -252,12 +252,12 @@ class InstanceScheduler
       @bundle_queue_closed_callback = make_decommission_callback(&callback)
       if RightScale::InstanceState.value != 'decommissioning'
         # Trigger decommission
-        send_retryable_request('/booter/get_decommission_bundle', {:agent_identity => @agent_identity}) do |r|
+        send_request('/booter/get_decommission_bundle', {:agent_identity => @agent_identity}) do |r|
           res = result_from(r)
           if res.success?
             schedule_decommission(:bundle => res.content)
           else
-            RightScale::Log.debug("Failed to retrieve decommission bundle: #{res.content}")
+            RightScale::Log.debug("Failed to retrieve decommission bundle (#{res.content})")
           end
         end
       end

@@ -40,7 +40,7 @@ describe InstanceServices do
       @services = InstanceServices.new(@agent_identity)
 
       #update_login_policy should audit its execution
-      flexmock(@services).should_receive(:send_retryable_request).
+      flexmock(@services).should_receive(:send_request).
               with('/auditor/create_entry', Hash, Proc).
               and_yield(RightScale::ResultsMock.new.success_results('bogus_content'))
     end

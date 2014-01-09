@@ -35,11 +35,8 @@ module RightScale
       :run_recipe               => 'Run recipe with id given in options[:id] and optionally JSON given in options[:json]',
       :run_right_script         => 'Run RightScript with id given in options[:id] and arguments given in hash options[:arguments] (e.g. { \'application\' => \'text:Mephisto\' })',
       :send_push                => 'Send request to one or more remote agents with no response expected',
-      :send_persistent_push     => 'Send request to one or more remote agents with no response expected with persistence en route',
-      :send_retryable_request   => 'Send request to a remote agent with a response expected and retry if response times out',
-      :send_persistent_request  => 'Send request to a remote agent with a response expected with persistence ' +
-                                   'en route and no retries that would result in it being duplicated',
-      :send_idempotent_request  => 'Send a request to a remote agent (identified solely by operation), retrying at the' +
+      :send_request             => 'Send request to a remote agent with a response expected and retry if response times out',
+      :send_retryable_request   => 'Send a request to a remote agent (identified solely by operation), retrying at the' +
                                    'application level until the request succeeds or the timeout elapses',
       :set_log_level            => 'Set log level to options[:level]',
       :get_log_level            => 'Get log level',
@@ -125,9 +122,9 @@ module RightScale
       target[:scope] = payload.delete(:scope) if payload[:scope]
       target[:selector] = payload.delete(:selector) if payload[:selector]
       if (target[:tags] && !target[:tags].empty?) || target[:scope] || (target[:selector] && target(:selector) == :all)
-        send_persistent_push("/instance_scheduler/execute", opts[:conn], payload, target)
+        send_push("/instance_scheduler/execute", opts[:conn], payload, target)
       else
-        send_persistent_request("/forwarder/schedule_recipe", opts[:conn], payload)
+        send_request("/forwarder/schedule_recipe", opts[:conn], payload)
       end
     end
 
@@ -147,9 +144,9 @@ module RightScale
       target[:scope] = payload.delete(:scope) if payload[:scope]
       target[:selector] = payload.delete(:selector) if payload[:selector]
       if (target[:tags] && !target[:tags].empty?) || target[:scope] || (target[:selector] && target(:selector) == :all)
-        send_persistent_push("/instance_scheduler/execute", opts[:conn], payload, target)
+        send_push("/instance_scheduler/execute", opts[:conn], payload, target)
       else
-        send_persistent_request("/forwarder/schedule_right_script", opts[:conn], payload)
+        send_request("/forwarder/schedule_right_script", opts[:conn], payload)
       end
     end
 
@@ -159,7 +156,7 @@ module RightScale
     # opts[:conn](EM::Connection):: Connection used to send reply
     # opts[:type](String):: Request type
     # opts[:payload](String):: Request data, optional
-    # opts[:target](String|Hash):: Request target or target selectors, optional
+    # opts[:target](Hash|NilClass):: Request target or target selectors, optional
     #
     # === Return
     # true:: Always return true
@@ -167,55 +164,20 @@ module RightScale
       send_push(opts[:type], opts[:conn], opts[:payload], opts[:target])
     end
 
-    # Send a request to one or more targets with no response expected
-    # Persist the request en route to reduce the chance of it being lost at the expense of some
-    # additional network overhead
-    #
-    # === Parameters
-    # opts[:conn](EM::Connection):: Connection used to send reply
-    # opts[:type](String):: Request type
-    # opts[:payload](String):: Request data, optional
-    # opts[:target](String|Hash):: Request target or target selectors, optional
-    #
-    # === Return
-    # true:: Always return true
-    def send_persistent_push_command(opts)
-      send_persistent_push(opts[:type], opts[:conn], opts[:payload], opts[:target])
-    end
-
     # Send a request to a single target with a response expected
     # Automatically retry the request if the response is not received in a reasonable amount of time
-    # Timeout the request if a response is not received in time, typically configured to 2 minutes
     # Allow the request to expire per the agent's configured time-to-live, typically 1 minute
     #
     # === Parameters
     # opts[:conn](EM::Connection):: Connection used to send reply
     # opts[:type](String):: Request type
     # opts[:payload](String):: Request data, optional
-    # opts[:target](String|Hash):: Request target or target selectors (random pick if multiple), optional
+    # opts[:target](Hash|NilClass):: Request target agent or target selectors (random pick if multiple), optional
     #
     # === Return
     # true:: Always return true
-    def send_retryable_request_command(opts)
-      send_retryable_request(opts[:type], opts[:conn], opts[:payload], opts[:target])
-    end
-
-    # Send a request to a single target with a response expected
-    # Persist the request en route to reduce the chance of it being lost at the expense of some
-    # additional network overhead
-    # Never retry the request if there is the possibility of it being duplicated
-    #
-    # === Parameters
-    # opts[:conn](EM::Connection):: Connection used to send reply
-    # opts[:type](String):: Request type
-    # opts[:payload](String):: Request data, optional
-    # opts[:target](String|Hash):: Request target or target selectors (random pick if multiple), optional
-    # opts[:options](Hash):: Request options
-    #
-    # === Return
-    # true:: Always return true
-    def send_persistent_request_command(opts)
-      send_persistent_request(opts[:type], opts[:conn], opts[:payload], opts[:target], opts[:options])
+    def send_request_command(opts)
+      send_request(opts[:type], opts[:conn], opts[:payload], opts[:target])
     end
 
     # Send a retryable request to a single target with a response expected, retrying multiple times
@@ -225,13 +187,13 @@ module RightScale
     # opts[:conn](EM::Connection):: Connection used to send reply
     # opts[:type](String):: Request type
     # opts[:payload](String):: Request data, optional
-    # opts[:timeout](Integer):: Timeout for idempotent request, -1 or nil for no timeout
+    # opts[:timeout](Integer):: Timeout for retryable request, -1 or nil for no timeout
     # opts[:options](Hash):: Request options
     #
     # === Return
     # true:: Always return true
-    def send_idempotent_request_command(opts)
-      send_idempotent_request(opts[:type], opts[:conn], opts[:payload], opts[:options])
+    def send_retryable_request_command(opts)
+      send_retryable_request(opts[:type], opts[:conn], opts[:payload], opts[:options])
     end
 
     # Set log level command
@@ -356,7 +318,7 @@ module RightScale
         :detail         => opts[:detail]
       }
 
-      send_persistent_push('/auditor/create_entry', opts[:conn], payload)
+      send_push('/auditor/create_entry', opts[:conn], payload)
     end
 
     # Update audit summary
@@ -434,16 +396,16 @@ module RightScale
     # true:: Always return true
     def set_inputs_patch_command(opts)
       payload = {:agent_identity => @agent_identity, :patch => opts[:patch]}
-      send_persistent_push("/updater/update_inputs", opts[:conn], payload)
+      send_push("/updater/update_inputs", opts[:conn], payload)
       CommandIO.instance.reply(opts[:conn], 'OK')
     end
 
-    # Check whether this instance agent is connected by pinging a mapper
+    # Check whether this instance agent is connected by pinging a RightNet router
     #
     # === Return
     # true:: Always return true
     def check_connectivity_command(opts)
-      send_persistent_request("/mapper/ping", opts[:conn])
+      send_request("/router/ping", opts[:conn])
       true
     end
 
@@ -463,55 +425,28 @@ module RightScale
       true
     end
 
-    # Helper method to send a request to one or more targets with no response expected
-    # The request is persisted en route to reduce the chance of it being lost at the expense of some
-    # additional network overhead
-    # See Sender for details
-    def send_persistent_push(type, conn, payload = nil, target = nil)
-      payload ||= {}
-      payload[:agent_identity] = @agent_identity
-      Sender.instance.send_persistent_push(type, payload, target)
-      CommandIO.instance.reply(conn, 'OK')
-      true
-    end
-
-    # Helper method to send a request to a single target with a response expected
+    # Helper method to send a request to a single target agent with a response expected
     # The request is retried if the response is not received in a reasonable amount of time
     # The request is timed out if not received in time, typically configured to 2 minutes
     # The request is allowed to expire per the agent's configured time-to-live, typically 1 minute
     # See Sender for details
-    def send_retryable_request(type, conn, payload = nil, target = nil)
+    def send_request(type, conn, payload = nil, target = nil)
       payload ||= {}
       payload[:agent_identity] = @agent_identity
-      Sender.instance.send_retryable_request(type, payload, target) do |r|
+      Sender.instance.send_request(type, payload, target) do |r|
         reply = @serializer.dump(r) rescue '\"Failed to serialize response\"'
         CommandIO.instance.reply(conn, reply)
       end
       true
     end
 
-    # Helper method to send a request to a single target with a response expected
-    # The request is persisted en route to reduce the chance of it being lost at the expense of some
-    # additional network overhead
-    # The request is never retried if there is the possibility of it being duplicated
-    # See Sender for details
-    def send_persistent_request(type, conn, payload = nil, target = nil)
-      payload ||= {}
-      payload[:agent_identity] = @agent_identity
-      Sender.instance.send_persistent_request(type, payload, target) do |r|
-        reply = @serializer.dump(r) rescue '\"Failed to serialize response\"'
-        CommandIO.instance.reply(conn, reply)
-      end
-      true
-    end
-
-    # Helper method to send a retryable (and therefore idempotent!) request to a single target with a response
-    # expected, retrying at the application layer until the request succeeds or the timeout elapses; default
-    # timeout is 'forever'.
+    # Helper method to send a retryable request to a single target with a response expected,
+    # retrying at the application layer until the request succeeds or the timeout elapses;
+    # default timeout is 'forever'.
     #
-    # See IdempotentRequest for details
-    def send_idempotent_request(type, conn, payload=nil, opts={})
-      req = IdempotentRequest.new(type, payload, opts)
+    # See RetryableRequest for details
+    def send_retryable_request(type, conn, payload = nil, opts = {})
+      req = RetryableRequest.new(type, payload, opts)
 
       callback = Proc.new do |content|
         result = OperationResult.success(content)
