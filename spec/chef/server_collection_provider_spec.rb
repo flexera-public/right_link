@@ -56,7 +56,7 @@ describe Chef::Provider::ServerCollection do
       Chef::Provider::ServerCollection.const_set(:QUERY_TIMEOUT, 0.5)
       sender = flexmock('Sender')
       flexmock(RightScale::Sender).should_receive(:instance).and_return(sender).by_default
-      sender.should_receive(:send_retryable_request).and_yield(nil)
+      sender.should_receive(:send_request).and_yield(nil)
       perform_load
       @provider.instance_variable_get(:@node)[:server_collection]['resource_name'].should == {}
     ensure
@@ -66,7 +66,7 @@ describe Chef::Provider::ServerCollection do
 
   it 'should timeout when request for tags takes too long' do
     pending 'notions of new tests'
-#    @mock_cook.should_receive(:send_retryable_request).and_ ???
+#    @mock_cook.should_receive(:send_request).and_ ???
 #    perform_load
 #    @completed.should be_false
   end
@@ -77,7 +77,7 @@ describe Chef::Provider::ServerCollection do
 #    @is_done = lambda { @provider.node[:server_collection]['resource_name'] == @result }
 #    @mock_cook = flexmock('Cook')
 #    flexmock(RightScale::Cook).should_receive(:instance).and_return(@mock_cook).by_default
-#    @mock_cook.should_receive(:send_retryable_request).and_yield(RightScale::OperationResult.new(0, @result))
+#    @mock_cook.should_receive(:send_request).and_yield(RightScale::OperationResult.new(0, @result))
 #    perform_load
 #    @completed.should be_true
   end
@@ -86,7 +86,7 @@ describe Chef::Provider::ServerCollection do
     pending 'notions of new tests'
 #    @mock_cook = flexmock('Cook')
 #    flexmock(RightScale::Cook).should_receive(:instance).and_return(@mock_cook).by_defaul
-#    @mock_cook.should_receive(:send_retryable_request).and_yield(RightScale::OperationResult.new(1, nil))
+#    @mock_cook.should_receive(:send_request).and_yield(RightScale::OperationResult.new(1, nil))
 #    perform_load
 #    @completed.should be_true
   end

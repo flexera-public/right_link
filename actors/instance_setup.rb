@@ -32,9 +32,6 @@ class InstanceSetup
 
   expose :report_state
 
-  # Amount of seconds to wait between set_r_s_version calls attempts
-  RECONNECT_DELAY = 5
-
   # Amount of seconds to wait before shutting down if boot hasn't completed
   SUICIDE_DELAY = 45 * 60
 
@@ -59,9 +56,15 @@ class InstanceSetup
   # === Parameters
   # agent(RightScale::Agent):: Host agent
   def initialize(agent)
-    @agent_identity    = agent.identity
-    @got_boot_bundle   = false
+    @agent = agent
+    @agent_identity = agent.identity
+    @got_boot_bundle = false
     EM.threadpool_size = 1
+
+    # Get notified whenever there is a client status change
+    @agent.status { |type, state| update_status(type, state) }
+
+    # Initialize state
     RightScale::InstanceState.init(@agent_identity)
 
     # Reset log level here even though already initialized in the agent
@@ -79,7 +82,7 @@ class InstanceSetup
       # shutdown the instance (likely due to a decommission script which induced
       # an unexpected fault in the agent).
       #
-      # note that upon successfuly reboot (or start of a stopped instance) the
+      # note that upon successfully reboot (or start of a stopped instance) the
       # instance state file is externally reset to a rebooting state (thus
       # avoiding the dreaded infinite reboot/stop scenario).
       if RightScale::InstanceState.value == 'decommissioning' && (kind = RightScale::InstanceState.decommission_type)
@@ -96,27 +99,28 @@ class InstanceSetup
     success_result(RightScale::InstanceState.value)
   end
 
-  # Handle connection status notification from broker to adjust offline mode
-  # or to re-enroll if all connections have failed
+  # Handle status update from agent by adjusting offline mode or re-enrolling
   #
   # === Parameters
-  # status(Symbol):: Connection status, one of :connected, :disconnected, or :failed
+  # type(Symbol):: Type of client: :auth, :api, :router, :broker
+  # state(Symbol):: Status of given client
   #
   # === Return
   # true:: Always return true
-  def connection_status(status)
-    case status
+  def update_status(type, state)
+    case state
     when :connected
       RightScale::Sender.instance.disable_offline_mode
     when :disconnected
       RightScale::Sender.instance.enable_offline_mode
     when :failed
-      RightScale::Log.error("All broker connections have failed")
+      RightScale::Log.error("RightNet connectivity failure for #{type}, need to re-enroll")
       RightScale::ReenrollManager.vote
       RightScale::ReenrollManager.vote
       RightScale::ReenrollManager.vote
+    when :authorized, :unauthorized, :expired, :closing
     else
-      RightScale::Log.error("Unrecognized broker connection status: #{status}")
+      RightScale::Log.error("Unrecognized state for #{type}: #{state}")
     end
     true
   end
@@ -135,10 +139,17 @@ class InstanceSetup
                :right_link_version => ::RightLink.version,
                :r_s_version        => ::RightScale::AgentConfig.protocol_version,
                :resource_uid       => ::RightScale::InstanceState.resource_uid}
-    req = RightScale::IdempotentRequest.new('/booter/declare', payload, :retry_on_error => true)
+    req = RightScale::RetryableRequest.new('/booter/declare', payload, :retry_on_error => true)
     req.callback do |res|
-      RightScale::Sender.instance.start_offline_queue
-      init_fetch_tags
+      begin
+        RightScale::Sender.instance.start_offline_queue
+        init_fetch_tags
+      rescue Exception => e
+        RightScale::Log.error("Failed handling /booter/declare response", e, :trace)
+      end
+    end
+    req.errback do |res|
+      RightScale::Log.error("Failed making /booter/declare (#{res.inspect}")
     end
     req.run
     true
@@ -156,7 +167,7 @@ class InstanceSetup
     RightScale::AgentTagManager.instance.tags(:timeout=>INITIAL_TAG_QUERY_TIMEOUT) do |tags|
       if tags.is_a?(String)
         # AgentTagManager could give us a String (error message)
-        RightScale::Log.error("Failed to query tags during initial startup: #{tags}")
+        RightScale::Log.error("Failed to query tags during initial startup (#{tags})")
       else
         #CookState is also updated in ExecutableSequenceProxy#run, but doing
         #it here ensures that CookState is initially convergent with InstanceState.
@@ -199,9 +210,9 @@ class InstanceSetup
       setup_volumes
     else
       ssh_host_keys = RightScale::LoginManager.instance.get_ssh_host_keys
-      req = RightScale::IdempotentRequest.new('/booter/get_login_policy',
-                                              { :agent_identity => @agent_identity,
-                                                :ssh_host_keys=>ssh_host_keys })
+      payload = {:agent_identity => @agent_identity,
+                 :ssh_host_keys=>ssh_host_keys}
+      req = RightScale::RetryableRequest.new('/booter/get_login_policy', payload)
 
       req.callback do |policy|
         audit = RightScale::AuditProxy.new(policy.audit_id)
@@ -257,7 +268,7 @@ class InstanceSetup
   # === Return
   # true:: Always return true
   def boot
-    req = RightScale::IdempotentRequest.new('/booter/get_repositories', { :agent_identity => @agent_identity })
+    req = RightScale::RetryableRequest.new('/booter/get_repositories', { :agent_identity => @agent_identity })
 
     req.callback do |res|
       @audit = RightScale::AuditProxy.new(res.audit_id)
@@ -396,7 +407,7 @@ class InstanceSetup
   # true:: Always return true
   def prepare_boot_bundle(&cb)
     payload = {:agent_identity => @agent_identity, :audit_id => @audit.audit_id}
-    req = RightScale::IdempotentRequest.new('/booter/get_boot_bundle', payload)
+    req = RightScale::RetryableRequest.new('/booter/get_boot_bundle', payload)
 
     req.callback do |bundle|
       if bundle.executables.any? { |e| !e.ready }
@@ -438,66 +449,68 @@ class InstanceSetup
     payload = {:agent_identity => @agent_identity,
                :scripts_ids    => scripts_ids,
                :recipes_ids    => recipes_ids}
-    req = RightScale::IdempotentRequest.new('/booter/get_missing_attributes', payload)
+    req = RightScale::RetryableRequest.new('/booter/get_missing_attributes', payload)
 
     req.callback do |res|
-      res.each do |e|
-        if e.is_a?(RightScale::RightScriptInstantiation)
-          if script = scripts.detect { |s| s.id == e.id }
-            script.ready = true
-            script.parameters = e.parameters
+      if res
+        res.each do |e|
+          if e.is_a?(RightScale::RightScriptInstantiation)
+            if script = scripts.detect { |s| s.id == e.id }
+              script.ready = true
+              script.parameters = e.parameters
+            end
+          else
+            if recipe = recipes.detect { |s| s.id == e.id }
+              recipe.ready = true
+              recipe.attributes = e.attributes
+            end
           end
+        end
+        pending_executables = bundle.executables.select { |e| !e.ready }
+        if pending_executables.empty?
+          yield
         else
-          if recipe = recipes.detect { |s| s.id == e.id }
-            recipe.ready = true
-            recipe.attributes = e.attributes
-          end
-        end
-      end
-      pending_executables = bundle.executables.select { |e| !e.ready }
-      if pending_executables.empty?
-        yield
-      else
-        # keep state to provide fewer but more meaningful audits.
-        last_missing_inputs ||= {:started_at => Time.now}
-        last_missing_inputs[:executables] ||= {}
+          # keep state to provide fewer but more meaningful audits.
+          last_missing_inputs ||= {:started_at => Time.now}
+          last_missing_inputs[:executables] ||= {}
 
-        # don't need to audit on each attempt to resolve missing inputs, but nag
-        # every so often to let the user know this server is still waiting.
-        last_audit_time = last_missing_inputs[:last_audit_time]
-        audit_missing_inputs = last_audit_time.nil? || (last_audit_time + MISSING_INPUT_AUDIT_DELAY_SECS < Time.now)
-        sent_audit = false
+          # don't need to audit on each attempt to resolve missing inputs, but nag
+          # every so often to let the user know this server is still waiting.
+          last_audit_time = last_missing_inputs[:last_audit_time]
+          audit_missing_inputs = last_audit_time.nil? || (last_audit_time + MISSING_INPUT_AUDIT_DELAY_SECS < Time.now)
+          sent_audit = false
 
-        # audit missing inputs, if necessary.
-        missing_inputs_executables = {}
-        pending_executables.each do |e|
-          # names of missing inputs are available from RightScripts.
-          missing_input_names = []
+          # audit missing inputs, if necessary.
+          missing_inputs_executables = {}
+          pending_executables.each do |e|
+            # names of missing inputs are available from RightScripts.
+            missing_input_names = []
 
-          e.input_flags.each {|k,v| missing_input_names << k if  v.member?("unready")}
-          if audit_missing_inputs
-            @audit.append_info("Waiting for the following missing inputs which are used by '#{e.nickname}': #{missing_input_names.join(", ")}")
-            sent_audit = true
+            e.input_flags.each {|k,v| missing_input_names << k if  v.member?("unready")}
+            if audit_missing_inputs
+              @audit.append_info("Waiting for the following missing inputs which are used by '#{e.nickname}': #{missing_input_names.join(", ")}")
+              sent_audit = true
+            end
+
+            missing_inputs_executables[e.nickname] = missing_input_names
           end
 
-          missing_inputs_executables[e.nickname] = missing_input_names
-        end
-
-        # audit any executables which now have all inputs.
-        last_missing_inputs[:executables].each_key do |nickname|
-          unless missing_inputs_executables[nickname]
-            title = RightScale::RightScriptsCookbook.recipe_title(nickname)
-            @audit.append_info("The inputs used by #{title} which had been missing have now been resolved.")
+          # audit any executables which now have all inputs.
+          last_missing_inputs[:executables].each_key do |nickname|
+            unless missing_inputs_executables[nickname]
+              title = RightScale::RightScriptsCookbook.recipe_title(nickname)
+              @audit.append_info("The inputs used by #{title} which had been missing have now been resolved.")
+            end
           end
-        end
-        last_missing_inputs[:executables] = missing_inputs_executables
-        last_missing_inputs[:last_audit_time] = Time.now if sent_audit
+          last_missing_inputs[:executables] = missing_inputs_executables
+          last_missing_inputs[:last_audit_time] = Time.now if sent_audit
 
-        if Time.now - last_missing_inputs[:started_at] < MISSING_INPUT_TIMEOUT
-          # schedule retry to retrieve missing inputs.
-          EM.add_timer(MISSING_INPUT_RETRY_DELAY_SECS) { retrieve_missing_inputs(bundle, last_missing_inputs, &cb) }
-        else
-          strand("Failed to retrieve missing inputs after #{MISSING_INPUT_TIMEOUT / 60} minutes")
+          if Time.now - last_missing_inputs[:started_at] < MISSING_INPUT_TIMEOUT
+            # schedule retry to retrieve missing inputs.
+            EM.add_timer(MISSING_INPUT_RETRY_DELAY_SECS) { retrieve_missing_inputs(bundle, last_missing_inputs, &cb) }
+          else
+            strand("Failed to retrieve missing inputs after #{MISSING_INPUT_TIMEOUT / 60} minutes")
+          end
         end
       end
     end
@@ -533,7 +546,7 @@ class InstanceSetup
     sequence.callback do
       if patch = sequence.inputs_patch && !patch.empty?
         payload = {:agent_identity => @agent_identity, :patch => patch}
-        send_persistent_push('/updater/update_inputs', payload)
+        send_push('/updater/update_inputs', payload)
       end
       @audit.update_status("boot completed: #{bundle}")
       yield success_result

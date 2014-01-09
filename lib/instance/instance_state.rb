@@ -86,7 +86,7 @@ module RightScale
       @last_recorded_value
     end
 
-    # (IdempotentRequest) Current record state request
+    # (RetryableRequest) Current record state request
     def self.record_request
       @record_request
     end
@@ -235,12 +235,12 @@ module RightScale
     #
     # === Raise
     # RightScale::Exceptions::Application:: Cannot update in read-only mode
-    # RightScale::Exceptions::Argument:: Invalid new value
+    # ArgumentError:: Invalid new value
     def self.value=(val)
       previous_val = @value || INITIAL_STATE
       raise RightScale::Exceptions::Application, "Not allowed to modify instance state in read-only mode" if @read_only
-      raise RightScale::Exceptions::Argument, "Invalid instance state #{val.inspect}" unless STATES.include?(val)
-      Log.info("Transitioning state from #{previous_val} to #{val}")
+      raise ArgumentError, "Invalid instance state #{val.inspect}" unless STATES.include?(val)
+      Log.info("Transitioning instance state from #{previous_val} to #{val}")
       @reboot = false if val != :booting
       @value = val
       @decommission_type = nil unless (@value == 'decommissioning' || @value == 'decommissioned')
@@ -264,7 +264,7 @@ module RightScale
     # result(String):: new decommission type
     #
     # === Raise
-    # RightScale::Exceptions::Application:: Cannot update in read-only mod
+    # RightScale::ShutdownRequest::InvalidLevel:: Invalid decommission type
     def self.decommission_type=(decommission_type)
       unless RightScale::ShutdownRequest::LEVELS.include?(decommission_type)
         raise RightScale::ShutdownRequest::InvalidLevel.new("Unexpected decommission_type: #{decommission_type}")
@@ -325,7 +325,7 @@ module RightScale
     # true:: Always return true
     def self.shutdown(user_id, skip_db_update, kind)
       payload = {:agent_identity => @identity, :state => FINAL_STATE, :user_id => user_id, :skip_db_update => skip_db_update, :kind => kind}
-      Sender.instance.send_retryable_request("/state_recorder/record", payload) do |r|
+      Sender.instance.send_request("/state_recorder/record", payload) do |r|
         res = OperationResult.from_results(r)
         case kind
         when 'reboot'
@@ -555,7 +555,7 @@ module RightScale
       # Create new request
       new_value = @value
       payload = {:agent_identity => @identity, :state => new_value, :from_state => @last_recorded_value}
-      @record_request = RightScale::IdempotentRequest.new("/state_recorder/record", payload)
+      @record_request = RightScale::RetryableRequest.new("/state_recorder/record", payload)
 
       # Handle success result
       @record_request.callback do
@@ -569,14 +569,13 @@ module RightScale
 
       # Handle request failure
       @record_request.errback do |error|
-        if error.is_a?(Hash) && error['recorded_state']
+        if /currently recorded state \((?<recorded_state>[^\)]*)\)/ =~ error
           # State transitioning from does not match recorded state, so update last recorded value
-          @last_recorded_value = error['recorded_state']
-          error = error['message']
+          @last_recorded_value = recorded_state
         end
         if error != "re-request" && @value != @last_recorded_value
           attempts = " after #{@record_retries + 1} attempts" if @record_retries >= MAX_RECORD_STATE_RETRIES
-          Log.error("Failed to record state '#{new_value}'#{attempts}: #{error}") unless @value == FINAL_STATE
+          Log.error("Failed to record state '#{new_value}'#{attempts} (#{error})") unless @value == FINAL_STATE
           @record_retries = 0 if @value != new_value
           if RECORDED_STATES.include?(@value) && @record_retries < MAX_RECORD_STATE_RETRIES
             Log.info("Will retry recording state in #{RETRY_RECORD_STATE_DELAY} seconds")

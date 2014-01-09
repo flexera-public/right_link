@@ -75,7 +75,7 @@ class InstanceSetup
   def self.results_for_detach_volume; @@results_for_detach_volume; end
   def self.results_for_detach_volume=(results); @@results_for_detach_volume = results; end
 
-  def send_retryable_request(operation, *args)
+  def send_request(operation, *args)
     # next_tick response to better simulate asynchronous nature of calls to RightNet.
     callback = args.last
     callback = nil unless callback.is_a? Proc
@@ -83,7 +83,6 @@ class InstanceSetup
       begin
         case operation
         when "/booter/declare" then callback.call @@factory.success_results if callback
-        when "/booter/set_r_s_version" then callback.call @@factory.success_results if callback
         when "/booter/get_repositories" then callback.call @@repos if callback
         when "/booter/get_boot_bundle" then callback.call @@bundle if callback
         when "/booter/get_login_policy" then callback.call @@login_policy if callback
@@ -200,7 +199,7 @@ describe InstanceSetup do
     @sender.should_receive(:start_offline_queue)
     
     # Mock requests
-    @sender.should_receive(:send_retryable_request).and_return { |*args| @setup.send_retryable_request(*args) }
+    @sender.should_receive(:send_request).and_return { |*args| @setup.send_request(*args) }
 
     # always mock volume manager in testing (it can be hazardous to your dev/test machine's health).
     @mock_vm = RightScale::InstanceSetupSpec::MockVolumeManager.new
@@ -250,7 +249,7 @@ describe InstanceSetup do
     InstanceSetup.bundle = bundle
 
     result = RightScale::OperationResult.success({ 'agent_id1' => { 'tags' => ['tag1'] } })
-    agents = flexmock('result', :results => { 'mapper_id1' => result })
+    agents = flexmock('result', :results => { 'router_id1' => result })
     InstanceSetup.agents = agents
     EM.run do
       @agent = RightScale::Agent.new({:identity => @agent_identity.to_s})
@@ -707,43 +706,43 @@ describe InstanceSetup do
     boot_to_decommissioned
   end
 
-  context "connection_status" do
+  context "update_status" do
     before(:each) do
       @sender = flexmock("sender", :message_received => true)
       @reenroller = flexmock(RightScale::ReenrollManager)
     end
 
-    it 'should go online when become connected to a broker' do
+    it 'should go online when become connected' do
       boot_to_operational
       flexmock(RightScale::Sender).should_receive(:instance).and_return(@sender)
       @sender.should_receive(:disable_offline_mode).once
-      @setup.connection_status(:connected)
+      @setup.update_status(:api, :connected)
     end
 
-    it 'should go offline when become disconnected from all brokers' do
+    it 'should go offline when become disconnected' do
       boot_to_operational
       flexmock(RightScale::Sender).should_receive(:instance).and_return(@sender)
       @sender.should_receive(:enable_offline_mode).once
-      @setup.connection_status(:disconnected)
+      @setup.update_status(:api, :disconnected)
     end
 
-    it 'should re-enroll when all broker connections fail' do
+    it 'should re-enroll when connection fails' do
       boot_to_operational
       flexmock(RightScale::Sender).should_receive(:instance).and_return(@sender)
-      flexmock(RightScale::Log).should_receive(:error).with("All broker connections have failed").once
+      flexmock(RightScale::Log).should_receive(:error).with("RightNet connectivity failure for api, need to re-enroll").once
       @sender.should_receive(:enable_offline_mode).never
       @reenroller.should_receive(:vote).times(3)
-      @setup.connection_status(:failed)
+      @setup.update_status(:api, :failed)
     end
 
     it 'should log error if status change is unrecognized' do
       boot_to_operational
       flexmock(RightScale::Sender).should_receive(:instance).and_return(@sender)
-      flexmock(RightScale::Log).should_receive(:error).with("Unrecognized broker connection status: bogus_status").once
+      flexmock(RightScale::Log).should_receive(:error).with("Unrecognized state for router: bogus").once
       @sender.should_receive(:enable_offline_mode).never
       @sender.should_receive(:disable_offline_mode).never
       @reenroller.should_receive(:vote).never
-      @setup.connection_status(:bogus_status)
+      @setup.update_status(:router, :bogus)
     end
   end
 end
