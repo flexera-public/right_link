@@ -325,7 +325,7 @@ EOF
         flexmock(subject).should_receive(:runshell).with(on { |cmd| ifconfig_cmds.include?(cmd) }).times(10)
         flexmock(subject).should_receive(:runshell).with("route add default gw #{gateway}").times(0)
         flexmock(subject).should_receive(:network_route_exists?).and_return(false).times(0)
-        flexmock(subject).should_receive(:write_adaptor_config).with(/eth\d/, on { |cfg| eth_configs.include?(cfg) })
+        flexmock(subject).should_receive(:write_adaptor_config).with(/eth\d/, on { |cfg| !eth_configs.delete(cfg).nil? })
         subject.add_static_ips
       end
 
@@ -407,7 +407,7 @@ EOF
           netsh_cmds << cmd
         end
         flexmock(subject).should_receive(:nameserver_add).times(2*10)
-        flexmock(subject).should_receive(:runshell).with(on { |cmd| netsh_cmds.include?(cmd) }).times(10)
+        flexmock(subject).should_receive(:runshell).with(on { |cmd| !netsh_cmds.delete(cmd).nil? }).times(10)
         subject.add_static_ips
       end
 
