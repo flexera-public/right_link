@@ -179,9 +179,9 @@ DEPENDENCIES
   flexmock (~> 0.8)
   highline (= 1.6.9)
   hoe (= 2.3.3)
+  ip
   json (= 1.4.6)
   mime-types (= 1.16)
-  ip
   mixlib-authentication (>= 1.3.0)
   mixlib-cli (= 1.2.0)
   mixlib-config (= 1.1.2)
