@@ -25,8 +25,8 @@
 #                               Valid values:       Positive integer for decommission_timeout
 #                                                   on|off|true|false for rest of features
 #     --get, -g <name>          Outputs the value of the given feature to stdout
-#     --help                    Display help
-#     --version                 Display version
+#     --help, -h                Display help
+#     --version, -v             Display version
 #
 #
 
