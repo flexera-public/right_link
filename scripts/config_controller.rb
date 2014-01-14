@@ -62,6 +62,8 @@ module RightScale
       when :list
         puts format_output(DEFAULTS.merge(FeatureConfigManager.list), options[:format])
       end
+    rescue Exception => e
+      fail(e)
     end
 
     def parse_args
