@@ -56,7 +56,8 @@ module RightScale
     def control(options)
       case options[:action]
       when :get
-        puts FeatureConfigManager.get_value(options[:feature])
+        feature_group, feature = FeatureConfigManager.extract_group_and_feature(options[:feature])
+        puts FeatureConfigManager.get_value(options[:feature], DEFAULTS[feature_group][feature])
       when :set
         FeatureConfigManager.set_value(options[:feature], options[:value]);
       when :list
