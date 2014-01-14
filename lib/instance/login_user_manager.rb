@@ -100,12 +100,37 @@ module RightScale
         # extension, a user who has recently been added, won't seem to be a member of
         # any groups until the SECOND time we enumerate his group membership.
         manage_user(uuid, superuser, :force=>true)
+
       else
         raise RightScale::LoginManager::SystemConflict, "A user with UID #{uid} already exists and is " +
                                                         "not managed by RightScale"
       end
 
+      run_login_script(username, uuid)
       username
+    end
+
+    # Run users profile customization script.
+    def run_login_script(username, uuid)
+      begin
+        script_name = ".rs_login_script.sh"
+
+        #TODO: where is this already initialized?? if not, make method: get_policy_for_user
+        login_policy = RightScale::JsonUtilities::read_json(RightScale::InstanceState::LOGIN_POLICY_FILE)
+        user_policy = login_policy.users[login_policy.users.index { |u| u.uuid == uuid }]
+
+        unless user_policy.linux_login_script.empty?
+          user_home = File.expand_path("~#{username}");
+
+          File.open("/tmp/#{script_name}", 'w') { |f| f.write(user_policy.linux_login_script) }
+          `sudo mv /tmp/#{script_name} #{user_home}/`
+          `sudo chown #{username} #{user_home}/#{script_name}`
+          `sudo chmod 700  #{user_home}/#{script_name}`
+          `sudo -u #{username} bash -c "cd ~ && bash #{script_name}"`
+        end
+      rescue Exception => e
+        puts "Error Running User Login Script: #{e}"
+      end
     end
 
     # If the given user exists and is RightScale-managed, then ensure his login information and
