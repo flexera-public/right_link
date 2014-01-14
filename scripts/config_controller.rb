@@ -5,7 +5,7 @@
 #
 # === Examples:
 #   Disable managed login:
-#   rs_config --set managed_login off
+#   rs_config --set managed_login_enable off
 #
 #   Set decommission timeout:
 #   rs_config --set decommission_timeout 180
