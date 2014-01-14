@@ -19,7 +19,7 @@
 #    Options:
 #     --list, -l                Lists all supported feature configurations and their values (if any).
 #     --format, -f FMT          Output format for list operation(json, yaml, text)
-#     --set, -s <name> <value>  Set feature name to specified value. name must be in supported feature list.
+#     --set, -s <name> <value>  Set feature name to specified value. Name must be in supported feature list.
 #                               Supported features: managed_login_enable, package_repositories_freeze,
 #                                                   motd_update, decommission_timeout
 #                               Valid values:       Positive integer for decommission_timeout
