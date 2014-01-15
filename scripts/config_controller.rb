@@ -5,7 +5,7 @@
 #
 # === Examples:
 #   Disable managed login:
-#   rs_config --set managed_login off
+#   rs_config --set managed_login_enable off
 #
 #   Set decommission timeout:
 #   rs_config --set decommission_timeout 180
@@ -19,14 +19,14 @@
 #    Options:
 #     --list, -l                Lists all supported feature configurations and their values (if any).
 #     --format, -f FMT          Output format for list operation(json, yaml, text)
-#     --set, -s <name> <value>  Set feature name to specified value. name must be in supported feature list.
+#     --set, -s <name> <value>  Set feature name to specified value. Name must be in supported feature list.
 #                               Supported features: managed_login_enable, package_repositories_freeze,
 #                                                   motd_update, decommission_timeout
 #                               Valid values:       Positive integer for decommission_timeout
 #                                                   on|off|true|false for rest of features
 #     --get, -g <name>          Outputs the value of the given feature to stdout
-#     --help                    Display help
-#     --version                 Display version
+#     --help, -h                Display help
+#     --version, -v             Display version
 #
 #
 
@@ -56,12 +56,15 @@ module RightScale
     def control(options)
       case options[:action]
       when :get
-        puts FeatureConfigManager.get_value(options[:feature])
+        feature_group, feature = FeatureConfigManager.extract_group_and_feature(options[:feature])
+        puts FeatureConfigManager.get_value(options[:feature], DEFAULTS[feature_group][feature])
       when :set
         FeatureConfigManager.set_value(options[:feature], options[:value]);
       when :list
         puts format_output(DEFAULTS.merge(FeatureConfigManager.list), options[:format])
       end
+    rescue Exception => e
+      fail(e)
     end
 
     def parse_args

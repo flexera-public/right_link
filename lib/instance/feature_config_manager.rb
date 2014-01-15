@@ -53,6 +53,13 @@ module RightScale
       @config
     end
 
+    # name of feature will be passed as package_repositories_freeze
+    # but actual value for feature will be stored in @config['package_repositories']['freeze']
+    def extract_group_and_feature(name)
+      partition = name.rpartition("_")
+      return partition.first, partition.last
+    end
+
 private
     def load_file
       @config = {}
@@ -62,13 +69,6 @@ private
     def save_file
       FileUtils.mkdir_p(File.dirname(CONFIG_YAML_FILE))
       File.open(CONFIG_YAML_FILE, "w") { |config| config.write(@config.to_yaml) }
-    end
-
-    # name of feature will be passed as package_repositories_freeze
-    # but actual value for feature will be stored in @config['package_repositories']['freeze']
-    def extract_group_and_feature(name)
-      partition = name.rpartition("_")
-      return partition.first, partition.last
     end
   end
 end

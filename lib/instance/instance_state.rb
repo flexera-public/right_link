@@ -468,7 +468,7 @@ module RightScale
     # === Return
     # nil:: always return nil
     def self.update_motd()
-      return unless FeatureConfigManager.feature_enabled?('motd_update') || RightScale::Platform.linux?
+      return unless (FeatureConfigManager.feature_enabled?('motd_update') && RightScale::Platform.linux?)
 
       if File.directory?('/etc/update-motd.d')
         #Ubuntu 10.04 and above use a dynamic MOTD update system. In this case we assume
