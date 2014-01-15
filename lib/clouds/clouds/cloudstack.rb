@@ -103,12 +103,3 @@ def is_current_cloud?
   # return ::RightScale::CloudUtilities.can_contact_metadata_server?(source.host, source.port)
   false
 end
-
-# Updates details of cloudstack instance.
-def update_details
-  details = {}
-  hosts = option('metadata_source/hosts')
-  # do not resolve the dhcp lease providr again.  just get it from the cloud host option
-  details[:dhcp_lease_provider_ip] = hosts.first[:host]
-  return details
-end
