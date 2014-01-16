@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2010-2011 RightScale Inc
+# Copyright (c) 2010-2014 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -20,29 +20,19 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-module ::Ohai::Mixin::CloudstackMetadata
-  def fetch_metadata
-    options = {}
-    options[:logger] = ::Ohai::Log
-    cloud_instance = ::RightScale::CloudFactory.instance.create('cloudstack', options)
-    metadata = cloud_instance.build_metadata(:cloud_metadata)
-    hosts = cloud_instance.option('metadata_source/hosts')
-    metadata[:dhcp_lease_provider_ip] = hosts.first[:host]
-    metadata
-  end
-end
+provides 'cloudstack'
+require 'chef/ohai/mixin/rightlink'
 
-extend ::Ohai::Mixin::CloudstackMetadata
+extend ::Ohai::Mixin::RightLink::Metadata
 
 def looks_like_cloudstack?
-  hint?('cloudstack')
+  looks_like_cloudstack = hint?('cloudstack')
+  ::Ohai::Log.debug("looks_like_cloudstack? == #{looks_like_cloudstack.inspect} ")
+  looks_like_cloudstack
 end
 
-if looks_like_cloudstack?
-  ::Ohai::Log.debug('looks_like_cloudstack? == true')
+if looks_like_cloudstack? && (metadata = fetch_metadata)
   cloudstack Mash.new
-  fetch_metadata.each { |k,v| cloudstack[k] = v }
-else
-  ::Ohai::Log.debug('looks_like_cloudstack? == false')
-  false
+  metadata.each { |k,v| cloudstack[k] = v }
+  cloudstack['dhcp_lease_provider_ip'] = dhcp_lease_provider
 end
