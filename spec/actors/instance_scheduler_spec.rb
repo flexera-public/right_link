@@ -121,11 +121,6 @@ describe InstanceScheduler do
       flexmock(RightScale::RightPopen).should_receive(:popen3_async).and_return(true)
     end
 
-    before(:each) do
-      # pre-initialize certificate to prevent EM timeout.
-      ::RightScale::SpecHelper::CertificateInfo.init
-    end
-
     after(:each) do
       # not expecting errors.
       ::RightScale::Log.has_errors?.should be_false

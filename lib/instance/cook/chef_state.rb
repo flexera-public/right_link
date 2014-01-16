@@ -43,7 +43,7 @@ module RightScale
       # @param [TrueClass|FalseClass] reset persisted state if true, load it otherwise
       def init(agent_id, secret, reset)
         return true if initialized? && !reset
-        @@encoder = MessageEncoder.for_agent(agent_id, secret)
+        @@encoder = MessageEncoder::SecretSerializer.new(agent_id, secret)
         @@attributes = {}
         @@past_scripts = []
         if reset

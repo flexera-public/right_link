@@ -177,6 +177,7 @@ describe RightScale::ExecutableSequenceProxy do
         File.delete(mock_output) if File.exists?(mock_output)
         flexmock(subject).instance_variable_set(:@audit_closed, true)
         flexmock(subject).should_receive(:cook_path).and_return(File.join(File.dirname(__FILE__), 'cook_mock.rb'))
+        flexmock(subject).should_receive(:random_password).and_return("secretpw")
         flexmock(subject).should_receive(:succeed).and_return { |*args| stop_em_test }
         flexmock(subject).should_receive(:report_failure).and_return { |*args| puts args.inspect; stop_em_test }
         run_em_test { subject.run }
@@ -186,7 +187,9 @@ describe RightScale::ExecutableSequenceProxy do
           output = File.read(mock_output)
           # the spec setup does some weird stuff with the jsonization of the bundle, so we jump though hoops here to match what was
           # actually sent to the cook utility
-          RightScale::MessageEncoder.for_agent('rs-instance-1-1').decode(output).to_json.should == bundle.to_json
+          if RightScale::Platform.windows?
+            RightScale::MessageEncoder::SecretSerializer.new('rs-instance-1-1', 'secretpw').load(output).to_json.should == bundle.to_json
+          end
         ensure
           (File.delete(mock_output) if File.file?(mock_output)) rescue nil
         end
