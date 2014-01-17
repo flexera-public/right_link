@@ -22,8 +22,8 @@
 
 module ::Ohai::Mixin::RightLink
   module Metadata
-    # Top dir for meta-data, each file is key and content if value.
-    ROOT_DIR = File.join('/','var','spool','cloud','meta-data')
+    VAR_DIR = File.join( RUBY_PLATFORM =~ /mswin|mingw|windows/ ? [ENV['ProgramData'],'RightScale'] : ['/', 'var'] )
+    METADATA_DIR = File.join(VAR_DIR, 'spool','cloud','meta-data')
 
     # Fetch metadata form dir (recursevly).
     # each file name is a key and value it's content
@@ -48,7 +48,7 @@ module ::Ohai::Mixin::RightLink
     # Fetch metadata
     def fetch_metadata
       ::Ohai::Log.debug('Fetching metadata')
-      metadata = fetch_from_dir(ROOT_DIR)
+      metadata = fetch_from_dir(METADATA_DIR)
       ::Ohai::Log.debug("Fetched metadata: #{metadata.inspect}")
       metadata
     rescue
@@ -59,7 +59,7 @@ module ::Ohai::Mixin::RightLink
     # Searches for a file containing dhcp lease information.
     def dhcp_lease_provider
       logger = ::Ohai::Log
-      if os == 'windows'
+      if RUBY_PLATFORM =~ /mswin|mingw|windows/
         timeout = Time.now + 20 * 60  # 20 minutes
         while Time.now < timeout
           ipconfig_data = `ipconfig /all`
