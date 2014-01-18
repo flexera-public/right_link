@@ -25,6 +25,9 @@ require 'encryptor'
 
 module RightScale
   module MessageEncoder
+    # This wrapper class is to let the specs texts pass on windows -- the mock object doesn't
+    # include the serializable class so we must serialize it as JSON. Code was taken from
+    # the right_agent SecureSerializer class
     class Serializer
       def initialize
         @serializer = ::RightScale::Serializer.new
@@ -54,7 +57,7 @@ module RightScale
       # @param [String] identity needed for SecureSerialization usually of the form (rs-instance-1111-1111)
       # @param [String] secret for encoding/decoding
       def initialize(identity, secret)
-        @serializer = ::RightScale::Serializer.new
+        @serializer = ::RightScale::MessageEncoder::Serializer.new
         @identity = identity
         @secret = secret
       end
@@ -68,13 +71,7 @@ module RightScale
         encrypted_data = ::Encryptor.encrypt(serialized_data, :key => @secret)
         printable_data = ::Base64.encode64(encrypted_data)
 
-        # adhere to the SecureSerializer format in case we want to roll this
-        # implementation into that class and distinguish 'secure' encryption
-        # from 'secret' by the presence or absence of 'signature'.
-        #
-        # FIX: do we want to roll them together because it will introduce a
-        # dependency on the encryptor gem?
-        return @serializer.dump({'id' => @identity, 'data' => printable_data, 'encrypted' => true}, :json)
+        return @serializer.dump({'id' => @identity, 'data' => printable_data, 'encrypted' => true})
       end
 
       # Loads an encoded serializable object from text.

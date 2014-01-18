@@ -109,7 +109,14 @@ describe RightScale::ExecutableSequenceProxy do
     end
   end
 
-  def assert_succeeded(expected_environment)
+  def assert_succeeded
+    expected_environment = { 
+      ::RightScale::OptionsBag::OPTIONS_ENV => nil
+    }
+    if RightScale::Platform.windows?
+      expected_environment[::RightScale::ExecutableSequenceProxy::DECRYPTION_KEY_NAME] = "secretpw"
+    end
+
     status = flexmock('status', :success? => true)
     actual_environment = nil
     flexmock(::RightScale::RightPopen).should_receive(:popen3_async).and_return do |cmd, o|
@@ -119,6 +126,8 @@ describe RightScale::ExecutableSequenceProxy do
       o[:target].send(o[:exit_handler], status)
       true
     end
+    flexmock(subject).should_receive(:random_password).and_return("secretpw")
+
     subject.instance_variable_get(:@deferred_status).should == nil
     run_em_test { subject.run; stop_em_test }
     subject.instance_variable_get(:@deferred_status).should == :succeeded
@@ -132,7 +141,7 @@ describe RightScale::ExecutableSequenceProxy do
     let(:decommission_type) { nil }
 
     it 'should run a valid command' do
-      assert_succeeded(::RightScale::OptionsBag::OPTIONS_ENV => nil)
+      assert_succeeded
     end
 
     it 'should find the cook utility' do
@@ -202,7 +211,7 @@ describe RightScale::ExecutableSequenceProxy do
     let(:decommission_type) { ::RightScale::ShutdownRequest::STOP }
 
     it 'should run a valid command' do
-      assert_succeeded(::RightScale::OptionsBag::OPTIONS_ENV => nil)
+      assert_succeeded
     end
   end
 
@@ -210,7 +219,7 @@ describe RightScale::ExecutableSequenceProxy do
     let(:decommission_type) { 'unknown' }
 
     it 'should run a valid command' do
-      assert_succeeded(::RightScale::OptionsBag::OPTIONS_ENV => nil)
+      assert_succeeded
     end
   end
 end
