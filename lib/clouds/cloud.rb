@@ -250,6 +250,16 @@ module RightScale
       @metadata_writers
     end
 
+
+    # Determines if the current instance is running on the cloud which require
+    # additional network configuration(e.g. vscale)
+    #
+    # === Return
+    # result(Boolean):: true if current cloud require additional network configuration, false otherwise
+    def requires_network_config?
+      false
+    end
+
     # Determines if the current instance is running on the cloud indicated by
     # this object.
     #
