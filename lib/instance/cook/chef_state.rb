@@ -188,7 +188,7 @@ module RightScale
         FileUtils.mkdir_p(dir) unless File.directory?(dir)
         File.open(path, 'w') do |f|
           f.flock(File::LOCK_EX)
-          f.write(@@encoder.encode(data))
+          f.write(@@encoder.dump(data))
         end
         true
       end
@@ -203,7 +203,7 @@ module RightScale
       def read_encoded_data(path)
         File.open(path, "r") do |f|
           f.flock(File::LOCK_EX)
-          return @@encoder.decode(f.read)
+          return @@encoder.load(f.read)
         end
       end
     end
