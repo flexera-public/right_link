@@ -23,6 +23,7 @@
 provides 'azure'
 
 require 'chef/ohai/mixin/rightlink'
+require_plugin 'hostname'
 
 def looks_like_azure?
   looks_like_azure = hint?('azure')
@@ -34,4 +35,7 @@ end
 if looks_like_azure?
   azure Mash.new
   azure['public_ip'] = ::Ohai::Mixin::RightLink::CloudUtilities.query_whats_my_ip(:logger=>::Ohai::Log)
+  azure['vm_name'] = self['hostname'] if self['hostname']
+  azure['public_fqdn'] = "#{self['hostname']}.cloudapp.net" if self['hostname']
+
 end
