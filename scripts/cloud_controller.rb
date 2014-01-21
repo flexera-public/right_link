@@ -59,13 +59,6 @@ module RightScale
       exit 1
     end
 
-    # Undecorated formatter to support legacy console output
-    class PlainLoggerFormatter < Logger::Formatter
-      def call(severity, time, program_name, message)
-        return message + "\n"
-      end
-    end
-
     # Parse arguments and run
     def control(options)
       fail("No action specified on the command line.") unless options[:action]
@@ -139,19 +132,6 @@ module RightScale
     def usage
       Usage.scan(__FILE__)
     end
-
-    # Default logger for printing to console
-    def default_logger(verbose)
-      if verbose
-        logger = Logger.new(STDOUT)
-        logger.level = Logger::INFO
-        logger.formatter = PlainLoggerFormatter.new
-      else
-        logger = RightScale::Log
-      end
-      return logger
-    end
-
   end # CloudController
 
 end # RightScale

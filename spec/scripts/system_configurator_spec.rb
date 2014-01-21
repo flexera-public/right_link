@@ -71,7 +71,7 @@ describe RightScale::SystemConfigurator do
     end
   end
 
-  ["hostname", "ssh", "proxy" ].each do |action|
+  ["hostname", "ssh", "proxy", "network" ].each do |action|
     context "system --action=#{action}" do
       it "should configure #{action}" do
         flexmock(subject).should_receive("configure_#{action}".to_sym).once
