@@ -49,3 +49,29 @@ shared_examples_for 'mocks cook' do
   end
 
 end  # 'mocks cook'
+
+class TestLogger
+  attr_reader :logged
+
+  def initialize
+    @logged = {}
+  end
+
+  def info(message)
+    (@logged[:info] ||= []) << message
+  end
+
+  def warn(message, e=nil)
+    (@logged[:warn] ||= []) << message
+  end
+
+  def debug(message, e=nil)
+    (@logged[:debug] ||= []) << message
+  end
+
+  def error(message, e=nil)
+    puts "ERROR: #{message}"
+    (@logged[:error] ||= []) << message
+  end
+end
+
