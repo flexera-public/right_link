@@ -59,17 +59,3 @@ def is_current_cloud?
     false
   end
 end
-
-# Updates the given node with cloudstack details.
-#
-# === Return
-# always true
-def update_details
-  details = {}
-  # rack_connect (and managed?) instances may not have network interfaces for
-  # public ip, so attempt the "what's my ip?" method in these cases.
-  if public_ip = ::RightScale::CloudUtilities.query_whats_my_ip(:logger=>logger)
-    details[:public_ip] = public_ip
-  end
-  return details
-end

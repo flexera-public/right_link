@@ -75,18 +75,3 @@ def is_current_cloud?
   # check against? in the meantime, just say no.
   false
 end
-
-# Updates the given node with azure details.
-#
-# === Return
-# always true
-def update_details
-  details = {}
-  # FIX: there is currently no instance-facing API (i.e. an API which does not
-  # require management credentials) to provide the instance's public IP address
-  # so a workaround is required until the instance-facing API is available.
-  if public_ip = ::RightScale::CloudUtilities.query_whats_my_ip(:logger=>logger)
-    details[:public_ip] = public_ip
-  end
-  return details
-end
