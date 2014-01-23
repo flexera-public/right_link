@@ -61,7 +61,7 @@ group :windows do
     gem 'windows-api', '= 0.4.2'
     gem 'windows-pr', '= 1.2.2'
     gem 'win32-api', '= 1.4.8'
-    gem 'win32-dir', '= 0.4.5'
+    gem 'win32-dir', '= 0.4.6'
     gem 'win32-event', '= 0.6.1'
     gem 'win32-mutex', '= 0.4.1'
     gem 'win32-process', '= 0.7.3'
