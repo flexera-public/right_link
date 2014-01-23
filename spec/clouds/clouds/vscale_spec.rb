@@ -362,10 +362,28 @@ EOF
       let(:nameservers) { [ "8.8.8.8", "8.8.4.4"] }
 
       # TODO: does not verify actuall commands
-      it "adds a namserver" do
-        flexmock(subject).should_receive(:runshell).with("netsh interface ip add dns #{device.inspect} #{nameservers[0]} index=1")
+      it "sets a primary namserver" do
+        cmd = "netsh interface ipv4 set dnsserver name=#{device.inspect} source=static addr=#{nameservers[0]} register=primary validate=no"
+        flexmock(subject).should_receive(:runshell).with(cmd)
         flexmock(subject).should_receive(:nameserver_exists?).and_return(false)
         subject.nameserver_add(nameservers[0], 1, device.inspect)
+      end
+
+      # TODO: does not verify actuall commands
+      it "adds a secondary namserver" do
+        cmd = "netsh interface ipv4 add dnsserver name=#{device.inspect} addr=#{nameservers[1]} index=2 validate=no"
+        flexmock(subject).should_receive(:runshell).with(cmd)
+        flexmock(subject).should_receive(:nameserver_exists?).and_return(false)
+        subject.nameserver_add(nameservers[1], 2, device.inspect)
+      end
+
+
+      # TODO: does not verify actuall commands
+      it "sets a static IP" do
+        cmd = "netsh interface ip set address name=#{device} source=static addr=#{ip} mask=#{netmask} gateway="
+        cmd += gateway ? "#{gateway} gwmetric=1" : "none"
+        flexmock(subject).should_receive(:runshell).with(cmd)
+        subject.configure_network_adaptor(device, ip, netmask, gateway, nameservers)
       end
 
       # TODO: does not verify actuall commands
