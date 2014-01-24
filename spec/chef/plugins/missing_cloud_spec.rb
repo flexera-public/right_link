@@ -24,137 +24,85 @@ require File.expand_path(File.join(File.dirname(__FILE__), 'spec_helper.rb'))
 require 'tempfile'
 
 describe Ohai::System, ' plugin missing_cloud' do
-  it 'should have spec'
 
-  # before(:each) do
-  #   Chef::Config[:file_cache_path] = Dir.mktmpdir
-  #   # configure ohai for RightScale
-  #   RightScale::OhaiSetup.configure_ohai
+  before(:each) do
+    flexmock(::RightScale::AgentConfig).should_receive(:cache_dir).and_return(Dir.mktmpdir)
+    # configure ohai for RightScale
+    RightScale::OhaiSetup.configure_ohai
 
-  #   # ohai to be tested
-  #   @ohai = Ohai::System.new
+    # ohai to be tested
+    @ohai = Ohai::System.new
+    flexmock(@ohai).should_receive(:require_plugin).and_return(true)
 
-  #   @expected_public_ip = "1.1.1.1"
-  #   @expected_private_ip = "10.252.252.10"
-  #   @expected_public_hostname = 'my_public_hostname'
-  #   @expected_local_hostname = 'my_local_hostname'
-  # end
+    @ohai._require_plugin("cloud")
+  end
 
-  # shared_examples_for 'generic cloud' do
-  #   context 'contains generic settings' do
-  #     before(:each) do
-  #       @cloud_instance = flexmock('fake_cloud', :name=> @expected_cloud)
-  #       @cloud_instance.should_receive(:build_metadata).with(:cloud_metadata).and_return(@metadata)
-  #       @cloud_instance.should_receive(:build_metadata).with(:user_metadata).and_return(@userdata)
-  #       @cloud_instance.should_receive(:update_details).and_return(@additionaldata)
-  #       @cloud_factory = flexmock('fake_factory')
-  #       @cloud_factory.should_receive(:create).and_return(@cloud_instance)
-  #       flexmock(RightScale::CloudFactory).should_receive(:instance).and_return(@cloud_factory)
+  context 'on cloudstack' do
+    before(:each) do
+      @ohai[:cloudstack] = Mash.new()
+    end
 
-  #       flexmock(@ohai).should_receive(:require_plugin).and_return(true)
+    it 'should populate cloud provider' do
+      @ohai._require_plugin("missing_cloud")
+      @ohai[:cloud][:provider].should == 'cloudstack'
+    end
 
-  #       @ohai._require_plugin("cloud")
-  #     end
+    it 'should populate cloud public ip' do
+      @ohai[:cloudstack][:public_ipv4] = "1.1.1.1"
+      @ohai._require_plugin("missing_cloud")
 
-  #     it 'should not define other cloud plugins' do
-  #       %w{ ec2 rackspace cloudstack eucalyptus }.select { |cloud| cloud != @expected_cloud }.each do |cloud_name|
-  #         @ohai[cloud_name.to_sym].should be_nil
-  #       end
-  #     end
+      @ohai[:cloud][:public_ipv4].should ==  "1.1.1.1"
+      @ohai[:cloud][:public_ips].first.should ==  "1.1.1.1"
+    end
 
-  #     it 'should populate cloud provider' do
-  #       @ohai[:cloud][:provider].should == @expected_cloud
-  #     end
+    it 'should not populate cloud public ip if it is nul' do
+      @ohai[:cloudstack][:public_ipv4] = nil
+      @ohai._require_plugin("missing_cloud")
 
-  #     it 'should populate cloud public ip' do
-  #       @ohai[:cloud][:public_ipv4].should == @expected_public_ip
-  #       @ohai[:cloud][:public_ips].first.should == @expected_public_ip
-  #     end
+      @ohai[:cloud][:public_ipv4].should be_nil
+      @ohai[:cloud][:public_ips].should ==  []
+    end
 
-  #     it 'should populate cloud private ip' do
-  #       @ohai[:cloud][:local_ipv4].should == @expected_private_ip
-  #       @ohai[:cloud][:private_ips].first.should == @expected_private_ip
-  #     end
 
-  #     it 'should populate cloud public hostname' do
-  #       @ohai[:cloud][:public_hostname].should == @expected_public_hostname
-  #     end
+    it 'should populate cloud private ip' do
+      @ohai[:cloudstack][:local_ipv4] = "10.252.252.10"
+      @ohai._require_plugin("missing_cloud")
+      @ohai[:cloud][:local_ipv4].should == "10.252.252.10"
+      @ohai[:cloud][:private_ips].first.should == "10.252.252.10"
+    end
 
-  #     it 'should populate cloud local hostname' do
-  #       @ohai[:cloud][:local_hostname].should == @expected_local_hostname
-  #     end
-  #   end
-  # end
+    it 'should not populate cloud private ip if it is nul' do
+      @ohai[:cloudstack][:local_ipv4] = nil
+      @ohai._require_plugin("missing_cloud")
 
-  # context 'no cloud' do
-  #   before :each do
-  #     flexmock(@ohai).should_receive(:require_plugin).and_return(true)
+      @ohai[:cloud][:local_ipv4].should be_nil
+      @ohai[:cloud][:private_ips].should ==  []
+    end
 
-  #     cloud_file_path = RightScale::AgentConfig.cloud_file_path
-  #     flexmock(File).should_receive(:read).with(cloud_file_path).and_return('no_cloud')
-  #     flexmock(File).should_receive(:file?).with(cloud_file_path).and_return(true)
 
-  #     @ohai._require_plugin("cloud")
-  #   end
+    it 'should populate cloud public hostname' do
+      @ohai[:cloudstack][:public_hostname] = "my_public_hostname"
+      @ohai._require_plugin("missing_cloud")
+      @ohai[:cloud][:public_hostname].should == "my_public_hostname"
+    end
 
-  #   it 'should NOT populate the cloud data' do
-  #     @ohai[:cloud].should be_nil
-  #   end
-  # end
+    it 'should populate cloud local hostname' do
+      @ohai[:cloudstack][:local_hostname] = "my_local_hostname"
+      @ohai._require_plugin("missing_cloud")
+      @ohai[:cloud][:local_hostname].should == "my_local_hostname"
+    end
 
-  # context 'on EC2' do
-  #   before(:each) do
-  #     @expected_cloud = 'ec2'
-  #     @metadata = {'public_ipv4' => @expected_public_ip,
-  #                  'local_ipv4' => @expected_private_ip,
-  #                  'public_hostname' => @expected_public_hostname,
-  #                  'local_hostname' => @expected_local_hostname}
-  #     @userdata = {}
-  #     @additionaldata = {}
-  #   end
+  end
 
-  #   it_should_behave_like 'generic cloud'
-  # end
+  context 'on softlayer' do
+    before(:each) do
+      @ohai[:softlayer] = Mash.new{}
+    end
 
-  # context 'on Rackspace' do
-  #   before(:each) do
-  #     @expected_cloud = "rackspace"
-  #     @metadata = ""
-  #     @userdata = ""
-  #     @additionaldata = {:public_ip => @expected_public_ip,
-  #                        :private_ip => @expected_private_ip,
-  #                        :public_hostname => @expected_public_hostname,
-  #                        :local_hostname => @expected_local_hostname}
-  #   end
+    it 'should populate cloud provider' do
+      @ohai._require_plugin("missing_cloud")
+      @ohai[:cloud][:provider].should == 'softlayer'
+    end
 
-  #   it_should_behave_like 'generic cloud'
-  # end
-
-  # context 'on Eucalyptus' do
-  #   before(:each) do
-  #     @expected_cloud = "eucalyptus"
-  #     @metadata = {:public_ipv4 => @expected_public_ip,
-  #                  :local_ipv4 => @expected_private_ip,
-  #                  'public_hostname' => @expected_public_hostname,
-  #                  'local_hostname' => @expected_local_hostname}
-  #     @userdata = {}
-  #     @additionaldata = {}
-  #   end
-
-  #   it_should_behave_like 'generic cloud'
-  # end
-
-  # context 'on cloudstack' do
-  #   before(:each) do
-  #     @expected_cloud = "cloudstack"
-  #     @metadata = {:"public-ipv4" => @expected_public_ip,
-  #                  :"local-ipv4" => @expected_private_ip,
-  #                  :public_hostname => @expected_public_hostname,
-  #                  :local_hostname => @expected_local_hostname}
-  #     @userdata = {}
-  #     @additionaldata = {}
-  #   end
-
-  #   it_should_behave_like 'generic cloud'
-  # end
+  end
 end

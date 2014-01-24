@@ -45,7 +45,7 @@ module RightScale
       ::Ohai::Config.log_level(Log.level_from_sym(Log.level))
 
       # getting last one, in order  to suuceed in Ohai::System#hint? file detection
-      if ( ( hints_path = ::Ohai::Config[:hints_path].last ) &&
+      if ( ( hints_path = ::Ohai::Config[:hints_path].first ) &&
            ( ::RightScale::CloudFactory::UNKNOWN_CLOUD_NAME != ( cloud_name = ::RightScale::CloudFactory.instance.default_cloud_name ) ) )
         ::FileUtils.mkdir_p(hints_path) unless File.directory?(hints_path)
         cloud_hint_file = File.join(hints_path, "#{cloud_name}.json")

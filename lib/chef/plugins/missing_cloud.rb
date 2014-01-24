@@ -64,12 +64,6 @@ def on_softlayer?
 end
 
 def get_softlayer_values
-  cloud[:public_ipv4] = softlayer['public_ipv4']
-  cloud[:public_ips] << softlayer['public_ipv4'] if softlayer['public_ipv4']
-  cloud[:local_ipv4] = softlayer['local_ipv4']
-  cloud[:private_ips] << softlayer['local_ipv4'] if softlayer['local_ipv4']
-  cloud[:public_hostname] = softlayer['public_hostname']
-  cloud[:local_hostname] = softlayer['local_hostname']
   cloud[:provider] = 'softlayer'
 end
 
