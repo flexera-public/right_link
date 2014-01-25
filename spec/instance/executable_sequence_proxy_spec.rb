@@ -109,7 +109,14 @@ describe RightScale::ExecutableSequenceProxy do
     end
   end
 
-  def assert_succeeded(expected_environment)
+  def assert_succeeded
+    expected_environment = { 
+      ::RightScale::OptionsBag::OPTIONS_ENV => nil
+    }
+    if RightScale::Platform.windows?
+      expected_environment[::RightScale::ExecutableSequenceProxy::DECRYPTION_KEY_NAME] = "secretpw"
+    end
+
     status = flexmock('status', :success? => true)
     actual_environment = nil
     flexmock(::RightScale::RightPopen).should_receive(:popen3_async).and_return do |cmd, o|
@@ -119,6 +126,8 @@ describe RightScale::ExecutableSequenceProxy do
       o[:target].send(o[:exit_handler], status)
       true
     end
+    flexmock(subject).should_receive(:random_password).and_return("secretpw")
+
     subject.instance_variable_get(:@deferred_status).should == nil
     run_em_test { subject.run; stop_em_test }
     subject.instance_variable_get(:@deferred_status).should == :succeeded
@@ -132,7 +141,7 @@ describe RightScale::ExecutableSequenceProxy do
     let(:decommission_type) { nil }
 
     it 'should run a valid command' do
-      assert_succeeded(::RightScale::OptionsBag::OPTIONS_ENV => nil)
+      assert_succeeded
     end
 
     it 'should find the cook utility' do
@@ -177,6 +186,7 @@ describe RightScale::ExecutableSequenceProxy do
         File.delete(mock_output) if File.exists?(mock_output)
         flexmock(subject).instance_variable_set(:@audit_closed, true)
         flexmock(subject).should_receive(:cook_path).and_return(File.join(File.dirname(__FILE__), 'cook_mock.rb'))
+        flexmock(subject).should_receive(:random_password).and_return("secretpw")
         flexmock(subject).should_receive(:succeed).and_return { |*args| stop_em_test }
         flexmock(subject).should_receive(:report_failure).and_return { |*args| puts args.inspect; stop_em_test }
         run_em_test { subject.run }
@@ -186,7 +196,9 @@ describe RightScale::ExecutableSequenceProxy do
           output = File.read(mock_output)
           # the spec setup does some weird stuff with the jsonization of the bundle, so we jump though hoops here to match what was
           # actually sent to the cook utility
-          RightScale::MessageEncoder.for_agent('rs-instance-1-1').decode(output).to_json.should == bundle.to_json
+          if RightScale::Platform.windows?
+            RightScale::MessageEncoder::SecretSerializer.new('rs-instance-1-1', 'secretpw').load(output).to_json.should == bundle.to_json
+          end
         ensure
           (File.delete(mock_output) if File.file?(mock_output)) rescue nil
         end
@@ -199,7 +211,7 @@ describe RightScale::ExecutableSequenceProxy do
     let(:decommission_type) { ::RightScale::ShutdownRequest::STOP }
 
     it 'should run a valid command' do
-      assert_succeeded(::RightScale::OptionsBag::OPTIONS_ENV => nil)
+      assert_succeeded
     end
   end
 
@@ -207,7 +219,7 @@ describe RightScale::ExecutableSequenceProxy do
     let(:decommission_type) { 'unknown' }
 
     it 'should run a valid command' do
-      assert_succeeded(::RightScale::OptionsBag::OPTIONS_ENV => nil)
+      assert_succeeded
     end
   end
 end

@@ -43,7 +43,7 @@ module RightScale
       # @param [TrueClass|FalseClass] reset persisted state if true, load it otherwise
       def init(agent_id, secret, reset)
         return true if initialized? && !reset
-        @@encoder = MessageEncoder.for_agent(agent_id, secret)
+        @@encoder = MessageEncoder::SecretSerializer.new(agent_id, secret)
         @@attributes = {}
         @@past_scripts = []
         if reset
@@ -188,7 +188,7 @@ module RightScale
         FileUtils.mkdir_p(dir) unless File.directory?(dir)
         File.open(path, 'w') do |f|
           f.flock(File::LOCK_EX)
-          f.write(@@encoder.encode(data))
+          f.write(@@encoder.dump(data))
         end
         true
       end
@@ -203,7 +203,7 @@ module RightScale
       def read_encoded_data(path)
         File.open(path, "r") do |f|
           f.flock(File::LOCK_EX)
-          return @@encoder.decode(f.read)
+          return @@encoder.load(f.read)
         end
       end
     end

@@ -31,6 +31,8 @@ module RightScale
       :tag_query_timeout => 120
     }
 
+    DECRYPTION_KEY_NAME = "EXECUTABLE_BUNDLE_DECRYPTION_KEY"
+
     include EM::Deferrable
 
     # Wait up to 20 seconds to process pending audits after child process exited
@@ -89,6 +91,7 @@ module RightScale
       thread_name
     end
 
+
     # Run given executable bundle
     # Asynchronous, set deferrable object's disposition
     #
@@ -117,13 +120,17 @@ module RightScale
           end
         end
 
-        input_text = "#{MessageEncoder.for_agent(InstanceState.identity).encode(@context.payload)}\n"
+        secret_key = random_password(32)
 
         # TEAL FIX: we have an issue with the Windows EM implementation not
         # allowing both sockets and named pipes to share the same file/socket
         # id. sending the input on the command line is a temporary workaround.
         platform = RightScale::Platform
+
+
         if platform.windows?
+          input_text = "#{MessageEncoder::SecretSerializer.new(InstanceState.identity, secret_key).dump(@context.payload)}\n"
+
           input_path = File.normalize_path(File.join(platform.filesystem.temp_dir, "rs_executable_sequence#{@thread_name}.txt"))
           File.open(input_path, "w") { |f| f.write(input_text) }
           input_text = nil
@@ -132,6 +139,9 @@ module RightScale
           input_path = input_path.gsub("/", "\\")
           cmd = "#{cmd_exe_path} /C type \"#{input_path}\" | #{ruby_exe_path} #{cook_path_and_arguments}"
         else
+          input_text = "#{MessageEncoder::Serializer.new.dump(@context.payload)}\n"
+
+
           # WARNING - always ensure cmd is a String, never an Array of command parts.
           #
           # right_popen handles single-String arguments using "sh -c #{cmd}" which ensures
@@ -149,6 +159,10 @@ module RightScale
             ::RightScale::OptionsBag::OPTIONS_ENV =>
               ::ENV[::RightScale::OptionsBag::OPTIONS_ENV]
           }
+
+          if platform.windows?
+            environment[DECRYPTION_KEY_NAME] = secret_key
+          end
 
           # spawn
           RightScale::RightPopen.popen3_async(
@@ -173,6 +187,15 @@ module RightScale
     def cook_path
       relative_path = File.join(File.dirname(__FILE__), '..', '..', 'bin', 'cook_runner')
       return File.normalize_path(relative_path)
+    end
+
+
+    # Random password generator, used to serialize the ExecutableBundle
+    #
+    # === Return
+    # length(Integer):: Length of password as hexadecimal characters
+    def random_password(length)
+      Array.new(length/2) { rand(256) }.pack('C*').unpack('H*').first
     end
 
     # Command line fragment for the cook script path and any arguments.
