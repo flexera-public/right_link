@@ -234,7 +234,7 @@ module RightScale
       when 0
         RightScale::Log.info("LoginUserManager modified #{username} successfully")
       else
-        RightScale::Log.error("Failed to modify user #{username}")
+        RightScale::Log.error("LoginUserManager failed to modify #{username}")
       end
 
       true
