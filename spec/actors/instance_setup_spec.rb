@@ -710,39 +710,42 @@ describe InstanceSetup do
     before(:each) do
       @sender = flexmock("sender", :message_received => true)
       @reenroller = flexmock(RightScale::ReenrollManager)
-    end
-
-    it 'should go online when become connected' do
       boot_to_operational
       flexmock(RightScale::Sender).should_receive(:instance).and_return(@sender)
-      @sender.should_receive(:disable_offline_mode).once
-      @setup.update_status(:api, :connected)
     end
 
-    it 'should go offline when become disconnected' do
-      boot_to_operational
-      flexmock(RightScale::Sender).should_receive(:instance).and_return(@sender)
-      @sender.should_receive(:enable_offline_mode).once
-      @setup.update_status(:api, :disconnected)
+    [:auth, :api, :broker].each do |type|
+      context "from #{type}" do
+        it 'should go online when become connected' do
+          @sender.should_receive(:disable_offline_mode).once
+          @setup.update_status(type, :connected)
+        end
+
+        it 'should go offline when become disconnected' do
+          @sender.should_receive(:enable_offline_mode).once
+          @setup.update_status(type, :disconnected)
+        end
+
+        it 'should re-enroll when connection fails' do
+          flexmock(RightScale::Log).should_receive(:error).with("RightNet connectivity failure for #{type}, need to re-enroll").once
+          @sender.should_receive(:enable_offline_mode).never
+          @reenroller.should_receive(:vote).times(3)
+          @setup.update_status(type, :failed)
+        end
+
+        it 'should log error if status change is unrecognized' do
+          flexmock(RightScale::Log).should_receive(:error).with("Unrecognized state for #{type}: bogus").once
+          @sender.should_receive(:enable_offline_mode).never
+          @sender.should_receive(:disable_offline_mode).never
+          @reenroller.should_receive(:vote).never
+          @setup.update_status(type, :bogus)
+        end
+      end
     end
 
-    it 'should re-enroll when connection fails' do
-      boot_to_operational
-      flexmock(RightScale::Sender).should_receive(:instance).and_return(@sender)
-      flexmock(RightScale::Log).should_receive(:error).with("RightNet connectivity failure for api, need to re-enroll").once
+    it 'should not go offline when router becomes disconnected' do
       @sender.should_receive(:enable_offline_mode).never
-      @reenroller.should_receive(:vote).times(3)
-      @setup.update_status(:api, :failed)
-    end
-
-    it 'should log error if status change is unrecognized' do
-      boot_to_operational
-      flexmock(RightScale::Sender).should_receive(:instance).and_return(@sender)
-      flexmock(RightScale::Log).should_receive(:error).with("Unrecognized state for router: bogus").once
-      @sender.should_receive(:enable_offline_mode).never
-      @sender.should_receive(:disable_offline_mode).never
-      @reenroller.should_receive(:vote).never
-      @setup.update_status(:router, :bogus)
+      @setup.update_status(:router, :disconnected)
     end
   end
 end

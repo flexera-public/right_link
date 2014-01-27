@@ -100,6 +100,7 @@ class InstanceSetup
   end
 
   # Handle status update from agent by adjusting offline mode or re-enrolling
+  # Ignore router disconnects since they do not prevent sending requests
   #
   # === Parameters
   # type(Symbol):: Type of client: :auth, :api, :router, :broker
@@ -108,19 +109,21 @@ class InstanceSetup
   # === Return
   # true:: Always return true
   def update_status(type, state)
-    case state
-    when :connected
-      RightScale::Sender.instance.disable_offline_mode
-    when :disconnected
-      RightScale::Sender.instance.enable_offline_mode
-    when :failed
-      RightScale::Log.error("RightNet connectivity failure for #{type}, need to re-enroll")
-      RightScale::ReenrollManager.vote
-      RightScale::ReenrollManager.vote
-      RightScale::ReenrollManager.vote
-    when :authorized, :unauthorized, :expired, :closing
-    else
-      RightScale::Log.error("Unrecognized state for #{type}: #{state}")
+    if [:auth, :api, :broker].include?(type)
+      case state
+      when :connected
+        RightScale::Sender.instance.disable_offline_mode
+      when :disconnected
+        RightScale::Sender.instance.enable_offline_mode
+      when :failed
+        RightScale::Log.error("RightNet connectivity failure for #{type}, need to re-enroll")
+        RightScale::ReenrollManager.vote
+        RightScale::ReenrollManager.vote
+        RightScale::ReenrollManager.vote
+      when :authorized, :unauthorized, :expired, :closing
+      else
+        RightScale::Log.error("Unrecognized state for #{type}: #{state}")
+      end
     end
     true
   end
