@@ -36,7 +36,22 @@ require File.normalize_path(File.join(BASE_DIR, 'chef', 'right_providers'))
 require File.normalize_path(File.join(BASE_DIR, 'chef', 'plugins'))
 require File.normalize_path(File.join(BASE_DIR, 'repo_conf_generators'))
 
-SecureSerializerInitializer.init('instance', @identity)
+# Set current revision of RightLink for reporting in stats
+@revision = "RightLink v#{RightLink.version}"
+
+# Create authorization client and setup HTTP communication
+begin
+  setup_http(RightScale::InstanceAuthClient.new(@options))
+rescue BalancedHttpClient::NotResponding, Exceptions::Unauthorized => e
+  if @mode == :http
+    Log.error("Re-enrolling due to authorization failure (#{e.message})")
+    ReenrollManager.reenroll!
+  else
+    Log.error("Ignoring HTTP authorization failure since running in AMQP mode (#{e.message})")
+  end
+end
+
+SecureSerializerInitializer.init('instance', @identity) if @mode == :amqp
 
 # Initialize any singletons that have dependencies on non-singletons
 AgentTagManager.instance.agent = self
@@ -60,10 +75,10 @@ cmd_opts = CommandRunner.start(CommandConstants::BASE_INSTANCE_AGENT_SOCKET_PORT
       FileUtils.chmod(0600, pid_file.cookie_file)
     end
   rescue Exception => e
-    RightScale::Log.error("Failed to customize cookie file due to #{e.class.name}: #{e.message}")
-    RightScale::Log.error(e.backtrace.join("\n"))
+    RightScale::Log.error("Failed to customize cookie file", e, :trace)
   end
 end
+
 # Initialize shutdown request state
 ShutdownRequest.init(scheduler)
 
@@ -74,6 +89,3 @@ OptionsBag.store(@options.merge(cmd_opts))
 # The file 'right_link_env.rb' should be generated before the RightLink agent is started
 # It can contain code generated dynamically e.g. from the cloud user data
 instance_eval(IO.read(RIGHT_LINK_ENV)) if File.file?(RIGHT_LINK_ENV)
-
-# Hook up instance setup actor so it gets called back whenever the AMQP connection fails
-@broker.connection_status { |status| setup.connection_status(status) }

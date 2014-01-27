@@ -36,7 +36,7 @@ module RightScale
     #   :conn(EM::Connection):: Connection used to send reply
     #   :options(Hash):: Test command payload and options:
     #     :test(String):: Test name
-    #     :type(Symbol):: :send_push, :send_persistent_push, :send_retryable_request, or :send_persistent_request
+    #     :type(Symbol):: :send_push or :send_request
     #     :index(Integer):: Starting index for iteration, defaults to 0
     #     :times(Integer):: Number of times to send message
     #     :exit(Integer):: Index at which core agent is to exit, if at all

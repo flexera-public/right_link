@@ -193,7 +193,7 @@ module RightScale
         # Locking account to prevent warning os SUSE(it complains on unlocking non-locked account)
         modify_user(username, true, shell)
 
-        RightScale::Log.info "LoginUserManager created #{username} successfully"
+        RightScale::Log.info("LoginUserManager created #{username} successfully")
       else
         raise RightScale::LoginManager::SystemConflict, "Failed to create user #{username}"
       end
@@ -232,9 +232,9 @@ module RightScale
 
       case result.exitstatus
       when 0
-        RightScale::Log.info "LoginUserManager modified #{username} successfully"
+        RightScale::Log.info("LoginUserManager modified #{username} successfully")
       else
-        RightScale::Log.error "Failed to modify user #{username}"
+        RightScale::Log.error("LoginUserManager failed to modify #{username}")
       end
 
       true

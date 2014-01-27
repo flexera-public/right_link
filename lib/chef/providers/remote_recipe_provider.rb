@@ -55,7 +55,7 @@ class Chef
                    end
           Chef::Log.info("Scheduling execution of #{@new_resource.recipe.inspect} on #{target}")
           recipients.each do |recipient|
-            RightScale::Cook.instance.send_push('/instance_scheduler/execute', payload, recipient)
+            RightScale::Cook.instance.send_push('/instance_scheduler/execute', payload, :agent_id => recipient)
           end
         end
         if tags && !tags.empty?

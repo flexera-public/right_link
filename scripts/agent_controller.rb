@@ -55,10 +55,12 @@
 #      --shutdown, -S [AGENT]     Send a terminate request to agent named AGENT,
 #                                 defaults to 'instance'
 #      --status, -U               List running agents on local machine
-#      --identity, -i ID          Use base id ID to build agent's identity
-#      --token, -t TOKEN          Use token TOKEN to build agent's identity
-#      --prefix, -x PREFIX        Use prefix PREFIX to build agent's identity
-#      --type TYPE                Use agent type TYPE to build agent's' identity,98589
+#      --identity, -i ID          Use this as base ID to build agent's identity
+#      --token, -t TOKEN          Use this token to build agent's identity with it plugging
+#                                 directly in unless --secure-identity is specified
+#      --secure-identity, -S      Derive token used in agent identity from given TOKEN and ID
+#      --prefix, -x PREFIX        Use this prefix to build agent's identity
+#      --type TYPE                Use this agent type to build agent's' identity;
 #                                 defaults to AGENT with any trailing '_[0-9]+' removed
 #      --list, -l                 List all configured agents
 #      --user, -u USER            Set AMQP user

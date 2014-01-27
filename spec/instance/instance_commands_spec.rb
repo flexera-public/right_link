@@ -65,7 +65,7 @@ describe RightScale::InstanceCommands do
       it 'should execute locally via forwarder' do
         options = {:recipe => "recipe"}
         payload = options.merge(:agent_identity => @agent_identity)
-        @sender.should_receive(:send_persistent_request).
+        @sender.should_receive(:send_request).
                 with("/forwarder/schedule_recipe", payload, nil, Proc).once
         @commands.send(:run_recipe_command, {:conn => 42, :options => options}).should be_true
       end
@@ -75,7 +75,7 @@ describe RightScale::InstanceCommands do
         options = {:recipe => "recipe"}
         payload = options.merge(:agent_identity => @agent_identity)
         options.merge!(targets)
-        @sender.should_receive(:send_persistent_push).
+        @sender.should_receive(:send_push).
                 with("/instance_scheduler/execute", payload, targets).once
         flexmock(RightScale::CommandIO.instance).should_receive(:reply).once
         @commands.send(:run_recipe_command, {:conn => 42, :options => options}).should be_true
@@ -88,7 +88,7 @@ describe RightScale::InstanceCommands do
       it 'should execute locally via forwarder' do
         options = {:right_script => "right script"}
         payload = options.merge(:agent_identity => @agent_identity)
-        @sender.should_receive(:send_persistent_request).
+        @sender.should_receive(:send_request).
                 with("/forwarder/schedule_right_script", payload, nil, Proc).once
         @commands.send(:run_right_script_command, {:conn => 42, :options => options}).should be_true
       end
@@ -98,7 +98,7 @@ describe RightScale::InstanceCommands do
         options = {:right_script => "right script"}
         payload = options.merge(:agent_identity => @agent_identity)
         options.merge!(targets)
-        @sender.should_receive(:send_persistent_push).
+        @sender.should_receive(:send_push).
                 with("/instance_scheduler/execute", payload, targets).once
         flexmock(RightScale::CommandIO.instance).should_receive(:reply).once
         @commands.send(:run_right_script_command, {:conn => 42, :options => options}).should be_true

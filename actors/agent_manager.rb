@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2009-2011 RightScale Inc
+# Copyright (c) 2009-2014 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -31,9 +31,9 @@ AgentManager.class_eval do
 
   on_exception { |_, _, _| }
 
-  expose :record_fault, :reenroll
+  expose :record_fault, :restart, :reenroll
 
-  # Process fault (i.e. mapper failed to decrypt one of our packets)
+  # Process fault (i.e. router failed to decrypt one of our packets)
   # Vote for re-enrollment
   #
   # === Return
@@ -43,46 +43,32 @@ AgentManager.class_eval do
     success_result
   end
 
-  # Force agent to reenroll now
+  # Force agent to restart now
+  # Optionally reconfigure agent before doing so
+  #
+  # === Parameters
+  # options(Hash|NilClass):: Agent configuration option changes
   #
   # === Return
   # (RightScale::OperationResult):: Always returns success
-  def reenroll(_)
-    RightScale::ReenrollManager.reenroll
+  def restart(options)
+    @agent.update_configuration(options) if options.is_a?(Hash) && options.any?
+    @agent.terminate("remote restart")
     success_result
   end
 
-  # Process exception raised by handling of packet
-  # If it's a serialization error and the packet has a valid signature, vote for re-enroll
+  # Force agent to reenroll now
+  # Optionally reconfigure agent before doing so
   #
   # === Parameters
-  # e(Exception):: Exception to be analyzed
-  # msg(String):: Serialized message that triggered error
+  # options(Hash|NilClass):: Agent configuration option changes
   #
   # === Return
-  # true:: Always return true
-  def self.process_exception(e, msg)
-    if e.is_a?(RightScale::Serializer::SerializationError)
-      begin
-        serializer = RightScale::Serializer.new
-        data = serializer.load(msg)
-        sig = RightScale::Signature.from_data(data['signature'])
-        @cert ||= RightScale::Certificate.load(RightScale::AgentConfig.certs_file('mapper.cert'))
-        RightScale::ReenrollManager.vote if sig.match?(@cert)
-      rescue Exception => _
-        RightScale::Log.error("Failed processing serialization error", e)
-      end
-    end
-    true
-  end
-
-  # Process request to restart agent by voting to reenroll
-  #
-  # === Return
-  # true:: Always return true
-  def self.process_restart
-    RightScale::ReenrollManager.vote
-    true
+  # (RightScale::OperationResult):: Always returns success
+  def reenroll(options)
+    @agent.update_configuration(options) if options.is_a?(Hash) && options.any?
+    RightScale::ReenrollManager.reenroll!
+    success_result
   end
 
 end
