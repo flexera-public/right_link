@@ -169,6 +169,7 @@ module RightScale
         begin
           if select_mode(options) == :http
             update_configuration(:mode => :http, :api_url => options[:api_url])
+            # Remove the certs directory to signal bin/deploy that in :http mode
             FileUtils.rm_rf(AgentConfig.certs_dir)
             Log.info('No RightLink enrollment required, using HTTP for RightNet communication.')
             return 0
