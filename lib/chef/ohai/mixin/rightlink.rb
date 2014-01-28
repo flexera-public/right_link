@@ -54,7 +54,7 @@ module ::Ohai::Mixin::RightLink
       raise ArgumentError.new("expected_ip is invalid") if expected_ip && !(expected_ip =~ IP_ADDRESS_REGEX)
       unanimous = options[:unanimous] || false
       host_name = options[:host_name] || DEFAULT_WHATS_MY_IP_HOST_NAME
-      logger = options[:logger] || Logger.new(::RightScale::Platform::Shell::NULL_OUTPUT_NAME)
+      logger = options[:logger] || Logger.new()
       timeout = options[:timeout] || DEFAULT_WHATS_MY_IP_TIMEOUT
       retry_delay = options[:retry_delay] || DEFAULT_WHATS_MY_IP_RETRY_DELAY
 
@@ -125,13 +125,70 @@ module ::Ohai::Mixin::RightLink
     end
   end
 
-  module Metadata
-    VAR_DIR = File.join( RUBY_PLATFORM =~ /mswin|mingw|windows/ ? [ENV['ProgramData'],'RightScale'] : ['/', 'var'] )
-    METADATA_DIR = File.join(VAR_DIR, 'spool','cloud','meta-data')
 
+  module AzureMetadata
+
+    def query_whats_my_ip(opts)
+      CloudUtilities::query_whats_my_ip(opts)
+    end
+
+    def tcp_test_winrm(ip_addr, port, &block)
+      socket = TCPSocket.new(hostname, port)
+      ::Ohai::Log.debug("WinRM accepting connections on #{fqdn}")
+      yield if block
+      true
+    rescue SocketError
+      sleep 2
+      false
+    rescue Errno::ETIMEDOUT
+      false
+    rescue Errno::EPERM
+      false
+    rescue Errno::ECONNREFUSED
+      sleep 2
+      false
+    rescue Errno::EHOSTUNREACH
+      sleep 2
+      false
+    rescue Errno::ENETUNREACH
+      sleep 2
+      false
+    ensure
+      socket && socket.close
+    end
+
+    def tcp_test_ssh(fqdn, sshport, &block)
+      socket = TCPSocket.new(fqdn, sshport)
+      readable = IO.select([socket], nil, nil, 5)
+      if readable
+        ::Ohai::Log.debug("sshd accepting connections on #{fqdn}, banner is #{socket.gets}")
+        yield if block
+        true
+      else
+        false
+      end
+    rescue SocketError
+      sleep 2
+      false
+    rescue Errno::ETIMEDOUT
+      false
+    rescue Errno::EPERM
+      false
+    rescue Errno::ECONNREFUSED
+      sleep 2
+      false
+    rescue Errno::EHOSTUNREACH
+      sleep 2
+      false
+    ensure
+      socket && socket.close
+    end
+  end
+
+  module DirMetadata
     # Fetch metadata form dir (recursevly).
     # each file name is a key and value it's content
-    def fetch_from_dir(metadata_dir, metadata = {})
+    def self.fetch_from_dir(metadata_dir, metadata = {})
       raise "Meta-data dir does not exist: #{metadata_dir}" unless File.directory?(metadata_dir)
       ::Ohai::Log.debug('Fetching from meta-data dir: #{metadata_dir}')
       metadata = {}
@@ -149,10 +206,17 @@ module ::Ohai::Mixin::RightLink
       metadata
     end
 
+    # Get default RightLink meta-data dir location
+    def rightlink_metadata_dir
+      var_dir = File.join( RUBY_PLATFORM =~ /mswin|mingw|windows/ ? [ENV['ProgramData'],'RightScale'] : ['/', 'var'] )
+      metadata_dir = File.join(var_dir, 'spool','cloud','meta-data')
+      metadata_dir
+    end
+
     # Fetch metadata
-    def fetch_metadata
+    def fetch_metadata(metadata_dir)
       ::Ohai::Log.debug('Fetching metadata')
-      metadata = fetch_from_dir(METADATA_DIR)
+      metadata = DirMetadata::fetch_from_dir(metadata_dir)
       ::Ohai::Log.debug("Fetched metadata: #{metadata.inspect}")
       metadata
     rescue

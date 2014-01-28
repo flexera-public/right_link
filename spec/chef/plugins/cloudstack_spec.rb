@@ -24,5 +24,56 @@ require File.expand_path(File.join(File.dirname(__FILE__), 'spec_helper.rb'))
 require 'tempfile'
 
 describe Ohai::System, ' plugin cloudstack' do
-  it 'should have specs'
+  let (:fetched_metadata) {
+    {
+      'public_ipv4' => '1.2.3.4',
+      'private_ipv4' => '192.168.0.1',
+      'public_hostname' => 'public_hostname'
+    }
+  }
+
+  let (:rightlink_metadata_dir) { 'rightlink_metadata_dir' }
+
+  before(:each) do
+    flexmock(::RightScale::AgentConfig).should_receive(:cache_dir).and_return(Dir.mktmpdir)
+    # configure ohai for RightScale
+    RightScale::OhaiSetup.configure_ohai
+
+    # ohai to be tested
+    @ohai = Ohai::System.new
+    flexmock(@ohai).should_receive(:require_plugin).and_return(true)
+    flexmock(@ohai).should_receive(:rightlink_metadata_dir).and_return(rightlink_metadata_dir)
+  end
+
+  it 'create cloudstack attribute if hint file exists and metadata fetch' do
+    flexmock(@ohai).should_receive(:hint?).with('cloudstack').and_return({}).once
+    flexmock(@ohai).should_receive(:fetch_metadata).with(rightlink_metadata_dir).and_return(fetched_metadata).once
+    @ohai._require_plugin("cloudstack")
+    @ohai[:cloudstack].should_not be_nil
+    @ohai[:cloudstack].should == fetched_metadata
+  end
+
+  it 'will not fetch metatada  on non-cloudstack' do
+    flexmock(@ohai).should_receive(:hint?).with('cloudstack').and_return(nil).once
+    flexmock(@ohai).should_not_receive(:fetch_metadata)
+    @ohai._require_plugin("cloudstack")
+    @ohai[:cloudstack].should be_nil
+  end
+
+  it 'will not provide cloudstack node if metatada not exist' do
+    flexmock(@ohai).should_receive(:hint?).with('cloudstack').and_return({}).once
+    flexmock(@ohai).should_receive(:fetch_metadata).and_return(nil)
+    @ohai._require_plugin("cloudstack")
+    @ohai[:cloudstack].should be_nil
+  end
+
+  it 'add dhcp_lease_provider_ip attribute to cloudstack node' do
+    flexmock(@ohai).should_receive(:hint?).with('cloudstack').and_return({}).once
+    flexmock(@ohai).should_receive(:fetch_metadata).and_return(fetched_metadata).once
+    flexmock(@ohai).should_receive(:dhcp_lease_provider).and_return('1.2.3.4')
+    @ohai._require_plugin("cloudstack")
+    @ohai[:cloudstack].should_not be_nil
+    @ohai[:cloudstack]['dhcp_lease_provider_ip'].should == '1.2.3.4'
+  end
+
 end
