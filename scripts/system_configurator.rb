@@ -123,9 +123,8 @@ module RightScale
       cloud_name = File.read(RightScale::AgentConfig.cloud_file_path).strip
       cloud = CloudFactory.instance.create(cloud_name, :logger => default_logger)
       return unless cloud.requires_network_config?
-      cloud.write_cloud_metadata
-      cloud.write_user_metadata
-      cloud.load_metadata
+      fail("No cloud metadata") unless File.exists? File.join(cloud_dir, 'meta-data.rb')
+      load(File.join(cloud_dir, 'meta-data.rb'))
       configurator = NetworkConfigurator.create
       configurator.logger = default_logger
       configurator.configure_network
