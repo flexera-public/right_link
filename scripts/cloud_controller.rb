@@ -18,14 +18,15 @@
 #    cloud [options]
 #
 #    options:
-#      --action, -a       Action to perform (required, see below for details).
-#      --name, -n         Cloud to use instead of attempting to determine a
-#                         default cloud.
-#      --parameters, -p   Parameters passed to cloud action as either a single
-#                         string argument or as a square-bracketed array in
-#                         JSON format for multiple arguments.
-#      --only-if, -o      Ignores unknown cloud actions instead of printing an
-#                         error.
+#      --requires-network-config, -r Detects if a cloud requires network configuration
+#      --action, -a                  Action to perform (required, see below for details).
+#      --name, -n                    Cloud to use instead of attempting to determine a
+#                                    default cloud.
+#      --parameters, -p              Parameters passed to cloud action as either a single
+#                                    string argument or as a square-bracketed array in
+#                                    JSON format for multiple arguments.
+#      --only-if, -o                 Ignores unknown cloud actions instead of printing an
+#                                    error.
 
 require 'rubygems'
 require 'json'
@@ -61,7 +62,7 @@ module RightScale
 
     # Parse arguments and run
     def control(options)
-      fail("No action specified on the command line.") unless options[:action]
+      fail("No action specified on the command line.") unless (options[:action] || options[:requires_network_config])
       name = options[:name]
       parameters = options[:parameters] || []
       only_if = options[:only_if]
@@ -104,12 +105,16 @@ module RightScale
           raise ArgumentError, "ERROR: Unknown cloud action: #{action}"
         end
       end
+      if options[:requires_network_config]
+        exit(cloud.requires_network_config? ? 0 : 1)
+      end
     end
 
     # Parse arguments
     def parse_args
       parser = Trollop::Parser.new do
         opt :name, "", :default => CloudFactory::UNKNOWN_CLOUD_NAME.to_s
+        opt :requires_network_config
         opt :action, "",  :type => :string
         opt :only_if
         opt :parameters, "",:type => :string
