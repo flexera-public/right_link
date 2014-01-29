@@ -120,6 +120,7 @@ module RightScale
     end
 
     def configure_network
+      cloud_dir = RightScale::AgentConfig.cloud_state_dir
       cloud_name = File.read(RightScale::AgentConfig.cloud_file_path).strip
       cloud = CloudFactory.instance.create(cloud_name, :logger => default_logger)
       return unless cloud.requires_network_config?

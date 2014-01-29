@@ -37,12 +37,28 @@ module RightScale
       runshell("route -p ADD #{network} MASK #{mask} #{nat_server_ip}")
       true
     end
+
+    def device_config_show(device)
+      runshell("netsh interface ipv4 show addresses #{device}")
+    end
+
+    def get_device_ip(device)
+      ip_addr = device_config_show(device).lines("\n").grep(/IP Address/).shift
+      return nil unless ip_addr
+      ip_addr.strip.split.last
+    end
+
+    def wait_for_configuration_appliance(device, ip)
+      sleep(2) while ip != get_device_ip(device)
+    end
+
     def configure_network_adaptor(device, ip, netmask, gateway, nameservers)
       super
 
       cmd = "netsh interface ip set address name=#{device} source=static addr=#{ip} mask=#{netmask} gateway="
       cmd += gateway ? "#{gateway} gwmetric=1" : "none"
       runshell(cmd)
+      wait_for_configuration_appliance(device, ip)
 
       # return the IP address assigned
       ip
