@@ -64,14 +64,3 @@ def wait_for_instance_ready
     STDOUT.puts "Instance appears ready."
   end
 end
-
-# Determines if the current instance is running on azure.
-#
-# === Return
-# true if running on azure
-def is_current_cloud?
-  # FIX: the presence of the user data cert isn't sufficient criteria to
-  # determine whether this is an azure instance. is there a mac address we can
-  # check against? in the meantime, just say no.
-  false
-end

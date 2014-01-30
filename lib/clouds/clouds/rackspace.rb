@@ -46,16 +46,3 @@ end
 # defaults.
 default_option([:user_metadata, :metadata_tree_climber, :create_leaf_override], method(:create_user_metadata_leaf))
 default_option([:metadata_source, :user_metadata_source_file_path], File.join(RightScale::Platform.filesystem.spool_dir, 'rackspace', 'user-data.txt'))
-
-# Determines if the current instance is running on rackspace.
-#
-# === Return
-# true if running on rackspace
-def is_current_cloud?
-  return if !platform.windows?
-    `xenstore-ls vm-data/provider_data &> /dev/null`
-    $?.success?
-  else
-    false
-  end
-end

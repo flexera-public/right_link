@@ -54,18 +54,3 @@ default_option([:user_metadata, :metadata_tree_climber, :has_children_override],
   # function so we'll recurse down
   return path =~ /\/$/
 end)
-
-
-# Determines if the current instance is running on GCE
-#
-# === Return
-# true if running on GCE
-def is_current_cloud?
-  # See https://developers.google.com/compute/docs/instances#dmi
-  return if !platform.windows?
-    `grep Google /sys/firmware/dmi/entries/1-0/raw 2>&1 >/dev/null`
-    $?.success?
-  else
-    false
-  end
-end

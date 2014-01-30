@@ -99,13 +99,7 @@ module RightScale
       raise UnknownCloud.new("No cloud definitions available.") unless @names_to_script_paths
       cloud_name = cloud_name.to_sym
       cloud_name = default_cloud_name if UNKNOWN_CLOUD_NAME == cloud_name
-      if UNKNOWN_CLOUD_NAME == cloud_name
-        # persist default cloud name after successful detection.
-        cloud = detect_cloud(options)
-        raise UnknownCloud.new("Unable to determine a default cloud") unless cloud
-        default_cloud_name(cloud.name)
-        return cloud
-      end
+      raise UnknownCloud.new("Unable to determine a default cloud") if UNKNOWN_CLOUD_NAME == cloud_name
       cloud_script_path = registered_script_path(cloud_name)
       options = options.dup
       options[:name] ||= cloud_name.to_s
@@ -122,44 +116,19 @@ module RightScale
       return cloud
     end
 
-    # Setter/getter for the default cloud name. This currently relies on a
+    # Getter for the default cloud name. This currently relies on a
     # 'cloud file' which must be present in an expected RightScale location.
     #
-    # === Parameters
-    # value(String|Token):: default cloud name or nil
-    #
     # === Return
-    # result(String):: default cloud name or nil
-    def default_cloud_name(value = nil)
+    # result(String):: content of the 'cloud file' or UNKNOWN_CLOUD_NAME
+    def default_cloud_name
       cloud_file_path = RightScale::AgentConfig.cloud_file_path
-      if value
-        parent_dir = File.dirname(cloud_file_path)
-        FileUtils.mkdir_p(parent_dir) unless File.directory?(parent_dir)
-        File.open(cloud_file_path, "w") { |f| f.write(value.to_s) }
+      value = if File.file?(cloud_file_path)
+        File.read(cloud_file_path).strip
       else
-        value = File.read(cloud_file_path).strip if File.file?(cloud_file_path)
+        nil
       end
       value.to_s.empty? ? UNKNOWN_CLOUD_NAME : value
-    end
-
-    # Attempts to detect the current instance's cloud by instantiating the
-    # various known clouds and running their detection methods.
-    # 
-    # === Parameters
-    # options(Hash):: options for creation or empty
-    #
-    # === Return
-    # cloud(Cloud):: detected cloud or nil
-    def detect_cloud(options)
-      @names_to_script_paths.each_key do |cloud_name|
-        begin
-          cloud = create(cloud_name, options)
-          return cloud if cloud.is_current_cloud?
-        rescue Exception
-          # ignore failures and proceed to detecting next cloud, if any.
-        end
-      end
-      nil
     end
 
     # Normalizes a cloud name to ensure all variants are resolvable.
