@@ -10,7 +10,7 @@ GIT
 
 GIT
   remote: https://github.com/rightscale/right_agent.git
-  revision: 7bece4903e427a88ecdec9650f0ca6ae14933bce
+  revision: 5c3cd5ec67b2fda2f9ad8cbb40c17492910ae9a7
   branch: master
   specs:
     right_agent (2.0.2)
