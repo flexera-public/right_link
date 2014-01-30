@@ -123,11 +123,7 @@ module RightScale
     # result(String):: content of the 'cloud file' or UNKNOWN_CLOUD_NAME
     def default_cloud_name
       cloud_file_path = RightScale::AgentConfig.cloud_file_path
-      value = if File.file?(cloud_file_path)
-        File.read(cloud_file_path).strip
-      else
-        nil
-      end
+      value = File.read(cloud_file_path).strip if File.file?(cloud_file_path)
       value.to_s.empty? ? UNKNOWN_CLOUD_NAME : value
     end
 
