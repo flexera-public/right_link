@@ -1,4 +1,7 @@
 require 'set'
+require 'fileutils'
+require 'right_agent'
+require File.normalize_path(File.join(File.dirname(__FILE__), 'agent_config'))
 
 module RightScale
   class NetworkConfigurator
@@ -8,6 +11,8 @@ module RightScale
     include RightSupport::Log::Mixin
 
     @@subclasses = Set.new
+
+    NETWORK_CONFIGURED_MARKER = File.join(AgentConfig.agent_state_dir, "network_configured")
 
     def self.inherited(klass)
       @@subclasses << klass
@@ -38,11 +43,22 @@ module RightScale
       word.inspect
     end
 
+    def already_configured?
+      File.exists?(NETWORK_CONFIGURED_MARKER)
+    end
+
+    def set_network_configured_marker
+      FileUtils.mkdir_p(File.dirname(NETWORK_CONFIGURED_MARKER))
+      FileUtils.touch(NETWORK_CONFIGURED_MARKER)
+    end
+
     def configure_network
+      return if already_configured?
       add_static_ips
       # add routes for nat server
       # this needs to be done after our IPs are configured
       add_static_routes_for_network
+      set_network_configured_marker
     end
 
     #
