@@ -19,6 +19,7 @@ module RightScale
     end
 
     # Factory method to infer the correct configurator for this OS and instantiate it.
+    #
     def self.create(*args)
       supported = @@subclasses.select { |sc| sc.supported? }
 
@@ -32,26 +33,42 @@ module RightScale
       end
     end
 
+    # Detects if configurator supported on current platform.
+    # Responsibility of subclass
+    #
     def self.supported?
       raise NotImplementedError, "Subclass responsibility"
     end
 
-
-
+    # Shell escape string(puts it to quotes) if it necessary
+    #
+    # === Parameters
+    # word(String):: string to be escaped
+    #
+    # == Return
+    # result(String):: escaped string
     def shell_escape_if_necessary(word)
       return word if word.match(/^".*"$/) || word.match(/^\S+$/)
       word.inspect
     end
 
+    # Detects if network was configured earlier
+    #
     def already_configured?
       File.exists?(NETWORK_CONFIGURED_MARKER)
     end
 
+    # Creates network configured marker
+    #
     def set_network_configured_marker
       FileUtils.mkdir_p(File.dirname(NETWORK_CONFIGURED_MARKER))
       FileUtils.touch(NETWORK_CONFIGURED_MARKER)
     end
 
+    # Performs network configuration
+    #
+    # === Parameters
+    # network(String):: target network in CIDR notation
     def configure_network
       return if already_configured?
       add_static_ips
@@ -112,6 +129,8 @@ module RightScale
       true
     end
 
+    # Platform specific regex used to detect if a route is already defined
+    #
     def route_regex(network, nat_server_ip)
       raise NotImplemented
     end
@@ -142,6 +161,8 @@ module RightScale
     # Static IP Support
     #
 
+    # Configures all specified network adapters with static IP addresses
+    #
     def add_static_ips
       # configure static IP (if specified in metadata)
       static_ips = ENV.collect { |k, _| k if k =~ /RS_STATIC_IP\d_ADDR/ }.compact
@@ -150,11 +171,17 @@ module RightScale
       end
     end
 
+    # Platform specific list of default network devices names
+    # Responsibility of subclasses
+    #
     def os_net_devices
       raise NotImplemented
     end
 
-    # Configures a single network adapter with a static IP address
+    # Sets single network adapter static IP addresse and nameservers
+    #
+    # Parameters
+    # n_ip(Fixnum):: network adapter index
     #
     def add_static_ip(n_ip=0)
       # required metadata values
@@ -183,6 +210,15 @@ module RightScale
       raise e
     end
 
+    # Configures a single network adapter with a static IP address
+    #
+    # Parameters
+    # device(String):: device to be configured
+    # ip(String):: static IP to be set
+    # netmask(String):: netmask to be set
+    # gateway(String):: default gateway IP to be set
+    # nameservers(Array):: array of nameservers to be set
+    #
     def configure_network_adaptor(device, ip, netmask, gateway, nameservers)
       raise "ERROR: 'nameserver' parameter must be an array" unless nameservers.is_a?(Array)
       raise "ERROR: invalid IP address: '#{nameserver}'" unless valid_ipv4?(ip)
@@ -204,6 +240,8 @@ module RightScale
     #
     # === Parameters
     # nameserver_ip(String):: the IP address of the nameserver
+    # index(Fixnum):: index of nameserver
+    # device(String):: device which is configured
     #
     # === Raise
     # StandardError:: if unable to add nameserver
@@ -220,6 +258,15 @@ module RightScale
     end
 
 
+    # Platform specific code to addname server to DNS entries
+    #
+    # Responsibility of subclasses
+    #
+    # == Parameters
+    # nameserver_ip(String):: the IP address of the nameserver
+    # index(Fixnum):: index of nameserver
+    # device(String):: device which is configured
+    #
     def internal_nameserver_add(nameserver_ip, index=nil, device=nil)
       raise NotImplemented
     end
@@ -271,6 +318,10 @@ module RightScale
       ipv4_address =~ /^([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\/[0-9]{1,2}$/
     end
 
+    # Platform specific name of null device to redirect output of
+    # executed shell commands.
+    # Responsibility of subclasses
+    #
     def null_device
       raise NotImplemented
     end

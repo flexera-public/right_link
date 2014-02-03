@@ -8,6 +8,11 @@ module RightScale
 
     # converts CIDR to ip/netmask
     #
+    # === Parameters
+    # cidr_range(String):: target range in CIDR notation
+    # === Return
+    # result(Array):: array which contains ip address and netmask
+    #
     def cidr_to_netmask(cidr_range)
       cidr = IP::CIDR.new(cidr_range)
       return cidr.ip.ip_address, cidr.long_netmask.ip_address
@@ -38,16 +43,35 @@ module RightScale
       true
     end
 
+    # Shows network configuration for specified device
+    #
+    # === Parameters
+    # device(String):: target device name
+    #
+    # === Return
+    # result(String):: current config for specified device
+    #
     def device_config_show(device)
       runshell("netsh interface ipv4 show addresses #{device}")
     end
 
+    # Gets IP address for specified device
+    #
+    # === Parameters
+    # device(String):: target device name
+    #
+    # === Return
+    # result(String):: current IP for specified device or nil
+    #
     def get_device_ip(device)
       ip_addr = device_config_show(device).lines("\n").grep(/IP Address/).shift
       return nil unless ip_addr
       ip_addr.strip.split.last
     end
 
+    # Waits until device configuration applies i.e.
+    # until device IP == specified IP
+    #
     def wait_for_configuration_appliance(device, ip)
       sleep(2) while ip != get_device_ip(device)
     end

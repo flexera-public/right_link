@@ -3,6 +3,7 @@ module RightScale
     def self.supported?
       ::RightScale::Platform.linux?
     end
+
     #
     # Authorized SSH Key for root (linux only)
     #
@@ -119,6 +120,11 @@ module RightScale
       true
     end
 
+    # Add default gateway route
+    #
+    # === Parameters
+    # gateway(String):: IP address of gateway
+    #
     def add_gateway_route(gateway)
       begin
         # this will throw an exception, if the gateway IP is unreachable.
@@ -128,6 +134,14 @@ module RightScale
       end
     end
 
+    # Persist device config to a file
+    #
+    # If the file does not exist, it will be created.
+    #
+    # === Parameters
+    # device(String):: target device name
+    # data(String):: target device config
+    #
     def write_adaptor_config(device, data)
       raise "FATAL: invalid device name of '#{device}' specified for static IP allocation" unless device.match(/eth[0-9+]/)
       FileUtils.mkdir_p("/etc/sysconfig/network-scripts")
@@ -160,10 +174,10 @@ DNS1=#{nameservers[0]}
 DNS2=#{nameservers[1]}
 PEERDNS=yes
 EOH
-write_adaptor_config(device, config_data)
+      write_adaptor_config(device, config_data)
 
-# return the IP address assigned
-ip
+      # return the IP address assigned
+      ip
     end
 
     def internal_nameserver_add(nameserver_ip, index=nil,device=nil)
