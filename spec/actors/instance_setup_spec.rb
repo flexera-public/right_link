@@ -74,7 +74,6 @@ class InstanceSetup
   @@results_for_detach_volume = []
   def self.results_for_detach_volume; @@results_for_detach_volume; end
   def self.results_for_detach_volume=(results); @@results_for_detach_volume = results; end
-
   def send_request(operation, *args)
     # next_tick response to better simulate asynchronous nature of calls to RightNet.
     callback = args.last
@@ -86,6 +85,7 @@ class InstanceSetup
         when "/booter/get_repositories" then callback.call @@repos if callback
         when "/booter/get_boot_bundle" then callback.call @@bundle if callback
         when "/booter/get_login_policy" then callback.call @@login_policy if callback
+        when "/auditor/create_entry" then callback.call @@factory.success_results if callback
         when "/storage_valet/get_planned_volumes" then callback.call @@results_for_get_planned_volumes.shift.call(*args) if callback
         when "/storage_valet/attach_volume" then callback.call @@results_for_attach_volume.shift.call(*args) if callback
         when "/storage_valet/detach_volume" then callback.call @@results_for_detach_volume.shift.call(*args) if callback
