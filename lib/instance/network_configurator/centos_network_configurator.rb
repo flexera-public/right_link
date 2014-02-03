@@ -1,7 +1,7 @@
 module RightScale
-  class LinuxNetworkConfigurator < NetworkConfigurator
+  class CentosNetworkConfigurator < NetworkConfigurator
     def self.supported?
-      ::RightScale::Platform.linux?
+      ::RightScale::Platform.centos?
     end
 
     #
@@ -87,6 +87,14 @@ module RightScale
       @net_devices ||= (0..9).map { |i| "eth#{i}" }
     end
 
+    def routes_file(device)
+      "/etc/sysconfig/network-scripts/route-#{device}"
+    end
+
+    def ip_route_cmd(network, nat_server_ip)
+      "#{network} via #{nat_server_ip}"
+    end
+
     # Persist network route to file
     #
     # If the file does not exist, it will be created.
@@ -102,14 +110,9 @@ module RightScale
       raise "ERROR: invalid nat_server_ip : '#{nat_server_ip}'" unless valid_ipv4?(nat_server_ip)
       raise "ERROR: invalid CIDR network : '#{network}'" unless valid_ipv4_cidr?(network)
 
-      # We leave out the "dev eth0" from the end of the ip_route_cmd here.
-      # This allows for the route to go through a different interface,
-      # which is good for instances that have multiple interfaces.
-      # This is a little weird in the case where the route is brought up
-      # with eth0 but possibly applies to eth1
-      # Probably should figure out which device has the subnet that nat_server_ip is on
-      ip_route_cmd = "#{network} via #{nat_server_ip}"
-      routes_file = "/etc/sysconfig/network-scripts/route-#{device}"
+      routes_file = routes_file(device)
+      ip_route_cmd = ip_route_cmd(network, nat_server_ip)
+
 
       update_config_file(
         routes_file,
@@ -143,23 +146,18 @@ module RightScale
     # data(String):: target device config
     #
     def write_adaptor_config(device, data)
+      config_file = config_file(device)
       raise "FATAL: invalid device name of '#{device}' specified for static IP allocation" unless device.match(/eth[0-9+]/)
-      FileUtils.mkdir_p("/etc/sysconfig/network-scripts")
-      config_file = "/etc/sysconfig/network-scripts/ifcfg-#{device}" # TODO: centos specific
       logger.info "Writing persistent network configuration to #{config_file}"
       File.open(config_file, "w") { |f| f.write(data) }
     end
 
-    # NOTE: not idempotent -- it will always all ifconfig and write config file
-    def configure_network_adaptor(device, ip, netmask, gateway, nameservers)
-      super
+    def config_file(device)
+      FileUtils.mkdir_p("/etc/sysconfig/network-scripts")
+      config_file = "/etc/sysconfig/network-scripts/ifcfg-#{device}"
+    end
 
-      # Setup static IP without restarting network
-      logger.info "Updating in memory network configuration for #{device}"
-      runshell("ifconfig #{device} #{ip} netmask #{netmask}")
-      add_gateway_route(gateway) if gateway
-
-      # Also write to config file
+    def config_data(device, ip, netmask, gateway, nameservers)
       config_data = <<-EOH
 # File managed by RightScale
 # DO NOT EDIT
@@ -174,7 +172,19 @@ DNS1=#{nameservers[0]}
 DNS2=#{nameservers[1]}
 PEERDNS=yes
 EOH
-      write_adaptor_config(device, config_data)
+    end
+
+    # NOTE: not idempotent -- it will always all ifconfig and write config file
+    def configure_network_adaptor(device, ip, netmask, gateway, nameservers)
+      super
+
+      # Setup static IP without restarting network
+      logger.info "Updating in memory network configuration for #{device}"
+      runshell("ifconfig #{device} #{ip} netmask #{netmask}")
+      add_gateway_route(gateway) if gateway
+
+      # Also write to config file
+      write_adaptor_config(device, config_data(device, ip, netmask, gateway, nameservers))
 
       # return the IP address assigned
       ip

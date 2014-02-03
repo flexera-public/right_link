@@ -1,8 +1,8 @@
 require File.expand_path(File.join(File.dirname(__FILE__), 'spec_helper'))
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'lib', 'instance', 'network_configurator'))
-require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'lib', 'instance', 'network_configurator', 'linux_network_configurator'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'lib', 'instance', 'network_configurator', 'centos_network_configurator'))
 
-describe RightScale::LinuxNetworkConfigurator do
+describe RightScale::CentosNetworkConfigurator do
   include FlexMock::ArgumentTypes
 
   before(:each) do
