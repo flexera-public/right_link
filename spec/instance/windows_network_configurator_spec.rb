@@ -22,11 +22,19 @@ describe RightScale::WindowsNetworkConfigurator do
     let(:nameservers) { [ "8.8.8.8", "8.8.4.4"] }
 
     # TODO: does not verify actuall commands
-    it "adds a namserver" do
-      flexmock(subject).should_receive(:runshell).with("netsh interface ip add dns #{device.inspect} #{nameservers[0]} index=1")
+    it "adds a primary namserver" do
+      flexmock(subject).should_receive(:runshell).with("netsh interface ipv4 set dnsserver name=#{device.inspect} source=static addr=#{nameservers[0]} register=primary validate=no")
       flexmock(subject).should_receive(:nameserver_exists?).and_return(false)
       subject.nameserver_add(nameservers[0], 1, device.inspect)
     end
+
+    # TODO: does not verify actuall commands
+    it "adds a secondary nanamserver" do
+      flexmock(subject).should_receive(:runshell).with("netsh interface ipv4 add dnsserver name=#{device.inspect} addr=#{nameservers[0]} index=2 validate=no")
+      flexmock(subject).should_receive(:nameserver_exists?).and_return(false)
+      subject.nameserver_add(nameservers[0], 2, device.inspect)
+    end
+
 
     # TODO: does not verify actuall commands
     it "adds a static IP config for Local Area Network" do
@@ -38,6 +46,7 @@ describe RightScale::WindowsNetworkConfigurator do
       flexmock(subject).should_receive(:nameserver_add).times(2)
       flexmock(subject).should_receive(:configure_network_adaptor).times(1)
       flexmock(subject).should_receive(:runshell).with(cmd)
+      flexmock(subject).should_receive(:wait_for_configuration_appliance)
       subject.add_static_ips
     end
 
@@ -54,6 +63,7 @@ describe RightScale::WindowsNetworkConfigurator do
 
       flexmock(subject).should_receive(:nameserver_add).times(2)
       flexmock(subject).should_receive(:runshell).with(cmd)
+      flexmock(subject).should_receive(:wait_for_configuration_appliance)
       subject.add_static_ips
     end
 
@@ -68,6 +78,20 @@ describe RightScale::WindowsNetworkConfigurator do
       end
       flexmock(subject).should_receive(:nameserver_add).times(2*10)
       flexmock(subject).should_receive(:runshell).with(on { |cmd| !netsh_cmds.delete(cmd).nil? }).times(10)
+      flexmock(subject).should_receive(:wait_for_configuration_appliance)
+      subject.add_static_ips
+    end
+
+    it "waits for configuration appliance" do
+      cmd = "netsh interface ip set address name=#{device.inspect} source=static addr=#{ip} mask=#{netmask} gateway=none"
+      ENV['RS_STATIC_IP0_ADDR'] = ip
+      ENV['RS_STATIC_IP0_NETMASK'] = netmask
+      ENV['RS_STATIC_IP0_NAMESERVERS'] = nameservers_string
+
+      flexmock(subject).should_receive(:nameserver_add).times(2)
+      flexmock(subject).should_receive(:runshell).with(cmd)
+      flexmock(subject).should_receive(:get_device_ip).with(device.inspect).times(2).and_return(nil, ip)
+      flexmock(subject).should_receive(:sleep).with(2).at_least.once
       subject.add_static_ips
     end
   end
