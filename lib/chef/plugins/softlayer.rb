@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2011 RightScale Inc
+# Copyright (c) 2010-2014 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -20,29 +20,14 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-# dependencies.
-metadata_source 'metadata_sources/file_metadata_source'
-metadata_writers 'metadata_writers/dictionary_metadata_writer',
-                 'metadata_writers/ruby_metadata_writer',
-                 'metadata_writers/shell_metadata_writer'
+provides 'softlayer'
 
-# set abbreviation for non-RS env var generation
-abbreviation :rax
-
-# Parses rackspace user metadata into a hash.
-#
-# === Parameters
-# tree_climber(MetadataTreeClimber):: tree climber
-# data(String):: raw data
-#
-# === Return
-# result(Hash):: Hash-like leaf value
-def create_user_metadata_leaf(tree_climber, data)
-  result = tree_climber.create_branch
-  ::RightScale::CloudUtilities.split_metadata(data.strip, "\n", result)
-  result
+def looks_like_softlayer?
+  looks_like_softlayer = !!hint?('softlayer')
+  ::Ohai::Log.debug("looks_like_softlayer? == #{looks_like_softlayer.inspect} ")
+  looks_like_softlayer
 end
 
-# defaults.
-default_option([:user_metadata, :metadata_tree_climber, :create_leaf_override], method(:create_user_metadata_leaf))
-default_option([:metadata_source, :user_metadata_source_file_path], File.join(RightScale::Platform.filesystem.spool_dir, 'rackspace', 'user-data.txt'))
+if looks_like_softlayer?
+  softlayer Mash.new
+end

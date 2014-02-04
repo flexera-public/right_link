@@ -20,29 +20,31 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-# dependencies.
-metadata_source 'metadata_sources/file_metadata_source'
-metadata_writers 'metadata_writers/dictionary_metadata_writer',
-                 'metadata_writers/ruby_metadata_writer',
-                 'metadata_writers/shell_metadata_writer'
+require File.expand_path(File.join(File.dirname(__FILE__), 'spec_helper.rb'))
+require 'tempfile'
 
-# set abbreviation for non-RS env var generation
-abbreviation :rax
+describe Ohai::System, ' plugin softlayer' do
 
-# Parses rackspace user metadata into a hash.
-#
-# === Parameters
-# tree_climber(MetadataTreeClimber):: tree climber
-# data(String):: raw data
-#
-# === Return
-# result(Hash):: Hash-like leaf value
-def create_user_metadata_leaf(tree_climber, data)
-  result = tree_climber.create_branch
-  ::RightScale::CloudUtilities.split_metadata(data.strip, "\n", result)
-  result
+  before(:each) do
+    flexmock(::RightScale::AgentConfig).should_receive(:cache_dir).and_return(Dir.mktmpdir)
+    # configure ohai for RightScale
+    RightScale::OhaiSetup.configure_ohai
+
+    # ohai to be tested
+    @ohai = Ohai::System.new
+    flexmock(@ohai).should_receive(:require_plugin).and_return(true)
+
+  end
+
+  it 'create softlayer if hint file exists' do
+    flexmock(@ohai).should_receive(:hint?).with('softlayer').and_return({}).once
+    @ohai._require_plugin("softlayer")
+    @ohai[:softlayer].should_not be_nil
+  end
+
+  it "not create softlayer if hint file doesn't exists" do
+    flexmock(@ohai).should_receive(:hint?).with('softlayer').and_return(nil).once
+    @ohai._require_plugin("softlayer")
+    @ohai[:softlayer].should be_nil
+  end
 end
-
-# defaults.
-default_option([:user_metadata, :metadata_tree_climber, :create_leaf_override], method(:create_user_metadata_leaf))
-default_option([:metadata_source, :user_metadata_source_file_path], File.join(RightScale::Platform.filesystem.spool_dir, 'rackspace', 'user-data.txt'))

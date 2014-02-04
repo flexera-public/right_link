@@ -249,25 +249,6 @@ module RightScale
       @metadata_writers
     end
 
-    # Determines if the current instance is running on the cloud indicated by
-    # this object.
-    #
-    # === Return
-    # result(Boolean):: true if current cloud, false otherwise
-    def is_current_cloud?
-      false  # clouds cannot self-detect without a specific implementation
-    end
-
-    # Updates the given node with any cloud-specific detailed information. Adds
-    # nothing by default. The ohai node can be retreived as option(:ohai) and
-    # any details can be added to the option(:ohai)[name] node.
-    #
-    # === Return
-    # always true
-    def update_details
-      {}
-    end
-
     # Convenience method for failing to load or execute cloud definition.
     #
     # === Parameters
