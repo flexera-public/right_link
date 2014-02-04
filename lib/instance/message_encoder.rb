@@ -29,12 +29,14 @@ module RightScale
     # include the serializable class so we must serialize it as JSON. Code was taken from
     # the right_agent SecureSerializer class
     class Serializer
+      include ProtocolVersionMixin
+
       def initialize
         @serializer = ::RightScale::Serializer.new
       end
 
       def dump(obj)
-        serialize_format = if obj.respond_to?(:send_version) && obj.send_version >= 12
+        serialize_format = if obj.respond_to?(:send_version) && can_handle_msgpack_result?(obj.send_version)
           @serializer.format
         else
           :json
@@ -43,7 +45,7 @@ module RightScale
       end
 
       def load(obj)
-        serialize_format = if obj.respond_to?(:send_version) && obj.send_version >= 12
+        serialize_format = if obj.respond_to?(:send_version) && can_handle_msgpack_result?(obj.send_version)
           @serializer.format
         else
           :json

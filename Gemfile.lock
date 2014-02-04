@@ -10,8 +10,8 @@ GIT
 
 GIT
   remote: https://github.com/rightscale/right_agent.git
-  revision: 5c3cd5ec67b2fda2f9ad8cbb40c17492910ae9a7
-  branch: master
+  revision: f84746f63e53628208cfcbb863a2fee2a11d2b15
+  branch: cornsilk_14_3_acu151583_http_right_link_fix
   specs:
     right_agent (2.0.2)
       eventmachine (>= 0.12.10, < 2.0)
@@ -149,7 +149,7 @@ GEM
     msgpack (0.5.8)
     msgpack (0.5.8-x86-mingw32)
     net-http-persistent (2.9.1)
-    net-ssh (2.7.0)
+    net-ssh (2.8.0)
     net-ssh-gateway (1.2.0)
       net-ssh (>= 2.6.5)
     net-ssh-multi (1.1)
