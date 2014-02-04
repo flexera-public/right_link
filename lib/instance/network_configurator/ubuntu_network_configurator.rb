@@ -35,9 +35,9 @@ auto #{device}
 iface #{device} inet static
 address #{ip}
 netmask #{netmask}
-gateway #{gateway}
-dns-nameservers #{nameservers.join(" ")}
-      EOH
+EOH
+      config_data << "gateway #{gateway}\n" if gateway
+      config_data << "dns-nameservers #{nameservers.join(" ")}\n"
     end
 
     def ip_route_cmd(network, nat_server_ip)
