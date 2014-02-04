@@ -97,17 +97,3 @@ default_option([:cloud_metadata, :metadata_writers, :ruby_metadata_writer, :gene
 
 default_option(:user_metadata_root_path, 'latest/user-data')
 default_option([:user_metadata, :metadata_tree_climber, :create_leaf_override], method(:create_user_metadata_leaf))
-
-# Determines if the current instance is running on the EC2.
-#
-# === Return
-# true if running on EC2
-def is_current_cloud?
-  if ohai = @options[:ohai_node]
-    if ::RightScale::CloudUtilities.has_mac?(ohai, "fe:ff:ff:ff:ff:ff")
-      source = create_dependency_type(:user_metadata, :metadata_source)
-      return ::RightScale::CloudUtilities.can_contact_metadata_server?(source.host, source.port)
-    end
-  end
-  false
-end

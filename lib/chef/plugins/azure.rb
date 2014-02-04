@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2011 RightScale Inc
+# Copyright (c) 2010-2014 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -20,29 +20,31 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-# dependencies.
-metadata_source 'metadata_sources/file_metadata_source'
-metadata_writers 'metadata_writers/dictionary_metadata_writer',
-                 'metadata_writers/ruby_metadata_writer',
-                 'metadata_writers/shell_metadata_writer'
+provides 'azure'
+DEFAULT_PUBLIC_SSH_PORT = 22
+DEFAULT_PUBLIC_WINRM_PORT = 5985
 
-# set abbreviation for non-RS env var generation
-abbreviation :rax
+require 'chef/ohai/mixin/rightlink'
 
-# Parses rackspace user metadata into a hash.
-#
-# === Parameters
-# tree_climber(MetadataTreeClimber):: tree climber
-# data(String):: raw data
-#
-# === Return
-# result(Hash):: Hash-like leaf value
-def create_user_metadata_leaf(tree_climber, data)
-  result = tree_climber.create_branch
-  ::RightScale::CloudUtilities.split_metadata(data.strip, "\n", result)
-  result
+require_plugin 'hostname'
+
+extend ::Ohai::Mixin::RightLink::AzureMetadata
+
+def looks_like_azure?
+  looks_like_azure = hint?('azure')
+  ::Ohai::Log.debug("looks_like_azure? == #{looks_like_azure.inspect}")
+  looks_like_azure
 end
 
-# defaults.
-default_option([:user_metadata, :metadata_tree_climber, :create_leaf_override], method(:create_user_metadata_leaf))
-default_option([:metadata_source, :user_metadata_source_file_path], File.join(RightScale::Platform.filesystem.spool_dir, 'rackspace', 'user-data.txt'))
+
+if looks_like_azure?
+  azure Mash.new
+  azure['public_ip'] = query_whats_my_ip(:logger=>::Ohai::Log)
+  azure['vm_name'] = self['hostname'] if self['hostname']
+  azure['public_fqdn'] = "#{self['hostname']}.cloudapp.net" if self['hostname']
+  if azure['public_ip']
+    tcp_test_ssh( azure['public_ip'], DEFAULT_PUBLIC_SSH_PORT) { azure['public_ssh_port'] = DEFAULT_PUBLIC_SSH_PORT }
+    tcp_test_winrm(azure['public_ip'], DEFAULT_PUBLIC_WINRM_PORT) { azure['public_winrm_port'] = DEFAULT_PUBLIC_WINRM_PORT }
+  end
+
+end

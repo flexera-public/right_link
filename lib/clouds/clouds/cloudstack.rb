@@ -84,31 +84,3 @@ metadata_source 'metadata_sources/http_metadata_source'
 
 # extend EC2 cloud definition.
 extend_cloud :ec2
-
-# Determines if the current instance is running on cloudstack.
-def is_current_cloud?
-  # FIX: the following cloud check needs to be strengthened since it the result
-  # returned true even when not on a cloud instance. non-distinctive cloud
-  # checks make automatic cloud detection impossible (not a critical feature,
-  # but it's nice-to-have).
-  #
-  # it is usually possible to open a connection to the DHCP server (anonymous
-  # authentication fails but the connection is established). perhaps
-  # successfully retrieving some minimal metadata from the service?. is it
-  # possible instead to do a has_mac? check here like some other clouds?
-  #
-  # anyway, better to return false instead of erroneously detecting cloudstack.
-  #
-  # source = create_dependency_type(:user_metadata, :metadata_source)
-  # return ::RightScale::CloudUtilities.can_contact_metadata_server?(source.host, source.port)
-  false
-end
-
-# Updates details of cloudstack instance.
-def update_details
-  details = {}
-  hosts = option('metadata_source/hosts')
-  # do not resolve the dhcp lease providr again.  just get it from the cloud host option
-  details[:dhcp_lease_provider_ip] = hosts.first[:host]
-  return details
-end
