@@ -55,6 +55,16 @@ module RightScale
       flexmock(subject).should_receive(:print).and_return { |message| @output << message; true }
     end
 
+
+    context 'requires-network-config option' do
+      let(:short_name)    {'-r'}
+      let(:long_name)     {'--requires-network-config'}
+      let(:key)           {:requires_network_config}
+      let(:value)         {''}
+      let(:expected_value){true}
+      it_should_behave_like 'command line argument'
+    end
+
     context 'action option' do
       let(:short_name)    {'-a'}
       let(:long_name)     {'--action'}
@@ -95,10 +105,10 @@ module RightScale
       it 'should show usage info' do
         usage = Usage.scan(File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'scripts', 'cloud_controller.rb')))
         run_cloud_controller('--help')
-        @output.join('\n').should include usage 
+        @output.join('\n').should include usage
       end
     end
-    
+
     context 'cloud' do
       it 'should fail because no action was specified' do
         flexmock(subject).should_receive(:fail).with("No action specified on the command line.").and_raise(SystemExit)
@@ -123,9 +133,10 @@ module RightScale
     end
 
     context 'cloud --action=read_user_metadata --parameters=dictionary_metadata_writer' do
-      it 'should read default cloud user metadata in dictionary format (metadata is output)' do send_command('--action=read_user_metadata --parameters=dictionary_metadata_writer'.split,
+      it 'should read default cloud user metadata in dictionary format (metadata is output)' do
+        send_command('--action=read_user_metadata --parameters=dictionary_metadata_writer'.split,
                      CloudFactory::UNKNOWN_CLOUD_NAME.to_s,
-                     :read_user_metadata, 
+                     :read_user_metadata,
                     ["dictionary_metadata_writer"])
       end
     end
@@ -152,6 +163,27 @@ module RightScale
       it 'should not fail because of wrong action' do
         wrong_action_setup
         run_cloud_controller("--action=read_user_metadata,WRONG_ACTION --only-if".split)
+      end
+    end
+
+    def set_cloud_network_config_require(value)
+      name = CloudFactory::UNKNOWN_CLOUD_NAME.to_s
+      instance = flexmock("instance")
+      cloud = flexmock("cloud")
+      flexmock(CloudFactory).should_receive(:instance).and_return(instance)
+      instance.should_receive(:create).with(name, Hash).and_return(cloud)
+      cloud.should_receive(:requires_network_config?).and_return(value)
+    end
+
+    context 'cloud --requires-network-config' do
+      it "should return success exit code if cloud requires network config" do
+        set_cloud_network_config_require(true)
+        run_cloud_controller('--requires-network-config').should == 0
+      end
+
+      it "should return failure exit code if cloud doesn't require network config" do
+        set_cloud_network_config_require(false)
+        run_cloud_controller('--requires-network-config').should_not == 0
       end
     end
   end

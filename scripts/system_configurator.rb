@@ -7,6 +7,7 @@
 #   system --action=hostname
 #   system --action=ssh
 #   system --action=proxy
+#   system --action=network
 #
 # === Usage
 #    system --action=<action> [options]
@@ -24,6 +25,8 @@ require 'right_agent/scripts/common_parser'
 
 # RightLink dependencies
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'instance', 'agent_config'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'instance', 'network_configurator'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'clouds', 'register_clouds'))
 require File.normalize_path(File.join(File.dirname(__FILE__), 'command_helper'))
 
 cloud_dir = RightScale::AgentConfig.cloud_state_dir
@@ -114,6 +117,26 @@ module RightScale
       parse do
         parser.parse
       end
+    end
+
+    def current_cloud
+      cloud_dir = RightScale::AgentConfig.cloud_state_dir
+      cloud_name = File.read(RightScale::AgentConfig.cloud_file_path).strip
+      CloudFactory.instance.create(cloud_name, :logger => default_logger)
+    end
+
+    def load_metadata
+      metadata_file = File.join(RightScale::AgentConfig.cloud_state_dir, 'meta-data.rb')
+      fail("No cloud metadata") unless File.exists? metadata_file
+      load(metadata_file)
+    end
+
+    def configure_network
+      return unless current_cloud.requires_network_config?
+      load_metadata
+      configurator = NetworkConfigurator.create
+      configurator.logger = default_logger
+      configurator.configure_network
     end
 
     def configure_ssh
