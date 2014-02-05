@@ -113,5 +113,24 @@ module RightScale
     def right_link_version
       RightLink.version
     end
+
+    # Undecorated formatter to support legacy console output
+    class PlainLoggerFormatter < Logger::Formatter
+      def call(severity, time, program_name, message)
+        return message + "\n"
+      end
+    end
+
+    # Default logger for printing to console
+    def default_logger(verbose=false)
+      if verbose
+        logger = Logger.new(STDOUT)
+        logger.level = Logger::INFO
+        logger.formatter = PlainLoggerFormatter.new
+      else
+        logger = RightScale::Log
+      end
+      return logger
+    end
   end
 end
