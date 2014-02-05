@@ -65,74 +65,10 @@ default_option([:cloud_metadata, :metadata_tree_climber, :create_leaf_override],
 # vscale cloud_metadata is flat, so paths will never have children -- always return false
 default_option([:cloud_metadata, :metadata_tree_climber, :has_children_override], method(:cloud_metadata_is_flat))
 
-
-# Determines if the current instance is running on vsoup.
-#
-# === Return
-# true if running on rackspace
-def is_current_cloud?
-  return true
-end
-
 def requires_network_config?
   true
 end
 
-# Updates the given node with cloud metadata details.
-#
-# We also do a bunch of VM configuration here.
-# There is likely a better place we can do all this.
-#
-# === Return
-# always true
-def update_details
-  details = {}
-  details[:public_ips] = Array.new
-  details[:private_ips] = Array.new
-
-  load_metadata
-
-  if platform.windows?
-    # report new network interface configuration to ohai
-    if ohai = @options[:ohai_node]
-      ['Local Area Connection', 'Local Area Connection 2'].each do |device|
-        ip = ::RightScale::CloudUtilities.ip_for_windows_interface(ohai, device)
-        details[is_private_ipv4(ip) ? :local_ipv4 : :public_ipv4] = ip
-      end
-    end
-  else
-    # report new network interface configuration to ohai
-    if ohai = @options[:ohai_node]
-      # Pick up all IPs detected by ohai
-      n = 0
-      while (ip = ::RightScale::CloudUtilities.ip_for_interface(ohai, "eth#{n}")) != nil
-        type = "public_ip"
-        type = "private_ip" if is_private_ipv4(ip)
-        details[type.to_sym] ||= ip      # store only the first found for type
-        details["#{type}s".to_sym] << ip # but append all to the list
-        n += 1
-      end
-    end
-  end
-
-  # Override with statically assigned IP (if specified)
-  static_ips = ENV.collect { |k,v | v if k =~ /RS_STATIC_IP\d_ADDR/ }.compact
-  static_ips.each do |static_ip|
-    if is_private_ipv4(static_ip)
-      details[:private_ip] ||= static_ip
-      details[:private_ips] << static_ip
-    else
-      details[:public_ip] ||= static_ip
-      details[:public_ips] << static_ip
-    end
-  end
-
-  details
-end
-
-#
-# Methods for update details
-#
 
 # Loads metadata from file into environment
 #
