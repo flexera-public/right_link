@@ -28,6 +28,8 @@
 require_plugin 'cloud'
 require_plugin 'cloudstack'
 require_plugin 'softlayer'
+require_plugin 'vscale'
+
 
 # ----------------------------------------
 #  cloudstack
@@ -72,3 +74,15 @@ if on_softlayer?
   get_softlayer_values
 end
 
+def on_vscale?
+  vscale != nil
+end
+
+def get_vscale_values
+  cloud[:provider] = 'vscale'
+end
+
+if on_vscale?
+  create_objects
+  get_vscale_values
+end
