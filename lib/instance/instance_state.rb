@@ -331,6 +331,7 @@ module RightScale
         when 'reboot'
           RightScale::Platform.controller.reboot unless res.success?
         when 'terminate', 'stop'
+          RightHttpClient.instance.close(:receive)
           Sender.instance.send_push("/registrar/remove", {:agent_identity => @identity, :created_at => Time.now.to_i})
           RightScale::Platform.controller.shutdown unless res.success?
         else
