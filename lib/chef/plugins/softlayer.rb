@@ -35,8 +35,8 @@ end
 
 if looks_like_softlayer?
   softlayer Mash.new
-  softlayer['local_ipv4'] = private_ips.first
-  softlayer['public_ipv4'] = public_ips.first
-  softlayer['private_ips'] = private_ips
-  softlayer['public_ips'] = public_ips
+  softlayer['local_ipv4'] = private_ips(network).first
+  softlayer['public_ipv4'] = public_ips(network).first
+  softlayer['private_ips'] = private_ips(network)
+  softlayer['public_ips'] = public_ips(network)
 end

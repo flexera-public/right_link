@@ -129,7 +129,7 @@ module ::Ohai::Mixin::RightLink
       ip =~ regexp
     end
 
-    def ips
+    def ips(network)
       @ips ||= [].tap do |ips|
         network[:interfaces].each_value do |interface|
           next if interface[:flags].include?("LOOPBACK")
@@ -139,12 +139,12 @@ module ::Ohai::Mixin::RightLink
       end
     end
 
-    def public_ips
-      @public_ips ||= ips.reject { |ip| private_ipv4?(ip) }
+    def public_ips(network)
+      @public_ips ||= ips(network).reject { |ip| private_ipv4?(ip) }
     end
 
-    def private_ips
-      @private_ips ||= ips.select { |ip| private_ipv4?(ip) }
+    def private_ips(network)
+      @private_ips ||= ips(network).select { |ip| private_ipv4?(ip) }
     end
   end
 

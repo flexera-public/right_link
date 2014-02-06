@@ -68,8 +68,8 @@ end
 def get_softlayer_values
   cloud[:public_ipv4] = softlayer['public_ipv4']
   cloud[:local_ipv4] = softlayer['local_ipv4']
-  cloud[:public_ips] << softlayer['public_ips']
-  cloud[:private_ips] << softlayer['private_ips']
+  cloud[:public_ips].concat(softlayer['public_ips'])
+  cloud[:private_ips].concat(softlayer['private_ips'])
   cloud[:provider] = 'softlayer'
 end
 
@@ -85,8 +85,8 @@ end
 def get_vscale_values
   cloud[:public_ipv4] = vscale['public_ipv4']
   cloud[:local_ipv4] = vscale['local_ipv4']
-  cloud[:public_ips] << vscale['public_ips']
-  cloud[:private_ips] << vscale['private_ips']
+  cloud[:public_ips].concat(vscale['public_ips'])
+  cloud[:private_ips].concat(vscale['private_ips'])
   cloud[:provider] = 'vscale'
 end
 

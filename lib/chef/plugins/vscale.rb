@@ -36,8 +36,8 @@ end
 
 if looks_like_vscale?
   vscale Mash.new
-  vscale['local_ipv4'] = private_ips.first
-  vscale['public_ipv4'] = public_ips.first
-  vscale['private_ips'] = private_ips
-  vscale['public_ips'] = public_ips
+  vscale['local_ipv4'] = private_ips(network).first
+  vscale['public_ipv4'] = public_ips(network).first
+  vscale['private_ips'] = private_ips(network)
+  vscale['public_ips'] = public_ips(network)
 end

@@ -48,13 +48,19 @@ describe Ohai::System, 'plugin vscale' do
   end
 
   it 'populate vscale node with required attributes' do
+    network = {
+        :interfaces => {
+            :lo   => { :flags => ["LOOPBACK"] },
+            :eth0 => { :flags => [], :addresses => { "50.23.101.210" => { 'family' => 'inet' } } },
+            :eth1 => { :flags => [], :addresses => { "192.168.0.1" => { 'family' => 'inet' } } }
+        }
+    }
     flexmock(@ohai).should_receive(:hint?).with('vscale').and_return({}).once
-    flexmock(@ohai).should_receive(:private_ips).and_return(['1.1.1.1'])
-    flexmock(@ohai).should_receive(:public_ips).and_return(['2.2.2.2'])
+    flexmock(@ohai).should_receive(:network).and_return(network)
     @ohai._require_plugin("vscale")
-    @ohai[:vscale]['local_ipv4'] = '1.1.1.1'
-    @ohai[:vscale]['public_ipv4'] = '2.2.2.2'
-    @ohai[:vscale]['private_ips'] = ['1.1.1.1']
-    @ohai[:vscale]['public_ips'] = ['2.2.2.2']
+    @ohai[:vscale]['local_ipv4'] = '50.23.101.210'
+    @ohai[:vscale]['public_ipv4'] = '192.168.0.1'
+    @ohai[:vscale]['private_ips'] = ['50.23.101.210']
+    @ohai[:vscale]['public_ips'] = ['192.168.0.1']
   end
 end
