@@ -115,6 +115,7 @@ describe RightScale::ExecutableSequence do
 
       # reset chef cookbooks path
       Chef::Config[:cookbook_path] = []
+      flexmock(::RightScale::OhaiSetup).should_receive(:configure_ohai).and_return(true)
     end
 
     after(:each) do
@@ -352,7 +353,7 @@ describe RightScale::ExecutableSequence do
       runlist_policy.should_receive(:thread_name).and_return(::RightScale::AgentConfig.default_thread_name)
       runlist_policy.should_receive(:thread_name=).and_return(true)
       runlist_policy.should_receive(:policy_name).and_return(nil)
-      
+
       bundle = flexmock('ExecutableBundle')
       bundle.should_receive(:repose_servers).and_return(['hostname']).by_default
       bundle.should_ignore_missing

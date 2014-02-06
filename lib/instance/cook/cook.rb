@@ -63,7 +63,12 @@ module RightScale
       # 2. Retrieve bundle
       input = gets.chomp
       begin
-        bundle = RightScale::MessageEncoder.for_agent(agent_id).decode(input)
+        platform = RightScale::Platform
+        if platform.windows?
+          bundle = MessageEncoder::SecretSerializer.new(InstanceState.identity, ENV[ExecutableSequenceProxy::DECRYPTION_KEY_NAME]).load(input)
+        else
+          bundle = MessageEncoder::Serializer.new.load(input)
+        end
       rescue Exception => e
         fail('Invalid bundle', e.message)
       end

@@ -28,22 +28,6 @@ describe RightScale::CloudUtilities do
     flexmock(@ohai).should_receive(:require_plugin).and_return(true)
   end
 
-  context '#has_mac?' do
-    before(:each) do
-      @ohai[:network] = {:interfaces => {:eth0 => {}}}
-    end
-
-    it 'that matches' do
-      @ohai[:network][:interfaces][:eth0][:arp] = {"1.1.1.1"=>"ee:ee:ee:ee:ee:ee"}
-      RightScale::CloudUtilities.has_mac?(@ohai, "ee:ee:ee:ee:ee:ee").should be_true
-    end
-
-    it 'that does not match' do
-      @ohai[:network][:interfaces][:eth0][:arp] = {"1.1.1.1"=>"ff:ff:ff:ff:ff:ff"}
-      RightScale::CloudUtilities.has_mac?(@ohai, "ee:ee:ee:ee:ee:ee").should be_false
-    end
-  end
-
   context '#can_contact_metadata_server?' do
     it 'server responds' do
       t = flexmock("connection")
@@ -79,78 +63,6 @@ describe RightScale::CloudUtilities do
       flexmock(Socket).should_receive(:new).and_return(t)
 
       RightScale::CloudUtilities.can_contact_metadata_server?("1.1.1.1", 80).should be_false
-    end
-  end
-
-  context '#ip_for_interface' do
-    it 'retrieves the appropriate ip address for a given interface' do
-      @ohai[:network] = {:interfaces => {"eth0" => {"addresses" => {
-              "ffff::111:fff:ffff:11" => {
-                      "scope"=> "Link",
-                      "prefixlen"=> "64",
-                      "family"=> "inet6"
-              },
-              "ff:ff:ff:ff:ff:ff" => {
-                      "family"=> "lladdr"
-              },
-              "1.1.1.1" => {
-                      "broadcast" => "1.1.1.255",
-                      "netmask" => "255.255.255.0",
-                      "family" => "inet"
-              }}}}}
-
-      RightScale::CloudUtilities.ip_for_interface(@ohai, :eth0).should == "1.1.1.1"
-    end
-
-    it 'returns nothing when no network mash exists' do
-      @ohai[:network] = nil
-      RightScale::CloudUtilities.ip_for_interface(@ohai, :eth1).should be_nil
-    end
-
-    it 'returns nothing when no interfaces are defined' do
-      @ohai[:network] = {}
-      RightScale::CloudUtilities.ip_for_interface(@ohai, :eth1).should be_nil
-    end
-
-    it 'returns nothing when there are no addresses on a given interface' do
-      @ohai[:network] = {:interfaces => {"eth1" => {}}}
-      RightScale::CloudUtilities.ip_for_interface(@ohai, :eth1).should be_nil
-    end
-  end
-
-  context '#ip_for_windows_interface' do
-    it 'retrieves the appropriate ip address for a given interface' do
-      @ohai[:network] = {:interfaces => {"0x1"=> {"addresses"=>
-              {"1.1.1.1"=>
-                      {"netmask"=>"255.255.255.0",
-                       "broadcast"=>"1.1.1.255",
-                       "family"=>"inet"},
-               "10:10:10:10:10:0"=>{"family"=>"lladdr"}},
-                                                  "type"=>"Ethernet 802.3",
-                                                  "instance"=>
-                                                          {"system_creation_class_name"=>"Win32_ComputerSystem",
-                                                           "net_connection_id"=>"public"},
-                                                  "encapsulation"=>"Ethernet",
-                                                  "configuration"=>
-                                                          {"ip_enabled"=>true,
-                                                           "ip_address"=>["1.1.1.1"]}}}}
-
-      RightScale::CloudUtilities.ip_for_windows_interface(@ohai, 'public').should == "1.1.1.1"
-    end
-
-    it 'returns nothing when no network mash exists' do
-      @ohai[:network] = nil
-      RightScale::CloudUtilities.ip_for_windows_interface(@ohai, 'public').should be_nil
-    end
-
-    it 'returns nothing when no interfaces are defined' do
-      @ohai[:network] = {}
-      RightScale::CloudUtilities.ip_for_windows_interface(@ohai, 'public').should be_nil
-    end
-
-    it 'returns nothing when there are no addresses on a given interface' do
-      @ohai[:network] = {:interfaces => {"0xC" => {}}}
-      RightScale::CloudUtilities.ip_for_windows_interface(@ohai, 'public').should be_nil
     end
   end
 

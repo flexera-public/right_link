@@ -17,8 +17,6 @@ require 'tmpdir'
 module RightScale
   describe ServerImporter do
 
-    it_should_behave_like 'mocks metadata'
-
     let(:spec_dir) { ::File.normalize_path('server_importer_spec-bbed84063c434283a8d3f74fbb280c22', ::Dir.tmpdir) }
 
     def run_server_importer(args)
@@ -137,12 +135,14 @@ module RightScale
     end
 
     context 'rs_connect -a url' do
+      it_should_behave_like 'mocks metadata'
       it 'should attach this machine to a server' do
         do_attach('url')
       end
     end
 
     context 'rs_connect -a url -f' do
+      it_should_behave_like 'mocks metadata'
       it 'should force attachment even if server appears already connected' do
         flexmock(File).should_receive(:exist?).with(InstanceState::STATE_FILE).and_return(true)
         do_attach('url', true)

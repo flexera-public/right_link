@@ -121,11 +121,6 @@ describe InstanceScheduler do
       flexmock(RightScale::RightPopen).should_receive(:popen3_async).and_return(true)
     end
 
-    before(:each) do
-      # pre-initialize certificate to prevent EM timeout.
-      ::RightScale::SpecHelper::CertificateInfo.init
-    end
-
     after(:each) do
       # not expecting errors.
       ::RightScale::Log.has_errors?.should be_false
@@ -213,8 +208,8 @@ describe InstanceScheduler do
 
       it 'should force transition to decommissioned state after SHUTDOWN_DELAY when decommission hangs' do
         begin
-          orig_shutdown_delay = InstanceScheduler::SHUTDOWN_DELAY
-          InstanceScheduler.const_set(:SHUTDOWN_DELAY, 1)
+          orig_shutdown_delay = InstanceScheduler::DEFAULT_SHUTDOWN_DELAY
+          InstanceScheduler.const_set(:DEFAULT_SHUTDOWN_DELAY, 1)
           run_em_test do
             before_each
             flexmock(RightScale::ExecutableSequenceProxy).should_receive(:new).and_return(@sequence_success)
@@ -224,7 +219,7 @@ describe InstanceScheduler do
             @scheduler.schedule_decommission(:bundle => @bundle, :user_id => @user_id, :kind => decommission_level)
           end
         ensure
-          InstanceScheduler.const_set(:SHUTDOWN_DELAY, orig_shutdown_delay)
+          InstanceScheduler.const_set(:DEFAULT_SHUTDOWN_DELAY, orig_shutdown_delay)
         end
       end
 

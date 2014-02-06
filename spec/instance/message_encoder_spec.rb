@@ -34,32 +34,20 @@ describe RightScale::MessageEncoder do
   end
 
   shared_examples_for 'encoder' do
-    it { should respond_to :encode }
-    it { should respond_to :decode }
+    it { should respond_to :dump }
+    it { should respond_to :load }
 
     it "should encode data" do
-      subject.encode(data).should_not == data
+      subject.dump(data).should_not == data
     end
 
     it "should be able to decode data" do
-      subject.decode(subject.encode(data)).should == data
-    end
-  end
-
-  context "secure encoder" do
-    subject { RightScale::MessageEncoder.for_agent(agent_identity) }
-    context "packet data" do
-      let(:data) { object_data }
-      it_should_behave_like 'encoder'
-    end
-    context "raw data" do
-      let(:data) { raw_data }
-      it_should_behave_like 'encoder'
+      subject.load(subject.dump(data)).should == data
     end
   end
 
   context "secret encoder" do
-    subject { RightScale::MessageEncoder.for_agent(agent_identity, 'my secret') }
+    subject { RightScale::MessageEncoder::SecretSerializer.new(agent_identity, 'my secret') }
     context "packet data" do
       let(:data) { object_data }
       it_should_behave_like 'encoder'

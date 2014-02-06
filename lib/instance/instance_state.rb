@@ -22,21 +22,12 @@
 
 require 'fileutils'
 require File.normalize_path(File.join(File.dirname(__FILE__), 'json_utilities'))
+require File.normalize_path(File.join(File.dirname(__FILE__), 'feature_config_manager'))
 
 module RightScale
 
   # Manages instance state
   class InstanceState
-
-    CONFIG_YAML_FILE = File.normalize_path(File.join(RightScale::Platform.filesystem.right_link_static_state_dir, 'features.yml'))
-
-    CONFIG=\
-      if File.exists?(CONFIG_YAML_FILE)
-        RightSupport::Config.features(CONFIG_YAML_FILE)
-      else
-        RightSupport::Config.features({})
-      end
-
     # States that are recorded in a standard fashion and audited when transitioned to
     RECORDED_STATES = %w{ booting operational stranded decommissioning }
 
@@ -477,7 +468,7 @@ module RightScale
     # === Return
     # nil:: always return nil
     def self.update_motd()
-      return unless CONFIG['motd']['update'] || RightScale::Platform.linux?
+      return unless (FeatureConfigManager.feature_enabled?('motd_update') && RightScale::Platform.linux?)
 
       if File.directory?('/etc/update-motd.d')
         #Ubuntu 10.04 and above use a dynamic MOTD update system. In this case we assume

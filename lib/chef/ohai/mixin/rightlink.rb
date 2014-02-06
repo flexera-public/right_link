@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2011 RightScale Inc
+# Copyright (c) 2010-2014 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -23,69 +23,15 @@
 require 'open-uri'
 require 'socket'
 
-module RightScale
+module ::Ohai::Mixin::RightLink
 
-  class CloudUtilities
+  module CloudUtilities
 
     IP_ADDRESS_REGEX = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/
 
     DEFAULT_WHATS_MY_IP_HOST_NAME = 'eip-us-east.rightscale.com'
     DEFAULT_WHATS_MY_IP_TIMEOUT = 10 * 60
     DEFAULT_WHATS_MY_IP_RETRY_DELAY = 5
-
-    # Attempt to connect to the given address on the given port as a quick verification
-    # that the metadata service is available.
-    #
-    # === Parameters
-    # addr(String):: address of the metadata service
-    # port(Number):: port of the metadata service
-    # timeout(Number)::Optional - time to wait for a response
-    #
-    # === Return
-    # connected(Boolean):: true if a connection could be made, false otherwise
-    def self.can_contact_metadata_server?(addr, port, timeout=2)
-      t = Socket.new(Socket::Constants::AF_INET, Socket::Constants::SOCK_STREAM, 0)
-      saddr = Socket.pack_sockaddr_in(port, addr)
-      connected = false
-
-      begin
-        t.connect_nonblock(saddr)
-      rescue Errno::EINPROGRESS
-        r, w, e = IO::select(nil, [t], nil, timeout)
-        if !w.nil?
-          connected = true
-        else
-          begin
-            t.connect_nonblock(saddr)
-          rescue Errno::EISCONN
-            t.close
-            connected = true
-          rescue SystemCallError
-          end
-        end
-      rescue SystemCallError
-      end
-
-      connected
-    end
-
-    # Splits data on the given splitter character and merges to the given hash.
-    #
-    # === Parameters
-    # data(String):: raw data
-    # splitter(String):: splitter character
-    # hash(Hash):: hash to merge
-    # name_value_delimiter(String):: name/value delimiter (defaults to '=')
-    #
-    # === Return
-    # hash(Hash):: merged hash result
-    def self.split_metadata(data, splitter, hash, name_value_delimiter = '=')
-      data.split(splitter).each do |pair|
-        name, value = pair.split(name_value_delimiter, 2)
-        hash[name.strip] = value.strip if name && value
-      end
-      hash
-    end
 
     # Queries a whats-my-ip service for the public IP address of this instance.
     # can query either for an expected IP or for any IP which is voted by majority
@@ -108,7 +54,7 @@ module RightScale
       raise ArgumentError.new("expected_ip is invalid") if expected_ip && !(expected_ip =~ IP_ADDRESS_REGEX)
       unanimous = options[:unanimous] || false
       host_name = options[:host_name] || DEFAULT_WHATS_MY_IP_HOST_NAME
-      logger = options[:logger] || Logger.new(::RightScale::Platform::Shell::NULL_OUTPUT_NAME)
+      logger = options[:logger] || Logger.new()
       timeout = options[:timeout] || DEFAULT_WHATS_MY_IP_TIMEOUT
       retry_delay = options[:retry_delay] || DEFAULT_WHATS_MY_IP_RETRY_DELAY
 
@@ -177,5 +123,142 @@ module RightScale
         return nil
       end
     end
+  end
+
+
+  module AzureMetadata
+
+    def query_whats_my_ip(opts)
+      CloudUtilities::query_whats_my_ip(opts)
+    end
+
+    def tcp_test_winrm(ip_addr, port, &block)
+      socket = TCPSocket.new(hostname, port)
+      ::Ohai::Log.debug("WinRM accepting connections on #{fqdn}")
+      yield if block
+      true
+    rescue SocketError
+      sleep 2
+      false
+    rescue Errno::ETIMEDOUT
+      false
+    rescue Errno::EPERM
+      false
+    rescue Errno::ECONNREFUSED
+      sleep 2
+      false
+    rescue Errno::EHOSTUNREACH
+      sleep 2
+      false
+    rescue Errno::ENETUNREACH
+      sleep 2
+      false
+    ensure
+      socket && socket.close
+    end
+
+    def tcp_test_ssh(fqdn, sshport, &block)
+      socket = TCPSocket.new(fqdn, sshport)
+      readable = IO.select([socket], nil, nil, 5)
+      if readable
+        ::Ohai::Log.debug("sshd accepting connections on #{fqdn}, banner is #{socket.gets}")
+        yield if block
+        true
+      else
+        false
+      end
+    rescue SocketError
+      sleep 2
+      false
+    rescue Errno::ETIMEDOUT
+      false
+    rescue Errno::EPERM
+      false
+    rescue Errno::ECONNREFUSED
+      sleep 2
+      false
+    rescue Errno::EHOSTUNREACH
+      sleep 2
+      false
+    ensure
+      socket && socket.close
+    end
+  end
+
+  module DirMetadata
+    # Fetch metadata form dir (recursevly).
+    # each file name is a key and value it's content
+    def self.fetch_from_dir(metadata_dir, metadata = {})
+      raise "Meta-data dir does not exist: #{metadata_dir}" unless File.directory?(metadata_dir)
+      ::Ohai::Log.debug('Fetching from meta-data dir: #{metadata_dir}')
+      metadata = {}
+      Dir.foreach(metadata_dir) do |name|
+        next if name =='.' || name  == '..'
+        metadata_file = File.join(metadata_dir,name)
+        key = name.gsub(/\-/,'_')
+        if File.directory?(metadata_file)
+          metadata[key] = fetch_from_dir(metadata_file, {})
+        else
+          value = File.read(metadata_file)
+          metadata[key] = value
+        end
+      end
+      metadata
+    end
+
+    # Get default RightLink meta-data dir location
+    def rightlink_metadata_dir
+      var_dir = File.join( RUBY_PLATFORM =~ /mswin|mingw|windows/ ? [ENV['ProgramData'],'RightScale'] : ['/', 'var'] )
+      metadata_dir = File.join(var_dir, 'spool','cloud','meta-data')
+      metadata_dir
+    end
+
+    # Fetch metadata
+    def fetch_metadata(metadata_dir)
+      ::Ohai::Log.debug('Fetching metadata')
+      metadata = DirMetadata::fetch_from_dir(metadata_dir)
+      ::Ohai::Log.debug("Fetched metadata: #{metadata.inspect}")
+      metadata
+    rescue
+      ::Ohai::Log.error("Fetching metadata failed: #{$!}")
+      false
+    end
+
+    # Searches for a file containing dhcp lease information.
+    def dhcp_lease_provider
+      logger = ::Ohai::Log
+      if RUBY_PLATFORM =~ /mswin|mingw|windows/
+        timeout = Time.now + 20 * 60  # 20 minutes
+        while Time.now < timeout
+          ipconfig_data = `ipconfig /all`
+          match_result = ipconfig_data.match(/DHCP Server.*\: (\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/)
+          unless match_result.nil? || match_result[1].nil?
+            return match_result[1]
+          end
+          # it may take time to resolve the DHCP Server for this instance, so sleepy wait.
+          logger.info("ipconfig /all did not contain any DHCP Servers. Retrying in 10 seconds...")
+          sleep 10
+        end
+      else
+        leases_file = %w{/var/lib/dhcp/dhclient.eth0.leases /var/lib/dhcp3/dhclient.eth0.leases /var/lib/dhclient/dhclient-eth0.leases /var/lib/dhclient-eth0.leases /var/lib/dhcpcd/dhcpcd-eth0.info}.find{|dhcpconfig| File.exist?(dhcpconfig)}
+        unless leases_file.nil?
+          lease_file_content = File.read(leases_file)
+
+          dhcp_lease_provider_ip = lease_file_content[/DHCPSID='(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'/, 1]
+          return dhcp_lease_provider_ip unless dhcp_lease_provider_ip.nil?
+
+          # leases are appended to the lease file, so to get the appropriate dhcp lease provider, we must grab
+          # the info from the last lease entry.
+          #
+          # reverse the content and reverse the regex to find the dhcp lease provider from the last lease entry
+          lease_file_content.reverse!
+          dhcp_lease_provider_ip = lease_file_content[/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}) reifitnedi-revres-pchd/, 1]
+          return dhcp_lease_provider_ip.reverse unless dhcp_lease_provider_ip.nil?
+        end
+      end
+      # no known defaults so we must fail at this point.
+      raise "Cannot determine dhcp lease provider for cloudstack instance"
+    end
+
   end
 end

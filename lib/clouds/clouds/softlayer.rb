@@ -71,21 +71,3 @@ default_option([:metadata_source, :config_drive_uuid], "681B-8C5D")
 default_option([:metadata_source, :config_drive_filesystem], ::RightScale::Platform.windows? ? 'FAT' : 'vfat')
 default_option([:metadata_source, :config_drive_label], 'METADATA')
 default_option([:metadata_source, :config_drive_mountpoint],  CONFIG_DRIVE_MOUNTPOINT)
-
-# Updates the given node with cloud metadata details.
-#
-# === Return
-# always true
-def update_details
-  details = {}
-  if ohai = @options[:ohai_node]
-    if platform.windows?
-      details[:public_ip] = ::RightScale::CloudUtilities.ip_for_windows_interface(ohai, 'Local Area Connection 2')
-      details[:private_ip] = ::RightScale::CloudUtilities.ip_for_windows_interface(ohai, 'Local Area Connection')
-    else
-      details[:public_ip] = ::RightScale::CloudUtilities.ip_for_interface(ohai, :eth1)
-      details[:private_ip] = ::RightScale::CloudUtilities.ip_for_interface(ohai, :eth0)
-    end
-  end
-  return details
-end
