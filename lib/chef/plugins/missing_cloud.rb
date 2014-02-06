@@ -79,6 +79,10 @@ def on_vscale?
 end
 
 def get_vscale_values
+  cloud[:public_ipv4] = vscale['public_ipv4']
+  cloud[:local_ipv4] = vscale['local_ipv4']
+  cloud[:public_ips] << vscale['public_ips']
+  cloud[:private_ips] << vscale['private_ips']
   cloud[:provider] = 'vscale'
 end
 

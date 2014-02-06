@@ -123,6 +123,29 @@ module ::Ohai::Mixin::RightLink
         return nil
       end
     end
+
+    def private_ipv4?(ip)
+      regexp = /\A(10\.|192\.168\.|172\.1[6789]\.|172\.2.\.|172\.3[01]\.)/
+      ip =~ regexp
+    end
+
+    def ips
+      @ips ||= [].tap do |ips|
+        network[:interfaces].each_value do |interface|
+          next if interface[:flags].include?("LOOPBACK")
+          addresses = interface[:addresses].find { |key, item| item['family'] == 'inet' }
+          ips << addresses.first
+        end
+      end
+    end
+
+    def public_ips
+      @public_ips ||= ips.reject { |ip| private_ipv4?(ip) }
+    end
+
+    def private_ips
+      @private_ips ||= ips.select { |ip| private_ipv4?(ip) }
+    end
   end
 
 

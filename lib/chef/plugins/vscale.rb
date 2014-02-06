@@ -20,7 +20,13 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+require 'chef/ohai/mixin/rightlink'
+
+extend ::Ohai::Mixin::RightLink::CloudUtilities
+
 provides 'vscale'
+depends 'network/interfaces'
+
 
 def looks_like_vscale?
   looks_like_vscale = hint?('vscale')
@@ -30,4 +36,8 @@ end
 
 if looks_like_vscale?
   vscale Mash.new
+  vscale['local_ipv4'] = private_ips.first
+  vscale['public_ipv4'] = public_ips.first
+  vscale['private_ips'] = private_ips
+  vscale['public_ips'] = public_ips
 end
