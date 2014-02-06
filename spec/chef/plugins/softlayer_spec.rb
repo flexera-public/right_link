@@ -32,7 +32,7 @@ describe Ohai::System, ' plugin softlayer' do
 
     # ohai to be tested
     @ohai = Ohai::System.new
-    flexmock(@ohai).should_receive(:require_plugin).and_return(true)
+    flexmock(@ohai).should_receive(:depends).and_return(true)
 
   end
 
@@ -46,5 +46,16 @@ describe Ohai::System, ' plugin softlayer' do
     flexmock(@ohai).should_receive(:hint?).with('softlayer').and_return(nil).once
     @ohai._require_plugin("softlayer")
     @ohai[:softlayer].should be_nil
+  end
+
+  it 'populate softlayer node with required attributes' do
+    flexmock(@ohai).should_receive(:hint?).with('softlayer').and_return({}).once
+    flexmock(@ohai).should_receive(:private_ips).and_return(['1.1.1.1'])
+    flexmock(@ohai).should_receive(:public_ips).and_return(['2.2.2.2'])
+    @ohai._require_plugin("softlayer")
+    @ohai[:softlayer]['local_ipv4'] = '1.1.1.1'
+    @ohai[:softlayer]['public_ipv4'] = '2.2.2.2'
+    @ohai[:softlayer]['private_ips'] = ['1.1.1.1']
+    @ohai[:softlayer]['public_ips'] = ['2.2.2.2']
   end
 end
