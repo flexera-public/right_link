@@ -1,3 +1,5 @@
+require 'ip'
+
 module RightScale
   class CentosNetworkConfigurator < NetworkConfigurator
     def self.supported?
@@ -59,13 +61,27 @@ module RightScale
       update_authorized_keys(public_key)
     end
 
+    def routes_for_device(device)
+      runshell("ip route show dev #{device}")
+    end
+
+    def single_ip_range?(cidr_range)
+      range = IP::CIDR.new(cidr_range)
+      range.first_ip == range.last_ip
+    end
+
+    def route_device(network, nat_server_ip)
+      route_regex = route_regex(network, nat_server_ip)
+      os_net_devices.detect { |device| routes_for_device(device).match(route_regex) }
+    end
+
     def network_route_add(network, nat_server_ip)
       super
       route_str = "#{network} via #{nat_server_ip}"
       logger.info "Adding route to network #{route_str}"
       begin
         runshell("ip route add #{route_str}")
-        update_route_file(network, nat_server_ip)
+        update_route_file(network, nat_server_ip, route_device(network, nat_server_ip))
       rescue Exception => e
         logger.error "Unable to set a route #{route_str}. Check network settings."
         # XXX: for some reason network_route_exists? allowing mutple routes
@@ -76,6 +92,7 @@ module RightScale
     end
 
     def route_regex(network, nat_server_ip)
+      network = network.split("/").first if single_ip_range?(network)
       /#{network}.*via.*#{nat_server_ip}/
     end
 

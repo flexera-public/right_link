@@ -103,6 +103,7 @@ default via 174.36.32.33 dev eth0  metric 100
       flexmock(subject).should_receive(:runshell).times(1)
       flexmock(subject).should_receive(:routes_show).and_return(before_routes)
       flexmock(subject).should_receive(:update_route_file).and_return(true)
+      flexmock(subject).should_receive(:route_device).and_return("eth0")
       subject.network_route_add(network_cidr, nat_server_ip)
     end
 
@@ -129,6 +130,7 @@ default via 174.36.32.33 dev eth0  metric 100
       flexmock(subject).should_receive(:runshell).with("ip route add #{network_cidr} via #{nat_server_ip}").times(1)
       flexmock(subject).should_receive(:routes_show).and_return(before_routes)
       flexmock(subject).should_receive(:update_route_file).times(1)
+      flexmock(subject).should_receive(:route_device).and_return("eth0")
 
       subject.add_static_routes_for_network
     end
