@@ -132,7 +132,7 @@ module ::Ohai::Mixin::RightLink
     def ips(network)
       @ips ||= [].tap do |ips|
         network[:interfaces].each_value do |interface|
-          next if interface[:flags].include?("LOOPBACK")
+          next if interface.fetch(:flags, {}).include?("LOOPBACK")
           addresses = interface[:addresses].find { |key, item| item['family'] == 'inet' }
           ips << addresses.first
         end
