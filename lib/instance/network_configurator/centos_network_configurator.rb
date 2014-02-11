@@ -92,7 +92,9 @@ module RightScale
     end
 
     def route_regex(network, nat_server_ip)
-      network = network.split("/").first if single_ip_range?(network)
+      unless network == "default"
+        network = network.split("/").first if single_ip_range?(network)
+      end
       /#{network}.*via.*#{nat_server_ip}/
     end
 
