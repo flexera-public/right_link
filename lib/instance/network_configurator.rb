@@ -344,7 +344,8 @@ module RightScale
 end
 
 NETWORK_CONFIGURATORS_DIR = File.join(File.dirname(__FILE__), 'network_configurator')
-require File.normalize_path(File.join(NETWORK_CONFIGURATORS_DIR, 'linux_network_configurator'))
+require File.normalize_path(File.join(NETWORK_CONFIGURATORS_DIR, 'centos_network_configurator'))
+require File.normalize_path(File.join(NETWORK_CONFIGURATORS_DIR, 'ubuntu_network_configurator'))
 require File.normalize_path(File.join(NETWORK_CONFIGURATORS_DIR, 'windows_network_configurator'))
 
 
