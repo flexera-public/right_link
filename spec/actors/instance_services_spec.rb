@@ -72,4 +72,16 @@ describe InstanceServices do
     end
   end
 
+  context '#system_configure' do
+    before(:each) do
+      @agent_identity = "rs-instance-1-1"
+      @services = InstanceServices.new(@agent_identity)
+    end
+
+    it 'reload system configuration on instance' do
+      flexmock(RightScale::SystemConfiguration).should_receive(:reload).and_return( true ).once
+      @services.system_configure(nil)
+    end
+  end
+
 end
