@@ -35,8 +35,10 @@ describe Ohai::System, ' plugin cloudstack' do
   let (:rightlink_metadata_dir) { 'rightlink_metadata_dir' }
 
   before(:each) do
-    flexmock(::RightScale::AgentConfig).should_receive(:cache_dir).and_return(Dir.mktmpdir)
+    temp_dir = Dir.mktmpdir
+    flexmock(::RightScale::AgentConfig).should_receive(:cache_dir).and_return(temp_dir)
     # configure ohai for RightScale
+    ::Ohai::Config[:hints_path] = [File.join(temp_dir,"ohai","hints")]
     RightScale::OhaiSetup.configure_ohai
 
     # ohai to be tested
