@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2011 RightScale Inc
+# Copyright (c) 2014 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -21,37 +21,33 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 require File.expand_path(File.join(File.dirname(__FILE__), 'spec_helper.rb'))
-require File.expand_path(File.join(File.dirname(__FILE__), 'spec_helper.rb'))
 require 'tempfile'
 
-describe Ohai::System, ' plugin softlayer' do
+describe Ohai::System, 'plugin vscale' do
 
   before(:each) do
-    temp_dir = Dir.mktmpdir
-    flexmock(::RightScale::AgentConfig).should_receive(:cache_dir).and_return(temp_dir)
+    flexmock(::RightScale::AgentConfig).should_receive(:cache_dir).and_return(Dir.mktmpdir)
     # configure ohai for RightScale
-    ::Ohai::Config[:hints_path] = [File.join(temp_dir,"ohai","hints")]
     RightScale::OhaiSetup.configure_ohai
 
     # ohai to be tested
     @ohai = Ohai::System.new
     flexmock(@ohai).should_receive(:depends).and_return(true)
-
   end
 
-  it 'create softlayer if hint file exists' do
-    flexmock(@ohai).should_receive(:hint?).with('softlayer').and_return({}).once
-    @ohai._require_plugin("softlayer")
-    @ohai[:softlayer].should_not be_nil
+  it 'create vscale if hint file exists' do
+    flexmock(@ohai).should_receive(:hint?).with('vscale').and_return({}).once
+    @ohai._require_plugin("vscale")
+    @ohai[:vscale].should_not be_nil
   end
 
-  it "not create softlayer if hint file doesn't exists" do
-    flexmock(@ohai).should_receive(:hint?).with('softlayer').and_return(nil).once
-    @ohai._require_plugin("softlayer")
-    @ohai[:softlayer].should be_nil
+  it "not create vscale if hint file doesn't exists" do
+    flexmock(@ohai).should_receive(:hint?).with('vscale').and_return(nil).once
+    @ohai._require_plugin("vscale")
+    @ohai[:vscale].should be_nil
   end
 
-  it 'populate softlayer node with required attributes' do
+  it 'populate vscale node with required attributes' do
     network = {
         :interfaces => {
             :lo   => { :flags => ["LOOPBACK"] },
@@ -59,12 +55,12 @@ describe Ohai::System, ' plugin softlayer' do
             :eth1 => { :flags => [], :addresses => { "192.168.0.1" => { 'family' => 'inet' } } }
         }
     }
-    flexmock(@ohai).should_receive(:hint?).with('softlayer').and_return({}).once
+    flexmock(@ohai).should_receive(:hint?).with('vscale').and_return({}).once
     flexmock(@ohai).should_receive(:network).and_return(network)
-    @ohai._require_plugin("softlayer")
-    @ohai[:softlayer]['local_ipv4'] = '50.23.101.210'
-    @ohai[:softlayer]['public_ipv4'] = '192.168.0.1'
-    @ohai[:softlayer]['private_ips'] = ['50.23.101.210']
-    @ohai[:softlayer]['public_ips'] = ['192.168.0.1']
+    @ohai._require_plugin("vscale")
+    @ohai[:vscale]['local_ipv4'] = '50.23.101.210'
+    @ohai[:vscale]['public_ipv4'] = '192.168.0.1'
+    @ohai[:vscale]['private_ips'] = ['50.23.101.210']
+    @ohai[:vscale]['public_ips'] = ['192.168.0.1']
   end
 end
