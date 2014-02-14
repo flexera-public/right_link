@@ -28,6 +28,8 @@
 require_plugin 'cloud'
 require_plugin 'cloudstack'
 require_plugin 'softlayer'
+require_plugin 'vscale'
+
 
 # ----------------------------------------
 #  cloudstack
@@ -64,6 +66,10 @@ def on_softlayer?
 end
 
 def get_softlayer_values
+  cloud[:public_ipv4] = softlayer['public_ipv4']
+  cloud[:local_ipv4] = softlayer['local_ipv4']
+  cloud[:public_ips].concat(softlayer['public_ips'])
+  cloud[:private_ips].concat(softlayer['private_ips'])
   cloud[:provider] = 'softlayer'
 end
 
@@ -72,3 +78,19 @@ if on_softlayer?
   get_softlayer_values
 end
 
+def on_vscale?
+  vscale != nil
+end
+
+def get_vscale_values
+  cloud[:public_ipv4] = vscale['public_ipv4']
+  cloud[:local_ipv4] = vscale['local_ipv4']
+  cloud[:public_ips].concat(vscale['public_ips'])
+  cloud[:private_ips].concat(vscale['private_ips'])
+  cloud[:provider] = 'vscale'
+end
+
+if on_vscale?
+  create_objects
+  get_vscale_values
+end

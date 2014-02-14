@@ -24,19 +24,20 @@ require 'chef/ohai/mixin/rightlink'
 
 extend ::Ohai::Mixin::RightLink::CloudUtilities
 
-provides 'softlayer'
+provides 'vscale'
 depends 'network/interfaces'
 
-def looks_like_softlayer?
-  looks_like_softlayer = !!hint?('softlayer')
-  ::Ohai::Log.debug("looks_like_softlayer? == #{looks_like_softlayer.inspect} ")
-  looks_like_softlayer
+
+def looks_like_vscale?
+  looks_like_vscale = hint?('vscale')
+  ::Ohai::Log.debug("looks_like_vscale? == #{looks_like_vscale.inspect}")
+  looks_like_vscale
 end
 
-if looks_like_softlayer?
-  softlayer Mash.new
-  softlayer['local_ipv4'] = private_ips(network).first
-  softlayer['public_ipv4'] = public_ips(network).first
-  softlayer['private_ips'] = private_ips(network)
-  softlayer['public_ips'] = public_ips(network)
+if looks_like_vscale?
+  vscale Mash.new
+  vscale['local_ipv4'] = private_ips(network).first
+  vscale['public_ipv4'] = public_ips(network).first
+  vscale['private_ips'] = private_ips(network)
+  vscale['public_ips'] = public_ips(network)
 end
