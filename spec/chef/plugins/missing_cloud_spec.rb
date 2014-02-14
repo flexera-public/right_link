@@ -26,8 +26,10 @@ require 'tempfile'
 describe Ohai::System, ' plugin missing_cloud' do
 
   before(:each) do
-    flexmock(::RightScale::AgentConfig).should_receive(:cache_dir).and_return(Dir.mktmpdir)
+    temp_dir = Dir.mktmpdir
+    flexmock(::RightScale::AgentConfig).should_receive(:cache_dir).and_return(temp_dir)
     # configure ohai for RightScale
+    ::Ohai::Config[:hints_path] = [File.join(temp_dir,"ohai","hints")]
     RightScale::OhaiSetup.configure_ohai
 
     # ohai to be tested
@@ -97,6 +99,8 @@ describe Ohai::System, ' plugin missing_cloud' do
   context 'on softlayer' do
     before(:each) do
       @ohai[:softlayer] = Mash.new{}
+      @ohai[:softlayer][:private_ips] = ["1.2.3.4"]
+      @ohai[:softlayer][:public_ips] = ["1.2.3.4"]
     end
 
     it 'should populate cloud provider' do
