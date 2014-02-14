@@ -139,7 +139,7 @@ default via 174.36.32.33 dev eth0  metric 100
 
     describe "Static IP configuration" do
       before(:each) do
-        ENV.delete_if { |k,v| k.start_with?("RS_STATIC_IP") }
+        ENV.delete_if { |k,v| k.start_with?("RS_IP") }
       end
 
       def test_eth_config_data(device, ip, gateway, netmask, nameservers)
@@ -208,9 +208,9 @@ EOF
       end
 
       it "adds a static IP config for eth0" do
-        ENV['RS_STATIC_IP0_ADDR'] = ip
-        ENV['RS_STATIC_IP0_NETMASK'] = netmask
-        ENV['RS_STATIC_IP0_NAMESERVERS'] = nameservers_string
+        ENV['RS_IP0_ADDR'] = ip
+        ENV['RS_IP0_NETMASK'] = netmask
+        ENV['RS_IP0_NAMESERVERS'] = nameservers_string
 
         flexmock(subject).should_receive(:nameserver_add).times(2)
         flexmock(subject).should_receive(:runshell).with("ifconfig #{device} #{ip} netmask #{netmask}").times(1)
@@ -220,13 +220,13 @@ EOF
         subject.add_static_ips
       end
 
-      it "supports optional RS_STATIC_IP0_GATEWAY value" do
-        ENV['RS_STATIC_IP0_ADDR'] = ip
-        ENV['RS_STATIC_IP0_NETMASK'] = netmask
-        ENV['RS_STATIC_IP0_NAMESERVERS'] = nameservers_string
+      it "supports optional RS_IP0_GATEWAY value" do
+        ENV['RS_IP0_ADDR'] = ip
+        ENV['RS_IP0_NETMASK'] = netmask
+        ENV['RS_IP0_NAMESERVERS'] = nameservers_string
 
         # optional
-        ENV['RS_STATIC_IP0_GATEWAY'] = gateway
+        ENV['RS_IP0_GATEWAY'] = gateway
 
         flexmock(subject).should_receive(:nameserver_add).times(2)
         flexmock(subject).should_receive(:runshell).with("ifconfig #{device} #{ip} netmask #{netmask}").times(1)
@@ -240,9 +240,9 @@ EOF
         ifconfig_cmds = []
         eth_configs = []
         10.times do |i|
-          ENV["RS_STATIC_IP#{i}_ADDR"] = ip
-          ENV["RS_STATIC_IP#{i}_NETMASK"] = netmask
-          ENV["RS_STATIC_IP#{i}_NAMESERVERS"] = nameservers_string
+          ENV["RS_IP#{i}_ADDR"] = ip
+          ENV["RS_IP#{i}_NETMASK"] = netmask
+          ENV["RS_IP#{i}_NAMESERVERS"] = nameservers_string
           ifconfig_cmds << "ifconfig eth#{i} #{ip} netmask #{netmask}"
           eth_configs <<  test_eth_config_data("eth#{i}", ip, nil, netmask, nameservers)
         end

@@ -165,8 +165,8 @@ module RightScale
     #
     def add_static_ips
       # configure static IP (if specified in metadata)
-      static_ips = ENV.collect { |k, _| k if k =~ /RS_STATIC_IP\d_ADDR/ }.compact
-      static_ips.map { |ip_env_name| ip_env_name =~ /RS_STATIC_IP(\d)_ADDR/; $1.to_i }.each do |n_ip|
+      static_ips = ENV.collect { |k, _| k if k =~ /RS_IP\d_ADDR/ }.compact
+      static_ips.map { |ip_env_name| ip_env_name =~ /RS_IP(\d)_ADDR/; $1.to_i }.each do |n_ip|
         add_static_ip(n_ip)
       end
     end
@@ -185,18 +185,18 @@ module RightScale
     #
     def add_static_ip(n_ip=0)
       # required metadata values
-      ipaddr = ENV["RS_STATIC_IP#{n_ip}_ADDR"]
-      netmask = ENV["RS_STATIC_IP#{n_ip}_NETMASK"]
+      ipaddr = ENV["RS_IP#{n_ip}_ADDR"]
+      netmask = ENV["RS_IP#{n_ip}_NETMASK"]
       # optional
-      nameservers_string = ENV["RS_STATIC_IP#{n_ip}_NAMESERVERS"]
-      gateway = ENV["RS_STATIC_IP#{n_ip}_GATEWAY"]
+      nameservers_string = ENV["RS_IP#{n_ip}_NAMESERVERS"]
+      gateway = ENV["RS_IP#{n_ip}_GATEWAY"]
       device = shell_escape_if_necessary(os_net_devices[n_ip])
 
       if ipaddr
         logger.info "Setting up static IP address #{ipaddr} for #{device}"
         logger.debug "Netmask: '#{netmask}' ; gateway: '#{gateway}' ; nameservers: '#{nameservers_string.inspect}'"
-        raise "FATAL: RS_STATIC_IP#{n_ip}_NETMASK not defined ; Cannot configure static IP address" unless netmask
-        raise "FATAL: RS_STATIC_IP#{n_ip}_NAMESERVERS not defined ; Cannot configure static IP address" unless nameservers_string
+        raise "FATAL: RS_IP#{n_ip}_NETMASK not defined ; Cannot configure static IP address" unless netmask
+        raise "FATAL: RS_IP#{n_ip}_NAMESERVERS not defined ; Cannot configure static IP address" unless nameservers_string
         # configure DNS
         nameservers = parse_array(nameservers_string)
         nameservers.each_with_index do |nameserver, index|
