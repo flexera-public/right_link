@@ -11,7 +11,7 @@ describe RightScale::WindowsNetworkConfigurator do
 
   describe "Static IP configuration" do
     before(:each) do
-      ENV.delete_if { |k,v| k.start_with?("RS_STATIC_IP") }
+      ENV.delete_if { |k,v| k.start_with?("RS_IP") }
     end
 
     let(:device) { "Local Area Connection" }
@@ -39,9 +39,9 @@ describe RightScale::WindowsNetworkConfigurator do
     # TODO: does not verify actuall commands
     it "adds a static IP config for Local Area Network" do
       cmd = "netsh interface ip set address name=#{device} source=static addr=#{ip} mask=#{netmask} gateway=none"
-      ENV['RS_STATIC_IP0_ADDR'] = ip
-      ENV['RS_STATIC_IP0_NETMASK'] = netmask
-      ENV['RS_STATIC_IP0_NAMESERVERS'] = nameservers_string
+      ENV['RS_IP0_ADDR'] = ip
+      ENV['RS_IP0_NETMASK'] = netmask
+      ENV['RS_IP0_NAMESERVERS'] = nameservers_string
 
       flexmock(subject).should_receive(:nameserver_add).times(2)
       flexmock(subject).should_receive(:configure_network_adaptor).times(1)
@@ -51,13 +51,13 @@ describe RightScale::WindowsNetworkConfigurator do
     end
 
     # TODO: does not verify actuall commands
-    it "supports optional RS_STATIC_IP0_GATEWAY value" do
-      ENV['RS_STATIC_IP0_ADDR'] = ip
-      ENV['RS_STATIC_IP0_NETMASK'] = netmask
-      ENV['RS_STATIC_IP0_NAMESERVERS'] = nameservers_string
+    it "supports optional RS_IP0_GATEWAY value" do
+      ENV['RS_IP0_ADDR'] = ip
+      ENV['RS_IP0_NETMASK'] = netmask
+      ENV['RS_IP0_NAMESERVERS'] = nameservers_string
 
       # optional
-      ENV['RS_STATIC_IP0_GATEWAY'] = gateway
+      ENV['RS_IP0_GATEWAY'] = gateway
       cmd = "netsh interface ip set address name=#{device.inspect} source=static addr=#{ip} mask=#{netmask} gateway="
       cmd += gateway ? "#{gateway} gwmetric=1" : "none"
 
@@ -70,9 +70,9 @@ describe RightScale::WindowsNetworkConfigurator do
     it "supports adding static IP on multiple devices" do
       netsh_cmds = []
       subject.os_net_devices.each_with_index do |device, i|
-        ENV["RS_STATIC_IP#{i}_ADDR"] = ip
-        ENV["RS_STATIC_IP#{i}_NETMASK"] = netmask
-        ENV["RS_STATIC_IP#{i}_NAMESERVERS"] = nameservers_string
+        ENV["RS_IP#{i}_ADDR"] = ip
+        ENV["RS_IP#{i}_NETMASK"] = netmask
+        ENV["RS_IP#{i}_NAMESERVERS"] = nameservers_string
         cmd = "netsh interface ip set address name=#{device.inspect} source=static addr=#{ip} mask=#{netmask} gateway=none"
         netsh_cmds << cmd
       end
@@ -84,9 +84,9 @@ describe RightScale::WindowsNetworkConfigurator do
 
     it "waits for configuration appliance" do
       cmd = "netsh interface ip set address name=#{device.inspect} source=static addr=#{ip} mask=#{netmask} gateway=none"
-      ENV['RS_STATIC_IP0_ADDR'] = ip
-      ENV['RS_STATIC_IP0_NETMASK'] = netmask
-      ENV['RS_STATIC_IP0_NAMESERVERS'] = nameservers_string
+      ENV['RS_IP0_ADDR'] = ip
+      ENV['RS_IP0_NETMASK'] = netmask
+      ENV['RS_IP0_NAMESERVERS'] = nameservers_string
 
       flexmock(subject).should_receive(:nameserver_add).times(2)
       flexmock(subject).should_receive(:runshell).with(cmd)

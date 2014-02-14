@@ -152,7 +152,7 @@ module RightScale
         # this will throw an exception, if the gateway IP is unreachable.
         runshell("route add default gw #{gateway}") unless network_route_exists?("default", gateway)
       rescue Exception => e
-        logger.error "Unable to set a route to gateway at #{gateway}. Check your RS_STATIC_IP0_GATEWAY value"
+        logger.error "Unable to set a route to gateway at #{gateway}. Check your RS_IP0_GATEWAY value"
       end
     end
 
