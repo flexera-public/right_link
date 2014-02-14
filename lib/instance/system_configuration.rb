@@ -27,7 +27,7 @@ module RightScale
     # == Returns:
     # @return [TrueClass] Always
     def self.reload()
-      Log.info("[system_configuration] System configuration has been reloaded.")
+      Log.info("[system_configuration] System configuration has been requested. Not supported yet.")
       return true
     end
   end
