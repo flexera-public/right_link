@@ -99,8 +99,6 @@ describe Ohai::System, ' plugin missing_cloud' do
   context 'on softlayer' do
     before(:each) do
       @ohai[:softlayer] = Mash.new{}
-      @ohai[:softlayer][:private_ips] = ["1.2.3.4"]
-      @ohai[:softlayer][:public_ips] = ["1.2.3.4"]
     end
 
     it 'should populate cloud provider' do
