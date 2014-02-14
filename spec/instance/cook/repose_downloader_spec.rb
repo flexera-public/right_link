@@ -22,6 +22,7 @@
 
 require File.expand_path(File.join(File.dirname(__FILE__), '..', 'spec_helper'))
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'lib', 'instance', 'cook'))
+require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', '..', 'lib', 'right_link', 'version'))
 
 def mock_response(message, code)
   res = Net::HTTPInternalServerError.new('1.1', message, code)
