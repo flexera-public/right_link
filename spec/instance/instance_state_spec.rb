@@ -399,6 +399,7 @@ describe RightScale::InstanceState do
         now = Time.at(1000000)
         flexmock(Time).should_receive(:now).and_return(now)
         flexmock(EM).should_receive(:add_timer).times(3)
+        flexmock(RightScale::RightHttpClient.instance).should_receive(:close).with(:receive).once
         RightScale::InstanceState.init(@identity)
         RightScale::InstanceState.value.should == "booting"
         RightScale::InstanceState.value = "decommissioning"
