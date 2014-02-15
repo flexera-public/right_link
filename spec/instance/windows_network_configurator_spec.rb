@@ -45,6 +45,7 @@ describe RightScale::WindowsNetworkConfigurator do
 
       flexmock(subject).should_receive(:nameserver_add).times(2)
       flexmock(subject).should_receive(:configure_network_adaptor).times(1)
+      flexmock(subject).should_receive(:network_device_name).and_return(device)
       flexmock(subject).should_receive(:runshell).with(cmd)
       flexmock(subject).should_receive(:wait_for_configuration_appliance)
       subject.add_static_ips
@@ -63,12 +64,14 @@ describe RightScale::WindowsNetworkConfigurator do
 
       flexmock(subject).should_receive(:nameserver_add).times(2)
       flexmock(subject).should_receive(:runshell).with(cmd)
+      flexmock(subject).should_receive(:network_device_name).and_return(device)
       flexmock(subject).should_receive(:wait_for_configuration_appliance)
       subject.add_static_ips
     end
 
     it "supports adding static IP on multiple devices" do
       netsh_cmds = []
+      flexmock(subject).should_receive(:network_device_name).and_return(device)
       subject.os_net_devices.each_with_index do |device, i|
         ENV["RS_IP#{i}_ADDR"] = ip
         ENV["RS_IP#{i}_NETMASK"] = netmask
@@ -90,6 +93,7 @@ describe RightScale::WindowsNetworkConfigurator do
 
       flexmock(subject).should_receive(:nameserver_add).times(2)
       flexmock(subject).should_receive(:runshell).with(cmd)
+      flexmock(subject).should_receive(:network_device_name).and_return(device)
       flexmock(subject).should_receive(:get_device_ip).with(device.inspect).times(2).and_return(nil, ip)
       flexmock(subject).should_receive(:sleep).with(2).at_least.once
       subject.add_static_ips
