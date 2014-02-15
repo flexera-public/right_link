@@ -121,10 +121,10 @@ module RightScale
       target[:tags] = payload.delete(:tags) if payload[:tags]
       target[:scope] = payload.delete(:scope) if payload[:scope]
       target[:selector] = payload.delete(:selector) if payload[:selector]
-      if (target[:tags] && !target[:tags].empty?) || target[:scope] || (target[:selector] && target(:selector) == :all)
+      if (target[:tags] && !target[:tags].empty?) || target[:scope] || (target[:selector] == :all)
         send_push("/instance_scheduler/execute", opts[:conn], payload, target)
       else
-        send_request("/forwarder/schedule_recipe", opts[:conn], payload)
+        run_request("/forwarder/schedule_recipe", opts[:conn], payload)
       end
     end
 
@@ -143,10 +143,10 @@ module RightScale
       target[:tags] = payload.delete(:tags) if payload[:tags]
       target[:scope] = payload.delete(:scope) if payload[:scope]
       target[:selector] = payload.delete(:selector) if payload[:selector]
-      if (target[:tags] && !target[:tags].empty?) || target[:scope] || (target[:selector] && target(:selector) == :all)
+      if (target[:tags] && !target[:tags].empty?) || target[:scope] || (target[:selector] == :all)
         send_push("/instance_scheduler/execute", opts[:conn], payload, target)
       else
-        send_request("/forwarder/schedule_right_script", opts[:conn], payload)
+        run_request("/forwarder/schedule_right_script", opts[:conn], payload)
       end
     end
 
@@ -293,7 +293,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def query_tags_command(opts)
-      AgentTagManager.instance.query_tags_raw(opts[:tags], opts[:agent_ids]) do |raw_response|
+      AgentTagManager.instance.query_tags_raw(opts[:tags], opts[:hrefs]) do |raw_response|
         reply = @serializer.dump(raw_response) rescue raw_response
         CommandIO.instance.reply(opts[:conn], reply)
       end
@@ -463,6 +463,32 @@ module RightScale
       req.callback(&callback)
       req.errback(&errback)
       req.run
+    end
+
+    # Send scheduling request for recipe or RightScript
+    # If it returns with a bundle, schedule the bundle for execution
+    #
+    # === Parameters
+    # type(String):: Type of request
+    # conn(EM::Connection):: Connection used to send reply
+    # payload(Hash):: Request parameters
+    #
+    # === Return
+    # true:: Always return true
+    def run_request(type, conn, payload)
+      payload ||= {}
+      payload[:agent_identity] = @agent_identity
+      Sender.instance.send_request(type, payload) do |r|
+        r = OperationResult.from_results(r)
+        if r && r.success? && r.content.is_a?(RightScale::ExecutableBundle)
+          @scheduler.schedule_bundle(r.content)
+          reply = @serializer.dump(OperationResult.success)
+        else
+          reply = @serializer.dump(r) rescue '\"Failed to serialize response\"'
+        end
+        CommandIO.instance.reply(conn, reply)
+      end
+      true
     end
 
     # Stats command

@@ -119,7 +119,7 @@ module RightScale
     #
     # @return [TrueClass] always true
     def close
-      self.state = :closing
+      self.state = :closed
       @renew_timer.cancel if @renew_timer
       @renew_timer = nil
       @reconnect_timer.cancel if @reconnect_timer

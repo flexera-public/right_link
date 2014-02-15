@@ -132,6 +132,7 @@ class InstanceScheduler
 
   # Ask agent to execute given recipe or RightScript
   # Agent must forward request to core agent which will in turn run schedule_bundle on this agent
+  # or if the request is being made via HTTP it will directly return the bundle to be executed
   #
   # === Parameters
   # options[:recipe](String):: Recipe name
@@ -151,6 +152,7 @@ class InstanceScheduler
     forwarder = lambda do |type|
       send_request("/forwarder/schedule_#{type}", payload) do |r|
         r = result_from(r)
+        r = schedule_bundle(r.content) if r.success? && r.content.is_a?(RightScale::ExecutableBundle)
         RightScale::Log.error("Failed executing #{type} for #{payload.inspect}", r.content) unless r.success?
       end
     end

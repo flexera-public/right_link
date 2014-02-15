@@ -30,7 +30,7 @@ describe Chef::Provider::ServerCollection do
     @resource = Chef::Resource::ServerCollection.new("test")
     @provider = Chef::Provider::ServerCollection.new(nil, @resource)
     @provider.instance_variable_set(:@node, {:server_collection => { 'resource_name' => nil }})
-    @provider.instance_variable_set(:@new_resource, flexmock('resource', :name => 'resource_name', :tags => 'tag1', :agent_ids => nil))
+    @provider.instance_variable_set(:@new_resource, flexmock('resource', :name => 'resource_name', :tags => 'tag1', :hrefs => nil))
   end
 
   def perform_load

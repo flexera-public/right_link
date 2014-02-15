@@ -149,6 +149,38 @@ describe InstanceScheduler do
       end
     end
 
+    it 'should make schedule bundle request' do
+      run_em_test do
+        before_each
+        flexmock(RightScale::ExecutableSequenceProxy).should_receive(:new).and_return(@sequence_success)
+        options = {:recipe => true, :recipe_id => 123}
+        @sender.should_receive(:send_request).with("/forwarder/schedule_recipe", options.merge(:agent_identity => @identity), Proc).
+            and_yield(@record_success).once
+        flexmock(@agent).should_receive(:terminate).and_return { stop_bundle_queue_and_em_test }
+        res = @scheduler.execute(options)
+        res.should be_true
+        EM.next_tick { @scheduler.terminate }
+      end
+    end
+
+    it 'should run bundle returned from schedule request' do
+      run_em_test do
+        before_each
+        flexmock(RightScale::ExecutableSequenceProxy).should_receive(:new).and_return(@sequence_success)
+        options = {:recipe => true, :recipe_id => 123}
+        bundle = RightScale::ExecutableBundle.new(nil)
+        results = @results_factory.success_results(bundle)
+        success = RightScale::OperationResult.success
+        flexmock(@scheduler).should_receive(:schedule_bundle).with(bundle).and_return(success).once
+        @sender.should_receive(:send_request).with("/forwarder/schedule_recipe", options.merge(:agent_identity => @identity), Proc).
+            and_yield(results).once
+        flexmock(@agent).should_receive(:terminate).and_return { stop_bundle_queue_and_em_test }
+        res = @scheduler.execute(options)
+        res.should be_true
+        EM.next_tick {  @scheduler.terminate }
+      end
+    end
+
     context 'without a decommission level' do
       it 'should *not* transition to decommissioned state nor shutdown after decommissioning from rnac' do
         run_em_test do
