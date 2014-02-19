@@ -25,7 +25,7 @@ class InstanceServices
   include RightScale::Actor
   include RightScale::OperationResultHelper
 
-  expose :update_login_policy, :reboot
+  expose :update_login_policy, :reboot, :system_configure
 
   def initialize(agent_identity)
     @agent_identity = agent_identity
@@ -72,4 +72,16 @@ class InstanceServices
     RightScale::Platform.controller.reboot
     success_result
   end
+
+  # Configure system with new rightscale metadata
+  #
+  # == Returns:
+  # @return [RightScale::OperationResult] Always returns success
+  #
+  def system_configure(_)
+    RightScale::SystemConfiguration.reload()
+    success_result
+  end
+
+
 end
