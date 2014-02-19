@@ -1,7 +1,7 @@
 module RightScale
   class UbuntuNetworkConfigurator < CentosNetworkConfigurator
     def self.supported?
-      ::RightScale::Platform.ubuntu?
+      ::RightScale::Platform.linux? && ::RightScale::Platform.ubuntu?
     end
 
     def separate_configs_enabled?
