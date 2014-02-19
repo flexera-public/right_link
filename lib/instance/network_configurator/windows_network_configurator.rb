@@ -32,8 +32,16 @@ module RightScale
       runshell("route print")
     end
 
+    # For Windows 2008R2/Windows 7 and earlier its Local Area Connection
+    # For Windows 8/2012 and later its Ethernet
+    def network_device_name
+      return @network_device_name if @network_device_name
+      device_out = runshell("netsh interface show interface")
+      @network_device_name = device_out.include?("Local Area Connection") ? "Local Area Connection" : "Ethernet"
+    end
+
     def os_net_devices
-      @net_devices ||= (1..10).map { |i| "Local Area Connection #{i}".sub(/ 1$/, "") }
+      @net_devices ||= (1..10).map { |i| "#{network_device_name} #{i}".sub(/ 1$/, "") }
     end
 
     def network_route_add(network, nat_server_ip)

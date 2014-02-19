@@ -3,7 +3,7 @@ require 'ip'
 module RightScale
   class CentosNetworkConfigurator < NetworkConfigurator
     def self.supported?
-      ::RightScale::Platform.centos?
+      ::RightScale::Platform.linux? && ::RightScale::Platform.centos?
     end
 
     #
