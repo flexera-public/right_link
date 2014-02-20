@@ -70,10 +70,10 @@ describe RightScale::InstanceAuthClient do
     flexmock(EM::Timer).should_receive(:new).and_return(@renew_timer).by_default
     @reconnect_timer = flexmock("reconnect timer")
     flexmock(EM::PeriodicTimer).should_receive(:new).and_return(@reconnect_timer).by_default
-    token_id = 111
+    @token_id = 111
     token = "secret"
-    public_token = RightScale::SecureIdentity.derive(token_id, token)
-    @identity = RightScale::AgentIdentity.new("rs", "instance", token_id, public_token).to_s
+    public_token = RightScale::SecureIdentity.derive(@token_id, token)
+    @identity = RightScale::AgentIdentity.new("rs", "instance", @token_id, public_token).to_s
     @account_id = 123
     @shard_id = 1
     @mode = :http
@@ -125,9 +125,14 @@ describe RightScale::InstanceAuthClient do
   end
 
   context :headers do
-    it "adds :user_agent header" do
+    it "adds User-Agent header" do
       @client.send(:state=, :authorized)
-      @client.headers[:user_agent].should_not be_nil
+      @client.headers["User-Agent"].should_not be_nil
+    end
+
+    it "adds X-RightLink-ID header" do
+      @client.send(:state=, :authorized)
+      @client.headers["X-RightLink-ID"].should == @token_id
     end
   end
 
@@ -166,7 +171,7 @@ describe RightScale::InstanceAuthClient do
     it "posts authorization request to API" do
       @http_client.should_receive(:post).with("/oauth2", on { |a| a[:account_id] == @account_id &&
           a[:grant_type] == "client_credentials" && a[:r_s_version] == @protocol_version && a[:right_link_version] == @right_link_version },
-          on { |a| a[:headers] == {:user_agent => "RightLink v#{@right_link_version}"} }).and_return(@response).once
+          on { |a| a[:headers] == {"User-Agent" => "RightLink v#{@right_link_version}", "X-RightLink-ID" => @token_id} }).and_return(@response).once
       @client.send(:get_authorized).should be_true
     end
 
