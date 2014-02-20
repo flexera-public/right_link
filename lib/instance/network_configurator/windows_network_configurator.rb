@@ -105,7 +105,8 @@ module RightScale
     end
 
     def namservers_show(device=nil)
-      runshell("netsh interface ip show dns #{device}")
+      # show only nameservers configured staticly i.e. not through DHCP
+      runshell("netsh interface ip show dns #{device}").lines.reject { |l| l =~ /DHCP/ }.join
     end
 
     def null_device
