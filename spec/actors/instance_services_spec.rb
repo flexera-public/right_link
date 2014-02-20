@@ -67,6 +67,7 @@ describe InstanceServices do
     end
 
     it 'reboots the instance' do
+      flexmock(EM).should_receive(:next_tick).and_yield.once
       flexmock(RightScale::Platform).should_receive(:controller).and_return( @controller )
       @services.reboot(nil)
     end

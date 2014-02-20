@@ -82,7 +82,7 @@ module RightScale
       @token_id = AgentIdentity.parse(@identity).base_id
       @account_id = @account_id.to_i
       @router_url = @mode = nil
-      @user_agent_header = {:user_agent => "RightLink v#{RightLink.version}"}
+      @other_headers = {"User-Agent" => "RightLink v#{RightLink.version}", "X-RightLink-ID" => @token_id}
       @exception_callback = options[:exception_callback]
       @expires_at = Time.now
       reset_stats
@@ -99,7 +99,7 @@ module RightScale
     # @raise [Exceptions::Unauthorized] not authorized
     # @raise [Exceptions::RetryableError] authorization expired, but retry may succeed
     def headers
-      super.merge(@user_agent_header)
+      super.merge(@other_headers)
     end
 
     # An HTTP request received a redirect response
@@ -169,7 +169,7 @@ module RightScale
           :account_id => @account_id,
           :r_s_version => AgentConfig.protocol_version,
           :right_link_version => RightLink.version }
-        response = @http_client.post("/oauth2", params, :headers => @user_agent_header)
+        response = @http_client.post("/oauth2", params, :headers => @other_headers)
         response = SerializationHelper.symbolize_keys(response)
         @access_token = response[:access_token]
         @expires_at = Time.now + response[:expires_in]
