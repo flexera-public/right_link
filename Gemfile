@@ -4,7 +4,9 @@ source 'https://rubygems.org'
 gemspec
 
 # Fresh off the assembly line
-gem 'right_support', '~> 2.7'
+gem 'right_support', '~> 2.8',
+    :git => 'https://github.com/rightscale/right_support.git',
+    :branch => 'ivory_14_04_acu155328_default_to_tlsv1'
 
 gem 'right_agent', '~> 2.0',
     :git => 'https://github.com/rightscale/right_agent.git',

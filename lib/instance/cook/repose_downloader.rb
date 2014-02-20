@@ -114,6 +114,7 @@ module RightScale
             # so now we invoke the RestClient::Request object directly, passing it our desired options
             client.execute(:method => :get, :url => "https://#{endpoint}:443#{resource}", :timeout => calculate_timeout(attempts),
                            :verify_ssl => OpenSSL::SSL::VERIFY_PEER, :ssl_ca_file => get_ca_file,
+                           :ssl_version => RightSupport::Net::HTTPClient::DEFAULT_OPTIONS[:ssl_version],
                            :headers => {:user_agent => "RightLink v#{AgentConfig.protocol_version}",
                                         'X-RightLink-Version' => RightLink.version }) do |response, request, result|
               if result.kind_of?(Net::HTTPSuccess)
