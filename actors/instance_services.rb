@@ -68,8 +68,16 @@ class InstanceServices
   # @return [RightScale::OperationResult] Always returns success
   #
   def reboot(_)
-    RightScale::Log.info('Initiate reboot using local (OS) facility')
-    RightScale::Platform.controller.reboot
+    # Do reboot on next_tick so that have change to return result
+    EM.next_tick do
+      begin
+        RightScale::Log.info('Initiate reboot using local (OS) facility')
+        RightScale::RightHttpClient.instance.close(:receive)
+        RightScale::Platform.controller.reboot
+      rescue Exception => e
+        RightScale::Log.error("Failed reboot", e, :trace)
+      end
+    end
     success_result
   end
 end
