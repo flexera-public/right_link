@@ -10,10 +10,10 @@ GIT
 
 GIT
   remote: https://github.com/rightscale/right_agent.git
-  revision: e4d885c24cb220ccce82c06b6017fcf828e4fced
+  revision: 712c1c6f087a0df1636ead00d1be1b3ee259c076
   branch: master
   specs:
-    right_agent (2.0.3)
+    right_agent (2.0.4)
       eventmachine (>= 0.12.10, < 2.0)
       faye-websocket (= 0.7.0)
       ffi
@@ -193,7 +193,6 @@ GEM
     trollop (2.0)
     uuidtools (2.1.4)
     websocket-driver (0.3.2)
-    win32-api (1.4.8)
     win32-api (1.4.8-x86-mingw32)
     win32-dir (0.3.7)
       windows-pr (>= 1.0.9)
@@ -212,8 +211,6 @@ GEM
       ffi
     win32-process (0.6.5)
       windows-pr (>= 1.1.2)
-    win32-service (0.7.2)
-      windows-pr (>= 1.0.8)
     win32-service (0.7.2-x86-mingw32)
       windows-pr (>= 1.0.8)
     windows-api (0.4.0)
