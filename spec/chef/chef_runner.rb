@@ -190,6 +190,7 @@ EOF
         AgentConfig.cache_dir = cache_dir_path
         file_cache_path = File.join(AgentConfig.cache_dir, 'chef')
         ::Chef::Config[:file_cache_path] = file_cache_path
+        ::Ohai::Config[:hints_path] = [ File.join(AgentConfig.cache_dir, "ohai", "hints") ]
         ::Chef::Config[:cache_options][:path] = File.join(file_cache_path, 'checksums')
         ::Chef::Config[:client_fork] = false
         FileUtils.rm_rf(::Chef::Config[:file_cache_path])
