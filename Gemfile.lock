@@ -10,10 +10,10 @@ GIT
 
 GIT
   remote: https://github.com/rightscale/right_agent.git
-  revision: 712c1c6f087a0df1636ead00d1be1b3ee259c076
+  revision: e5092cebcd839f4eb4f56cdfb006391ea70f8bfb
   branch: master
   specs:
-    right_agent (2.0.4)
+    right_agent (2.0.5)
       eventmachine (>= 0.12.10, < 2.0)
       faye-websocket (= 0.7.0)
       ffi
