@@ -25,10 +25,14 @@ class InstanceServices
   include RightScale::Actor
   include RightScale::OperationResultHelper
 
-  expose :update_login_policy, :reboot
+  expose :update_login_policy, :restart, :reenroll, :reboot
 
-  def initialize(agent_identity)
-    @agent_identity = agent_identity
+  # Initialize actor
+  #
+  # === Parameters
+  # agent(RightScale::Agent):: This agent
+  def initialize(agent)
+    @agent = agent
   end
 
   # Apply a new SSH login policy to the instance.
@@ -39,13 +43,12 @@ class InstanceServices
   #
   # == Returns:
   # @return [RightScale::OperationResult] Always returns success
-  #
   def update_login_policy(new_policy)
     status = nil
 
-    RightScale::AuditProxy.create(@agent_identity, 'Updating managed login policy') do |audit|
+    RightScale::AuditProxy.create(@agent.identity, 'Updating managed login policy') do |audit|
       begin
-        RightScale::LoginManager.instance.update_policy(new_policy, @agent_identity) do |audit_content|
+        RightScale::LoginManager.instance.update_policy(new_policy, @agent.identity) do |audit_content|
           if audit_content
             audit.create_new_section('Managed login policy updated', :category => RightScale::EventCategories::CATEGORY_SECURITY)
             audit.append_info(audit_content)
@@ -63,10 +66,49 @@ class InstanceServices
     status
   end
 
+  # Force agent to restart now
+  # Optionally reconfigure agent before doing so
+  #
+  # === Parameters
+  # options(Hash|NilClass):: Agent configuration option changes
+  #
+  # === Return
+  # (RightScale::OperationResult):: Always returns success
+  def restart(options)
+    @agent.update_configuration(options) if options.is_a?(Hash) && options.any?
+    EM.next_tick do
+      begin
+        @agent.terminate("remote restart")
+      rescue Exception => e
+        RightScale::Log.error("Failed restart", e, :trace)
+      end
+    end
+    success_result
+  end
+
+  # Force agent to reenroll now
+  # Optionally reconfigure agent before doing so
+  #
+  # === Parameters
+  # options(Hash|NilClass):: Agent configuration option changes
+  #
+  # === Return
+  # (RightScale::OperationResult):: Always returns success
+  def reenroll(options)
+    @agent.update_configuration(options) if options.is_a?(Hash) && options.any?
+    EM.next_tick do
+      begin
+        RightScale::ReenrollManager.reenroll!
+      rescue Exception => e
+        RightScale::Log.error("Failed reenroll", e, :trace)
+      end
+    end
+    success_result
+  end
+
   # Reboot the instance using local (OS) facility.
   #
   # @return [RightScale::OperationResult] Always returns success
-  #
   def reboot(_)
     # Do reboot on next_tick so that have change to return result
     EM.next_tick do
