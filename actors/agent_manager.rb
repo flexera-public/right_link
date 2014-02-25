@@ -31,7 +31,7 @@ AgentManager.class_eval do
 
   on_exception { |_, _, _| }
 
-  expose :record_fault, :restart, :reenroll
+  expose :record_fault
 
   # Process fault (i.e. router failed to decrypt one of our packets)
   # Vote for re-enrollment
@@ -40,34 +40,6 @@ AgentManager.class_eval do
   # (RightScale::OperationResult):: Always returns success
   def record_fault(_)
     RightScale::ReenrollManager.vote
-    success_result
-  end
-
-  # Force agent to restart now
-  # Optionally reconfigure agent before doing so
-  #
-  # === Parameters
-  # options(Hash|NilClass):: Agent configuration option changes
-  #
-  # === Return
-  # (RightScale::OperationResult):: Always returns success
-  def restart(options)
-    @agent.update_configuration(options) if options.is_a?(Hash) && options.any?
-    @agent.terminate("remote restart")
-    success_result
-  end
-
-  # Force agent to reenroll now
-  # Optionally reconfigure agent before doing so
-  #
-  # === Parameters
-  # options(Hash|NilClass):: Agent configuration option changes
-  #
-  # === Return
-  # (RightScale::OperationResult):: Always returns success
-  def reenroll(options)
-    @agent.update_configuration(options) if options.is_a?(Hash) && options.any?
-    RightScale::ReenrollManager.reenroll!
     success_result
   end
 

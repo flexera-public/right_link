@@ -59,7 +59,7 @@ AgentTagManager.instance.agent = self
 register setup = InstanceSetup.new(self)
 register scheduler = InstanceScheduler.new(self)
 register agent_manager = AgentManager.new(self)
-register InstanceServices.new(@identity)
+register InstanceServices.new(self)
 
 # Start command runner to enable running instance agent requests from the command line
 commands = InstanceCommands.get(@identity, scheduler, agent_manager)
