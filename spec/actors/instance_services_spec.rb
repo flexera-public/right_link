@@ -83,39 +83,54 @@ describe InstanceServices do
       result.success?.should be_true
     end
 
+    it "symbolizes keys before updating the configuration" do
+      @options = {"log_level" => :debug}
+      @agent.should_receive(:update_configuration).with({:log_level => :debug}).once
+      result = @services.restart(@options)
+      result.success?.should be_true
+    end
+
     it "logs any exceptions during next_tick" do
       @log.should_receive(:error).with("Failed restart", RuntimeError, :trace).once
       @agent.should_receive(:terminate).and_raise(RuntimeError).once
-      result = @services.restart(options)
+      result = @services.restart(@options)
       result.success?.should be_true
     end
   end
 
   context "reenroll" do
     before(:each) do
+      @options = {}
       flexmock(EM).should_receive(:next_tick).and_yield.once
     end
 
     it "reenrolls the instance agent" do
-      options = {}
       @agent.should_receive(:update_configuration).never
       flexmock(RightScale::ReenrollManager).should_receive(:reenroll!)
-      result = @services.reenroll(options)
+      result = @services.reenroll(@options)
       result.success?.should be_true
     end
 
     it "updates the configuration before reenrolling" do
-      options = {:log_level => :debug}
-      @agent.should_receive(:update_configuration).with(options).once
+      @options = {:log_level => :debug}
+      @agent.should_receive(:update_configuration).with(@options).once
       flexmock(RightScale::ReenrollManager).should_receive(:reenroll!).once
-      result = @services.reenroll(options)
+      result = @services.reenroll(@options)
+      result.success?.should be_true
+    end
+
+    it "symbolizes keys before updating the configuration" do
+      @options = {"log_level" => :debug}
+      @agent.should_receive(:update_configuration).with({:log_level => :debug}).once
+      flexmock(RightScale::ReenrollManager).should_receive(:reenroll!).once
+      result = @services.reenroll(@options)
       result.success?.should be_true
     end
 
     it "logs any exceptions during next_tick" do
       @log.should_receive(:error).with("Failed reenroll", RuntimeError, :trace).once
       flexmock(RightScale::ReenrollManager).should_receive(:reenroll!).and_raise(RuntimeError).once
-      result = @services.reenroll(options)
+      result = @services.reenroll(@options)
       result.success?.should be_true
     end
   end
