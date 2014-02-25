@@ -75,7 +75,7 @@ class InstanceServices
   # === Return
   # (RightScale::OperationResult):: Always returns success
   def restart(options)
-    @agent.update_configuration(options) if options.is_a?(Hash) && options.any?
+    @agent.update_configuration(RightScale::SerializationHelper.symbolize_keys(options)) if options.is_a?(Hash) && options.any?
     EM.next_tick do
       begin
         @agent.terminate("remote restart")
@@ -95,7 +95,7 @@ class InstanceServices
   # === Return
   # (RightScale::OperationResult):: Always returns success
   def reenroll(options)
-    @agent.update_configuration(options) if options.is_a?(Hash) && options.any?
+    @agent.update_configuration(RightScale::SerializationHelper.symbolize_keys(options)) if options.is_a?(Hash) && options.any?
     EM.next_tick do
       begin
         RightScale::ReenrollManager.reenroll!
