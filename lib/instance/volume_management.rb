@@ -59,75 +59,74 @@ module RightScale
       payload = {:agent_identity => @agent_identity}
       req = RetryableRequest.new("/storage_valet/get_planned_volumes", payload, :retry_delay => VolumeManagement::VOLUME_RETRY_SECONDS)
       req.callback do |res|
-        if res
-          begin
-            mappings = merge_planned_volume_mappings(last_mappings, res)
-            InstanceState.planned_volume_state.mappings = mappings
-            if mappings.empty?
-              # no volumes requiring management.
-              @audit.append_info("This instance has no planned volumes.")
-              block.call if block
-            elsif (detachable_volume_count = mappings.count { |mapping| is_unmanaged_attached_volume?(mapping) }) >= 1
-              # must detach all 'attached' volumes if any are attached (or
-              # attaching) but not yet managed on the instance side. this is the
-              # only way to ensure they receive the correct device names.
-              mappings.each do |mapping|
-                if is_unmanaged_attached_volume?(mapping)
-                  detach_planned_volume(mapping) do
-                    detachable_volume_count -= 1
-                    if 0 == detachable_volume_count
-                      # add a timer to resume volume management later and pass the
-                      # block for continuation afterward (unless detachment stranded).
-                      Log.info("Waiting for volumes to detach for management purposes. "\
-                               "Retrying in #{VolumeManagement::VOLUME_RETRY_SECONDS} seconds...")
-                      EM.add_timer(VolumeManagement::VOLUME_RETRY_SECONDS) { manage_planned_volumes(&block) }
-                    end
-                  end
-                end
-              end
-            elsif mapping = mappings.find { |mapping| is_detaching_volume?(mapping) }
-              # we successfully requested detachment but status has not
-              # changed to reflect this yet.
-              Log.info("Waiting for volume #{mapping[:volume_id]} to fully detach. "\
-                       "Retrying in #{VolumeManagement::VOLUME_RETRY_SECONDS} seconds...")
-              EM.add_timer(VolumeManagement::VOLUME_RETRY_SECONDS) { manage_planned_volumes(&block) }
-            elsif mapping = mappings.find { |mapping| is_managed_attaching_volume?(mapping) }
-              Log.info("Waiting for volume #{mapping[:volume_id]} to fully attach. Retrying in #{VolumeManagement::VOLUME_RETRY_SECONDS} seconds...")
-              EM.add_timer(VolumeManagement::VOLUME_RETRY_SECONDS) { manage_planned_volumes(&block) }
-            elsif mapping = mappings.find { |mapping| is_managed_attached_unassigned_volume?(mapping) }
-              manage_volume_device_assignment(mapping) do
-                unless InstanceState.value == 'stranded'
-                  # we can move on to next volume 'immediately' if volume was
-                  # successfully assigned its device name.
-                  if mapping[:management_status] == 'assigned'
-                    EM.next_tick { manage_planned_volumes(&block) }
-                  else
-                    Log.info("Waiting for volume #{mapping[:volume_id]} to initialize using \"#{mapping[:mount_points].first}\". "\
+        res ||= [] # res is nil or an array of hashes
+        begin
+          mappings = merge_planned_volume_mappings(last_mappings, res)
+          InstanceState.planned_volume_state.mappings = mappings
+          if mappings.empty?
+            # no volumes requiring management.
+            @audit.append_info("This instance has no planned volumes.")
+            block.call if block
+          elsif (detachable_volume_count = mappings.count { |mapping| is_unmanaged_attached_volume?(mapping) }) >= 1
+            # must detach all 'attached' volumes if any are attached (or
+            # attaching) but not yet managed on the instance side. this is the
+            # only way to ensure they receive the correct device names.
+            mappings.each do |mapping|
+              if is_unmanaged_attached_volume?(mapping)
+                detach_planned_volume(mapping) do
+                  detachable_volume_count -= 1
+                  if 0 == detachable_volume_count
+                    # add a timer to resume volume management later and pass the
+                    # block for continuation afterward (unless detachment stranded).
+                    Log.info("Waiting for volumes to detach for management purposes. "\
                              "Retrying in #{VolumeManagement::VOLUME_RETRY_SECONDS} seconds...")
                     EM.add_timer(VolumeManagement::VOLUME_RETRY_SECONDS) { manage_planned_volumes(&block) }
                   end
                 end
               end
-            elsif mapping = mappings.find { |mapping| is_detached_volume?(mapping) }
-              attach_planned_volume(mapping) do
-                unless InstanceState.value == 'stranded'
-                  unless mapping[:attempts]
-                    @audit.append_info("Attached volume #{mapping[:volume_id]} using \"#{mapping[:mount_points].first}\".")
-                    Log.info("Waiting for volume #{mapping[:volume_id]} to appear using \"#{mapping[:mount_points].first}\". "\
-                             "Retrying in #{VolumeManagement::VOLUME_RETRY_SECONDS} seconds...")
-                  end
+            end
+          elsif mapping = mappings.find { |mapping| is_detaching_volume?(mapping) }
+            # we successfully requested detachment but status has not
+            # changed to reflect this yet.
+            Log.info("Waiting for volume #{mapping[:volume_id]} to fully detach. "\
+                     "Retrying in #{VolumeManagement::VOLUME_RETRY_SECONDS} seconds...")
+            EM.add_timer(VolumeManagement::VOLUME_RETRY_SECONDS) { manage_planned_volumes(&block) }
+          elsif mapping = mappings.find { |mapping| is_managed_attaching_volume?(mapping) }
+            Log.info("Waiting for volume #{mapping[:volume_id]} to fully attach. Retrying in #{VolumeManagement::VOLUME_RETRY_SECONDS} seconds...")
+            EM.add_timer(VolumeManagement::VOLUME_RETRY_SECONDS) { manage_planned_volumes(&block) }
+          elsif mapping = mappings.find { |mapping| is_managed_attached_unassigned_volume?(mapping) }
+            manage_volume_device_assignment(mapping) do
+              unless InstanceState.value == 'stranded'
+                # we can move on to next volume 'immediately' if volume was
+                # successfully assigned its device name.
+                if mapping[:management_status] == 'assigned'
+                  EM.next_tick { manage_planned_volumes(&block) }
+                else
+                  Log.info("Waiting for volume #{mapping[:volume_id]} to initialize using \"#{mapping[:mount_points].first}\". "\
+                           "Retrying in #{VolumeManagement::VOLUME_RETRY_SECONDS} seconds...")
                   EM.add_timer(VolumeManagement::VOLUME_RETRY_SECONDS) { manage_planned_volumes(&block) }
                 end
               end
-            elsif mapping = mappings.find { |mapping| is_unmanageable_volume?(mapping) }
-              strand("State of volume #{mapping[:volume_id]} was unmanageable: #{mapping[:volume_status]}")
-            else
-              # all volumes are managed and have been assigned and so we can proceed.
-              block.call if block
             end
-          rescue Exception => e
-            strand(e)
+          elsif mapping = mappings.find { |mapping| is_detached_volume?(mapping) }
+            attach_planned_volume(mapping) do
+              unless InstanceState.value == 'stranded'
+                unless mapping[:attempts]
+                  @audit.append_info("Attached volume #{mapping[:volume_id]} using \"#{mapping[:mount_points].first}\".")
+                  Log.info("Waiting for volume #{mapping[:volume_id]} to appear using \"#{mapping[:mount_points].first}\". "\
+                           "Retrying in #{VolumeManagement::VOLUME_RETRY_SECONDS} seconds...")
+                end
+                EM.add_timer(VolumeManagement::VOLUME_RETRY_SECONDS) { manage_planned_volumes(&block) }
+              end
+            end
+          elsif mapping = mappings.find { |mapping| is_unmanageable_volume?(mapping) }
+            strand("State of volume #{mapping[:volume_id]} was unmanageable: #{mapping[:volume_status]}")
+          else
+            # all volumes are managed and have been assigned and so we can proceed.
+            block.call if block
           end
+        rescue Exception => e
+          strand(e)
         end
       end
 
@@ -136,7 +135,7 @@ module RightScale
       end
 
       req.run
-      end
+    end
 
     # Detaches the planned volume given by its mapping.
     #
