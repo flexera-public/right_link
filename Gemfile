@@ -29,7 +29,7 @@ gem 'right_scraper', '~> 4.0',
 # to RightScale. Gems in the 'custom' group are published by RightScale to our
 # custom gem repository (http://s3.amazonaws.com/rightscale_rightlink_gems_dev).
 group :custom do
-  gem 'chef', '11.6.0.3'
+  gem 'chef', '11.6.0.4'
   gem 'ohai', '6.18.0.2'
   gem 'mixlib-shellout', '1.2.0.2'
   gem 'eventmachine', '1.0.0.5'

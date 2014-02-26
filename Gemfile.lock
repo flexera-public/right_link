@@ -74,7 +74,7 @@ GEM
   remote: http://s3.amazonaws.com/rightscale_rightlink_gems_dev/
   remote: https://rubygems.org/
   specs:
-    chef (11.6.0.3)
+    chef (11.6.0.4)
       erubis
       highline
       highline (>= 1.6.9)
@@ -92,7 +92,7 @@ GEM
       right_popen (~> 2.0)
       uuidtools
       yajl-ruby (~> 1.1)
-    chef (11.6.0.3-x86-mingw32)
+    chef (11.6.0.4-x86-mingw32)
       erubis
       ffi (= 1.0.9)
       highline
@@ -118,7 +118,7 @@ GEM
       win32-mutex (= 0.3.1)
       win32-process (= 0.6.5)
       win32-service (= 0.7.2)
-      windows-api (= 0.4.0)
+      windows-api (= 0.4.2)
       windows-pr (= 1.2.1)
       yajl-ruby (~> 1.1)
     columnize (0.3.6)
@@ -219,7 +219,7 @@ GEM
       windows-pr (>= 1.1.2)
     win32-service (0.7.2-x86-mingw32)
       windows-pr (>= 1.0.8)
-    windows-api (0.4.0)
+    windows-api (0.4.2)
       win32-api (>= 1.4.5)
     windows-pr (1.2.1)
       win32-api (>= 1.4.5)
@@ -232,7 +232,7 @@ PLATFORMS
   x86-mingw32
 
 DEPENDENCIES
-  chef (= 11.6.0.3)
+  chef (= 11.6.0.4)
   debugger (~> 1.6.1)
   eventmachine (= 1.0.0.5)
   flexmock (~> 0.9)
