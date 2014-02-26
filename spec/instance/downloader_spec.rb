@@ -26,7 +26,7 @@ describe RightScale::Downloader do
 
   before(:all) do
     @dest_dir = new_folder_path
-    @valid_url = 'http://www.rightscale.com/images/btn_tryFree.png'
+    @valid_url = 'http://www.google.com/images/logo.png'
     @wrong_url = 'http://www.rightscale.com/images/btn_tryFree.png2'
   end
 
