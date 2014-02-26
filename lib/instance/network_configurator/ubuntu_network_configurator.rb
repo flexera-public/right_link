@@ -8,6 +8,25 @@ module RightScale
       !File.readlines("/etc/network/interfaces").grep(/source \/etc\/network\/interface.d/).empty?
     end
 
+    def installed_network_devices
+      @installed_network_devices || = File.readlines("/proc/net/dev").grep(/eth\d+/) do |device|
+        device.split(':').first.strip
+      end
+    end
+
+    def staticaly_configured_network_devices
+      @staticaly_configured_network_devices ||= ENV.keys.grep(/RS_IP(\d)_ADDR/) { "eth#{$1}" }
+    end
+
+    def dhcp_configure_network_devices
+      installed_network_devices - staticaly_configured_network_devices
+    end
+
+    def add_static_routes_for_network
+      dhcp_configure_network_devices.each { |device| runshell("dhclient #{device}") }
+      super
+    end
+
     def enable_separate_configs
       File.open("/etc/network/interfaces", "w") do |config|
         config.write <<-EOH
