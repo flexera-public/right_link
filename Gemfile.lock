@@ -48,6 +48,13 @@ GIT
       right_popen (~> 2.0)
       right_support (~> 2.6)
 
+GIT
+  remote: https://github.com/rightscale/right_support.git
+  revision: 46f92a88f1081e6f792ab6569232f64bdd719d8f
+  branch: ivory_14_04_acu155328_default_to_tlsv1
+  specs:
+    right_support (2.8.13)
+
 PATH
   remote: .
   specs:
@@ -180,7 +187,6 @@ GEM
     right_http_connection (1.4.0)
     right_popen (2.0.2)
     right_popen (2.0.2-x86-mingw32)
-    right_support (2.8.13)
     rspec (1.3.2)
     ruby-debug (0.10.4)
       columnize (>= 0.1)
@@ -245,7 +251,7 @@ DEPENDENCIES
   right_link!
   right_popen (~> 2.0)
   right_scraper (~> 4.0)!
-  right_support (~> 2.7)
+  right_support (~> 2.8)!
   rspec (~> 1.3)
   ruby-debug
   rubyforge (= 1.0.4)
