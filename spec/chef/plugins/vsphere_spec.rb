@@ -23,7 +23,7 @@
 require File.expand_path(File.join(File.dirname(__FILE__), 'spec_helper.rb'))
 require 'tempfile'
 
-describe Ohai::System, 'plugin vscale' do
+describe Ohai::System, 'plugin vsphere' do
 
   before(:each) do
     temp_dir = Dir.mktmpdir
@@ -37,19 +37,19 @@ describe Ohai::System, 'plugin vscale' do
     flexmock(@ohai).should_receive(:depends).and_return(true)
   end
 
-  it 'create vscale if hint file exists' do
-    flexmock(@ohai).should_receive(:hint?).with('vscale').and_return({}).once
-    @ohai._require_plugin("vscale")
-    @ohai[:vscale].should_not be_nil
+  it 'create vsphere if hint file exists' do
+    flexmock(@ohai).should_receive(:hint?).with('vsphere').and_return({}).once
+    @ohai._require_plugin("vsphere")
+    @ohai[:vsphere].should_not be_nil
   end
 
-  it "not create vscale if hint file doesn't exists" do
-    flexmock(@ohai).should_receive(:hint?).with('vscale').and_return(nil).once
-    @ohai._require_plugin("vscale")
-    @ohai[:vscale].should be_nil
+  it "not create vsphere if hint file doesn't exists" do
+    flexmock(@ohai).should_receive(:hint?).with('vsphere').and_return(nil).once
+    @ohai._require_plugin("vsphere")
+    @ohai[:vsphere].should be_nil
   end
 
-  it 'populate vscale node with required attributes' do
+  it 'populate vsphere node with required attributes' do
     network = {
         :interfaces => {
             :lo   => { :flags => ["LOOPBACK"] },
@@ -57,12 +57,12 @@ describe Ohai::System, 'plugin vscale' do
             :eth1 => { :flags => [], :addresses => { "192.168.0.1" => { 'family' => 'inet' } } }
         }
     }
-    flexmock(@ohai).should_receive(:hint?).with('vscale').and_return({}).once
+    flexmock(@ohai).should_receive(:hint?).with('vsphere').and_return({}).once
     flexmock(@ohai).should_receive(:network).and_return(network)
-    @ohai._require_plugin("vscale")
-    @ohai[:vscale]['local_ipv4'] = '50.23.101.210'
-    @ohai[:vscale]['public_ipv4'] = '192.168.0.1'
-    @ohai[:vscale]['private_ips'] = ['50.23.101.210']
-    @ohai[:vscale]['public_ips'] = ['192.168.0.1']
+    @ohai._require_plugin("vsphere")
+    @ohai[:vsphere]['local_ipv4'] = '50.23.101.210'
+    @ohai[:vsphere]['public_ipv4'] = '192.168.0.1'
+    @ohai[:vsphere]['private_ips'] = ['50.23.101.210']
+    @ohai[:vsphere]['public_ips'] = ['192.168.0.1']
   end
 end
