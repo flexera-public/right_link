@@ -33,8 +33,10 @@ require 'right_agent'
 
 # RightLink dependencies
 lib_dir = File.join(File.dirname(__FILE__), '..', 'lib')
+require File.normalize_path(File.join(lib_dir, 'right_link', 'version'))
 require File.normalize_path(File.join(lib_dir, 'instance', 'agent_config'))
 require File.normalize_path(File.join(lib_dir, 'instance', 'instance_state'))
+require File.normalize_path(File.join(lib_dir, 'instance', 'instance_auth_client'))
 
 # This environment variable prevents our AMQP error handler from logging errors
 # This is needed because when the fetch enroll result code first tries to connect
@@ -71,6 +73,18 @@ module RightScale
             options[:root_dir] = d
           end
         end
+        cli.on('-i', '--id ID') do |id|
+          options[:id] = id.to_i
+        end
+        cli.on('-t', '--token TOKEN') do |token|
+          options[:token] = token
+        end
+        cli.on('-A', '--account ID') do |id|
+          options[:account_id] = id
+        end
+        cli.on('-a', '--api-url URL') do |url|
+          options[:api_url] = url
+        end
         cli.on('-u', '--url URL') do |url|
           options[:url] = url
         end
@@ -80,12 +94,6 @@ module RightScale
         cli.on('-p', '--port PORT') do |port|
           # Only used for testing
           options[:port] = port
-        end
-        cli.on('-i', '--id ID') do |id|
-          options[:id] = id.to_i
-        end
-        cli.on('-t', '--token TOKEN') do |token|
-          options[:token] = token
         end
         cli.on('-d', '--or-die') do
           options[:die] = true
@@ -129,10 +137,10 @@ module RightScale
     end
 
     def enroll(options)
+      started_at  = Time.now
       url         = URI.parse(options[:url])
       token_id    = options[:id]
-      auth_token  = options[:token]
-      started_at  = Time.now
+      token       = options[:token]
       retry_for   = options[:retry]
       retry_until = Time.at(started_at.to_i + retry_for)
       wait        = WAIT_MIN
@@ -159,13 +167,21 @@ module RightScale
         t0 = Time.now
 
         begin
-          Log.info("Requesting RightLink enrollment (token_id=#{token_id}; timestamp=#{t0.to_i})...")
-          request_enrollment(t0, enroll_url, host, port, token_id, auth_token, WAIT_MIN)
+          if select_mode(options) == :http
+            update_configuration(:mode => :http, :api_url => options[:api_url])
+            # Remove the certs directory to signal bin/deploy that in :http mode
+            FileUtils.rm_rf(AgentConfig.certs_dir)
+            Log.info('No RightLink enrollment required, using HTTP for RightNet communication.')
+            return 0
+          else
+            Log.info("Requesting RightLink enrollment using AMQP (token_id=#{token_id}; timestamp=#{t0.to_i})...")
+            request_enrollment(t0, enroll_url, host, port, token_id, token, WAIT_MIN)
+          end
 
           sleep(PRE_WAIT)
 
           Log.info("Fetching response (will wait #{wait} seconds)...")
-          @result = fetch_enrollment_result(t0, url, host, port, token_id, auth_token, wait)
+          @result = fetch_enrollment_result(t0, url, host, port, token_id, token, wait)
 
           if @result
             Log.info('Enrollment response received.')
@@ -184,9 +200,9 @@ module RightScale
 
           t1 = Time.now.utc
           dt = t1 - t0
-          unless wait-dt <= 0
-            Log.info("Sleeping for #{(wait-dt).to_i} more seconds.")
-            sleep(wait-dt)
+          unless (wait - dt) <= 0
+            Log.info("Sleeping for #{(wait - dt).to_i} more seconds.")
+            sleep(wait - dt)
           end
 
           wait = [wait*2, WAIT_MAX].min
@@ -194,13 +210,16 @@ module RightScale
       end
 
       if @result
+        update_configuration(:mode => :amqp)
+
         # Create the standard RightAgent certs_dir so we can write our certs there.
         certs_dir = AgentConfig.certs_dir
+
         FileUtils.mkdir_p(certs_dir) unless File.directory?(certs_dir)
 
-        # Write the mapper cert, our cert, and our private kjey
-        File.open(File.join(certs_dir, 'mapper.cert'), "w") do |f|
-          f.write(@result.mapper_cert)
+        # Write the router cert, our cert, and our private kjey
+        File.open(File.join(certs_dir, 'router.cert'), "w") do |f|
+          f.write(@result.router_cert)
         end
         File.open(File.join(certs_dir, 'instance.cert'), "w") do |f|
           f.write(@result.id_cert)
@@ -210,7 +229,6 @@ module RightScale
           f.write(@result.id_key)
           FileUtils.chmod(0600, instance_key)
         end
-
         return 0
       else
         Log.error("Could not complete enrollment after #{retry_for} sec; aborting!!!")
@@ -230,8 +248,41 @@ module RightScale
       Log.add_logger(Logger.new(STDOUT))
     end
 
-    def predict_agent_identity(token_id, auth_token)
-      public_token = SecureIdentity.derive(token_id, auth_token)
+    def select_mode(options)
+      if (api_url = options[:api_url])
+        Log.info("Requesting RightNet communication mode from #{api_url.inspect}")
+        auth_options = {
+          :identity   => predict_agent_identity(options[:id], options[:token]),
+          :token      => options[:token],
+          :account_id => options[:account_id],
+          :api_url    => api_url,
+          :no_renew   => true }
+        auth_client = RightScale::InstanceAuthClient.new(auth_options)
+        mode = auth_client.mode
+        auth_client.close
+        mode
+      else
+        :amqp
+      end
+    rescue RightScale::Exceptions::Unauthorized
+      Log.info("Denied access via HTTP, using AMQP instead")
+      :amqp
+    end
+
+    def update_configuration(options)
+      if (cfg = AgentConfig.load_cfg("instance"))
+        options.each { |k, v| cfg[k] = v }
+        AgentConfig.store_cfg("instance", cfg)
+        true
+      else
+        # This is almost certainly because this is the initial enrollment in which case
+        # the /bin/deploy script will properly configure the instance agent
+        Log.info("Could not update configuration file for instance because does not yet exist")
+      end
+    end
+
+    def predict_agent_identity(token_id, token)
+      public_token = SecureIdentity.derive(token_id, token)
       return AgentIdentity.new('rs', 'instance', token_id, public_token).to_s
     end
 
@@ -358,19 +409,22 @@ Synopsis:
   and credentials from RightScale servers in a secure manner
 
 Usage:
-  enroll.rb --root-dir DIR --url URL --host HOST --port PORT --id ID --token TOKEN
-            [--state FILE --or-die --retry TIME]
+  enroll.rb --root-dir DIR --id ID --token TOKEN --account ID --api-url URL
+            [--url URL --host HOST --port PORT --state FILE --or-die --retry TIME]
 
   options:
     --root-dir DIR     Root directory of right_link
+    --id, -i ID        Authenticate as agent ID
+    --token, -t TOKEN  Use TOKEN as password for RightApi authentication
+                       and to sign and encrypt AMQP messages
+    --account, -A ID   Account owning this instance agent
+    --api-url, -a URL  URL for getting authorization from RightApi
     --url, -u URL      AMQP connection URL (user/pass/host/port/vhost)
     --host, -h HOST    AMQP connection host:id comma-separated list
                        with first host defaulting to the one in URL, e.g.,
                       ":0,another_host:3"
     --port, -p PORT    AMQP connection port:id comma-separated list, corresponding
                        to host list; if only one port, it is used for all hosts
-    --id, -i ID        Authenticate as agent ID
-    --token, -t TOKEN  Use TOKEN to sign and encrypt AMQP messages
     --or-die, -d       Shutdown machine if not enrolled after 45 minutes
     --retry, -r TIME   Retry for TIME seconds before giving up permanently
     --state, -s FILE   Keep enrollment state (timestamps, etc) in FILE

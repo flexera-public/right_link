@@ -32,11 +32,17 @@ describe Ohai::System, ' plugin cloudstack' do
     }
   }
 
+  let (:fetched_dhcp_lease_provider) {
+    '5.6.7.8'
+  }
+
   let (:rightlink_metadata_dir) { 'rightlink_metadata_dir' }
 
   before(:each) do
-    flexmock(::RightScale::AgentConfig).should_receive(:cache_dir).and_return(Dir.mktmpdir)
+    temp_dir = Dir.mktmpdir
+    flexmock(::RightScale::AgentConfig).should_receive(:cache_dir).and_return(temp_dir)
     # configure ohai for RightScale
+    ::Ohai::Config[:hints_path] = [File.join(temp_dir,"ohai","hints")]
     RightScale::OhaiSetup.configure_ohai
 
     # ohai to be tested
@@ -48,9 +54,10 @@ describe Ohai::System, ' plugin cloudstack' do
   it 'create cloudstack attribute if hint file exists and metadata fetch' do
     flexmock(@ohai).should_receive(:hint?).with('cloudstack').and_return({}).once
     flexmock(@ohai).should_receive(:fetch_metadata).with(rightlink_metadata_dir).and_return(fetched_metadata).once
+    flexmock(@ohai).should_receive(:dhcp_lease_provider).and_return(fetched_dhcp_lease_provider).once
     @ohai._require_plugin("cloudstack")
     @ohai[:cloudstack].should_not be_nil
-    @ohai[:cloudstack].should == fetched_metadata
+    @ohai[:cloudstack].should == fetched_metadata.merge({'dhcp_lease_provider_ip' => fetched_dhcp_lease_provider})
   end
 
   it 'will not fetch metatada  on non-cloudstack' do
@@ -65,15 +72,6 @@ describe Ohai::System, ' plugin cloudstack' do
     flexmock(@ohai).should_receive(:fetch_metadata).and_return(nil)
     @ohai._require_plugin("cloudstack")
     @ohai[:cloudstack].should be_nil
-  end
-
-  it 'add dhcp_lease_provider_ip attribute to cloudstack node' do
-    flexmock(@ohai).should_receive(:hint?).with('cloudstack').and_return({}).once
-    flexmock(@ohai).should_receive(:fetch_metadata).and_return(fetched_metadata).once
-    flexmock(@ohai).should_receive(:dhcp_lease_provider).and_return('1.2.3.4')
-    @ohai._require_plugin("cloudstack")
-    @ohai[:cloudstack].should_not be_nil
-    @ohai[:cloudstack]['dhcp_lease_provider_ip'].should == '1.2.3.4'
   end
 
 end

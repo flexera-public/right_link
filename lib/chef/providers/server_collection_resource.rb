@@ -41,18 +41,18 @@ class Chef
         @timeout = 120
       end
 
-      # List of agent ids whose tags should be retrieved
+      # List of agent resource hrefs whose tags should be retrieved
       #
       # === Parameters
-      # arg(String|Array):: List of agent ids (or single agent id) to set
+      # arg(String|Array):: List of agent hrefs (or single agent href) to set
       # nil:: Return list instead of setting
       #
       # === Return
-      # (Array):: List of agent ids
-      def agent_ids(arg=nil)
+      # (Array):: List of agent resource hrefs
+      def hrefs(arg=nil)
         converted_arg = arg.is_a?(String) ? [ arg ] : arg
         set_or_return(
-          :agent_ids,
+          :hrefs,
           converted_arg,
           :kind_of => [ Array ]
         )

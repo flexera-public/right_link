@@ -112,7 +112,11 @@ module RightScale
             # Previously we accessed RestClient directly and used it's wrapper method to instantiate
             # a RestClient::Request object.  This wrapper was not passing all options down the stack
             # so now we invoke the RestClient::Request object directly, passing it our desired options
-            client.execute(:method => :get, :url => "https://#{endpoint}:443#{resource}", :timeout => calculate_timeout(attempts), :verify_ssl => OpenSSL::SSL::VERIFY_PEER, :ssl_ca_file => get_ca_file, :headers => {:user_agent => "RightLink v#{AgentConfig.protocol_version}", 'X-RightLink-Version' => RightLink.version }) do |response, request, result|
+            client.execute(:method => :get, :url => "https://#{endpoint}:443#{resource}", :timeout => calculate_timeout(attempts),
+                           :verify_ssl => OpenSSL::SSL::VERIFY_PEER, :ssl_ca_file => get_ca_file,
+                           :ssl_version => RightSupport::Net::HTTPClient::DEFAULT_OPTIONS[:ssl_version],
+                           :headers => {:user_agent => "RightLink v#{AgentConfig.protocol_version}",
+                                        'X-RightLink-Version' => RightLink.version }) do |response, request, result|
               if result.kind_of?(Net::HTTPSuccess)
                 @size = result.content_length || response.size || 0
                 @speed = @size / (Time.now - t0)
@@ -168,7 +172,7 @@ module RightScale
             attempts -= 1
             retry
           else
-            logger.error "Failed to resolve hostnames: #{e.class.name}: #{e.message}"
+            logger.error "Failed to resolve hostnames (#{e.class.name}: #{e.message})"
             raise e
           end
         end

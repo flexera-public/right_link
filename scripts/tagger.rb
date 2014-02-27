@@ -78,7 +78,7 @@ module RightScale
       r = serialize_operation_result(res)
       raise TagError.new("Query tags failed: #{r.inspect}", 46) unless r.kind_of?(OperationResult)
       if r.success?
-        if r.content.empty?
+        if r.content.nil? || r.content.empty?
           if options[:die]
             raise TagError.new("No servers with tags #{options[:tags].inspect}", 44)
           else

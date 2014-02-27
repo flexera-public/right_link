@@ -155,17 +155,19 @@ module RightScale
       # Then make one more pass to populate any missing keys and reject any that are still not populated
       unless (missing = populate_public_keys(users, public_keys_cache)).empty?
         payload = {:agent_identity => agent_identity, :public_key_fingerprints => missing.map { |(u, f)| f }}
-        request = RightScale::IdempotentRequest.new("/key_server/retrieve_public_keys", payload)
+        request = RightScale::RetryableRequest.new("/key_server/retrieve_public_keys", payload)
 
         request.callback do |public_keys|
-          missing = populate_public_keys(users, public_keys, remove_if_missing = true)
-          finalize_policy(new_policy, agent_identity, users, missing.map { |(u, f)| u }.uniq) do |audit_content|
-            yield audit_content
+          if public_keys
+            missing = populate_public_keys(users, public_keys, remove_if_missing = true)
+            finalize_policy(new_policy, agent_identity, users, missing.map { |(u, f)| u }.uniq) do |audit_content|
+              yield audit_content
+            end
           end
         end
 
         request.errback do |error|
-          Log.error("Failed to retrieve public keys for users #{missing.map { |(u, f)| u.username }.uniq.inspect}: #{error}")
+          Log.error("Failed to retrieve public keys for users #{missing.map { |(u, f)| u.username }.uniq.inspect} (#{error})")
           missing = populate_public_keys(users, {}, remove_if_missing = true)
           finalize_policy(new_policy, agent_identity, users, missing.map { |(u, f)| u }.uniq) do |audit_content|
             yield audit_content
@@ -451,7 +453,7 @@ module RightScale
           user = current[k] || previous[k]
           LoginUserManager.manage_user(user.uuid, user.superuser, :disable => true)
         rescue Exception => e
-          RightScale::Log.error "Failed to disable user '#{user.uuid}': #{e}" unless e.is_a?(ArgumentError)
+          RightScale::Log.error("Failed to disable user '#{user.uuid}'", e) unless e.is_a?(ArgumentError)
         end
       end
 
@@ -461,11 +463,11 @@ module RightScale
           disable = !!(user.expires_at) && (now >= user.expires_at)
           LoginUserManager.manage_user(user.uuid, user.superuser, :disable => disable)
         rescue Exception => e
-          RightScale::Log.error "Failed to manage existing user '#{user.uuid}': #{e}" unless e.is_a?(ArgumentError)
+          RightScale::Log.error("Failed to manage existing user '#{user.uuid}'", e) unless e.is_a?(ArgumentError)
         end
       end
     rescue Exception => e
-      RightScale::Log.error "Failed to manage existing users: #{e}"
+      RightScale::Log.error("Failed to manage existing users", e)
     end
 
     # === OS specific methods
