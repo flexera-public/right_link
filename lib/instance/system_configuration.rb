@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2009-2012 RightScale Inc
+# Copyright (c) 2009-2011 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -20,40 +20,16 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-class Chef
-  class Resource
-
-    # Tag exposed by RightLink agent
+module RightScale
+  class SystemConfiguration
+    # Reload system configuration
     #
-    class RightLinkTag < Chef::Resource
-
-      # Initialize tag resource
-      #
-      # === Parameters
-      # name(String):: Tag name
-      # collection(Array):: Collection of included recipes
-      # node(Chef::Node):: Node where resource will be used
-      def initialize(name, run_context=nil)
-        super(name, run_context)
-        @resource_name = :right_link_tag
-        @action = :publish
-        @timeout = 120
-        @allowed_actions.push(:publish, :remove, :load)
-      end
-
-      # (Fixnum) Common timeout parameter for command line tools
-      def timeout(arg=nil)
-        set_or_return(
-          :timeout,
-          arg,
-          :kind_of => [ Fixnum ]
-        )
-      end
-
+    # == Returns:
+    # @return [TrueClass] Always
+    def self.reload()
+      Log.info("[system_configuration] System configuration has been requested. Not supported yet.")
+      return true
     end
-
   end
-
 end
-
 
