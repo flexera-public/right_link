@@ -28,7 +28,7 @@
 require_plugin 'cloud'
 require_plugin 'cloudstack'
 require_plugin 'softlayer'
-require_plugin 'vscale'
+require_plugin 'vsphere'
 
 
 # ----------------------------------------
@@ -78,19 +78,19 @@ if on_softlayer?
   get_softlayer_values
 end
 
-def on_vscale?
-  vscale != nil
+def on_vsphere?
+  vsphere != nil
 end
 
-def get_vscale_values
-  cloud[:public_ipv4] = vscale['public_ipv4']
-  cloud[:local_ipv4] = vscale['local_ipv4']
-  cloud[:public_ips].concat(vscale['public_ips'])  if vscale['public_ips']
-  cloud[:private_ips].concat(vscale['private_ips'])  if vscale['public_ips']
-  cloud[:provider] = 'vscale'
+def get_vsphere_values
+  cloud[:public_ipv4] = vsphere['public_ipv4']
+  cloud[:local_ipv4] = vsphere['local_ipv4']
+  cloud[:public_ips].concat(vsphere['public_ips'])  if vsphere['public_ips']
+  cloud[:private_ips].concat(vsphere['private_ips'])  if vsphere['public_ips']
+  cloud[:provider] = 'vsphere'
 end
 
-if on_vscale?
+if on_vsphere?
   create_objects
-  get_vscale_values
+  get_vsphere_values
 end

@@ -90,7 +90,7 @@ Test Suggestions
  1. public interface with DHCP
 	* should go operational
 	* public IP should be reported correctly in server info tab
-	* recipes should have `node[:cloud][:provider] == "vscale"`
+	* recipes should have `node[:cloud][:provider] == "vsphere"`
 	* recipes should have `node[:cloud][:public_ips].include?(public_ip)`
  2. private interface with DHCP
      * you will need to set up correct values for `metadata:rs_nat_ranges`

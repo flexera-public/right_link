@@ -62,7 +62,7 @@ default_option([:user_metadata, :metadata_tree_climber, :create_leaf_override], 
 # cloud metadata defaults
 default_option([:metadata_source, :cloud_metadata_source_file_path], File.join(CONFIG_DRIVE_MOUNTPOINT, 'meta.txt'))
 default_option([:cloud_metadata, :metadata_tree_climber, :create_leaf_override], method(:create_user_metadata_leaf))
-# vscale cloud_metadata is flat, so paths will never have children -- always return false
+# vsphere cloud_metadata is flat, so paths will never have children -- always return false
 default_option([:cloud_metadata, :metadata_tree_climber, :has_children_override], method(:cloud_metadata_is_flat))
 
 def requires_network_config?

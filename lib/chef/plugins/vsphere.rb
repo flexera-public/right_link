@@ -24,20 +24,20 @@ require 'chef/ohai/mixin/rightlink'
 
 extend ::Ohai::Mixin::RightLink::CloudUtilities
 
-provides 'vscale'
+provides 'vsphere'
 depends 'network/interfaces'
 
 
-def looks_like_vscale?
-  looks_like_vscale = hint?('vscale')
-  ::Ohai::Log.debug("looks_like_vscale? == #{looks_like_vscale.inspect}")
-  looks_like_vscale
+def looks_like_vsphere?
+  looks_like_vsphere = hint?('vsphere')
+  ::Ohai::Log.debug("looks_like_vsphere? == #{looks_like_vsphere.inspect}")
+  looks_like_vsphere
 end
 
-if looks_like_vscale?
-  vscale Mash.new
-  vscale['local_ipv4'] = private_ips(network).first
-  vscale['public_ipv4'] = public_ips(network).first
-  vscale['private_ips'] = private_ips(network)
-  vscale['public_ips'] = public_ips(network)
+if looks_like_vsphere?
+  vsphere Mash.new
+  vsphere['local_ipv4'] = private_ips(network).first
+  vsphere['public_ipv4'] = public_ips(network).first
+  vsphere['private_ips'] = private_ips(network)
+  vsphere['public_ips'] = public_ips(network)
 end
