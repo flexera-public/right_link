@@ -108,14 +108,14 @@ describe Ohai::System, ' plugin missing_cloud' do
 
   end
 
-  context 'on vscale' do
+  context 'on vsphere' do
     before(:each) do
-      @ohai[:vscale] = Mash.new{}
+      @ohai[:vsphere] = Mash.new{}
     end
 
     it 'should populate cloud provider' do
       @ohai._require_plugin("missing_cloud")
-      @ohai[:cloud][:provider].should == 'vscale'
+      @ohai[:cloud][:provider].should == 'vsphere'
     end
 
   end
