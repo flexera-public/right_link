@@ -94,8 +94,8 @@ describe InstanceScheduler do
                                  Proc]
         @record_success = @results_factory.success_results
         @sender.should_receive(:message_received).and_return(true)
-        @sender.should_receive(:send_retryable_request).with(*@booting_args).and_yield(@record_success).once.by_default
-        @sender.should_receive(:send_retryable_request).and_yield(@record_success).by_default
+        @sender.should_receive(:send_request).with(*@booting_args).and_yield(@record_success).once.by_default
+        @sender.should_receive(:send_request).and_yield(@record_success).by_default
         RightScale::InstanceState.init(@identity)
       end
 
@@ -107,7 +107,7 @@ describe InstanceScheduler do
       flexmock(Time).should_receive(:now).and_return(now)
       @sender.should_receive(:send_push).with('/registrar/remove', {:agent_identity => @identity,
                                                                     :created_at => now.to_i}).and_return(true)
-      @sender.should_receive(:send_retryable_request).with(*@operational_args).and_yield(@record_success).once
+      @sender.should_receive(:send_request).with(*@operational_args).and_yield(@record_success).once
       RightScale::InstanceState.value = 'operational'
       @bundle = RightScale::InstantiationMock.script_bundle
       @context = RightScale::OperationContext.new(@bundle, @audit)
@@ -138,8 +138,8 @@ describe InstanceScheduler do
       run_em_test do
         before_each
         flexmock(RightScale::ExecutableSequenceProxy).should_receive(:new).and_return(@sequence_success)
-        @sender.should_receive(:send_retryable_request).with(*@decommissioning_args).never
-        @sender.should_receive(:send_retryable_request).with(*@decommissioned_args).never
+        @sender.should_receive(:send_request).with(*@decommissioning_args).never
+        @sender.should_receive(:send_request).with(*@decommissioned_args).never
         @sender.should_receive(:send_push).with('/registrar/remove', {:agent_identity => @identity}).never
         flexmock(@controller).should_receive(:shutdown).never
         flexmock(@agent).should_receive(:terminate).and_return { stop_bundle_queue_and_em_test }
@@ -149,16 +149,48 @@ describe InstanceScheduler do
       end
     end
 
+    it 'should make schedule bundle request' do
+      run_em_test do
+        before_each
+        flexmock(RightScale::ExecutableSequenceProxy).should_receive(:new).and_return(@sequence_success)
+        options = {:recipe => true, :recipe_id => 123}
+        @sender.should_receive(:send_request).with("/forwarder/schedule_recipe", options.merge(:agent_identity => @identity), Proc).
+            and_yield(@record_success).once
+        flexmock(@agent).should_receive(:terminate).and_return { stop_bundle_queue_and_em_test }
+        res = @scheduler.execute(options)
+        res.should be_true
+        EM.next_tick { @scheduler.terminate }
+      end
+    end
+
+    it 'should run bundle returned from schedule request' do
+      run_em_test do
+        before_each
+        flexmock(RightScale::ExecutableSequenceProxy).should_receive(:new).and_return(@sequence_success)
+        options = {:recipe => true, :recipe_id => 123}
+        bundle = RightScale::ExecutableBundle.new(nil)
+        results = @results_factory.success_results(bundle)
+        success = RightScale::OperationResult.success
+        flexmock(@scheduler).should_receive(:schedule_bundle).with(bundle).and_return(success).once
+        @sender.should_receive(:send_request).with("/forwarder/schedule_recipe", options.merge(:agent_identity => @identity), Proc).
+            and_yield(results).once
+        flexmock(@agent).should_receive(:terminate).and_return { stop_bundle_queue_and_em_test }
+        res = @scheduler.execute(options)
+        res.should be_true
+        EM.next_tick {  @scheduler.terminate }
+      end
+    end
+
     context 'without a decommission level' do
       it 'should *not* transition to decommissioned state nor shutdown after decommissioning from rnac' do
         run_em_test do
           before_each
           flexmock(RightScale::ExecutableSequenceProxy).should_receive(:new).and_return(@sequence_success)
-          @sender.should_receive(:send_retryable_request).
+          @sender.should_receive(:send_request).
                   with('/booter/get_decommission_bundle', {:agent_identity => @agent.identity}, Proc).
                   and_yield({ '1' => RightScale::OperationResult.success(@bundle) })
-          @sender.should_receive(:send_retryable_request).with(*@decommissioning_args).and_yield(@record_success).once
-          @sender.should_receive(:send_retryable_request).with(*@decommissioned_args).never
+          @sender.should_receive(:send_request).with(*@decommissioning_args).and_yield(@record_success).once
+          @sender.should_receive(:send_request).with(*@decommissioned_args).never
           flexmock(@audit).should_receive(:append_error).never
           flexmock(@controller).should_receive(:shutdown).never
           @scheduler.run_decommission { stop_bundle_queue_and_em_test }
@@ -171,8 +203,8 @@ describe InstanceScheduler do
         run_em_test do
           before_each
           flexmock(RightScale::ExecutableSequenceProxy).should_receive(:new).and_return(@sequence_success)
-          @sender.should_receive(:send_retryable_request).with(*@decommissioning_args).and_yield(@record_success).once
-          @sender.should_receive(:send_retryable_request).with(*@decommissioned_args).and_yield(@record_success).once.and_return { stop_bundle_queue_and_em_test }
+          @sender.should_receive(:send_request).with(*@decommissioning_args).and_yield(@record_success).once
+          @sender.should_receive(:send_request).with(*@decommissioned_args).and_yield(@record_success).once.and_return { stop_bundle_queue_and_em_test }
           flexmock(@audit).should_receive(:append_error).never
           res = @scheduler.schedule_decommission(:bundle => @bundle, :user_id => @user_id, :kind => decommission_level)
           res.success?.should be_true
@@ -183,8 +215,8 @@ describe InstanceScheduler do
         run_em_test do
           before_each
           flexmock(RightScale::ExecutableSequenceProxy).should_receive(:new).and_return(@sequence_failure)
-          @sender.should_receive(:send_retryable_request).with(*@decommissioning_args).and_yield(@record_success).once
-          @sender.should_receive(:send_retryable_request).with(*@decommissioned_args).and_yield(@record_success).once.and_return { stop_bundle_queue_and_em_test }
+          @sender.should_receive(:send_request).with(*@decommissioning_args).and_yield(@record_success).once
+          @sender.should_receive(:send_request).with(*@decommissioned_args).and_yield(@record_success).once.and_return { stop_bundle_queue_and_em_test }
           flexmock(@audit).should_receive(:update_status).ordered.once.and_return { |s, _| s.should include('Scheduling execution of ') }
           flexmock(@audit).should_receive(:update_status).ordered.once.and_return { |s, _| s.should include('failed: ') }
           res = @scheduler.schedule_decommission(:bundle => @bundle, :user_id => @user_id, :kind => decommission_level)
@@ -196,8 +228,8 @@ describe InstanceScheduler do
         run_em_test do
           before_each
           flexmock(RightScale::ExecutableSequenceProxy).should_receive(:new).and_return(@sequence_success)
-          @sender.should_receive(:send_retryable_request).with(*@decommissioning_args).and_yield(@record_success).once
-          @sender.should_receive(:send_retryable_request).with(*@decommissioned_args).and_yield(@record_success).once.and_return { stop_bundle_queue_and_em_test }
+          @sender.should_receive(:send_request).with(*@decommissioning_args).and_yield(@record_success).once
+          @sender.should_receive(:send_request).with(*@decommissioned_args).and_yield(@record_success).once.and_return { stop_bundle_queue_and_em_test }
           res = @scheduler.schedule_decommission(:bundle => @bundle, :user_id => @user_id, :kind => decommission_level)
           res.success?.should be_true
           /decom/.match(::RightScale::InstanceState.value).should_not == nil
@@ -213,8 +245,8 @@ describe InstanceScheduler do
           run_em_test do
             before_each
             flexmock(RightScale::ExecutableSequenceProxy).should_receive(:new).and_return(@sequence_success)
-            @sender.should_receive(:send_retryable_request).with(*@decommissioning_args).and_yield(@record_success).once
-            @sender.should_receive(:send_retryable_request).with(*@decommissioned_args).and_yield(@record_success).once.and_return { stop_bundle_queue_and_em_test }
+            @sender.should_receive(:send_request).with(*@decommissioning_args).and_yield(@record_success).once
+            @sender.should_receive(:send_request).with(*@decommissioned_args).and_yield(@record_success).once.and_return { stop_bundle_queue_and_em_test }
             flexmock(ExecutableSequenceMock).new_instances.should_receive(:run).and_return { sleep 2 }
             @scheduler.schedule_decommission(:bundle => @bundle, :user_id => @user_id, :kind => decommission_level)
           end
@@ -227,8 +259,8 @@ describe InstanceScheduler do
         run_em_test do
           before_each
           flexmock(RightScale::ExecutableSequenceProxy).should_receive(:new).and_return(@sequence_success)
-          @sender.should_receive(:send_retryable_request).with(*@decommissioning_args).and_yield(@record_success).once
-          @sender.should_receive(:send_retryable_request).with(*@decommissioned_args).
+          @sender.should_receive(:send_request).with(*@decommissioning_args).and_yield(@record_success).once
+          @sender.should_receive(:send_request).with(*@decommissioned_args).
                   and_yield({'1' => RightScale::OperationResult.error('test')}).once
           @sender.should_receive(:send_push).with('/registrar/remove', {:agent_identity => @identity})
           flexmock(@controller).should_receive(:shutdown).once.and_return { stop_bundle_queue_and_em_test }

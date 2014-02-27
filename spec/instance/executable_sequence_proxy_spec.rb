@@ -20,7 +20,7 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require File.join(File.dirname(__FILE__), 'spec_helper')
+require File.expand_path(File.join(File.dirname(__FILE__), 'spec_helper'))
 
 describe RightScale::ExecutableSequenceProxy do
 
@@ -110,8 +110,8 @@ describe RightScale::ExecutableSequenceProxy do
   end
 
   def assert_succeeded
-    expected_environment = { 
-      ::RightScale::OptionsBag::OPTIONS_ENV => nil
+    expected_environment = {
+      ::RightScale::OptionsBag::OPTIONS_ENV => ::ENV[::RightScale::OptionsBag::OPTIONS_ENV]
     }
     if RightScale::Platform.windows?
       expected_environment[::RightScale::ExecutableSequenceProxy::DECRYPTION_KEY_NAME] = "secretpw"

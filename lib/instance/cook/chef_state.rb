@@ -139,7 +139,7 @@ module RightScale
             write_encoded_data(STATE_FILE, { 'attributes' => @@attributes })
             RightScale::JsonUtilities::write_json(SCRIPTS_FILE, @@past_scripts)
           rescue Exception => e
-            Log.warning("Failed to save node attributes: #{e.message}")
+            Log.warning("Failed to save node attributes", e)
           end
         end
         true

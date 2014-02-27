@@ -96,7 +96,7 @@ module RightScale
     # Only used if --time-limit not specified and :ping_interval option not specified for agent
     DEFAULT_TIME_LIMIT = 12 * HOUR
 
-    # Multiplier of agent's mapper ping interval to get daemon's last communication time limit
+    # Multiplier of agent's RightNet router ping interval to get daemon's last communication time limit
     PING_INTERVAL_MULTIPLIER = 3
 
     # Default maximum number of seconds between checks for recent communication if first check fails

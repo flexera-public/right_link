@@ -57,8 +57,9 @@ module RightScale
       # query for planned volume mappings belonging to instance.
       last_mappings = InstanceState.planned_volume_state.mappings || []
       payload = {:agent_identity => @agent_identity}
-      req = IdempotentRequest.new("/storage_valet/get_planned_volumes", payload, :retry_delay => VolumeManagement::VOLUME_RETRY_SECONDS)
+      req = RetryableRequest.new("/storage_valet/get_planned_volumes", payload, :retry_delay => VolumeManagement::VOLUME_RETRY_SECONDS)
       req.callback do |res|
+        res ||= [] # res is nil or an array of hashes
         begin
           mappings = merge_planned_volume_mappings(last_mappings, res)
           InstanceState.planned_volume_state.mappings = mappings
@@ -134,7 +135,7 @@ module RightScale
       end
 
       req.run
-      end
+    end
 
     # Detaches the planned volume given by its mapping.
     #
@@ -143,7 +144,7 @@ module RightScale
     def detach_planned_volume(mapping)
       payload = {:agent_identity => @agent_identity, :device_name => mapping[:device_name]}
       Log.info("Detaching volume #{mapping[:volume_id]} for management purposes.")
-      req = IdempotentRequest.new("/storage_valet/detach_volume", payload, :retry_delay => VolumeManagement::VOLUME_RETRY_SECONDS)
+      req = RetryableRequest.new("/storage_valet/detach_volume", payload, :retry_delay => VolumeManagement::VOLUME_RETRY_SECONDS)
 
       req.callback do |res|
         # don't set :volume_status here as that should only be queried
@@ -157,7 +158,7 @@ module RightScale
           # volume could already be detaching or have been deleted
           # which we can't see because of latency; go around again
           # and check state of volume later.
-          Log.error("Failed to detach volume #{mapping[:volume_id]}: #{res}")
+          Log.error("Failed to detach volume #{mapping[:volume_id]} (#{res})")
           mapping[:attempts] ||= 0
           mapping[:attempts] += 1
           # retry indefinitely so long as core api instructs us to retry or else fail after max attempts.
@@ -185,7 +186,7 @@ module RightScale
       # attach.
       payload = {:agent_identity => @agent_identity, :volume_id => mapping[:volume_id], :device_name => mapping[:device_name]}
       Log.info("Attaching volume #{mapping[:volume_id]}.")
-      req = IdempotentRequest.new("/storage_valet/attach_volume", payload, :retry_delay => VolumeManagement::VOLUME_RETRY_SECONDS)
+      req = RetryableRequest.new("/storage_valet/attach_volume", payload, :retry_delay => VolumeManagement::VOLUME_RETRY_SECONDS)
       
       req.callback do |res|
         # don't set :volume_status here as that should only be queried
@@ -198,7 +199,7 @@ module RightScale
         # volume could already be attaching or have been deleted
         # which we can't see because of latency; go around again
         # and check state of volume later.
-        Log.error("Failed to attach volume #{mapping[:volume_id]}: #{res}")
+        Log.error("Failed to attach volume #{mapping[:volume_id]} (#{res})")
         mapping[:attempts] ||= 0
         mapping[:attempts] += 1
         # retry indefinitely so long as core api instructs us to retry or else fail after max attempts.

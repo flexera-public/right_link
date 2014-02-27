@@ -80,7 +80,7 @@ module RightScale
     # res[exit_code](Number):: The exit code of the script that was run. nil if no exit status was available.
     #
     # === Raise
-    # RightScale::Exceptions:ApplicationError:: If Powershell process is not running (i.e. :active is false)
+    # RightScale::Exceptions:Application:: If Powershell process is not running (i.e. :active is false)
     def run(script_path)
       Log.debug(format_log_message("Running #{script_path}"))
       res = run_command("&\"#{script_path}\"")

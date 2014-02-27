@@ -58,7 +58,7 @@ module RightScale
 
     def manage(options)
       return super(options) if options[:agent]
-      cmd = options[:level] ? { :name => :add_tag,  } : { :name => :get_tags }
+      cmd = options[:level] ? { :name => :add_tag } : { :name => :get_tags }
       cmd[:tag] = "#{LOG_LEVEL_TAG}=#{options[:level]}" if options[:level]
       res = send_command(cmd, options[:verbose], Tagger::TAG_REQUEST_TIMEOUT)
       case cmd[:name]

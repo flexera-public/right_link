@@ -151,9 +151,9 @@ module RightScale
     #
     # === Return
     # result(Hash):: contents of response
-    def query_tags(tags, agent_ids=nil, timeout=120)
+    def query_tags(tags, hrefs=nil, timeout=120)
       cmd = { :name => :query_tags, :tags => tags }
-      cmd[:agent_ids] = agent_ids unless agent_ids.nil? || agent_ids.empty?
+      cmd[:hrefs] = hrefs unless hrefs.nil? || hrefs.empty?
       response = blocking_request(cmd, timeout)
       begin
         result = OperationResult.from_results(load(response, "Unexpected response #{response.inspect}"))

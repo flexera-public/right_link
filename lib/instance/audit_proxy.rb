@@ -68,7 +68,7 @@ module RightScale
       payload = {:agent_identity => agent_identity,
                  :summary        => summary,
                  :category       => RightScale::EventCategories::NONE}
-      Sender.instance.send_persistent_request("/auditor/create_entry", payload) do |r|
+      Sender.instance.send_request("/auditor/create_entry", payload) do |r|
         res = RightScale::OperationResult.from_results(r)
         if res.success?
           audit = new(res.content)
@@ -199,7 +199,7 @@ module RightScale
       begin
         audit = AuditFormatter.__send__(options[:kind], options[:text])
         @size += audit[:detail].size
-        Sender.instance.send_persistent_push("/auditor/update_entry", opts.merge(audit))
+        Sender.instance.send_push("/auditor/update_entry", opts.merge(audit))
       rescue Exception => e
         Log.warning("Failed to send audit", e, :trace)
       end
