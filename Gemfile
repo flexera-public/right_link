@@ -10,7 +10,7 @@ gem 'right_support', '~> 2.8',
 
 gem 'right_agent', '~> 2.0',
     :git => 'https://github.com/rightscale/right_agent.git',
-    :branch => 'master'
+    :branch => 'cornsilk_14_5_acu157027_http_right_link_fix'
 
 gem 'rest-client',
     :git => 'https://github.com/duncan-bayne/rest-client.git',

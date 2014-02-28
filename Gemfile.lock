@@ -10,8 +10,8 @@ GIT
 
 GIT
   remote: https://github.com/rightscale/right_agent.git
-  revision: 8923009b6317c2123305a421de84bfffb688be0b
-  branch: master
+  revision: fdbf278eb3f3849310040dbc842a09a2bc451602
+  branch: cornsilk_14_5_acu157027_http_right_link_fix
   specs:
     right_agent (2.0.6)
       eventmachine (>= 0.12.10, < 2.0)

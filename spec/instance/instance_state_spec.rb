@@ -415,8 +415,8 @@ describe RightScale::InstanceState do
     run_em_test do
       RightScale::InstanceState.init(@identity)
       flexmock(RightScale::InstanceState).should_receive(:store_state).once
-      RightScale::InstanceState.message_received
-      RightScale::InstanceState.message_received
+      RightScale::InstanceState.communicated
+      RightScale::InstanceState.communicated
       stop_em_test
     end
   end
