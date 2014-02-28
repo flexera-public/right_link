@@ -1,14 +1,4 @@
 GIT
-  remote: https://github.com/duncan-bayne/rest-client.git
-  revision: af5ceb0c18115deb468d59343d65668f1ffa7f64
-  branch: feature-keep-alive
-  specs:
-    rest-client (1.7.0.alpha)
-      mime-types (>= 1.16)
-      net-http-persistent
-      netrc (~> 0.7.7)
-
-GIT
   remote: https://github.com/rightscale/right_agent.git
   revision: 8923009b6317c2123305a421de84bfffb688be0b
   branch: master
@@ -159,6 +149,10 @@ GEM
     rbx-require-relative (0.0.9)
     rcov (0.8.1.2.0)
     rdp-ruby-wmi (0.3.1)
+    rest-client (1.7.0.alpha)
+      mime-types (>= 1.16)
+      net-http-persistent
+      netrc (~> 0.7.7)
     right_amqp (0.7.0)
       eventmachine (>= 0.12.10, < 2.0)
       right_support (>= 1.2, < 3.0)
@@ -233,7 +227,7 @@ DEPENDENCIES
   rake (~> 10.0)
   rb-readline (~> 0.5.0)
   rcov (~> 0.8.1)
-  rest-client!
+  rest-client (= 1.7.0.alpha)
   right_agent (~> 2.0)!
   right_amqp (~> 0.7)
   right_git

@@ -10,9 +10,7 @@ gem 'right_agent', '~> 2.0',
     :git => 'https://github.com/rightscale/right_agent.git',
     :branch => 'master'
 
-gem 'rest-client',
-    :git => 'https://github.com/duncan-bayne/rest-client.git',
-    :branch => 'feature-keep-alive'
+gem 'rest-client', '1.7.0.alpha'
 
 gem 'right_amqp', '~> 0.7'
 gem 'right_popen', '~> 2.0'
