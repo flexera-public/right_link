@@ -5,22 +5,27 @@ Released 2014-03-06.
 == New Features
 
 * vSphere support
-* rs_ohai in addition to original ohai support following clouds:
-  vSphere
-  CloudStack
-  SoftLayer
+* rs_ohai in addition to original ohai supports following clouds:
+  * vSphere
+  * CloudStack
+  * SoftLayer
 * rs_config utility allows you to specify and get status of the followin features:
-  decommisioning timeout in seconds
-  managed login feature on/off
+  * decommision timeout in seconds
+  * managed login feature on/off
+  * MOTD update on/off
+  * Package repository freeze on/off
 * The following metadata key/values will configure a static IP address for a given network interface:
-  metadata:rs_ipN_addr : IP address to assign
-  metadata:rs_ipN_netmask : Network mask (i.e. 255.255.255.0)
-  metadata:rs_ipN_nameservers : Comma-separated string of nameserver IP addresses.
-  metadata:rs_ipN_gateway : (optional) IP address of the gateway
+  * metadata:rs_ipN_addr : IP address to assign
+  * metadata:rs_ipN_netmask : Network mask (i.e. 255.255.255.0)
+  * metadata:rs_ipN_nameservers : Comma-separated string of nameserver IP addresses.
+  * metadata:rs_ipN_gateway : (optional) IP address of the gateway  
   Where N is corresponding to the number of the ethernet adapter (i.e. 0 == eth0, 1 == eth1, ...)
-* The following metadata key/values will configure:
-  RS_NTP : FQDN address of NTP server
-  RS_BREAKPOINT : allows to stop RightLink service startup in cloud_init step. Usefull for debugging.
+* metadata:rs_breakpoint=init_cloud_state allows to stop RightLink service startup right after init_cloud_state step. Usefull for debugging.
+* Forced one time NTP time sync. Comma or space separated list of NTP servers can be set by:
+  * setting RS_ntp value directly in metadata
+  * via server tag rs_agent:ntp_servers
+  * cloud might also set RS_ntp value in metadata(if this value is also set in user-data,
+    the userdata value will win)
 
 == Changes to Existing Functionality
 
