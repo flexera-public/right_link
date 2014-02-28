@@ -1,3 +1,47 @@
+= 6.0.0 (RightLink 6.0 release candidate 1)
+
+Released 2014-03-06.
+
+== New Features
+
+* vSphere support
+* rs_ohai in addition to original ohai support following clouds:
+  vSphere
+  CloudStack
+  SoftLayer
+* rs_config utility allows you to specify and get status of the followin features:
+  decommisioning timeout in seconds
+  managed login feature on/off
+* The following metadata key/values will configure a static IP address for a given network interface:
+  metadata:rs_ipN_addr : IP address to assign
+  metadata:rs_ipN_netmask : Network mask (i.e. 255.255.255.0)
+  metadata:rs_ipN_nameservers : Comma-separated string of nameserver IP addresses.
+  metadata:rs_ipN_gateway : (optional) IP address of the gateway
+  Where N is corresponding to the number of the ethernet adapter (i.e. 0 == eth0, 1 == eth1, ...)
+* The following metadata key/values will configure:
+  RS_NTP : FQDN address of NTP server
+  RS_BREAKPOINT : allows to stop RightLink service startup in cloud_init step. Usefull for debugging.
+
+== Changes to Existing Functionality
+
+* chef version have been updated to 11.6.0
+* ruby version have been updated to 1.9.3 p484
+* rs_ohai now behavir the same way as vanilla ohai
+* AMQP has been replaced with HTTP in communition between RightLink and RightNet
+
+== Known Limitation
+
+* rs_ohai [cloudstack|softlayer|vsphere] provides limited attribute list.
+* vSphere cloud
+  * Only supported in RightLink v6.0+
+  * Only v14 ServerTemplate are supported.
+  * When setting a Static IP, there will be a delay in the boot sequence as the dhcp client times out waiting for a response.
+  * RightImages have ntpd pre-configured for public servers, there may be some warning in logs until the boot recipes configure NTP
+  * Detection of private networks is limited to well-known subnets as defined in RFC-1918:
+    10.0.0.0, 192.168.0.0, 172.16.0.0, 172.2.0.0, 172.30.0.0 and 172.31.0.0
+  * For RightLink to work on a VMware Linux template (aka image), the operating system must
+    automount the fd0 device at /mnt/metadata.  This can be done by adding the following line to /etc/fstab.
+
 = 5.9.5 (RightLink 5.9 release candidate 3)
 
 Released 2013-11-27
