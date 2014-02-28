@@ -19,9 +19,7 @@ gem 'right_popen', '~> 2.0'
 gem 'right_git'
 gem 'mime-types', '< 2.0'
 
-gem 'right_scraper', '~> 4.0',
-    :git => 'https://github.com/rightscale/right_scraper.git',
-    :branch => 'master'
+gem 'right_scraper', '~> 4.0'
 
 # We have custom builds of some gems containing fixes and patches that are specific
 # to RightScale. Gems in the 'custom' group are published by RightScale to our
