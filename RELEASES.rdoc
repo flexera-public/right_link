@@ -38,7 +38,7 @@ Released 2014-03-06.
 
 == Bug fixes
 
-= 5.9.5 (RightLink 5.9 release candidate 3)
+= 5.9.5 (RightLink 5.9 GA Release)
 
 Released 2013-11-27
 
