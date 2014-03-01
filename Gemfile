@@ -6,10 +6,7 @@ gemspec
 # Fresh off the assembly line
 gem 'right_support', '~> 2.8'
 
-gem 'right_agent', '~> 2.0',
-    :git => 'https://github.com/rightscale/right_agent.git',
-    :branch => 'master'
-
+gem 'right_agent', '~> 2.0'
 gem 'rest-client', '1.7.0.alpha'
 
 gem 'right_amqp', '~> 0.7'
