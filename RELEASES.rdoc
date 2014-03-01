@@ -5,31 +5,24 @@ Released 2014-03-06.
 == New Features
 
 * vSphere support via the RightScale Cloud Appliance for vSphere.
-* rs_config utility command line utility added.  This utility allows you to configure RightLink options. Of note is "decomission_timeout", which modifies the default timeout to wait on decomission scripts before forcing reboot or termination. Default value is 180 seconds.
-* The following metadata key/values will configure a static IP address for a given network interface:
-  * metadata:rs_ipN_addr : IP address to assign
-  * metadata:rs_ipN_netmask : Network mask (i.e. 255.255.255.0)
-  * metadata:rs_ipN_nameservers : Comma-separated string of nameserver IP addresses
-  * metadata:rs_ipN_gateway : (optional) IP address of the gateway
-  Where N is corresponding to the number of the ethernet adapter (i.e. 0 == eth0, 1 == eth1, ...)
-* Added support for passing key 'metadata:rs_breakpoint=init_cloud_state' though the user data. This will stop RightLink startup right after cloud definition file is executed.  This is useful for halting RightLink before "phoning home" which will allow one to login to the system and diagnose any networking problems.
+* rs_config utility command line utility added.  This utility allows you to configure RightLink options. Of note is the ability to set the default timeout to wait on decomission scripts before forcing reboot or termination. Default value is 180 seconds.
+* Added support for passing key 'rs_breakpoint=init_cloud_state' though the user data. This will stop RightLink startup right after cloud definition file is executed.  This is useful for halting RightLink before "phoning home" which will allow one to login to the system and diagnose any networking problems.
 * Properly synced time is necessary for RightLink agent functioning. RightLink now does a one time NTP time sync on startup against user specified or RightScale time servers. User timeservers may be specified in a couple ways:
   * Adding tag "rs_agent:ntp_servers=<hostname1>,<hostname2>,etc" to servers before boot.
-  * At the cloud level by setting RS_ntp value in the metadata
+  * By setting RS_ntp value in the userdata
 * Firewall friendliness
   * AMQP has been replaced with HTTP in communition between RightLink agent and RightScale core site.
-  * Syncing with NTP, RightLink patching, and software repo mirrors will now go through loadbalancer specified in RS_ISLAND userdata variable
-  * TBD need link to firewall friendliness document.
-
+  * Syncing with NTP, RightLink patching, and software repo mirrors will now go through loadbalancer specified in RS_ISLAND userdata variable set by RightScale when the instance launches.
+  
 == Changes to Existing Functionality
 
 * chef version upgraded to 11.6.0.
 * ruby version upgraded to 1.9.3 p484.
 * rs_ohai output now behavior now consistent with vanilla ohai.
 * Default SSL protocol bumped to TLSv1.
-* /opt/rightscale/sandbox/bin added to end of path for Chef recipes and RightScripts
+* /opt/rightscale/sandbox/bin added to end of path for Chef recipes and RightScripts to support 
 * rs_tag --query now accepts multiple parameters instead of single string
-* Unbundled custom Chef resources. TBD need link to migrating from v5.9 to v6.0 document
+* Removed custom Chef resources: right_link_tag, remote_recipe, server_collection and rs_shutdown. Use the RightLink command-line utilties instead.
 
 == Known Limitations
 
