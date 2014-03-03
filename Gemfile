@@ -4,26 +4,17 @@ source 'https://rubygems.org'
 gemspec
 
 # Fresh off the assembly line
-gem 'right_support', '~> 2.8',
-    :git => 'https://github.com/rightscale/right_support.git',
-    :branch => 'ivory_14_04_acu155328_default_to_tlsv1'
+gem 'right_support', '~> 2.8'
 
-gem 'right_agent', '~> 2.0',
-    :git => 'https://github.com/rightscale/right_agent.git',
-    :branch => 'master'
-
-gem 'rest-client',
-    :git => 'https://github.com/duncan-bayne/rest-client.git',
-    :branch => 'feature-keep-alive'
+gem 'right_agent', '~> 2.0'
+gem 'rest-client', '1.7.0.alpha'
 
 gem 'right_amqp', '~> 0.7'
 gem 'right_popen', '~> 2.0'
 gem 'right_git'
 gem 'mime-types', '< 2.0'
 
-gem 'right_scraper', '~> 4.0',
-    :git => 'https://github.com/rightscale/right_scraper.git',
-    :branch => 'master'
+gem 'right_scraper', '~> 4.0'
 
 # We have custom builds of some gems containing fixes and patches that are specific
 # to RightScale. Gems in the 'custom' group are published by RightScale to our
