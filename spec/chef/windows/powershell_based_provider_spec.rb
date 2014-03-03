@@ -56,7 +56,6 @@ if RightScale::Platform.windows?
       runner.call.should be_true
       @logger.error_text.should == ""
 
-      # TODO: verify order of execution
       logs = @logger.info_text.gsub("\n", "")
 
       logs.scan(/\/simple_encode\/_init.ps1/).length.should == 1 if is_debug?
@@ -81,7 +80,6 @@ if RightScale::Platform.windows?
       runner.call.should be_true
       @logger.error_text.should == ""
 
-      # TODO: verify order of execution
       logs = @logger.info_text.gsub("\n", "")
       logs.scan(/\/encode\/_init.ps1/).length.should == 1 if is_debug?
       logs.scan(/init encode/).length.should == 1
@@ -117,7 +115,6 @@ if RightScale::Platform.windows?
       runner.call.should be_true
       @logger.error_text.should == ""
 
-      # TODO: verify order of execution
       logs = @logger.info_text.gsub("\n", "")
       logs.scan(/\/encode\/_init.ps1/).length.should == 1 if is_debug?
       logs.scan(/init encode/).length.should == 1

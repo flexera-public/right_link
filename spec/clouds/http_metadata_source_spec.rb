@@ -20,9 +20,9 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require File.join(File.dirname(__FILE__), 'spec_helper')
-require File.join(File.dirname(__FILE__), 'fetch_runner')
-require File.join(File.dirname(__FILE__), '..', '..', 'lib', 'clouds', 'metadata_sources', 'http_metadata_source')
+require File.expand_path(File.join(File.dirname(__FILE__), 'spec_helper'))
+require File.expand_path(File.join(File.dirname(__FILE__), 'fetch_runner'))
+require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'lib', 'clouds', 'metadata_sources', 'http_metadata_source'))
 require 'json'
 
 module RightScale
@@ -266,15 +266,11 @@ describe RightScale::MetadataSources::HttpMetadataSource do
         @response.should_receive(:kind_of?).with(Net::HTTPRedirection).and_return(false)
         @mock_http_connection.should_receive(:request).once.and_return(@response)
       end
-      it "should not retry" do
-        pending "TODO"
-      end
+      it "should not retry"
       it "should return empty value" do
         @http_metadata_source.query("a").should == ""
       end
-      it "should not stop checking for metadata" do
-        pending "TODO"
-      end
+      it "should not stop checking for metadata"
     end
 
     context "when 500 class response from metadata server" do
@@ -284,15 +280,11 @@ describe RightScale::MetadataSources::HttpMetadataSource do
         @response.should_receive(:kind_of?).with(Net::HTTPServerError).and_return(true)
         @mock_http_connection.should_receive(:request).times(::RightScale::MetadataSources::HttpMetadataSource::RETRY_MAX_ATTEMPTS).and_return(@response)
       end
-      it "should retry #{::RightScale::MetadataSources::HttpMetadataSource::RETRY_MAX_ATTEMPTS} times" do
-         pending "TODO"
-      end
+      it "should retry #{::RightScale::MetadataSources::HttpMetadataSource::RETRY_MAX_ATTEMPTS} times"
       it "should return empty value after #{::RightScale::MetadataSources::HttpMetadataSource::RETRY_MAX_ATTEMPTS} failed attempts" do
         @http_metadata_source.query("a").should == ""
       end
-      it "should not stop checking for metadata" do
-        pending "TODO"
-      end
+      it "should not stop checking for metadata"
     end
 
     context "when an exception is thrown" do
