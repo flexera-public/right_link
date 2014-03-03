@@ -196,8 +196,6 @@ module RightScale
       if ENV['RS_HTTP_PROXY']
         puts "Configuring HTTP proxy #{ENV['$RS_HTTP_PROXY']}"
 
-        # TODO: super hack for open-uri
-        # fix it
         proxy_uri = URI.parse("http://" + ENV['RS_HTTP_PROXY'])
 
         unless proxy_uri.host && proxy_uri.port

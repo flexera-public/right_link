@@ -55,7 +55,6 @@ module RightScale
       end
     end
 
-    #TODO docs
     def run
       if done?
         #we might not have ANY external parameters!

@@ -156,8 +156,6 @@ module RightScale
     # context(RightScale::OperationContext)
     def create_sequence(context)
       pid_callback = lambda do |sequence|
-        # TODO preserve cook PIDs per thread in InstanceState and recover
-        # orphaned cook in case of agent crash.
         @mutex.synchronize { @pid = sequence.pid }
       end
       return RightScale::ExecutableSequenceProxy.new(context, :pid_callback => pid_callback )

@@ -21,14 +21,12 @@ describe RightScale::WindowsNetworkConfigurator do
     let(:nameservers_string) { "8.8.8.8, 8.8.4.4" }
     let(:nameservers) { [ "8.8.8.8", "8.8.4.4"] }
 
-    # TODO: does not verify actuall commands
     it "adds a primary namserver" do
       flexmock(subject).should_receive(:runshell).with("netsh interface ipv4 set dnsserver name=#{device.inspect} source=static addr=#{nameservers[0]} register=primary validate=no")
       flexmock(subject).should_receive(:nameserver_exists?).and_return(false)
       subject.nameserver_add(nameservers[0], 1, device.inspect)
     end
 
-    # TODO: does not verify actuall commands
     it "adds a secondary nanamserver" do
       flexmock(subject).should_receive(:runshell).with("netsh interface ipv4 add dnsserver name=#{device.inspect} addr=#{nameservers[0]} index=2 validate=no")
       flexmock(subject).should_receive(:nameserver_exists?).and_return(false)
@@ -36,7 +34,6 @@ describe RightScale::WindowsNetworkConfigurator do
     end
 
 
-    # TODO: does not verify actuall commands
     it "adds a static IP config for Local Area Network" do
       cmd = "netsh interface ip set address name=#{device} source=static addr=#{ip} mask=#{netmask} gateway=none"
       ENV['RS_IP0_ADDR'] = ip
@@ -51,7 +48,6 @@ describe RightScale::WindowsNetworkConfigurator do
       subject.add_static_ips
     end
 
-    # TODO: does not verify actuall commands
     it "supports optional RS_IP0_GATEWAY value" do
       ENV['RS_IP0_ADDR'] = ip
       ENV['RS_IP0_NETMASK'] = netmask
@@ -106,7 +102,6 @@ describe RightScale::WindowsNetworkConfigurator do
     let(:nat_ranges) { ["1.2.4.0/24", "1.2.5.0/24", "1.2.6.0/24"] }
     let(:network_cidr) { "8.8.8.0/24" }
 
-    # TODO: does not verify actuall commands
     it "appends network route" do
       network, mask = subject.cidr_to_netmask(network_cidr)
 
@@ -117,7 +112,6 @@ describe RightScale::WindowsNetworkConfigurator do
       subject.network_route_add(network_cidr, nat_server_ip)
     end
 
-    # TODO: does not verify actuall commands
     it "appends all static routes" do
       ENV['RS_NAT_ADDRESS'] = nat_server_ip
       ENV['RS_NAT_RANGES'] = nat_ranges_string

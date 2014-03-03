@@ -1,4 +1,44 @@
-= 5.9.5 (RightLink 5.9 release candidate 3)
+= 6.0.0 (RightLink 6.0 release candidate 1)
+
+Released 2014-03-06.
+
+== New Features
+
+* vSphere support via the RightScale Cloud Appliance for vSphere.
+* rs_config utility command line utility added.  This utility allows you to configure RightLink options. Of note is the ability to set the default timeout to wait on decomission scripts before forcing reboot or termination. Default value is 180 seconds.
+* Added support for passing key 'rs_breakpoint=init_cloud_state' though the user data. This will stop RightLink startup right after cloud definition file is executed.  This is useful for halting RightLink before "phoning home" which will allow one to login to the system and diagnose any networking problems.
+* Properly synced time is necessary for RightLink agent functioning. RightLink now does a one time NTP time sync on startup against user specified or RightScale time servers. User timeservers may be specified in a couple ways:
+  * Adding tag "rs_agent:ntp_servers=<hostname1>,<hostname2>,etc" to servers before boot.
+  * By setting RS_ntp value in the userdata
+* Firewall friendliness
+  * AMQP has been replaced with HTTP in communition between RightLink agent and RightScale core site.
+  * Syncing with NTP, RightLink patching, and software repo mirrors will now go through loadbalancer specified in RS_ISLAND userdata variable set by RightScale when the instance launches.
+  
+== Changes to Existing Functionality
+
+* chef version upgraded to 11.6.0.
+* ruby version upgraded to 1.9.3 p484.
+* rs_ohai output now behavior now consistent with vanilla ohai.
+* Default SSL protocol bumped to TLSv1.
+* /opt/rightscale/sandbox/bin added to end of path for Chef recipes and RightScripts to support 
+* rs_tag --query now accepts multiple parameters instead of single string
+* Removed custom Chef resources: right_link_tag, remote_recipe, server_collection and rs_shutdown. Use the RightLink command-line utilties instead.
+
+== Known Limitations
+
+* Initiating a system reboot from a script running inside the boot bundle may lead to unexpected error messages. Any decommission script will block behind the boot bundle until its complete, which may generate a timeout errors from the managin RightLink agent process.
+* rs_ohai [cloudstack|softlayer|vsphere] provides limited attribute list.
+* vSphere cloud
+  * Only v14 ServerTemplate are supported.
+  * When setting a static IP address, there will be a delay in the boot sequence as the DHCP client times out waiting for a response.
+  * RightImages have ntpd pre-configured for public servers, there may be some warning in logs until the boot recipes configure NTP
+  * Detection of private networks is limited to well-known subnets as defined in RFC-1918:
+    10.0.0.0, 192.168.0.0, 172.16.0.0, 172.2.0.0, 172.30.0.0 and 172.31.0.0
+  * For RightLink to work on a vSphere Linux template (aka image), the operating system must be able to automount the fd0 device at /mnt/metadata. CentOS images have a known limitation: https://bugzilla.redhat.com/show_bug.cgi?id=503308. For CentOS 6 systems, execute "echo 'alias acpi:PNP0700: floppy' > /etc/modprobe.d/floppy-pnp.conf".
+
+== Bug fixes
+
+= 5.9.5 (RightLink 5.9 GA Release)
 
 Released 2013-11-27
 

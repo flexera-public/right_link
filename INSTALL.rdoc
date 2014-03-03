@@ -24,7 +24,7 @@ To learn how to install stable RightLink, refer to our support site:
 
 http://support.rightscale.com/12-Guides/RightLink/02-RightLink_5.9/Install_RightLink
 
-== Beta Packages
+== Beta Packages - RightLink v6.0
 
 Assuming that you continued reading this document, you are probably interested in
 trying RightLink beta or pre-release software. The following instructions serve as

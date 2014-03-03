@@ -28,8 +28,6 @@ module RightScale
     attr_reader :checkout_root
 
     # Maps the given DevRepository to a has that can be consumed by the RightScraper gem
-    # TODO: May make sense for  this to a member of the DevRepository class as an instance method.
-    #           Also, may want to take a version as a parameter in the future (or not...).
     #
     # === Parameters
     # dev_repo (DevRepository):: core representation of a resource repository
