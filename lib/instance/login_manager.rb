@@ -428,7 +428,6 @@ module RightScale
       return user_lines.sort
     end
 
-    # @TODO docs
     def manage_existing_users(new_policy_users)
       now = Time.now
 
