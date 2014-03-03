@@ -10,7 +10,7 @@ GIT
 
 GIT
   remote: https://github.com/rightscale/right_agent.git
-  revision: 4e6a316de0adde3513b9103e5107f560ad2bfbd9
+  revision: d29963181d2c0844a33f354a33f5d493d649b173
   branch: cornsilk_14_5_acu157027_http_right_link_fix
   specs:
     right_agent (2.0.7)

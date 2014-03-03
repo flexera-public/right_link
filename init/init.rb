@@ -42,6 +42,9 @@ require File.normalize_path(File.join(BASE_DIR, 'repo_conf_generators'))
 # Create authorization client and setup HTTP communication
 begin
   setup_http(RightScale::InstanceAuthClient.new(@options))
+rescue InstanceAuthClient::CommunicationModeSwitch => e
+  Log.error("Re-enrolling due to #{e.message}")
+  ReenrollManager.reenroll!
 rescue BalancedHttpClient::NotResponding, Exceptions::Unauthorized => e
   if @mode == :http
     Log.error("Re-enrolling due to authorization failure (#{e.message})")
