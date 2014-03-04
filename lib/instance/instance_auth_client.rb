@@ -27,6 +27,8 @@ module RightScale
   # that continuously renews the authorization
   class InstanceAuthClient < AuthClient
 
+    class CommunicationModeSwitch < RuntimeError; end
+
     # RightApi API version for use in X-API-Version header
     API_VERSION = "1.5"
 
@@ -65,6 +67,7 @@ module RightScale
     # @option options [String] :token private to instance agent for authorization with API
     # @option options [Integer] :account_id of account owning this instance agent
     # @option options [String] :api_url for accessing RightApi server for authorization and other services
+    # @option options [Symbol] :mode in which communicating with RightNet
     # @option options [Boolean] :no_renew get authorized without setting up for continuous renewal
     # @option options [Proc] :exception_callback for unexpected exceptions with following parameters:
     #   [Exception] exception raised
@@ -81,7 +84,8 @@ module RightScale
       end
       @token_id = AgentIdentity.parse(@identity).base_id
       @account_id = @account_id.to_i
-      @router_url = @mode = nil
+      @mode = options[:mode] && options[:mode].to_sym
+      @router_url = nil
       @other_headers = {"User-Agent" => "RightLink v#{RightLink.version}", "X-RightLink-ID" => @token_id}
       @exception_callback = options[:exception_callback]
       @expires_at = Time.now
@@ -159,6 +163,7 @@ module RightScale
     #
     # @raise [Exceptions::Unauthorized] authorization failed
     # @raise [BalancedHttpClient::NotResponding] cannot access RightApi
+    # @raise [CommunicationModeSwitch] changing communication mode
     def get_authorized
       redirects = 0
       api_url = @api_url
@@ -175,6 +180,7 @@ module RightScale
         @expires_at = Time.now + response[:expires_in]
         update_urls(response)
         self.state = :authorized
+        @communicated_callbacks.each { |callback| callback.call } if @communicated_callbacks
       rescue BalancedHttpClient::NotResponding
         raise
       rescue RestClient::Unauthorized => e
@@ -192,7 +198,7 @@ module RightScale
         raise
       end
       true
-    rescue BalancedHttpClient::NotResponding, Exceptions::Unauthorized
+    rescue BalancedHttpClient::NotResponding, Exceptions::Unauthorized, CommunicationModeSwitch
       raise
     rescue StandardError => e
       @stats["exceptions"].track("authorize", e)
@@ -234,6 +240,9 @@ module RightScale
             else
               renew_authorization(UNAUTHORIZED_RENEW_INTERVAL)
             end
+          rescue CommunicationModeSwitch => e
+            Log.error("Failed authorization renewal", e, :no_trace)
+            self.state = :failed
           rescue Exception => e
             Log.error("Failed authorization renewal", e, :trace)
             @stats["exceptions"].track("renew", e)
@@ -250,8 +259,12 @@ module RightScale
     # @param [Hash] response containing URLs with keys as symbols
     #
     # @return [TrueClass] always true
+    #
+    # @raise [CommunicationModeSwitch] changing communication mode
     def update_urls(response)
-      @mode = response[:mode].to_sym
+      mode = response[:mode].to_sym
+      raise CommunicationModeSwitch, "RightNet communication mode switching from #{@mode.inspect} to #{mode.inspect}" if @mode && @mode != mode
+      @mode = mode
       @shard_id = response[:shard_id].to_i
       if (new_url = response[:router_url]) != @router_url
         Log.info("Updating RightNet router URL to #{new_url.inspect}")

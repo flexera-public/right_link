@@ -146,9 +146,11 @@ module RightScale
       @planned_volume_state = nil
       @decommission_type = nil
 
-      Log.notify(lambda { |l| @log_level = l }) unless @read_only
-
-      Sender.instance.message_received { message_received } unless @read_only
+      unless @read_only
+        Log.notify(lambda { |l| @log_level = l })
+        Sender.instance.message_received { communicated }
+        RightHttpClient.communicated([:auth, :api]) { communicated } rescue nil # because not applicable in AMQP mode
+      end
 
       # need to grab the current resource uid whether there is a state file or not.
       @resource_uid = current_resource_uid
@@ -303,7 +305,7 @@ module RightScale
     #
     # === Return
     # true:: Always return true
-    def self.message_received
+    def self.communicated
       now = Time.now.to_i
       if (now - @last_communication) > LAST_COMMUNICATION_STORAGE_INTERVAL
         @last_communication = now

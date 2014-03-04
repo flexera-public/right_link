@@ -69,23 +69,15 @@ module RightScale
       AgentConfig.root_dir = root_dirs = AgentConfig.right_link_root_dirs
 
       # Use existence of certs directory as controlled by enroll step to determine mode
-      if File.exist?(AgentConfig.certs_dir)
-        # Form RabbitMQ broker host:id list from RS_RN_URL and RS_RN_HOST
-        url = URI.parse(ENV['RS_RN_URL'])
-        host = ENV['RS_RN_HOST']
-        if !host
-          host = url.host
-        elsif host[0,1] == ':' || host[0,1] == ','
-          host = "#{url.host}#{host}"
-        end
-        amqp = [
-                 '-h', host,
-                 '-u', url.user,
-                 '-p', url.password,
-                 '-v', url.path
-               ]
-      else
-        amqp = []
+      mode = File.exist?(AgentConfig.certs_dir) ? :amqp : :http
+
+      # Form RabbitMQ broker host:id list from RS_RN_URL and RS_RN_HOST
+      url = URI.parse(ENV['RS_RN_URL'])
+      host = ENV['RS_RN_HOST']
+      if !host
+        host = url.host
+      elsif host[0,1] == ':' || host[0,1] == ','
+        host = "#{url.host}#{host}"
       end
 
       cmd_opts = [ 'instance' ] +
@@ -95,12 +87,15 @@ module RightScale
                    '-t', ENV['RS_RN_AUTH'],
                    '-A', ENV['RS_ACCOUNT'],
                    '-a', "https://#{ENV['RS_SERVER']}/api",
-                   '-m', amqp.empty? ? :http : :amqp,
+                   '-m', mode,
+                   '-h', host,
+                   '-u', url.user,
+                   '-p', url.password,
+                   '-v', url.path,
                    '-b', 60,
                    '-q',
                    '-S'
-                 ] +
-                 amqp
+                 ]
 
       if ENV['http_proxy']
         cmd_opts << ['--http-proxy', ENV['http_proxy']]
