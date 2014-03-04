@@ -455,65 +455,65 @@ class InstanceSetup
     req = RightScale::RetryableRequest.new('/booter/get_missing_attributes', payload)
 
     req.callback do |res|
-      if res
-        res.each do |e|
-          if e.is_a?(RightScale::RightScriptInstantiation)
-            if script = scripts.detect { |s| s.id == e.id }
-              script.ready = true
-              script.parameters = e.parameters
-            end
-          else
-            if recipe = recipes.detect { |s| s.id == e.id }
-              recipe.ready = true
-              recipe.attributes = e.attributes
-            end
+      res ||= [] # nil if empty
+
+      res.each do |e|
+        if e.is_a?(RightScale::RightScriptInstantiation)
+          if script = scripts.detect { |s| s.id == e.id }
+            script.ready = true
+            script.parameters = e.parameters
+          end
+        else
+          if recipe = recipes.detect { |s| s.id == e.id }
+            recipe.ready = true
+            recipe.attributes = e.attributes
           end
         end
-        pending_executables = bundle.executables.select { |e| !e.ready }
-        if pending_executables.empty?
-          yield
+      end
+      pending_executables = bundle.executables.select { |e| !e.ready }
+      if pending_executables.empty?
+        yield
+      else
+        # keep state to provide fewer but more meaningful audits.
+        last_missing_inputs ||= {:started_at => Time.now}
+        last_missing_inputs[:executables] ||= {}
+
+        # don't need to audit on each attempt to resolve missing inputs, but nag
+        # every so often to let the user know this server is still waiting.
+        last_audit_time = last_missing_inputs[:last_audit_time]
+        audit_missing_inputs = last_audit_time.nil? || (last_audit_time + MISSING_INPUT_AUDIT_DELAY_SECS < Time.now)
+        sent_audit = false
+
+        # audit missing inputs, if necessary.
+        missing_inputs_executables = {}
+        pending_executables.each do |e|
+          # names of missing inputs are available from RightScripts.
+          missing_input_names = []
+
+          e.input_flags.each {|k,v| missing_input_names << k if  v.member?("unready")}
+          if audit_missing_inputs
+            @audit.append_info("Waiting for the following missing inputs which are used by '#{e.nickname}': #{missing_input_names.join(", ")}")
+            sent_audit = true
+          end
+
+          missing_inputs_executables[e.nickname] = missing_input_names
+        end
+
+        # audit any executables which now have all inputs.
+        last_missing_inputs[:executables].each_key do |nickname|
+          unless missing_inputs_executables[nickname]
+            title = RightScale::RightScriptsCookbook.recipe_title(nickname)
+            @audit.append_info("The inputs used by #{title} which had been missing have now been resolved.")
+          end
+        end
+        last_missing_inputs[:executables] = missing_inputs_executables
+        last_missing_inputs[:last_audit_time] = Time.now if sent_audit
+
+        if Time.now - last_missing_inputs[:started_at] < MISSING_INPUT_TIMEOUT
+          # schedule retry to retrieve missing inputs.
+          EM.add_timer(MISSING_INPUT_RETRY_DELAY_SECS) { retrieve_missing_inputs(bundle, last_missing_inputs, &cb) }
         else
-          # keep state to provide fewer but more meaningful audits.
-          last_missing_inputs ||= {:started_at => Time.now}
-          last_missing_inputs[:executables] ||= {}
-
-          # don't need to audit on each attempt to resolve missing inputs, but nag
-          # every so often to let the user know this server is still waiting.
-          last_audit_time = last_missing_inputs[:last_audit_time]
-          audit_missing_inputs = last_audit_time.nil? || (last_audit_time + MISSING_INPUT_AUDIT_DELAY_SECS < Time.now)
-          sent_audit = false
-
-          # audit missing inputs, if necessary.
-          missing_inputs_executables = {}
-          pending_executables.each do |e|
-            # names of missing inputs are available from RightScripts.
-            missing_input_names = []
-
-            e.input_flags.each {|k,v| missing_input_names << k if  v.member?("unready")}
-            if audit_missing_inputs
-              @audit.append_info("Waiting for the following missing inputs which are used by '#{e.nickname}': #{missing_input_names.join(", ")}")
-              sent_audit = true
-            end
-
-            missing_inputs_executables[e.nickname] = missing_input_names
-          end
-
-          # audit any executables which now have all inputs.
-          last_missing_inputs[:executables].each_key do |nickname|
-            unless missing_inputs_executables[nickname]
-              title = RightScale::RightScriptsCookbook.recipe_title(nickname)
-              @audit.append_info("The inputs used by #{title} which had been missing have now been resolved.")
-            end
-          end
-          last_missing_inputs[:executables] = missing_inputs_executables
-          last_missing_inputs[:last_audit_time] = Time.now if sent_audit
-
-          if Time.now - last_missing_inputs[:started_at] < MISSING_INPUT_TIMEOUT
-            # schedule retry to retrieve missing inputs.
-            EM.add_timer(MISSING_INPUT_RETRY_DELAY_SECS) { retrieve_missing_inputs(bundle, last_missing_inputs, &cb) }
-          else
-            strand("Failed to retrieve missing inputs after #{MISSING_INPUT_TIMEOUT / 60} minutes")
-          end
+          strand("Failed to retrieve missing inputs after #{MISSING_INPUT_TIMEOUT / 60} minutes")
         end
       end
     end
