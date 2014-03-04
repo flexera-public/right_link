@@ -189,13 +189,13 @@ describe RightScale::InstanceAuthClient do
         "api_url" => "https://my2.com/api",
         "router_url" => "https://rn2.com/router",
         "shard_id" => 2,
-        "mode" => :amqp )
+        "mode" => :http )
       @client.send(:get_authorized).should be_true
       @client.instance_variable_get(:@access_token).should == "new access token"
       @client.instance_variable_get(:@expires_at).should == (@later + 3600)
       @client.api_url.should == "https://my2.com/api"
       @client.shard_id.should == 2
-      @client.mode.should == :amqp
+      @client.mode.should == :http
     end
 
     it "sets state to :unauthorized and raises if authorization fails" do
@@ -346,6 +346,14 @@ describe RightScale::InstanceAuthClient do
       end
     end
 
+    it "sets state to :failed and logs error if there is a mode switch" do
+      flexmock(EM::Timer).should_receive(:new).and_return(@renew_timer).and_yield.once
+      flexmock(@client).should_receive(:get_authorized).and_raise(RightScale::InstanceAuthClient::CommunicationModeSwitch).once
+      @log.should_receive(:error).with("Failed authorization renewal", RightScale::InstanceAuthClient::CommunicationModeSwitch, :no_trace).once
+      @client.send(:renew_authorization).should be_true
+      @client.state.should == :failed
+    end
+
     it "sets state to :failed and logs error if there is an unexpected exception" do
       flexmock(EM::Timer).should_receive(:new).and_return(@renew_timer).and_yield.once
       flexmock(@client).should_receive(:get_authorized).and_raise(RuntimeError).once
@@ -360,13 +368,17 @@ describe RightScale::InstanceAuthClient do
       @response = RightScale::SerializationHelper.symbolize_keys(@response)
     end
 
-    it "updates mode and shard ID" do
+    it "updates shard ID" do
       @client.instance_variable_get(:@shard_id).should == 1
-      @client.instance_variable_get(:@mode).should == :http
-      @response.merge!(:shard_id => 2, :mode => :amqp)
+      @response.merge!(:shard_id => 2)
       @client.send(:update_urls, @response).should be_true
       @client.instance_variable_get(:@shard_id).should == 2
-      @client.instance_variable_get(:@mode).should == :amqp
+    end
+
+    it "raises CommunicationModeSwitch if mode changes" do
+      @client.instance_variable_get(:@mode).should == :http
+      @response.merge!(:mode => :amqp)
+      lambda { @client.send(:update_urls, @response) }.should raise_error(RightScale::InstanceAuthClient::CommunicationModeSwitch)
     end
 
     it "updates router URL if it has changed" do
