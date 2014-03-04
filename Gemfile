@@ -6,17 +6,13 @@ gemspec
 # Fresh off the assembly line
 gem 'right_support', '~> 2.8',
     :git => 'https://github.com/rightscale/right_support.git',
-    :branch => 'ivory_14_04_acu155328_default_to_tlsv1'
+    :branch => 'master'
 
 gem 'right_agent', '~> 2.0',
     :git => 'https://github.com/rightscale/right_agent.git',
-    :branch => 'cornsilk_14_5_acu157027_http_right_link_fix'
+    :branch => 'master'
 
-gem 'rest-client',
-    :git => 'https://github.com/duncan-bayne/rest-client.git',
-    :branch => 'feature-keep-alive'
-
-gem 'right_amqp', '~> 0.7'
+gem 'right_amqp',  '~> 0.7'
 gem 'right_popen', '~> 2.0'
 gem 'right_git'
 gem 'mime-types', '< 2.0'
@@ -29,10 +25,11 @@ gem 'right_scraper', '~> 4.0',
 # to RightScale. Gems in the 'custom' group are published by RightScale to our
 # custom gem repository (http://s3.amazonaws.com/rightscale_rightlink_gems_dev).
 group :custom do
-  gem 'chef', '11.6.0.4'
+  gem 'chef', '11.6.0.5'
   gem 'ohai', '6.18.0.2'
   gem 'mixlib-shellout', '1.2.0.2'
-  gem 'eventmachine', '1.0.0.5'
+  gem 'eventmachine', '1.0.0.6'
+  gem 'rest-client', '1.7.0.1'
 end
 
 # we are now using mingw so the need to carefully lock Windows gems has been
