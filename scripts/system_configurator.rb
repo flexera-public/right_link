@@ -50,8 +50,6 @@ module RightScale
     include CommandHelper
     RSA_KEY    = File.join(RightScale::Platform.filesystem.ssh_cfg_dir, 'ssh_host_rsa_key')
     DSA_KEY    = File.join(RightScale::Platform.filesystem.ssh_cfg_dir, 'ssh_host_dsa_key')
-    SUDO_USER  = 'rightscale'
-    SUDO_GROUP = 'rightscale_sudo'
 
     def read_options_file
       state = RightScale::Platform.filesystem.right_link_dynamic_state_dir
@@ -127,15 +125,8 @@ module RightScale
       CloudFactory.instance.create(cloud_name, :logger => default_logger)
     end
 
-    def load_metadata
-      metadata_file = File.join(RightScale::AgentConfig.cloud_state_dir, 'meta-data.rb')
-      fail("No cloud metadata") unless File.exists? metadata_file
-      load(metadata_file)
-    end
-
     def configure_network
       return unless current_cloud.requires_network_config?
-      load_metadata
       configurator = NetworkConfigurator.create
       configurator.logger = default_logger
       configurator.configure_network
