@@ -1,5 +1,5 @@
 # === Synopsis:
-#   RightScale Re-enroller (rs_reenroll) - (c) 2010-2013 RightScale Inc
+#   RightScale Re-enroller (rs_reenroll) - (c) 2010-2014 RightScale Inc
 #
 #   Re-enroller causes the instance to re-enroll
 #   CAUTION: This process may take a while to take place, during that time
@@ -152,7 +152,7 @@ module RightScale
     # === Return
     # (String):: Version information
     def version
-      "rs_reenroll #{right_link_version} - RightLink's reenroller (c) 2013 RightScale"
+      "rs_reenroll #{right_link_version} - RightLink's reenroller (c) 2014 RightScale"
     end
 
     def usage

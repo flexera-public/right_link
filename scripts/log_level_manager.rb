@@ -1,5 +1,5 @@
 # === Synopsis:
-#   RightScale Log Level Manager (rs_log_level) - (c) 2009-2013 RightScale Inc
+#   RightScale Log Level Manager (rs_log_level) - (c) 2009-2014 RightScale Inc
 #
 #   Log level manager allows setting and retrieving the RightLink agent and Chef/RightScript
 #   log level.
@@ -121,7 +121,7 @@ protected
     # === Return
     # (String):: Version information
     def version
-      "rs_log_level #{right_link_version} - RightLink's log level (c) 2013 RightScale"
+      "rs_log_level #{right_link_version} - RightLink's log level (c) 2014 RightScale"
     end
 
     def usage

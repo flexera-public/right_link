@@ -1,5 +1,5 @@
 # === Synopsis:
-#   RightScale Agent Deployer (rad) - (c) 2009-2013 RightScale Inc
+#   RightScale Agent Deployer (rad) - (c) 2009-2014 RightScale Inc
 #
 #   rad is a command line tool for building the configuration file for a RightLink agent
 #

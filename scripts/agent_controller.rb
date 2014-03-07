@@ -1,5 +1,5 @@
 # === Synopsis:
-#   RightScale Agent Controller (rnac) - (c) 2009-2013 RightScale Inc
+#   RightScale Agent Controller (rnac) - (c) 2009-2014 RightScale Inc
 #
 #   rnac is a command line tool for managing a RightLink agent
 #
