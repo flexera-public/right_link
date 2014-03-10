@@ -1,5 +1,5 @@
 # === Synopsis:
-#   RightScale Server Import Utility (rs_connect) - (c) 2013 RightScale Inc
+#   RightScale Server Import Utility (rs_connect) - (c) 2014 RightScale Inc
 #
 #   This utility allows an arbitrary virtual or physical machine to be
 #   managed by the RightScale dashboard.
@@ -149,7 +149,7 @@ protected
     # === Return
     # (String):: Version information
     def version
-      "rs_connect #{right_link_version} - RightLink's server importer (c) 2013 RightScale"
+      "rs_connect #{right_link_version} - RightLink's server importer (c) 2014 RightScale"
     end
 
     def usage

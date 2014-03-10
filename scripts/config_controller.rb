@@ -1,5 +1,5 @@
 # === Synopsis:
-#   RightScale configuration manager (rs_config) - (c) 2013 RightScale Inc
+#   RightScale configuration manager (rs_config) - (c) 2014 RightScale Inc
 #
 #   Allows to get, set and list feature configuration values.
 #
@@ -133,7 +133,7 @@ module RightScale
     end
 
     def version
-      "rs_config #{right_link_version} - RightLink's configuration manager(c) 2013 RightScale"
+      "rs_config #{right_link_version} - RightLink's configuration manager(c) 2014 RightScale"
     end
 
   end

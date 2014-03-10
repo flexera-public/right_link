@@ -1,5 +1,5 @@
 # === Synopsis:
-#   RightScale Thunker (rs_thunk) - (c) 2013 RightScale Inc
+#   RightScale Thunker (rs_thunk) - (c) 2014 RightScale Inc
 #
 #   Thunker allows you to manage custom SSH logins for non root users. It uses the rightscale
 #   user and group RightScale to give privileges for authorization, managing the instance
@@ -285,7 +285,7 @@ module RightScale
     # === Return
     # (String):: Version information
     def version
-      "rs_thunk #{right_link_version} - RightLink's thunker (c) 2013 RightScale"
+      "rs_thunk #{right_link_version} - RightLink's thunker (c) 2014 RightScale"
     end
 
     def usage
