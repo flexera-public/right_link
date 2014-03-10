@@ -13,7 +13,7 @@
 #     rs_log_level -l debug
 #
 # === Usage
-#    rs_set_log_level [--log-level, -l debug|info|warn|error|fatal]
+#    rs_log_level [--log-level, -l debug|info|warn|error|fatal]
 #
 #    Options:
 #      --log-level, -l LVL  Set log level(for Chef/RightScript by default)
