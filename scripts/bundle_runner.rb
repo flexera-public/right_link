@@ -1,5 +1,5 @@
 # === Synopsis:
-#   RightScale Bundle Runner (rs_run_right_script/rs_run_recipe) - (c) 2009-2013 RightScale Inc
+#   RightScale Bundle Runner (rs_run_right_script/rs_run_recipe) - (c) 2009-2014 RightScale Inc
 #
 #   rs_run_right_script and rs_run_recipe are command line tools that allow
 #   running RightScripts and recipes respectively from within an instance
@@ -267,7 +267,7 @@ protected
     # === Return
     # (String):: Version information
     def version
-      "rs_run_right_script & rs_run_recipe #{right_link_version} - RightLink's bundle runner (c) 2013 RightScale"
+      "rs_run_right_script & rs_run_recipe #{right_link_version} - RightLink's bundle runner (c) 2014 RightScale"
     end
 
     def usage

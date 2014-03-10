@@ -1,5 +1,5 @@
 # === Synopsis:
-#   RightScale System Shutdown Utility (rs_shutdown) - (c) 2013 RightScale Inc
+#   RightScale System Shutdown Utility (rs_shutdown) - (c) 2014 RightScale Inc
 #
 #   This utility allows the given system to be shutdown or rebooted.
 #
@@ -108,7 +108,7 @@ protected
     # === Return
     # (String):: Version information
     def version
-      "rs_shutdown #{right_link_version} - RightLink's shutdown client (c) 2013 RightScale"
+      "rs_shutdown #{right_link_version} - RightLink's shutdown client (c) 2014 RightScale"
     end
 
     def usage

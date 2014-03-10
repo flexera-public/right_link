@@ -1,5 +1,5 @@
 # === Synopsis:
-#   RightScale run state reporter (rs_state) - (c) 2013 RightScale Inc
+#   RightScale run state reporter (rs_state) - (c) 2014 RightScale Inc
 #
 #   Report current run state of an instance
 #
@@ -92,7 +92,7 @@ module RightScale
     end
 
     def version
-      "rs_state #{right_link_version} - RightLink's run state reporter(c) 2013 RightScale"
+      "rs_state #{right_link_version} - RightLink's run state reporter(c) 2014 RightScale"
     end
   end
 end
