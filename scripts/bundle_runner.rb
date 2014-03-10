@@ -136,7 +136,7 @@ module RightScale
     # true:: Always return true
     def echo(options)
       type = options[:bundle_type] == :right_script ? "RightScript" : "recipe"
-      which = options[:id] ? "with ID #{options[:id].inspect}" : "named #{options[:name].inspect}"
+      which = options[:id] ? "with ID #{options[:id].inspect}" : "named #{format_script_name(options[:name])}"
       scope = options[:scope] == :all ? "'all' servers" : "a 'single' server"
       where = options[:tags] ? "on #{scope} with tags #{options[:tags].inspect}" : "locally on this server"
       using = ""
@@ -256,6 +256,10 @@ protected
         result[:json]      = options[:json]
       end
       result
+    end
+
+    def format_script_name(script_name)
+      script_name && script_name.include?("'") ? "\"#{script_name}\"" : "'#{script_name}'"
     end
 
     # Version information
