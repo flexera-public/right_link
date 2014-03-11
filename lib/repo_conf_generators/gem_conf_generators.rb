@@ -38,7 +38,7 @@ module Gems
 
   module RubyGems #########################################################################
     def self.is_installed?
-      system('which gem')
+      system('which gem 2>&1 > /dev/null')
     end
 
     # The different generate classes will always generate an exception ("string") if there's anything that went wrong. If no exception, things went well.
