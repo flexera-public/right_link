@@ -37,9 +37,13 @@ module Gems
   end
 
   module RubyGems #########################################################################
+    def self.is_installed?
+      system('which gem &> /dev/null')
+    end
 
     # The different generate classes will always generate an exception ("string") if there's anything that went wrong. If no exception, things went well.
     def self.generate(description, base_urls, frozen_date="latest")
+      raise ::RightScale::Exceptions::PlatformError, "RubyGems is not installed" unless self.is_installed?
 
       #1 - get the current sources
       initial_sources= Gems.gem('sources', '--list').split("\n")
