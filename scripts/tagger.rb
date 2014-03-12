@@ -106,7 +106,7 @@ module RightScale
       r = serialize_operation_result(res)
       raise TagError.new("Remove tag failed: #{r.inspect}", 48) unless r.kind_of?(OperationResult)
       if r.success?
-        write_error("Successfully removed tag #{options[:tag]}")
+        write_output("Request processed successfully")
       else
         raise TagError.new("Remove tag failed: #{r.content}", 55)
       end
