@@ -57,7 +57,7 @@ module RightScale
       @log_sink = StringIO.new
       @log = Logger.new(@log_sink)
       RightScale::Log.force_logger(@log)
-      check_privileges
+      check_privileges if right_agent_running?
 
       username  = options.delete(:username)
       email     = options.delete(:email)
@@ -89,7 +89,7 @@ module RightScale
           puts "Creating your user profile (#{chosen}) on this machine." if (:shell == access)
       end
 
-      create_audit_entry(email, username, access, orig, client_ip)
+      create_audit_entry(email, username, access, orig, client_ip) if right_agent_running?
       chown_tty(username)
 
       # Note that when execing sudo we use the N-argument form of Kernel.exec,
@@ -113,7 +113,11 @@ module RightScale
         LoginUserManager.simulate_login(username)
         Kernel.exec('sudo', '-H', '-u', username, '/bin/sh', '-c', "cd $HOME ; #{orig}")
       when :shell
-        display_motd
+        if right_agent_running?
+          display_motd
+        else
+          display_right_link_is_not_running_warning
+        end
         Kernel.exec('sudo', '-i', '-u', username)
       end
     rescue SystemExit => e
@@ -256,6 +260,13 @@ module RightScale
       Log.error(e.backtrace.join("\n"))
       false
     end
+
+    # Dispaly warning message
+    def display_right_link_is_not_running_warning
+        puts "RightLink service is not running."
+        puts "Some modules may not work correctly!"
+    end
+
 
     # Display the Message of the Day if it exists.
     def display_motd
