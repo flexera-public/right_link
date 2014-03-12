@@ -276,8 +276,8 @@ describe RightScale::Tagger do
         once.
         and_return(::RightScale::OperationResult.success(true))
       run_tagger(['-r', 'x:y'])
-      @error.should == ["Successfully removed tag x:y"]
-      @output.should == []
+      @error.should == []
+      @output.should == ["Request processed successfully"]
     end
   end # rs_tag --remove
 end # RightScale::Tagger
