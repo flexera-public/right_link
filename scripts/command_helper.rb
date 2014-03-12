@@ -4,16 +4,24 @@ require 'right_agent/scripts/usage'
 module RightScale
   module CommandHelper
     def check_privileges
-      config_options = ::RightScale::AgentConfig.agent_options('instance')
-      pid_dir = config_options[:pid_dir]
-      identity = config_options[:identity]
-      raise ::ArgumentError.new('Could not get cookie file path') if (pid_dir.nil? & identity.nil?)
-      cookie_file = File.join(pid_dir, "#{identity}.cookie")
-      File.open(cookie_file, "r") { |f| f.close }
+      File.open(right_agent_cookie_file_path, "r") { |f| f.close }
       true
     rescue Errno::EACCES => e
       fail(e)
     end
+
+    def right_agent_running?
+      File.exists?(right_agent_cookie_file_path)
+    end
+
+    def right_agent_cookie_file_path
+      config_options = ::RightScale::AgentConfig.agent_options('instance')
+      pid_dir = config_options[:pid_dir]
+      identity = config_options[:identity]
+      raise ::ArgumentError.new('Could not get cookie file path') if (pid_dir.nil? & identity.nil?)
+      File.join(pid_dir, "#{identity}.cookie")
+    end
+
     # Creates a command client and sends the given payload.
     #
     # === Parameters

@@ -14,9 +14,12 @@ require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'scripts'
 
 module RightScale
   describe Thunker do
+    let(:is_running) { true }
+
     def run_thunker(argv)
       replace_argv(argv)
       flexmock(subject).should_receive(:check_privileges).and_return(true)
+      flexmock(subject).should_receive(:right_agent_running?).and_return(is_running)
       opts = subject.parse_args
       subject.run(opts)
       return 0
@@ -117,14 +120,27 @@ module RightScale
     def create_user(superuser=false, profile_data=nil, force=false)
       subject.should_receive(:fail).and_return { raise }
       flexmock(LoginUserManager.instance).should_receive(:create_user).with("USER", "123", superuser, Proc).and_return("USER")
-      subject.should_receive(:create_audit_entry).with("EMAIL@EMAIL.COM", "USER", FlexMock.any, FlexMock.any, FlexMock.any)
-      subject.should_receive(:display_motd)
+      subject.should_receive(:create_audit_entry).with("EMAIL@EMAIL.COM", "USER", FlexMock.any, FlexMock.any, FlexMock.any).once
+      subject.should_receive(:display_motd).once
       flexmock(subject).should_receive(:chown_tty).and_return(true)
       flexmock(Kernel).should_receive(:exec).with('sudo', '-i', '-u', "USER")
       args = '--username USER --uuid 123 --email EMAIL@EMAIL.COM'.split
       args.push('-s') if superuser
       args.push('-p', profile_data) if profile_data
       args.push('-f') if force
+      run_thunker(args)
+    end
+
+
+    def display_warning()
+      subject.should_receive(:fail).and_return { raise }
+      flexmock(LoginUserManager.instance).should_receive(:create_user).with("USER", "123", false, Proc).and_return("USER")
+      subject.should_receive(:create_audit_entry).with("EMAIL@EMAIL.COM", "USER", FlexMock.any, FlexMock.any, FlexMock.any).never
+      subject.should_receive(:display_motd).never
+      subject.should_receive(:display_right_link_is_not_running_warning).once
+      flexmock(subject).should_receive(:chown_tty).and_return(true)
+      flexmock(Kernel).should_receive(:exec).with('sudo', '-i', '-u', "USER")
+      args = '--username USER --uuid 123 --email EMAIL@EMAIL.COM'.split
       run_thunker(args)
     end
 
@@ -143,6 +159,14 @@ module RightScale
     context 'rs_thunk --username USER --uuid 123 --email EMAIL@EMAIL.COM -p URL -f' do
       it 'should create account and use extra profile data and rewrite existing files' do
         create_user(false, "URL", true)
+      end
+    end
+
+    context 'right_agent is not running' do
+      let(:is_running) { false }
+
+      it 'should create account and display warning message about stopped right_link agent' do
+        display_warning
       end
     end
   end
