@@ -1,3 +1,21 @@
+= 6.X.X (RightLink 6.X alpha/beta/release candidate)
+
+Released XXXX-XX-XX.
+
+== New Features
+
+== Changes to Existing Functionality
+
+* Allow users to ssh on server, if rightlink service is stoped.
+
+== Known Limitations
+
+* Windows 2008/2012 and Ubuntu 12.04 operating systems support only 1 network interface at this time.
+
+== Bug fixes
+
+* rs_tag display warning message if empty parameter provided on adding or removing tag.
+
 = 6.0.0 (RightLink 6.0 release candidate 1)
 
 Released 2014-03-06.
@@ -13,14 +31,14 @@ Released 2014-03-06.
 * Firewall friendliness
   * AMQP has been replaced with HTTP in communition between RightLink agent and RightScale core site.
   * Syncing with NTP, RightLink patching, and software repo mirrors will now go through loadbalancer specified in RS_ISLAND userdata variable set by RightScale when the instance launches.
-  
+
 == Changes to Existing Functionality
 
 * chef version upgraded to 11.6.0.
 * ruby version upgraded to 1.9.3 p484.
 * rs_ohai output now behavior now consistent with vanilla ohai.
 * Default SSL protocol bumped to TLSv1.
-* /opt/rightscale/sandbox/bin added to end of path for Chef recipes and RightScripts to support 
+* /opt/rightscale/sandbox/bin added to end of path for Chef recipes and RightScripts to support
 * rs_tag --query now accepts multiple parameters instead of single string
 * Removed custom Chef resources: right_link_tag, remote_recipe, server_collection and rs_shutdown. Use the RightLink command-line utilties instead.
 
