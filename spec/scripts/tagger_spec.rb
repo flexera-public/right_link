@@ -260,6 +260,14 @@ describe RightScale::Tagger do
       @error.should == ["Successfully added tag x:y=z"]
       @output.should == []
     end
+
+    it 'should dispaly error if empty value provided' do
+      expected_cmd = { :name => :add_tag, :tag => '' }
+      flexmock(subject).should_receive(:send_command).never
+      run_tagger(['-a', ''])
+      @error.should == ["Non-empty value required\nUse --help for additional information"]
+      @output.should == []
+    end
   end # rs_tag --add
 
   context 'rs_tag --remove' do
@@ -277,6 +285,13 @@ describe RightScale::Tagger do
         and_return(::RightScale::OperationResult.success(true))
       run_tagger(['-r', 'x:y'])
       @error.should == ["Successfully removed tag x:y"]
+      @output.should == []
+    end
+    it 'should dispaly error if empty value provided' do
+      expected_cmd = { :name => :remove_tag, :tag => '' }
+      flexmock(subject).should_receive(:send_command).never
+      run_tagger(['-r', ''])
+      @error.should == ["Non-empty value required\nUse --help for additional information"]
       @output.should == []
     end
   end # rs_tag --remove
