@@ -6,7 +6,7 @@ Released XXXX-XX-XX.
 
 == Changes to Existing Functionality
 
-* Allow users to ssh on server, if rightlink service is stoped.
+* Allow "rightscale" user to login if rightlink service is stopped. 
 
 == Known Limitations
 
@@ -14,7 +14,7 @@ Released XXXX-XX-XX.
 
 == Bug fixes
 
-* rs_tag display warning message if empty parameter provided on adding or removing tag.
+* rs_tag displays warning message if empty parameter provided on adding or removing action.
 
 = 6.0.0 (RightLink 6.0 release candidate 1)
 
