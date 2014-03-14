@@ -68,7 +68,7 @@ module RightScale
       AuditCookStub.instance.setup_audit_forwarding(@thread_name, context.audit)
       AuditCookStub.instance.on_close(@thread_name) { @audit_closed = true; check_done }
     end
-    
+
     # FIX: thread_name should never be nil from the core in future, but
     # temporarily we must supply the default thread_name before if nil. in
     # future we should fail execution when thread_name is reliably present and
@@ -80,7 +80,7 @@ module RightScale
     #
     # === Return
     # result(String):: Thread name of this context
-    def get_thread_name_from_context(context) 
+    def get_thread_name_from_context(context)
       thread_name = nil
       thread_name = context.thread_name if context.respond_to?(:thread_name)
       Log.warn("Encountered a nil thread name unexpectedly, defaulting to '#{RightScale::AgentConfig.default_thread_name}'") unless thread_name
@@ -99,6 +99,10 @@ module RightScale
     # true:: Always return true
     def run
       @succeeded = true
+      if context.payload.executables.empty?
+        succeed
+        return
+      end
 
       @context.audit.create_new_section('Querying tags')
 
