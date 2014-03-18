@@ -1,4 +1,4 @@
-= 6.X.X (RightLink 6.X alpha/beta/release candidate)
+= 6.0.X (RightLink 6.0 release candidate 2)
 
 Released XXXX-XX-XX.
 
@@ -6,15 +6,14 @@ Released XXXX-XX-XX.
 
 == Changes to Existing Functionality
 
-* Allow "rightscale" user to login if rightlink service is stopped. 
-
 == Known Limitations
 
 * Windows 2008/2012 and Ubuntu 12.04 operating systems support only 1 network interface at this time.
 
 == Bug fixes
 
-* rs_tag displays warning message if empty parameter provided on adding or removing action.
+* rs_tag raises error on adding or removing an empty tag.
+* Allow "rightscale" user to login if rightlink service is stopped.
 
 = 6.0.0 (RightLink 6.0 release candidate 1)
 
