@@ -8,7 +8,7 @@ Released XXXX-XX-XX.
 
 == Known Limitations
 
-* Windows 2008/2012 and Ubuntu 12.04 operating systems support only 1 network interface at this time.
+* vSphere: Windows 2008/2012 and Ubuntu operating systems support only 1 network interface at this time.
 
 == Bug fixes
 
@@ -33,6 +33,7 @@ Released 2014-03-06.
 
 == Changes to Existing Functionality
 
+* The cloud-support package for Google is suffixed with "gce" instead of "google".
 * chef version upgraded to 11.6.0.
 * ruby version upgraded to 1.9.3 p484.
 * rs_ohai output now behavior now consistent with vanilla ohai.
