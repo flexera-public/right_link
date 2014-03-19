@@ -16,6 +16,7 @@ describe RightScale::WindowsNetworkConfigurator do
     end
 
     let(:device) { "Local Area Connection" }
+    let(:mac) { "MAC:MAC:MAC" }
     let(:ip) { "1.2.3.4" }
     let(:gateway) { "1.2.3.1" }
     let(:netmask) { "255.255.255.0" }
@@ -38,12 +39,12 @@ describe RightScale::WindowsNetworkConfigurator do
       cmd = "netsh interface ip set address name=#{device} source=static addr=#{ip} mask=#{netmask} gateway=none"
       ENV['RS_IP0_ADDR'] = ip
       ENV['RS_IP0_NETMASK'] = netmask
+      ENV['RS_IP0_MAC'] = mac
 
       flexmock(subject).should_receive(:configured_nameservers).and_return("8.8.8.8 4.4.4.4")
       flexmock(subject).should_receive(:add_nameserver_to_device).times(0)
-
+      flexmock(subject).should_receive(:device_name_from_mac).with(mac).and_return(device)
       flexmock(subject).should_receive(:configure_network_adaptor).times(1)
-
       flexmock(subject).should_receive(:network_device_name).and_return(device)
       flexmock(subject).should_receive(:runshell).with(cmd)
       flexmock(subject).should_receive(:wait_for_configuration_appliance)
@@ -53,6 +54,7 @@ describe RightScale::WindowsNetworkConfigurator do
     it "supports optional RS_IP0_GATEWAY value" do
       ENV['RS_IP0_ADDR'] = ip
       ENV['RS_IP0_NETMASK'] = netmask
+      ENV['RS_IP0_MAC'] = mac
 
       # optional
       ENV['RS_IP0_GATEWAY'] = gateway
@@ -62,6 +64,7 @@ describe RightScale::WindowsNetworkConfigurator do
 
       flexmock(subject).should_receive(:configured_nameservers).and_return(nameservers_output)
       flexmock(subject).should_receive(:add_nameserver_to_device).times(2)
+      flexmock(subject).should_receive(:device_name_from_mac).with(mac).and_return(device)
       flexmock(subject).should_receive(:runshell).with(cmd)
       flexmock(subject).should_receive(:network_device_name).and_return(device)
       flexmock(subject).should_receive(:wait_for_configuration_appliance)
@@ -74,11 +77,18 @@ describe RightScale::WindowsNetworkConfigurator do
       subject.os_net_devices.each_with_index do |device, i|
         ENV["RS_IP#{i}_ADDR"] = ip
         ENV["RS_IP#{i}_NETMASK"] = netmask
+        ENV["RS_IP#{i}_MAC"] = "#{mac}#{i}"
         cmd = "netsh interface ip set address name=#{device.inspect} source=static addr=#{ip} mask=#{netmask} gateway=none"
         netsh_cmds << cmd
       end
+
       flexmock(subject).should_receive(:configured_nameservers).and_return(nameservers_output)
       flexmock(subject).should_receive(:add_nameserver_to_device).times(2)
+
+      subject.define_singleton_method(:device_name_from_mac) do |mac_addr|
+        index = mac_addr.sub(/\D+/, '').to_i
+        os_net_devices[index]
+      end
       flexmock(subject).should_receive(:runshell).with(on { |cmd| !netsh_cmds.delete(cmd).nil? }).times(10)
       flexmock(subject).should_receive(:wait_for_configuration_appliance)
       subject.add_static_ips
@@ -88,10 +98,11 @@ describe RightScale::WindowsNetworkConfigurator do
       cmd = "netsh interface ip set address name=#{device.inspect} source=static addr=#{ip} mask=#{netmask} gateway=none"
       ENV['RS_IP0_ADDR'] = ip
       ENV['RS_IP0_NETMASK'] = netmask
+      ENV['RS_IP0_MAC'] = mac
 
       flexmock(subject).should_receive(:configured_nameservers).and_return(nameservers_output)
-
       flexmock(subject).should_receive(:add_nameserver_to_device).times(2)
+      flexmock(subject).should_receive(:device_name_from_mac).with(mac).and_return(device)
       flexmock(subject).should_receive(:runshell).with(cmd)
       flexmock(subject).should_receive(:network_device_name).and_return(device)
       flexmock(subject).should_receive(:get_device_ip).with(device.inspect).times(2).and_return(nil, ip)

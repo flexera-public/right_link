@@ -174,6 +174,7 @@ EOF
       end
 
       let(:device) { "eth0" }
+      let(:mac) { "MAC:MAC:MAC" }
       let(:ip) { "1.2.3.4" }
       let(:gateway) { "1.2.3.1" }
       let(:netmask) { "255.255.255.0" }
@@ -194,7 +195,9 @@ EOF
       it "adds a static IP config for eth0" do
         ENV['RS_IP0_ADDR'] = ip
         ENV['RS_IP0_NETMASK'] = netmask
+        ENV['RS_IP0_MAC'] = mac
 
+        flexmock(subject).should_receive(:device_name_from_mac).with(mac).and_return(device)
         flexmock(subject).should_receive(:runshell).with("ifconfig #{device} #{ip} netmask #{netmask}").times(1)
         flexmock(subject).should_receive(:runshell).with("route add default gw #{gateway}").times(0)
         flexmock(subject).should_receive(:network_route_exists?).and_return(false).times(0)
@@ -205,10 +208,12 @@ EOF
       it "supports optional RS_IP0_GATEWAY value" do
         ENV['RS_IP0_ADDR'] = ip
         ENV['RS_IP0_NETMASK'] = netmask
+        ENV['RS_IP0_MAC'] = mac
 
         # optional
         ENV['RS_IP0_GATEWAY'] = gateway
 
+        flexmock(subject).should_receive(:device_name_from_mac).with(mac).and_return(device)
         flexmock(subject).should_receive(:runshell).with("ifconfig #{device} #{ip} netmask #{netmask}").times(1)
         flexmock(subject).should_receive(:runshell).with("route add default gw #{gateway}").times(1)
         flexmock(subject).should_receive(:network_route_exists?).and_return(false).times(1)
@@ -222,9 +227,13 @@ EOF
         10.times do |i|
           ENV["RS_IP#{i}_ADDR"] = ip
           ENV["RS_IP#{i}_NETMASK"] = netmask
+          ENV["RS_IP#{i}_MAC"] = "#{mac}#{i}"
           ifconfig_cmds << "ifconfig eth#{i} #{ip} netmask #{netmask}"
           attached_nameservers =  (i == 0) ? nameservers : nil
           eth_configs <<  test_eth_config_data("eth#{i}", ip, nil, netmask, attached_nameservers)
+        end
+        subject.define_singleton_method(:device_name_from_mac) do |mac_addr|
+          "eth#{mac_addr.sub(/\D+/, '' )}"
         end
         flexmock(subject).should_receive(:runshell).with(on { |cmd| ifconfig_cmds.include?(cmd) }).times(10)
         flexmock(subject).should_receive(:runshell).with("route add default gw #{gateway}").times(0)
