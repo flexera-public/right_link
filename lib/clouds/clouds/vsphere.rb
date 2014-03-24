@@ -68,28 +68,3 @@ default_option([:cloud_metadata, :metadata_tree_climber, :has_children_override]
 def requires_network_config?
   true
 end
-
-
-# Loads metadata from file into environment
-#
-def load_metadata
-  begin
-    load(::File.join(RightScale::AgentConfig.cloud_state_dir, 'meta-data.rb'))
-  rescue Exception => e
-    raise "FATAL: Cannot load metadata from #{meta_data_file}"
-  end
-end
-
-# We return two lists of public IPs respectively private IPs to the GW. The is_private_ip
-# test is used to sort the IPs of an instance into these lists. Not perfect but
-# customizable.
-#
-# === Parameters
-# ip(String):: an IPv4 address
-#
-# === Return
-# result(Boolean):: true if format is okay, else false
-def is_private_ipv4(ip)
-  regexp = /\A(10\.|192\.168\.|172\.1[6789]\.|172\.2.\.|172\.3[01]\.)/
-  ip =~ regexp
-end
