@@ -58,6 +58,12 @@ module RightScale
     # Maximum redirects allowed for an authorization request
     MAX_REDIRECTS = 5
 
+    # Maximum retries allowed for an authorization request
+    MAX_RETRIES = 5
+
+    # Number of seconds between authorization request attempts
+    RETRY_INTERVAL = 5
+
     # ID of shard containing this instance's account
     attr_reader :shard_id
 
@@ -158,6 +164,7 @@ module RightScale
 
     # Get authorized with RightApi using OAuth2
     # As an extension to OAuth2 receive URLs needed for other servers
+    # Retry authorization if RightApi not responding or if get redirected
     #
     # @return [TrueClass] always true
     #
@@ -165,7 +172,7 @@ module RightScale
     # @raise [BalancedHttpClient::NotResponding] cannot access RightApi
     # @raise [CommunicationModeSwitch] changing communication mode
     def get_authorized
-      redirects = 0
+      retries = redirects = 0
       api_url = @api_url
       begin
         Log.info("Getting authorized via #{@api_url}")
@@ -182,12 +189,13 @@ module RightScale
         self.state = :authorized
         @communicated_callbacks.each { |callback| callback.call } if @communicated_callbacks
       rescue BalancedHttpClient::NotResponding
+        if (retries += 1) > MAX_RETRIES
+          Log.error("Exceeded maximum authorization retries (#{MAX_RETRIES})")
+        else
+          sleep(RETRY_INTERVAL)
+          retry
+        end
         raise
-      rescue RestClient::Unauthorized => e
-        self.state = :unauthorized
-        @access_token = nil
-        @expires_at = Time.now
-        raise Exceptions::Unauthorized.new(e.http_body, e)
       rescue RestClient::MovedPermanently, RestClient::Found => e
         if (redirects += 1) > MAX_REDIRECTS
           Log.error("Exceeded maximum redirects (#{MAX_REDIRECTS})")
@@ -196,6 +204,11 @@ module RightScale
         end
         @api_url = api_url
         raise
+      rescue RestClient::Unauthorized => e
+        self.state = :unauthorized
+        @access_token = nil
+        @expires_at = Time.now
+        raise Exceptions::Unauthorized.new(e.http_body, e)
       end
       true
     rescue BalancedHttpClient::NotResponding, Exceptions::Unauthorized, CommunicationModeSwitch
