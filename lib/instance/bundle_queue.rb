@@ -95,7 +95,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def run_continuation
-      EM.next_tick { @continuation.call } if @continuation
+      EM_S.next_tick { @continuation.call } if @continuation
       true
     end
 

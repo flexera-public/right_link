@@ -153,7 +153,7 @@ module RightScale
     ensure
       # invoke continuation (off of this thread which is going away).
       @mutex.synchronize { @active = false }
-      EM.next_tick { @continuation.call } if @continuation
+      EM_S.next_tick { @continuation.call } if @continuation
       @thread = nil
     end
 

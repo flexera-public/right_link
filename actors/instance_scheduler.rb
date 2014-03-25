@@ -325,7 +325,7 @@ class InstanceScheduler
     RightScale::CommandRunner.stop
 
     # Delay terminate a bit to give reply a chance to be sent
-    EM.next_tick { @agent.terminate }
+    EM_S.next_tick { @agent.terminate }
     true
   end
 

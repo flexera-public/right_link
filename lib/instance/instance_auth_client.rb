@@ -75,6 +75,8 @@ module RightScale
     # @option options [String] :api_url for accessing RightApi server for authorization and other services
     # @option options [Symbol] :mode in which communicating with RightNet
     # @option options [Boolean] :no_renew get authorized without setting up for continuous renewal
+    # @option options [Boolean] :non_blocking i/o is to be used for HTTP requests by applying
+    #   EM::HttpRequest and fibers instead of RestClient; requests remain synchronous
     # @option options [Proc] :exception_callback for unexpected exceptions with following parameters:
     #   [Exception] exception raised
     #   [Packet, NilClass] packet being processed
@@ -93,6 +95,7 @@ module RightScale
       @mode = options[:mode] && options[:mode].to_sym
       @router_url = nil
       @other_headers = {"User-Agent" => "RightLink v#{RightLink.version}", "X-RightLink-ID" => @token_id}
+      @non_blocking = options[:non_blocking]
       @exception_callback = options[:exception_callback]
       @expires_at = Time.now
       reset_stats
@@ -155,7 +158,8 @@ module RightScale
       options = {
         :api_version => API_VERSION,
         :open_timeout => DEFAULT_OPEN_TIMEOUT,
-        :request_timeout => DEFAULT_REQUEST_TIMEOUT}
+        :request_timeout => DEFAULT_REQUEST_TIMEOUT,
+        :non_blocking => @non_blocking }
       auth_url = URI.parse(@api_url)
       auth_url.user = @token_id.to_s
       auth_url.password = @token

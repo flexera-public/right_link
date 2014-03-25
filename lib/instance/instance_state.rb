@@ -342,9 +342,9 @@ module RightScale
       end
       case kind
       when 'reboot'
-        EM.add_timer(FORCE_SHUTDOWN_DELAY) { RightScale::Platform.controller.reboot }
+        EM_S.add_timer(FORCE_SHUTDOWN_DELAY) { RightScale::Platform.controller.reboot }
       when 'terminate', 'stop'
-        EM.add_timer(FORCE_SHUTDOWN_DELAY) { RightScale::Platform.controller.shutdown }
+        EM_S.add_timer(FORCE_SHUTDOWN_DELAY) { RightScale::Platform.controller.shutdown }
       else
         Log.error("InstanceState.shutdown() kind was unexpected: #{kind}")
       end

@@ -80,7 +80,7 @@ module RightScale
                     # block for continuation afterward (unless detachment stranded).
                     Log.info("Waiting for volumes to detach for management purposes. "\
                              "Retrying in #{VolumeManagement::VOLUME_RETRY_SECONDS} seconds...")
-                    EM.add_timer(VolumeManagement::VOLUME_RETRY_SECONDS) { manage_planned_volumes(&block) }
+                    EM_S.add_timer(VolumeManagement::VOLUME_RETRY_SECONDS) { manage_planned_volumes(&block) }
                   end
                 end
               end
@@ -90,21 +90,21 @@ module RightScale
             # changed to reflect this yet.
             Log.info("Waiting for volume #{mapping[:volume_id]} to fully detach. "\
                      "Retrying in #{VolumeManagement::VOLUME_RETRY_SECONDS} seconds...")
-            EM.add_timer(VolumeManagement::VOLUME_RETRY_SECONDS) { manage_planned_volumes(&block) }
+            EM_S.add_timer(VolumeManagement::VOLUME_RETRY_SECONDS) { manage_planned_volumes(&block) }
           elsif mapping = mappings.find { |mapping| is_managed_attaching_volume?(mapping) }
             Log.info("Waiting for volume #{mapping[:volume_id]} to fully attach. Retrying in #{VolumeManagement::VOLUME_RETRY_SECONDS} seconds...")
-            EM.add_timer(VolumeManagement::VOLUME_RETRY_SECONDS) { manage_planned_volumes(&block) }
+            EM_S.add_timer(VolumeManagement::VOLUME_RETRY_SECONDS) { manage_planned_volumes(&block) }
           elsif mapping = mappings.find { |mapping| is_managed_attached_unassigned_volume?(mapping) }
             manage_volume_device_assignment(mapping) do
               unless InstanceState.value == 'stranded'
                 # we can move on to next volume 'immediately' if volume was
                 # successfully assigned its device name.
                 if mapping[:management_status] == 'assigned'
-                  EM.next_tick { manage_planned_volumes(&block) }
+                  EM_S.next_tick { manage_planned_volumes(&block) }
                 else
                   Log.info("Waiting for volume #{mapping[:volume_id]} to initialize using \"#{mapping[:mount_points].first}\". "\
                            "Retrying in #{VolumeManagement::VOLUME_RETRY_SECONDS} seconds...")
-                  EM.add_timer(VolumeManagement::VOLUME_RETRY_SECONDS) { manage_planned_volumes(&block) }
+                  EM_S.add_timer(VolumeManagement::VOLUME_RETRY_SECONDS) { manage_planned_volumes(&block) }
                 end
               end
             end
@@ -116,7 +116,7 @@ module RightScale
                   Log.info("Waiting for volume #{mapping[:volume_id]} to appear using \"#{mapping[:mount_points].first}\". "\
                            "Retrying in #{VolumeManagement::VOLUME_RETRY_SECONDS} seconds...")
                 end
-                EM.add_timer(VolumeManagement::VOLUME_RETRY_SECONDS) { manage_planned_volumes(&block) }
+                EM_S.add_timer(VolumeManagement::VOLUME_RETRY_SECONDS) { manage_planned_volumes(&block) }
               end
             end
           elsif mapping = mappings.find { |mapping| is_unmanageable_volume?(mapping) }

@@ -76,7 +76,7 @@ class InstanceServices
   # (RightScale::OperationResult):: Always returns success
   def restart(options)
     @agent.update_configuration(RightScale::SerializationHelper.symbolize_keys(options)) if options.is_a?(Hash) && options.any?
-    EM.next_tick do
+    EM_S.next_tick do
       begin
         @agent.terminate("remote restart")
       rescue Exception => e
@@ -96,7 +96,7 @@ class InstanceServices
   # (RightScale::OperationResult):: Always returns success
   def reenroll(options)
     @agent.update_configuration(RightScale::SerializationHelper.symbolize_keys(options)) if options.is_a?(Hash) && options.any?
-    EM.next_tick do
+    EM_S.next_tick do
       begin
         RightScale::ReenrollManager.reenroll!
       rescue Exception => e
@@ -111,7 +111,7 @@ class InstanceServices
   # @return [RightScale::OperationResult] Always returns success
   def reboot(_)
     # Do reboot on next_tick so that have change to return result
-    EM.next_tick do
+    EM_S.next_tick do
       begin
         RightScale::Log.info('Initiate reboot using local (OS) facility')
         RightScale::RightHttpClient.instance.close(:receive)

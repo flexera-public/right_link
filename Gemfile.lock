@@ -1,3 +1,19 @@
+GIT
+  remote: https://github.com/rightscale/right_agent.git
+  revision: d17226d934a8d58da51d36b4e7d322a196dd7795
+  branch: cornsilk_14_6_acu156704_em_http
+  specs:
+    right_agent (2.0.8)
+      eventmachine (>= 0.12.10, < 2.0)
+      faye-websocket (= 0.7.0)
+      ffi
+      json (~> 1.4)
+      msgpack (>= 0.4.4, < 0.6)
+      net-ssh (~> 2.0)
+      rest-client (= 1.7.0.1)
+      right_amqp (~> 0.7)
+      right_support (>= 2.4.1, < 3.0)
+
 PATH
   remote: .
   specs:
@@ -17,6 +33,7 @@ GEM
   remote: http://s3.amazonaws.com/rightscale_rightlink_gems_dev/
   remote: https://rubygems.org/
   specs:
+    addressable (2.3.6)
     chef (11.6.0.5)
       erubis
       highline
@@ -65,12 +82,21 @@ GEM
       windows-pr (= 1.2.1)
       yajl-ruby (~> 1.1)
     columnize (0.3.6)
+    cookiejar (0.3.2)
     debugger (1.6.5)
       columnize (>= 0.3.1)
       debugger-linecache (~> 1.2.0)
       debugger-ruby_core_source (~> 1.3.1)
     debugger-linecache (1.2.0)
     debugger-ruby_core_source (1.3.2)
+    em-http-request (1.0.3)
+      addressable (>= 2.2.3)
+      cookiejar
+      em-socksify
+      eventmachine (>= 1.0.0.beta.4)
+      http_parser.rb (>= 0.5.3)
+    em-socksify (0.3.0)
+      eventmachine (>= 1.0.0.beta.4)
     encryptor (1.3.0)
     erubis (2.7.0)
     eventmachine (1.0.0.6)
@@ -81,8 +107,10 @@ GEM
       websocket-driver (>= 0.3.0)
     ffi (1.1.0)
     ffi (1.1.0-x86-mingw32)
+    fiber_pool (1.0.0)
     flexmock (0.9.0)
     highline (1.6.21)
+    http_parser.rb (0.6.0)
     ip (0.3.0)
     ipaddress (0.8.0)
     json (1.7.7)
@@ -125,28 +153,6 @@ GEM
       mime-types (>= 1.16)
       net-http-persistent
       netrc (~> 0.7.7)
-    right_agent (2.0.8)
-      eventmachine (>= 0.12.10, < 2.0)
-      faye-websocket (= 0.7.0)
-      ffi
-      json (~> 1.4)
-      msgpack (>= 0.4.4, < 0.6)
-      net-ssh (~> 2.0)
-      rest-client (= 1.7.0.1)
-      right_amqp (~> 0.7)
-      right_support (>= 2.4.1, < 3.0)
-    right_agent (2.0.8-x86-mingw32)
-      eventmachine (>= 0.12.10, < 2.0)
-      faye-websocket (= 0.7.0)
-      ffi
-      json (~> 1.4)
-      msgpack (>= 0.4.4, < 0.6)
-      net-ssh (~> 2.0)
-      rest-client (= 1.7.0.1)
-      right_amqp (~> 0.7)
-      right_support (>= 2.4.1, < 3.0)
-      win32-dir (>= 0.3.5)
-      win32-process (>= 0.6.1)
     right_amqp (0.7.0)
       eventmachine (>= 0.12.10, < 2.0)
       right_support (>= 1.2, < 3.0)
@@ -163,7 +169,7 @@ GEM
       right_git
       right_popen (~> 2.0)
       right_support (~> 2.6)
-    right_support (2.8.17)
+    right_support (2.8.20)
     rspec (1.3.2)
     ruby-debug (0.10.4)
       columnize (>= 0.1)
@@ -210,7 +216,9 @@ PLATFORMS
 DEPENDENCIES
   chef (= 11.6.0.5)
   debugger (~> 1.6.1)
+  em-http-request (= 1.0.3)
   eventmachine (= 1.0.0.6)
+  fiber_pool (= 1.0.0)
   flexmock (~> 0.9)
   ip
   mime-types (< 2.0)
@@ -221,7 +229,7 @@ DEPENDENCIES
   rb-readline (~> 0.5.0)
   rcov (~> 0.8.1)
   rest-client (= 1.7.0.1)
-  right_agent (~> 2.0)
+  right_agent (~> 2.0)!
   right_amqp (~> 0.7)
   right_git
   right_link!

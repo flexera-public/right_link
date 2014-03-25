@@ -145,7 +145,7 @@ module RightScale
         @buffer << text
       end
 
-      EM.next_tick do
+      EM_S.next_tick do
         buffer_size = nil
         @mutex.synchronize do
           buffer_size = @buffer.size

@@ -6,7 +6,9 @@ gemspec
 # Fresh off the assembly line
 gem 'right_support', '~> 2.8'
 
-gem 'right_agent', '~> 2.0'
+gem 'right_agent', '~> 2.0',
+    :git => 'https://github.com/rightscale/right_agent.git',
+    :branch => 'cornsilk_14_6_acu156704_em_http'
 
 gem 'right_amqp', '~> 0.7'
 gem 'right_popen', '~> 2.0'
@@ -14,6 +16,9 @@ gem 'right_git'
 gem 'mime-types', '< 2.0'
 
 gem 'right_scraper', '~> 4.0'
+
+gem 'em-http-request', '1.0.3'
+gem 'fiber_pool',      '1.0.0'
 
 # We have custom builds of some gems containing fixes and patches that are specific
 # to RightScale. Gems in the 'custom' group are published by RightScale to our

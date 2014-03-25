@@ -73,7 +73,7 @@ class InstanceSetup
 
     # Schedule boot sequence, don't run it now so agent is registered first
     if RightScale::InstanceState.value == 'booting'
-      EM.next_tick { init_boot }
+      EM_S.next_tick { init_boot }
     else
       RightScale::Sender.instance.initialize_offline_queue
       RightScale::Sender.instance.start_offline_queue
@@ -86,7 +86,7 @@ class InstanceSetup
       # instance state file is externally reset to a rebooting state (thus
       # avoiding the dreaded infinite reboot/stop scenario).
       if RightScale::InstanceState.value == 'decommissioning' && (kind = RightScale::InstanceState.decommission_type)
-        EM.next_tick { recover_decommission(user_id = nil, skip_db_update = false, kind) }
+        EM_S.next_tick { recover_decommission(user_id = nil, skip_db_update = false, kind) }
       end
     end
   end
@@ -209,9 +209,7 @@ class InstanceSetup
   # === Return
   # true:: Always return true
   def enable_managed_login
-    if !RightScale::LoginManager.instance.supported_by_platform?
-      setup_volumes
-    else
+    if RightScale::LoginManager.instance.supported_by_platform?
       ssh_host_keys = RightScale::LoginManager.instance.get_ssh_host_keys
       payload = {:agent_identity => @agent_identity,
                  :ssh_host_keys=>ssh_host_keys}
@@ -241,6 +239,8 @@ class InstanceSetup
       end
 
       req.run
+    else
+      setup_volumes
     end
   end
 
@@ -459,12 +459,12 @@ class InstanceSetup
 
       res.each do |e|
         if e.is_a?(RightScale::RightScriptInstantiation)
-          if script = scripts.detect { |s| s.id == e.id }
+          if (script = scripts.detect { |s| s.id == e.id })
             script.ready = true
             script.parameters = e.parameters
           end
         else
-          if recipe = recipes.detect { |s| s.id == e.id }
+          if (recipe = recipes.detect { |s| s.id == e.id })
             recipe.ready = true
             recipe.attributes = e.attributes
           end
@@ -511,7 +511,7 @@ class InstanceSetup
 
         if Time.now - last_missing_inputs[:started_at] < MISSING_INPUT_TIMEOUT
           # schedule retry to retrieve missing inputs.
-          EM.add_timer(MISSING_INPUT_RETRY_DELAY_SECS) { retrieve_missing_inputs(bundle, last_missing_inputs, &cb) }
+          EM_S.add_timer(MISSING_INPUT_RETRY_DELAY_SECS) { retrieve_missing_inputs(bundle, last_missing_inputs, &cb) }
         else
           strand("Failed to retrieve missing inputs after #{MISSING_INPUT_TIMEOUT / 60} minutes")
         end
@@ -547,7 +547,7 @@ class InstanceSetup
     context = RightScale::OperationContext.new(bundle, @audit)
     sequence = create_sequence(context)
     sequence.callback do
-      if patch = sequence.inputs_patch && !patch.empty?
+      if (patch = sequence.inputs_patch && !patch.empty?)
         payload = {:agent_identity => @agent_identity, :patch => patch}
         send_push('/updater/update_inputs', payload)
       end
