@@ -9,6 +9,13 @@ Released XXXX-XX-XX.
 == Known Limitations
 
 * vSphere: Windows 2008/2012 and Ubuntu operating systems support only 1 network interface at this time.
+* Original vanilla ohai plugin doesn't support cloud and cloud specific attributes under Windows platform. Use RightScale rs_ohai plugin instead.
+* There are DHCP timeout delays on raw vSphere image on Linux platform during booting; to avoid it rightboot has to be launched before network configuration. 
+* Blank sources list (/etc/apt/sources.list) is absent by default on Ubuntu. It could cause various problems over time. 
+* Warning message about uninitialized constant is printed to stdout when RightScript or Chef recipe is running on Windows platform. 
+* Message that cookie-file is absent could be printed as feedback on RightLink CLI tool running if rightlink service is not started. 
+* Windows: current log level is printed to stdout on Windows platform during executing of some RightLink CLI tools.
+* There is no possibility to SSH into the instance if RightLink hasn't been enrolled successfully. 
 
 == Bug fixes
 
