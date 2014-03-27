@@ -200,7 +200,7 @@ class InstanceScheduler
     # sequence as part of a non-soft termination we don't call shutdown.
     unless @bundle_queue_closed_callback
       decommission_timeout = RightScale::FeatureConfigManager.get_value('decommission_timeout', DEFAULT_SHUTDOWN_DELAY)
-      @shutdown_timeout = EM::Timer.new(decommission_timeout) do
+      @shutdown_timeout = EM_S::Timer.new(decommission_timeout) do
         @shutdown_timeout = nil
         msg = "Failed to decommission in less than #{decommission_timeout / 60} minutes, forcing shutdown"
         audit.append_error(msg, :category => RightScale::EventCategories::CATEGORY_ERROR)

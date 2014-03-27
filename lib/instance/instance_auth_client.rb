@@ -238,7 +238,7 @@ module RightScale
       end
 
       unless @renew_timer
-        @renew_timer = EM::Timer.new(wait) do
+        @renew_timer = EM_S::Timer.new(wait) do
           @renew_timer = nil
           previous_state = state
           begin
@@ -332,7 +332,7 @@ module RightScale
       unless @reconnecting
         @reconnecting = true
         @stats["reconnects"].update("initiate")
-        @reconnect_timer = EM::PeriodicTimer.new(rand(HEALTH_CHECK_INTERVAL)) do
+        @reconnect_timer = EM_S.add_periodic_timer(rand(HEALTH_CHECK_INTERVAL)) do
           begin
             @http_client.check_health
             @stats["reconnects"].update("success")

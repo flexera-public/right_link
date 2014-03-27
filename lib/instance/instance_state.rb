@@ -582,7 +582,7 @@ module RightScale
           @record_retries = 0 if @value != new_value
           if RECORDED_STATES.include?(@value) && @record_retries < MAX_RECORD_STATE_RETRIES
             Log.info("Will retry recording state in #{RETRY_RECORD_STATE_DELAY} seconds")
-            @record_timer = EM::Timer.new(RETRY_RECORD_STATE_DELAY) do
+            @record_timer = EM_S::Timer.new(RETRY_RECORD_STATE_DELAY) do
               if @value != @last_recorded_value
                 @record_retries += 1
                 @record_request = nil

@@ -65,18 +65,25 @@ module RightScale
     # === Return
     # true:: Always return true
     def self.create(agent_identity, summary)
-      payload = {:agent_identity => agent_identity,
-                 :summary        => summary,
-                 :category       => RightScale::EventCategories::NONE}
-      Sender.instance.send_request("/auditor/create_entry", payload) do |r|
-        res = RightScale::OperationResult.from_results(r)
-        if res.success?
-          audit = new(res.content)
-          yield audit
-        else
-          Log.warning("Failed to create new audit entry with summary '#{summary}': #{res.content}, aborting...")
+      EM_S.next_tick do
+        # This next_tick is to ensure that on main EM reactor thread when doing all HTTP i/o
+        begin
+          payload = {:agent_identity => agent_identity,
+                     :summary        => summary,
+                     :category       => RightScale::EventCategories::NONE}
+          Sender.instance.send_request("/auditor/create_entry", payload) do |r|
+            res = RightScale::OperationResult.from_results(r)
+            if res.success?
+              audit = new(res.content)
+              yield audit
+            else
+              Log.error("Failed to create new audit entry with summary '#{summary}': #{res.content}, aborting...")
+            end
+            true
+          end
+        rescue Exception => e
+          Log.error("Failed to send audit create entry request", e, :trace)
         end
-        true
       end
     end
 
@@ -186,22 +193,33 @@ module RightScale
     # === Return
     # true:: Always return true
     def internal_send_audit(options)
-      opts = { :audit_id => @audit_id, :category => options[:category], :offset => @size }
-      opts[:category] ||= EventCategories::CATEGORY_NOTIFICATION
-      unless EventCategories::CATEGORIES.include?(opts[:category])
-        Log.warning("Invalid category '#{opts[:category]}' for notification '#{options[:text]}', using generic category instead")
-        opts[:category] = EventCategories::CATEGORY_NOTIFICATION
-      end
+      EM_S.next_tick do
+        # This next_tick is needed because send_audit may result in two sends and with
+        # non-blocking i/o that means there is the possibility of another update to be
+        # received in between the two and grab the audit offset that was intended for the
+        # second of the paired sends; it is also needed because audits can be initiated
+        # from threads other than the main EM reactor thread, e.g., in SingleThreadBundleQueue
+        begin
+          opts = { :audit_id => @audit_id, :category => options[:category], :offset => @size }
+          opts[:category] ||= EventCategories::CATEGORY_NOTIFICATION
+          unless EventCategories::CATEGORIES.include?(opts[:category])
+            Log.error("Invalid category '#{opts[:category]}' for notification '#{options[:text]}', using generic category instead")
+            opts[:category] = EventCategories::CATEGORY_NOTIFICATION
+          end
 
-      log_method = options[:kind] == :error ? :error : :info
-      log_text = AuditFormatter.send(options[:kind], options[:text])[:detail]
-      log_text.chomp.split("\n").each { |l| Log.__send__(log_method, l) }
-      begin
-        audit = AuditFormatter.__send__(options[:kind], options[:text])
-        @size += audit[:detail].size
-        Sender.instance.send_push("/auditor/update_entry", opts.merge(audit))
-      rescue Exception => e
-        Log.warning("Failed to send audit", e, :trace)
+          log_method = options[:kind] == :error ? :error : :info
+          log_text = AuditFormatter.send(options[:kind], options[:text])[:detail]
+          log_text.chomp.split("\n").each { |l| Log.__send__(log_method, l) }
+          begin
+            audit = AuditFormatter.__send__(options[:kind], options[:text])
+            @size += audit[:detail].size
+            Sender.instance.send_push("/auditor/update_entry", opts.merge(audit))
+          rescue Exception => e
+            Log.error("Failed to send audit", e, :trace)
+          end
+        rescue Exception => e
+          Log.info("Failed to send audit", e, :trace)
+        end
       end
 
       true
@@ -240,7 +258,7 @@ module RightScale
       # one-shot timers with verbose script output. calling cancel on a one-shot
       # timer sends a message but does not immediately remove the timer from EM
       # which maxes out at 1000 one-shot timers.
-      @timer = EventMachine::PeriodicTimer.new(MAX_AUDIT_DELAY) { flush_buffer } unless @timer
+      @timer = EM_S::PeriodicTimer.new(MAX_AUDIT_DELAY) { flush_buffer } unless @timer
     end
 
   end

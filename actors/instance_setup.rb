@@ -187,7 +187,7 @@ class InstanceSetup
       # is set and the instance has not gotten its boot bundle after SUICIDE_DELAY seconds and this is
       # the first time this instance boots
       if RightScale::InstanceState.initial_boot?
-        @suicide_timer = EM::Timer.new(SUICIDE_DELAY) do
+        @suicide_timer = EM_S::Timer.new(SUICIDE_DELAY) do
           if RightScale::InstanceState.startup_tags.include?(AUTO_LAUNCH_TAG) && !@got_boot_bundle
             msg = "Shutting down after having tried to boot for #{SUICIDE_DELAY / 60} minutes"
             RightScale::Log.error(msg)

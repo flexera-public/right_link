@@ -104,80 +104,89 @@ module RightScale
         return
       end
 
-      @context.audit.create_new_section('Querying tags')
+      EM_S.next_tick do
+        # This next tick is needed to get the HTTP send requests onto the main EM reactor thread
+        # where all of the rest of the HTTP i/o is happening; actually the audit requests are
+        # already covered, it is just the tag query that needs help
+        begin
+          @context.audit.create_new_section('Querying tags')
 
-      # update CookState with the latest instance before launching Cook
-      RightScale::AgentTagManager.instance.tags(:timeout=>@tag_query_timeout) do |tags|
-        if tags.is_a?(String)
-          # AgentTagManager could give us a String (error message)
-          Log.error("Failed to query tags before running executable sequence (#{tags})")
+          # update CookState with the latest instance before launching Cook
+          RightScale::AgentTagManager.instance.tags(:timeout=>@tag_query_timeout) do |tags|
+            if tags.is_a?(String)
+              # AgentTagManager could give us a String (error message)
+              Log.error("Failed to query tags before running executable sequence (#{tags})")
 
-          @context.audit.append_error('Could not discover tags due to an error or timeout.')
-        else
-          # or, it could give us anything else -- generally an array) -- which indicates success
-          CookState.update(InstanceState, :startup_tags=>tags)
+              @context.audit.append_error('Could not discover tags due to an error or timeout.')
+            else
+              # or, it could give us anything else -- generally an array) -- which indicates success
+              CookState.update(InstanceState, :startup_tags=>tags)
 
-          if tags.empty?
-            @context.audit.append_info('No tags discovered.')
-          else
-            @context.audit.append_info("Tags discovered: '#{tags.join("', '")}'")
+              if tags.empty?
+                @context.audit.append_info('No tags discovered.')
+              else
+                @context.audit.append_info("Tags discovered: '#{tags.join("', '")}'")
+              end
+            end
+
+            secret_key = random_password(32)
+
+            # TEAL FIX: we have an issue with the Windows EM implementation not
+            # allowing both sockets and named pipes to share the same file/socket
+            # id. sending the input on the command line is a temporary workaround.
+            platform = RightScale::Platform
+
+
+            if platform.windows?
+              input_text = "#{MessageEncoder::SecretSerializer.new(InstanceState.identity, secret_key).dump(@context.payload)}\n"
+
+              input_path = File.normalize_path(File.join(platform.filesystem.temp_dir, "rs_executable_sequence#{@thread_name}.txt"))
+              File.open(input_path, "w") { |f| f.write(input_text) }
+              input_text = nil
+              cmd_exe_path = File.normalize_path(ENV['ComSpec']).gsub("/", "\\")
+              ruby_exe_path = File.normalize_path(AgentConfig.ruby_cmd).gsub("/", "\\")
+              input_path = input_path.gsub("/", "\\")
+              cmd = "#{cmd_exe_path} /C type \"#{input_path}\" | #{ruby_exe_path} #{cook_path_and_arguments}"
+            else
+              input_text = "#{MessageEncoder::Serializer.new.dump(@context.payload)}\n"
+
+
+              # WARNING - always ensure cmd is a String, never an Array of command parts.
+              #
+              # right_popen handles single-String arguments using "sh -c #{cmd}" which ensures
+              # we are invoked through a shell which will parse shell config files and ensure that
+              # changes to system PATH, etc are freshened on every converge.
+              #
+              # If we pass cmd as an Array, right_popen uses the Array form of exec without an
+              # intermediate shell, and system config changes will not be picked up.
+              cmd = "#{AgentConfig.ruby_cmd} #{cook_path_and_arguments}"
+            end
+
+            EM.next_tick do
+              # prepare env vars for child process.
+              environment = {
+                ::RightScale::OptionsBag::OPTIONS_ENV =>
+                  ::ENV[::RightScale::OptionsBag::OPTIONS_ENV]
+              }
+
+              if platform.windows?
+                environment[DECRYPTION_KEY_NAME] = secret_key
+              end
+
+              # spawn
+              RightScale::RightPopen.popen3_async(
+                cmd,
+                :input          => input_text,
+                :target         => self,
+                :environment    => environment,
+                :stdout_handler => :on_read_stdout,
+                :stderr_handler => :on_read_stderr,
+                :pid_handler    => :on_pid,
+                :exit_handler   => :on_exit)
+            end
           end
-        end
-
-        secret_key = random_password(32)
-
-        # TEAL FIX: we have an issue with the Windows EM implementation not
-        # allowing both sockets and named pipes to share the same file/socket
-        # id. sending the input on the command line is a temporary workaround.
-        platform = RightScale::Platform
-
-
-        if platform.windows?
-          input_text = "#{MessageEncoder::SecretSerializer.new(InstanceState.identity, secret_key).dump(@context.payload)}\n"
-
-          input_path = File.normalize_path(File.join(platform.filesystem.temp_dir, "rs_executable_sequence#{@thread_name}.txt"))
-          File.open(input_path, "w") { |f| f.write(input_text) }
-          input_text = nil
-          cmd_exe_path = File.normalize_path(ENV['ComSpec']).gsub("/", "\\")
-          ruby_exe_path = File.normalize_path(AgentConfig.ruby_cmd).gsub("/", "\\")
-          input_path = input_path.gsub("/", "\\")
-          cmd = "#{cmd_exe_path} /C type \"#{input_path}\" | #{ruby_exe_path} #{cook_path_and_arguments}"
-        else
-          input_text = "#{MessageEncoder::Serializer.new.dump(@context.payload)}\n"
-
-
-          # WARNING - always ensure cmd is a String, never an Array of command parts.
-          #
-          # right_popen handles single-String arguments using "sh -c #{cmd}" which ensures
-          # we are invoked through a shell which will parse shell config files and ensure that
-          # changes to system PATH, etc are freshened on every converge.
-          #
-          # If we pass cmd as an Array, right_popen uses the Array form of exec without an
-          # intermediate shell, and system config changes will not be picked up.
-          cmd = "#{AgentConfig.ruby_cmd} #{cook_path_and_arguments}"
-        end
-
-        EM.next_tick do
-          # prepare env vars for child process.
-          environment = {
-            ::RightScale::OptionsBag::OPTIONS_ENV =>
-              ::ENV[::RightScale::OptionsBag::OPTIONS_ENV]
-          }
-
-          if platform.windows?
-            environment[DECRYPTION_KEY_NAME] = secret_key
-          end
-
-          # spawn
-          RightScale::RightPopen.popen3_async(
-            cmd,
-            :input          => input_text,
-            :target         => self,
-            :environment    => environment,
-            :stdout_handler => :on_read_stdout,
-            :stderr_handler => :on_read_stderr,
-            :pid_handler    => :on_pid,
-            :exit_handler   => :on_exit)
+        rescue Exception => e
+          Log.info("Failed running sequence", e, :trace)
         end
       end
     end
@@ -276,7 +285,7 @@ module RightScale
           succeed
         end
       elsif @exit_status
-        @audit_close_timeout = EM::Timer.new(AUDIT_CLOSE_TIMEOUT) { AuditCookStub.instance.close(@thread_name) }
+        @audit_close_timeout = EM_S::Timer.new(AUDIT_CLOSE_TIMEOUT) { AuditCookStub.instance.close(@thread_name) }
       end
       true
     end

@@ -164,7 +164,7 @@ module RightScale
         end
 
         # Request shutdown (kind indicated by operation and/or payload)
-        # Use next_tick since all HTTP i/o needs to be on main reactor thread
+        # Use next_tick to ensure that all HTTP i/o is done on main EM reactor thread
         EM_S.next_tick do
           begin
             audit.append_info("Shutdown requested: #{self}")
@@ -182,15 +182,8 @@ module RightScale
           end
         end
       else
-        # Use next_tick since all HTTP i/o needs to be on main reactor thread
-        EM_S.next_tick do
-          begin
-            AuditProxy.create(agent_identity, "Shutdown requested: #{self}") do |new_audit|
-              process(errback, new_audit, &block)
-            end
-          rescue Exception => e
-            Log.error("Failed shutting down", e, :trace)
-          end
+        AuditProxy.create(agent_identity, "Shutdown requested: #{self}") do |new_audit|
+          process(errback, new_audit, &block)
         end
       end
       true

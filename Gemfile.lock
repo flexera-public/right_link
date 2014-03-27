@@ -1,6 +1,6 @@
 GIT
   remote: https://github.com/rightscale/right_agent.git
-  revision: d17226d934a8d58da51d36b4e7d322a196dd7795
+  revision: dd6db6bf3bf8942670f308ba82bc06b64a9e9c04
   branch: cornsilk_14_6_acu156704_em_http
   specs:
     right_agent (2.0.8)
