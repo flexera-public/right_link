@@ -87,7 +87,7 @@ module RightScale
 
   # Represents outstanding request(s) for reboot, stop or terminate instance.
   # Requests are cumulative and implicitly non-decreasing in level (e.g. reboot
-  # never superceeds terminate).
+  # never supersedes terminate).
   class ShutdownRequest
 
     include ShutdownRequestMixin
@@ -163,20 +163,34 @@ module RightScale
           raise InvalidLevel.new("Unexpected shutdown level: #{@level.inspect}")
         end
 
-        # request shutdown (kind indicated by operation and/or payload).
-        audit.append_info("Shutdown requested: #{self}")
-        sender.send_request(operation, payload) do |r|
-          res = OperationResult.from_results(r)
-          if res.success?
-            @shutdown_scheduled = true
-            block.call if block
-          else
-            fail(errback, audit, "Failed to shutdown instance", res)
+        # Request shutdown (kind indicated by operation and/or payload)
+        # Use next_tick since all HTTP i/o needs to be on main reactor thread
+        EM_S.next_tick do
+          begin
+            audit.append_info("Shutdown requested: #{self}")
+            sender.send_request(operation, payload) do |r|
+              res = OperationResult.from_results(r)
+              if res.success?
+                @shutdown_scheduled = true
+                block.call if block
+              else
+                fail(errback, audit, "Failed to shutdown instance", res)
+              end
+            end
+          rescue Exception => e
+            Log.error("Failed shutting down", e, :trace)
           end
         end
       else
-        AuditProxy.create(agent_identity, "Shutdown requested: #{self}") do |new_audit|
-          process(errback, new_audit, &block)
+        # Use next_tick since all HTTP i/o needs to be on main reactor thread
+        EM_S.next_tick do
+          begin
+            AuditProxy.create(agent_identity, "Shutdown requested: #{self}") do |new_audit|
+              process(errback, new_audit, &block)
+            end
+          rescue Exception => e
+            Log.error("Failed shutting down", e, :trace)
+          end
         end
       end
       true

@@ -35,6 +35,7 @@ describe RightScale::ShutdownRequest do
     flexmock(RightScale::AuditProxy).should_receive(:create).and_yield(@audit_proxy)
     @audit_proxy.should_receive(:create_new_section).by_default
     @audit_proxy.should_receive(:append_info).by_default
+    flexmock(EM).should_receive(:next_tick).and_yield.by_default
   end
 
   it 'should reject invalid shutdown requests' do
