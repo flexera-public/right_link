@@ -55,6 +55,7 @@ Released 2014-03-06.
   * For RightLink to work on a vSphere Linux template (aka image), the operating system must be able to automount the fd0 device at /mnt/metadata. CentOS images have a known limitation: https://bugzilla.redhat.com/show_bug.cgi?id=503308. For CentOS 6 systems, execute "echo 'alias acpi:PNP0700: floppy' > /etc/modprobe.d/floppy-pnp.conf".
 
 == Bug fixes
+* Server with an empty boot bundle no longer strands when repose is down
 
 = 5.9.5 (RightLink 5.9 GA Release)
 
