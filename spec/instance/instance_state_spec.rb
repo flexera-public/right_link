@@ -30,6 +30,7 @@ describe RightScale::InstanceState do
     # Avoid actually updating MOTD or performing wall broadcasts
     flexmock(RightScale::InstanceState).should_receive(:update_motd).and_return(nil)
     flexmock(RightScale::InstanceState).should_receive(:broadcast_wall).and_return(nil)
+    flexmock(EM_S).should_receive(:next_tick).and_yield
 
     flexmock(RightScale::Log).should_receive(:debug)
     setup_state(identity = '1', mock_instance_state = false) do

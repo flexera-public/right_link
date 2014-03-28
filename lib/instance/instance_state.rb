@@ -602,7 +602,14 @@ module RightScale
       end
 
       # Run request to record state with retry until succeeds or fails with error result
-      @record_request.run
+      # Ensure that it on the main EM reactor thread since state may be updated from other threads
+      EM_S.next_tick do
+        begin
+          @record_request.run
+        rescue Exception => e
+          Log.error("Failed to record state", e, :trace)
+        end
+      end
     end
 
     #
@@ -618,7 +625,7 @@ module RightScale
         load(meta_data_file) if File.file?(meta_data_file)
         resource_uid = ENV['EC2_INSTANCE_ID']
       rescue Exception => e
-        Log.warning("Failed to load metadata", e)
+        Log.error("Failed to load metadata", e)
       end
       resource_uid
     end
