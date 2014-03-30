@@ -93,6 +93,7 @@ module RightScale
                    '-p', url.password,
                    '-v', url.path,
                    '-b', 60,
+                   '-f', 10,
                    '-q',
                    '-S'
                  ]
