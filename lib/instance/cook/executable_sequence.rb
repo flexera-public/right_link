@@ -74,6 +74,7 @@ module RightScale
       @thread_name            = get_thread_name_from_bundle(bundle)
       @right_scripts_cookbook = RightScriptsCookbook.new(@thread_name)
       @scripts                = bundle.executables.select { |e| e.is_a?(RightScriptInstantiation) }
+      @only_scripts           = bundle.executables.all?   { |e| e.is_a?(RightScriptInstantiation) }
       run_list_recipes        = bundle.executables.map { |e| e.is_a?(RecipeInstantiation) ? e : @right_scripts_cookbook.recipe_from_right_script(e) }
       @cookbooks              = bundle.cookbooks
       @downloader             = ReposeDownloader.new(bundle.repose_servers)
@@ -556,9 +557,12 @@ module RightScale
     # true:: Always return true
     def converge(ohai)
       begin
-        # suppress unnecessary error log output for cases of explictly exiting
-        # from converge (rs_shutdown, etc.).
-        ::Chef::Client.clear_notifications
+        # When the run_list consists solely of RightScripts, adding error or report
+        # handlers is not possible. Suppress these extra features as they can
+        # be confusing to users. Also makes for cleaner logs.
+        if @only_scripts
+          ::Chef::Client.clear_notifications
+        end
 
         if @cookbooks.size > 0
           @audit.create_new_section('Converging')
