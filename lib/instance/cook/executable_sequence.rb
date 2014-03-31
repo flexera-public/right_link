@@ -186,7 +186,9 @@ module RightScale
 
     # Initialize and configure the logger
     def configure_logging
-      Chef::Log.logger       = AuditLogger.new
+      audit_logger = AuditLogger.new
+      sys_logger   = RightSupport::Log::SystemLogger.new("chef", :facility => 'user', :split => true)
+      Chef::Log.logger       = RightSupport::Log::Multiplexer.new(audit_logger, sys_logger)
       Chef::Log.logger.level = Log.level_from_sym(Log.level)
     end
 

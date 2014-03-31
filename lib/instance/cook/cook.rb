@@ -45,7 +45,7 @@ module RightScale
       agent_id  = options[:identity]
       AgentConfig.root_dir = options[:root_dir]
 
-      Log.program_name = 'RightLink'
+      Log.program_name = 'chef'
       Log.facility = 'user'
       Log.log_to_file_only(options[:log_to_file_only])
       Log.init(agent_id, options[:log_path])

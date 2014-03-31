@@ -127,7 +127,12 @@ class Chef
           "'#{nickname}'" :
           "'#{nickname}' #{display_version}"
 
-        Chef::Log.logger.create_new_section("RightScript: #{name_and_version}")
+        begin
+          Chef::Log.logger.create_new_section("RightScript: #{name_and_version}")
+        rescue NoMethodError
+          # Logger not necessarily has create_new_section method
+          # e.g. AuditLogger can be multiplexed with some other logger
+        end
 
         status = run_script_file(@new_resource.source_file)
         duration = Time.now - run_started_at
