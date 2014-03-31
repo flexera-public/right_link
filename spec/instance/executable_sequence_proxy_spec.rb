@@ -40,7 +40,7 @@ describe RightScale::ExecutableSequenceProxy do
   end
 
   let(:bundle) do
-    result = flexmock('bundle', :runlist_policy => @runlist_policy)
+    result = flexmock('bundle', :runlist_policy => @runlist_policy, :executables => [1,2,3])
     result.should_receive(:to_json).and_return("[\"some json\"]")
     result
   end
