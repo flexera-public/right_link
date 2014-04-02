@@ -162,7 +162,7 @@ module RightScale
   end # AuditLogger
 end # RightScale
 
-# TEAL HACK we have to monkey-patch Chef's Formatter & Outputter classes because
+# TEAL/IVORY HACK we have to monkey-patch Chef's Formatter & Outputter classes because
 # they exist as a channel containing important debugging information which is
 # separate from the original (easily understandable) Chef::Log. the Outputter
 # lacks log level but the Formatter knows when it is displaying an error. the
@@ -173,8 +173,8 @@ class Chef
     class Base
       def display_error(description)
         section = description.sections && description.sections.first
-        if section && section.keys.include?('SystemExit')
-          # ignored due to rs_shutdown provider behavior
+        if section && ( section.keys.any? { |key| ['SystemExit','RightScale::Exceptions::Exec'].include?(key) } )
+          # ignored due to rs_shutdown provider behavior or RightScripts exit
         else
           last_output_log_level = output.output_log_level
           begin
