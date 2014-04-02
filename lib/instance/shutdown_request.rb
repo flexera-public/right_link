@@ -87,7 +87,7 @@ module RightScale
 
   # Represents outstanding request(s) for reboot, stop or terminate instance.
   # Requests are cumulative and implicitly non-decreasing in level (e.g. reboot
-  # never superceeds terminate).
+  # never supersedes terminate).
   class ShutdownRequest
 
     include ShutdownRequestMixin

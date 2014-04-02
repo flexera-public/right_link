@@ -120,7 +120,7 @@ module RightScale
           # continue in queue in the expectation that the decommission bundle will
           # shutdown the instance and its agent normally.
         elsif !context.decommission? && ShutdownRequest.instance.immediately?
-          # immediate shutdown pre-empts any futher attempts to run operational
+          # immediate shutdown preempts any further attempts to run operational
           # scripts but still allows the decommission bundle to run.
           context.audit.update_status("Skipped bundle due to immediate shutdown of #{@thread_name} thread: #{context.payload}")
           # proceed ignoring bundles until final or shutdown are encountered.
