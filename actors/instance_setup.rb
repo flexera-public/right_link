@@ -209,9 +209,7 @@ class InstanceSetup
   # === Return
   # true:: Always return true
   def enable_managed_login
-    if !RightScale::LoginManager.instance.supported_by_platform?
-      setup_volumes
-    else
+    if RightScale::LoginManager.instance.supported_by_platform?
       ssh_host_keys = RightScale::LoginManager.instance.get_ssh_host_keys
       payload = {:agent_identity => @agent_identity,
                  :ssh_host_keys=>ssh_host_keys}
@@ -241,6 +239,8 @@ class InstanceSetup
       end
 
       req.run
+    else
+      setup_volumes
     end
   end
 
@@ -459,12 +459,12 @@ class InstanceSetup
 
       res.each do |e|
         if e.is_a?(RightScale::RightScriptInstantiation)
-          if script = scripts.detect { |s| s.id == e.id }
+          if (script = scripts.detect { |s| s.id == e.id })
             script.ready = true
             script.parameters = e.parameters
           end
         else
-          if recipe = recipes.detect { |s| s.id == e.id }
+          if (recipe = recipes.detect { |s| s.id == e.id })
             recipe.ready = true
             recipe.attributes = e.attributes
           end
@@ -547,7 +547,7 @@ class InstanceSetup
     context = RightScale::OperationContext.new(bundle, @audit)
     sequence = create_sequence(context)
     sequence.callback do
-      if patch = sequence.inputs_patch && !patch.empty?
+      if (patch = sequence.inputs_patch && !patch.empty?)
         payload = {:agent_identity => @agent_identity, :patch => patch}
         send_push('/updater/update_inputs', payload)
       end

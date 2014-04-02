@@ -91,6 +91,7 @@ describe RightScale::InstanceAuthClient do
       "mode" => @mode }
     @http_client = flexmock("http client", :post => @response, :check_health => true).by_default
     flexmock(RightScale::BalancedHttpClient).should_receive(:new).and_return(@http_client).by_default
+    @not_responding = RightScale::BalancedHttpClient::NotResponding
     @options = {
       :api_url => @api_url,
       :identity => @identity,
@@ -158,7 +159,13 @@ describe RightScale::InstanceAuthClient do
   context :create_http_client do
     it "creates client with required options" do
       flexmock(RightScale::BalancedHttpClient).should_receive(:new).with(@auth_url, on { |a| a[:api_version] == "1.5" &&
-          a[:open_timeout] == 2 && a[:request_timeout] == 5 }).and_return(@http_client).once
+          a[:open_timeout] == 2 && a[:request_timeout] == 5 && a[:non_blocking].nil? }).and_return(@http_client).once
+      @client.send(:create_http_client).should == @http_client
+    end
+
+    it "enables non-blocking if specified" do
+      @client = RightScale::InstanceAuthClient.new(@options.merge(:non_blocking => true))
+      flexmock(RightScale::BalancedHttpClient).should_receive(:new).with(@auth_url, on { |a| a[:non_blocking] == true }).and_return(@http_client).once
       @client.send(:create_http_client).should == @http_client
     end
   end
@@ -202,6 +209,22 @@ describe RightScale::InstanceAuthClient do
       @http_client.should_receive(:post).and_raise(RestClient::Unauthorized)
       lambda { @client.send(:get_authorized) }.should raise_error(RightScale::Exceptions::Unauthorized)
       @client.state.should == :unauthorized
+    end
+
+    context "when not responding" do
+      it "retries authorization" do
+        @http_client.should_receive(:post).and_raise(@not_responding, "out of service").once.ordered
+        @http_client.should_receive(:post).and_return(@response).once.ordered
+        flexmock(@client).should_receive(:sleep).with(5).once
+        @client.send(:get_authorized).should be_true
+      end
+
+      it "limits number of retries" do
+        @http_client.should_receive(:post).and_raise(@not_responding, "out of service").times(6)
+        flexmock(@client).should_receive(:sleep).with(5).times(5)
+        @log.should_receive(:error).with("Exceeded maximum authorization retries (5)").once
+        lambda { @client.send(:get_authorized) }.should raise_error(@not_responding)
+      end
     end
 
     it "repeatedly redirects if API server tells it to" do
@@ -294,8 +317,10 @@ describe RightScale::InstanceAuthClient do
 
     context "when not responding" do
       it "keeps trying to renew in half the remaining time" do
-        @http_client.should_receive(:post).and_raise(RightScale::BalancedHttpClient::NotResponding, "nada").once.ordered
+        @http_client.should_receive(:post).and_raise(@not_responding, "out of service").times(7).ordered
         @http_client.should_receive(:post).and_return(@response).once.ordered
+        flexmock(@client).should_receive(:sleep).with(5)
+        @log.should_receive(:error).with("Exceeded maximum authorization retries (5)").once
         flexmock(EM::Timer).should_receive(:new).with(0, Proc).and_return(@renew_timer).and_yield.once.ordered
         flexmock(EM::Timer).should_receive(:new).with(on { |a| a.round == 29 }, Proc).and_return(@renew_timer).and_yield.once.ordered
         flexmock(EM::Timer).should_receive(:new).with(29, Proc).and_return(@renew_timer).once.ordered
@@ -304,9 +329,11 @@ describe RightScale::InstanceAuthClient do
 
       it "sets state to :expired and reconnects if have reached minimum renew time" do
         @tick = 10
-        @http_client.should_receive(:post).and_raise(RightScale::BalancedHttpClient::NotResponding, "nada").times(6).ordered
-        flexmock(EM::Timer).should_receive(:new).and_return(@renew_timer).and_yield.times(6).ordered
+        @http_client.should_receive(:post).and_raise(@not_responding, "out of service").times(36)
+        flexmock(EM::Timer).should_receive(:new).and_return(@renew_timer).and_yield.times(6)
         flexmock(@client).should_receive(:reconnect).once
+        flexmock(@client).should_receive(:sleep)
+        @log.should_receive(:error).with("Exceeded maximum authorization retries (5)")
         @client.send(:renew_authorization, 0).should be_true
         @client.state.should == :expired
       end
@@ -459,7 +486,7 @@ describe RightScale::InstanceAuthClient do
 
       it "updates stats but does not log if not responding" do
         @log.should_receive(:info).never
-        flexmock(@http_client).should_receive(:check_health).and_raise(RightScale::BalancedHttpClient::NotResponding, "nada").once
+        flexmock(@http_client).should_receive(:check_health).and_raise(@not_responding, "out of service").once
         @client.send(:reconnect).should be_true
         stats = @client.instance_variable_get(:@stats)["reconnects"]
         stats.last.should == {"elapsed" => 1, "type" => "no response"}

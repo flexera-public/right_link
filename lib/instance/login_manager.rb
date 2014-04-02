@@ -395,7 +395,7 @@ module RightScale
       delay = [delay, 86_400].min
 
       return false unless delay > 0
-      @expiry_timer = EventMachine::Timer.new(delay) do
+      @expiry_timer = EM::Timer.new(delay) do
         update_policy(policy, agent_identity)
       end
 
