@@ -618,7 +618,7 @@ module RightScale
         load(meta_data_file) if File.file?(meta_data_file)
         resource_uid = ENV['EC2_INSTANCE_ID']
       rescue Exception => e
-        Log.warning("Failed to load metadata", e)
+        Log.error("Failed to load metadata", e)
       end
       resource_uid
     end
