@@ -19,6 +19,7 @@ Released 2014-04-03
 
 * rs_tag raises error on adding or removing an empty tag.
 * Allow "rightscale" user to login if rightlink service is stopped.
+* Server with an empty boot bundle no longer strands when repose is down
 
 = 6.0.0 (RightLink 6.0 release candidate 1)
 
