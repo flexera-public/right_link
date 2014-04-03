@@ -1,16 +1,19 @@
-= 6.0.X (RightLink 6.0 release candidate 2)
+= 6.0.1 (RightLink 6.0 release candidate 2)
 
-Released XXXX-XX-XX.
+Released 2014-04-03
 
 == New Features
 
 == Changes to Existing Functionality
+
+* Enable chef handlers only for recipes.
 
 == Known Limitations
 
 * vSphere: Windows 2008/2012 and Ubuntu operating systems support only 1 network interface at this time.
 * Original vanilla ohai tool doesn't support cloud and cloud specific attributes under Windows platform. Use RightScale rs_ohai tool instead.
 * RightLink repository configuration module deletes /etc/apt/sources.list. This may cause issues in applications such as update-notifier (https://bugs.launchpad.net/ubuntu/+source/update-notifier/+bug/944751)
+* Chef will log error and run exceptions handlers on recipe that executes rs_shutdown with immediate option.
 
 == Bug fixes
 
@@ -19,7 +22,7 @@ Released XXXX-XX-XX.
 
 = 6.0.0 (RightLink 6.0 release candidate 1)
 
-Released 2014-03-06.
+Released 2014-03-06
 
 == New Features
 
@@ -55,8 +58,6 @@ Released 2014-03-06.
   * Detection of private networks is limited to well-known subnets as defined in RFC-1918:
     10.0.0.0, 192.168.0.0, 172.16.0.0, 172.2.0.0, 172.30.0.0 and 172.31.0.0
   * For RightLink to work on a vSphere Linux template (aka image), the operating system must be able to automount the fd0 device at /mnt/metadata. CentOS images have a known limitation: https://bugzilla.redhat.com/show_bug.cgi?id=503308. For CentOS 6 systems, execute "echo 'alias acpi:PNP0700: floppy' > /etc/modprobe.d/floppy-pnp.conf".
-
-== Bug fixes
 
 = 5.9.5 (RightLink 5.9 GA Release)
 
