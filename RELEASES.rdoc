@@ -6,14 +6,14 @@ Released 2014-04-03
 
 == Changes to Existing Functionality
 
-* Enable chef handlers only for recipes.
+* Enable Chef report and error handlers.
 
 == Known Limitations
 
 * vSphere: Windows 2008/2012 and Ubuntu operating systems support only 1 network interface at this time.
 * Original vanilla ohai tool doesn't support cloud and cloud specific attributes under Windows platform. Use RightScale rs_ohai tool instead.
 * RightLink repository configuration module deletes /etc/apt/sources.list. This may cause issues in applications such as update-notifier (https://bugs.launchpad.net/ubuntu/+source/update-notifier/+bug/944751)
-* Chef will log error and run exceptions handlers on recipe that executes rs_shutdown with immediate option.
+* RightScripts will generate unneccesary log lines about report or error handlers running. These should be ignored.
 
 == Bug fixes
 
