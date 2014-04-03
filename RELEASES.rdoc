@@ -14,7 +14,7 @@ Released 2014-04-03
 * Original vanilla ohai tool doesn't support cloud and cloud specific attributes under Windows platform. Use RightScale rs_ohai tool instead.
 * RightLink repository configuration module deletes /etc/apt/sources.list. This may cause issues in applications such as update-notifier (https://bugs.launchpad.net/ubuntu/+source/update-notifier/+bug/944751)
 * RightScripts will generate unneccesary log lines about report or error handlers running. These should be ignored.
-* RightScripts with UTF8 characters will currently fail to execute.
+* RightScripts with non-ASCII characters will currently fail to execute. Tags with non-ASCII characters will not be added.
 
 == Bug fixes
 
