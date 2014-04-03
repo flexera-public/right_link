@@ -1,37 +1,42 @@
-= 6.0.X (RightLink 6.0 release candidate 2)
+= 6.0.1 (RightLink 6.0 release candidate 2)
 
-Released XXXX-XX-XX.
+Released 2014-04-03
 
 == New Features
 
 == Changes to Existing Functionality
+
+* Enable Chef report and error handlers.
 
 == Known Limitations
 
 * vSphere: Windows 2008/2012 and Ubuntu operating systems support only 1 network interface at this time.
 * Original vanilla ohai tool doesn't support cloud and cloud specific attributes under Windows platform. Use RightScale rs_ohai tool instead.
 * RightLink repository configuration module deletes /etc/apt/sources.list. This may cause issues in applications such as update-notifier (https://bugs.launchpad.net/ubuntu/+source/update-notifier/+bug/944751)
+* RightScripts will generate unnecessary log lines about report or error handlers running. These should be ignored.
+* RightScripts with non-ASCII characters will currently fail to execute. Tags with non-ASCII characters will not be added.
 
 == Bug fixes
 
 * rs_tag raises error on adding or removing an empty tag.
 * Allow "rightscale" user to login if rightlink service is stopped.
+* Server with an empty boot bundle no longer strands when repose is down
 
 = 6.0.0 (RightLink 6.0 release candidate 1)
 
-Released 2014-03-06.
+Released 2014-03-06
 
 == New Features
 
 * vSphere support via the RightScale Cloud Appliance for vSphere.
-* rs_config utility command line utility added.  This utility allows you to configure RightLink options. Of note is the ability to set the default timeout to wait on decomission scripts before forcing reboot or termination. Default value is 180 seconds.
+* rs_config utility command line utility added.  This utility allows you to configure RightLink options. Of note is the ability to set the default timeout to wait on decommission scripts before forcing reboot or termination. Default value is 180 seconds.
 * Added support for passing key 'rs_breakpoint=init_cloud_state' though the user data. This will stop RightLink startup right after cloud definition file is executed.  This is useful for halting RightLink before "phoning home" which will allow one to login to the system and diagnose any networking problems.
 * Properly synced time is necessary for RightLink agent functioning. RightLink now does a one time NTP time sync on startup against user specified or RightScale time servers. User timeservers may be specified in a couple ways:
   * Adding tag "rs_agent:ntp_servers=<hostname1>,<hostname2>,etc" to servers before boot.
   * By setting RS_ntp value in the userdata
 * Firewall friendliness
-  * AMQP has been replaced with HTTP in communition between RightLink agent and RightScale core site.
-  * Syncing with NTP, RightLink patching, and software repo mirrors will now go through loadbalancer specified in RS_ISLAND userdata variable set by RightScale when the instance launches.
+  * AMQP has been replaced with HTTP in communication between RightLink agent and RightScale core site.
+  * Syncing with NTP, RightLink patching, and software repo mirrors will now go through load-balancer specified in RS_ISLAND user-data variable set by RightScale when the instance launches.
 
 == Changes to Existing Functionality
 
@@ -42,11 +47,11 @@ Released 2014-03-06.
 * Default SSL protocol bumped to TLSv1.
 * /opt/rightscale/sandbox/bin added to end of path for Chef recipes and RightScripts to support
 * rs_tag --query now accepts multiple parameters instead of single string
-* Removed custom Chef resources: right_link_tag, remote_recipe, server_collection and rs_shutdown. Use the RightLink command-line utilties instead.
+* Removed custom Chef resources: right_link_tag, remote_recipe, server_collection and rs_shutdown. Use the RightLink command-line utilities instead.
 
 == Known Limitations
 
-* Initiating a system reboot from a script running inside the boot bundle may lead to unexpected error messages. Any decommission script will block behind the boot bundle until its complete, which may generate a timeout errors from the managin RightLink agent process.
+* Initiating a system reboot from a script running inside the boot bundle may lead to unexpected error messages. Any decommission script will block behind the boot bundle until its complete, which may generate a timeout errors from the managing RightLink agent process.
 * rs_ohai [cloudstack|softlayer|vsphere] provides limited attribute list.
 * vSphere cloud
   * Only v14 ServerTemplate are supported.
@@ -55,8 +60,6 @@ Released 2014-03-06.
   * Detection of private networks is limited to well-known subnets as defined in RFC-1918:
     10.0.0.0, 192.168.0.0, 172.16.0.0, 172.2.0.0, 172.30.0.0 and 172.31.0.0
   * For RightLink to work on a vSphere Linux template (aka image), the operating system must be able to automount the fd0 device at /mnt/metadata. CentOS images have a known limitation: https://bugzilla.redhat.com/show_bug.cgi?id=503308. For CentOS 6 systems, execute "echo 'alias acpi:PNP0700: floppy' > /etc/modprobe.d/floppy-pnp.conf".
-
-== Bug fixes
 
 = 5.9.5 (RightLink 5.9 GA Release)
 
@@ -116,7 +119,7 @@ Released 2013-09-06.
 * The log-level tag and command no longer apply to the RightLink agent, only to Chef and RightScript
   execution. To set the RightLink agent's log level explicitly, use the "--agent" option of
   rs_log_level.
-* When running on a RedHat-derived distro, RightLink installs public keys for EPEL signed packages
+* When running on a RedHat-derived distribution, RightLink installs public keys for EPEL signed packages
   at boot.
 
 == Changes to Existing Functionality
@@ -177,7 +180,7 @@ Released 2013-07-13.
 * RightLink is distributed as a modular "tree" of packages, making it easy to install just what you need
 * Improved package hygiene, e.g. clean uninstall and minimal post-install filesystem tampering
 * Ability to distinguish between sudo (server_login + server_superuser) and normal (server_login) users
-* Cookbook contents are cached on the instance, significantly improving reconverge speed
+* Cookbook contents are cached on the instance, significantly improving converge speed
 
 == Changes to Existing Functionality
 
