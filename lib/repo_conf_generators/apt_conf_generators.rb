@@ -96,6 +96,7 @@ END
       FileUtils.rm_f(target_filename) if File.exists?(target_filename)
       File.open(target_filename,'w') { |f| f.write(config_body) }
       FileUtils.mv("/etc/apt/sources.list", "/etc/apt/sources.list.ORIG") if File.exists?("/etc/apt/sources.list")
+      FileUtils.touch("/etc/apt/sources.list")
 
       mirror_list
     end
