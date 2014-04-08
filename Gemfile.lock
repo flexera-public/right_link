@@ -1,7 +1,23 @@
+GIT
+  remote: git@github.com:rightscale/right_agent.git
+  revision: cb269aaf21f7eda830c6e5bdd05ec117889287b7
+  branch: ivory_14_08_acu159975_fix_constant_already_initialized_warning
+  specs:
+    right_agent (2.1.1)
+      eventmachine (>= 0.12.10, < 2.0)
+      faye-websocket (= 0.7.0)
+      ffi
+      json (~> 1.4)
+      msgpack (>= 0.4.4, < 0.6)
+      net-ssh (~> 2.0)
+      rest-client (= 1.7.0.1)
+      right_amqp (~> 0.7)
+      right_support (>= 2.4.1, < 3.0)
+
 PATH
   remote: .
   specs:
-    right_link (6.0.0)
+    right_link (6.0.1)
       chef (>= 0.10.10)
       encryptor (~> 1.1)
       extlib (~> 0.9.15)
@@ -137,28 +153,6 @@ GEM
       mime-types (>= 1.16)
       net-http-persistent
       netrc (~> 0.7.7)
-    right_agent (2.1.1)
-      eventmachine (>= 0.12.10, < 2.0)
-      faye-websocket (= 0.7.0)
-      ffi
-      json (~> 1.4)
-      msgpack (>= 0.4.4, < 0.6)
-      net-ssh (~> 2.0)
-      rest-client (= 1.7.0.1)
-      right_amqp (~> 0.7)
-      right_support (>= 2.4.1, < 3.0)
-    right_agent (2.1.1-x86-mingw32)
-      eventmachine (>= 0.12.10, < 2.0)
-      faye-websocket (= 0.7.0)
-      ffi
-      json (~> 1.4)
-      msgpack (>= 0.4.4, < 0.6)
-      net-ssh (~> 2.0)
-      rest-client (= 1.7.0.1)
-      right_amqp (~> 0.7)
-      right_support (>= 2.4.1, < 3.0)
-      win32-dir (>= 0.3.5)
-      win32-process (>= 0.6.1)
     right_amqp (0.7.0)
       eventmachine (>= 0.12.10, < 2.0)
       right_support (>= 1.2, < 3.0)
@@ -235,7 +229,7 @@ DEPENDENCIES
   rb-readline (~> 0.5.0)
   rcov (~> 0.8.1)
   rest-client (= 1.7.0.1)
-  right_agent (~> 2.1)
+  right_agent (~> 2.1)!
   right_amqp (~> 0.7)
   right_git
   right_link!
