@@ -83,7 +83,11 @@ class Chef
           command = format_command(script_file_path)
           @new_resource.command(command)
           ::Chef::Log.info("Running \"#{nickname}\"")
-          super
+          begin
+            super
+          rescue RightScale::Exceptions::Exec => e
+            raise RightScale::Exceptions::RightScriptExec(e.message, e.path)
+          end
 
           # super provider raises an exception on failure, so record success at
           # this point.
