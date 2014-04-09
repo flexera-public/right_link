@@ -301,7 +301,7 @@ EOF
         RightScale::Test::ChefRunner.run_chef(
           PowershellProviderSpec::TEST_COOKBOOKS_PATH,
           'test::fail_powershell_recipe') }
-      runner.should raise_exception(RightScale::Exceptions::RightScriptExec)
+      runner.should raise_exception(RightScale::Exceptions::Exec)
     end
 
     it "should not raise exceptions for expected exit codes on windows" do
