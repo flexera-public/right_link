@@ -173,9 +173,10 @@ class Chef
     class Base
       def display_error(description)
         section = description.sections && description.sections.first
-        if section && section.keys.include?('SystemExit')
-          # ignored due to rs_shutdown provider behavior
-        else
+        ignore_execeptions = ["SystemExit", "RightScale::Exceptions::Exec"]
+        # ignored due to rs_shutdown provider behavior
+        # or useless error description for right_script and powershell providers
+        unless section && !(section.keys & ignore_execeptions).empty?
           last_output_log_level = output.output_log_level
           begin
             output.output_log_level = :error
