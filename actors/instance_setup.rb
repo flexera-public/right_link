@@ -50,6 +50,9 @@ class InstanceSetup
   # How long to wait for tag query before proceeding to boot sequence
   INITIAL_TAG_QUERY_TIMEOUT = 20
 
+  # Maximum time before re-enroll after being triggered
+  MAX_REENROLL_DELAY = 60
+
   # Boot if and only if instance state is 'booting'
   # Prime timer for shutdown on unsuccessful boot ('suicide' functionality)
   #
@@ -100,7 +103,6 @@ class InstanceSetup
   end
 
   # Handle status update from agent by adjusting offline mode or re-enrolling
-  # Ignore router disconnects since they do not prevent sending requests
   #
   # === Parameters
   # type(Symbol):: Type of client: :auth, :api, :router, :broker
@@ -109,17 +111,24 @@ class InstanceSetup
   # === Return
   # true:: Always return true
   def update_status(type, state)
-    if [:auth, :api, :broker].include?(type)
+    if [:auth, :api, :router, :broker].include?(type)
       case state
       when :connected
-        RightScale::Sender.instance.disable_offline_mode
+        if @agent.mode == :http
+          # Require connectivity to both API and router to be considered fully connected
+          status = @agent.client.status
+          if status[:api] == :connected && status[:router] == :connected
+            RightScale::Sender.instance.disable_offline_mode
+          end
+        else
+          RightScale::Sender.instance.disable_offline_mode
+        end
       when :disconnected
         RightScale::Sender.instance.enable_offline_mode
       when :failed
         RightScale::Log.error("RightNet connectivity failure for #{type}, need to re-enroll")
-        RightScale::ReenrollManager.vote
-        RightScale::ReenrollManager.vote
-        RightScale::ReenrollManager.vote
+        # Randomize when re-enroll to prevent possibly having multiple instances do so simultaneously
+        EM.add_timer(rand(MAX_REENROLL_DELAY)) { RightScale::ReenrollManager.reenroll! }
       when :authorized, :unauthorized, :expired, :closing
       else
         RightScale::Log.error("Unrecognized state for #{type}: #{state}")
