@@ -173,7 +173,7 @@ class Chef
     class Base
       def display_error(description)
         section = description.sections && description.sections.first
-        ignore_execeptions = ["SystemExit", "RightScale::Exceptions::Exec"]
+        ignore_execeptions = ["SystemExit", "RightScale::Exceptions::RightScriptExec"]
         # ignored due to rs_shutdown provider behavior
         # or useless error description for right_script and powershell providers
         unless section && !(section.keys & ignore_execeptions).empty?

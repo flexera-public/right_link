@@ -153,7 +153,7 @@ class Chef
           # recipes finish or another script escalates to an immediate shutdown.
           exit 0 if RightScale::ShutdownRequestProxy.instance.immediately?
         else
-          raise RightScale::Exceptions::Exec,
+          raise RightScale::Exceptions::RightScriptExec,
                 "RightScript < #{name_and_version} > #{RightScale::SubprocessFormatting.reason(status)}"
         end
 

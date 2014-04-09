@@ -1,5 +1,5 @@
 right_script[TonyS Always Fail] (/var/cache/rightscale/right_scripts/default/right_scripts_cookbook/recipes/TonyS_Always_Fail.rb:1:in `from_file') had an error:
-right_script[TonyS Always Fail] (right_scripts_cookbook::TonyS_Always_Fail line 1) had an error: RightScale::Exceptions::Exec: RightScript < TonyS Always Fail > exited with 42
+right_script[TonyS Always Fail] (right_scripts_cookbook::TonyS_Always_Fail line 1) had an error: RightScale::Exceptions::RightScriptExec: RightScript < TonyS Always Fail > exited with 42
 /opt/rightscale/right_link/lib/chef/providers/right_script_provider.rb:137:in `action_run'
 /opt/rightscale/sandbox/lib/ruby/gems/1.8/gems/chef-0.10.8.2/lib/chef/resource.rb:488:in `send'
 /opt/rightscale/sandbox/lib/ruby/gems/1.8/gems/chef-0.10.8.2/lib/chef/resource.rb:488:in `run_action'

@@ -116,7 +116,7 @@ EOF
         RightScale::Test::ChefRunner.run_chef(
           RightScriptProviderSpec::TEST_COOKBOOKS_PATH,
           'test::fail_right_script_recipe') }
-      runner.should raise_exception(RightScale::Exceptions::Exec)
+      runner.should raise_exception(RightScale::Exceptions::RightScriptExec)
     end
 
     it "should fail when a right script succeeds with a non-empty error list" do
@@ -124,7 +124,7 @@ EOF
         RightScale::Test::ChefRunner.run_chef(
                 RightScriptProviderSpec::TEST_COOKBOOKS_PATH,
                 'test::uncaught_right_script_error_recipe') }
-      runner.should raise_exception(RightScale::Exceptions::Exec)
+      runner.should raise_exception(RightScale::Exceptions::RightScriptExec)
       message_format = <<-EOF
 Line 1
 Set-Location : Cannot find path 'C:\\a_folder_which_does_not_exist' because it does not exist.
