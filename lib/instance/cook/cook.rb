@@ -26,6 +26,7 @@ require 'right_agent/core_payload_types'
 
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'chef', 'right_providers'))
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'chef', 'plugins'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'chef', 'right_formatters'))
 
 module RightScale
 
@@ -50,7 +51,7 @@ module RightScale
       Log.log_to_file_only(options[:log_to_file_only])
       Log.init(agent_id, options[:log_path])
       Log.level = CookState.log_level
-      # add an additional logger if the agent is set to log to an alternate 
+      # add an additional logger if the agent is set to log to an alternate
       # location (install, operate, decommission, ...)
       Log.add_logger(::Logger.new(CookState.log_file)) if CookState.log_file
 
