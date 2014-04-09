@@ -86,7 +86,7 @@ class Chef
           begin
             super
           rescue RightScale::Exceptions::Exec => e
-            raise RightScale::Exceptions::RightScriptExec(e.message, e.path)
+            raise RightScale::Exceptions::RightScriptExec.new(e.message, e.path)
           end
 
           # super provider raises an exception on failure, so record success at
