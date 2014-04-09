@@ -242,6 +242,8 @@ module RightScale
       # by setting different lockfile per thread.
       Chef::Config[:lockfile] = File.join(Chef::Config[:file_cache_path], "chef-client-#{@thread_name}-running.pid")
 
+      # Use own implementation of Cheff::Formatters::NullFormatter
+      Chef::Config.add_formatter(:right_script) if @only_scripts
       true
     end
 
