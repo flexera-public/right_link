@@ -57,9 +57,14 @@ module RightScale
       contents = contents.to_json unless contents.is_a?(String)
       dir = File.dirname(path)
       FileUtils.mkdir_p(dir) unless File.directory?(dir)
-      File.open(path, 'w') do |f|
+      # Don't use "w" because it truncates the file before lock
+      # see http://ruby-doc.org/core-1.9.3/File.html#method-i-flock
+      File.open(path, File::RDWR|File::CREAT) do |f|
         f.flock(File::LOCK_EX)
+        f.rewind
         f.write(contents)
+        f.flush
+        f.truncate(f.pos)
       end
       true
     end
