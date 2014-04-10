@@ -57,7 +57,8 @@ module RightScale
       :close_connection         => 'Close persistent connection (used for auditing)',
       :stats                    => 'Get statistics about instance agent operation',
       :get_shutdown_request     => 'Gets the requested reboot state.',
-      :set_shutdown_request     => 'Sets the requested reboot state.'
+      :set_shutdown_request     => 'Sets the requested reboot state.',
+      :get_instance_state       => 'Get Instance state value.'
     }
 
     # Build hash of commands associating command names with block
@@ -218,6 +219,35 @@ module RightScale
     # true:: Always return true
     def get_log_level_command(opts)
       CommandIO.instance.reply(opts[:conn], Log.level)
+    end
+
+    # Get Instance State value
+    #
+    # === Parameters
+    # opts[:conn](EM::Connection):: Connection used to send reply
+    # opts[:type](String):: One of :agent or :run
+    #
+    # === Return
+    def get_instance_state_command(opts)
+      raise ArgumentError, "Unknown state type '#{opts[:type]}'. Use 'run' or 'agent'" unless ['run', 'agent'].include?(opts[:type])
+      result = RightScale::InstanceState.value
+      if 'run' == opts[:type]
+        result = case state_value
+                 when 'booting'
+                   "booting#{InstanceState.reboot? ? ':reboot' : ''}"
+                 when 'operational'
+                   "operational"
+                 when 'stranded'
+                   "stranded"
+                 when 'decommissioning', 'decommissioned'
+                   decom_reason = "unknown"
+                   decom_reason = InstanceState.decommission_type if ShutdownRequest::LEVELS.include?(InstanceState.decommission_type)
+                   "shutting-down:#{decom_reason}"
+                 end
+       end
+      CommandIO.instance.reply(opts[:conn], JSON.dump({ :result => result }) )
+    rescue Exception => e
+      CommandIO.instance.reply(opts[:conn], JSON.dump({ :error => e.message }) )
     end
 
     # Decommission command

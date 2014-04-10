@@ -40,38 +40,10 @@ module RightScale
       m.control(m.parse_args)
     end
 
-    def silence_stdout
-      save_stdout = STDOUT.dup
-      STDOUT.reopen(RUBY_PLATFORM =~ /mswin|mingw/ ? 'NUL:' : '/dev/null')
-      STDOUT.sync = true
-      yield
-    ensure
-      STDOUT.reopen(save_stdout)
-    end
-
     def control(options)
-      silence_stdout { InstanceState.init(nil, true) } # RightScale::Log will log to STDOUT if no log file is provided
-      result = case options[:type]
-               when 'run'
-                 case InstanceState.value
-                 when 'booting'
-                   "booting#{InstanceState.reboot? ? ':reboot' : ''}"
-                 when 'operational'
-                   "operational"
-                 when 'stranded'
-                   "stranded"
-                 when 'decommissioning', 'decommissioned'
-                   decom_reason = "unknown"
-                   decom_reason = InstanceState.decommission_type if ShutdownRequest::LEVELS.include?(InstanceState.decommission_type)
-                   "shutting-down:#{decom_reason}"
-                 end
-               when 'agent'
-                 InstanceState.value
-               end
-      fail("Failed to get #{options[:type]} state") unless result
-      puts result
-    rescue Exception => e
-      fail(e)
+      result = JSON.load(send_command({ :name => 'get_instance_state', :type =>  options[:type]}, options[:verbose], 5))
+      fail(result['error']) if result['error']
+      puts result['result']
     end
 
     def parse_args
@@ -82,7 +54,6 @@ module RightScale
       parse do
         options = parser.parse
         fail("No type specified on the command line.") unless options[:type]
-        fail("Unknown state type '#{options[:type]}'. Use 'run' or 'agent'") unless ['run', 'agent'].include?(options[:type])
         options
       end
     end
