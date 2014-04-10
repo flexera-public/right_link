@@ -59,7 +59,8 @@ class Chef
 
         # 1. Write script source into file, if necessary.
         if script_file_path
-          (raise RightScale::Exceptions::RightScriptExec, "Missing script file \"#{script_file_path}\"") unless ::File.file?(script_file_path)
+          # Exec and not RightScriptExec since should only happen if class called from a Chef recipe
+          (raise RightScale::Exceptions::Exec, "Missing script file \"#{script_file_path}\"") unless ::File.file?(script_file_path)
         else
           FileUtils.mkdir_p(SCRIPT_TEMP_DIR_PATH)
           script_file_path = ::File.join(SCRIPT_TEMP_DIR_PATH, "powershell_provider_source.ps1")
