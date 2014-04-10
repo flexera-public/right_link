@@ -714,22 +714,56 @@ describe InstanceSetup do
       flexmock(RightScale::Sender).should_receive(:instance).and_return(@sender)
     end
 
-    [:auth, :api, :broker].each do |type|
+    [:auth, :api, :router, :broker].each do |type|
       context "from #{type}" do
-        it 'should go online when become connected' do
-          @sender.should_receive(:disable_offline_mode).once
-          @setup.update_status(type, :connected)
+        if type == :broker
+          it 'should go online when become connected' do
+            @sender.should_receive(:disable_offline_mode).once
+            @setup.update_status(type, :connected)
+          end
+        else
+          before(:each) do
+            @status = {:auth => :connected, :api => :connected, :router => :connected}
+            @client = flexmock("client")
+            @client.should_receive(:status).and_return(@status).by_default
+            flexmock(@agent).should_receive(:client).and_return(@client).by_default
+            flexmock(@agent).should_receive(:mode).and_return(:http).by_default
+          end
+
+          it 'should go online if :api and :router are also connected' do
+            @client.should_receive(:status).and_return(@status).once
+            @sender.should_receive(:disable_offline_mode).once
+            @sender.should_receive(:enable_offline_mode).never
+            @setup.update_status(type, :connected)
+          end
+
+          it 'should not go online if :api is not connected' do
+            @client.should_receive(:status).and_return(@status.merge(:api => :disconnected)).once
+            @sender.should_receive(:disable_offline_mode).never
+            @sender.should_receive(:enable_offline_mode).never
+            @setup.update_status(type, :connected)
+          end
+
+          it 'should not go online if :router is not connected' do
+            @client.should_receive(:status).and_return(@status.merge(:router => :disconnected)).once
+            @sender.should_receive(:disable_offline_mode).never
+            @sender.should_receive(:enable_offline_mode).never
+            @setup.update_status(type, :connected)
+          end
         end
 
         it 'should go offline when become disconnected' do
           @sender.should_receive(:enable_offline_mode).once
+          @sender.should_receive(:disable_offline_mode).never
           @setup.update_status(type, :disconnected)
         end
 
         it 'should re-enroll when connection fails' do
           flexmock(RightScale::Log).should_receive(:error).with("RightNet connectivity failure for #{type}, need to re-enroll").once
           @sender.should_receive(:enable_offline_mode).never
-          @reenroller.should_receive(:vote).times(3)
+          flexmock(@setup).should_receive(:rand).with(60).and_return(15).once
+          flexmock(EM).should_receive(:add_timer).with(15, Proc).and_yield.once
+          @reenroller.should_receive(:reenroll!).once
           @setup.update_status(type, :failed)
         end
 
@@ -741,11 +775,6 @@ describe InstanceSetup do
           @setup.update_status(type, :bogus)
         end
       end
-    end
-
-    it 'should not go offline when router becomes disconnected' do
-      @sender.should_receive(:enable_offline_mode).never
-      @setup.update_status(:router, :disconnected)
     end
   end
 end
