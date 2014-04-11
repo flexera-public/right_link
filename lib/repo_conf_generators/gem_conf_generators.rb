@@ -49,8 +49,8 @@ module Gems
       FileUtils.mkdir_p(::File.dirname(config_file))
     end
     sources = Gems.src_cmd(config_file, "--list").split("\n")
-    # Discard the message (starting with ***) and empty lines returned by gem sources
-    sources.reject! { |s| s =~ /^\*\*\*/ || s.chomp == "" } 
+    # Discard "*** CURRENT SOURCES ***" header to the gem command
+    sources.reject! { |s| s.start_with?("***") || s.chomp == "" } 
 
     sources_to_delete = sources - sources_to_add
     sources_to_add.each do |m|
@@ -60,7 +60,7 @@ module Gems
           Gems.src_cmd(config_file, "--add #{m}")
         end
       rescue Exception => e
-        puts "Error Adding gem source #{m}: #{e}\n...continuing with others..."
+        puts "Error adding gem source #{m}: #{e}\n...continuing with others..."
       end
     end
 
@@ -69,7 +69,7 @@ module Gems
         puts "Removing stale gem source: #{m}"
         Gems.src_cmd(config_file, "--remove #{m}")
       rescue Exception => e
-        puts "Error Adding gem source #{m}: #{e}\n...continuing with others..."
+        puts "Error deleting gem source #{m}: #{e}\n...continuing with others..."
       end
     end
   end
@@ -78,10 +78,11 @@ module Gems
     # The different generate classes will always generate an exception ("string") if there's anything that went wrong. If no exception, things went well.
     def self.generate(description, base_urls, frozen_date="latest")
 
-      repo_path = "archive/"+ (frozen_date || "latest")
-      mirror_list = base_urls.map do |bu|
-        bu +='/' unless bu[-1..-1] == '/' # ensure the base url is terminated with a '/'
-        bu+repo_path+ ( repo_path[-1..-1] == '/'? "":"/")
+      repo_path = "archive/" + (frozen_date || "latest")
+      repo_path += '/' unless repo_path.end_with?("/")
+      mirror_list = base_urls.map do |base_url|
+        base_url += '/' unless base_url.end_with?("/")
+        base_url + repo_path
       end
 
       # Setup rubygems sources for both sandbox and system ruby, even if system
