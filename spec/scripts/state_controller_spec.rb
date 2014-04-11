@@ -33,6 +33,10 @@ end
 
 module RightScale
   describe RightLinkStateController do
+    let ( :send_successed )       { JSON.dump({:result => 'AGENT_STATE'}) }
+    let ( :send_error_message )   { "Something goes wrong" }
+    let ( :send_failed )          { JSON.dump({:error => send_error_message}) }
+
     def run_state_controller(args)
       replace_argv(args)
       subject.control(subject.parse_args)
@@ -77,40 +81,45 @@ module RightScale
       end
     end
 
-    context 'rs_state' do
-      it 'should fail because no type was specified' do
+    context 'rs_state should fail when' do
+      it 'no type was specified' do
         flexmock(subject).should_receive(:fail).with("No type specified on the command line.").and_raise(SystemExit)
         run_state_controller([])
       end
-    end
 
-    context 'rs_state --type=WRONG' do
-      it 'shoud fail because unknow state type was specified' do
+      it 'unknow state type was specified' do
         flexmock(subject).should_receive(:fail).with("Unknown state type 'WRONG'. Use 'run' or 'agent'").and_raise(SystemExit)
         run_state_controller("--type=WRONG")
       end
     end
 
-    context 'rs_state --type=agent' do
-      it 'should repot agent state (InstanceState.value)' do
-        flexmock(subject).should_receive(:silence_stdout).and_yield
-        flexmock(InstanceState).should_receive(:init).and_return(true)
-        flexmock(InstanceState).should_receive(:value).and_return("AGENT_STATE")
+    context 'rs_stat --type=agent' do
+      it 'should send query' do
+        flexmock(subject).should_receive(:send_command).with({:name => "get_instance_state_agent"}, nil).and_return(send_successed)
         run_state_controller("--type=agent")
         @output.join("\n").should include "AGENT_STATE"
       end
-    end
 
-    context 'rs_state --type=run' do
-      context 'should report run state:' do
-        create_run_state_example('booting', 'booting', nil, false)
-        create_run_state_example('booting:reboot', 'booting', nil, true)
-        create_run_state_example('operational', 'operational')
-        create_run_state_example('shutting-down:reboot', 'decommissioning', 'reboot')
-        create_run_state_example('shutting-down:terminate', 'decommissioning', 'terminate')
-        create_run_state_example('shutting-down:stop', 'decommissioning', 'stop')
-        create_run_state_example('shutting-down:unknown', 'decommissioning', 'unknown')
+      it 'should report about error' do
+        flexmock(subject).should_receive(:send_command).with({:name => "get_instance_state_agent"}, nil).and_return(send_failed)
+        flexmock(subject).should_receive(:fail).with(send_error_message).and_raise(SystemExit)
+        run_state_controller("--type=agent")
       end
     end
+
+    context 'rs_stat --type=run' do
+      it 'should send query' do
+        flexmock(subject).should_receive(:send_command).with({:name => "get_instance_state_run"}, nil).and_return(send_successed)
+        run_state_controller("--type=run")
+        @output.join("\n").should include "AGENT_STATE"
+      end
+
+      it 'should report about error' do
+        flexmock(subject).should_receive(:send_command).with({:name => "get_instance_state_run"}, nil).and_return(send_failed)
+        flexmock(subject).should_receive(:fail).with(send_error_message).and_raise(SystemExit)
+        run_state_controller("--type=run")
+      end
+    end
+
   end
 end
