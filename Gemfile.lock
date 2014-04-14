@@ -1,6 +1,6 @@
 GIT
   remote: https://github.com/rightscale/right_agent.git
-  revision: 14f12e9d1cdac20a4f9ff7db6428c602abb1c034
+  revision: 73e77e4fdd62ef3aa4e2518d9b1921d15b1b1f6f
   branch: ivory_14_07_acu157665_set_utf8
   specs:
     right_agent (2.1.4)
