@@ -59,6 +59,7 @@ class Chef
 
         # 1. Write script source into file, if necessary.
         if script_file_path
+          # Exec and not RightScriptExec since should only happen if class called from a Chef recipe
           (raise RightScale::Exceptions::Exec, "Missing script file \"#{script_file_path}\"") unless ::File.file?(script_file_path)
         else
           FileUtils.mkdir_p(SCRIPT_TEMP_DIR_PATH)
@@ -83,7 +84,11 @@ class Chef
           command = format_command(script_file_path)
           @new_resource.command(command)
           ::Chef::Log.info("Running \"#{nickname}\"")
-          super
+          begin
+            super
+          rescue RightScale::Exceptions::Exec => e
+            raise RightScale::Exceptions::RightScriptExec.new(e.message, e.path)
+          end
 
           # super provider raises an exception on failure, so record success at
           # this point.

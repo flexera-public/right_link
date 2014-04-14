@@ -301,7 +301,7 @@ EOF
         RightScale::Test::ChefRunner.run_chef(
           PowershellProviderSpec::TEST_COOKBOOKS_PATH,
           'test::fail_powershell_recipe') }
-      runner.should raise_exception(RightScale::Exceptions::Exec)
+      runner.should raise_exception(RightScale::Exceptions::RightScriptExec)
     end
 
     it "should not raise exceptions for expected exit codes on windows" do
@@ -421,7 +421,7 @@ EOF
         RightScale::Test::ChefRunner.run_chef(
           PowershellProviderSpec::TEST_COOKBOOKS_PATH,
           'test::exception_out_of_recipe') }
-      runner.should raise_exception(RightScale::Exceptions::Exec)
+      runner.should raise_exception(RightScale::Exceptions::RightScriptExec)
       message_format = <<-EOF
 System.IndexOutOfRangeException
 At .*:3 char:.*
@@ -442,7 +442,7 @@ EOF
         RightScale::Test::ChefRunner.run_chef(
           PowershellProviderSpec::TEST_COOKBOOKS_PATH,
           'test::uncaught_errors_recipe') }
-      runner.should raise_exception(RightScale::Exceptions::Exec)
+      runner.should raise_exception(RightScale::Exceptions::RightScriptExec)
 
       stdout_match = "Line 1.*Line 3"
       stderr_match1 = <<-EOF

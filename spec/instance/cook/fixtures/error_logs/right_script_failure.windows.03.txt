@@ -1,5 +1,5 @@
 right_script[TonyS PowerShell Always Fail] (C:/ProgramData/RightScale/cache/rightscale/right_scripts/default/right_scripts_cookbook/recipes/TonyS_PowerShell_Always_Fail.ps1.rb:1:in `from_file') had an error:
-right_script[TonyS PowerShell Always Fail] (right_scripts_cookbook::TonyS_PowerShell_Always_Fail.ps1 line /ProgramData/RightScale/cache/rightscale/right_scripts/default/right_scripts_cookbook/recipes/TonyS_PowerShell_Always_Fail.ps1.rb) had an error: RightScale::Exceptions::Exec: RightScript < TonyS PowerShell Always Fail > exited with 101
+right_script[TonyS PowerShell Always Fail] (right_scripts_cookbook::TonyS_PowerShell_Always_Fail.ps1 line /ProgramData/RightScale/cache/rightscale/right_scripts/default/right_scripts_cookbook/recipes/TonyS_PowerShell_Always_Fail.ps1.rb) had an error: RightScale::Exceptions::RightScriptExec: RightScript < TonyS PowerShell Always Fail > exited with 101
 C:/PROGRA~2/RIGHTS~1/RIGHTL~1/RIGHT_~1/lib/chef/PROVID~1/right_script_provider.rb:144:in `action_run'
 C:/PROGRA~2/RIGHTS~1/RIGHTL~1/sandbox/ruby/lib/ruby/gems/1.8/gems/chef-0.10.8.3/lib/chef/resource.rb:488:in `send'
 C:/PROGRA~2/RIGHTS~1/RIGHTL~1/sandbox/ruby/lib/ruby/gems/1.8/gems/chef-0.10.8.3/lib/chef/resource.rb:488:in `run_action'

@@ -45,5 +45,6 @@ module RightScale
       end
       attr_reader :path    # Path where command was run
     end
+    class RightScriptExec < RightScale::Exceptions::Exec; end
   end
 end
