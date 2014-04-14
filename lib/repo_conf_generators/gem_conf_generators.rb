@@ -21,59 +21,77 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+require 'fileutils'
+require 'right_agent'
+
 module Gems
 
-  # Wrapper for the 'gem' command that ensures the systemwide config file is used.
-  #
-  #
-  # @param [String] command the gem command to run
-  # @param [optional, Array] *parameters glob of additional command-line parameters to pass to the RubyGems command
-  # @example gem('sources', '--list')
-  # @example gem('sources', '--add', 'http://awesome-gems.com')
-  def self.gem(command, *parameters)
-    res = `gem --config-file /etc/gemrc #{command} #{parameters.join(' ')}`
-    raise "Error #{RightScale::SubprocessFormatting.reason($?)} executing: `#{command}`: #{res}" unless $? == 0
+  # Wrapper for the 'gem sources' command
+  # 
+  # @param [String] absolute path to config file to edit, i.e. '/etc/gemrc'
+  # @param [String] gem sources command to run, such as "--list"
+  def self.src_cmd(cfg, command)
+    sandbox_dir = ::RightScale::Platform.filesystem.sandbox_dir
+
+    res = `#{sandbox_dir}/bin/gem --config-file #{cfg} sources #{command}`
+    unless $?.success?
+      raise "Error #{RightScale::SubprocessFormatting.reason($?)} executing: `#{command}`: #{res}"
+    end
     res
   end
 
-  module RubyGems #########################################################################
-    def self.is_installed?
-      system('which gem 2>&1 > /dev/null')
+  # Add a list of urls to a gem config file
+  # 
+  # @param [String] absolute path to config file to edit, i.e. '/etc/gemrc'
+  # @param [String, Array] Array of urls to add, deleting all others
+  def self.config_sources(config_file, sources_to_add)
+    unless ::File.directory?(::File.dirname(config_file))
+      FileUtils.mkdir_p(::File.dirname(config_file))
+    end
+    sources = Gems.src_cmd(config_file, "--list").split("\n")
+    # Discard "*** CURRENT SOURCES ***" header to the gem command
+    sources.reject! { |s| s.start_with?("***") || s.chomp == "" } 
+
+    sources_to_delete = sources - sources_to_add
+    sources_to_add.each do |m|
+      begin
+        unless sources.include?(m)
+          puts "Adding gem source: #{m}"
+          Gems.src_cmd(config_file, "--add #{m}")
+        end
+      rescue Exception => e
+        puts "Error adding gem source #{m}: #{e}\n...continuing with others..."
+      end
     end
 
+    sources_to_delete.each do |m|
+      begin
+        puts "Removing stale gem source: #{m}"
+        Gems.src_cmd(config_file, "--remove #{m}")
+      rescue Exception => e
+        puts "Error deleting gem source #{m}: #{e}\n...continuing with others..."
+      end
+    end
+  end
+
+  module RubyGems
     # The different generate classes will always generate an exception ("string") if there's anything that went wrong. If no exception, things went well.
     def self.generate(description, base_urls, frozen_date="latest")
-      raise ::RightScale::Exceptions::PlatformError, "RubyGems is not installed" unless self.is_installed?
 
-      #1 - get the current sources
-      initial_sources= Gems.gem('sources', '--list').split("\n")
-      initial_sources.reject!{|s| s =~ /^\*\*\*/ || s.chomp == "" } # Discard the message (starting with ***) and empty lines returned by gem sources
-
-      #2- Add our sources
-      repo_path = "archive/"+ (frozen_date || "latest")
-      mirror_list =  base_urls.map do |bu|
-        bu +='/' unless bu[-1..-1] == '/' # ensure the base url is terminated with a '/'
-        bu+repo_path+ ( repo_path[-1..-1] == '/'? "":"/")
-      end
-      sources_to_delete = initial_sources-mirror_list # remove good sources from later deletion if we're gonna add them right now.
-      mirror_list.map do |m|
-        begin
-          puts "Adding gem source: #{m}"
-          Gems.gem('sources', '--add', m)
-        rescue Exception => e
-          puts "Error Adding gem source #{m}: #{e}\n...continuing with others..."
-        end
+      repo_path = "archive/" + (frozen_date || "latest")
+      repo_path += '/' unless repo_path.end_with?("/")
+      mirror_list = base_urls.map do |base_url|
+        base_url += '/' unless base_url.end_with?("/")
+        base_url + repo_path
       end
 
-      #3-Delete the initial ones (that don't overlap with the new ones)
-      sources_to_delete.map do |m|
-        begin
-          puts "Removing stale gem source: #{m}"
-          Gems.gem('sources', '--remove', m)
-        rescue Exception => e
-          puts "Error Adding gem source #{m}: #{e}\n...continuing with others..."
-        end
-      end
+      # Setup rubygems sources for both sandbox and system ruby, even if system
+      # ruby is not installed. The config file doesn't conflict with package
+      # managers, so can be added safely and will be picked up if a user
+      # installs the rubygems package
+      sandbox_dir = ::RightScale::Platform.filesystem.sandbox_dir
+      Gems.config_sources("/etc/gemrc", mirror_list)
+      Gems.config_sources("#{sandbox_dir}/etc/gemrc", mirror_list)
       mirror_list
     end
   end # Module RubyGems
