@@ -57,7 +57,9 @@ module RightScale
       :close_connection         => 'Close persistent connection (used for auditing)',
       :stats                    => 'Get statistics about instance agent operation',
       :get_shutdown_request     => 'Gets the requested reboot state.',
-      :set_shutdown_request     => 'Sets the requested reboot state.'
+      :set_shutdown_request     => 'Sets the requested reboot state.',
+      :get_instance_state_agent => 'Get Instance state value for agent type.',
+      :get_instance_state_run   => 'Get Instance state value for run type.'
     }
 
     # Build hash of commands associating command names with block
@@ -219,6 +221,46 @@ module RightScale
     def get_log_level_command(opts)
       CommandIO.instance.reply(opts[:conn], Log.level)
     end
+
+    # Get Instance State value for Agent type
+    #
+    # === Parameters
+    # opts[:conn](EM::Connection):: Connection used to send reply
+    #
+    # === Return
+    # true:: Always return true
+    def get_instance_state_agent_command(opts)
+      result = RightScale::InstanceState.value
+      CommandIO.instance.reply(opts[:conn], JSON.dump({ :result => result }) )
+    rescue Exception => e
+      CommandIO.instance.reply(opts[:conn], JSON.dump({ :error => e.message }) )
+    end
+
+    # Get Instance State value for Run type
+    #
+    # === Parameters
+    # opts[:conn](EM::Connection):: Connection used to send reply
+    #
+    # === Return
+    # true:: Always return true
+    def get_instance_state_run_command(opts)
+      value = RightScale::InstanceState.value
+      result = case value
+               when 'booting'
+                 "booting#{InstanceState.reboot? ? ':reboot' : ''}"
+               when 'operational', 'stranded'
+                 value
+               when 'decommissioning', 'decommissioned'
+                 decom_reason = "unknown"
+                 decom_reason = InstanceState.decommission_type if ShutdownRequest::LEVELS.include?(InstanceState.decommission_type)
+                 "shutting-down:#{decom_reason}"
+               end
+      CommandIO.instance.reply(opts[:conn], JSON.dump({ :result => result }) )
+    rescue Exception => e
+      CommandIO.instance.reply(opts[:conn], JSON.dump({ :error => e.message }) )
+    end
+
+
 
     # Decommission command
     #
