@@ -1,8 +1,25 @@
+= 6.0.2 (RightLink 6.0 release candidate 3)
+
+Released 2014-04-14
+
+== Changes to Existing Functionality
+
+* HTTP client in right_agent uses non-blocking i/o via EM::HttpRequest
+* Enhance error output for right_script and powershell providers in chef recipes
+
+== Known Limitations
+
+* Sometimes RightLink fails to sync up time using System NTP service so it uses RS_ISLAND instead
+
+== Bug fixes
+
+* rubygems not being configured to use rightscale mirror
+* rs_state sometimes errors out incorrectly
+* RightLink does not create an empty /etc/apt/sources.list during repository configuration
+
 = 6.0.1 (RightLink 6.0 release candidate 2)
 
 Released 2014-04-03
-
-== New Features
 
 == Changes to Existing Functionality
 
