@@ -84,18 +84,14 @@ module RightScale
 
     # Add routes to external networks via local NAT server
     #
-    # no-op if 'RS_NAT_ADDRESS' is not defined in metadata
-    #
     # === Return
     # result(True):: Always true
     def add_static_routes_for_network
       begin
-        # required metadata values
-        nat_server = ENV['RS_NAT_ADDRESS']
-        if nat_server
-          parse_array(ENV['RS_NAT_RANGES']).each do |network|
-            network_route_add(network, nat_server)
-          end
+        routes_keys = ENV.keys.grep(/^RS_ROUTE/)
+        routes_keys.each do |route_key|
+          nat_server_ip, network = ENV[route_key].split(",")
+          network_route_add(network, nat_server_ip)
         end
       rescue Exception => e
         logger.error "Detected an error while adding routes to NAT"

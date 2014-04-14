@@ -123,13 +123,14 @@ default via 174.36.32.33 dev eth0  metric 100
     end
 
     it "appends all static routes" do
-      ENV['RS_NAT_ADDRESS'] = nat_server_ip
-      ENV['RS_NAT_RANGES'] = network_cidr
+      nat_ranges.each_with_index do |network_cidr, i|
+        ENV["RS_ROUTE#{i}"] = "#{nat_server_ip},#{network_cidr}"
+        flexmock(subject).should_receive(:runshell).with("ip route add #{network_cidr} via #{nat_server_ip}").times(1)
+      end
 
       # network route add
-      flexmock(subject).should_receive(:runshell).with("ip route add #{network_cidr} via #{nat_server_ip}").times(1)
       flexmock(subject).should_receive(:routes_show).and_return(before_routes)
-      flexmock(subject).should_receive(:update_route_file).times(1)
+      flexmock(subject).should_receive(:update_route_file).times(nat_ranges.length)
       flexmock(subject).should_receive(:route_device).and_return("eth0")
 
       subject.add_static_routes_for_network

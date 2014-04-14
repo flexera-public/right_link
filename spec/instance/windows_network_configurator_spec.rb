@@ -113,8 +113,9 @@ describe RightScale::WindowsNetworkConfigurator do
     end
 
     it "appends all static routes" do
-      ENV['RS_NAT_ADDRESS'] = nat_server_ip
-      ENV['RS_NAT_RANGES'] = nat_ranges_string
+      nat_ranges.each_with_index do |network_cidr, i|
+        ENV["RS_ROUTE#{i}"] = "#{nat_server_ip},#{network_cidr}"
+      end
 
       # network route add
       flexmock(subject).should_receive(:network_route_exists?).and_return(false)
