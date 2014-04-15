@@ -56,6 +56,7 @@ module RightScale
 
     # TODO: remove then rightboot run order is fixed
     def restart_network
+      runshell("pkill dhclient || true")
       runshell("service network restart")
     end
 
