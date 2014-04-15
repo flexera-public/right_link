@@ -96,7 +96,7 @@ module RightScale
       r = serialize_operation_result(res)
       raise TagError.new("Add tag failed: #{r.inspect}", 47) unless r.kind_of?(OperationResult)
       if r.success?
-        write_error("Successfully added tag #{options[:tag]}")
+        write_output("Successfully added tag #{options[:tag]}")
       else
         raise TagError.new("Add tag failed: #{r.content}", 54)
       end
@@ -145,19 +145,20 @@ module RightScale
       check_privileges
       set_logger(options)
       missing_argument unless options.include?(:action)
-      send_command(build_cmd(options), options[:verbose], options[:timeout]) do |res|
-        case options[:action]
-        when :get_tags
-          get_tags(res, options)
-        when :query_tags
-          query_tags(res, options)
-        when :add_tag
-          add_tag(res, options)
-        when :remove_tag
-          remove_tag(res, options)
-        else
-          write_error(res)
-        end
+      # Don't use send_command callback as it swallows exceptions by design
+      res = send_command(build_cmd(options), options[:verbose], options[:timeout])
+
+      case options[:action]
+      when :get_tags
+        get_tags(res, options)
+      when :query_tags
+        query_tags(res, options)
+      when :add_tag
+        add_tag(res, options)
+      when :remove_tag
+        remove_tag(res, options)
+      else
+        write_error(res)
       end
     rescue SystemExit => e
       raise e
