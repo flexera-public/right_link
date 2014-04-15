@@ -40,9 +40,7 @@ module RightScale
     def self.read_json(path)
       File.open(path, "r") do |f|
         f.flock(File::LOCK_EX)
-        data = f.read
-        data.force_encoding("UTF-8") if data.respond_to?(:force_encoding)
-        return JSON.load(data)
+        return JSON.load(f)
       end
     end
 

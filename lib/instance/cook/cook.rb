@@ -62,9 +62,6 @@ module RightScale
 
       # 2. Retrieve bundle
       input = gets.chomp
-      # Encoding gets scrubbed when reading from stdin.  Force set here to 
-      # workaround or deserialation will fail
-      input.force_encoding("UTF-8") if input.respond_to?(:force_encoding)
       begin
         platform = RightScale::Platform
         if platform.windows?
