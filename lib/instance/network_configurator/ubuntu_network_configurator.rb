@@ -60,5 +60,9 @@ iface #{device} inet dhcp
       init_device_config_file(routes_file, device) unless File.exists?(routes_file)
       routes_file
     end
+
+    def restart_network
+      runshell("/etc/init.d/networking restart")
+    end
   end
 end
