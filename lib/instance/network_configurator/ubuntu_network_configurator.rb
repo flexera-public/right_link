@@ -60,5 +60,13 @@ iface #{device} inet dhcp
       init_device_config_file(routes_file, device) unless File.exists?(routes_file)
       routes_file
     end
+
+    def restart_network
+      # Until startup scripts are rewritten with Upstart, networking will start
+      # ahead of the network configurator and start dhclient, so be sure to kill
+      # it or it'll reconfigure the network
+      runshell("pkill dhclient3 || true")
+      runshell("/etc/init.d/networking restart")
+    end
   end
 end
