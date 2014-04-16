@@ -58,7 +58,7 @@ Create a yum source:
   cat > /etc/yum.repos.d/RightLink-staging.repo <<EOF
   [rightlink]
   name=RightLink
-  baseurl=https://rightlink-beta.test.rightscale.com/yum/1/el/6/$basearch/
+  baseurl=http://rightlink-beta.test.rightscale.com/yum/1/el/6/$basearch/
   gpgcheck=1
   gpgkey=http://s3.amazonaws.com/rightscale_key_pub/rightscale_key.pub
   EOF
@@ -89,7 +89,7 @@ Create a zypper source:
   cat > /etc/zypp/repos.d/RightLink-staging.repo <<EOF
   [rightlink]
   name=RightLink
-  baseurl=https://rightlink-beta.test.rightscale.com/zypp/1/suse/11/x86_64/
+  baseurl=http://rightlink-beta.test.rightscale.com/zypp/1/suse/11/x86_64/
   gpgcheck=1
   gpgkey=http://s3.amazonaws.com/rightscale_key_pub/rightscale_key.pub
   EOF
@@ -119,14 +119,14 @@ and release code name. For instance, on an amd64 system that is running:
 
   # Ubuntu 12.04 (precise)
   cat > /etc/apt/sources.list.d/rightlink.sources.list <<EOF
-  deb [arch=amd64] https://rightlink-beta.test.rightscale.com/apt precise main
-  deb-src [arch=amd64] https://rightlink-beta.test.rightscale.com/apt precise main
+  deb [arch=amd64] http://rightlink-beta.test.rightscale.com/apt precise main
+  deb-src [arch=amd64] http://rightlink-beta.test.rightscale.com/apt precise main
   EOF
 
   # Ubuntu 13.04 (raring)
   cat > /etc/apt/sources.list.d/rightlink.sources.list <<EOF
-  deb [arch=amd64] https://rightlink-beta.test.rightscale.com/apt raring main
-  deb-src [arch=amd64] https://rightlink-beta.test.rightscale.com/apt raring main
+  deb [arch=amd64] http://rightlink-beta.test.rightscale.com/apt raring main
+  deb-src [arch=amd64] http://rightlink-beta.test.rightscale.com/apt raring main
   EOF
 
 
@@ -144,7 +144,7 @@ You can now bundle your image and boot RightScale servers with it.
 For Windows systems, we publish MSIs to Amazon S3; find the file that is suitable for your CPU
 architecture and download it with your Web browser:
 
-  https://rightlink-beta.test.rightscale.com/msi/index.html
+  http://rightlink-beta.test.rightscale.com/msi/index.html
 
 *Note:* Before installing the RightLink package be sure that time of the server is correct. We highly recommend the use of Network Time Protocol (NTP) for synchronizing time on your servers.
 
