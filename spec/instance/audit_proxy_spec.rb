@@ -28,59 +28,51 @@ describe RightScale::AuditProxy do
 
   before(:each) do
     @audit_id = 1
+    @type = '/auditor/update_entry'
+    @payload = {:category => RightScale::EventCategories::CATEGORY_NOTIFICATION, :audit_id => @audit_id, :offset => 0}
+    @options = {:timeout => 7200}
     @audit_proxy = RightScale::AuditProxy.new(@audit_id)
-    @sender = flexmock('Sender')
-    flexmock(RightScale::Sender).should_receive(:instance).and_return(@sender).by_default
+    @retryable_request = flexmock("retryable request", :callback => true, :errback => true).by_default
+    @retryable_request.should_receive(:run).once.by_default
+    flexmock(RightScale::RetryableRequest).should_receive(:new).with(@type, @payload, @options).and_return(@retryable_request).once.by_default
     flexmock(EM).should_receive(:next_tick).and_yield
   end
 
   it 'should send info audits' do
-    payload = { :category => RightScale::EventCategories::CATEGORY_NOTIFICATION, :audit_id => @audit_id, :offset => 0 }
-    payload.merge!(RightScale::AuditFormatter.info('INFO'))
-    @sender.should_receive(:send_push).once.with('/auditor/update_entry', payload)
-    @audit_proxy.append_info('INFO')
+    @payload.merge!(RightScale::AuditFormatter.info('INFO'))
+    @audit_proxy.append_info('INFO').should be true
   end
 
   it 'should send error audits' do
-    payload = { :category => RightScale::EventCategories::CATEGORY_NOTIFICATION, :audit_id => @audit_id, :offset => 0 }
-    payload.merge!(RightScale::AuditFormatter.error('ERROR'))
-    @sender.should_receive(:send_push).once.with('/auditor/update_entry', payload)
+    @payload.merge!(RightScale::AuditFormatter.error('ERROR'))
     @audit_proxy.append_error('ERROR')
   end
 
   it 'should send status audits' do
-    payload = { :category => RightScale::EventCategories::CATEGORY_NOTIFICATION, :audit_id => @audit_id, :offset => 0 }
-    payload.merge!(RightScale::AuditFormatter.status('STATUS'))
-    @sender.should_receive(:send_push).once.with('/auditor/update_entry', payload)
+    @payload.merge!(RightScale::AuditFormatter.status('STATUS'))
     @audit_proxy.update_status('STATUS')
   end
 
   it 'should send new section audits' do
-    payload = { :category => RightScale::EventCategories::CATEGORY_NOTIFICATION, :audit_id => @audit_id, :offset => 0 }
-    payload.merge!(RightScale::AuditFormatter.new_section('NEW SECTION'))
-    @sender.should_receive(:send_push).once.with('/auditor/update_entry', payload)
+    @payload.merge!(RightScale::AuditFormatter.new_section('NEW SECTION'))
     @audit_proxy.create_new_section('NEW SECTION')
   end
 
   it 'should send output audits' do
     flexmock(EventMachine::PeriodicTimer).should_receive(:new).and_yield.once
-    payload = { :category => RightScale::EventCategories::NONE, :audit_id => @audit_id, :offset => 0 }
-    payload.merge!(RightScale::AuditFormatter.output('OUTPUT'))
-    @sender.should_receive(:send_push).once.with('/auditor/update_entry', payload)
+    @payload.merge!(:category => RightScale::EventCategories::NONE)
+    @payload.merge!(RightScale::AuditFormatter.output('OUTPUT'))
     @audit_proxy.append_output('OUTPUT')
   end
 
   it 'should revert to default event category when an invalid category is given' do
-    payload = { :category => RightScale::EventCategories::CATEGORY_NOTIFICATION, :audit_id => @audit_id, :offset => 0 }
-    payload.merge!(RightScale::AuditFormatter.info('INFO'))
-    @sender.should_receive(:send_push).once.with('/auditor/update_entry', payload)
+    @payload.merge!(RightScale::AuditFormatter.info('INFO'))
     @audit_proxy.append_info('INFO', :category => '__INVALID__')
   end
 
   it 'should honor the event category' do
-    payload = { :category => RightScale::EventCategories::CATEGORY_SECURITY, :audit_id => @audit_id, :offset => 0 }
-    payload.merge!(RightScale::AuditFormatter.info('INFO'))
-    @sender.should_receive(:send_push).once.with('/auditor/update_entry', payload)
+    @payload.merge!(:category => RightScale::EventCategories::CATEGORY_SECURITY)
+    @payload.merge!(RightScale::AuditFormatter.info('INFO'))
     @audit_proxy.append_info('INFO', :category => RightScale::EventCategories::CATEGORY_SECURITY)
   end
 
@@ -89,14 +81,26 @@ describe RightScale::AuditProxy do
     old_size = RightScale::AuditProxy::MAX_AUDIT_SIZE
     begin
       RightScale::AuditProxy.const_set(:MAX_AUDIT_SIZE, 0)
-      payload = { :category => RightScale::EventCategories::NONE, :audit_id => @audit_id, :offset => 0 }
-      payload.merge!(RightScale::AuditFormatter.output('OUTPUT'))
-      @sender.should_receive(:send_push).once.with('/auditor/update_entry', payload)
+      @payload.merge!(:category => RightScale::EventCategories::NONE)
+      @payload.merge!(RightScale::AuditFormatter.output('OUTPUT'))
       @audit_proxy.append_output('OUTPUT')
     ensure
       RightScale::AuditProxy.const_set(:MAX_AUDIT_SIZE, old_size)
     end
   end
 
+  it 'should log error if audit update request fails' do
+    flexmock(RightScale::Log).should_receive(:error).with("Failed to send update for audit 1 (timed out)").once
+    @retryable_request.should_receive(:errback).and_yield("timed out").once
+    @payload.merge!(RightScale::AuditFormatter.info('INFO'))
+    @audit_proxy.append_info('INFO')
+  end
+
+  it 'should log error if audit update request setup fails' do
+    flexmock(RightScale::Log).should_receive(:error).with("Failed to send update for audit 1", RuntimeError, :trace).once
+    @retryable_request.should_receive(:run).and_raise(RuntimeError)
+    @payload.merge!(RightScale::AuditFormatter.info('INFO'))
+    @audit_proxy.append_info('INFO')
+  end
 end
 
