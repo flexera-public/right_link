@@ -54,8 +54,15 @@ module RightScale
       true
     end
 
+    # TODO: remove then rightboot run order is fixed
+    def restart_network
+      runshell("pkill dhclient || true")
+      runshell("service network restart")
+    end
+
     def configure_network
       super
+      restart_network if ENV.keys.any? { |k| k =~ /RS_IP\d/ }
       # update authorized_keys file from metadata
       public_key = get_public_ssh_key_from_metadata()
       update_authorized_keys(public_key)
