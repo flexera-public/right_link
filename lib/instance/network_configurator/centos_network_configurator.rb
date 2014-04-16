@@ -62,7 +62,7 @@ module RightScale
 
     def configure_network
       super
-      restart_network
+      restart_network if ENV.keys.any? { |k| k =~ /RS_IP\d/ }
       # update authorized_keys file from metadata
       public_key = get_public_ssh_key_from_metadata()
       update_authorized_keys(public_key)
