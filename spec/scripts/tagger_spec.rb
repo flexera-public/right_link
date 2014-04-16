@@ -154,11 +154,11 @@ describe RightScale::Tagger do
   context 'rs_tag --list' do
     it 'should list known tags on the instance' do
       listing = ::RightScale::TaggerSpec::DEFAULT_QUERY_RESULT[ ::RightScale::TaggerSpec::RS_INSTANCE_ID_1 ]["tags"]
-      flexmock(subject).should_receive(:send_command).with(
-        { :name => :get_tags },
-        false,
-        120,
-        Proc).once.and_yield(listing)
+      flexmock(subject)
+        .should_receive(:send_command)
+        .with({ :name => :get_tags },false, 120)
+        .once
+        .and_return(listing)
       flexmock(subject).should_receive(:serialize_operation_result).never
       run_tagger(['-l'])
       @error.should == []
@@ -184,9 +184,9 @@ describe RightScale::Tagger do
       expected_cmd = { :name => :query_tags, :tags => Array(expected_tags) }
       flexmock(subject).
         should_receive(:send_command).
-        with(expected_cmd, false, 120, Proc).
+        with(expected_cmd, false, 120).
         once.
-        and_yield('stuff')
+        and_return('stuff')
       flexmock(subject).
         should_receive(:serialize_operation_result).
         with('stuff').
@@ -252,9 +252,9 @@ describe RightScale::Tagger do
       expected_cmd = { :name => :add_tag, :tag => 'x:y=z' }
       flexmock(subject).
         should_receive(:send_command).
-        with(expected_cmd, false, 120,Proc).
+        with(expected_cmd, false, 120).
         once.
-        and_yield('stuff')
+        and_return('stuff')
       flexmock(subject).should_receive(:serialize_operation_result).with('stuff').once.and_return(::RightScale::OperationResult.success(true))
       run_tagger(['-a', 'x:y=z'])
       @error.should == ["Successfully added tag x:y=z"]
@@ -275,9 +275,9 @@ describe RightScale::Tagger do
       expected_cmd = { :name => :remove_tag, :tag => 'x:y' }
       flexmock(subject).
         should_receive(:send_command).
-        with(expected_cmd, false, 120, Proc).
+        with(expected_cmd, false, 120).
         once.
-        and_yield('stuff')
+        and_return('stuff')
       flexmock(subject).
         should_receive(:serialize_operation_result).
         with('stuff').

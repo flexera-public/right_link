@@ -96,7 +96,7 @@ module RightScale
       r = serialize_operation_result(res)
       raise TagError.new("Add tag failed: #{r.inspect}", 47) unless r.kind_of?(OperationResult)
       if r.success?
-        write_output("Successfully added tag #{options[:tag]}")
+        write_error("Successfully added tag #{options[:tag]}")
       else
         raise TagError.new("Add tag failed: #{r.content}", 54)
       end
