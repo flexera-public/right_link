@@ -4,33 +4,38 @@ Released 2014-04-17
 
 == Known Limitations
 
-* on vSphere if server has been stopped and then started again rs_state utility with type 'run' will return 'booting' instead of 'booting:reboot' during booting.
+* Sometimes RightLink fails to sync up time using System NTP service so it uses RS_ISLAND instead
+* ohai command line tool supports a more limited data set, especially on Windows. Use rs_ohai instead. 
+* vSphere cloud
+    * After stop/start of a server, rs_state utility will return a "run" state of booting instead of booting:reboot.  RS_REBOOT will also be set to false instead of true.  
+    * Does not support changing of static ip information between a stop/start or between reboots
+    * When rebundling (snapshotting) images, you MUST reset network configuration and clean out all RightLink state, else static network configuration will not be configured correctly on boot as it will retain the old interface setup.  
+        * On Linux, remove the /var/lib/rightscale directory
+        * On Windows, run RightScale supplied sysprep. This hooks into RightLink to remove the state from C:\ProgramData\RightScale.
+    * Only v14 ServerTemplates are supported due to the Chef and Ruby version bump.
+    * When setting a static IP address, there will be a delay in the boot sequence as the DHCP client times out waiting for a response.
+    * RightImages have ntpd pre-configured for public servers, there may be some warning in logs until the boot recipes configure NTP
+    * Detection of private networks is limited to well-known subnets as defined in RFC-1918: 10.0.0.0, 192.168.0.0, 172.16.0.0, 172.2.0.0, 172.30.0.0 and 172.31.0.0
+    * For RightLink to work on a vSphere Linux template (aka image), the operating system must be able to automount the fd0 device at /mnt/metadata. CentOS images have a known limitation: https://bugzilla.redhat.com/show_bug.cgi?id=503308. For CentOS 6 systems, execute "echo 'alias acpi:PNP0700: floppy' > /etc/modprobe.d/floppy-pnp.conf".
+    *  Windows 2008/2012 and Ubuntu operating systems support only 1 network interface at this time.
 
 == Bug fixes
 
-* RightLink crashes during execution of RightScript or Chef recipe that contain utf-8 character
-* rs_tag utility does not show error message during adding, query or removing tag.
-* On Linux DHCP service resets static network setting assigned by RightLink
-
+* Linux RightScripts and Chef recipes that contain or output UTF-8 characters now correctly execute.
+* rs_tag utility now returns non-zero status if it fails to add or remove a tag.
+* Linux: Setting a static network configuration now disables DHCP client to avoid reconfiguration conflicts.
 
 = 6.0.2 (RightLink 6.0 release candidate 3)
 
 Released 2014-04-14
 
-== Changes to Existing Functionality
-
-* HTTP client in right_agent uses non-blocking i/o via EM::HttpRequest
-* Enhance error output for right_script and powershell providers in chef recipes
-
-== Known Limitations
-
-* Sometimes RightLink fails to sync up time using System NTP service so it uses RS_ISLAND instead
-
 == Bug fixes
 
-* rubygems not being configured to use rightscale mirror
-* rs_state sometimes errors out incorrectly
-* RightLink does not create an empty /etc/apt/sources.list during repository configuration
+* Internal API client switched to non-blocking version.  This fixes issues with lost log messages and spurious error messages after running an rs_shutdown request
+* Remove extraneous output when RightScripts exited with a non-success status
+* System and chef rubygems now configured to use rightscale mirror
+* Fix for rs_state sometimes returning an empty value on decommission
+* /etc/apt/sources.list during repository configuration
 
 = 6.0.1 (RightLink 6.0 release candidate 2)
 
@@ -39,14 +44,6 @@ Released 2014-04-03
 == Changes to Existing Functionality
 
 * Enable Chef report and error handlers.
-
-== Known Limitations
-
-* vSphere: Windows 2008/2012 and Ubuntu operating systems support only 1 network interface at this time.
-* Original vanilla ohai tool doesn't support cloud and cloud specific attributes under Windows platform. Use RightScale rs_ohai tool instead.
-* RightLink repository configuration module deletes /etc/apt/sources.list. This may cause issues in applications such as update-notifier (https://bugs.launchpad.net/ubuntu/+source/update-notifier/+bug/944751)
-* RightScripts will generate unnecessary log lines about report or error handlers running. These should be ignored.
-* RightScripts with non-ASCII characters will currently fail to execute. Tags with non-ASCII characters will not be added.
 
 == Bug fixes
 
@@ -81,17 +78,6 @@ Released 2014-03-06
 * rs_tag --query now accepts multiple parameters instead of single string
 * Removed custom Chef resources: right_link_tag, remote_recipe, server_collection and rs_shutdown. Use the RightLink command-line utilities instead.
 
-== Known Limitations
-
-* Initiating a system reboot from a script running inside the boot bundle may lead to unexpected error messages. Any decommission script will block behind the boot bundle until its complete, which may generate a timeout errors from the managing RightLink agent process.
-* rs_ohai [cloudstack|softlayer|vsphere] provides limited attribute list.
-* vSphere cloud
-  * Only v14 ServerTemplate are supported.
-  * When setting a static IP address, there will be a delay in the boot sequence as the DHCP client times out waiting for a response.
-  * RightImages have ntpd pre-configured for public servers, there may be some warning in logs until the boot recipes configure NTP
-  * Detection of private networks is limited to well-known subnets as defined in RFC-1918:
-    10.0.0.0, 192.168.0.0, 172.16.0.0, 172.2.0.0, 172.30.0.0 and 172.31.0.0
-  * For RightLink to work on a vSphere Linux template (aka image), the operating system must be able to automount the fd0 device at /mnt/metadata. CentOS images have a known limitation: https://bugzilla.redhat.com/show_bug.cgi?id=503308. For CentOS 6 systems, execute "echo 'alias acpi:PNP0700: floppy' > /etc/modprobe.d/floppy-pnp.conf".
 
 = 5.9.5 (RightLink 5.9 GA Release)
 
