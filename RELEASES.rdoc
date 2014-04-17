@@ -1,3 +1,18 @@
+= 6.0.3 (RightLink 6.0 release candidate 4)
+
+Released 2014-04-17
+
+== Known Limitations
+
+* on vSphere if server has been stopped and then started again rs_state utility with type 'run' will return 'booting' instead of 'booting:reboot' during booting.
+
+== Bug fixes
+
+* RightLink crashes during execution of RightScript or Chef recipe that contain utf-8 character
+* rs_tag utility does not show error message during adding, query or removing tag.
+* On Linux DHCP service resets static network setting assigned by RightLink
+
+
 = 6.0.2 (RightLink 6.0 release candidate 3)
 
 Released 2014-04-14
