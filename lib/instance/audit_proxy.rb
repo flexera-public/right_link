@@ -42,6 +42,9 @@ module RightScale
     # in seconds
     MAX_AUDIT_DELAY = 2
 
+    # Maximum time to repeatedly attempt to deliver audit
+    AUDIT_DELIVERY_TIMEOUT = 2 * 60 * 60
+
     # (Fixnum) Underlying audit id
     attr_reader :audit_id
 
@@ -199,9 +202,12 @@ module RightScale
       begin
         audit = AuditFormatter.__send__(options[:kind], options[:text])
         @size += audit[:detail].size
-        Sender.instance.send_push("/auditor/update_entry", opts.merge(audit))
+        request = RetryableRequest.new("/auditor/update_entry", opts.merge(audit), :timeout => AUDIT_DELIVERY_TIMEOUT)
+        request.callback { |_| } # No result of interest other than know it was successful
+        request.errback { |message| Log.error("Failed to send update for audit #{@audit_id} (#{message})") }
+        request.run
       rescue Exception => e
-        Log.warning("Failed to send audit", e, :trace)
+        Log.error("Failed to send update for audit #{@audit_id}", e, :trace)
       end
 
       true
