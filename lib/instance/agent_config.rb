@@ -22,6 +22,13 @@
 
 require 'rbconfig'
 
+# On Windows the default external encoding is IBM437. We want to enforce UTF-8
+# as all the data communication from the core site is in UTF-8.
+if RUBY_VERSION >= "1.9"
+  Encoding.default_external = "UTF-8"
+  Encoding.default_internal = "UTF-8"
+end
+
 module RightScale
 
   # Extend AgentConfig for instance agents
