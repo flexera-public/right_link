@@ -95,7 +95,7 @@ module RightScale
         routes = ENV.keys.select { |k| k =~ /^RS_ROUTE(\d+)$/ }
         routes.each do |route|
           nat_server_ip, cidr = ENV[route].strip.split(/[,:]/)
-          network_route_add(cidr, nat_server_ip)
+          network_route_add(cidr.strip, nat_server_ip.strip)
         end
       rescue Exception => e
         logger.error "Detected an error while adding routes to NAT #{e.class}: #{e.message}"
@@ -189,10 +189,10 @@ module RightScale
     def add_static_ip(n_ip=0)
       begin
         # required metadata values
-        ipaddr = ENV["RS_IP#{n_ip}_ADDR"]
-        netmask = ENV["RS_IP#{n_ip}_NETMASK"]
+        ipaddr = ENV["RS_IP#{n_ip}_ADDR"].strip
+        netmask = ENV["RS_IP#{n_ip}_NETMASK"].strip
         # optional
-        gateway = ENV["RS_IP#{n_ip}_GATEWAY"]
+        gateway = ENV["RS_IP#{n_ip}_GATEWAY"].strip
         device = shell_escape_if_necessary(os_net_devices[n_ip])
 
         if ipaddr

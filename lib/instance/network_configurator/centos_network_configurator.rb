@@ -15,7 +15,7 @@ module RightScale
     # === Return
     # public_key(String):: A public SSH key
     def get_public_ssh_key_from_metadata
-      public_key = ENV['VS_SSH_PUBLIC_KEY']
+      public_key = ENV['VS_SSH_PUBLIC_KEY'].strip
       # was there a key found?
       if public_key.nil? || public_key.empty?
         logger.warn "No public SSH key found in metadata"
