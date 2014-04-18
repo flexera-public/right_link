@@ -84,7 +84,7 @@ module RightScale
       sleep(2) while ip != get_device_ip(device)
     end
 
-    def configure_network_adaptor(device, ip, netmask, gateway, nameservers)
+    def configure_network_adaptor(device, ip, netmask, gateway, nameservers = [])
       super
 
       cmd = "netsh interface ip set address name=#{device} source=static addr=#{ip} mask=#{netmask} gateway="
@@ -92,7 +92,7 @@ module RightScale
       runshell(cmd)
       wait_for_configuration_appliance(device, ip)
 
-      if nameservers
+      if nameservers && nameservers.length > 0
         unless all_nameservers_match?(device, nameservers)
           nameservers.each_with_index do |n, i|
             add_nameserver_to_device(device, n, i + 1)

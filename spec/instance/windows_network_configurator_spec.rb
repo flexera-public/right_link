@@ -12,9 +12,7 @@ describe RightScale::WindowsNetworkConfigurator do
   describe "Static IP configuration" do
     before(:each) do
       ENV.delete_if { |k,v| k.start_with?("RS_IP") }
-      ENV.delete_if { |k,v| k.start_with?("RS_NAMESERVER") }
-      ENV['RS_NAMESERVER0'] = '8.8.8.8'
-      ENV['RS_NAMESERVER1'] = '8.8.4.4'
+      ENV['RS_IP0_NAMESERVERS'] = '8.8.8.8,8.8.4.4'
     end
 
     let(:device) { "Local Area Connection" }
@@ -58,6 +56,7 @@ describe RightScale::WindowsNetworkConfigurator do
 
       # optional
       ENV['RS_IP0_GATEWAY'] = gateway
+
       cmd = "netsh interface ip set address name=#{device.inspect} source=static addr=#{ip} mask=#{netmask} gateway="
       cmd += gateway ? "#{gateway} gwmetric=1" : "none"
 

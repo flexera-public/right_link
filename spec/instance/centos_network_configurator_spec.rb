@@ -149,8 +149,7 @@ default via 174.36.32.33 dev eth0  metric 100
     describe "Static IP configuration" do
       before(:each) do
         ENV.delete_if { |k,v| k.start_with?("RS_IP") }
-        ENV.delete_if { |k,v| k.start_with?("RS_NAMESERVER") }
-        ENV['RS_NAMESERVER0'] = '8.8.8.8'
+        ENV['RS_IP0_NAMESERVERS'] = '8.8.8.8'
       end
 
       def test_eth_config_data(device, ip, gateway, netmask, nameservers)
@@ -183,15 +182,6 @@ EOF
       let(:eth_config_data) { test_eth_config_data(device, ip, nil, netmask, nameservers) }
       let(:eth_config_data_w_gateway) { test_eth_config_data(device, ip, gateway, netmask, nameservers) }
 
-      it "updates resolv.conf if needed" do
-        ENV['RS_NAMESERVER0'] = "8.8.4.4"
-        ENV['RS_NAMESERVER1'] = "1.2.3.4"
-        ENV['RS_NAMESERVER2'] = "8.8.8.8"
-        flexmock(subject).should_receive(:resolv_conf).and_return("/tmp/output")
-        File.write("/tmp/output","nameserver 8.8.8.8\n")
-        subject.add_global_nameservers
-        File.read("/tmp/output").should == "nameserver 8.8.8.8\nnameserver 8.8.4.4\nnameserver 1.2.3.4\n"
-      end
 
       it "updates ifcfg-eth0" do
         flexmock(subject).should_receive(:runshell).with("ifconfig #{device} #{ip} netmask #{netmask}").times(1)

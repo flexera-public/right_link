@@ -27,7 +27,7 @@ source /etc/network/interfaces.d/*.cfg
       "/etc/network/interfaces.d/#{device}.cfg"
     end
 
-    def config_data(device, ip, netmask, gateway, nameservers = nil)
+    def config_data(device, ip, netmask, gateway, nameservers = [])
       config_data = <<-EOH
 # File managed by RightScale
 # DO NOT EDIT
@@ -37,7 +37,7 @@ address #{ip}
 netmask #{netmask}
 EOH
       config_data << "gateway #{gateway}\n" if gateway
-      if nameservers
+      if nameservers && nameservers.length > 0
         config_data << "dns-nameservers #{nameservers.join(" ")}\n"
       end
     end

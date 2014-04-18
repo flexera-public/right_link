@@ -15,7 +15,7 @@ module RightScale
     # === Return
     # public_key(String):: A public SSH key
     def get_public_ssh_key_from_metadata
-      public_key = ENV['VS_SSH_PUBLIC_KEY'].strip
+      public_key = ENV['VS_SSH_PUBLIC_KEY'].to_s.strip
       # was there a key found?
       if public_key.nil? || public_key.empty?
         logger.warn "No public SSH key found in metadata"
@@ -61,11 +61,15 @@ module RightScale
     end
 
     def configure_network
+      # update authorized_keys file from metadata
+      begin
+        public_key = get_public_ssh_key_from_metadata()
+        update_authorized_keys(public_key)
+      rescue Exception => e
+        Logger.error("Error installing ssh private key material: #{e.message}")
+      end
       super
       restart_network if ENV.keys.any? { |k| k =~ /RS_IP\d_ADDR/ }
-      # update authorized_keys file from metadata
-      public_key = get_public_ssh_key_from_metadata()
-      update_authorized_keys(public_key)
     end
 
     def routes_for_device(device)
@@ -139,7 +143,6 @@ module RightScale
       routes_file = routes_file(device)
       ip_route_cmd = ip_route_cmd(network, nat_server_ip)
 
-
       update_config_file(
         routes_file,
         ip_route_cmd,
@@ -183,7 +186,7 @@ module RightScale
       config_file = "/etc/sysconfig/network-scripts/ifcfg-#{device}"
     end
 
-    def config_data(device, ip, netmask, gateway, nameservers = nil)
+    def config_data(device, ip, netmask, gateway, nameservers = [])
 
       config_data = <<-EOH
 # File managed by RightScale
@@ -197,7 +200,7 @@ IPADDR=#{ip}
 USERCTL=no
 PEERDNS=yes
 EOH
-      if nameservers
+      if nameservers && nameservers.length > 0
         nameservers.each_with_index do |n, i|
           config_data << "DNS#{i+1}=#{n}\n"
         end
@@ -221,37 +224,6 @@ EOH
       ip
     end
 
-    # Set up our nameservers in the global nameserver config as well
-    #
-    # Will not add if it already exists
-    #
-    # === Parameters
-    # none
-    #
-    # === Raise
-    # StandardError:: if unable to add nameserver
-    #
-    # === Return
-    # result(True):: Always returns true
-    def add_global_nameservers
-      config_data = File.read(resolv_conf)
-      config_data.chomp!
-      config_data << "\n"
-
-      nameservers.each do |nameserver|
-        logger.info "Added nameserver #{nameserver} to #{resolv_conf}"
-        unless config_data.include?(nameserver)
-          config_data << "nameserver " << nameserver << "\n"
-        end
-      end
-
-      File.write(resolv_conf, config_data)
-      true
-    end
-
-    def resolv_conf
-      "/etc/resolv.conf"
-    end
 
     # Add line to config file
     #
