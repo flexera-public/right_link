@@ -70,12 +70,12 @@ module RightScale
     # === Parameters
     # network(String):: target network in CIDR notation
     def configure_network
-      # return if already_configured?
+      return if already_configured?
       add_static_ips
       # add routes for nat server
       # this needs to be done after our IPs are configured
       add_static_routes_for_network
-      # set_network_configured_marker
+      set_network_configured_marker
     end
 
     #
