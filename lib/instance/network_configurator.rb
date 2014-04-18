@@ -89,15 +89,15 @@ module RightScale
     # === Return
     # result(True):: Always true
     def add_static_routes_for_network
-      begin
-        # required metadata values
-        routes = ENV.keys.select { |k| k =~ /^RS_ROUTE(\d+)$/ }
-        routes.each do |route|
+      # required metadata values
+      routes = ENV.keys.select { |k| k =~ /^RS_ROUTE(\d+)$/ }
+      routes.each do |route|
+        begin
           nat_server_ip, cidr = ENV[route].strip.split(/[,:]/)
           network_route_add(cidr.to_s.strip, nat_server_ip.to_s.strip)
+        rescue Exception => e  
+          logger.error "Detected an error while adding route to NAT #{e.class}: #{e.message}"
         end
-      rescue Exception => e
-        logger.error "Detected an error while adding routes to NAT #{e.class}: #{e.message}"
       end
       true
     end
@@ -207,6 +207,7 @@ module RightScale
         end
       rescue Exception => e
         logger.error "Detected an error while configuring static IP#{n_ip}: #{e.message}"
+        raise e
       end
     end
 
