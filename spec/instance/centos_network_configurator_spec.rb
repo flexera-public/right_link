@@ -72,10 +72,16 @@ describe RightScale::CentosNetworkConfigurator do
 
   describe "NAT routing" do
 
-    let(:nat_server_ip) { "10.37.128.195" }
-    let(:nat_ranges_string) { "1.2.4.0/24, 1.2.5.0/24, 1.2.6.0/24" }
-    let(:nat_ranges) { ["1.2.4.0/24", "1.2.5.0/24", "1.2.6.0/24"] }
-    let(:network_cidr) { "8.8.8.0/24" }
+    before(:each) do
+      ENV.delete_if { |k,v| k.start_with?("RS_ROUTE") }
+    end
+
+    let(:nat_server_ip) { "10.37.128.2" }
+    let(:route0) { }
+    let(:route1) { "10.37.128.2:1.2.5.0/24" }
+    let(:route2) { "10.37.128.2:1.2.6.0/24" }
+
+    let(:network_cidr) { "10.37.128.0/24" }
     let(:before_routes) { "default via 174.36.32.33 dev eth0  metric 100" }
 
     let(:routes_file) { "/etc/sysconfig/network-scripts/route-eth0" }
@@ -123,13 +129,16 @@ default via 174.36.32.33 dev eth0  metric 100
     end
 
     it "appends all static routes" do
-      ENV['RS_NAT_ADDRESS'] = nat_server_ip
-      ENV['RS_NAT_RANGES'] = network_cidr
+      ENV['RS_ROUTE0'] = "#{nat_server_ip}:1.2.4.0/24" 
+      ENV['RS_ROUTE1'] = "#{nat_server_ip}:1.2.5.0/24" 
+      ENV['RS_ROUTE2'] = "#{nat_server_ip}:1.2.6.0/24" 
 
       # network route add
-      flexmock(subject).should_receive(:runshell).with("ip route add #{network_cidr} via #{nat_server_ip}").times(1)
+      flexmock(subject).should_receive(:runshell).with("ip route add 1.2.4.0/24 via #{nat_server_ip}")
+      flexmock(subject).should_receive(:runshell).with("ip route add 1.2.5.0/24 via #{nat_server_ip}")
+      flexmock(subject).should_receive(:runshell).with("ip route add 1.2.6.0/24 via #{nat_server_ip}")
       flexmock(subject).should_receive(:routes_show).and_return(before_routes)
-      flexmock(subject).should_receive(:update_route_file).times(1)
+      flexmock(subject).should_receive(:update_route_file).times(3)
       flexmock(subject).should_receive(:route_device).and_return("eth0")
 
       subject.add_static_routes_for_network
@@ -140,6 +149,8 @@ default via 174.36.32.33 dev eth0  metric 100
     describe "Static IP configuration" do
       before(:each) do
         ENV.delete_if { |k,v| k.start_with?("RS_IP") }
+        ENV.delete_if { |k,v| k.start_with?("RS_NAMESERVER") }
+        ENV['RS_NAMESERVER0'] = '8.8.8.8'
       end
 
       def test_eth_config_data(device, ip, gateway, netmask, nameservers)
@@ -153,10 +164,13 @@ GATEWAY=#{gateway}
 NETMASK=#{netmask}
 IPADDR=#{ip}
 USERCTL=no
-DNS1=#{nameservers[0]}
-DNS2=#{nameservers[1]}
 PEERDNS=yes
 EOF
+        if nameservers
+          nameservers.each_with_index do |n, i|
+            data << "DNS#{i+1}=#{n}\n" 
+          end
+        end
         data
       end
 
@@ -164,39 +178,19 @@ EOF
       let(:ip) { "1.2.3.4" }
       let(:gateway) { "1.2.3.1" }
       let(:netmask) { "255.255.255.0" }
-      let(:nameservers_string) { "8.8.8.8, 8.8.4.4" }
-      let(:nameservers) { [ "8.8.8.8", "8.8.4.4"] }
-
-      let(:resolv_conf_before) {"nameserver 8.8.8.8\nnameserver 8.8.4.4"}
-      let(:resolv_conf_after) {"nameserver 8.8.8.8\nnameserver 8.8.4.4"}
+      let(:nameservers) { [ "8.8.8.8"] }
 
       let(:eth_config_data) { test_eth_config_data(device, ip, nil, netmask, nameservers) }
       let(:eth_config_data_w_gateway) { test_eth_config_data(device, ip, gateway, netmask, nameservers) }
 
-      it "parses dns servers to array" do
-        subject.parse_array("8.8.8.8,8.8.4.4").should == nameservers
-      end
-
-      it "missing nameserver returns false" do
-        flexmock(subject).should_receive(:namservers_show).and_return("")
-        subject.nameserver_exists?(nameservers[0]).should == false
-      end
-
-      it "existing nameserver returns true" do
-        flexmock(subject).should_receive(:namservers_show).and_return("nameserver 8.8.8.8\nnameserver 8.8.4.4")
-        subject.nameserver_exists?(nameservers[0]).should == true
-      end
-
       it "updates resolv.conf if needed" do
-        flexmock(subject).should_receive(:nameserver_exists?).and_return(true)
-        flexmock(File).should_receive(:open).times(0)
-        subject.nameserver_add("8.8.8.8")
-      end
-
-      it "doesn't update resolv.conf if not needed" do
-        flexmock(subject).should_receive(:nameserver_exists?).and_return(false)
-        flexmock(File).should_receive(:open).times(1)
-        subject.nameserver_add("8.8.8.8")
+        ENV['RS_NAMESERVER0'] = "8.8.4.4"
+        ENV['RS_NAMESERVER1'] = "1.2.3.4"
+        ENV['RS_NAMESERVER2'] = "8.8.8.8"
+        flexmock(subject).should_receive(:resolv_conf).and_return("/tmp/output")
+        File.write("/tmp/output","nameserver 8.8.8.8\n")
+        subject.add_global_nameservers
+        File.read("/tmp/output").should == "nameserver 8.8.8.8\nnameserver 8.8.4.4\nnameserver 1.2.3.4\n"
       end
 
       it "updates ifcfg-eth0" do
@@ -210,9 +204,7 @@ EOF
       it "adds a static IP config for eth0" do
         ENV['RS_IP0_ADDR'] = ip
         ENV['RS_IP0_NETMASK'] = netmask
-        ENV['RS_IP0_NAMESERVERS'] = nameservers_string
 
-        flexmock(subject).should_receive(:nameserver_add).times(2)
         flexmock(subject).should_receive(:runshell).with("ifconfig #{device} #{ip} netmask #{netmask}").times(1)
         flexmock(subject).should_receive(:runshell).with("route add default gw #{gateway}").times(0)
         flexmock(subject).should_receive(:network_route_exists?).and_return(false).times(0)
@@ -223,12 +215,10 @@ EOF
       it "supports optional RS_IP0_GATEWAY value" do
         ENV['RS_IP0_ADDR'] = ip
         ENV['RS_IP0_NETMASK'] = netmask
-        ENV['RS_IP0_NAMESERVERS'] = nameservers_string
 
         # optional
         ENV['RS_IP0_GATEWAY'] = gateway
 
-        flexmock(subject).should_receive(:nameserver_add).times(2)
         flexmock(subject).should_receive(:runshell).with("ifconfig #{device} #{ip} netmask #{netmask}").times(1)
         flexmock(subject).should_receive(:runshell).with("route add default gw #{gateway}").times(1)
         flexmock(subject).should_receive(:network_route_exists?).and_return(false).times(1)
@@ -242,11 +232,10 @@ EOF
         10.times do |i|
           ENV["RS_IP#{i}_ADDR"] = ip
           ENV["RS_IP#{i}_NETMASK"] = netmask
-          ENV["RS_IP#{i}_NAMESERVERS"] = nameservers_string
           ifconfig_cmds << "ifconfig eth#{i} #{ip} netmask #{netmask}"
-          eth_configs <<  test_eth_config_data("eth#{i}", ip, nil, netmask, nameservers)
+          attached_nameservers =  (i == 0) ? nameservers : nil
+          eth_configs <<  test_eth_config_data("eth#{i}", ip, nil, netmask, attached_nameservers)
         end
-        flexmock(subject).should_receive(:nameserver_add).times(2*10)
         flexmock(subject).should_receive(:runshell).with(on { |cmd| ifconfig_cmds.include?(cmd) }).times(10)
         flexmock(subject).should_receive(:runshell).with("route add default gw #{gateway}").times(0)
         flexmock(subject).should_receive(:network_route_exists?).and_return(false).times(0)

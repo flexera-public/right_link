@@ -183,7 +183,8 @@ module RightScale
       config_file = "/etc/sysconfig/network-scripts/ifcfg-#{device}"
     end
 
-    def config_data(device, ip, netmask, gateway, nameservers)
+    def config_data(device, ip, netmask, gateway, nameservers = nil)
+
       config_data = <<-EOH
 # File managed by RightScale
 # DO NOT EDIT
@@ -194,10 +195,14 @@ GATEWAY=#{gateway}
 NETMASK=#{netmask}
 IPADDR=#{ip}
 USERCTL=no
-DNS1=#{nameservers[0]}
-DNS2=#{nameservers[1]}
 PEERDNS=yes
 EOH
+      if nameservers
+        nameservers.each_with_index do |n, i|
+          config_data << "DNS#{i+1}=#{n}\n"
+        end
+      end
+      config_data
     end
 
     # NOTE: not idempotent -- it will always all ifconfig and write config file
@@ -216,21 +221,36 @@ EOH
       ip
     end
 
-    def internal_nameserver_add(nameserver_ip, index=nil,device=nil)
-      config_file="/etc/resolv.conf"
-      logger.info "Added nameserver #{nameserver_ip} to #{config_file}"
-      File.open(config_file, "a") {|f| f.write("nameserver #{nameserver_ip}\n") }
+    # Set up our nameservers in the global nameserver config as well
+    #
+    # Will not add if it already exists
+    #
+    # === Parameters
+    # none
+    #
+    # === Raise
+    # StandardError:: if unable to add nameserver
+    #
+    # === Return
+    # result(True):: Always returns true
+    def add_global_nameservers
+      config_data = File.read(resolv_conf)
+      config_data.chomp!
+      config_data << "\n"
+
+      nameservers.each do |nameserver|
+        logger.info "Added nameserver #{nameserver} to #{resolv_conf}"
+        unless config_data.include?(nameserver)
+          config_data << "nameserver " << nameserver << "\n"
+        end
+      end
+
+      File.write(resolv_conf, config_data)
       true
     end
 
-    def namservers_show(device=nil)
-      contents = ""
-      begin
-        File.open("/etc/resolv.conf", "r") { |f| contents = f.read() }
-      rescue
-        logger.warn "Unable to open /etc/resolv.conf. It will be created"
-      end
-      contents
+    def resolv_conf
+      "/etc/resolv.conf"
     end
 
     # Add line to config file

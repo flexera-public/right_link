@@ -65,17 +65,18 @@ module RightScale
       FileUtils.touch(NETWORK_CONFIGURED_MARKER)
     end
 
-    # Performs network configuration
+    # Performs network configuration. 
     #
     # === Parameters
     # network(String):: target network in CIDR notation
     def configure_network
-      return if already_configured?
+      # return if already_configured?
       add_static_ips
+      add_global_nameservers
       # add routes for nat server
       # this needs to be done after our IPs are configured
       add_static_routes_for_network
-      set_network_configured_marker
+      # set_network_configured_marker
     end
 
     #
@@ -84,22 +85,20 @@ module RightScale
 
     # Add routes to external networks via local NAT server
     #
-    # no-op if 'RS_NAT_ADDRESS' is not defined in metadata
+    # no-op if no RS_ROUTE<N> variables are defined
     #
     # === Return
     # result(True):: Always true
     def add_static_routes_for_network
       begin
         # required metadata values
-        nat_server = ENV['RS_NAT_ADDRESS']
-        if nat_server
-          parse_array(ENV['RS_NAT_RANGES']).each do |network|
-            network_route_add(network, nat_server)
-          end
+        routes = ENV.keys.select { |k| k =~ /^RS_ROUTE(\d+)$/ }
+        routes.each do |route|
+          nat_server_ip, cidr = ENV[route].strip.split(/[,:]/)
+          network_route_add(cidr, nat_server_ip)
         end
       rescue Exception => e
-        logger.error "Detected an error while adding routes to NAT"
-        raise e
+        logger.error "Detected an error while adding routes to NAT #{e.class}: #{e.message}"
       end
       true
     end
@@ -122,7 +121,7 @@ module RightScale
       raise "ERROR: invalid CIDR network : '#{network}'" unless valid_ipv4_cidr?(network)
       route_str = "#{network} via #{nat_server_ip}"
       if network_route_exists?(network, nat_server_ip)
-        logger.info "Route already exists to #{route_str}"
+        logger.debug "Route already exists to #{route_str}"
         return true
       end
 
@@ -165,10 +164,14 @@ module RightScale
     #
     def add_static_ips
       # configure static IP (if specified in metadata)
-      static_ips = ENV.collect { |k, _| k if k =~ /RS_IP\d_ADDR/ }.compact
-      static_ips.map { |ip_env_name| ip_env_name =~ /RS_IP(\d)_ADDR/; $1.to_i }.each do |n_ip|
+      static_ip_numerals.each do |n_ip|
         add_static_ip(n_ip)
       end
+    end
+
+    def static_ip_numerals
+      static_ips = ENV.keys.select { |k| k =~ /^RS_IP\d+_ADDR$/ }
+      static_ips.map { |ip_env_name| ip_env_name =~ /RS_IP(\d+)_ADDR/; $1.to_i }
     end
 
     # Platform specific list of default network devices names
@@ -178,37 +181,37 @@ module RightScale
       raise NotImplemented
     end
 
-    # Sets single network adapter static IP addresse and nameservers
+    # Sets single network adapter static IP address
     #
     # Parameters
     # n_ip(Fixnum):: network adapter index
     #
     def add_static_ip(n_ip=0)
-      # required metadata values
-      ipaddr = ENV["RS_IP#{n_ip}_ADDR"]
-      netmask = ENV["RS_IP#{n_ip}_NETMASK"]
-      # optional
-      nameservers_string = ENV["RS_IP#{n_ip}_NAMESERVERS"]
-      gateway = ENV["RS_IP#{n_ip}_GATEWAY"]
-      device = shell_escape_if_necessary(os_net_devices[n_ip])
+      begin
+        # required metadata values
+        ipaddr = ENV["RS_IP#{n_ip}_ADDR"]
+        netmask = ENV["RS_IP#{n_ip}_NETMASK"]
+        # optional
+        gateway = ENV["RS_IP#{n_ip}_GATEWAY"]
+        device = shell_escape_if_necessary(os_net_devices[n_ip])
 
-      if ipaddr
-        logger.info "Setting up static IP address #{ipaddr} for #{device}"
-        logger.debug "Netmask: '#{netmask}' ; gateway: '#{gateway}' ; nameservers: '#{nameservers_string.inspect}'"
-        raise "FATAL: RS_IP#{n_ip}_NETMASK not defined ; Cannot configure static IP address" unless netmask
-        raise "FATAL: RS_IP#{n_ip}_NAMESERVERS not defined ; Cannot configure static IP address" unless nameservers_string
-        # configure DNS
-        nameservers = parse_array(nameservers_string)
-        nameservers.each_with_index do |nameserver, index|
-          nameserver_add(nameserver, index + 1, device)
+        if ipaddr
+          # configure network adaptor
+          attached_nameservers = nil
+          attached_nameservers = nameservers if static_ip_numerals.first == n_ip
+
+          logger.info "Setting up static IP address #{ipaddr} for #{device}"
+          logger.debug "Netmask: '#{netmask}' ; Gateway: '#{gateway}'"
+          logger.debug "Nameservers: '#{attached_nameservers.join(' ')}'" if attached_nameservers
+          raise "FATAL: RS_IP#{n_ip}_NETMASK not defined ; Cannot configure static IP address" unless netmask
+
+          ip = configure_network_adaptor(device, ipaddr, netmask, gateway, attached_nameservers)
         end
-        # configure network adaptor
-        ip = configure_network_adaptor(device, ipaddr, netmask, gateway, nameservers)
+      rescue Exception => e
+        logger.error "Detected an error while configuring static IP#{n_ip}: #{e.message}"
       end
-    rescue Exception => e
-      logger.error "Detected an error while configuring static IP"
-      raise e
     end
+
 
     # Configures a single network adapter with a static IP address
     #
@@ -220,12 +223,8 @@ module RightScale
     # nameservers(Array):: array of nameservers to be set
     #
     def configure_network_adaptor(device, ip, netmask, gateway, nameservers)
-      raise "ERROR: 'nameserver' parameter must be an array" unless nameservers.is_a?(Array)
-      raise "ERROR: invalid IP address: '#{nameserver}'" unless valid_ipv4?(ip)
+      raise "ERROR: invalid IP address: '#{ip}'" unless valid_ipv4?(ip)
       raise "ERROR: invalid netmask: '#{netmask}'" unless valid_ipv4?(netmask)
-      nameservers.each do |nameserver|
-        raise "ERROR: invalid nameserver: '#{nameserver}'" unless valid_ipv4?(nameserver)
-      end
 
       # gateway is optional
       if gateway
@@ -233,32 +232,33 @@ module RightScale
       end
     end
 
-
-    # Add nameserver to DNS entries
+    # Returns a validated list of nameservers
     #
-    # Will not add if it already exists
-    #
-    # === Parameters
-    # nameserver_ip(String):: the IP address of the nameserver
-    # index(Fixnum):: index of nameserver
-    # device(String):: device which is configured
-    #
-    # === Raise
-    # StandardError:: if unable to add nameserver
-    #
-    # === Return
-    # result(True):: Always returns true
-    def nameserver_add(nameserver_ip, index=nil,device=nil)
-      raise "ERROR: invalid nameserver IP address of #{nameserver}" unless valid_ipv4?(nameserver_ip)
-      if nameserver_exists?(nameserver_ip, device)
-        logger.info "Nameserver #{nameserver_ip} already exists"
-        return true
+    # == Parameters
+    # none
+    def nameservers
+      return @nameservers if @nameservers
+      @nameservers = []
+      ENV.each do |k, v|
+        if k =~ /^RS_NAMESERVER(\d+)$/
+          idx = $1.to_i
+          if valid_ipv4?(v.strip)
+            @nameservers[idx] = v.strip
+          else
+            logger.error("ERROR: Invalid nameserver #{v} for #{k}")
+          end
+        end
       end
-      internal_nameserver_add(nameserver_ip, index, device)
+      @nameservers.compact!
+      logger.error("ERROR: No nameservers specified") unless @nameservers.length > 0
+      @nameservers
     end
 
 
-    # Platform specific code to addname server to DNS entries
+    # Add nameservers to global config file. Responsibility of subclasses.  By
+    # default its a no-op as Windows wants per-device nameservers, which we fulfull
+    # by adding all nameservers to the first statically configured device.  Linux
+    # can go either way
     #
     # Responsibility of subclasses
     #
@@ -267,39 +267,8 @@ module RightScale
     # index(Fixnum):: index of nameserver
     # device(String):: device which is configured
     #
-    def internal_nameserver_add(nameserver_ip, index=nil, device=nil)
-      raise NotImplemented
-    end
-
-    # Is nameserver already configured?
-    #
-    # === Parameters
-    # nameserver_ip(String):: the IP address of the nameserver
-    #
-    # === Return
-    # result(Boolean):: true if route exists, else false
-    def nameserver_exists?(nameserver_ip, device=nil)
-      nameservers = namservers_show(device)
-      matchdata = nameservers.match(/#{nameserver_ip}/)
-      matchdata != nil
-    end
-
-    # Get the currently defined nameserver configuration
-    #
-    # === Return
-    # result(String):: results from nameserver query
-    def namservers_show(device=nil)
-      raise NotImplemented
-    end
-
-    # Parse comma-delimited string into an array
-    #
-    # removes any quotes and leading/trailing whitespace
-    #
-    # === Return
-    # result(Array):: Array of things
-    def parse_array(comma_separated_string)
-      comma_separated_string.split(',').map { |item| item.gsub(/\\\"/,""); item.strip }
+    def add_global_nameservers
+      true
     end
 
     # Verifies the format of an IPv4 address
