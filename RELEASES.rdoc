@@ -17,7 +17,7 @@ Released 2014-04-17
     * RightImages have ntpd pre-configured for public servers, there may be some warning in logs until the boot recipes configure NTP
     * Detection of private networks is limited to well-known subnets as defined in RFC-1918: 10.0.0.0, 192.168.0.0, 172.16.0.0, 172.2.0.0, 172.30.0.0 and 172.31.0.0
     * For RightLink to work on a vSphere Linux template (aka image), the operating system must be able to automount the fd0 device at /mnt/metadata. CentOS images have a known limitation: https://bugzilla.redhat.com/show_bug.cgi?id=503308. For CentOS 6 systems, execute "echo 'alias acpi:PNP0700: floppy' > /etc/modprobe.d/floppy-pnp.conf".
-    *  Windows 2008/2012 and Ubuntu operating systems support only 1 network interface at this time.
+    * Only 1 network interface supported at this time.
 
 == Bug fixes
 
