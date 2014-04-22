@@ -19,11 +19,11 @@
 # LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+require 'fileutils'
 
-VSCALE_DEFINITION_VERSION = 0.2
+VSCALE_DEFINITION_VERSION = 0.3
 
-CONFIG_DRIVE_MOUNTPOINT = "/mnt/metadata" unless ::RightScale::Platform.windows?
-CONFIG_DRIVE_MOUNTPOINT = "a:\\" if ::RightScale::Platform.windows?
+CONFIG_DRIVE_MOUNTPOINT = File.join(RightScale::Platform.filesystem.spool_dir, 'vsphere')
 
 # dependencies.
 metadata_source 'metadata_sources/file_metadata_source'
@@ -34,8 +34,12 @@ metadata_writers 'metadata_writers/dictionary_metadata_writer',
 # set abbreviation for non-RS env var generation
 abbreviation :vs
 
-
-
+# Assembles the command line needed to regenerate cloud metadata on demand.
+def cloud_metadata_generation_command
+  ruby_path = File.normalize_path(AgentConfig.ruby_cmd)
+  rs_cloud_path = File.normalize_path(Gem.bin_path('right_link', 'cloud'))
+  return "#{ruby_path} #{rs_cloud_path} --action write_cloud_metadata"
+end
 
 # Parses vsoup user metadata into a hash.
 #
@@ -55,6 +59,14 @@ def cloud_metadata_is_flat(clazz, path, query_result)
   false
 end
 
+# Clear any
+# Extend clear_state method
+alias :_clear_state :clear_state
+def clear_state
+  _clear_state
+  FileUtils.rm_rf(CONFIG_DRIVE_MOUNTPOINT) if File.directory?(CONFIG_DRIVE_MOUNTPOINT)
+end
+
 # userdata defaults
 default_option([:metadata_source, :user_metadata_source_file_path], File.join(CONFIG_DRIVE_MOUNTPOINT, 'user.txt'))
 default_option([:user_metadata, :metadata_tree_climber, :create_leaf_override], method(:create_user_metadata_leaf))
@@ -64,32 +76,4 @@ default_option([:metadata_source, :cloud_metadata_source_file_path], File.join(C
 default_option([:cloud_metadata, :metadata_tree_climber, :create_leaf_override], method(:create_user_metadata_leaf))
 # vsphere cloud_metadata is flat, so paths will never have children -- always return false
 default_option([:cloud_metadata, :metadata_tree_climber, :has_children_override], method(:cloud_metadata_is_flat))
-
-def requires_network_config?
-  true
-end
-
-
-# Loads metadata from file into environment
-#
-def load_metadata
-  begin
-    load(::File.join(RightScale::AgentConfig.cloud_state_dir, 'meta-data.rb'))
-  rescue Exception => e
-    raise "FATAL: Cannot load metadata from #{meta_data_file}"
-  end
-end
-
-# We return two lists of public IPs respectively private IPs to the GW. The is_private_ip
-# test is used to sort the IPs of an instance into these lists. Not perfect but
-# customizable.
-#
-# === Parameters
-# ip(String):: an IPv4 address
-#
-# === Return
-# result(Boolean):: true if format is okay, else false
-def is_private_ipv4(ip)
-  regexp = /\A(10\.|192\.168\.|172\.1[6789]\.|172\.2.\.|172\.3[01]\.)/
-  ip =~ regexp
-end
+default_option([:cloud_metadata, :metadata_writers, :ruby_metadata_writer, :generation_command], cloud_metadata_generation_command)
