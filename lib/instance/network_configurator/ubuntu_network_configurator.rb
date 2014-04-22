@@ -66,9 +66,17 @@ iface #{device} inet dhcp
     def restart_network
       # Until startup scripts are rewritten with Upstart, networking will start
       # ahead of the network configurator and start dhclient, so be sure to kill
-      # it or it'll reconfigure the network
+      # it or it'll reconfigure the network.  
       runshell("pkill dhclient3 || true")
-      runshell("/etc/init.d/networking restart")
+      devices = runshell("ifquery --list").chomp.split("\n")
+      devices.select! { |d| d.include?("eth") }
+      # On ubuntu, networking restart scripts
+      # use ifdown and ifup, which are fairly fragile. If any parameter changes out
+      # from under them (such as we're doing now with static networking config)
+      # they won't fully run -- dns-nameservers scripts will be ignored. Pass a
+      # --force to ignore these issues.
+      devices.each { |d| runshell("ifdown #{d} --force || true") }
+      runshell("/etc/init.d/networking start")
     end
   end
 end
