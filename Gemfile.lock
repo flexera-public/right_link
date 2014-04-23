@@ -100,6 +100,7 @@ GEM
     encryptor (1.3.0)
     erubis (2.7.0)
     eventmachine (1.0.0.6.debug)
+    eventmachine (1.0.0.6.debug-x86-mingw32)
     extlib (0.9.16)
     faye-websocket (0.7.0)
       eventmachine (>= 0.12.0)
