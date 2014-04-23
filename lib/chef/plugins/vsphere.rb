@@ -25,8 +25,7 @@ require 'chef/ohai/mixin/rightlink'
 extend ::Ohai::Mixin::RightLink::CloudUtilities
 
 provides 'vsphere'
-depends 'network/interfaces'
-
+require_plugin 'network'
 
 def looks_like_vsphere?
   looks_like_vsphere = hint?('vsphere')
