@@ -25,7 +25,7 @@ require 'chef/ohai/mixin/rightlink'
 extend ::Ohai::Mixin::RightLink::CloudUtilities
 
 provides 'softlayer'
-depends 'network/interfaces'
+require_plugin 'network'
 
 def looks_like_softlayer?
   looks_like_softlayer = !!hint?('softlayer')
