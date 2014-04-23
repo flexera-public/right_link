@@ -246,7 +246,7 @@ module RightScale
           logger.error("Invalid nameserver #{nameserver} for interface##{n_ip}")
         end
       end
-      # Also a non-fatal error, dhcp could specify nameservers and we're still could
+      # Also a non-fatal error, DHCP or another interface specify nameservers and we're still good
       logger.warn("No valid nameservers specified for static interface##{n_ip}") unless nameservers.length > 0
       nameservers
     end
