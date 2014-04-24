@@ -12,25 +12,25 @@ describe RightScale::WindowsNetworkConfigurator do
   describe "Static IP configuration" do
     before(:each) do
       ENV.delete_if { |k,v| k.start_with?("RS_IP") }
+      ENV['RS_IP0_NAMESERVERS'] = '8.8.8.8,8.8.4.4'
     end
 
     let(:device) { "Local Area Connection" }
     let(:ip) { "1.2.3.4" }
     let(:gateway) { "1.2.3.1" }
     let(:netmask) { "255.255.255.0" }
-    let(:nameservers_string) { "8.8.8.8, 8.8.4.4" }
-    let(:nameservers) { [ "8.8.8.8", "8.8.4.4"] }
+    let(:nameservers_output) { "8.8.8.8" }
 
     it "adds a primary namserver" do
-      flexmock(subject).should_receive(:runshell).with("netsh interface ipv4 set dnsserver name=#{device.inspect} source=static addr=#{nameservers[0]} register=primary validate=no")
+      flexmock(subject).should_receive(:runshell).with("netsh interface ipv4 set dnsserver name=#{device.inspect} source=static addr=8.8.8.8 register=primary validate=no")
       flexmock(subject).should_receive(:nameserver_exists?).and_return(false)
-      subject.nameserver_add(nameservers[0], 1, device.inspect)
+      subject.add_nameserver_to_device(device.inspect, "8.8.8.8", 1)
     end
 
     it "adds a secondary nanamserver" do
-      flexmock(subject).should_receive(:runshell).with("netsh interface ipv4 add dnsserver name=#{device.inspect} addr=#{nameservers[0]} index=2 validate=no")
+      flexmock(subject).should_receive(:runshell).with("netsh interface ipv4 add dnsserver name=#{device.inspect} addr=8.8.8.8 index=2 validate=no")
       flexmock(subject).should_receive(:nameserver_exists?).and_return(false)
-      subject.nameserver_add(nameservers[0], 2, device.inspect)
+      subject.add_nameserver_to_device(device.inspect, "8.8.8.8", 2)
     end
 
 
@@ -38,10 +38,12 @@ describe RightScale::WindowsNetworkConfigurator do
       cmd = "netsh interface ip set address name=#{device} source=static addr=#{ip} mask=#{netmask} gateway=none"
       ENV['RS_IP0_ADDR'] = ip
       ENV['RS_IP0_NETMASK'] = netmask
-      ENV['RS_IP0_NAMESERVERS'] = nameservers_string
 
-      flexmock(subject).should_receive(:nameserver_add).times(2)
+      flexmock(subject).should_receive(:configured_nameservers).and_return("8.8.8.8 4.4.4.4")
+      flexmock(subject).should_receive(:add_nameserver_to_device).times(0)
+
       flexmock(subject).should_receive(:configure_network_adaptor).times(1)
+
       flexmock(subject).should_receive(:network_device_name).and_return(device)
       flexmock(subject).should_receive(:runshell).with(cmd)
       flexmock(subject).should_receive(:wait_for_configuration_appliance)
@@ -51,14 +53,15 @@ describe RightScale::WindowsNetworkConfigurator do
     it "supports optional RS_IP0_GATEWAY value" do
       ENV['RS_IP0_ADDR'] = ip
       ENV['RS_IP0_NETMASK'] = netmask
-      ENV['RS_IP0_NAMESERVERS'] = nameservers_string
 
       # optional
       ENV['RS_IP0_GATEWAY'] = gateway
+
       cmd = "netsh interface ip set address name=#{device.inspect} source=static addr=#{ip} mask=#{netmask} gateway="
       cmd += gateway ? "#{gateway} gwmetric=1" : "none"
 
-      flexmock(subject).should_receive(:nameserver_add).times(2)
+      flexmock(subject).should_receive(:configured_nameservers).and_return(nameservers_output)
+      flexmock(subject).should_receive(:add_nameserver_to_device).times(2)
       flexmock(subject).should_receive(:runshell).with(cmd)
       flexmock(subject).should_receive(:network_device_name).and_return(device)
       flexmock(subject).should_receive(:wait_for_configuration_appliance)
@@ -71,11 +74,11 @@ describe RightScale::WindowsNetworkConfigurator do
       subject.os_net_devices.each_with_index do |device, i|
         ENV["RS_IP#{i}_ADDR"] = ip
         ENV["RS_IP#{i}_NETMASK"] = netmask
-        ENV["RS_IP#{i}_NAMESERVERS"] = nameservers_string
         cmd = "netsh interface ip set address name=#{device.inspect} source=static addr=#{ip} mask=#{netmask} gateway=none"
         netsh_cmds << cmd
       end
-      flexmock(subject).should_receive(:nameserver_add).times(2*10)
+      flexmock(subject).should_receive(:configured_nameservers).and_return(nameservers_output)
+      flexmock(subject).should_receive(:add_nameserver_to_device).times(2)
       flexmock(subject).should_receive(:runshell).with(on { |cmd| !netsh_cmds.delete(cmd).nil? }).times(10)
       flexmock(subject).should_receive(:wait_for_configuration_appliance)
       subject.add_static_ips
@@ -85,9 +88,10 @@ describe RightScale::WindowsNetworkConfigurator do
       cmd = "netsh interface ip set address name=#{device.inspect} source=static addr=#{ip} mask=#{netmask} gateway=none"
       ENV['RS_IP0_ADDR'] = ip
       ENV['RS_IP0_NETMASK'] = netmask
-      ENV['RS_IP0_NAMESERVERS'] = nameservers_string
 
-      flexmock(subject).should_receive(:nameserver_add).times(2)
+      flexmock(subject).should_receive(:configured_nameservers).and_return(nameservers_output)
+
+      flexmock(subject).should_receive(:add_nameserver_to_device).times(2)
       flexmock(subject).should_receive(:runshell).with(cmd)
       flexmock(subject).should_receive(:network_device_name).and_return(device)
       flexmock(subject).should_receive(:get_device_ip).with(device.inspect).times(2).and_return(nil, ip)
@@ -113,8 +117,9 @@ describe RightScale::WindowsNetworkConfigurator do
     end
 
     it "appends all static routes" do
-      ENV['RS_NAT_ADDRESS'] = nat_server_ip
-      ENV['RS_NAT_RANGES'] = nat_ranges_string
+      ENV['RS_ROUTE0'] = nat_server_ip+":"+nat_ranges[0]
+      ENV['RS_ROUTE1'] = nat_server_ip+":"+nat_ranges[1]
+      ENV['RS_ROUTE2'] = nat_server_ip+":"+nat_ranges[2]
 
       # network route add
       flexmock(subject).should_receive(:network_route_exists?).and_return(false)

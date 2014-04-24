@@ -15,7 +15,7 @@ module RightScale
     # === Return
     # public_key(String):: A public SSH key
     def get_public_ssh_key_from_metadata
-      public_key = ENV['VS_SSH_PUBLIC_KEY']
+      public_key = ENV['VS_SSH_PUBLIC_KEY'].to_s.strip
       # was there a key found?
       if public_key.nil? || public_key.empty?
         logger.warn "No public SSH key found in metadata"
@@ -61,11 +61,15 @@ module RightScale
     end
 
     def configure_network
+      # update authorized_keys file from metadata
+      begin
+        public_key = get_public_ssh_key_from_metadata()
+        update_authorized_keys(public_key)
+      rescue Exception => e
+        Logger.error("Error installing ssh private key material: #{e.message}")
+      end
       super
       restart_network if ENV.keys.any? { |k| k =~ /RS_IP\d_ADDR/ }
-      # update authorized_keys file from metadata
-      public_key = get_public_ssh_key_from_metadata()
-      update_authorized_keys(public_key)
     end
 
     def routes_for_device(device)
@@ -139,7 +143,6 @@ module RightScale
       routes_file = routes_file(device)
       ip_route_cmd = ip_route_cmd(network, nat_server_ip)
 
-
       update_config_file(
         routes_file,
         ip_route_cmd,
@@ -183,7 +186,8 @@ module RightScale
       config_file = "/etc/sysconfig/network-scripts/ifcfg-#{device}"
     end
 
-    def config_data(device, ip, netmask, gateway, nameservers)
+    def config_data(device, ip, netmask, gateway, nameservers = [])
+
       config_data = <<-EOH
 # File managed by RightScale
 # DO NOT EDIT
@@ -194,10 +198,14 @@ GATEWAY=#{gateway}
 NETMASK=#{netmask}
 IPADDR=#{ip}
 USERCTL=no
-DNS1=#{nameservers[0]}
-DNS2=#{nameservers[1]}
 PEERDNS=yes
 EOH
+      if nameservers && nameservers.length > 0
+        nameservers.each_with_index do |n, i|
+          config_data << "DNS#{i+1}=#{n}\n"
+        end
+      end
+      config_data
     end
 
     # NOTE: not idempotent -- it will always all ifconfig and write config file
@@ -216,22 +224,6 @@ EOH
       ip
     end
 
-    def internal_nameserver_add(nameserver_ip, index=nil,device=nil)
-      config_file="/etc/resolv.conf"
-      logger.info "Added nameserver #{nameserver_ip} to #{config_file}"
-      File.open(config_file, "a") {|f| f.write("nameserver #{nameserver_ip}\n") }
-      true
-    end
-
-    def namservers_show(device=nil)
-      contents = ""
-      begin
-        File.open("/etc/resolv.conf", "r") { |f| contents = f.read() }
-      rescue
-        logger.warn "Unable to open /etc/resolv.conf. It will be created"
-      end
-      contents
-    end
 
     # Add line to config file
     #

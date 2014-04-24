@@ -84,7 +84,7 @@ module RightScale
       sleep(2) while ip != get_device_ip(device)
     end
 
-    def configure_network_adaptor(device, ip, netmask, gateway, nameservers)
+    def configure_network_adaptor(device, ip, netmask, gateway, nameservers = [])
       super
 
       cmd = "netsh interface ip set address name=#{device} source=static addr=#{ip} mask=#{netmask} gateway="
@@ -92,11 +92,19 @@ module RightScale
       runshell(cmd)
       wait_for_configuration_appliance(device, ip)
 
+      if nameservers && nameservers.length > 0
+        unless all_nameservers_match?(device, nameservers)
+          nameservers.each_with_index do |n, i|
+            add_nameserver_to_device(device, n, i + 1)
+          end
+        end
+      end
+
       # return the IP address assigned
       ip
     end
 
-    def internal_nameserver_add(nameserver_ip, index=nil,device=nil)
+    def add_nameserver_to_device(device, nameserver_ip, index)
       cmd = "netsh interface ipv4 add dnsserver name=#{device} addr=#{nameserver_ip} index=#{index} validate=no"
       primary = (index == 1)
       cmd = "netsh interface ipv4 set dnsserver name=#{device} source=static addr=#{nameserver_ip} register=primary validate=no" if primary
@@ -104,9 +112,14 @@ module RightScale
       true
     end
 
-    def namservers_show(device=nil)
+    def configured_nameservers(device)
       # show only nameservers configured staticly i.e. not through DHCP
       runshell("netsh interface ip show dns #{device}").lines.reject { |l| l =~ /DHCP/ }.join
+    end
+
+    def all_nameservers_match?(device, nameservers)
+      configured = configured_nameservers(device)
+      nameservers.all? { |n| configured.include?(n) }
     end
 
     def null_device
