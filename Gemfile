@@ -6,7 +6,9 @@ gemspec
 # Fresh off the assembly line
 gem 'right_support', '~> 2.8'
 
-gem 'right_agent', '~> 2.1'
+gem 'right_agent',
+    :git => 'https://github.com/rightscale/right_agent.git',
+    :branch => 'cornsilk_14_9_acu165971_long_polling_close'
 
 gem 'right_amqp', '~> 0.7'
 gem 'right_popen', '~> 2.0'
@@ -25,7 +27,7 @@ group :custom do
   gem 'chef', '11.6.0.5'
   gem 'ohai', '6.18.0.2'
   gem 'mixlib-shellout', '1.2.0.2'
-  gem 'eventmachine', '1.0.0.6'
+  gem 'eventmachine', '1.0.0.8'
   gem 'rest-client', '1.7.0.1'
 end
 
