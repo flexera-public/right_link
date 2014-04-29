@@ -55,10 +55,6 @@ def create_user_metadata_leaf(tree_climber, data)
   result
 end
 
-def cloud_metadata_is_flat(clazz, path, query_result)
-  false
-end
-
 # Extend clear_state method
 # Clear any fetched metadata files
 alias :_clear_state :clear_state
@@ -75,7 +71,7 @@ default_option([:user_metadata, :metadata_tree_climber, :create_leaf_override], 
 default_option([:metadata_source, :cloud_metadata_source_file_path], File.join(CONFIG_DRIVE_MOUNTPOINT, 'meta.txt'))
 default_option([:cloud_metadata, :metadata_tree_climber, :create_leaf_override], method(:create_user_metadata_leaf))
 # vsphere cloud_metadata is flat, so paths will never have children -- always return false
-default_option([:cloud_metadata, :metadata_tree_climber, :has_children_override], method(:cloud_metadata_is_flat))
+default_option([:cloud_metadata, :metadata_tree_climber, :has_children_override], lambda { |*| false } )
 default_option([:cloud_metadata, :metadata_writers, :ruby_metadata_writer, :generation_command], cloud_metadata_generation_command)
 
 def requires_network_config?
