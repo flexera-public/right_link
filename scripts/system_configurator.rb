@@ -13,8 +13,10 @@
 #    system --action=<action> [options]
 #
 #    Options:
-#      --help:            Display help
-#
+#      --help:      Display help
+#      --diskonly:  Applies to '--action network' only. Network configurator only writes 
+#                   on-disk configuration, not in-memory configuration. Should be 
+#                   set when called from a boot script.
 
 require 'trollop'
 require 'socket'
@@ -96,7 +98,7 @@ module RightScale
         method_name = "configure_#{action}".to_sym
         if action && respond_to?(method_name)
           puts "Configuring #{action}"
-          __send__(method_name)
+          __send__(method_name, options)
         else
           raise StandardError, "Unknown action #{action}"
         end
@@ -112,6 +114,7 @@ module RightScale
     def parse_args
       parser = Trollop::Parser.new do
         opt :action, "", :type => :string
+        opt :diskonly, ""
       end
 
       parse do
@@ -125,14 +128,14 @@ module RightScale
       CloudFactory.instance.create(cloud_name, :logger => default_logger)
     end
 
-    def configure_network
+    def configure_network(options = {})
       return unless current_cloud.requires_network_config?
-      configurator = NetworkConfigurator.create
+      configurator = NetworkConfigurator.create(options)
       configurator.logger = default_logger
       configurator.configure_network
     end
 
-    def configure_ssh
+    def configure_ssh(options = {})
       return 0 unless Platform.linux?
 
       puts "Freshening SSH host keys to ensure they are unique to this instance..."
@@ -160,7 +163,7 @@ module RightScale
       return 0
     end
 
-    def configure_hostname
+    def configure_hostname(options = {})
       return 0 unless Platform.linux?
 
       hostname     = Socket.gethostname
@@ -181,7 +184,7 @@ module RightScale
       end
     end
 
-    def configure_proxy
+    def configure_proxy(options = {})
       return 0 unless Platform.linux?
 
       unset_proxy_variables
