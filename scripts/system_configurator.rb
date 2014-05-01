@@ -228,9 +228,16 @@ module RightScale
     end
 
     def restart_sshd
-      sshd_name = File.exist?('/etc/init.d/sshd') ? "sshd" : "ssh"
-      puts "Restarting SSHD..."
-      runshell("/etc/init.d/#{sshd_name} restart")
+      puts "Restarting SSH Daemon..."
+      # CentOS has upstart installed but it doesn't manage ssh or networking
+      if File.exists?('/etc/init/sshd.conf')
+        runshell("/sbin/restart sshd")
+      elsif File.exists?('/etc/init/ssh.conf')
+        runshell("/sbin/restart ssh")
+      else # sysvinit
+        sshd_name = File.exists?('/etc/init.d/sshd') ? "sshd" : "ssh"
+        runshell("/etc/init.d/#{sshd_name} restart")
+      end
     end
 
     def retrieve_cloud_hostname_and_local_ip
