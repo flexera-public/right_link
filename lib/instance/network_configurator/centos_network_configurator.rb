@@ -54,12 +54,6 @@ module RightScale
       true
     end
 
-    # TODO: remove then rightboot run order is fixed
-    def restart_network
-      runshell("pkill dhclient || true")
-      runshell("service network restart")
-    end
-
     def configure_network
       # update authorized_keys file from metadata
       begin
@@ -69,7 +63,6 @@ module RightScale
         Logger.error("Error installing ssh private key material: #{e.message}")
       end
       super
-      restart_network if ENV.keys.any? { |k| k =~ /RS_IP\d_ADDR/ }
     end
 
     def routes_for_device(device)
