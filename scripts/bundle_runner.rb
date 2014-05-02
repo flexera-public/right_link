@@ -59,6 +59,7 @@
 #      --verbose, -v         Display progress information
 #      --help:               Display help
 #      --version:            Display version information
+#      --timeout, -T SEC     Custom timeout (default 30 sec)
 #
 #    Note: Partially specified option names are accepted if not ambiguous.
 
@@ -76,7 +77,7 @@ module RightScale
     include CommandHelper
 
     # Default number of seconds to wait for command response
-    DEFAULT_TIMEOUT = 20
+    DEFAULT_TIMEOUT = 30
 
     # Run recipe or RightScript (that is, schedule it)
     #
@@ -181,6 +182,7 @@ module RightScale
         opt :cfg_dir, "", :type => String
         opt :policy, "", :type => String, :short => "-P"
         opt :audit_period, "", :type => :int, :long => "--audit_period"
+        opt :timeout, "", :type => :int, :short => "-T", :default => DEFAULT_TIMEOUT
         opt :verbose
         version ""
       end

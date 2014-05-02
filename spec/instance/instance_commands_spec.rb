@@ -99,7 +99,7 @@ describe RightScale::InstanceCommands do
         payload = options.merge(:agent_identity => @agent_identity)
         options.merge!(targets)
         @sender.should_receive(:send_push).
-                with("/instance_scheduler/execute", payload, targets).once
+                with("/instance_scheduler/execute", payload, targets, nil, nil).once
         flexmock(RightScale::CommandIO.instance).should_receive(:reply).once
         @commands.send(:run_recipe_command, {:conn => 42, :options => options}).should be_true
       end
@@ -122,7 +122,7 @@ describe RightScale::InstanceCommands do
         payload = options.merge(:agent_identity => @agent_identity)
         options.merge!(targets)
         @sender.should_receive(:send_push).
-                with("/instance_scheduler/execute", payload, targets).once
+                with("/instance_scheduler/execute", payload, targets, nil, nil).once
         flexmock(RightScale::CommandIO.instance).should_receive(:reply).once
         @commands.send(:run_right_script_command, {:conn => 42, :options => options}).should be_true
       end

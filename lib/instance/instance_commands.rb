@@ -163,7 +163,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def send_push_command(opts)
-      send_push(opts[:type], opts[:conn], opts[:payload], opts[:target])
+      send_push(opts[:type], opts[:conn], opts[:payload], opts[:target], opts[:timeout])
     end
 
     # Send a request to a single target with a response expected
@@ -179,7 +179,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def send_request_command(opts)
-      send_request(opts[:type], opts[:conn], opts[:payload], opts[:target])
+      send_request(opts[:type], opts[:conn], opts[:payload], opts[:target], opts[:timeout])
     end
 
     # Send a retryable request to a single target with a response expected, retrying multiple times
@@ -195,7 +195,9 @@ module RightScale
     # === Return
     # true:: Always return true
     def send_retryable_request_command(opts)
-      send_retryable_request(opts[:type], opts[:conn], opts[:payload], opts[:options])
+      options = opts[:options]
+      options[:timeout] ||= opts[:timeout]
+      send_retryable_request(opts[:type], opts[:conn], opts[:payload], options)
     end
 
     # Set log level command
@@ -289,11 +291,12 @@ module RightScale
     #
     # === Parameters
     # opts[:conn](EM::Connection):: Connection used to send reply
+    # opts[:timeout](Integer):: Timeout for retryable request, -1 or nil for no timeout
     #
     # === Return
     # true:: Always return true
     def get_tags_command(opts)
-      AgentTagManager.instance.tags { |tags| CommandIO.instance.reply(opts[:conn], tags) }
+      AgentTagManager.instance.tags(opts) { |tags| CommandIO.instance.reply(opts[:conn], tags) }
     end
 
     # Add given tag
@@ -301,11 +304,12 @@ module RightScale
     # === Parameters
     # opts[:conn](EM::Connection):: Connection used to send reply
     # opts[:tag](String):: Tag to be added
+    # opts[:timeout](Integer):: Timeout for retryable request, -1 or nil for no timeout
     #
     # === Return
     # true:: Always return true
     def add_tag_command(opts)
-      AgentTagManager.instance.add_tags(opts[:tag]) do |raw_response|
+      AgentTagManager.instance.add_tags(opts[:tag], opts) do |raw_response|
         reply = @serializer.dump(raw_response) rescue raw_response
         CommandIO.instance.reply(opts[:conn], reply)
       end
@@ -316,11 +320,12 @@ module RightScale
     # === Parameters
     # opts[:conn](EM::Connection):: Connection used to send reply
     # opts[:tag](String):: Tag to be removed
+    # opts[:timeout](Integer):: Timeout for retryable request, -1 or nil for no timeout
     #
     # === Return
     # true:: Always return true
     def remove_tag_command(opts)
-      AgentTagManager.instance.remove_tags(opts[:tag]) do |raw_response|
+      AgentTagManager.instance.remove_tags(opts[:tag], opts) do |raw_response|
         reply = @serializer.dump(raw_response) rescue raw_response
         CommandIO.instance.reply(opts[:conn], reply)
       end
@@ -331,11 +336,12 @@ module RightScale
     # === Parameters
     # opts[:conn](EM::Connection):: Connection used to send reply
     # opts[:tags](String):: Tags to be used in query
+    # opts[:timeout](Integer):: Timeout for retryable request, -1 or nil for no timeout
     #
     # === Return
     # true:: Always return true
     def query_tags_command(opts)
-      AgentTagManager.instance.query_tags_raw(opts[:tags], opts[:hrefs]) do |raw_response|
+      AgentTagManager.instance.query_tags_raw(opts[:tags], opts[:hrefs], opts) do |raw_response|
         reply = @serializer.dump(raw_response) rescue raw_response
         CommandIO.instance.reply(opts[:conn], reply)
       end
@@ -459,10 +465,10 @@ module RightScale
 
     # Helper method to send a request to one or more targets with no response expected
     # See Sender for details
-    def send_push(type, conn, payload = nil, target = nil)
+    def send_push(type, conn, payload = nil, target = nil, timeout = nil)
       payload ||= {}
       payload[:agent_identity] = @agent_identity
-      Sender.instance.send_push(type, payload, target)
+      Sender.instance.send_push(type, payload, target, token = nil, timeout)
       CommandIO.instance.reply(conn, 'OK')
       true
     end
@@ -472,10 +478,10 @@ module RightScale
     # The request is timed out if not received in time, typically configured to 2 minutes
     # The request is allowed to expire per the agent's configured time-to-live, typically 1 minute
     # See Sender for details
-    def send_request(type, conn, payload = nil, target = nil)
+    def send_request(type, conn, payload = nil, target = nil, timeout = nil)
       payload ||= {}
       payload[:agent_identity] = @agent_identity
-      Sender.instance.send_request(type, payload, target) do |r|
+      Sender.instance.send_request(type, payload, target, token = nil, timeout) do |r|
         reply = @serializer.dump(r) rescue '\"Failed to serialize response\"'
         CommandIO.instance.reply(conn, reply)
       end
