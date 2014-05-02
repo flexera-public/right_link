@@ -72,7 +72,8 @@ module RightScale
     end
 
     def routes_for_device(device)
-      runshell("ip route show dev #{device}")
+      routes = runshell("ip route show dev #{device}") rescue nil
+      routes ||= ""
     end
 
     def single_ip_range?(cidr_range)
@@ -82,7 +83,8 @@ module RightScale
 
     def route_device(network, nat_server_ip)
       route_regex = route_regex(network, nat_server_ip)
-      os_net_devices.detect { |device| routes_for_device(device).match(route_regex) }
+      device = os_net_devices.find { |device| routes_for_device(device).match(route_regex) }
+      device ||= os_net_devices.first
     end
 
     def network_route_add(network, nat_server_ip)
@@ -113,7 +115,14 @@ module RightScale
     end
 
     def os_net_devices
-      @net_devices ||= (0..9).map { |i| "eth#{i}" }
+      unless @net_devices 
+        @net_devices = 
+          runshell("ip link show").split("\n").
+          select {|line| line =~ /^\d/}.
+          map {|line| line.split[1].sub(":","")}.
+          select {|device| device =~ /^eth/}
+      end
+      @net_devices
     end
 
     def routes_file(device)
@@ -135,7 +144,7 @@ module RightScale
     #
     # === Return
     # result(True):: Always returns true
-    def update_route_file(network, nat_server_ip, device = "eth0")
+    def update_route_file(network, nat_server_ip, device = os_net_devices.first)
       raise "ERROR: invalid nat_server_ip : '#{nat_server_ip}'" unless valid_ipv4?(nat_server_ip)
       raise "ERROR: invalid CIDR network : '#{network}'" unless valid_ipv4_cidr?(network)
 
