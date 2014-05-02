@@ -131,7 +131,8 @@ module RightScale
     def configure_network(options = {})
       return unless current_cloud.requires_network_config?
       configurator = NetworkConfigurator.create(options)
-      configurator.logger = default_logger
+      # True forces log to stdout/stderr, important as this can execute pre-syslog
+      configurator.logger = default_logger(true)
       configurator.configure_network
     end
 
