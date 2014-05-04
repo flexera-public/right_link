@@ -163,7 +163,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def send_push_command(opts)
-      send_push(opts[:type], opts[:conn], opts[:payload], opts[:target], opts[:timeout])
+      send_push(opts[:type], opts[:conn], opts[:payload], opts[:target], :timeout => opts[:timeout])
     end
 
     # Send a request to a single target with a response expected
@@ -179,7 +179,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def send_request_command(opts)
-      send_request(opts[:type], opts[:conn], opts[:payload], opts[:target], opts[:timeout])
+      send_request(opts[:type], opts[:conn], opts[:payload], opts[:target], :timeout => opts[:timeout])
     end
 
     # Send a retryable request to a single target with a response expected, retrying multiple times
@@ -465,10 +465,10 @@ module RightScale
 
     # Helper method to send a request to one or more targets with no response expected
     # See Sender for details
-    def send_push(type, conn, payload = nil, target = nil, timeout = nil)
+    def send_push(type, conn, payload = nil, target = nil, options = {})
       payload ||= {}
       payload[:agent_identity] = @agent_identity
-      Sender.instance.send_push(type, payload, target, token = nil, timeout)
+      Sender.instance.send_push(type, payload, target, options)
       CommandIO.instance.reply(conn, 'OK')
       true
     end
@@ -478,10 +478,10 @@ module RightScale
     # The request is timed out if not received in time, typically configured to 2 minutes
     # The request is allowed to expire per the agent's configured time-to-live, typically 1 minute
     # See Sender for details
-    def send_request(type, conn, payload = nil, target = nil, timeout = nil)
+    def send_request(type, conn, payload = nil, target = nil, options = {})
       payload ||= {}
       payload[:agent_identity] = @agent_identity
-      Sender.instance.send_request(type, payload, target, token = nil, timeout) do |r|
+      Sender.instance.send_request(type, payload, target, options) do |r|
         reply = @serializer.dump(r) rescue '\"Failed to serialize response\"'
         CommandIO.instance.reply(conn, reply)
       end

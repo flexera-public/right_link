@@ -59,7 +59,7 @@
 #      --verbose, -v         Display progress information
 #      --help:               Display help
 #      --version:            Display version information
-#      --timeout, -T SEC     Custom timeout (default 30 sec)
+#      --timeout, -T SEC     Custom timeout (default 60 sec)
 #
 #    Note: Partially specified option names are accepted if not ambiguous.
 
@@ -77,7 +77,7 @@ module RightScale
     include CommandHelper
 
     # Default number of seconds to wait for command response
-    DEFAULT_TIMEOUT = 30
+    DEFAULT_TIMEOUT = 60
 
     # Run recipe or RightScript (that is, schedule it)
     #
