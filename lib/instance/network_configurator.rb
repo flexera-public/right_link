@@ -180,7 +180,11 @@ module RightScale
       raise NotImplemented
     end
 
-    # Sets single network adapter static IP address
+    def device_name_from_mac(mac)
+      raise NotImplemented
+    end
+
+    # Sets single network adapter static IP addresse and nameservers
     #
     # Parameters
     # n_ip(Fixnum):: network adapter index
@@ -192,7 +196,7 @@ module RightScale
         netmask = ENV["RS_IP#{n_ip}_NETMASK"]
         # optional
         gateway = ENV["RS_IP#{n_ip}_GATEWAY"]
-        device = shell_escape_if_necessary(os_net_devices[n_ip])
+        device = shell_escape_if_necessary(device_name_from_mac(ENV["RS_IP#{n_ip}_MAC"]))
 
         if ipaddr
           # configure network adaptor

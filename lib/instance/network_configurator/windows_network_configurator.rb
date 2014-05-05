@@ -1,4 +1,5 @@
 require 'ip'
+require 'ruby-wmi' if ::RightScale::Platform.windows?
 
 module RightScale
   class WindowsNetworkConfigurator < NetworkConfigurator
@@ -20,6 +21,7 @@ module RightScale
 
     def configure_network
       super
+      rename_devices
       # setting administrator password setting (not yet supported)
     end
 
@@ -36,12 +38,51 @@ module RightScale
     # For Windows 8/2012 and later its Ethernet
     def network_device_name
       return @network_device_name if @network_device_name
-      device_out = runshell("netsh interface show interface")
-      @network_device_name = device_out.include?("Local Area Connection") ? "Local Area Connection" : "Ethernet"
+      major, minor, build = ::RightScale::Platform.release.split(".").map(&:to_i)
+      @network_device_name = (major == 6 && minor <= 1) ? "Local Area Connection" : "Ethernet" # http://msdn.microsoft.com/en-us/library/ms724834%28VS.85%29.aspx
     end
 
     def os_net_devices
       @net_devices ||= (1..10).map { |i| "#{network_device_name} #{i}".sub(/ 1$/, "") }
+    end
+
+    def network_devices
+      @network_devices ||= WMI::Win32_NetworkAdapter.all.delete_if do |device|
+        device.MACAddress.nil? || device.NetConnectionID.nil?
+      end
+    end
+
+    def device_name_from_mac(mac)
+       network_devices.detect { |dev| dev.macaddress.casecmp(mac) == 0 }.NetConnectionID
+    end
+
+    def rename_device(old_name, new_name)
+      old_name = shell_escape_if_necessary(old_name)
+      new_name = shell_escape_if_necessary(new_name)
+      runshell("netsh interface set interface #{old_name} newname=#{new_name}")
+    end
+
+
+    def name_from_mac(mac)
+      key = ENV.select { |k,v|  k =~ /RS_IP\d_MAC/ && v == mac }.keys.first || ''
+      key = key.sub('MAC', 'NAME')
+      ENV[key] || os_net_devices.pop
+    end
+
+    def rename_devices_to_temp_name
+      network_devices.each do |device|
+        rename_device(device.NetConnectionID, device.MACAddress.gsub(':', '.'))
+      end
+    end
+
+    def rename_devices
+      rename_devices_to_temp_name
+      ENV.keys.grep(/RS_IP\d_ADDR/).each do |addr|
+        n = addr[/\d/].to_i
+        temp_name = ENV["RS_IP#{n}_MAC"].gsub(':', '.')
+        device_name = ENV["RS_IP#{n}_NAME"] || os_net_devices.shift
+        rename_device(temp_name, device_name)
+      end
     end
 
     def network_route_add(network, nat_server_ip)

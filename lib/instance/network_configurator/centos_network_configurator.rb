@@ -117,6 +117,10 @@ module RightScale
       @net_devices ||= (0..9).map { |i| "eth#{i}" }
     end
 
+    def device_name_from_mac(mac)
+      `ifconfig -a | grep -i '#{mac}' | cut -d ' ' -f 1`.strip
+    end
+
     def routes_file(device)
       "/etc/sysconfig/network-scripts/route-#{device}"
     end
