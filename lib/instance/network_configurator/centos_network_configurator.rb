@@ -6,12 +6,6 @@ module RightScale
       ::RightScale::Platform.linux? && ::RightScale::Platform.centos?
     end
 
-    attr_accessor :diskonly
-
-    def initialize(options = {})
-      @diskonly = options[:diskonly] || false
-    end
-
     #
     # Authorized SSH Key for root (linux only)
     #
@@ -92,8 +86,12 @@ module RightScale
       route_str = "#{network} via #{nat_server_ip}"
       logger.info "Adding route to network #{route_str}"
       begin
-        runshell("ip route add #{route_str}") unless @diskonly
-        update_route_file(network, nat_server_ip, route_device(network, nat_server_ip))
+        if @boot
+          update_route_file(network, nat_server_ip, os_net_devices.first)
+        else
+          runshell("ip route add #{route_str}")
+          update_route_file(network, nat_server_ip, route_device(network, nat_server_ip))
+        end
       rescue Exception => e
         logger.error "Unable to set a route #{route_str}. Check network settings."
         # XXX: for some reason network_route_exists? allowing mutple routes
@@ -221,7 +219,7 @@ EOH
       super
 
       # Setup static IP without restarting network
-      unless @diskonly
+      unless @boot
         logger.info "Updating in memory network configuration for #{device}"
         runshell("ifconfig #{device} #{ip} netmask #{netmask}")
         add_gateway_route(gateway) if gateway

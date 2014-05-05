@@ -13,10 +13,11 @@
 #    system --action=<action> [options]
 #
 #    Options:
-#      --help:      Display help
-#      --diskonly:  Applies to '--action network' only. Network configurator only writes 
-#                   on-disk configuration, not in-memory configuration. Should be 
-#                   set when called from a boot script.
+#      --help:  Display help
+#      --boot:  Applies to '--action network' only. Changes logic to be compatible
+#               with use at system initialization time, such as only configuring
+#               network on disk and not using syslog (may not be available)
+
 
 require 'trollop'
 require 'socket'
@@ -114,7 +115,7 @@ module RightScale
     def parse_args
       parser = Trollop::Parser.new do
         opt :action, "", :type => :string
-        opt :diskonly, ""
+        opt :boot, ""
       end
 
       parse do
