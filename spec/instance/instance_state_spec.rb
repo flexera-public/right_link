@@ -32,20 +32,19 @@ describe RightScale::InstanceState do
     flexmock(RightScale::InstanceState).should_receive(:broadcast_wall).and_return(nil)
 
     flexmock(RightScale::Log).should_receive(:debug)
+    @default_ttl = 4 * 24 * 60 * 60
+
     setup_state(identity = '1', mock_instance_state = false) do
       @user_id = 123
       @booting_args = ['/state_recorder/record',
                        {:state => "booting", :agent_identity => @identity, :from_state => "pending"},
-                       nil,
-                       Proc]
+                       nil, {:time_to_live => @default_ttl}, Proc]
       @operational_args = ['/state_recorder/record',
                            {:state => "operational", :agent_identity => @identity, :from_state => "booting"},
-                           nil,
-                           Proc]
+                           nil, {:time_to_live => @default_ttl}, Proc]
       @decommissioning_args = ['/state_recorder/record',
                                {:state => "decommissioning", :agent_identity => @identity, :from_state => "operational"},
-                               nil,
-                               Proc]
+                               nil, {:time_to_live => @default_ttl}, Proc]
       @decommissioned_args = ['/state_recorder/record',
                               {:state => 'decommissioned', :agent_identity => @identity, :user_id => @user_id,
                                :skip_db_update => false, :kind => "terminate"},
@@ -312,7 +311,7 @@ describe RightScale::InstanceState do
                                                "recorded state (pending)")
         @sender.should_receive(:send_request).with(*@operational_args).and_yield(error).once
         @sender.should_receive(:send_request).with('/state_recorder/record', {:state => "operational",
-                :agent_identity => "1", :from_state => "pending"}, nil, Proc).and_yield(error).once
+                :agent_identity => "1", :from_state => "pending"}, nil, {:time_to_live => @default_ttl}, Proc).and_yield(error).once
         RightScale::InstanceState.last_recorded_value.should == "booting"
         RightScale::InstanceState.value = "operational"
         RightScale::InstanceState.value.should == "operational"
@@ -340,8 +339,7 @@ describe RightScale::InstanceState do
       run_em_test do
         decommissioning_args = ['/state_recorder/record',
                                 {:state => "decommissioning", :agent_identity => "1", :from_state => "booting"},
-                                nil,
-                                Proc]
+                                nil, {:time_to_live => @default_ttl}, Proc]
         RightScale::InstanceState.init(@identity)
         RightScale::InstanceState.value.should == "booting"
         RightScale::InstanceState.last_recorded_value.should == "booting"
