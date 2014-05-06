@@ -5,12 +5,12 @@
 #
 # === Examples:
 #   Print the run state:
-#   rs_state --type=run
+#   rs_state --type run
 #   Possible values: booting, booting:reboot, operational, stranded,
 #                    shutting-down:reboot, shutting-down:terminate, shutting-down:stop
 #
 #   Print the agent state:
-#   rs_state --type=agent
+#   rs_state --type agent
 #   Possible values: pending, booting, operational, stranded, decommissioning, decommissioned
 #
 # === Usage
