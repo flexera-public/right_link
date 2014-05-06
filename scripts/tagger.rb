@@ -188,12 +188,12 @@ module RightScale
         options[:action] = :get_tags if options.delete(:list)
         if options[:add]
           options[:action] = :add_tag
-          options[:tag] = options.delete(:add)
+          options[:tag] = options.delete(:add).strip
           raise ::Trollop::CommandlineError.new("Non-empty value required") if options[:tag].empty?
         end
         if options[:remove]
           options[:action] = :remove_tag
-          options[:tag] = options.delete(:remove)
+          options[:tag] = options.delete(:remove).strip
           raise ::Trollop::CommandlineError.new("Non-empty value required") if options[:tag].empty?
         end
         if options[:query]
