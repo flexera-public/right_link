@@ -74,20 +74,18 @@ describe InstanceScheduler do
 
     # Using this method instead of before(:each) because must be running EM before setup_state is called
     def before_each
+      ttl = 4 * 24 * 60 * 60
       setup_state(identity = 'rs-instance-1-1', mock_instance_state = false) do
         @user_id = 42
         @booting_args = ['/state_recorder/record',
                          {:state => "booting", :agent_identity => @identity, :from_state => "pending"},
-                         nil,
-                         Proc]
+                         nil, {:time_to_live => ttl}, Proc]
         @operational_args = ['/state_recorder/record',
                              {:state => "operational", :agent_identity => @identity, :from_state => "booting"},
-                             nil,
-                             Proc]
+                             nil, {:time_to_live => ttl}, Proc]
         @decommissioning_args = ['/state_recorder/record',
                                  {:state => "decommissioning", :agent_identity => @identity, :from_state => "operational"},
-                                 nil,
-                                 Proc]
+                                 nil, {:time_to_live => ttl}, Proc]
         @decommissioned_args = ['/state_recorder/record',
                                 {:state => 'decommissioned', :agent_identity => @identity, :user_id => @user_id,
                                  :skip_db_update => nil, :kind => decommission_level},

@@ -23,41 +23,6 @@
 
 require File.expand_path(File.join(File.dirname(__FILE__), 'spec_helper'))
 
-# Mock RestClient::Response
-class RestResponseMock
-  attr_reader :headers
-
-  def initialize(headers)
-    @headers = headers || {}
-  end
-end
-
-# Mock RestClient::MovedPermanently exceptions since cannot create directly without a
-# RestClient::Response, but need RestClient interface for error handling
-class RestMovedPermanentlyMock < RestClient::MovedPermanently
-  attr_reader :http_code, :http_body, :response, :message
-
-  def initialize(response_headers = nil)
-    @message = "#{301} #{RestClient::STATUSES[301]}"
-    @http_code = 301
-    @http_body = "moved permanently test"
-    @response = RestResponseMock.new(response_headers)
-  end
-end
-
-# Mock RestClient::Found exceptions since cannot create directly without a
-# RestClient::Response, but need RestClient interface for error handling
-class RestFoundMock < RestClient::Found
-  attr_reader :http_code, :http_body, :response, :message
-
-  def initialize(response_headers = nil)
-    @message = "#{302} #{RestClient::STATUSES[302]}"
-    @http_code = 302
-    @http_body = "found test"
-    @response = RestResponseMock.new(response_headers)
-  end
-end
-
 describe RightScale::InstanceAuthClient do
 
   include FlexMock::ArgumentTypes
@@ -173,6 +138,7 @@ describe RightScale::InstanceAuthClient do
   context :get_authorized do
     before(:each) do
       @http_client.should_receive(:post).and_return(@response).by_default
+      @unauthorized = RightScale::HttpExceptions.create(401)
     end
 
     it "posts authorization request to API" do
@@ -206,7 +172,7 @@ describe RightScale::InstanceAuthClient do
     end
 
     it "sets state to :unauthorized and raises if authorization fails" do
-      @http_client.should_receive(:post).and_raise(RestClient::Unauthorized)
+      @http_client.should_receive(:post).and_raise(@unauthorized)
       lambda { @client.send(:get_authorized) }.should raise_error(RightScale::Exceptions::Unauthorized)
       @client.state.should == :unauthorized
     end
@@ -229,8 +195,8 @@ describe RightScale::InstanceAuthClient do
 
     it "repeatedly redirects if API server tells it to" do
       location = "https://my3.com/api"
-      found = RestFoundMock.new(:location => location)
-      moved = RestMovedPermanentlyMock.new({:location => location})
+      moved = RightScale::HttpExceptions.create(301, "", {:location => location})
+      found = RightScale::HttpExceptions.create(302, "", {:location => location})
       @http_client.should_receive(:post).and_raise(found).once.ordered
       @http_client.should_receive(:post).and_raise(moved).twice.ordered
       flexmock(@client).should_receive(:redirected).with(found).and_return(true).once.ordered
@@ -241,7 +207,7 @@ describe RightScale::InstanceAuthClient do
 
     it "limits number of redirects and sets state to :failed when exceeded" do
       location = "https://my3.com/api"
-      moved = RestMovedPermanentlyMock.new(:location => location)
+      moved = RightScale::HttpExceptions.create(301, "", {:location => location})
       @log.should_receive(:error).with("Exceeded maximum redirects (5)").once
       @http_client.should_receive(:post).and_raise(moved).times(6)
       lambda { @client.send(:get_authorized) }.should raise_error(moved)
@@ -250,7 +216,7 @@ describe RightScale::InstanceAuthClient do
 
     it "restores to original URLs after redirect failure" do
       location = "https://my3.com/api"
-      moved = RestMovedPermanentlyMock.new(:location => location)
+      moved = RightScale::HttpExceptions.create(301, "", {:location => location})
       @http_client.should_receive(:post).and_raise(moved).times(6)
       @log.should_receive(:error).with("Exceeded maximum redirects (5)").once
       lambda { @client.send(:get_authorized) }.should raise_error(moved)
@@ -271,6 +237,7 @@ describe RightScale::InstanceAuthClient do
       @tick = 1
       @later = Time.at(@now = Time.now)
       flexmock(Time).should_receive(:now).and_return { @later += @tick }
+      @unauthorized = RightScale::HttpExceptions.create(401)
     end
 
     it "gets authorized" do
@@ -343,7 +310,7 @@ describe RightScale::InstanceAuthClient do
       it "uses base renew time if previously authorized" do
         flexmock(EM::Timer).should_receive(:new).with(0, Proc).and_return(@renew_timer).and_yield.once.ordered
         flexmock(EM::Timer).should_receive(:new).with(60, Proc).and_return(@renew_timer).once.ordered
-        @http_client.should_receive(:post).and_raise(RestClient::Unauthorized).once
+        @http_client.should_receive(:post).and_raise(@unauthorized).once
         @client.state.should == :authorized
         @client.send(:renew_authorization, 0).should be_true
       end
@@ -352,7 +319,7 @@ describe RightScale::InstanceAuthClient do
         flexmock(EM::Timer).should_receive(:new).with(0, Proc).and_return(@renew_timer).and_yield.once.ordered
         flexmock(EM::Timer).should_receive(:new).with(60, Proc).and_return(@renew_timer).and_yield.once.ordered
         flexmock(EM::Timer).should_receive(:new).with(120, Proc).and_return(@renew_timer).once.ordered
-        @http_client.should_receive(:post).and_raise(RestClient::Unauthorized).twice.ordered
+        @http_client.should_receive(:post).and_raise(@unauthorized).twice.ordered
         @client.instance_variable_set(:@state, :unauthorized)
         @client.send(:renew_authorization, 0).should be_true
       end
@@ -367,7 +334,7 @@ describe RightScale::InstanceAuthClient do
         flexmock(EM::Timer).should_receive(:new).with(1920, Proc).and_return(@renew_timer).and_yield.once.ordered
         flexmock(EM::Timer).should_receive(:new).with(3600, Proc).and_return(@renew_timer).and_yield.once.ordered
         flexmock(EM::Timer).should_receive(:new).with(3600, Proc).and_return(@renew_timer).once.ordered
-        @http_client.should_receive(:post).and_raise(RestClient::Unauthorized).times(8).ordered
+        @http_client.should_receive(:post).and_raise(@unauthorized).times(8).ordered
         @client.instance_variable_set(:@state, :unauthorized)
         @client.send(:renew_authorization, 0).should be_true
       end
@@ -427,7 +394,7 @@ describe RightScale::InstanceAuthClient do
   context :redirected do
     it "updates API URL and authorization URL and recreates HTTP client" do
       location = "https://my3.com/api"
-      moved = RestMovedPermanentlyMock.new(:location => location)
+      moved = RightScale::HttpExceptions.create(301, "", {:location => location})
       flexmock(RightScale::BalancedHttpClient).should_receive(:new).and_return(@http_client).once
       @log.should_receive(:info).with(/Updating RightApi URL/).once
       @client.send(:redirected, moved).should be_true
@@ -435,13 +402,13 @@ describe RightScale::InstanceAuthClient do
     end
 
     it "logs error and returns false if there is no redirect location" do
-      moved = RestMovedPermanentlyMock.new
+      moved = RightScale::HttpExceptions.create(301)
       @log.should_receive(:error).with("Redirect exception does contain a redirect location").once
       @client.send(:redirected, moved).should be_false
     end
 
     it "logs error and returns false if the redirect location is not usable" do
-      moved = RestMovedPermanentlyMock.new(:location => "amqp://my3.com/api")
+      moved = RightScale::HttpExceptions.create(301, "", {:location => "amqp://my3.com/api"})
       @log.should_receive(:error).with("Failed redirect because location is invalid: \"amqp://my3.com/api\"").once
       @client.send(:redirected, moved).should be_false
     end
