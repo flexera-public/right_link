@@ -156,7 +156,7 @@ describe RightScale::Tagger do
       listing = ::RightScale::TaggerSpec::DEFAULT_QUERY_RESULT[ ::RightScale::TaggerSpec::RS_INSTANCE_ID_1 ]["tags"]
       flexmock(subject)
         .should_receive(:send_command)
-        .with({ :name => :get_tags },false, 120)
+        .with({ :name => :get_tags },false, 60)
         .once
         .and_return(listing)
       flexmock(subject).should_receive(:serialize_operation_result).never
@@ -184,7 +184,7 @@ describe RightScale::Tagger do
       expected_cmd = { :name => :query_tags, :tags => Array(expected_tags) }
       flexmock(subject).
         should_receive(:send_command).
-        with(expected_cmd, false, 120).
+        with(expected_cmd, false, 60).
         once.
         and_return('stuff')
       flexmock(subject).
@@ -252,7 +252,7 @@ describe RightScale::Tagger do
       expected_cmd = { :name => :add_tag, :tag => 'x:y=z' }
       flexmock(subject).
         should_receive(:send_command).
-        with(expected_cmd, false, 120).
+        with(expected_cmd, false, 60).
         once.
         and_return('stuff')
       flexmock(subject).should_receive(:serialize_operation_result).with('stuff').once.and_return(::RightScale::OperationResult.success(true))
@@ -275,7 +275,7 @@ describe RightScale::Tagger do
       expected_cmd = { :name => :remove_tag, :tag => 'x:y' }
       flexmock(subject).
         should_receive(:send_command).
-        with(expected_cmd, false, 120).
+        with(expected_cmd, false, 60).
         once.
         and_return('stuff')
       flexmock(subject).
