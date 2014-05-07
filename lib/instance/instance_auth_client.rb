@@ -200,7 +200,7 @@ module RightScale
           retry
         end
         raise
-      rescue RestClient::MovedPermanently, RestClient::Found => e
+      rescue HttpExceptions::MovedPermanently, HttpExceptions::Found => e
         if (redirects += 1) > MAX_REDIRECTS
           Log.error("Exceeded maximum redirects (#{MAX_REDIRECTS})")
         elsif redirected(e)
@@ -208,7 +208,7 @@ module RightScale
         end
         @api_url = api_url
         raise
-      rescue RestClient::Unauthorized => e
+      rescue HttpExceptions::Unauthorized => e
         self.state = :unauthorized
         @access_token = nil
         @expires_at = Time.now

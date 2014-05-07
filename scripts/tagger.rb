@@ -35,7 +35,7 @@
 #      --verbose, -v        Display debug information
 #      --help:              Display help
 #      --version:           Display version information
-#      --timeout, -t        Custom timeout parameter (default 120 sec)
+#      --timeout, -t SEC    Custom timeout (default 60 sec)
 #
 
 require 'rubygems'
@@ -50,7 +50,7 @@ module RightScale
   class Tagger
     include CommandHelper
 
-    TAG_REQUEST_TIMEOUT = 2 * 60  # synchronous tag requests need a long timeout
+    TAG_REQUEST_TIMEOUT = 60
 
     class TagError < Exception
       attr_reader :code
@@ -188,12 +188,12 @@ module RightScale
         options[:action] = :get_tags if options.delete(:list)
         if options[:add]
           options[:action] = :add_tag
-          options[:tag] = options.delete(:add)
+          options[:tag] = options.delete(:add).strip
           raise ::Trollop::CommandlineError.new("Non-empty value required") if options[:tag].empty?
         end
         if options[:remove]
           options[:action] = :remove_tag
-          options[:tag] = options.delete(:remove)
+          options[:tag] = options.delete(:remove).strip
           raise ::Trollop::CommandlineError.new("Non-empty value required") if options[:tag].empty?
         end
         if options[:query]
