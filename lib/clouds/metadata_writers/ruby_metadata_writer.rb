@@ -31,7 +31,8 @@ module RightScale
 
       protected
 
-      RUBY_HEADER = ['# Warning: this file has been auto-generated',
+      RUBY_HEADER = ['# encoding: utf-8',
+                     '# Warning: this file has been auto-generated',
                      '# any modifications can be overwritten']
 
       # Write given metadata to a ruby file.

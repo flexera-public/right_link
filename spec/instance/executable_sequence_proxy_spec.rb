@@ -117,6 +117,10 @@ describe RightScale::ExecutableSequenceProxy do
       expected_environment[::RightScale::ExecutableSequenceProxy::DECRYPTION_KEY_NAME] = "secretpw"
     end
 
+    if ::ENV['LC_ALL']
+      expected_environment['LC_ALL'] = ::ENV['LC_ALL']
+    end
+
     status = flexmock('status', :success? => true)
     actual_environment = nil
     flexmock(::RightScale::RightPopen).should_receive(:popen3_async).and_return do |cmd, o|

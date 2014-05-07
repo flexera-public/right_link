@@ -168,6 +168,10 @@ module RightScale
             environment[DECRYPTION_KEY_NAME] = secret_key
           end
 
+          if ::ENV['LC_ALL']
+            environment['LC_ALL'] = ::ENV['LC_ALL']
+          end
+
           # spawn
           RightScale::RightPopen.popen3_async(
             cmd,
