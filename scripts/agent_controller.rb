@@ -88,6 +88,10 @@ module RightScale
   class RightLinkAgentController < AgentController
     include CommandHelper
 
+    def usage
+      puts Usage.scan(__FILE__)
+    end
+
     # Create and run controller
     #
     # === Return
@@ -122,11 +126,6 @@ module RightScale
         options[:action] = 'shutdown'
         options[:agent_name] = a || 'instance'
         options[:thin_command_client] = true
-      end
-
-      opts.on('--help') do
-        puts Usage.scan(__FILE__)
-        exit
       end
     end
 
