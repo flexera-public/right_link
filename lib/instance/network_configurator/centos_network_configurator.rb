@@ -87,11 +87,12 @@ module RightScale
       logger.info "Adding route to network #{route_str}"
       begin
         if @boot
-          update_route_file(network, nat_server_ip, os_net_devices.first)
+          device = os_net_devices.first
         else
           runshell("ip route add #{route_str}")
-          update_route_file(network, nat_server_ip, route_device(network, nat_server_ip))
+          device = route_device(network, nat_server_ip)
         end
+        update_route_file(network, nat_server_ip, device)
       rescue Exception => e
         logger.error "Unable to set a route #{route_str}. Check network settings."
         # XXX: for some reason network_route_exists? allowing mutple routes
