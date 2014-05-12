@@ -38,7 +38,7 @@ module RightScale
     # Errno::ENOENT:: Invalid path
     # JSON Exception:: Invalid JSON content
     def self.read_json(path)
-      File.open(path, "r") do |f|
+      File.open(path, "r:utf-8") do |f|
         f.flock(File::LOCK_EX)
         return JSON.load(f)
       end
@@ -86,7 +86,7 @@ module RightScale
       contents = JSON.load(contents) if contents.is_a?(String)
       dir = File.dirname(path)
       FileUtils.mkdir_p(dir) unless File.directory?(dir)
-      File.open(path, 'a+') do |f|
+      File.open(path, 'a+:utf-8') do |f|
         f.flock(File::LOCK_EX)
         if File.size(path) > 0
           begin
