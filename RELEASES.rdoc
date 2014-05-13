@@ -4,7 +4,7 @@ Released 2014-05-13
 
 == New Features
 
-* Added support to allow the timeservers used for initial sync to be configured by the RightScale Cloud Appliance for vSphere.
+* Added support to allow NTP server used for initial time sync to be configured by the RightScale Cloud Appliance for vSphere.
 
 = 6.0.3 (RightLink 6.0 release candidate 4)
 
