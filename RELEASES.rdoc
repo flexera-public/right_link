@@ -1,3 +1,11 @@
+= 6.0.4 (RightLink 6.0 release candidate 5)
+
+Released 2014-05-13
+
+== New Features
+
+* Added support to allow the timeservers used for initial sync to be configured by the RightScale Cloud Appliance for vSphere.
+
 = 6.0.3 (RightLink 6.0 release candidate 4)
 
 Released 2014-04-17
@@ -5,12 +13,12 @@ Released 2014-04-17
 == Known Limitations
 
 * Sometimes RightLink fails to sync up time using System NTP service so it uses RS_ISLAND instead
-* ohai command line tool supports a more limited data set, especially on Windows. Use rs_ohai instead. 
+* ohai command line tool supports a more limited data set, especially on Windows. Use rs_ohai instead.
 * Only v14 ServerTemplates are supported due to the Chef and Ruby version bump.
 * vSphere cloud
-    * After stop/start of a server, rs_state utility will return a "run" state of booting instead of booting:reboot.  RS_REBOOT will also be set to false instead of true.  
+    * After stop/start of a server, rs_state utility will return a "run" state of booting instead of booting:reboot.  RS_REBOOT will also be set to false instead of true.
     * Does not support changing of static ip information between a stop/start or between reboots
-    * When rebundling (snapshotting) images, you MUST reset network configuration and clean out all RightLink state, else static network configuration will not be configured correctly on boot as it will retain the old interface setup.  
+    * When rebundling (snapshotting) images, you MUST reset network configuration and clean out all RightLink state, else static network configuration will not be configured correctly on boot as it will retain the old interface setup.
         * On Linux, remove the /var/lib/rightscale directory.  Also remove /etc/network/interfaces.d/eth* on Ubuntu or /etc/sysconfig/network-scripts/ifcfg-eth* and /etc/sysconfig/network-scripts/route-eth* on CentOS
         * On Windows, run RightScale supplied sysprep. This hooks into RightLink to remove the state from C:\ProgramData\RightScale.
     * When setting a static IP address, there will be a delay in the boot sequence as the DHCP client times out waiting for a response.
