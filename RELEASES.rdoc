@@ -1,3 +1,11 @@
+= 6.0.5 (RightLink 6.0 release candidate 6)
+
+Released 2014-05-14
+
+== Changes to Existing Functionality
+
+* Reverted to previous eventmachine gem
+
 = 6.0.4 (RightLink 6.0 release candidate 5)
 
 Released 2014-05-13
