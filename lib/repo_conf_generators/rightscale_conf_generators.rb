@@ -237,7 +237,8 @@ END
       target_filename = "#{Apt::RightScale::path_to_sources_list}/#{opts[:repo_filename]}.sources.list"
       FileUtils.rm_f(target_filename) if File.exists?(target_filename)
       File.open(target_filename,'w') { |f| f.write(config_body) }
-      FileUtils.mv("/etc/apt/sources.list", "/etc/apt/sources.list.ORIG") if File.exists?("/etc/apt/sources.list")
+      FileUtils.mv("/etc/apt/sources.list", "/etc/apt/sources.list.ORIG") if File.size?("/etc/apt/sources.list")
+      FileUtils.touch("/etc/apt/sources.list")
 
       unless Apt::RightScale::rightscale_gpgkey_imported?
         gpgfile = File.expand_path("../rightscale_key.pub", __FILE__)
