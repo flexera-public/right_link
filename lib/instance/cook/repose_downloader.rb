@@ -235,7 +235,7 @@ module RightScale
     #
     def hostnames_ips
       @hostnames.map do |hostname|
-        ips.reject { |ip, host| host != hostname }.keys
+        ips.select { |ip, host| host == hostname }.keys
       end.flatten
     end
 
