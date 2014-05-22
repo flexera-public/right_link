@@ -45,7 +45,6 @@ module RightScale
       m = RightLinkLogLevelManager.new
 
       options = m.parse_args
-      m.check_privileges
       m.manage(options)
 
       if options[:level] =~ /debug/i && !RightScale::Platform.windows?
@@ -57,6 +56,8 @@ module RightScale
     end
 
     def manage(options)
+      fail_on_right_agent_is_not_running
+      check_privileges
       return super(options) if options[:agent]
       cmd = options[:level] ? { :name => :add_tag } : { :name => :get_tags }
       cmd[:tag] = "#{LOG_LEVEL_TAG}=#{options[:level]}" if options[:level]
@@ -132,7 +133,7 @@ protected
 end
 
 #
-# Copyright (c) 2009-2011 RightScale Inc
+# Copyright (c) 2009-2014 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the

@@ -18,6 +18,7 @@
 #
 #    Options:
 #      --type, -t TYPE  Display desired state(run or agent)
+#      --verbose, -v    Display progress information
 #      --help:          Display help
 #      --version:       Display version information
 #
@@ -26,9 +27,6 @@ require 'trollop'
 require 'right_agent'
 require File.normalize_path(File.join(File.dirname(__FILE__), 'command_helper'))
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'instance', 'json_utilities'))
-require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'instance', 'agent_config'))
-require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'instance', 'instance_state'))
-require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'instance', 'shutdown_request'))
 
 module RightScale
 
@@ -41,8 +39,11 @@ module RightScale
     end
 
     def control(options)
+      fail_on_right_agent_is_not_running
+      check_privileges
+
       name = "get_instance_state_#{options[:type]}"
-      result = JSON.load(send_command({ :name => name}, options[:verbose]))
+      result = JSON.load(send_command({ :name => name }, options[:verbose]))
       fail(result['error']) if result['error']
       puts result['result']
     end
@@ -50,6 +51,7 @@ module RightScale
     def parse_args
       parser = Trollop::Parser.new do
         opt :type, "", :type => :string
+        opt :verbose
         version ""
       end
       parse do
@@ -69,3 +71,25 @@ module RightScale
     end
   end
 end
+
+#
+# Copyright (c) 2009-2014 RightScale Inc
+#
+# Permission is hereby granted, free of charge, to any person obtaining
+# a copy of this software and associated documentation files (the
+# "Software"), to deal in the Software without restriction, including
+# without limitation the rights to use, copy, modify, merge, publish,
+# distribute, sublicense, and/or sell copies of the Software, and to
+# permit persons to whom the Software is furnished to do so, subject to
+# the following conditions:
+#
+# The above copyright notice and this permission notice shall be
+# included in all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+# NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+# LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+# OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+# WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.

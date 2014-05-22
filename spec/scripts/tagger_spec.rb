@@ -42,6 +42,7 @@ describe RightScale::Tagger do
   # @return [Fixnum] exit code or zero
   def run_tagger(argv)
     replace_argv(argv)
+    flexmock(subject).should_receive(:fail_on_right_agent_is_not_running).and_return(true)
     flexmock(subject).should_receive(:check_privileges).and_return(true)
     subject.run(subject.parse_args)
     return 0
