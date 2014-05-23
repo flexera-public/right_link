@@ -142,7 +142,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def run(options)
-      fail_on_right_agent_is_not_running
+      fail_if_right_agent_is_not_running
       check_privileges
       set_logger(options)
       missing_argument unless options.include?(:action)

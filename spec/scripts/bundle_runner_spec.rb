@@ -26,7 +26,7 @@ module RightScale
       replace_argv(argv)
       opts = subject.parse_args
       opts[:bundle_type] = bundle_type
-      flexmock(subject).should_receive(:fail_on_right_agent_is_not_running).and_return(true)
+      flexmock(subject).should_receive(:fail_if_right_agent_is_not_running).and_return(true)
       flexmock(subject).should_receive(:check_privileges).and_return(true)
       subject.run(opts)
       return 0

@@ -56,7 +56,7 @@ module RightScale
     end
 
     def manage(options)
-      fail_on_right_agent_is_not_running
+      fail_if_right_agent_is_not_running
       check_privileges
       return super(options) if options[:agent]
       cmd = options[:level] ? { :name => :add_tag } : { :name => :get_tags }

@@ -97,7 +97,7 @@ module RightScale
         fail("Invalid thread name #{options[:thread]}", true)
       end
 
-      fail_on_right_agent_is_not_running
+      fail_if_right_agent_is_not_running
 
       echo(options)
       cmd = { :options => to_forwarder_options(options) }

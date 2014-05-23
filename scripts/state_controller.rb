@@ -39,7 +39,7 @@ module RightScale
     end
 
     def control(options)
-      fail_on_right_agent_is_not_running
+      fail_if_right_agent_is_not_running
       check_privileges
 
       name = "get_instance_state_#{options[:type]}"

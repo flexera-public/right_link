@@ -22,10 +22,9 @@ module RightScale
       File.join(pid_dir, "#{identity}.cookie")
     end
 
-    def fail_on_right_agent_is_not_running
-      is_running = false
-      is_running = right_agent_running?
-    ensure
+
+    def fail_if_right_agent_is_not_running
+      is_running = right_agent_running? rescue false
       fail("RightLink service is not running.") unless is_running
     end
 
