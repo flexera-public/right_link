@@ -142,6 +142,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def run(options)
+      fail_if_right_agent_is_not_running
       check_privileges
       set_logger(options)
       missing_argument unless options.include?(:action)
@@ -261,7 +262,7 @@ protected
 end # RightScale
 
 #
-# Copyright (c) 2011 RightScale Inc
+# Copyright (c) 2014 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the

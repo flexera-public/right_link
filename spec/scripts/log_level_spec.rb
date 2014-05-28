@@ -17,6 +17,7 @@ module RightScale
     def run_log_level_manager(argv)
       replace_argv(argv)
       flexmock(subject).should_receive(:check_privileges).and_return(true)
+      flexmock(subject).should_receive(:fail_if_right_agent_is_not_running).and_return(true)
       subject.manage(subject.parse_args)
       return 0
     rescue SystemExit => e

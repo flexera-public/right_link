@@ -41,6 +41,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def run(options)
+      fail_if_right_agent_is_not_running
       check_privileges
       AgentConfig.root_dir = AgentConfig.right_link_root_dirs
 
@@ -164,7 +165,7 @@ module RightScale
 end # RightScale
 
 #
-# Copyright (c) 2009-2011 RightScale Inc
+# Copyright (c) 2009-2014 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the

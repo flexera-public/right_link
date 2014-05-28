@@ -96,6 +96,9 @@ module RightScale
       if options[:thread] && (options[:thread] !~ RightScale::AgentConfig.valid_thread_name)
         fail("Invalid thread name #{options[:thread]}", true)
       end
+
+      fail_if_right_agent_is_not_running
+
       echo(options)
       cmd = { :options => to_forwarder_options(options) }
       cmd[:name] = options[:bundle_type] == :right_script ? 'run_right_script' : 'run_recipe'
@@ -281,7 +284,7 @@ protected
 end # RightScale
 
 #
-# Copyright (c) 2009-2011 RightScale Inc
+# Copyright (c) 2009-2014 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the

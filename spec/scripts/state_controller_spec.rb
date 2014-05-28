@@ -39,6 +39,8 @@ module RightScale
 
     def run_state_controller(args)
       replace_argv(args)
+      flexmock(subject).should_receive(:fail_if_right_agent_is_not_running).and_return(true)
+      flexmock(subject).should_receive(:check_privileges).and_return(true)
       subject.control(subject.parse_args)
       return 0
     rescue SystemExit => e
@@ -95,13 +97,13 @@ module RightScale
 
     context 'rs_stat --type=agent' do
       it 'should send query' do
-        flexmock(subject).should_receive(:send_command).with({:name => "get_instance_state_agent"}, nil).and_return(send_successed)
+        flexmock(subject).should_receive(:send_command).with({:name => "get_instance_state_agent"}, false).and_return(send_successed)
         run_state_controller("--type=agent")
         @output.join("\n").should include "AGENT_STATE"
       end
 
       it 'should report about error' do
-        flexmock(subject).should_receive(:send_command).with({:name => "get_instance_state_agent"}, nil).and_return(send_failed)
+        flexmock(subject).should_receive(:send_command).with({:name => "get_instance_state_agent"}, false).and_return(send_failed)
         flexmock(subject).should_receive(:fail).with(send_error_message).and_raise(SystemExit)
         run_state_controller("--type=agent")
       end
@@ -109,13 +111,13 @@ module RightScale
 
     context 'rs_stat --type=run' do
       it 'should send query' do
-        flexmock(subject).should_receive(:send_command).with({:name => "get_instance_state_run"}, nil).and_return(send_successed)
+        flexmock(subject).should_receive(:send_command).with({:name => "get_instance_state_run"}, false).and_return(send_successed)
         run_state_controller("--type=run")
         @output.join("\n").should include "AGENT_STATE"
       end
 
       it 'should report about error' do
-        flexmock(subject).should_receive(:send_command).with({:name => "get_instance_state_run"}, nil).and_return(send_failed)
+        flexmock(subject).should_receive(:send_command).with({:name => "get_instance_state_run"}, false).and_return(send_failed)
         flexmock(subject).should_receive(:fail).with(send_error_message).and_raise(SystemExit)
         run_state_controller("--type=run")
       end
