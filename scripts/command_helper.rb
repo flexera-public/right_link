@@ -14,12 +14,19 @@ module RightScale
       File.exists?(right_agent_cookie_file_path)
     end
 
+    def right_agent_config
+      @right_agent_config ||= ::RightScale::AgentConfig.agent_options('instance')
+    end
+
     def right_agent_cookie_file_path
-      config_options = ::RightScale::AgentConfig.agent_options('instance')
-      pid_dir = config_options[:pid_dir]
-      identity = config_options[:identity]
+      pid_dir = right_agent_config[:pid_dir]
+      identity = right_agent_config[:identity]
       raise ::ArgumentError.new('Could not get cookie file path') if (pid_dir.nil? & identity.nil?)
       File.join(pid_dir, "#{identity}.cookie")
+    end
+
+    def init_logger
+      Log.init(right_agent_config[:identity], ::RightScale::Platform.filesystem.log_dir)
     end
 
 
