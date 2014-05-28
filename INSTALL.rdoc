@@ -2,7 +2,7 @@
 
 == Stable Packages
 
-As of December 2013, the stable release of RightLink is v5.9.
+As of May 2014, the latest stable release of RightLink is v6.0. 
 
 It is available for the following operating systems (64-bit binaries only):
 * RHEL 6 (also compatible with CentOS 6)
@@ -19,14 +19,16 @@ And the following cloud types:
 * openstack
 * rackspace (OpenCloud)
 * softlayer
+* vsphere
 
 To learn how to install stable RightLink, refer to our support site:
 
-http://support.rightscale.com/12-Guides/RightLink/02-RightLink_5.9/Install_RightLink
+http://support.rightscale.com/12-Guides/RightLink/RightLink_6.0/Install_RightLink
 
-== Beta Packages - RightLink v6.0
 
-Assuming that you continued reading this document, you are probably interested in
+== Beta Packages - RightLink v6.1
+
+Assuming that you continued reading this document, you may be interested in
 trying RightLink beta or pre-release software. The following instructions serve as
 a beta install guide and will be kept up to date as new beta builds are released.
 
@@ -51,7 +53,7 @@ follows an EPEL-like layout and supports multiple distributions and releases.
 First, import RightScale public key:
 
   # Pre-import the rightscale public key
-  rpm --import http://s3.amazonaws.com/rightscale_key_pub/rightscale_key.pub
+  rpm --import http://mirror.rightscale.com/rightlink/rightscale.pub
 
 Create a yum source:
 
@@ -60,13 +62,13 @@ Create a yum source:
   name=RightLink
   baseurl=http://rightlink-beta.test.rightscale.com/yum/1/el/6/$basearch/
   gpgcheck=1
-  gpgkey=http://s3.amazonaws.com/rightscale_key_pub/rightscale_key.pub
+  gpgkey=http://mirror.rightscale.com/rightlink/rightscale.pub
   EOF
 
 Next, install RightLink cloud support package for
 the cloud type your instance is running on. Example for Amazon EC2:
 
-  yum install -y rightlink-cloud-ec2
+  yum install -y rightlink6-cloud-ec2
 
 *Note:* Before installing the RightLink package be sure that time of the server is correct. We highly recommend the use of Network Time Protocol (NTP) for synchronizing time on your servers.
 
@@ -82,7 +84,7 @@ an EPEL-like layout and supports multiple distributions and releases.
 First, import RightScale public key:
 
   # Pre-import the rightscale public key
-  rpm --import http://s3.amazonaws.com/rightscale_key_pub/rightscale_key.pub
+  rpm --import http://mirror.rightscale.com/rightlink/rightscale.pub
 
 Create a zypper source:
 
@@ -91,13 +93,13 @@ Create a zypper source:
   name=RightLink
   baseurl=http://rightlink-beta.test.rightscale.com/zypp/1/suse/11/x86_64/
   gpgcheck=1
-  gpgkey=http://s3.amazonaws.com/rightscale_key_pub/rightscale_key.pub
+  gpgkey=http://mirror.rightscale.com/rightlink/rightscale.pub
   EOF
 
 Next, install RightLink cloud support package for
 the cloud type your instance is running on. Example for Amazon EC2:
 
-  zypper --non-interactive install rightlink-cloud-ec2
+  zypper --non-interactive install rightlink6-cloud-ec2
 
 *Note:* Before installing the RightLink package be sure that time of the server is correct. We highly recommend the use of Network Time Protocol (NTP) for synchronizing time on your servers.
 
@@ -112,7 +114,7 @@ For Debian-derived systems, maintain an automatic, pooled apt repository.
 First, import RightScale public key:
 
   # Import RightScale public key
-  curl http://s3.amazonaws.com/rightscale_key_pub/rightscale_key.pub | apt-key add -
+  curl http://mirror.rightscale.com/rightlink/rightscale.pub | apt-key add -
 
 Create an apt source, ensuring that you specify the right architecture
 and release code name. For instance, on an amd64 system that is running:
@@ -120,20 +122,18 @@ and release code name. For instance, on an amd64 system that is running:
   # Ubuntu 12.04 (precise)
   cat > /etc/apt/sources.list.d/rightlink.sources.list <<EOF
   deb [arch=amd64] http://rightlink-beta.test.rightscale.com/apt precise main
-  deb-src [arch=amd64] http://rightlink-beta.test.rightscale.com/apt precise main
   EOF
 
   # Ubuntu 13.04 (raring)
   cat > /etc/apt/sources.list.d/rightlink.sources.list <<EOF
   deb [arch=amd64] http://rightlink-beta.test.rightscale.com/apt raring main
-  deb-src [arch=amd64] http://rightlink-beta.test.rightscale.com/apt raring main
   EOF
 
 
 Next, install RightLink cloud support package for the cloud type your instance is running on. Example for Amazon EC2:
 
   apt-get update
-  apt-get install rightlink-cloud-ec2
+  apt-get install rightlink6-cloud-ec2
 
 *Note:* Before installing the RightLink package be sure that time of the server is correct. We highly recommend the use of Network Time Protocol (NTP) for synchronizing time on your servers.
 
