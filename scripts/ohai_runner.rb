@@ -25,6 +25,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def run
+      $0 = "rs_ohai" # to prevent showing full path to executalbe in help banner
       RightScale::OhaiSetup.configure_ohai
       Ohai::Application.new.run
       true
