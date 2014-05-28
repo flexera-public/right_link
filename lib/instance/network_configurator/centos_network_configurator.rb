@@ -54,12 +54,6 @@ module RightScale
       true
     end
 
-    # TODO: remove then rightboot run order is fixed
-    def restart_network
-      runshell("pkill dhclient || true")
-      runshell("service network restart")
-    end
-
     def configure_network
       # update authorized_keys file from metadata
       begin
@@ -69,11 +63,11 @@ module RightScale
         Logger.error("Error installing ssh private key material: #{e.message}")
       end
       super
-      restart_network if ENV.keys.any? { |k| k =~ /RS_IP\d_ADDR/ }
     end
 
     def routes_for_device(device)
-      runshell("ip route show dev #{device}")
+      routes = runshell("ip route show dev #{device}") rescue nil
+      routes ||= ""
     end
 
     def single_ip_range?(cidr_range)
@@ -83,7 +77,8 @@ module RightScale
 
     def route_device(network, nat_server_ip)
       route_regex = route_regex(network, nat_server_ip)
-      os_net_devices.detect { |device| routes_for_device(device).match(route_regex) }
+      device = os_net_devices.find { |device| routes_for_device(device).match(route_regex) }
+      device ||= os_net_devices.first
     end
 
     def network_route_add(network, nat_server_ip)
@@ -91,8 +86,13 @@ module RightScale
       route_str = "#{network} via #{nat_server_ip}"
       logger.info "Adding route to network #{route_str}"
       begin
-        runshell("ip route add #{route_str}")
-        update_route_file(network, nat_server_ip, route_device(network, nat_server_ip))
+        if @boot
+          device = os_net_devices.first
+        else
+          runshell("ip route add #{route_str}")
+          device = route_device(network, nat_server_ip)
+        end
+        update_route_file(network, nat_server_ip, device)
       rescue Exception => e
         logger.error "Unable to set a route #{route_str}. Check network settings."
         # XXX: for some reason network_route_exists? allowing mutple routes
@@ -114,7 +114,14 @@ module RightScale
     end
 
     def os_net_devices
-      @net_devices ||= (0..9).map { |i| "eth#{i}" }
+      unless @net_devices 
+        @net_devices = 
+          runshell("ip link show").split("\n").
+          select {|line| line =~ /^\d/}.
+          map {|line| line.split[1].sub(":","")}.
+          select {|device| device =~ /^eth/}
+      end
+      @net_devices
     end
 
     def device_name_from_mac(mac)
@@ -140,7 +147,7 @@ module RightScale
     #
     # === Return
     # result(True):: Always returns true
-    def update_route_file(network, nat_server_ip, device = "eth0")
+    def update_route_file(network, nat_server_ip, device = os_net_devices.first)
       raise "ERROR: invalid nat_server_ip : '#{nat_server_ip}'" unless valid_ipv4?(nat_server_ip)
       raise "ERROR: invalid CIDR network : '#{network}'" unless valid_ipv4_cidr?(network)
 
@@ -217,10 +224,12 @@ EOH
       super
 
       # Setup static IP without restarting network
-      logger.info "Updating in memory network configuration for #{device}"
-      runshell("ifconfig #{device} #{ip} netmask #{netmask}")
-      add_gateway_route(gateway) if gateway
-
+      unless @boot
+        logger.info "Updating in memory network configuration for #{device}"
+        runshell("ifconfig #{device} #{ip} netmask #{netmask}")
+        add_gateway_route(gateway) if gateway
+      end
+      
       # Also write to config file
       write_adaptor_config(device, config_data(device, ip, netmask, gateway, nameservers))
 

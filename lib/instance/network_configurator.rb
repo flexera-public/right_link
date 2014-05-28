@@ -33,6 +33,14 @@ module RightScale
       end
     end
 
+
+    attr_accessor :boot
+
+    def initialize(options = {})
+      @boot = options[:boot] || false
+    end
+
+
     # Detects if configurator supported on current platform.
     # Responsibility of subclass
     #
@@ -118,12 +126,13 @@ module RightScale
     def network_route_add(network, nat_server_ip)
       raise "ERROR: invalid nat_server_ip : '#{nat_server_ip}'" unless valid_ipv4?(nat_server_ip)
       raise "ERROR: invalid CIDR network : '#{network}'" unless valid_ipv4_cidr?(network)
-      route_str = "#{network} via #{nat_server_ip}"
-      if network_route_exists?(network, nat_server_ip)
-        logger.debug "Route already exists to #{route_str}"
-        return true
+      unless @boot
+        route_str = "#{network} via #{nat_server_ip}"
+        if network_route_exists?(network, nat_server_ip)
+          logger.debug "Route already exists to #{route_str}"
+          return true
+        end
       end
-
       true
     end
 
