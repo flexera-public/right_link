@@ -12,14 +12,16 @@ with the RightNet router so that operational recipes and scripts can be run at
 a later time.
 
 Supported cloud types:
-* azure
-* cloudstack
+* azure*
+* cloudstack*
 * ec2
 * gce
 * openstack
-* rackspace (Open Cloud)
-* softlayer
+* rackspace (Open Cloud)*
+* softlayer*
 * vsphere
+
+\* These variants are not officially supported and validated to work with RightLink 6.0.  Full support should be available with RightLink 6.1.
 
 Refer to the support site (http://support.rightscale.com/12-Guides/RightLink/) for up-to-date
 documentation.
