@@ -249,7 +249,7 @@ protected
         result[:policy] = options[:policy]
       end
       if options[:audit_period]
-        result[:audit_period] = options[:audit_period]
+        result[:audit_period] = options[:audit_period].to_s
       end
       if options[:bundle_type] == :right_script
         result[:right_script_id] = options[:id] if options[:id]
