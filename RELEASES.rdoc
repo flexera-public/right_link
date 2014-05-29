@@ -2,95 +2,19 @@
 
 Released 2014-05-29
 
-== Bug fixes
-
-* Fixed NTP sync at startup for Suse 
-
-== Known Limitations
-
-* Sometimes RightLink fails to sync up time using System NTP service so it uses RS_ISLAND instead
-* ohai command line tool supports a more limited data set, especially on Windows. Use rs_ohai instead.
-* Only v14 ServerTemplates are supported due to the Chef and Ruby version bump.
-* vSphere cloud
-    * After stop/start of a server, rs_state utility will return a "run" state of booting instead of booting:reboot.  RS_REBOOT will also be set to false instead of true.
-    * Does not support changing of static ip information between a stop/start or between reboots
-    * When rebundling (snapshotting) images, you MUST reset network configuration and clean out all RightLink state, else static network configuration will not be configured correctly on boot as it will retain the old interface setup.
-        * On Linux, remove the /var/lib/rightscale directory.  Also remove /etc/network/interfaces.d/eth* on Ubuntu or /etc/sysconfig/network-scripts/ifcfg-eth* and /etc/sysconfig/network-scripts/route-eth* on CentOS
-        * On Windows, run RightScale supplied sysprep. This hooks into RightLink to remove the state from C:\ProgramData\RightScale.
-    * When setting a static IP address, there will be a delay in the boot sequence as the DHCP client times out waiting for a response.
-    * RightImages have ntpd pre-configured for public servers, there may be some warning in logs until the boot recipes configure NTP
-    * Detection of private networks is limited to well-known subnets as defined in RFC-1918: 10.0.0.0, 192.168.0.0, 172.16.0.0, 172.2.0.0, 172.30.0.0 and 172.31.0.0
-    * For RightLink to work on a vSphere Linux template (aka image), the operating system must be able to automount the fd0 device at /mnt/metadata. CentOS images have a known limitation: https://bugzilla.redhat.com/show_bug.cgi?id=503308. For CentOS 6 systems, execute "echo 'alias acpi:PNP0700: floppy' > /etc/modprobe.d/floppy-pnp.conf".
-    * Only 1 network interface supported at this time.
-
-= 6.0.5 (RightLink 6.0 release candidate 6)
-
-Released 2014-05-14
-
-== Changes to Existing Functionality
-
-* Reverted to previous eventmachine gem
-
-= 6.0.4 (RightLink 6.0 release candidate 5)
-
-Released 2014-05-13
-
-== New Features
-
-* Added support to allow NTP server used for initial time sync to be configured by the RightScale Cloud Appliance for vSphere.
-
-= 6.0.3 (RightLink 6.0 release candidate 4)
-
-Released 2014-04-17
-
-
-== Bug fixes
-
-* Linux RightScripts and Chef recipes that contain or output UTF-8 characters now correctly execute.
-* rs_tag utility now returns non-zero status if it fails to add or remove a tag.
-* Linux: Setting a static network configuration now disables DHCP client to avoid reconfiguration conflicts.
-
-= 6.0.2 (RightLink 6.0 release candidate 3)
-
-Released 2014-04-14
-
-== Bug fixes
-
-* Internal API client switched to non-blocking version.  This fixes issues with lost log messages and spurious error messages after running an rs_shutdown request
-* Remove extraneous output when RightScripts exited with a non-success status
-* System and chef rubygems now configured to use rightscale mirror
-* Fix for rs_state sometimes returning an empty value on decommission
-* /etc/apt/sources.list during repository configuration
-
-= 6.0.1 (RightLink 6.0 release candidate 2)
-
-Released 2014-04-03
-
-== Changes to Existing Functionality
-
-* Enable Chef report and error handlers.
-
-== Bug fixes
-
-* rs_tag raises error on adding or removing an empty tag.
-* Allow "rightscale" user to login if rightlink service is stopped.
-* Server with an empty boot bundle no longer strands when repose is down
-
-= 6.0.0 (RightLink 6.0 release candidate 1)
-
-Released 2014-03-06
-
 == New Features
 
 * vSphere support via the RightScale Cloud Appliance for vSphere.
 * rs_config utility command line utility added.  This utility allows you to configure RightLink options. Of note is the ability to set the default timeout to wait on decommission scripts before forcing reboot or termination. Default value is 180 seconds.
-* Added support for passing key 'rs_breakpoint=init_cloud_state' though the user data. This will stop RightLink startup right after cloud definition file is executed.  This is useful for halting RightLink before "phoning home" which will allow one to login to the system and diagnose any networking problems.
-* Properly synced time is necessary for RightLink agent functioning. RightLink now does a one time NTP time sync on startup against user specified or RightScale time servers. User timeservers may be specified in a couple ways:
-  * Adding tag "rs_agent:ntp_servers=<hostname1>,<hostname2>,etc" to servers before boot.
-  * By setting RS_ntp value in the userdata
+* Properly synced time is necessary for RightLink agent functioning. RightLink now does a one time NTP time sync on startup against user specified, system, or RightScale time servers. Timeservers will be synced in the following order, using the first successful value:
+  1. From a server tag "rs_agent:ntp_servers=<hostname1>,<hostname2>,etc" added to servers before boot, if supplied.
+  2. From the timeservers value in the config for the RightScale Cloud Appliance for vSphere, if supplied.
+  3. System NTP configuration.
+  4. From the RightScale load-balancer specified in RS_ISLAND user-data variable.
 * Firewall friendliness
   * AMQP has been replaced with HTTP in communication between RightLink agent and RightScale core site.
   * Syncing with NTP, RightLink patching, and software repo mirrors will now go through load-balancer specified in RS_ISLAND user-data variable set by RightScale when the instance launches.
+* Added support for passing key 'rs_breakpoint=init_cloud_state' though the user data. This will stop RightLink startup right after cloud definition file is executed.  This is useful for halting RightLink before "phoning home" which will allow one to login to the system and diagnose any networking problems.
 
 == Changes to Existing Functionality
 
@@ -102,6 +26,34 @@ Released 2014-03-06
 * /opt/rightscale/sandbox/bin added to end of path for Chef recipes and RightScripts to support
 * rs_tag --query now accepts multiple parameters instead of single string
 * Removed custom Chef resources: right_link_tag, remote_recipe, server_collection and rs_shutdown. Use the RightLink command-line utilities instead.
+* Enabled Chef report and error handlers.
+* RightLink sandbox rubygems (used by Chef) now configured to use frozen RightScale mirrors
+
+== Bug fixes
+
+* Linux RightScripts and Chef recipes that contain or output UTF-8 characters now correctly execute.
+* rs_tag utility now returns non-zero status if it fails to add or remove a tag.
+* rs_tag raises error on adding or removing an empty tag.
+* Empty /etc/apt/sources.list created during repository configuration.
+* Server with an empty boot bundle no longer strands when repose is down
+
+== Known Limitations
+
+* Sometimes RightLink fails to sync up time using System NTP service so it uses RS_ISLAND instead
+* ohai command line tool supports a more limited data set, especially on Windows. Use rs_ohai instead.
+* Only v14 ServerTemplates are supported due to the Chef and Ruby version bump.
+* vSphere cloud
+  * Only 1 network interface supported at this time.
+  * After stop/start of a server, rs_state utility will return a "run" state of booting instead of booting:reboot.  RS_REBOOT will also be set to false instead of true.
+  * Does not support changing of static ip information between a stop/start or between reboots
+  * When rebundling (snapshotting) images, you MUST reset network configuration and clean out all RightLink state, else static network configuration will not be configured correctly on boot as it will retain the old interface setup.
+    * On Linux, remove the /var/lib/rightscale directory.  Also remove /etc/network/interfaces.d/eth* on Ubuntu or /etc/sysconfig/network-scripts/ifcfg-eth* and /etc/sysconfig/network-scripts/route-eth* on CentOS
+    * On Windows, run RightScale supplied sysprep. This hooks into RightLink to remove the state from C:\ProgramData\RightScale.
+  * When setting a static IP address, there will be a delay in the boot sequence as the DHCP client times out waiting for a response.
+  * RightImages have ntpd pre-configured for public servers, there may be some warning in logs until the boot recipes configure NTP
+  * Detection of private networks is limited to well-known subnets as defined in RFC-1918: 10.0.0.0, 192.168.0.0, 172.16.0.0, 172.2.0.0, 172.30.0.0 and 172.31.0.0
+  * For RightLink to work on a vSphere Linux template (aka image), the operating system must be able to automount the fd0 device at /mnt/metadata. CentOS images have a known limitation: https://bugzilla.redhat.com/show_bug.cgi?id=503308. For CentOS 6 systems, execute "echo 'alias acpi:PNP0700: floppy' > /etc/modprobe.d/floppy-pnp.conf".
+
 
 
 = 5.9.5 (RightLink 5.9 GA Release)

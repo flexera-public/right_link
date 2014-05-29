@@ -15,7 +15,7 @@ And the following cloud types:
 * azure
 * cloudstack
 * ec2
-* google
+* gce
 * openstack
 * rackspace (OpenCloud)
 * softlayer
