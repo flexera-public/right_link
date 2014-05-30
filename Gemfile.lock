@@ -14,7 +14,7 @@ PATH
       trollop
 
 GEM
-  remote: http://s3.amazonaws.com/rightscale_rightlink_gems_dev/
+  remote: http://gems.test.rightscale.com/
   remote: https://rubygems.org/
   specs:
     addressable (2.3.6)
