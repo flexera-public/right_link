@@ -36,7 +36,8 @@
 #        -a PERIOD_IN_SECONDS
 #      --recipient_tags,     Tags for selecting which instances are to receive
 #                              request with the TAG_LIST being quoted if it
-#        -r TAG_LIST           contains spaces
+#        -r TAG_LIST           contains spaces. Recipe will only be executed
+#                              on servers that have all the tags listed in the TAG_LIST
 #      --scope, -s SCOPE     Scope for selecting tagged recipients: single or
 #                              all (default all)
 #      --cfg-dir, -c DIR     Set directory containing configuration for all
