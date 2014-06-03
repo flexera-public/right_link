@@ -25,7 +25,7 @@ Released 2014-05-29
 * Default SSL protocol bumped to TLSv1.
 * /opt/rightscale/sandbox/bin added to end of path for Chef recipes and RightScripts to support
 * rs_tag --query now accepts multiple parameters instead of single string
-* Removed custom Chef resources: right_link_tag, remote_recipe, server_collection and rs_shutdown. Use the RightLink command-line utilities instead.
+* Unbundled custom Chef resources: dns, executable_schedule, right_link_tag, remote_recipe, server_collection and rs_shutdown. A mixture of RightLink command-line utilities and public cookbooks should be used instead. See http://support.rightscale.com/18-Release_Notes/RightLink_Release_Notes/RightLink_6.0/RightLink_5_to_6_Breaking_Changes for a list of alternatives.
 * Enabled Chef report and error handlers.
 * RightLink sandbox rubygems (used by Chef) now configured to use frozen RightScale mirrors
 
