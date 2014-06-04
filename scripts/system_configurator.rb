@@ -34,10 +34,9 @@ require File.normalize_path(File.join(File.dirname(__FILE__), 'command_helper'))
 
 cloud_dir = RightScale::AgentConfig.cloud_state_dir
 
+
 begin
-  meta_data_cache_file = File.join(cloud_dir, 'meta-data-cache.rb')
-  meta_data_file = File.join(cloud_dir, 'meta-data.rb')
-  require( File.exists?(meta_data_cache_file) ? meta_data_cache_file : meta_data_file )
+  require File.join(cloud_dir, 'meta-data-cache')
 rescue LoadError => e
   puts "No cloud metadata is available on this machine - some modules may not work correctly!"
 end

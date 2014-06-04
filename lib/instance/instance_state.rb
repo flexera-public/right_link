@@ -616,7 +616,7 @@ module RightScale
         meta_data_file = ::File.join(AgentConfig.cloud_state_dir, 'meta-data-cache.rb')
         # metadata does not exist on all clouds, hence the conditional
         load(meta_data_file) if File.file?(meta_data_file)
-        resource_uid = ENV['EC2_INSTANCE_ID']
+        resource_uid = ENV['EC2_INSTANCE_ID'] || ENV['VS_INSTANCE_ID']
       rescue Exception => e
         Log.error("Failed to load metadata", e)
       end
