@@ -77,10 +77,6 @@ module RightScale
     # @option options [Boolean] :no_renew get authorized without setting up for continuous renewal
     # @option options [Boolean] :non_blocking i/o is to be used for HTTP requests by applying
     #   EM::HttpRequest and fibers instead of RestClient; requests remain synchronous
-    # @option options [Proc] :exception_callback for unexpected exceptions with following parameters:
-    #   [Exception] exception raised
-    #   [Packet, NilClass] packet being processed
-    #   [Agent, NilClass] agent in which exception occurred
     #
     # @raise [ArgumentError] missing :identity, :token, :account_id, or :api_url
     # @raise [Exceptions::Unauthorized] authorization failed
@@ -96,7 +92,6 @@ module RightScale
       @router_url = nil
       @other_headers = {"User-Agent" => "RightLink v#{RightLink.version}", "X-RightLink-ID" => @token_id}
       @non_blocking = options[:non_blocking]
-      @exception_callback = options[:exception_callback]
       @expires_at = Time.now
       reset_stats
       @state = :pending
@@ -194,7 +189,7 @@ module RightScale
         @communicated_callbacks.each { |callback| callback.call } if @communicated_callbacks
       rescue BalancedHttpClient::NotResponding
         if (retries += 1) > MAX_RETRIES
-          Log.error("Exceeded maximum authorization retries (#{MAX_RETRIES})")
+          ErrorTracker.log(self, "Exceeded maximum authorization retries (#{MAX_RETRIES})")
         else
           sleep(RETRY_INTERVAL)
           retry
@@ -202,7 +197,7 @@ module RightScale
         raise
       rescue HttpExceptions::MovedPermanently, HttpExceptions::Found => e
         if (redirects += 1) > MAX_REDIRECTS
-          Log.error("Exceeded maximum redirects (#{MAX_REDIRECTS})")
+          ErrorTracker.log(self, "Exceeded maximum redirects (#{MAX_REDIRECTS})")
         elsif redirected(e)
           retry
         end
@@ -218,7 +213,7 @@ module RightScale
     rescue BalancedHttpClient::NotResponding, Exceptions::Unauthorized, CommunicationModeSwitch
       raise
     rescue StandardError => e
-      @stats["exceptions"].track("authorize", e)
+      ErrorTracker.log(self, "Failed authorizing", e)
       self.state = :failed
       raise
     end
@@ -258,11 +253,10 @@ module RightScale
               renew_authorization(UNAUTHORIZED_RENEW_INTERVAL)
             end
           rescue CommunicationModeSwitch => e
-            Log.error("Failed authorization renewal", e, :no_trace)
+            ErrorTracker.log(self, "Failed authorization renewal", e, nil, :no_trace)
             self.state = :failed
           rescue Exception => e
-            Log.error("Failed authorization renewal", e, :trace)
-            @stats["exceptions"].track("renew", e)
+            ErrorTracker.log(self, "Failed authorization renewal", e)
             self.state = :failed
           end
         end
@@ -305,11 +299,11 @@ module RightScale
       redirected = false
       location = exception.response.headers[:location]
       if location.nil? || location.empty?
-        Log.error("Redirect exception does contain a redirect location")
+        ErrorTracker.log(self, "Redirect exception does contain a redirect location")
       else
         new_url = URI.parse(location)
         if new_url.scheme !~ /http/ || new_url.host.empty?
-          Log.error("Failed redirect because location is invalid: #{location.inspect}")
+          ErrorTracker.log(self, "Failed redirect because location is invalid: #{location.inspect}")
         else
           # Apply scheme and host from new URL to existing URL, but not path
           new_url.path = URI.parse(@api_url).path
@@ -342,9 +336,8 @@ module RightScale
           rescue BalancedHttpClient::NotResponding => e
             @stats["reconnects"].update("no response")
           rescue Exception => e
-            Log.error("Failed authorization reconnect", e)
+            ErrorTracker.log(self, "Failed authorization reconnect", e)
             @stats["reconnects"].update("failure")
-           @stats["exceptions"].track("reconnect", e)
           end
           @reconnect_timer.interval = HEALTH_CHECK_INTERVAL if @reconnect_timer
         end
