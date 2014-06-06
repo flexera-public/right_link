@@ -225,6 +225,7 @@ describe RightScale::InstanceAuthClient do
 
     it "sets state to :failed and raises if there is an unexpected exception" do
       @http_client.should_receive(:post).and_raise(RuntimeError, "test").once
+      @log.should_receive(:error).with("Failed authorizing", RuntimeError, :trace).once
       lambda { @client.send(:get_authorized) }.should raise_error(RuntimeError, "test")
       @client.state.should == :failed
     end
@@ -462,7 +463,7 @@ describe RightScale::InstanceAuthClient do
 
       it "logs error if unexpected exception is raised" do
         flexmock(@http_client).should_receive(:check_health).and_raise(RuntimeError).once
-        @log.should_receive(:error).with("Failed authorization reconnect", StandardError).once
+        @log.should_receive(:error).with("Failed authorization reconnect", RuntimeError, :trace).once
         @client.send(:reconnect).should be_true
       end
     end

@@ -29,8 +29,6 @@ AgentManager.class_eval do
   include RightScale::Actor
   include RightScale::OperationResultHelper
 
-  on_exception { |_, _, _| }
-
   expose :record_fault
 
   # Process fault (i.e. router failed to decrypt one of our packets)
