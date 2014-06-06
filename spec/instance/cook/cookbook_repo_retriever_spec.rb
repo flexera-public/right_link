@@ -190,7 +190,7 @@ describe RightScale::CookbookRepoRetriever do
           @position = 'cookbooks/cookbook'
           @retriever = described_class.new(@expected_repose_root, RightScale::DevRepositories.new({@repo_sha => @repo}))
 
-          mock_scraper.should_receive(:repo_dir).with(described_class.to_scraper_hash(@repo)).once.and_return(repo_dir)
+          mock_scraper.should_receive(:repo_dir).with(@repo.to_scraper_hash).once.and_return(repo_dir)
         end
 
         it 'should NOT scrape' do
@@ -217,10 +217,10 @@ describe RightScale::CookbookRepoRetriever do
           end
           mock_scraper = flexmock("Mock RightScraper")
           @dev_repos.each_pair do |repo_sha, dev_repo|
-            scraper_repo = described_class.to_scraper_hash(dev_repo)
+            scraper_repo = dev_repo.to_scraper_hash
             mock_scraper.should_receive(:scrape).once.with(scraper_repo).and_return(repo_sha == @fail_sha)
             repo_dir = File.join(@expected_checkout_root, repo_sha)
-            mock_scraper.should_receive(:repo_dir).with(described_class.to_scraper_hash(dev_repo)).once.and_return(repo_dir)
+            mock_scraper.should_receive(:repo_dir).with(dev_repo.to_scraper_hash).once.and_return(repo_dir)
           end
           mock_scraper.should_receive(:errors).and_return(['what is that smell?'])
           flexmock(RightScraper::Main).should_receive(:new).and_return(mock_scraper)
