@@ -1,3 +1,9 @@
+= 6.1.0
+== New Features
+* vSphere cloud
+  * Multiple network interfaces support
+  * rs_ipN_name metadata key to provide name for corresponding NIC on Windows
+
 = 6.0.6 (RightLink 6.0 GA)
 
 Released 2014-05-29
