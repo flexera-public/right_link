@@ -29,7 +29,6 @@ require 'right_agent/scripts/common_parser'
 # RightLink dependencies
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'instance', 'agent_config'))
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'instance', 'network_configurator'))
-require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'clouds', 'register_clouds'))
 require File.normalize_path(File.join(File.dirname(__FILE__), 'command_helper'))
 
 cloud_dir = RightScale::AgentConfig.cloud_state_dir
@@ -122,18 +121,24 @@ module RightScale
       end
     end
 
-    def current_cloud
-      cloud_dir = RightScale::AgentConfig.cloud_state_dir
-      cloud_name = File.read(RightScale::AgentConfig.cloud_file_path).strip
-      CloudFactory.instance.create(cloud_name, :logger => default_logger)
-    end
-
     def configure_network(options = {})
-      return unless current_cloud.requires_network_config?
       configurator = NetworkConfigurator.create(options)
       # True forces log to stdout/stderr, important as this can execute pre-syslog
       configurator.logger = default_logger(true)
       configurator.configure_network
+    end
+
+    #
+    # Configure root access for vSphere cloud
+    #
+    def configure_root_access
+      public_key = ENV['VS_SSH_PUBLIC_KEY'].to_s.strip
+      # was there a key found?
+      if public_key.nil? || public_key.empty?
+        puts "No public SSH key found in metadata"
+        return
+      end
+      update_authorized_keys(public_key)
     end
 
     def configure_ssh(options = {})
@@ -381,6 +386,39 @@ module RightScale
 
     def unset_proxy_variables
       runshell("unset http_proxy ; unset HTTP_PROXY ; unset no_proxy; unset NO_PROXY")
+    end
+
+    # Add public key to ssh authorized_keys file
+    #
+    # If the file does not exist, it will be created.
+    # If the key already exists, it will not be added again.
+    #
+    # === Parameters
+    # public_key(String):: public ssh key
+    #
+    # === Return
+    #
+    def update_authorized_keys(public_key)
+      auth_key_file = "/root/.ssh/authorized_keys"
+
+      FileUtils.mkdir_p(File.dirname(auth_key_file)) # make sure the directory exists
+
+      key_exists = false
+
+      File.open(auth_key_file, "r") do |file|
+        file.each_line { |line| key_exists = true if line == public_key }
+      end if File.exists?(auth_key_file)
+
+      if key_exists
+        puts "Public ssh key for root already exists in #{auth_key_file}"
+      else
+        puts "Appending public ssh key to #{auth_key_file}"
+        File.open(auth_key_file, "a") { |f| f.puts(public_key) }
+      end
+
+      # make sure it's private
+      FileUtils.chmod(0600, auth_key_file)
+      true
     end
 
     def usage
