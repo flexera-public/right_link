@@ -13,8 +13,11 @@
 #    system --action=<action> [options]
 #
 #    Options:
-#      --help:            Display help
-#
+#      --help:  Display help
+#      --boot:  Applies to '--action network' only. Changes logic to be compatible
+#               with use at system initialization time, such as only configuring
+#               network on disk and not using syslog (may not be available)
+
 
 require 'trollop'
 require 'socket'
@@ -96,7 +99,7 @@ module RightScale
         method_name = "configure_#{action}".to_sym
         if action && respond_to?(method_name)
           puts "Configuring #{action}"
-          __send__(method_name)
+          __send__(method_name, options)
         else
           raise StandardError, "Unknown action #{action}"
         end
@@ -112,6 +115,7 @@ module RightScale
     def parse_args
       parser = Trollop::Parser.new do
         opt :action, "", :type => :string
+        opt :boot, ""
       end
 
       parse do
@@ -125,14 +129,15 @@ module RightScale
       CloudFactory.instance.create(cloud_name, :logger => default_logger)
     end
 
-    def configure_network
+    def configure_network(options = {})
       return unless current_cloud.requires_network_config?
-      configurator = NetworkConfigurator.create
-      configurator.logger = default_logger
+      configurator = NetworkConfigurator.create(options)
+      # True forces log to stdout/stderr, important as this can execute pre-syslog
+      configurator.logger = default_logger(true)
       configurator.configure_network
     end
 
-    def configure_ssh
+    def configure_ssh(options = {})
       return 0 unless Platform.linux?
 
       puts "Freshening SSH host keys to ensure they are unique to this instance..."
@@ -160,7 +165,7 @@ module RightScale
       return 0
     end
 
-    def configure_hostname
+    def configure_hostname(options = {})
       return 0 unless Platform.linux?
 
       hostname     = Socket.gethostname
@@ -181,7 +186,7 @@ module RightScale
       end
     end
 
-    def configure_proxy
+    def configure_proxy(options = {})
       return 0 unless Platform.linux?
 
       unset_proxy_variables
@@ -228,9 +233,16 @@ module RightScale
     end
 
     def restart_sshd
-      sshd_name = File.exist?('/etc/init.d/sshd') ? "sshd" : "ssh"
-      puts "Restarting SSHD..."
-      runshell("/etc/init.d/#{sshd_name} restart")
+      puts "Restarting SSH Daemon..."
+      # CentOS has upstart installed but it doesn't manage ssh or networking
+      if File.exists?('/etc/init/sshd.conf')
+        runshell("/sbin/restart sshd")
+      elsif File.exists?('/etc/init/ssh.conf')
+        runshell("/sbin/restart ssh")
+      else # sysvinit
+        sshd_name = File.exists?('/etc/init.d/sshd') ? "sshd" : "ssh"
+        runshell("/etc/init.d/#{sshd_name} restart")
+      end
     end
 
     def retrieve_cloud_hostname_and_local_ip

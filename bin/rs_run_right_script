@@ -26,9 +26,7 @@
 require File.expand_path(File.join(File.dirname(__FILE__), '..', 'lib', 'gem_dependencies'))
 
 $:.push(File.join(File.dirname(__FILE__), '..', 'scripts'))
-require 'bundle_runner'
+require 'right_script_runner'
 
-r = RightScale::BundleRunner.new
-opts = r.parse_args
-opts[:bundle_type] = :right_script
-exit r.run(opts)
+r = RightScale::RightScriptRunner.new
+exit r.run(r.parse_args)

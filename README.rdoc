@@ -4,8 +4,8 @@
 
 == Synopsis
 
-RightLink automates servers configuration and monitoring. It uses HTTP or AMQP
-as its RightNet communication mode and relies on Chef[2] for configuring. RightLink
+RightLink automates servers configuration and monitoring. It uses HTTP 
+as its RightNet communication mode and relies on Chef[2] for system configuration. RightLink
 uses RightPopen[3] to monitor the stdout and stderr streams of scripted processes.
 Servers running the RightLink agent configure themselves on startup and register
 with the RightNet router so that operational recipes and scripts can be run at
@@ -19,8 +19,9 @@ Supported cloud types:
 * openstack
 * rackspace (Open Cloud)
 * softlayer
+* vsphere
 
-Refer to the wiki (https://github.com/rightscale/right_link/wikis) for up-to-date
+Refer to the support site (http://support.rightscale.com/12-Guides/RightLink/) for up-to-date
 documentation.
 
 Use the built-in issues tracker (https://github.com/rightscale/right_link/issues)
@@ -92,7 +93,7 @@ See INSTALL.rdoc for more information
 
 <b>RightLink</b>
 
-Copyright:: Copyright (c) 2009-2013 RightScale, Inc.
+Copyright:: Copyright (c) 2009-2014 RightScale, Inc.
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the

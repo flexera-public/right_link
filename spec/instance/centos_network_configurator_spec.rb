@@ -113,8 +113,18 @@ default via 174.36.32.33 dev eth0  metric 100
       subject.network_route_add(network_cidr, nat_server_ip)
     end
 
+    it "doesn't add network route to memory if --boot is set" do
+      flexmock(subject).should_receive(:runshell).times(0)
+      flexmock(subject).should_receive(:update_route_file).and_return(true)
+      flexmock(subject).should_receive(:os_net_devices).and_return(["eth0"])
+      subject.boot = true
+      subject.network_route_add(network_cidr, nat_server_ip)
+    end
+
+
     it "does nothing if route already persisted" do
       flexmock(::FileUtils).should_receive(:mkdir_p).with(File.dirname(routes_file))
+      flexmock(subject).should_receive(:os_net_devices).and_return(["eth0"])
       flexmock(subject).should_receive(:read_config_file).and_return("#{network_cidr} via #{nat_server_ip}")
       subject.update_route_file(network_cidr, nat_server_ip)
       subject.logger.logged[:info].should == ["Route to #{network_cidr} via #{nat_server_ip} already exists in #{routes_file}"]
@@ -122,6 +132,7 @@ default via 174.36.32.33 dev eth0  metric 100
 
     it "appends route to /etc/sysconfig/network-scripts/route-eth0 file" do
       flexmock(::FileUtils).should_receive(:mkdir_p).with(File.dirname(routes_file))
+      flexmock(subject).should_receive(:os_net_devices).and_return(["eth0"])
       flexmock(subject).should_receive(:read_config_file).and_return("")
       flexmock(subject).should_receive(:append_config_file).with(routes_file, "#{network_cidr} via #{nat_server_ip}")
       subject.update_route_file(network_cidr, nat_server_ip)
@@ -199,9 +210,22 @@ EOF
 
         flexmock(subject).should_receive(:device_name_from_mac).with(mac).and_return(device)
         flexmock(subject).should_receive(:runshell).with("ifconfig #{device} #{ip} netmask #{netmask}").times(1)
+        flexmock(subject).should_receive(:os_net_devices).and_return(["eth0"])
         flexmock(subject).should_receive(:runshell).with("route add default gw #{gateway}").times(0)
         flexmock(subject).should_receive(:network_route_exists?).and_return(false).times(0)
         flexmock(subject).should_receive(:write_adaptor_config).with(device, eth_config_data)
+        subject.add_static_ips
+      end
+
+      it "only writes system config for static IP if --boot is set" do
+        ENV['RS_IP0_ADDR'] = ip
+        ENV['RS_IP0_NETMASK'] = netmask
+
+        flexmock(subject).should_receive(:runshell).times(0)
+        flexmock(subject).should_receive(:os_net_devices).and_return(["eth0"])
+        flexmock(subject).should_receive(:network_route_exists?).and_return(false).times(0)
+        flexmock(subject).should_receive(:write_adaptor_config).with(device, eth_config_data)
+        subject.boot = true
         subject.add_static_ips
       end
 
@@ -215,6 +239,7 @@ EOF
 
         flexmock(subject).should_receive(:device_name_from_mac).with(mac).and_return(device)
         flexmock(subject).should_receive(:runshell).with("ifconfig #{device} #{ip} netmask #{netmask}").times(1)
+        flexmock(subject).should_receive(:os_net_devices).and_return(["eth0"])
         flexmock(subject).should_receive(:runshell).with("route add default gw #{gateway}").times(1)
         flexmock(subject).should_receive(:network_route_exists?).and_return(false).times(1)
         flexmock(subject).should_receive(:write_adaptor_config).with(device, eth_config_data_w_gateway)
@@ -232,6 +257,7 @@ EOF
           attached_nameservers =  (i == 0) ? nameservers : nil
           eth_configs <<  test_eth_config_data("eth#{i}", ip, nil, netmask, attached_nameservers)
         end
+        flexmock(subject).should_receive(:os_net_devices).and_return(10.times.map {|i| "eth#{i}"})
         subject.define_singleton_method(:device_name_from_mac) do |mac_addr|
           "eth#{mac_addr.sub(/\D+/, '' )}"
         end
