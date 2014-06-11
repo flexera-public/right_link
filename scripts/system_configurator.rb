@@ -233,14 +233,14 @@ module RightScale
 
     def restart_sshd
       puts "Restarting SSH Daemon..."
-      # CentOS has upstart installed but it doesn't manage ssh or networking
-      if File.exists?('/etc/init/sshd.conf')
-        runshell("/sbin/restart sshd")
-      elsif File.exists?('/etc/init/ssh.conf')
-        runshell("/sbin/restart ssh")
-      else # sysvinit
-        sshd_name = File.exists?('/etc/init.d/sshd') ? "sshd" : "ssh"
-        runshell("/etc/init.d/#{sshd_name} restart")
+      # Ubuntu 12+ has upstart and uses it to manage networking/ssh
+      # CentOS 6 has Upstart installed but it doesn't manage ssh or
+      # networking, so we use the sysvinit to manage.  Centos 7 uses
+      # systemd. All conform to the service interface.
+      if system('service ssh status 2>&1 >/dev/null')
+        runshell("service ssh restart")
+      else
+        runshell("service sshd restart")
       end
     end
 
