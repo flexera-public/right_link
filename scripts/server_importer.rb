@@ -162,6 +162,7 @@ protected
       Log.program_name = 'RightLink'
       Log.facility = 'user'
       Log.log_to_file_only(false)
+      init_logger
       Log.level = Logger::INFO
       FileUtils.mkdir_p(File.dirname(InstanceState::BOOT_LOG_FILE))
       Log.add_logger(Logger.new(File.open(InstanceState::BOOT_LOG_FILE, 'a')))

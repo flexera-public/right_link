@@ -5,12 +5,17 @@
 #   log level.
 #
 # === Examples:
-#   Retrieve log level:
+#   Retrieve Chef log level:
 #     rs_log_level
+#   Retrieve RightLink agent log level:
+#     rs_log_level -a
 #
-#   Set log level to debug:
+#   Set Chef log level to debug:
 #     rs_log_level --log-level debug
 #     rs_log_level -l debug
+#   Set RightLink agent log level to debug (needs agent restart to take effect)
+#     rs_log_level -a -l debug
+#     rs_log_level --agent --log-level debug
 #
 # === Usage
 #    rs_log_level [--log-level, -l debug|info|warn|error|fatal]

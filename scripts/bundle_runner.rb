@@ -220,7 +220,7 @@ module RightScale
         result[:policy] = options[:policy]
       end
       if options[:audit_period]
-        result[:audit_period] = options[:audit_period]
+        result[:audit_period] = options[:audit_period].to_s
       end
 
       result

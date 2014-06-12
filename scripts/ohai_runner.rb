@@ -17,14 +17,18 @@ require 'ohai/application'
 if RightScale::Platform.windows?
   require 'ruby-wmi'
 end
+require File.normalize_path(File.join(File.dirname(__FILE__), 'command_helper'))
 
 module RightScale
   class OhaiRunner
+    include CommandHelper
     # Activates RightScale environment before running ohai
     #
     # === Return
     # true:: Always return true
     def run
+      $0 = "rs_ohai" # to prevent showing full path to executalbe in help banner
+      init_logger
       RightScale::OhaiSetup.configure_ohai
       Ohai::Application.new.run
       true
