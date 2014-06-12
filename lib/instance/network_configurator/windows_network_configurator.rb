@@ -71,16 +71,21 @@ module RightScale
 
     def rename_devices_to_temp_name
       network_devices.each do |device|
-        rename_device(device.NetConnectionID, device.MACAddress.gsub(':', '.'))
+        rename_device(device.NetConnectionID, safe_name(device.MACAddress))
       end
     end
 
+    def safe_name(name)
+      name.tr('<>:"/\\|?*', '.')
+    end
+
     def rename_devices
+      return if ENV.keys.grep(/RS_IP\d_NAME/).empty?
       rename_devices_to_temp_name
-      ENV.keys.grep(/RS_IP\d_ADDR/).each do |addr|
-        n = addr[/\d/].to_i
-        temp_name = ENV["RS_IP#{n}_MAC"].gsub(':', '.')
-        device_name = ENV["RS_IP#{n}_NAME"] || os_net_devices.shift
+      ENV.keys.grep(/RS_IP\d_MAC/).each do |mac|
+        n = mac[/\d/].to_i
+        temp_name = safe_name(ENV[mac])
+        device_name = safe_name(ENV["RS_IP#{n}_NAME"] || os_net_devices.shift)
         rename_device(temp_name, device_name)
       end
     end
