@@ -12,8 +12,6 @@ module RightScale
 
     @@subclasses = Set.new
 
-    NETWORK_CONFIGURED_MARKER = File.join(AgentConfig.agent_state_dir, "network_configured")
-
     def self.inherited(klass)
       @@subclasses << klass
     end
@@ -60,30 +58,15 @@ module RightScale
       word.inspect
     end
 
-    # Detects if network was configured earlier
-    #
-    def already_configured?
-      File.exists?(NETWORK_CONFIGURED_MARKER)
-    end
-
-    # Creates network configured marker
-    #
-    def set_network_configured_marker
-      FileUtils.mkdir_p(File.dirname(NETWORK_CONFIGURED_MARKER))
-      FileUtils.touch(NETWORK_CONFIGURED_MARKER)
-    end
-
     # Performs network configuration. 
     #
     # === Parameters
     # network(String):: target network in CIDR notation
     def configure_network
-      return if already_configured?
       add_static_ips
       # add routes for nat server
       # this needs to be done after our IPs are configured
       add_static_routes_for_network
-      set_network_configured_marker
     end
 
     #
