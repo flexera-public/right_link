@@ -137,7 +137,7 @@ GEM
       mime-types (>= 1.16)
       net-http-persistent
       netrc (~> 0.7.7)
-    right_agent (2.3.0)
+    right_agent (2.3.1)
       eventmachine (>= 0.12.10, < 2.0)
       faye-websocket (= 0.7.0)
       ffi
