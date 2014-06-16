@@ -95,6 +95,9 @@ module RightScale
           next_check = 0
           time_start = Time.now
 
+          # This may need to be refactored into a real priority queue if we
+          # start to have large amounts of agents assigned, rather than incur the
+          # overhead of discovering the next smallest number every iteration. -brs
           @watch_list_lock.synchronize do
             # No use doing anything till we have something to work on, I would have
             # rather used a ConditionVariable here, but they are not compatible with
