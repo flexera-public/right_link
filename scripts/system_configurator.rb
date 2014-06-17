@@ -191,7 +191,7 @@ module RightScale
       unset_proxy_variables
 
       if ENV['RS_HTTP_PROXY']
-        puts "Configuring HTTP proxy #{ENV['$RS_HTTP_PROXY']}"
+        puts "Configuring HTTP proxy #{ENV['RS_HTTP_PROXY']}"
 
         proxy_uri = URI.parse("http://" + ENV['RS_HTTP_PROXY'])
 
