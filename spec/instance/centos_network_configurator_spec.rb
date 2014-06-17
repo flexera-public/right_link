@@ -140,9 +140,9 @@ default via 174.36.32.33 dev eth0  metric 100
     end
 
     it "appends all static routes" do
-      ENV['RS_ROUTE0'] = "#{nat_server_ip}:1.2.4.0/24" 
-      ENV['RS_ROUTE1'] = "#{nat_server_ip}:1.2.5.0/24" 
-      ENV['RS_ROUTE2'] = "#{nat_server_ip}:1.2.6.0/24" 
+      ENV['RS_ROUTE0'] = "#{nat_server_ip}:1.2.4.0/24"
+      ENV['RS_ROUTE1'] = "#{nat_server_ip}:1.2.5.0/24"
+      ENV['RS_ROUTE2'] = "#{nat_server_ip}:1.2.6.0/24"
 
       # network route add
       flexmock(subject).should_receive(:runshell).with("ip route add 1.2.4.0/24 via #{nat_server_ip}")
@@ -178,7 +178,7 @@ PEERDNS=yes
 EOF
         if nameservers
           nameservers.each_with_index do |n, i|
-            data << "DNS#{i+1}=#{n}\n" 
+            data << "DNS#{i+1}=#{n}\n"
           end
         end
         data
@@ -220,8 +220,10 @@ EOF
       it "only writes system config for static IP if --boot is set" do
         ENV['RS_IP0_ADDR'] = ip
         ENV['RS_IP0_NETMASK'] = netmask
+        ENV['RS_IP0_MAC'] = mac
 
         flexmock(subject).should_receive(:runshell).times(0)
+        flexmock(subject).should_receive(:device_name_from_mac).with(mac).and_return(device)
         flexmock(subject).should_receive(:os_net_devices).and_return(["eth0"])
         flexmock(subject).should_receive(:network_route_exists?).and_return(false).times(0)
         flexmock(subject).should_receive(:write_adaptor_config).with(device, eth_config_data)
