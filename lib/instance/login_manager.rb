@@ -428,6 +428,12 @@ module RightScale
       return user_lines.sort
     end
 
+    # Schedules expiration of new users from policy and existing ones
+    #
+    # @param [Array<LoginUsers>] Array of updated users
+    #
+    # == Returns:
+    # @return [TrueClass] always returns true
     def manage_existing_users(new_policy_users)
       now = Time.now
 
