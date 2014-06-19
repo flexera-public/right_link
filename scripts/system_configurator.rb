@@ -131,7 +131,7 @@ module RightScale
     #
     # Configure root access for vSphere cloud
     #
-    def configure_root_access
+    def configure_root_access(options = {})
       public_key = ENV['VS_SSH_PUBLIC_KEY'].to_s.strip
       # was there a key found?
       if public_key.nil? || public_key.empty?
