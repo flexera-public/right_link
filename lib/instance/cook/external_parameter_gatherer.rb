@@ -55,6 +55,10 @@ module RightScale
       end
     end
 
+    # Retrieve from RightNet and process credential values in bundle's executables.
+    #
+    # == Returns:
+    # @return [TrueClass] true on success and false on error
     def run
       if done?
         #we might not have ANY external parameters!
