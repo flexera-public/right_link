@@ -1,3 +1,19 @@
+GIT
+  remote: git@github.com:rightscale/right_agent.git
+  revision: c2613cb23ec438a4afb7f814f0b3822ea9345025
+  branch: ivory_14_13_acu169443_fix_backtrace_on_auth_renew
+  specs:
+    right_agent (2.3.2)
+      eventmachine (>= 0.12.10, < 2.0)
+      faye-websocket (= 0.7.0)
+      ffi
+      json (~> 1.4)
+      msgpack (>= 0.4.4, < 0.6)
+      net-ssh (~> 2.0)
+      rest-client (= 1.7.0.1)
+      right_amqp (~> 0.7)
+      right_support (>= 2.4.1, < 3.0)
+
 PATH
   remote: .
   specs:
@@ -137,16 +153,6 @@ GEM
       mime-types (>= 1.16)
       net-http-persistent
       netrc (~> 0.7.7)
-    right_agent (2.3.1)
-      eventmachine (>= 0.12.10, < 2.0)
-      faye-websocket (= 0.7.0)
-      ffi
-      json (~> 1.4)
-      msgpack (>= 0.4.4, < 0.6)
-      net-ssh (~> 2.0)
-      rest-client (= 1.7.0.1)
-      right_amqp (~> 0.7)
-      right_support (>= 2.4.1, < 3.0)
     right_amqp (0.8.3)
       eventmachine (>= 0.12.10, < 2.0)
       right_support (>= 1.2, < 3.0)
@@ -163,7 +169,7 @@ GEM
       right_git
       right_popen (~> 2.0)
       right_support (~> 2.6)
-    right_support (2.8.23)
+    right_support (2.8.24)
     rspec (1.3.2)
     ruby-debug (0.10.4)
       columnize (>= 0.1)
@@ -223,7 +229,7 @@ DEPENDENCIES
   rb-readline (~> 0.5.0)
   rcov (~> 0.8.1)
   rest-client (= 1.7.0.1)
-  right_agent (~> 2.3)
+  right_agent!
   right_amqp (~> 0.7)
   right_git
   right_link!

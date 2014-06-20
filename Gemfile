@@ -6,7 +6,8 @@ gemspec
 # Fresh off the assembly line
 gem 'right_support', '~> 2.8'
 
-gem 'right_agent', '~> 2.3'
+gem 'right_agent', :git => 'git@github.com:rightscale/right_agent.git',
+                   :branch => 'ivory_14_13_acu169443_fix_backtrace_on_auth_renew'
 
 gem 'right_amqp', '~> 0.7'
 gem 'right_popen', '~> 2.0'

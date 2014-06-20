@@ -46,11 +46,13 @@ module RightScale
     # Minimum expiration time before give up
     MIN_RENEW_TIME = 5
 
+    MAX_RENEW_TIME = 60 * 60
+
     # Initial interval between renew attempts when unauthorized
     UNAUTHORIZED_RENEW_INTERVAL = 60
 
     # Maximum interval between renew attempts when unauthorized
-    MAX_UNAUTHORIZED_RENEW_INTERVAL = 60 * 60
+    MAX_UNAUTHORIZED_RENEW_INTERVAL = MAX_RENEW_TIME
 
     # Interval between health checks when disconnected
     HEALTH_CHECK_INTERVAL = 15
@@ -210,7 +212,7 @@ module RightScale
         raise Exceptions::Unauthorized.new(e.http_body, e)
       end
       true
-    rescue BalancedHttpClient::NotResponding, Exceptions::Unauthorized, CommunicationModeSwitch
+    rescue BalancedHttpClient::NotResponding, Exceptions::Unauthorized, CommunicationModeSwitch, Exceptions::ConnectivityFailure
       raise
     rescue StandardError => e
       ErrorTracker.log(self, "Failed authorizing", e)
@@ -239,6 +241,12 @@ module RightScale
           begin
             get_authorized
             renew_authorization
+          rescue Exceptions::ConnectivityFailure => e
+            if wait > 0
+              renew_authorization([(wait * RENEW_FACTOR), MAX_RENEW_TIME].min)
+            else
+              renew_authorization(MIN_RENEW_TIME)
+            end
           rescue BalancedHttpClient::NotResponding => e
             if (expires_in = (@expires_at - Time.now).to_i) > MIN_RENEW_TIME
               renew_authorization(expires_in / RENEW_FACTOR)
