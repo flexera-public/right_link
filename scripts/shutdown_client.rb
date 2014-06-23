@@ -20,6 +20,10 @@
 #      --stop, -s         Request stop (boot volume is preserved).
 #      --terminate, -t    Request termination (boot volume is discarded).
 #      --immediately, -i  Request immediate shutdown (reboot, stop or terminate) bypassing any pending scripts and preserving instance state.
+#                         Note that the immediate flag only applies when called from a RightScript.
+#                         When this flag is set within a script block in a Chef recipe the boot bundle will continue executing,
+#                         behaving as a deferred shutdown.
+#                         If you want to reboot immediately within Chef, you must call "exit 0" within a ruby_block resource after calling rs_shutdown.
 #      --deferred, -d     Request deferred shutdown (reboot, stop or terminate) pending finish of any remaining scripts (default).
 #      --verbose, -v      Display debug information
 #      --help:            Display help
