@@ -253,7 +253,7 @@ module RightScale
       it 'should run recipe with id 14 and 100 seconds between audits' do
         send_command('-i 14 -a 100'.split, :recipe, {
           :right_script_id => "14",
-          :audit_period => 100
+          :audit_period => "100"
         })
       end
     end
@@ -262,7 +262,7 @@ module RightScale
       it 'should fail because of missing identity or name argument' do
         flexmock(subject).should_receive(:fail).with('Missing identity or name argument', true)
         send_command('-a 1000'.split, :recipe, {
-          :audit_period => 1000
+          :audit_period => "1000"
         })
       end
     end
