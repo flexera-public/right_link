@@ -44,7 +44,6 @@ module RightScale
     SCP_COMMAND  = %r{^[A-Za-z0-9_/]*scp}
     SFTP_COMMAND = %r{^[A-Za-z0-9_/]*sftp-server}
     AUDIT_REQUEST_TIMEOUT = 15 # best-effort auditing, but try not to block user
-    MOTD         = '/etc/motd'
 
     # Manage individual user SSH logins
     #
@@ -270,11 +269,18 @@ module RightScale
 
     # Display the Message of the Day if it exists.
     def display_motd
-      if File.exist?(MOTD)
-        puts File.read(MOTD)
+      if ::File.exists?("/var/run/motd.dynamic")
+        # Ubuntu 14.04+ motd location
+        puts ::File.read("/var/run/motd.dynamic")
+      elsif ::File.exists?("/var/run/motd")
+        # Ubuntu 12.04 motd location
+        puts ::File.read("/var/run/motd")
+      elsif ::File.exists?("/etc/motd")
+        # Legacy (CentOS 6 style)
+        puts ::File.read("/etc/motd")
       end
-    rescue Exception => e
-      # no-op.
+    rescue 
+      nil
     end
 
     # Ensure the user's PTY/TTY will be owned by him once we thunk through to his account.
