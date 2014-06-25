@@ -187,6 +187,7 @@ class InstanceScheduler
     bundle = options[:bundle]
     decommission_type = options[:kind]
     audit = RightScale::AuditProxy.new(bundle.audit_id)
+    bundle.runlist_policy.thread_name = "decommission" if bundle.respond_to?(:runlist_policy) && bundle.runlist_policy
 
     # see note below for reason why decommission_type would be nil.
     context = RightScale::OperationContext.new(
