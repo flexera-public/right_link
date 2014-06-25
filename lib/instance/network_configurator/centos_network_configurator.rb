@@ -6,65 +6,6 @@ module RightScale
       ::RightScale::Platform.linux? && ::RightScale::Platform.centos?
     end
 
-    #
-    # Authorized SSH Key for root (linux only)
-    #
-
-    # Gets public key string from cloud metadata file
-    #
-    # === Return
-    # public_key(String):: A public SSH key
-    def get_public_ssh_key_from_metadata
-      public_key = ENV['VS_SSH_PUBLIC_KEY'].to_s.strip
-      # was there a key found?
-      if public_key.nil? || public_key.empty?
-        logger.warn "No public SSH key found in metadata"
-        return
-      end
-      public_key
-    end
-
-    # Add public key to ssh authorized_keys file
-    #
-    # If the file does not exist, it will be created.
-    # If the key already exists, it will not be added again.
-    #
-    # === Parameters
-    # public_key(String):: public ssh key
-    #
-    # === Return
-    # result(Hash):: Hash-like leaf value
-    def update_authorized_keys(public_key)
-      auth_key_file = "/root/.ssh/authorized_keys"
-
-      if public_key.nil? || public_key.empty?
-        logger.warn "No public SSH key specified -- no modifications to #{auth_key_file} made"
-        return
-      end
-
-      update_config_file(
-        auth_key_file,
-        public_key,
-        "Public ssh key for root already exists in #{auth_key_file}",
-        "Appending public ssh key to #{auth_key_file}"
-      )
-
-      # make sure it's private
-      FileUtils.chmod(0600, auth_key_file)
-      true
-    end
-
-    def configure_network
-      # update authorized_keys file from metadata
-      begin
-        public_key = get_public_ssh_key_from_metadata()
-        update_authorized_keys(public_key)
-      rescue Exception => e
-        Logger.error("Error installing ssh private key material: #{e.message}")
-      end
-      super
-    end
-
     def routes_for_device(device)
       routes = runshell("ip route show dev #{device}") rescue nil
       routes ||= ""
@@ -114,8 +55,8 @@ module RightScale
     end
 
     def os_net_devices
-      unless @net_devices 
-        @net_devices = 
+      unless @net_devices
+        @net_devices =
           runshell("ip link show").split("\n").
           select {|line| line =~ /^\d/}.
           map {|line| line.split[1].sub(":","")}.
@@ -229,7 +170,7 @@ EOH
         runshell("ifconfig #{device} #{ip} netmask #{netmask}")
         add_gateway_route(gateway) if gateway
       end
-      
+
       # Also write to config file
       write_adaptor_config(device, config_data(device, ip, netmask, gateway, nameservers))
 
