@@ -21,18 +21,20 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 provides 'cloudstack'
-require 'chef/ohai/mixin/rightlink'
+require 'chef/ohai/mixin/cloudstack_metadata'
 
-extend ::Ohai::Mixin::RightLink::DirMetadata
+extend ::Ohai::Mixin::CloudstackMetadata
+
+@host = dhcp_lease_provider
 
 def looks_like_cloudstack?
-  looks_like_cloudstack = hint?('cloudstack')
+  looks_like_cloudstack = hint?('cloudstack') && can_metadata_connect?(@host, 80)
   ::Ohai::Log.debug("looks_like_cloudstack? == #{looks_like_cloudstack.inspect} ")
   looks_like_cloudstack
 end
 
-if looks_like_cloudstack? && (metadata = fetch_metadata(rightlink_metadata_dir))
+if looks_like_cloudstack? && (metadata = fetch_metadata(@host))
   cloudstack Mash.new
   metadata.each { |k,v| cloudstack[k] = v }
-  cloudstack['dhcp_lease_provider_ip'] = dhcp_lease_provider
+  cloudstack['dhcp_lease_provider_ip'] = @host
 end
