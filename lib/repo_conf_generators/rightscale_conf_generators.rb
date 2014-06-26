@@ -158,7 +158,7 @@ module Apt
   end
 
   module RightScale
-    SUPPORTED_REPOS = ['lucid', 'precise']
+    SUPPORTED_REPOS = ['lucid', 'precise', 'trusty']
 
     # The different generate classes will always generate an exception ("string") if there's anything that went wrong. If no exception, things went well.
     SUPPORTED_REPOS.each do |c|
