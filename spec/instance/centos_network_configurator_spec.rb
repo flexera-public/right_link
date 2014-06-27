@@ -9,67 +9,6 @@ describe RightScale::CentosNetworkConfigurator do
     subject.logger = TestLogger.new
   end
 
-  describe "Managing SSH Key" do
-
-    let(:public_key) { "some fake public key material" }
-    let(:user_ssh_dir) { "/root/.ssh" }
-    let(:authorized_keys_file) { "#{user_ssh_dir}/authorized_keys" }
-
-    before(:all) do
-      ENV['VS_SSH_PUBLIC_KEY'] = public_key
-    end
-
-    it "gets public key string from cloud metadata file" do
-      flexmock(::File).should_receive(:join)
-      key = subject.get_public_ssh_key_from_metadata()
-      key.should == public_key
-      subject.logger.logged[:warn].should be_nil
-    end
-
-    it "logs a warning if no public key string found in metadata" do
-      ENV['VS_SSH_PUBLIC_KEY'] = nil
-      flexmock(::File).should_receive(:join)
-      subject.get_public_ssh_key_from_metadata()
-      subject.logger.logged[:warn].should == ["No public SSH key found in metadata"]
-    end
-
-
-    it "logs a warning if public key is empty string" do
-      subject.update_authorized_keys("")
-      subject.logger.logged[:warn].should == ["No public SSH key specified -- no modifications to #{authorized_keys_file} made"]
-    end
-
-    it "logs a warning if no public key is specified" do
-      subject.update_authorized_keys(nil)
-      subject.logger.logged[:warn].should == ["No public SSH key specified -- no modifications to #{authorized_keys_file} made"]
-    end
-
-
-    it "appends public key to /root/.ssh/authorized_keys file" do
-      flexmock(::FileUtils).should_receive(:mkdir_p).with(user_ssh_dir)
-      flexmock(::FileUtils).should_receive(:chmod).with(0600, authorized_keys_file)
-      flexmock(subject).should_receive(:read_config_file).and_return("")
-      flexmock(subject).should_receive(:append_config_file).with(authorized_keys_file, public_key)
-      subject.update_authorized_keys(public_key)
-      subject.logger.logged[:info].should == ["Appending public ssh key to #{authorized_keys_file}"]
-    end
-
-    it "does nothing if key is already authorized" do
-      flexmock(::FileUtils).should_receive(:mkdir_p).with(user_ssh_dir)
-      flexmock(::FileUtils).should_receive(:chmod).with(0600, authorized_keys_file)
-      flexmock(subject).should_receive(:read_config_file).and_return(public_key)
-      subject.update_authorized_keys(public_key)
-      subject.logger.logged[:info].should == ["Public ssh key for root already exists in #{authorized_keys_file}"]
-    end
-
-    it "does nothing if key is already authorized" do
-      flexmock(::FileUtils).should_receive(:mkdir_p).with(user_ssh_dir)
-      flexmock(::FileUtils).should_receive(:chmod).with(0600, authorized_keys_file)
-      flexmock(::File).should_receive(:exists?).with(authorized_keys_file).and_return(true)
-    end
-
-  end
-
   describe "NAT routing" do
 
     before(:each) do
