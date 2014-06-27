@@ -23,13 +23,6 @@
 # set abbreviation for env var generation to be same as ec2 for scripters.
 abbreviation :ec2
 
-# Assembles the command line needed to regenerate cloud metadata on demand.
-def cloud_metadata_generation_command
-  ruby_path = File.normalize_path(AgentConfig.ruby_cmd)
-  rs_cloud_path = File.normalize_path(Gem.bin_path('right_link', 'cloud'))
-  return "#{ruby_path} #{rs_cloud_path} --action write_cloud_metadata"
-end
-
 # Searches for a file containing dhcp lease information.
 def dhcp_lease_provider
   if platform.windows?
@@ -75,7 +68,6 @@ end
 
 # cloud metadata root differs from EC2 (user use the same).
 default_option(:cloud_metadata_root_path, "latest")
-default_option([:cloud_metadata, :metadata_writers, :ruby_metadata_writer, :generation_command], cloud_metadata_generation_command)
 
 # cloudstack cloud metadata cannot query the list of values at root but instead
 # relies on a predefined list.
