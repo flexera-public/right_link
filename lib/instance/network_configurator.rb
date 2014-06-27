@@ -67,6 +67,11 @@ module RightScale
       # add routes for nat server
       # this needs to be done after our IPs are configured
       add_static_routes_for_network
+      # write config files for dhcp configured adapters
+      add_dhcp_adapters
+    end
+
+    def add_dhcp_adapters
     end
 
     #
@@ -161,8 +166,12 @@ module RightScale
     end
 
     def static_ip_numerals
-      static_ips = ENV.keys.select { |k| k =~ /^RS_IP\d+_ADDR$/ }
-      static_ips.map { |ip_env_name| ip_env_name =~ /RS_IP(\d+)_ADDR/; $1.to_i }
+      ENV.keys.grep(/RS_IP(\d+)_ADDR/) { |_| $1.to_i }
+    end
+
+    def dhcp_ip_assigment_numerals
+      dhcp_assigments = ENV.select { |k, v| k =~ /RS_IP\d+_ASSIGNMENT/ && v.downcase == "dhcp" }.keys
+      dhcp_assigments.map { |assigment| assigment.match(/RS_IP(\d+)_ASSIGNMENT/)[1].to_i }
     end
 
     # Platform specific list of default network devices names
