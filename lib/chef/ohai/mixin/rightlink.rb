@@ -43,7 +43,6 @@ module ::Ohai::Mixin::RightLink
     # options[:expected_ip](String):: expected IP address or nil (no DNS names)
     # options[:unanimous][TrueClass|FalseClass]:: true if vote must be unanimous, false for simple majority of all responders
     # options[:host_name](String):: host name for whats-my-ip query or DEFAULT_WHATS_MY_IP_HOST_NAME
-    # options[:logger](Logger):: logger or defaults to null logger
     # options[:timeout][Fixnum]:: timeout in seconds or DEFAULT_WHATS_MY_IP_TIMEOUT
     # options[:retry_delay][Fixnum]:: retry delay in seconds or DEFAULT_WHATS_MY_IP_RETRY_DELAY
     #
@@ -54,42 +53,36 @@ module ::Ohai::Mixin::RightLink
       raise ArgumentError.new("expected_ip is invalid") if expected_ip && !(expected_ip =~ IP_ADDRESS_REGEX)
       unanimous = options[:unanimous] || false
       host_name = options[:host_name] || DEFAULT_WHATS_MY_IP_HOST_NAME
-      logger = options[:logger] || Logger.new()
       timeout = options[:timeout] || DEFAULT_WHATS_MY_IP_TIMEOUT
       retry_delay = options[:retry_delay] || DEFAULT_WHATS_MY_IP_RETRY_DELAY
 
-      if expected_ip
-        logger.info("Waiting for IP=#{expected_ip}")
-      else
-        logger.info("Waiting for any IP to converge.")
-      end
+      ::Ohai::Log.debug( expected_ip ? "Waiting for IP=#{expected_ip}" : "Waiting for any IP to converge." )
 
       # attempt to dig some hosts.
       hosts = `dig +short #{host_name}`.strip.split
       if hosts.empty?
-        logger.info("No hosts to poll for IP from #{host_name}.")
+        ::Ohai::Log.debug("No hosts to poll for IP from #{host_name}.")
       else
         # a little randomization avoids hitting the same hosts from each
         # instance since there is no guarantee that the hosts are returned in
         # random order.
         hosts = hosts.sort { (rand(2) * 2) - 1 }
-        if logger.debug?
-          message = ["Using these hosts to check the IP:"]
-          hosts.each { |host| message << "  #{host}" }
-          message << "-------------------------"
-          logger.debug(message.join("\n"))
-        end
+
+        message = ["Using these hosts to check the IP:"]
+        hosts.each { |host| message << "  #{host}" }
+        message << "-------------------------"
+        ::Ohai::Log.debug(message.join("\n"))
 
         unanimity = hosts.count
         required_votes = unanimous ? unanimity : (1 + unanimity / 2)
-        logger.info("Required votes = #{required_votes}/#{unanimity}")
+        ::Ohai::Log.debug("Required votes = #{required_votes}/#{unanimity}")
         end_time = Time.now + timeout
         loop do
           reported_ips_to_voters = {}
           address_to_hosts = {}
           hosts.each do |host|
             address = `curl --max-time 1 -S -s http://#{host}/ip/mine`.strip
-            logger.debug("Host=#{host} reports IP=#{address}")
+            ::Ohai::Log.debug("Host=#{host} reports IP=#{address}")
             address_to_hosts[address] ||= []
             address_to_hosts[address] << host
             if expected_ip
@@ -106,7 +99,7 @@ module ::Ohai::Mixin::RightLink
               end
             end
             if vote >= required_votes
-              logger.info("IP=#{popular_address} has the required vote count of #{required_votes}.")
+              ::Ohai::Log.debug("IP=#{popular_address} has the required vote count of #{required_votes}.")
               return popular_address
             end
           end
@@ -115,11 +108,11 @@ module ::Ohai::Mixin::RightLink
           now_time = Time.now
           break if now_time >= end_time
           retry_delay = [retry_delay, end_time - now_time].min.to_i
-          logger.debug("Sleeping for #{retry_delay} seconds...")
+          ::Ohai::Log.debug("Sleeping for #{retry_delay} seconds...")
           sleep retry_delay
           retry_delay = [retry_delay * 2, 60].min  # a little backoff helps when launching thousands
         end
-        logger.info("Never got the required vote count of #{required_votes}/#{unanimity} after #{timeout} seconds; public IP did not converge.")
+        ::Ohai::Log.debug("Never got the required vote count of #{required_votes}/#{unanimity} after #{timeout} seconds; public IP did not converge.")
         return nil
       end
     end
@@ -206,82 +199,5 @@ module ::Ohai::Mixin::RightLink
     ensure
       socket && socket.close
     end
-  end
-
-  module DirMetadata
-    # Fetch metadata form dir (recursevly).
-    # each file name is a key and value it's content
-    def self.fetch_from_dir(metadata_dir, metadata = {})
-      raise "Meta-data dir does not exist: #{metadata_dir}" unless File.directory?(metadata_dir)
-      ::Ohai::Log.debug('Fetching from meta-data dir: #{metadata_dir}')
-      metadata = {}
-      Dir.foreach(metadata_dir) do |name|
-        next if name =='.' || name  == '..'
-        metadata_file = File.join(metadata_dir,name)
-        key = name.gsub(/\-/,'_')
-        if File.directory?(metadata_file)
-          metadata[key] = fetch_from_dir(metadata_file, {})
-        else
-          value = File.read(metadata_file)
-          metadata[key] = value
-        end
-      end
-      metadata
-    end
-
-    # Get default RightLink meta-data dir location
-    def rightlink_metadata_dir
-      var_dir = File.join( RUBY_PLATFORM =~ /mswin|mingw|windows/ ? [ENV['ProgramData'],'RightScale'] : ['/', 'var'] )
-      metadata_dir = File.join(var_dir, 'spool','cloud','meta-data')
-      metadata_dir
-    end
-
-    # Fetch metadata
-    def fetch_metadata(metadata_dir)
-      ::Ohai::Log.debug('Fetching metadata')
-      metadata = DirMetadata::fetch_from_dir(metadata_dir)
-      ::Ohai::Log.debug("Fetched metadata: #{metadata.inspect}")
-      metadata
-    rescue
-      ::Ohai::Log.error("Fetching metadata failed: #{$!}")
-      false
-    end
-
-    # Searches for a file containing dhcp lease information.
-    def dhcp_lease_provider
-      logger = ::Ohai::Log
-      if RUBY_PLATFORM =~ /mswin|mingw|windows/
-        timeout = Time.now + 20 * 60  # 20 minutes
-        while Time.now < timeout
-          ipconfig_data = `ipconfig /all`
-          match_result = ipconfig_data.match(/DHCP Server.*\: (\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/)
-          unless match_result.nil? || match_result[1].nil?
-            return match_result[1]
-          end
-          # it may take time to resolve the DHCP Server for this instance, so sleepy wait.
-          logger.info("ipconfig /all did not contain any DHCP Servers. Retrying in 10 seconds...")
-          sleep 10
-        end
-      else
-        leases_file = %w{/var/lib/dhcp/dhclient.eth0.leases /var/lib/dhcp3/dhclient.eth0.leases /var/lib/dhclient/dhclient-eth0.leases /var/lib/dhclient-eth0.leases /var/lib/dhcpcd/dhcpcd-eth0.info}.find{|dhcpconfig| File.exist?(dhcpconfig)}
-        unless leases_file.nil?
-          lease_file_content = File.read(leases_file)
-
-          dhcp_lease_provider_ip = lease_file_content[/DHCPSID='(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'/, 1]
-          return dhcp_lease_provider_ip unless dhcp_lease_provider_ip.nil?
-
-          # leases are appended to the lease file, so to get the appropriate dhcp lease provider, we must grab
-          # the info from the last lease entry.
-          #
-          # reverse the content and reverse the regex to find the dhcp lease provider from the last lease entry
-          lease_file_content.reverse!
-          dhcp_lease_provider_ip = lease_file_content[/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}) reifitnedi-revres-pchd/, 1]
-          return dhcp_lease_provider_ip.reverse unless dhcp_lease_provider_ip.nil?
-        end
-      end
-      # no known defaults so we must fail at this point.
-      raise "Cannot determine dhcp lease provider for cloudstack instance"
-    end
-
   end
 end
