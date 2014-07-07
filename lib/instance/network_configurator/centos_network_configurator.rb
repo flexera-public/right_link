@@ -122,6 +122,7 @@ module RightScale
       dhcp_ip_assigment_numerals.each do |n_assigment|
         device = "eth#{n_assigment}"
         config_file = config_file(device)
+        logger.info("Configuring #{device} for DHCP")
         write_adaptor_config(device, config_data_dhcp(device)) unless File.exists?(config_file)
       end
     end
