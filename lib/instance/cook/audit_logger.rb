@@ -28,6 +28,11 @@ module RightScale
 
   # Audit logger formatter
   class AuditLogFormatter < ::Logger::Formatter
+    MASKED_INPUT_TEXT = '<hidden input>'
+
+    def initialize(filtered_inputs=nil)
+      @filtered_inputs = filtered_inputs || []
+    end
 
     # Generate log line from given input
     def call(severity, time, progname, msg)
@@ -35,8 +40,8 @@ module RightScale
     end
 
     def hide_inputs(msg)
-      ENV.reduce(msg) do |m, (k,v)|
-        m = m.gsub(/\b#{Regexp.ecape(v)}\b/, "$#{k}")
+      @filtered_inputs.reduce(msg) do |m, input|
+        m = m.gsub(/\b#{Regexp.escape(input)}\b/, MASKED_INPUT_TEXT)
       end
     end
 
@@ -53,10 +58,10 @@ module RightScale
     #
     # === Parameters
     # audit_id(Integer):: Audit id used to audit logs
-    def initialize
+    def initialize(filtered_inputs=nil)
       @progname = nil
       @level = INFO
-      @default_formatter = AuditLogFormatter.new
+      @default_formatter = AuditLogFormatter.new(filtered_inputs)
       @formatter = nil
       @logdev = nil
     end

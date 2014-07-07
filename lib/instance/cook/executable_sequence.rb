@@ -187,7 +187,15 @@ module RightScale
 
     # Initialize and configure the logger
     def configure_logging
-      Chef::Log.logger       = AuditLogger.new
+      filtered_inputs = []
+      if @attributes
+        @attributes.values.each do |attribute|
+          attribute.each do |k,v|
+            filtered_inputs.concat(v.values) if k == "parameters"
+          end
+        end
+      end
+      Chef::Log.logger       = AuditLogger.new(filtered_inputs)
       Chef::Log.logger.level = Log.level_from_sym(Log.level)
     end
 
