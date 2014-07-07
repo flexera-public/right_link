@@ -31,7 +31,13 @@ module RightScale
 
     # Generate log line from given input
     def call(severity, time, progname, msg)
-      sprintf("%s: %s\n", time.strftime("%H:%M:%S"), msg2str(msg))
+      sprintf("%s: %s\n", time.strftime("%H:%M:%S"), hide_inputs(msg2str(msg)))
+    end
+
+    def hide_inputs(msg)
+      ENV.reduce(msg) do |m, (k,v)|
+        m = m.gsub(/\b#{Regexp.ecape(v)}\b/, "$#{k}")
+      end
     end
 
   end
