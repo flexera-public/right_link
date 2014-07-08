@@ -41,7 +41,8 @@ module RightScale
 
     def hide_inputs(msg)
       @filtered_inputs.reduce(msg) do |m, (k, v)|
-        m = m.gsub(/\b#{Regexp.escape(v)}\b/, MASKED_INPUT_TEXT % [k])
+        pattern = [v].flatten.map { |p| Regexp.escape(p) }.join("|")
+        m = m.gsub(/\b#{pattern}\b/, MASKED_INPUT_TEXT % [k])
       end
     end
 
