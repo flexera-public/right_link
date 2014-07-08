@@ -209,5 +209,17 @@ EOF
         subject.add_static_ips
       end
 
+      it "confugures DHCP adapters as well" do
+        ENV['RS_IP0_ADDR'] = ip
+        ENV['RS_IP0_NETMASK'] = netmask
+        ENV['RS_IP0_MAC'] = mac
+        ENV['RS_IP1_ASSIGNMENT'] = 'dhcp'
+        flexmock(FileUtils).should_receive(:mkdir_p).and_return(true)
+        flexmock(subject).should_receive(:add_static_ips).and_return(true)
+        flexmock(subject).should_receive(:add_static_routes_for_network).and_return(true)
+        flexmock(subject).should_receive(:write_adaptor_config).with("eth1", subject.config_data_dhcp("eth1"))
+        subject.configure_network
+      end
+
     end
 end

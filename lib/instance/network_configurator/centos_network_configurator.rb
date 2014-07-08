@@ -118,6 +118,15 @@ module RightScale
       end
     end
 
+    def add_dhcp_adapters
+      dhcp_ip_assigment_numerals.each do |n_assigment|
+        device = "eth#{n_assigment}"
+        config_file = config_file(device)
+        logger.info("Configuring #{device} for DHCP")
+        write_adaptor_config(device, config_data_dhcp(device)) unless File.exists?(config_file)
+      end
+    end
+
     # Persist device config to a file
     #
     # If the file does not exist, it will be created.
@@ -136,6 +145,16 @@ module RightScale
     def config_file(device)
       FileUtils.mkdir_p("/etc/sysconfig/network-scripts")
       config_file = "/etc/sysconfig/network-scripts/ifcfg-#{device}"
+    end
+
+    def config_data_dhcp(device)
+      config_data = <<-EOH
+# File managed by RightScale
+# DO NOT EDIT
+DEVICE=#{device}
+BOOTPROTO=dhcp
+ONBOOT=yes
+EOH
     end
 
     def config_data(device, ip, netmask, gateway, nameservers = [])

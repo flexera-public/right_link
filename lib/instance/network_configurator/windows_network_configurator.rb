@@ -46,10 +46,14 @@ module RightScale
       @net_devices ||= (1..10).map { |i| "#{network_device_name} #{i}".sub(/ 1$/, "") }
     end
 
+    def network_adapters
+      WMI::Win32_NetworkAdapter.all
+    end
+
     def network_devices
-      @network_devices ||= WMI::Win32_NetworkAdapter.all.delete_if do |device|
-        device.MACAddress.nil? || device.NetConnectionID.nil?
-      end
+      @network_devices ||= network_adapters.delete_if { |dev| dev.MACAddress.nil? || dev.NetConnectionID.nil? }
+                                           .sort_by { |dev| os_net_devices.index(dev.NetConnectionID) }
+                                           .reverse
     end
 
     def device_name_from_mac(mac)
