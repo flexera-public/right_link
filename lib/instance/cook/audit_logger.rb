@@ -28,10 +28,10 @@ module RightScale
 
   # Audit logger formatter
   class AuditLogFormatter < ::Logger::Formatter
-    MASKED_INPUT_TEXT = '<hidden input>'
+    MASKED_INPUT_TEXT = '<hidden input %s>'
 
-    def initialize(filtered_inputs=nil)
-      @filtered_inputs = filtered_inputs || []
+    def initialize(filtered_inputs={})
+      @filtered_inputs = filtered_inputs
     end
 
     # Generate log line from given input
@@ -40,8 +40,8 @@ module RightScale
     end
 
     def hide_inputs(msg)
-      @filtered_inputs.reduce(msg) do |m, input|
-        m = m.gsub(/\b#{Regexp.escape(input)}\b/, MASKED_INPUT_TEXT)
+      @filtered_inputs.reduce(msg) do |m, (k, v)|
+        m = m.gsub(/\b#{Regexp.escape(v)}\b/, MASKED_INPUT_TEXT % [k])
       end
     end
 
