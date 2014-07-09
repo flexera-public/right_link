@@ -185,9 +185,21 @@ module RightScale
       RightScale::OhaiSetup.configure_ohai
     end
 
+    def scripts_inputs
+      return {} unless @attributes
+      inputs = {}
+      @attributes.values.select { |attr| attr.respond_to?(:has_key?) && attr.has_key?("parameters") }.each do |param|
+        param.values.each do |input|
+          inputs.merge!(input) { |key, old, new| [old].flatten.push(new) }
+        end
+      end
+      inputs
+    end
+
     # Initialize and configure the logger
     def configure_logging
-      Chef::Log.logger       = AuditLogger.new
+      filtered_inputs        = scripts_inputs
+      Chef::Log.logger       = AuditLogger.new(filtered_inputs)
       Chef::Log.logger.level = Log.level_from_sym(Log.level)
     end
 

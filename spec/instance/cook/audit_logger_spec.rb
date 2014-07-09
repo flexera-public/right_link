@@ -40,8 +40,9 @@ describe RightScale::AuditLogger do
   end
 
   before(:each) do
+    @filtered_inputs = { "INPUT" => "VALUE11" }
     @auditor = flexmock(RightScale::AuditStub.instance)
-    @logger = RightScale::AuditLogger.new
+    @logger = RightScale::AuditLogger.new @filtered_inputs
     @logger.level = Logger::DEBUG
   end
 
@@ -61,6 +62,11 @@ describe RightScale::AuditLogger do
     @auditor.should_receive(:append_error).twice
     @logger.error
     @logger.fatal
+  end
+
+  it 'should hide inputs' do
+    @auditor.should_receive(:append_output).with(/<hidden input #{@filtered_inputs.first.first}>/)
+    @logger.info @filtered_inputs.first.last
   end
 
   # Dynamically generate some test cases for log filtering based on the fixtures we have
