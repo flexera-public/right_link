@@ -38,13 +38,22 @@ end
 
 
 if looks_like_azure?
+  shared_config = SharedConfig.new rescue nil
+
   azure Mash.new
-  azure['public_ip'] = query_whats_my_ip(:logger=>::Ohai::Log)
-  azure['vm_name'] = self['hostname'] if self['hostname']
-  azure['public_fqdn'] = "#{self['hostname']}.cloudapp.net" if self['hostname']
-  if azure['public_ip']
-    tcp_test_ssh( azure['public_ip'], DEFAULT_PUBLIC_SSH_PORT) { azure['public_ssh_port'] = DEFAULT_PUBLIC_SSH_PORT }
-    tcp_test_winrm(azure['public_ip'], DEFAULT_PUBLIC_WINRM_PORT) { azure['public_winrm_port'] = DEFAULT_PUBLIC_WINRM_PORT }
+  if shared_config
+    azure['public_ip'] = shared_config.public_ip
+    azure['vm_name'] = shared_config.vm_name
+    azure['public_fqdn'] = "#{shared_config.vm_name}.cloudapp.net"
+    azure['public_ssh_port'] = shared_config.public_ssh_port
+  else
+    azure['public_ip'] = query_whats_my_ip(:logger=>::Ohai::Log)
+    azure['vm_name'] = self['hostname'] if self['hostname']
+    azure['public_fqdn'] = "#{self['hostname']}.cloudapp.net" if self['hostname']
+    if azure['public_ip']
+      tcp_test_ssh( azure['public_ip'], DEFAULT_PUBLIC_SSH_PORT) { azure['public_ssh_port'] = DEFAULT_PUBLIC_SSH_PORT }
+      tcp_test_winrm(azure['public_ip'], DEFAULT_PUBLIC_WINRM_PORT) { azure['public_winrm_port'] = DEFAULT_PUBLIC_WINRM_PORT }
+    end
   end
 
 end
