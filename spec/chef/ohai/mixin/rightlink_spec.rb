@@ -22,6 +22,7 @@
 
 require File.expand_path(File.join(File.dirname(__FILE__), 'spec_helper.rb'))
 require 'chef/ohai/mixin/rightlink'
+require 'stringio'
 
 describe ::Ohai::Mixin::RightLink do
 
@@ -73,7 +74,65 @@ describe ::Ohai::Mixin::RightLink do
 
 
   context 'AzureMetadata' do
-    it 'will be refactored, and specs will be provided later'
+    context 'SharedConfig' do
+      let (:public_ip) { "168.62.10.167" }
+      let (:public_ssh_port) { 56111 }
+      let (:vm_name) { "a-443655003" }
+      let (:private_ip) { "10.100.0.5" }
+      let (:shared_config) do
+<<-eos
+<?xml version="1.0" encoding="utf-8"?>
+<SharedConfig version="1.0.0.0" goalStateIncarnation="1">
+  <Deployment name="e28face85b5a4b3fb9cb67f6be591fc6" guid="{f119102e-e3cd-44ff-b584-bf842389b43d}" incarnation="0">
+    <Service name="#{vm_name}" guid="{00000000-0000-0000-0000-000000000000}" />
+    <ServiceInstance name="e28face85b5a4b3fb9cb67f6be591fc6.0" guid="{1453d7fb-0dd6-4953-bb60-da6b50b28927}" />
+  </Deployment>
+  <Incarnation number="1" instance="i-8e2f9b78a" guid="{a4b9535d-6efe-4be3-b1bb-d46f953c59d1}" />
+  <Role guid="{81f1430c-7998-5f40-4961-a5f30ca0af2c}" name="i-8e2f9b78a" settleTimeSeconds="0" />
+  <Instances>
+    <Instance id="i-8e2f9b78a" address="#{private_ip}">
+      <FaultDomains randomId="0" updateId="0" updateCount="0" />
+      <InputEndpoints>
+        <Endpoint name="SSH" address="10.100.0.5:22" protocol="tcp" hostName="a-443655003ContractContract" isPublic="true" loadBalancedPublicAddress="168.62.10.167:#{public_ssh_port}" enableDirectServerReturn="false" isDirectAddress="false" disableStealthMode="false">
+          <LocalPorts>
+            <LocalPortRange from="22" to="22" />
+          </LocalPorts>
+        </Endpoint>
+      </InputEndpoints>
+    </Instance>
+  </Instances>
+</SharedConfig>
+eos
+      end
+      subject do
+        flexmock(File).should_receive(:open).and_return(StringIO.new(shared_config))
+        ::Ohai::Mixin::RightLink::AzureMetadata::SharedConfig.new
+      end
+      context "#vm_name" do
+        it 'should return vm_name' do
+          subject.vm_name.should == vm_name
+        end
+      end
+
+      context "#private_ip" do
+        it 'should return private_ip' do
+          subject.private_ip.should == private_ip
+        end
+      end
+
+
+      context "#public_ip" do
+        it 'should return public_ip' do
+          subject.public_ip.should == public_ip
+        end
+      end
+
+      context "#public_ssh_port" do
+        it 'should return public_ssh_port' do
+          subject.public_ssh_port.should == public_ssh_port
+        end
+      end
+    end
   end
 end
 
