@@ -42,18 +42,22 @@ EOH
       end
     end
 
+    def config_data_dhcp(device)
+      config_data = <<-EOH
+# File managed by RightScale
+# DO NOT EDIT
+auto #{device}
+iface #{device} inet dhcp
+EOH
+    end
+
     def ip_route_cmd(network, nat_server_ip)
       "up ip route add #{network} via #{nat_server_ip}"
     end
 
     def init_device_config_file(file_path, device)
       File.open(file_path, "w") do |config|
-        config.write <<-EOH
-# File managed by RightScale
-# DO NOT EDIT
-auto #{device}
-iface #{device} inet dhcp
-        EOH
+        config.write config_data_dhcp(device)
       end
     end
 

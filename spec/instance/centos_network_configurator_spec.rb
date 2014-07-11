@@ -9,67 +9,6 @@ describe RightScale::CentosNetworkConfigurator do
     subject.logger = TestLogger.new
   end
 
-  describe "Managing SSH Key" do
-
-    let(:public_key) { "some fake public key material" }
-    let(:user_ssh_dir) { "/root/.ssh" }
-    let(:authorized_keys_file) { "#{user_ssh_dir}/authorized_keys" }
-
-    before(:all) do
-      ENV['VS_SSH_PUBLIC_KEY'] = public_key
-    end
-
-    it "gets public key string from cloud metadata file" do
-      flexmock(::File).should_receive(:join)
-      key = subject.get_public_ssh_key_from_metadata()
-      key.should == public_key
-      subject.logger.logged[:warn].should be_nil
-    end
-
-    it "logs a warning if no public key string found in metadata" do
-      ENV['VS_SSH_PUBLIC_KEY'] = nil
-      flexmock(::File).should_receive(:join)
-      subject.get_public_ssh_key_from_metadata()
-      subject.logger.logged[:warn].should == ["No public SSH key found in metadata"]
-    end
-
-
-    it "logs a warning if public key is empty string" do
-      subject.update_authorized_keys("")
-      subject.logger.logged[:warn].should == ["No public SSH key specified -- no modifications to #{authorized_keys_file} made"]
-    end
-
-    it "logs a warning if no public key is specified" do
-      subject.update_authorized_keys(nil)
-      subject.logger.logged[:warn].should == ["No public SSH key specified -- no modifications to #{authorized_keys_file} made"]
-    end
-
-
-    it "appends public key to /root/.ssh/authorized_keys file" do
-      flexmock(::FileUtils).should_receive(:mkdir_p).with(user_ssh_dir)
-      flexmock(::FileUtils).should_receive(:chmod).with(0600, authorized_keys_file)
-      flexmock(subject).should_receive(:read_config_file).and_return("")
-      flexmock(subject).should_receive(:append_config_file).with(authorized_keys_file, public_key)
-      subject.update_authorized_keys(public_key)
-      subject.logger.logged[:info].should == ["Appending public ssh key to #{authorized_keys_file}"]
-    end
-
-    it "does nothing if key is already authorized" do
-      flexmock(::FileUtils).should_receive(:mkdir_p).with(user_ssh_dir)
-      flexmock(::FileUtils).should_receive(:chmod).with(0600, authorized_keys_file)
-      flexmock(subject).should_receive(:read_config_file).and_return(public_key)
-      subject.update_authorized_keys(public_key)
-      subject.logger.logged[:info].should == ["Public ssh key for root already exists in #{authorized_keys_file}"]
-    end
-
-    it "does nothing if key is already authorized" do
-      flexmock(::FileUtils).should_receive(:mkdir_p).with(user_ssh_dir)
-      flexmock(::FileUtils).should_receive(:chmod).with(0600, authorized_keys_file)
-      flexmock(::File).should_receive(:exists?).with(authorized_keys_file).and_return(true)
-    end
-
-  end
-
   describe "NAT routing" do
 
     before(:each) do
@@ -140,9 +79,9 @@ default via 174.36.32.33 dev eth0  metric 100
     end
 
     it "appends all static routes" do
-      ENV['RS_ROUTE0'] = "#{nat_server_ip}:1.2.4.0/24" 
-      ENV['RS_ROUTE1'] = "#{nat_server_ip}:1.2.5.0/24" 
-      ENV['RS_ROUTE2'] = "#{nat_server_ip}:1.2.6.0/24" 
+      ENV['RS_ROUTE0'] = "#{nat_server_ip}:1.2.4.0/24"
+      ENV['RS_ROUTE1'] = "#{nat_server_ip}:1.2.5.0/24"
+      ENV['RS_ROUTE2'] = "#{nat_server_ip}:1.2.6.0/24"
 
       # network route add
       flexmock(subject).should_receive(:runshell).with("ip route add 1.2.4.0/24 via #{nat_server_ip}")
@@ -178,7 +117,7 @@ PEERDNS=yes
 EOF
         if nameservers
           nameservers.each_with_index do |n, i|
-            data << "DNS#{i+1}=#{n}\n" 
+            data << "DNS#{i+1}=#{n}\n"
           end
         end
         data
@@ -220,8 +159,10 @@ EOF
       it "only writes system config for static IP if --boot is set" do
         ENV['RS_IP0_ADDR'] = ip
         ENV['RS_IP0_NETMASK'] = netmask
+        ENV['RS_IP0_MAC'] = mac
 
         flexmock(subject).should_receive(:runshell).times(0)
+        flexmock(subject).should_receive(:device_name_from_mac).with(mac).and_return(device)
         flexmock(subject).should_receive(:os_net_devices).and_return(["eth0"])
         flexmock(subject).should_receive(:network_route_exists?).and_return(false).times(0)
         flexmock(subject).should_receive(:write_adaptor_config).with(device, eth_config_data)
@@ -266,6 +207,18 @@ EOF
         flexmock(subject).should_receive(:network_route_exists?).and_return(false).times(0)
         flexmock(subject).should_receive(:write_adaptor_config).with(/eth\d/, on { |cfg| !eth_configs.delete(cfg).nil? })
         subject.add_static_ips
+      end
+
+      it "confugures DHCP adapters as well" do
+        ENV['RS_IP0_ADDR'] = ip
+        ENV['RS_IP0_NETMASK'] = netmask
+        ENV['RS_IP0_MAC'] = mac
+        ENV['RS_IP1_ASSIGNMENT'] = 'dhcp'
+        flexmock(FileUtils).should_receive(:mkdir_p).and_return(true)
+        flexmock(subject).should_receive(:add_static_ips).and_return(true)
+        flexmock(subject).should_receive(:add_static_routes_for_network).and_return(true)
+        flexmock(subject).should_receive(:write_adaptor_config).with("eth1", subject.config_data_dhcp("eth1"))
+        subject.configure_network
       end
 
     end

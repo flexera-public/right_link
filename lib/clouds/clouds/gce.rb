@@ -26,6 +26,13 @@ PORT = 80
 
 abbreviation :gce
 
+# Assembles the command line needed to regenerate cloud metadata on demand.
+def cloud_metadata_generation_command
+  ruby_path = File.normalize_path(AgentConfig.ruby_cmd)
+  rs_cloud_path = File.normalize_path(Gem.bin_path('right_link', 'cloud'))
+  return "#{ruby_path} #{rs_cloud_path} --action write_cloud_metadata"
+end
+
 # defaults
 metadata_source 'metadata_sources/http_metadata_source'
 metadata_writers 'metadata_writers/dictionary_metadata_writer',
@@ -54,3 +61,5 @@ default_option([:user_metadata, :metadata_tree_climber, :has_children_override],
   # function so we'll recurse down
   return path =~ /\/$/
 end)
+
+default_option([:cloud_metadata, :metadata_writers, :ruby_metadata_writer, :generation_command], cloud_metadata_generation_command)

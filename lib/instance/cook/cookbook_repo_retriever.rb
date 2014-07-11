@@ -27,42 +27,6 @@ module RightScale
   class CookbookRepoRetriever
     attr_reader :checkout_root
 
-    # Maps the given DevRepository to a has that can be consumed by the RightScraper gem
-    #
-    # === Parameters
-    # dev_repo (DevRepository):: core representation of a resource repository
-    #
-    # === Returns
-    # (Hash)::
-    #   :repo_type (Symbol):: Type of repository: one of :git, :svn, :download or :local
-    #     * :git denotes a 'git' repository that should be retrieved via 'git clone'
-    #     * :svn denotes a 'svn' repository that should be retrieved via 'svn checkout'
-    #     * :download denotes a tar ball that should be retrieved via HTTP GET (HTTPS if uri starts with https://)
-    #     * :local denotes cookbook that is already local and doesn't need to be retrieved
-    #   :url (String):: URL to repository (e.g. git://github.com/opscode/chef-repo.git)
-    #   :tag (String):: git commit or svn branch that should be used to retrieve repository
-    #                       Optional, use 'master' for git and 'trunk' for svn if tag is nil.
-    #                       Not used for raw repositories.
-    #   :cookbooks_path (Array):: Path to cookbooks inside repostory
-    #                                             Optional (use location of repository as cookbook path if nil)
-    #   :first_credential (String):: Either the Private SSH key used to retrieve git repositories, or the Username used to retrieve svn and raw repositories
-    #   :second_credential (String):: Password used to retrieve svn and raw repositories
-    def self.to_scraper_hash(dev_repo)
-      repo = {}
-      repo[:repo_type]            = dev_repo.repo_type.to_sym unless dev_repo.repo_type.nil?
-      repo[:url]                  = dev_repo.url
-      repo[:tag]                  = dev_repo.tag
-      repo[:resources_path]       = dev_repo.cookbooks_path
-      if !dev_repo.ssh_key.nil?
-        repo[:first_credential]   = dev_repo.ssh_key
-      elsif !(dev_repo.username.nil? && dev_repo.password.nil?)
-        repo[:first_credential]   = dev_repo.username
-        repo[:second_credential]  = dev_repo.password
-      end
-
-      repo
-    end
-
     # Initialize...
     #
     # === Parameters
@@ -129,7 +93,7 @@ module RightScale
     #  true
     def checkout_cookbook_repos(&callback)
       @dev_cookbooks.each_pair do |repo_sha, dev_repo|
-        repo = self.class.to_scraper_hash(dev_repo)
+        repo = dev_repo.to_scraper_hash
 
         # get the root dir this repo should be, or was, checked out to
         repo_dir = @scraper.repo_dir(repo)

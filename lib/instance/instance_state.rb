@@ -474,10 +474,10 @@ module RightScale
       return unless (FeatureConfigManager.feature_enabled?('motd_update') && RightScale::Platform.linux?)
 
       if File.directory?('/etc/update-motd.d')
-        #Ubuntu 10.04 and above use a dynamic MOTD update system. In this case we assume
-        #by convention that motd.tail will be appended to the dynamically-generated
-        #MOTD.
-        motd = '/etc/motd.tail'
+        state_dir = RightScale::Platform.filesystem.right_link_dynamic_state_dir
+        # Ubuntu 10.04 and above use a dynamic MOTD update system. In that case
+        # we install our special motd script which will read this file
+        motd = File.join(state_dir, 'motd')
       else
         motd = '/etc/motd'
       end

@@ -1,67 +1,25 @@
-# === Synopsis:
-#   RightScale Bundle Runner (rs_run_right_script/rs_run_recipe) - (c) 2009-2014 RightScale Inc
 #
-#   rs_run_right_script and rs_run_recipe are command line tools that allow
-#   running RightScripts and recipes respectively from within an instance
+# Copyright (c) 2009-2014 RightScale Inc
 #
-# === Examples:
-#   Run recipe with id 12:
-#     rs_run_recipe -i 12
-#     rs_run_recipe --identity 12
+# Permission is hereby granted, free of charge, to any person obtaining
+# a copy of this software and associated documentation files (the
+# "Software"), to deal in the Software without restriction, including
+# without limitation the rights to use, copy, modify, merge, publish,
+# distribute, sublicense, and/or sell copies of the Software, and to
+# permit persons to whom the Software is furnished to do so, subject to
+# the following conditions:
 #
-#   Run recipe 'nginx' using given JSON attributes file:
-#     rs_run_recipe -n nginx -j attribs.js
-#     rs_run_recipe --name nginx --json attribs.js
+# The above copyright notice and this permission notice shall be
+# included in all copies or substantial portions of the Software.
 #
-#   Run RightScript with id 14 and override input 'APPLICATION' with value
-#   'Mephisto':
-#     rs_run_right_script -i 14 -p APPLICATION=text:Mephisto
-#     rs_run_right_script --identity 14 --parameter APPLICATION=text:Mephisto
-#
-# === Usage:
-#    rs_run_recipe --identity, -i ID [--json, -j JSON_FILE] [--verbose, -v]
-#    rs_run_recipe --name, -n NAME [--json, -j JSON_FILE]
-#                  [--recipient_tags, -r TAG_LIST]
-#                  [--scope, -s SCOPE] [--verbose, -v]
-#    rs_run_right_script --identity, -i ID [--parameter, -p NAME=type:VALUE]*
-#                  [--verbose, -v]
-#    rs_run_right_script --name, -n NAME [--parameter, -p NAME=type:VALUE]*
-#                  [--recipient_tags, -r TAG_LIST]
-#                  [--scope, -s SCOPE] [--verbose, -v]
-#
-#      * Can appear multiple times
-#
-#    Options:
-#      --identity, -i ID     RightScript or ServerTemplateChefRecipe id
-#      --name, -n NAME       RightScript or Chef recipe name (overridden by id)
-#      --json, -j JSON_FILE  JSON file name for JSON to be merged into
-#                              attributes before running recipe
-#      --parameter,
-#        -p NAME=TYPE:VALUE  Define or override RightScript input
-#                              Note: Only applies to run_right_script
-#      --thread,             Schedule the operation on a specific thread name
-#        -t THREAD             for concurrent execution. Thread names must begin
-#                              with a letter and can consist only of lower-case
-#                              alphabetic characters, digits, and the underscore
-#                              character.
-#      --policy,              Audits for the executable to be run will be grouped under
-#        -P POLICY             the given policy name.  All detail will be logged on the instance,
-#                              but limited detail will be audited.
-#      --audit_period        Specifies the period of time that should pass between audits
-#        -a PERIOD_IN_SECONDS
-#      --recipient_tags,     Tags for selecting which instances are to receive
-#                              request with the TAG_LIST being quoted if it
-#        -r TAG_LIST           contains spaces
-#      --scope, -s SCOPE     Scope for selecting tagged recipients: single or
-#                              all (default all)
-#      --cfg-dir, -c DIR     Set directory containing configuration for all
-#                              agents
-#      --verbose, -v         Display progress information
-#      --help:               Display help
-#      --version:            Display version information
-#      --timeout, -T SEC     Custom timeout (default 60 sec)
-#
-#    Note: Partially specified option names are accepted if not ambiguous.
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+# NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+# LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+# OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+# WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
 
 require 'rubygems'
 require 'trollop'
@@ -75,6 +33,16 @@ module RightScale
 
   class BundleRunner
     include CommandHelper
+
+    def cmd_name
+      raise "Please initialize @cmd_name" unless @cmd_name
+      @cmd_name
+    end
+
+    def type
+      raise "Please initialize @type" unless @type
+      @type
+    end
 
     # Default number of seconds to wait for command response
     DEFAULT_TIMEOUT = 60
@@ -93,15 +61,11 @@ module RightScale
     # false:: If something terrible happened
     def run(options, &callback)
       fail('Missing identity or name argument', true) unless options[:id] || options[:name]
-      if options[:thread] && (options[:thread] !~ RightScale::AgentConfig.valid_thread_name)
-        fail("Invalid thread name #{options[:thread]}", true)
-      end
 
       fail_if_right_agent_is_not_running
 
       echo(options)
-      cmd = { :options => to_forwarder_options(options) }
-      cmd[:name] = options[:bundle_type] == :right_script ? 'run_right_script' : 'run_recipe'
+      cmd = { :name => cmd_name, :options => to_forwarder_options(options) }
       AgentConfig.cfg_dir = options[:cfg_dir]
 
       exit_code = true
@@ -139,7 +103,6 @@ module RightScale
     # === Return
     # true:: Always return true
     def echo(options)
-      type = options[:bundle_type] == :right_script ? "RightScript" : "recipe"
       which = options[:id] ? "with ID #{options[:id].inspect}" : "named #{format_script_name(options[:name])}"
       scope = options[:scope] == :all ? "'all' servers" : "a 'single' server"
       where = options[:tags] ? "on #{scope} with tags #{options[:tags].inspect}" : "locally on this server"
@@ -193,6 +156,7 @@ module RightScale
       parse do
         options.merge!(parser.parse(arguments))
         options.delete(:name) if options[:id]
+
         if options[:parameter]
           options.delete(:parameter).each do |p|
             name, value = p.split('=', 2)
@@ -224,11 +188,18 @@ module RightScale
             fail("Invalid scope definition '#{options[:scope]}', should be either 'single' or 'all'")
           end
         end
+
+        if options[:thread] && (options[:thread] !~ RightScale::AgentConfig.valid_thread_name)
+          fail("Invalid thread name #{options[:thread]}", true)
+        end
+
         options
       end
     end
 
-protected
+    protected
+
+
     # Map arguments options into forwarder actor compatible options
     #
     # === Parameters
@@ -249,17 +220,9 @@ protected
         result[:policy] = options[:policy]
       end
       if options[:audit_period]
-        result[:audit_period] = options[:audit_period]
+        result[:audit_period] = options[:audit_period].to_s
       end
-      if options[:bundle_type] == :right_script
-        result[:right_script_id] = options[:id] if options[:id]
-        result[:right_script]    = options[:name] if options[:name] && !options[:id]
-        result[:arguments]       = options[:parameters] unless options[:parameters].empty?
-      else
-        result[:recipe_id] = options[:id] if options[:id]
-        result[:recipe]    = options[:name] if options[:name] && !options[:id]
-        result[:json]      = options[:json]
-      end
+
       result
     end
 
@@ -267,40 +230,6 @@ protected
       script_name && script_name.include?("'") ? "\"#{script_name}\"" : "'#{script_name}'"
     end
 
-    # Version information
-    #
-    # === Return
-    # (String):: Version information
-    def version
-      "rs_run_right_script & rs_run_recipe #{right_link_version} - RightLink's bundle runner (c) 2014 RightScale"
-    end
-
-    def usage
-      Usage.scan(__FILE__)
-    end
-
   end # BundleRunner
 
 end # RightScale
-
-#
-# Copyright (c) 2009-2014 RightScale Inc
-#
-# Permission is hereby granted, free of charge, to any person obtaining
-# a copy of this software and associated documentation files (the
-# "Software"), to deal in the Software without restriction, including
-# without limitation the rights to use, copy, modify, merge, publish,
-# distribute, sublicense, and/or sell copies of the Software, and to
-# permit persons to whom the Software is furnished to do so, subject to
-# the following conditions:
-#
-# The above copyright notice and this permission notice shall be
-# included in all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-# NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
-# LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-# OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
-# WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.

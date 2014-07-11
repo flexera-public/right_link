@@ -777,7 +777,7 @@ describe RightScale::ExecutableSequence do
           @checkout_paths = {}
           @dev_cookbooks.repositories.each_pair do |dev_repo_sha, dev_cookbook|
             repo_base_dir = File.join(@checkout_root_dir, rand(2**32).to_s(32), "repo")
-            mock_scraper.should_receive(:scrape).once.with(RightScale::CookbookRepoRetriever.to_scraper_hash(dev_cookbook), Proc).and_return do |repo, incremental, callback|
+            mock_scraper.should_receive(:scrape).once.with(dev_cookbook.to_scraper_hash, Proc).and_return do |repo, incremental, callback|
               if @failure_repos[dev_repo_sha]
                 false
               else
@@ -799,7 +799,7 @@ describe RightScale::ExecutableSequence do
                 true
               end
             end
-            mock_scraper.should_receive(:repo_dir).once.with(RightScale::CookbookRepoRetriever.to_scraper_hash(dev_cookbook)).and_return(repo_base_dir)
+            mock_scraper.should_receive(:repo_dir).once.with(dev_cookbook.to_scraper_hash).and_return(repo_base_dir)
           end
 
           unless @dev_cookbooks.repositories.nil? || @dev_cookbooks.repositories.empty?
