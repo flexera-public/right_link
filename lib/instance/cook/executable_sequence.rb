@@ -645,6 +645,15 @@ module RightScale
       true
     end
 
+    def without_right_script_params(attrs)
+      script_names = @scripts.map { |s| s.nickname }
+      attrs.select { |key, value| !script_names.include? (key) }
+    end
+
+    def remove_right_script_params_from_chef_state
+      ChefState.attributes = without_right_script_params(ChefState.attributes)
+    end
+
     # Initialize inputs patch and report success
     #
     # === Parameters
@@ -654,6 +663,7 @@ module RightScale
     # true:: Always return true
     def report_success(node)
       ChefState.merge_attributes(node.normal_attrs) if node
+      remove_right_script_params_from_chef_state
       patch = ::RightSupport::Data::HashTools.deep_create_patch(@inputs, ChefState.attributes)
       # We don't want to send back new attributes (ohai etc.)
       patch[:right_only] = { }
