@@ -8,6 +8,7 @@
 #   system --action=ssh
 #   system --action=proxy
 #   system --action=network
+#   system --action=default_gateway
 #
 # === Usage
 #    system --action=<action> [options]
@@ -121,11 +122,19 @@ module RightScale
       end
     end
 
-    def configure_network(options = {})
+    def network_configurator(options)
       configurator = NetworkConfigurator.create(options)
       # True forces log to stdout/stderr, important as this can execute pre-syslog
       configurator.logger = default_logger(true)
-      configurator.configure_network
+      configurator
+    end
+
+    def configure_network(options = {})
+      network_configurator(options).configure_network
+    end
+
+    def configure_default_gateway(options = {})
+      network_configurator(options).set_default_gateway
     end
 
     #

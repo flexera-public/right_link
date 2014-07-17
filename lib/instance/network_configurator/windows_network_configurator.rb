@@ -22,7 +22,17 @@ module RightScale
     def configure_network
       super
       rename_devices
+      set_default_gateway
       # setting administrator password setting (not yet supported)
+    end
+
+
+    def set_default_gateway
+      default_gw = ENV.keys.grep(/RS_IP\d_GATEWAY/).first
+      if default_gw
+        default_gw_device_name = shell_escape_if_necessary(ENV[default_gw.sub('GATEWAY', 'NAME')])
+        runshell("netsh interface ipv4 set interface #{default_gw_device_name} METRIC=0")
+      end
     end
 
     def route_regex(network, nat_server_ip)

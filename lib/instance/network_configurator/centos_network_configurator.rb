@@ -104,6 +104,30 @@ module RightScale
       true
     end
 
+
+    def default_gateway
+      @default_gateway ||= runshell("ip -4 route list 0/0").split(" ")[2] rescue nil
+    end
+
+    def delete_gateway_route(gateway)
+      begin
+        runshell("route del default gw #{gateway}")
+      rescue Exception => e
+        logger.error "Unable to delete a route to gateway at #{gateway}."
+      end
+    end
+
+    def metadata_gateway
+      @metadata_gateway ||= ENV.select { |key, value| key =~ /RS_IP\d_GATEWAY/ }.values.first
+    end
+
+    def set_default_gateway
+      unless metadata_gateway.nil? || metadata_gateway == default_gateway
+        delete_gateway_route(default_gateway) if default_gateway
+        add_gateway_route(metadata_gateway)
+      end
+    end
+
     # Add default gateway route
     #
     # === Parameters
