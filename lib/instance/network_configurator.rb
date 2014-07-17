@@ -295,6 +295,10 @@ module RightScale
       raise StandardError, "Command failure: #{output}" unless $?.success?
       output
     end
+
+    def set_default_gateway
+      raise NotImplemented
+    end
   end
 end
 
