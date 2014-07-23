@@ -1,6 +1,7 @@
 require 'set'
 require 'fileutils'
 require 'right_agent'
+require 'ipaddr'
 require File.normalize_path(File.join(File.dirname(__FILE__), 'agent_config'))
 
 module RightScale
@@ -64,11 +65,8 @@ module RightScale
     # network(String):: target network in CIDR notation
     def configure_network
       add_static_ips
-      # add routes for nat server
-      # this needs to be done after our IPs are configured
-      add_static_routes_for_network
-      # write config files for dhcp configured adapters
       add_dhcp_adapters
+      configure_routes
     end
 
     def add_dhcp_adapters
@@ -84,7 +82,7 @@ module RightScale
     #
     # === Return
     # result(True):: Always true
-    def add_static_routes_for_network
+    def configure_routes
       # required metadata values
       routes = ENV.keys.select { |k| k =~ /^RS_ROUTE(\d+)$/ }
       routes.each do |route|
@@ -114,13 +112,6 @@ module RightScale
     def network_route_add(network, nat_server_ip)
       raise "ERROR: invalid nat_server_ip : '#{nat_server_ip}'" unless valid_ipv4?(nat_server_ip)
       raise "ERROR: invalid CIDR network : '#{network}'" unless valid_ipv4_cidr?(network)
-      unless @boot
-        route_str = "#{network} via #{nat_server_ip}"
-        if network_route_exists?(network, nat_server_ip)
-          logger.debug "Route already exists to #{route_str}"
-          return true
-        end
-      end
       true
     end
 
@@ -281,7 +272,6 @@ module RightScale
       raise NotImplemented
     end
 
-
     # Run a system command
     #
     # === Raise
@@ -296,9 +286,6 @@ module RightScale
       output
     end
 
-    def set_default_gateway
-      raise NotImplemented
-    end
   end
 end
 

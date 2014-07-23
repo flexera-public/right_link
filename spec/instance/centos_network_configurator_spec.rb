@@ -60,12 +60,11 @@ default via 174.36.32.33 dev eth0  metric 100
       subject.network_route_add(network_cidr, nat_server_ip)
     end
 
-
     it "does nothing if route already persisted" do
       flexmock(::FileUtils).should_receive(:mkdir_p).with(File.dirname(routes_file))
       flexmock(subject).should_receive(:os_net_devices).and_return(["eth0"])
       flexmock(subject).should_receive(:read_config_file).and_return("#{network_cidr} via #{nat_server_ip}")
-      subject.update_route_file(network_cidr, nat_server_ip)
+      subject.update_route_file(network_cidr, nat_server_ip, 'eth0')
       subject.logger.logged[:info].should == ["Route to #{network_cidr} via #{nat_server_ip} already exists in #{routes_file}"]
     end
 
@@ -74,7 +73,7 @@ default via 174.36.32.33 dev eth0  metric 100
       flexmock(subject).should_receive(:os_net_devices).and_return(["eth0"])
       flexmock(subject).should_receive(:read_config_file).and_return("")
       flexmock(subject).should_receive(:append_config_file).with(routes_file, "#{network_cidr} via #{nat_server_ip}")
-      subject.update_route_file(network_cidr, nat_server_ip)
+      subject.update_route_file(network_cidr, nat_server_ip, 'eth0')
       subject.logger.logged[:info].should == ["Appending #{network_cidr} via #{nat_server_ip} route to #{routes_file}"]
     end
 
@@ -91,7 +90,7 @@ default via 174.36.32.33 dev eth0  metric 100
       flexmock(subject).should_receive(:update_route_file).times(3)
       flexmock(subject).should_receive(:route_device).and_return("eth0")
 
-      subject.add_static_routes_for_network
+      subject.configure_routes
     end
 
   end
@@ -216,7 +215,7 @@ EOF
         ENV['RS_IP1_ASSIGNMENT'] = 'dhcp'
         flexmock(FileUtils).should_receive(:mkdir_p).and_return(true)
         flexmock(subject).should_receive(:add_static_ips).and_return(true)
-        flexmock(subject).should_receive(:add_static_routes_for_network).and_return(true)
+        flexmock(subject).should_receive(:configure_routes).and_return(true)
         flexmock(subject).should_receive(:write_adaptor_config).with("eth1", subject.config_data_dhcp("eth1"))
         subject.configure_network
       end

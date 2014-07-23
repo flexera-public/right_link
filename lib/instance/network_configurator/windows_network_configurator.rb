@@ -106,8 +106,12 @@ module RightScale
 
     def network_route_add(network, nat_server_ip)
       super
-      network, mask = cidr_to_netmask(network)
-      runshell("route -p ADD #{network} MASK #{mask} #{nat_server_ip}")
+      if network_route_exists?(network, nat_server_ip)
+        logger.debug "Route already exists to #{network} via #{nat_server_ip}"
+      else
+        network, mask = cidr_to_netmask(network)
+        runshell("route -p ADD #{network} MASK #{mask} #{nat_server_ip}")
+      end
       true
     end
 

@@ -133,8 +133,8 @@ module RightScale
       network_configurator(options).configure_network
     end
 
-    def configure_default_gateway(options = {})
-      network_configurator(options).set_default_gateway
+    def configure_routes(options = {})
+      network_configurator(options).configure_routes
     end
 
     #
