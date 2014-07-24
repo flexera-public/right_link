@@ -43,9 +43,11 @@ module RightScale
         end
       end
 
-      if ! @boot
+      # Not a statically configured device, DHCP - check system, but only
+      # in the post-networking step, after DHCP has been set up
+      if ! @boot && ! device
         os_net_devices.each do |net_device|
-          device_config = os_net_device_config(device)
+          device_config = os_net_device_config(net_device)
           if device_config["ip"] && device_config["netmask"]
             if IPAddr.new(device_config["ip"]).mask(device_config["netmask"]).include?(nat_server_ip)
               device = net_device
