@@ -59,16 +59,21 @@ module RightScale
       device 
     end
 
+    # This is now quite tricky. We do two routing passes, a pass before the
+    # system networking is setup (@boot is false) in which we setup static system
+    # config files and a pass after system networking in which we fix up the 
+    # remaining routes cases involving DHCP. We have to set any routes involving
+    # DHCP post networking as we can't know the DHCP gateway beforehand
     def network_route_add(network, nat_server_ip)
       super
 
       route_str = "#{network} via #{nat_server_ip}"
       logger.info "Adding route to network #{route_str}"
       begin
- 
-        if !@boot
+        if ! @boot
           if network_route_exists?(network, nat_server_ip)
             logger.debug "Route already exists to #{route_str}"
+            return true
           else
             runshell("ip route add #{route_str}")
           end
