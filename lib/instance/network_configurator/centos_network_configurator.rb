@@ -60,34 +60,37 @@ module RightScale
     end
 
     # This is now quite tricky. We do two routing passes, a pass before the
-    # system networking is setup (@boot is false) in which we setup static system
-    # config files and a pass after system networking in which we fix up the 
-    # remaining routes cases involving DHCP. We have to set any routes involving
-    # DHCP post networking as we can't know the DHCP gateway beforehand
+    # system networking is setup (@boot is true) in which we setup static system
+    # config files and a pass after system networking (@boot is false) in which 
+    # we fix up the remaining routes cases involving DHCP. We have to set any routes 
+    # involving DHCP post networking as we can't know the DHCP gateway beforehand
     def network_route_add(network, nat_server_ip)
       super
 
       route_str = "#{network} via #{nat_server_ip}"
-      logger.info "Adding route to network #{route_str}"
       begin
-        if ! @boot
-          if network_route_exists?(network, nat_server_ip)
-            logger.debug "Route already exists to #{route_str}"
-            return true
+        if @boot
+          logger.info "Adding route to network #{route_str}"
+          device = route_device(network, nat_server_ip)
+          if device
+            update_route_file(network, nat_server_ip, device)
           else
-            runshell("ip route add #{route_str}")
-          end
-        end
-        device = route_device(network, nat_server_ip)
-        if ! device
-          if @boot
-            logger.warn "Unable to find associated device for #{route_str} in pre-networking section. Network devices may not be setup yet, trying again after network start."
-          else
-            # Don't raise here -- ip route should have failed above if its a bad route and raised
-            logger.error "Unable to set route: unable to find associated device for #{route_str} post-networking."
+            logger.warn "Unable to find associated device for #{route_str} in pre-networking section. As network devices aren't setup yet, will try again after network start."
           end
         else
-          update_route_file(network, nat_server_ip, device)
+          if network_route_exists?(network, nat_server_ip)
+            logger.debug "Route already exists to #{route_str}"
+          else
+            logger.info "Adding route to network #{route_str}"
+            runshell("ip route add #{route_str}")
+            device = route_device(network, nat_server_ip)
+            if device
+              update_route_file(network, nat_server_ip, device)
+            else
+              logger.error "Unable to set route in system config: unable to find associated device for #{route_str} post-networking."
+              # No need to raise here -- ip route should have failed above if there is no device to attach to
+            end
+          end
         end
       rescue Exception => e
         logger.error "Unable to set a route #{route_str}. Check network settings."

@@ -12,18 +12,28 @@ describe RightScale::CentosNetworkConfigurator do
   describe "NAT routing" do
 
     before(:each) do
-      ENV.delete_if { |k,v| k.start_with?("RS_ROUTE") }
+      ENV.delete_if { |k,v| k.start_with?("RS_") }
     end
 
     let(:nat_server_ip) { "10.37.128.2" }
     let(:route0) { }
     let(:route1) { "10.37.128.2:1.2.5.0/24" }
     let(:route2) { "10.37.128.2:1.2.6.0/24" }
+    let(:mac) { "MAC:MAC:MAC" }
+    let(:netmask) { "255.255.255.0" }
 
     let(:network_cidr) { "10.37.128.0/24" }
     let(:before_routes) { "default via 174.36.32.33 dev eth0  metric 100" }
 
     let(:routes_file) { "/etc/sysconfig/network-scripts/route-eth0" }
+
+    def ip_addr_show_data(device, ip, mask_length)
+<<EOF
+2: #{device}: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1460 qdisc pfifo_fast state UP qlen 1000
+  link/ether #{mac}:1 brd ff:ff:ff:ff:ff:ff
+  inet #{ip}/#{mask_length} brd 192.168.1.255 scope global eth1 
+EOF
+    end
 
     def after_routes(device, nat_server_ip, network_cidr)
       data=<<-EOH
@@ -77,19 +87,71 @@ default via 174.36.32.33 dev eth0  metric 100
       subject.logger.logged[:info].should == ["Appending #{network_cidr} via #{nat_server_ip} route to #{routes_file}"]
     end
 
-    it "appends all static routes" do
+    it "appends all non-duplicate static routes" do
       ENV['RS_ROUTE0'] = "#{nat_server_ip}:1.2.4.0/24"
       ENV['RS_ROUTE1'] = "#{nat_server_ip}:1.2.5.0/24"
       ENV['RS_ROUTE2'] = "#{nat_server_ip}:1.2.6.0/24"
+      ENV['RS_ROUTE3'] = "1.2.3.4:1.2.4.0/24"
 
       # network route add
-      flexmock(subject).should_receive(:runshell).with("ip route add 1.2.4.0/24 via #{nat_server_ip}")
-      flexmock(subject).should_receive(:runshell).with("ip route add 1.2.5.0/24 via #{nat_server_ip}")
-      flexmock(subject).should_receive(:runshell).with("ip route add 1.2.6.0/24 via #{nat_server_ip}")
+      flexmock(subject).should_receive(:runshell).with("ip route add 1.2.4.0/24 via #{nat_server_ip}").times(1)
+      flexmock(subject).should_receive(:runshell).with("ip route add 1.2.5.0/24 via #{nat_server_ip}").times(1)
+      flexmock(subject).should_receive(:runshell).with("ip route add 1.2.6.0/24 via #{nat_server_ip}").times(1)
       flexmock(subject).should_receive(:routes_show).and_return(before_routes)
       flexmock(subject).should_receive(:update_route_file).times(3)
-      flexmock(subject).should_receive(:route_device).and_return("eth0")
+      flexmock(subject).should_receive(:route_device).and_return("eth0").times(3)
+      flexmock(subject).should_receive(:runshell).with("ip route add 1.2.4.0/24 via 1.2.3.4").times(0)
+      subject.configure_routes
+    end
 
+    it "routes are assigned to the appropriate static interface" do
+      10.times do |i|
+        ENV["RS_IP#{i}_ADDR"] = "192.168.#{i}.100"
+        ENV["RS_IP#{i}_NETMASK"] = netmask
+        ENV["RS_IP#{i}_MAC"] = "#{mac}#{i}"
+        ENV["RS_ROUTE#{i}"] = "192.168.#{i}.1,1.2.3.#{i}/32"
+      end
+      flexmock(subject).should_receive(:os_net_devices).and_return(10.times.map {|i| "eth#{i}"})
+      subject.define_singleton_method(:device_name_from_mac) do |mac_addr|
+        "eth#{mac_addr.sub(/\D+/, '' )}"
+      end
+      flexmock(subject).should_receive(:network_route_exists?).and_return(false).times(0)
+      10.times do |i| 
+        flexmock(subject).should_receive(:update_route_file).with("1.2.3.#{i}/32", "192.168.#{i}.1", "eth#{i}")
+      end
+      subject.boot = true
+      subject.configure_routes
+    end
+
+    it "route is assigned to appropriate dynamic interface - post networking" do
+      ENV["RS_IP0_ADDR"] = "192.168.0.100"
+      ENV["RS_IP0_NETMASK"] = netmask
+      ENV["RS_IP0_MAC"] = "#{mac}0"
+      ENV["RS_IP0_ASSIGNMENT"] = "static"
+      ENV["RS_ROUTE0"] = "192.168.0.1,1.2.3.0/32"
+      ENV["RS_IP1_MAC"] = "#{mac}1"
+      ENV["RS_IP1_ASSIGNMENT"] = "dhcp"
+      ENV["RS_ROUTE1"] = "192.168.1.1,1.2.3.1/32"
+
+      flexmock(subject).should_receive(:os_net_devices).and_return(["eth0","eth1"])
+
+      subject.define_singleton_method(:device_name_from_mac) do |mac_addr|
+        "eth#{mac_addr.sub(/\D+/, '' )}"
+      end
+      flexmock(subject).should_receive(:network_route_exists?).and_return(false).times(2)
+
+      # eth0 case - static ip config
+      flexmock(subject).should_receive(:runshell).with("ip route add 1.2.3.0/32 via 192.168.0.1").times(1)
+      flexmock(subject).should_receive(:update_route_file).with("1.2.3.0/32", "192.168.0.1", "eth0")
+
+      # eth 1 case - dhcp, shells out to system to get device information
+      flexmock(subject).should_receive(:runshell).with("ip addr show eth0").
+        and_return(ip_addr_show_data("eth0", "192.168.0.100", 24))
+      flexmock(subject).should_receive(:runshell).with("ip addr show eth1").
+        and_return(ip_addr_show_data("eth1", "192.168.1.100", 16))
+      flexmock(subject).should_receive(:runshell).with("ip route add 1.2.3.1/32 via 192.168.1.1").times(1)
+      flexmock(subject).should_receive(:update_route_file).with("1.2.3.1/32", "192.168.1.1", "eth1")
+      subject.boot = false
       subject.configure_routes
     end
 
@@ -97,7 +159,7 @@ default via 174.36.32.33 dev eth0  metric 100
 
     describe "Static IP configuration" do
       before(:each) do
-        ENV.delete_if { |k,v| k.start_with?("RS_IP") }
+        ENV.delete_if { |k,v| k.start_with?("RS_") }
         ENV['RS_IP0_NAMESERVERS'] = '8.8.8.8'
       end
 
@@ -208,7 +270,7 @@ EOF
         subject.add_static_ips
       end
 
-      it "confugures DHCP adapters as well" do
+      it "configures DHCP adapters as well" do
         ENV['RS_IP0_ADDR'] = ip
         ENV['RS_IP0_NETMASK'] = netmask
         ENV['RS_IP0_MAC'] = mac
@@ -219,6 +281,6 @@ EOF
         flexmock(subject).should_receive(:write_adaptor_config).with("eth1", subject.config_data_dhcp("eth1"))
         subject.configure_network
       end
-
+      
     end
 end

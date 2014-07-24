@@ -85,10 +85,17 @@ module RightScale
     def configure_routes
       # required metadata values
       routes = ENV.keys.select { |k| k =~ /^RS_ROUTE(\d+)$/ }
+      seen_route = {}
       routes.each do |route|
         begin
           nat_server_ip, cidr = ENV[route].strip.split(/[,:]/)
-          network_route_add(cidr.to_s.strip, nat_server_ip.to_s.strip)
+          if seen_route[cidr]
+            seen_nat_server_ip = seen_route[cidr]
+            logger.warn "Already added route #{cidr} to gateway #{seen_nat_server_ip}, skipping adding it to #{nat_server_ip}"
+          else
+            seen_route[cidr] = nat_server_ip
+            network_route_add(cidr.to_s.strip, nat_server_ip.to_s.strip)
+          end
         rescue Exception => e  
           logger.error "Detected an error while adding route to NAT #{e.class}: #{e.message}"
         end
