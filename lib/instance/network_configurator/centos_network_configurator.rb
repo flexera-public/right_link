@@ -178,7 +178,7 @@ module RightScale
 
     def configure_routes
       super
-      set_default_gateway
+      set_default_gateway unless @boot
     end
 
     # Add default gateway route
