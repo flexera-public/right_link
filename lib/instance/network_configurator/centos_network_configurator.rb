@@ -6,34 +6,92 @@ module RightScale
       ::RightScale::Platform.linux? && ::RightScale::Platform.centos?
     end
 
-    def routes_for_device(device)
-      routes = runshell("ip route show dev #{device}") rescue nil
-      routes ||= ""
-    end
-
     def single_ip_range?(cidr_range)
       range = IP::CIDR.new(cidr_range)
       range.first_ip == range.last_ip
     end
 
-    def route_device(network, nat_server_ip)
-      route_regex = route_regex(network, nat_server_ip)
-      device = os_net_devices.find { |device| routes_for_device(device).match(route_regex) }
-      device ||= os_net_devices.first
+    def os_net_device_config(device)
+      config_data = runshell("ip addr show #{device}")
+      config = {}
+      if match_data = /inet ([\d\.]+)\/(\d+) /.match(config_data)
+        config["ip"] = match_data[1]
+        config["mask_length"] = match_data[2]
+        cidr = IP::CIDR.new("#{match_data[1]}/#{match_data[2]}")
+        config["netmask"] = cidr.long_netmask.ip_address
+        config["name"] = device
+      end
+      if match_data = /link\/\w+ ([^ ]+) /.match(config_data)
+        config["mac"] = match_data[1]
+      end
+      if config_data =~ /state UP/
+        config["up"] = true
+      end
+      config
     end
 
+    def route_device(network, nat_server_ip)
+      device = nil
+      # Have to associate it with the correct static
+      static_ip_numerals.each do |n_ip|
+        ip = ENV["RS_IP#{n_ip}_ADDR"]
+        netmask = ENV["RS_IP#{n_ip}_NETMASK"]
+        static_device = shell_escape_if_necessary(device_name_from_mac(ENV["RS_IP#{n_ip}_MAC"]))
+        if IPAddr.new(ip).mask(netmask).include?(nat_server_ip)
+          device = static_device
+          break
+        end
+      end
+
+      # Not a statically configured device, DHCP - check system, but only
+      # in the post-networking step, after DHCP has been set up
+      if ! @boot && ! device
+        os_net_devices.each do |net_device|
+          device_config = os_net_device_config(net_device)
+          if device_config["ip"] && device_config["netmask"]
+            if IPAddr.new(device_config["ip"]).mask(device_config["netmask"]).include?(nat_server_ip)
+              device = net_device
+            end
+          end
+        end
+      end
+
+      device 
+    end
+
+    # This is now quite tricky. We do two routing passes, a pass before the
+    # system networking is setup (@boot is true) in which we setup static system
+    # config files and a pass after system networking (@boot is false) in which 
+    # we fix up the remaining routes cases involving DHCP. We have to set any routes 
+    # involving DHCP post networking as we can't know the DHCP gateway beforehand
     def network_route_add(network, nat_server_ip)
       super
+
       route_str = "#{network} via #{nat_server_ip}"
-      logger.info "Adding route to network #{route_str}"
       begin
         if @boot
-          device = os_net_devices.first
-        else
-          runshell("ip route add #{route_str}")
+          logger.info "Adding route to network #{route_str}"
           device = route_device(network, nat_server_ip)
+          if device
+            update_route_file(network, nat_server_ip, device)
+          else
+            logger.warn "Unable to find associated device for #{route_str} in pre-networking section. As network devices aren't setup yet, will try again after network start."
+          end
+        else
+          if network_route_exists?(network, nat_server_ip)
+            logger.debug "Route already exists to #{route_str}"
+          else
+            logger.info "Adding route to network #{route_str}"
+            runshell("ip route add #{route_str}")
+            device = route_device(network, nat_server_ip)
+            if device
+              update_route_file(network, nat_server_ip, device)
+            else
+              logger.error "Unable to set route in system config: unable to find associated device for #{route_str} post-networking."
+              # No need to raise here -- ip route should have failed above if there is no device to attach to
+            end
+          end
         end
-        update_route_file(network, nat_server_ip, device)
       rescue Exception => e
         logger.error "Unable to set a route #{route_str}. Check network settings."
         # XXX: for some reason network_route_exists? allowing mutple routes
@@ -88,7 +146,7 @@ module RightScale
     #
     # === Return
     # result(True):: Always returns true
-    def update_route_file(network, nat_server_ip, device = os_net_devices.first)
+    def update_route_file(network, nat_server_ip, device)
       raise "ERROR: invalid nat_server_ip : '#{nat_server_ip}'" unless valid_ipv4?(nat_server_ip)
       raise "ERROR: invalid CIDR network : '#{network}'" unless valid_ipv4_cidr?(network)
 
@@ -126,6 +184,11 @@ module RightScale
         delete_gateway_route(default_gateway) if default_gateway
         add_gateway_route(metadata_gateway)
       end
+    end
+
+    def configure_routes
+      super
+      set_default_gateway unless @boot
     end
 
     # Add default gateway route
@@ -168,11 +231,11 @@ module RightScale
 
     def config_file(device)
       FileUtils.mkdir_p("/etc/sysconfig/network-scripts")
-      config_file = "/etc/sysconfig/network-scripts/ifcfg-#{device}"
+      "/etc/sysconfig/network-scripts/ifcfg-#{device}"
     end
 
     def config_data_dhcp(device)
-      config_data = <<-EOH
+<<-EOH
 # File managed by RightScale
 # DO NOT EDIT
 DEVICE=#{device}
