@@ -48,6 +48,8 @@ describe RightScale::ExecutableSequence do
 
   let(:cookbook_tarball_path) { ::File.normalize_path(::File.join(::File.dirname(__FILE__), 'fixtures', 'chef', 'right_link_test.tar')) }
 
+  let(:repose_get_mock)     { ::File.normalize_path(::File.join(::File.dirname(__FILE__), "repose_get_mock.rb")) }
+
   context 'Testing sequence execution' do
 
     it_should_behave_like 'mocks cook'
@@ -104,14 +106,11 @@ describe RightScale::ExecutableSequence do
       logger.should_receive(:error).and_return(true)
 
       # Mock out Actual Repose downloader
-      @mock_repose_downloader = flexmock('Repose Downloader')
-      @mock_repose_downloader.should_receive(:logger=).once.and_return(logger)
-      @mock_repose_downloader.should_receive(:download).and_return("OK").by_default
-      @mock_repose_downloader.should_receive(:details).and_return("details")
-      flexmock(::RightScale::ReposeDownloader).should_receive(:new).and_return(@mock_repose_downloader)
-      flexmock(Socket).should_receive(:getaddrinfo) \
-          .with("hostname", 443, Socket::AF_INET, Socket::SOCK_STREAM, Socket::IPPROTO_TCP) \
-          .and_return([["AF_INET", 443, "hostname", "1.2.3.4", 2, 1, 6], ["AF_INET", 443, "hostname", "5.6.7.8", 2, 1, 6]])
+      @mock_repose_downloader = flexmock('Concurrent Repose Downloader')
+      @mock_repose_downloader.should_receive(:logger=).and_return(logger)
+      @mock_repose_downloader.should_receive(:join).and_return(true)
+      @mock_repose_downloader.should_receive(:download).and_return { |uri, file| system("bundle exec ruby #{repose_get_mock} \"#{uri}\" \"#{file}\"") }.by_default
+      flexmock(::RightScale::ConcurrentReposeDownloader).should_receive(:new).and_return(@mock_repose_downloader)
 
       # reset chef cookbooks path
       Chef::Config[:cookbook_path] = []
@@ -147,12 +146,8 @@ describe RightScale::ExecutableSequence do
       end
 
       it 'should cache downloaded cookbooks' do
-        @mock_repose_downloader.
-          should_receive(:download).
-          once.
-          with("/cookbooks/#{cookbook_hash}", Proc).
-          and_yield(::File.open(cookbook_tarball_path, 'rb')  {|f| f.read })
         sequence.send(:download_cookbook, root_dir, cookbook)
+        sequence.send(:unpack_cookbook, root_dir, cookbook)
         ::File.exists?(expected_tar_file).should be_true
         ::File.directory?(::File.join(root_dir, 'cookbooks')).should be_true
       end
@@ -163,8 +158,6 @@ describe RightScale::ExecutableSequence do
         ::File.file?(expected_tar_file).should be_true
         @mock_repose_downloader.should_receive(:download).never
         sequence.send(:download_cookbook, root_dir, cookbook)
-        ::File.exists?(expected_tar_file).should be_true
-        ::File.directory?(::File.join(root_dir, 'cookbooks')).should be_true
       end
 
       it 'should delete cookbook file from hash if any exception occured during downloading' do
@@ -281,11 +274,6 @@ describe RightScale::ExecutableSequence do
   context 'Chef error formatting' do
 
     before(:each) do
-      # For ReposeDownloader
-      flexmock(Socket).should_receive(:getaddrinfo) \
-          .with("hostname", 443, Socket::AF_INET, Socket::SOCK_STREAM, Socket::IPPROTO_TCP) \
-          .and_return([["AF_INET", 443, "hostname", "1.2.3.4", 2, 1, 6], ["AF_INET", 443, "hostname", "5.6.7.8", 2, 1, 6]])
-
       # mock the cookbook checkout location
       @cookbooks_path = Dir.mktmpdir
       flexmock(RightScale::CookState).should_receive(:cookbooks_path).and_return(@cookbooks_path)
@@ -340,10 +328,6 @@ describe RightScale::ExecutableSequence do
 
   context 'Specific Chef error formatting' do
     before(:each) do
-      # For ReposeDownloader
-      flexmock(Socket).should_receive(:getaddrinfo) \
-          .with("hostname", 443, Socket::AF_INET, Socket::SOCK_STREAM, Socket::IPPROTO_TCP) \
-          .and_return([["AF_INET", 443, "hostname", "1.2.3.4", 2, 1, 6], ["AF_INET", 443, "hostname", "5.6.7.8", 2, 1, 6]])
 
       # mock the cookbook checkout location
       @cookbooks_path = Dir.mktmpdir
@@ -437,12 +421,6 @@ describe RightScale::ExecutableSequence do
       # FIX: currently these tests do not need EM, so we mock next_tick so we do not pollute EM.
       # Should we run the entire sequence in em for these tests?
       flexmock(::EM).should_receive(:next_tick)
-
-      # For ReposeDownloader
-      flexmock(::Socket).
-        should_receive(:getaddrinfo).
-        with(repose_hostname, 443, Socket::AF_INET, Socket::SOCK_STREAM, Socket::IPPROTO_TCP).
-        and_return([["AF_INET", 443, "hostname", "1.2.3.4", 2, 1, 6], ["AF_INET", 443, "hostname", "5.6.7.8", 2, 1, 6]])
     end
 
     after(:each) do
@@ -475,14 +453,14 @@ describe RightScale::ExecutableSequence do
       @sequence = described_class.new(@bundle)
     end
 
-    it 'should instantiate a ReposeDownloader' do
+    it 'should instantiate a ConcurrentReposeDownloader' do
         # mock the cookbook checkout location
       flexmock(::RightScale::CookState).should_receive(:cookbooks_path).and_return(@temp_cache_path)
-      mock_repose_downloader = flexmock('Repose Downloader')
-      mock_repose_downloader.should_receive(:logger=).once.and_return(@logger)
-      flexmock(::RightScale::ReposeDownloader).
+      mock_repose_downloader = flexmock('ConcurrentReposeDownloader')
+      mock_repose_downloader.should_receive(:logger=).and_return(@logger)
+      flexmock(::RightScale::ConcurrentReposeDownloader).
         should_receive(:new).
-        with([repose_hostname]).
+        with([repose_hostname], @auditor).
         once.
         and_return(mock_repose_downloader)
 
@@ -525,34 +503,31 @@ describe RightScale::ExecutableSequence do
       end
 
       it 'should download accessible cookbooks' do
-        mock_repose_downloader = flexmock('ReposeDownloader')
-        mock_repose_downloader.should_receive(:logger=).once.and_return(@logger)
-        flexmock(::RightScale::ReposeDownloader).should_receive(:new).with([repose_hostname]).once.and_return(mock_repose_downloader)
-        @auditor.should_receive(:append_info).with("Success; unarchiving cookbook").once
-        @auditor.should_receive(:append_info).with(/Duration: \d+\.\d+ seconds/).once
-        @auditor.should_receive(:append_info).with(/Downloaded \'.*\' .* at .*/).once
-        @auditor.should_receive(:append_info).with("").once
+        mock_repose_downloader = flexmock('ConcurrentReposeDownloader')
+        mock_repose_downloader.should_receive(:logger=).and_return(@logger)
+        mock_repose_downloader.should_receive(:join).and_return(true)
+        flexmock(::RightScale::ConcurrentReposeDownloader).should_receive(:new).with([repose_hostname], @auditor).and_return(mock_repose_downloader)
+        @auditor.should_receive(:append_info).with(/Duration: \d+\.\d+ seconds/)
         mock_repose_downloader.
           should_receive(:download).
-          with('/cookbooks/4cdae6d5f1bc33d8713b341578b942d42ed5817f', Proc).
-          and_yield(::File.open(cookbook_tarball_path, 'rb')  {|f| f.read }).
+          with('/cookbooks/4cdae6d5f1bc33d8713b341578b942d42ed5817f', String).
           once
-        mock_repose_downloader.should_receive(:details).and_return("Downloaded '4cdae6d5f1bc33d8713b341578b942d42ed5817f' (40K) at 5K/s").once
         @sequence = described_class.new(@bundle)
+        flexmock(@sequence).should_receive(:unpack_cookbook).and_return(true)
         @sequence.send(:download_cookbooks)
         @sequence.should be_okay
       end
 
       it 'should not download inaccessible cookbooks' do
         @logger.should_receive(:info).never
-        mock_repose_downloader = flexmock('ReposeDownloader')
-        mock_repose_downloader.should_receive(:logger=).once.and_return(@logger)
-        flexmock(::RightScale::ReposeDownloader).should_receive(:new).with([repose_hostname]).once.and_return(mock_repose_downloader)
+        mock_repose_downloader = flexmock('ConcurrentReposeDownloader')
+        mock_repose_downloader.should_receive(:logger=).and_return(@logger)
+        flexmock(::RightScale::ConcurrentReposeDownloader).should_receive(:new).with([repose_hostname], @auditor).once.and_return(mock_repose_downloader)
         flexmock(File).should_receive(:exists?).and_return(false)
         @auditor.should_receive(:append_info).with(/Duration: \d+\.\d+ seconds/).never
         mock_repose_downloader.
           should_receive(:download).
-          with('/cookbooks/4cdae6d5f1bc33d8713b341578b942d42ed5817f', Proc).
+          with('/cookbooks/4cdae6d5f1bc33d8713b341578b942d42ed5817f', String).
           and_raise(::RightScale::ReposeDownloader::DownloadException)
         @sequence = described_class.new(@bundle)
         @sequence.send(:download_cookbooks)
@@ -583,32 +558,29 @@ describe RightScale::ExecutableSequence do
       end
 
       it 'should successfully request an attachment we can access' do
-        mock_repose_downloader = flexmock('ReposeDownloader')
-        mock_repose_downloader.should_receive(:logger=).once.and_return(@logger)
-        flexmock(::RightScale::ReposeDownloader).should_receive(:new).with([repose_hostname]).once.and_return(mock_repose_downloader)
+        mock_repose_downloader = flexmock('ConcurrentReposeDownloader')
+        mock_repose_downloader.should_receive(:logger=).and_return(@logger)
+        mock_repose_downloader.should_receive(:join).and_return(true)
+        flexmock(::RightScale::ConcurrentReposeDownloader).should_receive(:new).with([repose_hostname], @auditor).and_return(mock_repose_downloader)
         @auditor.should_receive(:append_info).with(/Starting at /)
         @auditor.should_receive(:update_status).with(/Downloading baz\.tar into .*/).once
         @auditor.should_receive(:append_info).with(/Duration: \d+\.\d+ seconds/).once
-        @auditor.should_receive(:append_info).with(/Downloaded \'.*\' .* at .*/).once
-        mock_repose_downloader.
-          should_receive(:download).
-          with('http://a-url/foo/bar/baz?blah', Proc).
-          and_yield { ::File.open(attachment_file_path).binmode.read }.once
-        mock_repose_downloader.should_receive(:details).and_return("Downloaded '4cdae6d5f1bc33d8713b341578b942d42ed5817f' (40K) at 5K/s").once
+        mock_repose_downloader.should_receive(:download).with('http://a-url/foo/bar/baz?blah', String).once
         @sequence = described_class.new(@bundle)
         @sequence.send(:download_attachments)
         @sequence.should be_okay
       end
 
       it 'should fail completely if download fails' do
-        mock_repose_downloader = flexmock('ReposeDownloader')
-        mock_repose_downloader.should_receive(:logger=).once.and_return(@logger)
-        flexmock(::RightScale::ReposeDownloader).should_receive(:new).with([repose_hostname]).once.and_return(mock_repose_downloader)
+        mock_repose_downloader = flexmock('ConcurrentReposeDownloader')
+        mock_repose_downloader.should_receive(:logger=).and_return(@logger)
+        mock_repose_downloader.should_receive(:join).and_return(true)
+        flexmock(::RightScale::ConcurrentReposeDownloader).should_receive(:new).with([repose_hostname], @auditor).and_return(mock_repose_downloader)
         @auditor.should_receive(:append_info).with(/Starting at /)
-        @auditor.should_receive(:append_info).with(/Duration: \d+\.\d+ seconds/).once
+        @auditor.should_receive(:append_info).with(/Duration: \d+\.\d+ seconds/)
         @auditor.should_receive(:update_status).with(/Downloading baz\.tar into .*/).once
         @auditor.should_receive(:append_info).with("Repose download failed: SocketError.")
-        mock_repose_downloader.should_receive(:download).with('http://a-url/foo/bar/baz?blah', Proc).and_raise(SocketError.new).once
+        mock_repose_downloader.should_receive(:download).with('http://a-url/foo/bar/baz?blah', String).and_raise(::RightScale::ConcurrentDownloadException.new("SocketError", "SocketError", "baz.tar")).once
         @sequence = described_class.new(@bundle)
         @sequence.send(:download_attachments)
         @sequence.should have_failed("Failed to download attachment 'baz.tar'", "SocketError")
@@ -720,8 +692,6 @@ describe RightScale::ExecutableSequence do
             once
         end
 
-        dl = flexmock(::RightScale::ReposeDownloader)
-
         unless cookbooks.nil? || cookbooks.empty?
           @auditor.should_receive(:create_new_section).with("Retrieving cookbooks").once
         end
@@ -730,21 +700,17 @@ describe RightScale::ExecutableSequence do
           sequence.positions.each do |position|
             unless dev_cookbooks.repositories[sequence.hash] &&
                 dev_cookbooks.repositories[sequence.hash].positions.detect { |dp| dp.position == position.position }
-              mock_repose_downloader = flexmock('ReposeDownloader')
+              mock_repose_downloader = flexmock('ConcurrentReposeDownloader')
+              flexmock(::RightScale::ConcurrentReposeDownloader).should_receive(:new).with([repose_hostname], @auditor).and_return(mock_repose_downloader)
               mock_repose_downloader.should_receive(:logger=).and_return(@logger)
-              flexmock(::RightScale::ReposeDownloader).should_receive(:new).with([repose_hostname]).and_return(mock_repose_downloader)
+              mock_repose_downloader.should_receive(:join).and_return(true)
+              mock_repose_downloader.should_receive(:download).and_return { |uri, file| system("bundle exec ruby #{repose_get_mock} \"#{uri}\" \"#{file}\"") }
               @auditor.should_receive(:append_info).with(/Downloading cookbook \'.*\' \(.*\)/)
-              @auditor.should_receive(:append_info).with("Success; unarchiving cookbook").once
-              @auditor.should_receive(:append_info).with(/Downloaded \'.*\' .* at .*/).once
-              @auditor.should_receive(:append_info).with("").once
-              mock_repose_downloader.
-                should_receive(:download).
-                and_yield(::File.open(cookbook_tarball_path, 'rb')  {|f| f.read })
-              mock_repose_downloader.should_receive(:details).and_return("Downloaded '4cdae6d5f1bc33d8713b341578b942d42ed5817f' (40K) at 5K/s")
+              @auditor.should_receive(:append_info).with("")
             end
           end
         end
-        @auditor.should_receive(:append_info).with(/Duration: \d+\.\d+ seconds/).once
+        @auditor.should_receive(:append_info).with(/Duration: \d+\.\d+ seconds/)
 
         @sequence = described_class.new(@bundle)
         @sequence.send(:checkout_cookbook_repos)
@@ -803,7 +769,7 @@ describe RightScale::ExecutableSequence do
           end
 
           unless @dev_cookbooks.repositories.nil? || @dev_cookbooks.repositories.empty?
-            @auditor.should_receive(:append_info).with(/Duration: \d+\.\d+ seconds/).once
+            @auditor.should_receive(:append_info).with(/Duration: \d+\.\d+ seconds/)
           end
         end
 
