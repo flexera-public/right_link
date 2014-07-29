@@ -12,7 +12,8 @@ describe RightScale::CentosNetworkConfigurator do
   describe "NAT routing" do
 
     before(:each) do
-      ENV.delete_if { |k,v| k.start_with?("RS_") }
+      ENV.delete_if { |k,v| k.start_with?("RS_ROUTE") }
+      ENV.delete_if { |k,v| k.start_with?("RS_IP") }
     end
 
     let(:nat_server_ip) { "10.37.128.2" }
@@ -159,7 +160,8 @@ default via 174.36.32.33 dev eth0  metric 100
 
     describe "Static IP configuration" do
       before(:each) do
-        ENV.delete_if { |k,v| k.start_with?("RS_") }
+        ENV.delete_if { |k,v| k.start_with?("RS_ROUTE") }
+        ENV.delete_if { |k,v| k.start_with?("RS_IP") }
         ENV['RS_IP0_NAMESERVERS'] = '8.8.8.8'
       end
 
