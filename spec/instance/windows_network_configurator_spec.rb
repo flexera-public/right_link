@@ -136,7 +136,7 @@ describe RightScale::WindowsNetworkConfigurator do
       flexmock(subject).should_receive(:network_route_exists?).and_return(false)
       cmd = /route -p ADD \d+.\d+.\d+.\d+ MASK \d+.\d+.\d+.\d+ #{nat_server_ip}/
         flexmock(subject).should_receive(:runshell).with(cmd).times(nat_ranges.length)
-      subject.add_static_routes_for_network
+      subject.configure_routes
     end
   end
 end
