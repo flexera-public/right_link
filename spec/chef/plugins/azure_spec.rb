@@ -25,6 +25,18 @@ require 'tempfile'
 
 describe Ohai::System, ' plugin azure' do
 
+  let (:fetched_metadata) {
+    {
+      'public_ipv4' => '1.2.3.4',
+      'private_ipv4' => '192.168.0.1',
+      'public_hostname' => 'public_hostname'
+    }
+  }
+
+  let (:fetched_dhcp_lease_provider) {
+    '5.6.7.8'
+  }
+
   before(:each) do
     temp_dir = Dir.mktmpdir
     flexmock(::RightScale::AgentConfig).should_receive(:cache_dir).and_return(temp_dir)
@@ -35,23 +47,17 @@ describe Ohai::System, ' plugin azure' do
     # ohai to be tested
     @ohai = Ohai::System.new
     flexmock(@ohai).should_receive(:require_plugin).and_return(true)
-    @ohai._require_plugin("hostname")
+    flexmock(@ohai).should_receive(:dhcp_lease_provider).and_return(fetched_dhcp_lease_provider).once
   end
 
   # Provide only success scenario, becuase it will be changed in RL 6.1
   it 'populate azure node with required attributes' do
     flexmock(@ohai).should_receive(:hint?).with('azure').and_return({}).once
-    flexmock(@ohai).should_receive(:tcp_test_ssh).and_yield.once
-    flexmock(@ohai).should_receive(:tcp_test_winrm).and_yield.once
-    flexmock(@ohai).should_receive(:query_whats_my_ip).and_return('1.2.3.4').once
-    @ohai['hostname'] = 'my_hostname'
+    flexmock(@ohai).should_receive(:can_metadata_connect?).with(fetched_dhcp_lease_provider, 80).and_return(true)
+    flexmock(@ohai).should_receive(:fetch_metadata).with(fetched_dhcp_lease_provider).and_return(fetched_metadata).once
     @ohai._require_plugin("azure")
     @ohai[:azure].should_not be_nil
-    @ohai[:azure]['vm_name'].should == 'my_hostname'
-    @ohai[:azure]['public_fqdn'].should == 'my_hostname.cloudapp.net'
-    @ohai[:azure]['public_ssh_port'].should == 22
-    @ohai[:azure]['public_winrm_port'].should == 5985
-    @ohai[:azure]['public_ip'].should == '1.2.3.4'
+    @ohai[:azure].should == fetched_metadata
   end
 
 end

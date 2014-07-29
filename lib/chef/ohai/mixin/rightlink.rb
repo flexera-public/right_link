@@ -22,7 +22,6 @@
 
 require 'open-uri'
 require 'socket'
-require 'rexml/document'
 
 module ::Ohai::Mixin::RightLink
 
@@ -142,110 +141,4 @@ module ::Ohai::Mixin::RightLink
     end
   end
 
-
-  module AzureMetadata
-    class SharedConfig
-      SHARED_CONFIG_PATH = "/var/lib/waagent/SharedConfig.xml"
-      REQUIRED_ELEMENTS = ["*/Deployment", "*/*/Service", "*/*/ServiceInstance", "*/Incarnation", "*/Role" ]
-
-      class InvalidConfig < StandardError; end
-
-      def initialize
-        @shared_config = REXML::Document.new(File.open(SHARED_CONFIG_PATH, "r"))
-        raise InvalidConfig unless @shared_config.root.name == "SharedConfig"
-        raise InvalidConfig unless REQUIRED_ELEMENTS.all? { |element| @shared_config.elements[element] }
-      end
-
-      def vm_name
-        @vm_name ||= @shared_config.elements["SharedConfig/Deployment/Service"].attributes["name"] rescue nil
-      end
-
-      def private_ip
-        @private_ip ||= @shared_config.elements["SharedConfig/Instances/Instance"].attributes["address"] rescue nil
-      end
-
-      def inputs_endpoints
-        @inputs_endpoints ||= [].tap do |endpoints|
-          endpoint = @shared_config.elements["SharedConfig/Instances/Instance/InputEndpoints/Endpoint"] rescue nil
-          while endpoint
-            endpoints << endpoint
-            endpoint = endpoint.next_element
-          end
-          endpoints
-        end
-      end
-
-      def ssh_endpoint
-        @ssh_endpoint ||= inputs_endpoints.detect { |ep| ep.attributes["name"] == "SSH" } rescue nil
-      end
-
-      def first_public_endpoint
-        @first_public_endpoint ||= inputs_endpoints.detect { |ep| ep.attributes['isPublic'] == 'true'} rescue nil
-      end
-
-      def public_ip
-        @public_ip ||= first_public_endpoint.attributes["loadBalancedPublicAddress"].split(":").first rescue nil
-      end
-
-      def public_ssh_port
-        @public_ssh_port ||= ssh_endpoint.attributes["loadBalancedPublicAddress"].split(":").last.to_i rescue nil
-      end
-    end
-
-    def query_whats_my_ip(opts)
-      CloudUtilities::query_whats_my_ip(opts)
-    end
-
-    def tcp_test_winrm(ip_addr, port, &block)
-      socket = TCPSocket.new(hostname, port)
-      ::Ohai::Log.debug("WinRM accepting connections on #{fqdn}")
-      yield if block
-      true
-    rescue SocketError
-      sleep 2
-      false
-    rescue Errno::ETIMEDOUT
-      false
-    rescue Errno::EPERM
-      false
-    rescue Errno::ECONNREFUSED
-      sleep 2
-      false
-    rescue Errno::EHOSTUNREACH
-      sleep 2
-      false
-    rescue Errno::ENETUNREACH
-      sleep 2
-      false
-    ensure
-      socket && socket.close
-    end
-
-    def tcp_test_ssh(fqdn, sshport, &block)
-      socket = TCPSocket.new(fqdn, sshport)
-      readable = IO.select([socket], nil, nil, 5)
-      if readable
-        ::Ohai::Log.debug("sshd accepting connections on #{fqdn}, banner is #{socket.gets}")
-        yield if block
-        true
-      else
-        false
-      end
-    rescue SocketError
-      sleep 2
-      false
-    rescue Errno::ETIMEDOUT
-      false
-    rescue Errno::EPERM
-      false
-    rescue Errno::ECONNREFUSED
-      sleep 2
-      false
-    rescue Errno::EHOSTUNREACH
-      sleep 2
-      false
-    ensure
-      socket && socket.close
-    end
-  end
 end
