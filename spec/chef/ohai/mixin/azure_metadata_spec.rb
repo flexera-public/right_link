@@ -27,7 +27,7 @@ require 'stringio'
 describe ::Ohai::Mixin::AzureMetadata do
 
   context 'fetch_metadata' do
-
+    it "should have specs"
   end
 
   context 'SharedConfig' do

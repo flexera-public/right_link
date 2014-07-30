@@ -24,124 +24,10 @@
 require 'net/http'
 require 'uri'
 require 'rexml/document'
-
-module ::Ohai::Mixin::ShouldBeRenamed
-
-  # def dhcp_server
-  #   dhcp_server = if /cygwin|mswin|mingw|bccwin|wince|emx/ =~ RUBY_PLATFORM
-  #     `ipconfig /all`.match(/DHCP Server.*: (\d+\.\d+\.\d+\.\d+)$/)[1]
-  #   else
-  #     # ubuntu 12 location, need to search all locs for other OSes
-  #     File.read("/var/lib/dhcp/dhclient.eth0.leases").match(/dhcp-server-identifier (.*);/)[1]
-  #   end
-  #   dhcp_server
-  # end
-
-  # Searches for a file containing dhcp lease information.
-  def dhcp_lease_provider
-    if RUBY_PLATFORM =~ /windows|cygwin|mswin|mingw|bccwin|wince|emx/
-      timeout = Time.now + 20 * 60  # 20 minutes
-      while Time.now < timeout
-        ipconfig_data = `ipconfig /all`
-        match_result = ipconfig_data.match(/DHCP Server.*\: (\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/)
-        unless match_result.nil? || match_result[1].nil?
-          return match_result[1]
-        end
-        # it may take time to resolve the DHCP Server for this instance, so sleepy wait.
-        ::Ohai::Log.debug("ipconfig /all did not contain any DHCP Servers. Retrying in 10 seconds...")
-        sleep 10
-      end
-    else
-      leases_file = %w{/var/lib/dhcp/dhclient.eth0.leases /var/lib/dhcp3/dhclient.eth0.leases /var/lib/dhclient/dhclient-eth0.leases /var/lib/dhclient-eth0.leases /var/lib/dhcpcd/dhcpcd-eth0.info}.find{|dhcpconfig| File.exist?(dhcpconfig)}
-      unless leases_file.nil?
-        lease_file_content = File.read(leases_file)
-
-        dhcp_lease_provider_ip = lease_file_content[/DHCPSID='(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'/, 1]
-        return dhcp_lease_provider_ip unless dhcp_lease_provider_ip.nil?
-
-        # leases are appended to the lease file, so to get the appropriate dhcp lease provider, we must grab
-        # the info from the last lease entry.
-        #
-        # reverse the content and reverse the regex to find the dhcp lease provider from the last lease entry
-        lease_file_content.reverse!
-        dhcp_lease_provider_ip = lease_file_content[/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}) reifitnedi-revres-pchd/, 1]
-        return dhcp_lease_provider_ip.reverse unless dhcp_lease_provider_ip.nil?
-      end
-    end
-    # no known defaults so we must fail at this point.
-    raise "Cannot determine dhcp lease provider for cloudstack instance"
-  end
-
-  def can_metadata_connect?(addr, port, timeout=2)
-    t = Socket.new(Socket::Constants::AF_INET, Socket::Constants::SOCK_STREAM, 0)
-    saddr = Socket.pack_sockaddr_in(port, addr)
-    connected = false
-
-    begin
-      t.connect_nonblock(saddr)
-    rescue Errno::EINPROGRESS
-      r,w,e = IO::select(nil,[t],nil,timeout)
-      if !w.nil?
-        connected = true
-      else
-        begin
-          t.connect_nonblock(saddr)
-        rescue Errno::EISCONN
-          t.close
-          connected = true
-        rescue SystemCallError
-        end
-      end
-    rescue SystemCallError
-    end
-    ::Ohai::Log.debug("can_metadata_connect? == #{connected}")
-    connected
-  end
-end
-
+require 'chef/ohai/mixin/dhcp_lease_metadata_helper'
 
 module ::Ohai::Mixin::AzureMetadata
-  include ::Ohai::Mixin::ShouldBeRenamed
-
-  def query_url(url)
-    u = URI(url) # doesn't work on 1.8.7 didn't figure out why
-    req = Net::HTTP::Get.new(u.request_uri)
-    req['x-ms-agent-name'] = 'WALinuxAgent'
-    req['x-ms-version'] = '2012-11-30'
-
-    res = Net::HTTP.start(u.hostname, u.port) {|http|
-      http.request(req)
-    }
-    res.body
-  end
-
-  def fetch_metadata(host)
-    base_url="http://#{host}"
-
-    ::Ohai::Log.debug "Base url #{base_url}"
-
-    res = query_url("#{base_url}/machine/?comp=goalstate")
-    ::Ohai::Log.debug  "\ngoalstate\n------------------"
-    ::Ohai::Log.debug  res
-    container_id = res.match(/<ContainerId>(.*?)<\/ContainerId>/)[1]
-    instance_id  = res.match(/<InstanceId>(.*?)<\/InstanceId>/)[1]
-    incarnation = res.match(/<Incarnation>(.*?)<\/Incarnation>/)[1]
-
-    ::Ohai::Log.debug "container_id #{container_id} instance_id #{instance_id} incarnation #{incarnation}"
-
-    shard_config_content = query_url("#{base_url}/machine/#{container_id}/#{instance_id}?comp=config&type=sharedConfig&incarnation=#{incarnation}")
-    ::Ohai::Log.debug "\nsharedConfig\n------------------"
-    ::Ohai::Log.debug shard_config_content
-
-    shared_config = SharedConfig.new shard_config_content
-
-    {
-      'public_ip'       => shared_config.public_ip,
-      'vm_name'         => shared_config.vm_name,
-      'public_fqdn'     => "#{shared_config.vm_name}.cloudapp.net",
-      'public_ssh_port' => shared_config.public_ssh_port,
-    }
-  end
+  include ::Ohai::Mixin::DhcpLeaseMetadataHelper
 
   class SharedConfig
     REQUIRED_ELEMENTS = ["*/Deployment", "*/*/Service", "*/*/ServiceInstance", "*/Incarnation", "*/Role" ]
@@ -189,27 +75,45 @@ module ::Ohai::Mixin::AzureMetadata
       @public_ssh_port ||= ssh_endpoint.attributes["loadBalancedPublicAddress"].split(":").last.to_i rescue nil
     end
   end
-end
 
-if __FILE__ == $0
+  def query_url(url)
+    u = URI(url) # doesn't work on 1.8.7 didn't figure out why
+    req = Net::HTTP::Get.new(u.request_uri)
+    req['x-ms-agent-name'] = 'WALinuxAgent'
+    req['x-ms-version'] = '2012-11-30'
 
-  res = query_url("#{base_url}/?comp=versions")
-  puts "\nversions\n------------------"
-  puts res
+    res = Net::HTTP.start(u.hostname, u.port) {|http|
+      http.request(req)
+    }
+    res.body
+  end
 
-  res = query_url("#{base_url}/machine/#{container_id}/#{instance_id}?comp=config&type=sharedConfig&incarnation=#{incarnation}")
-  puts "\nsharedConfig\n------------------"
-  puts res
+  def fetch_metadata(host)
+    base_url="http://#{host}"
 
-  res = query_url("#{base_url}/machine/#{container_id}/#{instance_id}?comp=config&type=hostingEnvironmentConfig&incarnation=#{incarnation}")
-  puts "\nhostingEnvironment\n------------------"
-  puts res
+    ::Ohai::Log.debug "Base url #{base_url}"
 
-  res = query_url("#{base_url}/machine/#{container_id}/#{instance_id}?comp=config&type=fullConfig&incarnation=#{incarnation}")
-  puts "\nfullConfig\n------------------"
-  puts res
+    goalstate = query_url("#{base_url}/machine/?comp=goalstate")
+    container_id = goalstate.match(/<ContainerId>(.*?)<\/ContainerId>/)[1]
+    instance_id  = goalstate.match(/<InstanceId>(.*?)<\/InstanceId>/)[1]
+    incarnation = goalstate.match(/<Incarnation>(.*?)<\/Incarnation>/)[1]
 
-  #res = query_url("#{base_url}/machine/#{container_id}/#{instance_id}?comp=certificates&incarnation=#{incarnation}")
-  #puts "\ncertificates\n------------------"
-  #puts res
+    ::Ohai::Log.debug  "\ngoalstate\n------------------"
+    ::Ohai::Log.debug  goalstate
+    ::Ohai::Log.debug "container_id #{container_id} instance_id #{instance_id} incarnation #{incarnation}"
+
+    shard_config_content = query_url("#{base_url}/machine/#{container_id}/#{instance_id}?comp=config&type=sharedConfig&incarnation=#{incarnation}")
+    ::Ohai::Log.debug "\nsharedConfig\n------------------"
+    ::Ohai::Log.debug shard_config_content
+
+    shared_config = SharedConfig.new shard_config_content
+
+    {
+      'public_ip'       => shared_config.public_ip,
+      'vm_name'         => shared_config.vm_name,
+      'public_fqdn'     => "#{shared_config.vm_name}.cloudapp.net",
+      'public_ssh_port' => shared_config.public_ssh_port,
+    }
+  end
+
 end
