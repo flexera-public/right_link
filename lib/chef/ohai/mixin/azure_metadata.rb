@@ -63,6 +63,10 @@ module ::Ohai::Mixin::AzureMetadata
       @ssh_endpoint ||= inputs_endpoints.detect { |ep| ep.attributes["name"] == "SSH" } rescue nil
     end
 
+    def rdp_endpoint
+      @rdp_endpoint ||= inputs_endpoints.detect { |ep| ep.attributes["name"] == "RDP" } rescue nil
+    end
+
     def first_public_endpoint
       @first_public_endpoint ||= inputs_endpoints.detect { |ep| ep.attributes['isPublic'] == 'true'} rescue nil
     end
@@ -73,6 +77,10 @@ module ::Ohai::Mixin::AzureMetadata
 
     def public_ssh_port
       @public_ssh_port ||= ssh_endpoint.attributes["loadBalancedPublicAddress"].split(":").last.to_i rescue nil
+    end
+
+    def public_winrm_port
+      @public_winrm_port ||= rdp_endpoint.attributes["loadBalancedPublicAddress"].split(":").last.to_i rescue nil
     end
   end
 
@@ -108,12 +116,16 @@ module ::Ohai::Mixin::AzureMetadata
 
     shared_config = SharedConfig.new shard_config_content
 
-    {
+
+    metadata = {
       'public_ip'       => shared_config.public_ip,
       'vm_name'         => shared_config.vm_name,
-      'public_fqdn'     => "#{shared_config.vm_name}.cloudapp.net",
-      'public_ssh_port' => shared_config.public_ssh_port,
+      'public_fqdn'     => "#{shared_config.vm_name}.cloudapp.net"
     }
-  end
 
+    metadata['public_ssh_port'] = shared_config.public_ssh_port if shared_config.public_ssh_port
+    metadata['public_winrm_port'] = shared_config.public_winrm_port if shared_config.public_winrm_port
+    metadata
+
+  end
 end
