@@ -20,7 +20,7 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require File.join(File.dirname(__FILE__), 'spec_helper')
+require File.expand_path(File.join(File.dirname(__FILE__), 'spec_helper'))
 
 describe RightScale::AuditProxy do
 
@@ -42,6 +42,14 @@ describe RightScale::AuditProxy do
     @payload.merge!(RightScale::AuditFormatter.info('INFO'))
     @audit_proxy.append_info('INFO').should be true
   end
+
+  it 'should clean audits of malformed characters' do
+    bad_text = "Hello \xFF\xF5"
+    bad_text.force_encoding("ASCII-8BIT")
+    bad_text_corrected = "Hello ??"
+    @payload.merge!(RightScale::AuditFormatter.info(bad_text_corrected))
+    @audit_proxy.append_info(bad_text).should be true
+  end if "".respond_to?(:encoding)
 
   it 'should send error audits' do
     @payload.merge!(RightScale::AuditFormatter.error('ERROR'))
