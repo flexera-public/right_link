@@ -34,8 +34,8 @@ module ::Ohai::Mixin::AzureMetadata
 
     class InvalidConfig < StandardError; end
 
-    def initialize(shard_config_content)
-      @shared_config = REXML::Document.new shard_config_content
+    def initialize(shared_config_content)
+      @shared_config = REXML::Document.new shared_config_content
       raise InvalidConfig unless @shared_config.root.name == "SharedConfig"
       raise InvalidConfig unless REQUIRED_ELEMENTS.all? { |element| @shared_config.elements[element] }
     end
