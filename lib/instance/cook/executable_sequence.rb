@@ -58,6 +58,9 @@ module RightScale
     OHAI_RETRY_MAX_DELAY  = 20 * 60
     # Regexp to use when reporting extended information about Chef failures (line-number, etc)
     BACKTRACE_LINE_REGEXP = /(.+):(\d+):in `(.+)'/
+    # Input flag that indicates an executable instantiation's parameter ("input") is sensitive
+    # and needs to be filtered from audits and logs.
+    SENSITIVE = 'sensitive'
 
     # Patch to be applied to inputs stored in core
     attr_accessor :inputs_patch
@@ -86,13 +89,23 @@ module RightScale
       @logger                 = Log
       @cookbook_repo_retriever= CookbookRepoRetriever.new(@download_path, bundle.dev_cookbooks)
 
+      # Determine which inputs are sensitive
+      sensitive = Set.new([])
+      bundle.executables.each do |e|
+        next unless e.input_flags.respond_to?(:each_pair)
+        e.input_flags.each_pair do |name, flags|
+          sensitive << name if flags.include?(SENSITIVE)
+        end
+      end
+      @sensitive_inputs = sensitive.to_a
+
       # Initialize run list for this sequence (partial converge support)
       @run_list  = []
       @inputs    = { }
-      breakpoint = CookState.breakpoint
+      breakpoint_recipe = CookState.breakpoint_recipe
       run_list_recipes.each do |recipe|
-        if recipe.nickname == breakpoint
-          @audit.append_info("Breakpoint set to < #{breakpoint} >")
+        if recipe.nickname == breakpoint_recipe
+          @audit.append_info("Breakpoint set to < #{breakpoint_recipe} >")
           break
         end
         @run_list << recipe.nickname
@@ -175,6 +188,23 @@ module RightScale
       report_failure('Execution failed', "The following exception was caught while preparing for execution: (#{e.message}) from\n#{e.backtrace.join("\n")}")
     end
 
+    # Determine inputs that need special security treatment.
+    # @return [Hash] map of sensitive input names to various values; good for filtering.
+    def sensitive_inputs
+      inputs = {}
+
+      if @attributes
+        @attributes.values.select { |attr| attr.respond_to?(:has_key?) && attr.has_key?("parameters") }.each do |has_params|
+          has_params.each_pair do |_, params|
+            sensitive = params.select { |name, _| @sensitive_inputs.include?(name) }
+            inputs.merge!(sensitive) { |key, old, new| [old].flatten.push(new) }
+          end
+        end
+      end
+
+      inputs
+    end
+
     protected
 
     def configure_ohai
@@ -185,21 +215,9 @@ module RightScale
       RightScale::OhaiSetup.configure_ohai
     end
 
-    def scripts_inputs
-      return {} unless @attributes
-      inputs = {}
-      @attributes.values.select { |attr| attr.respond_to?(:has_key?) && attr.has_key?("parameters") }.each do |param|
-        param.values.each do |input|
-          inputs.merge!(input) { |key, old, new| [old].flatten.push(new) }
-        end
-      end
-      inputs
-    end
-
     # Initialize and configure the logger
     def configure_logging
-      filtered_inputs        = scripts_inputs
-      Chef::Log.logger       = AuditLogger.new(filtered_inputs)
+      Chef::Log.logger       = AuditLogger.new(sensitive_inputs)
       Chef::Log.logger.level = Log.level_from_sym(Log.level)
     end
 

@@ -140,7 +140,7 @@ module RightScale
     #
     # === Return
     # recipe(String):: Name of recipe to break execution of sequence on
-    def breakpoint
+    def breakpoint_recipe
       recipe = tag_value(BREAKPOINT_TAG)
     end
 

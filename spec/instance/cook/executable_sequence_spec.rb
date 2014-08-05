@@ -48,7 +48,7 @@ describe RightScale::ExecutableSequence do
 
   let(:cookbook_tarball_path) { ::File.normalize_path(::File.join(::File.dirname(__FILE__), 'fixtures', 'chef', 'right_link_test.tar')) }
 
-  context 'Testing sequence execution' do
+  context 'when executing a sequence' do
 
     it_should_behave_like 'mocks cook'
     it_should_behave_like 'mocks shutdown request proxy'
@@ -75,10 +75,13 @@ describe RightScale::ExecutableSequence do
       setup_script_execution
       @script = flexmock(
         :nickname => '__TestScript',
-        :parameters => {},
+        :parameters => {'XXX' => 'hi i am XXX', 'YYY' => 'hi i am YYY'},
+        :input_flags => {'YYY' => ['sensitive']},
         :ready => true,
         :display_version => '[HEAD]',
         :title => "'__TestScript' [HEAD]",
+        :source => "echo 'Hello, world.'",
+        :packages => 'foobar',
         :id => 1)
       @script.should_receive(:is_a?).with(RightScale::RightScriptInstantiation).and_return(true)
       @script.should_receive(:is_a?).with(RightScale::RecipeInstantiation).and_return(false)
@@ -202,7 +205,7 @@ describe RightScale::ExecutableSequence do
           attachment.should_receive(:file_name).at_least.once.and_return('test_download')
           attachment.should_receive(:url).at_least.once.and_return("file://#{attachment_file_path}")
           @script.should_receive(:attachments).at_least.once.and_return([ attachment ])
-          @auditor.should_receive(:append_error).and_return{|a| puts a.inspect }.never
+          @auditor.should_receive(:append_error).never
           result = run_sequence
           @sequence.failure_message.should == nil
           result.should be_true
@@ -215,13 +218,15 @@ describe RightScale::ExecutableSequence do
         @script.should_receive(:packages).and_return(nil)
         @script.should_receive(:source).and_return(format_script_text(1))
         @sequence = described_class.new(@bundle)
-        flexmock(@sequence).should_receive(:install_packages).and_return(true)
         attachment = flexmock('A2')
         attachment.should_receive(:file_name).at_least.once.and_return('test_download')
         attachment.should_receive(:url).at_least.once.and_return("file://#{attachment_file_path}")
         @auditor.should_receive(:append_error)
         @script.should_receive(:attachments).at_least.once.and_return([ attachment ])
         flexmock(::RightScale::Log).should_receive(:error)
+        installer = flexmock('Platform.installer')
+        flexmock(RightScale::Platform).should_receive(:installer).and_return(installer)
+        installer.should_receive(:install).and_raise(RuntimeError)
         result = run_sequence
         @sequence.failure_message.should_not == nil
         result.should be_false
@@ -276,9 +281,17 @@ describe RightScale::ExecutableSequence do
         end
       end
     end
+
+    context 'with sensitive inputs' do
+      it 'passes them to the AuditLogger' do
+        @sequence = described_class.new(@bundle)
+        @sequence.sensitive_inputs.size.should == 1
+        @sequence.sensitive_inputs.key?('YYY').should be_true
+      end
+    end
   end
 
-  context 'Chef error formatting' do
+  context 'when a misc Chef error occurs' do
 
     before(:each) do
       # For ReposeDownloader
@@ -338,7 +351,7 @@ describe RightScale::ExecutableSequence do
 
   end
 
-  context 'Specific Chef error formatting' do
+  context 'when a converge error occurs' do
     before(:each) do
       # For ReposeDownloader
       flexmock(Socket).should_receive(:getaddrinfo) \
@@ -380,7 +393,7 @@ describe RightScale::ExecutableSequence do
     end
   end
 
-  context 'legacy executable sequence specs' do
+  context 'given a running instance' do
     Spec::Matchers.define :be_okay do
       match do |sequence|
         sequence.instance_variable_get(:@ok) != false

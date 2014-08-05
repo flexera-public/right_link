@@ -252,7 +252,7 @@ describe RightScale::CookState do
       end
 
       it 'should have a breakpoint' do
-        RightScale::CookState.breakpoint.should == 'some_recipe'
+        RightScale::CookState.breakpoint_recipe.should == 'some_recipe'
       end
     end
 
