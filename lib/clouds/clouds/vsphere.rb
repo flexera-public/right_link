@@ -34,13 +34,6 @@ metadata_writers 'metadata_writers/dictionary_metadata_writer',
 # set abbreviation for non-RS env var generation
 abbreviation :vs
 
-# Assembles the command line needed to regenerate cloud metadata on demand.
-def cloud_metadata_generation_command
-  ruby_path = File.normalize_path(AgentConfig.ruby_cmd)
-  rs_cloud_path = File.normalize_path(Gem.bin_path('right_link', 'cloud'))
-  return "#{ruby_path} #{rs_cloud_path} --action write_cloud_metadata"
-end
-
 # Parses vsoup user metadata into a hash.
 #
 # === Parameters

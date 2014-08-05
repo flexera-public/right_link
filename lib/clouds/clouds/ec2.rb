@@ -31,12 +31,6 @@ metadata_writers 'metadata_writers/dictionary_metadata_writer',
                  'metadata_writers/ruby_metadata_writer',
                  'metadata_writers/shell_metadata_writer'
 
-# Assembles the command line needed to regenerate cloud metadata on demand.
-def cloud_metadata_generation_command
-  ruby_path = File.normalize_path(AgentConfig.ruby_cmd)
-  rs_cloud_path = File.normalize_path(Gem.bin_path('right_link', 'cloud'))
-  return "#{ruby_path} #{rs_cloud_path} --action write_cloud_metadata"
-end
 
 # Selects metadata from multiple sources in support of serverizing existing
 # long-running instances. Stops merging metadata as soon as RS_ variables

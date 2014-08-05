@@ -70,10 +70,5 @@ describe ::Ohai::Mixin::RightLink do
       end
     end
   end
-
-
-  context 'AzureMetadata' do
-    it 'will be refactored, and specs will be provided later'
-  end
 end
 

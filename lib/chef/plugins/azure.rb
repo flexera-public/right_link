@@ -21,30 +21,21 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 provides 'azure'
-DEFAULT_PUBLIC_SSH_PORT = 22
-DEFAULT_PUBLIC_WINRM_PORT = 5985
 
-require 'chef/ohai/mixin/rightlink'
+require 'chef/ohai/mixin/azure_metadata'
 
-require_plugin 'hostname'
+extend ::Ohai::Mixin::AzureMetadata
 
-extend ::Ohai::Mixin::RightLink::AzureMetadata
+@host = dhcp_lease_provider
 
 def looks_like_azure?
-  looks_like_azure = hint?('azure')
+  looks_like_azure = hint?('azure') && can_metadata_connect?(@host, 80)
   ::Ohai::Log.debug("looks_like_azure? == #{looks_like_azure.inspect}")
   looks_like_azure
 end
 
 
-if looks_like_azure?
+if looks_like_azure? && (metadata = fetch_metadata(@host))
   azure Mash.new
-  azure['public_ip'] = query_whats_my_ip(:logger=>::Ohai::Log)
-  azure['vm_name'] = self['hostname'] if self['hostname']
-  azure['public_fqdn'] = "#{self['hostname']}.cloudapp.net" if self['hostname']
-  if azure['public_ip']
-    tcp_test_ssh( azure['public_ip'], DEFAULT_PUBLIC_SSH_PORT) { azure['public_ssh_port'] = DEFAULT_PUBLIC_SSH_PORT }
-    tcp_test_winrm(azure['public_ip'], DEFAULT_PUBLIC_WINRM_PORT) { azure['public_winrm_port'] = DEFAULT_PUBLIC_WINRM_PORT }
-  end
-
+  metadata.each { |k,v| azure[k] = v }
 end
