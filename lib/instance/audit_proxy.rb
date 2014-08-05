@@ -145,7 +145,7 @@ module RightScale
     # ApplicationError:: If audit id is missing from passed-in options
     def append_output(text)
       @mutex.synchronize do
-        @buffer << force_utf8(text)
+        @buffer << RightScale::AuditProxy.force_utf8(text)
       end
 
       EM.next_tick do
@@ -162,14 +162,11 @@ module RightScale
       end
     end
 
-
-    protected
-
-    def force_utf8(string_obj)
+    def self.force_utf8(string_obj)
       force_utf8!(string_obj.dup)
     end
 
-    def force_utf8!(string_obj)
+    def self.force_utf8!(string_obj)
       if "".respond_to?(:encoding)
         target_encoding = "UTF-8"
         if ::RightScale::Platform.windows?
@@ -191,6 +188,8 @@ module RightScale
       end
       string_obj
     end
+
+    protected
 
     # Flush output buffer then send audits to core agent and log failures
     #
@@ -216,7 +215,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def internal_send_audit(options)
-      force_utf8!(options[:text])
+      RightScale::AuditProxy.force_utf8!(options[:text])
       opts = { :audit_id => @audit_id, :category => options[:category], :offset => @size }
       opts[:category] ||= EventCategories::CATEGORY_NOTIFICATION
       unless EventCategories::CATEGORIES.include?(opts[:category])
