@@ -6,9 +6,7 @@ gemspec
 # Fresh off the assembly line
 gem 'right_support', '~> 2.8'
 
-gem 'right_agent', '~> 2.3.4',
-  :git => 'https://github.com/rightscale/right_agent.git',
-  :branch => 'ivory_14_16_acu176640_gpg_utf8_output'
+gem 'right_agent', '~> 2.3.7'
 
 gem 'right_amqp', '~> 0.7'
 gem 'right_popen', '~> 2.0'
