@@ -44,7 +44,7 @@ describe RightScale::AuditProxy do
   end
 
   it 'should clean audits of malformed characters' do
-    bad_text = "Hello \xFF\xF5"
+    bad_text = "Hello \x90\x9D"
     bad_text.force_encoding("ASCII-8BIT")
     bad_text_corrected = "Hello ??"
     @payload.merge!(RightScale::AuditFormatter.info(bad_text_corrected))
