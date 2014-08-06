@@ -25,7 +25,7 @@ group :custom do
   gem 'chef', '11.6.0.5'
   gem 'ohai', '6.18.0.2'
   gem 'mixlib-shellout', '1.2.0.2'
-  gem 'eventmachine', '1.0.0.10'
+  gem 'eventmachine', '1.0.0.11'
   gem 'rest-client', '1.7.0.2'
 end
 
