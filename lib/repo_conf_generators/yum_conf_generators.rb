@@ -198,7 +198,7 @@ END
 
       target_filename = "#{Yum::BaseRepositoryDir}/#{opts[:repo_filename]}.repo"
 
-      if any_repoindex_reachable?(mirror_list)
+      if epel_version.to_i < 7 || any_repoindex_reachable?(mirror_list)
         File.rename(target_filename,"#{Yum::BaseRepositoryDir}/.#{opts[:repo_filename]}.repo.#{`date +%Y%m%d%M%S`.strip}") if File.exists?("#{Yum::BaseRepositoryDir}/#{opts[:repo_filename]}.repo")
         File.open(target_filename,'w') { |f| f.write(config_body) }
         puts "Yum config file for Epel successfully generated in #{target_filename}"
