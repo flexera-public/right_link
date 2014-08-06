@@ -39,7 +39,7 @@ module ::Ohai::Mixin::DhcpLeaseMetadataHelper
         sleep 10
       end
     else
-      leases_file = %w{/var/lib/dhcp/dhclient.eth0.leases /var/lib/dhcp3/dhclient.eth0.leases /var/lib/dhclient/dhclient-eth0.leases /var/lib/dhclient-eth0.leases /var/lib/dhcpcd/dhcpcd-eth0.info}.find{|dhcpconfig| File.exist?(dhcpconfig)}
+      leases_file = %w{/var/lib/dhclient/dhclient--eth0.lease /var/lib/dhcp/dhclient.eth0.leases /var/lib/dhcp3/dhclient.eth0.leases /var/lib/dhclient/dhclient-eth0.leases /var/lib/dhclient-eth0.leases /var/lib/dhcpcd/dhcpcd-eth0.info}.find{|dhcpconfig| File.exist?(dhcpconfig)}
       unless leases_file.nil?
         lease_file_content = File.read(leases_file)
 
