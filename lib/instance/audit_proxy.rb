@@ -69,7 +69,7 @@ module RightScale
     # true:: Always return true
     def self.create(agent_identity, summary)
       payload = {:agent_identity => agent_identity,
-                 :summary        => summary,
+                 :summary        => force_utf8(summary),
                  :category       => RightScale::EventCategories::NONE}
       Sender.instance.send_request("/auditor/create_entry", payload) do |r|
         res = RightScale::OperationResult.from_results(r)
@@ -145,7 +145,7 @@ module RightScale
     # ApplicationError:: If audit id is missing from passed-in options
     def append_output(text)
       @mutex.synchronize do
-        @buffer << text
+        @buffer << RightScale::AuditProxy.force_utf8(text)
       end
 
       EM.next_tick do
@@ -162,6 +162,32 @@ module RightScale
       end
     end
 
+    def self.force_utf8(string_obj)
+      force_utf8!(string_obj.dup)
+    end
+
+    def self.force_utf8!(string_obj)
+      if "".respond_to?(:encoding)
+        target_encoding = "UTF-8"
+        if ::RightScale::Platform.windows?
+          source_encoding = "Windows-1252"
+        else
+          source_encoding = "US-ASCII"
+        end
+
+        begin
+          # Try it as UTF-8 directly
+          string_obj.force_encoding(target_encoding)
+          unless string_obj.valid_encoding?
+            string_obj.encode!(target_encoding, source_encoding)
+          end
+        rescue EncodingError
+          # Force it to UTF-8, throwing out invalid bits
+          string_obj.encode!(target_encoding, source_encoding, {:invalid => :replace, :undef => :replace, :replace=>"?"})
+        end
+      end
+      string_obj
+    end
 
     protected
 
@@ -189,6 +215,7 @@ module RightScale
     # === Return
     # true:: Always return true
     def internal_send_audit(options)
+      RightScale::AuditProxy.force_utf8!(options[:text])
       opts = { :audit_id => @audit_id, :category => options[:category], :offset => @size }
       opts[:category] ||= EventCategories::CATEGORY_NOTIFICATION
       unless EventCategories::CATEGORIES.include?(opts[:category])
