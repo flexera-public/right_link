@@ -110,29 +110,29 @@ module Yum
 
     ############## INTERNAL FUNCTIONS #######################################################
     def self.abstract_generate(params)
-    return unless Yum::CentOS::is_this_centos?
+      return unless Yum::CentOS::is_this_centos?
 
-    ver = Yum::execute("lsb_release  -rs").strip
-    arch = Yum::execute("uname -i").strip
+      ver = Yum::execute("lsb_release  -rs").strip
+      arch = Yum::execute("uname -i").strip
 
-    major_ver = ver.strip.split(".").first
+      major_ver = ver.strip.split(".").first
 
-    opts = { :enabled => true, :gpgkey_file => RPM_GPG_KEY_CentOS + major_ver, :frozen_date => "latest"}
-    opts.merge!(params)
-    repo_path = "#{major_ver}/#{opts[:repo_subpath]}/#{arch}"
+      opts = { :enabled => true, :gpgkey_file => RPM_GPG_KEY_CentOS + major_ver, :frozen_date => "latest"}
+      opts.merge!(params)
+      repo_path = "#{major_ver}/#{opts[:repo_subpath]}/#{arch}"
 
-    raise "missing parameters to generate file!" unless opts[:repo_filename] && opts[:repo_name] && opts[:repo_subpath] &&
-                                                        opts[:base_urls] && opts[:frozen_date] && opts[:enabled] && opts[:gpgkey_file]
-    # Old CentOS versions 5.0 and 5.1 were not versioned...so we just point to the base of the repo instead.
-    if !(ver =~ /5\.[01]/)
-      repo_path = repo_path + "/archive/" + opts[:frozen_date]
-    end
+      raise "missing parameters to generate file!" unless opts[:repo_filename] && opts[:repo_name] && opts[:repo_subpath] &&
+                                                          opts[:base_urls] && opts[:frozen_date] && opts[:enabled] && opts[:gpgkey_file]
+      # Old CentOS versions 5.0 and 5.1 were not versioned...so we just point to the base of the repo instead.
+      if !(ver =~ /5\.[01]/)
+        repo_path = repo_path + "/archive/" + opts[:frozen_date]
+      end
 
-    mirror_list =  opts[:base_urls].map do |bu|
+      mirror_list =  opts[:base_urls].map do |bu|
         bu +='/' unless bu[-1..-1] == '/' # ensure the base url is terminated with a '/'
         bu+repo_path
       end
-    config_body = <<END
+      config_body = <<END
 [#{opts[:repo_name]}]
 name = #{opts[:description]}
 baseurl = #{mirror_list.join("\n ")}
@@ -142,11 +142,11 @@ enabled=#{(opts[:enabled] ? 1:0)}
 gpgkey=#{opts[:gpgkey_file]}
 END
 
-    target_filename = "#{Yum::BaseRepositoryDir}/#{opts[:repo_filename]}.repo"
-    File.rename(target_filename,"#{Yum::BaseRepositoryDir}/.#{opts[:repo_filename]}.repo.#{`date +%Y%m%d%M%S`.strip}") if File.exists?("#{Yum::BaseRepositoryDir}/#{opts[:repo_filename]}.repo")
-    File.open(target_filename,'w') { |f| f.write(config_body) }
-    puts "Yum config file for CentOS successfully generated in #{target_filename}"
-    mirror_list
+      target_filename = "#{Yum::BaseRepositoryDir}/#{opts[:repo_filename]}.repo"
+      File.rename(target_filename,"#{Yum::BaseRepositoryDir}/.#{opts[:repo_filename]}.repo.#{`date +%Y%m%d%M%S`.strip}") if File.exists?("#{Yum::BaseRepositoryDir}/#{opts[:repo_filename]}.repo")
+      File.open(target_filename,'w') { |f| f.write(config_body) }
+      puts "Yum config file for CentOS successfully generated in #{target_filename}"
+      mirror_list
     end
 
     def self.is_this_centos?
@@ -169,23 +169,24 @@ END
     end
     ############## INTERNAL FUNCTIONS #######################################################
     def self.abstract_generate(params)
-    return unless Yum::CentOS::is_this_centos?
+      return unless Yum::CentOS::is_this_centos?
 
-    epel_version = get_enterprise_linux_version
-    puts "found EPEL version: #{epel_version}"
-    opts = { :enabled => true, :gpgkey_file => RPM_GPG_KEY_EPEL + epel_version.to_s, :frozen_date => "latest"}
-    opts.merge!(params)
-    raise "missing parameters to generate file!" unless opts[:repo_filename] && opts[:repo_name] &&
-                                                        opts[:base_urls] && opts[:frozen_date] && opts[:enabled] && opts[:gpgkey_file]
-
-    arch = Yum::execute("uname -i").strip
+      epel_version = get_enterprise_linux_version
+      puts "found EPEL version: #{epel_version}"
+      opts = { :enabled => true, :gpgkey_file => RPM_GPG_KEY_EPEL + epel_version.to_s, :frozen_date => "latest"}
+      opts.merge!(params)
+      unless opts[:repo_filename] && opts[:repo_name] && opts[:base_urls] && 
+             opts[:frozen_date] && opts[:enabled] && opts[:gpgkey_file]
+        raise "missing parameters to generate file!" 
+      end
+      arch = Yum::execute("uname -i").strip
 
       repo_path = "#{epel_version}/#{arch}/archive/"+opts[:frozen_date]
-    mirror_list =  opts[:base_urls].map do |bu|
-        bu +='/' unless bu[-1..-1] == '/' # ensure the base url is terminated with a '/'
-        bu+repo_path
+      mirror_list =  opts[:base_urls].map do |bu|
+          bu +='/' unless bu[-1..-1] == '/' # ensure the base url is terminated with a '/'
+          bu+repo_path
       end
-    config_body = <<END
+      config_body = <<END
 [#{opts[:repo_name]}]
 name = #{opts[:description]}
 baseurl = #{mirror_list.join("\n ")}
@@ -195,11 +196,45 @@ enabled=#{(opts[:enabled] ? 1:0)}
 gpgkey=#{opts[:gpgkey_file]}
 END
 
-    target_filename = "#{Yum::BaseRepositoryDir}/#{opts[:repo_filename]}.repo"
-    File.rename(target_filename,"#{Yum::BaseRepositoryDir}/.#{opts[:repo_filename]}.repo.#{`date +%Y%m%d%M%S`.strip}") if File.exists?("#{Yum::BaseRepositoryDir}/#{opts[:repo_filename]}.repo")
-    File.open(target_filename,'w') { |f| f.write(config_body) }
-    puts "Yum config file for Epel successfully generated in #{target_filename}"
-    mirror_list
+      target_filename = "#{Yum::BaseRepositoryDir}/#{opts[:repo_filename]}.repo"
+
+      if epel_version.to_i < 7 || any_repoindex_reachable?(mirror_list)
+        File.rename(target_filename,"#{Yum::BaseRepositoryDir}/.#{opts[:repo_filename]}.repo.#{`date +%Y%m%d%M%S`.strip}") if File.exists?("#{Yum::BaseRepositoryDir}/#{opts[:repo_filename]}.repo")
+        File.open(target_filename,'w') { |f| f.write(config_body) }
+        puts "Yum config file for Epel successfully generated in #{target_filename}"
+      else
+        puts "Not changing the EPEL repo on disk. Could not reach any urls in mirror list."
+      end
+      mirror_list
+    end
+
+    def self.url_reachable?(url)
+      uri = URI(url)
+
+      res = nil
+      Net::HTTP.start(uri.host, uri.port) do |http|
+        http.open_timeout = 5
+        http.read_timeout = 5
+        res = http.head(uri.request_uri) rescue nil
+      end
+      res && res.code.to_i.between?(200, 399)
+    end
+
+    def self.any_repoindex_reachable?(mirror_list)
+      reached = false
+      threads = []
+      mirror_list.each_with_index do |url, i|
+        t = Thread.new do
+          repoindex = "#{url}/repodata/repomd.xml"
+          3.times do
+            break if reached
+            reached = true if url_reachable?(repoindex)
+          end
+        end
+        threads << t
+      end
+      threads.each { |t| t.join }
+      reached
     end
 
     # Return the enterprise linux version of the running machine...or an exception if it's a non-enterprise version of linux.
