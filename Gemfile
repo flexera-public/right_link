@@ -1,4 +1,4 @@
-source 'http://gems.test.rightscale.com'
+source 'http://rightlink-integration.test.rightscale.com/adhoc/akarpik-gems'
 source 'https://rubygems.org'
 
 gemspec

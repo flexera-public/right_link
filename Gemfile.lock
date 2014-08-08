@@ -14,7 +14,7 @@ PATH
       trollop
 
 GEM
-  remote: http://gems.test.rightscale.com/
+  remote: http://rightlink-integration.test.rightscale.com/adhoc/akarpik-gems/
   remote: https://rubygems.org/
   specs:
     addressable (2.3.6)
