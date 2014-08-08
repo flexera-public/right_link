@@ -71,6 +71,7 @@ end
 describe 'dhcp_lease_provider' do
 
   let(:dhcp_lease_provider_ip) { '1.2.3.4' }
+  let(:lease_file_locations) { %w{/var/lib/dhcp/dhclient.eth0.leases /var/lib/dhcp3/dhclient.eth0.leases /var/lib/dhclient/dhclient-eth0.leases /var/lib/dhclient-eth0.leases /var/lib/dhcpcd/dhcpcd-eth0.info} }
 
   context 'on Linux' do
     let(:platform) { flexmock(:platform, :windows? => false) }
@@ -78,8 +79,9 @@ describe 'dhcp_lease_provider' do
     subject { ::CloudStackSpec.new(platform) }
 
     it "should parse lease information" do
-      lease_file = "/var/lib/dhcp/dhclient.eth0.leases"
+      lease_file = lease_file_locations.first
       lease_info = "dhcp-server-identifier #{dhcp_lease_provider_ip}"
+      flexmock(subject).should_receive(:lease_file_locations).and_return(lease_file_locations)
       flexmock(::File).should_receive(:exist?).with(lease_file).and_return(true)
       flexmock(::File).should_receive(:read).with(lease_file).and_return(lease_info)
       subject.dhcp_lease_provider.should == dhcp_lease_provider_ip
@@ -87,10 +89,10 @@ describe 'dhcp_lease_provider' do
 
     it "should parse lease information on SuSE" do
       lease_file = "/var/lib/dhcpcd/dhcpcd-eth0.info"
-      lease_files = %w{/var/lib/dhcp/dhclient.eth0.leases /var/lib/dhcp3/dhclient.eth0.leases /var/lib/dhclient/dhclient-eth0.leases /var/lib/dhclient-eth0.leases /var/lib/dhcpcd/dhcpcd-eth0.info}
-      leases = Hash[lease_files.zip [false]*lease_files.length]
+      leases = Hash[lease_file_locations.zip [false]*lease_file_locations.length]
       leases[lease_file] = true
       lease_info = "DHCPSID='#{dhcp_lease_provider_ip}'"
+      flexmock(subject).should_receive(:lease_file_locations).and_return(lease_file_locations)
       leases.each { |file, result| flexmock(::File).should_receive(:exist?).with(file).and_return(result) }
       flexmock(::File).should_receive(:read).with(lease_file).and_return(lease_info)
       subject.dhcp_lease_provider.should == dhcp_lease_provider_ip
