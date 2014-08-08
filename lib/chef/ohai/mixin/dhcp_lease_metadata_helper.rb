@@ -39,7 +39,7 @@ module ::Ohai::Mixin::DhcpLeaseMetadataHelper
   # Searches for a file containing dhcp lease information.
   def dhcp_lease_provider
     if RUBY_PLATFORM =~ /windows|cygwin|mswin|mingw|bccwin|wince|emx/
-      timeout = Time.now + 20 * 60  # 20 minutes
+      timeout = Time.now + 5 * 60  # 5 minutes
       while Time.now < timeout
         ipconfig_data = `ipconfig /all`
         match_result = ipconfig_data.match(/DHCP Server.*\: (\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/)
@@ -71,29 +71,4 @@ module ::Ohai::Mixin::DhcpLeaseMetadataHelper
     raise "Cannot determine dhcp lease provider for cloudstack instance"
   end
 
-  def can_metadata_connect?(addr, port, timeout=2)
-    t = Socket.new(Socket::Constants::AF_INET, Socket::Constants::SOCK_STREAM, 0)
-    saddr = Socket.pack_sockaddr_in(port, addr)
-    connected = false
-
-    begin
-      t.connect_nonblock(saddr)
-    rescue Errno::EINPROGRESS
-      r,w,e = IO::select(nil,[t],nil,timeout)
-      if !w.nil?
-        connected = true
-      else
-        begin
-          t.connect_nonblock(saddr)
-        rescue Errno::EISCONN
-          t.close
-          connected = true
-        rescue SystemCallError
-        end
-      end
-    rescue SystemCallError
-    end
-    ::Ohai::Log.debug("can_metadata_connect? == #{connected}")
-    connected
-  end
 end

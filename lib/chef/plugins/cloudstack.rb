@@ -25,16 +25,18 @@ require 'chef/ohai/mixin/cloudstack_metadata'
 
 extend ::Ohai::Mixin::CloudstackMetadata
 
-@host = dhcp_lease_provider
-
 def looks_like_cloudstack?
-  looks_like_cloudstack = hint?('cloudstack') && can_metadata_connect?(@host, 80)
+  looks_like_cloudstack = hint?('cloudstack')
   ::Ohai::Log.debug("looks_like_cloudstack? == #{looks_like_cloudstack.inspect} ")
   looks_like_cloudstack
 end
 
-if looks_like_cloudstack? && (metadata = fetch_metadata(@host))
+if looks_like_cloudstack? 
+  dhcp_ip = dhcp_lease_provider
+  metadata = fetch_metadata(dhcp_ip)
   cloudstack Mash.new
-  metadata.each { |k,v| cloudstack[k] = v }
-  cloudstack['dhcp_lease_provider_ip'] = @host
+  if metadata
+    metadata.each { |k,v| cloudstack[k] = v }
+  end
+  cloudstack['dhcp_lease_provider_ip'] = dhcp_ip
 end
