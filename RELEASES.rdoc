@@ -2,11 +2,6 @@
 
 Released 2014-08-11
 
-notes:
-  * Rebundled images will now always reconfigure networking correctly at startup, even if network config is not cleaned out as advised in 6.0.6
-* azure metadata - refactored internally
-
-
 == New Features
 * vSphere cloud
   * Multiple network interfaces are now supported.
