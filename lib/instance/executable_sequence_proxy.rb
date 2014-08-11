@@ -108,12 +108,7 @@ module RightScale
 
       # update CookState with the latest instance before launching Cook
       RightScale::AgentTagManager.instance.tags(:timeout=>@tag_query_timeout) do |tags|
-        if tags.nil? || tags.is_a?(String)
-          # AgentTagManager could give us a String (error message)
-          Log.error("Failed to query tags before running executable sequence (#{tags})")
-
-          @context.audit.append_error('Could not discover tags due to an error or timeout.')
-        else
+        if tags.is_a?(Array)
           # or, it could give us anything else -- generally an array) -- which indicates success
           CookState.update(InstanceState, :startup_tags=>tags)
 
@@ -122,6 +117,16 @@ module RightScale
           else
             @context.audit.append_info("Tags discovered: '#{tags.join("', '")}'")
           end
+        else
+          # AgentTagManager could give us a String (error message) or nil
+          if tags.is_a?(String)
+            error_message = "(#{tags})"
+          else
+            error_message = "(Unknown response: #{tags.inspect})"
+          end
+          Log.error("Failed to query tags before running executable sequence (#{error_message})")
+
+          @context.audit.append_error('Could not discover tags due to an error or timeout.')
         end
 
         secret_key = random_password(32)

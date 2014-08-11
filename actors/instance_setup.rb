@@ -177,11 +177,7 @@ class InstanceSetup
   def init_fetch_tags
     RightScale::Log.info "Performing initial-startup tag query"
     RightScale::AgentTagManager.instance.tags(:timeout=>INITIAL_TAG_QUERY_TIMEOUT) do |tags|
-      if tags.nil? || tags.is_a?(String)
-        # AgentTagManager could give us a String (error message) or nil on error
-        RightScale::Log.error("Failed to query tags during initial startup (#{tags})")
-        RightScale::InstanceState.startup_tags = []
-      else
+      if tags.is_a?(Array)
         #CookState is also updated in ExecutableSequenceProxy#run, but doing
         #it here ensures that CookState is initially convergent with InstanceState.
         RightScale::InstanceState.startup_tags = tags
@@ -191,6 +187,15 @@ class InstanceSetup
         tagged_log_level = ::RightScale::CookState.dev_log_level
         RightScale::Log.level = tagged_log_level if tagged_log_level
         RightScale::Log.info("Tags discovered at initial startup: #{tags.inspect}")
+      else
+        # AgentTagManager could give us a String (error message) or nil on error
+        if tags.is_a?(String)
+          error_message = "(#{tags})"
+        else
+          error_message = "(Unknown response: #{tags.inspect})"
+        end
+        RightScale::Log.error("Failed to query tags during initial startup #{error_message}")
+        RightScale::InstanceState.startup_tags = []
       end
 
       # Setup suicide timer which will cause instance to shutdown if the rs_launch:type=auto tag
