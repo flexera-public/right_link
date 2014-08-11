@@ -85,15 +85,19 @@ module ::Ohai::Mixin::AzureMetadata
   end
 
   def query_url(url)
-    u = URI(url) # doesn't work on 1.8.7 didn't figure out why
-    req = Net::HTTP::Get.new(u.request_uri)
-    req['x-ms-agent-name'] = 'WALinuxAgent'
-    req['x-ms-version'] = '2012-11-30'
+    begin
+      u = URI(url) # doesn't work on 1.8.7 didn't figure out why
+      req = Net::HTTP::Get.new(u.request_uri)
+      req['x-ms-agent-name'] = 'WALinuxAgent'
+      req['x-ms-version'] = '2012-11-30'
 
-    res = Net::HTTP.start(u.hostname, u.port) {|http|
-      http.request(req)
-    }
-    res.body
+      res = Net::HTTP.start(u.hostname, u.port) {|http|
+        http.request(req)
+      }
+      res.body
+    rescue Exception => e
+      ::Ohai::Log.debug("Unable to fetch azure metadata from #{url}: #{e.class}: #{e.message}")
+    end
   end
 
   def fetch_metadata(host)

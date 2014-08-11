@@ -30,10 +30,6 @@ describe ::Ohai::Mixin::DhcpLeaseMetadataHelper do
     mixin
   }
 
-  context 'can_metadata_connect?' do
-    it "should have specs"
-  end
-
   context 'dhcp_lease_provider' do
 
     let(:dhcp_lease_provider_ip) { '1.2.3.4' }

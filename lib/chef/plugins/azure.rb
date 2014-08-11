@@ -26,16 +26,17 @@ require 'chef/ohai/mixin/azure_metadata'
 
 extend ::Ohai::Mixin::AzureMetadata
 
-@host = dhcp_lease_provider
-
 def looks_like_azure?
-  looks_like_azure = hint?('azure') && can_metadata_connect?(@host, 80)
+  looks_like_azure = hint?('azure')
   ::Ohai::Log.debug("looks_like_azure? == #{looks_like_azure.inspect}")
   looks_like_azure
 end
 
 
-if looks_like_azure? && (metadata = fetch_metadata(@host))
+if looks_like_azure?
+  metadata = fetch_metadata(dhcp_lease_provider)
   azure Mash.new
-  metadata.each { |k,v| azure[k] = v }
+  if metadata
+    metadata.each { |k,v| azure[k] = v }
+  end
 end

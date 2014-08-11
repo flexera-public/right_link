@@ -53,7 +53,6 @@ describe Ohai::System, ' plugin azure' do
   # Provide only success scenario, becuase it will be changed in RL 6.1
   it 'populate azure node with required attributes' do
     flexmock(@ohai).should_receive(:hint?).with('azure').and_return({}).once
-    flexmock(@ohai).should_receive(:can_metadata_connect?).with(fetched_dhcp_lease_provider, 80).and_return(true)
     flexmock(@ohai).should_receive(:fetch_metadata).with(fetched_dhcp_lease_provider).and_return(fetched_metadata).once
     @ohai._require_plugin("azure")
     @ohai[:azure].should_not be_nil
