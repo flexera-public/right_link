@@ -108,7 +108,7 @@ module RightScale
 
       # update CookState with the latest instance before launching Cook
       RightScale::AgentTagManager.instance.tags(:timeout=>@tag_query_timeout) do |tags|
-        if tags.is_a?(String)
+        if tags.nil? || tags.is_a?(String)
           # AgentTagManager could give us a String (error message)
           Log.error("Failed to query tags before running executable sequence (#{tags})")
 
