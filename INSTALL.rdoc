@@ -12,16 +12,14 @@ It is available for the following operating systems (64-bit binaries only):
 * Windows Server 2008/2012
 
 And the following cloud types:
-* azure*
-* cloudstack*
+* azure
+* cloudstack
 * ec2
 * gce
 * openstack
-* rackspace (OpenCloud)*
-* softlayer*
+* rackspace (OpenCloud)
+* softlayer
 * vsphere
-
-\* These variants are not officially supported and validated to work with RightLink 6.0.  Full support should be available with RightLink 6.1.
 
 To learn how to install stable RightLink, refer to our support site:
 
