@@ -242,8 +242,10 @@ module RightScale
     # === Return
     # value(String):: Corresponding tag value
     def tag_value(prefix)
-      tag = @startup_tags.detect { |t| t =~ /^#{prefix}/ }
+      tag = nil
+      tag = @startup_tags && @startup_tags.detect { |t| t =~ /^#{prefix}/ }
       value = tag[prefix.size + 1..-1] if tag
+      value
     end
 
     # Save dev state to file
