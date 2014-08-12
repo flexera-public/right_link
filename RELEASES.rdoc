@@ -5,7 +5,7 @@ Released 2014-08-11
 == New Features
 * vSphere cloud
   * Multiple network interfaces are now supported.
-  * Start/stop is now supported.
+  * Start/stop is now fully supported.
   * NICs are now renamed on Windows to correspond with the network name.
 * Support for Ubuntu Trusty (14.04)
 * Support for CentOS/RedHat Enterprise Linux 7
@@ -26,6 +26,7 @@ Released 2014-08-11
 * vSphere cloud
   * SSH key no longer missing if an invalid network config is applied.
   * Removed startup delays due to waiting for DHCP to timeout if no DHCP network was specified.
+  * Removed need to clean network configuration when snapshotting instances. RightLink will always reconfigure the network correctly at boot.
 * Ubuntu: RightLink places all its managed repo config files in /etc/apt/sources.list.d. It now creates an empty /etc/apt/sources.list as well instead of simply removing it. This avoid compatibility issues with programs such update-notifier, which expects a file to exist at that location.
 * RightLink no longer blocks console login when failing to enroll.
 
