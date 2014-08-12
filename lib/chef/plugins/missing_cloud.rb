@@ -94,3 +94,16 @@ if on_vsphere?
   create_objects
   get_vsphere_values
 end
+
+def on_azure?
+  azure != nil
+end
+
+if on_azure?
+  # We don't do a create_objects call, we're amending the value created by the 
+  # cloud plugin until its in official ohai
+  cloud[:private_ips] |= [azure['private_ip']] if azure['private_ip']
+  cloud[:public_ipv4] = azure['public_ip']
+  cloud[:local_ipv4] = azure['private_ip']
+  cloud[:public_hostname] = azure['public_fqdn']
+end
