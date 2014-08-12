@@ -71,12 +71,4 @@ describe Ohai::System, ' plugin cloudstack' do
     @ohai._require_plugin("cloudstack")
     @ohai[:cloudstack].should be_nil
   end
-
-  it 'will not provide cloudstack node if metatada not exist' do
-    flexmock(@ohai).should_receive(:hint?).with('cloudstack').and_return({}).once
-    flexmock(@ohai).should_receive(:fetch_metadata).and_return(nil)
-    @ohai._require_plugin("cloudstack")
-    @ohai[:cloudstack].should be_nil
-  end
-
 end

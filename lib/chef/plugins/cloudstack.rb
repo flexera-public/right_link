@@ -31,7 +31,7 @@ def looks_like_cloudstack?
   looks_like_cloudstack
 end
 
-if looks_like_cloudstack? 
+if looks_like_cloudstack?
   dhcp_ip = dhcp_lease_provider
   metadata = fetch_metadata(dhcp_ip)
   cloudstack Mash.new
