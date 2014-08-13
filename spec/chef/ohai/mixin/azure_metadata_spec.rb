@@ -49,7 +49,7 @@ describe ::Ohai::Mixin::AzureMetadata do
   <Instance id="i-8e2f9b78a" address="#{private_ip}">
     <FaultDomains randomId="0" updateId="0" updateCount="0" />
     <InputEndpoints>
-      <Endpoint name="SSH" address="10.100.0.5:22" protocol="tcp" hostName="a-443655003ContractContract" isPublic="true" loadBalancedPublicAddress="168.62.10.167:#{public_ssh_port}" enableDirectServerReturn="false" isDirectAddress="false" disableStealthMode="false">
+      <Endpoint name="SSH" address="#{private_ip}:22" protocol="tcp" hostName="a-443655003ContractContract" isPublic="true" loadBalancedPublicAddress="#{public_ip}:#{public_ssh_port}" enableDirectServerReturn="false" isDirectAddress="false" disableStealthMode="false">
         <LocalPorts>
           <LocalPortRange from="22" to="22" />
         </LocalPorts>

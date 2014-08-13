@@ -114,15 +114,16 @@ module ::Ohai::Mixin::AzureMetadata
     ::Ohai::Log.debug  goalstate
     ::Ohai::Log.debug "container_id #{container_id} instance_id #{instance_id} incarnation #{incarnation}"
 
-    shard_config_content = query_url("#{base_url}/machine/#{container_id}/#{instance_id}?comp=config&type=sharedConfig&incarnation=#{incarnation}")
+    shared_config_content = query_url("#{base_url}/machine/#{container_id}/#{instance_id}?comp=config&type=sharedConfig&incarnation=#{incarnation}")
     ::Ohai::Log.debug "\nsharedConfig\n------------------"
-    ::Ohai::Log.debug shard_config_content
+    ::Ohai::Log.debug shared_config_content
 
-    shared_config = SharedConfig.new shard_config_content
+    shared_config = SharedConfig.new shared_config_content
 
 
     metadata = {
       'public_ip'       => shared_config.public_ip,
+      'private_ip'      => shared_config.private_ip,
       'vm_name'         => shared_config.vm_name,
       'public_fqdn'     => "#{shared_config.vm_name}.cloudapp.net"
     }
