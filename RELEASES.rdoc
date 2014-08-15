@@ -1,6 +1,6 @@
-= 6.1.1
+= 6.1.1 (RightLink 6.1 RC1)
 
-Released 2014-08-11
+Released 2014-08-15
 
 == New Features
 * vSphere cloud
