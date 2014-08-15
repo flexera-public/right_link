@@ -17,12 +17,12 @@
 require 'json'
 
 provides "rackspace"
+require 'chef/ohai/mixin/xenstore_metadata'
+
+extend ::Ohai::Mixin::XenstoreMetadata
 
 require_plugin "kernel"
 
-def on_windows?
-  RUBY_PLATFORM =~ /windows|cygwin|mswin|mingw|bccwin|wince|emx/
-end
 
 # Checks for matching rackspace kernel name
 #
@@ -31,27 +31,6 @@ end
 # false:: Otherwise
 def has_rackspace_kernel?
   kernel[:release].split('-').last.eql?("rscloud")
-end
-
-def xenstore_command(command, args)
-  if on_windows?
-    client = "\"c:\\Program Files\\Citrix\\XenTools\\xenstore_client.exe\""
-    if command == "ls"
-      command = "dir"
-    end
-  else
-    client = "xenstore"
-  end
-  command = "#{client} #{command} #{args}"
-  begin
-    status, stdout, stderr = run_command(:no_status_check => true, :command => command)
-    status = status.exitstatus if status.respond_to?(:exitstatus)
-  rescue Ohai::Exceptions::Exec => e
-    Ohai::Log.debug("xenstore command '#{command}' failed (#{e.class}: #{e.message})")
-    stdout = stderr = nil
-    status = 1
-  end
-  [status, stdout, stderr]
 end
 
 # Checks for rackspace provider attribute
@@ -141,6 +120,7 @@ end
 def get_rackspace_interfaces
   return @rackspace_interfaces if @rackspace_interfaces
   @rackspace_interfaces = []
+
   status, stdout, stderr = xenstore_command("ls", "vm-data/networking")
   if status == 0
     stdout.split("\n").each do |line|
