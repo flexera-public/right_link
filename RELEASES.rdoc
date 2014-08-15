@@ -6,40 +6,39 @@ Released 2014-08-15
 * vSphere cloud
   * Multiple network interfaces are now supported.
   * Start/stop is now fully supported.
-  * NICs are now renamed on Windows to correspond with the network name.
+  * NICs are now renamed on Windows to correspond to the network name.
 * Added support for Ubuntu Trusty (14.04)
 * Added support for CentOS/RedHat Enterprise Linux 7
 
 == Changes to Existing Functionality
 * Environment variable RS_CLOUD is no longer set for RightScripts. Use RS_CLOUD_PROVIDER instead.
 * Ubuntu/Debian: RightLink package now depends on generic "openssl" packages instead of specific version 0.9.8 openssl package
-* Linux packages have been reorgnized. Source packages are now available for the RightLink and the RightLink sandbox from all RightLink repositories. The RightLink package now contains all RightLink code and gems, while the sandbox contains only Ruby and Rubygems.
+* Linux packages have been reorgnized. Source packages are now available for RightLink and the RightLink sandbox for all RightLink repositories. The "rightlink" package now contains all RightLink code and gems, while the "rightlink-sandbox" package contains only Ruby and Rubygems.
 * RightLink decomission bundle is now run on a separate thread.  
-* vSphere: The floppy drive should no longer be automounted at boot. vSphere metadata is no transmitted via VMware extra config. VMware tools must be pre-installed on the image. When uploading images via ovftool make sure allowExtraConfig option is enabled as well.
-* RightScript parameters that are changed from a value to unset will no longer remember the old value on subsequent runs. The value will now be set to a null value.
-* RightScript credentials are now also masked in system logs and not just audit entries. These values will now show up as <hidden input INPUTNAME> instead of their value.
+* vSphere: The floppy drive should no longer be automounted at boot. vSphere metadata is now transmitted via VMware extra config. VMware tools must be pre-installed on the image to support this. When uploading images via ovftool make sure allowExtraConfig option is enabled as well.
+* RightScript parameters that are changed from a value to the unset value "No value/ignore" will no longer remember the old value on subsequent runs. The value will now be set to a null value.
+* RightScale credentials are now also masked in system logs and not just audit entries. These values will now show up as <hidden input INPUTNAME> instead of their value.
 * Support for Ubuntu Raring (13.04) has been dropped.
 
 == Bug fixes
-* Fix for RightScript and Chef script blocks returning malformed characters. These malformed characters could raise encoding exceptions and cause audit entries to be lost. Characters not appearing to be UTF-8 encoded are now replaced with "?".
-* Removed spurious RbConfig warnings during running of RightLink command line tools on windows.
-* Ubuntu/Debian: The "rightlink" package now depends on lsb-release instead of lsb, reducing the list of dependent packages.
+* Fix error for RightScripts and Chef script blocks returning malformed characters. These malformed characters could raise encoding exceptions to cause strands and audit entries to be lost. Characters not appearing to be UTF-8 encoded are now replaced with "?".
+* Removed spurious RbConfig warnings when running RightLink command line tools on Windows.
+* Ubuntu/Debian: The "rightlink" package now depends on the "lsb-release" package instead of "lsb", reducing the list of dependent packages.
 * vSphere cloud
   * SSH key no longer missing if an invalid network config is applied.
-  * Removed startup delays due to waiting for DHCP to timeout if no DHCP network was specified.
-  * Removed need to clean network configuration when snapshotting instances. RightLink will always reconfigure the network correctly at boot.
-* Ubuntu: RightLink places all its managed repo config files in /etc/apt/sources.list.d. It now creates an empty /etc/apt/sources.list as well instead of simply removing it. This avoid compatibility issues with programs such update-notifier, which expects a file to exist at that location.
+  * Removed startup delays waiting for DHCP to timeout if no DHCP network is specified.
+  * Removed need to clean system network configuration scripts as mentioned in 6.0.6 "Known limitations" section when snapshotting instances. 
+* Ubuntu: RightLink places all its managed repo config files in /etc/apt/sources.list.d. It now creates an empty /etc/apt/sources.list as well instead of simply removing it. This avoids compatibility issues with programs such update-notifier which expect a file to exist at that location.
 * RightLink no longer blocks console login when failing to enroll.
 
 == Known limitations
-* GCE: rs_reboot utility not currently work (as of Aug 13 2014). Reboot via the RightScale API is not currently supported for this cloud. Use system reboot instead (init 6 or shutdown -r).
-* Sometimes RightLink fails to sync up time using System NTP service so it uses RS_ISLAND instead.
+* Sometimes RightLink fails to sync up time using System NTP service so uses island load balancer specified in RS_ISLAND user data variable instead.
 * ohai command line tool supports a more limited data set, especially on Windows. Use rs_ohai instead.
 * Only v14 ServerTemplates are supported due to the Chef and Ruby version bump.
 * vSphere cloud
-  * Remove /etc/udev/rules.d/70-persistent-net.rules before snapshotting instances on vSphere or else RightLink may have issues configuring networks on boot.
+  * Remove /etc/udev/rules.d/70-persistent-net.rules before snapshotting instances on vSphere. Instances launched from the snapshotted instance may fail to reconfigure the network correctly on boot if networks are added or removed.
   * When snapshotting instances on Windows, run RightScale supplied sysprep. This hooks into RightLink to remove the state from C:\ProgramData\RightScale.
-  * Detection of private networks is limited to well-known subnets as defined in RFC-1918: 10.0.0.0, 192.168.0.0, 172.16.0.0, 172.2.0.0, 172.30.0.0 and 172.31.0.0.
+  * Detection of private networks are limited to well-known subnets as defined in RFC-1918: 10.0.0.0, 192.168.0.0, 172.16.0.0, 172.2.0.0, 172.30.0.0 and 172.31.0.0.
 
 = 6.0.6 (RightLink 6.0 GA)
 
