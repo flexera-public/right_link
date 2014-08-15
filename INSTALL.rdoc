@@ -2,13 +2,12 @@
 
 == Stable Packages
 
-As of May 2014, the latest stable release of RightLink is v6.0. 
+As of Aug 2014, the latest stable release of RightLink is v6.1. 
 
 It is available for the following operating systems (64-bit binaries only):
-* RHEL 6 (also compatible with CentOS 6)
+* RHEL 6/7 (also compatible with CentOS 6/7)
 * SUSE 11
-* Ubuntu 12.04
-* Ubuntu 13.04
+* Ubuntu 12.04/14.04
 * Windows Server 2008/2012
 
 And the following cloud types:
@@ -26,7 +25,7 @@ To learn how to install stable RightLink, refer to our support site:
 http://support.rightscale.com/12-Guides/RightLink/RightLink_6.0/Install_RightLink
 
 
-== Beta Packages - RightLink v6.1
+== Beta packages - RightLink v6.2+
 
 Assuming that you continued reading this document, you may be interested in
 trying RightLink beta or pre-release software. The following instructions serve as
@@ -43,7 +42,7 @@ graphical installer that allows you to choose the cloud type.
 Regardless of OS, after installing the RightLink package, you can bundle an
 image and use it to create your own MultiCoudImage for use with RightScale.
 
-=== RHEL/CentOS 6 installation
+=== RHEL/CentOS 6/7 installation
 
 For RedHat-based systems, we publish and maintain a yum repository. The repository
 follows an EPEL-like layout and supports multiple distributions and releases.
@@ -60,7 +59,7 @@ Create a yum source:
   cat > /etc/yum.repos.d/RightLink-staging.repo <<EOF
   [rightlink]
   name=RightLink
-  baseurl=http://rightlink-beta.test.rightscale.com/yum/1/el/6/$basearch/
+  baseurl=http://rightlink-beta.test.rightscale.com/yum/1/el/$releasever/$basearch/
   gpgcheck=1
   gpgkey=http://mirror.rightscale.com/rightlink/rightscale.pub
   EOF
@@ -124,9 +123,9 @@ and release code name. For instance, on an amd64 system that is running:
   deb [arch=amd64] http://rightlink-beta.test.rightscale.com/apt precise main
   EOF
 
-  # Ubuntu 13.04 (raring)
+  # Ubuntu 14.04 (raring)
   cat > /etc/apt/sources.list.d/rightlink.sources.list <<EOF
-  deb [arch=amd64] http://rightlink-beta.test.rightscale.com/apt raring main
+  deb [arch=amd64] http://rightlink-beta.test.rightscale.com/apt trusty main
   EOF
 
 
