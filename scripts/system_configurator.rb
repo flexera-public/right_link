@@ -52,6 +52,7 @@ module RightScale
     include CommandHelper
     RSA_KEY    = File.join(RightScale::Platform.filesystem.ssh_cfg_dir, 'ssh_host_rsa_key')
     DSA_KEY    = File.join(RightScale::Platform.filesystem.ssh_cfg_dir, 'ssh_host_dsa_key')
+    ECDSA_KEY  = File.join(RightScale::Platform.filesystem.ssh_cfg_dir, 'ssh_host_ecdsa_key')
 
     def read_options_file
       state = RightScale::Platform.filesystem.right_link_dynamic_state_dir
@@ -169,6 +170,14 @@ module RightScale
         changed = true
       else
         puts "* DSA key does not exist"
+      end
+
+      if File.readable?(ECDSA_KEY)
+        replace_key(ECDSA_KEY, 'ecdsa')
+        puts "* replaced ECDSA key"
+        changed = true
+      else
+        puts "* ECDSA key does not exist"
       end
 
       if changed
