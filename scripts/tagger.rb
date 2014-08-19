@@ -191,6 +191,11 @@ module RightScale
           options[:action] = :add_tag
           options[:tag] = options.delete(:add).strip
           raise ::Trollop::CommandlineError.new("Non-empty value required") if options[:tag].empty?
+          # Fix #18220
+          # Force downcase of namespace in RightScale Machine Tag
+          if (match = /^([^:]+:)(.+)$/.match(options[:tag]))
+            options[:tag] = "#{match[1].downcase}#{match[2]}"
+          end
         end
         if options[:remove]
           options[:action] = :remove_tag
