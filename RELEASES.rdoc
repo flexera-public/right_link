@@ -1,4 +1,4 @@
-= 6.1.1 (RightLink 6.1 RC1)
+= 6.1.2 (RightLink 6.1 RC1)
 
 Released 2014-08-15
 
@@ -30,6 +30,7 @@ Released 2014-08-15
   * Removed need to clean system network configuration scripts as mentioned in 6.0.6 "Known limitations" section when snapshotting instances. 
 * Ubuntu: RightLink places all its managed repo config files in /etc/apt/sources.list.d. It now creates an empty /etc/apt/sources.list as well instead of simply removing it. This avoids compatibility issues with programs such update-notifier which expect a file to exist at that location.
 * RightLink no longer blocks console login when failing to enroll.
+* RightLink regenerates /etc/ssh/ssh_host_ecdsa_key if it exists now on first boot.
 
 == Known limitations
 * Sometimes RightLink fails to sync up time using System NTP service so uses island load balancer specified in RS_ISLAND user data variable instead.
