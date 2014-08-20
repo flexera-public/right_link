@@ -262,6 +262,19 @@ describe RightScale::Tagger do
       @output.should == []
     end
 
+    it 'should add or update tag FOO:BAR=NICK as foo:BAR=NICK (#18220 fix)' do
+      expected_cmd = { :name => :add_tag, :tag => 'foo:BAR=NICK' }
+      flexmock(subject).
+        should_receive(:send_command).
+        with(expected_cmd, false, 60).
+        once.
+        and_return('stuff')
+      flexmock(subject).should_receive(:serialize_operation_result).with('stuff').once.and_return(::RightScale::OperationResult.success(true))
+      run_tagger(['-a', 'FOO:BAR=NICK'])
+      @error.should == ["Successfully added tag foo:BAR=NICK"]
+      @output.should == []
+    end
+
     it 'should dispaly error if empty value provided' do
       expected_cmd = { :name => :add_tag, :tag => '' }
       flexmock(subject).should_receive(:send_command).never
