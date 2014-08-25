@@ -1,6 +1,6 @@
-= 6.1.3 (RightLink 6.1 RC1)
+= 6.1.4
 
-Released 2014-08-15
+Released 2014-08-25
 
 == New Features
 * vSphere cloud
@@ -41,7 +41,7 @@ Released 2014-08-15
   * When snapshotting instances on Windows, run RightScale supplied sysprep. This hooks into RightLink to remove the state from C:\ProgramData\RightScale.
   * Detection of private networks are limited to well-known subnets as defined in RFC-1918: 10.0.0.0, 192.168.0.0, 172.16.0.0, 172.2.0.0, 172.30.0.0 and 172.31.0.0.
 
-= 6.0.6 (RightLink 6.0 GA)
+= 6.0.6
 
 Released 2014-05-29
 

@@ -2,11 +2,11 @@
 
 == Stable Packages
 
-As of Aug 2014, the latest stable release of RightLink is v6.1. 
+As of Aug 2014, the latest stable release of RightLink is v6.1.
 
 It is available for the following operating systems (64-bit binaries only):
-* RHEL 6/7 (also compatible with CentOS 6/7)
-* SUSE 11
+* Red Hat Enterprise Linux 6/7 (also compatible with CentOS 6/7)
+* SUSE Linux Enterprise Server 11
 * Ubuntu 12.04/14.04
 * Windows Server 2008/2012
 
@@ -42,7 +42,7 @@ graphical installer that allows you to choose the cloud type.
 Regardless of OS, after installing the RightLink package, you can bundle an
 image and use it to create your own MultiCoudImage for use with RightScale.
 
-=== RHEL/CentOS 6/7 installation
+=== Redhat Enterprise Linux and CentOS 6/7 installation
 
 For RedHat-based systems, we publish and maintain a yum repository. The repository
 follows an EPEL-like layout and supports multiple distributions and releases.
@@ -73,7 +73,7 @@ the cloud type your instance is running on. Example for Amazon EC2:
 
 You can now bundle your image and boot RightScale servers with it.
 
-=== SUSE installation
+=== SUSE Linux Enterprise Server installation
 
 For SUSE-based systems, we maintain a zypper repository. The repository follows
 an EPEL-like layout and supports multiple distributions and releases.
