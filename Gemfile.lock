@@ -1,3 +1,10 @@
+GIT
+  remote: https://github.com/rightscale/right_http_connection
+  revision: 4fbacad8938918eccc0daef161c55b08d077caa8
+  branch: cornsilk_14_18_acu180806__jes__fix_rbuf_fill
+  specs:
+    right_http_connection (1.5.0)
+
 PATH
   remote: .
   specs:
@@ -154,7 +161,6 @@ GEM
       right_http_connection (>= 1.2.5)
     right_git (0.1.0)
       right_support (>= 2.8.10, < 3.0.0)
-    right_http_connection (1.4.0)
     right_popen (2.0.2)
     right_popen (2.0.2-x86-mingw32)
     right_scraper (4.0.0)
@@ -226,6 +232,7 @@ DEPENDENCIES
   right_agent (~> 2.3.7)
   right_amqp (~> 0.7)
   right_git
+  right_http_connection!
   right_link!
   right_popen (~> 2.0)
   right_scraper (~> 4.0)

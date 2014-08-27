@@ -15,6 +15,10 @@ gem 'mime-types', '< 2.0'
 
 gem 'right_scraper', '~> 4.0'
 
+gem 'right_http_connection',
+  :git => 'https://github.com/rightscale/right_http_connection',
+  :branch => 'cornsilk_14_18_acu180806__jes__fix_rbuf_fill'
+
 gem 'em-http-request', '1.0.3'
 gem 'fiber_pool',      '1.0.0'
 
