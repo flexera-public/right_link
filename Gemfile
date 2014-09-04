@@ -1,4 +1,5 @@
-source 'http://gems.test.rightscale.com'
+#source 'http://gems.test.rightscale.com'
+source 'http://rightlink-integration.test.rightscale.com.s3.amazonaws.com/adhoc/akarpik-gems'
 source 'https://rubygems.org'
 
 gemspec
@@ -25,7 +26,7 @@ group :custom do
   gem 'chef', '11.6.0.5'
   gem 'ohai', '6.18.0.2'
   gem 'mixlib-shellout', '1.2.0.2'
-  gem 'eventmachine', '1.0.0.10'
+  gem 'eventmachine', '1.0.3'
   gem 'rest-client', '1.7.0.3'
 end
 
