@@ -17,6 +17,7 @@ gem 'right_scraper', '~> 4.0'
 
 gem 'em-http-request', '1.0.3'
 gem 'fiber_pool',      '1.0.0'
+gem 'eventmachine',    '1.0.3'
 
 # We have custom builds of some gems containing fixes and patches that are specific
 # to RightScale. Gems in the 'custom' group are published by RightScale to our
@@ -25,7 +26,6 @@ group :custom do
   gem 'chef', '11.6.0.5'
   gem 'ohai', '6.18.0.2'
   gem 'mixlib-shellout', '1.2.0.2'
-  gem 'eventmachine', '1.0.0.10'
   gem 'rest-client', '1.7.0.3'
 end
 
