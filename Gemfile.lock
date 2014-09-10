@@ -1,3 +1,26 @@
+GIT
+  remote: git@github.com:rightscale/chef.git
+  revision: e0e8d67cb7a09a4d81abda1028d2c48aaf0804b4
+  branch: ivory_14_18_acu172941_test_ruby2.0_and_eventmachine_1.0.3
+  specs:
+    chef (11.6.0.5)
+      erubis
+      highline (>= 1.6.9)
+      json (>= 1.4.4, <= 1.7.7)
+      mixlib-authentication (>= 1.3.0)
+      mixlib-cli (~> 1.3.0)
+      mixlib-config (>= 1.1.2)
+      mixlib-log (>= 1.3.0)
+      mixlib-shellout
+      moneta
+      net-ssh (~> 2.6)
+      net-ssh-multi (~> 1.1.0)
+      ohai (>= 0.6.0)
+      rest-client (>= 1.0.4, < 2.0.0)
+      right_popen (~> 2.0)
+      uuidtools
+      yajl-ruby (~> 1.1)
+
 PATH
   remote: .
   specs:
@@ -18,53 +41,6 @@ GEM
   remote: https://rubygems.org/
   specs:
     addressable (2.3.6)
-    chef (11.6.0.5)
-      erubis
-      highline
-      highline (>= 1.6.9)
-      json (>= 1.4.4, <= 1.7.7)
-      mixlib-authentication (>= 1.3.0)
-      mixlib-cli (~> 1.3.0)
-      mixlib-config (>= 1.1.2)
-      mixlib-log (>= 1.3.0)
-      mixlib-shellout
-      moneta
-      net-ssh (~> 2.6)
-      net-ssh-multi (~> 1.1.0)
-      ohai (>= 0.6.0)
-      rest-client (>= 1.0.4, < 2.0.0)
-      right_popen (~> 2.0)
-      uuidtools
-      yajl-ruby (~> 1.1)
-    chef (11.6.0.5-x86-mingw32)
-      erubis
-      ffi (= 1.1.0)
-      highline
-      highline (>= 1.6.9)
-      json (>= 1.4.4, <= 1.7.7)
-      mixlib-authentication (>= 1.3.0)
-      mixlib-cli (~> 1.3.0)
-      mixlib-config (>= 1.1.2)
-      mixlib-log (>= 1.3.0)
-      mixlib-shellout
-      moneta
-      net-ssh (~> 2.6)
-      net-ssh-multi (~> 1.1.0)
-      ohai (>= 0.6.0)
-      rdp-ruby-wmi (= 0.3.1)
-      rest-client (>= 1.0.4, < 2.0.0)
-      right_popen (~> 2.0)
-      systemu (= 2.2.0)
-      uuidtools
-      win32-api (= 1.4.8)
-      win32-dir (= 0.3.7)
-      win32-event (= 0.5.2)
-      win32-mutex (= 0.3.1)
-      win32-process (= 0.6.5)
-      win32-service (= 0.7.2)
-      windows-api (= 0.4.2)
-      windows-pr (= 1.2.1)
-      yajl-ruby (~> 1.1)
     columnize (0.3.6)
     cookiejar (0.3.2)
     debugger (1.6.5)
@@ -83,8 +59,8 @@ GEM
       eventmachine (>= 1.0.0.beta.4)
     encryptor (1.3.0)
     erubis (2.7.0)
-    eventmachine (1.0.0.10)
-    eventmachine (1.0.0.10-x86-mingw32)
+    eventmachine (1.0.3)
+    eventmachine (1.0.3-x86-mingw32)
     extlib (0.9.16)
     faye-websocket (0.7.4)
       eventmachine (>= 0.12.0)
@@ -108,7 +84,7 @@ GEM
     mixlib-log (1.6.0)
     mixlib-shellout (1.2.0.2)
       right_popen (~> 2.0)
-    moneta (0.7.20)
+    moneta (0.8.0)
     msgpack (0.5.8)
     msgpack (0.5.8-x86-mingw32)
     net-http-persistent (2.9.4)
@@ -132,7 +108,6 @@ GEM
     rb-readline (0.5.0)
     rbx-require-relative (0.0.9)
     rcov (0.8.1.2.0)
-    rdp-ruby-wmi (0.3.1)
     rest-client (1.7.0.3)
       mime-types (>= 1.16)
       net-http-persistent
@@ -172,30 +147,16 @@ GEM
       linecache (>= 0.3)
     rubyforge (1.0.4)
     systemu (2.2.0)
-    test-unit (2.5.5)
     trollop (2.0)
-    uuidtools (2.1.4)
+    uuidtools (2.1.5)
     websocket-driver (0.3.4)
     win32-api (1.4.8-x86-mingw32)
     win32-dir (0.3.7)
       windows-pr (>= 1.0.9)
-    win32-event (0.5.2)
-      win32-ipc (>= 0.5.0)
-    win32-ipc (0.6.1)
-      ffi
-    win32-mmap (0.4.1)
-      ffi
-    win32-mutex (0.3.1)
-      test-unit (>= 2.0.3)
-      win32-ipc (>= 0.5.0)
-      win32-mmap (>= 0.2.2)
-      win32-process (>= 0.6.1)
     win32-pipe (0.3.3)
       ffi
     win32-process (0.6.5)
       windows-pr (>= 1.1.2)
-    win32-service (0.7.2-x86-mingw32)
-      windows-pr (>= 1.0.8)
     windows-api (0.4.2)
       win32-api (>= 1.4.5)
     windows-pr (1.2.1)
@@ -208,10 +169,10 @@ PLATFORMS
   x86-mingw32
 
 DEPENDENCIES
-  chef (= 11.6.0.5)
+  chef (= 11.6.0.5)!
   debugger (~> 1.6.1)
   em-http-request (= 1.0.3)
-  eventmachine (= 1.0.0.10)
+  eventmachine (= 1.0.3)
   fiber_pool (= 1.0.0)
   flexmock (~> 0.9)
   ip

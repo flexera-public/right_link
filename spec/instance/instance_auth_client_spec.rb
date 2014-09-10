@@ -202,7 +202,7 @@ describe RightScale::InstanceAuthClient do
       flexmock(@client).should_receive(:redirected).with(found).and_return(true).once.ordered
       flexmock(@client).should_receive(:redirected).with(moved).and_return(true).once.ordered
       flexmock(@client).should_receive(:redirected).with(moved).and_return(false).once.ordered
-      lambda { @client.send(:get_authorized) }.should raise_error(moved)
+      lambda { @client.send(:get_authorized) }.should raise_error(moved.class, moved.message)
     end
 
     it "limits number of redirects and sets state to :failed when exceeded" do
@@ -210,7 +210,7 @@ describe RightScale::InstanceAuthClient do
       moved = RightScale::HttpExceptions.create(301, "", {:location => location})
       @log.should_receive(:error).with("Exceeded maximum redirects (5)").once
       @http_client.should_receive(:post).and_raise(moved).times(6)
-      lambda { @client.send(:get_authorized) }.should raise_error(moved)
+      lambda { @client.send(:get_authorized) }.should raise_error(moved.class, moved.message)
       @client.state.should == :failed
     end
 
@@ -219,7 +219,7 @@ describe RightScale::InstanceAuthClient do
       moved = RightScale::HttpExceptions.create(301, "", {:location => location})
       @http_client.should_receive(:post).and_raise(moved).times(6)
       @log.should_receive(:error).with("Exceeded maximum redirects (5)").once
-      lambda { @client.send(:get_authorized) }.should raise_error(moved)
+      lambda { @client.send(:get_authorized) }.should raise_error(moved.class, moved.message)
       @client.instance_variable_get(:@api_url).should == @api_url
     end
 
