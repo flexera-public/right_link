@@ -189,13 +189,13 @@ class Chef
         # ignored due to rs_shutdown provider behavior
         # or useless error description for right_script and powershell providers
         unless section && !(section.keys & ignore_execeptions).empty?
-          last_output_log_level = output.output_log_level
+          last_output_log_level = output.output_log_level if output.respond_to?(:output_log_level)
           begin
-            output.output_log_level = :error
+            output.output_log_level = :error if output.respond_to?(:output_log_level)
             puts("")
             description.display(output)
           ensure
-            output.output_log_level = last_output_log_level
+            output.output_log_level = last_output_log_level if output.respond_to?(:output_log_level)
           end
         end
       end

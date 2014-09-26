@@ -183,8 +183,10 @@ class Chef
         platform = RightScale::Platform
         shell    = platform.shell
         command  = shell.format_shell_command(script_file_path)
+        status, stdout, stderr = output_of_command(command, {})
 
-        return exec_right_popen(command)
+        ::Chef::Log.info(stdout)
+        return status
       end
 
     end

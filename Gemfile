@@ -6,7 +6,8 @@ gemspec
 # Fresh off the assembly line
 gem 'right_support', '~> 2.8'
 
-gem 'right_agent', '~> 2.3.7'
+gem 'right_agent', :git => 'git@github.com:rightscale/right_agent.git',
+                   :branch => 'ivory_14_20_acu178887_rightscale_forks_update'
 
 gem 'right_amqp', '~> 0.7'
 gem 'right_popen', '~> 2.0'
@@ -22,10 +23,12 @@ gem 'fiber_pool',      '1.0.0'
 # to RightScale. Gems in the 'custom' group are published by RightScale to our
 # custom gem repository (http://s3.amazonaws.com/rightscale_rightlink_gems_dev).
 group :custom do
-  gem 'chef', '11.6.0.5'
-  gem 'ohai', '6.18.0.2'
-  gem 'mixlib-shellout', '1.2.0.2'
-  gem 'eventmachine', '1.0.0.10'
+  gem 'chef', :git => 'git@github.com:rightscale/chef.git',
+              :branch => 'ivory_14_18_acu178887_rightscale_11.14'
+  gem 'ohai', '~> 7.2.4'
+  gem 'mixlib-shellout', '~> 1.4.0', :git => 'git@github.com:rightscale/mixlib-shellout.git',
+                                     :branch => 'ivory_14_21_acu180419_bump_version'
+  gem 'eventmachine', '~> 1.0.0.4'
   gem 'rest-client', '1.7.0.3'
 end
 

@@ -79,7 +79,7 @@ module RightScale
 
     def start(options)
       if (json = read_options_file)
-        options.merge(JSON.load(json))
+        options.merge(JSON.parser.new(json, JSON.load_default_options).parse)
       else
         all_actions  = methods.select { |m| m =~ /^configure_/ }.map { |m| m[10..-1] }
         options.merge({'actions_enabled' => all_actions})

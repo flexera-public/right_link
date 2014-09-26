@@ -35,31 +35,32 @@ describe Ohai::System, ' plugin missing_cloud' do
     # ohai to be tested
     @ohai = Ohai::System.new
     flexmock(@ohai).should_receive(:require_plugin).and_return(true)
-
-    @ohai._require_plugin("cloud")
+    @ohai.data[:cloud] = Mash.new
+    @ohai.data[:cloud][:public_ips] = Array.new
+    @ohai.data[:cloud][:private_ips] = Array.new
   end
 
   context 'on cloudstack' do
     before(:each) do
-      @ohai[:cloudstack] = Mash.new()
+      @ohai.data[:cloudstack] = Mash.new()
     end
 
     it 'should populate cloud provider' do
-      @ohai._require_plugin("missing_cloud")
+      get_plugin("missing_cloud", @ohai).run
       @ohai[:cloud][:provider].should == 'cloudstack'
     end
 
     it 'should populate cloud public ip' do
-      @ohai[:cloudstack][:public_ipv4] = "1.1.1.1"
-      @ohai._require_plugin("missing_cloud")
+      @ohai.data[:cloudstack][:public_ipv4] = "1.1.1.1"
+      get_plugin("missing_cloud", @ohai).run
 
       @ohai[:cloud][:public_ipv4].should ==  "1.1.1.1"
       @ohai[:cloud][:public_ips].first.should ==  "1.1.1.1"
     end
 
     it 'should not populate cloud public ip if it is nul' do
-      @ohai[:cloudstack][:public_ipv4] = nil
-      @ohai._require_plugin("missing_cloud")
+      @ohai.data[:cloudstack][:public_ipv4] = nil
+      get_plugin("missing_cloud", @ohai).run
 
       @ohai[:cloud][:public_ipv4].should be_nil
       @ohai[:cloud][:public_ips].should ==  []
@@ -68,14 +69,14 @@ describe Ohai::System, ' plugin missing_cloud' do
 
     it 'should populate cloud private ip' do
       @ohai[:cloudstack][:local_ipv4] = "10.252.252.10"
-      @ohai._require_plugin("missing_cloud")
+      get_plugin("missing_cloud", @ohai).run
       @ohai[:cloud][:local_ipv4].should == "10.252.252.10"
       @ohai[:cloud][:private_ips].first.should == "10.252.252.10"
     end
 
     it 'should not populate cloud private ip if it is nul' do
       @ohai[:cloudstack][:local_ipv4] = nil
-      @ohai._require_plugin("missing_cloud")
+      get_plugin("missing_cloud", @ohai).run
 
       @ohai[:cloud][:local_ipv4].should be_nil
       @ohai[:cloud][:private_ips].should ==  []
@@ -83,14 +84,14 @@ describe Ohai::System, ' plugin missing_cloud' do
 
 
     it 'should populate cloud public hostname' do
-      @ohai[:cloudstack][:public_hostname] = "my_public_hostname"
-      @ohai._require_plugin("missing_cloud")
+      @ohai.data[:cloudstack][:public_hostname] = "my_public_hostname"
+      get_plugin("missing_cloud", @ohai).run
       @ohai[:cloud][:public_hostname].should == "my_public_hostname"
     end
 
     it 'should populate cloud local hostname' do
-      @ohai[:cloudstack][:local_hostname] = "my_local_hostname"
-      @ohai._require_plugin("missing_cloud")
+      @ohai.data[:cloudstack][:local_hostname] = "my_local_hostname"
+      get_plugin("missing_cloud", @ohai).run
       @ohai[:cloud][:local_hostname].should == "my_local_hostname"
     end
 
@@ -98,11 +99,11 @@ describe Ohai::System, ' plugin missing_cloud' do
 
   context 'on softlayer' do
     before(:each) do
-      @ohai[:softlayer] = Mash.new{}
+      @ohai.data[:softlayer] = Mash.new{}
     end
 
     it 'should populate cloud provider' do
-      @ohai._require_plugin("missing_cloud")
+      get_plugin("missing_cloud", @ohai).run
       @ohai[:cloud][:provider].should == 'softlayer'
     end
 
@@ -110,11 +111,11 @@ describe Ohai::System, ' plugin missing_cloud' do
 
   context 'on vsphere' do
     before(:each) do
-      @ohai[:vsphere] = Mash.new{}
+      @ohai.data[:vsphere] = Mash.new{}
     end
 
     it 'should populate cloud provider' do
-      @ohai._require_plugin("missing_cloud")
+      get_plugin("missing_cloud", @ohai).run
       @ohai[:cloud][:provider].should == 'vsphere'
     end
 

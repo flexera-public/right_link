@@ -34,32 +34,34 @@ describe Ohai::System, 'plugin vsphere' do
 
     # ohai to be tested
     @ohai = Ohai::System.new
-    flexmock(@ohai).should_receive(:depends).and_return(true)
-  end
-
-  it 'create vsphere if hint file exists' do
-    flexmock(@ohai).should_receive(:hint?).with('vsphere').and_return({}).once
-    @ohai._require_plugin("vsphere")
-    @ohai[:vsphere].should_not be_nil
-  end
-
-  it "not create vsphere if hint file doesn't exists" do
-    flexmock(@ohai).should_receive(:hint?).with('vsphere').and_return(nil).once
-    @ohai._require_plugin("vsphere")
-    @ohai[:vsphere].should be_nil
-  end
-
-  it 'populate vsphere node with required attributes' do
-    network = {
+    flexmock(@ohai).should_receive(:require_plugin).and_return(true)
+    @vsphere = get_plugin("vsphere", @ohai)
+    @network = {
         :interfaces => {
             :lo   => { :flags => ["LOOPBACK"] },
             :eth0 => { :flags => [], :addresses => { "50.23.101.210" => { 'family' => 'inet' } } },
             :eth1 => { :flags => [], :addresses => { "192.168.0.1" => { 'family' => 'inet' } } }
         }
     }
-    flexmock(@ohai).should_receive(:hint?).with('vsphere').and_return({}).once
-    flexmock(@ohai).should_receive(:network).and_return(network)
-    @ohai._require_plugin("vsphere")
+  end
+
+  it 'create vsphere if hint file exists' do
+    flexmock(@vsphere).should_receive(:hint?).with('vsphere').and_return({}).once
+    flexmock(@vsphere).should_receive(:network).and_return(@network)
+    @vsphere.run
+    @ohai[:vsphere].should_not be_nil
+  end
+
+  it "not create vsphere if hint file doesn't exists" do
+    flexmock(@vsphere).should_receive(:hint?).with('vsphere').and_return(nil).once
+    @vsphere.run
+    @ohai[:vsphere].should be_nil
+  end
+
+  it 'populate vsphere node with required attributes' do
+    flexmock(@vsphere).should_receive(:hint?).with('vsphere').and_return({}).once
+    flexmock(@vsphere).should_receive(:network).and_return(@network)
+    @vsphere.run
     @ohai[:vsphere]['local_ipv4'] = '50.23.101.210'
     @ohai[:vsphere]['public_ipv4'] = '192.168.0.1'
     @ohai[:vsphere]['private_ips'] = ['50.23.101.210']

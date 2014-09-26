@@ -1,3 +1,57 @@
+GIT
+  remote: git@github.com:rightscale/chef.git
+  revision: c528aee3350dcdb3f98a1a42faf1ba8949a49de4
+  branch: ivory_14_18_acu178887_rightscale_11.14
+  specs:
+    chef (11.14.6.0)
+      chef-zero (~> 2.1, >= 2.1.4)
+      diff-lcs (~> 1.2, >= 1.2.4)
+      erubis
+      erubis (~> 2.7)
+      ffi-yajl (~> 1.0)
+      highline (~> 1.6, >= 1.6.9)
+      json (>= 1.4.4, <= 1.7.7)
+      mime-types (~> 1.16)
+      mixlib-authentication (~> 1.3)
+      mixlib-cli (~> 1.4)
+      mixlib-config (~> 2.0)
+      mixlib-log (~> 1.3)
+      mixlib-shellout (~> 1.4)
+      moneta
+      net-ssh (~> 2.6)
+      net-ssh-multi (~> 1.1)
+      ohai (~> 7.2)
+      plist (~> 3.1.0)
+      pry (~> 0.9)
+      rest-client (>= 1.0.4, < 2.0.0)
+      right_popen (~> 2.0)
+      uuidtools
+      yajl-ruby (~> 1.1)
+
+GIT
+  remote: git@github.com:rightscale/mixlib-shellout.git
+  revision: bf31feb44c9b5072a6902eb5f88e33c761dec54a
+  branch: ivory_14_21_acu180419_bump_version
+  specs:
+    mixlib-shellout (1.4.0.0)
+      right_popen (~> 2.0)
+
+GIT
+  remote: git@github.com:rightscale/right_agent.git
+  revision: 4ff96e0bb06ced7b0497937d4096ae9c0b64d107
+  branch: ivory_14_20_acu178887_rightscale_forks_update
+  specs:
+    right_agent (2.4.2)
+      eventmachine (>= 0.12.10, < 2.0)
+      faye-websocket (~> 0.7.0)
+      ffi
+      json (~> 1.4)
+      msgpack (>= 0.4.4, < 0.6)
+      net-ssh (~> 2.0)
+      rest-client (~> 1.7.0.3)
+      right_amqp (~> 0.7)
+      right_support (>= 2.4.1, < 3.0)
+
 PATH
   remote: .
   specs:
@@ -18,61 +72,21 @@ GEM
   remote: https://rubygems.org/
   specs:
     addressable (2.3.6)
-    chef (11.6.0.5)
-      erubis
-      highline
-      highline (>= 1.6.9)
-      json (>= 1.4.4, <= 1.7.7)
-      mixlib-authentication (>= 1.3.0)
-      mixlib-cli (~> 1.3.0)
-      mixlib-config (>= 1.1.2)
-      mixlib-log (>= 1.3.0)
-      mixlib-shellout
-      moneta
-      net-ssh (~> 2.6)
-      net-ssh-multi (~> 1.1.0)
-      ohai (>= 0.6.0)
-      rest-client (>= 1.0.4, < 2.0.0)
-      right_popen (~> 2.0)
-      uuidtools
-      yajl-ruby (~> 1.1)
-    chef (11.6.0.5-x86-mingw32)
-      erubis
-      ffi (= 1.1.0)
-      highline
-      highline (>= 1.6.9)
-      json (>= 1.4.4, <= 1.7.7)
-      mixlib-authentication (>= 1.3.0)
-      mixlib-cli (~> 1.3.0)
-      mixlib-config (>= 1.1.2)
-      mixlib-log (>= 1.3.0)
-      mixlib-shellout
-      moneta
-      net-ssh (~> 2.6)
-      net-ssh-multi (~> 1.1.0)
-      ohai (>= 0.6.0)
-      rdp-ruby-wmi (= 0.3.1)
-      rest-client (>= 1.0.4, < 2.0.0)
-      right_popen (~> 2.0)
-      systemu (= 2.2.0)
-      uuidtools
-      win32-api (= 1.4.8)
-      win32-dir (= 0.3.7)
-      win32-event (= 0.5.2)
-      win32-mutex (= 0.3.1)
-      win32-process (= 0.6.5)
-      win32-service (= 0.7.2)
-      windows-api (= 0.4.2)
-      windows-pr (= 1.2.1)
-      yajl-ruby (~> 1.1)
-    columnize (0.3.6)
+    chef-zero (2.2)
+      hashie (~> 2.0)
+      json
+      mixlib-log (~> 1.3)
+      rack
+    coderay (1.1.0)
+    columnize (0.8.9)
     cookiejar (0.3.2)
-    debugger (1.6.5)
+    debugger (1.6.8)
       columnize (>= 0.3.1)
       debugger-linecache (~> 1.2.0)
-      debugger-ruby_core_source (~> 1.3.1)
+      debugger-ruby_core_source (~> 1.3.5)
     debugger-linecache (1.2.0)
-    debugger-ruby_core_source (1.3.2)
+    debugger-ruby_core_source (1.3.5)
+    diff-lcs (1.2.5)
     em-http-request (1.0.3)
       addressable (>= 2.2.3)
       cookiejar
@@ -83,87 +97,84 @@ GEM
       eventmachine (>= 1.0.0.beta.4)
     encryptor (1.3.0)
     erubis (2.7.0)
-    eventmachine (1.0.0.10)
-    eventmachine (1.0.0.10-x86-mingw32)
+    eventmachine (1.0.0.11)
     extlib (0.9.16)
     faye-websocket (0.7.4)
       eventmachine (>= 0.12.0)
       websocket-driver (>= 0.3.1)
-    ffi (1.1.0)
-    ffi (1.1.0-x86-mingw32)
+    ffi (1.9.5)
+    ffi-yajl (1.1.0)
+      ffi (~> 1.5)
+      libyajl2 (~> 1.0)
     fiber_pool (1.0.0)
     flexmock (0.9.0)
+    hashie (2.1.2)
     highline (1.6.21)
     http_parser.rb (0.6.0)
-    ip (0.3.0)
+    ip (0.3.1)
     ipaddress (0.8.0)
     json (1.7.7)
+    libyajl2 (1.0.1)
     linecache (0.46)
       rbx-require-relative (> 0.0.4)
+    method_source (0.8.2)
     mime-types (1.25.1)
     mixlib-authentication (1.3.0)
       mixlib-log
-    mixlib-cli (1.3.0)
+    mixlib-cli (1.5.0)
     mixlib-config (2.1.0)
     mixlib-log (1.6.0)
-    mixlib-shellout (1.2.0.2)
-      right_popen (~> 2.0)
-    moneta (0.7.20)
+    moneta (0.8.0)
     msgpack (0.5.8)
-    msgpack (0.5.8-x86-mingw32)
     net-http-persistent (2.9.4)
     net-ssh (2.9.1)
     net-ssh-gateway (1.2.0)
       net-ssh (>= 2.6.5)
-    net-ssh-multi (1.1)
-      net-ssh (>= 2.1.4)
-      net-ssh-gateway (>= 0.99.0)
+    net-ssh-multi (1.2.0)
+      net-ssh (>= 2.6.5)
+      net-ssh-gateway (>= 1.2.0)
     netrc (0.7.7)
-    ohai (6.18.0.2)
-      eventmachine (>= 1.0.0)
+    ohai (7.2.4)
+      ffi (~> 1.9)
+      ffi-yajl (~> 1.0)
       ipaddress
+      mime-types (~> 1.16)
       mixlib-cli
-      mixlib-config
+      mixlib-config (~> 2.0)
       mixlib-log
-      right_popen (~> 2.0)
-      systemu
-      yajl-ruby
-    rake (10.1.1)
-    rb-readline (0.5.0)
+      mixlib-shellout (~> 1.2)
+      systemu (~> 2.6.4)
+      wmi-lite (~> 1.0)
+    plist (3.1.0)
+    pry (0.10.1)
+      coderay (~> 1.1.0)
+      method_source (~> 0.8.1)
+      slop (~> 3.4)
+    rack (1.5.2)
+    rake (10.3.2)
+    rb-readline (0.5.1)
     rbx-require-relative (0.0.9)
     rcov (0.8.1.2.0)
-    rdp-ruby-wmi (0.3.1)
     rest-client (1.7.0.3)
       mime-types (>= 1.16)
       net-http-persistent
       netrc (~> 0.7.7)
-    right_agent (2.3.7)
-      eventmachine (>= 0.12.10, < 2.0)
-      faye-websocket (~> 0.7.0)
-      ffi
-      json (~> 1.4)
-      msgpack (>= 0.4.4, < 0.6)
-      net-ssh (~> 2.0)
-      rest-client (~> 1.7.0.3)
-      right_amqp (~> 0.7)
-      right_support (>= 2.4.1, < 3.0)
     right_amqp (0.8.4)
       eventmachine (>= 0.12.10, < 2.0)
       right_support (>= 1.2, < 3.0)
     right_aws (3.1.0)
       right_http_connection (>= 1.2.5)
-    right_git (0.1.0)
-      right_support (>= 2.8.10, < 3.0.0)
-    right_http_connection (1.4.0)
+    right_git (1.0.1)
+      right_support (>= 2.8.10)
+    right_http_connection (1.5.0)
     right_popen (2.0.2)
-    right_popen (2.0.2-x86-mingw32)
     right_scraper (4.0.0)
       json (~> 1.4)
       right_aws (>= 2.0)
       right_git
       right_popen (~> 2.0)
       right_support (~> 2.6)
-    right_support (2.8.25)
+    right_support (2.8.32)
     rspec (1.3.2)
     ruby-debug (0.10.4)
       columnize (>= 0.1)
@@ -171,59 +182,34 @@ GEM
     ruby-debug-base (0.10.4)
       linecache (>= 0.3)
     rubyforge (1.0.4)
-    systemu (2.2.0)
-    test-unit (2.5.5)
+    slop (3.6.0)
+    systemu (2.6.4)
     trollop (2.0)
-    uuidtools (2.1.4)
+    uuidtools (2.1.5)
     websocket-driver (0.3.4)
-    win32-api (1.4.8-x86-mingw32)
-    win32-dir (0.3.7)
-      windows-pr (>= 1.0.9)
-    win32-event (0.5.2)
-      win32-ipc (>= 0.5.0)
-    win32-ipc (0.6.1)
-      ffi
-    win32-mmap (0.4.1)
-      ffi
-    win32-mutex (0.3.1)
-      test-unit (>= 2.0.3)
-      win32-ipc (>= 0.5.0)
-      win32-mmap (>= 0.2.2)
-      win32-process (>= 0.6.1)
-    win32-pipe (0.3.3)
-      ffi
-    win32-process (0.6.5)
-      windows-pr (>= 1.1.2)
-    win32-service (0.7.2-x86-mingw32)
-      windows-pr (>= 1.0.8)
-    windows-api (0.4.2)
-      win32-api (>= 1.4.5)
-    windows-pr (1.2.1)
-      win32-api (>= 1.4.5)
-      windows-api (>= 0.3.0)
-    yajl-ruby (1.2.0)
+    wmi-lite (1.0.0)
+    yajl-ruby (1.2.1)
 
 PLATFORMS
   ruby
-  x86-mingw32
 
 DEPENDENCIES
-  chef (= 11.6.0.5)
+  chef!
   debugger (~> 1.6.1)
   em-http-request (= 1.0.3)
-  eventmachine (= 1.0.0.10)
+  eventmachine (~> 1.0.0.4)
   fiber_pool (= 1.0.0)
   flexmock (~> 0.9)
   ip
   mime-types (< 2.0)
   mixlib-authentication (>= 1.3.0)
-  mixlib-shellout (= 1.2.0.2)
-  ohai (= 6.18.0.2)
+  mixlib-shellout (~> 1.4.0)!
+  ohai (~> 7.2.4)
   rake (~> 10.0)
   rb-readline (~> 0.5.0)
   rcov (~> 0.8.1)
   rest-client (= 1.7.0.3)
-  right_agent (~> 2.3.7)
+  right_agent!
   right_amqp (~> 0.7)
   right_git
   right_link!
