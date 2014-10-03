@@ -1,4 +1,10 @@
-version: "{build}"
+version: "6.1.{build}"
+branches:
+  only:
+   - peter_experimental_try_appveyer
+skip_tags: true
+os: Windows Server 2012
+clone_folder: c:\projects\right_link
 platform:
   - x64
 install:
@@ -6,5 +12,7 @@ install:
   - gem env
   - gem install bundler --no-ri --no-rdoc
   - bundle install
+build_script:
+  - bundle exec rake units
 test_script:
-  - bundle exec rake units --trace
+  - echo No-op
