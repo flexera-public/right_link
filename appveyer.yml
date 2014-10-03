@@ -1,0 +1,10 @@
+version: "{build}"
+platform:
+  - x64
+install:
+  - ruby --version
+  - gem env
+  - gem install bundler --no-ri --no-rdoc
+  - bundle install
+test_script:
+  - bundle exec rake units --trace
