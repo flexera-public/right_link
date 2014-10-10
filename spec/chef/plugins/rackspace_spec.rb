@@ -43,19 +43,20 @@ describe Ohai::System, ' plugin rackspace' do
     RightScale::OhaiSetup.configure_ohai
     # ohai to be tested
     @ohai = Ohai::System.new
-    flexmock(@ohai).should_receive(:hint?).with('rackspace').and_return({}).once
     flexmock(@ohai).should_receive(:require_plugin).and_return(true)
 
-    flexmock(@ohai).should_receive(:xenstore_command).with("read", "vm-data/provider_data/region").and_return([0, "ord", nil]).once
-    flexmock(@ohai).should_receive(:hostname).and_return("localhostname")
+    @rackspace = get_plugin("rackspace", @ohai)
+    flexmock(@rackspace).should_receive(:hint?).with('rackspace').and_return({}).once
+    flexmock(@rackspace).should_receive(:xenstore_command).with("read", "vm-data/provider_data/region").and_return([0, "ord", nil]).once
+    flexmock(@rackspace).should_receive(:hostname).and_return("localhostname")
   end
 
   it 'populate rackspace node correctly for one private ip' do
-    flexmock(@ohai).should_receive(:on_windows?).and_return(false)
-    flexmock(@ohai).should_receive(:xenstore_command).with("ls", "vm-data/networking").and_return([0, first_network_id, nil]).once
-    flexmock(@ohai).should_receive(:xenstore_command).with("read", "vm-data/networking/#{first_network_id}").and_return([0, first_network, nil]).once
+    flexmock(@rackspace).should_receive(:on_windows?).and_return(false)
+    flexmock(@rackspace).should_receive(:xenstore_command).with("ls", "vm-data/networking").and_return([0, first_network_id, nil]).once
+    flexmock(@rackspace).should_receive(:xenstore_command).with("read", "vm-data/networking/#{first_network_id}").and_return([0, first_network, nil]).once
 
-    @ohai._require_plugin("rackspace")
+    @rackspace.run
     @ohai[:rackspace].should_not be_nil
     @ohai[:rackspace][:local_ipv4].should == '10.178.6.80'
     @ohai[:rackspace][:public_ipv4].should be_nil
@@ -64,12 +65,12 @@ describe Ohai::System, ' plugin rackspace' do
   end
 
   it 'populate rackspace node with ip addresses on linux' do
-    flexmock(@ohai).should_receive(:on_windows?).and_return(false)
-    flexmock(@ohai).should_receive(:xenstore_command).with("ls", "vm-data/networking").and_return([0, networks_linux, nil]).once
-    flexmock(@ohai).should_receive(:xenstore_command).with("read", "vm-data/networking/#{first_network_id}").and_return([0, first_network, nil]).once
-    flexmock(@ohai).should_receive(:xenstore_command).with("read", "vm-data/networking/#{second_network_id}").and_return([0, second_network, nil]).once
+    flexmock(@rackspace).should_receive(:on_windows?).and_return(false)
+    flexmock(@rackspace).should_receive(:xenstore_command).with("ls", "vm-data/networking").and_return([0, networks_linux, nil]).once
+    flexmock(@rackspace).should_receive(:xenstore_command).with("read", "vm-data/networking/#{first_network_id}").and_return([0, first_network, nil]).once
+    flexmock(@rackspace).should_receive(:xenstore_command).with("read", "vm-data/networking/#{second_network_id}").and_return([0, second_network, nil]).once
   
-    @ohai._require_plugin("rackspace")
+    @rackspace.run
     @ohai[:rackspace].should_not be_nil
     @ohai[:rackspace][:local_ipv4].should == '10.178.6.80'
     @ohai[:rackspace][:public_ipv4].should == '162.209.6.148'
@@ -78,12 +79,12 @@ describe Ohai::System, ' plugin rackspace' do
   end
 
   it 'populate rackspace node with ip addresses on windows' do
-    flexmock(@ohai).should_receive(:on_windows?).and_return(true)
-    flexmock(@ohai).should_receive(:xenstore_command).with("ls", "vm-data/networking").and_return([0, networks_windows, nil]).once
-    flexmock(@ohai).should_receive(:xenstore_command).with("read", "vm-data/networking/#{first_network_id}").and_return([0, first_network, nil]).once
-    flexmock(@ohai).should_receive(:xenstore_command).with("read", "vm-data/networking/#{second_network_id}").and_return([0, second_network, nil]).once
+    flexmock(@rackspace).should_receive(:on_windows?).and_return(true)
+    flexmock(@rackspace).should_receive(:xenstore_command).with("ls", "vm-data/networking").and_return([0, networks_windows, nil]).once
+    flexmock(@rackspace).should_receive(:xenstore_command).with("read", "vm-data/networking/#{first_network_id}").and_return([0, first_network, nil]).once
+    flexmock(@rackspace).should_receive(:xenstore_command).with("read", "vm-data/networking/#{second_network_id}").and_return([0, second_network, nil]).once
 
-    @ohai._require_plugin("rackspace")
+    @rackspace.run
     @ohai[:rackspace].should_not be_nil
     @ohai[:rackspace][:local_ipv4].should == '10.178.6.80'
     @ohai[:rackspace][:public_ipv4].should == '162.209.6.148'

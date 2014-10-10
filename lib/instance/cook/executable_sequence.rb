@@ -567,14 +567,21 @@ module RightScale
       true
     end
 
+    def get_plugin(plugin, ohai = Ohai::System.new)
+      plugin_path = ::Ohai::Config[:plugin_path].detect { |path| File.exists?(File.join(path, "#{plugin}.rb")) }
+      loader = Ohai::Loader.new(ohai)
+      loader.load_plugin(File.join(plugin_path, "#{plugin}.rb"), plugin_path)
+    end
+
     # Creates a new ohai and configures it.
     #
     # === Return
     # ohai(Ohai::System):: configured ohai
     def create_ohai
       ohai = Ohai::System.new
-      ohai.require_plugin('os')
-      ohai.require_plugin('hostname')
+      get_plugin('kernel', ohai).run
+      get_plugin('os', ohai).run
+      get_plugin('hostname', ohai).run
       return ohai
     end
 

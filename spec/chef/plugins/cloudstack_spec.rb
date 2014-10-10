@@ -46,29 +46,30 @@ describe Ohai::System, ' plugin cloudstack' do
     # ohai to be tested
     @ohai = Ohai::System.new
     flexmock(@ohai).should_receive(:require_plugin).and_return(true)
+    @cloudstack = get_plugin("cloudstack", @ohai)
   end
 
   it 'create cloudstack attribute if hint file exists and metadata fetch' do
-    flexmock(@ohai).should_receive(:hint?).with('cloudstack').and_return({}).once
-    flexmock(@ohai).should_receive(:dhcp_lease_provider).and_return(fetched_dhcp_lease_provider).once
-    flexmock(@ohai).should_receive(:fetch_metadata).with(fetched_dhcp_lease_provider).and_return(fetched_metadata).once
-    @ohai._require_plugin("cloudstack")
+    flexmock(@cloudstack).should_receive(:hint?).with('cloudstack').and_return({}).once
+    flexmock(@cloudstack).should_receive(:dhcp_lease_provider).and_return(fetched_dhcp_lease_provider).once
+    flexmock(@cloudstack).should_receive(:fetch_metadata).with(fetched_dhcp_lease_provider).and_return(fetched_metadata).once
+    @cloudstack.run
     @ohai[:cloudstack].should_not be_nil
     @ohai[:cloudstack].should == fetched_metadata.merge({'dhcp_lease_provider_ip' => fetched_dhcp_lease_provider})
   end
 
   it 'will not fetch metatada on non-cloudstack' do
-    flexmock(@ohai).should_receive(:hint?).with('cloudstack').and_return(nil).once
-    flexmock(@ohai).should_not_receive(:fetch_metadata)
-    flexmock(@ohai).should_not_receive(:dhcp_lease_provider)
-    @ohai._require_plugin("cloudstack")
+    flexmock(@cloudstack).should_receive(:hint?).with('cloudstack').and_return(nil).once
+    flexmock(@cloudstack).should_not_receive(:fetch_metadata)
+    flexmock(@cloudstack).should_not_receive(:dhcp_lease_provider)
+    @cloudstack.run
     @ohai[:cloudstack].should be_nil
   end
 
   it 'could not connect to dhcp_lease_provider' do
-    flexmock(@ohai).should_receive(:hint?).with('cloudstack').and_return({}).once
-    flexmock(@ohai).should_not_receive(:fetch_metadata)
-    @ohai._require_plugin("cloudstack")
+    flexmock(@cloudstack).should_receive(:hint?).with('cloudstack').and_return({}).once
+    flexmock(@cloudstack).should_not_receive(:fetch_metadata)
+    expect { @cloudstack.run }.to raise_error(RuntimeError)
     @ohai[:cloudstack].should be_nil
   end
 end

@@ -177,7 +177,7 @@ EOF
         # setup logger for mixlib-shellout gem to consume instead of the chef
         # v0.10.10 behavior of not logging ShellOut calls by default. also setup
         # command failure exception and callback for legacy reasons.
-        ::Mixlib::ShellOut.default_logger = ::Chef::Log
+        ::Mixlib::ShellOut.default_logger = Chef::Log
         ::Mixlib::ShellOut.command_failure_callback = lambda do |params|
           failure_reason = ::RightScale::SubprocessFormatting.reason(params[:status])
           expected_error_codes = Array(params[:args][:returns]).join(' or ')

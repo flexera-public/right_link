@@ -42,19 +42,21 @@ describe Ohai::System, ' plugin azure' do
     flexmock(::RightScale::AgentConfig).should_receive(:cache_dir).and_return(temp_dir)
     # configure ohai for RightScale
     ::Ohai::Config[:hints_path] = [File.join(temp_dir,"ohai","hints")]
+    ::Ohai::Log.level = :debug
     RightScale::OhaiSetup.configure_ohai
 
     # ohai to be tested
     @ohai = Ohai::System.new
     flexmock(@ohai).should_receive(:require_plugin).and_return(true)
-    flexmock(@ohai).should_receive(:dhcp_lease_provider).and_return(fetched_dhcp_lease_provider).once
   end
 
   # Provide only success scenario, becuase it will be changed in RL 6.1
   it 'populate azure node with required attributes' do
-    flexmock(@ohai).should_receive(:hint?).with('azure').and_return({}).once
-    flexmock(@ohai).should_receive(:fetch_metadata).with(fetched_dhcp_lease_provider).and_return(fetched_metadata).once
-    @ohai._require_plugin("azure")
+    azure = get_plugin("azure", @ohai)
+    flexmock(azure).should_receive(:hint?).with('azure').and_return({}).once
+    flexmock(azure).should_receive(:fetch_metadata).with(fetched_dhcp_lease_provider).and_return(fetched_metadata).once
+    flexmock(azure).should_receive(:dhcp_lease_provider).and_return(fetched_dhcp_lease_provider).once
+    azure.run
     @ohai[:azure].should_not be_nil
     @ohai[:azure].should == fetched_metadata
   end

@@ -82,7 +82,7 @@ EOF
     runner.should raise_exception(::RubyBlockProviderSpec::CustomError)
     # Chef v11+ sends all errors raised during recipe execution to the
     # chef formatters for display.
-    log_should_contain_text(:error, 'Something went horribly wrong!')
+    log_should_contain_text(:debug, 'Something went horribly wrong!')
     log_should_contain_text(:info, 'Prepare to explode...')
   end
 

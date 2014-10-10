@@ -21,3 +21,9 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 require File.expand_path(File.join(File.dirname(__FILE__), '..', 'spec_helper.rb'))
+
+def get_plugin(plugin, ohai = Ohai::System.new)
+  plugin_path = ::Ohai::Config[:plugin_path].detect { |path| File.exists?(File.join(path, "#{plugin}.rb")) }
+  loader = Ohai::Loader.new(ohai)
+  loader.load_plugin(File.join(plugin_path, "#{plugin}.rb"), plugin_path)
+end

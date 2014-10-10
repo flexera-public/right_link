@@ -43,7 +43,7 @@ module RightScale
       check_privileges
 
       name = "get_instance_state_#{options[:type]}"
-      result = JSON.load(send_command({ :name => name }, options[:verbose]))
+      result = JSON.legacy_load(send_command({ :name => name }, options[:verbose]))
       fail(result['error']) if result['error']
       puts result['result']
     end
