@@ -40,7 +40,7 @@ module RightScale
     def self.read_json(path)
       File.open(path, "r:utf-8") do |f|
         f.flock(File::LOCK_EX)
-        return JSON.parser.new(f.read, JSON.load_default_options).parse
+        return JSON.legacy_load(f)
       end
     end
 
@@ -83,14 +83,14 @@ module RightScale
     # === Return
     # true:: Always return true
     def self.merge_json(path, contents)
-      contents = JSON.parser.new(contents, JSON.load_default_options).parse if contents.is_a?(String)
+      contents = JSON.legacy_load(contents) if contents.is_a?(String)
       dir = File.dirname(path)
       FileUtils.mkdir_p(dir) unless File.directory?(dir)
       File.open(path, 'a+:utf-8') do |f|
         f.flock(File::LOCK_EX)
         if File.size(path) > 0
           begin
-            previous_contents = JSON.parser.new(f.read, JSON.load_default_options).parse
+            previous_contents = JSON.legacy_load(f)
             yield(previous_contents, contents)
           rescue JSONError
             # ignored

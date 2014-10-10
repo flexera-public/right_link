@@ -50,7 +50,7 @@ module RightScale
     def self.load
       return {} unless serialized = ENV[OPTIONS_ENV]
       begin
-        opts = JSON.parser.new(serialized, JSON.load_default_options).parse
+        opts = JSON.legacy_load(serialized)
         opts = SerializationHelper.symbolize_keys(opts)
       rescue Exception => e
         Log.warning("Failed to deserialize options", e)
