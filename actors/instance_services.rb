@@ -39,11 +39,12 @@ class InstanceServices
   # Always return success, used for troubleshooting
   #
   # == Parameters:
-  # @param [RightScale::LoginPolicy] new login policy to update the instance with
+  # options[:policy](RightScale::LoginPolicy):: new login policy to update the instance with
   #
   # == Returns:
   # @return [RightScale::OperationResult] Always returns success
-  def update_login_policy(new_policy)
+  def update_login_policy(options)
+    new_policy = options["policy"] || options[:policy]
     status = nil
 
     RightScale::AuditProxy.create(@agent.identity, 'Updating managed login policy') do |audit|
