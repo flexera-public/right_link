@@ -20,7 +20,7 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require File.join(File.dirname(__FILE__), 'spec_helper')
+require File.expand_path(File.join(File.dirname(__FILE__), 'spec_helper'))
 
 describe RightScale::LoginManager do
   include RightScale::SpecHelper
@@ -187,8 +187,10 @@ describe RightScale::LoginManager do
 
       flexmock(RightScale::InstanceState).should_receive(:login_policy).and_return(nil).by_default
       flexmock(RightScale::InstanceState).should_receive(:login_policy=).by_default
-      flexmock(RightScale::AgentTagManager).should_receive("instance.add_tags")
+      flexmock(RightScale::AgentTagManager).should_receive("instance.add_tags").once
       flexmock(subject).should_receive(:schedule_expiry)
+
+      subject.login_policy_tag_set = false
 
       flexmock(RightScale::LoginUser).should_receive(:fingerprint).and_return("f1", "f2", "f3", "f4").by_default
 
@@ -204,6 +206,16 @@ describe RightScale::LoginManager do
         end
       end
     end
+
+
+    it "should add rs_login:state tag only once" do
+      flexmock(subject).should_receive(:read_keys_file).and_return([])
+      flexmock(subject).should_receive(:write_keys_file).with(FlexMock.on { |arg| arg.length.should ==  @user_keys.size }, FlexMock.any, FlexMock.any)
+
+      subject.update_policy(@policy, @agent_identity)
+      subject.update_policy(@policy, @agent_identity)
+    end
+
 
     it "should remove authorized_keys and disable accounts of expired users" do
       @policy.users[0].expires_at = one_day_ago
