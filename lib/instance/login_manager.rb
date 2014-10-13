@@ -29,6 +29,8 @@ module RightScale
 
     include Singleton
 
+    attr_accessor :login_policy_tag_set
+
     CONFIG_YAML_FILE = File.normalize_path(File.join(RightScale::Platform.filesystem.right_link_static_state_dir, 'features.yml'))
 
     CONFIG=\
@@ -40,11 +42,11 @@ module RightScale
 
 
     RIGHTSCALE_KEYS_FILE    = '/home/rightscale/.ssh/authorized_keys'
-    ACTIVE_TAG              = 'rs_login:state=active'
     RESTRICTED_TAG          = 'rs_login:state=restricted'
     COMMENT                 = /^\s*#/
 
     def initialize
+      @login_policy_tag_set = false
       require 'etc'
     end
 
@@ -197,8 +199,11 @@ module RightScale
 
       write_keys_file(user_lines, RIGHTSCALE_KEYS_FILE, { :user => 'rightscale', :group => 'rightscale' })
 
-      tags = [ACTIVE_TAG, RESTRICTED_TAG]
-      AgentTagManager.instance.add_tags(tags)
+      unless @login_policy_tag_set
+        tags = [RESTRICTED_TAG]
+        AgentTagManager.instance.add_tags(tags)
+        @login_policy_tag_set = true
+      end
 
       # Schedule a timer to handle any expiration that is planned to happen in the future
       schedule_expiry(new_policy, agent_identity)
