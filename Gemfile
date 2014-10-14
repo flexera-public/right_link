@@ -3,7 +3,7 @@ source 'https://rubygems.org'
 
 gemspec
 
-# Fresh off the assembly line
+# Proper open-source dependencies of the RightLink gem
 gem 'right_support', '~> 2.8'
 
 gem 'right_agent', '~> 2.3.7'
@@ -17,6 +17,9 @@ gem 'right_scraper', '~> 4.0'
 
 gem 'em-http-request', '1.0.3'
 gem 'fiber_pool',      '1.0.0'
+
+gem 'mixlib-authentication', ">= 1.3.0"
+gem 'ip'
 
 # We have custom builds of some gems containing fixes and patches that are specific
 # to RightScale. Gems in the 'custom' group are published by RightScale to our
@@ -41,16 +44,22 @@ group :windows do
 end
 
 group :build do
-  # This is work around for right_link package building with ruby 1.8 installed
+  # This is work around for right_link_package building with ruby 1.8 installed
   # while right_link gem is running on ruby 1.9
   gem 'rake', '~> 10.0'
 end
 
-group :development do
+# Gems that are needed to run tests
+group :test do
+  gem 'right_develop', '~> 3.1'
   gem 'rspec', '~> 1.3'
+  # TODO: upgrade to RSpec 2.x and flexmock 1.x, avoid spurious Test::Unit output
   gem 'flexmock', '~> 0.9'
+end
+
+# Gems that are useful for development, but not available in CI.
+group :development do
   gem 'rubyforge', '1.0.4'
-  gem 'rcov', '~> 0.8.1',     :platforms => :mri_18
   gem 'ruby-debug',           :platforms => :mri_18
   gem 'debugger', '~> 1.6.1', :platforms => :mri_19
 end
@@ -61,6 +70,3 @@ end
 group :runtime_extras do
   gem 'rb-readline', '~> 0.5.0'
 end
-
-gem 'mixlib-authentication', ">= 1.3.0"
-gem 'ip'
