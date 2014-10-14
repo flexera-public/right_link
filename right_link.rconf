@@ -1,8 +1,7 @@
 ruby do
-  version  '1.9.3-p448'
-  rubygems '1.8.26'
+  version  '1.9.3-p484'
 end
 bundler do
-  version     '1.3.5'
+  version     '1.7.3'
 end
 
