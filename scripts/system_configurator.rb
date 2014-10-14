@@ -38,13 +38,13 @@ cloud_dir = RightScale::AgentConfig.cloud_state_dir
 begin
   require File.join(cloud_dir, 'meta-data-cache')
 rescue LoadError => e
-  puts "No cloud metadata is available on this machine - some modules may not work correctly!"
+  warn "No cloud metadata is available on this machine - some modules may not work correctly!"
 end
 
 begin
   require File.join(cloud_dir, 'user-data')
 rescue LoadError => e
-  puts "No cloud user-data is available on this machine - some modules may not work correctly!"
+  warn "No cloud user-data is available on this machine - some modules may not work correctly!"
 end
 
 module RightScale
