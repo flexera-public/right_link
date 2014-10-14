@@ -37,19 +37,14 @@ end
 
 if RightScale::Platform.windows?
 
-  DYNAMIC_WINDOWS_CHEF_PROVIDERS_PATH = File.join(BASE_RIGHT_CHEF_LIB_DIR_PATH, 'windows')
   STATIC_WINDOWS_CHEF_PROVIDERS_PATH = File.join(BASE_RIGHT_CHEF_PROVIDER_DIR_PATH, 'windows')
-  WINDOWS_CHEF_PROVIDERS_PATHS = [STATIC_WINDOWS_CHEF_PROVIDERS_PATH, DYNAMIC_WINDOWS_CHEF_PROVIDERS_PATH]
 
   # create the Windows default platform hash before loading windows providers.
   Chef::Platform.platforms[:windows] = { :default => { } } unless Chef::Platform.platforms[:windows]
 
-  # load (and self-register) all static/dynamic Windows providers.
-  WINDOWS_CHEF_PROVIDERS_PATHS.each do |base_path|
-    pattern = File.join(base_path, '*.rb')
-    Dir[pattern].each do |rb_file|
-      require File.normalize_path(rb_file)
-    end
+  pattern = File.join(STATIC_WINDOWS_CHEF_PROVIDERS_PATH, '*.rb')
+  Dir[pattern].each do |rb_file|
+    require File.normalize_path(rb_file)
   end
 
 end
