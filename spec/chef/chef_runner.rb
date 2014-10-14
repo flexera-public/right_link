@@ -214,14 +214,6 @@ EOF
         # from converge (rs_shutdown, etc.).
         ::Chef::Client.clear_notifications
 
-        powershell_providers = nil
-        if platform.windows?
-          # generate the powershell providers if any in the cookbook
-          dynamic_provider = DynamicPowershellProvider.new
-          dynamic_provider.generate_providers(Chef::Config[:cookbook_path])
-          powershell_providers = dynamic_provider.providers
-        end
-
         EM.threadpool_size = 1
         EM.run do
           EM.defer do
@@ -234,21 +226,6 @@ EOF
             rescue Exception => e
               # can't raise exeception out of EM, so cache it here.
               last_exception = e
-            ensure
-              # terminate the powershell providers
-              Chef::Log.debug("***************************** TERMINIATING PROVIDERS *****************************")
-
-              # terminiate the providers before the node server as the provider term scripts may still use the node server
-              if powershell_providers
-                powershell_providers.each do |p|
-                  begin
-                    p.terminate
-                  rescue Exception => e
-                    Chef::Log.debug(Log.format("Error terminating '#{p.inspect}'", e, :trace))
-                  end
-                end
-              end
-              Chef::Log.debug("***************************** PROVIDERS TERMINATED *****************************")
             end
 
             if run_as_server

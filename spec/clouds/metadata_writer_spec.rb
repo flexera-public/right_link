@@ -20,9 +20,9 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require File.join(File.dirname(__FILE__), 'spec_helper')
+require File.expand_path('../spec_helper', __FILE__)
 
-METADATA_WRITERS_BASE_DIR = File.join(File.dirname(__FILE__), '..', '..', 'lib', 'clouds', 'metadata_writers')
+METADATA_WRITERS_BASE_DIR = File.expand_path('../../../lib/clouds/metadata_writers', __FILE__)
 
 require File.normalize_path(File.join(METADATA_WRITERS_BASE_DIR, 'dictionary_metadata_writer'))
 require File.normalize_path(File.join(METADATA_WRITERS_BASE_DIR, 'ruby_metadata_writer'))

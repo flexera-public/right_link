@@ -529,7 +529,7 @@ module RightScale
       Sender.instance.send_request(type, payload) do |r|
         r = OperationResult.from_results(r)
         if r && r.success? && r.content.is_a?(RightScale::ExecutableBundle)
-          @scheduler.schedule_bundle(r.content)
+          @scheduler.schedule_bundle(:bundle => r.content)
           reply = @serializer.dump(OperationResult.success)
         else
           reply = @serializer.dump(r) rescue '\"Failed to serialize response\"'

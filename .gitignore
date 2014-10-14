@@ -10,5 +10,7 @@ tags
 nbproject/
 pkg/
 vendor/
+measurement/
+coverage/
 *.cert
 *.key

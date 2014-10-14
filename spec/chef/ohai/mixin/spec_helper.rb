@@ -1,5 +1,4 @@
-require File.expand_path(File.join(File.dirname(__FILE__), '..','..','spec_helper.rb'))
-
+require File.expand_path('../../../spec_helper', __FILE__)
 
 shared_examples_for '!windows env' do
   before(:each) do

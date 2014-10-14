@@ -20,7 +20,7 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require File.expand_path(File.join(File.dirname(__FILE__), 'spec_helper'))
+require File.expand_path('../spec_helper', __FILE__)
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', '..', 'actors', 'instance_scheduler'))
 require File.normalize_path(File.join(File.dirname(__FILE__), 'audit_proxy_mock'))
 require File.normalize_path(File.join(File.dirname(__FILE__), 'instantiation_mock'))
@@ -141,7 +141,7 @@ describe InstanceScheduler do
         @sender.should_receive(:send_push).with('/registrar/remove', {:agent_identity => @identity}).never
         flexmock(@controller).should_receive(:shutdown).never
         flexmock(@agent).should_receive(:terminate).and_return { stop_bundle_queue_and_em_test }
-        res = @scheduler.schedule_bundle(@bundle)
+        res = @scheduler.schedule_bundle("bundle" => @bundle)
         res.success?.should be_true
         EM.next_tick { @scheduler.terminate }
       end
@@ -169,7 +169,7 @@ describe InstanceScheduler do
         bundle = RightScale::ExecutableBundle.new(nil)
         results = @results_factory.success_results(bundle)
         success = RightScale::OperationResult.success
-        flexmock(@scheduler).should_receive(:schedule_bundle).with(bundle).and_return(success).once
+        flexmock(@scheduler).should_receive(:schedule_bundle).with(:bundle => bundle).and_return(success).once
         @sender.should_receive(:send_request).with("/forwarder/schedule_recipe", options.merge(:agent_identity => @identity), Proc).
             and_yield(results).once
         flexmock(@agent).should_receive(:terminate).and_return { stop_bundle_queue_and_em_test }
