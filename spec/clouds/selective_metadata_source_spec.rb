@@ -20,11 +20,12 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require File.join(File.dirname(__FILE__), 'spec_helper')
-require File.join(File.dirname(__FILE__), 'fetch_runner')
-require File.join(File.dirname(__FILE__), '..', '..', 'lib', 'clouds', 'metadata_sources', 'selective_metadata_source')
-require File.join(File.dirname(__FILE__), '..', '..', 'lib', 'clouds', 'metadata_sources', 'file_metadata_source')
-require File.join(File.dirname(__FILE__), '..', '..', 'lib', 'clouds', 'metadata_sources', 'http_metadata_source')
+require File.expand_path('../spec_helper', __FILE__)
+require File.expand_path('../fetch_runner', __FILE__)
+require File.expand_path('../../../lib/clouds/metadata_sources/selective_metadata_source', __FILE__)
+require File.expand_path('../../../lib/clouds/metadata_sources/file_metadata_source', __FILE__)
+require File.expand_path('../../../lib/clouds/metadata_sources/http_metadata_source', __FILE__)
+
 require 'json'
 
 module RightScale

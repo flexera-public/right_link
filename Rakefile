@@ -4,6 +4,7 @@ require 'bundler/setup'
 require 'rubygems/package_task'
 require 'rake/clean'
 require 'right_agent/minimal'
+require 'right_support'
 
 # Ruby standard library dependencies
 require 'fileutils'
@@ -181,4 +182,9 @@ if ::RightScale::Platform.windows?
   task :build do
     do_chef_node_cmdlet_task(:build)
   end
+end
+
+# Install CI harness
+if require_succeeds?('right_develop')
+  RightDevelop::CI::RakeTask.new
 end

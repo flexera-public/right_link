@@ -20,9 +20,8 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  
-require File.join(File.dirname(__FILE__), 'spec_helper.rb')
-require 'flexmock'
- 
+require File.expand_path('../spec_helper', __FILE__)
+
 describe Ohai::System, "plugin rightscale" do
   before(:each) do
     Ohai::Config[:plugin_path] << File.join(File.dirname(__FILE__), '..', '..', 'lib', 'chef', 'plugins')
