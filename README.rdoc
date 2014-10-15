@@ -27,7 +27,7 @@ documentation.
 Use the built-in issues tracker (https://github.com/rightscale/right_link/issues)
 to report issues.
 
-Maintained by the RightScale Ivory/Teal Team
+Maintained by the RightScale Ivory Team
 
 == Interface
 
