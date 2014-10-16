@@ -12,6 +12,7 @@
 require File.expand_path(File.join(File.dirname(__FILE__), '..', 'spec_helper'))
 require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'scripts', 'system_configurator'))
 
+
 describe RightScale::SystemConfigurator do
   context '.run' do
     it 'should read the options file'
@@ -50,13 +51,21 @@ describe RightScale::SystemConfigurator do
     it "logs a warning if public key is empty string" do
       ENV['VS_SSH_PUBLIC_KEY'] = ""
       subject.configure_root_access
-      @output.should include "No public SSH key found in metadata"
+      if RightScale::Platform.windows?
+        @output.should == []
+      else
+        @output.should include "No public SSH key found in metadata"
+      end
     end
 
     it "logs a warning if no public key is specified" do
       ENV['VS_SSH_PUBLIC_KEY'] = nil
       subject.configure_root_access
-      @output.should include "No public SSH key found in metadata"
+      if RightScale::Platform.windows?
+        @output.should == []
+      else
+        @output.should include "No public SSH key found in metadata"
+      end
     end
 
 
@@ -66,8 +75,12 @@ describe RightScale::SystemConfigurator do
       flexmock(::FileUtils).should_receive(:chmod).with(0600, authorized_keys_file)
       flexmock(::File).should_receive(:exists?).and_return(false)
       flexmock(::File).should_receive(:open, "a").and_return(true)
+      if RightScale::Platform.windows?
+        @output.should == []
+      else
+        @output.should include "Appending public ssh key to #{authorized_keys_file}"
+      end
       subject.configure_root_access
-      @output.should include "Appending public ssh key to #{authorized_keys_file}"
     end
 
     it "does nothing if key is already authorized" do
@@ -78,8 +91,12 @@ describe RightScale::SystemConfigurator do
       flexmock(::FileUtils).should_receive(:chmod).with(0600, authorized_keys_file)
       flexmock(::File).should_receive(:exists?).and_return(true)
       flexmock(::File).should_receive(:open).and_yield(ssh_keys_file)
+      if RightScale::Platform.windows?
+        @output.should == []
+      else
+        @output.should include "Public ssh key for root already exists in #{authorized_keys_file}"
+      end
       subject.configure_root_access
-      @output.should include "Public ssh key for root already exists in #{authorized_keys_file}"
     end
   end
 
