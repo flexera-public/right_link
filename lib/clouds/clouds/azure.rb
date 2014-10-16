@@ -35,6 +35,58 @@ metadata_writers 'metadata_writers/dictionary_metadata_writer',
 # set abbreviation for non-RS env var generation
 abbreviation :waz
 
+
+# RightApi API version for use in X-API-Version header
+API_VERSION = "1.5"
+
+# Default time to wait for HTTP connection to open
+DEFAULT_OPEN_TIMEOUT = 2
+
+# Default time to wait for response from request, which is chosen to be 5 seconds greater
+# than the response timeout inside the RightNet router
+DEFAULT_REQUEST_TIMEOUT = 5
+
+# Retrieve new user-data from RightApi
+#
+# @param [String] RigthtApi url
+# @param [String] Client ID
+# @param [String] Client Secret
+# @param [Block] Yield on block with retieved data
+#
+# @return [TrueClass] always true
+def retrieve_updated_data(api_url, client_id, client_secret)
+  require 'right_agent'
+  data = nil
+  options = {
+    :api_version => API_VERSION,
+    :open_timeout => DEFAULT_OPEN_TIMEOUT,
+    :request_timeout => DEFAULT_REQUEST_TIMEOUT,
+    :filter_params => [:client_secret] }
+  url = URI.parse(api_url)
+  http_client = RightScale::BalancedHttpClient.new([url.to_s], options)
+  begin
+    response = http_client.post("/oauth2", {
+      :client_id => client_id.to_s,
+      :client_secret => client_secret,
+      :grant_type => "client_credentials" } )
+    response = SerializationHelper.symbolize_keys(response)
+    access_token = response[:access_token]
+    raise "Could not authoried on #{api_url} using oauth2" if access_token.nil?
+
+    response = http_client.get("/user_data", {
+      :client_id => client_id.to_s,
+      :client_secret => client_secret },
+       { :headers => {"Authorization" => "Bearer #{access_token}" } })
+    data = response.to_s
+    http_client.close("Updated user-data has been gotten")
+  rescue
+    http_client.close($!.message)
+  end
+  raise "Updated user-data is empty" if data.nil?
+  yield data
+  true
+end
+
 # Parses azure user metadata into a hash.
 #
 # === Parameters
@@ -46,6 +98,12 @@ abbreviation :waz
 def create_user_metadata_leaf(tree_climber, data)
   result = tree_climber.create_branch
   ::RightScale::CloudUtilities.split_metadata(data.strip, '&', result)
+  api_url       = "https://#{result['RS_server']}/api"
+  client_id     = result['RS_rn_id']
+  client_secret = result['RS_rn_auth']
+  retrieve_updated_data(api_url, client_id , client_secret) do |updated_data|
+    ::RightScale::CloudUtilities.split_metadata(updated_data.strip, '&', result)
+  end
   result
 end
 
