@@ -1,3 +1,11 @@
+= 6.2.0
+
+Released 2014-10-17
+
+== New Features
+* Azure cloud
+ * support start|stop
+
 = 6.1.5
 
 Released 2014-08-25
@@ -14,7 +22,7 @@ Released 2014-08-25
 * Environment variable RS_CLOUD is no longer set for RightScripts. Use RS_CLOUD_PROVIDER instead.
 * Ubuntu/Debian: RightLink package now depends on generic "openssl" packages instead of specific version 0.9.8 openssl package
 * Linux packages have been reorgnized. Source packages are now available for RightLink and the RightLink sandbox for all RightLink repositories. The "rightlink" package now contains all RightLink code and gems, while the "rightlink-sandbox" package contains only Ruby and Rubygems.
-* RightLink decomission bundle is now run on a separate thread.  
+* RightLink decomission bundle is now run on a separate thread.
 * vSphere: The floppy drive should no longer be automounted at boot. vSphere metadata is now transmitted via VMware extra config. VMware tools must be pre-installed on the image to support this. When uploading images via ovftool make sure allowExtraConfig option is enabled as well.
 * RightScript parameters that are changed from a value to the unset value "No value/ignore" will no longer remember the old value on subsequent runs. The value will now be set to a null value.
 * RightScale credentials are now also masked in system logs and not just audit entries. These values will now show up as <hidden input INPUTNAME> instead of their value.
@@ -27,7 +35,7 @@ Released 2014-08-25
 * vSphere cloud
   * SSH key no longer missing if an invalid network config is applied.
   * Removed startup delays waiting for DHCP to timeout if no DHCP network is specified.
-  * Removed need to clean system network configuration scripts as mentioned in 6.0.6 "Known limitations" section when snapshotting instances. 
+  * Removed need to clean system network configuration scripts as mentioned in 6.0.6 "Known limitations" section when snapshotting instances.
 * Ubuntu: RightLink places all its managed repo config files in /etc/apt/sources.list.d. It now creates an empty /etc/apt/sources.list as well instead of simply removing it. This avoids compatibility issues with programs such update-notifier which expect a file to exist at that location.
 * RightLink no longer blocks console login when failing to enroll.
 * RightLink regenerates /etc/ssh/ssh_host_ecdsa_key if it exists now on first boot.
