@@ -28,8 +28,12 @@ module RightScale
 
   module MetadataSources
 
-    # Provides metadata by reading a dictionary file on disk.
-    class CertificateMetadataSource < MetadataSource
+    # Azure doesn't really have any sort of unified metadata service. It currently has three separate sources to stitch together for userdata and metadata:
+    #   1. A cdrom drive is mounted at startup by the WALinuxAgent service. This has an xml file with Hostname, Username/password info, UserData (called CustomData). The CustomData is a newer thing which we don't use unfortunately, as it would be handy
+    #   2. Certificate metadata source. Currently used ONLY for userdata. This is a proprietary "hacky" solution in which we stuff secret userdata in a X509 certificate attached to the instance at Launch time
+    #   3. Azure has a metadata service with HostName, Networking information, Instance information, Plugin information, and some other goodies in its "fabric controller". This is XML served via a web service. The url of that web service is passed as "option 245" in the DHCP server response at bootup
+    #   We currently use 2 for userdata and 3 for metadata above, though we'd like to use 1 for userdata and 3 for metadata and ditch our solution
+    class AzureMetadataSource < MetadataSource
 
       # definitions for querying kinds of metadata by a simple path.
       DEFAULT_CLOUD_METADATA_ROOT_PATH = "cloud_metadata"

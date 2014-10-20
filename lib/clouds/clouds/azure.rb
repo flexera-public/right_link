@@ -21,15 +21,14 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 # Location for injected certificate
-CERT_FILE = '/var/lib/waagent/Certificates.pem'
+CERT_FILE = platform.windows? 'cert:/LocalMachine/My' : '/var/lib/waagent/Certificates.pem'
 
 # Windows changes the ST=CA portion of our issuer name to S=CA at some point.
 ISSUER_STATE_KEY = platform.windows? ? 'S' : 'ST'
 
 # dependencies.
 
-userdata_source 'metadata_sources/azure_metadata_source'
-metadata_source 'metadata_sources/certificate_metadata_source'
+metadata_source 'metadata_sources/azure_metadata_source'
 metadata_writers 'metadata_writers/dictionary_metadata_writer',
                  'metadata_writers/ruby_metadata_writer',
                  'metadata_writers/shell_metadata_writer'
@@ -110,7 +109,7 @@ def create_user_metadata_leaf(tree_climber, data)
 end
 
 # defaults.
-default_option([:metadata_source, :user_metadata_cert_store], platform.windows? ? "cert:/LocalMachine/My" : CERT_FILE)
+default_option([:metadata_source, :user_metadata_cert_store], CERT_FILE)
 default_option([:metadata_source, :user_metadata_cert_issuer], "O=RightScale, C=US, #{ISSUER_STATE_KEY}=CA, CN=RightScale User Data")
 
 default_option([:user_metadata, :metadata_tree_climber, :create_leaf_override], method(:create_user_metadata_leaf))
