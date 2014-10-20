@@ -21,7 +21,7 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 # Location for injected certificate
-CERT_FILE = platform.windows? 'cert:/LocalMachine/My' : '/var/lib/waagent/Certificates.pem'
+CERT_FILE = platform.windows? ? 'cert:/LocalMachine/My' : '/var/lib/waagent/Certificates.pem'
 
 # Windows changes the ST=CA portion of our issuer name to S=CA at some point.
 ISSUER_STATE_KEY = platform.windows? ? 'S' : 'ST'
@@ -125,14 +125,3 @@ default_option([:metadata_source, :user_metadata_cert_issuer], "O=RightScale, C=
 default_option([:user_metadata, :metadata_tree_climber, :create_leaf_override], method(:get_updated_userdata))
 default_option([:cloud_metadata, :metadata_tree_climber, :create_leaf_override], method(:parse_metadata))
 default_option([:cloud_metadata, :metadata_tree_climber, :has_children_override], lambda { |*| false } )
-
-
-def wait_for_instance_ready
-  if platform.linux?
-    STDOUT.puts "Waiting for instance to appear ready."
-    until File.exist?(CERT_FILE) && File.mtime(CERT_FILE).to_f > platform.shell.booted_at.to_f do
-      sleep(1)
-    end
-    STDOUT.puts "Instance appears ready."
-  end
-end

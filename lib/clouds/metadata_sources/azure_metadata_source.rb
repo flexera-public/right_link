@@ -58,6 +58,10 @@ module RightScale
           @vm_name ||= @shared_config.elements["SharedConfig/Deployment/Service"].attributes["name"] rescue nil
         end
 
+        def instance_id
+          @instance_id ||= @shared_config.elements["SharedConfig/Instances/Instance"].attributes["id"] rescue nil
+        end
+
         def private_ip
           @private_ip ||= @shared_config.elements["SharedConfig/Instances/Instance"].attributes["address"] rescue nil
         end
@@ -115,7 +119,7 @@ module RightScale
       end
 
       # Azure cloud has a metadata service (called the fabric controller). The ip of this
-      # is passed in the response to DHCP discover packet as option 245. Proceed to 
+      # is passed in the response to DHCP discover packet as option 245. Proceed to
       # query the DHCP server, then parse its response for that option
       # See WALinuxAgent project as a reference, which does a bit more:
       #   - add then remove default route
@@ -194,6 +198,7 @@ module RightScale
 
 
         metadata = {
+          'instance_id'     => shared_config.instance_id,
           'public_ip'       => shared_config.public_ip,
           'private_ip'      => shared_config.private_ip,
           'vm_name'         => shared_config.vm_name,
@@ -374,10 +379,6 @@ EOF
         end
         return result
       end
-
-
-
-
 
     end  # AzureMetadataSource
 
