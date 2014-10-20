@@ -34,7 +34,7 @@ metadata_writers 'metadata_writers/dictionary_metadata_writer',
                  'metadata_writers/shell_metadata_writer'
 
 # set abbreviation for non-RS env var generation
-abbreviation :waz
+abbreviation :azure
 
 
 # RightApi API version for use in X-API-Version header
@@ -116,6 +116,16 @@ def parse_metadata(tree_climber, data)
     result[k.to_s.strip] = v.to_s.strip
   end
   result
+end
+
+def wait_for_instance_ready
+  if platform.linux?
+    STDOUT.puts "Waiting for instance to appear ready."
+    until File.exist?(CERT_FILE) && File.mtime(CERT_FILE).to_f > platform.shell.booted_at.to_f do
+      sleep(1)
+    end
+    STDOUT.puts "Instance appears ready."
+  end
 end
 
 # defaults.

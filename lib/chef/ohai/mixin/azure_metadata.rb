@@ -44,8 +44,12 @@ module ::Ohai::Mixin::AzureMetadata
       raise InvalidConfig unless REQUIRED_ELEMENTS.all? { |element| @shared_config.elements[element] }
     end
 
-    def vm_name
-      @vm_name ||= @shared_config.elements["SharedConfig/Deployment/Service"].attributes["name"] rescue nil
+    def service_name
+      @service_name ||= @shared_config.elements["SharedConfig/Deployment/Service"].attributes["name"] rescue nil
+    end
+
+    def instance_id
+      @instance_id ||= @shared_config.elements["SharedConfig/Instances/Instance"].attributes["id"] rescue nil
     end
 
     def private_ip
@@ -185,10 +189,11 @@ module ::Ohai::Mixin::AzureMetadata
 
 
     metadata = {
+      'instance_id'     => shared_config.instance_id,
       'public_ip'       => shared_config.public_ip,
       'private_ip'      => shared_config.private_ip,
-      'vm_name'         => shared_config.vm_name,
-      'public_fqdn'     => "#{shared_config.vm_name}.cloudapp.net"
+      'service_name'    => shared_config.service_name,
+      'public_fqdn'     => "#{shared_config.service_name}.cloudapp.net"
     }
 
     metadata['public_ssh_port'] = shared_config.public_ssh_port if shared_config.public_ssh_port
