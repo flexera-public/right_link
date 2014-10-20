@@ -1,6 +1,6 @@
 GIT
   remote: git@github.com:rightscale/chef.git
-  revision: c528aee3350dcdb3f98a1a42faf1ba8949a49de4
+  revision: 57b5a7b6c15152b69ab99d6fcb3bd6b745ddbde6
   branch: ivory_14_18_acu178887_rightscale_11.14
   specs:
     chef (11.14.6.0)
@@ -103,7 +103,7 @@ GEM
       eventmachine (>= 0.12.0)
       websocket-driver (>= 0.3.5)
     ffi (1.9.6)
-    ffi-yajl (1.1.0)
+    ffi-yajl (1.2.0)
       ffi (~> 1.5)
       libyajl2 (~> 1.0)
     fiber_pool (1.0.0)
@@ -114,7 +114,7 @@ GEM
     ip (0.3.1)
     ipaddress (0.8.0)
     json (1.7.7)
-    libyajl2 (1.0.1)
+    libyajl2 (1.1.0)
     linecache (0.46)
       rbx-require-relative (> 0.0.4)
     method_source (0.8.2)
@@ -133,7 +133,7 @@ GEM
     net-ssh-multi (1.2.0)
       net-ssh (>= 2.6.5)
       net-ssh-gateway (>= 1.2.0)
-    netrc (0.7.7)
+    netrc (0.7.9)
     ohai (7.2.4)
       ffi (~> 1.9)
       ffi-yajl (~> 1.0)
