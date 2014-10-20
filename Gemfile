@@ -29,7 +29,7 @@ group :custom do
   gem 'ohai', '6.18.0.2'
   gem 'mixlib-shellout', '1.2.0.2'
   gem 'eventmachine', '1.0.0.10'
-  gem 'rest-client', '1.7.0.3'
+  gem 'rest-client', '1.7.0.4'
 end
 
 # we are now using mingw so the need to carefully lock Windows gems has been
