@@ -96,7 +96,7 @@ end
 #
 # === Return
 # result(Hash):: Hash-like leaf value
-def create_user_metadata_leaf(tree_climber, data)
+def get_updated_userdata(tree_climber, data)
   result = tree_climber.create_branch
   ::RightScale::CloudUtilities.split_metadata(data.strip, '&', result)
   api_url       = "https://#{result['RS_server']}/api"
@@ -108,11 +108,24 @@ def create_user_metadata_leaf(tree_climber, data)
   result
 end
 
+def parse_metadata(tree_climber, data)
+  result = tree_climber.create_branch
+  data.each do |k, v|
+    # Make sure we coerce into strings. The json blob returned here auto-casts
+    # types which will mess up later steps
+    result[k.to_s.strip] = v.to_s.strip
+  end
+  result
+end
+
 # defaults.
 default_option([:metadata_source, :user_metadata_cert_store], CERT_FILE)
 default_option([:metadata_source, :user_metadata_cert_issuer], "O=RightScale, C=US, #{ISSUER_STATE_KEY}=CA, CN=RightScale User Data")
 
-default_option([:user_metadata, :metadata_tree_climber, :create_leaf_override], method(:create_user_metadata_leaf))
+default_option([:user_metadata, :metadata_tree_climber, :create_leaf_override], method(:get_updated_userdata))
+default_option([:cloud_metadata, :metadata_tree_climber, :create_leaf_override], method(:parse_metadata))
+default_option([:cloud_metadata, :metadata_tree_climber, :has_children_override], lambda { |*| false } )
+
 
 def wait_for_instance_ready
   if platform.linux?
