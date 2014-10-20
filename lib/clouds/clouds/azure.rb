@@ -27,6 +27,8 @@ CERT_FILE = '/var/lib/waagent/Certificates.pem'
 ISSUER_STATE_KEY = platform.windows? ? 'S' : 'ST'
 
 # dependencies.
+
+userdata_source 'metadata_sources/azure_metadata_source'
 metadata_source 'metadata_sources/certificate_metadata_source'
 metadata_writers 'metadata_writers/dictionary_metadata_writer',
                  'metadata_writers/ruby_metadata_writer',

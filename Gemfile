@@ -18,6 +18,10 @@ gem 'right_scraper', '~> 4.0'
 gem 'em-http-request', '1.0.3'
 gem 'fiber_pool',      '1.0.0'
 
+# A requirement for our custom ohai fork, and metadata scraper. Needed 
+# to get metadata for the Azure cloud
+gem 'net-dhcp'
+
 # We have custom builds of some gems containing fixes and patches that are specific
 # to RightScale. Gems in the 'custom' group are published by RightScale to our
 # custom gem repository (http://s3.amazonaws.com/rightscale_rightlink_gems_dev).
