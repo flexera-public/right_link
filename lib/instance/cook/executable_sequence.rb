@@ -270,6 +270,8 @@ module RightScale
       # by setting different lockfile per thread.
       Chef::Config[:lockfile] = File.join(Chef::Config[:file_cache_path], "chef-client-#{@thread_name}-running.pid")
 
+      Chef::Config[:ssl_verify_mode] = :verify_peer
+
       true
     end
 
