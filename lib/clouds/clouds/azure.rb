@@ -119,9 +119,12 @@ def parse_metadata(tree_climber, data)
 end
 
 def wait_for_instance_ready
+  # On a rebundle, the cert file may exist but be from a previous launch. No way of fixing this, as the
+  # modified time of the cert_file will be older than the booted time on start/stop (its not refreshed)
+  # and newer than the booted time on a normal boot. Customers have to know to clean /var/lib/waagent.
   if platform.linux?
     STDOUT.puts "Waiting for instance to appear ready."
-    until File.exist?(CERT_FILE) && File.mtime(CERT_FILE).to_f > platform.shell.booted_at.to_f do
+    until File.exist?(CERT_FILE)
       sleep(1)
     end
     STDOUT.puts "Instance appears ready."
