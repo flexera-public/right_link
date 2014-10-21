@@ -135,3 +135,4 @@ default_option([:metadata_source, :user_metadata_cert_issuer], "O=RightScale, C=
 default_option([:user_metadata, :metadata_tree_climber, :create_leaf_override], method(:get_updated_userdata))
 default_option([:cloud_metadata, :metadata_tree_climber, :create_leaf_override], method(:parse_metadata))
 default_option([:cloud_metadata, :metadata_tree_climber, :has_children_override], lambda { |*| false } )
+default_option([:cloud_metadata, :metadata_writers, :ruby_metadata_writer, :generation_command], cloud_metadata_generation_command)

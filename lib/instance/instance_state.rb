@@ -613,14 +613,8 @@ module RightScale
     def self.current_resource_uid
       resource_uid = nil
       begin
-        meta_data_cache_file = ::File.join(AgentConfig.cloud_state_dir, 'meta-data-cache.rb')
-        meta_data_file       = ::File.join(AgentConfig.cloud_state_dir, 'meta-data.rb')
-        # metadata does not exist on all clouds, hence the conditional
-        if File.file?(meta_data_cache_file)
-          load(meta_data_cache_file)
-        elsif File.file?(meta_data_file)
-          load(meta_data_file)
-        end
+        meta_data_file = ::File.join(AgentConfig.cloud_state_dir, 'meta-data-cache.rb')
+        load(meta_data_file) if File.file?(meta_data_file)
         # Note: can be EC2_INSTANCE_ID, VS_INSTANCE_ID, AZURE_INSTANCE_ID
         if key = ENV.keys.find { |k| k =~ /INSTANCE_ID/ }
           resource_uid = ENV[key]
