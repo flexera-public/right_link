@@ -20,8 +20,8 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require File.join(File.dirname(__FILE__), 'spec_helper')
-require File.join(File.dirname(__FILE__), '..', '..', 'actors', 'instance_services')
+require File.expand_path('../spec_helper', __FILE__)
+require File.expand_path('../../../actors/instance_services', __FILE__)
 
 describe InstanceServices do
 
@@ -51,15 +51,17 @@ describe InstanceServices do
     end
 
     it 'updates the login policy' do
-      flexmock(@mgr).should_receive(:update_policy).with(@policy, @identity, FlexMock.any).and_return(true)
+      flexmock(@mgr).should_receive(:update_policy).with(@policy, @identity, FlexMock.any).and_return(true).once
 
-      @services.update_login_policy(@policy)
+      @services.update_login_policy("policy" => @policy)
     end
 
     it 'audits failures when they occur' do
       error = "I'm sorry Dave, I can't do that."
-      @audit_proxy.should_receive(:append_error).with(/#{error}/, Hash)
-      flexmock(@mgr).should_receive(:update_policy).with(@policy).and_raise(Exception.new(error))
+      @audit_proxy.should_receive(:append_error).with(/#{error}/, Hash).once
+      flexmock(@mgr).should_receive(:update_policy).and_raise(Exception.new(error)).once
+
+      @services.update_login_policy("policy" => @policy)
     end
   end
 

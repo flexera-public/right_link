@@ -98,7 +98,7 @@ module RightScale
       parse do
         options.merge!(parser.parse)
         if options[:level]
-          fail("Invalig log level '#{options[:level]}'") unless AgentManager::LEVELS.include?(options[:level].to_sym)
+          fail("Invalid log level '#{options[:level]}'") unless AgentManager::LEVELS.include?(options[:level].to_sym)
         end
         options
       end

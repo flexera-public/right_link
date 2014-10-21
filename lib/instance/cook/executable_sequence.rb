@@ -83,7 +83,6 @@ module RightScale
       @downloader             = ReposeDownloader.new(bundle.repose_servers)
       @downloader.logger      = Log
       @download_path          = File.join(AgentConfig.cookbook_download_dir, @thread_name)
-      @powershell_providers   = nil
       @ohai_retry_delay       = OHAI_RETRY_MIN_DELAY
       @audit                  = AuditStub.instance
       @logger                 = Log
@@ -174,7 +173,6 @@ module RightScale
         checkout_cookbook_repos if @ok
         download_cookbooks if @ok
         update_cookbook_path if @ok
-        setup_powershell_providers if RightScale::Platform.windows?
 
         # note that chef normally enforces path sanity before executing ohai in
         # the client run method. we create ohai before client run and some ohai
@@ -532,17 +530,6 @@ module RightScale
       return true
     end
 
-    # Create Powershell providers from cookbook repos
-    #
-    #
-    # === Return
-    # true:: Always return true
-    def setup_powershell_providers
-      dynamic_provider = DynamicPowershellProvider.new
-      dynamic_provider.generate_providers(Chef::Config[:cookbook_path])
-      @powershell_providers = dynamic_provider.providers
-    end
-
     # Checks whether Ohai is ready and calls given block with it
     # if that's the case otherwise schedules itself to try again
     # indefinitely
@@ -651,18 +638,6 @@ module RightScale
         report_failure('Execution failed', chef_error(e))
         Log.debug(Log.format("Execution failed", e, :trace))
       ensure
-        # terminate the powershell providers
-        # terminate the providers before the node server as the provider term scripts may still use the node server
-        if @powershell_providers
-          @powershell_providers.each do |p|
-            begin
-              p.terminate
-            rescue Exception => e
-              Log.debug(Log.format("Error terminating #{p.inspect}", e, :trace))
-            end
-          end
-        end
-
         # kill the chef node provider
         RightScale::Windows::ChefNodeServer.instance.stop rescue nil if RightScale::Platform.windows?
       end

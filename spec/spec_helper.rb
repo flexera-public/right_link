@@ -497,16 +497,16 @@ EOF
             ohai_cache_timeout_secs = 4 * 60 * 60
             if (::File.file?(cached_ohai_json_path) &&
               ((::Time.now - ::File.stat(cached_ohai_json_path).mtime) < ohai_cache_timeout_secs))
-              puts "Using cached ohai from #{cached_ohai_json_path.inspect}"
+              warn "Using cached ohai from #{cached_ohai_json_path.inspect}"
               ohai_hash = ::Yajl::Parser.new.parse(File.read(cached_ohai_json_path))
               ohai_hash.each { |k, v| @@ohai.data[k] = v }
             else
               # print a heads-up to the dev who is wondering why specs run so
               # slow at first.
-              puts '*** Initializing ohai once ***'
+              warn '*** Initializing ohai once ***'
               @@ohai.all_plugins
-              puts '*** Finished ohai ***'
-              puts "Writing cached ohai result to #{cached_ohai_json_path.inspect}"
+              warn '*** Finished ohai ***'
+              warn "Writing cached ohai result to #{cached_ohai_json_path.inspect}"
               ::File.open(cached_ohai_json_path, 'w') do |f|
                 f.puts @@ohai.json_pretty_print
               end

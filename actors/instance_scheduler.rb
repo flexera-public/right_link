@@ -57,11 +57,12 @@ class InstanceScheduler
   # Schedule given script bundle so it's run as soon as possible
   #
   # === Parameter
-  # bundle(RightScale::ExecutableBundle):: Bundle to be scheduled
+  # options[:bundle](RightScale::ExecutableBundle):: Bundle to be executed
   #
   # === Return
   # res(RightScale::OperationResult):: Always returns success
-  def schedule_bundle(bundle)
+  def schedule_bundle(options)
+    bundle = options["bundle"] || options[:bundle]
     unless bundle.executables.empty?
       if bundle.respond_to?(:runlist_policy) && bundle.runlist_policy && bundle.runlist_policy.policy_name
         if RightScale::PolicyManager.registered?(bundle)
@@ -152,7 +153,7 @@ class InstanceScheduler
     forwarder = lambda do |type|
       send_request("/forwarder/schedule_#{type}", payload) do |r|
         r = result_from(r)
-        r = schedule_bundle(r.content) if r.success? && r.content.is_a?(RightScale::ExecutableBundle)
+        r = schedule_bundle(:bundle => r.content) if r.success? && r.content.is_a?(RightScale::ExecutableBundle)
         RightScale::Log.error("Failed executing #{type} for #{payload.inspect}", r.content) unless r.success?
       end
     end

@@ -200,23 +200,29 @@ module RightScale
       end
 
       it 'should try all IPs of hostname 1, then all IPs of hostname 2, etc' do
-        hostnames = ["hostname1", "hostname2"]
-        ips = { "1.1.1.1" => "hostname2",
-          "2.2.2.2" => "hostname1",
-          "3.3.3.3" => "hostname2",
-          "4.4.4.4" => "hostname1"
+        hostnames = ['hostname1', 'hostname2']
+        ips = {
+          '1.1.1.1' => 'hostname1',
+          '2.2.2.2' => 'hostname1',
+          '3.3.3.3' => 'hostname2',
+          '4.4.4.4' => 'hostname2',
         }
-        ordered_hosts = ["hostname1", "hostname1", "hostname2", "hostname2"]
 
         subject.instance_variable_set(:@hostnames, hostnames)
         subject.instance_variable_set(:@ips, ips)
 
+        seen = []
+        iter = 0
+
         balancer.request do |endpoint|
-          if ordered_hosts.length > 0
-            ips[endpoint].should == ordered_hosts.shift
+          if iter < 4
+            seen << endpoint
+            iter += 1
             Net::HTTPInternalServerError.new('1.1', 'RequestTimeout', '408').value
           end
         end
+
+        seen.sort.should == ['1.1.1.1', '2.2.2.2', '3.3.3.3', '4.4.4.4']
       end
     end
 
