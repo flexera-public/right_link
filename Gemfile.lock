@@ -1,6 +1,6 @@
 GIT
   remote: git@github.com:rightscale/chef.git
-  revision: 57b5a7b6c15152b69ab99d6fcb3bd6b745ddbde6
+  revision: 1bbe549128c67face91cf383a14e41863950b5a0
   branch: ivory_14_18_acu178887_rightscale_11.14
   specs:
     chef (11.14.6.0)
