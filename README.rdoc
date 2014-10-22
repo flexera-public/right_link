@@ -1,6 +1,6 @@
 = RightLink
 
-{<img src="https://travis-ci.org/rightscale/right_link.svg?branch=master">}[https://travis-ci.org/rightscale/right_link]
+master: {<img src="https://travis-ci.org/rightscale/right_link.svg?branch=master">}[https://travis-ci.org/rightscale/right_link]
 
 = DESCRIPTION
 
