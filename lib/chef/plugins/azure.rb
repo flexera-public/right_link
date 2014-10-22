@@ -20,23 +20,27 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-provides 'azure'
-
 require 'chef/ohai/mixin/azure_metadata'
 
-extend ::Ohai::Mixin::AzureMetadata
-
-def looks_like_azure?
-  looks_like_azure = hint?('azure')
-  ::Ohai::Log.debug("looks_like_azure? == #{looks_like_azure.inspect}")
-  looks_like_azure
-end
+Ohai.plugin(:Azure) do
+  provides 'azure'
 
 
-if looks_like_azure?
-  metadata = fetch_metadata(dhcp_lease_provider)
-  azure Mash.new
-  if metadata
-    metadata.each { |k,v| azure[k] = v }
+  include ::Ohai::Mixin::AzureMetadata
+
+  def looks_like_azure?
+    looks_like_azure = hint?('azure')
+    ::Ohai::Log.debug("looks_like_azure? == #{looks_like_azure.inspect}")
+    looks_like_azure
+  end
+
+  collect_data(:linux, :windows) do
+    if looks_like_azure?
+      metadata = fetch_metadata(dhcp_lease_provider)
+      azure Mash.new
+      if metadata
+        metadata.each { |k,v| azure[k] = v }
+      end
+    end
   end
 end

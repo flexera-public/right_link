@@ -25,7 +25,7 @@ require File.expand_path('../spec_helper', __FILE__)
 describe RightScale::CloudUtilities do
   before(:each) do
     @ohai = Ohai::System.new
-    flexmock(@ohai).should_receive(:require_plugin).and_return(true)
+    flexmock(@ohai).should_receive(:depends).and_return(true)
   end
 
   context '#can_contact_metadata_server?' do

@@ -46,7 +46,7 @@ describe Ohai::System, ' plugin cloudstack' do
 
     # ohai to be tested
     @ohai = Ohai::System.new
-    flexmock(@ohai).should_receive(:require_plugin).and_return(true)
+    flexmock(@ohai).should_receive(:depends).and_return(true)
     @cloudstack = get_plugin("cloudstack", @ohai)
   end
 

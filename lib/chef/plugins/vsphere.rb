@@ -22,21 +22,25 @@
 
 require 'chef/ohai/mixin/rightlink'
 
-extend ::Ohai::Mixin::RightLink::CloudUtilities
+Ohai.plugin(:Vsphere) do
+  include ::Ohai::Mixin::RightLink::CloudUtilities
 
-provides 'vsphere'
-require_plugin 'network'
+  provides 'vsphere'
+  depends 'network'
 
-def looks_like_vsphere?
-  looks_like_vsphere = hint?('vsphere')
-  ::Ohai::Log.debug("looks_like_vsphere? == #{looks_like_vsphere.inspect}")
-  looks_like_vsphere
-end
+  def looks_like_vsphere?
+    looks_like_vsphere = hint?('vsphere')
+    ::Ohai::Log.debug("looks_like_vsphere? == #{looks_like_vsphere.inspect}")
+    looks_like_vsphere
+  end
 
-if looks_like_vsphere?
-  vsphere Mash.new
-  vsphere['local_ipv4'] = private_ips(network).first
-  vsphere['public_ipv4'] = public_ips(network).first
-  vsphere['private_ips'] = private_ips(network)
-  vsphere['public_ips'] = public_ips(network)
+  collect_data do
+    if looks_like_vsphere?
+      vsphere Mash.new
+      vsphere['local_ipv4'] = private_ips(network).first
+      vsphere['public_ipv4'] = public_ips(network).first
+      vsphere['private_ips'] = private_ips(network)
+      vsphere['public_ips'] = public_ips(network)
+    end
+  end
 end

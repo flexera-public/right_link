@@ -34,7 +34,7 @@ describe Ohai::System, ' plugin softlayer' do
 
     # ohai to be tested
     @ohai = Ohai::System.new
-    flexmock(@ohai).should_receive(:require_plugin).and_return(true)
+    flexmock(@ohai).should_receive(:depends).and_return(true)
     @softlayer = get_plugin("softlayer", @ohai)
     @network = {
         :interfaces => {

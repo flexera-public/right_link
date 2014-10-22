@@ -20,23 +20,28 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-provides 'cloudstack'
 require 'chef/ohai/mixin/cloudstack_metadata'
 
-extend ::Ohai::Mixin::CloudstackMetadata
+Ohai.plugin(:Cloudstack) do
+  provides 'cloudstack'
 
-def looks_like_cloudstack?
-  looks_like_cloudstack = hint?('cloudstack')
-  ::Ohai::Log.debug("looks_like_cloudstack? == #{looks_like_cloudstack.inspect} ")
-  looks_like_cloudstack
-end
+  include ::Ohai::Mixin::CloudstackMetadata
 
-if looks_like_cloudstack?
-  dhcp_ip = dhcp_lease_provider
-  metadata = fetch_metadata(dhcp_ip)
-  cloudstack Mash.new
-  if metadata
-    metadata.each { |k,v| cloudstack[k] = v }
+  def looks_like_cloudstack?
+    looks_like_cloudstack = hint?('cloudstack')
+    ::Ohai::Log.debug("looks_like_cloudstack? == #{looks_like_cloudstack.inspect} ")
+    looks_like_cloudstack
   end
-  cloudstack['dhcp_lease_provider_ip'] = dhcp_ip
+
+  collect_data do
+    if looks_like_cloudstack?
+      dhcp_ip = dhcp_lease_provider
+      metadata = fetch_metadata(dhcp_ip)
+      cloudstack Mash.new
+      if metadata
+        metadata.each { |k,v| cloudstack[k] = v }
+      end
+      cloudstack['dhcp_lease_provider_ip'] = dhcp_ip
+    end
+  end
 end

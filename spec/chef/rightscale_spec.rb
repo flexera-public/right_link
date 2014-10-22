@@ -26,7 +26,7 @@ describe Ohai::System, "plugin rightscale" do
   before(:each) do
     Ohai::Config[:plugin_path] << File.join(File.dirname(__FILE__), '..', '..', 'lib', 'chef', 'plugins')
     @ohai = Ohai::System.new
-    flexmock(@ohai).should_receive(:require_plugin).and_return(true)
+    flexmock(@ohai).should_receive(:depends).and_return(true)
     @rightscale = get_plugin("rightscale", @ohai)
   end
   

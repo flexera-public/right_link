@@ -36,90 +36,92 @@
 
 require 'json'
  
-provides "rightscale"
 
-class RightScale
-  MetaDataFile = "/var/spool/rackspace/user-data.txt"  
-end
+Ohai.plugin(:RightScale) do
+  provides "rightscale"
 
-# Adds RightScale server FQDNs to the rightscale_deprecated servers Mash
-#
-# NOTE: This is a hack to convert the RS_(server) tokens into something more 
-# intuative.  Hopefully this will be removed when we stop using EC2
-# userdata. 
-#
-# === Parameters
-# key(String):: RightScale server token from user-data
-# data(String)::: FQDN for the RightScale server
-def add_server(key, data)
-  rightscale_deprecated[:server] = Mash.new unless rightscale_deprecated.has_key?(:server)
-  server_names = {
-    "RS_sketchy" => "sketchy",
-    "RS_syslog" => "syslog",
-    "RS_lumberjack" => "lumberjack",
-    "RS_server" => "core"
-  }
-  rightscale_deprecated[:server][server_names[key]] = data unless (server_names[key] == nil)
-end
+  META_DATA_FILE = "/var/spool/rackspace/user-data.txt"
 
-# ----------------------------------------
-# cloud
-# ----------------------------------------
-require_plugin "cloud"
+  # Adds RightScale server FQDNs to the rightscale_deprecated servers Mash
+  #
+  # NOTE: This is a hack to convert the RS_(server) tokens into something more
+  # intuative.  Hopefully this will be removed when we stop using EC2
+  # userdata.
+  #
+  # === Parameters
+  # key(String):: RightScale server token from user-data
+  # data(String)::: FQDN for the RightScale server
+  def add_server(key, data)
+    rightscale_deprecated[:server] = Mash.new unless rightscale_deprecated.has_key?(:server)
+    server_names = {
+      "RS_sketchy" => "sketchy",
+      "RS_syslog" => "syslog",
+      "RS_lumberjack" => "lumberjack",
+      "RS_server" => "core"
+    }
+    rightscale_deprecated[:server][server_names[key]] = data unless (server_names[key] == nil)
+  end
 
-# Detect if RightScale platform is running on ec2 cloud
-#
-# === Returns
-# true:: If ec2 Mash exists amd RightScale tokens found in user-data
-# false:: Otherwise
-def on_rightscale_ec2_platform?
-  return false if (ec2 == nil || ec2[:userdata].match(/RS_/) == nil) # only ec2 supported
-  true
-end
+  # ----------------------------------------
+  # cloud
+  # ----------------------------------------
+  depends "cloud"
 
-# add all 'RS_' tokens in userdata, but perform translation for server names
-def get_data_from_ec2_user_date
-  data_array = ec2[:userdata].split('&')
-  data_array.each do |d|
-    key, data = d.split('=')
-    rightscale_deprecated[key.sub(/RS_/,'')] = data unless add_server(key,data) 
+  # Detect if RightScale platform is running on ec2 cloud
+  #
+  # === Returns
+  # true:: If ec2 Mash exists amd RightScale tokens found in user-data
+  # false:: Otherwise
+  def on_rightscale_ec2_platform?
+    return false if (ec2 == nil || ec2[:userdata].match(/RS_/) == nil) # only ec2 supported
+    true
+  end
+
+  # add all 'RS_' tokens in userdata, but perform translation for server names
+  def get_data_from_ec2_user_date
+    data_array = ec2[:userdata].split('&')
+    data_array.each do |d|
+      key, data = d.split('=')
+      rightscale_deprecated[key.sub(/RS_/,'')] = data unless add_server(key,data)
+    end
+  end
+
+
+
+  # ----------------------------------------
+  # generic cloud
+  # ----------------------------------------
+
+  # Detect if RightScale platform is running on other cloud.
+  # currently only rackspace is supported.
+  #
+  # === Returns
+  # true:: If ec2 Mash exists amd RightScale tokens found in user-data
+  # false:: Otherwise
+  def on_rightscale_platform?
+    File.exists?(META_DATA_FILE)
+  end
+
+  # add all 'RS_' tokens in medadata file, but perform translation for server names
+  def get_data
+    data_array = File.open(META_DATA_FILE)
+    data_array.each do |d|
+      key, data = d.split('=')
+      key.strip!
+      data.strip!
+      rightscale_deprecated[key.sub(/RS_/,'')] = data unless add_server(key,data)
+    end
+  end
+
+  collect_data do
+    if on_rightscale_ec2_platform?
+      rightscale_deprecated Mash.new
+      get_data_from_ec2_user_date
+    end
+    # Adds rightscale_deprecated from metadata file, if available
+    if on_rightscale_platform?
+      rightscale_deprecated Mash.new
+      get_data
+    end
   end
 end
-
-# Adds rightscale_deprecated from ec2 user-data, if available 
-if on_rightscale_ec2_platform?
-  rightscale_deprecated Mash.new
-  get_data_from_ec2_user_date 
-end
-
-
-# ----------------------------------------
-# generic cloud
-# ----------------------------------------
-
-# Detect if RightScale platform is running on other cloud.
-# currently only rackspace is supported.
-#
-# === Returns
-# true:: If ec2 Mash exists amd RightScale tokens found in user-data
-# false:: Otherwise
-def on_rightscale_platform?
-  File.exists?(RightScale::MetaDataFile)
-end
-
-# add all 'RS_' tokens in medadata file, but perform translation for server names
-def get_data
-  data_array = File.open(RightScale::MetaDataFile)
-  data_array.each do |d|
-    key, data = d.split('=')
-    key.strip!
-    data.strip!
-    rightscale_deprecated[key.sub(/RS_/,'')] = data unless add_server(key,data) 
-  end
-end
-
-# Adds rightscale_deprecated from metadata file, if available 
-if on_rightscale_platform?
-  rightscale_deprecated Mash.new
-  get_data
-end  

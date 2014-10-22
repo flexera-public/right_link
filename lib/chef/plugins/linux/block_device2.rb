@@ -20,5 +20,9 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-provides "block_device2"
-block_device ::RightScale::LinuxBlockDevice.info
+Ohai.plugin(:BlockDevice2) do
+  provides "block_device2"
+  collect_data do
+    block_device ::RightScale::LinuxBlockDevice.info
+  end
+end

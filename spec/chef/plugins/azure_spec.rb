@@ -47,7 +47,7 @@ describe Ohai::System, ' plugin azure' do
 
     # ohai to be tested
     @ohai = Ohai::System.new
-    flexmock(@ohai).should_receive(:require_plugin).and_return(true)
+    flexmock(@ohai).should_receive(:depends).and_return(true)
   end
 
   # Provide only success scenario, becuase it will be changed in RL 6.1

@@ -22,21 +22,26 @@
 
 require 'chef/ohai/mixin/rightlink'
 
-extend ::Ohai::Mixin::RightLink::CloudUtilities
 
-provides 'softlayer'
-require_plugin 'network'
+Ohai.plugin(:Softlayer) do
+  include ::Ohai::Mixin::RightLink::CloudUtilities
 
-def looks_like_softlayer?
-  looks_like_softlayer = !!hint?('softlayer')
-  ::Ohai::Log.debug("looks_like_softlayer? == #{looks_like_softlayer.inspect} ")
-  looks_like_softlayer
-end
+  provides 'softlayer'
+  depends 'network'
 
-if looks_like_softlayer?
-  softlayer Mash.new
-  softlayer['local_ipv4'] = private_ips(network).first
-  softlayer['public_ipv4'] = public_ips(network).first
-  softlayer['private_ips'] = private_ips(network)
-  softlayer['public_ips'] = public_ips(network)
+  def looks_like_softlayer?
+    looks_like_softlayer = !!hint?('softlayer')
+    ::Ohai::Log.debug("looks_like_softlayer? == #{looks_like_softlayer.inspect} ")
+    looks_like_softlayer
+  end
+
+  collect_data do
+    if looks_like_softlayer?
+      softlayer Mash.new
+      softlayer['local_ipv4'] = private_ips(network).first
+      softlayer['public_ipv4'] = public_ips(network).first
+      softlayer['private_ips'] = private_ips(network)
+      softlayer['public_ips'] = public_ips(network)
+    end
+  end
 end

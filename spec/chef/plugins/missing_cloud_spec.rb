@@ -34,7 +34,7 @@ describe Ohai::System, ' plugin missing_cloud' do
 
     # ohai to be tested
     @ohai = Ohai::System.new
-    flexmock(@ohai).should_receive(:require_plugin).and_return(true)
+    flexmock(@ohai).should_receive(:depends).and_return(true)
     @ohai.data[:cloud] = Mash.new
     @ohai.data[:cloud][:public_ips] = Array.new
     @ohai.data[:cloud][:private_ips] = Array.new

@@ -43,7 +43,7 @@ describe Ohai::System, ' plugin rackspace' do
     RightScale::OhaiSetup.configure_ohai
     # ohai to be tested
     @ohai = Ohai::System.new
-    flexmock(@ohai).should_receive(:require_plugin).and_return(true)
+    flexmock(@ohai).should_receive(:depends).and_return(true)
 
     @rackspace = get_plugin("rackspace", @ohai)
     flexmock(@rackspace).should_receive(:hint?).with('rackspace').and_return({}).once
