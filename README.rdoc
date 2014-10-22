@@ -1,6 +1,6 @@
 = RightLink
 
-[![Build Status](https://travis-ci.org/rightscale/right_link.svg?branch=master)](https://travis-ci.org/rightscale/right_link)
+{https://travis-ci.org/rightscale/right_link.svg?branch=master}[https://travis-ci.org/rightscale/right_link]
 
 = DESCRIPTION
 
