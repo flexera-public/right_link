@@ -18,10 +18,6 @@ gem 'right_scraper', '~> 4.0'
 gem 'em-http-request', '1.0.3'
 gem 'fiber_pool',      '1.0.0'
 
-# A requirement for our custom ohai fork, and metadata scraper. Needed 
-# to get metadata for the Azure cloud. We have a custom fork with a tiny
-# bit added to support Windows as well
-gem 'net-dhcp', "1.2.1.1"
 
 # We have custom builds of some gems containing fixes and patches that are specific
 # to RightScale. Gems in the 'custom' group are published by RightScale to our
@@ -32,6 +28,9 @@ group :custom do
   gem 'mixlib-shellout', '1.2.0.2'
   gem 'eventmachine', '1.0.0.10'
   gem 'rest-client', '1.7.0.3'
+  # A requirement for our custom ohai fork, and metadata scraper. Needed
+  # to get metadata for the Azure cloud for Windows/Linux
+  gem 'net-dhcp', "1.2.1.1"
 end
 
 # we are now using mingw so the need to carefully lock Windows gems has been
