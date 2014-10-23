@@ -20,6 +20,7 @@ spec = Gem::Specification.new do |s|
   s.add_runtime_dependency('right_scraper', '~> 4.0')
   s.add_runtime_dependency('right_http_connection', '~> 1.3')
   s.add_runtime_dependency('right_support', '~> 2.0')
+  s.add_runtime_dependency('net-dhcp',      '~> 1.3')
 
   s.add_runtime_dependency('chef', '>= 0.10.10')
   s.add_runtime_dependency('encryptor', '~> 1.1')
