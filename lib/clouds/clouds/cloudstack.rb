@@ -82,10 +82,12 @@ end
 default_option(:cloud_metadata_root_path, "latest")
 
 # cloudstack cloud metadata cannot query the list of values at root but instead
-# relies on a predefined list.
+# relies on a predefined list. Note we intentionally leavel public_ipv4 and public_hostname
+# off this list, as these are the ip of the cloudstack NAT router and not the public
+# ip necessarily
 default_option('cloud_metadata/metadata_provider/query_override', lambda do |provider, path|
   if path.chomp('/') == provider.metadata_tree_climber.root_path
-    leaf_names = %w{service-offering availability-zone local-ipv4 local-hostname public-ipv4 public-hostname instance-id}
+    leaf_names = %w{service-offering availability-zone local-ipv4 local-hostname instance-id}
     return leaf_names.join("\n")
   end
   return provider.metadata_source.query(path)
