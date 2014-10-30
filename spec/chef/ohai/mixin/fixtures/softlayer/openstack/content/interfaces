@@ -1,0 +1,12 @@
+auto lo
+iface lo inet loopback
+iface eth0 inet static
+address 10.84.80.195
+netmask 255.255.255.192
+post-up route add -net 10.0.0.0 netmask 255.0.0.0 gw 10.84.80.193
+auto eth1
+allow-hotplug eth1
+iface eth1 inet static
+address 75.126.0.235
+netmask 255.255.255.248
+gateway 75.126.0.233

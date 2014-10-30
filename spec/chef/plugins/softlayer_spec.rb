@@ -51,19 +51,29 @@ describe Ohai::System, ' plugin softlayer' do
   end
 
   it 'populate softlayer node with required attributes' do
-    network = {
-        :interfaces => {
-            :lo   => { :flags => ["LOOPBACK"] },
-            :eth0 => { :flags => [], :addresses => { "50.23.101.210" => { 'family' => 'inet' } } },
-            :eth1 => { :flags => [], :addresses => { "192.168.0.1" => { 'family' => 'inet' } } }
-        }
+
+    fetched_metadata = {
+      'local_ipv4'  => '10.84.80.195',
+      'public_ipv4' => '75.126.0.235',
+      'files'       => [[]],
+      'hostname'    => '18ea2e0371db742',
+      'name'        => '18ea2e0371db742',
+      'domain'      => 'rightscale.com',
+      "meta"        => { 'dsmode' => 'net'},
+      'uuid'        => '47ae373d-79e1-9292-24cf-25d09db4bcdc'
     }
+
     flexmock(@ohai).should_receive(:hint?).with('softlayer').and_return({}).once
-    flexmock(@ohai).should_receive(:network).and_return(network)
+    flexmock(@ohai).should_receive(:fetch_metadata).and_return(fetched_metadata)
     @ohai._require_plugin("softlayer")
-    @ohai[:softlayer]['local_ipv4'] = '50.23.101.210'
-    @ohai[:softlayer]['public_ipv4'] = '192.168.0.1'
-    @ohai[:softlayer]['private_ips'] = ['50.23.101.210']
-    @ohai[:softlayer]['public_ips'] = ['192.168.0.1']
+    @ohai[:softlayer]['local_ipv4'].should == '10.84.80.195'
+    @ohai[:softlayer]['public_ipv4'].should == '75.126.0.235'
+    @ohai[:softlayer]['files'].should == [[]]
+    @ohai[:softlayer]['hostname'].should == '18ea2e0371db742'
+    @ohai[:softlayer]['name'].should == '18ea2e0371db742'
+    @ohai[:softlayer]['domain'].should == 'rightscale.com'
+    @ohai[:softlayer]['meta'].should == { 'dsmode' => 'net'}
+    @ohai[:softlayer]['uuid'].should == '47ae373d-79e1-9292-24cf-25d09db4bcdc'
+
   end
 end

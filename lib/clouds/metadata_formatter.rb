@@ -73,6 +73,8 @@ module RightScale
       unless tree_metadata.empty?
         tree_metadata.each do |key, value|
           metadata_path[path_index] = key
+          # Transform Array into Hash, using key as a stringify index on the element in Array
+          value =  Hash[value.map.with_index { |v, i| [i.to_s, v] }] if value.is_a?(Array)
           if value.respond_to?(:has_key?)
             recursive_flatten_metadata(value, flat_metadata, metadata_path, path_index + 1)
           else

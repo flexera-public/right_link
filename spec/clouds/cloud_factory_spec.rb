@@ -117,7 +117,7 @@ describe RightScale::CloudFactory do
     # single lines of text).
     result = cloud.read_metadata(:cloud_metadata, writer_type)
     result.exitstatus.should == 0
-    result.output.should == {"CONNOR_SIMPLE"=>"do re mi", "CONNOR_ABC_123_BABY"=>"you", "CONNOR_ABC"=>"easy"}
+    result.output.should == {"CONNOR_ABC_0"=>"easy", "CONNOR_ABC_1"=>"123", "CONNOR_SIMPLE"=>"do re mi", "CONNOR_ABC_123_BABY_0"=>"you", "CONNOR_ABC_123_BABY_1"=>"me", "CONNOR_ABC_123_BABY_2"=>"girl"}
     result = cloud.read_metadata(:user_metadata, writer_type)
     result.exitstatus.should == 0
     result.output.should == {"RS_RN_ID"=>"12345", "RS_SERVER"=>"my.rightscale.com"}
