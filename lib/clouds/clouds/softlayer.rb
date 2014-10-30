@@ -20,16 +20,61 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-CONFIG_DRIVE_MOUNTPOINT = File.join(RightScale::Platform.filesystem.spool_dir, name.to_s) if ::RightScale::Platform.linux?
-CONFIG_DRIVE_MOUNTPOINT = File.join(ENV['ProgramW6432'], 'RightScale', 'Mount', 'Softlayer').gsub('/', '\\') if ::RightScale::Platform.windows?
+SL_METADATA_DIR = File.join(RightScale::Platform.filesystem.spool_dir, name.to_s, 'openstack') if ::RightScale::Platform.linux?
+SL_METADATA_DIR = File.join(ENV['ProgramW6432'], 'RightScale', 'Mount', 'Softlayer', 'openstack').gsub('/', '\\') if ::RightScale::Platform.windows?
 
 # dependencies.
-metadata_source 'metadata_sources/config_drive_metadata_source'
+metadata_source 'metadata_sources/file_metadata_source'
 metadata_writers 'metadata_writers/dictionary_metadata_writer',
                  'metadata_writers/ruby_metadata_writer',
                  'metadata_writers/shell_metadata_writer'
 
 abbreviation :sl
+
+# Parses softlayer network interface file for IP address
+#
+# === Parameters
+# config(Hash):: Hash with 'content_path' key, that points to file
+# result(Hash):: Hash-like leaf value
+#
+# === Return
+# Always true
+def populate_ips(config, result)
+  return true unless config.is_a?(Hash) && config.has_key?("content_path")
+  config_file = File.join(SL_METADATA_DIR, config["content_path"])
+  addr_regexp = /^address ([0-9\.]*)$/m
+  private_regexp = /\A(10\.|192\.168\.|172\.1[6789]\.|172\.2.\.|172\.3[01]\.)/
+  File.open(config_file).each do |line|
+    address = addr_regexp.match(line)
+    next unless address
+    result[ address[1]=~ private_regexp ? 'local_ip' : 'public_ip' ] = address[1]
+  end if File.exists?(config_file)
+  return true
+end
+
+# Parses softlayer user metadata into a hash.
+#
+# === Parameters
+# tree_climber(MetadataTreeClimber):: tree climber
+# data(String):: raw data
+#
+# === Return
+# result(Hash):: Hash-like leaf value
+def create_cloud_metadata_leaf(tree_climber, data)
+  result = tree_climber.create_branch
+  parsed_data = nil
+  begin
+    parsed_data = JSON.parse(data.strip)
+  rescue Exception => e
+    logger.error("#{e.class}: #{e.message}")
+  end
+  network_config = parsed_data.delete('network_config')
+  populate_ips(network_config, result) if network_config
+  parsed_data.each do |k,v|
+    result[k] = v
+  end
+  result
+end
 
 # Parses softlayer user metadata into a hash.
 #
@@ -41,33 +86,15 @@ abbreviation :sl
 # result(Hash):: Hash-like leaf value
 def create_user_metadata_leaf(tree_climber, data)
   result = tree_climber.create_branch
-  # REVIEW: This can (and will) raise an exception if the data is malformed or empty. I was putting it in a
-  # begin/rescue/end block, but there doesn't appear to be a logger in scope to report the problem and exit gracefully.
-  #
-  # Also, is it appropriate to be parsing JSON here? Is a specific tree_climber for json more appropriate?
-  #
-  # REVIEWER:
-  # (1) added an in-scope logger (it was always available as option(:logger)) for RightLink v5.8+
-  # (2) catching and logging an exception here is reasonable; added it.
-  # (3) as far as subclassing goes, the cloud definition methodology allows for overriding a few
-  # methods in the existing code base instead of having to create a custom class hierarchy for each
-  # cloud. either approach is supported, but the override philosophy used here seems simpler
-  # (especially for new cloud providers who haven't seen much ruby up till now).
-  parsed_data = nil
-  begin
-    parsed_data = JSON.parse(data.strip)
-  rescue Exception => e
-    logger.error("#{e.class}: #{e.message}")
-  end
-  ::RightScale::CloudUtilities.split_metadata(parsed_data[0], '&', result) unless !parsed_data || parsed_data.length == 0
+  ::RightScale::CloudUtilities.split_metadata(data.strip, '&', result)
   result
 end
 
 # defaults.
 default_option([:user_metadata, :metadata_tree_climber, :create_leaf_override], method(:create_user_metadata_leaf))
-default_option([:metadata_source, :user_metadata_source_file_path], File.join(CONFIG_DRIVE_MOUNTPOINT, 'meta.js'))
+default_option([:metadata_source, :user_metadata_source_file_path], File.join(SL_METADATA_DIR, 'latest', 'user_data'))
 
-default_option([:metadata_source, :config_drive_uuid], "681B-8C5D")
-default_option([:metadata_source, :config_drive_filesystem], ::RightScale::Platform.windows? ? 'FAT' : 'vfat')
-default_option([:metadata_source, :config_drive_label], 'METADATA')
-default_option([:metadata_source, :config_drive_mountpoint],  CONFIG_DRIVE_MOUNTPOINT)
+default_option([:cloud_metadata, :metadata_tree_climber, :create_leaf_override], method(:create_cloud_metadata_leaf))
+default_option([:metadata_source, :cloud_metadata_source_file_path], File.join(SL_METADATA_DIR, 'latest', 'meta_data.json'))
+default_option([:cloud_metadata, :metadata_tree_climber, :has_children_override], lambda { |*| false } )
+default_option([:cloud_metadata, :metadata_writers, :ruby_metadata_writer, :generation_command], cloud_metadata_generation_command)

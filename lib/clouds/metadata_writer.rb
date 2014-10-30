@@ -1,7 +1,7 @@
 #
 # Copyright (c) 2010 by RightScale Inc., all rights reserved
 #
-# Write given user data to files in /var/spool/ec2 in text, shell and ruby 
+# Write given user data to files in /var/spool/ec2 in text, shell and ruby
 # script formats
 
 module RightScale
@@ -60,13 +60,13 @@ module RightScale
     # Escapes double-quotes (and literal backslashes since they are escape
     # characters) in the given string.
     def self.escape_double_quotes(value)
-      return value.gsub(/\\|"/) { |c| "\\#{c}" }
+      return value.to_s.gsub(/\\|"/) { |c| "\\#{c}" }
     end
 
     # Escapes single-quotes (and literal backslashes since they are escape
     # characters) in the given string.
     def self.escape_single_quotes(value)
-      return value.gsub(/\\|'/) { |c| "\\#{c}" }
+      return value.to_s.gsub(/\\|'/) { |c| "\\#{c}" }
     end
 
     # Determines the first line of text (or the only line) for the given value.
