@@ -100,7 +100,7 @@ def on_azure?
 end
 
 if on_azure?
-  # We don't do a create_objects call, we're amending the value created by the 
+  # We don't do a create_objects call, we're amending the value created by the
   # cloud plugin until its in official ohai
   cloud[:private_ips] |= [azure['private_ip']] if azure['private_ip']
   cloud[:public_ipv4] = azure['public_ip']
