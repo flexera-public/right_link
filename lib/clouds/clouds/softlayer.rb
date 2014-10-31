@@ -24,13 +24,12 @@ CONFIG_DRIVE_MOUNTPOINT = File.join(RightScale::Platform.filesystem.spool_dir, n
 CONFIG_DRIVE_MOUNTPOINT = File.join(ENV['ProgramW6432'], 'RightScale', 'Mount', 'Softlayer').gsub('/', '\\') if ::RightScale::Platform.windows?
 
 # dependencies.
-metadata_source 'metadata_sources/config_drive_metadata_source'
+metadata_source 'metadata_sources/http_metadata_source'
 metadata_writers 'metadata_writers/dictionary_metadata_writer',
                  'metadata_writers/ruby_metadata_writer',
                  'metadata_writers/shell_metadata_writer'
 
 abbreviation :sl
-
 # Parses softlayer user metadata into a hash.
 #
 # === Parameters
@@ -41,33 +40,12 @@ abbreviation :sl
 # result(Hash):: Hash-like leaf value
 def create_user_metadata_leaf(tree_climber, data)
   result = tree_climber.create_branch
-  # REVIEW: This can (and will) raise an exception if the data is malformed or empty. I was putting it in a
-  # begin/rescue/end block, but there doesn't appear to be a logger in scope to report the problem and exit gracefully.
-  #
-  # Also, is it appropriate to be parsing JSON here? Is a specific tree_climber for json more appropriate?
-  #
-  # REVIEWER:
-  # (1) added an in-scope logger (it was always available as option(:logger)) for RightLink v5.8+
-  # (2) catching and logging an exception here is reasonable; added it.
-  # (3) as far as subclassing goes, the cloud definition methodology allows for overriding a few
-  # methods in the existing code base instead of having to create a custom class hierarchy for each
-  # cloud. either approach is supported, but the override philosophy used here seems simpler
-  # (especially for new cloud providers who haven't seen much ruby up till now).
-  parsed_data = nil
-  begin
-    parsed_data = JSON.parse(data.strip)
-  rescue Exception => e
-    logger.error("#{e.class}: #{e.message}")
-  end
-  ::RightScale::CloudUtilities.split_metadata(parsed_data[0], '&', result) unless !parsed_data || parsed_data.length == 0
+  ::RightScale::CloudUtilities.split_metadata(data.strip, '&', result)
   result
 end
 
 # defaults.
+default_option([:metadata_source, :hosts], [:host => 'api.service.softlayer.com', :port => 443])
+default_option([:user_metadata, :metadata_tree_climber, :root_path], 'rest/v3/SoftLayer_Resource_Metadata/UserMetadata.txt')
 default_option([:user_metadata, :metadata_tree_climber, :create_leaf_override], method(:create_user_metadata_leaf))
-default_option([:metadata_source, :user_metadata_source_file_path], File.join(CONFIG_DRIVE_MOUNTPOINT, 'meta.js'))
-
-default_option([:metadata_source, :config_drive_uuid], "681B-8C5D")
-default_option([:metadata_source, :config_drive_filesystem], ::RightScale::Platform.windows? ? 'FAT' : 'vfat')
-default_option([:metadata_source, :config_drive_label], 'METADATA')
-default_option([:metadata_source, :config_drive_mountpoint],  CONFIG_DRIVE_MOUNTPOINT)
+default_option([:cloud_metadata, :metadata_provider, :build_metadata_override], lambda { |*| {} })
