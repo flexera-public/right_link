@@ -20,12 +20,11 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require 'chef/ohai/mixin/rightlink'
-
-extend ::Ohai::Mixin::RightLink::CloudUtilities
-
 provides 'softlayer'
-require_plugin 'network'
+
+require 'chef/ohai/mixin/softlayer_metadata'
+
+extend ::Ohai::Mixin::SoftlayerMetadata
 
 def looks_like_softlayer?
   looks_like_softlayer = !!hint?('softlayer')
@@ -35,8 +34,8 @@ end
 
 if looks_like_softlayer?
   softlayer Mash.new
-  softlayer['local_ipv4'] = private_ips(network).first
-  softlayer['public_ipv4'] = public_ips(network).first
-  softlayer['private_ips'] = private_ips(network)
-  softlayer['public_ips'] = public_ips(network)
+  metadata = fetch_metadata
+  softlayer['local_ipv4'] = metadata['local_ipv4']
+  softlayer['public_ipv4'] = metadata['public_ipv4']
+  softlayer['public_fqdn'] = metadata['public_fqdn']
 end

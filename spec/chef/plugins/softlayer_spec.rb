@@ -35,13 +35,6 @@ describe Ohai::System, ' plugin softlayer' do
     # ohai to be tested
     @ohai = Ohai::System.new
     flexmock(@ohai).should_receive(:depends).and_return(true)
-
-  end
-
-  it 'create softlayer if hint file exists' do
-    flexmock(@ohai).should_receive(:hint?).with('softlayer').and_return({}).once
-    @ohai._require_plugin("softlayer")
-    @ohai[:softlayer].should_not be_nil
   end
 
   it "not create softlayer if hint file doesn't exists" do
@@ -51,19 +44,12 @@ describe Ohai::System, ' plugin softlayer' do
   end
 
   it 'populate softlayer node with required attributes' do
-    network = {
-        :interfaces => {
-            :lo   => { :flags => ["LOOPBACK"] },
-            :eth0 => { :flags => [], :addresses => { "50.23.101.210" => { 'family' => 'inet' } } },
-            :eth1 => { :flags => [], :addresses => { "192.168.0.1" => { 'family' => 'inet' } } }
-        }
-    }
+    metadata = { 'local_ipv4' => '192.168.0.1', 'public_ipv4' => '8.8.8.8', 'public_fqdn' => 'abc1234.public.com'}
     flexmock(@ohai).should_receive(:hint?).with('softlayer').and_return({}).once
-    flexmock(@ohai).should_receive(:network).and_return(network)
+    flexmock(@ohai).should_receive(:fetch_metadata).and_return(metadata)
     @ohai._require_plugin("softlayer")
-    @ohai[:softlayer]['local_ipv4'] = '50.23.101.210'
-    @ohai[:softlayer]['public_ipv4'] = '192.168.0.1'
-    @ohai[:softlayer]['private_ips'] = ['50.23.101.210']
-    @ohai[:softlayer]['public_ips'] = ['192.168.0.1']
+    @ohai[:softlayer]['local_ipv4'] = '192.168.0.1'
+    @ohai[:softlayer]['public_ipv4'] = '8.8.8.8'
+    @ohai[:softlayer]['public_fqdn'] = 'abc1234.public.com'
   end
 end
