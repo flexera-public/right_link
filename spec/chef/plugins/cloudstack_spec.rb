@@ -28,14 +28,25 @@ describe Ohai::System, ' plugin cloudstack' do
   let (:fetched_metadata) {
     {
       'public_ipv4' => '1.2.3.4',
-      'private_ipv4' => '192.168.0.1',
-      'public_hostname' => 'public_hostname'
+      'local_ipv4' => '192.168.0.1',
+      'public_hostname' => 'public_hostname',
+      'local_hostname' => 'local_hostname'
     }
   }
 
   let (:fetched_dhcp_lease_provider) {
     '5.6.7.8'
   }
+
+  let (:desired_metadata) {
+    {
+      'router_ipv4' => '1.2.3.4',
+      'local_ipv4' => '192.168.0.1',
+      'local_hostname' => 'local_hostname',
+      'dhcp_lease_provider_ip' => '5.6.7.8'
+    }
+  }
+
 
   before(:each) do
     temp_dir = Dir.mktmpdir
@@ -55,7 +66,7 @@ describe Ohai::System, ' plugin cloudstack' do
     flexmock(@ohai).should_receive(:fetch_metadata).with(fetched_dhcp_lease_provider).and_return(fetched_metadata).once
     @ohai._require_plugin("cloudstack")
     @ohai[:cloudstack].should_not be_nil
-    @ohai[:cloudstack].should == fetched_metadata.merge({'dhcp_lease_provider_ip' => fetched_dhcp_lease_provider})
+    @ohai[:cloudstack].should == desired_metadata
   end
 
   it 'will not fetch metatada on non-cloudstack' do

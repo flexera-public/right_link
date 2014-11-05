@@ -49,16 +49,16 @@ describe Ohai::System, ' plugin missing_cloud' do
       @ohai[:cloud][:provider].should == 'cloudstack'
     end
 
-    it 'should populate cloud public ip' do
-      @ohai[:cloudstack][:public_ipv4] = "1.1.1.1"
+    it 'should populate cloud public ip from local ip if its a public address' do
+      @ohai[:cloudstack][:local_ipv4] = "1.1.1.1"
       @ohai._require_plugin("missing_cloud")
 
       @ohai[:cloud][:public_ipv4].should ==  "1.1.1.1"
       @ohai[:cloud][:public_ips].first.should ==  "1.1.1.1"
     end
 
-    it 'should not populate cloud public ip if it is nul' do
-      @ohai[:cloudstack][:public_ipv4] = nil
+    it 'should not populate cloud public ip if it is local' do
+      @ohai[:cloudstack][:local_ipv4] = "192.168.0.100"
       @ohai._require_plugin("missing_cloud")
 
       @ohai[:cloud][:public_ipv4].should be_nil
@@ -73,7 +73,7 @@ describe Ohai::System, ' plugin missing_cloud' do
       @ohai[:cloud][:private_ips].first.should == "10.252.252.10"
     end
 
-    it 'should not populate cloud private ip if it is nul' do
+    it 'should not populate cloud private ip if it is null' do
       @ohai[:cloudstack][:local_ipv4] = nil
       @ohai._require_plugin("missing_cloud")
 
@@ -81,12 +81,6 @@ describe Ohai::System, ' plugin missing_cloud' do
       @ohai[:cloud][:private_ips].should ==  []
     end
 
-
-    it 'should populate cloud public hostname' do
-      @ohai[:cloudstack][:public_hostname] = "my_public_hostname"
-      @ohai._require_plugin("missing_cloud")
-      @ohai[:cloud][:public_hostname].should == "my_public_hostname"
-    end
 
     it 'should populate cloud local hostname' do
       @ohai[:cloudstack][:local_hostname] = "my_local_hostname"

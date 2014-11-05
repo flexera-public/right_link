@@ -38,5 +38,10 @@ if looks_like_cloudstack?
   if metadata
     metadata.each { |k,v| cloudstack[k] = v }
   end
+  # Note: the cloudstack public_ipv4 is the value of the NAT router (as per cloudstack documentation)
+  # and not necessarily the publicly available IP.  cloustack semi-supports floating
+  # ips in that the public ip for an instance can be an IP different from the NAT router
+  cloudstack['router_ipv4'] = cloudstack.delete('public_ipv4')
+  cloudstack.delete('public_hostname')
   cloudstack['dhcp_lease_provider_ip'] = dhcp_ip
 end
