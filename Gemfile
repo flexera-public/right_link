@@ -17,6 +17,8 @@ gem 'right_scraper', '~> 4.0'
 
 gem 'em-http-request', '1.0.3'
 gem 'fiber_pool',      '1.0.0'
+gem 'net-dhcp',        '~> 1.3'
+
 
 gem 'mixlib-authentication', ">= 1.3.0"
 gem 'ip'
@@ -30,6 +32,8 @@ group :custom do
   gem 'mixlib-shellout', '1.2.0.2'
   gem 'eventmachine', '1.0.0.10'
   gem 'rest-client', '1.7.0.4'
+  # A requirement for our custom ohai fork, and metadata scraper. Needed
+  # to get metadata for the Azure cloud for Windows/Linux
 end
 
 # we are now using mingw so the need to carefully lock Windows gems has been

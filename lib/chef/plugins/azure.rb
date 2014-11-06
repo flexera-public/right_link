@@ -34,7 +34,7 @@ end
 
 
 if looks_like_azure?
-  metadata = fetch_metadata(dhcp_lease_provider)
+  metadata = fetch_azure_metadata
   azure Mash.new
   if metadata
     metadata.each { |k,v| azure[k] = v }

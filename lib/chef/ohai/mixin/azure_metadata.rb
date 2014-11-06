@@ -24,10 +24,14 @@
 require 'net/http'
 require 'uri'
 require 'rexml/document'
-require 'chef/ohai/mixin/dhcp_lease_metadata_helper'
+require 'socket'
+require 'net-dhcp'
+require 'timeout'
+
+class NoOption245Error < Exception; end
+
 
 module ::Ohai::Mixin::AzureMetadata
-  include ::Ohai::Mixin::DhcpLeaseMetadataHelper
 
   class SharedConfig
     REQUIRED_ELEMENTS = ["*/Deployment", "*/*/Service", "*/*/ServiceInstance", "*/Incarnation", "*/Role" ]
@@ -40,8 +44,12 @@ module ::Ohai::Mixin::AzureMetadata
       raise InvalidConfig unless REQUIRED_ELEMENTS.all? { |element| @shared_config.elements[element] }
     end
 
-    def vm_name
-      @vm_name ||= @shared_config.elements["SharedConfig/Deployment/Service"].attributes["name"] rescue nil
+    def service_name
+      @service_name ||= @shared_config.elements["SharedConfig/Deployment/Service"].attributes["name"] rescue nil
+    end
+
+    def instance_id
+      @instance_id ||= @shared_config.elements["SharedConfig/Instances/Instance"].attributes["id"] rescue nil
     end
 
     def private_ip
@@ -100,8 +108,67 @@ module ::Ohai::Mixin::AzureMetadata
     end
   end
 
-  def fetch_metadata(host)
-    base_url="http://#{host}"
+
+  # Azure cloud has a metadata service (called the fabric controller). The ip of this
+  # is passed in the response to DHCP discover packet as option 245. Proceed to 
+  # query the DHCP server, then parse its response for that option
+  # See WALinuxAgent project as a reference, which does a bit more:
+  #   - add then remove default route
+  #   - disable then re-enable wicked-dhcp4 for distros that use it
+  def build_dhcp_request
+    req = DHCP::Discover.new
+    ::Ohai::Log.debug(req)
+    req.pack
+  end
+
+  def endpoint_from_response(raw_pkt)
+    packet = DHCP::Message.from_udp_payload(raw_pkt, :debug => false)
+    ::Ohai::Log.debug("Received response from Azure DHCP server:\n" + packet.to_s)
+    option = packet.options.find { |opt| opt.type == 245 }
+    if option
+      return option.payload.join(".")
+    else
+      raise NoOption245Error
+    end
+  end
+
+  def send_dhcp_request
+    begin
+      dhcp_send_packet = build_dhcp_request()
+
+      sock = UDPSocket.new
+      sock.setsockopt(Socket::SOL_SOCKET, Socket::SO_BROADCAST, true)
+      sock.setsockopt(Socket::SOL_SOCKET, Socket::SO_REUSEADDR, true)
+      sock.bind('0.0.0.0', 68)
+      sock.send(dhcp_send_packet, 0, '<broadcast>', 67)
+
+      dhcp_rcv_packet = Timeout::timeout(10) { sock.recv(1024) }
+      return dhcp_rcv_packet
+    ensure
+      sock.close() if sock && !sock.closed?
+    end
+  end
+
+  def azure_fabric_controller_ip
+    return @azure_endpoint if @azure_endpoint
+    3.times do
+      begin
+        dhcp_res_pkt = send_dhcp_request()
+        @azure_endpoint = endpoint_from_response(dhcp_res_pkt)
+      rescue NoOption245Error => e
+        raise "No option 245 in DHCP response, we don't appear to be in the Azure cloud"
+      rescue Exception => e
+        # no-op for timeout
+      end
+      break if @azure_endpoint
+    end
+    raise "Could not get Azure endpoint" unless @azure_endpoint
+    @azure_endpoint
+  end
+
+  def fetch_azure_metadata
+
+    base_url="http://#{azure_fabric_controller_ip}"
 
     ::Ohai::Log.debug "Base url #{base_url}"
 
@@ -122,10 +189,11 @@ module ::Ohai::Mixin::AzureMetadata
 
 
     metadata = {
+      'instance_id'     => shared_config.instance_id,
       'public_ip'       => shared_config.public_ip,
       'private_ip'      => shared_config.private_ip,
-      'vm_name'         => shared_config.vm_name,
-      'public_fqdn'     => "#{shared_config.vm_name}.cloudapp.net"
+      'service_name'    => shared_config.service_name,
+      'public_fqdn'     => "#{shared_config.service_name}.cloudapp.net"
     }
 
     metadata['public_ssh_port'] = shared_config.public_ssh_port if shared_config.public_ssh_port
