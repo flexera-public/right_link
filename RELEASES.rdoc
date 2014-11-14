@@ -1,10 +1,14 @@
 = 6.2.0
 
-Released 2014-10-17
+Released 2014-11-14
 
 == New Features
 * Azure cloud
  * support start|stop
+
+== Changes to Existing Functionality
+* Remove Chef Dynamic Powershell Provider
+* Update cloustack ohai plugin to provide correct public and private addresses
 
 = 6.1.5
 
