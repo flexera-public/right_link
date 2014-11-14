@@ -1,15 +1,17 @@
 = 6.2.0
 
-Released 2014-10-22
+Released 2014-11-14
 
 == New Features
 * Azure cloud - Start/stop is now supported. Azure metadata is now written to disk at /var/spool/cloud.
 
 == Changes to Existing Functionality
 * Removed Dynamic Powershell Provider (http://support.rightscale.com/12-Guides/Chef_Cookbooks_Developer_Guide/04-Developer/06-Development_Resources/Powershell_Chef_Providers), a special cookbook format for encapsulating powershell scripts. It is recommended to use the "powershell_script" Chef resource instead.
+* Update Softlayer ohai plugin read public ip, private ip, and public fqdn from Softlayer API.
 
 == Bug Fixes
-* Azure cloud - Fix ohai metadata retrieval not working in certain setups.
+* Fix Azure ohai metadata retrieval not working in certain setups.
+* Update Cloudstack ohai plugin to provide correct public and private IP addresses.
 
 == Known Limitations
 * All 6.1.5 Known limitations still apply.
