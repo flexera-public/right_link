@@ -82,8 +82,9 @@ end
 def get_softlayer_values
   cloud[:public_ipv4] = softlayer['public_ipv4']
   cloud[:local_ipv4] = softlayer['local_ipv4']
-  cloud[:public_ips].concat(softlayer['public_ips'])  if softlayer['public_ips']
-  cloud[:private_ips].concat(softlayer['private_ips']) if softlayer['private_ips']
+  cloud[:public_ips] << softlayer['public_ipv4'] if softlayer['public_ipv4']
+  cloud[:private_ips] << softlayer['local_ipv4'] if softlayer['local_ipv4']
+  cloud[:public_hostname] = softlayer['public_fqdn']
   cloud[:provider] = 'softlayer'
 end
 
@@ -114,7 +115,7 @@ def on_azure?
 end
 
 if on_azure?
-  # We don't do a create_objects call, we're amending the value created by the 
+  # We don't do a create_objects call, we're amending the value created by the
   # cloud plugin until its in official ohai
   cloud[:private_ips] |= [azure['private_ip']] if azure['private_ip']
   cloud[:public_ipv4] = azure['public_ip']

@@ -51,7 +51,7 @@ module RightScale
       # === Raises
       # QueryFailed:: on any failure to query
       def query(path)
-        http_path = "http://#{@host}:#{@port}/#{path}"
+        http_path = "http#{443 == @port ? 's' : ''}://#{@host}:#{@port}/#{path}"
         attempts = 1
         while true
           begin
