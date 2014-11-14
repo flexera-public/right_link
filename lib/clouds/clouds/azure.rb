@@ -41,11 +41,11 @@ abbreviation :azure
 API_VERSION = "1.5"
 
 # Default time to wait for HTTP connection to open
-DEFAULT_OPEN_TIMEOUT = 2
+DEFAULT_OPEN_TIMEOUT = 30
 
-# Default time to wait for response from request, which is chosen to be 5 seconds greater
-# than the response timeout inside the RightNet router
-DEFAULT_REQUEST_TIMEOUT = 5
+# Default time to wait for response from request, which is chosen to be 300 seconds
+# The same as Timeout in RightAPI
+DEFAULT_REQUEST_TIMEOUT = 300
 
 # Retrieve new user-data from RightApi
 #
@@ -79,9 +79,19 @@ def retrieve_updated_data(api_url, client_id, client_secret)
       :client_secret => client_secret },
        { :headers => {"Authorization" => "Bearer #{access_token}" } })
     data = response.to_s
-    http_client.close("Updated user-data has been gotten")
+    close_message = "Updated user-data has been gotten"
+  rescue  RightScale::HttpExceptions::ResourceNotFound => e
+    if e.to_s =~ /No route matches "\/api\/user_data"/
+      data = ''
+      close_message = "Rightscale does not support user metadata update. Skipping."
+    else
+      data = nil
+      close_message = $e
+    end
   rescue
-    http_client.close($!.message)
+    close_message = $!.message
+  ensure
+    http_client.close(close_message)
   end
   raise "Updated user-data is empty" if data.nil?
   yield data
