@@ -7,8 +7,9 @@ Released 2014-11-14
  * support start|stop
 
 == Changes to Existing Functionality
-* Remove Chef Dynamic Powershell Provider
-* Update cloustack ohai plugin to provide correct public and private addresses
+* Remove Chef Dynamic Powershell Provider.
+* Update cloustack ohai plugin to provide correct public and private addresses.
+* Update softlayer ohai plugin read public ip, private if and public fqdn from Softlayer API.
 
 = 6.1.5
 
