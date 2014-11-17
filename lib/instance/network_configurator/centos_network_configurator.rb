@@ -124,7 +124,7 @@ module RightScale
     end
 
     def device_name_from_mac(mac)
-      `ifconfig -a | grep -i '#{mac}' | cut -d ' ' -f 1`.strip
+      `grep -i -l '#{mac}' /sys/class/net/*/address | cut -d / -f 5`.strip
     end
 
     def routes_file(device)
