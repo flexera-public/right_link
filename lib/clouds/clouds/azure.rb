@@ -47,6 +47,9 @@ DEFAULT_OPEN_TIMEOUT = 30
 # The same as Timeout in RightAPI
 DEFAULT_REQUEST_TIMEOUT = 300
 
+# Maximum wait interval 5 min
+MAX_WAIT_INTERVAL = 300
+
 # Retrieve new user-data from RightApi
 #
 # @param [String] RigthtApi url
@@ -57,43 +60,59 @@ DEFAULT_REQUEST_TIMEOUT = 300
 # @return [TrueClass] always true
 def retrieve_updated_data(api_url, client_id, client_secret)
   require 'right_agent'
-  data = nil
   options = {
     :api_version => API_VERSION,
     :open_timeout => DEFAULT_OPEN_TIMEOUT,
     :request_timeout => DEFAULT_REQUEST_TIMEOUT,
     :filter_params => [:client_secret] }
   url = URI.parse(api_url)
-  http_client = RightScale::BalancedHttpClient.new([url.to_s], options)
-  begin
-    response = http_client.post("/oauth2", {
-      :client_id => client_id.to_s,
-      :client_secret => client_secret,
-      :grant_type => "client_credentials" } )
-    response = SerializationHelper.symbolize_keys(response)
-    access_token = response[:access_token]
-    raise "Could not authoried on #{api_url} using oauth2" if access_token.nil?
 
-    response = http_client.get("/user_data", {
-      :client_id => client_id.to_s,
-      :client_secret => client_secret },
-       { :headers => {"Authorization" => "Bearer #{access_token}" } })
-    data = response.to_s
-    close_message = "Updated user-data has been gotten"
-  rescue  RightScale::HttpExceptions::ResourceNotFound => e
-    if e.to_s =~ /No route matches "\/api\/user_data"/
-      data = ''
-      close_message = "Rightscale does not support user metadata update. Skipping."
-    else
+  success = false
+  wait = 5
+
+  while !success do
+
+    begin
       data = nil
-      close_message = $e
+      http_client = RightScale::BalancedHttpClient.new([url.to_s], options)
+      response = http_client.post("/oauth2", {
+        :client_id => client_id.to_s,
+        :client_secret => client_secret,
+        :grant_type => "client_credentials" } )
+      response = SerializationHelper.symbolize_keys(response)
+      access_token = response[:access_token]
+      raise "Could not authoried on #{api_url} using oauth2" if access_token.nil?
+
+      response = http_client.get("/user_data", {
+        :client_id => client_id.to_s,
+        :client_secret => client_secret },
+         { :headers => {"Authorization" => "Bearer #{access_token}" } })
+      data = response.to_s
+      close_message = "Got updated user metadata. Continue."
+      success = true
+    rescue  RightScale::HttpExceptions::ResourceNotFound => e
+      if e.to_s =~ /No route matches "\/api\/user_data"/
+        data = ''
+        close_message = "Rightscale does not support user metadata update. Skipping."
+        success = true
+      else
+        logger.error "Error: #{e.message}"
+        close_message = e
+      end
+    rescue
+      logger.error "Error: #{$!.message}"
+      close_message = $!.message
+    ensure
+      http_client.close(close_message) if http_client
     end
-  rescue
-    close_message = $!.message
-  ensure
-    http_client.close(close_message)
+
+    unless success
+      logger.error "Sleeping #{wait} seconds before retry"
+      sleep(wait) unless success
+      wait = [wait * 2, MAX_WAIT_INTERVAL].min
+    end
   end
-  raise "Updated user-data is empty" if data.nil?
+
   yield data
   true
 end
