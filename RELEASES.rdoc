@@ -12,6 +12,7 @@ Released 2014-11-14
 == Bug Fixes
 * Fix Azure ohai metadata retrieval not working in certain setups.
 * Update Cloudstack ohai plugin to provide correct public and private IP addresses.
+* Fix networking configuration scripts for vSphere cloud on CentOS 7
 
 == Known Limitations
 * All 6.1.5 Known limitations still apply.
