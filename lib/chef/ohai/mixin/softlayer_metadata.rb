@@ -19,9 +19,10 @@ module ::Ohai::Mixin::SoftlayerMetadata
         req = Net::HTTP::Get.new u.request_uri
         res = http.request(req)
       }
-      res.body
+      result = res.body
     rescue Exception => e
-      ::Ohai::Log.error("Unable to fetch azure metadata from #{u}: #{e.class}: #{e.message}")
+      ::Ohai::Log.error("Unable to fetch softlayer metadata from #{u}: #{e.class}: #{e.message}")
+      nil
     end
   end
 end

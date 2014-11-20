@@ -43,6 +43,28 @@ describe Ohai::System, ' plugin softlayer' do
     @ohai[:softlayer].should be_nil
   end
 
+  it "do not create node if fetch_metadata raise an error" do
+    flexmock(@ohai).should_receive(:hint?).with('softlayer').and_return({}).once
+    flexmock(@ohai).should_receive(:fetch_metadata).and_raise(Exception.new("TEST"))
+    @ohai._require_plugin("softlayer")
+    @ohai[:softlayer].should be_nil
+  end
+
+  it "create empty node if fetch_metadata return empty hash" do
+    flexmock(@ohai).should_receive(:hint?).with('softlayer').and_return({}).once
+    flexmock(@ohai).should_receive(:fetch_metadata).and_return({})
+    @ohai._require_plugin("softlayer")
+    @ohai[:softlayer].should == {}
+  end
+
+  it "create empty node if fetch_metadata return empty hash" do
+    metadata = { 'local_ipv4' => nil, 'public_ipv4' => nil, 'public_fqdn' => nil}
+    flexmock(@ohai).should_receive(:hint?).with('softlayer').and_return({}).once
+    flexmock(@ohai).should_receive(:fetch_metadata).and_return(metadata)
+    @ohai._require_plugin("softlayer")
+    @ohai[:softlayer].should == metadata
+  end
+
   it 'populate softlayer node with required attributes' do
     metadata = { 'local_ipv4' => '192.168.0.1', 'public_ipv4' => '8.8.8.8', 'public_fqdn' => 'abc1234.public.com'}
     flexmock(@ohai).should_receive(:hint?).with('softlayer').and_return({}).once

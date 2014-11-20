@@ -31,6 +31,12 @@ describe ::Ohai::Mixin::SoftlayerMetadata do
   }
 
   context 'fetch_metadata' do
+    it "raise an Exception on any query errors" do
+      http_mock = flexmock('http')
+      http_mock.should_receive(:request).and_raise(Exception.new "API return fake errror")
+      flexmock(::Net::HTTP).should_receive(:start).with('api.service.softlayer.com', 443, {:use_ssl => true}, Proc).and_yield(http_mock)
+      mixin.fetch_metadata.should_not be_nil
+    end
 
     it "query api service" do
       http_mock = flexmock('http')
