@@ -18,7 +18,7 @@ module ::Ohai::Mixin::SoftlayerMetadata
 
   # We ship curl's CA bundle with rightlink. 
   def ca_file_location
-    File.expand_path("../../../../instance/cook/ca-bundle.crt", __FILE__)
+    ::Ohai::Config[:ca_file]
   end
 
   def fetch_metadata_item(item)

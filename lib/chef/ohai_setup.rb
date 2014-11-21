@@ -37,6 +37,10 @@ module RightScale
         ::Ohai::Config[:plugin_path].unshift(CUSTOM_PLUGINS_DIR_PATH)
       end
 
+      # Custom RightScale option (to be ported to chef). Softlayer plugin needs 
+      # https connections to RightScale and one isn't included with ruby by default
+      ::Ohai::Config[:ca_file] = File.expand_path("../../instance/cook/ca-bundle.crt", __FILE__)
+
       # must set file cache path and ensure it exists otherwise evented run_command will fail
       ::Ohai::Config[:file_cache_path] = AgentConfig.cache_dir
       ::FileUtils.mkdir_p(::Ohai::Config[:file_cache_path])

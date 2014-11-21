@@ -26,6 +26,14 @@ require 'chef/ohai/mixin/softlayer_metadata'
 
 describe ::Ohai::Mixin::SoftlayerMetadata do
 
+  before(:each) do
+    temp_dir = Dir.mktmpdir
+    flexmock(::RightScale::AgentConfig).should_receive(:cache_dir).and_return(temp_dir)
+    # configure ohai for RightScale
+    ::Ohai::Config[:hints_path] = [File.join(temp_dir,"ohai","hints")]
+    RightScale::OhaiSetup.configure_ohai
+  end
+
   let(:mixin) {
     mixin = Object.new.extend(::Ohai::Mixin::SoftlayerMetadata)
     mixin
@@ -50,9 +58,10 @@ describe ::Ohai::Mixin::SoftlayerMetadata do
     end
 
     it "query api service" do
-      http_mock = flexmock('http', {:ssl_version= => true, :use_ssl= => true, :ca_file= => true })
+      http_mock = flexmock('http', {:ssl_version= => true, :use_ssl= => true})
       flexmock(::Net::HTTP).should_receive(:new).with('api.service.softlayer.com', 443).and_return(http_mock)
 
+      http_mock.should_receive(:ca_file=).with(FlexMock.on {|arg| !arg.nil? && !arg.empty?}).at_least.once
       http_mock.should_receive(:get).with(make_request('getFullyQualifiedDomainName.txt')).and_return(make_res('abc.host.org')).once
       http_mock.should_receive(:get).with(make_request('getPrimaryBackendIpAddress.txt')).and_return(make_res('10.0.1.10')).once
       http_mock.should_receive(:get).with(make_request('getPrimaryIpAddress.txt')).and_return(make_res('8.8.8.8')).once
