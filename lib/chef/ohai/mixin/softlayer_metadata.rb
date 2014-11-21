@@ -29,7 +29,7 @@ module ::Ohai::Mixin::SoftlayerMetadata
       net.ssl_version = "TLSv1"
       net.use_ssl = true
       net.ca_file = ca_file_location
-      res = net.request(Net::HTTP::Get.new(u.request_uri))
+      res = net.get(u.request_uri)
       if res.code.to_i.between?(200,299) 
         res.body
       else
