@@ -23,8 +23,6 @@
 require File.expand_path('../spec_helper', __FILE__)
 require 'chef/ohai/mixin/softlayer_metadata'
 
-require 'debugger'
-
 
 describe ::Ohai::Mixin::SoftlayerMetadata do
 
