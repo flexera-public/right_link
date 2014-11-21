@@ -34,7 +34,7 @@ module ::Ohai::Mixin::SoftlayerMetadata
         res.body
       else
         ::Ohai::Log.error("Unable to fetch item #{full_url}: status (#{res.code}) body (#{res.body})")
-        ""
+        nil
       end
     rescue Exception => e
       ::Ohai::Log.error("Unable to fetch softlayer metadata from #{u}: #{e.class}: #{e.message}")
