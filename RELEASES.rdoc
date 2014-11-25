@@ -1,13 +1,13 @@
 = 6.2.0
 
-Released 2014-11-14
+Released 2014-11-21
 
 == New Features
 * Azure cloud - Start/stop is now supported. Azure metadata is now written to disk at /var/spool/cloud.
 
 == Changes to Existing Functionality
 * Removed Dynamic Powershell Provider (http://support.rightscale.com/12-Guides/Chef_Cookbooks_Developer_Guide/04-Developer/06-Development_Resources/Powershell_Chef_Providers), a special cookbook format for encapsulating powershell scripts. It is recommended to use the "powershell_script" Chef resource instead.
-* Update Softlayer ohai plugin read public ip, private ip, and public fqdn from Softlayer API.
+* Update Softlayer ohai plugin read public ip, private ip, and public fqdn, region, and instance id from Softlayer API.
 
 == Bug Fixes
 * Fix Azure ohai metadata retrieval not working in certain setups.
@@ -62,6 +62,7 @@ Released 2014-08-25
   * Remove /etc/udev/rules.d/70-persistent-net.rules before snapshotting instances on vSphere. Instances launched from the snapshotted instance may fail to reconfigure the network correctly on boot if networks are added or removed.
   * When snapshotting instances on Windows, run RightScale supplied sysprep. This hooks into RightLink to remove the state from C:\ProgramData\RightScale.
   * Detection of private networks are limited to well-known subnets as defined in RFC-1918: 10.0.0.0, 192.168.0.0, 172.16.0.0, 172.2.0.0, 172.30.0.0 and 172.31.0.0.
+* Data loss may occur for VMware and Cloudstack KVM clouds for Windows during instance stop (power off). Note this behavior doesn't exist for reboot. If a shutdown initiated via the stop button on the dashboard, via RightScale API, or via a "rs_shutdown --stop" command on the instance, any data written to disk during running of the decommission scripts may be lost and Windows Event logs will report an unexpected shutdown. Shutting down from the instance side will not have this issue, but will also not run the decommission scripts. If this issue manifests, recommended workaround is to run any decommissioning scripts as an operational script that issues an instance side shutdown as its final step.
 
 = 6.0.6
 

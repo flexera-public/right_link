@@ -33,9 +33,7 @@ def looks_like_softlayer?
 end
 
 if looks_like_softlayer?
-  softlayer Mash.new
   metadata = fetch_metadata
-  softlayer['local_ipv4'] = metadata['local_ipv4']
-  softlayer['public_ipv4'] = metadata['public_ipv4']
-  softlayer['public_fqdn'] = metadata['public_fqdn']
+  softlayer Mash.new
+  metadata.each { |k,v| softlayer[k] = v } if metadata
 end
