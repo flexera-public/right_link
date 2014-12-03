@@ -21,7 +21,7 @@ Released 2014-12-03
 * When rebundling Azure images, you should remove all Azure agent certicates or else instance may get stuck in booting.
   * On Linux: remove /var/lib/waagent/*
   * On Windows: remove RightScale userdata certificate (cert:/LocalMachine/My with O=RightScale). Note that RightScale supplied Sysprep will remove the key from HKLM:\SOFTWARE\Microsoft\SystemCertificates\my\Certificates for you.
-* Newer Citrix XenServer Tools installs (>6.1) remove needed xenstore_client.exe: http://support.citrix.com/article/CTX136422. This will prevent RightLink from booting. Known affected cloud/image combinations are some Windows Server 2012R2 images on Rackspace Open Cloud.
+* Newer Citrix XenServer Tools installs ( >= 6.1) remove needed xenstore_client.exe: http://support.citrix.com/article/CTX136422. This will prevent RightLink from starting up. Known affected cloud/image combinations are some Windows Server 2012R2 images on Rackspace Open Cloud.
 
 = 6.1.5
 
