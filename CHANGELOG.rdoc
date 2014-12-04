@@ -1,3 +1,9 @@
+= 5.8.15
+
+== Bug Fixes
+
+* Avoid unneeded setting of managed login tags on managed login policy changes (rs-19437).
+
 = 5.8.14
 
 == Bug Fixes
