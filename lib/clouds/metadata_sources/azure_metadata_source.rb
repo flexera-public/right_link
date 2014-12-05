@@ -162,14 +162,14 @@ module RightScale
         return @azure_endpoint if @azure_endpoint
         # Note a race condition exists where we can poll for metadata before dhclient
         # has gotten the lease. Make sure loops for a few minutes at least
-        10.times do
+        16.times do
           begin
             dhcp_res_pkt = send_dhcp_request()
             @azure_endpoint = endpoint_from_response(dhcp_res_pkt)
           rescue NoOption245Error => e
             raise "No option 245 in DHCP response, we don't appear to be in the Azure cloud"
           rescue Exception => e
-            sleep 10
+            sleep 15
             # no-op for timeout
           end
           break if @azure_endpoint
