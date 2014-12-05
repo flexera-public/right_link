@@ -2,7 +2,7 @@
 
 == Stable Packages
 
-As of Aug 2014, the latest stable release of RightLink is v6.1.
+As of Dec 2014, the latest stable release of RightLink is v6.2.
 
 It is available for the following operating systems (64-bit binaries only):
 * Red Hat Enterprise Linux 6/7 (also compatible with CentOS 6/7)
@@ -22,10 +22,10 @@ And the following cloud types:
 
 To learn how to install stable RightLink, refer to our support site:
 
-http://support.rightscale.com/12-Guides/RightLink/RightLink_6.0/Install_RightLink
+https://support.rightscale.com/12-Guides/RightLink_6/Install_RightLink
 
 
-== Beta packages - RightLink v6.2+
+== Beta packages - RightLink v6.3+
 
 Assuming that you continued reading this document, you may be interested in
 trying RightLink beta or pre-release software. The following instructions serve as
