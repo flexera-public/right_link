@@ -151,7 +151,7 @@ module RightScale
           sock.bind('0.0.0.0', 68)
           sock.send(dhcp_send_packet, 0, '<broadcast>', 67)
 
-          dhcp_rcv_packet = Timeout::timeout(10) { sock.recv(1024) }
+          dhcp_rcv_packet = Timeout::timeout(3) { sock.recv(1024) }
           return dhcp_rcv_packet
         ensure
           sock.close() if sock && !sock.closed?
@@ -160,13 +160,16 @@ module RightScale
 
       def azure_fabric_controller_ip
         return @azure_endpoint if @azure_endpoint
-        3.times do
+        # Note a race condition exists where we can poll for metadata before dhclient
+        # has gotten the lease. Make sure loops for a few minutes at least
+        16.times do
           begin
             dhcp_res_pkt = send_dhcp_request()
             @azure_endpoint = endpoint_from_response(dhcp_res_pkt)
           rescue NoOption245Error => e
             raise "No option 245 in DHCP response, we don't appear to be in the Azure cloud"
           rescue Exception => e
+            sleep 15
             # no-op for timeout
           end
           break if @azure_endpoint
