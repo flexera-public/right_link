@@ -19,42 +19,24 @@ module RightScale
     # options[:file_extension](String):: output file extension
     # options[:file_name_prefix](String):: output file name sans extension
     # options[:output_dir_path](String):: output directory, defaults to RS spool dir
-    # options[:read_override](Proc(reader, subpath):: read override or nil
-    # options[:write_override](Proc(writer, metadata subpath):: write override or nil
     #
     # === Return
     # always true
     def initialize(options)
       raise ArgumentError.new("options[:file_name_prefix] is required") unless @file_name_prefix = options[:file_name_prefix]
       raise ArgumentError.new("options[:output_dir_path] is required") unless @output_dir_path = options[:output_dir_path]
-      @file_extension = options[:file_extension] || '.raw'
-      @read_override = options[:read_override]
-      @write_override = options[:write_override]
-    end
-
-    # Reads metadata from file.
-    #
-    # === Parameters
-    # subpath(Array|String):: subpath or nil
-    #
-    # === Return
-    # result(String):: contents of generated file
-    def read(subpath = nil)
-      return @read_override.call(self, subpath) if @read_override
-      return read_file(subpath)
+      @file_extension = options[:file_extension]
     end
 
     # Writes given metadata to file.
     #
     # === Parameters
     # metadata(Hash):: Hash-like metadata
-    # subpath(Array|String):: subpath if deeper than root or nil
     #
     # === Return
     # always true
-    def write(metadata, subpath = nil)
-      return @write_override.call(self, metadata, subpath) if @write_override
-      return write_file(metadata, subpath)
+    def write(metadata)
+      return write_file(metadata)
     end
 
     # Escapes double-quotes (and literal backslashes since they are escape
@@ -96,19 +78,10 @@ module RightScale
     #
     # === Parameters
     # file_name(String):: output file name without extension
-    # subpath(Array|String):: subpath if deeper than root or nil
     #
     # === Return
     # result(String):: full path of generated file
-    def full_path(file_name, subpath = nil)
-      if subpath
-        # legacy ec2 support omits file extension and creates a parent dir
-        # using file name prefix; this is the default behavior.
-        subpath = subpath.join('-') if subpath.kind_of?(Array)
-        subpath = subpath.gsub(/[\/\\]+/, '-').gsub(/^-+|-+$/, '')
-        return File.normalize_path(File.join(@output_dir_path, file_name, subpath)) unless subpath.empty?
-      end
-
+    def full_path(file_name)
       return File.normalize_path(File.join(@output_dir_path, "#{file_name}#{@file_extension}"))
     end
 
@@ -116,27 +89,15 @@ module RightScale
     #
     # === Parameters
     # file_name(String):: output file name without extension
-    # subpath(Array|String):: subpath if deeper than root or nil
     #
     # === Return
     # result(String):: full path of generated file
-    def create_full_path(file_name, subpath = nil)
-      path = full_path(file_name, subpath)
+    def create_full_path(file_name)
+      path = full_path(file_name)
       FileUtils.mkdir_p(File.dirname(path))
       path
     end
 
-    # Reads metadata from file.
-    #
-    # === Parameters
-    # subpath(Array|String):: subpath if deeper than root or nil
-    #
-    # === Return
-    # result(String):: contents of generated file or empty
-    def read_file(subpath)
-      path = full_path(@file_name_prefix, subpath)
-      return File.file?(path) ? File.read(path) : ''
-    end
 
     # Writes given metadata to file.
     #
@@ -146,10 +107,18 @@ module RightScale
     #
     # === Return
     # always true
-    def write_file(metadata, subpath)
-      File.open(create_full_path(@file_name_prefix, subpath), "w", DEFAULT_FILE_MODE) { |f| f.write(metadata.to_s) }
+    def write_file(metadata)
+      File.open(create_full_path(@file_name_prefix), "w", DEFAULT_FILE_MODE) { |f| f.write(metadata.to_s) }
     end
 
   end  # MetadataWriter
 
 end  # RightScale
+
+# Load all source subclasses
+sources_dir = File.expand_path("../metadata_writers", __FILE__)
+pattern = File.join(sources_dir, '*.rb')
+Dir[pattern].each { |source_file| require source_file }
+
+
+

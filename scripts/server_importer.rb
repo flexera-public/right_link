@@ -68,7 +68,7 @@ module RightScale
           cloud_name = 'none' if cloud_name.to_s.empty?
 
           cloud_dir   = File.dirname(cloud_file)
-          output_file = File.join(RightScale::Platform.filesystem.spool_dir, cloud_name, 'user-data.txt')
+          output_file = File.join(RightScale::Platform.filesystem.spool_dir, 'rightscale', 'user-data.txt')
           output_dir  = File.dirname(output_file)
 
           if File.exist?(InstanceState::STATE_FILE) && !options[:force]

@@ -20,32 +20,48 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-CONFIG_DRIVE_MOUNTPOINT = File.join(RightScale::Platform.filesystem.spool_dir, name.to_s) if ::RightScale::Platform.linux?
-CONFIG_DRIVE_MOUNTPOINT = File.join(ENV['ProgramW6432'], 'RightScale', 'Mount', 'Softlayer').gsub('/', '\\') if ::RightScale::Platform.windows?
+module RightScale::Clouds
+  class Softlayer < RightScale::Cloud
+    def abbreviation
+      "sl"
+    end
 
-# dependencies.
-metadata_source 'metadata_sources/http_metadata_source'
-metadata_writers 'metadata_writers/dictionary_metadata_writer',
-                 'metadata_writers/ruby_metadata_writer',
-                 'metadata_writers/shell_metadata_writer'
+    def metadata_host
+      "https://api.service.softlayer.com"
+    end
 
-abbreviation :sl
-# Parses softlayer user metadata into a hash.
-#
-# === Parameters
-# tree_climber(MetadataTreeClimber):: tree climber
-# data(String):: raw data
-#
-# === Return
-# result(Hash):: Hash-like leaf value
-def create_user_metadata_leaf(tree_climber, data)
-  result = tree_climber.create_branch
-  ::RightScale::CloudUtilities.split_metadata(data.strip, '&', result)
-  result
+    def metadata_item(item)
+      "/rest/v3/SoftLayer_Resource_Metadata/#{item}"
+    end
+
+    def userdata_url
+      metadata_item("UserMetadata.txt")
+    end
+
+    def fetcher
+      @fetcher ||= RightScale::MetadataSources::HttpMetadataSource.new(@options)
+    end
+
+
+    def finish
+      @fetcher.finish() if @fetcher
+    end
+
+    def metadata
+      metadata  = {
+        'public_fqdn'   => fetcher.get(metadata_item("getFullyQualifiedDomainName.txt")),
+        'local_ipv4'    => fetcher.get(metadata_item("getPrimaryBackendIpAddress.txt")),
+        'public_ipv4'   => fetcher.get(metadata_item("getPrimaryIpAddress.txt")),
+        'region'        => fetcher.get(metadata_item("getDatacenter.txt")),
+        'instance_id'   => fetcher.get(metadata_item("getId.txt"))
+      }
+
+      metadata
+    end
+
+    def userdata_raw
+      fetcher.get(userdata_url)    
+    end
+  end
 end
 
-# defaults.
-default_option([:metadata_source, :hosts], [:host => 'api.service.softlayer.com', :port => 443])
-default_option([:user_metadata, :metadata_tree_climber, :root_path], 'rest/v3/SoftLayer_Resource_Metadata/UserMetadata.txt')
-default_option([:user_metadata, :metadata_tree_climber, :create_leaf_override], method(:create_user_metadata_leaf))
-default_option([:cloud_metadata, :metadata_provider, :build_metadata_override], lambda { |*| {} })

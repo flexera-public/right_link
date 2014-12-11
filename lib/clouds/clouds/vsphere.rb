@@ -21,52 +21,60 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 require 'fileutils'
 
-VSCALE_DEFINITION_VERSION = 0.3
+module RightScale::Clouds
+  class Vsphere < RightScale::Cloud
+    VSCALE_DEFINITION_VERSION = 0.3
 
-CONFIG_DRIVE_MOUNTPOINT = File.join(RightScale::Platform.filesystem.spool_dir, 'vsphere')
+    def abbreviation
+      "vs"
+    end
 
-# dependencies.
-metadata_source 'metadata_sources/file_metadata_source'
-metadata_writers 'metadata_writers/dictionary_metadata_writer',
-                 'metadata_writers/ruby_metadata_writer',
-                 'metadata_writers/shell_metadata_writer'
+    def vsphere_metadata_location
+      File.join(RightScale::Platform.filesystem.spool_dir, 'vsphere')
+    end
 
-# set abbreviation for non-RS env var generation
-abbreviation :vs
+    def metadata_file
+      File.join(vsphere_metadata_location, "meta.txt")
+    end
 
-# Parses vsoup user metadata into a hash.
-#
-# === Parameters
-# tree_climber(MetadataTreeClimber):: tree climber
-# data(String):: raw data
-#
-# === Return
-# result(Hash):: Hash-like leaf value
-def create_user_metadata_leaf(tree_climber, data)
-  result = tree_climber.create_branch
-  ::RightScale::CloudUtilities.split_metadata(data.strip, "\n", result)
-  result
+    def userdata_file
+      File.join(vsphere_metadata_location, "user.txt")
+    end
+
+    def fetcher
+      @fetcher ||= RightScale::MetadataSources::FileMetadataSource.new(@options)
+    end
+
+    def metadata
+      metadata_raw = fetcher.get(metadata_file)
+      parse_metadata(metadata_raw)
+    end
+
+    def userdata_raw
+      fetcher.get(metadata_file)
+    end
+
+    def parse_metadata(data)
+      RightScale::CloudUtilities.parse_rightscale_userdata(data)
+    end
+
+
+    def requires_network_config?
+      true
+    end
+
+    def finish
+      @fetcher.finish() if @fetcher
+    end
+
+    # Extend clear_state method
+    # Clear any fetched metadata files
+    # def clear_state
+    #   super
+    #   FileUtils.rm_rf(vsphere_metadata_locations) if File.directory?(vsphere_metadata_locations)
+    # end
+
+
+  end
 end
 
-# Extend clear_state method
-# Clear any fetched metadata files
-alias :_clear_state :clear_state
-def clear_state
-  _clear_state
-  FileUtils.rm_rf(CONFIG_DRIVE_MOUNTPOINT) if File.directory?(CONFIG_DRIVE_MOUNTPOINT)
-end
-
-# userdata defaults
-default_option([:metadata_source, :user_metadata_source_file_path], File.join(CONFIG_DRIVE_MOUNTPOINT, 'user.txt'))
-default_option([:user_metadata, :metadata_tree_climber, :create_leaf_override], method(:create_user_metadata_leaf))
-
-# cloud metadata defaults
-default_option([:metadata_source, :cloud_metadata_source_file_path], File.join(CONFIG_DRIVE_MOUNTPOINT, 'meta.txt'))
-default_option([:cloud_metadata, :metadata_tree_climber, :create_leaf_override], method(:create_user_metadata_leaf))
-# vsphere cloud_metadata is flat, so paths will never have children -- always return false
-default_option([:cloud_metadata, :metadata_tree_climber, :has_children_override], lambda { |*| false } )
-default_option([:cloud_metadata, :metadata_writers, :ruby_metadata_writer, :generation_command], cloud_metadata_generation_command)
-
-def requires_network_config?
-  true
-end

@@ -20,29 +20,40 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-# dependencies.
-metadata_source 'metadata_sources/file_metadata_source'
-metadata_writers 'metadata_writers/dictionary_metadata_writer',
-                 'metadata_writers/ruby_metadata_writer',
-                 'metadata_writers/shell_metadata_writer'
+# host/port are constants for Google Compute Engine.
+module RightScale::Clouds
+  class None < RightScale::Cloud
+    def abbreviation
+      "none"
+    end
 
-# set abbreviation for non-RS env var generation (not actually used by this cloud)
-abbreviation :none
+    def metadata_file
+      File.join(RightScale::Platform.filesystem.spool_dir, 'none', 'meta-data.txt')
+    end
 
-# Parses no-cloud user metadata into a hash.
-#
-# === Parameters
-# tree_climber(MetadataTreeClimber):: tree climber
-# data(String):: raw data
-#
-# === Return
-# result(Hash):: Hash-like leaf value
-def create_user_metadata_leaf(tree_climber, data)
-  result = tree_climber.create_branch
-  ::RightScale::CloudUtilities.split_metadata(data, "\n", result)
-  result
+    def userdata_file
+      File.join(RightScale::Platform.filesystem.spool_dir, 'none', 'user-data.txt')
+    end
+
+    def fetcher
+      @fetcher ||= RightScale::MetadataSources::FileMetadataSource.new(@options)
+    end
+
+
+    def metadata
+      if ::File.exists?(metadata_file)
+        fetcher.get(metadata_file)
+      else
+        nil
+      end
+    end
+
+    def userdata_raw
+      if ::File.exists?(userdata_file)
+        fetcher.get(userdata_file)
+      else
+        nil
+      end
+    end
+  end
 end
-
-# defaults.
-default_option([:user_metadata, :metadata_tree_climber, :create_leaf_override], method(:create_user_metadata_leaf))
-default_option([:metadata_source, :user_metadata_source_file_path], File.join(RightScale::Platform.filesystem.spool_dir, name.to_s, 'user-data.txt'))

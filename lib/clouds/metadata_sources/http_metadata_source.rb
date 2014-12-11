@@ -31,35 +31,77 @@ module RightScale
     # case of a tree of metadata.
     class HttpMetadataSource < MetadataSource
 
-      attr_accessor :host, :port
-
-      def initialize(options)
+      def initialize(options = {})
         super(options)
-        raise ArgumentError, "options[:hosts] is required" unless @hosts = options[:hosts]
-        @host, @port = self.class.select_metadata_server(@hosts)
+        @headers = options[:headers] || {}
+        @skip = options[:skip] || []
         @connections = {}
       end
 
       # Queries for metadata using the given path.
       #
       # === Parameters
-      # path(String):: metadata path
+      # path(String):: metadata uri
       #
       # === Return
       # metadata(String):: query result or empty
       #
       # === Raises
       # QueryFailed:: on any failure to query
-      def query(path)
-        http_path = "http#{443 == @port ? 's' : ''}://#{@host}:#{@port}/#{path}"
+      def get(path, keep_alive = false)
+        res = ""
+        begin
+          res = _get(path)
+        ensure
+          finish() unless keep_alive
+        end
+        res
+      end
+
+      # Recusrive queries for metadata using the given path, returning a JSON hash of values
+      #
+      # === Parameters
+      # path(String):: metadata uri root
+      #
+      # === Return
+      # metadata(Hash):: hierarchical hash of metadata values or empty hash
+      #
+      # === Raises
+      # QueryFailed:: on any failure to query
+      def recursive_get(path, keep_alive = false)
+        path += "/" unless path =~ /\/$/
+        res = {}
+        begin
+          res = _recursive_get(path)
+        ensure
+          finish() unless keep_alive
+        end
+        res
+      end
+
+
+      # Closes any http connections left open after fetching metadata.
+      def finish
+        @connections.each_value do |connection|
+          begin
+            connection.finish
+          rescue Exception => e
+            logger.error("Failed to close metadata http connection: #{e.backtrace.join("\n")}")
+          end
+        end
+        @connections = {}
+      end
+
+
+
+      def _get(http_path)
         attempts = 1
         while true
           begin
             logger.debug("Querying \"#{http_path}\"...")
-            # get.
             result = http_get(http_path)
             if result
-              logger.debug("Successfully retrieved from: \"#{http_path}\"  Result: #{path} = #{result}")
+              logger.debug("Successfully retrieved from: \"#{http_path}\"  Result: #{result}")
               return result
             end
 
@@ -82,52 +124,22 @@ module RightScale
         end
       end
 
-      # Closes any http connections left open after fetching metadata.
-      def finish
-        @connections.each_value do |connection|
-          begin
-            connection.finish
-          rescue Exception => e
-            logger.error("Failed to close metadata http connection: #{e.backtrace.join("\n")}")
+
+      def _recursive_get(path)
+        if path =~ /\/$/
+          results = {}
+          _get(path).gsub("\r\n", "\n").split("\n").each do |item|
+            # Adjustment for public key, which might be of form /0=key-name/ but are queried like /0/
+            item.gsub!(/=.*$/, '/')
+            new_path = "#{path}#{URI.escape(item)}"
+            results[item.chomp("/")] = _recursive_get(new_path)
           end
+          return results
+        else
+          _get(path).strip
         end
-        @connections = {}
       end
 
-      # selects a host/port by attempting to dig one or more well-known DNS
-      # names or IP addresses.
-      #
-      # === Parameters
-      # hosts(Array):: array of hosts in the form [{:host => <dns name or ip address>, :port => <port or nil>}+]
-      #
-      # === Return
-      # result(Array):: pair in form of [<selected host ip address>, <selected port>]
-      def self.select_metadata_server(hosts)
-        # note that .each works for strings (by newline) and arrays.
-        last_exception = nil
-        hosts.each do |host_data|
-          begin
-            # resolve metadata server hostname.
-            addrs = Socket.gethostbyname(host_data[:host])[3..-1]
-
-            # select only IPv4 addresses
-            addrs = addrs.select { |x| x.length == 4 }
-
-            # choose a random IPv4 address
-            raw_ip = addrs[rand(addrs.size)]
-
-            # transform binary IP address into string representation
-            ip = []
-            raw_ip.each_byte { |x| ip << x.to_s }
-            return [ip.join('.'), host_data[:port] || 80]
-          rescue Exception => e
-            last_exception = e
-          end
-        end
-        raise last_exception
-      end
-
-      protected
 
       # Some time definitions
       SECOND = 1
@@ -190,6 +202,9 @@ module RightScale
           # about keep-alive if we want that behavior.
           request = Net::HTTP::Get.new(uri.path)
           request['Connection'] = keep_alive ? 'keep-alive' : 'close'
+          @headers.each do |name, value|
+            request[name] = value
+          end
 
           # get.
           response = connection.request(:protocol => uri.scheme, :server => uri.host, :port => uri.port, :request => request)
@@ -233,6 +248,7 @@ module RightScale
         end
       end
 
+
       # Handles some cases which raise exceptions in the URI class.
       #
       # === Parameters
@@ -275,3 +291,4 @@ module RightScale
   end  # MetadataSources
 
 end  # RightScale
+

@@ -20,15 +20,27 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+# Both "blue-skies" cloud and "wrap instance" behave the same way, they lay down a
+# file in a predefined location (/var/spool/rightscale/user-data.txt on linux,
+# C:\ProgramData\RightScale\spool\rightscale\user-data.txt on windows). In both
+# cases this userdata has *lower* precedence than cloud data. On a start/stop
+# action where userdata is updated, we want the NEW userdata, not the old. So
+# if cloud-based values exist, than use those.
 module RightScale
 
   module MetadataSources
 
     # Provides metadata by reading a dictionary file on disk.
-    class FileMetadataSource < MetadataSource
+    class RightScaleApiMetadataSource < FileMetadataSource
+      FILE_PATH =  File.join(RightScale::Platform.filesystem.spool_dir, 'rightscale', 'user-data.txt')
 
       def initialize(options = {})
+        options[:file_path] =
         super(options)
+      end
+
+      def source_exists?
+        ::File.exists?(FILE_PATH)
       end
 
       # Queries for metadata using the given path.
@@ -41,15 +53,15 @@ module RightScale
       #
       # === Raises
       # QueryFailed:: on any failure to query
-      def get(file_path)
+      def get
         begin
-          result = ::File.read(file_path) if file_path
+          result = ::File.read(FILE_PATH)
         rescue Exception => e
           raise QueryFailed.new(e.message)
         end
       end
 
-    end  # FileMetadataSource
+    end  # RightScaleApiMetadataSource
 
   end  # MetadataSources
 

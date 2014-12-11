@@ -22,8 +22,10 @@
 
 
 module RightScale
+  # Subclass namespace
+  module Clouds; end
 
-  # Singleton for registering and instantiating clouds.
+  # Singleton for instantiating clouds.
   class CloudFactory
 
     include RightSupport::Ruby::EasySingleton
@@ -104,15 +106,19 @@ module RightScale
       options = options.dup
       options[:name] ||= cloud_name.to_s
       options[:script_path] = cloud_script_path
-      cloud = Cloud.new(options)
-      text = File.read(cloud_script_path)
-      cloud.instance_eval(text)
-      cloud.abbreviation(cloud_name) unless cloud.abbreviation
+
+      cloud = nil
+      begin
+        require cloud_script_path
+        cloud_classname = cloud_name.to_s.capitalize
+        cloud_class = eval("RightScale::Clouds::#{cloud_classname}")
+        cloud = cloud_class.new(options)
+      rescue LoadError => e
+        raise ArgumentError, "Could not load Cloud class for #{cloud_name}, #{e}"
+      end
+
       extend_cloud_by_scripts(cloud, logger)
 
-      # finalize defaults only after all cloud definitions have been evaluated
-      # by the new cloud object.
-      cloud.finalize_default_options
       return cloud
     end
 
@@ -220,3 +226,17 @@ EOF
   end  # CloudFactory
 
 end  # RightScale
+
+# Register clouds
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'clouds'))
+begin
+  base_clouds_dir_path = File.join(File.dirname(__FILE__), 'clouds')
+
+  # dynamically register all clouds using the script name as cloud name.
+  pattern = File.join(base_clouds_dir_path, '*.rb')
+  Dir[pattern].each do |cloud_script_path|
+    cloud_name = File.basename(cloud_script_path, '.rb')
+    RightScale::CloudFactory.instance.register(cloud_name, cloud_script_path)
+  end
+end
+

@@ -1,8 +1,10 @@
-#
+ #
 # Copyright (c) 2010 by RightScale Inc., all rights reserved
 #
 # Write given user data to files in /var/spool/ec2 in text, shell and ruby 
 # script formats
+
+
 
 module RightScale
 
@@ -23,6 +25,7 @@ module RightScale
         default_file_extension = RightScale::Platform.windows? ? '.bat' : '.sh'
         options[:file_extension] ||= default_file_extension
         @generation_command = options[:generation_command]
+        @formatter = FlatMetadataFormatter.new(options)
 
         # super
         super(options)
@@ -40,19 +43,19 @@ module RightScale
         #
         # === Parameters
         # metadata(Hash):: Hash-like metadata to write
-        # subpath(Array|String):: subpath or nil
         #
         # === Return
         # always true
-        def write_file(metadata, subpath)
-          return super(metadata, subpath) unless metadata.respond_to?(:has_key?)
+        def write_file(metadata)
+          return unless @formatter.can_format?(metadata)
+          flat_metadata = @formatter.format(metadata)
 
           # write the cached file variant if the code-generation command line was passed.
           env_file_name = @generation_command ? "#{@file_name_prefix}-cache" : @file_name_prefix
-          env_file_path = create_full_path(env_file_name, subpath)
+          env_file_path = create_full_path(env_file_name)
           File.open(env_file_path, "w", DEFAULT_FILE_MODE) do |f|
             f.puts(WINDOWS_SHELL_HEADER)
-            metadata.each do |k, v|
+            flat_metadata.each do |k, v|
               # ensure value is a single line (multiple lines could be interpreted
               # as subsequent commands) by truncation since windows shell doesn't
               # have escape characters.
@@ -63,7 +66,7 @@ module RightScale
 
           # write the generation command, if given.
           if @generation_command
-            File.open(create_full_path(@file_name_prefix, subpath), "w", DEFAULT_FILE_MODE) do |f|
+            File.open(create_full_path(@file_name_prefix), "w", DEFAULT_FILE_MODE) do |f|
               f.puts(WINDOWS_SHELL_HEADER)
               f.puts(@generation_command)
               f.puts("call \"#{env_file_path}\"")
@@ -82,19 +85,19 @@ module RightScale
         #
         # === Parameters
         # metadata(Hash):: Hash-like metadata to write
-        # subpath(Array|String):: subpath or nil
         #
         # === Return
         # always true
-        def write_file( metadata, subpath)
-          return super(metadata, subpath) unless metadata.respond_to?(:has_key?)
+        def write_file( metadata)
+          return unless @formatter.can_format?(metadata)
+          flat_metadata = @formatter.format(metadata)
 
           # write the cached file variant if the code-generation command line was passed.
           env_file_name = @generation_command ? "#{@file_name_prefix}-cache" : @file_name_prefix
-          env_file_path = create_full_path(env_file_name, subpath)
+          env_file_path = create_full_path(env_file_name)
           File.open(env_file_path, "w", DEFAULT_FILE_MODE) do |f|
             f.puts(LINUX_SHELL_HEADER)
-            metadata.each do |k, v|
+            flat_metadata.each do |k, v|
               # escape backslashes and double quotes.
               v = self.class.escape_double_quotes(v)
               f.puts "export #{k}=\"#{v}\""
@@ -103,7 +106,7 @@ module RightScale
 
           # write the generation command, if given.
           if @generation_command
-            File.open(create_full_path(@file_name_prefix, subpath), "w", DEFAULT_FILE_MODE) do |f|
+            File.open(create_full_path(@file_name_prefix), "w", DEFAULT_FILE_MODE) do |f|
               f.puts(LINUX_SHELL_HEADER)
               f.puts(@generation_command)
               f.puts(". #{env_file_path}")

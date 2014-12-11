@@ -29,35 +29,20 @@ module RightScale
   # Abstract base class for all clouds.
   class Cloud
 
-    # wildcard used for some 'all kinds' selections.
     WILDCARD = :*
-
-    # default tree-climber root paths for cloud/user metadata. they are basically
-    # placeholders for metadata sources which need to distinguish cloud from user
-    # but otherwise don't use real root paths.
-    DEFAULT_CLOUD_METADATA_ROOT_PATH = "cloud_metadata"
-    DEFAULT_USER_METADATA_ROOT_PATH = "user_metadata"
-
-    # default writer output file prefixes are based on EC2 legacy files.
-    DEFAULT_CLOUD_METADATA_FILE_PREFIX = 'meta-data'
-    DEFAULT_USER_METADATA_FILE_PREFIX = 'user-data'
-
-    # raw metadata writer is a special case and normally only invoked while
-    # metadata is being queried from source. it can also be referenced to read
-    # back the metadata in raw form.
-    RAW_METADATA_WRITER = :raw
 
     # exceptions
     class CloudError < Exception; end
 
-    attr_reader :name, :script_path, :extended_clouds
+    attr_reader :name, :script_path, :extended_clouds, :options
 
     # Return type for any cloud action (e.g. write_metadata).
     class ActionResult
-      attr_reader :error, :exitstatus, :output
+      attr_reader :error, :exitstatus, :output, :exception
 
       def initialize(options = {})
         @error = options[:error]
+        @exception = options[:exception] || nil
         @exitstatus = options[:exitstatus] || 0
         @output = options[:output]
       end
@@ -74,110 +59,37 @@ module RightScale
       # break options lineage and use Mash to handle keys as strings or tokens.
       # note that this is not a deep copy as :ohai is an option representing the
       # full ohai node in at least one use case.
-      @options = Mash.new(options)
+      @options = options
       @extended_clouds = []
-    end
-
-    # Provides final default options after cloud definition(s) have had a chance
-    # to set defaults. defaults are first-come-first-served so none should be
-    # set by initialize() (as was the case in RightLink v5.7)
-    def finalize_default_options
-      # writer defaults.
-      default_option([:metadata_writers, :output_dir_path], RightScale::AgentConfig.cloud_state_dir)
-      default_option([:cloud_metadata, :metadata_writers, :file_name_prefix], DEFAULT_CLOUD_METADATA_FILE_PREFIX)
-      default_option([:user_metadata, :metadata_writers, :file_name_prefix], DEFAULT_USER_METADATA_FILE_PREFIX)
-
-      # metadata roots are referenced by both sources and tree climber, but
-      # legacy RightLink v5.7 behavior was to treat them as separate categories
-      # of options which had to be defaulted separately. for RightLink v5.8+
-      # ensure cloud definitions only need to set metadata roots for sources
-      # which require them.
-      cloud_metadata_root_path = option([:cloud_metadata, :metadata_tree_climber, :root_path]) ||
-                                 option([:metadata_source, :cloud_metadata_root_path]) ||
-                                 option(:cloud_metadata_root_path) ||
-                                 DEFAULT_CLOUD_METADATA_ROOT_PATH
-      default_option([:cloud_metadata, :metadata_tree_climber, :root_path], cloud_metadata_root_path)
-      default_option([:metadata_source, :cloud_metadata_root_path], cloud_metadata_root_path)
-      default_option(:cloud_metadata_root_path, cloud_metadata_root_path)  # uncategorized option, common to all types
-
-      user_metadata_root_path = option([:user_metadata, :metadata_tree_climber, :root_path]) ||
-                                option([:metadata_source, :user_metadata_root_path]) ||
-                                option(:user_metadata_root_path) ||
-                                DEFAULT_USER_METADATA_ROOT_PATH
-      default_option([:user_metadata, :metadata_tree_climber, :root_path], user_metadata_root_path)
-      default_option([:metadata_source, :user_metadata_root_path], user_metadata_root_path)
-      default_option(:user_metadata_root_path, user_metadata_root_path)  # uncategorized option, common to all types
     end
 
     # Syntatic sugar for options[:logger], which should always be valid under
     # normal circumstances.
     def logger; @options[:logger]; end
 
-    # Getter/setter for abbreviation which also sets default formatter options
-    # when an abbreviation is set.
+    # Cloud abbrevation. Normally used as a prefix for writing values out ot disk
     def abbreviation(value = nil)
-      unless value.to_s.empty?
-        @abbreviation = value.to_s
-        default_option([:cloud_metadata, :metadata_formatter, :formatted_path_prefix], "#{value.to_s.upcase}_")
-      end
-      @abbreviation
+      self.to_s.upcase
     end
 
-    # Base paths for runtime cloud depedencies in order of priority. Defaults
-    # to location of cloud module files.
-    def dependency_base_paths(*args)
-      @dependency_base_paths ||= []
-      args.each do |path|
-        path = relative_to_script_path(path)
-        @dependency_base_paths << path unless @dependency_base_paths.include?(path)
-      end
-      @dependency_base_paths
+    # Convenience methods, define userdata in terms of userdata_raw
+    def userdata
+      RightScale::CloudUtilities.parse_rightscale_userdata(userdata_raw)
     end
 
-    # Runtime cloud depedencies (loaded on demand).
-    def dependencies(*args)
-      @dependencies ||= []
-      args.each do |dependency_type|
-        unless @dependencies.include?(dependency_type)
-          # Just-in-time require new dependency
-          resolve_dependency(dependency_type)
-          @dependencies << dependency_type
-        end
-      end
-      @dependencies
-    end
-
-    # Just-in-time requires a cloud's dependency, which should include its
-    # relative location (and sub-type) in the dependency name
-    # (e.g. 'metadata_sources/http_metadata_source' => Sources::HttpMetadataSource).
-    # the dependency can also be in the RightScale module namespace because it
-    # begin evaluated there.
-    #
-    # note that actual instantiation of the dependency is on-demand from the
-    # cloud type.
+    # Finish function that's called when to pass to cloud if fetching metadata leads to any open
+    # resources. No-op by default, up to each cloud to implement details.
     #
     # === Parameters
-    # dependency_type(String|Token):: snake-case name for dependency type
+    # cloud_name(String|Token): name of cloud to extend
     #
     # === Return
-    # dependency(Class):: resolved dependency class
-    def resolve_dependency(dependency_type)
-      dependency_class_name = dependency_type.to_s.camelize
-      begin
-        dependency_class = Class.class_eval(dependency_class_name)
-      rescue NameError
-        search_paths = (dependency_base_paths || []) + [File.dirname(__FILE__)]
-        dependency_file_name = dependency_type + ".rb"
-        search_paths.each do |search_path|
-          file_path = File.normalize_path(File.join(search_path, dependency_file_name))
-          if File.file?(file_path)
-            require File.normalize_path(File.join(search_path, dependency_type))
-            break
-          end
-        end
-        dependency_class = Class.class_eval(dependency_class_name)
-      end
-      dependency_class
+    # always true
+    #
+    # === Raise
+    # UnknownCloud:: on failure to find extended cloud
+    def finish
+      true
     end
 
     # Defines a base cloud type which the current instance extends. The base
@@ -216,39 +128,6 @@ module RightScale
       @extension_script_base_paths
     end
 
-    # Dependency type for metadata formatter
-    def metadata_formatter(type = nil)
-      dependencies(type) if type
-      @metadata_formatter ||= type || :metadata_formatter
-    end
-
-    # Dependency type for metadata provider
-    def metadata_provider(type = nil)
-      dependencies(type) if type
-      @metadata_provider ||= type || :metadata_provider
-    end
-
-    # Dependency type for metadata source
-    def metadata_source(type = nil)
-      dependencies(type) if type
-      @metadata_source ||= type || :metadata_source
-    end
-
-    # Dependency type for metadata tree climber
-    def metadata_tree_climber(type = nil)
-      dependencies(type) if type
-      @metadata_tree_climber ||= type || :metadata_tree_climber
-    end
-
-    # Dependency type for metadata writers. Note that the raw writer is
-    # automatic (writes raw responses using relative paths while data is being
-    # queried).
-    def metadata_writers(*args)
-      dependencies(*args)
-      @metadata_writers ||= []
-      args.each { |metadata_writer| @metadata_writers << metadata_writer unless @metadata_writers.include?(metadata_writer) }
-      @metadata_writers
-    end
 
     # Determines if the current instance is running on the cloud which require
     # additional network configuration(e.g. vsphere)
@@ -279,28 +158,6 @@ module RightScale
       ::RightScale::Platform
     end
 
-    # Reads the generated metadata file of the given kind and writer type.
-    #
-    # === Parameters
-    # kind(Symbol):: kind of metadata must be one of [:cloud_metadata, :user_metadata]
-    # writer_type(Symbol):: writer_type [RAW_METADATA_WRITER, ...]
-    #
-    # === Return
-    # result(ActionResult):: action result
-    def read_metadata(kind = :user_metadata, writer_type = RAW_METADATA_WRITER, subpath = nil)
-      kind = kind.to_sym
-      writer_type = writer_type.to_sym
-      if RAW_METADATA_WRITER == writer_type
-        reader = raw_metadata_writer(kind)
-      else
-        reader = create_dependency_type(kind, :metadata_writers, writer_type)
-      end
-      output = reader.read(subpath)
-      return ActionResult.new(:output => output)
-    rescue Exception => e
-      return ActionResult.new(:exitstatus => 1, :error => "ERROR: #{e.message}")
-    end
-
     # Queries and writes current metadata to file.
     #
     # === Parameters
@@ -309,40 +166,58 @@ module RightScale
     # === Return
     # result(ActionResult):: action result
     def write_metadata(kind = WILDCARD)
+      options = @options.dup
+
       kind = kind.to_sym
-      kinds = [:cloud_metadata, :user_metadata].select { |k| WILDCARD == kind || k == kind }
-      kinds.each do |k|
-        formatter = create_dependency_type(k, :metadata_formatter)
-        writers = create_dependency_type(k, :metadata_writers, WILDCARD)
-        metadata = build_metadata(k)
-        unless metadata.empty?
-          metadata = formatter.format_metadata(metadata)
-          writers.each { |writer| writer.write(metadata) }
+      if kind == WILDCARD || kind == :user_metadata
+
+        # Both "blue-skies" cloud and "wrap instance" behave the same way, they lay down a
+        # file in a predefined location (/var/spool/rightscale/user-data.txt on linux,
+        # C:\ProgramData\RightScale\spool\rightscale\user-data.txt on windows. In both
+        # cases this userdata has *lower* precedence than cloud data. On a start/stop
+        # action where userdata is updated, we want the NEW userdata, not the old. So
+        # if cloud-based values exists, than we always use those.
+        cloud_userdata = userdata
+        cloud_userdata_raw = userdata_raw
+
+        source = RightScale::MetadataSources::RightScaleApiMetadataSource.new(options)
+        if source.source_exists?
+          unless cloud_userdata.keys.find { |k| k =~ /RS_rn_id/i }
+            extra_userdata_raw = source.get()
+            extra_userdata = RightScale::CloudUtilities.parse_rightscale_userdata(extra_userdata_raw)
+            cloud_userdata = extra_userdata
+            cloud_userdata_raw = extra_userdata_raw
+          end
+        end
+
+        # Raw userdata is a special exception. We could reform the raw
+        # string from the hash but why not pass it directly to preserve it exactly
+        # and be a bit anal. 
+        raw_writer = metadata_writers(:user_metadata).find { |writer| writer.kind_of?(RightScale::MetadataWriters::RawMetadataWriter) }
+        raw_writer.write(cloud_userdata_raw)
+        unless cloud_userdata.empty?
+          metadata_writers(:user_metadata).each { |writer| writer.write(cloud_userdata) }
+        end
+      end
+      if kind == WILDCARD || kind == :cloud_metadata
+        cloud_metadata = metadata
+        unless cloud_metadata.empty?
+          metadata_writers(:cloud_metadata).each { |writer| writer.write(cloud_metadata) }
         end
       end
       return ActionResult.new
     rescue Exception => e
-      return ActionResult.new(:exitstatus => 1, :error => "ERROR: #{e.message}")
+      return ActionResult.new(:exitstatus => 1, :error => "ERROR: #{e.message}", :exception => e)
     ensure
-      # release metadata source after querying all metadata.
-      if @metadata_source_instance
-        temp_metadata_source = @metadata_source_instance
-        @metadata_source_instance = nil
-        temp_metadata_source.finish
-      end
+      finish()
     end
-
-    # Convenience method for reading only cloud metdata.
-    def read_cloud_metadata(writer_type = RAW_METADATA_WRITER, subpath = nil); read_metadata(:cloud_metadata, writer_type, subpath); end
-
-    # Convenience method for reading only cloud metdata.
-    def read_user_metadata(writer_type = RAW_METADATA_WRITER, subpath = nil); read_metadata(:user_metadata, writer_type, subpath); end
 
     # Convenience method for writing only cloud metdata.
     def write_cloud_metadata; write_metadata(:cloud_metadata); end
 
     # Convenience method for writing only user metdata.
     def write_user_metadata; write_metadata(:user_metadata); end
+
 
     # Attempts to clear any files generated by writers.
     #
@@ -353,11 +228,10 @@ module RightScale
     # CloudError:: on failure to clean state
     def clear_state
       output_dir_paths = []
-      [:cloud_metadata, :user_metadata].each do |k|
-        writers = create_dependency_type(k, :metadata_writers, WILDCARD)
-        writers << raw_metadata_writer(k)
-        writers.each { |writer| output_dir_paths << writer.output_dir_path unless output_dir_paths.include?(writer.output_dir_path) }
+      [:user_metadata, :cloud_metadata].each do |kind|
+        output_dir_paths |= metadata_writers(kind).map { |w| w.output_dir_path }
       end
+
       last_exception = nil
       output_dir_paths.each do |output_dir_path|
         begin
@@ -369,98 +243,48 @@ module RightScale
       fail(last_exception.message) if last_exception
       return ActionResult.new
     rescue Exception => e
-      return ActionResult.new(:exitstatus => 1, :error => "ERROR: #{e.message}")
-    end
-
-    # Executes a query for metadata and builds a metadata 'tree' according to
-    # the rules of provider and tree climber.
-    #
-    # === Parameters
-    # kind(Token):: must be one of [:cloud_metadata, :user_metadata]
-    #
-    # === Return
-    # metadata(Hash):: Hash-like metadata response
-    def build_metadata(kind)
-      @metadata_source_instance = create_dependency_type(kind, :metadata_source) unless @metadata_source_instance
-      metadata_tree_climber = create_dependency_type(kind, :metadata_tree_climber)
-      provider = create_dependency_type(kind, :metadata_provider)
-      provider.send(:metadata_source=, @metadata_source_instance)
-      provider.send(:metadata_tree_climber=, metadata_tree_climber)
-      provider.send(:raw_metadata_writer=, raw_metadata_writer(kind))
-
-      # build
-      return provider.send(:build_metadata)
+      return ActionResult.new(:exitstatus => 1, :error => "ERROR: #{e.message}", :exception => e)
     end
 
     # Gets the option given by path, if it exists.
     #
     # === Parameters
-    # path(Array|String):: path to option as an array of path elements or single
-    #  string which may contain forward slashes as element name delimiters.
-    # default_value(String):: default value to conditionally insert/merge or nil
-    #
+    # kind(Symbol):: :user_metadata or :cloud_metadata
     # === Return
-    # result(Object):: existing option or nil
-    def option(path)
-      options = @options
-      path = path.to_s.split('/') unless path.kind_of?(Array)
-      path[0..-2].each do |child|
-        return nil unless (options = options[child]) && options.respond_to?(:has_key?)
-      end
-      options[path[-1]]
-    end
-
-    # Merges the given default option at the given depth in the options hash
-    # but only if the value is not set. Handles subhash merging by giving the
-    # existing option key/value pairs precedence.
-    #
-    # === Parameters
-    # path(Array|String):: path to option as an array of path elements or single
-    #  string which may contain forward slashes as element name delimiters.
-    # default_value(String):: default value to conditionally insert/merge or nil
-    def default_option(path, default_value)
-      # create subhashes to end of path.
-      options = @options
-      path = path.to_s.split('/') unless path.kind_of?(Array)
-      path[0..-2].each { |child| options = options[child] ||= Mash.new }
-      last_child = path[-1]
-
-      # ensure any existing options override defaults.
-      if default_value && options[last_child].respond_to?(:merge)
-        options[last_child] = default_value.dup.merge(options[last_child])
-      else
-        options[last_child] ||= default_value
-      end
-    end
-
-    # Creates the type using options specified by metadata kind, type category
-    # and specific type, if given.
-    #
-    # === Parameters
-    # kind(Token):: must be one of [:cloud_metadata, :user_metadata]
-    # category(Token):: category for dependency class
-    # type(String|Token):: specific type or nil
-    #
-    # === Return
-    # dependency(Object):: new instance of dependency class
-    def create_dependency_type(kind, category, dependency_type = nil)
-      # support wildcard case for all dependency types in a category.
-      kind = kind.to_sym
-      category = category.to_sym
-      if WILDCARD == dependency_type
-        types = self.send(category)
-        return types.map { |type| create_dependency_type(kind, category, type) }
+    # result(Array(MetadataWriter)):: responds to write
+    def metadata_writers(kind)
+      return @metadata_writers[kind] if @metadata_writers && @metadata_writers[kind]
+      @metadata_writers ||= {}
+      @metadata_writers[kind] ||= []
+  
+      options = @options.dup
+      options[:kind] = kind
+      if kind == :user_metadata
+        options[:formatted_path_prefix] = "RS_"
+        options[:output_dir_path] ||= RightScale::AgentConfig.cloud_state_dir
+        options[:file_name_prefix] = "user-data" 
+      elsif kind == :cloud_metadata
+        options[:formatted_path_prefix] = "#{abbreviation.upcase}_"
+        options[:output_dir_path] ||= RightScale::AgentConfig.cloud_state_dir
+        options[:file_name_prefix] = "meta-data" 
       end
 
-      # get specific type from category on cloud, if necessary.
-      dependency_type = self.send(category) unless dependency_type
-      raise NotImplementedError.new("The #{name.inspect} cloud has not declared a #{category} type.") unless dependency_type
-      dependency_type = dependency_type.to_s
+      begin
+        writers_dir_path = File.join(File.dirname(__FILE__), 'metadata_writers')
 
-      options = resolve_options(kind, category, dependency_type)
-      dependency_class = resolve_dependency(dependency_type)
-      return dependency_class.new(options)
+        # dynamically register all clouds using the script name as cloud name.
+        pattern = File.join(writers_dir_path, '*.rb')
+        Dir[pattern].each do |writer_script_path|
+          writer_name = File.basename(writer_script_path, '.rb')
+          require writer_script_path
+          writer_class_name = writer_name.split(/[_ ]/).map {|w| w.capitalize}.join
+          writer_class = eval("RightScale::MetadataWriters::#{writer_class_name}")
+          @metadata_writers[kind] << writer_class.new(options)
+        end
+      end
+      @metadata_writers[kind]
     end
+
 
     # Assembles the command line needed to regenerate cloud metadata on demand.
     def cloud_metadata_generation_command
@@ -471,40 +295,6 @@ module RightScale
 
     protected
 
-    # Resolve options to pass to new object, giving precedency to most
-    # specific options based on kind, category and type.
-    #
-    # === Parameters
-    # kind(Token):: must be one of [:cloud_metadata, :user_metadata]
-    # category(Token):: category for dependency class
-    # type(String|Token):: specific type
-    #
-    # === Return
-    # options(Hash):: resolved options
-    def resolve_options(kind, category, type)
-      # remove any module reference for type when finding options.
-      type = type.to_s.gsub(/^.*\//, '').to_sym
-      options = @options[category] ? Mash.new(@options[category]) : Mash.new
-      options = options.merge(@options[category][type]) if @options[category] && @options[category][type]
-      if @options[kind] && @options[kind][category]
-        options = options.merge(@options[kind][category])
-        options = options.merge(@options[kind][category][type]) if @options[kind][category][type]
-      end
-
-      # set special options which should be available to all categories.
-      options[:cloud] = self
-      options[:logger] ||= @options[:logger]
-      options[:cloud_metadata_root_path] ||= @options[:cloud_metadata_root_path]
-      options[:user_metadata_root_path] ||= @options[:user_metadata_root_path]
-
-      return options
-    end
-
-    # Creates the internal-use raw metadata writer.
-    def raw_metadata_writer(kind)
-      options = resolve_options(kind, :metadata_writers, RAW_METADATA_WRITER)
-      return MetadataWriter.new(options)
-    end
 
     # Called internally to execute a cloud extension script with the given
     # command-line arguments, if any. It is generally assumed scripts will not
@@ -531,7 +321,7 @@ module RightScale
       output = `#{cmd}`
       return ActionResult.new(:exitstatus => $?.exitstatus, :output => output)
     rescue Exception => e
-      return ActionResult.new(:exitstatus => 1, :error => "ERROR: #{e.message}")
+      return ActionResult.new(:exitstatus => 1, :error => "ERROR: #{e.message}", :exception => e)
     end
 
     # make the given path relative to this cloud's DSL script path only if the

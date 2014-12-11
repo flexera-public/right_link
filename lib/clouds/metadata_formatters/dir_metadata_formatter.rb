@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2011 RightScale Inc
+# Copyright (c) 2010-2011 RightScale Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -20,15 +20,39 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'clouds'))
+require File.expand_path("../flat_metadata_formatter", __FILE__)
 
-begin
-  base_clouds_dir_path = File.join(File.dirname(__FILE__), 'clouds')
+module RightScale
 
-  # dynamically register all clouds using the script name as cloud name.
-  pattern = File.join(base_clouds_dir_path, '*.rb')
-  Dir[pattern].each do |cloud_script_path|
-    cloud_name = File.basename(cloud_script_path, '.rb')
-    RightScale::CloudFactory.instance.register(cloud_name, cloud_script_path)
+  class DirMetadataFormatter < FlatMetadataFormatter
+
+    # Initializer.
+    #
+    # === Parameters
+    # Don't use superclass initialize, it sets some options we don't want
+    def initialize(options = {}); end
+
+    # Formats a structured json blob such that sublevels in the structured json
+    # get translated to slashes, as in a hierarhical file system. i.e.
+    # { :a => { :b => "X", :c => "Y"}} would now be {"a/b" => "X", "a/c" => "Y"}
+    #
+    # === Parameters
+    # metadata(Hash):: tree of raw metadata
+    #
+    # === Returns
+    # flat_metadata(Hash):: flattened metadata (single level hash)
+    def format(metadata)
+      return recursive_flatten_metadata(metadata)
+    end
+
+    def can_format?(metadata)
+      metadata.respond_to?(:has_key?)
+    end
+
+    protected
+
+    def transform_path(path)
+      path.join("/")
+    end
   end
-end
+end  # RightScale

@@ -55,10 +55,16 @@ module RightScale
       #
       # === Raises
       # QueryFailed:: on any failure to query
-      def query(path)
+      def userdata
         mount_config_drive
 
-        super(path)
+        super
+      end
+
+      def metadata
+        mount_config_drive
+
+        super
       end
 
       # Mounts the configuration drive based on the provided parameters
@@ -75,6 +81,8 @@ module RightScale
       # VolumeError:: on a failure to mount the device
       # ParserError:: on failure to parse volume list
       def mount_config_drive
+        return @mounted if @mounted
+        @mounted = false
         # These two conditions are available on *nix and windows
         conditions = {}
         conditions[:label] = @config_drive_label if @config_drive_label
@@ -121,7 +129,8 @@ module RightScale
         elsif ::RightScale::Platform.windows?
           ::RightScale::Platform.volume_manager.assign_device(device_ary[0][:index], @config_drive_mountpoint, {:idempotent => true, :clear_readonly => false, :remove_all => true})
         end
-        return true
+        @mounted = true
+        return @mounted
       end
 
     end # ConfigDriveMetadataSource
