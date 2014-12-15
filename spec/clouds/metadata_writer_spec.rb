@@ -24,16 +24,22 @@ require File.expand_path('../spec_helper', __FILE__)
 
 METADATA_WRITERS_BASE_DIR = File.expand_path('../../../lib/clouds/metadata_writers', __FILE__)
 
+require File.normalize_path(File.join(METADATA_WRITERS_BASE_DIR, 'json_metadata_writer'))
 require File.normalize_path(File.join(METADATA_WRITERS_BASE_DIR, 'dictionary_metadata_writer'))
 require File.normalize_path(File.join(METADATA_WRITERS_BASE_DIR, 'ruby_metadata_writer'))
 require File.normalize_path(File.join(METADATA_WRITERS_BASE_DIR, 'shell_metadata_writer'))
+require File.normalize_path(File.join(METADATA_WRITERS_BASE_DIR, 'raw_metadata_writer'))
+require File.normalize_path(File.join(METADATA_WRITERS_BASE_DIR, 'dir_metadata_writer'))
+
 
 module RightScale
 
   class MetadataWriterSpec
 
-    METADATA = {'RS_mw_spec_x' => 'A1\'s\\', 'RS_mw_spec_YY' => " \"B2\" \n B3 ", 'RS_mw_spec_Zzz' => ''}
-    FILTERED_METADATA = {'RS_mw_spec_x' => 'A1\'s\\', 'RS_mw_spec_YY' => "\"B2\"", 'RS_mw_spec_Zzz' => ''}
+    METADATA = {'RS_mw_spec_x' => 'A1\'s\\', 'RS_mw_spec_YY' => " \"B2\" \n B3 ", 'RS_mw_spec_Zzz' => '', 'dir_a' => {'b' => "subdir_val", 'c' => "val1\nval2"}}
+    UNFILTERED_METADATA = {'RS_MW_SPEC_X' => 'A1\'s\\', 'RS_MW_SPEC_YY' => " \"B2\" \n B3 ", 'RS_MW_SPEC_ZZZ' => '', 'RS_DIR_A_B' => 'subdir_val', 'RS_DIR_A_C' => "val1\nval2"}
+    #FILTERED_METADATA = {'RS_MW_SPEC_X' => 'A1\'s\\', 'RS_MW_SPEC_YY' => "\"B2\"", 'RS_MW_SPEC_ZZZ' => ''}
+    DICT_METADATA = "RS_MW_SPEC_X=A1's\\\nRS_MW_SPEC_YY=\"B2\"\nRS_MW_SPEC_ZZZ=\nRS_DIR_A_B=subdir_val\nRS_DIR_A_C=val1\n"
     RAW_METADATA = 'some raw metadata'
 
     GENERATION_COMMAND_OUTPUT = 'some-metadata-generation-command'
@@ -55,8 +61,8 @@ describe RightScale::MetadataWriter do
     @output_dir_path = nil
   end
 
-  it 'should write raw files by default' do
-    writer = ::RightScale::MetadataWriter.new(:file_name_prefix => 'test', :output_dir_path => @output_dir_path)
+  it 'should write raw files' do
+    writer = ::RightScale::MetadataWriters::RawMetadataWriter.new(:file_name_prefix => 'test', :output_dir_path => @output_dir_path)
     output_file_path = File.join(@output_dir_path, 'test.raw')
     writer.write(::RightScale::MetadataWriterSpec::RAW_METADATA)
     File.file?(output_file_path).should be_true
@@ -64,34 +70,45 @@ describe RightScale::MetadataWriter do
     contents.should == ::RightScale::MetadataWriterSpec::RAW_METADATA
   end
 
-  it 'should support override of read and write' do
-    output = {}
-    reader_writer = ::RightScale::MetadataWriter.new(
-      :file_name_prefix => 'test',
-      :output_dir_path => @output_dir_path,
-      :write_override => lambda do |writer, metadata, subpath|
-        writer.should == reader_writer
-        output[subpath] = metadata
-      end,
-      :read_override => lambda do |reader, subpath|
-        reader.should == reader_writer
-        output[subpath]
-       end
-    )
-    reader_writer.write(1, 'a')
-    reader_writer.write(2, 'b/c')
-    output.should == {"b/c"=>2, "a"=>1}
-    reader_writer.read('a').should == 1
-    reader_writer.read('b/c').should == 2
+  it 'should write dictionary files' do
+    writer = ::RightScale::MetadataWriters::DictionaryMetadataWriter.new(:file_name_prefix => 'test', :output_dir_path => @output_dir_path)
+    output_file_path = File.join(@output_dir_path, 'test.dict')
+    writer.write(::RightScale::MetadataWriterSpec::METADATA)
+    File.file?(output_file_path).should be_true
+    result = ::File.read(output_file_path)
+    result.should == ::RightScale::MetadataWriterSpec::DICT_METADATA
   end
 
-  it 'should write dictionary files' do
-    reader_writer = ::RightScale::MetadataWriters::DictionaryMetadataWriter.new(:file_name_prefix => 'test', :output_dir_path => @output_dir_path)
-    output_file_path = File.join(@output_dir_path, 'test.dict')
-    reader_writer.write(::RightScale::MetadataWriterSpec::METADATA)
+
+  it 'should write json files' do
+    writer = ::RightScale::MetadataWriters::JsonMetadataWriter.new(:file_name_prefix => 'test', :output_dir_path => @output_dir_path)
+    output_file_path = File.join(@output_dir_path, 'test.json')
+    writer.write(::RightScale::MetadataWriterSpec::METADATA)
     File.file?(output_file_path).should be_true
-    result = reader_writer.read
-    result.should == ::RightScale::MetadataWriterSpec::FILTERED_METADATA
+    result = JSON.parse(::File.read(output_file_path))
+    result.should == ::RightScale::MetadataWriterSpec::METADATA
+  end
+
+  it 'should write directory structured files' do
+    writer = ::RightScale::MetadataWriters::DirMetadataWriter.new(:file_name_prefix => 'test',
+                                                                   :output_dir_path => @output_dir_path,
+                                                                   :generation_command => ::RightScale::MetadataWriterSpec::GENERATION_COMMAND)
+    writer.write(::RightScale::MetadataWriterSpec::METADATA)
+
+    output_dir = File.join(@output_dir_path, 'test')
+    File.directory?(output_dir).should be_true
+
+
+    output_file_dir_b = File.join(output_dir, "dir_a", "b")
+    File.file?(output_file_dir_b).should be_true
+    result_b = ::File.read(output_file_dir_b)
+    result_b.should == ::RightScale::MetadataWriterSpec::METADATA['dir_a']['b']
+
+    output_file_dir_c = File.join(output_dir, "dir_a", "c")
+    File.file?(output_file_dir_c).should be_true
+    result_c = ::File.read(output_file_dir_c)
+    result_c.should == ::RightScale::MetadataWriterSpec::METADATA['dir_a']['c']
+
   end
 
   it 'should write ruby files' do
@@ -105,7 +122,7 @@ describe RightScale::MetadataWriter do
     verify_file_path = File.join(@output_dir_path, 'verify.rb')
     File.open(verify_file_path, "w") do |f|
       f.puts "require \"#{output_file_path}\""
-      ::RightScale::MetadataWriterSpec::METADATA.each do |k, v|
+      ::RightScale::MetadataWriterSpec::UNFILTERED_METADATA.each do |k, v|
         v = v.gsub(/\\|'/) { |c| "\\#{c}" }
         f.puts "exit 100 if ENV['#{k}'] != '#{v}'"
       end
@@ -130,7 +147,7 @@ describe RightScale::MetadataWriter do
       File.open(verify_file_path, "w") do |f|
         f.puts "@echo off"
         f.puts "call \"#{output_file_path}\""
-        ::RightScale::MetadataWriterSpec::FILTERED_METADATA.each do |k, v|
+        ::RightScale::MetadataWriterSpec::UNFILTERED_METADATA.each do |k, v|
           f.puts "if \"%#{k}%\" neq \"#{v}\" exit 100"
         end
         f.puts "exit 0"
@@ -140,7 +157,7 @@ describe RightScale::MetadataWriter do
       verify_file_path = File.join(@output_dir_path, 'verify.sh')
       File.open(verify_file_path, "w") do |f|
         f.puts ". \"#{output_file_path}\""
-        ::RightScale::MetadataWriterSpec::METADATA.each do |k, v|
+        ::RightScale::MetadataWriterSpec::UNFILTERED_METADATA.each do |k, v|
           v = v.gsub(/\\|"/) { |c| "\\#{c}" }
           f.puts "if test \"$#{k}\" != \"#{v}\"; then exit 100; fi"
         end

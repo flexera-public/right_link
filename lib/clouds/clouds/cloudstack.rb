@@ -75,7 +75,6 @@ module RightScale::Clouds
     def dhcp_lease_provider
       if platform.windows?
         timeout = Time.now + 5 * 60  # 5 minutes
-        logger = option(:logger)
         while Time.now < timeout
           ipconfig_data = `ipconfig /all`
           match_result = ipconfig_data.match(/DHCP Server.*\: (\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/)

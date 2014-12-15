@@ -39,7 +39,7 @@ module RightScale
         flat_metadata.each do |file, value|
           leaf = File.join(@file_name_prefix, file)
           File.open(create_full_path(leaf), "w", DEFAULT_FILE_MODE) do |f|
-            f.puts value
+            f.print(value)
           end
         end
         true

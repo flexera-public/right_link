@@ -145,6 +145,10 @@ module RightScale::Clouds
       "azure"
     end
 
+    def self.cloud_name
+      "azure"
+    end
+
     def fetcher
       @fetcher ||= RightScale::MetadataSources::AzureMetadataSource.new(@options)
     end

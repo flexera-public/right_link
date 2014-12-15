@@ -46,18 +46,14 @@ module RightScale::Clouds
     end
 
     def metadata
-      metadata_raw = fetcher.get(metadata_file)
-      parse_metadata(metadata_raw)
+      raw_data = fetcher.get(metadata_file)
+      raw_data.split(/\n|&/)
     end
 
     def userdata_raw
-      fetcher.get(metadata_file)
+      raw_data = fetcher.get(userdata_file)
+      raw_data.split("\n").join("&")
     end
-
-    def parse_metadata(data)
-      RightScale::CloudUtilities.parse_rightscale_userdata(data)
-    end
-
 
     def requires_network_config?
       true
@@ -66,15 +62,6 @@ module RightScale::Clouds
     def finish
       @fetcher.finish() if @fetcher
     end
-
-    # Extend clear_state method
-    # Clear any fetched metadata files
-    # def clear_state
-    #   super
-    #   FileUtils.rm_rf(vsphere_metadata_locations) if File.directory?(vsphere_metadata_locations)
-    # end
-
-
   end
 end
 

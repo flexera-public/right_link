@@ -34,7 +34,7 @@ module RightScale
     # exceptions
     class CloudError < Exception; end
 
-    attr_reader :name, :script_path, :extended_clouds, :options
+    attr_reader :name, :script_path, :options
 
     # Return type for any cloud action (e.g. write_metadata).
     class ActionResult
@@ -60,7 +60,6 @@ module RightScale
       # note that this is not a deep copy as :ohai is an option representing the
       # full ohai node in at least one use case.
       @options = options
-      @extended_clouds = []
     end
 
     # Syntatic sugar for options[:logger], which should always be valid under
@@ -70,6 +69,11 @@ module RightScale
     # Cloud abbrevation. Normally used as a prefix for writing values out ot disk
     def abbreviation(value = nil)
       self.to_s.upcase
+    end
+
+    # Cloud name. Used to dynamically read in extension scripts.
+    def self.cloud_name
+      self.to_s.split("::").last.downcase
     end
 
     # Convenience methods, define userdata in terms of userdata_raw
@@ -89,29 +93,6 @@ module RightScale
     # === Raise
     # UnknownCloud:: on failure to find extended cloud
     def finish
-      true
-    end
-
-    # Defines a base cloud type which the current instance extends. The base
-    # type is just-in-time evaluated into the current instance. The extended
-    # cloud must have been registered successfully.
-    #
-    # === Parameters
-    # cloud_name(String|Token): name of cloud to extend
-    #
-    # === Return
-    # always true
-    #
-    # === Raise
-    # UnknownCloud:: on failure to find extended cloud
-    def extend_cloud(cloud_name)
-      cloud_name = CloudFactory.normalize_cloud_name(cloud_name)
-      unless @extended_clouds.include?(cloud_name)
-        @extended_clouds << cloud_name
-        script_path = CloudFactory.instance.registered_script_path(cloud_name)
-        text = File.read(script_path)
-        self.instance_eval(text)
-      end
       true
     end
 

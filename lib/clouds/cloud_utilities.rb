@@ -82,7 +82,7 @@ module RightScale
     # hash(Hash):: hash result
     def split_metadata(data, splitter, name_value_delimiter = '=')
       hash = {}
-      data.split(splitter).each do |pair|
+      data.to_s.split(splitter).each do |pair|
         name, value = pair.split(name_value_delimiter, 2)
         hash[name.strip] = value.strip if name && value
       end

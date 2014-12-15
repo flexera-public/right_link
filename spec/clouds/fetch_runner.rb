@@ -115,7 +115,7 @@ module RightScale
       @log_content = nil
     end
 
-    attr_accessor :logger
+    attr_accessor :logger, :log_content
 
     # true if debugging.
     def is_debug?
@@ -180,8 +180,8 @@ module RightScale
           server = MockHTTPServer.new({:Logger => @logger}, &block)
           EM.defer do
             begin
-              args.each do |metadata_provider|
-                results << metadata_provider.build_metadata
+              args.each do |source|
+                results << source.call()
               end
             rescue Exception => e
               last_exception = e

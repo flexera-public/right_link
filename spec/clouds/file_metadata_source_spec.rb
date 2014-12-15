@@ -49,6 +49,7 @@ end
 
 describe RightScale::MetadataSources::FileMetadataSource do
 
+
   before(:each) do
     setup_metadata_provider
   end
@@ -57,19 +58,6 @@ describe RightScale::MetadataSources::FileMetadataSource do
     teardown_metadata_provider
   end
 
-  # Parses rackspace user metadata into a hash.
-  #
-  # === Parameters
-  # tree_climber(MetadataTreeClimber):: tree climber
-  # data(String):: raw data
-  #
-  # === Return
-  # result(Hash):: Hash-like leaf value
-  def create_user_metadata_leaf(tree_climber, data)
-    result = tree_climber.create_branch
-    ::RightScale::CloudUtilities.split_metadata(data, "\n", result)
-    result
-  end
 
   def setup_metadata_provider
     temp_dir = ::RightScale::Platform.filesystem.temp_dir
@@ -80,94 +68,39 @@ describe RightScale::MetadataSources::FileMetadataSource do
     @logger = flexmock('logger')
 
     # metadat source
-    @metadata_source = ::RightScale::MetadataSources::FileMetadataSource.new(:cloud_metadata_source_file_path => @cloud_metadata_source_file_path,
-                                                                             :cloud_metadata_root_path => ::RightScale::Cloud::DEFAULT_CLOUD_METADATA_ROOT_PATH,
-                                                                             :user_metadata_source_file_path => @user_metadata_source_file_path,
-                                                                             :user_metadata_root_path => ::RightScale::Cloud::DEFAULT_USER_METADATA_ROOT_PATH,
-                                                                             :logger => @logger)
-    # tree climbers
-    cloud_metadata_tree_climber = ::RightScale::MetadataTreeClimber.new(:root_path => ::RightScale::Cloud::DEFAULT_CLOUD_METADATA_ROOT_PATH,
-                                                                        :user_metadata_root_path => ::RightScale::Cloud::DEFAULT_USER_METADATA_ROOT_PATH,
-                                                                        :logger => @logger,
-                                                                        :has_children_override => lambda{ |x, y, z| false },
-                                                                        :create_leaf_override => method(:create_user_metadata_leaf))
-    user_metadata_tree_climber = ::RightScale::MetadataTreeClimber.new(:root_path => ::RightScale::Cloud::DEFAULT_USER_METADATA_ROOT_PATH,
-                                                                       :user_metadata_root_path => ::RightScale::Cloud::DEFAULT_USER_METADATA_ROOT_PATH,
-                                                                       :logger => @loggerH,
-                                                                       :has_children_override => lambda{ |x, y, z| false },
-                                                                       :create_leaf_override => method(:create_user_metadata_leaf))
-    # cloud metadata
-    @cloud_metadata_provider = ::RightScale::MetadataProvider.new
-    @cloud_metadata_provider.metadata_source = @metadata_source
-    @cloud_metadata_provider.metadata_tree_climber = cloud_metadata_tree_climber
-
-    # user metadata
-    @user_metadata_provider = ::RightScale::MetadataProvider.new
-    @user_metadata_provider.metadata_source = @metadata_source
-    @user_metadata_provider.metadata_tree_climber = user_metadata_tree_climber
+    @metadata_source = ::RightScale::MetadataSources::FileMetadataSource.new(:logger => @logger)
   end
 
   def teardown_metadata_provider
     FileUtils.rm_rf(@source_dir_path) if File.directory?(@source_dir_path)
-    @source_dir_path = nil
-    @cloud_metadata_source_file_path = nil
-    @user_metadata_source_file_path = nil
     @metadata_source.finish
-    @metadata_source = nil
-    @cloud_metadata_provider = nil
-    @user_metadata_provider = nil
   end
 
   def verify_cloud_metadata(cloud_metadata)
     data = ::RightScale::FileMetadataSourceSpec::CLOUD_METADATA_FILE_TEXT
-    compare_hash = ::RightScale::CloudUtilities.split_metadata(data, "\n", {})
-
-    cloud_metadata.should == compare_hash
+    cloud_metadata.should == data
   end
 
   def verify_user_metadata(user_metadata)
     data = ::RightScale::FileMetadataSourceSpec::USER_METADATA_FILE_TEXT
-    compare_hash = ::RightScale::CloudUtilities.split_metadata(data, "\n", {})
-
-    user_metadata.should == compare_hash
+    user_metadata.should == data
   end
 
   it 'should return metadata when expected files appear on disk' do
     File.open(@cloud_metadata_source_file_path, "w") { |f| f.write(::RightScale::FileMetadataSourceSpec::CLOUD_METADATA_FILE_TEXT) }
     File.open(@user_metadata_source_file_path, "w") { |f| f.write(::RightScale::FileMetadataSourceSpec::USER_METADATA_FILE_TEXT) }
 
-    cloud_metadata = @cloud_metadata_provider.build_metadata
+    cloud_metadata = @metadata_source.get(@cloud_metadata_source_file_path)
     verify_cloud_metadata(cloud_metadata)
 
-    user_metadata = @user_metadata_provider.build_metadata
+    user_metadata = @metadata_source.get(@user_metadata_source_file_path)
     verify_user_metadata(user_metadata)
   end
 
   it 'should raise QueryError when files are missing' do
-    lambda{ cloud_metadata = @cloud_metadata_provider.build_metadata }.should raise_error(::RightScale::MetadataSource::QueryFailed)
-    lambda{ cloud_metadata = @user_metadata_provider.build_metadata }.should raise_error(::RightScale::MetadataSource::QueryFailed)
+    lambda{ cloud_metadata = @metadata_source.get(@cloud_metadata_source_file_path) }.should raise_error(::RightScale::MetadataSource::QueryFailed)
+    lambda{ cloud_metadata = @metadata_source.get(@user_metadata_source_file_path) }.should raise_error(::RightScale::MetadataSource::QueryFailed)
   end
 
-  it 'should return empty metadata when files are empty or all whitespace' do
-    File.open(@cloud_metadata_source_file_path, "w") { |f| f.write("") }
-    File.open(@user_metadata_source_file_path, "w") { |f| f.write(" \t\r\n") }
-
-    cloud_metadata = @cloud_metadata_provider.build_metadata
-    cloud_metadata.should == {}
-
-    user_metadata = @user_metadata_provider.build_metadata
-    user_metadata.should == {}
-  end
-
-  it 'should return empty metadata when file paths are unspecified' do
-    @metadata_source.cloud_metadata_source_file_path = nil
-    @metadata_source.user_metadata_source_file_path = nil
-
-    cloud_metadata = @cloud_metadata_provider.build_metadata
-    cloud_metadata.should == {}
-
-    user_metadata = @user_metadata_provider.build_metadata
-    user_metadata.should == {}
-  end
 
 end

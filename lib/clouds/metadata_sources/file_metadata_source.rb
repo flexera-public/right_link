@@ -43,7 +43,7 @@ module RightScale
       # QueryFailed:: on any failure to query
       def get(file_path)
         begin
-          result = ::File.read(file_path) if file_path
+          result = ::File.read(file_path)
         rescue Exception => e
           raise QueryFailed.new(e.message)
         end

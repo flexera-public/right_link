@@ -46,15 +46,17 @@ module RightScale
     #   3. Azure has a metadata service with HostName, Networking information, Instance information, Plugin information, and some other goodies in its "fabric controller". This is XML served via a web service. The url of that web service is passed as "option 245" in the DHCP server response at bootup
     #   We currently use 2 for userdata and 3 for metadata above, though we'd like to use 1 for userdata and 3 for metadata and ditch our solution
     class AzureMetadataSource < MetadataSource
+
+      # Location for injected certificate
+      CERT_FILE = ::RightScale::Platform.windows? ? 'cert:/LocalMachine/My' : '/var/lib/waagent/Certificates.pem'
+
+      # Windows changes the ST=CA portion of our issuer name to S=CA at some point.
+      ISSUER_STATE_KEY = ::RightScale::Platform.windows? ? 'S' : 'ST'
+      CERT_ISSUER = "O=RightScale, C=US, #{ISSUER_STATE_KEY}=CA, CN=RightScale User Data"
+
       class SharedConfig
         REQUIRED_ELEMENTS = ["*/Deployment", "*/*/Service", "*/*/ServiceInstance", "*/Incarnation", "*/Role" ]
 
-        # Location for injected certificate
-        CERT_FILE = ::RightScale::Platform.windows? ? 'cert:/LocalMachine/My' : '/var/lib/waagent/Certificates.pem'
-
-        # Windows changes the ST=CA portion of our issuer name to S=CA at some point.
-        ISSUER_STATE_KEY = ::RightScale::Platform.windows? ? 'S' : 'ST'
-        CERT_ISSUER = "O=RightScale, C=US, #{ISSUER_STATE_KEY}=CA, CN=RightScale User Data"
 
         class InvalidConfig < StandardError; end
 
@@ -117,8 +119,8 @@ module RightScale
       def initialize(options)
         super(options)
 
-        @user_metadata_cert_store = CERT_FILE
-        @user_metadata_cert_issuer = CERT_ISSUER
+        @user_metadata_cert_store = options[:cert_file] || CERT_FILE
+        @user_metadata_cert_issuer = options[:cert_issuer] || CERT_ISSUER
       end
 
       # Queries for metadata using the given path.
@@ -132,7 +134,7 @@ module RightScale
       # === Raises
       # QueryFailed:: on any failure to query
       def userdata
-        result = nil
+        result = ""
         begin
           result = read_cert(@user_metadata_cert_store, @user_metadata_cert_issuer) if @user_metadata_cert_store && @user_metadata_cert_issuer
         rescue Exception => e
@@ -142,7 +144,7 @@ module RightScale
       end
 
       def metadata
-        result = nil
+        result = {}
         begin
           result = fetch_azure_metadata
         rescue Exception => e

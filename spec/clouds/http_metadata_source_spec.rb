@@ -88,6 +88,10 @@ describe RightScale::MetadataSources::HttpMetadataSource do
 
     after(:each) do
       teardown_metadata_provider
+      debug_output = @runner.log_content
+      debug_output.rewind
+      debug_log = debug_output.read
+      puts debug_log if ENV['HTTP_DEBUG']
       @logger = nil
       @runner.teardown_log
       FileUtils.rm_rf(@output_dir_path) if File.directory?(@output_dir_path)
@@ -96,42 +100,18 @@ describe RightScale::MetadataSources::HttpMetadataSource do
 
     def setup_metadata_provider
       # source is shared between cloud and user metadata providers.
-      hosts = [:host => ::RightScale::FetchRunner::FETCH_TEST_SOCKET_ADDRESS, :port => ::RightScale::FetchRunner::FETCH_TEST_SOCKET_PORT]
-      @metadata_source = RightScale::MetadataSources::HttpMetadataSource.new(:hosts => hosts, :logger => @logger)
-      cloud_metadata_root_path = ::RightScale::HttpMetadataSourceSpec::METADATA_ROOT.join('/')
-      user_metadata_root_path = ::RightScale::HttpMetadataSourceSpec::USERDATA_ROOT.join('/')
-
-      # tree climbers
-      cloud_metadata_tree_climber = ::RightScale::MetadataTreeClimber.new(:root_path => cloud_metadata_root_path,
-                                                                          :user_metadata_root_path => user_metadata_root_path,
-                                                                          :logger => @logger)
-      user_metadata_tree_climber = ::RightScale::MetadataTreeClimber.new(:root_path => user_metadata_root_path,
-                                                                         :user_metadata_root_path => user_metadata_root_path,
-                                                                         :logger => @logger)
-      # raw metadata writer.
-      @cloud_raw_metadata_writer = ::RightScale::MetadataWriter.new(:file_name_prefix => ::RightScale::HttpMetadataSourceSpec::METADATA_ROOT.last,
-                                                                    :output_dir_path => @output_dir_path)
-      @user_raw_metadata_writer = ::RightScale::MetadataWriter.new(:file_name_prefix => ::RightScale::HttpMetadataSourceSpec::USERDATA_ROOT.last,
-                                                                   :output_dir_path => @output_dir_path)
-
-      # cloud metadata
-      @cloud_metadata_provider = ::RightScale::MetadataProvider.new
-      @cloud_metadata_provider.metadata_source = @metadata_source
-      @cloud_metadata_provider.metadata_tree_climber = cloud_metadata_tree_climber
-      @cloud_metadata_provider.raw_metadata_writer = @cloud_raw_metadata_writer
-
-      # user metadata
-      @user_metadata_provider = ::RightScale::MetadataProvider.new
-      @user_metadata_provider.metadata_source = @metadata_source
-      @user_metadata_provider.metadata_tree_climber = user_metadata_tree_climber
-      @user_metadata_provider.raw_metadata_writer = @user_raw_metadata_writer
+      ip = ::RightScale::FetchRunner::FETCH_TEST_SOCKET_ADDRESS
+      port = ::RightScale::FetchRunner::FETCH_TEST_SOCKET_PORT
+      @host = "http://#{ip}:#{port}"
+      @metadata_source = RightScale::MetadataSources::HttpMetadataSource.new(:logger => @logger)
+      @cloud_metadata_root_path = ::RightScale::HttpMetadataSourceSpec::METADATA_ROOT.join('/')
+      @user_metadata_root_path = ::RightScale::HttpMetadataSourceSpec::USERDATA_ROOT.join('/')
+      @get_meta_func = lambda { res = @metadata_source.recursive_get(@host + "/" + @cloud_metadata_root_path + "/"); res }
+      @get_user_func = lambda { res = @metadata_source.get(@host + "/" + @user_metadata_root_path); res }
     end
 
     def teardown_metadata_provider
-      @cloud_metadata_provider = nil
-      @user_metadata_provider = nil
       @metadata_source.finish
-      @metadata_source = nil
     end
 
     def verify_cloud_metadata(cloud_metadata)
@@ -145,7 +125,7 @@ describe RightScale::MetadataSources::HttpMetadataSource do
 
     def recursive_compare(compare_tree, cloud_metadata)
       compare_tree.each_pair do |key, value|
-        normalized_key = key.gsub(/=.*$/, '/').gsub('-', '_')
+        normalized_key = key.gsub(/=.*$/, '/')
         if value.kind_of?(Hash)
           recursive_compare(value, cloud_metadata[normalized_key])
         else
@@ -158,21 +138,9 @@ describe RightScale::MetadataSources::HttpMetadataSource do
       user_metadata.should == ::RightScale::HttpMetadataSourceSpec::USERDATA_LEAF
     end
 
-    def verify_raw_metadata_writer(reader, metadata, subpath = [])
-      if metadata.respond_to?(:has_key?)
-        metadata.each do |key, value|
-          # reversing dash to underscore substitution.  This appears to be valid for the
-          # test data, but will fail if the test data keys ever contain '_'
-          verify_raw_metadata_writer(reader, value, subpath + [key.gsub('_','-')])
-        end
-      else
-        result = reader.read(subpath)
-        result.strip.should == metadata
-      end
-    end
-
     it 'should return empty metadata for HTTP calls which return 404s' do
-      cloud_metadata, user_metadata = @runner.run_fetcher(@cloud_metadata_provider, @user_metadata_provider) do |server|
+
+      cloud_metadata, user_metadata = @runner.run_fetcher(@get_meta_func, @get_user_func) do |serlver|
         # intentionally not mounting metadata
       end
       cloud_metadata.should == {}
@@ -180,21 +148,20 @@ describe RightScale::MetadataSources::HttpMetadataSource do
     end
 
     it 'should succeed for successful HTTP calls' do
-      cloud_metadata, user_metadata = @runner.run_fetcher(@cloud_metadata_provider, @user_metadata_provider) do |server|
+      cloud_metadata, user_metadata = @runner.run_fetcher(@get_meta_func, @get_user_func) do |server|
         server.recursive_mount_metadata(::RightScale::HttpMetadataSourceSpec::METADATA_TREE, ::RightScale::HttpMetadataSourceSpec::METADATA_ROOT.clone)
         server.recursive_mount_metadata(::RightScale::HttpMetadataSourceSpec::USERDATA_LEAF, ::RightScale::HttpMetadataSourceSpec::USERDATA_ROOT.clone)
       end
 
       verify_cloud_metadata(cloud_metadata)
       verify_user_metadata(user_metadata)
-      verify_raw_metadata_writer(@cloud_raw_metadata_writer, cloud_metadata)
-      verify_raw_metadata_writer(@user_raw_metadata_writer, user_metadata, nil)
+
     end
 
     it 'should recover from successful HTTP calls which return malformed HTTP response' do
       requested_branch = false
       requested_leaf = false
-      cloud_metadata = @runner.run_fetcher(@cloud_metadata_provider) do |server|
+      cloud_metadata = @runner.run_fetcher(@get_meta_func) do |server|
         server.recursive_mount_metadata(::RightScale::HttpMetadataSourceSpec::METADATA_TREE, ::RightScale::HttpMetadataSourceSpec::METADATA_ROOT.clone)
 
         # fail a branch request.
@@ -237,7 +204,6 @@ describe RightScale::MetadataSources::HttpMetadataSource do
       requested_leaf.should == true
 
       verify_cloud_metadata(cloud_metadata)
-      verify_raw_metadata_writer(@cloud_raw_metadata_writer, cloud_metadata)
     end
   end
 
@@ -253,9 +219,8 @@ describe RightScale::MetadataSources::HttpMetadataSource do
       @mock_request = flexmock("mock_request")
       @mock_request.should_receive(:[]=).with('Connection', 'keep-alive')
       flexmock(Net::HTTP::Get).should_receive(:new).and_return(@mock_request)
-      flexmock(::RightScale::MetadataSources::HttpMetadataSource).should_receive(:select_metadata_server).and_return([@host, @port])
       flexmock(::RightScale::MetadataSources::HttpMetadataSource).new_instances.should_receive(:safe_parse_http_uri).and_return(@mock_uri)
-      @http_metadata_source = ::RightScale::MetadataSources::HttpMetadataSource.new(:logger=>@logger, :hosts=>[:host=>@host, :port=>@port])
+      @http_metadata_source = ::RightScale::MetadataSources::HttpMetadataSource.new(:logger=>@logger)
     end
 
     context "when 400 class response from metadata server" do
@@ -268,7 +233,7 @@ describe RightScale::MetadataSources::HttpMetadataSource do
       end
       it "should not retry"
       it "should return empty value" do
-        @http_metadata_source.query("a").should == ""
+        @http_metadata_source.get("a").should == ""
       end
       it "should not stop checking for metadata"
     end
@@ -282,7 +247,7 @@ describe RightScale::MetadataSources::HttpMetadataSource do
       end
       it "should retry #{::RightScale::MetadataSources::HttpMetadataSource::RETRY_MAX_ATTEMPTS} times"
       it "should return empty value after #{::RightScale::MetadataSources::HttpMetadataSource::RETRY_MAX_ATTEMPTS} failed attempts" do
-        @http_metadata_source.query("a").should == ""
+        @http_metadata_source.get("a").should == ""
       end
       it "should not stop checking for metadata"
     end
@@ -292,14 +257,14 @@ describe RightScale::MetadataSources::HttpMetadataSource do
         it "should retry #{::RightScale::MetadataSources::HttpMetadataSource::RETRY_MAX_ATTEMPTS} times" do
           @mock_http_connection.should_receive(:request).times(::RightScale::MetadataSources::HttpMetadataSource::RETRY_MAX_ATTEMPTS).
             and_raise(Exception.new("15.20.20.1 temporarily unavailable: (No route to host - connect(2))"))
-          @http_metadata_source.query("a").should == ""
+          @http_metadata_source.get("a").should == ""
         end
       end
       context "Windows" do
         it "should retry #{::RightScale::MetadataSources::HttpMetadataSource::RETRY_MAX_ATTEMPTS} times" do
           @mock_http_connection.should_receive(:request).times(::RightScale::MetadataSources::HttpMetadataSource::RETRY_MAX_ATTEMPTS).
             and_raise(Exception.new("15.20.20.1 temporarily unavailable: (A socket operation was attempted to an unreachable network. - connect(2))"))
-          @http_metadata_source.query("a").should == ""
+          @http_metadata_source.get("a").should == ""
         end
       end
     end

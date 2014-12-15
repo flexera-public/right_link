@@ -48,7 +48,7 @@ module RightScale
       #
       # === Raises
       # QueryFailed:: on any failure to query
-      def get(path, keep_alive = false)
+      def get(path, keep_alive = true)
         res = ""
         begin
           res = _get(path)
@@ -68,7 +68,7 @@ module RightScale
       #
       # === Raises
       # QueryFailed:: on any failure to query
-      def recursive_get(path, keep_alive = false)
+      def recursive_get(path, keep_alive = true)
         path += "/" unless path =~ /\/$/
         res = {}
         begin
@@ -92,7 +92,7 @@ module RightScale
         @connections = {}
       end
 
-
+      protected
 
       def _get(http_path)
         attempts = 1

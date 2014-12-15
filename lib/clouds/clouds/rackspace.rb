@@ -41,7 +41,8 @@ module RightScale::Clouds
     end
 
     def userdata_raw
-      fetcher.get(rackspace_userdata_file)
+      userdata_raw = fetcher.get(rackspace_userdata_file)
+      userdata_raw.split("\n").join("&")
     end
   end
 end
