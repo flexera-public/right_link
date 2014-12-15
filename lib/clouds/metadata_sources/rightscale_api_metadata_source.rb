@@ -20,6 +20,8 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+require File.expand_path("../file_metadata_source", __FILE__)
+
 # Both "blue-skies" cloud and "wrap instance" behave the same way, they lay down a
 # file in a predefined location (/var/spool/rightscale/user-data.txt on linux,
 # C:\ProgramData\RightScale\spool\rightscale\user-data.txt on windows). In both
