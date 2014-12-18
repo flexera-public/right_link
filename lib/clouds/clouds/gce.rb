@@ -65,12 +65,8 @@ module RightScale::Clouds
       metadata
     end
 
-    def userdata
-      fetcher.recursive_get(userdata_url)
-    end
-
     def userdata_raw
-      userdata_hash = userdata
+      userdata_hash = fetcher.recursive_get(userdata_url)
       userdata_raw = ""
       userdata_hash.keys.sort.each do |k|
         userdata_raw << "#{k}=#{userdata_hash[k]}&"

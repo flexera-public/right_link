@@ -77,7 +77,7 @@ module RightScale
     end
 
     # Convenience methods, define userdata in terms of userdata_raw
-    def userdata
+    def parse_userdata(userdata_raw)
       RightScale::CloudUtilities.parse_rightscale_userdata(userdata_raw)
     end
 
@@ -151,29 +151,35 @@ module RightScale
 
       kind = kind.to_sym
       if kind == WILDCARD || kind == :user_metadata
-
         # Both "blue-skies" cloud and "wrap instance" behave the same way, they lay down a
         # file in a predefined location (/var/spool/rightscale/user-data.txt on linux,
         # C:\ProgramData\RightScale\spool\rightscale\user-data.txt on windows. In both
         # cases this userdata has *lower* precedence than cloud data. On a start/stop
         # action where userdata is updated, we want the NEW userdata, not the old. So
         # if cloud-based values exists, than we always use those.
-        cloud_userdata = userdata
-        cloud_userdata_raw = userdata_raw
-
-        source = RightScale::MetadataSources::RightScaleApiMetadataSource.new(options)
-        if source.source_exists?
-          unless cloud_userdata.keys.find { |k| k =~ /RS_rn_id/i }
-            extra_userdata_raw = source.get()
-            extra_userdata = RightScale::CloudUtilities.parse_rightscale_userdata(extra_userdata_raw)
-            cloud_userdata = extra_userdata
+        api_source = RightScale::MetadataSources::RightScaleApiMetadataSource.new(options)
+        cloud_userdata_raw = ""
+        if api_source.source_exists?
+          extra_userdata_raw = api_source.get()
+          # Azure is a special case -- we don't want to run the cloud userdata fetcher again
+          # as we can't update userdata anyways and it will currently fail as written
+          if (name == "azure")
+            extra_userdata_raw = get_updated_userdata(extra_userdata_raw)
             cloud_userdata_raw = extra_userdata_raw
+          else
+            cloud_userdata_raw = userdata_raw
+            unless cloud_userdata_raw =~ /RS_rn_id/i
+              cloud_userdata_raw = extra_userdata_raw
+            end
           end
+        else
+          cloud_userdata_raw = userdata_raw
         end
 
-        # Raw userdata is a special exception. We could reform the raw
-        # string from the hash but why not pass it directly to preserve it exactly
-        # and be a bit anal. 
+        cloud_userdata = parse_userdata(cloud_userdata_raw)
+
+
+        # Raw userdata is a special exception and gets its own writer
         raw_writer = metadata_writers(:user_metadata).find { |writer| writer.kind_of?(RightScale::MetadataWriters::RawMetadataWriter) }
         raw_writer.write(cloud_userdata_raw)
         unless cloud_userdata.empty?

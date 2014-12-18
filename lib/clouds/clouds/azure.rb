@@ -47,7 +47,7 @@ module RightScale::Clouds
     def retrieve_updated_data(api_url, client_id, client_secret)
 
       options = {
-        :api_version => api_version,
+        :api_version => API_VERSION,
         :open_timeout => DEFAULT_OPEN_TIMEOUT,
         :request_timeout => DEFAULT_REQUEST_TIMEOUT,
         :filter_params => [:client_secret] }
@@ -65,9 +65,9 @@ module RightScale::Clouds
             :client_id => client_id.to_s,
             :client_secret => client_secret,
             :grant_type => "client_credentials" } )
-          response = SerializationHelper.symbolize_keys(response)
+          response = RightScale::SerializationHelper.symbolize_keys(response)
           access_token = response[:access_token]
-          raise "Could not authoried on #{api_url} using oauth2" if access_token.nil?
+          raise "Could not authorized on #{api_url} using oauth2" if access_token.nil?
 
           response = http_client.get("/user_data", {
             :client_id => client_id.to_s,
@@ -76,7 +76,7 @@ module RightScale::Clouds
           data = response.to_s
           close_message = "Got updated user metadata. Continue."
           success = true
-        rescue  RightScale::HttpExceptions::ResourceNotFound => e
+        rescue RightScale::HttpExceptions::ResourceNotFound => e
           if e.to_s =~ /No route matches "\/api\/user_data"/
             data = ''
             close_message = "Rightscale does not support user metadata update. Skipping."
@@ -85,9 +85,15 @@ module RightScale::Clouds
             logger.error "Error: #{e.message}"
             close_message = e
           end
-        rescue
-          logger.error "Error: #{$!.message}"
-          close_message = $!.message
+        rescue Exception => e
+          if e.to_s =~ /Couldn't find ExtraUserData with key = #{client_id}/
+            data = ''
+            close_message = "No Updated userdata exists"
+            success = true
+          else
+            logger.error "Error: #{e.message}"
+            close_message = e.message
+          end
         ensure
           http_client.close(close_message) if http_client
         end
@@ -110,12 +116,16 @@ module RightScale::Clouds
     # === Return
     # result(Hash):: Hash-like leaf value
     def get_updated_userdata(data)
-      result = CloudsUtilities.parse_rightscale_userdata(data)
+      result = RightScale::CloudUtilities.parse_rightscale_userdata(data)
       api_url       = "https://#{result['RS_server']}/api"
       client_id     = result['RS_rn_id']
       client_secret = result['RS_rn_auth']
       new_userdata = retrieve_updated_data(api_url, client_id , client_secret)
-      new_userdata
+      if (new_userdata.to_s.empty?)
+        return data
+      else
+        return new_userdata
+      end
     end
 
     # def parse_metadata(tree_climber, data)
@@ -132,6 +142,9 @@ module RightScale::Clouds
       # On a rebundle, the cert file may exist but be from a previous launch. No way of fixing this, as the
       # modified time of the cert_file will be older than the booted time on start/stop (its not refreshed)
       # and newer than the booted time on a normal boot. Customers have to know to clean /var/lib/waagent.
+      #
+      # If we want to support wrap on linux we need an alternate check, such as checking
+      # some sort of status on waagent and a time
       if platform.linux?
         STDOUT.puts "Waiting for instance to appear ready."
         until File.exists?(fetcher.user_metadata_cert_store)
@@ -155,7 +168,7 @@ module RightScale::Clouds
 
     def userdata_raw
       userdata = fetcher.userdata
-      get_updated_data(userdata)
+      get_updated_userdata(userdata)
     end
 
     def metadata
