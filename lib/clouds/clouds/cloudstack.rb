@@ -29,7 +29,8 @@ module RightScale::Clouds
     end
     
     def metadata_host
-      "http://#{dhcp_lease_provider}"
+      @metadata_host ||= "http://#{dhcp_lease_provider}"
+      @metadata_host
     end
 
     def metadata_url
@@ -58,7 +59,7 @@ module RightScale::Clouds
     end
 
     def userdata_raw
-      fetcher.get(metadata_host = userdata_url)    
+      fetcher.get(metadata_host + userdata_url)    
     end
 
     def lease_file_locations

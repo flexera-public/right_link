@@ -20,6 +20,8 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+require File.expand_path("../ec2", __FILE__)
+
 module RightScale::Clouds
   class Openstack < Ec2; end
 end

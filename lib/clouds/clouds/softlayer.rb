@@ -31,7 +31,7 @@ module RightScale::Clouds
     end
 
     def metadata_item(item)
-      "/rest/v3/SoftLayer_Resource_Metadata/#{item}"
+      metadata_host + "/rest/v3/SoftLayer_Resource_Metadata/#{item}"
     end
 
     def userdata_url
