@@ -56,6 +56,7 @@ module RightScale::Clouds
         val = fetcher.get(metadata_host + metadata_url + "/" + k)
         metadata[k] = val
       end
+      metadata
     end
 
     def userdata_raw
