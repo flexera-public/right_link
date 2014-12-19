@@ -46,8 +46,8 @@ module RightScale::Clouds
     end
 
     def metadata
-      raw_data = fetcher.get(metadata_file)
-      raw_data.split(/\n|&/)
+      data = fetcher.get(metadata_file)
+      RightScale::CloudUtilities.split_metadata(data, "\n", "=")
     end
 
     def userdata_raw
