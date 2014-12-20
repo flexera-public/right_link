@@ -45,6 +45,7 @@ spec = Gem::Specification.new do |s|
             Dir.glob('lib/chef/windows/**/*.sln') +
             Dir.glob('lib/chef/windows/**/*.txt') +
             Dir.glob('lib/chef/windows/**/*.xml') +
+            Dir.glob('lib/chef/ohai/**/*.ps1') +
             Dir.glob('lib/**/*.pub') +
             Dir.glob('lib/**/*.rb') +
             Dir.glob('scripts/*') +

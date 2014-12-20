@@ -28,7 +28,9 @@ module ::Ohai::Mixin::XenstoreMetadata
 
   def xenstore_command(command, args)
     if on_windows?
-      client = "\"c:\\Program Files\\Citrix\\XenTools\\xenstore_client.exe\""
+      xen_store_client_path = '"c:\Program Files\Citrix\XenTools\xenstore_client.exe"'
+      xen_store_client_alt  = "powershell -NoProfile -NonInteractive -InputFormat None -ExecutionPolicy Bypass \"#{File.join(File.dirname(__FILE__), "xenstore_client.ps1")}\""
+      client = File.exists?(xen_store_client_path.tr('"', '')) ? xen_store_client_path : xen_store_client_alt
       if command == "ls"
         command = "dir"
       end
