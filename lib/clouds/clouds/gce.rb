@@ -45,7 +45,7 @@ module RightScale::Clouds
 
     def fetcher
       options = @options.merge({
-        headers => http_headers, 
+        :headers => http_headers, 
         :skip => [/auth.token/]
       })
       @fetcher ||= RightScale::MetadataSources::HttpMetadataSource.new(options)
@@ -66,7 +66,7 @@ module RightScale::Clouds
     end
 
     def userdata_raw
-      userdata_hash = fetcher.recursive_get(userdata_url)
+      userdata_hash = fetcher.recursive_get(metadata_host + userdata_url)
       userdata_raw = ""
       userdata_hash.keys.sort.each do |k|
         userdata_raw << "#{k}=#{userdata_hash[k]}&"
