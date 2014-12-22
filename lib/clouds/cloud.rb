@@ -161,10 +161,22 @@ module RightScale
         cloud_userdata_raw = ""
         if api_source.source_exists?
           extra_userdata_raw = api_source.get()
-          # Azure is a special case -- we don't want to run the cloud userdata fetcher again
-          # as we can't update userdata anyways and it will currently fail as written
+
           if (name == "azure")
+            # Azure is a special case -- we don't want to run the cloud userdata fetcher again
+            # as we can't update userdata anyways and it will currently fail as written
             extra_userdata_raw = get_updated_userdata(extra_userdata_raw)
+            cloud_userdata_raw = extra_userdata_raw
+          elsif (name == "rackspace")
+            # Rackspace is another type of special case, for different reasons.
+            # The "wait_for_instance_ready" function on rackspace will get stuck in an
+            # infinite loops waiting for the userdata file to appear in the wrap instance
+            # or blue-skies cases. Since we don't support start/stop on rackspace anyways
+            # we can just skip the whole fetching of updated userdata to avoid this
+            # infinite loop scenario, instead just always using the blue-skies/wrap
+            # data that's on disk. The downside is that you better delete that data
+            # before a rebundle or it won't work. See rackspace/wait_for_instance_ready.rb
+            # counterpart code as well
             cloud_userdata_raw = extra_userdata_raw
           else
             cloud_userdata_raw = userdata_raw
@@ -249,7 +261,8 @@ module RightScale
       if kind == :user_metadata
         options[:formatted_path_prefix] = "RS_"
         options[:output_dir_path] ||= RightScale::AgentConfig.cloud_state_dir
-        options[:file_name_prefix] = "user-data" 
+        options[:file_name_prefix] = "user-data"
+        options[:generation_command] = nil
       elsif kind == :cloud_metadata
         options[:formatted_path_prefix] = "#{abbreviation.upcase}_"
         options[:output_dir_path] ||= RightScale::AgentConfig.cloud_state_dir
