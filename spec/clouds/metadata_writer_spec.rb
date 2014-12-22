@@ -136,8 +136,7 @@ describe RightScale::MetadataWriter do
 
   it 'should write shell files' do
     writer = ::RightScale::MetadataWriters::ShellMetadataWriter.new(:file_name_prefix => 'test',
-                                                                    :output_dir_path => @output_dir_path,
-                                                                    :generation_command => ::RightScale::MetadataWriterSpec::GENERATION_COMMAND)
+                                                                    :output_dir_path => @output_dir_path)
     output_file_path = File.join(@output_dir_path, "test#{writer.file_extension}")
     writer.write(::RightScale::MetadataWriterSpec::METADATA)
     File.file?(output_file_path).should be_true
@@ -167,7 +166,6 @@ describe RightScale::MetadataWriter do
     end
     output = `#{interpreter} #{verify_file_path}`
     $?.success?.should be_true
-    output.strip.should == ::RightScale::MetadataWriterSpec::GENERATION_COMMAND_OUTPUT
   end
 
 end

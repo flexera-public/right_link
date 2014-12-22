@@ -254,6 +254,7 @@ module RightScale
         options[:formatted_path_prefix] = "#{abbreviation.upcase}_"
         options[:output_dir_path] ||= RightScale::AgentConfig.cloud_state_dir
         options[:file_name_prefix] = "meta-data" 
+        options[:generation_command] = cloud_metadata_generation_command if generates_metadata_cache?
       end
 
       begin
@@ -272,6 +273,13 @@ module RightScale
       @metadata_writers[kind]
     end
 
+
+    # Whether or not a meta-data-cache.rb is generated. Whatever the original purpose of
+    # the meta-data-cache file originally was, we basically just always want this true as other code
+    # now just depends on meta-data-cache existing.
+    def generates_metadata_cache?
+      true
+    end
 
     # Assembles the command line needed to regenerate cloud metadata on demand.
     def cloud_metadata_generation_command
