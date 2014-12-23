@@ -21,38 +21,57 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 # host/port are constants for Google Compute Engine.
-HOST = 'metadata'
-PORT = 80
+module RightScale::Clouds
+  class Gce < RightScale::Cloud
+    def abbreviation
+      "gce"
+    end
 
-abbreviation :gce
+    def metadata_host
+      "http://metadata.google.internal"
+    end
 
-# defaults
-metadata_source 'metadata_sources/http_metadata_source'
-metadata_writers 'metadata_writers/dictionary_metadata_writer',
-                 'metadata_writers/ruby_metadata_writer',
-                 'metadata_writers/shell_metadata_writer'
+    def metadata_url
+      "/0.1/meta-data/"
+    end
 
-default_option([:metadata_source, :hosts], [:host => HOST, :port => PORT])
+    def userdata_url
+      "/0.1/meta-data/attributes/"
+    end
 
-# root paths, don't leave off the trailing slashes
-default_option([:cloud_metadata, :metadata_tree_climber, :root_path], '0.1/meta-data/')
-default_option([:user_metadata, :metadata_tree_climber, :root_path], '0.1/meta-data/attributes/')
+    def http_headers
+       { "Metadata-Flavor" => "Google" }
+    end
 
-default_option([:cloud_metadata, :metadata_provider, :query_override], lambda do |provider, path|
-  # auth token will return an error if we try to query
-  result = provider.metadata_source.query(path)
-  result = result.split("\n").select { |t| t !~ /auth.token/ }.join("\n")
-  # filter out userdata for consitency with other clouds
-  if path == provider.metadata_tree_climber.root_path
-    result = result.split("\n").select { |t| t != 'attributes/' }.join("\n")
+    def fetcher
+      options = @options.merge({
+        :headers => http_headers, 
+        :skip => [/auth.token/]
+      })
+      @fetcher ||= RightScale::MetadataSources::HttpMetadataSource.new(options)
+    end
+
+    def finish
+      @fetcher.finish() if @fetcher
+    end
+
+    def metadata
+      metadata = fetcher.recursive_get(metadata_host + metadata_url)
+      # Filter out rightscale userdata keys, we get those for userdata below
+      if metadata && metadata['attributes']
+        rs_keys = metadata['attributes'].keys.select { |key| key =~ /^RS_/i }
+        rs_keys.each { |k| metadata['attributes'].delete(k)}
+      end 
+      metadata
+    end
+
+    def userdata_raw
+      userdata_hash = fetcher.recursive_get(metadata_host + userdata_url)
+      userdata_raw = ""
+      userdata_hash.keys.sort.each do |k|
+        userdata_raw << "#{k}=#{userdata_hash[k]}&"
+      end
+      userdata_raw.chomp("&")
+    end
   end
-  return result
-end)
-
-default_option([:user_metadata, :metadata_tree_climber, :has_children_override], lambda do |climber, path, query_result|
-  # for ec2, metadata is a single value, for GCE, its a tree, override this
-  # function so we'll recurse down
-  return path =~ /\/$/
-end)
-
-default_option([:cloud_metadata, :metadata_writers, :ruby_metadata_writer, :generation_command], cloud_metadata_generation_command)
+end

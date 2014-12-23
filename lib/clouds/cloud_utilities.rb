@@ -25,13 +25,15 @@ require 'socket'
 
 module RightScale
 
-  class CloudUtilities
+  module CloudUtilities
 
     IP_ADDRESS_REGEX = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/
 
     DEFAULT_WHATS_MY_IP_HOST_NAME = 'eip-us-east.rightscale.com'
     DEFAULT_WHATS_MY_IP_TIMEOUT = 10 * 60
     DEFAULT_WHATS_MY_IP_RETRY_DELAY = 5
+
+    module_function
 
     # Attempt to connect to the given address on the given port as a quick verification
     # that the metadata service is available.
@@ -43,7 +45,7 @@ module RightScale
     #
     # === Return
     # connected(Boolean):: true if a connection could be made, false otherwise
-    def self.can_contact_metadata_server?(addr, port, timeout=2)
+    def can_contact_metadata_server?(addr, port, timeout=2)
       t = Socket.new(Socket::Constants::AF_INET, Socket::Constants::SOCK_STREAM, 0)
       saddr = Socket.pack_sockaddr_in(port, addr)
       connected = false
@@ -69,23 +71,35 @@ module RightScale
       connected
     end
 
-    # Splits data on the given splitter character and merges to the given hash.
+    # Splits data on the given splitter character and returns hash.
     #
     # === Parameters
     # data(String):: raw data
     # splitter(String):: splitter character
-    # hash(Hash):: hash to merge
     # name_value_delimiter(String):: name/value delimiter (defaults to '=')
     #
     # === Return
-    # hash(Hash):: merged hash result
-    def self.split_metadata(data, splitter, hash, name_value_delimiter = '=')
-      data.split(splitter).each do |pair|
+    # hash(Hash):: hash result
+    def split_metadata(data, splitter, name_value_delimiter = '=')
+      hash = {}
+      data.to_s.split(splitter).each do |pair|
         name, value = pair.split(name_value_delimiter, 2)
         hash[name.strip] = value.strip if name && value
       end
       hash
     end
+
+    # Splits data on the given splitter character and merges to the given hash.
+    #
+    # === Parameters
+    # data(String):: raw data
+    #
+    # === Return
+    # hash(Hash):: hash result
+    def parse_rightscale_userdata(data)
+      split_metadata(data, "&", "=")
+    end
+
 
     # Queries a whats-my-ip service for the public IP address of this instance.
     # can query either for an expected IP or for any IP which is voted by majority
@@ -103,7 +117,7 @@ module RightScale
     #
     # === Return
     # public_ip(String):: the consensus public IP for this instance or nil
-    def self.query_whats_my_ip(options={})
+    def query_whats_my_ip(options={})
       expected_ip = options[:expected_ip]
       raise ArgumentError.new("expected_ip is invalid") if expected_ip && !(expected_ip =~ IP_ADDRESS_REGEX)
       unanimous = options[:unanimous] || false

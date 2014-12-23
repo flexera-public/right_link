@@ -22,8 +22,10 @@
 
 
 module RightScale
+  # Subclass namespace
+  module Clouds; end
 
-  # Singleton for registering and instantiating clouds.
+  # Singleton for instantiating clouds.
   class CloudFactory
 
     include RightSupport::Ruby::EasySingleton
@@ -37,22 +39,14 @@ module RightScale
     # Registry method for a dynamic metadata type.
     #
     # === Parameters
-    # cloud_names(Array|String):: name of one or more clouds (which may include DEFAULT_CLOUD) that use the given type
+    # cloud_name(String):: name of one or more clouds (which may include DEFAULT_CLOUD) that use the given type
     # cloud_script_path(String):: path to script used to describe cloud on creation
     #
     # === Return
     # always true
-    def register(cloud_names, cloud_script_path)
+    def register(cloud_name, cloud_script_path)
       cloud_script_path = File.normalize_path(cloud_script_path)
-      # relies on each to split on newlines for strings and otherwise do each for collections.
-      # note that in ruby 1.9.x strings don't repond to :each
-      if cloud_names.respond_to?(:lines)
-        cloud_names.lines { |cloud_name| registered_type(cloud_name, cloud_script_path) }
-      elsif cloud_names.respond_to?(:each)
-        cloud_names.each { |cloud_name| registered_type(cloud_name, cloud_script_path) }
-      else
-        registered_type(cloud_names.to_s, cloud_script_path)
-      end
+      registered_type(cloud_name.to_s, cloud_script_path)
       true
     end
 
@@ -104,15 +98,19 @@ module RightScale
       options = options.dup
       options[:name] ||= cloud_name.to_s
       options[:script_path] = cloud_script_path
-      cloud = Cloud.new(options)
-      text = File.read(cloud_script_path)
-      cloud.instance_eval(text)
-      cloud.abbreviation(cloud_name) unless cloud.abbreviation
+
+      cloud = nil
+      begin
+        require cloud_script_path
+        cloud_classname = cloud_name.to_s.capitalize
+        cloud_class = eval("RightScale::Clouds::#{cloud_classname}")
+        cloud = cloud_class.new(options)
+      rescue LoadError => e
+        raise ArgumentError, "Could not load Cloud class for #{cloud_name}, #{e}"
+      end
+
       extend_cloud_by_scripts(cloud, logger)
 
-      # finalize defaults only after all cloud definitions have been evaluated
-      # by the new cloud object.
-      cloud.finalize_default_options
       return cloud
     end
 
@@ -169,10 +167,15 @@ module RightScale
       # search for script directories based first on any clouds which were
       # extended by the cloud and then by the exact cloud name.
       cloud_name = cloud.name.to_s
-      cloud_aliases = cloud.extended_clouds + [cloud_name]
+      base_klass = RightScale::Cloud
+      # Note ancestors call returns current class as well. So the end result of 
+      # this chain is a ordered list of classes from super-est to the current
+      # class
+      cloud_klasses = cloud.class.ancestors.select {|klass| klass.ancestors.include?(base_klass) && !(klass == base_klass)}
 
       search_paths = []
-      cloud_aliases.each do |cloud_alias|
+      cloud_klasses.reverse.each do |cloud_klass|
+        cloud_alias = cloud_klass.cloud_name
         # first add default search path for cloud name.
         search_path = File.join(RightScale::Platform.filesystem.private_bin_dir, cloud_alias)
         if File.directory?(search_path)
@@ -220,3 +223,17 @@ EOF
   end  # CloudFactory
 
 end  # RightScale
+
+# Register clouds
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'clouds'))
+begin
+  base_clouds_dir_path = File.join(File.dirname(__FILE__), 'clouds')
+
+  # dynamically register all clouds using the script name as cloud name.
+  pattern = File.join(base_clouds_dir_path, '*.rb')
+  Dir[pattern].each do |cloud_script_path|
+    cloud_name = File.basename(cloud_script_path, '.rb')
+    RightScale::CloudFactory.instance.register(cloud_name, cloud_script_path)
+  end
+end
+

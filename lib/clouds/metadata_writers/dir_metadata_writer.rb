@@ -3,14 +3,14 @@
 #
 # Write given user data to files in /var/spool/ec2 in text, shell and ruby 
 # script formats
+require 'fileutils'
 
 module RightScale
 
   module MetadataWriters
 
-    # Dictionary (key=value pairs) writer.
-    class DictionaryMetadataWriter < MetadataWriter
-
+    # Structured directory writer
+    class DirMetadataWriter < MetadataWriter
       # Initializer.
       #
       # === Parameters
@@ -18,8 +18,7 @@ module RightScale
       def initialize(options)
         # defaults
         options = options.dup
-        options[:file_extension] ||= '.dict'
-        @formatter = FlatMetadataFormatter.new(options)
+        @formatter = DirMetadataFormatter.new(options)
         # super
         super(options)
       end
@@ -37,19 +36,18 @@ module RightScale
       def write_file(metadata)
         return unless @formatter.can_format?(metadata)
         flat_metadata = @formatter.format(metadata)
-        File.open(create_full_path(@file_name_prefix), "w", DEFAULT_FILE_MODE) do |f|
-          flat_metadata.each do |k, v|
-            # ensure value is a single line by truncation since most
-            # dictionary format parsers expect literal chars on a single line.
-            v = self.class.first_line_of(v)
-            f.puts "#{k}=#{v}"
+        flat_metadata.each do |file, value|
+          leaf = File.join(@file_name_prefix, file)
+          File.open(create_full_path(leaf), "w", DEFAULT_FILE_MODE) do |f|
+            f.print(value)
           end
         end
         true
       end
 
-    end  # DictionaryMetadataWriter
+    end  # RawMetadataWriter
 
   end  # MetadataWriters
 
 end  # RightScale
+

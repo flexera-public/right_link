@@ -208,96 +208,43 @@ describe RightScale::MetadataSources::AzureMetadataSource do
     teardown_metadata_provider
   end
 
-  # Parses newline-delimited metadata into a hash.
-  #
-  # === Parameters
-  # tree_climber(MetadataTreeClimber):: tree climber
-  # data(String):: raw data
-  #
-  # === Return
-  # result(Hash):: Hash-like leaf value
-  def create_userdata_leaf(tree_climber, data)
-    result = tree_climber.create_branch
-    ::RightScale::CloudUtilities.split_metadata(data, '&', result)
-    result
-  end
-
-  def create_metadata_leaf(tree_climber, data)
-    result = tree_climber.create_branch
-    data.each do |k, v|
-      # Make sure we coerce into strings. The json blob returned here auto-casts
-      # types which will mess up later steps
-      result[k.to_s.strip] = v.to_s.strip
-    end
-    result
-  end
-
   def setup_metadata_provider
     @test_output_dir = ::File.join(::RightScale::Platform.filesystem.temp_dir, "certificate_metadata_source_spec_F2A81D8149D97AFA8625AECE4A98DA81")
     ::FileUtils.mkdir_p(@test_output_dir)
     @logger = flexmock('logger', 'info' => '', 'debug' => '')
 
-    @user_metadata_cert_issuer = ::RightScale::AzureMetadataSourceSpec::USER_METADATA_CERT_ISSUER
-    @user_metadata_cert_file_path = ::File.join(@test_output_dir, 'user.cer')
-    @user_metadata_cert_store = ::RightScale::Platform.windows? ? ::RightScale::AzureMetadataSourceSpec::LOCAL_MACHINE_CERT_STORE : @user_metadata_cert_file_path
+    @cert_issuer = ::RightScale::AzureMetadataSourceSpec::USER_METADATA_CERT_ISSUER
+    @cert_file_path = ::File.join(@test_output_dir, 'user.cer')
+    @cert_store = ::RightScale::Platform.windows? ? ::RightScale::AzureMetadataSourceSpec::LOCAL_MACHINE_CERT_STORE : @cert_file_path
 
     # metadata source
-    @metadata_source = ::RightScale::MetadataSources::AzureMetadataSource.new(
-      :cloud_metadata_root_path => ::RightScale::Cloud::DEFAULT_CLOUD_METADATA_ROOT_PATH,
-      :user_metadata_cert_store => @user_metadata_cert_store,
-      :user_metadata_cert_issuer => @user_metadata_cert_issuer,
-      :user_metadata_root_path => ::RightScale::Cloud::DEFAULT_USER_METADATA_ROOT_PATH,
-      :logger => @logger)
-    # tree climbers
-    cloud_metadata_tree_climber = ::RightScale::MetadataTreeClimber.new(
-      :root_path => ::RightScale::Cloud::DEFAULT_CLOUD_METADATA_ROOT_PATH,
-      :user_metadata_root_path => ::RightScale::Cloud::DEFAULT_USER_METADATA_ROOT_PATH,
-      :logger => @logger,
-      :has_children_override => lambda{ |x, y, z| false },
-      :create_leaf_override => method(:create_metadata_leaf))
-    user_metadata_tree_climber = ::RightScale::MetadataTreeClimber.new(
-      :root_path => ::RightScale::Cloud::DEFAULT_USER_METADATA_ROOT_PATH,
-      :user_metadata_root_path => ::RightScale::Cloud::DEFAULT_USER_METADATA_ROOT_PATH,
-      :logger => @logger,
-      :create_leaf_override => method(:create_userdata_leaf))
-    # cloud metadata
-    @cloud_metadata_provider = ::RightScale::MetadataProvider.new
-    @cloud_metadata_provider.metadata_source = @metadata_source
-    @cloud_metadata_provider.metadata_tree_climber = cloud_metadata_tree_climber
-
-    # user metadata
-    @user_metadata_provider = ::RightScale::MetadataProvider.new
-    @user_metadata_provider.metadata_source = @metadata_source
-    @user_metadata_provider.metadata_tree_climber = user_metadata_tree_climber
+    @metadata_source = ::RightScale::MetadataSources::AzureMetadataSource.new(:logger => @logger, :cert_file => @cert_store, :cert_issuer => @cert_issuer)
   end
 
   def teardown_metadata_provider
-    clean_cert(@user_metadata_cert_file_path) if File.file?(@user_metadata_cert_file_path)
+    clean_cert(@cert_file_path) if File.file?(@cert_file_path)
     FileUtils.rm_rf(@test_output_dir) if File.directory?(@test_output_dir)
     @metadata_source.finish
     @metadata_source = nil
     @cert_file_path = nil
     @logger = nil
-    @cloud_metadata_cert_store = nil
-    @cloud_metadata_cert_issuer = nil
-    @user_metadata_cert_store = nil
-    @user_metadata_cert_issuer = nil
-    @cloud_metadata_provider = nil
-    @user_metadata_provider = nil
+    @cert_store = nil
+    @cert_issuer = nil
+    @provider = nil
   end
 
   def verify_cloud_metadata(cloud_metadata)
     data = ::RightScale::AzureMetadataSourceSpec::CLOUD_METADATA_SUBJECT_TEXT
-    compare_hash = ::RightScale::CloudUtilities.split_metadata(data, "\n", {})
+    compare_hash = ::RightScale::CloudUtilities.split_metadata(data, "\n")
 
     cloud_metadata.should == compare_hash
   end
 
   def verify_user_metadata(user_metadata)
     data = ::RightScale::AzureMetadataSourceSpec::USER_METADATA_SUBJECT_TEXT
-    compare_hash = ::RightScale::CloudUtilities.split_metadata(data, "\n", {})
-
-    user_metadata.should == compare_hash
+    compare_hash = ::RightScale::CloudUtilities.split_metadata(data, "\n")
+    user_metadata_hash = ::RightScale::CloudUtilities.parse_rightscale_userdata(user_metadata)
+    user_metadata_hash.should == compare_hash
   end
 
   def write_cert(subject_text, cert_issuer, output_cert_file_path)
@@ -382,7 +329,7 @@ describe RightScale::MetadataSources::AzureMetadataSource do
     pending "Platform not supported" unless platform_supported?
 
     fabric_controller_ip = ::RightScale::AzureMetadataSourceSpec::FABRIC_CONTROLLER_IP
-    flexmock(@cloud_metadata_provider.metadata_source).should_receive(:send_dhcp_request).
+    flexmock(@metadata_source).should_receive(:send_dhcp_request).
       and_return(::RightScale::AzureMetadataSourceSpec::DHCP_RESP)
     # Note: we don't fully mock the metadata service here, just mock out the final object returned.
     # We test SharedConfig parsing and what not in another azure related spec and don't
@@ -394,12 +341,12 @@ describe RightScale::MetadataSources::AzureMetadataSource do
       'public_ip'         => '1.2.3.4',
       'private_ip'        => '10.11.12.13',
       'service_name'      => ::RightScale::AzureMetadataSourceSpec::AZURE_SERVICE_NAME)
-    flexmock(@cloud_metadata_provider.metadata_source).should_receive(:query_url).
+    flexmock(@metadata_source).should_receive(:query_url).
       with(/#{fabric_controller_ip}/).
       and_return('<ContainerId>1</ContainerId><InstanceId>1</InstanceId><Incarnation>1</Incarnation>')
-    flexmock(@cloud_metadata_provider.metadata_source).should_receive(:parse_shared_config).
+    flexmock(@metadata_source).should_receive(:parse_shared_config).
       and_return(@shared_config)
-    cloud_metadata = @cloud_metadata_provider.build_metadata
+    cloud_metadata = @metadata_source.metadata
     verify_cloud_metadata(cloud_metadata)
 
   end
@@ -409,26 +356,25 @@ describe RightScale::MetadataSources::AzureMetadataSource do
 
     write_cert(::RightScale::AzureMetadataSourceSpec::USER_METADATA_SUBJECT_TEXT.split("\n").join('&'),
                ::RightScale::AzureMetadataSourceSpec::USER_METADATA_CERT_ISSUER,
-               @user_metadata_cert_file_path)
+               @cert_file_path)
 
-
-    user_metadata = @user_metadata_provider.build_metadata
+    user_metadata = @metadata_source.userdata    
     verify_user_metadata(user_metadata)
   end
 
   it 'should raise QueryError when certificates are missing' do
     pending "Platform not supported" unless platform_supported?
 
-    lambda{ cloud_metadata = @user_metadata_provider.build_metadata }.should raise_error(::RightScale::MetadataSource::QueryFailed)
+    lambda{ cloud_metadata = @metadata_source.userdata }.should raise_error(::RightScale::MetadataSource::QueryFailed)
   end
 
-  it 'should return empty metadata when certificates are unspecified' do
+  it 'should return empty userdata when certificates are unspecified' do
     pending "Platform not supported" unless platform_supported?
 
     @metadata_source.user_metadata_cert_issuer = nil
 
-    user_metadata = @user_metadata_provider.build_metadata
-    user_metadata.should == {}
+    user_metadata = @metadata_source.userdata
+    user_metadata.should == ""
   end
 
 end

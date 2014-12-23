@@ -9,7 +9,7 @@ module RightScale
   module MetadataWriters
 
     # Dictionary (key=value pairs) writer.
-    class DictionaryMetadataWriter < MetadataWriter
+    class RawMetadataWriter < MetadataWriter
 
       # Initializer.
       #
@@ -18,8 +18,8 @@ module RightScale
       def initialize(options)
         # defaults
         options = options.dup
-        options[:file_extension] ||= '.dict'
-        @formatter = FlatMetadataFormatter.new(options)
+        options[:file_extension] ||= '.raw'
+
         # super
         super(options)
       end
@@ -35,20 +35,15 @@ module RightScale
       # === Return
       # always true
       def write_file(metadata)
-        return unless @formatter.can_format?(metadata)
-        flat_metadata = @formatter.format(metadata)
+        return unless metadata.kind_of?(String)
+
         File.open(create_full_path(@file_name_prefix), "w", DEFAULT_FILE_MODE) do |f|
-          flat_metadata.each do |k, v|
-            # ensure value is a single line by truncation since most
-            # dictionary format parsers expect literal chars on a single line.
-            v = self.class.first_line_of(v)
-            f.puts "#{k}=#{v}"
-          end
+          f.print(metadata)
         end
         true
       end
 
-    end  # DictionaryMetadataWriter
+    end  # RawMetadataWriter
 
   end  # MetadataWriters
 

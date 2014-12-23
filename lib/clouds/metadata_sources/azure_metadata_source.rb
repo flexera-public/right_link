@@ -33,6 +33,9 @@ require 'timeout'
 
 class NoOption245Error < Exception; end
 
+
+
+
 module RightScale
 
   module MetadataSources
@@ -43,8 +46,17 @@ module RightScale
     #   3. Azure has a metadata service with HostName, Networking information, Instance information, Plugin information, and some other goodies in its "fabric controller". This is XML served via a web service. The url of that web service is passed as "option 245" in the DHCP server response at bootup
     #   We currently use 2 for userdata and 3 for metadata above, though we'd like to use 1 for userdata and 3 for metadata and ditch our solution
     class AzureMetadataSource < MetadataSource
+
+      # Location for injected certificate
+      CERT_FILE = ::RightScale::Platform.windows? ? 'cert:/LocalMachine/My' : '/var/lib/waagent/Certificates.pem'
+
+      # Windows changes the ST=CA portion of our issuer name to S=CA at some point.
+      ISSUER_STATE_KEY = ::RightScale::Platform.windows? ? 'S' : 'ST'
+      CERT_ISSUER = "O=RightScale, C=US, #{ISSUER_STATE_KEY}=CA, CN=RightScale User Data"
+
       class SharedConfig
         REQUIRED_ELEMENTS = ["*/Deployment", "*/*/Service", "*/*/ServiceInstance", "*/Incarnation", "*/Role" ]
+
 
         class InvalidConfig < StandardError; end
 
@@ -101,6 +113,52 @@ module RightScale
           @public_winrm_port ||= rdp_endpoint.attributes["loadBalancedPublicAddress"].split(":").last.to_i rescue nil
         end
       end
+
+      attr_accessor :user_metadata_cert_store, :user_metadata_cert_issuer
+
+      def initialize(options)
+        super(options)
+
+        @user_metadata_cert_store = options[:cert_file] || CERT_FILE
+        @user_metadata_cert_issuer = options[:cert_issuer] || CERT_ISSUER
+      end
+
+      # Queries for metadata using the given path.
+      #
+      # === Parameters
+      # path(String):: metadata path
+      #
+      # === Return
+      # metadata(String):: query result or empty
+      #
+      # === Raises
+      # QueryFailed:: on any failure to query
+      def userdata
+        result = ""
+        begin
+          result = read_cert(@user_metadata_cert_store, @user_metadata_cert_issuer) if @user_metadata_cert_store && @user_metadata_cert_issuer
+        rescue Exception => e
+          raise QueryFailed.new(e.message)
+        end
+        result
+      end
+
+      def metadata
+        result = {}
+        begin
+          result = fetch_azure_metadata
+        rescue Exception => e
+          raise QueryFailed.new(e.message)
+        end
+        result
+      end
+
+      # Nothing to do.
+      def finish
+        true
+      end
+
+      protected
 
       def query_url(url)
         begin
@@ -217,58 +275,6 @@ module RightScale
         metadata
 
       end
-
-      # definitions for querying kinds of metadata by a simple path.
-      DEFAULT_CLOUD_METADATA_ROOT_PATH = "cloud_metadata"
-      DEFAULT_USER_METADATA_ROOT_PATH = "user_metadata"
-
-      attr_accessor :cloud_metadata_cert_store, :cloud_metadata_cert_issuer
-      attr_accessor :user_metadata_cert_store, :user_metadata_cert_issuer
-
-      def initialize(options)
-        super(options)
-        raise ArgumentError.new("options[:cloud_metadata_root_path] is required") unless @cloud_metadata_root_path = options[:cloud_metadata_root_path]
-        raise ArgumentError.new("options[:user_metadata_root_path] is required") unless @user_metadata_root_path = options[:user_metadata_root_path]
-
-        @cloud_metadata_cert_store = options[:cloud_metadata_cert_store]
-        @cloud_metadata_cert_issuer = options[:cloud_metadata_cert_issuer]
-
-        @user_metadata_cert_store = options[:user_metadata_cert_store]
-        @user_metadata_cert_issuer = options[:user_metadata_cert_issuer]
-      end
-
-      # Queries for metadata using the given path.
-      #
-      # === Parameters
-      # path(String):: metadata path
-      #
-      # === Return
-      # metadata(String):: query result or empty
-      #
-      # === Raises
-      # QueryFailed:: on any failure to query
-      def query(path)
-        result = ""
-        if path == @cloud_metadata_root_path
-          result = fetch_azure_metadata
-        elsif path == @user_metadata_root_path
-          result = read_cert(@user_metadata_cert_store, @user_metadata_cert_issuer) if @user_metadata_cert_store && @user_metadata_cert_issuer
-        else
-          raise QueryFailed.new("Unknown path: #{path}")
-        end
-        result
-      rescue QueryFailed
-        raise
-      rescue Exception => e
-        raise QueryFailed.new(e.message)
-      end
-
-      # Nothing to do.
-      def finish
-        true
-      end
-
-      protected
 
       def read_cert(cert_store, cert_issuer)
         if ::RightScale::Platform.windows?

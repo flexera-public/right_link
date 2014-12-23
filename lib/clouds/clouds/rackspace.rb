@@ -20,29 +20,31 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-# dependencies.
-metadata_source 'metadata_sources/file_metadata_source'
-metadata_writers 'metadata_writers/dictionary_metadata_writer',
-                 'metadata_writers/ruby_metadata_writer',
-                 'metadata_writers/shell_metadata_writer'
 
-# set abbreviation for non-RS env var generation
-abbreviation :rax
+# host/port are constants for Google Compute Engine.
+module RightScale::Clouds
+  class Rackspace < RightScale::Cloud
+    def abbreviation
+      "rax"
+    end
 
-# Parses rackspace user metadata into a hash.
-#
-# === Parameters
-# tree_climber(MetadataTreeClimber):: tree climber
-# data(String):: raw data
-#
-# === Return
-# result(Hash):: Hash-like leaf value
-def create_user_metadata_leaf(tree_climber, data)
-  result = tree_climber.create_branch
-  ::RightScale::CloudUtilities.split_metadata(data.strip, "\n", result)
-  result
+    def metadata
+      {}
+    end
+
+    def rackspace_userdata_file
+      File.join(RightScale::Platform.filesystem.spool_dir, 'rackspace', 'user-data.txt')
+    end
+
+    def fetcher
+      @fetcher ||= RightScale::MetadataSources::FileMetadataSource.new(@options)
+    end
+
+    def userdata_raw
+      userdata_raw = fetcher.get(rackspace_userdata_file)
+      userdata_raw.split("\n").join("&")
+    end
+  end
 end
 
-# defaults.
-default_option([:user_metadata, :metadata_tree_climber, :create_leaf_override], method(:create_user_metadata_leaf))
-default_option([:metadata_source, :user_metadata_source_file_path], File.join(RightScale::Platform.filesystem.spool_dir, 'rackspace', 'user-data.txt'))
+

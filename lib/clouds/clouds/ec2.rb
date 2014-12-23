@@ -20,74 +20,38 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-# host/port are constants for EC2.
-HOST = '169.254.169.254'
-PORT = 80
-SHEBANG_REGEX = /^#!/
-
-# dependencies.
-metadata_source 'metadata_sources/selective_metadata_source'
-metadata_writers 'metadata_writers/dictionary_metadata_writer',
-                 'metadata_writers/ruby_metadata_writer',
-                 'metadata_writers/shell_metadata_writer'
-
-
-# Selects metadata from multiple sources in support of serverizing existing
-# long-running instances. Stops merging metadata as soon as RS_ variables
-# are found.
-def select_rs_metadata(_, path, metadata_source_type, query_result, previous_metadata)
-  # note that clouds can extend this cloud and change the user root option.
-  @cached_user_metadata_root_path = option([:user_metadata, :metadata_tree_climber, :root_path]) unless @cached_user_metadata_root_path
-  query_next_metadata = false
-  merged_metadata = query_result
-  if path == @cached_user_metadata_root_path
-    # metadata from file source is delimited by newline while metadata from http
-    # is delimited by ampersand (unless shebang is present for legacy reasons).
-    # convert ampersand-delimited to newline-delimited for easier comparison
-    # with regular expression.
-    previous_metadata.strip!
-    query_result.strip!
-    if (metadata_source_type == 'metadata_sources/file_metadata_source') || (query_result =~ SHEBANG_REGEX)
-      current_metadata = query_result.gsub("\r\n", "\n").strip
-    else
-      current_metadata = query_result.gsub("&", "\n").strip
+module RightScale::Clouds
+  class Ec2 < RightScale::Cloud
+    def abbreviation
+      "ec2"
     end
 
-    # will query next source only if current metadata does not contain RS_
-    query_next_metadata = !(current_metadata =~ /^RS_rn_id/i)
-    merged_metadata = (previous_metadata + "\n" + current_metadata).strip
-    merged_metadata = merged_metadata.gsub("\n", "&") unless merged_metadata =~ SHEBANG_REGEX
+    def metadata_host
+      "http://169.254.169.254"
+    end
+
+    def metadata_url
+      "/latest/meta-data"
+    end
+
+    def userdata_url
+      "/latest/user-data"
+    end
+
+    def fetcher
+      @fetcher ||= RightScale::MetadataSources::HttpMetadataSource.new(@options)
+    end
+
+    def finish
+      @fetcher.finish() if @fetcher
+    end
+
+    def metadata
+      fetcher.recursive_get(metadata_host + metadata_url)
+    end
+
+    def userdata_raw
+      fetcher.get(metadata_host + userdata_url)    
+    end
   end
-  return {:query_next_metadata => query_next_metadata, :merged_metadata => merged_metadata}
 end
-
-# Parses ec2 user metadata into a hash.
-#
-# === Parameters
-# tree_climber(MetadataTreeClimber):: tree climber
-# data(String):: raw data
-#
-# === Return
-# result(Hash):: Hash-like leaf value
-def create_user_metadata_leaf(tree_climber, data)
-  result = tree_climber.create_branch
-  data = data.strip
-  if data =~ SHEBANG_REGEX
-    ::RightScale::CloudUtilities.split_metadata(data.gsub("\r\n", "\n"), "\n", result)
-  else
-    ::RightScale::CloudUtilities.split_metadata(data, '&', result)
-  end
-  result
-end
-
-# defaults
-default_option([:metadata_source, :hosts], [:host => HOST, :port => PORT])
-default_option([:metadata_source, :metadata_source_types], ['metadata_sources/http_metadata_source', 'metadata_sources/file_metadata_source'])
-default_option([:metadata_source, :select_metadata_override], method(:select_rs_metadata))
-default_option([:metadata_source, :user_metadata_source_file_path], File.join(RightScale::Platform.filesystem.spool_dir, name.to_s, 'user-data.txt'))
-
-default_option(:cloud_metadata_root_path, 'latest/meta-data')
-default_option([:cloud_metadata, :metadata_writers, :ruby_metadata_writer, :generation_command], cloud_metadata_generation_command)
-
-default_option(:user_metadata_root_path, 'latest/user-data')
-default_option([:user_metadata, :metadata_tree_climber, :create_leaf_override], method(:create_user_metadata_leaf))

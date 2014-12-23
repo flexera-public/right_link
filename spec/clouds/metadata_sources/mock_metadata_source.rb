@@ -20,6 +20,7 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+
 module RightScale
 
   module MetadataSources
@@ -29,27 +30,21 @@ module RightScale
 
       attr_accessor :mock_metadata, :finished
 
+      CLOUD_METADATA = {'ABC' => 'easy', 'abc_123' => {'baby' => "you" }}
+      CLOUD_USERDATA = "RS_RN_ID=12345&RS_SERVER=my.rightscale.com"
+
       def initialize(options)
-        raise "options[:mock_metadata] is required" unless @mock_metadata = options[:mock_metadata]
         @finished = false
       end
 
-      def query(path)
+      def get_metadata(override = nil)
         raise QueryFailed.new("already finished") if @finished
-        # example: @mock_metadata.self['cloud metadata']['ABC']
-        eval_me = "self['#{path.split('/').join("']['")}']"
-        data = @mock_metadata.instance_eval(eval_me)
-        raise QueryFailed.new("Unexpected metadata path = #{path.inspect}") unless data
-        if data.respond_to?(:has_key?)
-          listing = []
-          data.each do |key, value|
-            ending = value.respond_to?(:has_key?) ? '/' : ''
-            listing << "#{key}#{ending}"
-          end
-          return listing.join("\n")
-        else
-          return data
-        end
+        return override || CLOUD_METADATA
+      end
+
+      def get_userdata(override = nil)
+        raise QueryFailed.new("already finished") if @finished
+        return override || CLOUD_USERDATA
       end
 
       def finish

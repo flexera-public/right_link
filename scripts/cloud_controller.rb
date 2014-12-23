@@ -10,10 +10,6 @@
 #   Write user metadata only to cache directory using named ec2 cloud:
 #     cloud --name=ec2 --action=write_user_metadata
 #
-#   Read default cloud user metadata in dictionary format (metadata is output):
-#     cloud --action=read_user_metadata
-#                      --parameters=dictionary_metadata_writer
-#
 # === Usage:
 #    cloud [options]
 #
@@ -36,8 +32,10 @@ require 'fileutils'
 require 'right_agent'
 require 'right_agent/scripts/usage'
 
+
+
 require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'instance', 'agent_config'))
-require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'clouds', 'register_clouds'))
+require File.normalize_path(File.join(File.dirname(__FILE__), '..', 'lib', 'clouds', 'cloud_factory'))
 require File.normalize_path(File.join(File.dirname(__FILE__), 'command_helper'))
 
 module RightScale

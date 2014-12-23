@@ -20,23 +20,37 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-# additionally search custom dependency base path (relative to this script).
-dependency_base_paths '..'
+require File.expand_path("../../metadata_sources/mock_metadata_source.rb", __FILE__)
 
-metadata_source 'metadata_sources/mock_metadata_source'
-metadata_writers 'metadata_writers/dictionary_metadata_writer'
 
-# all options are specific to the category of dependency.
-default_option(%w(metadata_tree_climber create_leaf_override), lambda{ |_, data| data })
+module RightScale::Clouds
+  class Macleod < RightScale::Cloud
+    def initialize(options)
+      super(options)
+      # test logger.
+      logger.info("initialized Macleod")
+    end
 
-# options can be further distinguished between cloud and user metadata
-# or can be used by both if kind is not specified (as in the
-# mock_metadata_source example).
-CLOUD_METADATA_ROOT = 'cloud metadata'
-USER_METADATA_ROOT = 'user metadata'
+    def abbreviation
+      "macleod"
+    end
 
-default_option('cloud_metadata/metadata_tree_climber/root_path', CLOUD_METADATA_ROOT)
-default_option('user_metadata/metadata_tree_climber/root_path', USER_METADATA_ROOT)
+    def fetcher
+      @fetcher ||= RightScale::MetadataSources::MockMetadataSource.new(@options)
+    end
 
-# test logger.
-logger.info("initialized MacLeod")
+    def finish
+      @fetcher.finish() if @fetcher
+    end
+
+    def metadata
+      fetcher.get_metadata()
+    end
+
+    def userdata_raw
+      fetcher.get_userdata()    
+    end
+  end
+end
+
+

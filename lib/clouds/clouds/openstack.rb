@@ -20,11 +20,8 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-# set abbreviation for env var generation to be same as ec2 for scripters.
-abbreviation :ec2
+require File.expand_path("../ec2", __FILE__)
 
-# override metadata soures.  Using only HTTP source
-metadata_source 'metadata_sources/http_metadata_source'
-
-# extend EC2 cloud definition.
-extend_cloud :ec2
+module RightScale::Clouds
+  class Openstack < Ec2; end
+end
