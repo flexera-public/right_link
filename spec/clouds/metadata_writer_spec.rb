@@ -38,7 +38,7 @@ module RightScale
 
     METADATA = {'RS_mw_spec_x' => 'A1\'s\\', 'RS_mw_spec_YY' => " \"B2\" \n B3 ", 'RS_mw_spec_Zzz' => '', 'dir_a' => {'b' => "subdir_val", 'c' => "val1\nval2"}}
     UNFILTERED_METADATA = {'RS_MW_SPEC_X' => 'A1\'s\\', 'RS_MW_SPEC_YY' => " \"B2\" \n B3 ", 'RS_MW_SPEC_ZZZ' => '', 'RS_DIR_A_B' => 'subdir_val', 'RS_DIR_A_C' => "val1\nval2"}
-    #FILTERED_METADATA = {'RS_MW_SPEC_X' => 'A1\'s\\', 'RS_MW_SPEC_YY' => "\"B2\"", 'RS_MW_SPEC_ZZZ' => ''}
+    FILTERED_METADATA =   {'RS_MW_SPEC_X' => 'A1\'s\\', 'RS_MW_SPEC_YY' => "\"B2\"",         'RS_MW_SPEC_ZZZ' => '', 'RS_DIR_A_B' => 'subdir_val', 'RS_DIR_A_C' => "val1"}
     DICT_METADATA = "RS_MW_SPEC_X=A1's\\\nRS_MW_SPEC_YY=\"B2\"\nRS_MW_SPEC_ZZZ=\nRS_DIR_A_B=subdir_val\nRS_DIR_A_C=val1\n"
     RAW_METADATA = 'some raw metadata'
 
@@ -146,7 +146,7 @@ describe RightScale::MetadataWriter do
       File.open(verify_file_path, "w") do |f|
         f.puts "@echo off"
         f.puts "call \"#{output_file_path}\""
-        ::RightScale::MetadataWriterSpec::UNFILTERED_METADATA.each do |k, v|
+        ::RightScale::MetadataWriterSpec::FILTERED_METADATA.each do |k, v|
           f.puts "if \"%#{k}%\" neq \"#{v}\" exit 100"
         end
         f.puts "exit 0"
