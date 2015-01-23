@@ -6,7 +6,7 @@ Released 2014-12-26
 * "RightLink wrap instance" feature for Windows is now supported. This feature will turn running unmanaged (raw) instances for any cloud into a "RightScale Server" that allows management via the RightScale platform, including configuration management, monitoring, and lifecycle management (except relaunch). To use this feature, download and use the rightlink.enable.ps1 script from the RightLink mirrors at http://mirror.rightscale.com/rightlink.
 
 == Changes to Existing Functionality
-* Removed NTP synchronization requirement at startup, helps to reduce required egress and eliminate UDP port 123.
+* Removed NTP synchronization requirement at startup. This removes the requirement for UDP port 123 egress at startup.
 
 == Bug Fixes
 * Fix Ruby sandbox incompatibility with newer Citrix XenServer Tools on Windows 2012R2 by adding in missing xenstore_client equivalent.
