@@ -6,13 +6,15 @@ Released 2014-12-26
 * "RightLink wrap instance" feature for Windows is now supported. This feature will turn running unmanaged (raw) instances for any cloud into a "RightScale Server" that allows management via the RightScale platform, including configuration management, monitoring, and lifecycle management (except relaunch). To use this feature, download and use the rightlink.enable.ps1 script from the RightLink mirrors at http://mirror.rightscale.com/rightlink.
 
 == Changes to Existing Functionality
-* Removed NTP synchronization requirement at startup, as proper time is no longer required for RightLink startup.
+* Removed NTP synchronization requirement at startup. This removes the requirement for UDP port 123 egress at startup.
 
 == Bug Fixes
 * Fix Ruby sandbox incompatibility with newer Citrix XenServer Tools on Windows 2012R2 by adding in missing xenstore_client equivalent.
 
 == Known Limitations
 * Relaunch of "wrapped" raw instances is not supported, as RightLink will not be installed on the relaunched server. However, the wrap instance script may be run on the relaunched server to reinstall and rerun RightLink. Serverized instances will have to be rebundled (snapshotted) to preserve system state.
+* NTP time sync may be required in order to have functional monitoring. If hypervisor time is not accurate NTP time sync is required.
+* NTP time sync may be required in order to use operational scripts/recipes. If hypervisor time is not accurate NTP time sync is required.
 * 6.2.1 and 6.1.5 known limitations apply, except items fixed in this release (NTP, Citrix Xenstore Tools missing xenstore_client)
 
 = 6.2.1
