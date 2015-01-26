@@ -3,5 +3,5 @@ cache: bundler
 rvm:
   - 1.9.3
 script:
-  - bundle exec rake ci:spec
+  - bundle exec rake spec
 bundler_args: --without debugger development runtime_extras windows
