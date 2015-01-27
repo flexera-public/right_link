@@ -42,7 +42,7 @@ module RightScale::Clouds
       15*60
     end
 
-    def retry_time
+    def retry_delay
       5
     end
 
@@ -134,13 +134,13 @@ module RightScale::Clouds
           begin
             data = query_data(type)
             if data =~ DISCOVERING_REGEXP
-              sleep retry_timeout
+              sleep retry_delay
             else
               break
             end
           rescue RightScale::Clouds::Vsphere::VmToolsException => e
             write_debug(e.message)
-            sleep retry_timeout
+            sleep retry_delay
           end
         end
         write_output "Metadata has been fetched type: #{type}."
@@ -160,7 +160,7 @@ module RightScale::Clouds
           return ActionResult.new
         end
         write_debug "Metadata is not ready, sleeping"
-        sleep retry_timeout
+        sleep retry_delay
       end
 
       user_thread.terminate
@@ -178,7 +178,3 @@ module RightScale::Clouds
   end
 
 end
-
-
-
-

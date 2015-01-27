@@ -49,7 +49,7 @@ describe RightScale::Clouds::Vsphere do
 
     flexmock(@cloud).should_receive(:vsphere_metadata_location).and_return(@output_dir)
     flexmock(@cloud).should_receive(:fetch_timeout).and_return(2)
-    flexmock(@cloud).should_receive(:retry_timeout).and_return(0.1)
+    flexmock(@cloud).should_receive(:retry_delay).and_return(0.1)
     #flexmock(@cloud).should_receive(:vmtoolsd).and_return("vmtoolsd")
 
   end
