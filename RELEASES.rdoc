@@ -1,3 +1,10 @@
+= 6.3.1
+
+Released 2014-01-26
+
+== Bug Fixes
+* Fix for vSphere instances failing to initialize networking
+
 = 6.3.0
 
 Released 2014-12-26
