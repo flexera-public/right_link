@@ -146,7 +146,7 @@ module RightScale
     def default_logger(verbose=false)
       if verbose
         logger = Logger.new(STDOUT)
-        logger.level = Logger::INFO
+        logger.level = Logger::DEBUG
         logger.formatter = PlainLoggerFormatter.new
       else
         logger = RightScale::Log
