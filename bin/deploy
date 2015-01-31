@@ -95,6 +95,11 @@ module RightScale
                    '-b', 60,
                    '-f', 8,
                    '-q',
+                   # This prevents creds from showing up in syslog for any
+                   # any /right_net/scheduler/update_inputs api calls. All API
+                   # requests are logged to syslog for debugging purposes. Pass in
+                   # any sensitive http parameters here.
+                   '-F', "patch",
                    '-S'
                  ]
 

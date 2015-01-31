@@ -5,6 +5,7 @@ Released 2014-01-26
 == Bug Fixes
 * Fix for vSphere instances failing to initialize networking.
 * Improve resilience against network connectivity failures when running boot scripts.
+* Remove cred type inputs being logged to syslog for RightScripts and Chef Recipes.
 
 = 6.3.0
 
