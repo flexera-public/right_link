@@ -19,6 +19,9 @@ gem 'em-http-request', '1.0.3'
 gem 'fiber_pool',      '1.0.0'
 gem 'net-dhcp',        '~> 1.3'
 
+# 0.5.1 break rightlink, interface changes
+gem 'websocket-driver', '~>0.3.5'
+
 
 gem 'mixlib-authentication', ">= 1.3.0"
 gem 'ip'

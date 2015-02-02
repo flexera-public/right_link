@@ -256,6 +256,7 @@ DEPENDENCIES
   rspec (~> 1.3)
   ruby-debug
   rubyforge (= 1.0.4)
+  websocket-driver (~> 0.3.5)
   win32-dir
   win32-pipe
   win32-process
