@@ -45,6 +45,7 @@
 #                               to ping the RightNet router to check connectivity, 0 means disable ping
 #      --reconnect-interval SEC Set number of seconds between broker reconnect attempts
 #      --offline-queueing, -q   Enable queuing of requests when lose broker connectivity
+#      --filter-params, -F      Set parameters on HTTP requests that are to be hidden when logging
 #      --grace-timeout SEC      Set number of seconds before graceful termination times out
 #      --[no-]dup-check         Set whether to check for and reject duplicate requests, .e.g., due to retries
 #      --options, -o KEY=VAL    Set options that act as final override for any persisted configuration settings
@@ -87,6 +88,10 @@ module RightScale
         options[:offline_queueing] = true
       end
 
+      opts.on('-F', '--filter-params [PARAMS}') do |params|
+        options[:filter_params] = params.split(/\s*,\s*/)
+      end
+
       opts.on('--help') do
         puts Usage.scan(__FILE__)
         exit
@@ -104,6 +109,7 @@ module RightScale
     def configure(options, cfg)
       cfg = super(options, cfg)
       cfg[:offline_queueing] = options[:offline_queueing]
+      cfg[:filter_params] = options[:filter_params]
       cfg
     end
 
