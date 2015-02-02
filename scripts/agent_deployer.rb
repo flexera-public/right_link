@@ -89,7 +89,7 @@ module RightScale
       end
 
       opts.on('-F', '--filter-params [PARAMS}') do |params|
-        options[:filter_params] = params.split(/,\s+/)
+        options[:filter_params] = params.split(/\s*,\s*/)
       end
 
       opts.on('--help') do
