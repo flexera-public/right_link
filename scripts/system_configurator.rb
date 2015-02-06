@@ -363,6 +363,7 @@ module RightScale
 
     def create_subversion_servers_config(proxy_uri, no_proxy_list)
       subversion_servers_path = '/etc/subversion/servers'
+      FileUtils.mkdir_p(File.dirname(subversion_servers_path)) # make sure the directory exists
       File.open(subversion_servers_path, 'w') do |f|
         f.puts '[global]'
 
