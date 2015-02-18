@@ -15,7 +15,8 @@ gem 'mime-types', '< 2.0'
 
 gem 'right_scraper', '~> 4.0'
 
-gem 'em-http-request', '1.0.3'
+# Greater than 1.1.0 is needed for proxies to work. This also pulls in eventmachine > 1.0.3
+gem 'em-http-request', '1.1.2'
 gem 'fiber_pool',      '1.0.0'
 gem 'net-dhcp',        '~> 1.3'
 
@@ -33,7 +34,6 @@ group :custom do
   gem 'chef', '11.6.0.5'
   gem 'ohai', '6.18.0.2'
   gem 'mixlib-shellout', '1.2.0.2'
-  gem 'eventmachine', '1.0.0.10'
   gem 'rest-client', '1.7.0.4'
   # A requirement for our custom ohai fork, and metadata scraper. Needed
   # to get metadata for the Azure cloud for Windows/Linux
