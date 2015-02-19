@@ -16,7 +16,9 @@ gem 'mime-types', '< 2.0'
 gem 'right_scraper', '~> 4.0'
 
 # Greater than 1.1.0 is needed for proxies to work. This also pulls in eventmachine > 1.0.3
-gem 'em-http-request', '1.1.2'
+gem 'em-http-request', '1.1.2', 
+  :git => 'https://github.com/psschroeter/em-http-request.git',
+  :branch => 'fix-connect-proxy-headers'
 gem 'fiber_pool',      '1.0.0'
 gem 'net-dhcp',        '~> 1.3'
 
