@@ -6,7 +6,9 @@ gemspec
 # Proper open-source dependencies of the RightLink gem
 gem 'right_support', '~> 2.8'
 
-gem 'right_agent', '~> 2.4.0'
+gem 'right_agent', '~> 2.4.0',
+  :git => 'https://github.com/rightscale/right_agent',
+  :branch => 'ivory_15_02_IV-743_fix_up_proxy_configuration'
 
 gem 'right_amqp', '~> 0.7'
 gem 'right_popen', '~> 2.0'
@@ -23,7 +25,8 @@ gem 'fiber_pool',      '1.0.0'
 gem 'net-dhcp',        '~> 1.3'
 
 # 0.5.1 break rightlink, interface changes
-gem 'websocket-driver', '~>0.3.5'
+# 0.3.5 doesn't support http proxies -- try 0.4.0 until we can fix up RL as well
+gem 'websocket-driver', '~>0.4.0'
 
 
 gem 'mixlib-authentication', ">= 1.3.0"
