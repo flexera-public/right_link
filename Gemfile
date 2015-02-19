@@ -18,11 +18,13 @@ gem 'mime-types', '< 2.0'
 gem 'right_scraper', '~> 4.0'
 
 # Greater than 1.1.0 is needed for proxies to work. This also pulls in eventmachine > 1.0.3
-gem 'em-http-request', '1.1.2', 
+gem 'em-http-request', '1.0.3', 
   :git => 'https://github.com/psschroeter/em-http-request.git',
-  :branch => 'fix-connect-proxy-headers'
+  :branch => 'IV-743_backport_proxy'
 gem 'fiber_pool',      '1.0.0'
 gem 'net-dhcp',        '~> 1.3'
+
+
 
 # 0.5.1 break rightlink, interface changes
 # 0.3.5 doesn't support http proxies -- try 0.4.0 until we can fix up RL as well
@@ -36,6 +38,7 @@ gem 'ip'
 # to RightScale. Gems in the 'custom' group are published by RightScale to our
 # custom gem repository (http://s3.amazonaws.com/rightscale_rightlink_gems_dev).
 group :custom do
+  gem 'eventmachine', '1.0.0.10'
   gem 'chef', '11.6.0.5'
   gem 'ohai', '6.18.0.2'
   gem 'mixlib-shellout', '1.2.0.2'
