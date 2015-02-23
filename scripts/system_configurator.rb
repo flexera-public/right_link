@@ -367,10 +367,16 @@ module RightScale
       File.open(subversion_servers_path, 'w') do |f|
         f.puts '[global]'
 
-        if proxy_uri && proxy_uri.host && proxy_uri.port
-          f.puts "http-proxy-host = #{proxy_uri.host}"
-          f.puts "http-proxy-port = #{proxy_uri.port}"
+        if proxy_uri
+          if proxy_uri.host && proxy_uri.port
+            f.puts "http-proxy-host = #{proxy_uri.host}"
+            f.puts "http-proxy-port = #{proxy_uri.port}"
+          end
+
+          f.puts "http-proxy-username = #{proxy_uri.user}" if proxy_uri.user
+          f.puts "http-proxy-password = #{proxy_uri.password}" if proxy_uri.password
         end
+
 
         if no_proxy_list && no_proxy_list.size > 0
           f.puts "http-proxy-exceptions = #{no_proxy_list.join(',')}"
@@ -388,10 +394,12 @@ module RightScale
         http_proxy = "http_proxy"
         https_proxy = "https_proxy"
         no_proxy = "no_proxy"
+        userinfo = proxy_uri.userinfo ? "#{proxy_uri.userinfo}@" : ""
+        proxy_value="\"http://#{userinfo}#{proxy_uri.host}:#{proxy_uri.port}\""
 
         if proxy_uri && proxy_uri.host && proxy_uri.port
           [http_proxy, https_proxy, http_proxy.upcase, https_proxy.upcase].each do |variable|
-            f.puts "export #{variable}=\"http://#{proxy_uri.host}:#{proxy_uri.port}\""
+            f.puts "export #{variable}=#{proxy_value}"
           end
         end
 
