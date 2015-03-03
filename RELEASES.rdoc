@@ -1,3 +1,11 @@
+= 6.3.2
+
+Released 2015-03-03
+
+== Bug Fixes
+* Fix for RightLink proxy support on Linux and Windows.
+
+
 = 6.3.1
 
 Released 2014-01-26
