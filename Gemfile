@@ -6,7 +6,7 @@ gemspec
 # Proper open-source dependencies of the RightLink gem
 gem 'right_support', '~> 2.8'
 
-gem 'right_agent', '~> 2.4.0'
+gem 'right_agent', '~> 2.5.0'
 
 gem 'right_amqp', '~> 0.7'
 gem 'right_popen', '~> 2.0'
@@ -15,12 +15,15 @@ gem 'mime-types', '< 2.0'
 
 gem 'right_scraper', '~> 4.0'
 
-gem 'em-http-request', '1.0.3'
 gem 'fiber_pool',      '1.0.0'
 gem 'net-dhcp',        '~> 1.3'
 
-# 0.5.1 break rightlink, interface changes
-gem 'websocket-driver', '~>0.3.5'
+
+
+# 0.5.1 break rightlink, interface changes. Don't upgrade till you go through
+# and fix that up
+# 0.4.0 and above is needed for proxy support
+gem 'websocket-driver', '~>0.4.0'
 
 
 gem 'mixlib-authentication', ">= 1.3.0"
@@ -30,10 +33,12 @@ gem 'ip'
 # to RightScale. Gems in the 'custom' group are published by RightScale to our
 # custom gem repository (http://s3.amazonaws.com/rightscale_rightlink_gems_dev).
 group :custom do
+  # Our version contains backported proxy support without bringing in new EM
+  gem 'em-http-request', '1.0.3.1'
+  gem 'eventmachine', '1.0.0.10'
   gem 'chef', '11.6.0.5'
   gem 'ohai', '6.18.0.2'
   gem 'mixlib-shellout', '1.2.0.2'
-  gem 'eventmachine', '1.0.0.10'
   gem 'rest-client', '1.7.0.4'
   # A requirement for our custom ohai fork, and metadata scraper. Needed
   # to get metadata for the Azure cloud for Windows/Linux
