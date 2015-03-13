@@ -1,10 +1,13 @@
 = 6.3.2
 
-Released 2015-03-03
+Released 2015-03-13
+
+== New Features
+* Added authenticated proxy support on Windows
 
 == Bug Fixes
 * Fix for RightLink proxy support on Linux and Windows.
-
+* Fix for timing issue in getting user/meta data on RCA-V clouds
 
 = 6.3.1
 
