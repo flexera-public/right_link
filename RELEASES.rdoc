@@ -1,6 +1,6 @@
 = 6.3.3
 
-Released 2015-03-13
+Released 2015-03-17
 
 == Bug Fixes
 * Fix for RightLink failing to reconnect to RightScale API servers when they were overloaded.
