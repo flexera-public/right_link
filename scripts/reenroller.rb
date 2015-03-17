@@ -41,7 +41,6 @@ module RightScale
     # === Return
     # true:: Always return true
     def run(options)
-      fail_if_right_agent_is_not_running
       check_privileges
       AgentConfig.root_dir = AgentConfig.right_link_root_dirs
 
