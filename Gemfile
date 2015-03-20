@@ -51,7 +51,8 @@ group :windows do
   platform :mswin, :mingw do
     gem 'win32-dir'
     gem 'win32-process'
-    gem 'win32-pipe'
+    # Keep version at 0.3.3, version 0.3.5 breaks specs
+    gem 'win32-pipe', "0.3.3"
   end
 end
 
