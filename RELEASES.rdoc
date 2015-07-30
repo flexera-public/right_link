@@ -1,3 +1,10 @@
+= 6.3.4
+
+Released 2015-07-28
+
+== Changes to Existing Functionality
+* Updated Rack Connect logic for new status when a Rackspace account is provisioned for Rack Connect, but the data center is not.
+
 = 6.3.3
 
 Released 2015-03-17
