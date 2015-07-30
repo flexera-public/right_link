@@ -186,7 +186,7 @@ GEM
       right_git
       right_popen (~> 2.0)
       right_support (~> 2.6)
-    right_support (2.8.46)
+    right_support (2.8.40)
     rspec (1.3.2)
     ruby-debug (0.10.4)
       columnize (>= 0.1)
