@@ -1,3 +1,4 @@
+# encoding: UTF-8
 #
 # Copyright (c) 2009-2011 RightScale Inc
 #
@@ -129,7 +130,7 @@ module RightScale
     def send_command(cmd, content, options)
       begin
         options ||= {}
-        cmd = { :name => cmd, :content => content, :options => options }
+        cmd = { :name => cmd, :content => RightScale::AuditProxy.force_utf8(content), :options => options }
         EM.next_tick { @agent_connection.send_command(cmd) }
       rescue Exception => e
         $stderr.puts 'Failed to audit'
