@@ -1,3 +1,10 @@
+= 6.3.5
+
+Released 2015-10-14
+
+== Bug Fixes
+* Fix for RightLink failing due to non-ASCII character issue during RightScript dependent package install.
+
 = 6.3.4
 
 Released 2015-07-28
