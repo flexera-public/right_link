@@ -68,6 +68,7 @@ group :test do
   gem 'rspec', '~> 1.3'
   # TODO: upgrade to RSpec 2.x and flexmock 1.x, avoid spurious Test::Unit output
   gem 'flexmock', '~> 0.9'
+  gem 'coveralls'
 end
 
 # Gems that are useful for development, but not available in CI.
