@@ -6,7 +6,9 @@ gemspec
 # Proper open-source dependencies of the RightLink gem
 gem 'right_support', '~> 2.8'
 
-gem 'right_agent', '~> 2.6.0'
+gem 'right_agent', '~> 2.6.0',
+  :git => 'git@github.com:rightscale/right_agent.git',
+  :branch => 'IV-3625_fix_websocket_issue_on_start_stop'
 
 gem 'right_amqp', '~> 0.7'
 gem 'right_popen', '~> 2.0'
