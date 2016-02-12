@@ -79,6 +79,7 @@ describe Ohai::System, ' plugin cloudstack' do
 
   it 'could not connect to dhcp_lease_provider' do
     flexmock(@ohai).should_receive(:hint?).with('cloudstack').and_return({}).once
+    flexmock(@ohai).should_receive(:dhcp_lease_provider).with().and_raise(Exception.new("TEST"))
     flexmock(@ohai).should_not_receive(:fetch_metadata)
     @ohai._require_plugin("cloudstack")
     @ohai[:cloudstack].should be_nil
