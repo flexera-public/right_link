@@ -2,6 +2,8 @@ language: ruby
 cache: bundler
 rvm:
   - 1.9.3
+before_install:
+  - gem update --system 2.4.8
 script:
   - bundle exec rake ci:spec
 bundler_args: --without debugger development runtime_extras windows
