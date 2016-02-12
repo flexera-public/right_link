@@ -1,3 +1,10 @@
+= 6.3.x
+
+Released 2016-XX-XX
+
+== Bug Fixes
+* Fix RightLink failing to install on servers with multiple filesystems volumes
+
 = 6.3.5
 
 Released 2015-11-03
