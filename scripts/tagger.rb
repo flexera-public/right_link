@@ -50,7 +50,7 @@ module RightScale
   class Tagger
     include CommandHelper
 
-    TAG_REQUEST_TIMEOUT = 60
+    TAG_REQUEST_TIMEOUT = 180
 
     class TagError < Exception
       attr_reader :code
