@@ -33,7 +33,7 @@ module RightScale
     API_VERSION = "1.5"
 
     # Default time to wait for HTTP connection to open
-    DEFAULT_OPEN_TIMEOUT = 5
+    DEFAULT_OPEN_TIMEOUT = 35
 
     # Default time to wait for response from request, which is chosen to be 5 seconds greater
     # than the response timeout inside the RightNet router
