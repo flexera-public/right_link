@@ -35,7 +35,7 @@
 #      --verbose, -v        Display debug information
 #      --help:              Display help
 #      --version:           Display version information
-#      --timeout, -t SEC    Custom timeout (default 60 sec)
+#      --timeout, -t SEC    Custom timeout (default 180 sec)
 #
 
 require 'rubygems'
