@@ -33,11 +33,11 @@ module RightScale
     API_VERSION = "1.5"
 
     # Default time to wait for HTTP connection to open
-    DEFAULT_OPEN_TIMEOUT = 2
+    DEFAULT_OPEN_TIMEOUT = 35
 
     # Default time to wait for response from request, which is chosen to be 5 seconds greater
     # than the response timeout inside the RightNet router
-    DEFAULT_REQUEST_TIMEOUT = 5
+    DEFAULT_REQUEST_TIMEOUT = 35
 
     # Expiration time divisor for when to renew
     # Multiplier for renewal backoff when unauthorized
@@ -182,7 +182,10 @@ module RightScale
           :account_id => @account_id,
           :r_s_version => AgentConfig.protocol_version,
           :right_link_version => RightLink.version }
-        response = @http_client.post("/oauth2", params, :headers => @other_headers)
+        response = @http_client.post("/oauth2", params,
+          :headers => @other_headers,
+          :open_timeout => DEFAULT_OPEN_TIMEOUT,
+          :request_timeout => DEFAULT_REQUEST_TIMEOUT)
         response = SerializationHelper.symbolize_keys(response)
         @access_token = response[:access_token]
         @expires_at = Time.now + response[:expires_in]
