@@ -1,15 +1,10 @@
-= 6.3.6
+= 6.3.7
 
-Released 2016-02-12
+Released 2016-03-04
 
 == Bug Fixes
 * Fix RightLink failing to install on servers with multiple filesystems volumes
-
-= 6.3.5
-
-Released 2015-11-03
-
-== Bug Fixes
+* Increased timeout on adding tags from 60 to 180 seconds. Fix instance stuck in booting if network latency is very high.
 * Fix for RightLink failing due to non-ASCII character issue during RightScript dependent package install.
 
 = 6.3.4

@@ -35,7 +35,7 @@
 #      --verbose, -v        Display debug information
 #      --help:              Display help
 #      --version:           Display version information
-#      --timeout, -t SEC    Custom timeout (default 60 sec)
+#      --timeout, -t SEC    Custom timeout (default 180 sec)
 #
 
 require 'rubygems'
@@ -50,7 +50,7 @@ module RightScale
   class Tagger
     include CommandHelper
 
-    TAG_REQUEST_TIMEOUT = 60
+    TAG_REQUEST_TIMEOUT = 180
 
     class TagError < Exception
       attr_reader :code

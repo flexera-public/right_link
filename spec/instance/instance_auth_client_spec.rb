@@ -124,7 +124,7 @@ describe RightScale::InstanceAuthClient do
   context :create_http_client do
     it "creates client with required options" do
       flexmock(RightScale::BalancedHttpClient).should_receive(:new).with(@auth_url, on { |a| a[:api_version] == "1.5" &&
-          a[:open_timeout] == 2 && a[:request_timeout] == 5 && a[:non_blocking].nil? }).and_return(@http_client).once
+          a[:open_timeout] == RightScale::InstanceAuthClient::DEFAULT_OPEN_TIMEOUT && a[:request_timeout] == RightScale::InstanceAuthClient::DEFAULT_REQUEST_TIMEOUT && a[:non_blocking].nil? }).and_return(@http_client).once
       @client.send(:create_http_client).should == @http_client
     end
 
