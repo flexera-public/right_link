@@ -21,6 +21,9 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 require 'fileutils'
+require 'tempfile'
+require 'thread'
+require 'json'
 
 module RightScale
 
@@ -38,13 +41,21 @@ module RightScale
     # Errno::ENOENT:: Invalid path
     # JSON Exception:: Invalid JSON content
     def self.read_json(path)
-      File.open(path, "r:utf-8") do |f|
-        f.flock(File::LOCK_EX)
-        return JSON.load(f)
+      @@mu ||= {}
+      @@mu[path] ||= Mutex.new
+      mu = @@mu[path]
+      mu.synchronize do
+        File.open(path, "r:utf-8") do |f|
+          return JSON.load(f)
+        end
       end
     end
 
-    # Serialize object to JSON and write result to file, override existing file if any.
+    # Serialize object to JSON and write result to file. Write to a temp file and
+    # then copy to keep operations atomic. Have had issues with partially written
+    # files before on vScale cloud as its pretty unpredictable what state the 
+    # filesystem will be in if you perform a shutdown as it does a disk snapshot
+    # a little before the OS has time to fully shut down.
     # Note: Do not serialize object if it's a string, allows passing raw JSON.
     #
     # === Parameters
@@ -54,54 +65,27 @@ module RightScale
     # === Return
     # true:: Always return true
     def self.write_json(path, contents)
+      @@mu ||= {}
+      @@mu[path] ||= Mutex.new
+      mu = @@mu[path]
       contents = contents.to_json unless contents.is_a?(String)
       dir = File.dirname(path)
       FileUtils.mkdir_p(dir) unless File.directory?(dir)
-      # Don't use "w" because it truncates the file before lock
-      # see http://ruby-doc.org/core-1.9.3/File.html#method-i-flock
-      File.open(path, File::RDWR|File::CREAT) do |f|
-        f.flock(File::LOCK_EX)
-        f.rewind
-        f.write(contents)
-        f.flush
-        f.truncate(f.pos)
-      end
-      true
-    end
-
-    # Merges any existing JSON file with given contents or else writes a new
-    # JSON file while file is locked.
-    #
-    # === Parameters
-    # path(String):: Path to file being written
-    # contents(Object|String):: Object to be serialized into JSON or JSON string
-    #
-    # === Block
-    # custom merge callback which takes (left_data, right_data) where left
-    # represents current the disk image.
-    #
-    # === Return
-    # true:: Always return true
-    def self.merge_json(path, contents)
-      contents = JSON.load(contents) if contents.is_a?(String)
-      dir = File.dirname(path)
-      FileUtils.mkdir_p(dir) unless File.directory?(dir)
-      File.open(path, 'a+:utf-8') do |f|
-        f.flock(File::LOCK_EX)
-        if File.size(path) > 0
-          begin
-            previous_contents = JSON.load(f)
-            yield(previous_contents, contents)
-          rescue JSONError
-            # ignored
+      filename = Dir::Tmpname.create('rl-foo', dir) { |f| raise Errno::EEXIST if File.exists?(f) }
+      begin
+        File.open(filename, File::RDWR|File::CREAT) do |f|
+          f.write(contents)
+          f.close
+          mu.synchronize do
+            FileUtils.mv(filename, path, :force => true)
           end
-          f.seek(0)
-          f.truncate(0)
         end
-        f.write(contents.to_json)
+      ensure
+        # This will be a no-op if the file is successfully moved. Should only
+        # trigger if something goes wrong above.
+        FileUtils.rm_f(filename)
       end
       true
     end
-
   end
 end
