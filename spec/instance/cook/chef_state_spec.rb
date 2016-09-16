@@ -1,3 +1,4 @@
+# -*- encoding: utf-8 -*-
 #
 # Copyright (c) 2009-2011 RightScale Inc
 #
@@ -21,6 +22,7 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 require File.expand_path('../spec_helper', __FILE__)
+require 'debugger'
 
 describe RightScale::ChefState do
 
@@ -51,6 +53,21 @@ describe RightScale::ChefState do
   it 'should initialize' do
     RightScale::ChefState.init(agent_identity, secret='some secret', reset=true)
     RightScale::ChefState.attributes.should == {}
+  end
+
+  # Simulate wrongly labeled data enters chef attributes. This can happen if a user reads a file without 'r:utf-8'
+  # and stores some of that data in an attribute, etc.
+  it 'should handle bad data' do
+    bad_enc1 = "Ω"
+    bad_enc1.force_encoding('ASCII-8BIT')
+    bad_enc2 = "Ω"
+    bad_enc2.force_encoding('ASCII-8BIT')
+
+    attrs = { "a" => {"b" => bad_enc1 }, "c" => [bad_enc2] }
+    RightScale::ChefState.attributes = attrs
+    RightScale::ChefState.save_state.should == true
+    RightScale::ChefState.load_state.should == true
+    RightScale::ChefState.attributes.should == { "a" => {"b" => "Ω" }, "c" => ["Ω"] }
   end
 
   it 'should reset' do

@@ -136,18 +136,16 @@ module RightScale
           begin
             FileUtils.touch(STATE_FILE)
             File.chmod(0600, STATE_FILE)
-            write_encoded_data(STATE_FILE, { 'attributes' => @@attributes })
+            attributes = ::RightSupport::Data::HashTools.deep_clone2(@@attributes)
+            fix_encoding!(attributes)
+            write_encoded_data(STATE_FILE, { 'attributes' =>  attributes })
             RightScale::JsonUtilities::write_json(SCRIPTS_FILE, @@past_scripts)
           rescue Exception => e
             Log.warning("Failed to save node attributes", e)
+            return false
           end
         end
         true
-      end
-
-      private
-      def ensure_initialized
-        raise ChefStateNotInitialized if !initialized?
       end
 
       # Loads Chef state from file(s), if any.
@@ -156,6 +154,7 @@ module RightScale
       # always true
       def load_state
         # load the previously saved Chef node attributes, if any.
+        success = true
         if File.file?(STATE_FILE)
           begin
             js = read_encoded_data(STATE_FILE)
@@ -163,6 +162,7 @@ module RightScale
             Log.debug("Successfully loaded chef state")
           rescue Exception => e
             Log.error("Failed to load chef state", e)
+            success = false
           end
         else
           @@attributes = {}
@@ -172,7 +172,35 @@ module RightScale
         # load the list of previously run scripts
         @@past_scripts = RightScale::JsonUtilities::read_json(SCRIPTS_FILE) rescue [] if File.file?(SCRIPTS_FILE)
         Log.debug("Past scripts: #{@@past_scripts.inspect}")
-        true
+        success
+      end
+
+      private
+      def fix_encoding!(obj)
+        if ::RightSupport::Data::HashTools.hashable?(obj)
+          obj.values.each { |o| fix_encoding!(o) }
+        elsif obj.respond_to?(:each)
+          obj.each { |o| fix_encoding!(o) }
+        elsif obj.respond_to?(:force_encoding) && obj.respond_to?(:encode!)
+          target_encoding = "UTF-8"
+          source_encoding = ::RightScale::Platform.windows? ? "Windows-1252" : "US-ASCII"
+
+          begin
+            # Try it as UTF-8 directly
+            obj.force_encoding(target_encoding)
+            unless obj.valid_encoding?
+              obj.encode!(target_encoding, source_encoding)
+            end
+          rescue EncodingError
+            # Force it to UTF-8, throwing out invalid bits
+            obj.encode!(target_encoding, source_encoding, {:invalid => :replace, :undef => :replace, :replace=>"?"})
+          end
+        end
+        obj
+      end
+
+      def ensure_initialized
+        raise ChefStateNotInitialized if !initialized?
       end
 
       # Encode and save an object to a file
