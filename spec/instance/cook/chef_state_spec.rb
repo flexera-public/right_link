@@ -22,7 +22,6 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 require File.expand_path('../spec_helper', __FILE__)
-require 'debugger'
 
 describe RightScale::ChefState do
 
