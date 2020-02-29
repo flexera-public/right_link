@@ -59,7 +59,7 @@ end
 group :build do
   # This is work around for right_link_package building with ruby 1.8 installed
   # while right_link gem is running on ruby 1.9
-  gem 'rake', '~> 10.0'
+  gem 'rake', '~> 12.3'
 end
 
 # Gems that are needed to run tests
